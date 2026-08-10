@@ -454,16 +454,24 @@ function runSafety(built, opts = {}) {
 
 // =====================================================================================
 
-describe('e2e-sim-build.sh — clean-tree pre-flight (INFRA-329, deliberately unchanged)', () => {
-  test('aborts before building when the working tree is dirty', () => {
-    // Kept in this PR ON PURPOSE. requireCommit disappears with EAS, and it was the only
-    // thing forcing the installed binary to correspond to a commit. Relaxing here would
-    // make "gate ran against a never-committed tree" routine rather than impossible.
+describe('e2e-sim-build.sh — clean-tree pre-flight (relaxed by INFRA-384)', () => {
+  test('BUILDS from a dirty tree, warning rather than aborting', () => {
+    // Relaxed only once the provenance marker replaced the guarantee. The pre-flight was
+    // never the real guarantee — just a stand-in for the requireCommit that vanished with
+    // EAS — and a blunt one, taxing exactly the fast iteration INFRA-383 existed to
+    // enable. Merging on a dirty build is still impossible; see the marker tests.
     const r = runScript({ gitState: 'dirty' });
-    expect(r.status).not.toBe(0);
-    expect(r.buildRan).toBe(false);
-    expect(r.output).toMatch(/❌/);
-    expect(r.output).toMatch(/clean-tree/i);
+    expect(r.status).toBe(0);
+    expect(r.buildRan).toBe(true);
+    expect(r.output).toMatch(/DIRTY tree/i);
+    expect(r.output).toMatch(/NOT merge\s+evidence/i);
+  });
+
+  test('records the dirty state in the marker, so the gate can refuse it', () => {
+    // The relaxation is only safe because this is true. If the marker recorded a dirty
+    // build as clean, the pre-flight would have been removed for nothing.
+    const r = runScript({ gitState: 'dirty' });
+    expect(r.marker.dirty).toBe(true);
   });
 
   test('names the offending paths so you know what to commit', () => {
@@ -779,15 +787,10 @@ describe('e2e-safety.sh — provenance comparison (AC2, AC3)', () => {
 });
 
 describe('e2e-safety.sh — dirty-tree runs are visibly not evidence (AC3/AC4)', () => {
-  // The build's clean-tree pre-flight still blocks a dirty build today (AC5 relaxes it
-  // in a separate commit), so the dirty MARKER is produced directly here. This is the
-  // state that exists the moment that relaxation lands.
+  // A genuinely dirty build, end to end — the pre-flight now warns instead of aborting
+  // (INFRA-384 AC5), so no hand-patching of the marker is needed.
   function builtDirty() {
-    const built = runScript({});
-    const p = path.join(built.container, MARKER_NAME);
-    const m = JSON.parse(fs.readFileSync(p, 'utf8'));
-    fs.writeFileSync(p, JSON.stringify({ ...m, dirty: true }));
-    return built;
+    return runScript({ gitState: 'dirty' });
   }
 
   test('still runs the flows, but banners that this is not merge evidence', () => {
