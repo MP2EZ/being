@@ -268,9 +268,20 @@ only against a real device for supplementary runtime verification.
 # app), so it must not trip the sim gate. The clinical/crisis jest suites still run
 # in precommit/CI regardless. (A test-assertion repair under features/assessment/ —
 # e.g. assessmentStore.test.ts — was otherwise mis-triggering the assessment flows.)
+#
+# Two entries are not feature paths and are easy to omit on sight, but both reach
+# this gate's own subject matter — and both are UNDER-trigger risks, the
+# high-severity direction:
+#   - `.maestro/` — a diff that adds or edits a flow IS a safety-surface change by
+#     definition. The flow is the contract; it cannot be validated without running
+#     it, and a flow that has never run is not coverage. Without this, a brand-new
+#     safety flow merges having never executed once.
+#   - `src/core/config/e2eSeed.ts` — it decides the launch state EVERY flow starts
+#     from, so a regression there changes what all of them see while touching no
+#     feature path. Nothing else in the tree has that reach.
 SAFETY_CANDIDATES=$(git diff --name-only origin/development...HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
 # the Maestro flows (which drive the running app) have nothing to validate. Discovered
@@ -296,8 +307,14 @@ INERT_SKIPS=()
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   # Config files bypass the inert filter — always gated if they changed at all.
+  # `.maestro/` flows and e2eSeed.ts bypass it too, and for a sharper reason: the
+  # inert filter's two classes INVERT on them. A deletion-only diff to a flow is
+  # assertions being REMOVED — the contract weakening, the single change class this
+  # gate most needs to catch — and the filter would score it inert and skip. (Its
+  # comment regex is JS-style too, so it cannot read YAML `#` comments anyway;
+  # do NOT teach it `#`, which is a valid TS private-field sigil.)
   case "$f" in
-    *app.json|*Info.plist) SAFETY_CHANGED+="${f}"$'\n'; continue ;;
+    *app.json|*Info.plist|*/.maestro/*.yaml|*e2eSeed.ts) SAFETY_CHANGED+="${f}"$'\n'; continue ;;
   esac
   # Changed content lines (added + removed), excluding the +++/--- file headers.
   CHANGED_LINES=$(git diff origin/development...HEAD -- "$f" \
@@ -379,6 +396,10 @@ CRISIS_HOST_CHANGED=$(git diff origin/development...HEAD -- 'app/**/*.tsx' 'app/
 | `core/services/security` (non-encryption) / `core/navigation` change | **full suite** | Cross-cutting; existing override in Step 2.5.3. |
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
 | `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
+| `.maestro/<flow>.yaml` added or edited | **trigger** that flow | The flow IS the contract; one that has never run is not coverage. Bypasses the inert filter — a deletion-only diff here is assertions being removed. |
+| `.maestro/_<helper>.yaml` edited | **full suite** | Any flow may include a helper subflow. |
+| `.maestro/crisis-988-dial.yaml` edited | **no sim flow** — hardware notice | `safety-device-only`; sim `canOpenURL` is unconditionally false, so it cannot pass here. Run `e2e:safety:988-dial` on a real iPhone. |
+| `src/core/config/e2eSeed.ts` | **full suite** | Sets the launch state every flow starts from; no narrower scope is valid. |
 | Mixed comment + code on one line / pure type-only edit | **trigger** | Bash can't safely prove inert → bias safe. |
 
 If BOTH `SAFETY_CHANGED` and `CRISIS_HOST_CHANGED` are empty → skip the gate:
@@ -464,11 +485,45 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/' && \
 # `npm run e2e:safety` (full suite) manually.
 echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/services/security' && \
   SCRIPTS+=("e2e:safety:crisis-button")
+# --- `.maestro/` flow edits + e2eSeed.ts: this gate's OWN contract surface ---
+# An edited flow is validated by running that flow. Three cases the obvious mapping
+# gets wrong, which is why this is a case statement and not a name transform:
+#   • `_`-prefixed files are helper subflows, not flows — any flow may include one,
+#     so the blast radius is the whole suite.
+#   • daily-loop-*.yaml have NO scoped npm script (verify against package.json before
+#     assuming one exists) — they can only be reached via the full suite.
+#   • crisis-988-dial.yaml is tagged safety-device-only and CANNOT pass in the sim:
+#     canOpenURL returns false unconditionally there regardless of the array's
+#     contents. Adding it would make every 988-flow edit an unfixable red gate, so it
+#     is deliberately excluded and surfaced as a hardware instruction instead.
+FULL_SUITE=""
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$(basename "$f")" in
+    _*.yaml) FULL_SUITE=1 ;;
+    crisis-988-dial.yaml)
+      echo "📱 crisis-988-dial.yaml changed — safety-device-only. The sim's canOpenURL"
+      echo "   returns false unconditionally, so this flow cannot pass here and is NOT"
+      echo "   added to the run set. Validate on real hardware before merging:"
+      echo "   npm run e2e:safety:988-dial (with an iPhone connected)." ;;
+    q9-single-alert.yaml)            SCRIPTS+=("e2e:safety:q9") ;;
+    phq9-severe-completion.yaml)     SCRIPTS+=("e2e:safety:phq9") ;;
+    gad7-severe.yaml)                SCRIPTS+=("e2e:safety:gad7") ;;
+    crisis-button-reachability.yaml) SCRIPTS+=("e2e:safety:crisis-button") ;;
+    journal-crisis-scan.yaml)        SCRIPTS+=("e2e:safety:journal") ;;
+    deeplink-consent-gate.yaml)      SCRIPTS+=("e2e:safety:consent-gate") ;;
+    *) FULL_SUITE=1 ;;
+  esac
+done <<< "$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
+# e2eSeed sets the launch state EVERY flow starts from, so no narrower scope is valid.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/config/e2eSeed\.ts' && FULL_SUITE=1
+
 # core/navigation (incl. CleanRootNavigator) is genuinely cross-cutting UI/nav — a
 # tab/stack re-point can break ANY flow's reachability. Keep the full suite, LAST so
 # this replace-override wins over the += clauses above when combined.
 echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/navigation/|CleanRootNavigator' && \
   SCRIPTS=("e2e:safety")  # full suite — cross-cutting change, override scope
+[ -n "$FULL_SUITE" ] && SCRIPTS=("e2e:safety")  # same override, from the block above
 
 # Safety net / clean-skip split: if nothing mapped, decide WHY via RENDER_BOOT_RELEVANT.
 #  • render/boot-relevant change we failed to map → fail SAFE to crisis-button (never
@@ -549,13 +604,18 @@ no longer a cost argument for skipping it.
 `developmentClient:false` only *defaults* `buildConfiguration`, which `e2e-sim`
 already set to Release explicitly. Do not reinstate the claim.
 
-The `listapps` check below still can't tell *which* build is installed — but since
-INFRA-383 `e2e-safety.sh` re-checks the artifact's shape (embedded bundle present,
-no dev-launcher linkage, `tel` in `LSApplicationQueriesSchemes`) before running any
-flow, and refuses outright on mismatch. So a dev build reaching the gate now fails
-loudly there rather than flaking. What is still NOT bound is the installed binary to
-*this tree* — a provenance marker is the tracked follow-up; until it lands, rebuild
-before closing if you have any doubt.
+**Provenance (INFRA-384) — this step no longer merely *guides*.** It used to say outright
+that the `listapps` check "can't tell which build is installed, so this is guidance, not
+enforcement", which meant a green gate proved only that *some* Being build was installed.
+`e2e-sim-build.sh` now writes a marker inside the installed container binding it to the
+tree it was built from, and `e2e-safety.sh` refuses every flow when that marker is absent
+or stale — so the check below is a real gate on artifact LINEAGE, alongside INFRA-383's
+existing asserts on artifact SHAPE.
+
+The verify is **capability-gated** on the helper existing, mirroring the INFRA-383 grep
+guard above and for the same reason: `.claude/` is shared by every worktree the instant it
+is committed, but `app/scripts/` is app code that only arrives on branches that have
+back-merged `development`. Without the guard, every open feature branch's close breaks.
 
 ```bash
 # Only require a simulator when there are flows to run. A service-layer-only safety
@@ -578,6 +638,35 @@ if [ ${#SCRIPTS[@]} -gt 0 ]; then
     echo "   Run 'npm run e2e:safety:build' first (Release build, INFRA-383), then retry /b-close."
     exit 1
   fi
+
+  # INFRA-384 — is the installed binary actually built from THIS tree?
+  # Capability-gated: branches that predate INFRA-384 have no helper and keep the old
+  # behaviour rather than failing to close.
+  if [ -f app/scripts/e2e-provenance.js ]; then
+    APP_CONTAINER="$(xcrun simctl get_app_container booted fyi.being.app 2>/dev/null || true)"
+    VERDICT="$( cd app && node scripts/e2e-provenance.js verify "$APP_CONTAINER" 2>/dev/null )" || true
+    case "$VERDICT" in
+      MATCH_CLEAN)
+        echo "✓ provenance: gate target built from this exact tree, clean"
+        ;;
+      MATCH_DIRTY)
+        # What merges is the COMMIT, so the binary must correspond to one. This is the
+        # enforcement this step previously admitted it could not do.
+        echo "❌ The gate target was built from a DIRTY tree — not merge evidence."
+        echo "   Commit your changes and rebuild: npm run e2e:safety:build"
+        exit 1
+        ;;
+      *)
+        echo "❌ provenance ${VERDICT:-<no verdict>} — the installed binary was not built"
+        echo "   from the current tree (or carries no marker). Rebuild: npm run e2e:safety:build"
+        exit 1
+        ;;
+    esac
+  else
+    echo "ℹ️  This branch predates INFRA-384 — no provenance helper, so the installed"
+    echo "    binary's lineage is unverified. Back-merge development, or rebuild before"
+    echo "    trusting the gate."
+  fi
 fi
 ```
 
@@ -591,6 +680,13 @@ cd /Users/max/dev/being/[worktree-dir]/app
 if [ ${#SCRIPTS[@]} -eq 0 ]; then
   echo "✅ No sim flows required (service-layer-only safety change, Step 2.5.3) — proceeding to close."
 else
+  # INFRA-384 — a merge gate's evidence must correspond to the commit being merged, so
+  # a dirty-tree marker is a FAILURE here even though it is only a banner for a human
+  # iterating locally. AC3 and AC4 are opposite policies over one implementation; this
+  # variable is the whole difference. Set here as well as checked in 2.5.4 because the
+  # per-flow scripts route through e2e-safety.sh, which re-verifies at run time — the
+  # tree can move between the readiness check and the flow.
+  export E2E_REQUIRE_CLEAN_PROVENANCE=1
   for script in "${SCRIPTS[@]}"; do
     echo "🛡️  Running: npm run $script"
     if ! npm run "$script"; then
