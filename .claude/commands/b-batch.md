@@ -448,6 +448,13 @@ fidelity-matches-progress, early concepts get wireframes; asking someone to choo
 screens they cannot see is what forces a second decision round, which is precisely the cost
 this phase exists to avoid.
 
+**When a fork resolves, re-derive the mechanics — the approach text also describes the loser.**
+A lens grounds its implementation detail (host file, wrapper, insertion point) in the candidate
+it preferred. Answering the fork changes the target but not that prose, which stays specific and
+confident while describing the rejected option's structure. Re-verify every cited mount point and
+wrapper against the surface that actually won: an approach right about *what* and stale about
+*where* reads as already-verified, so it gets implemented literally.
+
 An amber you don't resolve → leave for a later manual run (record in manifest as `deferred`).
 
 **Scoped upgrade (partial green).** Often an amber can only be *partially* upgraded:
