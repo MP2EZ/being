@@ -41,11 +41,13 @@
 #     `simctl listapps | grep fyi.being.app` greenlit flows against it. Uninstall now runs
 #     FIRST and a trap re-runs it on any failure.
 #
-# The INFRA-329 clean-tree pre-flight below is deliberately UNCHANGED. `requireCommit` was
-# the only thing forcing the installed binary to correspond to a commit, and 1-minute
-# rebuilds make dirty-tree iteration routine — relaxing it in the same change that removes
-# requireCommit would turn "gate ran against a never-committed tree" from impossible into
-# normal. It relaxes only once the provenance marker replaces the guarantee (follow-up).
+# The INFRA-329 clean-tree pre-flight is now a WARNING, not a hard stop (INFRA-384). It was
+# only ever a stand-in for the `requireCommit` that vanished with EAS, and a blunt one — it
+# forbade building from a dirty tree at all, taxing exactly the fast iteration INFRA-383's
+# speedup existed to enable. The provenance marker (step 7g) replaced it with something both
+# stronger and narrower: a dirty build is recorded as such, so e2e-safety.sh banners it as
+# non-evidence and /b-close Phase 2.5 refuses it, while local iteration runs free. The
+# relaxation landed in its own commit AFTER the marker, so the ordering is revertable.
 #
 # Prereqs: a booted iOS simulator. No eas-cli, no credentials, no fastlane.
 # NEVER pipe this command (`| tee`, `| tail`) — a pipeline reports the LAST command's
@@ -83,11 +85,24 @@ trap cleanup EXIT INT TERM
 # ---------------------------------------------------------------------------------------
 # 1. Clean-tree pre-flight (INFRA-329). See header for why this stays.
 # ---------------------------------------------------------------------------------------
+IN_GIT_REPO=0
 if REPO_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)"; then
+  IN_GIT_REPO=1
   DIRTY="$(git -C "$REPO_ROOT" status --porcelain 2>/dev/null || true)"
   if [ -n "$DIRTY" ]; then
+    # INFRA-384 relaxed this from a hard stop. It was never the real guarantee — only a
+    # stand-in for the `requireCommit` that vanished with EAS, and a blunt one: it forbade
+    # building from a dirty tree at all, taxing exactly the fast iteration INFRA-383's
+    # speedup existed to enable.
+    #
+    # The replacement is stronger AND narrower. The provenance marker records `dirty:true`,
+    # so e2e-safety.sh banners the run as non-evidence and /b-close Phase 2.5 refuses it
+    # outright (E2E_REQUIRE_CLEAN_PROVENANCE=1). Iterating locally is now free; MERGING on
+    # a dirty-tree build is impossible. The old pre-flight could not make that distinction.
     echo "$DIRTY" >&2
-    fail "clean-tree pre-flight — commit or stash the changes above first. The gate's evidence is only meaningful if the binary corresponds to a commit."
+    echo "⚠️  Building from a DIRTY tree. Flows will run, but this build is NOT merge" >&2
+    echo "    evidence — the marker records it, and /b-close Phase 2.5 will refuse it." >&2
+    echo "    Commit and rebuild before closing." >&2
   fi
 else
   echo "⚠️  Not inside a git work tree — skipping the clean-tree pre-flight." >&2
@@ -188,6 +203,13 @@ UDID="$(xcrun simctl list devices booted -j 2>/dev/null | node -e '
     process.exit(1);
   });' 2>/dev/null)" || UDID=""
 
+# Snapshot the tree HERE, immediately before bundling — not at step 1 (an `expo prebuild`
+# can touch tracked files) and not at step 7g (too late by definition). The binary about to
+# be produced corresponds to THIS tree; step 7g refuses to write a marker describing any
+# other one. Empty on failure, which disarms the guard rather than failing the build — the
+# marker write itself still fails closed.
+TREE_BEFORE_BUILD="$(node scripts/e2e-provenance.js fingerprint 2>/dev/null || true)"
+
 echo "🏗  Building Release simulator app (warm ≈1 min, cold ≈11 min)…"
 BUILD_CMD=(npx expo run:ios --configuration Release --no-bundler)
 [ -n "$UDID" ] && BUILD_CMD+=(--device "$UDID")
@@ -265,7 +287,28 @@ for scheme in tel sms; do
   esac
 done
 
+# 7g. Provenance marker (INFRA-384). LAST, after every assert above, so the marker's
+#     presence means "this artifact passed every shape check AND came from this tree".
+#     Written INSIDE the installed container: simctl mints a new container UUID on every
+#     fresh install, so any reinstall (`npm run ios`, a manual simctl install) takes the
+#     marker with it and e2e-safety.sh refuses. That disappearance IS the binding.
+#     Before BUILD_OK=1, so a failure here still trips the cleanup trap's uninstall and
+#     satisfies AC1's "marker absent after a failed or refused build" for free.
+#     Outside a git work tree there is nothing to fingerprint, so no marker can exist.
+#     That does NOT fail the build — INFRA-329 deliberately allows building outside a
+#     work tree, and breaking that here would be an unrelated regression. It does mean
+#     the artifact carries no lineage, so e2e-safety.sh will refuse it with MISSING.
+#     Say so now rather than letting the refusal arrive minutes later, unexplained.
+if [ "$IN_GIT_REPO" = "1" ]; then
+  node scripts/e2e-provenance.js write "$APP" --expect "$TREE_BEFORE_BUILD" \
+    || fail "provenance marker write (did the working tree change during the build?)"
+else
+  echo "⚠️  Not inside a git work tree — no provenance marker written." >&2
+  echo "    This artifact is NOT usable as gate evidence; e2e:safety will refuse it." >&2
+fi
+
 BUILD_OK=1
 echo "✅ Launcher-free Release build installed and verified."
 echo "   launcher-free · fresh bundle · env parity · LSApplicationQueriesSchemes intact"
+echo "   provenance marker bound to this tree"
 echo "   Run flows:  npm run e2e:safety   (or npm run e2e:safety:<flow>)"

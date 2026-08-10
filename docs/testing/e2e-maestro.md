@@ -68,17 +68,37 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > set -o pipefail; npm run e2e:safety:build 2>&1 | tee build.log
 > ```
 >
-> **Clean-tree pre-flight (INFRA-329) — kept, and now load-bearing on its own.** It runs
-> `git status --porcelain` **first**, before even the booted-sim check, and fails
-> immediately with the offending paths listed. There is deliberately **no bypass flag**.
+> **Clean-tree pre-flight (INFRA-329) — now a warning, replaced by provenance (INFRA-384).**
+> It still runs `git status --porcelain` first and still lists the offending paths, but it
+> no longer aborts the build.
 >
 > It originally existed to fail fast ahead of EAS's `requireCommit: true`. INFRA-383
 > removed EAS — and with it `requireCommit`, which was the only thing forcing the
-> installed binary to correspond to a *commit*. Since rebuilds are now ~1 min, iterating
-> on an uncommitted tree is the natural workflow, so relaxing this pre-flight would turn
-> "the gate ran against a never-committed tree" from impossible into routine. It stays
-> until a provenance marker (git HEAD + dirty hash, checked by `e2e-safety.sh`) replaces
-> the guarantee; only then does it relax to dirty-allowed-with-a-banner.
+> installed binary to correspond to a *commit* — so the pre-flight was kept as a stand-in
+> until something better existed. INFRA-384 is that something, and it is both **stronger
+> and narrower**:
+>
+> * `e2e-sim-build.sh` writes `.e2e-provenance.json` into the installed container: git
+>   HEAD, a tree hash, and a dirty flag. It lives inside the container because `simctl`
+>   mints a new container UUID on every fresh install, so any reinstall takes the marker
+>   with it — that disappearance *is* the binding.
+> * `e2e-safety.sh` verifies it before any flow and refuses on `MISMATCH` / `MISSING`.
+>   A `MATCH_DIRTY` run still executes, behind an unmissable "NOT MERGE EVIDENCE" banner.
+> * `/b-close` Phase 2.5 sets `E2E_REQUIRE_CLEAN_PROVENANCE=1`, which turns that same
+>   dirty state into a refusal. What merges is the commit, so the binary must correspond
+>   to one.
+>
+> Net: local iteration on a dirty tree is free, and *merging* on a dirty-tree build is
+> impossible. The old pre-flight could not tell those two cases apart — it banned both.
+> The tree hash deliberately includes **untracked file contents**; `git status --porcelain`
+> plus `git diff HEAD` is blind to them (same `?? path` line whatever the bytes), and
+> untracked `.ts` under `app/src` is bundled into `main.jsbundle`.
+>
+> Blind spots worth knowing: `app/ios/` and `app/.env.*` are gitignored, so native and env
+> edits do not move the fingerprint (INFRA-383's env-parity and `Info.plist` asserts cover
+> that surface at build time); and the fingerprint is repo-wide, so editing a `.maestro`
+> flow between build and run invalidates the marker. That is over-refusal — the safe
+> direction — but it will surprise you once.
 >
 > Stage-level failure paths are covered by `app/__tests__/scripts/e2e-sim-build.test.js`,
 > which PATH-shims `git`/`npx`/`xcrun`/`otool`/`plutil` and runs anywhere in
@@ -202,6 +222,13 @@ npm run e2e:safety:crisis-button   # crisis button reaches CrisisResources from 
 # LSApplicationQueriesSchemes contract is the jest static-config test at
 # `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`, which
 # runs in `npm run precommit` on every commit (INFRA-184).
+#
+# INFRA-384: this one SKIPS the simulator pre-flight and the provenance check, and
+# says so. Both describe the booted simulator's installed app, which is not what a
+# device run executes — enforcing them here would abort the procedure when no sim is
+# booted, and, worse, print "gate target verified / provenance" banners about an
+# artifact the flow never touches. A device-only run therefore carries NO artifact
+# attestation; install the build you mean to test, deliberately.
 npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" fallback (device-only)
 ```
 
