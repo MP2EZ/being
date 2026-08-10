@@ -60,6 +60,24 @@ owned one.
 Manifests are never deleted, so a finished batch's file still answers for its items. The
 predicate is *owned by a live manifest entry*, not *some manifest exists*.
 
+**One exception, or the ownership predicate strands claims forever.** Step 0.2 writes its
+stub with `state: "claiming"`, which counts as owned — so a batch that dies *during* the
+planning sweep leaves a manifest that protects its own IDs permanently, and no later run can
+ever reclaim them. Treat an entry as orphaned anyway when its manifest is **entirely
+`claiming` and its file mtime is older than 60 minutes**: a live batch upgrades the stub at
+Step 2.5 within minutes of writing it, so nothing legitimate sits in that state for an hour.
+
+```bash
+find /Users/max/dev/being/.config -name '.b-batch-state.*.json' -mmin +60
+```
+
+Both halves of the test are required. mtime alone would reap a batch that is mid-execution
+(its manifest is untouched between item closes); `claiming` alone would reap a sibling
+that is legitimately still planning right now — the exact race Step 0.2's stub exists to
+close. Mis-reaping is benign in the safe direction (the sibling's manifest still wins Step
+0.1c, and `/b-work` Step 2.7 rewrites the status anyway), which is why the threshold is
+generous rather than tight.
+
 ### Step 0.1: Resume vs. fresh
 - If `$ARGUMENTS` contains `--resume` → go to **Phase 5 (Resume)** (it handles both
   `--resume` alone and `--resume <IDs>`).
@@ -311,11 +329,36 @@ construction and give false confidence. The panel must be able to actually disag
 **Panel scaling (cost control):** `MAINT-*` / `INFRA-*` with no domain match → 2 lenses
 (Architecture + Skeptic). `FEAT-*` / `DEBUG-*` or any domain match → 3 lenses.
 
-First fetch each item's Notion page (reuse `/b-work` Phase 1 logic: search
-`Work Item ID: <ID>` in `collection://${NOTION_WORK_DB}` with `page_size: 25`, then verify
-`Type` + `userDefined:ID` **by property, not rank** — semantic search has no exact-ID match
-and the right row is often not the top hit) so the panel plans against the real story, AC,
-and technical notes.
+First resolve every item's properties in **one** call. `userDefined:ID` is the unique key
+(`Work Item ID` is a display formula), and SQL mode takes a set literal, so the whole batch
+resolves at once — `Type`, `Status`, `Effort`, and the `Blocked by` relation together:
+
+```
+mcp__notion__notion-query-data-sources
+data: {
+  "mode": "sql",
+  "data_source_urls": ["collection://${NOTION_WORK_DB}"],
+  "query": "SELECT * FROM \"collection://${NOTION_WORK_DB}\" WHERE \"userDefined:ID\" IN (130, 191, 44)"
+}
+```
+
+One call for the batch is what makes SQL affordable here — the mode is metered on this
+workspace, which is why Step 0.1a's backlog sweep uses view mode instead. Per-item search is
+the wrong shape twice over: N metered-equivalent round trips, and semantic search is
+recency-weighted, so the right row is often not the top hit. Confirm each row's `Type`
+matches the parsed TYPE — the ID counter is shared across FEAT/MAINT/INFRA/DEBUG, so `292`
+is unique on its own but a caller asking for "MAINT-292" must not silently get a FEAT.
+
+On the **auto-select path** the `Batched` view read (Step 0.1a) already returned these
+properties for every candidate, and 0.1a.5 already fetched the top ~10 bodies — reuse both
+rather than re-resolving.
+
+**Fallback**, only if SQL mode is unavailable: `notion-search` for `Work Item ID: <ID>` in
+`collection://${NOTION_WORK_DB}` with `page_size: 25`, then verify `Type` + `userDefined:ID`
+**by property, never by rank or highlight**.
+
+Then `notion-fetch` each resolved page for the body — SQL returns properties only, and the
+panel plans against the real story, AC, and technical notes.
 
 **Fetch the COMMENTS too and feed them to every lens — not optional.** `/b-work` Step 1.3
 requires it for one item; a panel needs it more, because lenses plan in parallel and cannot
@@ -339,15 +382,25 @@ one recency-biased retry, do **not** stop to ask for a link (no human in this lo
 the item in the manifest as `deferred` (reason: `unresolved-id`) and surface it in the
 end-of-run summary for manual lookup. Never guess a page or proceed on the wrong one.
 
-**Each panel agent returns a structured verdict** (force via schema):
+**Each panel agent returns a structured verdict:**
 ```
 { approach: string,
   confidence: "high" | "medium" | "low",
   blocking_constraints: string[],
   ambiguities: string[],
   files_touched: string[],     // best-effort prediction
-  declared_deps: string[] }    // supplementary body-text prerequisites (see below)
+  declared_deps: string[],     // supplementary body-text prerequisites (see below)
+  flag_signal: boolean }       // Architecture lens only — see Step 2.3a
 ```
+**This shape cannot be machine-enforced from here — the `Agent` tool has no schema
+parameter.** So state it verbatim in each lens's prompt, require the reply to be that JSON
+object and nothing else, and **re-ask once** on a malformed or partial reply. If the second
+reply is still malformed, treat the lens as returning `confidence: "low"` — never
+hand-repair it into the shape you wanted, because Step 2.1's classification reads these
+fields mechanically and a field you filled in yourself is your judgement wearing the
+panel's authority. (The one surface that *can* force a schema is `Workflow`'s `agent()`;
+adopting it would move this sweep's Notion writes into a script, so it is a deliberate
+open choice, not an oversight.)
 
 **Dependencies are structured, not free text.** The `Being. Product Backlog` data
 source has two reciprocal **relation** properties:
@@ -451,7 +504,9 @@ missed a second. An unverified absence claim can drive an approved scope expansi
 then reverted, so read the whole file, not the cited block.
 
 **If an amber's options differ in UI layout or placement, put the artifact in the option
-`preview` field** — an ASCII wireframe of each candidate, grounded in the real layout
+`preview` field** (single-select only — `preview` is ignored when `multiSelect` is set, so a
+layout fork must be asked as a single-select question) — an ASCII wireframe of each
+candidate, grounded in the real layout
 constraints (read the actual styles first, don't sketch from imagination). Per CLAUDE.md
 fidelity-matches-progress, early concepts get wireframes; asking someone to choose between
 screens they cannot see is what forces a second decision round, which is precisely the cost
@@ -474,6 +529,23 @@ string, plus `scoped: true` and a `defer_note` describing the carved-off remaind
 split is *materialized* in Phase 3 (Step 3.0) — a follow-up Notion item for the remainder
 + a scope-down comment on the original — so the narrowed item closes honestly as `Done`.
 
+### Step 2.3a: Feature-flag lane (only for items whose panel raised `flag_signal`)
+`/b-work` Step 3.2 classifies every item into a flag lane — No flag / Runtime / Build-time —
+and in a batch that happens at Step 3.1, *after* the only human checkpoint has closed. It is
+a rollout decision, and rollout is the one thing this loop should never decide alone.
+
+Fold it into the **same** `AskUserQuestion` round as the ambers rather than adding a round,
+and ask **only** where the Architecture lens set `flag_signal`: rollout language in the story
+("ship dark", "enable after", "gradual", "beta", "A/B", "kill-switch") or a net-new
+user-facing surface. Everything else takes `/b-work`'s documented default of **No flag** with
+no prompt — flags are debt, and manufacturing a question per item is the cost this phase
+exists to avoid. Offer the three lanes plus "let `/b-work` decide."
+
+Record the answer as `flag_lane` on the manifest item and pass it in the Step 3.1 approach
+string as a decision, not a suggestion. `/b-work`'s Step 3.2 guardrails still bind — in
+particular, safety-critical *availability* is build-time tier only, whatever is answered
+here; a runtime flag couples it to analytics consent.
+
 ### Step 2.4: Soft cap (effort points, plus an item ceiling)
 The cap governs **every item that will run `/b-work` this session — GREEN and RED both**
 (a RED is implemented headless, then queued; it consumes the same context budget as a green).
@@ -487,17 +559,28 @@ one unit each. So bound both and stop at whichever binds first:
 |---|---|---|
 | Effort points | **12** | implementation + review context |
 | Item count | **6** | per-item fixed overhead |
+| Predicted RED items | **2** | serial human-attended simulator closes |
+
+The RED ceiling is the same quota Step 0.1a.6 applies when shaping an auto-selected slate,
+lifted here so it governs **both** entry paths. Held only in 0.1a.6 it was trivially bypassed
+by typing the IDs — and an explicit list is if anything the likelier way to end up with five
+REDs. It bounds a *human* resource, not a context one: each RED costs a serial, attended
+simulator session (Phase 4.1), which no effort score prices. Apply it to the Step 2.1
+prediction; Step 3.2 may re-tier an item to GREEN against the real diff, and freeing a slot
+after the fact is a good outcome, not a reason to skip the bound.
 
 Points come from the `Effort` property recorded during the Phase 1 fetch — `XS`=1, `S`=2,
 `M`=3, `L`=5, `XL`=8, `XXL`=13, the `/b-create` scale, so a batch prices work the same way
 the backlog does. A missing `Effort` counts as `M`. Record `effort_points` on each item.
 
 Walk the items **in tranche order**, admitting each while the running total stays inside
-*both* budgets, and mark the rest `pending`. **An item that alone exceeds the point budget
-still runs, alone** — otherwise an `XXL` is permanently unadmittable and deadlocks its queue.
+*all three* budgets, and mark the rest `pending`. **An item that alone exceeds the point
+budget still runs, alone** — otherwise an `XXL` (13 pts) is permanently unadmittable and
+deadlocks its queue. This escape hatch is for the point budget only; it never lifts the RED
+ceiling, which bounds attended sessions rather than context.
 
 12 points reproduces the old 4-item cap for the common all-`M` batch while letting the tails
-flex: eight `XS` items in one run, or one `XL` on its own. A hard chain longer than the cap
+flex: eight `XS` items in one run, or one `XL` (8 pts) with an `XS` alongside it. A hard chain longer than the cap
 is fine: the prefix lands and merges to `development` this run, so on `--resume` the
 prerequisites read as `Done` in Notion and the tail branches off them cleanly — never split a
 chain in a way that runs a dependent before its prerequisite is `done`. Tell the user
@@ -522,9 +605,10 @@ other's `approach` strings + dependency graph (the parts Notion can't reconstruc
     { "id": "FEAT-130", "verdict": "green", "tranche": 0,
       "approach": "<synthesized (possibly narrowed) approved approach>",
       "scoped": false, "defer_note": null,
-      "effort": "M", "effort_points": 3,
+      "effort": "M", "effort_points": 3, "flag_lane": null,
       "depends_on": [], "blocked_by": null,
-      "state": "pending", "pr": null, "notes": "" }
+      "state": "pending", "pr": null, "notes": "",
+      "skill_lessons": [] }
   ]
 }
 ```
@@ -587,13 +671,28 @@ implementing:
 2. **Comment the scope-down on the original item**: what's done now vs deferred, why, and
    a link to the follow-up. This makes the eventual `Done` truthful — the work matches the
    narrowed scope, and the deferred part is tracked, not lost.
-3. The **narrowed** `approach` (not the original AC) is what feeds `/b-work` in Step 3.1.
+3. The **narrowed** `approach` (not the original AC) is what feeds `/b-work` in Step 3.1 —
+   and it must say so explicitly: *"this narrowed scope is the full deliverable for this
+   run; the remainder is tracked in `<follow-up ID>`."* Without that sentence the item's
+   Notion ACs are still the original, un-narrowed ones, so `/b-work` Step 5.1 correctly
+   judges the run partial and leaves `Status: In progress` — which Step 3.3's completeness
+   gate then parks. Every scoped item would park. The scope-down comment from step 2 is
+   what makes the sentence true rather than a way around the gate.
 
 ### Step 3.1: Implement via /b-work
 Invoke with the approved approach fed through the existing `ADDITIONAL_CONTEXT` seam:
 ```
 /b-work <ID> - Approved approach: <approach from manifest>
 ```
+If the manifest carries a `flag_lane` (Step 2.3a), append it as a settled decision —
+`Feature-flag lane: <lane> (decided at batch approval; do not re-derive)` — so `/b-work`
+Step 3.2 records and executes it instead of re-classifying from the story text.
+
+**Park `/b-work`'s retrospective; never answer it.** Its Phase 6 can propose a process edit
+and requires that you "never auto-apply" — but the human who must approve it is not here, and
+approving a skill edit on their behalf is the one thing an unattended loop must not do.
+Capture the proposal verbatim on the item's `skill_lessons` and surface it in the Step 4.2
+report for a decision after the batch. The same applies to anything `/b-close` raises.
 **Load each wrapped skill once per batch, not once per item.** `/b-work` and `/b-close`
 are large files that load in full on every invocation, and their procedures do not change
 between items. Invoke each via the Skill tool for the FIRST item that needs it, then follow
@@ -630,10 +729,11 @@ git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2
 # Exclude test-only files: a jest-test-only change cannot affect what the Maestro
 # gate exercises (Maestro drives the running app), so a change confined to
 # __tests__/.test./.spec. is NOT a safety-surface change for gate purposes — the
-# clinical/crisis jest suites still run in precommit/CI regardless. (Finding A from
-# the dry run: MAINT-250, a test-assertion repair under features/assessment/, was
-# being mis-queued for a sim-attended run. b-close's own Phase 2.5 grep has the same
-# blind spot — see the b-close follow-up note.)
+# clinical/crisis jest suites still run in precommit/CI regardless. Without it, a
+# test-assertion repair under features/assessment/ is mis-queued for a sim-attended
+# run. `/b-close` Step 2.5.1 carries the same exclusion — keep the two in step; this
+# re-check exists to TIER the item, and it is not the authority on whether the gate
+# runs. `/b-close` is.
 # Two entries in the path set are NOT feature paths and are easy to omit on sight,
 # but both reach the gate's own subject matter:
 #   - `.maestro/` — a diff that adds or edits a safety flow IS a safety-surface
@@ -666,6 +766,18 @@ CRISIS=$(git -C /Users/max/dev/being/<worktree-dir> diff origin/development...HE
 The same test-file exclusion applies to the **Phase 1 prediction** (Step 2.1's RED
 rule): a predicted `files_touched` set that hits a safety path *only* via test files
 (`__tests__/`, `.test.`, `.spec.`) is **not** RED on that basis alone.
+
+**Two more diff classes are not RED here, because `/b-close` will not gate them either.**
+Its Step 2.5.1 inert filter skips a safety-path file whose diff is **deletion-only** (≥1
+removed line, 0 added) or **comment/whitespace-only**. Read that step for the authoritative
+rule rather than reimplementing its bash — the point of naming the classes here is that
+`/b-batch` classifies *earlier* and pays *more* for a false RED: an over-classified
+RED-ATTENDED buys a serial human simulator session for a diff `/b-close` then declares inert
+and skips. Under-classifying is the safe direction — `/b-close` re-runs its own detection and
+still fires the gate. Two carve-outs to the carve-out, matching `/b-close`: `app.json` /
+`Info.plist`, and `.maestro/` flows and `e2eSeed.ts`, all bypass the inert filter. A
+deletion-only diff to a flow is assertions being removed, which is the change class this gate
+most needs to catch.
 **Routing after the re-check:**
 - **RED-ATTENDED** — set `state: queued_red`, leave the worktree intact and the work
   committed, and **do NOT run `/b-close`**. Continue to the next item; Phase 4.1 surfaces it.
@@ -688,8 +800,23 @@ them yourself rather than surfacing them:
 - **Phase 2.1 uncommitted changes** → commit them.
 - **Phase 5.1 worktree cleanup** → **remove** (the user wants worktrees cleaned on close).
 
-Then run `/b-close <ID>`. Phase 2.5 will correctly self-skip (Step 3.2 already proved
-no safety paths changed). On success, manifest `state: done`, capture the PR number.
+**First, gate on completeness — `/b-close` will not do this for you.** `/b-work` Step 5.1
+sets `Status: Testing` **only if the Acceptance Criteria are fully met**; on a partial run
+(an `L`/`XL` increment, or a blocker that stops the remaining ACs) it deliberately leaves
+`In progress` and names the unserved ACs in its comment. `/b-close` reads `Status` nowhere —
+it will merge and set `Done` regardless — so an unattended loop that closes unconditionally
+converts "here is what I did not do" into a closed item. Read the item's `Status` after
+Step 3.1 returns:
+
+- `Testing` → proceed to close.
+- anything else → **do not close.** Manifest `state: parked`, Notion `Status: Blocked`, and
+  quote `/b-work`'s own comment verbatim in the park note rather than summarizing it — the
+  unserved-AC list is the whole value. Continue to the next item.
+
+Then run `/b-close <ID>`. Phase 2.5 behaves per the Step 3.2 route: **GREEN** → it correctly
+self-skips (the re-check already proved no safety paths changed); **RED-GATED** → it runs the
+scoped flows, and that is the point of routing the item here. On success, manifest
+`state: done`, capture the PR number.
 
 **Cleanup guard (B1 corollary — NEVER delete a branch/worktree on an unconfirmed merge).**
 `/b-close` Phases 3.6–3.8 remove the worktree and delete the feature branch (local +
@@ -768,9 +895,13 @@ directly to get the real message before theorising; and confirm a fix hypothesis
 testable locally before pushing it, since a CI-only fix costs a full round-trip per attempt.
 
 Tell the two apart by the **full rollup** — not the error text, and not
-`gh pr checks --watch`. Both refusals name `Required status check` at merge time, and a
-push-triggered AND a PR-triggered run can both exist on one commit, so `--watch` can exit
-reporting all-green having read only one of them. Always resolve with:
+`gh pr checks --watch`. **Both refusals name `Required status check` at merge time**, so the
+message cannot distinguish a red gate from a stale base; only the per-check conclusions can.
+(The older reason — a push-run and a PR-run coexisting on one commit, letting `--watch` read
+the wrong one — no longer applies to anything this loop opens: INFRA-329 removed short-lived
+branches from `ci.yml`'s `push:` trigger, so a `feat|fix|chore → development` PR gets exactly
+one run. The rule stands on the identical-error-text reason alone, and CLAUDE.md mandates the
+rollup independently.) Always resolve with:
 ```bash
 gh pr view <PR> --json statusCheckRollup -q '.statusCheckRollup[] | "\(.name)\t\(.conclusion)"' | sort | uniq -c
 ```
@@ -811,6 +942,9 @@ would fight over one install; sequential is mandatory.
 
    Resume the rest:  /clear  then  /b-batch --resume
 ```
+If any item collected `skill_lessons` (Step 3.1), list them here verbatim under
+`Skill lessons awaiting approval:` with the owning skill named. They are proposals for
+`/b-work` or `/b-close`, not this file — Step 4.3 covers lessons about the batch loop itself.
 
 ### Step 4.3: Batch retrospective (conditional — most batches skip this)
 
@@ -872,6 +1006,12 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
 
 1. Read the selected `$MANIFEST`.
 2. For each item, reconcile against ground truth:
+   - **Manifest `state: claiming` is checked FIRST and outranks Notion.** It means the batch
+     died during the planning sweep, so this is the Step 0.2 stub: there is no `approach`, no
+     `tranche`, no `depends_on`. Its Notion `Status` reads `Batched`, which the next bullet
+     would route to Step 3.1 — straight into execution with a null approach and no dependency
+     graph. Re-enter **Phase 1** for every `claiming` item instead, plan them as a group, and
+     rebuild the graph before anything runs.
    - Notion `Status`: `Done` → `done` (skip); `Cancelled` → drop; `Testing` → work implemented, resume at `/b-close` (Step 3.3); `In progress` → resume at Step 3.1's tail (verify/commit); `Batched` → this batch's own claim, never implemented (Step 0.0 already reaped any claim no live manifest owns, so a surviving one is ours) → run from Step 3.1; `Not started` → run from Step 3.1; `Blocked` → consult the manifest: `parked` (CI ×2) needs a human triage decision — surface it, don't silently retry; `deferred`/`blocked_by` re-evaluates in step 3 below.
    - `git worktree list` → confirms what's mid-flight on disk.
    - `gh pr list` → confirms what's awaiting/failed CI.
