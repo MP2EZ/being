@@ -653,9 +653,13 @@ if [ ${#SCRIPTS[@]} -gt 0 ]; then
   # INFRA-384 — is the installed binary actually built from THIS tree?
   # Capability-gated: branches that predate INFRA-384 have no helper and keep the old
   # behaviour rather than failing to close.
-  if [ -f app/scripts/e2e-provenance.js ]; then
+  # Resolve from the repo toplevel, NOT relative to $PWD: if the shell is already inside
+  # app/ the relative form silently misses the helper, prints "predates INFRA-384", and
+  # skips enforcement — a capability guard that fails OPEN.
+  WT_ROOT="$(git rev-parse --show-toplevel 2>/dev/null || echo .)"
+  if [ -f "$WT_ROOT/app/scripts/e2e-provenance.js" ]; then
     APP_CONTAINER="$(xcrun simctl get_app_container booted fyi.being.app 2>/dev/null || true)"
-    VERDICT="$( cd app && node scripts/e2e-provenance.js verify "$APP_CONTAINER" 2>/dev/null )" || true
+    VERDICT="$( cd "$WT_ROOT/app" && node scripts/e2e-provenance.js verify "$APP_CONTAINER" 2>/dev/null )" || true
     case "$VERDICT" in
       MATCH_CLEAN)
         echo "✓ provenance: gate target built from this exact tree, clean"
