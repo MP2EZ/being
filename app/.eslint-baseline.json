@@ -87,6 +87,7 @@
   "src/core/services/supabase/__tests__/secureStoreSessionAdapter.unit.test.ts": 1,
   "src/core/services/supabase/hooks/useCloudSync.ts": 3,
   "src/core/services/supabase/index.ts": 3,
+  "src/core/stores/__tests__/consentChangelog.privacy.test.ts": 1,
   "src/core/stores/__tests__/consentStore.test.ts": 1,
   "src/core/stores/__tests__/settingsStore.test.ts": 1,
   "src/core/stores/__tests__/subscriptionStore.test.ts": 1,

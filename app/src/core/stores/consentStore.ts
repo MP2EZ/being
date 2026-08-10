@@ -335,6 +335,203 @@ const DEFAULT_CACHE = {
 export const CONSENT_VERSION = '1.1.0';
 
 /**
+ * A consent-material change, named as a preference field.
+ *
+ * `ageGate` is synthetic — eligibility lives on AgeVerification, not
+ * ConsentPreferences — but an age-threshold change is consent-material and
+ * needs a machine-readable name.
+ *
+ * ⚠️ DELIBERATELY NOT EXHAUSTIVE. This can only name changes expressible as a
+ * ConsentPreferences field. DEBUG-150 also split the bundled legal-gate
+ * checkbox into four, but `tosAccepted` / `privacyAccepted` /
+ * `wellnessDisclaimerAcknowledged` live on LegalGateConsents (:56-65), a
+ * different interface — so that change, which is what makes consent
+ * "explicit" under GDPR Art. 9(2)(a), is carried by `summary` alone. Read
+ * `changedKeys` as "which preference toggles changed", never as the complete
+ * delta.
+ *
+ * Populate it by hand beside the summary. Never derive it from a schema diff:
+ * a differ finds `mentalHealthProcessingConsent` but has no way to know
+ * `ageGate` matters, since it is not a ConsentPreferences field at all.
+ */
+export type ConsentChangedKey = keyof ConsentPreferences | 'ageGate';
+
+/** One policy version's user-facing explanation of what changed. */
+export interface ConsentChangelogEntry {
+  /**
+   * Plain-language, neutral description (GDPR Art. 7(2) "clear and plain
+   * language"). States what changed about our practices — never what happens
+   * if the user does not re-consent, since the lapse-window characterisation
+   * is a separate open counsel decision.
+   */
+  summary: string;
+  changedKeys: ConsentChangedKey[];
+}
+
+/**
+ * Shown when we cannot compute a real delta. Truthful about the fact of change
+ * while claiming nothing about its content.
+ */
+export const GENERIC_CONSENT_CHANGE_SUMMARY =
+  'Our privacy practices have changed since you last gave consent.';
+
+/**
+ * Version-keyed changelog, keyed by the version that INTRODUCED the change.
+ *
+ * `satisfies` rather than a `Record<string, …>` annotation is load-bearing: it
+ * validates each entry's shape while preserving the literal key type, so
+ * `keyof typeof CONSENT_CHANGELOG` stays `'1.1.0'` rather than widening to
+ * `string`. The pin below depends on that.
+ */
+export const CONSENT_CHANGELOG = {
+  /** DEBUG-150 (`c96ab71e`, 2026-05-24) — 1.0.0 → 1.1.0. */
+  '1.1.0': {
+    summary:
+      'We raised the minimum age to use Being to 18, and we now ask for your ' +
+      'separate, explicit consent before processing wellness data such as mood ' +
+      'check-ins, screening responses, and journal entries.',
+    changedKeys: ['ageGate', 'mentalHealthProcessingConsent'],
+  },
+} satisfies Record<string, ConsentChangelogEntry>;
+
+/**
+ * Source-level pin: a CONSENT_VERSION bump without its user-facing
+ * explanation fails `npm run typecheck` (precommit step 1, and a CI gate).
+ *
+ * This is the type-level half; `consentChangelog.privacy.test.ts` asserts the
+ * same property at runtime. Both are needed — tsconfig excludes test files and
+ * jest transforms via babel, so a type assertion written in a test file would
+ * gate nothing.
+ */
+// Underscore prefix satisfies eslint's varsIgnorePattern (eslint.config.js:34).
+const _consentChangelogCoversCurrentVersion: keyof typeof CONSENT_CHANGELOG =
+  CONSENT_VERSION;
+
+interface ParsedConsentVersion {
+  major: number;
+  minor: number;
+  patch: number;
+}
+
+/** Strict three-number semver. No pre-release, no build metadata, no `v` prefix. */
+const parseConsentVersion = (version: string): ParsedConsentVersion | null => {
+  const match = /^(\d+)\.(\d+)\.(\d+)$/.exec(version.trim());
+  if (!match) return null;
+  // Destructured with defaults rather than indexed: noUncheckedIndexedAccess
+  // types match[n] as possibly undefined.
+  const [, major = '0', minor = '0', patch = '0'] = match;
+  return { major: Number(major), minor: Number(minor), patch: Number(patch) };
+};
+
+/**
+ * Numeric semver ordering. Negative if `a < b`, positive if `a > b`, 0 if equal.
+ *
+ * Deliberately hand-rolled — a dependency for fifteen lines is not worth the
+ * supply-chain surface on the consent path.
+ *
+ * Unparseable input compares as 0. Callers here guard first, and the effect on
+ * the range filter is fail-closed: an unparseable changelog key is excluded
+ * from the delta rather than fabricating one. A test pins that every key
+ * parses, so that path is unreachable in practice.
+ */
+export const compareConsentVersions = (a: string, b: string): number => {
+  const left = parseConsentVersion(a);
+  const right = parseConsentVersion(b);
+  if (!left || !right) return 0;
+  return (
+    left.major - right.major || left.minor - right.minor || left.patch - right.patch
+  );
+};
+
+/** One version's contribution to a delta. */
+export interface ConsentVersionChange {
+  version: string;
+  summary: string;
+}
+
+export interface ConsentDelta {
+  fromVersion: string;
+  toVersion: string;
+  /** Ascending by version. Presentation (joining, truncating) is the screen's job. */
+  changes: ConsentVersionChange[];
+  /** Deduped union across `changes`. Empty when the delta is unknown. */
+  changedKeys: ConsentChangedKey[];
+  /**
+   * Whether we could actually compute the delta.
+   *
+   * Discrete rather than inferable from `changes.length`, because the two
+   * empty-ish states are opposites and must never be conflated:
+   *   stored === current  → known, ZERO changes      (the `expired` path)
+   *   unparseable/rollback → unknown, ONE generic change
+   */
+  isKnownVersion: boolean;
+}
+
+/**
+ * Pure core, with the changelog injected so the union/dedup/ordering logic is
+ * provable against more than one entry — today the real map has exactly one,
+ * which would make those properties true by construction rather than by code.
+ */
+export const computeConsentDelta = (
+  changelog: Record<string, ConsentChangelogEntry>,
+  storedVersion: string,
+  currentVersion: string,
+): ConsentDelta => {
+  // Fail open on prompting, closed on content: the caller still gets a
+  // renewable result, but never a fabricated delta.
+  const unknown = (): ConsentDelta => ({
+    fromVersion: storedVersion,
+    toVersion: currentVersion,
+    changes: [{ version: currentVersion, summary: GENERIC_CONSENT_CHANGE_SUMMARY }],
+    changedKeys: [],
+    isKnownVersion: false,
+  });
+
+  if (!parseConsentVersion(storedVersion)) return unknown();
+  // Stored is NEWER than this build knows about — a downgrade, or a reverted
+  // release. Synthesising a delta here could describe unreleased policy.
+  if (compareConsentVersions(storedVersion, currentVersion) > 0) return unknown();
+
+  // Half-open range: stored < v <= current. A user already on v must not be
+  // re-shown v's own entry.
+  const applicable = Object.keys(changelog)
+    .filter(
+      (version) =>
+        compareConsentVersions(storedVersion, version) < 0 &&
+        compareConsentVersions(version, currentVersion) <= 0,
+    )
+    .sort(compareConsentVersions);
+
+  const changes: ConsentVersionChange[] = [];
+  const changedKeys: ConsentChangedKey[] = [];
+  for (const version of applicable) {
+    const entry = changelog[version];
+    if (!entry) continue;
+    changes.push({ version, summary: entry.summary });
+    for (const key of entry.changedKeys) {
+      if (!changedKeys.includes(key)) changedKeys.push(key);
+    }
+  }
+
+  return {
+    fromVersion: storedVersion,
+    toVersion: currentVersion,
+    changes,
+    changedKeys,
+    isKnownVersion: true,
+  };
+};
+
+/**
+ * What changed in our privacy practices since `storedVersion`.
+ *
+ * Read-only: computes, never gates. `canPerformOperation` remains the sole
+ * authority on what a given consent state permits.
+ */
+export const getConsentDeltaSince = (storedVersion: string): ConsentDelta =>
+  computeConsentDelta(CONSENT_CHANGELOG, storedVersion, CONSENT_VERSION);
+
+/**
  * Generate unique consent ID
  */
 const generateConsentId = (): string => {
