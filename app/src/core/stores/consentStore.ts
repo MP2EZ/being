@@ -1511,11 +1511,38 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
    * Export consent records (CCPA compliance)
    */
   exportConsentRecords: async () => {
-    const { currentConsent, consentHistory } = get();
+    const { currentConsent } = get();
+
+    // DEBUG-402: read the chain from the encrypted blob, NOT `get().consentHistory`.
+    //
+    // `loadConsent` returns from five branches — integrity_error, revoked,
+    // version_mismatch, under_age, expired — before it reaches the history load
+    // near the end of the function. In every one of those states the in-memory
+    // array is `[]` while the real chain sits intact on disk, so a lapsed user's
+    // DSR payload asserted an empty consent history: indistinguishable from
+    // "never granted", and false for anyone who ever did. `history` is the
+    // Art. 7(1) demonstrability artifact and `DataExportService` passes it
+    // through unchanged, so the claim reaches the data subject as-is.
+    //
+    // Read unconditionally rather than branching on `consentStatus` — the status
+    // is irrelevant to what the blob contains, and a branch would have to
+    // re-enumerate those five states correctly forever.
+    //
+    // This is the same read `loadConsentHistoryWithMigration` performs, taken
+    // WITHOUT its migration side effect: that function writes on its first call
+    // (setting the INFRA-144 flag even when there is no legacy data, and
+    // persisting an annotated chain when there is). An export must never write
+    // to the audit trail it exists to disclose, so the migration stays owned by
+    // the ordinary load path.
+    const history = await SecureStorageService.retrieveWellnessBlob<ConsentHistoryEntry[]>(
+      CONSENT_HISTORY_BLOB_KEY,
+      LEGACY_CONSENT_HISTORY_KEY,
+      { legacyFormat: 'plaintext_json', sensitivityLevel: 'level_2_assessment_data' }
+    );
 
     return {
       currentConsent,
-      history: consentHistory,
+      history: history ?? [],
       exportedAt: Date.now(),
     };
   },
