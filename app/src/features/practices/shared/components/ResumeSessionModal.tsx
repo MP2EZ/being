@@ -20,15 +20,17 @@
  * - No gamification or completion metrics
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
+  BackHandler,
   View,
   Text,
   StyleSheet,
-  Modal,
   Pressable,
   Vibration,
   ScrollView,
+  findNodeHandle,
 } from 'react-native';
 import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
@@ -166,8 +168,48 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
   onBeginFresh,
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+  const titleRef = useRef<Text>(null);
 
-  if (!session) return null;
+  // DEBUG-403: <Modal> gave us an OS focus trap for free; a plain overlay does not.
+  // Move VoiceOver/TalkBack focus to the question, not to a choice — landing on a
+  // button would skip what is being asked.
+  useEffect(() => {
+    if (!visible || !session) return;
+
+    const focusTitle = (): void => {
+      const tag = findNodeHandle(titleRef.current);
+      if (tag) AccessibilityInfo.setAccessibilityFocus(tag);
+    };
+
+    const raf = requestAnimationFrame(focusTitle);
+    // TalkBack silently no-ops setAccessibilityFocus if it has not finished
+    // processing the layout change, so retry once (mirrors HapticsOptInPrompt).
+    const retry = setTimeout(focusTitle, 350);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(retry);
+    };
+  }, [visible, session]);
+
+  // DEBUG-403: replaces <Modal onRequestClose={onBeginFresh}>. Android hardware back
+  // must still mean "Begin Fresh" — NOT a no-op consume. That distinction is the whole
+  // behaviour contract of this prompt: both options are framed as equally virtuous, and
+  // silently swallowing back would strand the user in a prompt with no keyboardless exit.
+  useEffect(() => {
+    if (!visible || !session) return;
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBeginFresh();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [visible, session, onBeginFresh]);
+
+  // Guarded INSIDE the component rather than by the caller, so `showTooltip` survives a
+  // hide/show cycle exactly as it did under <Modal visible={...}>. Hoisting this to the
+  // parent would reset it on every dismiss — a silent behaviour change.
+  if (!visible || !session) return null;
 
   const flowInfo = getFlowInfo(session.flowType);
   const timeElapsed = formatTimeElapsed(session.startedAt);
@@ -184,19 +226,22 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onBeginFresh} // Android back button = begin fresh
+    <View
+      style={styles.overlay}
+      // iOS: trap VoiceOver inside the prompt. Android has no equivalent, so
+      // DailyLoopNavigator hides the navigator subtree with
+      // importantForAccessibility="no-hide-descendants" while this is up.
+      accessibilityViewIsModal={true}
+      testID="resume-session-overlay"
     >
-      <View style={styles.overlay}>
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.modalContainer}>
-            {/* Header with flow emoji and title */}
-            <View style={styles.header}>
-              <Text style={styles.emoji}>{flowInfo.emoji}</Text>
-              <Text style={styles.title}>Return to Your Practice?</Text>
+      <ScrollView contentContainerStyle={styles.scrollContainer}>
+        <View style={styles.modalContainer}>
+          {/* Header with flow emoji and title */}
+          <View style={styles.header}>
+            <Text style={styles.emoji}>{flowInfo.emoji}</Text>
+            <Text style={styles.title} ref={titleRef}>
+              Return to Your Practice?
+            </Text>
             </View>
 
             {/* Session info */}
@@ -309,19 +354,53 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
                 <Text style={styles.secondaryButtonText}>Begin Fresh</Text>
               </Pressable>
             </View>
-          </View>
-        </ScrollView>
-      </View>
-    </Modal>
+        </View>
+      </ScrollView>
+    </View>
   );
 };
 
+/**
+ * DEBUG-403 — vertical band at the bottom of the screen that the root crisis button
+ * occupies, kept clear so this prompt's choices row can never overlap it.
+ *
+ * Derived from CollapsibleCrisisButton's geometry: it sits at `bottom` 100 (iOS) / 104
+ * (Android), is TOUCH_TARGETS.minimum tall, and carries a 12pt hitSlop, so its hit area
+ * reaches ~156pt up from the bottom edge. The larger platform value plus one spacing
+ * step is used for both rather than branching — being generous costs nothing and an
+ * overlap is unrecoverable: the crisis button renders at zIndex 9999 above this layer
+ * and would win the tap, BOTH firing a false crisis entry AND biasing the mis-tap
+ * toward one specific choice.
+ *
+ * This constraint did not exist while this component was an RN <Modal>, because the
+ * crisis button was not on screen at all. Mirrors HapticsOptInPrompt's band.
+ */
+const CRISIS_BUTTON_RESERVED_BAND = 104 + TOUCH_TARGETS.minimum + 12 + spacing[16];
+
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    // DEBUG-403: absolute inset-0, not `flex: 1`. This layer is now a sibling of
+    // DailyLoopNavigator's <Stack.Navigator> rather than the root of a separate native
+    // window, so it must position itself over that content explicitly.
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    // ⚠️ WHITE, NOT THE PREVIOUS rgba(0, 0, 0, 0.6) SCRIM — do not revert.
+    //
+    // The root crisis button now renders ON TOP of this layer (that is the entire point
+    // of DEBUG-403), at FADED_OPACITY because DailyLoop is an IMMERSIVE_ROUTE. The old
+    // dark scrim was harmless only while the button was invisible; making the button
+    // visible turns this backgroundColor into a contrast surface for the first time.
+    // HapticsOptInPrompt's header records the measurements: against #171717 the faded
+    // button is 1.34:1, against white 2.71:1 — and DEBUG-396's FADED_OPACITY of 0.6
+    // clears 3:1 on white. Darkening moves the wrong way; white is the ceiling.
+    backgroundColor: colorSystem.base.white,
     justifyContent: 'center',
     alignItems: 'center',
+    // Keeps the card clear of the crisis button's hit area.
+    paddingBottom: CRISIS_BUTTON_RESERVED_BAND,
   },
   scrollContainer: {
     flexGrow: 1,
