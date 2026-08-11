@@ -208,13 +208,23 @@ function App() {
               // Runs in componentDidCatch, i.e. AFTER the 988 fallback has committed —
               // never on the path to first paint.
               //
-              // NOTE this is an ON-DEVICE record only, by design and by constraint.
-              // ExternalErrorReporter's `containsCrisisContent` filter drops any event
-              // whose serialization contains 'crisis', '988', 'emergency' or
-              // 'intervention', and a stack originating under features/crisis/ contains
-              // 'crisis' in every frame. So a root crash on this path is largely
-              // invisible to Sentry by existing design. Do not add a claim to the
-              // contrary; the local log is the accountability record here.
+              // NOTE this is an ON-DEVICE record only, and the reason is narrower
+              // than this comment used to claim (corrected DEBUG-338).
+              //
+              // It used to say a stack originating under features/crisis/ "contains
+              // 'crisis' in every frame", so the filter drops it. That was true of
+              // the SOURCE TREE and false of the transmitted event: Sentry's default
+              // `createReactNativeRewriteFrames()` rewrites every frame's `filename`
+              // to `app:///main.jsbundle` under Expo and deletes `abs_path`, before
+              // `beforeSend` ever runs. `containsCrisisContent` never saw those paths,
+              // and since DEBUG-338 it does not scan `stacktrace.frames[]` at all.
+              //
+              // What actually keeps this on-device: `RootCrisisBoundary` is not wired
+              // to the external reporter in the first place (CrisisErrorBoundary's
+              // `reportError` call is commented out), and any event whose MESSAGE or
+              // other content-bearing field carries crisis prose is still dropped
+              // wholesale — which this one's would be. The local log is the
+              // accountability record here.
               // logCrisis's context is a fixed shape (detectionTime / interventionType
               // / severity) and deliberately does NOT take free-form fields, so the
               // detail rides in the message and the structured part stays schema-clean.
