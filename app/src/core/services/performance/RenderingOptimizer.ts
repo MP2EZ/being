@@ -25,9 +25,11 @@
  *      the UI thread, which this cannot observe. A JS-thread rAF loop is also
  *      the exact pattern PERF-02 (commit ff591f3a) deleted from
  *      `BreathingCircle.tsx` as a performance fix.
- *   2. Nothing starts it on the app's real paths. `RenderingOptimizer` is
- *      reachable only via `useAssessmentPerformance`, whose sole consumer is
- *      `AssessmentIntegrationExample.tsx` — a demo component.
+ *   2. Nothing starts it on the app's real paths. It used to be reachable only
+ *      via `useAssessmentPerformance`, whose sole consumer was the demo
+ *      component `AssessmentIntegrationExample.tsx`; MAINT-398 deleted both, so
+ *      it now has no consumer at all. The module itself is queued for removal
+ *      in MAINT-252.
  *
  * The breathing-circle 60fps budget is enforced by NO runtime measurement. What
  * exists is a structural proxy (`app/scripts/check-breathing-worklet-purity.js`,

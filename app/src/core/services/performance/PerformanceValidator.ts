@@ -20,8 +20,11 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { DeviceEventEmitter } from 'react-native';
-import type { AssessmentAnswer, AssessmentResponse } from '@/features/assessment/types';
-import { CrisisPerformanceOptimizer } from './CrisisPerformanceOptimizer';
+import type { AssessmentAnswer, AssessmentResponse, PHQ9Result } from '@/features/assessment/types';
+// MAINT-398: the stress test drives canonical `detectCrisis` directly. It used
+// to drive `CrisisPerformanceOptimizer.detectCrisisOptimized`, a parallel scorer
+// that has been deleted; the optimizer is now only a metrics recorder.
+import { detectCrisis } from '@/features/crisis/types/safety';
 import { AssessmentFlowOptimizer } from './AssessmentFlowOptimizer';
 import { MemoryOptimizer } from './MemoryOptimizer';
 import { BundleOptimizer } from './BundleOptimizer';
@@ -85,7 +88,7 @@ class PerformanceStressTester {
 
       // Simulate crisis detection with mock assessment data
       const mockAnswers = this.generateMockPHQ9Answers(true) as AssessmentAnswer[]; // Crisis scenario
-      await CrisisPerformanceOptimizer.detectCrisisOptimized('phq9', mockAnswers);
+      detectCrisis(this.toPHQ9Result(mockAnswers), 'stress-test');
 
       const duration = performance.now() - startTime;
       results.push(duration);
@@ -201,6 +204,31 @@ class PerformanceStressTester {
   /**
    * Generate mock PHQ-9 answers
    */
+  /**
+   * Wrap mock answers in the PHQ9Result shape canonical `detectCrisis` consumes.
+   * This is load-generator scaffolding, not scoring — the result is discarded,
+   * and the severity bands mirror ClinicalScoringService only so the input is
+   * well-formed.
+   */
+  private static toPHQ9Result(answers: AssessmentAnswer[]): PHQ9Result {
+    const totalScore = answers.reduce((sum, a) => sum + a.response, 0);
+    const q9 = answers.find(a => a.questionId === 'phq9_9');
+    const suicidalIdeation = (q9?.response ?? 0) > 0;
+
+    return {
+      totalScore,
+      severity:
+        totalScore >= 20 ? 'severe' :
+        totalScore >= 15 ? 'moderately_severe' :
+        totalScore >= 10 ? 'moderate' :
+        totalScore >= 5 ? 'mild' : 'minimal',
+      isCrisis: totalScore >= 15 || suicidalIdeation,
+      suicidalIdeation,
+      completedAt: Date.now(),
+      answers
+    };
+  }
+
   private static generateMockPHQ9Answers(crisis: boolean = false) {
     const answers = [];
     for (let i = 1; i <= 9; i++) {

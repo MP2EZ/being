@@ -100,14 +100,11 @@ class CodeSplittingRegistry {
         case 'assessment-flow':
           loadedModule = await import('@/features/assessment/stores/assessmentStore');
           break;
-        case 'crisis-detection':
-          loadedModule = await import('./CrisisPerformanceOptimizer');
-          break;
+        // MAINT-398 removed the 'crisis-detection' and 'performance-monitoring'
+        // chunks. The first lazy-loaded the parallel crisis scorer; the second
+        // lazy-loaded `useAssessmentPerformance`, which was deleted with it.
         case 'memory-optimizer':
           loadedModule = await import('./MemoryOptimizer');
-          break;
-        case 'performance-monitoring':
-          loadedModule = await import('@/features/assessment/hooks/useAssessmentPerformance');
           break;
         default:
           throw new Error(`Unknown chunk: ${chunkName}`);
@@ -341,19 +338,14 @@ export class BundleOptimizer {
    */
   private static registerCriticalChunks(): void {
     const criticalChunks: ChunkInfo[] = [
-      {
-        name: 'crisis-detection',
-        size: 25 * 1024, // 25KB
-        dependencies: [],
-        isLazy: false,
-        isCritical: true,
-        loadPriority: 'high',
-        estimatedLoadTime: 50
-      },
+      // MAINT-398: the 'crisis-detection' chunk is gone with its loader. Leaving
+      // the registration behind would have turned loadChunk('crisis-detection')
+      // from a resolving import into an `Unknown chunk` throw, and left
+      // 'assessment-core' depending on a chunk that can never load.
       {
         name: 'assessment-core',
         size: 45 * 1024, // 45KB
-        dependencies: ['crisis-detection'],
+        dependencies: [],
         isLazy: false,
         isCritical: true,
         loadPriority: 'high',
@@ -389,15 +381,8 @@ export class BundleOptimizer {
         loadPriority: 'medium',
         estimatedLoadTime: 70
       },
-      {
-        name: 'performance-monitoring',
-        size: 50 * 1024, // 50KB
-        dependencies: [],
-        isLazy: true,
-        isCritical: false,
-        loadPriority: 'low',
-        estimatedLoadTime: 100
-      },
+      // MAINT-398: 'performance-monitoring' registration removed with its
+      // loader (it lazy-loaded the deleted useAssessmentPerformance hook).
       {
         name: 'analytics-reporting',
         size: 80 * 1024, // 80KB
