@@ -329,6 +329,12 @@ construction and give false confidence. The panel must be able to actually disag
 **Panel scaling (cost control):** `MAINT-*` / `INFRA-*` with no domain match → 2 lenses
 (Architecture + Skeptic). `FEAT-*` / `DEBUG-*` or any domain match → 3 lenses.
 
+**Lenses share one worktree — scratch files are cross-visible.** A lens told not to edit will
+still write a probe when asked to verify a claim empirically, and that is worth keeping: it is
+how a shim that makes a prescribed test vacuous gets caught. But a sibling lens reading the
+same tree reports the probe as repo state. Tell lenses to write scratch outside the worktree,
+and treat any "untracked file X" finding as unverified until you check it yourself.
+
 First resolve every item's properties in **one** call. `userDefined:ID` is the unique key
 (`Work Item ID` is a display formula), and SQL mode takes a set literal, so the whole batch
 resolves at once — `Type`, `Status`, `Effort`, and the `Blocked by` relation together:
@@ -438,6 +444,13 @@ exactly where drift creeps in):
   `files_touched` sets substantially overlap (same problem, same place); zero
   `blocking_constraints`; combined `ambiguities` empty; not RED.
 - **AMBER (ask)** otherwise.
+
+**Re-check the RED quota here.** Step 0.1a.6 caps the slate from the *body*; this step
+decides the real tier from `files_touched`. An item can cross into RED between the two, so a
+slate can arrive carrying more REDs than it was selected under and nothing else looks. If the
+count now exceeds the quota, put the excess to the user in the Step 2.3 round — deferring an
+item is a slate change, not a mechanical fix — and name which. A silent over-run reads as a
+slate deliberately chosen that way.
 
 ### Step 2.2: Dependency resolution & tranche ordering
 Build a directed graph over the batch from these edge sources:
