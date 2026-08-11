@@ -21,9 +21,22 @@ const ALL_IDENTITIES = [
 ] as const satisfies readonly PracticeIdentity[];
 
 /**
- * The keyword scan `isCrisisRelated` runs over the stringified context. A surface token
- * containing any of these would silently suppress EVERY error report from that surface —
- * fail-safe in direction, but it blinds Sentry and nothing warns you.
+ * A surface token containing any of these would silently suppress EVERY error report from
+ * that surface — fail-safe in direction, but it blinds Sentry and nothing warns you.
+ *
+ * MAINT-401 re-grounded this list. It used to be justified by `isCrisisRelated`, a
+ * pre-filter on `reportError` that has since been deleted (it had zero production callers
+ * and duplicated, more broadly, a guarantee that already lives at the `beforeSend`
+ * chokepoint). The hazard did not go away with it: `flowType` is copied into the sanitized
+ * `extra`, and `collectContentText` DOES walk `extra`, so a matching token still drops the
+ * event wholesale via `containsCrisisContent`.
+ *
+ * The LIVE list is `CRISIS_CONTENT_PATTERNS` and it is NARROWER than the array below —
+ * 'phq-9' / 'phq9' / 'gad-7' / 'gad7' / 'crisis' / 'suicid' / 'self-harm' / 'emergency' /
+ * 'intervention' / \b988\b. The extra entries here ('assessment', 'score', 'safety',
+ * 'safetyplan', 'emergencycontact', bare 'phq' / 'gad') are inherited from the deleted
+ * filter and are kept deliberately: screening a practice-identity vocabulary against a
+ * superset costs nothing and stays correct if the live list ever widens toward it.
  */
 const CRISIS_KEYWORDS = [
   'crisis',
