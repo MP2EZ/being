@@ -189,6 +189,10 @@ approved approaches and a dependency graph this run would re-derive from scratch
 
 #### 0.1a.5 — Read bodies for the top ~10, then drop what the batch cannot execute
 `notion-fetch` the top ~10 survivors, not the whole pool — nothing below needs a body.
+**Fetch their comments too:** deferral reasons, rescopes and founder decisions land there
+rather than in the story, so a body-only read re-proposes items already passed over. Treat
+any re-batch condition you find as a claim to verify — a stale one keeps a ready item out
+of every slate.
 
 **Then apply the two exclusions only a body can decide.** `Priority` says what is worth
 doing, `Effort` says how big it is; neither says whether `/b-work` can reach the work at all.

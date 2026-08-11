@@ -560,7 +560,10 @@ Phase 2.5 gate; do not re-author Maestro flows here.
   PHQ-9 14/15 and 19/20, GAD-7 14/15, Q9 `=0` vs `>0` — not just a happy path.
 
 **3.4b — Write (author the tests).**
-- **Test-first lane:** write the 3.4a tests now as **failing specs (red)**.
+- **Test-first lane:** write the 3.4a tests now as **failing specs (red)**, and
+  confirm each fails for the reason you intended — a spec that is green before the
+  implementation exists is passing on unrelated behaviour, so re-fixture it until
+  only the change under test can satisfy it.
   Co-locate per repo convention; clinical/safety specs must land in the suites
   wired into `test:clinical` / `test:crisis-detection`. Then drive the
   red → green → refactor loop via the **`/tdd` skill** through Step 3.5.
