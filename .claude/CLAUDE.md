@@ -42,7 +42,16 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/crisis/` | `crisis` |
 | `app/src/features/assessment/` | `crisis` + `philosopher` |
 | `app/src/features/practices/` | `philosopher` |
+| `app/src/features/guidance/` | `crisis` + `philosopher` |
 | `app/src/core/services/security/` | `compliance` |
+
+`features/guidance/` is here despite owning no assessment or crisis code of its own:
+`services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
+distressed user is shown Stoic content or routed to crisis resources, so a wrong edit there
+is a false negative on a safety gate. It is also the one entry that a path-based safety
+detector will not catch by name, which is precisely why it needs listing — FEAT-55 slice 1
+shipped that gate classifying GREEN, because a brand-new feature dir matches no existing
+pattern. `philosopher` covers the tier content the same directory carries.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
