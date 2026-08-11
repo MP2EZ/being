@@ -178,11 +178,15 @@ Drop from the pool, reporting each class. **Never silently** — a hidden cap re
   5–8+ weeks; these need slicing via `/b-create` first. Naming them makes the omission a
   recommendation rather than a silence.
 
-**When an exclusion names a sibling manifest, report that batch's outstanding work too.** The
-file is already open for the ownership check, so tally its non-`done`/`deferred` items by
-state. An owned ID is not just unavailable — it is evidence of a batch that stalled with work
-left, and resuming it is usually worth more than a fresh slate, since its items already have
-approved approaches and a dependency graph this run would re-derive from scratch:
+**When an exclusion names a sibling manifest, report that batch's outstanding work too — but
+verify each item against git first.** A manifest is authoritative for OWNERSHIP (it closes the
+Step 0.1c race), never for COMPLETION: the closing session writes Notion and git before its
+manifest entry, which can lag or die with it. Tally the non-`done`/`deferred` items, then drop
+any already merged (`git log --oneline origin/development --grep=<ID> -i`) — a stale
+`queued_red` inflates the human-attended queue the Step 0.1a.6 RED quota is sized against. An
+owned ID is not just unavailable — it is evidence of a batch that stalled with work left, and
+resuming it is usually worth more than a fresh slate, since its items already have approved
+approaches and a dependency graph this run would re-derive from scratch:
 
     ⏸️  batch debug374-debug380-… still owes 3 pending + 1 parked — `/b-batch --resume` likely
         beats a new slate
