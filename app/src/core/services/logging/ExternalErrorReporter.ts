@@ -172,15 +172,28 @@ export const SENSITIVE_DATA_PATTERNS = [
  * CRISIS / WELLNESS CONTENT SUBSTRINGS
  *
  * Content that must never reach an external processor (Sentry) — assessment
- * identifiers, crisis terms, the 988 hotline. Single-sourced so the error path
- * (`containsCrisisContent`) and the FEAT-284 feedback path
- * (`feedbackContainsCrisisContent`) enforce the identical set.
+ * identifiers, crisis terms, the 988 hotline.
+ *
+ * DEBUG-338: `'988'` is a REGEX with word boundaries, not a bare substring.
+ * As a substring it matched hex digit-runs in the structural identifiers
+ * `_prepareEvent` stamps on every event — `event_id`, `contexts.trace.trace_id`
+ * and `.span_id`, `sdkProcessingMetadata.dynamicSamplingContext` — plus the
+ * 9-10 digit `contexts.device.*` memory figures. P('988' in a 32-char hex run)
+ * is ~0.7%, and there are several such fields per event, so roughly 2-4% of ALL
+ * error events app-wide were being dropped at random with zero crisis content in
+ * them. Nothing in privacy-policy.md or the DPIA promises identifier-entropy
+ * drops, so that was a bug, not a contract.
+ *
+ * Use `\b`, NOT a lookbehind — lookbehind is unreliable on Hermes. The
+ * alphabetic patterns stay plain substrings deliberately: hex and decimal noise
+ * cannot produce them, and substring matching is what catches `suicidal`,
+ * `suicide` and `self-harmed` from one entry.
  */
-const CRISIS_CONTENT_PATTERNS = [
+const CRISIS_CONTENT_PATTERNS: readonly (string | RegExp)[] = [
   'phq-9', 'phq9', 'gad-7', 'gad7',
   'crisis', 'suicid', 'self-harm',
-  'emergency', 'intervention', '988',
-] as const;
+  'emergency', 'intervention', /\b988\b/,
+];
 
 /* ------------------------------------------------------------------------- *
  * FEAT-284 — in-app bug/feedback reporting (Sentry feedback widget)
@@ -577,11 +590,96 @@ export class ExternalErrorReporter {
   }
 
   /**
-   * Check if event contains crisis content
+   * Concatenate the CONTENT-BEARING surfaces of a Sentry event (DEBUG-338).
+   *
+   * This used to be `JSON.stringify(event)` — the whole event, structural
+   * metadata included. Two problems with that, and one fix for both.
+   *
+   * SCOPING IS WHAT MAKES PATH-VS-CONTENT EXPRESSIBLE. Once the event is
+   * flattened into a single string, a stack frame's `filename` and a free-text
+   * `message` are indistinguishable, so "let a crisis-path stack trace through
+   * but never crisis prose" cannot be written at all. Walking named surfaces
+   * makes `stacktrace.frames[]` structural metadata by construction.
+   *
+   * WHAT IS DELIBERATELY EXCLUDED, and why each is safe: `event_id`,
+   * `contexts.trace`, `sdkProcessingMetadata`, `debug_meta`, `sdk`, `modules`,
+   * `release`, `timestamp`, and every `stacktrace.frames[]` entry. All are
+   * SDK-generated or build-derived — no code path writes user content into them.
+   *
+   * WHAT IS DELIBERATELY INCLUDED: `extra`, `tags`, `user`, `breadcrumbs` and
+   * `contexts` (minus `trace`). These carry author-supplied data, so anything
+   * inside them is content. Scoping down to only `message` + `exception.value`
+   * would WEAKEN the privacy contract — do not "simplify" this list.
+   *
+   * Objects are serialised wholesale rather than walked, so a nested string is
+   * still caught. Failure to serialise (a cycle) contributes nothing here, but
+   * cannot cause a leak: `beforeSendHook` fails closed on any throw, and
+   * `applyAllowlist` runs afterwards and drops these fields anyway.
+   */
+  private collectContentText(event: any): string {
+    const parts: string[] = [];
+    const push = (value: unknown): void => {
+      if (value === null || value === undefined) return;
+      if (typeof value === 'object') {
+        try {
+          parts.push(JSON.stringify(value));
+        } catch {
+          // Unserialisable (cyclic) — skip; see the fail-closed note above.
+        }
+        return;
+      }
+      parts.push(String(value));
+    };
+
+    push(event?.message);
+    push(event?.logentry?.message);
+    push(event?.logentry?.formatted);
+    push(event?.logentry?.params);
+    push(event?.transaction);
+    push(event?.fingerprint);
+    push(event?.request?.url);
+    push(event?.extra);
+    push(event?.tags);
+    push(event?.user);
+
+    // Exception type/value are prose. `stacktrace` is NOT walked — that is the
+    // path-vs-content line.
+    for (const value of event?.exception?.values ?? []) {
+      push(value?.type);
+      push(value?.value);
+    }
+
+    for (const crumb of event?.breadcrumbs ?? []) {
+      push(crumb?.category);
+      push(crumb?.message);
+      push(crumb?.data);
+    }
+
+    // `contexts` minus `trace` — trace holds only SDK-generated hex ids.
+    if (event?.contexts && typeof event.contexts === 'object') {
+      for (const [key, value] of Object.entries(event.contexts)) {
+        if (key === 'trace') continue;
+        push(value);
+      }
+    }
+
+    return parts.join(' ').toLowerCase();
+  }
+
+  /**
+   * Check if event contains crisis content.
+   *
+   * A match drops the event WHOLESALE — never a partial scrub. That guarantee
+   * predates DEBUG-338 and is pinned by the privacy contract tests; do not
+   * soften it into a redaction.
    */
   private containsCrisisContent(event: any): boolean {
-    const eventStr = JSON.stringify(event).toLowerCase();
-    return CRISIS_CONTENT_PATTERNS.some(pattern => eventStr.includes(pattern));
+    const contentText = this.collectContentText(event);
+    return CRISIS_CONTENT_PATTERNS.some(pattern =>
+      typeof pattern === 'string'
+        ? contentText.includes(pattern)
+        : pattern.test(contentText)
+    );
   }
 
   /**
