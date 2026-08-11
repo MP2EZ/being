@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: borderRadius.xs,
   },
   subtitle: {
@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
   practicesEntryLabel: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   practicesEntryAction: {
     fontSize: typography.bodySmall.size,

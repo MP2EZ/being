@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   guidanceText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     marginBottom: spacing[8],
     lineHeight: 22,

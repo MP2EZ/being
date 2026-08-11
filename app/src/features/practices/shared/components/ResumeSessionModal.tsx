@@ -355,7 +355,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
   },
   infoSection: {
@@ -373,7 +373,7 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[16],
   },
   progressSection: {
@@ -399,7 +399,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: spacing[8],
@@ -438,7 +438,7 @@ const styles = StyleSheet.create({
   tooltipTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   tooltipText: {
@@ -449,7 +449,7 @@ const styles = StyleSheet.create({
   },
   tooltipBold: {
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   tooltipCitation: {
     fontSize: typography.micro.size,

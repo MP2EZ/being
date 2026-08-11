@@ -8,7 +8,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, typography } from '@/core/theme';
 
 interface SubMenuHeaderProps {
   title: string;
@@ -53,14 +53,14 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     fontSize: typography.headline4.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     fontWeight: typography.fontWeight.light,
   },
   title: {
     flex: 1,
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
   },
   spacer: {

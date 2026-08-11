@@ -26,7 +26,7 @@ import {
   ScrollView,
   AccessibilityInfo,
 } from 'react-native';
-import { spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, spacing, borderRadius, typography } from '@/core/theme';
 
 interface ThresholdEducationModalProps {
   visible: boolean;
@@ -36,7 +36,9 @@ interface ThresholdEducationModalProps {
 // WCAG-AA compliant colors
 const colors = {
   white: '#FFFFFF',
-  black: '#1C1C1C',
+  // DEBUG-387: was the raw literal '#1C1C1C' — invisible to any
+  // `colorSystem.base.black` scanner, which is how it survived prior audits.
+  black: semantic.text.primary,
   gray100: '#F3F4F6',
   gray600: '#4B5563',
   gray700: '#374151',

@@ -426,7 +426,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
 
   statusIndicator: {
@@ -518,7 +518,7 @@ const styles = StyleSheet.create({
 
   privacyBold: {
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
 
   privacyNoticeNote: {
@@ -536,7 +536,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[12],
   },
 
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
   },
 
   statusValue: {
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     fontWeight: typography.fontWeight.medium,
   },
 
@@ -579,7 +579,7 @@ const styles = StyleSheet.create({
   },
 
   secondaryButtonText: {
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     fontWeight: typography.fontWeight.medium,
   },
 
@@ -616,7 +616,7 @@ const styles = StyleSheet.create({
 
   configLabel: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
 
   configValue: {

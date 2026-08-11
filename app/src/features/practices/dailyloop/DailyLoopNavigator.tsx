@@ -19,7 +19,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, typography } from '@/core/theme';
 import { FlowProgressIndicator } from '../shared/components';
 import type {
   DailyLoopMode,
@@ -354,7 +354,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   closeButton: {
@@ -367,7 +367,7 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     fontSize: typography.headline4.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     fontWeight: typography.fontWeight.regular,
   },
 });

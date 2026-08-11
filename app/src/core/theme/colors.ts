@@ -136,11 +136,20 @@ export const semantic = {
     // Two further facts settle it. #1C1C1C is not an app-side accident: it IS the
     // design system's own `colors.text.primary`, paired in-package with
     // `text.secondary` #424242, so the collapsed pairing is the DS's declared
-    // intent. And `semantic.text.primary` reaches only ~26 render sites while
-    // `colorSystem.base.black` is read directly at ~102 across 46 files — so any
+    // intent. And there WAS a second prerequisite here — this note used to say
+    // `semantic.text.primary` reached "only ~26 render sites" while
+    // `colorSystem.base.black` was read directly at "~102 across 46 files", so a
     // primary re-point would move a fifth of the sites and mint two
-    // indistinguishable blacks. That is the DEBUG-342 token-bypass shape exactly,
-    // one token up, and it is the real prerequisite for ever moving this token.
+    // indistinguishable blacks: the DEBUG-342 token-bypass shape, one token up.
+    //
+    // DEBUG-387 DISCHARGED IT. Those figures were inherited prose, never measured
+    // (the real counts were 32-34 and 100 across 45 files), and the condition is
+    // now gone: this token is the SOLE reader of the primary text ramp.
+    // `colorSystem.base.black` survives only as its definition on the line below
+    // plus three decorative `shadowColor:` sites, and the raw `#1C1C1C` literal is
+    // a hard zero in source — both pinned in BOTH directions by
+    // `__tests__/black-call-sites.accessibility.test.ts`, so the bypass cannot
+    // regrow silently. A primary re-point now moves every site at once.
     //
     // The only lever that can actually restore a chromatic tier is LIGHTENING
     // `secondary`, which the app cannot do — it can re-point which ramp value a
