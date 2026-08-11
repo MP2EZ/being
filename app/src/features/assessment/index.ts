@@ -18,5 +18,5 @@ export * from './stores';
 // Public Types
 export * from './types';
 
-// Public Hooks
-export * from './hooks';
+// No `./hooks` re-export: the directory held only `useAssessmentPerformance`,
+// which MAINT-398 deleted along with the parallel crisis scorer it drove.
