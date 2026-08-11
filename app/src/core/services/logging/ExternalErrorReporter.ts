@@ -101,9 +101,12 @@ const ALLOWED_LEVELS = ['fatal', 'error', 'warning', 'log', 'info', 'debug'] as 
  * ('daily'): the breadcrumb answers "which surface did this error occur on". Mixing in the
  * CheckInType vocabulary would make a future record-schema change ripple into telemetry.
  *
- * CAUTION when adding a token: `isCrisisRelated` keyword-scans the stringified context for
- * terms including 'safety', 'crisis', 'emergency'. A surface token containing one would
- * silently suppress EVERY error report from that surface. 'daily-loop' hits none.
+ * CAUTION when adding a token (MAINT-401 — the hazard changed shape, it did not go away):
+ * `flowType` is copied into the sanitized `extra`, which `collectContentText` DOES walk, so
+ * a surface token containing a CRISIS_CONTENT_PATTERNS term ('crisis', 'emergency',
+ * 'intervention', 'phq-9', 'gad-7', ...) would drop every event from that surface wholesale.
+ * The old over-broad pre-filter this note used to warn about is gone; the narrower content
+ * scan remains, and it is the one to check a new token against. 'daily-loop' hits none.
  */
 const ALLOWED_FLOW_TYPES: readonly PracticeIdentity[] = [
   'morning',
@@ -194,6 +197,25 @@ const CRISIS_CONTENT_PATTERNS: readonly (string | RegExp)[] = [
   'crisis', 'suicid', 'self-harm',
   'emergency', 'intervention', /\b988\b/,
 ];
+
+/**
+ * MAINT-401 — replacement token for a wellness-sensitive stack-frame segment.
+ *
+ * DEBUG-338 ruled that `stacktrace` is structural metadata and exempted it from
+ * the content scan. That exemption is correct — a frame is a path, not prose,
+ * and dropping the event over one would destroy the crash triage that is the
+ * whole reason for transmitting it. But an exemption is not a control: a raw
+ * `features/crisis/...` path recreates, through a slot nothing coarsens, the
+ * exact signal `sanitizeScreenName` / `isSensitiveRoute` exist to close.
+ *
+ * So the segment is coarsened rather than the event dropped. The keyword set is
+ * the SHARED `isSensitiveRoute` constant, so it provably cannot drift from the
+ * screen-name path.
+ *
+ * A distinct token, not `GENERIC_SCREEN_BUCKET` ('App'), because this lands
+ * inside a path where 'App' reads as a real directory name.
+ */
+const SENSITIVE_PATH_SEGMENT = '[sensitive]';
 
 /* ------------------------------------------------------------------------- *
  * FEAT-284 — in-app bug/feedback reporting (Sentry feedback widget)
@@ -465,12 +487,15 @@ export class ExternalErrorReporter {
       return;
     }
 
-    // CRITICAL: Never report crisis-related errors externally
-    if (this.isCrisisRelated(error, context)) {
-      logger.warn(LogCategory.SECURITY, 'Blocked external report of crisis-related error');
-      return;
-    }
-
+    // MAINT-401: the crisis guarantee is NOT enforced here. It lives at the
+    // chokepoint every capture path traverses — `beforeSendHook` ->
+    // `containsCrisisContent` -> wholesale drop. A pre-filter on this one method
+    // was strictly weaker (it guarded a single entry point) and strictly
+    // broader (its keyword list added 'assessment', 'score', 'safety', 'gad',
+    // 'phq'), so it advertised a control it did not provide while risking
+    // silent suppression of every report from those surfaces. Removed rather
+    // than aligned: aligning would have preserved a dead duplicate of a live
+    // guarantee in a citable, control-looking form.
     try {
       const sanitizedEvent = this.sanitizeError(error, context);
 
@@ -569,24 +594,6 @@ export class ExternalErrorReporter {
     } catch {
       return null; // Fail-safe: drop on error
     }
-  }
-
-  /**
-   * Check if error is crisis-related
-   */
-  private isCrisisRelated(error: Error, context?: any): boolean {
-    const errorText = `${error.name} ${error.message} ${error.stack || ''}`.toLowerCase();
-    const contextText = JSON.stringify(context || {}).toLowerCase();
-
-    const crisisKeywords = [
-      'crisis', 'phq', 'gad', 'assessment', 'score', 'suicidal',
-      'suicide', 'self-harm', 'emergency', '988', 'intervention',
-      'safety', 'safetyplan', 'emergencycontact'
-    ];
-
-    return crisisKeywords.some(keyword =>
-      errorText.includes(keyword) || contextText.includes(keyword)
-    );
   }
 
   /**
@@ -732,7 +739,7 @@ export class ExternalErrorReporter {
           stacktrace: ex.stacktrace ? {
             frames: ex.stacktrace.frames?.map((frame: any) => ({
               filename: this.sanitizeFilename(frame.filename),
-              function: frame.function,
+              function: this.sanitizeFrameFunction(frame.function),
               lineno: frame.lineno,
               colno: frame.colno,
             })).slice(0, 10) // Limit stack depth
@@ -833,16 +840,53 @@ export class ExternalErrorReporter {
   }
 
   /**
-   * Sanitize filename to remove potentially sensitive paths
+   * Sanitize filename to remove potentially sensitive paths.
+   *
+   * MAINT-401: THIS METHOD IS THE STRUCTURAL SCOPE OF THE FRAMES EXEMPTION.
+   * Its only two callers are the `frames[].filename` slot — `applyAllowlist`'s
+   * frame map and `sanitizeStack` — so it never sees prose, and the coarsening
+   * below therefore cannot reach content. That is deliberate and load-bearing:
+   * the same coarsening implemented as a "strip path-shaped substrings before
+   * scanning" pre-pass over `collectContentText` would exempt path-SHAPED
+   * content wholesale. `crisis_alerts/insert score=21` is the worked example,
+   * and `scrubSensitiveData` cannot recover it — `/score[:\s]*[0-9]+/gi`
+   * requires `:` or whitespace, and `=` defeats it. Pinned by
+   * __tests__/privacy/stackFrameExemption.contract.test.ts.
    */
   private sanitizeFilename(filename: string): string {
     if (!filename) return '';
 
     // Remove user-specific paths
-    return filename
-      .replace(/\/Users\/[^/]+\//gi, '/~/')
-      .replace(/C:\\Users\\[^\\]+\\/gi, 'C:\\~\\')
-      .replace(/node_modules/gi, 'nm');
+    return (
+      filename
+        .replace(/\/Users\/[^/]+\//gi, '/~/')
+        .replace(/C:\\Users\\[^\\]+\\/gi, 'C:\\~\\')
+        .replace(/node_modules/gi, 'nm')
+        // Coarsen SEGMENT-WISE, never the whole path: separators are preserved
+        // and non-sensitive segments survive verbatim, so the frame stays
+        // triageable. Handles both separators without a split/join.
+        .replace(/[^/\\]+/g, (segment) =>
+          isSensitiveRoute(segment) ? SENSITIVE_PATH_SEGMENT : segment
+        )
+    );
+  }
+
+  /**
+   * MAINT-401: coarsen a stack-frame function name.
+   *
+   * `frames[].function` is the same side channel in a sibling slot — a
+   * symbolicated frame yields `renderCrisisResources` just as readily as the
+   * path yields `CrisisResourcesScreen.tsx`, and `createReactNativeRewriteFrames`
+   * rewrites only `filename`/`abs_path`/`colno`/`in_app`, never `function`.
+   * Coarsening the path alone would be cosmetic.
+   *
+   * Whole-token test, not segment-wise: a function name is an identifier, not a
+   * path. Returns the input unchanged when absent so an anonymous frame keeps
+   * its shape.
+   */
+  private sanitizeFrameFunction(fn?: string): string | undefined {
+    if (!fn) return fn;
+    return isSensitiveRoute(fn) ? SENSITIVE_PATH_SEGMENT : fn;
   }
 
   /**
@@ -858,7 +902,9 @@ export class ExternalErrorReporter {
       const match = line.match(/at\s+(\S+)\s+\(([^:]+):(\d+):(\d+)\)/);
       if (match && match[1] && match[2] && match[3] && match[4]) {
         frames.push({
-          function: match[1],
+          // MAINT-401: same coarsening as the applyAllowlist frame map — the two
+          // frame paths must not disagree about what a sensitive slot looks like.
+          function: this.sanitizeFrameFunction(match[1]) ?? match[1],
           filename: this.sanitizeFilename(match[2]),
           lineno: parseInt(match[3], 10),
           colno: parseInt(match[4], 10),
