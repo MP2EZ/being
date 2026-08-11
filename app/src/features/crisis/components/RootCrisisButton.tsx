@@ -17,7 +17,7 @@
  *                           NOT touch the assessment flow, so suppress here to avoid a
  *                           double mount / losing the safety-tuned prominent emphasis
  *       • LegalGate       — under-age gate with its own inline Call-988 / Text UI
- *   - `immersive` (starts faded 50%) during meditative practice flows/timers.
+ *   - `immersive` (starts faded — see FADED_OPACITY) during meditative practice flows/timers.
  *   - `standard` everywhere else (tabs, onboarding, library, module detail, subscription…).
  *
  * NATIVE <Modal> EXCEPTION: React Native's <Modal> renders in a separate native view

@@ -182,8 +182,10 @@ export class PerformanceSystem {
       // Store optimization
       ZustandStoreOptimizer.flush(); // Flush pending operations
 
-      // Crisis detection precomputation
-      CrisisPerformanceOptimizer.precomputeCrisisThresholds();
+      // MAINT-398: `CrisisPerformanceOptimizer.precomputeCrisisThresholds()` was
+      // called here. It verified the optimizer's own crisis lookup tables — which
+      // were deleted with the parallel scorer, so there is nothing left to
+      // precompute. Canonical `detectCrisis` uses no lookup tables.
 
       console.log('✅ Comprehensive performance optimization completed');
     } catch (error) {
