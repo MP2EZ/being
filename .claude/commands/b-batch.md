@@ -1013,6 +1013,14 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
      graph. Re-enter **Phase 1** for every `claiming` item instead, plan them as a group, and
      rebuild the graph before anything runs.
    - Notion `Status`: `Done` → `done` (skip); `Cancelled` → drop; `Testing` → work implemented, resume at `/b-close` (Step 3.3); `In progress` → resume at Step 3.1's tail (verify/commit); `Batched` → this batch's own claim, never implemented (Step 0.0 already reaped any claim no live manifest owns, so a surviving one is ours) → run from Step 3.1; `Not started` → run from Step 3.1; `Blocked` → consult the manifest: `parked` (CI ×2) needs a human triage decision — surface it, don't silently retry; `deferred`/`blocked_by` re-evaluates in step 3 below.
+   - **Manifest `state` wins for `parked`, whatever Notion says.** The row above reads
+     Notion first, which assumes the two agree. They can disagree in exactly one direction
+     that matters: a park is supposed to write `Blocked` (Step 3.4b), but if that write was
+     missed the row still says `Not started` — which this table maps to *run from Step 3.1*,
+     silently re-running an item parked for a human decision and burning a full
+     implement-plus-CI cycle to rediscover the same wall. Notion status is a projection;
+     the manifest is the record. Check `state` first: if it is `parked`, surface it and
+     re-assert `Blocked`, whatever the row said.
    - `git worktree list` → confirms what's mid-flight on disk.
    - `gh pr list` → confirms what's awaiting/failed CI.
    - `gh pr list --head <branch>` → **an open PR on an item's own head branch means another
