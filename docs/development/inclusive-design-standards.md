@@ -559,6 +559,52 @@ universal_crisis_design:
     - multimodal_crisis_communication: visual_plus_screen_reader_only_no_audio_playback_and_no_haptics_on_the_crisis_path
 ```
 
+#### MAINT-393 ruling: the advanced-accessibility subtree was DELETED, not mounted
+
+`core/components/accessibility/advanced/` — `UnifiedProvider`, `SensoryAccessibility`,
+`MotorAccessibility`, `CognitiveAccessibility`, `AdvancedScreenReader`,
+`AccessibilityTesting`, `AccessibilityPerformance` — and its crisis-side half,
+`features/crisis/components/CrisisAccessibility.tsx`, have been removed. Roughly
+5,100 LOC.
+
+**Why delete rather than mount.** Nothing ever mounted it. `App.tsx` wires
+`PostHogProvider` → `SafeAreaProvider` → `RootCrisisBoundary` →
+`CleanRootNavigator`; `AdvancedAccessibilityProvider` had no consumer outside the
+accessibility barrel that exported it. `useSensoryAccessibility` throws unless
+wrapped in its own provider, so `CrisisAccessibility`'s hook call could not
+execute in the running app. The subsystem was advertised by the repo and
+unreachable in the product — the state this codebase treats as a defect in its
+own right (same principle as MAINT-366 / MAINT-369 / DEBUG-374).
+
+**It was not costless while dormant.** The barrel's import of it was a *value*
+import, and `advanced/index.ts` value-imported all seven modules plus
+`CrisisAccessibility`. Metro does not tree-shake by default, so those ~5,100 LOC
+were parsed and module-initialised on the path rendering `AssessmentResults`,
+`AssessmentIntroduction`, and `EnhancedAssessmentQuestion` — the PHQ-9 / GAD-7
+threshold surface, which carries the <2s launch and <300ms assessment-load
+budgets. Deletion removes weight *from* the crisis-threshold path.
+
+**Two claims it made about this app were false**, which is what made keeping it
+actively misleading rather than merely unused. `VisualAudioIndicator` rendered
+🔊/🔇 and announced `Audio playing` / `Audio paused` in an app with **no audio
+playback at any layer** — no `expo-av`, `expo-audio`, or `expo-speech`
+(`expo-speech-recognition` is an input API). And `provideAudioCue` fired
+`Vibration.vibrate()` plus a screen-reader announcement and played no sound at
+all. Both left with the file, which is why MAINT-393's acceptance criteria to
+rename `provideAudioCue` → `provideNonVisualCue` and to delete-or-document
+`VisualAudioIndicator` **dissolve** rather than being satisfied.
+
+**`enableAudioDescriptions` / `enableVisualIndicators`** were config fields on the
+deleted subtree and went with it. Had the ruling been *keep*, the recommendation
+was to leave the names alone — "audio description" is standard WCAG terminology.
+
+**Reintroducing this needs a fresh design, not a `git revert`.** Advanced
+sensory / motor / cognitive support is a legitimate goal; what was deleted was an
+unvalidated, never-executed implementation of it. New work here takes a `crisis`
+agent pass and an `accessibility` pass on whether any genuine WCAG 2.1 AA
+obligation is at stake — reverting would restore the false audio assertions and
+the launch-path parse cost along with everything else.
+
 **Crisis Communication Across Cultural Contexts**
 ```typescript
 class CulturalCrisisSupport {

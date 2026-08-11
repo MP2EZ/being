@@ -38,7 +38,6 @@ features/crisis/
 ├── components/
 │   ├── CrisisButton.tsx
 │   ├── CrisisErrorBoundary.tsx
-│   ├── CrisisAccessibility.tsx
 │   └── index.ts
 ├── screens/
 │   ├── CrisisResourcesScreen.tsx
