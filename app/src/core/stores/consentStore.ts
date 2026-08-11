@@ -166,12 +166,41 @@ export interface ConsentRecord {
 export interface ConsentHistoryEntry {
   /** Previous consent record hash (tamper detection) */
   previousHash?: string;
-  /** Action taken */
-  action: 'granted' | 'updated' | 'revoked' | 'renewed';
+  /**
+   * Action taken.
+   *
+   * `'declined'` (FEAT-399) is a refusal to re-grant after a CONSENT_VERSION
+   * bump. It is deliberately NOT modelled as either of the two nearby members:
+   *   - `'revoked'` is a GDPR Art. 7(3) withdrawal of a consent the user
+   *     currently holds. A decline withdraws nothing, and conflating them
+   *     would collide with the FEAT-316 ordering that keeps a withdrawn user
+   *     from ever being re-prompted.
+   *   - `'updated'` asserts preferences changed, but a decline necessarily
+   *     changes none (`changes` is `{}`). This vocabulary is exported verbatim
+   *     into the CCPA/DSR payload, so an inaccurate member is an Art. 5(1)(d)
+   *     defect in the very artifact that exists for Art. 7(1) demonstrability —
+   *     and recovering the real meaning by string-parsing `note` fails
+   *     Art. 12(1) intelligibility.
+   */
+  action: 'granted' | 'updated' | 'revoked' | 'renewed' | 'declined';
   /** What changed */
   changes: Partial<ConsentPreferences>;
   /** Timestamp */
   timestamp: number;
+  /**
+   * Policy version this entry moved FROM / TO (FEAT-399).
+   *
+   * Both OPTIONAL by design: every entry persisted before this field existed
+   * deserialises byte-identically, so the encrypted history needs no migration.
+   *
+   * Typed fields rather than `note` text because `exportConsentRecords` passes
+   * `history` straight into the CCPA/DSR export unchanged — encoding the
+   * versions in prose would force a regulator, or a user exercising
+   * right-to-know, to regex-parse free text to recover which policy version
+   * they consented to.
+   */
+  fromVersion?: string;
+  toVersion?: string;
   /**
    * Optional note documenting non-user actions on the audit chain
    * (e.g., the INFRA-144 storage-substrate migration). Lets the audit
@@ -180,6 +209,46 @@ export interface ConsentHistoryEntry {
    */
   note?: string;
 }
+
+/**
+ * Resolved state of the stored consent record.
+ *
+ * Extracted from the inline union on `ConsentStore.consentStatus` (FEAT-399) so
+ * the re-consent allowlist below can be typed against it — a `satisfies
+ * readonly ConsentStatus[]` check is what makes a typo in that list a compile
+ * error rather than a silently-never-matching string.
+ */
+export type ConsentStatus =
+  | 'loading'
+  | 'valid'
+  /** Stored record predates the current CONSENT_VERSION. Re-consent eligible. */
+  | 'version_mismatch'
+  /** Record unreadable or missing identifiers. NEVER re-consent eligible. */
+  | 'integrity_error'
+  /** User deliberately withdrew (Art. 7(3)). NEVER re-consent eligible. */
+  | 'revoked'
+  | 'expired'
+  | 'missing'
+  | 'under_age';
+
+/**
+ * The ONLY statuses from which re-consent may be offered (FEAT-399).
+ *
+ * Expressed as an allowlist, never as "everything except revoked" — see the
+ * `consentStatus` contract below. A denylist would silently admit any status
+ * added later, including `integrity_error`, where fabricating a
+ * fromVersion → toVersion entry off an unread record is worse than not
+ * prompting at all.
+ */
+export const RE_CONSENT_ELIGIBLE_STATUSES = [
+  'version_mismatch',
+  'expired',
+] as const satisfies readonly ConsentStatus[];
+
+/** Single source of truth for re-consent eligibility. Both write actions and
+ *  the eventual re-consent screen must consume this rather than re-deriving. */
+export const isReConsentEligible = (status: ConsentStatus): boolean =>
+  (RE_CONSENT_ELIGIBLE_STATUSES as readonly ConsentStatus[]).includes(status);
 
 /**
  * Consent store state
@@ -217,18 +286,7 @@ export interface ConsentStore {
    * be expressed as an allowlist — never "everything except revoked" — so that
    * adding a status here later cannot silently re-enable nagging.
    */
-  consentStatus:
-    | 'loading'
-    | 'valid'
-    /** Stored record predates the current CONSENT_VERSION. Re-consent eligible. */
-    | 'version_mismatch'
-    /** Record unreadable or missing identifiers. NEVER re-consent eligible. */
-    | 'integrity_error'
-    /** User deliberately withdrew (Art. 7(3)). NEVER re-consent eligible. */
-    | 'revoked'
-    | 'expired'
-    | 'missing'
-    | 'under_age';
+  consentStatus: ConsentStatus;
   isLoading: boolean;
   error: string | null;
 
@@ -250,6 +308,25 @@ export interface ConsentStore {
   loadConsent: () => Promise<ConsentRecord | null>;
   grantConsent: (preferences: ConsentPreferences, ageVerification: AgeVerification) => Promise<void>;
   updateConsent: (preferences: Partial<ConsentPreferences>) => Promise<void>;
+  /**
+   * Record a fresh, correctly-versioned consent decision from a lapsed state
+   * (FEAT-399). Permitted only from `RE_CONSENT_ELIGIBLE_STATUSES`.
+   *
+   * `preferences` is REQUIRED and is the user's re-affirmed set — it is never
+   * carried forward from the stale record. A v1.0.0 record predates
+   * `mentalHealthProcessingConsent` (added at 1.1.0 by DEBUG-150, and named in
+   * `CONSENT_CHANGELOG['1.1.0'].changedKeys`), so inferring it from the old
+   * record would fabricate GDPR Art. 9(2)(a) explicit consent, which requires
+   * an affirmative act. The same holds on the `expired` branch: refreshing an
+   * expiry without a user act is not consent either.
+   */
+  renewConsent: (preferences: ConsentPreferences) => Promise<void>;
+  /**
+   * Record a refusal to re-grant (FEAT-399). Appends to the audit chain and
+   * writes NO consent record, so the stored record stays stale and the user is
+   * re-prompted next launch.
+   */
+  declineReConsent: () => Promise<void>;
   revokeConsent: (reason?: string) => Promise<void>;
   /**
    * Set the universal opt-out flag (INFRA-151). When `true`, blocks all
@@ -541,12 +618,46 @@ const generateConsentId = (): string => {
 };
 
 /**
+ * Minimum age for consent (ToS §4 / Privacy Policy §8).
+ *
+ * Named (FEAT-399) so the gate has one definition. It was previously a literal
+ * inside `verifyAge` only, which is how the drift this constant guards against
+ * arose: DEBUG-150 (`c96ab71e`) moved it 13 → 18 in the same commit that bumped
+ * CONSENT_VERSION 1.0.0 → 1.1.0, leaving every v1.0.0 record carrying an
+ * `isEligible` flag that was computed under the OLD rule.
+ */
+const MINIMUM_CONSENT_AGE = 18;
+
+/**
  * Calculate age from birth year
  */
 const calculateAge = (birthYear: number): number => {
   const currentYear = new Date().getFullYear();
   return currentYear - birthYear;
 };
+
+/**
+ * Re-derive 18+ eligibility for a renewal instead of trusting the record's own
+ * `isEligible` flag (FEAT-399).
+ *
+ * 🔴 WHY THE FLAG ALONE IS NOT ENOUGH. `version_mismatch` is reachable only
+ * from a v1.0.0 record, and every v1.0.0 record was written while the gate was
+ * 13+. So `isEligible === true` on one of them means "≥13", not "≥18" — the
+ * flag's TYPE is unchanged across the boundary while its MEANING is not, which
+ * is invisible to the compiler and to every existing test. `loadConsent` tests
+ * `version` before it tests age, so an ineligible holder of a stale record
+ * surfaces as `version_mismatch` and never as `under_age`; this function is the
+ * only thing between a re-consent path and re-consenting a minor.
+ *
+ * Fails closed on a missing `birthYear` — the field is optional, and refusing
+ * is the only safe reading of "we cannot establish an age".
+ */
+function isBaseEligibleForRenewal(base: ConsentRecord): boolean {
+  if (base.ageVerification.isEligible !== true) return false;
+  const { birthYear } = base.ageVerification;
+  if (typeof birthYear !== 'number' || !Number.isFinite(birthYear)) return false;
+  return calculateAge(birthYear) >= MINIMUM_CONSENT_AGE;
+}
 
 /**
  * Persist consent history via SecureStorageService hybrid path (INFRA-144).
@@ -957,6 +1068,193 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
   },
 
   /**
+   * Renew consent after a policy-version bump or expiry (FEAT-399).
+   *
+   * `updateConsent` cannot do this job: it early-returns when `currentConsent`
+   * is null — exactly the `version_mismatch` state — and never rewrites
+   * `version` or `expiresAt`. It is also the wrong host, being the
+   * PrivacyDataScreen preference-toggle path.
+   */
+  renewConsent: async (preferences: ConsentPreferences) => {
+    const { consentStatus, staleConsent, currentConsent } = get();
+
+    if (!isReConsentEligible(consentStatus)) {
+      set({ error: `Re-consent is not permitted from status '${consentStatus}'` });
+      return;
+    }
+
+    // `version_mismatch` parks the record on `staleConsent`; `expired` retains
+    // it on `currentConsent`. FEAT-332's screen resolves it the same way.
+    const base = staleConsent ?? currentConsent;
+    if (!base) {
+      set({ error: 'No consent record available to renew' });
+      return;
+    }
+
+    if (!isBaseEligibleForRenewal(base)) {
+      // Refuse with NO write of any kind — and deliberately do NOT transition to
+      // `under_age`. A rejected store call must not drop the app into a terminal
+      // gate as a side effect; suppression belongs to the trigger layer.
+      set({ error: 'Age eligibility could not be re-established for renewal' });
+      return;
+    }
+
+    set({ isLoading: true, error: null });
+
+    try {
+      const now = Date.now();
+      const oneYearFromNow = now + 365 * 24 * 60 * 60 * 1000;
+
+      // 🔴 MUST reload — never `get().consentHistory`. `loadConsent` returns
+      // from both the `version_mismatch` and `expired` branches BEFORE it calls
+      // `loadConsentHistoryWithMigration()`, so the in-memory array is empty in
+      // exactly the two states this action runs in. Following `updateConsent`'s
+      // `[...consentHistory, entry]` pattern here would persist a one-element
+      // array over the encrypted GDPR Art. 7(1) audit chain and destroy it.
+      const history = await loadConsentHistoryWithMigration();
+
+      const renewed: ConsentRecord = {
+        // Built field by field rather than `...base`: that is what guarantees
+        // `revokedAt` / `revocationReason` cannot ride along onto a live record,
+        // and makes the version/expiry/id rewrites structural, not incidental.
+        consentId: generateConsentId(),
+        userId: base.userId,
+        version: CONSENT_VERSION,
+        // Caller-supplied, never carried forward — see the interface doc.
+        preferences,
+        // Carried forward verbatim. This is the GPC-equivalent universal
+        // opt-out; CCPA/CPRA, TDPSA and CPA all bar requiring a consumer to
+        // re-assert one, and an opt-out is not version-scoped.
+        universalOptOut: base.universalOptOut,
+        // Also carried forward verbatim. The 18+ re-derivation above is a GUARD,
+        // not a re-verification: no age UI ran in this slice, so refreshing
+        // `verifiedAt` / `ageAtVerification` would assert a verification event
+        // that did not occur — the same fabrication this action avoids on the
+        // legal-gate record below.
+        ageVerification: base.ageVerification,
+        timestamp: now,
+        updatedAt: now,
+        expiresAt: oneYearFromNow,
+        revoked: false,
+      };
+
+      await SecureStore.setItemAsync(CONSENT_SECURE_KEY, JSON.stringify(renewed));
+
+      // 🚫 `legal_gate_consents_v1` is deliberately NOT written here. Its four
+      // booleans attest that the user was SHOWN and ACCEPTED named documents,
+      // and this slice has no UI — stamping a fresh version into it would
+      // manufacture Art. 7(1) evidence of an acceptance that never happened, on
+      // a plaintext key that is erasure-excluded and would therefore outlive
+      // account deletion. A stale-but-true record beats a fresh-but-false one.
+      //
+      // INHERITED OBLIGATION for the re-consent screen slice: that record keeps
+      // its old `version` after a renewal, so the two version fields diverge on
+      // a GDPR demonstrability artifact. Nothing reads it for staleness today,
+      // so there is no live defect — but the screen that re-collects the ticks
+      // must call `recordLegalGateConsents` itself to close it.
+
+      const updatedHistory: ConsentHistoryEntry[] = [
+        ...history,
+        {
+          action: 'renewed',
+          changes: preferences,
+          timestamp: now,
+          fromVersion: base.version,
+          toVersion: CONSENT_VERSION,
+        },
+      ];
+      await persistConsentHistory(updatedHistory);
+
+      // Cache rebuilt exactly as `loadConsent` does, including the opt-out
+      // forcing of the four non-essential fields.
+      const optOut = renewed.universalOptOut;
+      const cache = {
+        canCollectAnalytics: optOut ? false : preferences.analyticsEnabled,
+        canCollectCrashReports: optOut ? false : preferences.crashReportsEnabled,
+        canSyncToCloud: optOut ? false : preferences.cloudSyncEnabled,
+        canParticipateInResearch: optOut ? false : preferences.researchEnabled,
+        canProcessMentalHealthData: preferences.mentalHealthProcessingConsent ?? false,
+        honorUniversalOptOut: optOut,
+        ageVerified: renewed.ageVerification.verified,
+        isEligible: renewed.ageVerification.isEligible ?? false,
+        cacheTimestamp: now,
+      };
+
+      await AsyncStorage.setItem(CONSENT_CACHE_KEY, JSON.stringify(cache));
+
+      set({
+        currentConsent: renewed,
+        staleConsent: null,
+        consentHistory: updatedHistory,
+        consentStatus: 'valid',
+        consentCache: cache,
+        isLoading: false,
+      });
+    } catch (error) {
+      console.error('[Consent] Failed to renew consent', error);
+      set({
+        error: 'Failed to renew consent',
+        isLoading: false,
+      });
+    }
+  },
+
+  /**
+   * Record a refusal to re-grant after a policy-version bump (FEAT-399).
+   *
+   * Writes NO consent record — only an audit entry. That is the whole point:
+   * the stored record must stay stale so the next launch re-prompts.
+   */
+  declineReConsent: async () => {
+    const { consentStatus, staleConsent, currentConsent } = get();
+
+    if (!isReConsentEligible(consentStatus)) {
+      set({ error: `A re-consent decline is not applicable from status '${consentStatus}'` });
+      return;
+    }
+
+    const base = staleConsent ?? currentConsent;
+    if (!base) {
+      set({ error: 'No consent record available to decline' });
+      return;
+    }
+
+    // No age gate here, deliberately. A minor declining is a truthful decision
+    // that writes no consent record; refusing to log it would lose the one
+    // audit entry that shows they were asked and said no.
+
+    set({ isLoading: true, error: null });
+
+    try {
+      // Same audit-chain hazard as `renewConsent` — this action runs in the
+      // same two states, where the in-memory history is empty.
+      const history = await loadConsentHistoryWithMigration();
+
+      const updatedHistory: ConsentHistoryEntry[] = [
+        ...history,
+        {
+          action: 'declined',
+          changes: {},
+          timestamp: Date.now(),
+          fromVersion: base.version,
+          toVersion: CONSENT_VERSION,
+        },
+      ];
+      await persistConsentHistory(updatedHistory);
+
+      // Touches nothing else on purpose: no CONSENT_SECURE_KEY write, no cache
+      // rebuild, no `consentStatus` / `currentConsent` / `staleConsent` change.
+      set({ consentHistory: updatedHistory, isLoading: false });
+    } catch (error) {
+      console.error('[Consent] Failed to record re-consent decline', error);
+      set({
+        error: 'Failed to record decline',
+        isLoading: false,
+      });
+    }
+  },
+
+  /**
    * Set universal opt-out flag (INFRA-151)
    *
    * Persists the new value, refreshes the consentCache (forcing
@@ -1122,7 +1420,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
     }
 
     const age = calculateAge(birthYear);
-    const eligible = age >= 18;
+    const eligible = age >= MINIMUM_CONSENT_AGE;
 
     const verification: AgeVerification = {
       verified: true,
