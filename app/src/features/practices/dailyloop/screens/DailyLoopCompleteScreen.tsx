@@ -30,6 +30,10 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } from '@/core/theme';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { BreathingCircle, Timer, SkipLink } from '@/features/practices/shared/components';
+// Module-scope constant, not an inline literal: `pattern` sits in BreathingCircle's
+// animation-effect dep array, so a fresh object identity each parent render both
+// defeats its React.memo and can restart the breath cycle mid-practice (DEBUG-394).
+import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
 import type { DailyLoopMode, DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
 import { CLOSING, STEP_TITLES, getStepKeysForDepth, getCompleteTitle } from '../config/tenseMode';
 
@@ -101,7 +105,7 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
             <View style={styles.breathCircleContainer}>
               <BreathingCircle
                 isActive={isBreathActive}
-                pattern={{ inhale: 4000, exhale: 4000 }}
+                pattern={DEFAULT_PATTERN}
                 testID="daily-loop-closing-breathing-circle"
               />
             </View>
