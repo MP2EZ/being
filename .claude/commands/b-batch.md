@@ -713,7 +713,15 @@ the loaded procedure directly for the rest (say so, so the run stays auditable).
 
 Keep the approach string free of stray safety keywords (`crisis`, `encryption`, `PHQ`,
 …) for non-safety stories — `/b-work` Step 3.1 scans `ADDITIONAL_CONTEXT` and would
-spuriously invoke a specialist. `/b-work` already writes and runs the relevant
+spuriously invoke a specialist.
+
+**A specialist the Phase 1 panel already ran does not run again.** Its rulings are what
+the approach string encodes; re-running costs a second pass and lets a fresh ruling
+overturn a Step 2.3 founder decision, which this loop may not do. Record that it ran and
+skip it — never silently. DO re-run one whose premise moved: a back-merge touching a file
+its ruling cited.
+
+`/b-work` already writes and runs the relevant
 `npm run test:*` suite in its Phase 3.4 — **do not re-run a separate test pass**;
 confirm the green result it reports. If `/b-work`'s tests are not green, treat it as an
 implementation failure → park (Step 3.4).
