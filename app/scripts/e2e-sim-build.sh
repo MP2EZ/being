@@ -56,6 +56,12 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
 
+# INFRA-405 — shared device resolution, used identically by e2e-safety.sh. Sourced, so it
+# must not set shell options (this script runs under `set -euo pipefail`, that one under a
+# bare `set -u`).
+# shellcheck source=scripts/e2e-sim-device.sh
+. "$(dirname "$0")/e2e-sim-device.sh"
+
 BUNDLE_ID="fyi.being.app"
 PRODUCT_DIR="ios/build/Build/Products/Release-iphonesimulator"
 CNG_STAMP="ios/.cng-stamp"
@@ -64,6 +70,12 @@ CNG_STAMP="ios/.cng-stamp"
 CNG_INPUTS=(app.json package.json plugins patches)
 
 BUILD_OK=0
+# INFRA-405. Declared HERE, before the trap is armed at the bottom of this block: cleanup()
+# references it, and under `set -euo pipefail` a trap body touching an unassigned variable
+# aborts the very cleanup it exists to perform. Resolution happens at step 2 — before this
+# script mutates any simulator state — so on every path where SIM_UDID is still empty,
+# nothing has been installed and there is nothing to clean up.
+SIM_UDID=""
 
 fail() {
   echo "❌ e2e:safety:build failed at stage: $1" >&2
@@ -76,8 +88,12 @@ fail() {
 # EXIT INT TERM, not just a non-zero exit: Ctrl-C during the assert block is precisely the
 # window in which an unverified binary is installed.
 cleanup() {
-  if [ "$BUILD_OK" != "1" ]; then
-    xcrun simctl uninstall booted "$BUNDLE_ID" >/dev/null 2>&1 || true
+  # INFRA-405: uninstall from the device we actually installed to. This used the literal
+  # `booted`, so on a multi-simulator machine the cleanup could target a different device
+  # and silently miss — leaving a marker-less app behind, which e2e-safety.sh then refuses
+  # while reporting a provenance problem rather than the build failure that caused it.
+  if [ "$BUILD_OK" != "1" ] && [ -n "$SIM_UDID" ]; then
+    xcrun simctl uninstall "$SIM_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
   fi
 }
 trap cleanup EXIT INT TERM
@@ -109,18 +125,24 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------
-# 2. Booted simulator
+# 2. Resolve the target simulator — ONCE, here, before anything is mutated.
+#
+#    INFRA-405. This used to be a bare "is anything booted?" probe, with the actual UDID
+#    resolved ~80 lines later at build time and the post-build asserts using the literal
+#    `booted`. Two problems: the two selectors could name different devices, and a device
+#    that boots MID-BUILD (observed — Simulator.app auto-boots without being asked) makes
+#    any pre-build count check stale before it is used. Resolving once and reusing the
+#    value is immune to both; re-querying `booted` at each step is not.
 # ---------------------------------------------------------------------------------------
-if ! xcrun simctl list devices booted | grep -qE '\(Booted\)'; then
-  fail "booted-simulator check — open Simulator (or 'xcrun simctl boot <device>') first"
-fi
+SIM_UDID="$(e2e_resolve_sim_device "gate build")" || fail "simulator selection"
+echo "🎯 Target simulator: $SIM_UDID"
 
 # ---------------------------------------------------------------------------------------
 # 3. Uninstall FIRST. One bundle ID is shared with the dev-client build (`npm run ios`),
 #    and `expo run:ios` installs over the top — so a differently-linked prior binary must
 #    be removed rather than overwritten.
 # ---------------------------------------------------------------------------------------
-xcrun simctl uninstall booted "$BUNDLE_ID" >/dev/null 2>&1 || true
+xcrun simctl uninstall "$SIM_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
 
 # ---------------------------------------------------------------------------------------
 # 4. CNG staleness -> prebuild. Conditional ON PURPOSE: an unconditional prebuild would
@@ -194,14 +216,9 @@ if [ ${#ENV_ARGS[@]} -eq 0 ]; then
   fail "eas.json env resolution — resolved profile e2e-sim to an empty env block"
 fi
 
-UDID="$(xcrun simctl list devices booted -j 2>/dev/null | node -e '
-  let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
-    try {
-      for (const v of Object.values(JSON.parse(s).devices || {}))
-        for (const d of v) if (d.state === "Booted") { console.log(d.udid); process.exit(0); }
-    } catch {}
-    process.exit(1);
-  });' 2>/dev/null)" || UDID=""
+# (INFRA-405: device resolution used to happen here. It moved to step 2 — see the comment
+# there. It is a pure query with no dependency on the intervening steps, and hoisting it is
+# the entire fix: the value must be captured before the build, not re-derived during it.)
 
 # Snapshot the tree HERE, immediately before bundling — not at step 1 (an `expo prebuild`
 # can touch tracked files) and not at step 7g (too late by definition). The binary about to
@@ -212,7 +229,10 @@ TREE_BEFORE_BUILD="$(node scripts/e2e-provenance.js fingerprint 2>/dev/null || t
 
 echo "🏗  Building Release simulator app (warm ≈1 min, cold ≈11 min)…"
 BUILD_CMD=(npx expo run:ios --configuration Release --no-bundler)
-[ -n "$UDID" ] && BUILD_CMD+=(--device "$UDID")
+# Unconditional. The old `[ -n "$UDID" ] &&` guard let a failed resolution fall through to
+# "let expo pick a device" — and a device we did not choose is one we cannot assert
+# against. Resolution now fails closed at step 2, so reaching here means SIM_UDID is real.
+BUILD_CMD+=(--device "$SIM_UDID")
 
 if ! env "${ENV_ARGS[@]}" NODE_ENV=production BABEL_ENV=production "${BUILD_CMD[@]}"; then
   fail "Release build (expo run:ios)"
@@ -227,8 +247,8 @@ fi
 #    it is preserved: any failure below exits non-zero via the trap with NO app installed,
 #    so no gate consumer can ever observe a binary that failed an assert.
 # ---------------------------------------------------------------------------------------
-APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" \
-  || fail "artifact discovery — the build reported success but installed no $BUNDLE_ID"
+APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" \
+  || fail "artifact discovery — the build reported success but installed no $BUNDLE_ID on $SIM_UDID"
 [ -d "$APP" ] || fail "artifact discovery — container path does not exist: $APP"
 
 # 7a. main.jsbundle present. Strongest single signal: a Debug/dev-client build has none

@@ -135,7 +135,28 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 
 **Prereqs.** Since INFRA-383 the default path needs no `eas-cli`, no credentials and no
 `fastlane` — only Xcode and a booted simulator:
-- A booted iOS simulator (the one prereq the script enforces by name).
+- **Exactly ONE booted iOS simulator** (the one prereq the script enforces by name).
+
+  The count matters, and the script fails closed on it (INFRA-405). `xcrun simctl help`
+  says of the `booted` selector: *"If multiple devices are booted when the 'booted' device
+  is selected, simctl will choose one of them."* Unspecified which — so with two or more
+  booted, a build could install to one device while the asserts, the provenance check and
+  `maestro test` each independently landed on another. Both scripts now resolve the device
+  once and thread that UDID through every call site, including `maestro test --device`, so
+  "verified this binary" and "ran against this binary" are the same claim.
+
+  Note the second simulator is often not booted by a person: `Simulator.app` auto-boots
+  devices, and one has been observed booting *mid-build*. If you hit the refusal:
+
+  ```bash
+  xcrun simctl list devices booted        # see what is up
+  xcrun simctl shutdown <udid>            # leave exactly one
+  E2E_SIM_UDID=<udid> npm run e2e:safety:build   # …or name the target explicitly
+  ```
+
+  `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike. Set it for
+  both halves of a session, or the gate will resolve a different device than the build did
+  and refuse the artifact.
 - Working CocoaPods, for the prebuild stage — `pod --version`. *(If `brew install
   fastlane` ever upgrades Ruby and orphans CocoaPods' `ffi` gem, `brew reinstall
   cocoapods`.)*
