@@ -35,6 +35,14 @@
 set -u
 
 cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
+
+# INFRA-405 — the same device resolution e2e-sim-build.sh uses. Shared rather than
+# duplicated so "both scripts resolve identically" holds by construction. Note this file
+# runs under a bare `set -u` (no -e, no pipefail), so every call below handles its own
+# failure explicitly rather than relying on the shell to abort.
+# shellcheck source=scripts/e2e-sim-device.sh
+. "$(dirname "$0")/e2e-sim-device.sh"
+
 MAESTRO_DIR=".maestro"
 
 BUNDLE_ID="fyi.being.app"
@@ -99,12 +107,30 @@ done
 # the load-bearing one. A launcher-bearing or Debug build must never reach a flow: it does
 # not merely flake, it can pass by coincidence via the guessed-coordinate tap in
 # _legal-and-onboarding.yaml, producing a green crisis-path gate that proves nothing.
+
+# INFRA-405 — resolve the simulator ONCE, and only for simulator runs.
+#
+# Why the gate needs this at all: `maestro test` chooses its own device when not told one
+# (it will even fan out across N connected devices). So with 2+ booted, the pre-flight
+# below could open device A's container, print "✓ gate target verified / ✓ provenance",
+# and then maestro could drive device B. That is attesting one binary while testing
+# another — verbatim the failure the block above says this pre-flight exists to prevent.
+# Resolving here and passing the device to BOTH the container lookup and `maestro test`
+# makes "verified this binary" and "ran against this binary" the same claim.
+#
+# Scoped under DEVICE_ONLY so the real-iPhone procedure gains no simctl dependency: with
+# two simulators booted it would otherwise abort a documented manual run.
+SIM_UDID=""
+if [ "$DEVICE_ONLY" != "1" ]; then
+  SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 1
+fi
+
 if [ "$DEVICE_ONLY" = "1" ]; then
   echo "📱 Device-only flow(s) selected — skipping the simulator pre-flight."
   echo "   This run carries NO artifact attestation: shape and provenance both describe"
   echo "   the booted simulator's app, not the device's. Run it against a real iPhone"
   echo "   with a build you installed deliberately."
-elif APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" && [ -d "$APP" ]; then
+elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" && [ -d "$APP" ]; then
   preflight_fail() {
     echo "❌ e2e:safety pre-flight — $1" >&2
     echo "   Rebuild the gate target: npm run e2e:safety:build" >&2
@@ -165,7 +191,7 @@ elif APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" && 
       ;;
   esac
 else
-  echo "⚠️  $BUNDLE_ID is not installed on the booted sim — run 'npm run e2e:safety:build' first." >&2
+  echo "⚠️  $BUNDLE_ID is not installed on simulator $SIM_UDID — run 'npm run e2e:safety:build' first." >&2
   exit 1
 fi
 
@@ -173,11 +199,22 @@ fail=0
 ran=0
 results=()
 
+# INFRA-405: pin every flow to the device the pre-flight just attested. Empty for a
+# device-only run, where maestro must be left to find the real iPhone.
+MAESTRO_DEVICE_ARGS=()
+if [ -n "$SIM_UDID" ]; then
+  MAESTRO_DEVICE_ARGS=(--device "$SIM_UDID")
+fi
+
 for f in "${FLOWS[@]}"; do
   name="$(basename "$f" .yaml)"
   ran=$((ran + 1))
-  echo "🛡️  [$ran] maestro test $f"
-  if maestro test "$f"; then
+  echo "🛡️  [$ran] maestro test $f${SIM_UDID:+ (device $SIM_UDID)}"
+  # `${arr[@]+"${arr[@]}"}` — NOT a bare "${arr[@]}". This script runs under `set -u`, and
+  # in the bash 3.2 that ships with macOS expanding an EMPTY array is an unbound-variable
+  # error. Same hazard the FLOWS/results guard above exists for; a device-only run leaves
+  # this array empty by design.
+  if maestro test ${MAESTRO_DEVICE_ARGS[@]+"${MAESTRO_DEVICE_ARGS[@]}"} "$f"; then
     results+=("PASS  $name")
   else
     results+=("FAIL  $name")

@@ -68,6 +68,7 @@ const path = require('path');
 const REAL_SCRIPT = path.resolve(__dirname, '../../scripts/e2e-sim-build.sh');
 const REAL_SAFETY = path.resolve(__dirname, '../../scripts/e2e-safety.sh');
 const REAL_PROVENANCE = path.resolve(__dirname, '../../scripts/e2e-provenance.js');
+const REAL_SIM_DEVICE = path.resolve(__dirname, '../../scripts/e2e-sim-device.sh');
 const BUNDLE_ID = 'fyi.being.app';
 const PRODUCT_REL = 'ios/build/Build/Products/Release-iphonesimulator';
 const MARKER_NAME = '.e2e-provenance.json';
@@ -148,6 +149,9 @@ function makeProject(opts = {}) {
   // shimmed, so the provenance logic runs for real rather than being stubbed.
   fs.copyFileSync(REAL_PROVENANCE, path.join(root, 'scripts', 'e2e-provenance.js'));
   fs.copyFileSync(REAL_SAFETY, path.join(root, 'scripts', 'e2e-safety.sh'));
+  // INFRA-405: the shared device resolver, sourced by BOTH scripts. Copied as the real
+  // file so "they resolve identically" is exercised rather than asserted.
+  fs.copyFileSync(REAL_SIM_DEVICE, path.join(root, 'scripts', 'e2e-sim-device.sh'));
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
@@ -237,6 +241,12 @@ function writeGitStub(stubs, root, mode = 'repo') {
  * @param opts.plistSchemes      what `plutil` reports for LSApplicationQueriesSchemes
  * @param opts.gitState          'clean' | 'dirty' | 'not-a-repo'
  * @param opts.seedStaleApp      pre-seed a .app in the product dir from a "previous run"
+ * @param opts.bootedDevices     INFRA-405 — simulators booted BEFORE the build starts.
+ *                               Array of {udid, name}. Default: exactly one.
+ * @param opts.midBuildBoot      INFRA-405 — a {udid, name} that boots DURING the build,
+ *                               reproducing the observed Simulator.app auto-boot. A check
+ *                               performed before the build does not hold for its duration.
+ * @param opts.simUdid           INFRA-405 — value for the E2E_SIM_UDID override env var.
  */
 function runScript(opts = {}) {
   const {
@@ -252,12 +262,38 @@ function runScript(opts = {}) {
     iosExists = true,
     cngStamp = 'current',
     statDialect = 'native',
+    bootedDevices = [{ udid: 'AAAA-1111', name: 'iPhone 16 Plus' }],
+    midBuildBoot = null,
+    simUdid = null,
+    simctlListFails = false,
   } = opts;
 
   const root = makeProject({ iosExists, cngStamp });
   const stubs = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-stubs-'));
-  const container = path.join(root, 'container', `${BUNDLE_ID}.app`);
+  // INFRA-405: containers are PER-DEVICE. The old harness modelled one global container,
+  // which made the install-target/assert-target divergence structurally unrepresentable —
+  // so the bug could not be reproduced and `--device` was never covered by any assertion.
+  const containersRoot = path.join(root, 'container');
+  const containerFor = (udid) => path.join(containersRoot, udid, `${BUNDLE_ID}.app`);
+  const container = containerFor(bootedDevices[0] ? bootedDevices[0].udid : 'NONE');
   const trace = path.join(root, 'trace.log');
+
+  // Booted-device state lives in a FILE so the build stub can mutate it mid-run.
+  const bootedStatePath = path.join(root, 'booted-devices.json');
+  const writeBooted = (devices) =>
+    fs.writeFileSync(
+      bootedStatePath,
+      JSON.stringify({
+        devices: {
+          'com.apple.CoreSimulator.SimRuntime.iOS-18-0': devices.map((d) => ({
+            udid: d.udid,
+            name: d.name,
+            state: 'Booted',
+          })),
+        },
+      })
+    );
+  writeBooted(bootedDevices);
   fs.writeFileSync(trace, '');
 
   if (seedStaleApp) {
@@ -300,11 +336,31 @@ function runScript(opts = {}) {
             : []),
           ...(frameworkDevLauncher ? ['  mkdir -p "$APP/Frameworks/EXDevLauncher.framework"'] : []),
           '  echo "binary" > "$APP/Being"',
-          // expo run:ios installs and launches atomically — mirror that.
-          `  rm -rf "${container}"; mkdir -p "$(dirname "${container}")"`,
+          // INFRA-405: install to the device named by --device. `expo run:ios` targets an
+          // explicit --device when given one; with none it picks a booted device itself.
+          // Modelled as the FIRST booted, which is what makes the divergence from
+          // `get_app_container booted` (modelled as the LAST) observable.
+          '  TARGET=""',
+          '  prev=""',
+          '  for a in "$@"; do if [ "$prev" = "--device" ]; then TARGET="$a"; fi; prev="$a"; done',
+          '  if [ -z "$TARGET" ]; then',
+          `    TARGET="$(node -e 'const j=require(process.argv[1]);for(const l of Object.values(j.devices||{}))for(const d of l)if(d.state==="Booted"){console.log(d.udid);break}' "${bootedStatePath}" 2>/dev/null | head -1)"`,
+          '  fi',
+          `  echo "install-target $TARGET" >> "${trace}"`,
+          `  DEST="${containersRoot}/$TARGET/${BUNDLE_ID}.app"`,
+          '  rm -rf "$DEST"; mkdir -p "$(dirname "$DEST")"',
           // -p: simctl install preserves mtimes, and the freshness assert reads them.
-          `  cp -Rp "$APP" "${container}"`,
+          '  cp -Rp "$APP" "$DEST"',
           `  echo "installed" >> "${trace}"`,
+        ]
+      : []),
+    // INFRA-405: a device that boots DURING the build. The observed case had
+    // Simulator.app auto-boot one inside the build window, AFTER the pre-build check had
+    // already confirmed exactly one — which is why the device must be resolved once and
+    // reused, not re-queried at each step.
+    ...(midBuildBoot
+      ? [
+          `  node -e 'const fs=require("fs");const p=process.argv[1];const j=JSON.parse(fs.readFileSync(p,"utf8"));Object.values(j.devices)[0].push({udid:process.argv[2],name:process.argv[3],state:"Booted"});fs.writeFileSync(p,JSON.stringify(j))' "${bootedStatePath}" "${midBuildBoot.udid}" "${midBuildBoot.name}"`,
         ]
       : []),
     '  exit 0',
@@ -314,18 +370,61 @@ function runScript(opts = {}) {
   writeStub(stubs, 'npx', buildBody);
 
   // --- xcrun simctl --------------------------------------------------------------------
+  // INFRA-405. The previous stub answered ANY `simctl list` with a human-readable line, so
+  // the script's `list devices booted -j | node <parse JSON>` always threw, `|| UDID=""`
+  // fired, and every one of this file's tests silently exercised the UDID-EMPTY path —
+  // meaning `--device` was never once asserted and the multi-simulator defect could not be
+  // represented. This stub models what simctl actually does:
+  //
+  //   * `list devices booted -j`  -> real JSON, read from a mutable state file
+  //   * `get_app_container booted` with 2+ booted -> resolves to ONE OF THEM, unspecified.
+  //     `xcrun simctl help` says exactly that. We model it as the LAST booted device while
+  //     the build installs to the FIRST, which is the divergence that produced the reported
+  //     failure — deterministic here so CI can reproduce it without a simulator.
+  //   * containers are per-device.
   writeStub(
     stubs,
     'xcrun',
     [
+      `BOOTED_JSON="${bootedStatePath}"`,
+      `CONTAINERS="${containersRoot}"`,
+      `TRACE="${trace}"`,
+      'booted_udids() {',
+      `  node -e 'const j=require(process.argv[1]);const o=[];for(const l of Object.values(j.devices||{}))for(const d of l)if(d.state==="Booted")o.push(d.udid);console.log(o.join("\\n"))' "$BOOTED_JSON" 2>/dev/null | grep -v "^$"`,
+      '}',
+      '# Resolve a simctl device selector to a concrete udid.',
+      'resolve_dev() {',
+      '  if [ "$1" != "booted" ]; then echo "$1"; return 0; fi',
+      '  n="$(booted_udids | grep -c .)"',
+      '  if [ "$n" -eq 0 ]; then return 1; fi',
+      '  if [ "$n" -eq 1 ]; then booted_udids | head -1; return 0; fi',
+      '  booted_udids | tail -1   # ambiguous: simctl picks one, unspecified',
+      '}',
       'if [ "$1" = "simctl" ] && [ "$2" = "list" ]; then',
-      '  echo "iPhone 16 Plus (ABC-123) (Booted)"; exit 0',
+      ...(simctlListFails
+        ? ['  echo "xcrun: error: unable to find utility \\"simctl\\"" >&2; exit 72']
+        : []),
+      '  case "$*" in',
+      '    *-j*) cat "$BOOTED_JSON"; exit 0 ;;',
+      '  esac',
+      '  booted_udids | while read -r u; do echo "Sim ($u) (Booted)"; done',
+      '  exit 0',
       'fi',
       'if [ "$1" = "simctl" ] && [ "$2" = "uninstall" ]; then',
-      `  echo "uninstall" >> "${trace}"; rm -rf "${container}"; exit 0`,
+      '  echo "uninstall $3" >> "$TRACE"',
+      '  d="$(resolve_dev "$3")" || exit 0',
+      '  rm -rf "$CONTAINERS/$d"; exit 0',
+      'fi',
+      'if [ "$1" = "simctl" ] && [ "$2" = "install" ]; then',
+      '  echo "install $3" >> "$TRACE"',
+      '  d="$(resolve_dev "$3")" || exit 1',
+      `  mkdir -p "$CONTAINERS/$d"; rm -rf "$CONTAINERS/$d/${BUNDLE_ID}.app"`,
+      `  cp -Rp "$4" "$CONTAINERS/$d/${BUNDLE_ID}.app"; exit 0`,
       'fi',
       'if [ "$1" = "simctl" ] && [ "$2" = "get_app_container" ]; then',
-      `  if [ -d "${container}" ]; then echo "${container}"; exit 0; fi`,
+      '  echo "get_app_container $3" >> "$TRACE"',
+      '  d="$(resolve_dev "$3")" || { echo "No devices are booted." >&2; exit 1; }',
+      `  if [ -d "$CONTAINERS/$d/${BUNDLE_ID}.app" ]; then echo "$CONTAINERS/$d/${BUNDLE_ID}.app"; exit 0; fi`,
       '  echo "No such app" >&2; exit 1',
       'fi',
       'exit 0',
@@ -385,26 +484,36 @@ function runScript(opts = {}) {
       ...process.env,
       PATH: `${stubs}:${process.env.PATH}`,
       CI: '', // export:embed silently discards --reset-cache when CI is set
+      ...(simUdid ? { E2E_SIM_UDID: simUdid } : {}),
     },
   });
 
   const traceText = fs.readFileSync(trace, 'utf8');
+  // INFRA-405: "installed" must mean "installed on the device the script targeted", not
+  // "a container exists somewhere". The whole defect was those two diverging.
+  const installTarget = (traceText.match(/install-target (\S+)/) || [])[1] || null;
+  const activeContainer = installTarget ? containerFor(installTarget) : container;
   return {
     status: res.status,
     output: `${res.stdout || ''}${res.stderr || ''}`,
     trace: traceText,
     buildRan: /npx .*run:ios/.test(traceText),
     prebuildRan: /npx .*prebuild/.test(traceText),
-    installed: fs.existsSync(container),
-    markerExists: fs.existsSync(path.join(container, MARKER_NAME)),
+    installed: fs.existsSync(activeContainer),
+    markerExists: fs.existsSync(path.join(activeContainer, MARKER_NAME)),
     marker: (() => {
       try {
-        return JSON.parse(fs.readFileSync(path.join(container, MARKER_NAME), 'utf8'));
+        return JSON.parse(fs.readFileSync(path.join(activeContainer, MARKER_NAME), 'utf8'));
       } catch {
         return null;
       }
     })(),
-    container,
+    // Which device the build actually installed to, and whether `--device` was passed.
+    installTarget,
+    deviceFlag: (traceText.match(/--device (\S+)/) || [])[1] || null,
+    container: activeContainer,
+    containerFor,
+    bootedStatePath,
     stubs,
     root,
   };
@@ -424,9 +533,28 @@ function runScript(opts = {}) {
  * @param opts.maestroExits exit code for every `maestro test`
  */
 function runSafety(built, opts = {}) {
-  const { flows = [], git: gitMutation = null, env = {}, maestroExits = 0 } = opts;
+  const { flows = [], git: gitMutation = null, env = {}, maestroExits = 0, booted = null } = opts;
   const trace = path.join(built.root, 'safety-trace.log');
   fs.writeFileSync(trace, '');
+
+  // INFRA-405: let a test change which simulators are booted BETWEEN the build and the
+  // gate run. That gap is real — an operator can boot a second sim, or Simulator.app can
+  // do it unasked — and it is exactly when the gate could verify one device's binary and
+  // then drive the flows against another.
+  if (booted) {
+    fs.writeFileSync(
+      built.bootedStatePath,
+      JSON.stringify({
+        devices: {
+          'com.apple.CoreSimulator.SimRuntime.iOS-18-0': booted.map((d) => ({
+            udid: d.udid,
+            name: d.name,
+            state: 'Booted',
+          })),
+        },
+      })
+    );
+  }
 
   // maestro, pkill and sleep are all shimmed. `sleep` MATTERS: the real loop sleeps 8s
   // between flows to let the XCUITest driver settle, which would make this suite take
@@ -560,10 +688,9 @@ describe('e2e-sim-build.sh — freshness (Xcode may skip the RN bundling phase)'
     const r = runScript({ seedStaleApp: true });
     expect(r.status).toBe(0);
     // The surviving bundle must be the one this run wrote, never the seeded stale text.
-    const bundle = fs.readFileSync(
-      path.join(r.root, 'container', `${BUNDLE_ID}.app`, 'main.jsbundle'),
-      'utf8'
-    );
+    // INFRA-405: read through r.container — containers are per-device now, so a hardcoded
+    // flat path would silently look at a device the build never targeted.
+    const bundle = fs.readFileSync(path.join(r.container, 'main.jsbundle'), 'utf8');
     expect(bundle).not.toMatch(/STALE BUNDLE/);
   });
 
@@ -950,7 +1077,16 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
       stubs,
       'xcrun',
       [
-        'if [ "$1" = "simctl" ] && [ "$2" = "list" ]; then echo "iPhone 16 (ABC) (Booted)"; exit 0; fi',
+        // INFRA-405: this second inline stub needed the same `-j` JSON treatment as the
+        // shared one. It answered every `simctl list` with human-readable text, so device
+        // resolution now fails and the script aborts at simulator selection — before it
+        // can reach the mid-build tree mutation this test is actually about.
+        'if [ "$1" = "simctl" ] && [ "$2" = "list" ]; then',
+        '  case "$*" in',
+        `    *-j*) echo '{"devices":{"iOS-18-0":[{"udid":"ABC","name":"iPhone 16","state":"Booted"}]}}'; exit 0 ;;`,
+        '  esac',
+        '  echo "iPhone 16 (ABC) (Booted)"; exit 0',
+        'fi',
         `if [ "$1" = "simctl" ] && [ "$2" = "uninstall" ]; then rm -rf "${container}"; exit 0; fi`,
         'if [ "$1" = "simctl" ] && [ "$2" = "get_app_container" ]; then',
         `  if [ -d "${container}" ]; then echo "${container}"; exit 0; fi`,
@@ -1007,5 +1143,155 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
     const gate = runSafety(built, { maestroExits: 1 });
     expect(gate.status).not.toBe(0);
     expect(gate.output).toMatch(/one or more safety flows failed/);
+  });
+});
+
+// =====================================================================================
+// INFRA-405 — multi-simulator device selection.
+//
+// The defect: the build resolved a concrete UDID and installed to it, then asserted
+// against the LITERAL selector `booted`. `xcrun simctl help` says of that selector:
+// "If multiple devices are booted when the 'booted' device is selected, simctl will
+// choose one of them." So with 2+ booted the install target and the assert target could
+// diverge, and the script exited claiming the build "installed no fyi.being.app" — the
+// opposite of what happened.
+//
+// None of this was representable before: the old xcrun stub answered any `simctl list`
+// with human-readable text, so the script's `-j` JSON parse always threw and `|| UDID=""`
+// fired. Every test in this file ran the UDID-empty path and `--device` was never once
+// asserted. The stub now models real JSON, per-device containers, and simctl's ambiguity.
+// =====================================================================================
+
+const ONE = [{ udid: 'AAAA-1111', name: 'iPhone 16 Plus' }];
+const TWO = [
+  { udid: 'AAAA-1111', name: 'iPhone 16 Plus' },
+  { udid: 'BBBB-2222', name: 'iPad Pro 13' },
+];
+
+describe('INFRA-405 — e2e-sim-build.sh device selection', () => {
+  test('one booted: the build targets it EXPLICITLY via --device', () => {
+    const r = runScript({ bootedDevices: ONE });
+    expect(r.status).toBe(0);
+    // Previously unreachable: the JSON parse threw, so --device was never passed at all.
+    expect(r.deviceFlag).toBe('AAAA-1111');
+    expect(r.installTarget).toBe('AAAA-1111');
+    expect(r.markerExists).toBe(true);
+  });
+
+  test('two booted, no override: refuses BEFORE building, and never blames the artifact', () => {
+    const r = runScript({ bootedDevices: TWO });
+    expect(r.status).not.toBe(0);
+    // Fail closed, and fail EARLY — nothing may be built or installed on an ambiguous
+    // target, because the failure trap could not know which device to clean up.
+    expect(r.buildRan).toBe(false);
+    expect(r.installed).toBe(false);
+    // The message must name the real cause and the fix.
+    expect(r.output).toMatch(/2 simulators booted/i);
+    expect(r.output).toMatch(/ambiguous/i);
+    expect(r.output).toMatch(/simctl shutdown|E2E_SIM_UDID/);
+    // The whole point of the item: this exact string must never appear again while the
+    // app is in fact installed correctly.
+    expect(r.output).not.toMatch(/installed no fyi\.being\.app/);
+  });
+
+  test('two booted + E2E_SIM_UDID: builds against the NAMED device and writes its marker', () => {
+    const r = runScript({ bootedDevices: TWO, simUdid: 'BBBB-2222' });
+    expect(r.status).toBe(0);
+    expect(r.deviceFlag).toBe('BBBB-2222');
+    expect(r.installTarget).toBe('BBBB-2222');
+    expect(r.markerExists).toBe(true);
+    // The other booted device must be left completely alone.
+    expect(fs.existsSync(r.containerFor('AAAA-1111'))).toBe(false);
+  });
+
+  test('E2E_SIM_UDID naming a device that is not booted fails closed', () => {
+    const r = runScript({ bootedDevices: TWO, simUdid: 'CCCC-3333' });
+    expect(r.status).not.toBe(0);
+    expect(r.buildRan).toBe(false);
+    expect(r.output).toMatch(/not among the booted simulators/i);
+  });
+
+  test('a second simulator booting MID-BUILD does not break the post-build assert', () => {
+    // The headline regression. The reported case had Simulator.app auto-boot a device
+    // inside the build window, AFTER the pre-build check had confirmed exactly one. A
+    // check before the build does not hold for its duration — but a UDID captured before
+    // it does, which is why resolution happens once.
+    const r = runScript({
+      bootedDevices: ONE,
+      midBuildBoot: { udid: 'BBBB-2222', name: 'iPad Pro 13' },
+    });
+    expect(r.status).toBe(0);
+    expect(r.installTarget).toBe('AAAA-1111');
+    expect(r.markerExists).toBe(true);
+    expect(r.output).not.toMatch(/installed no fyi\.being\.app/);
+  });
+
+  test('no simulator booted is reported as such, distinctly from an enumeration failure', () => {
+    const r = runScript({ bootedDevices: [] });
+    expect(r.status).not.toBe(0);
+    expect(r.buildRan).toBe(false);
+    expect(r.output).toMatch(/no iOS simulator booted/i);
+    expect(r.output).not.toMatch(/could not enumerate/i);
+  });
+
+  test('an ENUMERATION failure is reported as such, not as "no simulator booted"', () => {
+    // Two different facts that previously collapsed into the same silent empty string:
+    // `simctl list ... -j` failing yielded `UDID=""` exactly like a machine with nothing
+    // booted. Telling an operator to boot a simulator when the real problem is that
+    // simctl is unavailable sends them somewhere useless.
+    const r = runScript({ simctlListFails: true });
+    expect(r.status).not.toBe(0);
+    expect(r.buildRan).toBe(false);
+    expect(r.output).toMatch(/could not enumerate/i);
+    expect(r.output).not.toMatch(/no iOS simulator booted/i);
+  });
+
+  test('a failed post-install assert uninstalls from the RESOLVED device, not `booted`', () => {
+    // The failure trap used `uninstall booted`, so on a multi-sim machine cleanup could
+    // miss and leave a marker-less app behind — which e2e-safety.sh then fail-closes on,
+    // reporting a provenance problem rather than the build problem that caused it.
+    const r = runScript({ bootedDevices: ONE, otoolDevLauncher: true });
+    expect(r.status).not.toBe(0);
+    expect(r.trace).toMatch(/uninstall AAAA-1111/);
+    expect(r.trace).not.toMatch(/uninstall booted/);
+    expect(fs.existsSync(r.containerFor('AAAA-1111'))).toBe(false);
+  });
+});
+
+describe('INFRA-405 — e2e-safety.sh device selection', () => {
+  test('passes the resolved device to maestro, so flows run on the binary just verified', () => {
+    // Without this the pre-flight can attest device A's container while maestro drives
+    // device B — which is verbatim the failure the pre-flight exists to prevent.
+    const built = runScript({ bootedDevices: ONE });
+    const r = runSafety(built);
+    expect(r.status).toBe(0);
+    expect(r.flowsRun).toBe(2);
+    expect(r.trace).toMatch(/maestro test --device AAAA-1111/);
+  });
+
+  test('refuses when a second simulator booted between the build and the gate run', () => {
+    const built = runScript({ bootedDevices: ONE });
+    const r = runSafety(built, { booted: TWO });
+    expect(r.status).not.toBe(0);
+    expect(r.flowsRun).toBe(0);
+    expect(r.output).toMatch(/ambiguous/i);
+  });
+
+  test('an explicit E2E_SIM_UDID lets the gate run against the named device', () => {
+    const built = runScript({ bootedDevices: TWO, simUdid: 'BBBB-2222' });
+    const r = runSafety(built, { booted: TWO, env: { E2E_SIM_UDID: 'BBBB-2222' } });
+    expect(r.status).toBe(0);
+    expect(r.trace).toMatch(/maestro test --device BBBB-2222/);
+  });
+
+  test('device-only runs are untouched: no simctl resolution, no --device, still exit 0', () => {
+    // The real-iPhone procedure. It must gain no simulator dependency whatsoever — with
+    // two sims booted it would otherwise abort a documented manual procedure.
+    const built = runScript({ bootedDevices: ONE });
+    const r = runSafety(built, { flows: ['crisis-988-dial'], booted: TWO });
+    expect(r.status).toBe(0);
+    expect(r.flowsRun).toBe(1);
+    expect(r.output).toMatch(/NO artifact attestation/i);
+    expect(r.trace).not.toMatch(/--device/);
   });
 });
