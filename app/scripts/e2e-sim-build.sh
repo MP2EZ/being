@@ -211,21 +211,65 @@ UDID="$(xcrun simctl list devices booted -j 2>/dev/null | node -e '
 TREE_BEFORE_BUILD="$(node scripts/e2e-provenance.js fingerprint 2>/dev/null || true)"
 
 echo "🏗  Building Release simulator app (warm ≈1 min, cold ≈11 min)…"
-BUILD_CMD=(npx expo run:ios --configuration Release --no-bundler)
-[ -n "$UDID" ] && BUILD_CMD+=(--device "$UDID")
+
+# INFRA-407: BUILD ONLY, then install ourselves. Never let expo launch the app.
+#
+# `expo run:ios` builds, installs AND launches as one invocation, and its launch step ends
+# by opening the dev-client deep link `exp+being://expo-development-client/?url=…`. The app
+# registers `being://` (app.json `scheme`), not `exp+being://`, and a launcher-free Release
+# build links no dev-launcher — so nothing handles that URL, iOS raises a SpringBoard-level
+# "Open in 'Being'?" confirmation, and LEAVES IT ON SCREEN.
+#
+# Maestro's `launchApp: { clearState: true }` resets the APP; it cannot dismiss a SYSTEM
+# alert above it. The alert therefore survives into the gate run, and every flow fails its
+# first assertion (`_seeded-home` → `home-screen is visible`) while the app renders
+# perfectly behind it — a maximally misleading red on the one check that gates safety
+# merges, whose own error text suggests "could be a real regression".
+#
+# The gate never needs the app launched: every flow issues its own `launchApp`. So build to
+# a directory and install with simctl — no launch, no URL open, no alert. `--device generic
+# --output <dir>` is the documented build-only form (`expo run:ios --help`).
+#
+# The output goes OUTSIDE the worktree deliberately. The provenance fingerprint hashes
+# untracked files, and while `git ls-files -o --exclude-standard` would hide a gitignored
+# directory, keeping the artifact out of the tree entirely removes the question.
+#
+# (The step-7 comment below used to assert "there is no --no-install". That was wrong.)
+BUILD_OUT="$(mktemp -d "${TMPDIR:-/tmp}/being-e2e-build.XXXXXX")"
+BUILD_CMD=(npx expo run:ios --configuration Release --no-bundler --device generic --output "$BUILD_OUT")
 
 if ! env "${ENV_ARGS[@]}" NODE_ENV=production BABEL_ENV=production "${BUILD_CMD[@]}"; then
-  fail "Release build (expo run:ios)"
+  rm -rf "$BUILD_OUT"
+  fail "Release build (expo run:ios --device generic)"
 fi
+
+APP_SRC="$(/usr/bin/find "$BUILD_OUT" -maxdepth 2 -name '*.app' -type d 2>/dev/null | head -1)"
+if [ -z "$APP_SRC" ]; then
+  rm -rf "$BUILD_OUT"
+  fail "build output — expo reported success but produced no .app under $BUILD_OUT"
+fi
+
+# Install to the RESOLVED UDID, never the bare `booted` alias. With two simulators booted
+# `booted` is ambiguous and simctl can resolve to the wrong device — observed during this
+# investigation, where a second sim booting mid-run left the XCUITest driver talking to a
+# device with no app installed and it died with `isScreenStatic … code: 500`.
+if ! xcrun simctl install "${UDID:-booted}" "$APP_SRC"; then
+  rm -rf "$BUILD_OUT"
+  fail "install — simctl could not install $APP_SRC onto ${UDID:-booted}"
+fi
+rm -rf "$BUILD_OUT"
 
 # ---------------------------------------------------------------------------------------
 # 7. Post-build asserts, all against the INSTALLED container — that is the artifact the
 #    flows actually run, and the only thing whose correctness matters.
 #
-#    These run after install because `expo run:ios` builds, installs and launches as one
-#    atomic invocation (there is no --no-install). The post-condition is what matters and
-#    it is preserved: any failure below exits non-zero via the trap with NO app installed,
-#    so no gate consumer can ever observe a binary that failed an assert.
+#    These run after install because the asserts are about the INSTALLED artifact, which is
+#    what the flows execute. Since INFRA-407 the build and the install are separate steps
+#    (`--device generic --output` + `simctl install`) rather than one atomic `expo run:ios`
+#    invocation — the launch that used to come with it is what left a system alert on the
+#    simulator. The post-condition is unchanged: any failure below exits non-zero via the
+#    trap with NO app installed, so no gate consumer can ever observe a binary that failed
+#    an assert.
 # ---------------------------------------------------------------------------------------
 APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" \
   || fail "artifact discovery — the build reported success but installed no $BUNDLE_ID"
