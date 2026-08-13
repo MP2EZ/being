@@ -108,6 +108,7 @@
   "src/features/assessment/types/scoring.ts": 2,
   "src/features/assessment/types/validation.ts": 1,
   "src/features/consent/screens/CombinedLegalGateScreen.tsx": 3,
+  "src/features/consent/screens/__tests__/CombinedLegalGateScreen.accessibility.test.tsx": 1,
   "src/features/consent/screens/__tests__/CombinedLegalGateScreen.consentInvariant.privacy.test.tsx": 1,
   "src/features/consent/screens/__tests__/CombinedLegalGateScreen.crisis.test.tsx": 1,
   "src/features/crisis/__tests__/detection.quick.test.ts": 1,
