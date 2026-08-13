@@ -228,24 +228,72 @@ fi
 TREE_BEFORE_BUILD="$(node scripts/e2e-provenance.js fingerprint 2>/dev/null || true)"
 
 echo "🏗  Building Release simulator app (warm ≈1 min, cold ≈11 min)…"
-BUILD_CMD=(npx expo run:ios --configuration Release --no-bundler)
-# Unconditional. The old `[ -n "$UDID" ] &&` guard let a failed resolution fall through to
-# "let expo pick a device" — and a device we did not choose is one we cannot assert
-# against. Resolution now fails closed at step 2, so reaching here means SIM_UDID is real.
-BUILD_CMD+=(--device "$SIM_UDID")
+
+# INFRA-407: BUILD ONLY, then install ourselves. Never let expo launch the app.
+#
+# `expo run:ios` builds, installs AND launches as one invocation, and its launch step ends
+# by opening the dev-client deep link `exp+being://expo-development-client/?url=…`. The app
+# registers `being://` (app.json `scheme`), not `exp+being://`, and a launcher-free Release
+# build links no dev-launcher — so nothing handles that URL, iOS raises a SpringBoard-level
+# "Open in 'Being'?" confirmation, and LEAVES IT ON SCREEN.
+#
+# Maestro's `launchApp: { clearState: true }` resets the APP; it cannot dismiss a SYSTEM
+# alert above it. The alert therefore survives into the gate run, and every flow fails its
+# first assertion (`_seeded-home` → `home-screen is visible`) while the app renders
+# perfectly behind it — a maximally misleading red on the one check that gates safety
+# merges, whose own error text suggests "could be a real regression".
+#
+# The gate never needs the app launched: every flow issues its own `launchApp`. So build to
+# a directory and install with simctl — no launch, no URL open, no alert. `--device generic
+# --output <dir>` is the documented build-only form (`expo run:ios --help`).
+#
+# The output goes OUTSIDE the worktree deliberately. The provenance fingerprint hashes
+# untracked files, and while `git ls-files -o --exclude-standard` would hide a gitignored
+# directory, keeping the artifact out of the tree entirely removes the question.
+#
+# (The step-7 comment below used to assert "there is no --no-install". That was wrong.)
+#
+# `--device generic` is what makes it build-only, so it REPLACES INFRA-405's
+# `--device "$SIM_UDID"` here rather than conflicting with it: expo no longer chooses a
+# device because expo no longer installs. INFRA-405's guarantee is preserved and in fact
+# tightened — `$SIM_UDID` is now passed to the explicit `simctl install` below, so the
+# device we resolved is provably the device we install to, with no "let expo pick" path
+# left anywhere.
+BUILD_OUT="$(mktemp -d "${TMPDIR:-/tmp}/being-e2e-build.XXXXXX")"
+BUILD_CMD=(npx expo run:ios --configuration Release --no-bundler --device generic --output "$BUILD_OUT")
 
 if ! env "${ENV_ARGS[@]}" NODE_ENV=production BABEL_ENV=production "${BUILD_CMD[@]}"; then
-  fail "Release build (expo run:ios)"
+  rm -rf "$BUILD_OUT"
+  fail "Release build (expo run:ios --device generic)"
 fi
+
+APP_SRC="$(/usr/bin/find "$BUILD_OUT" -maxdepth 2 -name '*.app' -type d 2>/dev/null | head -1)"
+if [ -z "$APP_SRC" ]; then
+  rm -rf "$BUILD_OUT"
+  fail "build output — expo reported success but produced no .app under $BUILD_OUT"
+fi
+
+# Install to INFRA-405's resolved device, never the bare `booted` alias — `booted` is
+# ambiguous with two simulators up. Since INFRA-407 split build from install, this is the
+# single point at which anything reaches a simulator, so "the device we resolved" and "the
+# device carrying the gate target" are now the same claim by construction.
+if ! xcrun simctl install "$SIM_UDID" "$APP_SRC"; then
+  rm -rf "$BUILD_OUT"
+  fail "install — simctl could not install $APP_SRC onto $SIM_UDID"
+fi
+rm -rf "$BUILD_OUT"
 
 # ---------------------------------------------------------------------------------------
 # 7. Post-build asserts, all against the INSTALLED container — that is the artifact the
 #    flows actually run, and the only thing whose correctness matters.
 #
-#    These run after install because `expo run:ios` builds, installs and launches as one
-#    atomic invocation (there is no --no-install). The post-condition is what matters and
-#    it is preserved: any failure below exits non-zero via the trap with NO app installed,
-#    so no gate consumer can ever observe a binary that failed an assert.
+#    These run after install because the asserts are about the INSTALLED artifact, which is
+#    what the flows execute. Since INFRA-407 the build and the install are separate steps
+#    (`--device generic --output` + `simctl install`) rather than one atomic `expo run:ios`
+#    invocation — the launch that used to come with it is what left a system alert on the
+#    simulator. The post-condition is unchanged: any failure below exits non-zero via the
+#    trap with NO app installed, so no gate consumer can ever observe a binary that failed
+#    an assert.
 # ---------------------------------------------------------------------------------------
 APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" \
   || fail "artifact discovery — the build reported success but installed no $BUNDLE_ID on $SIM_UDID"
