@@ -465,6 +465,13 @@ Build a directed graph over the batch from these edge sources:
 - **Hard edges (logical):** the union of each item's `Blocked by` relation (primary),
   panel `declared_deps`, and user-stated ordering. B depends on A ⇒ A must reach `done`
   before B runs, so B branches off a `development` that already contains A's merged code.
+
+  **Resolving a `Blocked by` URL to a work item — match with `LIKE`, never `IN`.** The
+  relation returns page URLs, not IDs. `WHERE "url" IN ('https://…')` returns an **empty
+  result rather than erroring**, and empty reads as *no blockers* — the unsafe direction,
+  because an item whose prerequisites have not landed then looks runnable. Batch the whole
+  set into one metered call:
+  `WHERE "url" LIKE '%<page-id-1>%' OR "url" LIKE '%<page-id-2>%' …`
 - **Soft edges (conflict-risk):** two items whose predicted `files_touched` overlap.
   These don't force a logical order, but the second to run will have to merge-resolve.
   Serial execution + `/b-close` Step 3.1's sync-to-`origin/development` already handles
