@@ -123,6 +123,15 @@ Read newest-last and let comments **override** the body on any conflict. Specifi
 - Never ask the user to re-decide something a comment already records. If a decision looks
   open, confirm it is absent from the comments before raising it.
 
+**If a `Blocked by` item is now `Done`, read its commit before planning.** Status tells you the
+gate opened; the commit tells you what came through it. A blocker that removed code often
+invalidates the premise of the item it unblocked — MAINT-252's Technical Notes said "keep only
+the methods consumed by `useAssessmentPerformance.ts`" when blocker MAINT-398 had *deleted* that
+file, turning a per-method trim into a whole-directory deletion, and the blocker's own commit
+message named the correct replacement scope. Resolve with
+`git log --oneline --all --grep="<BLOCKER-ID>"` then `git show --stat <sha>`, and treat any
+conflict with the body the same way you treat a comment: the landed code wins.
+
 ---
 
 ### Step 1.4: Incorporate Additional Context
