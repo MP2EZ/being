@@ -345,9 +345,25 @@ only against a real device for supplementary runtime verification.
 # over-trigger that trains the --skip-e2e reflex. That exemption is RECORDED, not
 # implicit: `.claude/scripts/check-safety-paths.sh` fails if a Protected Path is
 # neither matched here nor in its EXEMPT_PATHS list. Run it after editing either.
-SAFETY_CANDIDATES=$(git diff --name-only origin/development...HEAD | \
+# "Could not compute the diff" is NOT "there is no diff", and a bare `|| true`
+# renders them identically. On `_bare` — a true ORPHAN branch (its root commit
+# differs from development's; it holds only .claude/, .gitignore, README.md) —
+# `origin/development...HEAD` dies with `fatal: no merge base`, the pipeline
+# yields empty, and the gate announces "no safety-surface changes detected".
+# The verdict happens to be right there (nothing under app/ can change on that
+# branch) but it is right by accident, and a safety gate reading green because
+# it could not see is the exact shape INFRA-416 was filed to remove. Resolve the
+# base explicitly and branch on it, so an inapplicable gate says so.
+if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
+  echo "ℹ️  No merge base with origin/development — this branch shares no history"
+  echo "    with the app tree (e.g. _bare, which carries only .claude/ tooling)."
+  echo "    Phase 2.5 is INAPPLICABLE, not passing: there is no app diff to classify."
+  SAFETY_CANDIDATES=""
+else
+SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
   grep -E '^app/(src/features/(assessment|consent|crisis|guidance)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
 # the Maestro flows (which drive the running app) have nothing to validate. Discovered
@@ -383,7 +399,7 @@ while IFS= read -r f; do
     *app.json|*Info.plist|*/.maestro/*.yaml|*e2eSeed.ts) SAFETY_CHANGED+="${f}"$'\n'; continue ;;
   esac
   # Changed content lines (added + removed), excluding the +++/--- file headers.
-  CHANGED_LINES=$(git diff origin/development...HEAD -- "$f" \
+  CHANGED_LINES=$(git diff "$MERGE_BASE" HEAD -- "$f" \
     | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' || true)
   ADD_CT=$(printf '%s\n' "$CHANGED_LINES" | grep -cE '^\+' || true)
   DEL_CT=$(printf '%s\n' "$CHANGED_LINES" | grep -cE '^-'  || true)
@@ -443,10 +459,17 @@ fi
 #      not cost a full EAS build plus flow run. Charging one trains exactly the
 #      `--skip-e2e` reflex this gate exists to prevent (same reasoning as INFRA-256).
 # A line bearing executable code still trips the gate — that is the whole point.
-CRISIS_HOST_CHANGED=$(git diff origin/development...HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
-  ':(exclude)app/**/__tests__/**' ':(exclude)app/**/*.test.*' ':(exclude)app/**/*.spec.*' \
-  | grep -E '^[+-].*CollapsibleCrisisButton' \
-  | grep -vE '^[+-][[:space:]]*(//|\*|/\*)' || true)
+# Guarded on MERGE_BASE for the same reason as SAFETY_CANDIDATES above: with no
+# merge base this diff dies too, and an unguarded `|| true` would report "the
+# crisis overlay did not move" on a branch where the question is unanswerable.
+if [ -n "${MERGE_BASE:-}" ]; then
+  CRISIS_HOST_CHANGED=$(git diff "$MERGE_BASE" HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
+    ':(exclude)app/**/__tests__/**' ':(exclude)app/**/*.test.*' ':(exclude)app/**/*.spec.*' \
+    | grep -E '^[+-].*CollapsibleCrisisButton' \
+    | grep -vE '^[+-][[:space:]]*(//|\*|/\*)' || true)
+else
+  CRISIS_HOST_CHANGED=""
+fi
 ```
 
 **INFRA-256 decision table** — which safety-path change classes skip the gate vs. trigger it (the implementer/maintainer's quick reference; the bash above is the source of truth):
