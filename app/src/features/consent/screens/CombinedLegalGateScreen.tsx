@@ -39,7 +39,14 @@ import { useConsentStore, recordLegalGateConsents } from '@/core/stores/consentS
 import { logSecurity } from '@/core/services/logging';
 // Static import — the crisis path's no-lazy-import rule (CLAUDE.md).
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
-import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import {
+  semantic,
+  colorSystem,
+  spacing,
+  borderRadius,
+  typography,
+  TOUCH_TARGETS,
+} from '@/core/theme';
 
 interface CombinedLegalGateScreenProps {
   /** Called when user passes legal gate (age verified + four consents accepted) */
@@ -185,6 +192,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             <Pressable
               style={styles.crisisButton}
               onPress={handleCall988}
+              testID="legal-gate-underage-crisis-988"
               accessibilityRole="button"
               accessibilityLabel="Call 988 Suicide and Crisis Lifeline"
               accessibilityHint="Opens phone dialer to call 988"
@@ -196,6 +204,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             <Pressable
               style={styles.crisisButtonSecondary}
               onPress={handleTextCrisis}
+              testID="legal-gate-underage-crisis-text"
               accessibilityRole="button"
               accessibilityLabel="Text HOME to 741741"
               accessibilityHint="Opens text message to Crisis Text Line"
@@ -404,29 +413,50 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
           </Text>
         </Pressable>
 
-        {/* Crisis Resources - Always Visible */}
-        <View style={styles.crisisFooter}>
-          <Text style={styles.crisisFooterTitle}>Need support now?</Text>
-          <View style={styles.crisisFooterButtons}>
-            <Pressable
-              style={styles.crisisFooterButton}
-              onPress={handleCall988}
-              accessibilityRole="button"
-              accessibilityLabel="Call 988"
-            >
-              <Text style={styles.crisisFooterButtonText}>988 Lifeline</Text>
-            </Pressable>
-            <Pressable
-              style={styles.crisisFooterButton}
-              onPress={handleTextCrisis}
-              accessibilityRole="button"
-              accessibilityLabel="Text Crisis Line"
-            >
-              <Text style={styles.crisisFooterButtonText}>Text 741741</Text>
-            </Pressable>
-          </View>
-        </View>
       </ScrollView>
+
+      {/*
+        DEBUG-390 — pinned OUTSIDE the ScrollView, deliberately.
+        This footer used to be the ScrollView's last child, which put the 988 button at
+        95.3% of a 1433pt scroll (642pt of scrolling on iPhone 15, 754pt on SE 3). That
+        was survivable until DEBUG-372 made LegalGate the route a dismissed cold-start
+        `being://crisis` deep link LANDS on — at which point the app traded a persistent
+        1-tap 988 for a scroll-then-tap one.
+
+        `LegalGate` remains in RootCrisisButton.SUPPRESSED_ROUTES. The suppression is
+        re-earned here rather than withdrawn: it is earned by an affordance reachable
+        WITHOUT SCROLLING, never by one that merely exists. As a flex sibling of a
+        `flex: 1` ScrollView this is on screen at every scroll offset and every Dynamic
+        Type setting, with no absolute positioning to keep in sync.
+
+        Position is pinned by __tests__/safety/crisis-zero-988-windows.test.tsx and by
+        this screen's accessibility suite — re-nesting it inside the ScrollView fails CI.
+        Do NOT force its VoiceOver order with accessibilityViewIsModal: that traps
+        VoiceOver here and makes the DOB picker and all four consents unreachable.
+      */}
+      <View style={styles.crisisFooter}>
+        <Text style={styles.crisisFooterTitle}>Need support now?</Text>
+        <View style={styles.crisisFooterButtons}>
+          <Pressable
+            style={styles.crisisFooterButton}
+            onPress={handleCall988}
+            testID="legal-gate-crisis-988"
+            accessibilityRole="button"
+            accessibilityLabel="Call 988"
+          >
+            <Text style={styles.crisisFooterButtonText}>988 Lifeline</Text>
+          </Pressable>
+          <Pressable
+            style={styles.crisisFooterButton}
+            onPress={handleTextCrisis}
+            testID="legal-gate-crisis-text"
+            accessibilityRole="button"
+            accessibilityLabel="Text Crisis Line"
+          >
+            <Text style={styles.crisisFooterButtonText}>Text 741741</Text>
+          </Pressable>
+        </View>
+      </View>
     </SafeAreaView>
   );
 };
@@ -608,9 +638,15 @@ const styles = StyleSheet.create({
   },
   crisisFooter: {
     alignItems: 'center',
+    // DEBUG-390: horizontal + bottom padding are now this block's own responsibility.
+    // It used to inherit them from `scrollContent`; pinned outside the ScrollView it
+    // would otherwise sit flush against the screen edges and the home indicator.
+    paddingHorizontal: spacing[24],
     paddingTop: spacing[16],
+    paddingBottom: spacing[16],
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[200],
+    backgroundColor: colorSystem.base.white,
   },
   crisisFooterTitle: {
     fontSize: typography.bodySmall.size,
@@ -621,6 +657,15 @@ const styles = StyleSheet.create({
   crisisFooterButtons: {
     flexDirection: 'row',
     gap: spacing[16],
+    // DEBUG-390: without flexWrap the row has a fixed intrinsic width (RN defaults
+    // flexShrink to 0) that exceeds the content column above font multiplier ~1.351
+    // at 375pt — i.e. at xxxLarge, the largest NON-accessibility Dynamic Type size,
+    // reachable from ordinary iOS Settings. Combined with alignItems:'center' on the
+    // parent it overflowed both edges and got clipped, destroying both crisis
+    // controls. Wrap, never cap the labels with maxFontSizeMultiplier: capping text
+    // growth on the crisis affordance specifically inverts the priority.
+    flexWrap: 'wrap',
+    justifyContent: 'center',
   },
   crisisFooterButton: {
     paddingVertical: spacing[8],
@@ -628,6 +673,12 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     borderWidth: 1,
     borderColor: colorSystem.status.critical,
+    // DEBUG-390: was ~34.7pt tall (8+8 padding + 1+1 border + ~16.7pt of bodySmall),
+    // which cleared WCAG 2.2 AA 2.5.8 (24) but failed 2.5.5 AAA / iOS HIG (44) and
+    // this repo's own TOUCH_TARGETS.large, whose docs name "Crisis buttons" as its
+    // application. The sibling under-age controls already ship at 72.
+    minHeight: TOUCH_TARGETS.large,
+    justifyContent: 'center',
   },
   crisisFooterButtonText: {
     fontSize: typography.bodySmall.size,
