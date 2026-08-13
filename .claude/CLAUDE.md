@@ -43,15 +43,32 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/assessment/` | `crisis` + `philosopher` |
 | `app/src/features/practices/` | `philosopher` |
 | `app/src/features/guidance/` | `crisis` + `philosopher` |
+| `app/src/features/consent/` | `crisis` + `compliance` |
 | `app/src/core/services/security/` | `compliance` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
 distressed user is shown Stoic content or routed to crisis resources, so a wrong edit there
-is a false negative on a safety gate. It is also the one entry that a path-based safety
+is a false negative on a safety gate. It is the first of two entries that a path-based safety
 detector will not catch by name, which is precisely why it needs listing — FEAT-55 slice 1
 shipped that gate classifying GREEN, because a brand-new feature dir matches no existing
 pattern. `philosopher` covers the tier content the same directory carries.
+
+`features/consent/` is the second (added INFRA-416), and it is the one that proved the
+failure class recurs. `CombinedLegalGateScreen.tsx` hosts the **pre-consent** 988 footer —
+the only crisis affordance a user has before accepting anything, and `LegalGate` is in
+`RootCrisisButton`'s `SUPPRESSED_ROUTES`, so the root overlay deliberately does not cover
+for it. DEBUG-390 fixed that footer and Phase 2.5 fired *only* because the same branch also
+edited two `.maestro` flows; the fix file itself matched nothing. `crisis` owns the
+affordance, `compliance` owns the consent record the same directory writes.
+
+**The two lists are reconciled mechanically** — `.claude/scripts/check-safety-paths.sh`
+(INFRA-416) fails when a Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep
+nor in its declared exemption list. Run it after editing either list; `/b-close` Phase 0
+runs it too. It is deliberately **not** a CI job: both files are tracked only on `_bare` and
+gitignored on `development`, so a CI checkout cannot read them — and Phase 2.5's Maestro gate
+is itself local-only, so a CI guard would go green on a list for flows CI never runs.
+Adding a row to the table above without doing one or the other will fail that check.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 

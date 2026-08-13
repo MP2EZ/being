@@ -14,6 +14,39 @@ deprecated (PR merge always pushes); accepted as a no-op for backward compat.
 
 ---
 
+## Phase 0: Safety-path drift check (INFRA-416)
+
+Phase 2.5 below decides whether the Maestro gate fires by matching changed paths
+against a hand-maintained grep. That grep and CLAUDE.md's Protected Paths table
+have silently diverged twice — `features/guidance/` (FEAT-55 slice 1 shipped
+GREEN) and `features/consent/` (DEBUG-390's fix file matched nothing; the gate
+fired only because the branch also touched two `.maestro` flows). Reconciling
+them once just resets the clock, so the reconciliation is enforced:
+
+```bash
+bash /Users/max/dev/being/.claude/scripts/check-safety-paths.sh || exit 1
+```
+
+It fails when a Protected Path is neither matched by Phase 2.5's grep nor listed
+in the script's `EXEMPT_PATHS` with a recorded reason. ~1s, no network, no build.
+
+**If it fails, fix the lists — do not skip it.** Either add the path to the
+`SAFETY_CANDIDATES` grep in Step 2.5.1 *and* map it to a flow in Step 2.5.3, or
+add it to `EXEMPT_PATHS` with a written reason. Both are seconds of work, and a
+hole here means a 988-affordance change merges unverified.
+
+Note it can fire on work unrelated to yours: `.claude/` is one shared working
+tree across concurrent sessions, so another session's tooling edit can introduce
+drift into your run. The fix is the same either way, and it is still cheaper than
+the failure it prevents.
+
+Not a CI job, deliberately — both files it reads are tracked only on `_bare` and
+gitignored on `development`, so no CI checkout can see them; and Phase 2.5's own
+Maestro gate is local-only (no CI macOS runners), so a CI guard would go green on
+a path list for flows CI can never execute.
+
+---
+
 ## Phase 1: Validate & Align Context
 
 ### Step 1.1: Parse Arguments & Determine Work Item ID
@@ -290,9 +323,31 @@ only against a real device for supplementary runtime verification.
 #   - `src/core/config/e2eSeed.ts` — it decides the launch state EVERY flow starts
 #     from, so a regression there changes what all of them see while touching no
 #     feature path. Nothing else in the tree has that reach.
+#
+# INFRA-416 added `consent` and `guidance` to the features alternation, reconciling
+# this grep with CLAUDE.md's Protected Paths table. Both were under-triggers of the
+# same shape — a directory whose safety relevance comes from what it HOSTS or
+# CONSUMES, not from its name:
+#   - `features/consent/` — CombinedLegalGateScreen.tsx hosts the PRE-consent 988
+#     footer, the only crisis affordance before a user accepts anything. `LegalGate`
+#     is in RootCrisisButton's SUPPRESSED_ROUTES, so the root overlay deliberately
+#     does NOT cover for it. DEBUG-390 fixed that footer and this gate fired only
+#     because the branch also touched two .maestro flows; the fix file matched
+#     nothing on its own.
+#   - `features/guidance/` — guidanceGate.ts consumes the PHQ-9/GAD-7 thresholds to
+#     route a distressed user to Stoic content or to crisis resources. FEAT-55
+#     slice 1 shipped it classifying GREEN because a brand-new feature dir matches
+#     no existing pattern.
+# `features/practices/` is a Protected Path but is deliberately NOT here: it is
+# protected for `philosopher` (classical accuracy), the Validation Matrix gives
+# "Therapeutic content (Stoic)" no safety-e2e cell, and no flow pins practice
+# content — gating it would charge a sim build for a philosophy review, the
+# over-trigger that trains the --skip-e2e reflex. That exemption is RECORDED, not
+# implicit: `.claude/scripts/check-safety-paths.sh` fails if a Protected Path is
+# neither matched here nor in its EXEMPT_PATHS list. Run it after editing either.
 SAFETY_CANDIDATES=$(git diff --name-only origin/development...HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
 # the Maestro flows (which drive the running app) have nothing to validate. Discovered
@@ -405,6 +460,9 @@ CRISIS_HOST_CHANGED=$(git diff origin/development...HEAD -- 'app/**/*.tsx' 'app/
 | `CollapsibleCrisisButton` re-host in ANY dir | **trigger** crisis-button | Content detection (`CRISIS_HOST_CHANGED`), exempt from inert filter. |
 | Comment merely NAMING the overlay, in any file | **skip** | Not a re-host; changes no rendered output, so no flow can see it. Citing its 44pt decision as a precedent is normal. |
 | `core/services/security` (non-encryption) / `core/navigation` change | **full suite** | Cross-cutting; existing override in Step 2.5.3. |
+| `features/consent/` change | **`e2e:safety:consent-gate`** | INFRA-416. Hosts the pre-consent 988 footer; `LegalGate` is in `SUPPRESSED_ROUTES`, so the root overlay does not cover for it. |
+| `features/guidance/` change | **gated → crisis-button fail-safe** | INFRA-416. No flow pins its threshold routing; the gap is logged loudly rather than silently skipped. |
+| `features/practices/` change | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
 | `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
 | `.maestro/<flow>.yaml` added or edited | **trigger** that flow | The flow IS the contract; one that has never run is not coverage. Bypasses the inert filter — a deletion-only diff here is assertions being removed. |
@@ -483,6 +541,25 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/crisis/' || [ -n "$CRISI
 fi
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/' && \
   SCRIPTS+=("e2e:safety:q9" "e2e:safety:phq9" "e2e:safety:gad7")
+# INFRA-416: features/consent hosts the PRE-consent 988 footer (CombinedLegalGateScreen),
+# and LegalGate is in SUPPRESSED_ROUTES so the root overlay does not cover for it.
+# deeplink-consent-gate.yaml is the flow that lands on that screen and asserts the
+# affordance, so it is the correct scoped target — NOT the fail-safe crisis-button.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/consent/' && \
+  SCRIPTS+=("e2e:safety:consent-gate")
+# INFRA-416: features/guidance has NO flow. guidanceGate.ts consumes the PHQ-9/GAD-7
+# thresholds to route a distressed user to Stoic content vs crisis resources — a live
+# safety decision with ZERO e2e coverage (no flow references guidance or tier content;
+# the dir is 3 files, all service/type/constants, so nothing renders for a flow to drive
+# today). It is gated here so the change cannot pass silently, and falls through to the
+# render/boot fail-safe below. Filed as its own coverage gap; when a flow exists, map it
+# here and delete this note.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/guidance/'; then
+  echo "⚠️  features/guidance/ changed — NO Maestro flow pins its threshold routing."
+  echo "    guidanceGate.ts decides Stoic-content vs crisis-resources on PHQ-9/GAD-7."
+  echo "    Falling through to the crisis-button fail-safe; jest owns the threshold"
+  echo "    logic (npm run test:clinical). Coverage gap tracked separately."
+fi
 # INFRA-184: app.json / Info.plist changes are caught by the precommit jest static-config
 # test (lsApplicationQueriesSchemes.config.test.ts); no Maestro flow runs here. The device-
 # only crisis-988-dial.yaml is tagged safety-device-only and not part of the sim suite.
