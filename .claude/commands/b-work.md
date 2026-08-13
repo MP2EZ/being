@@ -318,14 +318,27 @@ if [ -d "app/node_modules" ]; then
   echo "✅ Dependencies already installed"
 else
   echo "📦 Installing dependencies..."
-  cd app && npm install
+  cd app && GITHUB_TOKEN=$(grep _authToken ~/.npmrc | head -1 | sed 's/.*_authToken=//') npm ci
 fi
 ```
+
+**`npm ci`, not `npm install`.** Setting a worktree up is not a dependency change — `ci`
+installs exactly what the lockfile says and **cannot write it**, where `install` is free to
+re-resolve and produce lockfile churn nobody asked for. That churn is invisible in a green
+suite and lands in the PR diff; on an item whose scope explicitly forbids touching
+dependencies it is a scope violation delivered by the setup step. Use `install` only when the
+work item *is* a dependency change.
+
+**The `GITHUB_TOKEN=` prefix is required, not defensive.** `app/.npmrc` resolves
+`@mp2ez:registry` with `${GITHUB_TOKEN}`, which shadows the PAT in `~/.npmrc` — so a bare
+install 401s on `@mp2ez/being-design-system` in a fresh worktree. (The same shadow makes a
+bare `npm outdated` report 1 outdated package instead of 55 — a quiet wrong answer, not an
+error.) A `gh` token does not substitute; it lacks `read:packages` and 403s.
 
 **If dependencies already exist:**
 ```
 ✅ Dependencies already installed
-   Skipping npm install
+   Skipping install
 ```
 
 **If installing:**
@@ -338,8 +351,12 @@ fi
 **If installation fails:**
 ```
 ❌ Dependency installation failed
-   Please run manually: cd ~/being/[dir-name]/app && npm install
+   Please run manually, with the token prefix above:
+   cd ~/being/[dir-name]/app && GITHUB_TOKEN=... npm ci
 ```
+
+**Verify before committing** that `app/package-lock.json` is unchanged (`git diff --stat --
+app/package-lock.json`) unless the work item is itself a dependency change.
 
 ---
 
