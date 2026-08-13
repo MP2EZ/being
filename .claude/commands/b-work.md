@@ -115,6 +115,10 @@ include_all_blocks: true
 ```
 
 Read newest-last and let comments **override** the body on any conflict. Specifically:
+- **A long comment can arrive truncated, silently** — it just stops mid-sentence. Retrying
+  with `discussion_id` or the comment's `?d=` URL returns the same cut, so don't burn calls.
+  `/b-batch` panel comments are long and are exactly the ones that override the body. If the
+  tail doesn't end cleanly, say so and name the decision resting on the unread part.
 - A body section labelled BLOCKED / HARD BLOCKER is only blocking if **no later comment
   resolves it**. Cross-check against the `Status` property: a body reading "blocked" while
   `Status` is `Not started` / `Batched` / `In progress` means the blocker was lifted — the
