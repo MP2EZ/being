@@ -216,6 +216,17 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   `npm run e2e:safety:clean` to see what that is costing and to reclaim it.
 - The EAS fallback (`npm run e2e:safety:build:eas`) *does* still need `eas-cli` logged in
   (`npx eas whoami`), `fastlane`, and a clean tree, and takes 10–15 min every run.
+- **eas-cli version (INFRA-351).** That fallback calls the **bare global** `eas`, whose
+  version must satisfy `cli.version` in `app/eas.json` — `>=21.6.0 <22.0.0`, with the floor
+  pinned in lockstep with `release.yml`'s `eas-version:` and asserted by
+  `app/__tests__/scripts/eas-cli-version-lockstep.test.js` in CI. The bound is
+  **enforceable, not advisory**: eas-cli *throws* rather than warns when its own version
+  misses the range, so a stale global CLI fails the fallback outright. Fix with
+  `npm i -g eas-cli@21.6.0`; `EAS_SKIP_CLI_VERSION_CHECK=1` steps outside it deliberately.
+  **The default path is unaffected** — since INFRA-383 `e2e-sim-build.sh` runs
+  `expo run:ios` and invokes no `eas` at all, so this cannot take the `/b-close`
+  Phase 2.5 gate offline. (It could have before INFRA-383; that is precisely why
+  INFRA-351 sat blocked from 2026-08-06 until the build moved off EAS.)
 
 > ✅ **Resolved (INFRA-217): the sim flows skip the preamble via a seeded state.**
 > The no-dev-client Release build boots/transitions slowly, and the long LegalGate
@@ -394,6 +405,129 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 >
 > **Do not** paper over this with a `tapOn: Cancel` in `_seeded-home.yaml`. It would silently
 > no-op once the alert stops appearing, and then silently start tapping something real.
+>
+> **A flow can also raise one itself, and INFRA-407 did not close that source.** Observed
+> 2026-08-12 on iPhone 17 Pro / **iOS 26.0**: `daily-loop-deeplink.yaml`'s `openLink:
+> being://daily` raises `Open in "Being"?` on its own. Confirmed causal, not ordering — on a
+> freshly rebooted sim the flow's own `_seeded-home` assertion passes (so no alert at start),
+> `Open being://daily` completes, and the next assertion fails with the alert present twice
+> in that command's captured hierarchy. The same flow is green on iPhone 16 Plus / **iOS
+> 18.6** across 9 runs (2026-08-08 → 2026-08-12), so this is iOS-version-dependent, not a
+> flow regression.
+>
+> Two consequences worth knowing before you debug a red suite:
+>
+> - It **persists after the flow that raised it**, so every *subsequent* flow in the same run
+>   dies on its first assertion. The flow that looks broken is usually not the one at fault —
+>   check whether an earlier flow in the run did an `openLink`.
+> - It is therefore **structurally invisible to a scoped run**. `/b-close` Phase 2.5 runs only
+>   the flows mapped to changed paths, so a single-flow gate can be green while the full suite
+>   cannot pass. "Scoped gate green" does not mean the safety flows are fine.
+
+> ### ⚠️ Second: does the failing STEP MOVE between runs? Erase the simulator (DEBUG-408)
+>
+> A simulator can rot. When it does, Maestro's XCUITest driver dies mid-flow and Maestro
+> reports the aftermath as **`Element not found: Id matching regex: <whatever was next>`** —
+> which is indistinguishable, in the console, from a real below-the-fold or missing-testID
+> failure. Maestro's own error text will even offer *"This could be a real regression."*
+>
+> **The tell is that the failing step MOVES.** DEBUG-408 failed at `continue-button`, then
+> `daily-loop-skip-breath`, then `nav-back-button` — three different elements on two
+> different screens, same flow, same binary. A layout or testID defect is deterministic
+> about *which* element it hides; a crashing driver fails wherever the crash lands.
+>
+> **Confirming it: do NOT just grep for `ConnectException`.** Every run has them. A clean
+> 83-of-83 passing run contains **14** `Failed to connect to /127.0.0.1` lines; a run whose
+> driver genuinely died contained **10**. By raw count the healthy run looks worse, so a
+> grep-and-count rule fires on everything and ranks runs backwards. It is worse than no
+> check, because the first time you use it on a green run you will conclude the signal is
+> useless and stop looking.
+>
+> **The discriminator is the timestamp, not the count.** Driver startup polling is inherently
+> *before* the first executed command. So: is there a connect error timestamped **after the
+> first `COMPLETED`**?
+>
+> ```bash
+> P=~/.maestro/tests/<timestamp>
+> grep -m1 COMPLETED "$P/maestro.log"                          # first executed command
+> grep 'Failed to connect to /127.0.0.1' "$P/maestro.log" | tail -1   # last connect error
+> ```
+>
+> ```text
+> healthy   first COMPLETED 16:28:33.490 | connect errors 16:28:27.049 → 16:28:32.750   all BEFORE
+> dead      first COMPLETED 21:45:14.140 | connect errors 21:45:09.454 → 21:46:55.167   spans the run
+> ```
+>
+> Errors confined to before the first `COMPLETED` are startup noise — look elsewhere for your
+> failure. Errors *spanning* the run mean the driver died under you. This test also catches
+> the silent variant below, because it never reads the verdict text.
+>
+> **It presents two ways, and only one of them is quiet.** Sometimes the `ConnectException`
+> is recorded against the failing command in the artifact, with no `hierarchyRoot` on it —
+> loud, and hard to misread. Sometimes it appears only elsewhere in the log while the
+> verdict reads as a plain `Element not found` — silent, and the reason DEBUG-408 was filed
+> as a layout bug. **Same root cause, two presentations**, so apply the timestamp test to
+> *every* unexplained red, not only the ones that already look driver-shaped.
+>
+> ### Which of the two causes is it? The fix is different
+>
+> **Cause A — rotted simulator.** Fix by erasing. Nothing in the repo needs to change.
+>
+> ```bash
+> xcrun simctl shutdown <udid> && xcrun simctl erase <udid> && xcrun simctl boot <udid>
+> npm run e2e:safety:build   # the erase wipes the app AND its provenance marker
+> ```
+>
+> **Cause B — another worktree was running Maestro at the same time.** `e2e-safety.sh` resets
+> the driver between flows with `pkill -9 -f "test-without-building"`. That matches on a
+> **pattern, not on ownership**, so it reaps every XCUITest driver on the machine, including
+> ones belonging to another worktree's run. Erasing will not fix this and the sim was never
+> at fault. Pinning separate simulators does not help either — the kill is machine-wide.
+> Two `/b-close` runs overlapping is enough; observed 2026-08-12, one session's run died at
+> command 57 of 83 when another started ~20 s later.
+>
+> ```bash
+> # Is another Maestro ACTUALLY running? Empty == nobody; check BEFORE you blame the sim.
+> ps -Ao pid=,comm=,args= | awk '$2 ~ /(^|\/)java$/ && /maestro\.cli\.AppKt/ {print $1}'
+> ```
+>
+> **Do not use `pgrep -f 'maestro.cli.AppKt'` for this.** `-f` matches the pattern against
+> every process's full command line, so it also matches any shell that merely *mentions* the
+> string — including the wrapper running your own check. Claude Code executes Bash tool calls
+> as `/bin/zsh -c '<command>'`, so the check reports itself as a live Maestro. Verified:
+>
+> ```text
+> $ /bin/sh -c 'x="maestro.cli.AppKt"; sleep 6' &
+> pgrep -fl :  90230 java … maestro.cli.AppKt test --device …     ← real
+>              90462 /bin/sh -c x="maestro.cli.AppKt"; sleep 6    ← a mention, not a process
+> ps identity: 90230 java                                          ← only the real one
+> ```
+>
+> It is right when a human tries it interactively and wrong when it runs from a script or an
+> agent, which is how it survives review. The failure direction is the bad one for a
+> pre-flight: a false "someone else is running" means the operator doesn't run the gate at
+> all. Require the executable to *be* `java`, as above. (Same defect class as the
+> ownership-blind `pkill -9 -f` this section describes — the pattern-match shape has now been
+> independently re-derived three times in this repo, so prefer the `ps` form anywhere you
+> need to ask whether a process exists.)
+>
+> **A different driver port on each successive flow proves nothing** — every flow is its own
+> `maestro test` invocation and starts its own driver, so the port always changes. An earlier
+> draft of this callout offered that as the discriminator; it was measuring process startup,
+> not process death. Use the timestamp test above.
+>
+> **Before you conclude the app regressed, run the flow on a second simulator.** DEBUG-408
+> spent a full investigation on a "below the fold" hypothesis that three other devices —
+> one *smaller in both dimensions* than the one in the flow's `SIM-VALIDATED` header —
+> disproved in minutes. The device is an unpinned input (`e2e-sim-device.sh` enforces that
+> exactly one simulator is booted, but pins no model and no iOS version), so "it fails on
+> my machine" is never by itself evidence about the code.
+>
+> **Note the interaction with wall-clock UI.** A dying driver retries for tens of seconds,
+> and any timer running in the app keeps running through those retries. In DEBUG-408 the
+> daily loop's 30s breath auto-completed mid-retry and took `daily-loop-skip-breath` with
+> it, producing a *second*, entirely genuine-looking "element not found" downstream of the
+> real fault. Timer-gated steps amplify driver flakiness into what looks like an app bug.
 
 Maestro's output names the failing step. Three common causes:
 

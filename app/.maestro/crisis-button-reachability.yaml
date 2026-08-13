@@ -23,7 +23,12 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 #   • AssessmentFlow — keeps its own per-screen `prominent` buttons; the root
 #     overlay is SUPPRESSED there (MAINT-290 must not touch the assessment flow).
 #   • CrisisResources — the destination itself; overlay suppressed.
-#   • LegalGate — under-age gate with its own inline Call-988 / Text UI; suppressed.
+#   • LegalGate — owns a persistent inline Call-988 / Text footer, pinned OUTSIDE its
+#     ScrollView (DEBUG-390) so it is reachable without scrolling; suppressed on that
+#     condition, not merely because the controls exist. Not walked here: this flow boots
+#     via _seeded-home.yaml, which seeds consent and onboarding, so it structurally cannot
+#     reach LegalGate. That contract lives in deeplink-consent-gate.yaml, which already
+#     stands on LegalGate in the post-dismiss state DEBUG-372 created.
 #   • Practice flows/timers (Morning/Midday/Evening, PracticeTimer, BodyScan, …)
 #     now DO carry the root overlay in `immersive` mode — previously the exact
 #     "steps with no 988 access" gap this refactor closes. Their on-device walk
