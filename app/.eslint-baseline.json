@@ -66,6 +66,7 @@
   "src/core/services/supabase/__tests__/SyncCoordinator.getStatus.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/SyncCoordinator.network-probe.test.ts": 1,
   "src/core/services/supabase/__tests__/analyticsGate.unit.test.ts": 1,
+  "src/core/services/supabase/__tests__/crisisTelemetryBoot.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryDurable.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryE2ESuppression.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryGuard.unit.test.ts": 1,
