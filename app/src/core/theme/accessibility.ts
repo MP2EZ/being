@@ -282,8 +282,15 @@ export const TOUCH_TARGETS = {
   
   /**
    * Minimum Spacing Between Touch Targets
-   * - WCAG 2.5.8 (Level AAA): 8px minimum
    * - Prevents accidental taps on adjacent elements
+   *
+   * DEBUG-390 correction: this previously read "WCAG 2.5.8 (Level AAA): 8px minimum",
+   * which is wrong on both counts. 2.5.8 Target Size (Minimum) is a WCAG 2.2 **Level
+   * AA** criterion and it is a **24x24 target-size** requirement, not a spacing
+   * requirement — spacing appears only in its undersized-target exception. The 44x44
+   * figure is 2.5.5 (Level AAA), which is `minimum` above. This value is a house
+   * spacing convention with no SC behind it; it has no consumers today, and it is
+   * corrected rather than deleted so nobody re-derives the mislabelling.
    */
   spacing: 8,
   
