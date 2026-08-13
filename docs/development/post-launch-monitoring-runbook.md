@@ -415,10 +415,25 @@ listeners. No live gate was asserting on random numbers, but the trap was set: a
 "wire up the existing UI frame rate" would have produced a permanently-green control. Both getters
 and both fields are gone.
 
-Note also that `RenderingOptimizer` samples the **JS thread** via a `requestAnimationFrame` loop
-and is reachable only through `useAssessmentPerformance`, whose sole consumer is
-`AssessmentIntegrationExample.tsx` — a demo component. It is not, and must not become, the 60fps
-control. A warning to that effect now sits in its module header.
+**`RenderingOptimizer` no longer exists (MAINT-252).** The paragraph that stood here described it
+as reachable only through `useAssessmentPerformance`, whose sole consumer was the demo component
+`AssessmentIntegrationExample.tsx`, and pointed at a warning in its module header. MAINT-398
+deleted that consumer chain and MAINT-252 then deleted the whole of
+`app/src/core/services/performance/`, module header included — so the warning has to live here
+instead, because the reasoning outlives the module:
+
+> A `requestAnimationFrame` loop samples the **JS thread**. The breathing circle carries the
+> therapeutic budget and runs entirely in Reanimated worklets on the **UI thread**, which a rAF
+> loop cannot observe. A JS-thread rAF loop is also the exact pattern PERF-02 (commit `ff591f3a`)
+> deleted from `BreathingCircle.tsx` *as a performance fix*. Do not rebuild one and call it the
+> 60fps control.
+
+Deleted with it: a `deltaTime > 20` dropped-frame constant and an `fps >= 55` "smooth" threshold —
+both device-naive in exactly the way described two sections above, and both a live temptation for
+whoever picks up INFRA-373.
+
+The 60fps control is, and remains, `check-breathing-worklets` (structural proxy) plus INFRA-373
+(the real on-device UI-thread measurement, still unbuilt).
 
 ### The real control
 

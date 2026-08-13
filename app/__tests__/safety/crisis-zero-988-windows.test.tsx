@@ -47,10 +47,28 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
    * one consent screen two differently-labelled Call-988 buttons, which is worse for a
    * screen reader user than the situation it was meant to fix.
    *
-   * WHAT IS ACTUALLY TRUE, and left alone deliberately: the footer sits at the BOTTOM of
-   * a long ScrollView, below age verification and four consent checkboxes. The <3-tap
-   * contract is met (scrolling is not tapping) but it is below the fold. Moving it is a
-   * UX decision on a compliance screen, not a safety fix, and was out of scope here.
+   * WHAT WAS ACTUALLY TRUE, and left alone deliberately AT THE TIME: the footer sat at
+   * the BOTTOM of a long ScrollView, below age verification and four consent checkboxes.
+   * The <3-tap contract was met (scrolling is not tapping) but it was below the fold.
+   * Moving it was judged a UX decision on a compliance screen, not a safety fix, and was
+   * out of scope here.
+   *
+   * ⚠️ RESOLVED BY DEBUG-390 — and the "out of scope" call above did not survive.
+   * DEBUG-372 made LegalGate the route a dismissed cold-start `being://crisis` lands on,
+   * which turned a latent wart into a live regression: the post-dismiss state traded the
+   * persistent 1-tap 988 that Main offers for a scroll-then-tap one. Measured before the
+   * fix: 1433pt of content against a 759pt viewport on iPhone 15, with the 988 button's
+   * top edge at 95.3% of scroll depth — 642pt of scrolling, 754pt on SE 3.
+   *
+   * The footer is now pinned OUTSIDE the ScrollView. `LegalGate` STAYS in
+   * SUPPRESSED_ROUTES: the suppression was re-earned, not withdrawn, because suppression
+   * is earned by an affordance reachable WITHOUT SCROLLING, never by one that merely
+   * exists.
+   *
+   * NOTE WHAT THIS BLOCK GOT WRONG, because it is the reusable lesson: the assertion
+   * below tested that the footer EXISTS, and it passed for the entire period the defect
+   * was live. Existence was never the property in question. The position assertion is
+   * the one that would have caught it.
    *
    * The runtime behaviour is already pinned by
    * src/features/consent/screens/__tests__/CombinedLegalGateScreen.crisis.test.tsx
@@ -72,6 +90,25 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
     expect(mainBranch).toContain('crisisFooter');
     expect(mainBranch).toContain('accessibilityLabel="Call 988"');
     expect(mainBranch).toContain('accessibilityLabel="Text Crisis Line"');
+  });
+
+  test('DEBUG-390: the crisis footer is pinned OUTSIDE the ScrollView', () => {
+    // The assertion above is satisfied by a footer anywhere in the main branch —
+    // including the bottom of the ScrollView, which is where the defect lived. This
+    // one pins POSITION, so re-nesting the footer inside the ScrollView fails CI.
+    //
+    // Source-level on purpose: this file is the structural safety suite and renders
+    // nothing. The render-tree equivalent (walking ancestors from the 988 control)
+    // lives in
+    // src/features/consent/screens/__tests__/CombinedLegalGateScreen.accessibility.test.tsx
+    // and is the authoritative one; this is the copy that runs in precommit.
+    const mainBranch = source.slice(source.lastIndexOf('  return ('));
+    const scrollViewCloses = mainBranch.indexOf('</ScrollView>');
+    const footerOpens = mainBranch.indexOf('styles.crisisFooter}');
+
+    expect(scrollViewCloses).toBeGreaterThan(-1);
+    expect(footerOpens).toBeGreaterThan(-1);
+    expect(footerOpens).toBeGreaterThan(scrollViewCloses);
   });
 
   test('the under-age branch keeps its own crisis section', () => {

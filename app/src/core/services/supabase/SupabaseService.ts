@@ -692,6 +692,24 @@ class SupabaseService {
     if (this.crisisPersistDirty) void this.persistCrisisQueue();
 
     if (this.crisisAnalyticsQueue.length === 0) return;
+
+    // INFRA-411: the Maestro safety gate runs a Release binary carrying REAL Supabase
+    // config (INFRA-383) and boots with cloudSyncEnabled: true from the e2e seed, so
+    // once a client exists on the default path the four detection-triggering flows
+    // would write real crisis_detected rows into production analytics_events — the
+    // table the FEAT-129 operator views read and the INFRA-219 alerter keys on.
+    // Suppress at the egress boundary rather than filtering downstream: filtering
+    // would need a migration against the single shared live project.
+    //
+    // Costs no coverage. Every flow launches with clearState/clearKeychain, so the
+    // gate can never verify delivery or reconciliation anyway; end-to-end proof is
+    // INFRA-412's attended measurement against a normal Release build.
+    //
+    // Read at call time, NOT hoisted to a module-scope const like e2eSeed.ts's
+    // SEED_ACTIVE — this must stay togglable per test. Exact-string compare, never
+    // a truthiness check: only the inlined build constant may take this path.
+    if (env.EXPO_PUBLIC_E2E_SEED_ONBOARDED === 'true') return; // events retained, never sent
+
     if (!this.client) return; // reconcile on a later flush
 
     // INFRA-260: crisis telemetry inserts into analytics_events under auth.uid()

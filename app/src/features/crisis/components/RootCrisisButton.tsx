@@ -16,7 +16,30 @@
  *       • AssessmentFlow  — keeps its per-screen `prominent` buttons; MAINT-290 must
  *                           NOT touch the assessment flow, so suppress here to avoid a
  *                           double mount / losing the safety-tuned prominent emphasis
- *       • LegalGate       — under-age gate with its own inline Call-988 / Text UI
+ *       • LegalGate       — owns a persistent inline Call-988 / Text footer, pinned
+ *                           OUTSIDE its ScrollView (DEBUG-390) so it is on screen at
+ *                           every scroll offset, on both render branches.
+ *
+ *                           Suppression here is CONDITIONAL on that. Until DEBUG-390
+ *                           this bullet read "under-age gate with its own inline
+ *                           Call-988 / Text UI" — true of the under-age branch, false
+ *                           of the main one, where the footer was the last child of a
+ *                           1433pt ScrollView (988 button top at 95.3% of scroll
+ *                           depth; 642pt of scrolling on iPhone 15, 754pt on SE 3).
+ *                           DEBUG-372 then made LegalGate the route a dismissed
+ *                           cold-start `being://crisis` LANDS on, turning a stale
+ *                           comment into a live regression: a persistent 1-tap 988
+ *                           traded for a scroll-then-tap one.
+ *
+ *                           Suppression is earned by an affordance reachable WITHOUT
+ *                           SCROLLING, never by one that merely exists. Enforced by
+ *                           __tests__/safety/crisis-zero-988-windows.test.tsx, which
+ *                           now pins the footer's POSITION and not just its presence —
+ *                           re-nesting it inside the ScrollView fails CI.
+ *
+ *                           Do NOT add LegalGate to IMMERSIVE_ROUTES: it is a consent
+ *                           screen, not a meditative surface, and `standard` full
+ *                           opacity is the correct emphasis.
  *   - `immersive` (starts faded — see FADED_OPACITY) during meditative practice flows/timers.
  *   - `standard` everywhere else (tabs, onboarding, library, module detail, subscription…).
  *

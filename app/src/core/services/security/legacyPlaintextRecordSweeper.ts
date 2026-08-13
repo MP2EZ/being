@@ -38,7 +38,11 @@
  * another reason this module must not race them.
  *
  * Deliberately NOT swept: the `crisis_<assessmentId>` key from
- * `CrisisPerformanceOptimizer.logCrisisInterventionOptimized`. That method was
+ * `CrisisPerformanceOptimizer.logCrisisInterventionOptimized`. That class no
+ * longer exists in the tree — the method went in DEBUG-314 and the module that
+ * held it in MAINT-252 — so do not read this paragraph as stale and "fix" it by
+ * broadening the sweep; the decision below is why the key is unmatched, and it
+ * still stands. That method was
  * only reachable via `triggerOptimizedEmergencyResponse`, which `git log -S`
  * confirms never had a caller outside its own file in any commit — so no such
  * record was ever written on any device. Matching it would require a broad
