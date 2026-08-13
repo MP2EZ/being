@@ -24,6 +24,19 @@
 #
 # Prereqs (one-time per machine):
 #   - eas-cli logged in:        npx eas login   (npx eas whoami to check)
+#   - eas-cli VERSION in range: eas --version must satisfy `cli.version` in
+#     eas.json (INFRA-351: `>=21.6.0 <22.0.0`, floor pinned in lockstep with
+#     `.github/workflows/release.yml`'s `eas-version:`). Line 98 below calls the
+#     BARE GLOBAL `eas`, not `npx`, so this is the machine's global CLI — the one
+#     thing here that no PR can carry, review, or revert. The check is ENFORCEABLE,
+#     not advisory: eas-cli THROWS (it does not warn) when its own version misses
+#     the range, so an out-of-range global CLI fails this script at `eas build`
+#     with "does not satisfy the CLI version constraint defined in eas.json".
+#     Fix with `npm i -g eas-cli@21.6.0`; `EAS_SKIP_CLI_VERSION_CHECK=1` is the
+#     documented escape hatch if you must step outside the bound deliberately.
+#     Note the DEFAULT gate path (`e2e-sim-build.sh`, INFRA-383) invokes no `eas`
+#     at all, so this constraint binds only this EAS fallback and ad-hoc local use
+#     — it CANNOT take the /b-close Phase 2.5 safety gate offline.
 #   - fastlane:                 brew install fastlane
 #   - cocoapods working:        pod --version    (brew reinstall cocoapods if broken)
 #   - a booted iOS simulator
