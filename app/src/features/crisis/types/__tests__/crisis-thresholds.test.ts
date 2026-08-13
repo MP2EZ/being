@@ -149,6 +149,23 @@ describe('detectCrisis intervention-tier classification (MAINT-251)', () => {
 // MAINT-398 PR body). Once the second path is gone no parity test can exist, so
 // these pin the canonical behaviour at each point where the two disagreed —
 // plus a structural guard that fails if a second scorer ever reappears.
+//
+// MAINT-252 addendum. Three of the four divergences are pinned below with
+// their rationale attached. The fourth is pinned ELSEWHERE and was, until now,
+// pinned anonymously — recorded here because MAINT-252 deleted
+// `CrisisPerformanceOptimizer.ts`, which was the only place the reasoning
+// survived:
+//
+//   Fourth divergence — malformed input (wrong answer count). Canonical
+//   `ClinicalScoringService.calculatePHQ9Score` THROWS and the caller sees it;
+//   the optimizer's catch swallowed everything into `return null`, making a
+//   scoring FAILURE indistinguishable from "no crisis". On a zero-false-negative
+//   path that is a fail-OPEN. Pinned by
+//   `features/assessment/__tests__/scoring.quick.test.ts`
+//   ("throws on invalid PHQ-9/GAD-7 answer count"). Note the throw lives in
+//   `ClinicalScoringService` (assessment/stores/assessmentStore.ts), NOT in
+//   `detectCrisis` — canonical `detectCrisis` never inspects answer count, so
+//   do not go looking for it in safety.ts.
 // ---------------------------------------------------------------------------
 
 const phqResultWithQ9 = (totalScore: number, q9Response: number): PHQ9Result => {

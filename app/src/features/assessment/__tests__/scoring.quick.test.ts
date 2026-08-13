@@ -52,6 +52,12 @@ describe('ClinicalScoringService — quick boundary tests', () => {
       expect(r.suicidalIdeation).toBe(true);
     });
 
+    // The THROW is the safety property, not an implementation detail. MAINT-398
+    // found the deleted `detectCrisisOptimized` swallowed malformed input into
+    // `return null`, making a scoring FAILURE indistinguishable from "no
+    // crisis" — a fail-OPEN on a zero-false-negative path. Relaxing this to a
+    // null/undefined return reintroduces exactly that. See the MAINT-252
+    // addendum in features/crisis/types/__tests__/crisis-thresholds.test.ts.
     it('throws on invalid PHQ-9 answer count (regression guard)', () => {
       expect(() => ClinicalScoringService.calculatePHQ9Score(phq9Answers([0, 0, 0]))).toThrow();
     });
@@ -72,6 +78,8 @@ describe('ClinicalScoringService — quick boundary tests', () => {
       expect(r.isCrisis).toBe(true);
     });
 
+    // Same MAINT-398 fail-open property as the PHQ-9 case above: the throw is
+    // the control. Do not weaken it to a null return.
     it('throws on invalid GAD-7 answer count (regression guard)', () => {
       expect(() => ClinicalScoringService.calculateGAD7Score(gad7Answers([0, 0]))).toThrow();
     });
