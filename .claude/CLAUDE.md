@@ -121,6 +121,8 @@ The jest-side `perf:*` scripts were removed in MAINT-166 PR 7 (they ran zero mat
 
 Safety e2e = Maestro flow in `app/.maestro/` pinning the user-visible contract. Gated by `/b-close` Phase 2.5 when safety paths change. Authoring guide: `docs/testing/e2e-maestro.md`.
 
+**What the safety gate does NOT cover — telemetry (INFRA-400).** It verifies UI reachability and thresholds. It does **not** verify that the `crisis_detected` → Supabase sink delivers, so a green gate is narrower than "the crisis paths were verified." The gate binary carries real Supabase config (INFRA-383 grepped the embedded `main.jsbundle`) yet a full run writes zero rows — and that is production behaviour faithfully reproduced, not a harness artefact: `public.analytics_events` holds exactly **one row, total, of any event type, ever**. `flushCrisisAnalytics()` early-returns on `if (!this.client) return;`, and the only thing that constructs that client is `initializeCloudServices()`, whose module-scope eager call is gated on `canPerformOperation('cloud_sync')` — evaluated at module-load time when `consentStatus` is still `'loading'`, so the predicate is necessarily `false` and never re-runs. A client exists only for a user who has opened Profile → Cloud Backup. Tracked in **DEBUG-409**; until it lands, **a zero-row `analytics_events` reading is the expected reading**, not evidence of a dead pipeline. Note also that only 4 of the 8 sim flows could ever emit (`q9-single-alert`, `phq9-severe-completion`, `gad7-severe`, `journal-crisis-scan`) — the rest tap the crisis *button* without triggering crisis *detection*.
+
 ## State (Zustand)
 
 - `user` — profile, preferences
