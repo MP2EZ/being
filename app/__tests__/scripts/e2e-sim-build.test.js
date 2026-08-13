@@ -553,9 +553,9 @@ function runSafety(built, opts = {}) {
     // process that exits immediately; the cases this work exists for need one that
     // WEDGES, and one that writes a JUnit report the gate then adjudicates.
     maestroBody = null,
-    // DEBUG-392: `pgrep` decides whether the driver reset is safe to fire. Default 1
-    // (no other maestro live) preserves the pre-existing behaviour for every old test.
-    pgrepExits = 1,
+    // DEBUG-392: the `ps -axo` table the driver-reset guard reads. Default empty =
+    // quiet machine, preserving the pre-existing behaviour for every old test.
+    psInventory = '',
   } = opts;
   const trace = path.join(built.root, 'safety-trace.log');
   fs.writeFileSync(trace, '');
@@ -618,7 +618,23 @@ function runSafety(built, opts = {}) {
   // zero-artifact runs on 2026-08-12 carried 239+ `Failed to connect to /127.0.0.1`
   // lines, the signature of a driver reaped out from under a running invocation).
   writeStub(built.stubs, 'pkill', [`echo "pkill $@" >> "${trace}"`, 'exit 0'].join('\n'));
-  writeStub(built.stubs, 'pgrep', [`echo "pgrep $@" >> "${trace}"`, `exit ${pgrepExits}`].join('\n'));
+  // DEBUG-392: `ps`, not `pgrep`. The guard must identify a JVM by its executable, so the
+  // stub answers both shapes the script uses: the `-axo` inventory and the `-o pgid= -p`
+  // lookup. `psInventory` is the raw table, so a test can inject a line that MENTIONS
+  // maestro without being it — the false positive that shipped and had to be fixed.
+  writeStub(
+    built.stubs,
+    'ps',
+    [
+      `echo "ps $@" >> "${trace}"`,
+      'case "$*" in',
+      '  *pgid*) echo " 99999"; exit 0;;',
+      'esac',
+      `cat <<'PSEOF'`,
+      psInventory,
+      'PSEOF',
+    ].join('\n')
+  );
   writeStub(built.stubs, 'sleep', 'exit 0');
 
   if (gitMutation) writeGitState(built.root, gitMutation);
@@ -1531,12 +1547,19 @@ describe('DEBUG-392 — evidence comes from a private per-invocation directory',
 });
 
 describe('DEBUG-392 — the driver reset must not reap another session', () => {
-  test('skips the reset while a neighbouring maestro is live', () => {
+  const PEER_JVM = '  4242 java /usr/bin/java -classpath /opt/homebrew/lib/* maestro.cli.AppKt test flow.yaml';
+  // A shell POLLING for maestro. This is not a hypothetical: a peer session running
+  // `pgrep -f 'maestro.cli.AppKt'` to see whether we had finished is what broke the
+  // first implementation.
+  const SHELL_MENTIONING_MAESTRO =
+    '  7306 zsh /bin/zsh -c pgrep -f \'maestro.cli.AppKt\' >/dev/null && echo "PEER STILL RUNNING"';
+
+  test('skips the reset while a neighbouring maestro JVM is live', () => {
     const built = runScript({});
     const r = runSafety(built, {
       flows: ['crisis-button-reachability'],
       maestroBody: maestroWrites({}),
-      pgrepExits: 0, // another maestro JVM is running
+      psInventory: PEER_JVM,
     });
     expect(r.trace).not.toMatch(/pkill .*test-without-building/);
     expect(r.output).toMatch(/skipping the driver reset/i);
@@ -1548,8 +1571,25 @@ describe('DEBUG-392 — the driver reset must not reap another session', () => {
     const r = runSafety(built, {
       flows: ['crisis-button-reachability'],
       maestroBody: maestroWrites({}),
-      pgrepExits: 1,
+      psInventory: '',
     });
+    expect(r.trace).toMatch(/pkill .*test-without-building/);
+  }, 60000);
+
+  test('a shell that merely MENTIONS maestro does not suppress the reset', () => {
+    // THE REGRESSION. The first implementation used `pgrep -f 'maestro\.cli\.AppKt'`,
+    // which matches any command line CONTAINING the string — including another agent's
+    // poll for us. Observed inverted in production: fired on all 5 quiet runs (peer
+    // polling, no JVM) and stayed silent on the one genuinely contended run. A skipped
+    // reset is harmless for a single flow but would skip EVERY reset across the 8-flow
+    // suite, regressing the driver degradation INFRA-220 exists to prevent.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+      psInventory: SHELL_MENTIONING_MAESTRO,
+    });
+    expect(r.output).not.toMatch(/skipping the driver reset/i);
     expect(r.trace).toMatch(/pkill .*test-without-building/);
   }, 60000);
 });

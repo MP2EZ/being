@@ -220,6 +220,42 @@ LAST_EVIDENCE_DIR=""
 # outlier, not a margin call.
 FLOW_TIMEOUT_S="${E2E_FLOW_TIMEOUT_S:-600}"
 
+# DEBUG-392 — live maestro JVMs that are NOT this run's. Takes our child's PGID.
+#
+# WHY NOT `pgrep -f 'maestro\.cli\.AppKt'`. That was the first implementation and it was
+# wrong in a way worth recording, because it is the SAME bug class this function exists to
+# fix. `pgrep -f` matches the pattern against every process's full command line — which
+# includes any *shell* that merely MENTIONS the string. A peer session polling
+# `pgrep -f 'maestro.cli.AppKt'` to see whether we had finished was itself matched, so the
+# guard fired on other people LOOKING for maestro rather than on maestro. Measured: it
+# fired on all 5 quiet runs (peer polling, no JVM) and stayed silent on the one genuinely
+# contended run (peer between polls). Exactly inverted.
+#
+# The generalisation, which is the whole point of this work item: a substring search is
+# not an identity check. `pkill -f "test-without-building"` below is blind to which
+# worktree owns a driver; `pgrep -f` was blind to whether a match was a process or a
+# mention of one. Both substitute grep for ownership.
+#
+# So: require the executable to actually BE java (comm), not merely a command line that
+# talks about it, and exclude our own process group — our child is reaped by `wait`
+# before this runs, but a JVM shutting down slowly must not make us skip our own reset.
+#
+# KNOWN LIMITATION, deliberately not fixed here: this still cannot distinguish a peer's
+# live JVM from a STALE one left by our own earlier crashed run, which is precisely the
+# case the reset exists for. It fails toward not-resetting — right for peers, wrong for
+# self-recovery. Ownership by device UDID or child PID is the real fix; own work item.
+other_maestro_jvms() {
+  own_pgid="${1:-}"
+  ps -axo pid=,comm=,args= 2>/dev/null \
+    | awk 'index($0, "maestro.cli.AppKt") && $2 ~ /(^|\/)java$/ { print $1 }' \
+    | while read -r pid; do
+        [ -n "$pid" ] || continue
+        pgid="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')"
+        [ -n "$own_pgid" ] && [ "$pgid" = "$own_pgid" ] && continue
+        echo "$pid"
+      done
+}
+
 # INFRA-405: pin every flow to the device the pre-flight just attested. Empty for a
 # device-only run, where maestro must be left to find the real iPhone.
 MAESTRO_DEVICE_ARGS=()
@@ -356,7 +392,7 @@ for f in "${FLOWS[@]}"; do
   # `Failed to connect to /127.0.0.1` lines apiece: a driver pulled out from under a live
   # invocation. Skipping the reset costs this run a possibly-degraded driver; firing it
   # costs another run its evidence, and that one is silent.
-  if pgrep -f 'maestro\.cli\.AppKt' >/dev/null 2>&1; then
+  if [ -n "$(other_maestro_jvms "$child")" ]; then
     echo "⚠️  another maestro invocation is live — skipping the driver reset (a pattern kill"
     echo "   would reap ITS driver too). If this run flakes, re-run it on a quiet machine."
   else
