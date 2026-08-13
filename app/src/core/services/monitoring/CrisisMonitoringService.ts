@@ -11,14 +11,19 @@
  * INTEGRATION WITH EXISTING SYSTEMS:
  * - Works with ResilienceOrchestrator circuit breakers
  * - Integrates with ProductionLogger for secure logging
- * - Connects to PerformanceService for timing validation
  * - Links to ErrorMonitoringService for failure detection
+ *
+ * MAINT-252: this module used to carry `import performanceService from
+ * '../performance'`. The binding was never referenced, and the whole
+ * `core/services/performance/` directory it pointed at was orphaned once
+ * MAINT-398 deleted the last consumer chain, so the directory was deleted and
+ * the import with it. Nothing here measured anything through it: the crisis
+ * detection timing this service reports comes from its own monitoring cycle.
  */
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { generateTimestampedId } from '@/core/utils/id';
 import { resilienceOrchestrator, ProtectedService, CircuitBreakerState } from '../resilience';
-import performanceService from '../performance';
 
 export interface CrisisMonitoringMetrics {
   // Performance metrics
