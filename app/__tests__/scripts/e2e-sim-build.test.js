@@ -300,11 +300,19 @@ function runScript(opts = {}) {
             : []),
           ...(frameworkDevLauncher ? ['  mkdir -p "$APP/Frameworks/EXDevLauncher.framework"'] : []),
           '  echo "binary" > "$APP/Being"',
-          // expo run:ios installs and launches atomically — mirror that.
-          `  rm -rf "${container}"; mkdir -p "$(dirname "${container}")"`,
-          // -p: simctl install preserves mtimes, and the freshness assert reads them.
-          `  cp -Rp "$APP" "${container}"`,
-          `  echo "installed" >> "${trace}"`,
+          // INFRA-407: the build no longer installs. `--device generic --output <dir>` is
+          // build-only, so the product is COPIED OUT and nothing reaches the simulator
+          // until the script's own `simctl install` runs (see the xcrun stub). Emulating
+          // the old atomic build-install-launch here would let the script drop the install
+          // step entirely and still pass — the shim has to split exactly where the real
+          // command splits, or it stops pinning the thing that changed.
+          '  OUT=""; prev=""',
+          '  for a in "$@"; do if [ "$prev" = "--output" ]; then OUT="$a"; fi; prev="$a"; done',
+          '  if [ -n "$OUT" ]; then',
+          // -p: mtimes carry through, and the bundle-freshness assert reads them.
+          '    mkdir -p "$OUT"; cp -Rp "$APP" "$OUT/"',
+          `    echo "output=$OUT" >> "${trace}"`,
+          '  fi',
         ]
       : []),
     '  exit 0',
@@ -319,10 +327,23 @@ function runScript(opts = {}) {
     'xcrun',
     [
       'if [ "$1" = "simctl" ] && [ "$2" = "list" ]; then',
+      // INFRA-407: the script resolves a UDID via `simctl list devices booted -j` and
+      // installs to THAT, never the bare `booted` alias — `booted` is ambiguous when two
+      // simulators are up and can resolve to the wrong device. Answer -j with JSON so the
+      // resolved-UDID path is actually exercised rather than silently falling back.
+      `  case "$*" in *-j*) echo '{"devices":{"iOS":[{"udid":"ABC-123","state":"Booted"}]}}'; exit 0 ;; esac`,
       '  echo "iPhone 16 Plus (ABC-123) (Booted)"; exit 0',
       'fi',
       'if [ "$1" = "simctl" ] && [ "$2" = "uninstall" ]; then',
       `  echo "uninstall" >> "${trace}"; rm -rf "${container}"; exit 0`,
+      'fi',
+      // INFRA-407: this is now the ONLY thing that puts an app on the "simulator".
+      // `simctl install <device> <path>` — $3 is the device, $4 the .app.
+      'if [ "$1" = "simctl" ] && [ "$2" = "install" ]; then',
+      `  echo "install device=$3" >> "${trace}"`,
+      `  rm -rf "${container}"; mkdir -p "$(dirname "${container}")"`,
+      `  cp -Rp "$4" "${container}"`,
+      `  echo "installed" >> "${trace}"; exit 0`,
       'fi',
       'if [ "$1" = "simctl" ] && [ "$2" = "get_app_container" ]; then',
       `  if [ -d "${container}" ]; then echo "${container}"; exit 0; fi`,
@@ -940,8 +961,11 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
         '  echo "<plist/>" > "$APP/Info.plist"',
         "  printf 'JSBUNDLE cloud_sync:false,bug_reporting:true,voice_journal:true' > \"$APP/main.jsbundle\"",
         '  echo "binary" > "$APP/Being"',
-        `  rm -rf "${container}"; mkdir -p "$(dirname "${container}")"`,
-        `  cp -Rp "$APP" "${container}"`,
+        // INFRA-407: build-only, same split as the shared stub — copy to --output and
+        // leave installing to `simctl install`.
+        '  OUT=""; prev=""',
+        '  for a in "$@"; do if [ "$prev" = "--output" ]; then OUT="$a"; fi; prev="$a"; done',
+        '  if [ -n "$OUT" ]; then mkdir -p "$OUT"; cp -Rp "$APP" "$OUT/"; fi',
         'fi',
         'exit 0',
       ].join('\n')
@@ -950,8 +974,14 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
       stubs,
       'xcrun',
       [
-        'if [ "$1" = "simctl" ] && [ "$2" = "list" ]; then echo "iPhone 16 (ABC) (Booted)"; exit 0; fi',
+        'if [ "$1" = "simctl" ] && [ "$2" = "list" ]; then',
+        `  case "$*" in *-j*) echo '{"devices":{"iOS":[{"udid":"ABC","state":"Booted"}]}}'; exit 0 ;; esac`,
+        '  echo "iPhone 16 (ABC) (Booted)"; exit 0',
+        'fi',
         `if [ "$1" = "simctl" ] && [ "$2" = "uninstall" ]; then rm -rf "${container}"; exit 0; fi`,
+        'if [ "$1" = "simctl" ] && [ "$2" = "install" ]; then',
+        `  rm -rf "${container}"; mkdir -p "$(dirname "${container}")"; cp -Rp "$4" "${container}"; exit 0`,
+        'fi',
         'if [ "$1" = "simctl" ] && [ "$2" = "get_app_container" ]; then',
         `  if [ -d "${container}" ]; then echo "${container}"; exit 0; fi`,
         '  exit 1',
