@@ -216,6 +216,17 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   `npm run e2e:safety:clean` to see what that is costing and to reclaim it.
 - The EAS fallback (`npm run e2e:safety:build:eas`) *does* still need `eas-cli` logged in
   (`npx eas whoami`), `fastlane`, and a clean tree, and takes 10–15 min every run.
+- **eas-cli version (INFRA-351).** That fallback calls the **bare global** `eas`, whose
+  version must satisfy `cli.version` in `app/eas.json` — `>=21.6.0 <22.0.0`, with the floor
+  pinned in lockstep with `release.yml`'s `eas-version:` and asserted by
+  `app/__tests__/scripts/eas-cli-version-lockstep.test.js` in CI. The bound is
+  **enforceable, not advisory**: eas-cli *throws* rather than warns when its own version
+  misses the range, so a stale global CLI fails the fallback outright. Fix with
+  `npm i -g eas-cli@21.6.0`; `EAS_SKIP_CLI_VERSION_CHECK=1` steps outside it deliberately.
+  **The default path is unaffected** — since INFRA-383 `e2e-sim-build.sh` runs
+  `expo run:ios` and invokes no `eas` at all, so this cannot take the `/b-close`
+  Phase 2.5 gate offline. (It could have before INFRA-383; that is precisely why
+  INFRA-351 sat blocked from 2026-08-06 until the build moved off EAS.)
 
 > ✅ **Resolved (INFRA-217): the sim flows skip the preamble via a seeded state.**
 > The no-dev-client Release build boots/transitions slowly, and the long LegalGate

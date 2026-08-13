@@ -76,6 +76,25 @@ jobs:
       # validation only from the NEXT REAL RELEASE reaching TestFlight — never
       # from a dry run. Do not bundle a bump with any other release-path change,
       # or a failure is unattributable between them.
+      #
+      # LOCKSTEP (INFRA-351): this pin and `app/eas.json`'s `cli.version` FLOOR are
+      # one value in two files. Bumping this alone fails
+      # `app/__tests__/scripts/eas-cli-version-lockstep.test.js` (CI, "Script guard
+      # tests"), which asserts floor == pin exactly — not merely "pin satisfies
+      # range", because `>=21.0.0 <22.0.0` would permit a 21.0.0-local vs
+      # 21.6.0-CI skew, the divergence INFRA-351 existed to close. So a bump is:
+      #   1. `npm i -g eas-cli@<new>` locally, `eas --version` to confirm — FIRST.
+      #      The bound is ENFORCEABLE, not advisory: eas-cli THROWS when its own
+      #      version misses `cli.version`, so a floor ahead of your global CLI
+      #      breaks `npm run e2e:safety:build:eas` and any ad-hoc local `eas`.
+      #      (`EAS_SKIP_CLI_VERSION_CHECK=1` is the deliberate escape hatch.)
+      #   2. this pin + eas.json's floor + its `<major+1>` ceiling, together.
+      # That pairing is NOT the "other release-path change" the paragraph above
+      # forbids bundling — it is one logical change that happens to span two files.
+      # The rationale cannot live in eas.json itself: it is strict-JSON-parsed at
+      # module scope by `__tests__/safety/e2eSeedGate.config.test.ts` (in
+      # `precommit`) and validated by `@expo/eas-json` with `allowUnknown: false`,
+      # so neither a `//` line nor a `"//"` key survives.
       - name: Setup EAS CLI
         uses: expo/expo-github-action@v9
         with:
