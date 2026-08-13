@@ -136,6 +136,14 @@ message named the correct replacement scope. Resolve with
 `git log --oneline --all --grep="<BLOCKER-ID>"` then `git show --stat <sha>`, and treat any
 conflict with the body the same way you treat a comment: the landed code wins.
 
+**A blocker with no `Blocked by` relation needs the same check — keyed on files, not items.**
+The rule above fires on the item graph, so it misses the commoner shape: a blocker recorded
+only as prose, asserting that some file *does* something. Nothing links that file back to the
+item, so the claim rots while `Status` stays `Not started` — and a verified-but-stale blocker
+is more dangerous than an unverified one, because the rigour of the original check is what
+stops the next reader re-testing it. Re-read every file the blocker names and confirm it still
+says what the blocker says; `git log --oneline -5 -- <path>` shows whether it moved.
+
 ---
 
 ### Step 1.4: Incorporate Additional Context
