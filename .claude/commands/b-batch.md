@@ -1071,6 +1071,13 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
      your own invocation — bundling your change into a merge commit and discarding your
      message, so the change vanishes from `git log`.
    - Manifest `queued_red` → still belongs in the sim queue, never auto-close.
+   - **Re-verify every work item the `approach` string cites, before feeding it to `/b-work`.**
+     This phase reconciles manifest *state*; the approach text is reconciled by nothing and is
+     the oldest content in the file. Claims like "X does not exist" or "X is unrelated scope"
+     were true when the panel planned and go stale as sibling batches merge. Resolve the cited
+     IDs against Notion + `git log --grep` in one batched call. Worst where the deliverable is a
+     document: a stale citation in code fails a test, one in a permanent reference is never
+     checked again and inherits the panel's authority.
 3. **Recompute dependency satisfaction** from current Notion `Done` status **and sibling
    manifests** (per Step 2.2.3): a previously `Blocked`/`deferred`/`blocked_by` item whose
    prerequisite is now `Done` becomes runnable again (running it via `/b-work` Step 2.7
