@@ -26,6 +26,10 @@ import { DataRetentionService } from './src/core/services/data-retention';
 import { PostHogProvider } from './src/core/analytics';
 import { closeMenu as closeDevMenu } from 'expo-dev-menu';
 import { maybeSeedE2EOnboardedState } from './src/core/config/e2eSeed';
+// DEBUG-409: imported DIRECTLY, not via the `services/supabase` barrel — the barrel's
+// module-scope eager init is the consent-gated path this fix routes around, and pulling
+// it in here would drag CloudBackupService onto the boot graph.
+import supabaseService from './src/core/services/supabase/SupabaseService';
 import { useBugReportShake } from './src/core/hooks/useBugReportShake';
 
 // INFRA-181: hide RN LogBox during Maestro runs. The dev warning toast (e.g.
@@ -109,6 +113,19 @@ function App() {
         // consent record persists to SecureStore. Releases the seed gate that
         // CleanRootNavigator awaits before resolving its initial route.
         await maybeSeedE2EOnboardedState();
+
+        // DEBUG-409: provision the crisis-telemetry lane so a queued `crisis_detected`
+        // event can actually reach Supabase. Before this, the only client-construction
+        // path was gated on `cloud_sync` consent evaluated at module-load time — always
+        // false — so the off-device crisis audit trail did not exist for any user who
+        // had not opened Profile → Cloud Backup.
+        //
+        // 🔴 FIRED UNAWAITED AND DELIBERATELY OUTSIDE the allSettled array below. That
+        // array is AWAITED before setIsInitialized(true), so anything added to it delays
+        // first render — and therefore delays crisis-button availability. Telemetry must
+        // never sit in front of the 988 affordance. It no-ops when the durable queue is
+        // empty, so the common boot pays nothing and opens no backend session.
+        void supabaseService.initializeCrisisTelemetry();
 
         // Remaining init tasks are independent. allSettled (not all) so one
         // best-effort failure doesn't abort the others. IAP init only runs
