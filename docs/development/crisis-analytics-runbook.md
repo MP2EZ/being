@@ -73,12 +73,39 @@ button-response latency.
 
 ---
 
+## ⚠️ Read this before interpreting ANY count below (INFRA-400, 2026-08-12)
+
+**A zero-row reading is currently EXPECTED and does not indicate a dead pipeline.** The
+delivery path cannot fire for most users. Measured against the live project:
+
+```sql
+SELECT event_type, count(*) FROM public.analytics_events GROUP BY event_type;
+ crisis_detected | 1     -- one row, total, of ANY event type, ever
+```
+
+`flushCrisisAnalytics()` early-returns at `if (!this.client) return;`, and the only thing
+that constructs that client is `initializeCloudServices()` — whose module-scope eager call
+is gated on `canPerformOperation('cloud_sync')`, evaluated at module-load time when consent
+has not yet hydrated from SecureStore, so the predicate is necessarily `false` and never
+re-runs. The client therefore exists only for a user who has navigated to Profile → Cloud
+Backup. Events are durably queued on-device and reconcile if a client ever appears; the
+single row above has a `session_id` dated the day *before* its `created_at`, which is that
+reconciliation signature.
+
+Tracked in **DEBUG-409**. Until it lands, the liveness assertion below will fail on any
+device that has not opened Cloud Backup — that is the defect, not a regression you have
+just introduced. Do not "fix" it by granting `cloud_sync` consent on the test device: that
+hides the defect and certifies a configuration no real crisis user is in.
+
+---
+
 ## Post-release confidence check (target: < 5 min)
 
 Run after every release. The goal is the question *"did the crisis safety net survive this
 release?"* — which a count alone **cannot** answer, because a count view renders "no crises
 happened" and "`crisis_detected` stopped firing" identically (both look like zero/absent
-rows).
+rows). Since 2026-08-12 there is a third indistinguishable case — *"the transport never
+initialised"* — which is the one actually in effect; see the DEBUG-409 note above.
 
 So the check has two parts:
 

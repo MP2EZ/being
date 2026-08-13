@@ -2,15 +2,27 @@
 
 ## Why Maestro
 
-Being is a wellness app touching at-risk users. Five user-visible safety contracts ship in every build:
+Being is a wellness app touching at-risk users. These user-visible safety contracts ship in every build:
 
 1. PHQ-9 Q9 > 0 fires exactly one canonical alert with three buttons.
 2. PHQ-9 score ≥20 completion shows a crisis-tier results banner.
 3. GAD-7 score ≥15 completion shows a crisis-tier results banner.
 4. Crisis button reaches `CrisisResources` from each tab (Home/Learn/Insights/Profile).
 5. 988 dial does not surface the "Unable to Call" fallback alert (pins `LSApplicationQueriesSchemes`). *Primary pin is now the jest static-config test at `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`; the Maestro flow is device-only supplementary verification — see INFRA-184.*
+6. A voice-journal entry containing crisis language surfaces support, and a clean entry does not (FEAT-283 slice A).
+7. A cold-start `being://daily` deep link mounts an immersive practice screen with the crisis overlay present and an escape available (FEAT-298 slice 4).
+8. The DailyLoop **quick**-depth arc keeps the crisis affordance reachable despite omitting Radical Acceptance, deep's inline support-line carrier (FEAT-301).
+9. A consent-gated deep link is blocked pre-consent while a crisis deep link never is (INFRA-308 / INFRA-317).
 
-Every Jest test in the suite mocks `Alert.alert` and `Linking.canOpenURL`. That's correct for Jest's job (fast logic verification), but it means these five user-visible contracts are invisible to the rest of the test stack. The MAINT-166 PR 1 double-Alert regression existed because nothing mechanically pinned them — the bug only surfaced because a code-review docstring (`⚠️`) flagged it.
+**Keep this list in step with the flows.** It read "Five" for a long stretch after contracts 6–9 shipped, which understates what the gate covers — the opposite error to the telemetry overclaim below, and just as misleading. The count is not enforced anywhere; the runner globs by tag. Verify with:
+
+```bash
+grep -lE '^[[:space:]]*-[[:space:]]+safety[[:space:]]*$' app/.maestro/*.yaml | wc -l   # 8 sim-runnable
+```
+
+Contract 5 is the ninth flow and is tagged `safety-device-only`, so it is excluded from that count and from `npm run e2e:safety`.
+
+Every Jest test in the suite mocks `Alert.alert` and `Linking.canOpenURL`. That's correct for Jest's job (fast logic verification), but it means these user-visible contracts are invisible to the rest of the test stack. The MAINT-166 PR 1 double-Alert regression existed because nothing mechanically pinned them — the bug only surfaced because a code-review docstring (`⚠️`) flagged it.
 
 Maestro fills that gap. It runs against a real iOS sim, where `LSApplicationQueriesSchemes` actually matters, real alerts actually appear, and the safety surface is observable end-to-end. YAML flows are cheap to author, `maestro studio` is a usable debugging tool, and the local-only execution model keeps macOS CI runner costs out of scope for a solo-founder project.
 
@@ -20,8 +32,45 @@ Detox was previously in the repo (`MAINT-119`) with one real test and zero commi
 
 - Not a CI gate. Local-only. The `/b-close` Phase 2.5 gate is the choke point.
 - Not coverage for non-safety surfaces (onboarding content, settings, breathing screens). Jest handles those.
-- Not a performance gate. Use `npm run perf:crisis` / `perf:breathing` / `perf:launch` for timing assertions.
+- **Not a performance gate.** The flows carry `timeout:` failure ceilings, not ms or fps assertions — `crisis-button-reachability.yaml` says so itself. This bullet used to point at `npm run perf:crisis` / `perf:breathing` / `perf:launch`; **those scripts do not exist** — MAINT-166 PR 7 removed them because they ran zero matching tests. What actually enforces the budgets is in CLAUDE.md's Validation Matrix: crisis detection <200ms is a strict CI gate (`__tests__/performance/assessment-performance.test.ts`), the crisis button has a coarse jest proxy, breathing 60fps has a structural proxy only (`npm run check:breathing-worklets`), and app launch / check-in transition are hand-validated.
+- **Not telemetry coverage.** See the section below — this is the gap most likely to be assumed away.
 - Not Android. iOS-only for v1 — Android UX is identical, so flows would be near-duplicates.
+
+## What the gate does NOT cover: the `crisis_detected` → Supabase sink
+
+The gate verifies **UI reachability and thresholds**. It does *not* verify that the crisis
+audit trail is delivered off-device, and reading a green gate as "the crisis paths were
+verified" is quietly broader than the truth (INFRA-400).
+
+The gate binary carries real Supabase configuration — INFRA-383 confirmed it by grepping
+the embedded `main.jsbundle` — yet a full run writes **zero** rows. That is not a harness
+artefact. Measured 2026-08-12 against the live project:
+
+```sql
+SELECT event_type, count(*) FROM public.analytics_events GROUP BY event_type;
+ crisis_detected | 1     -- one row, total, of ANY event type, ever
+```
+
+The mechanism is a production defect, not a testing gap, and it is tracked in **DEBUG-409**:
+`flushCrisisAnalytics()` early-returns at `if (!this.client) return;`, and the only thing
+that ever constructs that client is `initializeCloudServices()`, whose module-scope eager
+call is gated on `canPerformOperation('cloud_sync')` — evaluated at module-load time, when
+consent has not yet hydrated from SecureStore and the predicate is necessarily `false`. It
+never re-runs. So the client is built only if a user navigates to Profile → Cloud Backup.
+
+Two consequences worth holding onto:
+
+- **Zero rows in `analytics_events` is currently the EXPECTED reading**, for a gate run and
+  for production alike. Do not diagnose it as a dead pipeline until DEBUG-409 lands — see
+  `docs/development/crisis-analytics-runbook.md`.
+- **Only 4 of the 8 sim flows could ever produce a row** (`q9-single-alert`,
+  `phq9-severe-completion`, `gad7-severe`, `journal-crisis-scan`). The rest tap the crisis
+  *button* without triggering crisis *detection*, so zero rows from those is correct
+  behaviour rather than a gap.
+
+Whether the gate *should* write rows at all is deliberately unresolved here: there is one
+shared live Supabase project serving prod and dev with no staging, and `crisis_detected` is
+the most sensitive row the system produces. That decision belongs with the fix, in DEBUG-409.
 
 ## One-time install (per developer Mac)
 
@@ -135,7 +184,28 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 
 **Prereqs.** Since INFRA-383 the default path needs no `eas-cli`, no credentials and no
 `fastlane` — only Xcode and a booted simulator:
-- A booted iOS simulator (the one prereq the script enforces by name).
+- **Exactly ONE booted iOS simulator** (the one prereq the script enforces by name).
+
+  The count matters, and the script fails closed on it (INFRA-405). `xcrun simctl help`
+  says of the `booted` selector: *"If multiple devices are booted when the 'booted' device
+  is selected, simctl will choose one of them."* Unspecified which — so with two or more
+  booted, a build could install to one device while the asserts, the provenance check and
+  `maestro test` each independently landed on another. Both scripts now resolve the device
+  once and thread that UDID through every call site, including `maestro test --device`, so
+  "verified this binary" and "ran against this binary" are the same claim.
+
+  Note the second simulator is often not booted by a person: `Simulator.app` auto-boots
+  devices, and one has been observed booting *mid-build*. If you hit the refusal:
+
+  ```bash
+  xcrun simctl list devices booted        # see what is up
+  xcrun simctl shutdown <udid>            # leave exactly one
+  E2E_SIM_UDID=<udid> npm run e2e:safety:build   # …or name the target explicitly
+  ```
+
+  `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike. Set it for
+  both halves of a session, or the gate will resolve a different device than the build did
+  and refuse the artifact.
 - Working CocoaPods, for the prebuild stage — `pod --version`. *(If `brew install
   fastlane` ever upgrades Ruby and orphans CocoaPods' `ffi` gem, `brew reinstall
   cocoapods`.)*
