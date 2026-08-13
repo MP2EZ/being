@@ -69,6 +69,7 @@ const REAL_SCRIPT = path.resolve(__dirname, '../../scripts/e2e-sim-build.sh');
 const REAL_SAFETY = path.resolve(__dirname, '../../scripts/e2e-safety.sh');
 const REAL_PROVENANCE = path.resolve(__dirname, '../../scripts/e2e-provenance.js');
 const REAL_SIM_DEVICE = path.resolve(__dirname, '../../scripts/e2e-sim-device.sh');
+const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
 const PRODUCT_REL = 'ios/build/Build/Products/Release-iphonesimulator';
 const MARKER_NAME = '.e2e-provenance.json';
@@ -152,6 +153,10 @@ function makeProject(opts = {}) {
   // INFRA-405: the shared device resolver, sourced by BOTH scripts. Copied as the real
   // file so "they resolve identically" is exercised rather than asserted.
   fs.copyFileSync(REAL_SIM_DEVICE, path.join(root, 'scripts', 'e2e-sim-device.sh'));
+  // DEBUG-392: the gate's second verdict channel. Copied as the REAL file for the same
+  // reason as the provenance helper — `node` is not shimmed, so the adjudication logic
+  // runs for real rather than being stubbed into always agreeing with the exit code.
+  fs.copyFileSync(REAL_VERDICT, path.join(root, 'scripts', 'e2e-verdict.js'));
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
@@ -538,7 +543,20 @@ function runScript(opts = {}) {
  * @param opts.maestroExits exit code for every `maestro test`
  */
 function runSafety(built, opts = {}) {
-  const { flows = [], git: gitMutation = null, env = {}, maestroExits = 0, booted = null } = opts;
+  const {
+    flows = [],
+    git: gitMutation = null,
+    env = {},
+    maestroExits = 0,
+    booted = null,
+    // DEBUG-392: let a test supply the whole maestro stub. The default below is a
+    // process that exits immediately; the cases this work exists for need one that
+    // WEDGES, and one that writes a JUnit report the gate then adjudicates.
+    maestroBody = null,
+    // DEBUG-392: `pgrep` decides whether the driver reset is safe to fire. Default 1
+    // (no other maestro live) preserves the pre-existing behaviour for every old test.
+    pgrepExits = 1,
+  } = opts;
   const trace = path.join(built.root, 'safety-trace.log');
   fs.writeFileSync(trace, '');
 
@@ -564,16 +582,59 @@ function runSafety(built, opts = {}) {
   // maestro, pkill and sleep are all shimmed. `sleep` MATTERS: the real loop sleeps 8s
   // between flows to let the XCUITest driver settle, which would make this suite take
   // 16s+ instead of milliseconds.
-  writeStub(built.stubs, 'maestro', [`echo "maestro $@" >> "${trace}"`, `exit ${maestroExits}`].join('\n'));
-  writeStub(built.stubs, 'pkill', 'exit 0');
+  // DEBUG-392: the DEFAULT stub now writes a JUnit report, because a real maestro does.
+  // The gate's verdict is a conjunction of exit code AND report, so a stub that exits 0
+  // while writing nothing is not "a passing maestro" — it is the wedged-and-killed
+  // signature, and every pre-existing green test would fail closed on it. Keeping the
+  // default faithful is what lets those tests keep asserting what they were written to
+  // assert. `maestroExits` still drives the outcome; it now drives both channels
+  // coherently, exactly as the real tool would.
+  const defaultMaestro = [
+    'out=""; flow=""',
+    'for a in "$@"; do',
+    '  case "$a" in',
+    '    --output=*) out="${a#--output=}";;',
+    '    *.yaml) flow="$a";;',
+    '  esac',
+    'done',
+    'nm="$(basename "$flow" .yaml)"',
+    'if [ -n "$out" ]; then',
+    `  f=${maestroExits === 0 ? '0' : '1'}`,
+    '  printf \'<?xml version="1.0"?><testsuites><testsuite name="s" tests="1" failures="%s" errors="0">\' "$f" > "$out"',
+    maestroExits === 0
+      ? '  printf \'<testcase name="%s" classname="%s"/>\' "$nm" "$nm" >> "$out"'
+      : '  printf \'<testcase name="%s" classname="%s"><failure>stubbed failure</failure></testcase>\' "$nm" "$nm" >> "$out"',
+    "  printf '</testsuite></testsuites>' >> \"$out\"",
+    'fi',
+    `exit ${maestroExits}`,
+  ].join('\n');
+  writeStub(
+    built.stubs,
+    'maestro',
+    [`echo "maestro $@" >> "${trace}"`, maestroBody !== null ? maestroBody : defaultMaestro].join('\n')
+  );
+  // pkill records rather than merely succeeding: DEBUG-392 needs to assert the driver
+  // reset was SKIPPED when a neighbouring session's maestro is live (F3 — six
+  // zero-artifact runs on 2026-08-12 carried 239+ `Failed to connect to /127.0.0.1`
+  // lines, the signature of a driver reaped out from under a running invocation).
+  writeStub(built.stubs, 'pkill', [`echo "pkill $@" >> "${trace}"`, 'exit 0'].join('\n'));
+  writeStub(built.stubs, 'pgrep', [`echo "pgrep $@" >> "${trace}"`, `exit ${pgrepExits}`].join('\n'));
   writeStub(built.stubs, 'sleep', 'exit 0');
 
   if (gitMutation) writeGitState(built.root, gitMutation);
 
+  // DEBUG-392: bound the harness itself. spawnSync blocks the jest process outright, so
+  // jest's own per-test timeout cannot interrupt it — a script under test that fails to
+  // bound its child would wedge the whole suite for as long as that child lives. That is
+  // the same defect this work fixes in the gate, and a test suite that can hang while
+  // proving the gate cannot is not worth much. 45s is far above any stubbed run (all
+  // sub-second) and far below the wedges these tests simulate.
   const res = spawnSync('bash', [path.join(built.root, 'scripts', 'e2e-safety.sh'), ...flows], {
     encoding: 'utf8',
     cwd: built.root,
     env: { ...process.env, PATH: `${built.stubs}:${process.env.PATH}`, ...env },
+    timeout: 45000,
+    killSignal: 'SIGKILL',
   });
 
   const traceText = fs.readFileSync(trace, 'utf8');
@@ -1316,4 +1377,179 @@ describe('INFRA-405 — e2e-safety.sh device selection', () => {
     expect(r.output).toMatch(/NO artifact attestation/i);
     expect(r.trace).not.toMatch(/--device/);
   });
+});
+
+// =====================================================================================
+// DEBUG-392 — the gate must be able to say "I could not run", not only "pass"/"fail".
+//
+// On 2026-08-08 `maestro test` wedged ~80 minutes inside `Maestro.clearAppState`
+// (Maestro.kt:93), had to be `kill -9`'d, and emitted no flow verdict at all. The gate
+// read exit codes only, and a process that never exits has no exit code — so /b-close
+// Phase 2.5, which routes the merge decision on this script's status, would have blocked
+// forever. These tests pin the three properties that fix makes load-bearing:
+//
+//   1. every invocation is BOUNDED, and a bound that fires can never produce a pass;
+//   2. the verdict is a CONJUNCTION of the exit code and a JUnit report written into a
+//      per-invocation private directory — neither source can vouch for the other;
+//   3. the driver reset never reaps a neighbouring session's run.
+//
+// Property 3 is not hypothetical. On 2026-08-12 six consecutive runs from another
+// worktree produced zero commands artifacts and 239+ `Failed to connect to /127.0.0.1`
+// lines each — the signature of `pkill -f test-without-building` firing across sessions
+// while that session's invocation was live.
+
+/** A maestro stub that never returns. `/bin/sleep` by absolute path — the PATH `sleep` is stubbed. */
+const MAESTRO_WEDGES = 'exec /bin/sleep 3600';
+
+/** A maestro stub that writes a JUnit report to whatever `--output` it was given. */
+function maestroWrites({ flow = 'crisis-button-reachability', failures = 0, exit = 0, omitReport = false, wedgeAfter = false } = {}) {
+  return [
+    'out=""',
+    'for a in "$@"; do case "$a" in --output=*) out="${a#--output=}";; esac; done',
+    `if [ -n "$out" ] && [ "${omitReport ? 1 : 0}" != "1" ]; then`,
+    `  printf '%s\\n' '<?xml version="1.0"?><testsuites><testsuite name="s" tests="1" failures="${failures}" errors="0">' > "$out"`,
+    failures > 0
+      ? `  printf '%s\\n' '<testcase name="${flow}" classname="${flow}"><failure>Assertion is false</failure></testcase>' >> "$out"`
+      : `  printf '%s\\n' '<testcase name="${flow}" classname="${flow}"/>' >> "$out"`,
+    `  printf '%s\\n' '</testsuite></testsuites>' >> "$out"`,
+    'fi',
+    // The nastiest real shape: the report lands, THEN the process wedges. Adjudication
+    // would read a clean report; the bound must still win.
+    wedgeAfter ? MAESTRO_WEDGES : `exit ${exit}`,
+  ].join('\n');
+}
+
+describe('DEBUG-392 — bounded invocation', () => {
+  test('a wedged maestro is killed at the bound and reported as TIMEOUT, not FAIL', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: MAESTRO_WEDGES,
+      env: { E2E_FLOW_TIMEOUT_S: '1' },
+    });
+    expect(r.output).toMatch(/TIMEOUT/);
+    // A distinct exit code, because "the gate found a regression" and "the gate could
+    // not run" are different facts and a human triaging a red needs to tell them apart.
+    expect(r.status).toBe(2);
+  }, 60000);
+
+  test('a timeout can never be laundered into a pass by a clean report', () => {
+    // The dangerous shape: the bound fires, but a report (stale, or from the flow's own
+    // earlier completion) parses clean. Adjudication may only ever downgrade.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({ wedgeAfter: true }),
+      env: { E2E_FLOW_TIMEOUT_S: '1' },
+    });
+    expect(r.output).toMatch(/TIMEOUT/);
+    expect(r.output).not.toMatch(/all safety flows passed/);
+    expect(r.status).toBe(2);
+  }, 60000);
+
+  test('the second timeout aborts the remaining flows', () => {
+    // 8 flows x a 600s bound is an 80-minute worst case, which reinstates the problem
+    // being solved. And the wedge lives in CoreSimulator, which does not un-wedge, so
+    // flows 3..N would emit garbage reds that train re-run-until-green.
+    const built = runScript({});
+    const r = runSafety(built, {
+      // Three, because the abort is observable only in what it PREVENTS: with two
+      // flows the second timeout has nothing left to skip.
+      flows: ['crisis-button-reachability', 'q9-single-alert', 'crisis-button-reachability'],
+      maestroBody: MAESTRO_WEDGES,
+      env: { E2E_FLOW_TIMEOUT_S: '1' },
+    });
+    expect(r.output).toMatch(/abort/i);
+    expect(r.flowsRun).toBe(2); // the third never invoked maestro at all
+    expect(r.status).toBe(2);
+  }, 90000);
+});
+
+describe('DEBUG-392 — the verdict is a conjunction', () => {
+  test('exit 0 with NO report is a FAIL, not a pass', () => {
+    // The core of the fix. Exit 0 proves the process finished; it does not prove the
+    // assertions held. Absence of a report is the wedged/killed signature.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({ omitReport: true, exit: 0 }),
+    });
+    expect(r.status).toBe(1);
+    expect(r.output).toMatch(/NO_REPORT/);
+    expect(r.output).not.toMatch(/all safety flows passed/);
+  }, 60000);
+
+  test('exit 0 with a clean report naming the flow is the only green', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+    });
+    expect(r.status).toBe(0);
+    expect(r.output).toMatch(/all safety flows passed/);
+  }, 60000);
+
+  test('a failing report is a FAIL even though the harness exited cleanly', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({ failures: 1, exit: 0 }),
+    });
+    expect(r.status).toBe(1);
+  }, 60000);
+
+  test('exit non-zero with a clean report is still a FAIL, and says the sources disagree', () => {
+    // A harness bug deserves its own investigation, never a green.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({ exit: 3 }),
+    });
+    expect(r.status).toBe(1);
+    expect(r.output).toMatch(/disagree/i);
+  }, 60000);
+});
+
+describe('DEBUG-392 — evidence comes from a private per-invocation directory', () => {
+  test('maestro is told to write JUNIT and a debug dump to paths this run owns', () => {
+    // ~/.maestro/tests is global and this machine drives one simulator from several
+    // worktrees, so `ls -dt ~/.maestro/tests/*/ | head -1` can select a NEIGHBOUR's run.
+    // Adjudicating a merge on that is a laundered pass.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+    });
+    // `=` form, matching `maestro test --help` verbatim. picocli accepts both, but the
+    // gate gets exactly one real run per build and an argument-parsing failure there is
+    // an expensive way to learn that.
+    expect(r.trace).toMatch(/--format=JUNIT/);
+    expect(r.trace).toMatch(/--output=\S+/);
+    expect(r.trace).toMatch(/--debug-output=\S+/);
+    expect(r.trace).not.toMatch(/--output=\S*\.maestro\/tests/);
+  }, 60000);
+});
+
+describe('DEBUG-392 — the driver reset must not reap another session', () => {
+  test('skips the reset while a neighbouring maestro is live', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+      pgrepExits: 0, // another maestro JVM is running
+    });
+    expect(r.trace).not.toMatch(/pkill .*test-without-building/);
+    expect(r.output).toMatch(/skipping the driver reset/i);
+  }, 60000);
+
+  test('still resets the driver when this run is the only maestro on the box', () => {
+    // INFRA-220's reason for the reset is unchanged; only its blast radius is.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+      pgrepExits: 1,
+    });
+    expect(r.trace).toMatch(/pkill .*test-without-building/);
+  }, 60000);
 });
