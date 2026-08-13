@@ -35,6 +35,14 @@
 set -u
 
 cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
+
+# INFRA-405 — the same device resolution e2e-sim-build.sh uses. Shared rather than
+# duplicated so "both scripts resolve identically" holds by construction. Note this file
+# runs under a bare `set -u` (no -e, no pipefail), so every call below handles its own
+# failure explicitly rather than relying on the shell to abort.
+# shellcheck source=scripts/e2e-sim-device.sh
+. "$(dirname "$0")/e2e-sim-device.sh"
+
 MAESTRO_DIR=".maestro"
 
 BUNDLE_ID="fyi.being.app"
@@ -99,12 +107,30 @@ done
 # the load-bearing one. A launcher-bearing or Debug build must never reach a flow: it does
 # not merely flake, it can pass by coincidence via the guessed-coordinate tap in
 # _legal-and-onboarding.yaml, producing a green crisis-path gate that proves nothing.
+
+# INFRA-405 — resolve the simulator ONCE, and only for simulator runs.
+#
+# Why the gate needs this at all: `maestro test` chooses its own device when not told one
+# (it will even fan out across N connected devices). So with 2+ booted, the pre-flight
+# below could open device A's container, print "✓ gate target verified / ✓ provenance",
+# and then maestro could drive device B. That is attesting one binary while testing
+# another — verbatim the failure the block above says this pre-flight exists to prevent.
+# Resolving here and passing the device to BOTH the container lookup and `maestro test`
+# makes "verified this binary" and "ran against this binary" the same claim.
+#
+# Scoped under DEVICE_ONLY so the real-iPhone procedure gains no simctl dependency: with
+# two simulators booted it would otherwise abort a documented manual run.
+SIM_UDID=""
+if [ "$DEVICE_ONLY" != "1" ]; then
+  SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 1
+fi
+
 if [ "$DEVICE_ONLY" = "1" ]; then
   echo "📱 Device-only flow(s) selected — skipping the simulator pre-flight."
   echo "   This run carries NO artifact attestation: shape and provenance both describe"
   echo "   the booted simulator's app, not the device's. Run it against a real iPhone"
   echo "   with a build you installed deliberately."
-elif APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" && [ -d "$APP" ]; then
+elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" && [ -d "$APP" ]; then
   preflight_fail() {
     echo "❌ e2e:safety pre-flight — $1" >&2
     echo "   Rebuild the gate target: npm run e2e:safety:build" >&2
@@ -165,7 +191,7 @@ elif APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" && 
       ;;
   esac
 else
-  echo "⚠️  $BUNDLE_ID is not installed on the booted sim — run 'npm run e2e:safety:build' first." >&2
+  echo "⚠️  $BUNDLE_ID is not installed on simulator $SIM_UDID — run 'npm run e2e:safety:build' first." >&2
   exit 1
 fi
 
@@ -173,11 +199,22 @@ fail=0
 ran=0
 results=()
 
+# INFRA-405: pin every flow to the device the pre-flight just attested. Empty for a
+# device-only run, where maestro must be left to find the real iPhone.
+MAESTRO_DEVICE_ARGS=()
+if [ -n "$SIM_UDID" ]; then
+  MAESTRO_DEVICE_ARGS=(--device "$SIM_UDID")
+fi
+
 for f in "${FLOWS[@]}"; do
   name="$(basename "$f" .yaml)"
   ran=$((ran + 1))
-  echo "🛡️  [$ran] maestro test $f"
-  if maestro test "$f"; then
+  echo "🛡️  [$ran] maestro test $f${SIM_UDID:+ (device $SIM_UDID)}"
+  # `${arr[@]+"${arr[@]}"}` — NOT a bare "${arr[@]}". This script runs under `set -u`, and
+  # in the bash 3.2 that ships with macOS expanding an EMPTY array is an unbound-variable
+  # error. Same hazard the FLOWS/results guard above exists for; a device-only run leaves
+  # this array empty by design.
+  if maestro test ${MAESTRO_DEVICE_ARGS[@]+"${MAESTRO_DEVICE_ARGS[@]}"} "$f"; then
     results+=("PASS  $name")
   else
     results+=("FAIL  $name")
@@ -206,5 +243,46 @@ if [ "$fail" -eq 0 ]; then
   echo "✅ all safety flows passed"
 else
   echo "❌ one or more safety flows failed"
+
+  # INFRA-407 — name a system alert instead of letting it read as an app regression.
+  #
+  # An iOS system alert (SpringBoard-level) sits ABOVE the app and above anything Maestro
+  # can dismiss: `launchApp: { clearState: true }` resets the app, not the window above it.
+  # Every flow then fails on its FIRST assertion while the app renders perfectly behind the
+  # alert, and Maestro's own error text suggests "this could be a real regression". That
+  # misdiagnosis cost a full investigation cycle, including a rebuild and a bisect.
+  #
+  # WHY THIS DIAGNOSES RATHER THAN PRE-FLIGHTS. A blocking pre-flight was considered and
+  # rejected: (a) the gate is ALREADY fail-closed here — an alert breaks every flow, so a
+  # green run is not reachable with one up, and the harm was diagnosis, not false-green;
+  # (b) the only probe available is a full `maestro hierarchy` dump, which costs ~25s on
+  # every run and adds another way for an already-flaky harness to wedge; (c) the specific
+  # "Open in …?" alert could not be reproduced on demand (`simctl openurl` on an unhandled
+  # scheme fails silently rather than prompting), so a pre-flight's refusal path could not
+  # have been demonstrated — and an undemonstrated guard is the shape this repo distrusts.
+  #
+  # Reading Maestro's own failure artifact costs nothing and needs no output capture: it
+  # writes the UI hierarchy AT THE POINT OF FAILURE into commands-*.json, which is exactly
+  # where the alert was found.
+  LATEST_ARTIFACT="$(ls -dt "$HOME"/.maestro/tests/*/ 2>/dev/null | head -1 || true)"
+  if [ -n "$LATEST_ARTIFACT" ]; then
+    # Strings owned by iOS, not by this app. Deliberately narrow: matching something the
+    # app itself renders would turn every ordinary failure into a wrong explanation, which
+    # is worse than no explanation at all.
+    if grep -qE '"(accessibilityText|text|title)"[[:space:]]*:[[:space:]]*"(Open in [^"]*|[^"]*Would Like to Send You Notifications[^"]*|Don.t Allow|Allow While Using App)"' \
+         "$LATEST_ARTIFACT"/commands-*.json 2>/dev/null; then
+      echo "" >&2
+      echo "🔎 A system alert was on screen when this run failed (INFRA-407)." >&2
+      echo "   iOS alerts render ABOVE the app and above anything Maestro can dismiss, so" >&2
+      echo "   flows fail their first assertion while the app itself is fine." >&2
+      echo "   Matched in: $LATEST_ARTIFACT" >&2
+      grep -ohE '"(accessibilityText|text|title)"[[:space:]]*:[[:space:]]*"Open in [^"]*"' \
+        "$LATEST_ARTIFACT"/commands-*.json 2>/dev/null | sort -u | sed 's/^/     /' >&2
+      echo "   Clear it and re-run — the app container (and its provenance marker) survive:" >&2
+      echo "     xcrun simctl shutdown <udid> && xcrun simctl boot <udid>" >&2
+      echo "   If a BUILD put it there, that is a regression in e2e-sim-build.sh: since" >&2
+      echo "   INFRA-407 the build must install via simctl and never launch the app." >&2
+    fi
+  fi
 fi
 exit "$fail"
