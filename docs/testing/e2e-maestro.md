@@ -365,6 +365,36 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 
 ## Debugging a failing flow
 
+> ### ⚠️ First: is EVERY flow failing on its FIRST assertion?
+>
+> If a whole run dies at `_seeded-home` → `home-screen is visible ... FAILED`, **suspect an
+> iOS system alert before you suspect the app.** iOS alerts render in a window ABOVE the app
+> and above anything Maestro can dismiss — `launchApp: { clearState: true }` resets the
+> *app*, not the window on top of it. The app renders perfectly behind the alert, so the
+> failure looks like a content regression and Maestro's own error text even suggests
+> "this could be a real regression".
+>
+> **Confirm it in one look:** open the failure screenshot in `~/.maestro/tests/<timestamp>/`.
+> If an alert is on screen, that is your answer. `e2e-safety.sh` also greps that run's
+> `commands-*.json` for system-alert strings and prints a named diagnostic (INFRA-407).
+>
+> **Clear it — no rebuild needed.** The app container and its provenance marker survive a
+> reboot, so this does *not* cost you a build:
+> ```bash
+> xcrun simctl shutdown <udid> && xcrun simctl boot <udid>
+> ```
+>
+> **Where it came from (INFRA-407).** `expo run:ios` builds, installs *and launches*, and its
+> launch step opened `exp+being://expo-development-client/?url=…`. The app registers
+> `being://`, not `exp+being://`, and a launcher-free Release build links no dev-launcher, so
+> nothing handled it and iOS raised **`Open in "Being"?`** and left it up. The build now uses
+> `--device generic --output` and installs with `simctl install`, so it never launches the app
+> and never opens a URL. If a build ever leaves an alert again, that is a regression in
+> `e2e-sim-build.sh`, not something to work around in a flow.
+>
+> **Do not** paper over this with a `tapOn: Cancel` in `_seeded-home.yaml`. It would silently
+> no-op once the alert stops appearing, and then silently start tapping something real.
+
 Maestro's output names the failing step. Three common causes:
 
 1. **TestID doesn't exist** — the most common failure. Grep the source for the testID. If it's missing, add it. If it changed, update the flow.

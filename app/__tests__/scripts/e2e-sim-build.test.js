@@ -336,22 +336,22 @@ function runScript(opts = {}) {
             : []),
           ...(frameworkDevLauncher ? ['  mkdir -p "$APP/Frameworks/EXDevLauncher.framework"'] : []),
           '  echo "binary" > "$APP/Being"',
-          // INFRA-405: install to the device named by --device. `expo run:ios` targets an
-          // explicit --device when given one; with none it picks a booted device itself.
-          // Modelled as the FIRST booted, which is what makes the divergence from
-          // `get_app_container booted` (modelled as the LAST) observable.
-          '  TARGET=""',
+          // INFRA-407: BUILD-ONLY. `--device generic --output <dir>` produces the .app and
+          // installs nothing — the script's own `simctl install` (see the xcrun stub) is now
+          // the only thing that reaches a simulator. INFRA-405's install-target modelling is
+          // preserved, just moved to where the install actually happens.
+          //
+          // Emulating the old atomic build-install here would let the script drop its
+          // install step entirely and still pass: the shim has to split exactly where the
+          // real command splits, or it stops pinning the thing that changed.
+          '  OUT=""',
           '  prev=""',
-          '  for a in "$@"; do if [ "$prev" = "--device" ]; then TARGET="$a"; fi; prev="$a"; done',
-          '  if [ -z "$TARGET" ]; then',
-          `    TARGET="$(node -e 'const j=require(process.argv[1]);for(const l of Object.values(j.devices||{}))for(const d of l)if(d.state==="Booted"){console.log(d.udid);break}' "${bootedStatePath}" 2>/dev/null | head -1)"`,
+          '  for a in "$@"; do if [ "$prev" = "--output" ]; then OUT="$a"; fi; prev="$a"; done',
+          `  echo "build-output $OUT" >> "${trace}"`,
+          '  if [ -n "$OUT" ]; then',
+          // -p: mtimes carry through, and the bundle-freshness assert reads them.
+          '    mkdir -p "$OUT"; cp -Rp "$APP" "$OUT/"',
           '  fi',
-          `  echo "install-target $TARGET" >> "${trace}"`,
-          `  DEST="${containersRoot}/$TARGET/${BUNDLE_ID}.app"`,
-          '  rm -rf "$DEST"; mkdir -p "$(dirname "$DEST")"',
-          // -p: simctl install preserves mtimes, and the freshness assert reads them.
-          '  cp -Rp "$APP" "$DEST"',
-          `  echo "installed" >> "${trace}"`,
         ]
       : []),
     // INFRA-405: a device that boots DURING the build. The observed case had
@@ -418,6 +418,11 @@ function runScript(opts = {}) {
       'if [ "$1" = "simctl" ] && [ "$2" = "install" ]; then',
       '  echo "install $3" >> "$TRACE"',
       '  d="$(resolve_dev "$3")" || exit 1',
+      // INFRA-407: `install-target` moved here from the run:ios stub, because the install
+      // itself moved. It records the RESOLVED device (not the raw selector), which is what
+      // makes the install-target vs assert-target divergence INFRA-405 pins observable —
+      // that divergence is the whole point of the multi-device model above.
+      '  echo "install-target $d" >> "$TRACE"',
       `  mkdir -p "$CONTAINERS/$d"; rm -rf "$CONTAINERS/$d/${BUNDLE_ID}.app"`,
       `  cp -Rp "$4" "$CONTAINERS/$d/${BUNDLE_ID}.app"; exit 0`,
       'fi',
@@ -1067,8 +1072,11 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
         '  echo "<plist/>" > "$APP/Info.plist"',
         "  printf 'JSBUNDLE cloud_sync:false,bug_reporting:true,voice_journal:true' > \"$APP/main.jsbundle\"",
         '  echo "binary" > "$APP/Being"',
-        `  rm -rf "${container}"; mkdir -p "$(dirname "${container}")"`,
-        `  cp -Rp "$APP" "${container}"`,
+        // INFRA-407: build-only, same split as the shared stub — copy to --output and leave
+        // installing to `simctl install`.
+        '  OUT=""; prev=""',
+        '  for a in "$@"; do if [ "$prev" = "--output" ]; then OUT="$a"; fi; prev="$a"; done',
+        '  if [ -n "$OUT" ]; then mkdir -p "$OUT"; cp -Rp "$APP" "$OUT/"; fi',
         'fi',
         'exit 0',
       ].join('\n')
@@ -1088,6 +1096,12 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
         '  echo "iPhone 16 (ABC) (Booted)"; exit 0',
         'fi',
         `if [ "$1" = "simctl" ] && [ "$2" = "uninstall" ]; then rm -rf "${container}"; exit 0; fi`,
+        // INFRA-407: the build no longer installs, so this stub must — otherwise the script
+        // aborts at artifact discovery and never reaches the mid-build tree mutation this
+        // test is actually about (the same shape as the INFRA-405 note above).
+        'if [ "$1" = "simctl" ] && [ "$2" = "install" ]; then',
+        `  rm -rf "${container}"; mkdir -p "$(dirname "${container}")"; cp -Rp "$4" "${container}"; exit 0`,
+        'fi',
         'if [ "$1" = "simctl" ] && [ "$2" = "get_app_container" ]; then',
         `  if [ -d "${container}" ]; then echo "${container}"; exit 0; fi`,
         '  exit 1',
@@ -1172,8 +1186,13 @@ describe('INFRA-405 — e2e-sim-build.sh device selection', () => {
   test('one booted: the build targets it EXPLICITLY via --device', () => {
     const r = runScript({ bootedDevices: ONE });
     expect(r.status).toBe(0);
-    // Previously unreachable: the JSON parse threw, so --device was never passed at all.
-    expect(r.deviceFlag).toBe('AAAA-1111');
+    // INFRA-407 moved WHERE the device is named, not WHETHER it is. The build is now
+    // `--device generic` (build-only, so it installs nothing and needs no device), and the
+    // resolved device is named on the `simctl install` that follows. INFRA-405's guarantee
+    // — the device we resolved is the device we assert against — is what `installTarget`
+    // pins, and it is unchanged. Asserting `deviceFlag` were still the udid would now be
+    // asserting that the build installs, which is the behaviour INFRA-407 removed.
+    expect(r.deviceFlag).toBe('generic');
     expect(r.installTarget).toBe('AAAA-1111');
     expect(r.markerExists).toBe(true);
   });
@@ -1194,10 +1213,13 @@ describe('INFRA-405 — e2e-sim-build.sh device selection', () => {
     expect(r.output).not.toMatch(/installed no fyi\.being\.app/);
   });
 
-  test('two booted + E2E_SIM_UDID: builds against the NAMED device and writes its marker', () => {
+  test('two booted + E2E_SIM_UDID: installs onto the NAMED device and writes its marker', () => {
     const r = runScript({ bootedDevices: TWO, simUdid: 'BBBB-2222' });
     expect(r.status).toBe(0);
-    expect(r.deviceFlag).toBe('BBBB-2222');
+    // INFRA-407: the build is device-agnostic (`generic`, build-only); the OVERRIDE is
+    // honoured where it matters — the install. The assertion below plus the untouched-other
+    // -device check at the end of this test are what actually pin E2E_SIM_UDID's effect.
+    expect(r.deviceFlag).toBe('generic');
     expect(r.installTarget).toBe('BBBB-2222');
     expect(r.markerExists).toBe(true);
     // The other booted device must be left completely alone.

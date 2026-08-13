@@ -243,5 +243,46 @@ if [ "$fail" -eq 0 ]; then
   echo "✅ all safety flows passed"
 else
   echo "❌ one or more safety flows failed"
+
+  # INFRA-407 — name a system alert instead of letting it read as an app regression.
+  #
+  # An iOS system alert (SpringBoard-level) sits ABOVE the app and above anything Maestro
+  # can dismiss: `launchApp: { clearState: true }` resets the app, not the window above it.
+  # Every flow then fails on its FIRST assertion while the app renders perfectly behind the
+  # alert, and Maestro's own error text suggests "this could be a real regression". That
+  # misdiagnosis cost a full investigation cycle, including a rebuild and a bisect.
+  #
+  # WHY THIS DIAGNOSES RATHER THAN PRE-FLIGHTS. A blocking pre-flight was considered and
+  # rejected: (a) the gate is ALREADY fail-closed here — an alert breaks every flow, so a
+  # green run is not reachable with one up, and the harm was diagnosis, not false-green;
+  # (b) the only probe available is a full `maestro hierarchy` dump, which costs ~25s on
+  # every run and adds another way for an already-flaky harness to wedge; (c) the specific
+  # "Open in …?" alert could not be reproduced on demand (`simctl openurl` on an unhandled
+  # scheme fails silently rather than prompting), so a pre-flight's refusal path could not
+  # have been demonstrated — and an undemonstrated guard is the shape this repo distrusts.
+  #
+  # Reading Maestro's own failure artifact costs nothing and needs no output capture: it
+  # writes the UI hierarchy AT THE POINT OF FAILURE into commands-*.json, which is exactly
+  # where the alert was found.
+  LATEST_ARTIFACT="$(ls -dt "$HOME"/.maestro/tests/*/ 2>/dev/null | head -1 || true)"
+  if [ -n "$LATEST_ARTIFACT" ]; then
+    # Strings owned by iOS, not by this app. Deliberately narrow: matching something the
+    # app itself renders would turn every ordinary failure into a wrong explanation, which
+    # is worse than no explanation at all.
+    if grep -qE '"(accessibilityText|text|title)"[[:space:]]*:[[:space:]]*"(Open in [^"]*|[^"]*Would Like to Send You Notifications[^"]*|Don.t Allow|Allow While Using App)"' \
+         "$LATEST_ARTIFACT"/commands-*.json 2>/dev/null; then
+      echo "" >&2
+      echo "🔎 A system alert was on screen when this run failed (INFRA-407)." >&2
+      echo "   iOS alerts render ABOVE the app and above anything Maestro can dismiss, so" >&2
+      echo "   flows fail their first assertion while the app itself is fine." >&2
+      echo "   Matched in: $LATEST_ARTIFACT" >&2
+      grep -ohE '"(accessibilityText|text|title)"[[:space:]]*:[[:space:]]*"Open in [^"]*"' \
+        "$LATEST_ARTIFACT"/commands-*.json 2>/dev/null | sort -u | sed 's/^/     /' >&2
+      echo "   Clear it and re-run — the app container (and its provenance marker) survive:" >&2
+      echo "     xcrun simctl shutdown <udid> && xcrun simctl boot <udid>" >&2
+      echo "   If a BUILD put it there, that is a regression in e2e-sim-build.sh: since" >&2
+      echo "   INFRA-407 the build must install via simctl and never launch the app." >&2
+    fi
+  fi
 fi
 exit "$fail"
