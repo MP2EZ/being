@@ -394,6 +394,24 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 >
 > **Do not** paper over this with a `tapOn: Cancel` in `_seeded-home.yaml`. It would silently
 > no-op once the alert stops appearing, and then silently start tapping something real.
+>
+> **A flow can also raise one itself, and INFRA-407 did not close that source.** Observed
+> 2026-08-12 on iPhone 17 Pro / **iOS 26.0**: `daily-loop-deeplink.yaml`'s `openLink:
+> being://daily` raises `Open in "Being"?` on its own. Confirmed causal, not ordering — on a
+> freshly rebooted sim the flow's own `_seeded-home` assertion passes (so no alert at start),
+> `Open being://daily` completes, and the next assertion fails with the alert present twice
+> in that command's captured hierarchy. The same flow is green on iPhone 16 Plus / **iOS
+> 18.6** across 9 runs (2026-08-08 → 2026-08-12), so this is iOS-version-dependent, not a
+> flow regression.
+>
+> Two consequences worth knowing before you debug a red suite:
+>
+> - It **persists after the flow that raised it**, so every *subsequent* flow in the same run
+>   dies on its first assertion. The flow that looks broken is usually not the one at fault —
+>   check whether an earlier flow in the run did an `openLink`.
+> - It is therefore **structurally invisible to a scoped run**. `/b-close` Phase 2.5 runs only
+>   the flows mapped to changed paths, so a single-flow gate can be green while the full suite
+>   cannot pass. "Scoped gate green" does not mean the safety flows are fine.
 
 > ### ⚠️ Second: does the failing STEP MOVE between runs? Erase the simulator (DEBUG-408)
 >
@@ -458,8 +476,29 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 > command 57 of 83 when another started ~20 s later.
 >
 > ```bash
-> pgrep -fl 'maestro.cli.AppKt'   # empty == nobody else is running; check BEFORE you blame the sim
+> # Is another Maestro ACTUALLY running? Empty == nobody; check BEFORE you blame the sim.
+> ps -Ao pid=,comm=,args= | awk '$2 ~ /(^|\/)java$/ && /maestro\.cli\.AppKt/ {print $1}'
 > ```
+>
+> **Do not use `pgrep -f 'maestro.cli.AppKt'` for this.** `-f` matches the pattern against
+> every process's full command line, so it also matches any shell that merely *mentions* the
+> string — including the wrapper running your own check. Claude Code executes Bash tool calls
+> as `/bin/zsh -c '<command>'`, so the check reports itself as a live Maestro. Verified:
+>
+> ```text
+> $ /bin/sh -c 'x="maestro.cli.AppKt"; sleep 6' &
+> pgrep -fl :  90230 java … maestro.cli.AppKt test --device …     ← real
+>              90462 /bin/sh -c x="maestro.cli.AppKt"; sleep 6    ← a mention, not a process
+> ps identity: 90230 java                                          ← only the real one
+> ```
+>
+> It is right when a human tries it interactively and wrong when it runs from a script or an
+> agent, which is how it survives review. The failure direction is the bad one for a
+> pre-flight: a false "someone else is running" means the operator doesn't run the gate at
+> all. Require the executable to *be* `java`, as above. (Same defect class as the
+> ownership-blind `pkill -9 -f` this section describes — the pattern-match shape has now been
+> independently re-derived three times in this repo, so prefer the `ps` form anywhere you
+> need to ask whether a process exists.)
 >
 > **A different driver port on each successive flow proves nothing** — every flow is its own
 > `maestro test` invocation and starts its own driver, so the port always changes. An earlier
