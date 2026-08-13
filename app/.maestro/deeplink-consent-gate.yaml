@@ -95,8 +95,8 @@ name: "Deep-link consent gate (INFRA-308): gated link blocked, crisis link never
 #
 # Deliberately NOT asserted here: `crisis-button-root`. The root crisis overlay suppresses
 # itself on LegalGate by design (RootCrisisButton's SUPPRESSED_ROUTES), so asserting it
-# would be asserting a bug. LegalGate carries its own inline 988 footer instead — whose
-# above-the-fold placement is DEBUG-390, not this contract.
+# would be asserting a bug. LegalGate carries its own inline 988 footer instead — and
+# DEBUG-390 has now landed its above-the-fold placement, asserted below.
 - tapOn:
     id: "nav-back-button"
 - assertVisible:
@@ -105,3 +105,17 @@ name: "Deep-link consent gate (INFRA-308): gated link blocked, crisis link never
 # seeded-home helper waits on, so if Main were mounted this would find it.
 - assertNotVisible:
     id: "home-screen"
+# ── DEBUG-390: 988 is reachable at the landing scroll offset ──────────────────────────
+# The footer is now pinned OUTSIDE the ScrollView, so both controls are on screen with no
+# scroll action. `assertVisible` defaults to 100% visibility, so this fails if either is
+# clipped or off-screen — which is exactly what it was before DEBUG-390 (988 button top at
+# 95.3% of scroll depth). Asserting BOTH is what pins the flexWrap fix on-device: a
+# non-wrapping row overflows its centred container and gets clipped at the bounds.
+#
+# Deliberately NOT tapped: the simulator's canOpenURL returns false unconditionally
+# (INFRA-184), so a tap would assert the manual-dial fallback rather than reachability.
+# Same rule as this flow's other 988 assertion.
+- assertVisible:
+    id: "legal-gate-crisis-988"
+- assertVisible:
+    id: "legal-gate-crisis-text"
