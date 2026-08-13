@@ -395,6 +395,48 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 > **Do not** paper over this with a `tapOn: Cancel` in `_seeded-home.yaml`. It would silently
 > no-op once the alert stops appearing, and then silently start tapping something real.
 
+> ### ⚠️ Second: does the failing STEP MOVE between runs? Erase the simulator (DEBUG-408)
+>
+> A simulator can rot. When it does, Maestro's XCUITest driver dies mid-flow and Maestro
+> reports the aftermath as **`Element not found: Id matching regex: <whatever was next>`** —
+> which is indistinguishable, in the console, from a real below-the-fold or missing-testID
+> failure. Maestro's own error text will even offer *"This could be a real regression."*
+>
+> **The tell is that the failing step MOVES.** DEBUG-408 failed at `continue-button`, then
+> `daily-loop-skip-breath`, then `nav-back-button` — three different elements on two
+> different screens, same flow, same binary. A layout or testID defect is deterministic
+> about *which* element it hides; a crashing driver fails wherever the crash lands.
+>
+> **Confirm it:** the console never shows the driver error. Grep the log:
+>
+> ```bash
+> grep -E "ConnectException|EOFException" ~/.maestro/tests/<timestamp>/maestro.log
+> ```
+>
+> A `Connection refused` on the driver port — often inside `Maestro.waitForAppToSettle` — is
+> your answer. (Ignore the `xcTestDriverStatusCheck: [Failed]` lines on their own; those are
+> normal startup polling and appear in runs that pass.)
+>
+> **Fix:** erase and re-run. Nothing in the repo needs to change.
+>
+> ```bash
+> xcrun simctl shutdown <udid> && xcrun simctl erase <udid> && xcrun simctl boot <udid>
+> npm run e2e:safety:build   # the erase wipes the app AND its provenance marker
+> ```
+>
+> **Before you conclude the app regressed, run the flow on a second simulator.** DEBUG-408
+> spent a full investigation on a "below the fold" hypothesis that three other devices —
+> one *smaller in both dimensions* than the one in the flow's `SIM-VALIDATED` header —
+> disproved in minutes. The device is an unpinned input (`e2e-sim-device.sh` enforces that
+> exactly one simulator is booted, but pins no model and no iOS version), so "it fails on
+> my machine" is never by itself evidence about the code.
+>
+> **Note the interaction with wall-clock UI.** A dying driver retries for tens of seconds,
+> and any timer running in the app keeps running through those retries. In DEBUG-408 the
+> daily loop's 30s breath auto-completed mid-retry and took `daily-loop-skip-breath` with
+> it, producing a *second*, entirely genuine-looking "element not found" downstream of the
+> real fault. Timer-gated steps amplify driver flakiness into what looks like an app bug.
+
 Maestro's output names the failing step. Three common causes:
 
 1. **TestID doesn't exist** — the most common failure. Grep the source for the testID. If it's missing, add it. If it changed, update the flow.
