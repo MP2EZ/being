@@ -407,22 +407,64 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 > different screens, same flow, same binary. A layout or testID defect is deterministic
 > about *which* element it hides; a crashing driver fails wherever the crash lands.
 >
-> **Confirm it:** the console never shows the driver error. Grep the log:
+> **Confirming it: do NOT just grep for `ConnectException`.** Every run has them. A clean
+> 83-of-83 passing run contains **14** `Failed to connect to /127.0.0.1` lines; a run whose
+> driver genuinely died contained **10**. By raw count the healthy run looks worse, so a
+> grep-and-count rule fires on everything and ranks runs backwards. It is worse than no
+> check, because the first time you use it on a green run you will conclude the signal is
+> useless and stop looking.
+>
+> **The discriminator is the timestamp, not the count.** Driver startup polling is inherently
+> *before* the first executed command. So: is there a connect error timestamped **after the
+> first `COMPLETED`**?
 >
 > ```bash
-> grep -E "ConnectException|EOFException" ~/.maestro/tests/<timestamp>/maestro.log
+> P=~/.maestro/tests/<timestamp>
+> grep -m1 COMPLETED "$P/maestro.log"                          # first executed command
+> grep 'Failed to connect to /127.0.0.1' "$P/maestro.log" | tail -1   # last connect error
 > ```
 >
-> A `Connection refused` on the driver port — often inside `Maestro.waitForAppToSettle` — is
-> your answer. (Ignore the `xcTestDriverStatusCheck: [Failed]` lines on their own; those are
-> normal startup polling and appear in runs that pass.)
+> ```text
+> healthy   first COMPLETED 16:28:33.490 | connect errors 16:28:27.049 → 16:28:32.750   all BEFORE
+> dead      first COMPLETED 21:45:14.140 | connect errors 21:45:09.454 → 21:46:55.167   spans the run
+> ```
 >
-> **Fix:** erase and re-run. Nothing in the repo needs to change.
+> Errors confined to before the first `COMPLETED` are startup noise — look elsewhere for your
+> failure. Errors *spanning* the run mean the driver died under you. This test also catches
+> the silent variant below, because it never reads the verdict text.
+>
+> **It presents two ways, and only one of them is quiet.** Sometimes the `ConnectException`
+> is recorded against the failing command in the artifact, with no `hierarchyRoot` on it —
+> loud, and hard to misread. Sometimes it appears only elsewhere in the log while the
+> verdict reads as a plain `Element not found` — silent, and the reason DEBUG-408 was filed
+> as a layout bug. **Same root cause, two presentations**, so apply the timestamp test to
+> *every* unexplained red, not only the ones that already look driver-shaped.
+>
+> ### Which of the two causes is it? The fix is different
+>
+> **Cause A — rotted simulator.** Fix by erasing. Nothing in the repo needs to change.
 >
 > ```bash
 > xcrun simctl shutdown <udid> && xcrun simctl erase <udid> && xcrun simctl boot <udid>
 > npm run e2e:safety:build   # the erase wipes the app AND its provenance marker
 > ```
+>
+> **Cause B — another worktree was running Maestro at the same time.** `e2e-safety.sh` resets
+> the driver between flows with `pkill -9 -f "test-without-building"`. That matches on a
+> **pattern, not on ownership**, so it reaps every XCUITest driver on the machine, including
+> ones belonging to another worktree's run. Erasing will not fix this and the sim was never
+> at fault. Pinning separate simulators does not help either — the kill is machine-wide.
+> Two `/b-close` runs overlapping is enough; observed 2026-08-12, one session's run died at
+> command 57 of 83 when another started ~20 s later.
+>
+> ```bash
+> pgrep -fl 'maestro.cli.AppKt'   # empty == nobody else is running; check BEFORE you blame the sim
+> ```
+>
+> **A different driver port on each successive flow proves nothing** — every flow is its own
+> `maestro test` invocation and starts its own driver, so the port always changes. An earlier
+> draft of this callout offered that as the discriminator; it was measuring process startup,
+> not process death. Use the timestamp test above.
 >
 > **Before you conclude the app regressed, run the flow on a second simulator.** DEBUG-408
 > spent a full investigation on a "below the fold" hypothesis that three other devices —
