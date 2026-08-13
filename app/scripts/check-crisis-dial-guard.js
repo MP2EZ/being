@@ -131,6 +131,14 @@ const EXPECTED_CALL_COUNTS = {
   'src/features/crisis/screens/CrisisResourcesScreen.tsx': 1,
   // Four https: legal / external-resource links.
   'src/features/consent/screens/CombinedLegalGateScreen.tsx': 4,
+  // Three https: legal links, no dial (FEAT-376). Terms and Privacy Policy are
+  // each reachable two ways — the inline link inside the checkbox label, and the
+  // `openDocument` accessibility action that exists because a Pressable collapses
+  // its subtree on iOS and would otherwise make the inline link unreachable to a
+  // screen reader. The third is the shared handler both actions route through.
+  // This screen owns no crisis affordance at all: `ReConsent` is deliberately
+  // absent from RootCrisisButton.SUPPRESSED_ROUTES so the root overlay covers it.
+  'src/features/consent/screens/ReConsentScreen.tsx': 3,
 };
 
 /**
