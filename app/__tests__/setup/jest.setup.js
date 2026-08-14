@@ -411,6 +411,35 @@ jest.mock('react-native', () => {
 // `notificationAsync` and every enum member except Heavy as `undefined`, so any
 // suite touching a real cue would have failed with a confusing "not a function"
 // rather than a meaningful assertion.
+// DEBUG-426: expo-device has no jest mock of its own and its build entry calls
+// `requireNativeModule('ExpoDevice')` at module top level, so importing it here
+// throws before any test body runs. It is also absent from
+// transformIgnorePatterns, so its ESM build would not transform either.
+// `hapticActuator.ts` is the only module that imports it, but the three practice
+// screens and useHapticsOptIn all reach that module transitively, so without
+// this mock four suites fail at import.
+//
+// THE DEFAULT MATTERS AS MUCH AS THE MOCK. jest.setup pins Platform.OS to 'ios'
+// below, so a default of anything other than a capable physical iPhone would
+// silently invert every existing eligibility assertion in
+// useHapticsOptIn.test.ts — they would still pass or fail, but for the wrong
+// reason. Suites that need incapable hardware override these per-case.
+// `__esModule: true` is REQUIRED, not decoration. hapticActuator.ts does
+// `import * as Device from 'expo-device'`, and without the marker babel's
+// `_interopRequireWildcard` COPIES the factory's properties into a fresh
+// namespace object — so a test that mutates the mock to simulate an iPad
+// changes nothing the predicate can see, and the suppression specs fail while
+// the production code is correct. With the marker the object is returned
+// as-is and per-case overrides land. (The real expo-device build is ESM, so
+// this is also simply accurate.)
+jest.mock('expo-device', () => ({
+  __esModule: true,
+  isDevice: true,
+  modelId: 'iPhone14,2',
+  deviceType: 1, // DeviceType.PHONE
+  DeviceType: { UNKNOWN: 0, PHONE: 1, TABLET: 2, DESKTOP: 3, TV: 4 },
+}));
+
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
   selectionAsync: jest.fn(() => Promise.resolve()),

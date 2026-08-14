@@ -206,6 +206,11 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike. Set it for
   both halves of a session, or the gate will resolve a different device than the build did
   and refuse the artifact.
+
+  It names a **simulator** only. The device-only flow (`e2e:safety:988-dial`) uses a
+  separate `E2E_DEVICE_UDID`, deliberately — because you are told right here to export
+  `E2E_SIM_UDID` for a whole session, a shared variable would hand a simulator UDID to the
+  physical-device resolver and refuse a correctly-attached iPhone (INFRA-424).
 - Working CocoaPods, for the prebuild stage — `pod --version`. *(If `brew install
   fastlane` ever upgrades Ruby and orphans CocoaPods' `ffi` gem, `brew reinstall
   cocoapods`.)*
@@ -306,11 +311,36 @@ npm run e2e:safety:crisis-button   # crisis button reaches CrisisResources from 
 #
 # INFRA-384: this one SKIPS the simulator pre-flight and the provenance check, and
 # says so. Both describe the booted simulator's installed app, which is not what a
-# device run executes — enforcing them here would abort the procedure when no sim is
-# booted, and, worse, print "gate target verified / provenance" banners about an
-# artifact the flow never touches. A device-only run therefore carries NO artifact
-# attestation; install the build you mean to test, deliberately.
+# device run executes — enforcing them here would print "gate target verified /
+# provenance" banners about an artifact the flow never touches. A device-only run
+# therefore carries NO artifact attestation; install the build you mean to test,
+# deliberately.
+#
+# INFRA-424: it does NOT skip target resolution. That used to be bundled into the
+# same sentence, and the bundling is what left this the only flow with no `--device`
+# at all — so `maestro test` chose its own target and could attach to an arbitrary
+# booted simulator, including one another worktree was mid-suite on. It now resolves
+# a real iPhone and REFUSES rather than falling back:
+#
+#   exactly one eligible iPhone  -> pinned, flow runs
+#   zero                         -> refuses, and says the 988 dial path is NOT verified
+#   two or more                  -> refuses as ambiguous; name one with E2E_DEVICE_UDID
+#   devicectl could not enumerate-> refuses, reported distinctly from "none attached"
+#
+# "Eligible" means platform iOS + deviceType iPhone + paired + a live tunnel. iPads and
+# disconnected devices are excluded deliberately: a Wi-Fi iPad has no telephony, so
+# canOpenURL('tel:') is legitimately false there and pinning one would produce a red
+# that looks like a crisis-path regression and is not.
+#
+# The override is E2E_DEVICE_UDID, NOT E2E_SIM_UDID. They are separate on purpose —
+# see the E2E_SIM_UDID note above, which tells you to export that one for a whole
+# session; if the device resolver read it, that simulator UDID would refuse a
+# correctly-attached iPhone.
 npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" fallback (device-only)
+
+# Two device-only + simulator flows in ONE invocation is REFUSED, not resolved — the
+# two families need different hardware, and picking either one mislabels the result.
+# Run them as two invocations.
 ```
 
 `/b-close` Phase 2.5 automatically picks the scoped subset of flows based on changed paths — see CLAUDE.md Workflow Commands. `app.json` / `Info.plist` changes no longer trigger a Maestro flow: the jest static-config test in precommit catches `LSApplicationQueriesSchemes` regressions deterministically (INFRA-184).
@@ -425,26 +455,72 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 > common: state, not version. A long-lived sim has already been allowed; a freshly erased
 > one has not.
 >
-> ⚠️ **The two remedies on this page are in direct tension, and this is the trap.**
-> `simctl erase` is the fix for driver rot (next section) and is precisely what wipes this
-> permission. Erase to clear a dead driver and your next run hits this alert — which the
-> old text sent you off hunting as an iOS-26 issue on an iOS-18 device.
+> **NAMED AND AUTOMATED 2026-08-14 (DEBUG-422) — you no longer do anything about this.**
+> `e2e-safety.sh` seeds the permission in its pre-flight on every run, so an erased or
+> brand-new simulator is approved before flow 1 and the manual step below is retired. What
+> follows is the mechanism, for whoever has to touch it next.
 >
-> **After any `simctl erase`, allow the scheme once** before trusting a suite run:
+> It is a LaunchServices **scheme approval**. `openLink:` is `xcrun simctl openurl` and
+> nothing else (Maestro 2.6.0: `SimctlIOSDevice.openLink` → `LocalSimulatorUtils.openURL` →
+> `["xcrun","simctl","openurl",<udid>,<url>]`), so Maestro is not involved in the decision.
+> `lsd` requests the alert and SpringBoard merely presents it — visible in the sim's own log:
 >
-> ```bash
-> # Run any flow that does `openLink being://…` (or the suite), let it raise the alert, then:
-> cat > /tmp/allow-scheme.yaml <<'YAML'
-> appId: fyi.being.app
-> ---
-> - tapOn: "Open"
-> YAML
-> maestro test /tmp/allow-scheme.yaml
+> ```
+> SpringBoard … Received request to activate alertItem:
+>   <SBUserNotificationAlert; title: Open in “Being”?; source: lsd>
 > ```
 >
-> This is device SETUP, like the erase itself — not a flow change. The warning above still
-> stands: do **not** move that tap into `_seeded-home.yaml`, where it would silently no-op
-> once the permission is granted and later start tapping something real.
+> The string is `SCHEME_APPROVAL_PROMPT_TITLE_NO_SOURCE` in
+> `CoreServices.framework/…/SchemeApproval.strings` — the `_NO_SOURCE` variant because a
+> `simctl` open has no originating app. This is why searching `SpringBoard.app` for the
+> literal finds nothing. The answer is stored per-simulator at
+> `data/Library/Preferences/com.apple.launchservices.schemeapproval.plist`, one key:
+>
+> ```
+> "com.apple.CoreSimulator.CoreSimulatorBridge-->being" = "fyi.being.app"
+> ```
+>
+> Verified 2026-08-14: it survives reboot, `stopApp` + `clearState` + `clearKeychain`, app
+> uninstall and reinstall; only `simctl erase` or a newly created device clears it.
+>
+> **Reproduce it in one command**, on any simulator that has not been approved — which also
+> retires the old claim that it could not be reproduced on demand (that observation was made
+> against an *unhandled* scheme; `being://` is handled, declared at `app.json`):
+>
+> ```bash
+> xcrun simctl openurl <udid> being://daily
+> ```
+>
+> ⚠️ **The two remedies on this page used to be in direct tension, and that trap is now
+> closed.** `simctl erase` is the fix for driver rot (next section) and is precisely what
+> wipes this permission. Erase to clear a dead driver and your next run used to hit this
+> alert — which the old text sent you off hunting as an iOS-26 issue on an iOS-18 device.
+> Since DEBUG-422 the next `e2e-safety.sh` run reseeds it, so erase freely.
+>
+> **Why the gate seeds rather than dismisses, and why that is not the forbidden tap.** A
+> `defaults write` is not a UI interaction, so it structurally cannot "silently start tapping
+> something real"; it lives in the harness pre-flight rather than in a flow, so it asserts
+> nothing about the app; and it fails in the safe direction — if a runtime stops honouring
+> the key, or the prompt is retired, the alert returns and the flows go red. It gates
+> *delivery* of the URL, not what the app does with it, so every contract these flows pin
+> (`getSecureInitialURL`, `linkingConfig`'s `initialRouteName`, `isCrisisExemptPath`, the
+> consent gate, the `?e2eSeed=ungranted` suppressor) is untouched.
+>
+> **The scope is derived, not parsed, and `exp+being` is excluded on purpose.** The flows
+> decide *whether* an approval is needed; `app.json`'s `expo.scheme` decides *what* may be
+> approved, so a flow file cannot name its own scheme. Approving `exp+being` would be a
+> regression, not a convenience: `exp+being://expo-development-client/?url=…` reaching a
+> launcher-free Release build is the *signature* of the INFRA-407 failure above, and this
+> alert is currently the only observable for it.
+>
+> **A red deeplink flow is never triaged by widening the seed.** If a flow goes red with
+> `✓ scheme approval seeded` in the log, that is the app's contract failing — which is what
+> the flow is for.
+>
+> The prohibition above still stands and matters more now, not less: do **not** put
+> `tapOn: "Open"` or `tapOn: "Cancel"` into `_seeded-home.yaml` or any other flow. The seed
+> makes the alert rare, which is exactly the condition under which a stray tap sits dormant
+> and then starts hitting something real.
 >
 > Two consequences worth knowing before you debug a red suite:
 >
