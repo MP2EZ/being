@@ -478,13 +478,37 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 > npm run e2e:safety:build   # the erase wipes the app AND its provenance marker
 > ```
 >
-> **Cause B — another worktree was running Maestro at the same time.** `e2e-safety.sh` resets
-> the driver between flows with `pkill -9 -f "test-without-building"`. That matches on a
-> **pattern, not on ownership**, so it reaps every XCUITest driver on the machine, including
-> ones belonging to another worktree's run. Erasing will not fix this and the sim was never
-> at fault. Pinning separate simulators does not help either — the kill is machine-wide.
-> Two `/b-close` runs overlapping is enough; observed 2026-08-12, one session's run died at
-> command 57 of 83 when another started ~20 s later.
+> **Cause B — another worktree was running Maestro at the same time. FIXED in INFRA-423;
+> kept because a run predating it, or a future regression, looks exactly like this.**
+> `e2e-safety.sh` used to reset the driver between flows with
+> `pkill -9 -f "test-without-building"`. That matches on a **pattern, not on ownership**, so
+> it reaped every XCUITest driver on the machine, including ones belonging to another
+> worktree's run. Erasing would not fix it and the sim was never at fault; pinning separate
+> simulators did not help either, because the kill was machine-wide. Two `/b-close` runs
+> overlapping was enough — observed 2026-08-12, one session's run died at command 57 of 83
+> when another started ~20 s later.
+>
+> The reset now reaps an **explicit pid list** produced by `scripts/e2e-driver-ownership.sh`,
+> which classifies each XCUITest driver on the resolved simulator by its **parent**:
+>
+> | Driver's parent | Verdict |
+> |---|---|
+> | our own process group (`$child` under `set -m`) | reap |
+> | a **live** `maestro.cli.AppKt` JVM | **protect** — it is a peer, mid-flow |
+> | gone (`ppid 1`) | reap — an orphan belongs to no live run |
+> | live, but not a maestro JVM | protect — fail toward not-killing |
+>
+> Ownership is *attributable to a live maestro JVM*, not the device: two worktrees are
+> routinely pinned to the **same** simulator, so a UDID is a device filter and never an
+> owner. Reaping `test-without-building + $SIM_UDID` would have been the identical defect
+> with a longer pattern.
+>
+> Two consequences worth knowing when you read a gate log. The reset also runs **pre-flight**,
+> before flow 1, so a driver wedged by your own earlier crashed run is cleared rather than
+> surviving into the first flow. And the gate prints the empty case out loud —
+> `ℹ️ driver reset (…): nothing attributable to this run` — because the hazard with an
+> ownership check is that it silently stops matching, which on a quiet machine is
+> indistinguishable from a healthy run.
 >
 > ```bash
 > # Is another Maestro ACTUALLY running? Empty == nobody; check BEFORE you blame the sim.
@@ -542,8 +566,15 @@ Maestro's output names the failing step. Three common causes:
 3. **Onboarding traversal drift** — the `_legal-and-onboarding.yaml` subflow uses `optional: true` for intermediate Next/Continue taps because the Onboarding state machine has 5 sub-screens and copy may rotate. If a Next button has a new label that doesn't match `text: "Continue"` or `text: "Next"`, add the new label or use a testID.
 4. **XCUITest driver wedged across consecutive runs (NOT a flow bug)** — Maestro's iOS driver (`xcodebuild test-without-building`) leaks/wedges when the suite is run repeatedly back-to-back (e.g. a `for i in 1 2 3 4 5; do npm run e2e:safety; done` determinism loop). It surfaces as `CommandFailed: Failed to connect to /127.0.0.1:<port>` / `Connection refused`, flows that die 4–6 s after launch, or a flow that hangs for minutes on a fully-wedged driver. The traversal and assertions are fine — the *driver* is dead. Reset it between runs:
    ```bash
-   pkill -9 -f "test-without-building"   # then sleep ~8s and re-run
+   # Reap only drivers with no live maestro JVM parent, on the sim you are using.
+   # INFRA-423: do NOT reach for `pkill -9 -f "test-without-building"` — it is
+   # ownership-blind and will reap a peer worktree's live driver too.
+   ( cd app && . scripts/e2e-driver-ownership.sh \
+       && pids="$(e2e_drivers_to_reap "" "<your-sim-udid>")" \
+       && echo "reaping: ${pids:-<none>}" && e2e_reap_pids $pids )
+   # then sleep ~8s and re-run
    ```
+   Prefix with `E2E_DRIVER_REAP_DRY_RUN=1` to see what it would kill without killing it.
    Verified during INFRA-208: a no-reset 5× loop gave **1/5**; the same loop with a driver reset between runs gave a clean **5/5 (20/20 flows)**. **INFRA-220 update:** the degradation also accumulates *within a single batch session* — the old `npm run e2e:safety` (`maestro test .maestro/`, all 4 flows in one driver) failed on the 4th/longest flow (`crisis-button`) as the driver slowed and `nav-back-button` over-popped. `npm run e2e:safety` now runs each flow as a separate invocation with a driver reset between (`scripts/e2e-safety.sh`), so the real `/b-close` usage gets a fresh driver per flow and is unaffected. A related **dev-build-only** flake: the Expo dev launcher can time out at the `legal-dob-picker` wait while the JS bundle is still loading from Metro (the failure screenshot shows the bundle spinner, not the LegalGate). Mitigate by raising `MAESTRO_DRIVER_STARTUP_TIMEOUT` (e.g. `120000`) and/or warming the bundle (`curl -s -o /dev/null "http://localhost:8081/index.bundle?platform=ios&dev=true"`) before the run. Absent in Release builds (no Metro, no dev launcher).
 
 > One more selector gotcha (INFRA-208): Maestro's `text:` selector is a **full-match** regex, and React Native merges a `Focusable`/`accessible` container's child `Text` with a sibling's `accessibilityLabel` into one node. The assessment progress counter renders as "Question 1 of 9" but its accessibility text is `"Question 1 of 9, Progress: 1 of 9 questions completed"`, so a bare `text: "Question 1 of 9"` silently fails to match. Wrap such selectors in `.*…*` (e.g. `text: ".*Question 1 of 9.*"`). Confirm the real accessibility string with `maestro hierarchy`.
