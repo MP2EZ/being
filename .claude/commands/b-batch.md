@@ -387,6 +387,10 @@ the *current* state, and routinely carry the decision that reversed an AC — a 
 flag-tier ruling. Read newest-last and let them **override** the body. A lens given only the
 body reasons impeccably to a conclusion ruled out months ago, and sounds just as confident.
 
+**Apply Step 0.1a.5's attended-only test on every entry path, not just auto-select** —
+the question is about the ITEM, not how the ID arrived. Defer before the panel spends:
+the approach is unexecutable, and an unattended run closes the item with its question open.
+
 **Claim the page as you resolve it (Step 0.2's Notion half).** The fetch returns `Status`
 directly, so the moment a page resolves: if its `Status` is `Not started`, set
 `Status: Batched`; otherwise leave it untouched. Also record its `Effort` on the manifest
@@ -456,7 +460,8 @@ Apply per item — this is a mechanical rule, not a judgment call (judgment in-c
 exactly where drift creeps in):
 
 - **RED** if any agent's `files_touched` hits a safety path (`features/assessment`,
-  `features/crisis`, `core/services/security`, `core/navigation/`, `app.json`,
+  `features/consent`, `features/crisis`, `features/guidance`,
+  `core/services/security`, `core/navigation/`, `app.json`,
   `Info.plist`, `.maestro/`) or mentions `CollapsibleCrisisButton`. Decided first,
   overrides confidence. Step 3.2 re-decides the tier against the real diff:
   - **RED-ATTENDED** — non-test diff under `features/crisis/` or `features/assessment/`,
@@ -798,7 +803,7 @@ git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2
 # safety change merges unattended, whereas an unnecessary sim run is only friction.
 SAFETY=$(git -C /Users/max/dev/being/<worktree-dir> diff --name-only origin/development...HEAD \
   | grep -vE '(__tests__/|\.test\.|\.spec\.)' \
-  | grep -E 'app/(src/features/(assessment|crisis)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  | grep -E 'app/(src/features/(assessment|consent|crisis|guidance)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 # Two exclusions apply to the crisis content detector. The overlay can be re-hosted
 # in any SOURCE dir, which is why this check greps content rather than paths — but
 # neither excluded class can change what a flow sees, because Maestro drives the
