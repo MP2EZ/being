@@ -416,6 +416,14 @@ panel's authority. (The one surface that *can* force a schema is `Workflow`'s `a
 adopting it would move this sweep's Notion writes into a script, so it is a deliberate
 open choice, not an oversight.)
 
+**A lens that never RETURNS is not a lens that returned nothing.** An agent can die
+outright — API error, session limit, crash — and Step 2.1's GREEN rule reads *vacuously
+true* over an empty panel: `all(...)` and "ambiguities empty" are both satisfied by zero
+lenses. A batch whose panel died therefore classifies every item GREEN and auto-runs it
+unplanned. Treat a dead lens as MISSING, never as silent assent: relaunch it once, and if
+it dies again mark the item AMBER naming the dead lens. Never classify an item whose
+Architecture lens did not return.
+
 **Dependencies are structured, not free text.** The `Being. Product Backlog` data
 source has two reciprocal **relation** properties:
 - **`Blocked by`** — this item's prerequisites (JSON array of page URLs).
