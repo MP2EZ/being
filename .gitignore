@@ -15,6 +15,10 @@ development/websitev2/
 development/
 main/
 [a-z]*-[0-9]*/
+# The gate worktree (INFRA-436) is named, not numbered, so it does NOT match the
+# pattern above — without this line it shows as a plain untracked directory and the
+# next `git add .` in this shared tree commits a ~600 MB worktree.
+e2e-gate/
 
 # Process artifacts (per-machine, never committed)
 .claude/scheduled_tasks.lock
