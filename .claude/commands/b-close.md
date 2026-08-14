@@ -737,6 +737,29 @@ The gate requires a **Release** build on the sim, NOT `npm run ios` (Debug).
 `expo run:ios --configuration Release`, ~1 min warm instead of 10–15, so there is
 no longer a cost argument for skipping it.
 
+**Prefer `npm run e2e:safety:gate` (INFRA-436), and mind the ordering.** A plain
+`e2e:safety:build` in *this* worktree pays a **cold** build — measured **21m31s**, not the
+~14 min previously documented — because Xcode keys DerivedData by workspace path and
+`/b-work` gives every item a fresh worktree. `e2e:safety:gate` builds the same artifact in
+one shared, warm gate worktree (~90 s) and then verifies, from *this* worktree, that the
+installed binary corresponds to *this* tree. Evidence semantics are unchanged: the
+provenance marker is content-addressed, so the artifact is bound to the commit, not to the
+directory it was built in.
+
+The ordering is not optional and follows directly from the paragraph above:
+
+```
+git merge origin/development     # 1. back-merge HERE, in the item's worktree
+npm run precommit                # 2. `git merge` does not fire the pre-commit hook
+npm run e2e:safety:gate          # 3. gate worktree detaches at the RESULTING commit
+```
+
+Pointing the gate at a bare branch tip gates a tree that will never merge — the same
+mistake this step's "sync FIRST" rule exists to prevent, just relocated. The wrapper
+refuses a dirty worktree up front and names the offending files, and on any provenance
+mismatch `e2e-provenance.js explain` now names the files responsible rather than emitting a
+bare `MISMATCH` (INFRA-436).
+
 **Corrected (INFRA-383).** This paragraph used to say a plain
 `--configuration Release` build also ships the dev launcher and that only the EAS
 `e2e-sim` profile removes it. That was false — Expo autolinking marks

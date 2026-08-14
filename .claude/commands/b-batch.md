@@ -973,19 +973,50 @@ harmless: never resolve this from the error text or from `--watch`.
 
 ### Step 4.1: Surface the sim-attended queue
 For every `queued_red` item: `/b-work` + headless tests have run and the work is
-committed in its worktree, stopped before close. List them for a single
-simulator-attended session:
+committed in its worktree, stopped before close. Emit the queue as **one gate session**,
+not as N independent build-then-close instructions:
 ```
-🛡️  Needs simulator-attended close (safety surface):
-   FEAT-211  worktree: feat-211   — run `npm run e2e:safety:build` then `/b-close FEAT-211`
+🛡️  Simulator-attended close session (safety surface) — 3 items, run in this order:
+
+   1. FEAT-211  worktree: feat-211
+   2. DEBUG-44  worktree: debug-44
+   3. MAINT-77  worktree: maint-77
+
+   Per item, from that item's worktree:
+     git merge origin/development     # Step 2.5.4 gates the MERGED tree, not the branch tip
+     npm run precommit                # `git merge` does not fire the pre-commit hook
+     npm run e2e:safety:gate          # builds in the shared gate worktree
+     /b-close <ID>
+
+   First build ≈21 min (cold gate worktree), each one after ≈90 s.
 ```
-**Concurrent-batch note (C3):** the simulator is a single serial resource and the *only*
-shared resource the unattended loop never touches — it is reached **only here**, at the
-human-attended close. If multiple concurrent batches each surfaced `queued_red` items,
-their sim-attended closes all converge on this one simulator: **close them one at a time**
-(a single human is doing it, so this serializes naturally — no lock needed). Each
-`e2e:safety:build` installs the same `fyi.being.app` bundle, so overlapping builds/closes
-would fight over one install; sequential is mandatory.
+**Why one session and not N (INFRA-436).** Each item is still gated on **its own tree at
+its own commit** — this is emphatically *not* batching several items against one merged
+tree, which would be a weaker claim than the gate currently makes. What is shared is the
+**warm build cache**. Xcode keys DerivedData by workspace path, and `/b-work` creates a
+fresh worktree per item, so before INFRA-436 every item in the queue paid a *cold* build:
+measured **21m31s** each, against ~90 s once the gate worktree is warm. A three-item queue
+goes from ~65 min of compilation to ~24 min. Order matters only for that first cold build;
+after it, any order is equivalent.
+
+**Concurrent-batch note (C3) — corrected (INFRA-436).** This step used to say the
+simulator "serializes naturally — no lock needed" because a single human is doing the
+closes. **That is false, and it failed in practice on 2026-08-14**: three sessions were
+driving one machine, a peer's `npm run e2e:safety` was mid-flow while another session's
+build uninstalled `fyi.being.app` from the same device, and both died on an XCUITest
+`ConnectException`. The reasoning held *within* a batch and never held *across* sessions,
+which is precisely the case this file cannot see.
+
+`e2e-sim-lock.sh` now enforces it: build and flow runs take a per-UDID lock for the
+duration of each invocation, and a contended run waits (bounded) and then fails naming the
+holding pid rather than trampling it. So overlapping closes are now **safe**, not merely
+discouraged — but still not *fast*, since they serialize on the device either way. Close
+them one at a time.
+
+Note what the lock does **not** do: it is a liveness fix, not a correctness one. INFRA-384
+provenance already fails closed across sessions — a foreign binary carries a foreign
+`repoRoot` and tree hash, so a peer's verify returns `MISMATCH` and refuses rather than
+producing a false green. That held during the incident above.
 
 ### Step 4.2: Final report
 ```
