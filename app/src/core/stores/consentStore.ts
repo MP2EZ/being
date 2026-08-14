@@ -732,7 +732,7 @@ const calculateAge = (birthYear: number): number => {
  * Fails closed on a missing `birthYear` — the field is optional, and refusing
  * is the only safe reading of "we cannot establish an age".
  */
-function isBaseEligibleForRenewal(base: ConsentRecord): boolean {
+export function isBaseEligibleForRenewal(base: ConsentRecord): boolean {
   if (base.ageVerification.isEligible !== true) return false;
   const { birthYear } = base.ageVerification;
   if (typeof birthYear !== 'number' || !Number.isFinite(birthYear)) return false;

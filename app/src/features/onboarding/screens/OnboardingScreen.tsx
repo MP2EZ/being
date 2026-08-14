@@ -27,7 +27,7 @@ import { useAnalytics } from '@/core/analytics';
 import NotificationTimePicker from '@/core/components/NotificationTimePicker';
 import BrainIcon from '@/core/components/shared/BrainIcon';
 import { useConsentStore, ConsentPreferences, getLegalGateConsents } from '@/core/stores/consentStore';
-import { ConsentToggleCard } from '@/features/consent';
+import { ConsentToggleCard, CONSENT_DETAILS } from '@/features/consent';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 
@@ -113,80 +113,9 @@ interface CrisisDetectionResult {
   auditRequired: boolean;
 }
 
-// Consent category details (plain language, reused from ConsentManagementScreen)
-const CONSENT_DETAILS = {
-  analytics: {
-    title: 'Analytics',
-    description: 'Help us improve the app by understanding how it\'s used',
-    details: {
-      whatWeCollect: [
-        'Which features you use (e.g., "Daily Check-in completed")',
-        'How long you spend in the app',
-        'Device type (iPhone, Android, etc.)',
-      ],
-      whatWeDontCollect: [
-        'Your journal entries, mood ratings, or assessment scores',
-        'Any personally identifiable information',
-        'Location data',
-      ],
-      whyItHelps: 'Understanding usage patterns helps us improve features you care about and fix confusing flows.',
-      privacyNote: 'Data retention: 90 days, then automatically deleted. Anonymized before storage.',
-    },
-  },
-  crashReports: {
-    title: 'Crash Reports',
-    description: 'Automatically report errors to fix bugs faster',
-    details: {
-      whatWeCollect: [
-        'Technical error logs (which code failed)',
-        'Device info (OS version, app version)',
-        'What screen you were on when the crash occurred',
-      ],
-      whatWeDontCollect: [
-        'Your personal data (mood, journal, assessments)',
-        'Identifiable information',
-      ],
-      whyItHelps: 'Crashes disrupt your practice. Automatic reports help us detect and fix issues before they affect more people.',
-      privacyNote: 'All crash reports are encrypted and anonymized.',
-    },
-  },
-  cloudSync: {
-    title: 'Cloud Backup',
-    description: 'Securely sync your data across devices',
-    details: {
-      whatWeCollect: [
-        'App preferences and settings',
-        'Journal entries (encrypted)',
-        'Mood tracking history',
-        'Custom reminders',
-      ],
-      whatWeDontCollect: [
-        'PHQ-9/GAD-7 assessment raw scores (local only for privacy)',
-        'Crisis contact information (device-specific)',
-      ],
-      whyItHelps: 'Restore data if you get a new phone. Access your journal on tablet and phone. Automatic backup protection.',
-      privacyNote: 'End-to-end encryption. We cannot decrypt or access your synced content.',
-    },
-  },
-  research: {
-    title: 'Research Participation',
-    description: 'Help improve mental health care (fully anonymous)',
-    details: {
-      whatWeCollect: [
-        'Aggregated mood trends (e.g., "60% of users report improvement")',
-        'Feature effectiveness data (which practices help most)',
-        'Anonymized usage patterns',
-      ],
-      whatWeDontCollect: [
-        'Individual responses or identifiable data',
-        'Data shared with third parties for advertising',
-        'Anything that could identify you',
-      ],
-      whyItHelps: 'Research helps us validate that Stoic practices are effective, publish findings to help more people, and secure funding to keep the app accessible.',
-      privacyNote: 'Fully anonymized. Aggregated with 1,000+ other users. You can opt out anytime.',
-    },
-  },
-};
+// Consent category copy moved to `@/features/consent` in FEAT-376 — the
+// re-consent screen must re-ask these four with the SAME descriptions the user
+// agreed to here, and two divergent copies would drift invisibly.
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
