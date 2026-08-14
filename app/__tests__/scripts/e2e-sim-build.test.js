@@ -81,6 +81,7 @@ const TWO_DEVICES = [
   { udid: 'DEV-2222', name: 'Test iPhone' },
 ];
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
+const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
 const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
 const PRODUCT_REL = 'ios/build/Build/Products/Release-iphonesimulator';
@@ -177,6 +178,11 @@ function makeProject(opts = {}) {
   // reason as the provenance helper — `node` is not shimmed, so the adjudication logic
   // runs for real rather than being stubbed into always agreeing with the exit code.
   fs.copyFileSync(REAL_VERDICT, path.join(root, 'scripts', 'e2e-verdict.js'));
+  // INFRA-436: both gate scripts now source the simulator lock, so the sandbox has to stage
+  // it or they die on the source line before reaching anything under test. Real file, same
+  // reasoning as the device resolver — a stub that always grants the lock would hide a
+  // wiring mistake that wedges the gate on a real machine.
+  fs.copyFileSync(REAL_SIM_LOCK, path.join(root, 'scripts', 'e2e-sim-lock.sh'));
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
@@ -576,6 +582,9 @@ function runScript(opts = {}) {
     env: {
       ...process.env,
       PATH: `${stubs}:${process.env.PATH}`,
+      // INFRA-436: per-sandbox lock root. The default is a shared /tmp path, which would
+      // make concurrently-running suites contend for a real lock and leave one behind.
+      E2E_LOCK_ROOT: path.join(root, '.locks'),
       CI: '', // export:embed silently discards --reset-cache when CI is set
       ...(simUdid ? { E2E_SIM_UDID: simUdid } : {}),
     },
@@ -749,6 +758,14 @@ function runSafety(built, opts = {}) {
       // assertion passed vacuously against an empty reap set.
       'case "$*" in',
       '  *"-o pgid="*) echo " 99999"; exit 0;;',
+      // INFRA-436: the lock asks for a DIFFERENT column shape (`-axo pid=,lstart=,comm=`)
+      // than INFRA-423's inventory (`pid ppid pgid comm args`). Without this arm the stub
+      // answered both with the 5-column table, so the lock read `ppid pgid comm args` as a
+      // start time and could never match — it failed to record its own ownership and every
+      // gate run aborted. Delegate to the real `ps`: liveness is a claim about actual
+      // processes, and the lock must see itself. The synthetic inventory below still serves
+      // the ownership classifier, which is the only thing that needs a fabricated table.
+      '  *lstart*) exec /bin/ps "$@";;',
       'esac',
       `cat <<'PSEOF'`,
       psInventory,
@@ -768,7 +785,12 @@ function runSafety(built, opts = {}) {
   const res = spawnSync('bash', [path.join(built.root, 'scripts', 'e2e-safety.sh'), ...flows], {
     encoding: 'utf8',
     cwd: built.root,
-    env: { ...process.env, PATH: `${built.stubs}:${process.env.PATH}`, ...env },
+    env: {
+      ...process.env,
+      PATH: `${built.stubs}:${process.env.PATH}`,
+      E2E_LOCK_ROOT: path.join(built.root, '.locks'), // INFRA-436, see runBuild
+      ...env,
+    },
     timeout: 45000,
     killSignal: 'SIGKILL',
   });

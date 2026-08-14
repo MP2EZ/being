@@ -62,6 +62,12 @@ cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + su
 # shellcheck source=scripts/e2e-sim-device.sh
 . "$(dirname "$0")/e2e-sim-device.sh"
 
+# INFRA-436 — simulator mutual exclusion. Sourced under the same contract (sets no shell
+# options). Step 3 below uninstalls fyi.being.app BEFORE building, so without this a peer's
+# in-flight flow run loses its app mid-flow; that is the 2026-08-14 incident verbatim.
+# shellcheck source=scripts/e2e-sim-lock.sh
+. "$(dirname "$0")/e2e-sim-lock.sh"
+
 BUNDLE_ID="fyi.being.app"
 PRODUCT_DIR="ios/build/Build/Products/Release-iphonesimulator"
 CNG_STAMP="ios/.cng-stamp"
@@ -94,6 +100,14 @@ cleanup() {
   # while reporting a provenance problem rather than the build failure that caused it.
   if [ "$BUILD_OK" != "1" ] && [ -n "$SIM_UDID" ]; then
     xcrun simctl uninstall "$SIM_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
+  fi
+  # INFRA-436: release the simulator lock on EVERY exit path, including Ctrl-C. Held across
+  # the uninstall above deliberately — a peer must not be able to start a flow run against
+  # the half-removed app this cleanup is in the middle of removing. e2e_lock_release is a
+  # no-op unless we are the recorded owner, so an early failure that never acquired cannot
+  # hand a peer's device away.
+  if [ -n "$SIM_UDID" ]; then
+    e2e_lock_release "$SIM_UDID"
   fi
 }
 trap cleanup EXIT INT TERM
@@ -136,6 +150,12 @@ fi
 # ---------------------------------------------------------------------------------------
 SIM_UDID="$(e2e_resolve_sim_device "gate build")" || fail "simulator selection"
 echo "🎯 Target simulator: $SIM_UDID"
+
+# ---------------------------------------------------------------------------------------
+# 2b. Claim the device (INFRA-436) — AFTER resolution (we need the UDID as the key) and
+#     BEFORE step 3's uninstall, which is the first mutation and the destructive one.
+# ---------------------------------------------------------------------------------------
+e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "gate build" || fail "simulator lock"
 
 # ---------------------------------------------------------------------------------------
 # 3. Uninstall FIRST. One bundle ID is shared with the dev-client build (`npm run ios`),
