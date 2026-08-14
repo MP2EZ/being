@@ -234,7 +234,7 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
       accessibilityViewIsModal={true}
       testID="resume-session-overlay"
     >
-      <ScrollView contentContainerStyle={styles.scrollContainer}>
+      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContainer}>
         <View style={styles.modalContainer}>
           {/* Header with flow emoji and title */}
           <View style={styles.header}>
@@ -397,10 +397,24 @@ const styles = StyleSheet.create({
     // button is 1.34:1, against white 2.71:1 — and DEBUG-396's FADED_OPACITY of 0.6
     // clears 3:1 on white. Darkening moves the wrong way; white is the ceiling.
     backgroundColor: colorSystem.base.white,
-    justifyContent: 'center',
-    alignItems: 'center',
+    // NO justifyContent / alignItems HERE — they belong on scrollContainer below.
+    // Centring on this View centres the ScrollView itself; when the card is taller than
+    // the viewport that splits the overflow across both edges and CLIPS it (the leaf off
+    // the top, "Begin Fresh" off the bottom), leaving `begin-fresh-button` resolvable in
+    // the hierarchy but untappable. Found on the first on-device run of
+    // daily-loop-quick-depth after the <Modal> conversion.
     // Keeps the card clear of the crisis button's hit area.
     paddingBottom: CRISIS_BUTTON_RESERVED_BAND,
+  },
+  /**
+   * The ScrollView's own FRAME. Required: a ScrollView scrolls only when its frame is
+   * smaller than its content, and without this it sizes to its content instead — so tall
+   * content overflows and is clipped by the overlay rather than scrolling. The RN <Modal>
+   * used to supply a full-screen native window as this frame; the conversion removed it.
+   */
+  scroll: {
+    flex: 1,
+    width: '100%',
   },
   scrollContainer: {
     flexGrow: 1,

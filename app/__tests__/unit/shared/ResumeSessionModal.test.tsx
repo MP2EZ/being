@@ -291,5 +291,48 @@ describe('ResumeSessionModal', () => {
       // DEBUG-396's FADED_OPACITY of 0.6 clears 3:1 on white. Darkening moves the wrong way.
       expect(style.backgroundColor).toBe(colorSystem.base.white);
     });
+
+    it('bounds the ScrollView so tall content SCROLLS instead of being clipped', () => {
+      // Regression: the first on-device run of daily-loop-quick-depth tapped
+      // `begin-fresh-button` and nothing happened. The card was rendering CLIPPED —
+      // the leaf sliced off the top, "Begin Fresh" sliced off the bottom — so the
+      // button's centre lay outside the visible region. Maestro reported the tap
+      // COMPLETED (the element resolves in the hierarchy) while the app never got it.
+      //
+      // Cause: <ScrollView> carried only contentContainerStyle and no `style`, so its
+      // own frame sized to its content. A ScrollView scrolls only when its FRAME is
+      // smaller than its content; here they were equal, so the parent clipped it.
+      // Centering on the parent then split the overflow across both edges.
+      //
+      // This never surfaced while the component was an RN <Modal>: the Modal supplied a
+      // full-screen native window as the bounding frame. The conversion removed it.
+      const { getByTestId, UNSAFE_getByType } = render(
+        <ResumeSessionModal
+          visible={true}
+          session={mockSession}
+          onResume={mockOnResume}
+          onBeginFresh={mockOnBeginFresh}
+        />
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { ScrollView } = require('react-native');
+      const scrollStyle = StyleSheet.flatten(UNSAFE_getByType(ScrollView).props.style);
+
+      // The frame must be bounded by the overlay, not by its content.
+      expect(scrollStyle?.flex).toBe(1);
+      // ...and must span the overlay's width, which `alignItems: 'center'` on the parent
+      // would otherwise shrink to fit content.
+      expect(scrollStyle?.width).toBe('100%');
+
+      // The parent must NOT re-centre: centering belongs on contentContainerStyle
+      // (flexGrow: 1 + justifyContent: 'center'), which centres SHORT content while
+      // still allowing TALL content to scroll. On the parent it forces the overflow.
+      const overlayStyle = StyleSheet.flatten(
+        getByTestId('resume-session-overlay').props.style
+      );
+      expect(overlayStyle.justifyContent).toBeUndefined();
+      expect(overlayStyle.alignItems).toBeUndefined();
+    });
   });
 });
