@@ -199,8 +199,9 @@ three practice screens, on a fresh install, across at least two app launches. Th
 - Toggling the master on and running a practice produces the case (c)(i) observable set.
 - `practiceHapticsPrompted` remains `false` afterwards.
 
-> This case cannot pass until DEBUG-426 lands (§7). Until then the prompt still
-> appears on the iPad and the primary criterion fails by construction.
+> DEBUG-426 has landed (PR #331), so this case is runnable. It is also the **only**
+> direct verification that the suppression predicate works on real hardware — jest
+> mocks `expo-device` entirely.
 
 ### Case (c)(iii) — announcements survive
 
@@ -252,39 +253,40 @@ structurally **cannot** see.
 
 ---
 
-## 7. The one prerequisite, and two things that are not
+## 7. Prerequisites — both landed; one observation remains
 
-### Blocking: DEBUG-426 — prompt suppression on actuator-less hardware
+### DEBUG-426 — prompt suppression on actuator-less hardware ✅ landed
 
-The only genuine gate, and it is a gate because **the flip creates the harm**.
-`useHapticsOptIn.ts:73-79` consults the flag and the prompted-state, never device
-capability. Today no iPad user is ever prompted, because the flag is off. Post-flip
-they are shown a permanent, unrepeatable, "Turn on"-recommended question for hardware
-that cannot answer it, and accept yields silence forever with no diagnostic and no way
-back. `app.json:16` sets `supportsTablet: true`, so iPad installs are a real
-configuration, not a thought experiment.
+Shipped in PR #331 (`9705498a`). This was the one genuine gate, because **the flip
+creates the harm**: `app.json:16` sets `supportsTablet: true`, so post-flip an iPad user
+would have been shown a permanent, unrepeatable, "Turn on"-recommended question for
+hardware that cannot answer it. Suppression landed as a **pure read** inside `eligible`,
+so it never writes `practiceHapticsPrompted` and the prompt survives unspent for a
+device that can deliver.
 
-`expo-device` is already a dependency. Suppression must be a **pure read**: it must not
-write `practiceHapticsPrompted`, so the prompt survives unspent for a device that can
-deliver.
+**Two corrections the landed code made to this document's earlier framing**, both from
+reading `expo-device`'s native source rather than its docs:
 
-### NOT blocking: DEBUG-425 — Body Scan announcement decoupling
+- The no-actuator set is `{TABLET, DESKTOP, TV}`, not `{TABLET}` — `getDeviceType`
+  returns `DESKTOP` for Mac Catalyst / iOS-app-on-Mac *before* consulting
+  `userInterfaceIdiom`, and `supportsTablet: true` means this build installs on Apple
+  Silicon Macs with `isDevice` true.
+- `deviceType` is **not** a fallback for a null `modelId`; the two cover disjoint cases
+  and are OR'd.
 
-A real defect, and it should be fixed — but it does not gate this flip, and an earlier
-revision of this document wrongly said it did.
+Case (c)(ii) below is the only verification of any of this on real hardware — jest mocks
+`expo-device` entirely.
 
-`usePracticeHaptics.ts:212` early-returns on `!enabled`, and `enabled` includes
-`practiceHaptics === true`, so a practitioner who **declines** loses the "Next area"
-announcement (`BodyScanScreen.tsx:150-152` confirms the hook is the only speech on that
-boundary). The reason it is not a gate: with the flag off, `enabled` is false for
-*everyone*, so nobody receives that announcement today. Post-flip, accepters gain it and
-decliners stand exactly where 100% of users stand right now. **The flip regresses no
-one** — it creates a disparity, which is worth closing, but closing it is not a
-precondition for an improvement that costs nobody anything.
+### DEBUG-425 — Body Scan announcement decoupling ✅ landed
+
+Shipped in PR #329 (`60907dd8`). Recorded here because an earlier revision of this
+document called it a blocker and it was not one: with the flag off, `enabled` was false
+for *everyone*, so nobody received that announcement, and post-flip decliners would have
+stood exactly where 100% of users already stood. The flip regressed no one.
 
 Distinguish an *activation* from a *regression* before promoting a finding to a blocker.
 
-### NOT blocking: INFRA-427 — 988 reachability under the prompt
+### INFRA-427 — 988 reachability under the prompt (open, not blocking)
 
 Not a work package; a two-minute observation inside a session that is already happening.
 It is §6 item 2 of this checklist, and the expected answer is that the button is
