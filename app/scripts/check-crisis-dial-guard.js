@@ -129,8 +129,18 @@ const EXPECTED_CALL_COUNTS = {
   'src/features/assessment/stores/assessmentStore.ts': 1,
   // `resource.website` — an https: link, not a dial.
   'src/features/crisis/screens/CrisisResourcesScreen.tsx': 1,
-  // Four https: legal / external-resource links.
-  'src/features/consent/screens/CombinedLegalGateScreen.tsx': 4,
+  // Five https: legal / external-resource links, no dial. Four are the inline
+  // links (Terms, Privacy, and the two under-age resources); the fifth is the
+  // shared `onDocumentAction` handler added by DEBUG-430, which is what makes
+  // Terms and Privacy reachable by screen reader — a Pressable collapses its
+  // subtree on iOS, so the inline links alone had no accessibility node. Same
+  // shape and same reason as the ReConsentScreen entry below. This screen DOES
+  // own a crisis affordance (the pre-consent 988 footer, DEBUG-390) and
+  // `LegalGate` IS in RootCrisisButton.SUPPRESSED_ROUTES — but that footer
+  // dials through `openCrisisUrl`, so it contributes no count here, and this
+  // entry must stay https-only. A `tel:`/`sms:` literal appearing in this file
+  // is caught by Rule 2 regardless of this count.
+  'src/features/consent/screens/CombinedLegalGateScreen.tsx': 5,
   // Three https: legal links, no dial (FEAT-376). Terms and Privacy Policy are
   // each reachable two ways — the inline link inside the checkbox label, and the
   // `openDocument` accessibility action that exists because a Pressable collapses
