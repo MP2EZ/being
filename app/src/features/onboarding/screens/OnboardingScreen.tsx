@@ -1011,48 +1011,70 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       const ageVerification = await getStoredAgeVerification();
 
       // Read back the four legal-gate consents (recorded on CombinedLegalGateScreen)
-      // so the GDPR Art. 9 explicit-consent flag lands in the granted ConsentRecord.
-      //
-      // DEBUG-382: this read is retried once, and a persistent failure is
-      // RECONSTRUCTED rather than defaulted. `getLegalGateConsents` returns null
-      // for both "no record" and "the read or JSON.parse threw" (its catch is
-      // bare), so the previous `?? false` silently recorded a user who had
-      // TICKED the mandatory Art. 9 box as having REFUSED it — in the record
-      // used as lawful-basis evidence, with no log and no trace.
+      // so the wellness-data processing consent lands in the granted ConsentRecord.
+      // The read is retried once (DEBUG-382) because transient SecureStore failures
+      // dominate this call's failure modes.
       const legalGate = await readLegalGateConsentsWithRetry();
 
-      // Reaching this screen is itself evidence the consent was given:
-      // CombinedLegalGateScreen requires all four ticks to advance. So an
-      // unreadable record is reconstructed from that enforced precondition, not
-      // guessed. Recording `false` would manufacture a refusal the user never
-      // made — and, once FEAT-318's write gate ships, a silent permanent lockout,
-      // since that gate blocks exactly `valid` + `canProcessMentalHealthData:false`
-      // and no UI exists to grant it.
+      // DEBUG-419: an unreadable record is RE-ASKED, never reconstructed.
       //
-      // The precondition is pinned by CombinedLegalGateScreen.consentInvariant.test.tsx.
-      // FEAT-318 Slice 2 plans to unbundle that tick; when it does, that suite
-      // fails ON PURPOSE and this reconstruction must be revisited rather than
-      // silently outliving its justification.
-      const mentalHealthProcessingConsent =
-        legalGate?.mentalHealthProcessingConsent ?? true;
-
+      // This reverses DEBUG-382, which reconstructed `true` here from the enforced
+      // gate invariant ("you could not have reached this screen without ticking
+      // it"). DEBUG-382's finding was right — the `?? false` it replaced silently
+      // recorded a granted consent as a refusal — but both values are wrong for the
+      // same reason: each writes a DERIVED value into a field whose sole evidentiary
+      // purpose is to record a USER ACT. One fabricates a grant, the other a
+      // refusal; neither is what happened.
+      //
+      // Sensitive-data consent must be DEMONSTRABLE, and demonstrability means the
+      // record IS the evidence. A value computed at read time evidences the shape of
+      // this code, not the user's decision. `renewConsent` in consentStore already
+      // adjudicated this exact question for this exact field the same way (FEAT-399)
+      // and re-asks; two live paths cannot hold opposite postures on one field's
+      // provenance.
+      //
+      // The gate invariant is in fact STRONGER than DEBUG-382 claimed, and it cuts
+      // against reconstruction. CombinedLegalGateScreen awaits recordLegalGateConsents
+      // inside a try whose catch does NOT call onComplete(), so advancing proves the
+      // WRITE SUCCEEDED — not merely that a box was ticked. An unreadable record here
+      // therefore means it was destroyed or corrupted AFTER a successful write: a
+      // data-integrity failure of unknown scope, in which we cannot know that only
+      // this one field was lost.
+      //
+      // Which law binds: STATE-LAW sensitive-data opt-in consent — TDPSA (Tex. Bus. &
+      // Com. Code 541.105(a)), CPA (C.R.S. 6-1-1309), VCDPA (Va. Code 59.1-580),
+      // CTDPA (Conn. Pub. Act 22-15 s6) — plus FTC Act s5, since this record is the
+      // DSR-export artifact and the DPIA's lawful-basis evidence. GDPR Art. 9(2)(a)
+      // is the contingent equivalent where applicable; docs/legal/regulatory-
+      // applicability.md makes GDPR conditional on serving EU users. All four state
+      // laws require a clear affirmative act, so the standard does not relax.
+      //
+      // Fail-closed here means RE-ASK, not "brick the user" and not "block crisis
+      // access". LegalGate's 988 footer is unconditional and is the only crisis
+      // affordance at that point (LegalGate is in RootCrisisButton's
+      // SUPPRESSED_ROUTES), which is what makes returning there safe in the sense
+      // DEBUG-341 relies on. Pinned by legalGateConsentReconstruction.privacy.test.tsx.
       if (!legalGate) {
         logSecurity(
-          'legal-gate consents unreadable at onboarding — Art. 9 flag reconstructed from the enforced gate invariant',
+          'legal-gate consents unreadable at onboarding — returning the user to the legal gate to re-capture',
           'high',
           {
             component: 'OnboardingScreen',
             action: 'handlePrivacyContinue',
             result: 'failure',
-            reconstructed: true,
-            reconstructedValue: mentalHealthProcessingConsent,
+            outcome: 'returned-to-legal-gate',
           },
         );
+        // MUST be `return`, not `throw`: the catch below ends in navigateNext()
+        // ("Still proceed - consent is optional"), which would silently convert this
+        // guard back into the fail-open behaviour it exists to close.
+        navigation.replace('LegalGate');
+        return;
       }
 
       const mergedPreferences: ConsentPreferences = {
         ...consentPreferences,
-        mentalHealthProcessingConsent,
+        mentalHealthProcessingConsent: legalGate.mentalHealthProcessingConsent,
       };
 
       if (ageVerification) {
