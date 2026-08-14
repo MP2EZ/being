@@ -430,6 +430,11 @@ was a line that moved. Where the incumbent code already solves the concern by ot
 keep the incumbent and note why; reverting a just-landed change during a merge resolution
 is how a fix becomes a regression.
 
+**A finding is not automatically a blocker.** Before making one a prerequisite, ask
+whether the change under review *creates* the harm or merely makes an existing gap
+visible to a new cohort. Gate on regressions; track activations as follow-ups. Getting
+this wrong defers a change that costs nobody anything behind work for a different cohort.
+
 Reference `CLAUDE.md` for safety facts (PHQ/GAD thresholds, 988 access budget, performance budgets, validation matrix). Specialist agent specs are at:
 - `/Users/max/dev/being/.claude/agents/crisis.md`
 - `/Users/max/dev/being/.claude/agents/compliance.md`
