@@ -278,6 +278,12 @@ proceed silently.
 Abort only if dropping leaves the list empty. (This makes the disjoint-list rule a guard,
 not just discipline — it closes the Notion-status race on shared items.)
 
+### Step 0.1c-bis: Reachability triage (BOTH entry paths)
+Run Step 0.1a.5's out-of-reach / attended-only tests here, not only on auto-select — a
+typed list is MORE likely to carry them. Tells: a body naming another repo under
+`~/dev/`, or only `.claude/` paths (gitignored on `development`, so a worktree cannot
+commit them).
+
 ### Step 0.2: Claim the list, then confirm it
 
 **Write the stub manifest here, not at Phase 2.5.** Step 0.1c's overlap guard reads sibling
@@ -421,8 +427,10 @@ outright — API error, session limit, crash — and Step 2.1's GREEN rule reads
 true* over an empty panel: `all(...)` and "ambiguities empty" are both satisfied by zero
 lenses. A batch whose panel died therefore classifies every item GREEN and auto-runs it
 unplanned. Treat a dead lens as MISSING, never as silent assent: relaunch it once, and if
-it dies again mark the item AMBER naming the dead lens. Never classify an item whose
-Architecture lens did not return.
+it dies again mark the item AMBER naming the dead lens. EXCEPT for INFRASTRUCTURE deaths
+(429/529, session limit, transport) — those say nothing about the item; retry up to three
+times, pacing between waves. Two MALFORMED returns is still AMBER: that is the item
+resisting analysis. Never classify an item whose Architecture lens did not return.
 
 **Dependencies are structured, not free text.** The `Being. Product Backlog` data
 source has two reciprocal **relation** properties:
