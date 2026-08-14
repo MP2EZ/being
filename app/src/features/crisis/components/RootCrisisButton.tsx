@@ -107,15 +107,33 @@ const NAV_READY_DEADLINE_MS = 400;
 /** Roughly one frame at 60fps. Retries are cheap; the deadline is what bounds them. */
 const NAV_READY_RETRY_INTERVAL_MS = 16;
 
-/** Root-stack routes that already own a crisis affordance → suppress the overlay. */
-const SUPPRESSED_ROUTES: ReadonlySet<string> = new Set([
+/**
+ * Root-stack routes that already own a crisis affordance → suppress the overlay.
+ *
+ * 🔴 EXPORTED ON PURPOSE (FEAT-417) — DO NOT "TIDY IT AWAY". Nothing in `app/src`
+ * consumes this Set at runtime; the only importer is
+ * `__tests__/RootCrisisButton.test.tsx`, and that is exactly why the export
+ * exists. Until FEAT-417 the suite iterated hardcoded COPIES of these two Sets,
+ * so adding a brand-new route name here — silently deleting the 988 affordance
+ * from a whole screen — failed zero tests. The test now derives its behavioural
+ * cases from these Sets and pins their membership literally.
+ *
+ * Adding a route here is a safety decision, not a cleanup. It must be earned by
+ * an affordance reachable WITHOUT SCROLLING (see the header block above), and it
+ * will fail the membership snapshot until someone deliberately updates it.
+ */
+export const SUPPRESSED_ROUTES: ReadonlySet<string> = new Set([
   'CrisisResources',
   'AssessmentFlow',
   'LegalGate',
 ]);
 
-/** Root-stack routes that are meditative practices → faded immersive mode. */
-const IMMERSIVE_ROUTES: ReadonlySet<string> = new Set([
+/**
+ * Root-stack routes that are meditative practices → faded immersive mode.
+ *
+ * Exported for the same reason as `SUPPRESSED_ROUTES` above.
+ */
+export const IMMERSIVE_ROUTES: ReadonlySet<string> = new Set([
   'DailyLoop', // FEAT-291 single-loop daily-practice prototype (meditative practice surface)
   'PracticeTimer',
   'ReflectionTimer',

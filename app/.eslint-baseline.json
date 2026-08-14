@@ -114,6 +114,8 @@
   "src/features/consent/screens/__tests__/CombinedLegalGateScreen.accessibility.test.tsx": 1,
   "src/features/consent/screens/__tests__/CombinedLegalGateScreen.consentInvariant.privacy.test.tsx": 1,
   "src/features/consent/screens/__tests__/CombinedLegalGateScreen.crisis.test.tsx": 1,
+  "src/features/consent/hooks/__tests__/useReConsentTrigger.privacy.test.ts": 1,
+  "src/features/consent/screens/__tests__/ReConsentRoute.privacy.test.tsx": 1,
   "src/features/consent/screens/__tests__/ReConsentScreen.accessibility.test.tsx": 1,
   "src/features/consent/screens/__tests__/ReConsentScreen.consentInvariant.privacy.test.tsx": 1,
   "src/features/consent/services/__tests__/submitReConsent.privacy.test.ts": 1,
