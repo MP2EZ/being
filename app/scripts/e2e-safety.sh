@@ -43,6 +43,11 @@ cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + su
 # shellcheck source=scripts/e2e-sim-device.sh
 . "$(dirname "$0")/e2e-sim-device.sh"
 
+# INFRA-423 — XCUITest driver ownership. Same sourced-helper contract as above: it sets no
+# `set` options, because this file runs under a bare `set -u`.
+# shellcheck source=scripts/e2e-driver-ownership.sh
+. "$(dirname "$0")/e2e-driver-ownership.sh"
+
 MAESTRO_DIR=".maestro"
 
 BUNDLE_ID="fyi.being.app"
@@ -220,40 +225,49 @@ LAST_EVIDENCE_DIR=""
 # outlier, not a margin call.
 FLOW_TIMEOUT_S="${E2E_FLOW_TIMEOUT_S:-600}"
 
-# DEBUG-392 — live maestro JVMs that are NOT this run's. Takes our child's PGID.
+# INFRA-423 — reset the XCUITest driver(s) this run is entitled to kill.
 #
-# WHY NOT `pgrep -f 'maestro\.cli\.AppKt'`. That was the first implementation and it was
-# wrong in a way worth recording, because it is the SAME bug class this function exists to
-# fix. `pgrep -f` matches the pattern against every process's full command line — which
-# includes any *shell* that merely MENTIONS the string. A peer session polling
-# `pgrep -f 'maestro.cli.AppKt'` to see whether we had finished was itself matched, so the
-# guard fired on other people LOOKING for maestro rather than on maestro. Measured: it
-# fired on all 5 quiet runs (peer polling, no JVM) and stayed silent on the one genuinely
-# contended run (peer between polls). Exactly inverted.
+# Supersedes DEBUG-392's `other_maestro_jvms()` skip-if-a-peer-is-live guard, which was a
+# coarse proxy for ownership. Once ownership is exact the guard can only subtract, and it
+# had become actively harmful in two directions: it was the mechanism that declined
+# self-recovery, and on the observed steady state (two worktrees, one simulator) it
+# suppressed EVERY reset across an 8-flow suite — reinstating the driver degradation
+# INFRA-220 added the reset to prevent. Its JVM enumerator survives as
+# `e2e_maestro_jvm_pids` in e2e-driver-ownership.sh, with a new job: input to the
+# classifier rather than a reason to skip.
 #
-# The generalisation, which is the whole point of this work item: a substring search is
-# not an identity check. `pkill -f "test-without-building"` below is blind to which
-# worktree owns a driver; `pgrep -f` was blind to whether a match was a process or a
-# mention of one. Both substitute grep for ownership.
+# Logging both outcomes is deliberate and is an acceptance criterion. The failure mode
+# this work guards against is an over-narrow matcher that SILENTLY stops reaping — which
+# on a quiet machine looks exactly like a healthy run. Saying "nothing was attributable"
+# out loud is what makes that visible in the gate log instead of invisible.
 #
-# So: require the executable to actually BE java (comm), not merely a command line that
-# talks about it, and exclude our own process group — our child is reaped by `wait`
-# before this runs, but a JVM shutting down slowly must not make us skip our own reset.
-#
-# KNOWN LIMITATION, deliberately not fixed here: this still cannot distinguish a peer's
-# live JVM from a STALE one left by our own earlier crashed run, which is precisely the
-# case the reset exists for. It fails toward not-resetting — right for peers, wrong for
-# self-recovery. Ownership by device UDID or child PID is the real fix; own work item.
-other_maestro_jvms() {
-  own_pgid="${1:-}"
-  ps -axo pid=,comm=,args= 2>/dev/null \
-    | awk 'index($0, "maestro.cli.AppKt") && $2 ~ /(^|\/)java$/ { print $1 }' \
-    | while read -r pid; do
-        [ -n "$pid" ] || continue
-        pgid="$(ps -o pgid= -p "$pid" 2>/dev/null | tr -d ' ')"
-        [ -n "$own_pgid" ] && [ "$pgid" = "$own_pgid" ] && continue
-        echo "$pid"
-      done
+#   $1 own_pgid — this run's process group ($child under `set -m`); "" at pre-flight,
+#                 where nothing is ours yet and only orphans are in scope.
+#   $2 phase    — human label for the log line.
+e2e_reset_drivers() {
+  _own_pgid="${1:-}"
+  _phase="${2:-}"
+
+  if [ -z "$SIM_UDID" ]; then
+    # Device-only run: maestro drives a real iPhone and there is no simulator driver to
+    # reset. Reaping on an empty UDID would match every driver on the machine.
+    return 0
+  fi
+
+  _reap="$(e2e_drivers_to_reap "$_own_pgid" "$SIM_UDID" | tr '\n' ' ')"
+  _peers="$(e2e_maestro_jvm_pids "$_own_pgid" | tr '\n' ' ')"
+
+  if [ -n "$(printf '%s' "$_reap" | tr -d ' ')" ]; then
+    echo "🧹 driver reset ($_phase) on $SIM_UDID — pid(s):$_reap"
+    # shellcheck disable=SC2086  # deliberate word-splitting: an explicit pid list
+    e2e_reap_pids $_reap
+  else
+    echo "ℹ️  driver reset ($_phase): nothing attributable to this run on $SIM_UDID."
+  fi
+
+  if [ -n "$(printf '%s' "$_peers" | tr -d ' ')" ]; then
+    echo "   peer maestro JVM(s) live and PROTECTED:$_peers"
+  fi
 }
 
 # INFRA-405: pin every flow to the device the pre-flight just attested. Empty for a
@@ -262,6 +276,19 @@ MAESTRO_DEVICE_ARGS=()
 if [ -n "$SIM_UDID" ]; then
   MAESTRO_DEVICE_ARGS=(--device "$SIM_UDID")
 fi
+
+# INFRA-423 — PRE-FLIGHT reset, before flow 1.
+#
+# The reset used to exist only INSIDE the per-flow loop, so a driver left wedged by this
+# session's own earlier crashed run survived untouched through the whole of flow 1 — the
+# exact self-recovery case the reset exists for, and the one the old skip-if-live guard
+# also declined. Narrowing the in-loop reap could never deliver it; the step simply was
+# not there.
+#
+# Ownership is passed as "" here on purpose: at pre-flight nothing is ours yet (no `$child`
+# exists), so only ORPHANS are in scope — drivers with no live maestro JVM parent. A peer
+# mid-flow is protected by the same rule that protects it later.
+e2e_reset_drivers "" "pre-flight"
 
 for f in "${FLOWS[@]}"; do
   name="$(basename "$f" .yaml)"
@@ -386,18 +413,13 @@ for f in "${FLOWS[@]}"; do
   # Reset the XCUITest driver between flows so the next flow starts fresh
   # (docs/testing/e2e-maestro.md "driver wedged" note). ~8s lets it settle.
   #
-  # DEBUG-392 — but NOT while a neighbouring session is mid-run. `pkill -f` matches on a
-  # pattern, not on ownership, so it reaps every worktree's driver. On 2026-08-12 six
-  # consecutive runs from another worktree produced zero commands artifacts and 239+
-  # `Failed to connect to /127.0.0.1` lines apiece: a driver pulled out from under a live
-  # invocation. Skipping the reset costs this run a possibly-degraded driver; firing it
-  # costs another run its evidence, and that one is silent.
-  if [ -n "$(other_maestro_jvms "$child")" ]; then
-    echo "⚠️  another maestro invocation is live — skipping the driver reset (a pattern kill"
-    echo "   would reap ITS driver too). If this run flakes, re-run it on a quiet machine."
-  else
-    pkill -9 -f "test-without-building" 2>/dev/null || true
-  fi
+  # INFRA-423 — reap by OWNERSHIP, never by pattern. `pkill -f "test-without-building"`
+  # was blind to which worktree owned a driver, so it reaped every one on the machine.
+  # DEBUG-392's skip-if-a-peer-is-live guard reduced how often that fired but not what it
+  # targeted, and it declined the self-recovery case the reset exists for. The classifier
+  # now decides per-process — see e2e-driver-ownership.sh for the ownership rules and the
+  # live `ps` capture they were derived from.
+  e2e_reset_drivers "$child" "between flows"
   sleep 8
 done
 
