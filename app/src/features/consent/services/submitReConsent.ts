@@ -108,8 +108,14 @@ export async function submitReConsent(
 
   // The Art. 9(2)(a) tick is ONE decision written to two records. If the halves
   // disagree, one of them is fabricated — refuse both writes rather than pick a
-  // winner. (`OnboardingScreen.tsx:1036-1037` picks a winner today, defaulting
-  // it to `true`; that is tracked as DEBUG-419 and is not repeated here.)
+  // winner.
+  //
+  // DEBUG-419 (`788bf320`) settled the same question on the onboarding path and
+  // landed on the same posture: it stopped reconstructing this flag from an
+  // unreadable legal-gate record and re-asks instead, citing `renewConsent` as
+  // the precedent — "two live paths cannot hold opposite postures on one field's
+  // provenance". Refusing here rather than defaulting is that ruling applied to
+  // the third path.
   if (legalGate.mentalHealthProcessingConsent !== preferences.mentalHealthProcessingConsent) {
     return {
       ok: false,

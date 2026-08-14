@@ -20,7 +20,11 @@
  *
  * `mentalHealthProcessingConsent` is on BOTH interfaces. It is collected exactly
  * once, in Group 1, and propagated into both records — mirroring how
- * `OnboardingScreen.tsx:1036-1037` derives it today.
+ * `OnboardingScreen.tsx:1006` carries the legal-gate tick into the granted
+ * `ConsentRecord`. (DEBUG-419 changed what happens when that record is
+ * UNREADABLE — it re-asks now rather than reconstructing a value — but the
+ * propagation itself is unchanged, and re-asking is the same posture this
+ * screen takes.)
  *
  * 🔴 THE ART. 9 TICK IS NEVER A `ConsentToggleCard`. That component requires
  * `details: { whatWeCollect, whatWeDontCollect, whyItHelps }`

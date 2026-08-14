@@ -35,9 +35,9 @@
  *
  *   3. ONE ART. 9 DECISION, TWO RECORDS. `mentalHealthProcessingConsent` is the only
  *      field on both interfaces. The screen collects it once, in the document group,
- *      and propagates it — matching how `OnboardingScreen.tsx:1036-1037` derives it
- *      today. If the two ever disagree, one of them is fabricated, so this module
- *      refuses to write either rather than pick a winner.
+ *      and propagates it — matching how `OnboardingScreen.tsx:1006` carries the
+ *      legal-gate tick into the granted record. If the two ever disagree, one of them
+ *      is fabricated, so this module refuses to write either rather than pick a winner.
  */
 
 // In-memory SecureStore + AsyncStorage mocks — harness copied verbatim from
@@ -393,8 +393,9 @@ describe('FEAT-376 · the Art. 9 tick is one decision', () => {
   it('accepts a matched refusal of the Art. 9 tick without fabricating one', async () => {
     // A user may decline the wellness-data processing consent while accepting the
     // other three. `renewConsent` records that faithfully; nothing here may coerce
-    // it to true (the `?? true` shape at OnboardingScreen.tsx:1036-1037 is exactly
-    // the fabrication class this guards against — tracked separately as DEBUG-419).
+    // it to true. DEBUG-419 (`788bf320`) removed the last live path that did —
+    // onboarding's `?? true` reconstruction — so all three paths now agree that a
+    // derived value must never be written into this field.
     enterVersionMismatch();
 
     const result = await submitReConsent({
