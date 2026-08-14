@@ -290,6 +290,11 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
       echo ""
       ;;
     *)
+      # INFRA-436 — print WHAT moved before refusing. "Rebuild" alone costs up to 21m31s
+      # of blind guessing, and under the gate-worktree workflow the same verdict covers two
+      # unrelated causes (different commits vs. stray local files) whose fixes differ.
+      # Diagnostic only: it always exits 0, so it can never soften the refusal below.
+      node scripts/e2e-provenance.js explain "$APP" 2>/dev/null || true
       preflight_fail "provenance check returned '${VERDICT:-<no verdict>}' — the installed binary was not built from the current tree (or carries no marker). Rebuild: npm run e2e:safety:build"
       ;;
   esac
