@@ -38,6 +38,27 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # Maestro's default assertVisible timeout (~10s) covers the <3s SLA from CLAUDE.md.
 # On-device timing budgets live in CLAUDE.md's "Performance Budgets" section and
 # are validated by hand until a real perf harness exists.
+#
+# DEBUG-392 — every `crisis-resources-screen` assertion below is followed by
+#   - extendedWaitUntil: { notVisible: "Unable to Call", timeout: 3000 }
+#
+# Why. DEBUG-341 gave RootCrisisButton a fallback: if `navigationRef.isReady()` is
+# still false 400ms after the tap (NAV_READY_DEADLINE_MS), it stops waiting and calls
+# `openCrisisUrl('tel:988')` instead of navigating. On the SIMULATOR that dial cannot
+# complete — `canOpenURL('tel:')` is unconditionally false there, independent of
+# LSApplicationQueriesSchemes — so openCrisisUrl.ts renders its manual-dial alert,
+# titled "Unable to Call". That string is app-owned and nothing else on this path
+# produces it, which makes it a precise witness that the degraded branch fired.
+#
+# This flow otherwise cannot tell "navigated" from "dialled, then recovered": it only
+# ever asserts the destination is present. Distinguishing them matters because the two
+# outcomes are not equivalent — dialling skips the resource list, the safety plan and
+# the text-line option that CrisisResources carries.
+#
+# Placed AFTER the assertVisible, never before. `extendedWaitUntil: notVisible` returns
+# the instant its condition holds, so at t=0 — before an alert ~500ms out could render —
+# it would pass vacuously and mask the very thing it is here to catch. After the
+# assertion it can only ever add a check.
 
 - launchApp:
     clearState: true
@@ -78,6 +99,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -88,6 +112,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 # INFRA-185: pop the CrisisResources modal via the explicit nav-back-button
 # testID added to CleanRootNavigator's HeaderBackButton override. Maestro's
 # `- back` action on iOS 18.6 sim reports COMPLETED but doesn't actually
@@ -104,6 +131,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -119,6 +149,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -156,6 +189,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -172,6 +208,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -188,6 +227,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -226,6 +268,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -264,6 +309,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -280,6 +328,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -296,6 +347,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -312,6 +366,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -332,5 +389,8 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"

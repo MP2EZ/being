@@ -43,6 +43,11 @@ cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + su
 # shellcheck source=scripts/e2e-sim-device.sh
 . "$(dirname "$0")/e2e-sim-device.sh"
 
+# INFRA-423 — XCUITest driver ownership. Same sourced-helper contract as above: it sets no
+# `set` options, because this file runs under a bare `set -u`.
+# shellcheck source=scripts/e2e-driver-ownership.sh
+. "$(dirname "$0")/e2e-driver-ownership.sh"
+
 MAESTRO_DIR=".maestro"
 
 BUNDLE_ID="fyi.being.app"
@@ -197,7 +202,73 @@ fi
 
 fail=0
 ran=0
+timeouts=0
 results=()
+LAST_EVIDENCE_DIR=""
+
+# DEBUG-392 — how long ONE maestro invocation may run before the gate calls it wedged.
+#
+# The failure: on 2026-08-08 `maestro test` sat ~80 minutes inside
+# `Maestro.clearAppState` (Maestro.kt:93), emitted no verdict, and had to be `kill -9`'d.
+# /b-close Phase 2.5 routes the merge decision on this script's exit status, so an
+# unbounded invocation is a gate that can silently never report.
+#
+# 600s is derived from this machine's own corpus of 41 recorded runs of the longest flow
+# (crisis-button-reachability): complete runs span 90-174s, and the worst run ever seen —
+# a cold XCUITest driver install — took 288s. So the bound is 2.1x the worst honest run
+# and cannot fire on a slow-but-real one, which is the half that matters: a bound that
+# produces spurious reds trains re-run-until-green, which is precisely the reflex that
+# let this defect sit. It still catches the observed wedge at 1/8 of its cost.
+#
+# One global number rather than a per-flow table on purpose: a per-flow table rots
+# silently against flows that grow, and what is being caught is an order-of-magnitude
+# outlier, not a margin call.
+FLOW_TIMEOUT_S="${E2E_FLOW_TIMEOUT_S:-600}"
+
+# INFRA-423 — reset the XCUITest driver(s) this run is entitled to kill.
+#
+# Supersedes DEBUG-392's `other_maestro_jvms()` skip-if-a-peer-is-live guard, which was a
+# coarse proxy for ownership. Once ownership is exact the guard can only subtract, and it
+# had become actively harmful in two directions: it was the mechanism that declined
+# self-recovery, and on the observed steady state (two worktrees, one simulator) it
+# suppressed EVERY reset across an 8-flow suite — reinstating the driver degradation
+# INFRA-220 added the reset to prevent. Its JVM enumerator survives as
+# `e2e_maestro_jvm_pids` in e2e-driver-ownership.sh, with a new job: input to the
+# classifier rather than a reason to skip.
+#
+# Logging both outcomes is deliberate and is an acceptance criterion. The failure mode
+# this work guards against is an over-narrow matcher that SILENTLY stops reaping — which
+# on a quiet machine looks exactly like a healthy run. Saying "nothing was attributable"
+# out loud is what makes that visible in the gate log instead of invisible.
+#
+#   $1 own_pgid — this run's process group ($child under `set -m`); "" at pre-flight,
+#                 where nothing is ours yet and only orphans are in scope.
+#   $2 phase    — human label for the log line.
+e2e_reset_drivers() {
+  _own_pgid="${1:-}"
+  _phase="${2:-}"
+
+  if [ -z "$SIM_UDID" ]; then
+    # Device-only run: maestro drives a real iPhone and there is no simulator driver to
+    # reset. Reaping on an empty UDID would match every driver on the machine.
+    return 0
+  fi
+
+  _reap="$(e2e_drivers_to_reap "$_own_pgid" "$SIM_UDID" | tr '\n' ' ')"
+  _peers="$(e2e_maestro_jvm_pids "$_own_pgid" | tr '\n' ' ')"
+
+  if [ -n "$(printf '%s' "$_reap" | tr -d ' ')" ]; then
+    echo "🧹 driver reset ($_phase) on $SIM_UDID — pid(s):$_reap"
+    # shellcheck disable=SC2086  # deliberate word-splitting: an explicit pid list
+    e2e_reap_pids $_reap
+  else
+    echo "ℹ️  driver reset ($_phase): nothing attributable to this run on $SIM_UDID."
+  fi
+
+  if [ -n "$(printf '%s' "$_peers" | tr -d ' ')" ]; then
+    echo "   peer maestro JVM(s) live and PROTECTED:$_peers"
+  fi
+}
 
 # INFRA-405: pin every flow to the device the pre-flight just attested. Empty for a
 # device-only run, where maestro must be left to find the real iPhone.
@@ -206,23 +277,149 @@ if [ -n "$SIM_UDID" ]; then
   MAESTRO_DEVICE_ARGS=(--device "$SIM_UDID")
 fi
 
+# INFRA-423 — PRE-FLIGHT reset, before flow 1.
+#
+# The reset used to exist only INSIDE the per-flow loop, so a driver left wedged by this
+# session's own earlier crashed run survived untouched through the whole of flow 1 — the
+# exact self-recovery case the reset exists for, and the one the old skip-if-live guard
+# also declined. Narrowing the in-loop reap could never deliver it; the step simply was
+# not there.
+#
+# Ownership is passed as "" here on purpose: at pre-flight nothing is ours yet (no `$child`
+# exists), so only ORPHANS are in scope — drivers with no live maestro JVM parent. A peer
+# mid-flow is protected by the same rule that protects it later.
+e2e_reset_drivers "" "pre-flight"
+
 for f in "${FLOWS[@]}"; do
   name="$(basename "$f" .yaml)"
+
+  # A second wedge aborts the rest. 8 flows x a 600s bound is an 80-minute worst case,
+  # which would reinstate the very problem the bound solves; and the wedge lives down in
+  # CoreSimulator, which does not un-wedge on its own, so the remaining flows would emit
+  # garbage reds rather than evidence.
+  if [ "$timeouts" -ge 2 ]; then
+    results+=("SKIPPED  $name  (aborted after $timeouts timeouts)")
+    continue
+  fi
+
   ran=$((ran + 1))
-  echo "🛡️  [$ran] maestro test $f${SIM_UDID:+ (device $SIM_UDID)}"
+
+  # DEBUG-392 — evidence goes in a directory THIS invocation owns.
+  #
+  # ~/.maestro/tests/ is global, and this machine drives one booted simulator from
+  # several worktrees at once. The pre-existing `ls -dt ~/.maestro/tests/*/ | head -1`
+  # below could therefore select a NEIGHBOURING session's run, and adjudicating a merge
+  # on someone else's green report is a laundered pass. A private dir also means a
+  # missing report is unambiguous: nothing else could have written there.
+  RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/e2e-safety-$name-XXXXXX")" || {
+    echo "❌ could not create a private run directory — refusing to run on shared evidence." >&2
+    exit 1
+  }
+  REPORT="$RUN_DIR/report.xml"
+  DEBUG_DIR="$RUN_DIR/debug"
+  mkdir -p "$DEBUG_DIR"
+
+  echo "🛡️  [$ran] maestro test $f${SIM_UDID:+ (device $SIM_UDID)}  [bound ${FLOW_TIMEOUT_S}s]"
+
   # `${arr[@]+"${arr[@]}"}` — NOT a bare "${arr[@]}". This script runs under `set -u`, and
   # in the bash 3.2 that ships with macOS expanding an EMPTY array is an unbound-variable
   # error. Same hazard the FLOWS/results guard above exists for; a device-only run leaves
   # this array empty by design.
-  if maestro test ${MAESTRO_DEVICE_ARGS[@]+"${MAESTRO_DEVICE_ARGS[@]}"} "$f"; then
+  #
+  # `set -m` puts the child in its OWN process group so the watchdog can kill the group.
+  # That matters: the wedge is not in the JVM, it is in the `xcrun simctl` the JVM
+  # spawned. Killing only the JVM leaves CoreSimulator stuck and every later flow
+  # meaningless.
+  set -m
+  maestro test ${MAESTRO_DEVICE_ARGS[@]+"${MAESTRO_DEVICE_ARGS[@]}"} \
+    --format=JUNIT --output="$REPORT" \
+    --debug-output="$DEBUG_DIR" --flatten-debug-output \
+    "$f" &
+  child=$!
+  set +m
+
+  # The watchdog writes a sentinel BEFORE killing, so "did we time out?" is answered by a
+  # file rather than by guessing from an exit status — a maestro that dies on its own
+  # signal would otherwise be indistinguishable from one we killed.
+  #
+  # /bin/sleep by absolute path, deliberately: a watchdog that a `sleep` earlier on PATH
+  # can neuter is not a watchdog. (The suite's own stubs shadow `sleep`; the 8s driver
+  # settle below is fine to shadow, this is not.)
+  #
+  # Two details here are load-bearing and were both found by the tests rather than by
+  # reading:
+  #
+  #   >/dev/null 2>&1 — the watchdog must NOT inherit this script's stdout. A backgrounded
+  #   `sleep` holding the write end of the pipe keeps it open after the script exits, so
+  #   any caller reading our output (CI, a test harness, `npm run` itself) blocks until
+  #   the sleep expires. On the happy path that is a stray 600s hang per flow, caused
+  #   entirely by the machinery meant to prevent hangs.
+  #
+  #   set -m again — so the watchdog is its own process-group leader. Killing the subshell
+  #   alone orphans the `/bin/sleep` inside it; killing the group reaps both.
+  set -m
+  (
+    /bin/sleep "$FLOW_TIMEOUT_S" 2>/dev/null || sleep "$FLOW_TIMEOUT_S"
+    : > "$RUN_DIR/.timed-out"
+    kill -TERM -"$child" 2>/dev/null || kill -TERM "$child" 2>/dev/null
+    /bin/sleep 3 2>/dev/null || true
+    kill -KILL -"$child" 2>/dev/null || kill -KILL "$child" 2>/dev/null
+  ) >/dev/null 2>&1 &
+  watchdog=$!
+  set +m
+
+  wait "$child" 2>/dev/null
+  rc=$?
+  kill -TERM -"$watchdog" 2>/dev/null || kill -TERM "$watchdog" 2>/dev/null || true
+  wait "$watchdog" 2>/dev/null || true
+
+  timed_out=0
+  [ -f "$RUN_DIR/.timed-out" ] && timed_out=1
+
+  # The flow's authored title, passed as an alias so a JUnit generator that names the
+  # testcase after `name:` rather than the filename does not read as another flow's report.
+  flow_title="$(sed -n 's/^name:[[:space:]]*//p' "$f" | head -1 | tr -d '"')"
+  VERDICT="$(node scripts/e2e-verdict.js adjudicate "$REPORT" "$name" "$flow_title" 2>/dev/null)" || true
+
+  # PASS is a CONJUNCTION, never a precedence. Each source is one-directional evidence:
+  # exit 0 proves the process finished, not that the assertions held; a clean report
+  # proves what the assertions did, not that the process finished. Neither can vouch for
+  # the other, so neither may override the other. Everything else is a refusal — and the
+  # `${VERDICT:-…}` default matters because this script runs under `set -u` without `-e`,
+  # so a failed `node` leaves VERDICT empty and empty must refuse.
+  if [ "$timed_out" = "1" ]; then
+    timeouts=$((timeouts + 1))
+    # Report the per-command adjudication ALONGSIDE the timeout rather than instead of
+    # it: an all-COMPLETED run that had to be killed is still not merge evidence, but
+    # throwing away what it did complete would discard the diagnosis for no gain.
+    results+=("TIMEOUT  $name  (no verdict in ${FLOW_TIMEOUT_S}s; report: ${VERDICT:-<none>})")
+    LAST_EVIDENCE_DIR="$DEBUG_DIR"
+    echo "⏱️  $name exceeded ${FLOW_TIMEOUT_S}s and was killed. Evidence: $RUN_DIR" >&2
+  elif [ "$rc" -eq 0 ] && [ "$VERDICT" = "PASS" ]; then
     results+=("PASS  $name")
+    rm -rf "$RUN_DIR"
   else
-    results+=("FAIL  $name")
+    if [ "$rc" -ne 0 ] && [ "$VERDICT" = "PASS" ]; then
+      echo "⚠️  $name: the two verdict sources disagree — maestro exited $rc but its JUnit" >&2
+      echo "   report is clean. That is a harness bug and deserves its own work item; it is" >&2
+      echo "   never a green." >&2
+    fi
+    results+=("FAIL  $name  (exit=$rc, report: ${VERDICT:-<none>})")
+    LAST_EVIDENCE_DIR="$DEBUG_DIR"
     fail=1
+    echo "   Evidence kept: $RUN_DIR" >&2
   fi
+
   # Reset the XCUITest driver between flows so the next flow starts fresh
   # (docs/testing/e2e-maestro.md "driver wedged" note). ~8s lets it settle.
-  pkill -9 -f "test-without-building" 2>/dev/null || true
+  #
+  # INFRA-423 — reap by OWNERSHIP, never by pattern. `pkill -f "test-without-building"`
+  # was blind to which worktree owned a driver, so it reaped every one on the machine.
+  # DEBUG-392's skip-if-a-peer-is-live guard reduced how often that fired but not what it
+  # targeted, and it declined the self-recovery case the reset exists for. The classifier
+  # now decides per-process — see e2e-driver-ownership.sh for the ownership rules and the
+  # live `ps` capture they were derived from.
+  e2e_reset_drivers "$child" "between flows"
   sleep 8
 done
 
@@ -239,7 +436,15 @@ if [ "$ran" -lt 1 ]; then
   exit 1
 fi
 
-if [ "$fail" -eq 0 ]; then
+if [ "$timeouts" -gt 0 ]; then
+  # A distinct exit code, because "the gate found a regression" and "the gate could not
+  # run" are different facts. /b-close and a human triaging a red both need to tell them
+  # apart — and a TIMEOUT is never something to shrug at and re-run, it means the harness
+  # itself is in an unknown state.
+  echo "❌ the gate could not complete: $timeouts flow(s) exceeded ${FLOW_TIMEOUT_S}s and were killed."
+  echo "   This is NOT a pass and NOT an ordinary failure. The simulator is likely wedged;"
+  echo "   restart it before re-running:  xcrun simctl shutdown all"
+elif [ "$fail" -eq 0 ]; then
   echo "✅ all safety flows passed"
 else
   echo "❌ one or more safety flows failed"
@@ -264,7 +469,10 @@ else
   # Reading Maestro's own failure artifact costs nothing and needs no output capture: it
   # writes the UI hierarchy AT THE POINT OF FAILURE into commands-*.json, which is exactly
   # where the alert was found.
-  LATEST_ARTIFACT="$(ls -dt "$HOME"/.maestro/tests/*/ 2>/dev/null | head -1 || true)"
+  # DEBUG-392 — read THIS run's private dir, not `ls -dt ~/.maestro/tests/*/ | head -1`.
+  # That selection could pick a neighbouring worktree's run on this machine, and an
+  # explanation drawn from someone else's failure is worse than none.
+  LATEST_ARTIFACT="$LAST_EVIDENCE_DIR"
   if [ -n "$LATEST_ARTIFACT" ]; then
     # Strings owned by iOS, not by this app. Deliberately narrow: matching something the
     # app itself renders would turn every ordinary failure into a wrong explanation, which
@@ -282,7 +490,31 @@ else
       echo "     xcrun simctl shutdown <udid> && xcrun simctl boot <udid>" >&2
       echo "   If a BUILD put it there, that is a regression in e2e-sim-build.sh: since" >&2
       echo "   INFRA-407 the build must install via simctl and never launch the app." >&2
+    else
+      # DEBUG-392 — only if INFRA-407 did NOT already explain this failure. Two
+      # contradictory explanations for one red is worse than the single misdiagnosis
+      # INFRA-407 exists to prevent, and a system alert also yields "the app is not
+      # visible", so the two matchers can both fire on the same artifact.
+      if [ "$(node scripts/e2e-verdict.js diagnose "$LATEST_ARTIFACT" 2>/dev/null)" = "DIAL_FALLBACK" ]; then
+        echo "" >&2
+        echo "🔎 The crisis button DIALLED 988 instead of navigating (DEBUG-392)." >&2
+        echo "   openCrisisUrl's manual-dial alert was on screen when the assertion failed," >&2
+        echo "   which only happens via RootCrisisButton's not-ready fallback: navigationRef" >&2
+        echo "   was still not ready 400ms after the tap (NAV_READY_DEADLINE_MS), so it" >&2
+        echo "   stopped waiting and dialled." >&2
+        echo "" >&2
+        echo "   This is NOT a flaky test. The user reached the dialer instead of" >&2
+        echo "   CrisisResources, skipping the resource list, the safety plan and the" >&2
+        echo "   text-line option. Confirm in the app log:" >&2
+        echo "     xcrun simctl spawn ${SIM_UDID:-<udid>} log show --last 10m \\" >&2
+        echo "       --predicate 'eventMessage CONTAINS \"navigator not ready at deadline\"'" >&2
+        echo "   Evidence: $LATEST_ARTIFACT" >&2
+      fi
     fi
   fi
+fi
+
+if [ "$timeouts" -gt 0 ]; then
+  exit 2
 fi
 exit "$fail"
