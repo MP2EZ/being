@@ -234,8 +234,8 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
       accessibilityViewIsModal={true}
       testID="resume-session-overlay"
     >
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContainer}>
-        <View style={styles.modalContainer}>
+      <View style={styles.modalContainer}>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContainer}>
           {/* Header with flow emoji and title */}
           <View style={styles.header}>
             <Text style={styles.emoji}>{flowInfo.emoji}</Text>
@@ -312,8 +312,15 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
                 </View>
               )}
             </View>
+        </ScrollView>
 
-            {/* Action buttons */}
+            {/* Action buttons — PINNED, deliberately OUTSIDE the ScrollView above.
+                The prose scrolls; these never move. On a short viewport the card is
+                height-capped and the prose gives up space first, so both choices stay on
+                screen and clear of the crisis button's reserved band at any content
+                height. Putting them back inside the scroll would reintroduce DEBUG-403's
+                on-device failure: `begin-fresh-button` resolved in the hierarchy with its
+                centre 1.5pt inside the clipped band, so the tap silently missed. */}
             <View style={styles.buttonSection}>
               <Pressable
                 style={({ pressed }) => [
@@ -354,8 +361,7 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
                 <Text style={styles.secondaryButtonText}>Begin Fresh</Text>
               </Pressable>
             </View>
-        </View>
-      </ScrollView>
+      </View>
     </View>
   );
 };
@@ -397,44 +403,42 @@ const styles = StyleSheet.create({
     // button is 1.34:1, against white 2.71:1 — and DEBUG-396's FADED_OPACITY of 0.6
     // clears 3:1 on white. Darkening moves the wrong way; white is the ceiling.
     backgroundColor: colorSystem.base.white,
-    // NO justifyContent / alignItems HERE — they belong on scrollContainer below.
-    // Centring on this View centres the ScrollView itself; when the card is taller than
-    // the viewport that splits the overflow across both edges and CLIPS it (the leaf off
-    // the top, "Begin Fresh" off the bottom), leaving `begin-fresh-button` resolvable in
-    // the hierarchy but untappable. Found on the first on-device run of
-    // daily-loop-quick-depth after the <Modal> conversion.
+    // Safe to centre because the card is height-CAPPED below (maxHeight: '100%'), so it
+    // can never be taller than this box. That was not true of the first two attempts at
+    // this fix: an uncapped card overflowed and centring split the overflow across both
+    // edges, slicing the leaf off the top and "Begin Fresh" off the bottom.
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[24],
     // Keeps the card clear of the crisis button's hit area.
     paddingBottom: CRISIS_BUTTON_RESERVED_BAND,
   },
   /**
-   * The ScrollView's own FRAME. Required: a ScrollView scrolls only when its frame is
-   * smaller than its content, and without this it sizes to its content instead — so tall
-   * content overflows and is clipped by the overlay rather than scrolling. The RN <Modal>
-   * used to supply a full-screen native window as this frame; the conversion removed it.
+   * The scrollable PROSE region — header, session info, message, tooltip. `flexShrink: 1`
+   * is what lets it give up space first: when the card hits its maxHeight, the prose
+   * shrinks and scrolls while buttonSection (a fixed-height sibling) keeps its full
+   * height. No flexGrow, so a short prompt still sizes to its content.
    */
   scroll: {
-    flex: 1,
-    width: '100%',
+    flexShrink: 1,
   },
   scrollContainer: {
-    flexGrow: 1,
-    // NO justifyContent HERE. `flexGrow: 1` + `justifyContent: 'center'` is the common
-    // pairing and holds only while the content FITS: once the card is taller than the
-    // frame, centring splits the overflow across both edges and puts the top out of
-    // scroll reach entirely. Centring is done with auto margins on the card instead —
-    // see modalContainer.marginVertical.
-    alignItems: 'center',
-    padding: spacing[24],
+    padding: spacing[32],
   },
   modalContainer: {
-    // Centres the card when there is free space and COLLAPSES to 0 when there is not, so
-    // tall content starts at the top and scrolls in full. This is what makes the prompt
-    // usable on short viewports; with `justifyContent: 'center'` above, "Begin Fresh" was
-    // sliced off the bottom and stayed untappable while still resolving in the hierarchy.
-    marginVertical: 'auto',
+    /**
+     * HEIGHT CAP — the load-bearing line. The overlay gives the card ~687pt (viewport
+     * minus the 176pt reserved band); the full prompt wants ~700pt. Without this cap the
+     * card overflowed by ~13pt, which put `begin-fresh-button`'s CENTRE 1.5pt inside the
+     * clipped band: it still resolved in the view hierarchy, so Maestro reported the tap
+     * COMPLETED and the app never received it, and a real user saw the primary action
+     * sliced in half. Capping makes the prose absorb the shortfall instead.
+     */
+    maxHeight: '100%',
     backgroundColor: colorSystem.base.white,
     borderRadius: borderRadius.large,
-    padding: spacing[32],
+    overflow: 'hidden',
     width: '100%',
     maxWidth: 400,
     shadowColor: '#000',
@@ -561,6 +565,12 @@ const styles = StyleSheet.create({
   },
   buttonSection: {
     gap: spacing[16],
+    // Carries its own padding: the card no longer pads its children, because the prose
+    // region needs the padding INSIDE its scrollable area (otherwise the last line clips
+    // against the card edge) while this pinned row needs it outside.
+    paddingHorizontal: spacing[32],
+    paddingBottom: spacing[32],
+    paddingTop: spacing[8],
   },
   primaryButton: {
     paddingVertical: spacing[16],

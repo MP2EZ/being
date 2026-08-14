@@ -6,7 +6,7 @@
 
 import React from 'react';
 import { StyleSheet } from 'react-native';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, within } from '@testing-library/react-native';
 import { ResumeSessionModal } from '@/features/practices/shared/components/ResumeSessionModal';
 import { colorSystem } from '@/core/theme';
 import type { SessionMetadata } from '@/core/types/session';
@@ -292,20 +292,17 @@ describe('ResumeSessionModal', () => {
       expect(style.backgroundColor).toBe(colorSystem.base.white);
     });
 
-    it('bounds the ScrollView so tall content SCROLLS instead of being clipped', () => {
-      // Regression: the first on-device run of daily-loop-quick-depth tapped
-      // `begin-fresh-button` and nothing happened. The card was rendering CLIPPED —
-      // the leaf sliced off the top, "Begin Fresh" sliced off the bottom — so the
-      // button's centre lay outside the visible region. Maestro reported the tap
-      // COMPLETED (the element resolves in the hierarchy) while the app never got it.
+    it('PINS the action buttons outside the ScrollView so they cannot be clipped', () => {
+      // THE regression guard for this item. Measured on device: the overlay gives the
+      // card ~687pt (viewport minus the 176pt reserved band) and the full prompt wants
+      // ~700pt. While the buttons lived inside the scroll region that ~13pt shortfall put
+      // `begin-fresh-button`'s CENTRE 1.5pt into the clipped band — it still resolved in
+      // the hierarchy, so Maestro reported the tap COMPLETED while the app never received
+      // it, and a real user saw the primary action sliced in half.
       //
-      // Cause: <ScrollView> carried only contentContainerStyle and no `style`, so its
-      // own frame sized to its content. A ScrollView scrolls only when its FRAME is
-      // smaller than its content; here they were equal, so the parent clipped it.
-      // Centering on the parent then split the overflow across both edges.
-      //
-      // This never surfaced while the component was an RN <Modal>: the Modal supplied a
-      // full-screen native window as the bounding frame. The conversion removed it.
+      // Two earlier attempts (bounding the scroll frame; auto margins instead of
+      // justifyContent) both left the on-device render pixel-identical, because neither
+      // changed the fact that the content did not fit. Pinning does.
       const { getByTestId, UNSAFE_getByType } = render(
         <ResumeSessionModal
           visible={true}
@@ -317,42 +314,23 @@ describe('ResumeSessionModal', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { ScrollView } = require('react-native');
-      const scrollStyle = StyleSheet.flatten(UNSAFE_getByType(ScrollView).props.style);
+      const scroll = UNSAFE_getByType(ScrollView);
 
-      // The frame must be bounded by the overlay, not by its content.
-      expect(scrollStyle?.flex).toBe(1);
-      // ...and must span the overlay's width, which `alignItems: 'center'` on the parent
-      // would otherwise shrink to fit content.
-      expect(scrollStyle?.width).toBe('100%');
+      // Both actions must exist...
+      expect(getByTestId('begin-fresh-button')).toBeTruthy();
+      expect(getByTestId('resume-session-button')).toBeTruthy();
+      // CONTROL — proves `within(scroll)` actually resolves against this subtree. Without
+      // it the two toBeNull assertions below could pass vacuously (a broken scope query
+      // returns null for everything), which is the failure mode DEBUG-390 records: a
+      // guard that cannot go red is worse than no guard.
+      expect(within(scroll).queryByText('Return to Your Practice?')).toBeTruthy();
 
-      // The parent must NOT re-centre: centering belongs on contentContainerStyle
-      // (flexGrow: 1 + justifyContent: 'center'), which centres SHORT content while
-      // still allowing TALL content to scroll. On the parent it forces the overflow.
-      const overlayStyle = StyleSheet.flatten(
-        getByTestId('resume-session-overlay').props.style
-      );
-      expect(overlayStyle.justifyContent).toBeUndefined();
-      expect(overlayStyle.alignItems).toBeUndefined();
-
-      // ...and NOT on the contentContainer either. This is the half that a first pass at
-      // this fix missed: bounding the frame alone changed nothing, because
-      // `justifyContent: 'center'` on a contentContainerStyle centres content that is
-      // TALLER than the frame, splitting the overflow across both edges and putting the
-      // top permanently out of scroll reach. The on-device render was pixel-identical
-      // before and after that first attempt.
-      //
-      // `flexGrow: 1` + `justifyContent: 'center'` is the widely-recommended pairing and
-      // holds only while the content fits. The overflow-safe idiom is `flexGrow: 1` on
-      // the container plus `marginVertical: 'auto'` on the child: auto margins absorb
-      // free space when it exists and collapse to zero when it does not.
-      const contentStyle = StyleSheet.flatten(
-        UNSAFE_getByType(ScrollView).props.contentContainerStyle
-      );
-      expect(contentStyle.flexGrow).toBe(1);
-      expect(contentStyle.justifyContent).toBeUndefined();
+      // ...and NEITHER action may be a descendant of the scrollable region.
+      expect(within(scroll).queryByTestId('begin-fresh-button')).toBeNull();
+      expect(within(scroll).queryByTestId('resume-session-button')).toBeNull();
     });
 
-    it('centres the card via auto margins, which collapse instead of clipping', () => {
+    it('caps the card height so it can never overflow the overlay', () => {
       const { UNSAFE_getByType } = render(
         <ResumeSessionModal
           visible={true}
@@ -364,13 +342,16 @@ describe('ResumeSessionModal', () => {
 
       // eslint-disable-next-line @typescript-eslint/no-var-requires
       const { ScrollView } = require('react-native');
-      const card = UNSAFE_getByType(ScrollView).props.children;
-      const cardStyle = StyleSheet.flatten(card.props.style);
+      const scroll = UNSAFE_getByType(ScrollView);
 
-      // Short content: auto margins split the free space and the card sits centred —
-      // preserving the original visual. Tall content: no free space, margins collapse to
-      // 0, the card starts at the top and the whole of it is reachable by scrolling.
-      expect(cardStyle.marginVertical).toBe('auto');
+      // The prose gives up space first when the cap binds; the pinned row keeps its
+      // height. Without flexShrink the scroll region would refuse to shrink and push the
+      // buttons back out of the card.
+      expect(StyleSheet.flatten(scroll.props.style)?.flexShrink).toBe(1);
+
+      const card = scroll.parent;
+      expect(StyleSheet.flatten(card?.props?.style)?.maxHeight).toBe('100%');
     });
+
   });
 });
