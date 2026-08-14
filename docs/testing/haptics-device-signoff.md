@@ -184,7 +184,8 @@ three practice screens, on a fresh install, across at least two app launches. Th
 - Toggling the master on and running a practice produces the case (c)(i) observable set.
 - `practiceHapticsPrompted` remains `false` afterwards.
 
-> This case cannot pass until the prompt-suppression prerequisite lands (§7).
+> This case cannot pass until DEBUG-426 lands (§7). Until then the prompt still
+> appears on the iPad and the primary criterion fails by construction.
 
 ### Case (c)(iii) — announcements survive
 
@@ -238,20 +239,19 @@ structurally **cannot** see.
 
 ## 7. Open prerequisites
 
-The flip is blocked on these. Each is tracked separately — see the INFRA-395 work item
-for IDs.
+The flip is blocked on these. All three are `Blocked by` relations on INFRA-395.
 
-1. **Prompt suppression on actuator-less hardware.** Today `useHapticsOptIn.ts:73-79`
+1. **DEBUG-426 — prompt suppression on actuator-less hardware.** Today `useHapticsOptIn.ts:73-79`
    gates on the flag and prompted-state only, never on capability — so an iPad user is
    asked a permanent question about vibration and, on accept, gets silence forever.
    `expo-device` is already a dependency. Suppression must be a **pure read**: it must
    not write `practiceHapticsPrompted`, so the prompt survives unspent for a device that
    can deliver.
-2. **Body Scan announcement decoupling.** `usePracticeHaptics.ts:212` early-returns on
+2. **DEBUG-425 — Body Scan announcement decoupling.** `usePracticeHaptics.ts:212` early-returns on
    `!enabled`, and `enabled` includes `practiceHaptics === true` — so a blind
    practitioner who declines loses "Next area" entirely. `BodyScanScreen.tsx:150-152`
    states in its own comment that the hook is the *only* speech on that boundary.
-3. **988 reachability under the undismissable prompt.** The prompt sets
+3. **INFRA-427 — 988 reachability under the undismissable prompt.** The prompt sets
    `accessibilityViewIsModal` with no dismissal path, on three screens in
    `RootCrisisButton`'s `IMMERSIVE_ROUTES`. The component argues at length that the
    crisis button stays *perceivable* over the backdrop — but **contrast is not
