@@ -135,6 +135,21 @@ is not a measurement.
 
 ## 5. Procedure
 
+### What actually gates the flip, versus what is thorough
+
+**Read this before booking time.** The sections below describe the complete
+characterisation. The *decision* needs much less, and conflating the two is how a
+15-minute check becomes an afternoon nobody schedules.
+
+| | Runs | Why it is (or is not) decision-relevant |
+|---|---|---|
+| **Core — gates the flip** | ~15 min, one screen | `PracticeTimerScreen` for ≥5 min: **zero drops**, p95 within budget, and a haptics-off/on frame differential. Plus the adversarial lifecycle run (a2), which is short and catches the one failure mode that is both plausible and bad. |
+| **Thorough — characterises** | the rest | The other two screens share one `cueScheduler` and one module-scoped `hapticEngine` and differ only in schedule *shape*, so they mostly re-measure the same code. The 9-item VoiceOver checklist is real coverage, but most of it verifies FEAT-385's prompt, not the cue channel this flag gates. |
+
+Run the core. Run as much of the thorough set as the session has room for, and record
+which parts were not run rather than implying full coverage — a partial run recorded
+honestly is worth more than a complete one nobody performs.
+
 ### Case (a) — cue latency, per screen
 
 One session each on `PracticeTimerScreen`, `ReflectionTimerScreen`, `BodyScanScreen`.
@@ -206,7 +221,7 @@ structurally **cannot** see.
    the race.)
 2. **Modal scope.** Swipe right repeatedly past "Leave off". Focus must never reach
    "Begin", the practice title, the instructions, or the tab bar. **Record — do not
-   judge — whether it reaches the crisis button** (§7).
+   judge — whether it reaches the crisis button** (INFRA-427, §7).
 3. **The recommendation survives the speech channel.** Confirm the body prose, including
    the suggestion sentence, is reached and read *before* either button. Repeat at the
    largest Dynamic Type size: the prose lives in a `flexShrink: 1` ScrollView that gives
@@ -237,26 +252,51 @@ structurally **cannot** see.
 
 ---
 
-## 7. Open prerequisites
+## 7. The one prerequisite, and two things that are not
 
-The flip is blocked on these. All three are `Blocked by` relations on INFRA-395.
+### Blocking: DEBUG-426 — prompt suppression on actuator-less hardware
 
-1. **DEBUG-426 — prompt suppression on actuator-less hardware.** Today `useHapticsOptIn.ts:73-79`
-   gates on the flag and prompted-state only, never on capability — so an iPad user is
-   asked a permanent question about vibration and, on accept, gets silence forever.
-   `expo-device` is already a dependency. Suppression must be a **pure read**: it must
-   not write `practiceHapticsPrompted`, so the prompt survives unspent for a device that
-   can deliver.
-2. **DEBUG-425 — Body Scan announcement decoupling.** `usePracticeHaptics.ts:212` early-returns on
-   `!enabled`, and `enabled` includes `practiceHaptics === true` — so a blind
-   practitioner who declines loses "Next area" entirely. `BodyScanScreen.tsx:150-152`
-   states in its own comment that the hook is the *only* speech on that boundary.
-3. **INFRA-427 — 988 reachability under the undismissable prompt.** The prompt sets
-   `accessibilityViewIsModal` with no dismissal path, on three screens in
-   `RootCrisisButton`'s `IMMERSIVE_ROUTES`. The component argues at length that the
-   crisis button stays *perceivable* over the backdrop — but **contrast is not
-   reachability**, and nobody has confirmed with VoiceOver running that it is still in
-   the swipe order. Owned by the `crisis` agent.
+The only genuine gate, and it is a gate because **the flip creates the harm**.
+`useHapticsOptIn.ts:73-79` consults the flag and the prompted-state, never device
+capability. Today no iPad user is ever prompted, because the flag is off. Post-flip
+they are shown a permanent, unrepeatable, "Turn on"-recommended question for hardware
+that cannot answer it, and accept yields silence forever with no diagnostic and no way
+back. `app.json:16` sets `supportsTablet: true`, so iPad installs are a real
+configuration, not a thought experiment.
+
+`expo-device` is already a dependency. Suppression must be a **pure read**: it must not
+write `practiceHapticsPrompted`, so the prompt survives unspent for a device that can
+deliver.
+
+### NOT blocking: DEBUG-425 — Body Scan announcement decoupling
+
+A real defect, and it should be fixed — but it does not gate this flip, and an earlier
+revision of this document wrongly said it did.
+
+`usePracticeHaptics.ts:212` early-returns on `!enabled`, and `enabled` includes
+`practiceHaptics === true`, so a practitioner who **declines** loses the "Next area"
+announcement (`BodyScanScreen.tsx:150-152` confirms the hook is the only speech on that
+boundary). The reason it is not a gate: with the flag off, `enabled` is false for
+*everyone*, so nobody receives that announcement today. Post-flip, accepters gain it and
+decliners stand exactly where 100% of users stand right now. **The flip regresses no
+one** — it creates a disparity, which is worth closing, but closing it is not a
+precondition for an improvement that costs nobody anything.
+
+Distinguish an *activation* from a *regression* before promoting a finding to a blocker.
+
+### NOT blocking: INFRA-427 — 988 reachability under the prompt
+
+Not a work package; a two-minute observation inside a session that is already happening.
+It is §6 item 2 of this checklist, and the expected answer is that the button is
+reachable — the root crisis button is not a sibling of the modal view, so iOS should not
+suppress it.
+
+It stays on the list because "should not" is not a verification and the budget it bears
+on is non-negotiable (988 <3 taps from any screen). The prompt sets
+`accessibilityViewIsModal` with no dismissal path on three `IMMERSIVE_ROUTES` screens,
+and the component's own argument is about *contrast* (2.71:1 faded, 8.31:1 full) —
+**contrast is not reachability**. Record the answer; do not judge it. If it comes back
+unreachable it becomes a `crisis` fix and a hard blocker, and only then.
 
 **Also unresolved: Android.** One flag string turns this on for both platforms, and
 `constants.ts:63-66` documents Android's actuator at 30-80ms against iOS's 10-20ms — a
@@ -296,7 +336,10 @@ DEGRADATION
   (c)(iii) announcements survive  [ ] pass  [ ] fail → 
 
 VOICEOVER CHECKLIST  1[ ] 2[ ] 3[ ] 4[ ] 5[ ] 6[ ] 7[ ] 8[ ] 9[ ]
-  Item 2 — crisis button reachable under the prompt?  [ ] yes  [ ] no   (record only)
+  Item 2 — crisis button reachable under the prompt?  [ ] yes  [ ] no   (INFRA-427)
+
+NOT RUN THIS SESSION (name them — a gap recorded beats a gap implied):
+  
 
 VERDICT   [ ] flip  [ ] do not flip →
 ```
