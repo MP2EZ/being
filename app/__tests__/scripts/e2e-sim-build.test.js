@@ -69,6 +69,7 @@ const REAL_SCRIPT = path.resolve(__dirname, '../../scripts/e2e-sim-build.sh');
 const REAL_SAFETY = path.resolve(__dirname, '../../scripts/e2e-safety.sh');
 const REAL_PROVENANCE = path.resolve(__dirname, '../../scripts/e2e-provenance.js');
 const REAL_SIM_DEVICE = path.resolve(__dirname, '../../scripts/e2e-sim-device.sh');
+const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
 const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
 const PRODUCT_REL = 'ios/build/Build/Products/Release-iphonesimulator';
@@ -153,6 +154,10 @@ function makeProject(opts = {}) {
   // INFRA-405: the shared device resolver, sourced by BOTH scripts. Copied as the real
   // file so "they resolve identically" is exercised rather than asserted.
   fs.copyFileSync(REAL_SIM_DEVICE, path.join(root, 'scripts', 'e2e-sim-device.sh'));
+  // INFRA-423: the driver-ownership classifier, sourced by e2e-safety.sh. Copied as the
+  // real file for the same reason as the device resolver — the point is to exercise the
+  // shipped classification, not a re-implementation of it.
+  fs.copyFileSync(REAL_DRIVER_OWNERSHIP, path.join(root, 'scripts', 'e2e-driver-ownership.sh'));
   // DEBUG-392: the gate's second verdict channel. Copied as the REAL file for the same
   // reason as the provenance helper — `node` is not shimmed, so the adjudication logic
   // runs for real rather than being stubbed into always agreeing with the exit code.
@@ -613,22 +618,31 @@ function runSafety(built, opts = {}) {
     'maestro',
     [`echo "maestro $@" >> "${trace}"`, maestroBody !== null ? maestroBody : defaultMaestro].join('\n')
   );
-  // pkill records rather than merely succeeding: DEBUG-392 needs to assert the driver
-  // reset was SKIPPED when a neighbouring session's maestro is live (F3 — six
-  // zero-artifact runs on 2026-08-12 carried 239+ `Failed to connect to /127.0.0.1`
-  // lines, the signature of a driver reaped out from under a running invocation).
+  // INFRA-423: `pkill` is gone from the gate entirely — the reap now targets an explicit
+  // pid list. The stub survives only so that a REGRESSION reintroducing a pattern kill
+  // shows up in the trace instead of silently succeeding.
   writeStub(built.stubs, 'pkill', [`echo "pkill $@" >> "${trace}"`, 'exit 0'].join('\n'));
-  // DEBUG-392: `ps`, not `pgrep`. The guard must identify a JVM by its executable, so the
-  // stub answers both shapes the script uses: the `-axo` inventory and the `-o pgid= -p`
+  // DEBUG-392: `ps`, not `pgrep`. Identity must come from the executable, so the stub
+  // answers both shapes the scripts use: the `-axo` inventory and the `-o pgid= -p`
   // lookup. `psInventory` is the raw table, so a test can inject a line that MENTIONS
   // maestro without being it — the false positive that shipped and had to be fixed.
+  //
+  // INFRA-423 widened the inventory to five columns — `pid ppid pgid comm args` — because
+  // ownership is decided by PARENT, not by pattern: a driver whose ppid is a live maestro
+  // JVM belongs to a peer, and one whose JVM is gone belongs to nobody. Fixtures written
+  // for the old three-column shape must be migrated, not merely padded.
   writeStub(
     built.stubs,
     'ps',
     [
       `echo "ps $@" >> "${trace}"`,
+      // Match the single-process LOOKUP shape only (`ps -o pgid= -p <pid>`). The bare
+      // `*pgid*` this used to be also swallowed INFRA-423's inventory call, which asks
+      // for `-axo pid=,ppid=,pgid=,comm=,args=` — so the classifier received a PGID
+      // where it expected a process table, found no drivers, and every ownership
+      // assertion passed vacuously against an empty reap set.
       'case "$*" in',
-      '  *pgid*) echo " 99999"; exit 0;;',
+      '  *"-o pgid="*) echo " 99999"; exit 0;;',
       'esac',
       `cat <<'PSEOF'`,
       psInventory,
@@ -1546,50 +1560,101 @@ describe('DEBUG-392 — evidence comes from a private per-invocation directory',
   }, 60000);
 });
 
-describe('DEBUG-392 — the driver reset must not reap another session', () => {
-  const PEER_JVM = '  4242 java /usr/bin/java -classpath /opt/homebrew/lib/* maestro.cli.AppKt test flow.yaml';
-  // A shell POLLING for maestro. This is not a hypothetical: a peer session running
+describe('INFRA-423 — the driver reset reaps by ownership, never by pattern', () => {
+  // Retargeted from DEBUG-392's suite. That guard SKIPPED the whole reset whenever any
+  // peer JVM was live, so its tests asserted on skip-vs-fire. Ownership is now decided
+  // per-process, so the assertions move to WHICH pids are reaped — and the outcome for a
+  // live peer is stronger than before: its driver is protected while ours is still reset,
+  // where the old guard had to forgo our own reset to spare theirs.
+  //
+  // Columns are `pid ppid pgid comm args`. The UDID MUST be the sandbox's booted device
+  // (`bootedDevices` default), because the classifier scopes to the resolved simulator —
+  // a mismatched UDID here would make every assertion below pass vacuously against an
+  // empty reap set, the same silently-wrong shape INFRA-405 found in this file's stubs.
+  const UDID = 'AAAA-1111';
+  const DRIVER_ARGS = `/usr/bin/xcodebuild test-without-building -destination id=${UDID}`;
+
+  /** A peer mid-flow: live JVM (pid 4242) with its driver (4243) as a direct child. */
+  const PEER_JVM_AND_DRIVER = [
+    `  4242 4241 4242 java /usr/bin/java -classpath /opt/homebrew/lib/* maestro.cli.AppKt test --device ${UDID} flow.yaml`,
+    `  4243 4242 4242 /usr/bin/xcodebuild ${DRIVER_ARGS}`,
+  ].join('\n');
+
+  /** A wedged leftover from a crashed run: JVM gone, reparented to launchd. */
+  const ORPHANED_DRIVER = `  5150 1 5150 /usr/bin/xcodebuild ${DRIVER_ARGS}`;
+
+  // A shell POLLING for maestro. Not hypothetical: a peer session running
   // `pgrep -f 'maestro.cli.AppKt'` to see whether we had finished is what broke the
-  // first implementation.
+  // first implementation, and Claude Code's own `/bin/zsh -c` wrapper reproduces it.
   const SHELL_MENTIONING_MAESTRO =
-    '  7306 zsh /bin/zsh -c pgrep -f \'maestro.cli.AppKt\' >/dev/null && echo "PEER STILL RUNNING"';
+    `  7306 7305 7306 /bin/zsh /bin/zsh -c pgrep -f 'maestro.cli.AppKt' && echo "${DRIVER_ARGS}"`;
 
-  test('skips the reset while a neighbouring maestro JVM is live', () => {
+  const safetyEnv = { E2E_DRIVER_REAP_DRY_RUN: '1' };
+
+  test('never reaps a driver belonging to a live neighbouring session', () => {
+    // THE DEFECT. `pkill -f "test-without-building"` reaped this pid; six zero-artifact
+    // runs on 2026-08-12 carried 239+ `Failed to connect to /127.0.0.1` lines apiece,
+    // the signature of a driver pulled out from under a running invocation.
     const built = runScript({});
     const r = runSafety(built, {
       flows: ['crisis-button-reachability'],
       maestroBody: maestroWrites({}),
-      psInventory: PEER_JVM,
+      psInventory: PEER_JVM_AND_DRIVER,
+      env: safetyEnv,
     });
-    expect(r.trace).not.toMatch(/pkill .*test-without-building/);
-    expect(r.output).toMatch(/skipping the driver reset/i);
+    expect(r.output).not.toMatch(/would kill:.*\b4243\b/);
+    expect(r.output).toMatch(/PROTECTED/);
   }, 60000);
 
-  test('still resets the driver when this run is the only maestro on the box', () => {
-    // INFRA-220's reason for the reset is unchanged; only its blast radius is.
+  test('reaps an orphaned driver left by an earlier crashed run', () => {
+    // The self-recovery case DEBUG-392's guard declined, and which the in-loop reap alone
+    // could never reach on flow 1 — hence the pre-flight reset.
     const built = runScript({});
     const r = runSafety(built, {
       flows: ['crisis-button-reachability'],
       maestroBody: maestroWrites({}),
-      psInventory: '',
+      psInventory: ORPHANED_DRIVER,
+      env: safetyEnv,
     });
-    expect(r.trace).toMatch(/pkill .*test-without-building/);
+    expect(r.output).toMatch(/would kill:.*\b5150\b/);
   }, 60000);
 
-  test('a shell that merely MENTIONS maestro does not suppress the reset', () => {
-    // THE REGRESSION. The first implementation used `pgrep -f 'maestro\.cli\.AppKt'`,
-    // which matches any command line CONTAINING the string — including another agent's
-    // poll for us. Observed inverted in production: fired on all 5 quiet runs (peer
-    // polling, no JVM) and stayed silent on the one genuinely contended run. A skipped
-    // reset is harmless for a single flow but would skip EVERY reset across the 8-flow
-    // suite, regressing the driver degradation INFRA-220 exists to prevent.
+  test('protects the peer AND still resets, where the old guard had to choose', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+      psInventory: `${PEER_JVM_AND_DRIVER}\n${ORPHANED_DRIVER}`,
+      env: safetyEnv,
+    });
+    expect(r.output).toMatch(/would kill:.*\b5150\b/);
+    expect(r.output).not.toMatch(/would kill:.*\b4243\b/);
+  }, 60000);
+
+  test('a shell that merely MENTIONS the driver string is never reaped', () => {
+    // THE REGRESSION, retargeted. It used to pin that such a shell did not SUPPRESS the
+    // reset; it now pins that such a shell is not itself KILLED. Same defect class —
+    // substring-as-identity — caught on the side that can now do damage. `pkill -f`
+    // would have matched this line on both counts.
     const built = runScript({});
     const r = runSafety(built, {
       flows: ['crisis-button-reachability'],
       maestroBody: maestroWrites({}),
       psInventory: SHELL_MENTIONING_MAESTRO,
+      env: safetyEnv,
     });
-    expect(r.output).not.toMatch(/skipping the driver reset/i);
-    expect(r.trace).toMatch(/pkill .*test-without-building/);
+    expect(r.output).not.toMatch(/would kill:.*\b7306\b/);
+  }, 60000);
+
+  test('no pattern kill survives anywhere in the gate', () => {
+    // The blunt structural guard: whatever else changes, `pkill` must not come back.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+      psInventory: ORPHANED_DRIVER,
+      env: safetyEnv,
+    });
+    expect(r.trace).not.toMatch(/pkill/);
   }, 60000);
 });
