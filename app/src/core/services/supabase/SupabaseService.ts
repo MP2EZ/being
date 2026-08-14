@@ -49,6 +49,62 @@ const SUPABASE_KEY = env.EXPO_PUBLIC_SUPABASE_KEY;
 // INFRA-260: USER_ID / DEVICE_ID identity keys removed — identity is now the
 // Supabase anonymous session (persisted in expo-secure-store via the chunking
 // adapter), not a device-hash row id cached in AsyncStorage.
+/**
+ * DEBUG-413 — the instant the backlog-suppression fix shipped, in epoch ms (UTC).
+ *
+ * Crisis events queued STRICTLY BEFORE this are dropped at load rather than flushed.
+ *
+ * WHY AN ABSOLUTE INSTANT AND NOT A RELATIVE AGE. The semantic wanted is precisely
+ * "enqueued by a build that predates this fix", which is a fixed point in time. A
+ * relative rule ("drop anything older than N days") reads as the safer, more general
+ * choice and is the opposite: it would keep discarding legitimately-late vital-interest
+ * events forever, contradicting the never-drop invariant the whole enqueue design rests
+ * on. This constant fires once per device and then never matches again.
+ *
+ * WHY DROPPING IS THE RIGHT CALL HERE (founder decision, /b-batch 2026-08-14). Until
+ * DEBUG-409 landed, `flushCrisisAnalytics` early-returned on `!this.client` for every
+ * device that had not opened Profile → Cloud Backup, so essentially every crisis event
+ * ever emitted is still sitting queued — `public.analytics_events` held exactly ONE row,
+ * of any type, ever. But `enqueued_at` is captured and then DROPPED by the flush
+ * projection, and `created_at` defaults to `NOW()`, so flushing that backlog stamps
+ * months-old events with today's date. At this volume (pre-launch: founder devices plus a
+ * small TestFlight cohort, and a mix dominated by synthetic QA triggering rather than
+ * real distress) the backlog has no evidentiary value and actively poisons what it would
+ * inform — it seeds the INFRA-219 alerter's 7-day trailing baseline with dev-generated
+ * events and puts a false spike in `crisis_detection_daily`.
+ *
+ * The alternative — carrying `enqueued_at` through as a real event time — is the better
+ * long-term shape and is deliberately NOT done here: it is a schema change against the
+ * single shared live project with no down-migration, in the same risk class INFRA-379 is
+ * currently parked over.
+ *
+ * KNOWN RESIDUAL, filed rather than silently absorbed: this fixes the one-time backlog
+ * and leaves the underlying `NOW()` behaviour intact, so a post-fix device that is
+ * offline for three weeks still stamps three-week-old crises with today's date.
+ */
+export const PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS = Date.UTC(2026, 7, 14);
+
+/**
+ * DEBUG-413 — is a persisted crisis row from a build that carries the fix?
+ *
+ * A row exactly AT the cutoff is KEPT: the boundary belongs to the fix, and dropping it
+ * would discard an event a fixed build could have enqueued in that same millisecond.
+ *
+ * An UNDATABLE row (missing / null / non-numeric / NaN `enqueued_at`) is treated as
+ * pre-fix and dropped. This is unreachable in practice — `git log -S enqueued_at` bottoms
+ * out at the same commit that introduced `trackCrisisDetection` (INFRA-214), so no build
+ * ever wrote a crisis row without it — but the fallback direction matters: a row that
+ * cannot be shown to be post-fix cannot be shown to be safe to stamp with `NOW()`, which
+ * is the entire failure this suppression exists to prevent. Note `NaN >= x` is false, so
+ * NaN would fall the right way regardless; the explicit test is there so the intent
+ * survives a future refactor rather than resting on an IEEE-754 accident.
+ */
+function isPostFixCrisisEvent(e: any): boolean {
+  const t = e?.enqueued_at;
+  if (typeof t !== 'number' || !Number.isFinite(t)) return false;
+  return t >= PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS;
+}
+
 const STORAGE_KEYS = {
   LAST_SYNC: '@being/supabase/last_sync',
   OFFLINE_QUEUE: '@being/supabase/offline_queue',
@@ -925,9 +981,35 @@ class SupabaseService {
       const persisted = JSON.parse(data);
       if (!Array.isArray(persisted)) return;
 
+      // DEBUG-413 — drop the pre-fix backlog HERE, at adoption, before either branch
+      // below. Doing it at adoption rather than at flush time is deliberate: a suppressed
+      // row never enters the in-memory queue at all, so no later flush path, retry or
+      // merge can resurrect it. Filtering at flush would leave the rows on disk, re-read
+      // on every boot, one code path away from being sent.
+      const kept = persisted.filter(isPostFixCrisisEvent);
+      const suppressed = persisted.length - kept.length;
+      if (suppressed > 0) {
+        const ages = persisted
+          .filter((e: any) => !isPostFixCrisisEvent(e))
+          .map((e: any) => (typeof e?.enqueued_at === 'number' ? e.enqueued_at : null))
+          .filter((n: number | null): n is number => n !== null);
+        logSecurity('[SupabaseService] pre-fix crisis backlog suppressed', 'high', {
+          suppressed,
+          kept: kept.length,
+          oldestEnqueuedAt: ages.length ? Math.min(...ages) : null,
+          newestEnqueuedAt: ages.length ? Math.max(...ages) : null,
+          undatable: suppressed - ages.length,
+        });
+      }
+
       // Normal boot: nothing in memory yet, so adopt what is on disk.
       if (this.crisisAnalyticsQueue.length === 0) {
-        this.crisisAnalyticsQueue = persisted;
+        this.crisisAnalyticsQueue = kept;
+        // DEBUG-413: persist the drop even though this branch otherwise returns without
+        // writing. Without it the suppression is not one-shot — the same backlog is
+        // re-read and re-suppressed on every boot forever, and a single future code path
+        // that adopts before filtering would send it.
+        if (suppressed > 0) void this.persistCrisisQueue();
         return;
       }
 
@@ -936,11 +1018,20 @@ class SupabaseService {
       // from the sole crisis audit sink. Merge instead, de-duplicating on a composite
       // identity so a repeated load cannot double-count, and keeping disk entries first
       // to preserve chronology.
+      //
+      // DEBUG-413: merges `kept`, never `persisted`. The in-memory event is post-fix by
+      // construction (it was enqueued by the running build), so suppression can only ever
+      // remove disk rows — it must not reach the live event this branch exists to protect.
       const identity = (e: any): string =>
         `${e?.session_id}|${e?.enqueued_at}|${e?.event_type}|${JSON.stringify(e?.properties)}`;
       const inMemory = new Set(this.crisisAnalyticsQueue.map(identity));
-      const recovered = persisted.filter((e: any) => !inMemory.has(identity(e)));
-      if (recovered.length === 0) return;
+      const recovered = kept.filter((e: any) => !inMemory.has(identity(e)));
+      if (recovered.length === 0) {
+        // Same reasoning as the early return above: nothing to recover, but if we dropped
+        // rows the disk copy is now stale and must be rewritten.
+        if (suppressed > 0) void this.persistCrisisQueue();
+        return;
+      }
 
       this.crisisAnalyticsQueue = [...recovered, ...this.crisisAnalyticsQueue];
       void this.persistCrisisQueue();
