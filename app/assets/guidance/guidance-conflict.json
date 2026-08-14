@@ -1,0 +1,75 @@
+{
+  "domain": "conflict",
+  "version": "1.0.0",
+
+  "validation": [
+    {
+      "type": "support",
+      "icon": "🫂",
+      "content": "Conflict with someone who matters to you is one of the harder things a person navigates. If you are still churning — replaying the conversation, rehearsing what you wish you had said, feeling it in your chest hours later — that is not a failure of composure. Strong feeling here is proportionate to how much the relationship matters to you."
+    },
+    {
+      "type": "warning",
+      "icon": "⚠️",
+      "content": "This guidance is for conflict between people who are broadly safe with one another. If you are afraid of the other person, if they are hurting you, or if the relationship feels unsafe, none of what follows applies to your situation — steadying your own response is not the same as staying, and it never means tolerating harm. Please talk to someone you trust, or open the in-app crisis resources if you need help right now."
+    }
+  ],
+
+  "microPractice": {
+    "id": "conflict-stop-practice",
+    "title": "When you feel yourself reacting",
+    "description": "A short pause to use mid-conflict, when the reaction has arrived faster than your thinking has.",
+    "type": "reflection",
+    "icon": "✋",
+    "instructions": [
+      "Pause the conversation for a moment and take one slow breath, letting the out-breath run longer than the in-breath.",
+      "Notice where this is sitting in your body — the jaw, the shoulders, the chest, the heat in your face.",
+      "Name the impulse without acting on it: 'there is defensiveness arising', 'there is the urge to interrupt'.",
+      "Notice that naming it has already opened a little space between you and it. That space is the whole practice.",
+      "If you need longer, you can say so out loud — something like 'I'm noticing I'm getting very activated, and I need a few minutes before I can respond well.' This is an option to have available, not a step you owe anyone.",
+      "Continue when you have that space back, rather than before."
+    ]
+  },
+
+  "protocol": [
+    {
+      "title": "Listening before answering",
+      "content": "Most people, in a disagreement, are not listening — attention is divided between planning the reply, judging what is being said, and watching their own performance. Offering genuine attention means hearing the feeling underneath the words, noticing your reactive impulses without immediately following them, and letting understanding arrive before a response does.",
+      "learnMore": "Feeling heard turns out to matter more to people than agreement, and more than the absence of conflict altogether. This is why a disagreement can end without resolution and still leave both people better than it found them."
+    },
+    {
+      "title": "What you can reach, and what you cannot",
+      "content": "You cannot control what another person thinks, feels, says, or does. A great deal of the suffering in conflict comes from trying anyway — pressing them to understand your side, to admit a wrong, to change how they behave, to agree that your feelings are warranted. What is genuinely yours is how clearly you speak, how honestly you account for your own part, how openly you listen, and where you hold your boundaries.",
+      "learnMore": "This is the idea most easily misused, so it is worth saying plainly. Recognising what you cannot reach is not a reason to remain in something that is harming you. Wisdom requires both: seeing the situation as it actually is, AND acting to change it where action is open to you. If you could leave, could say the difficult thing, could hold a firmer boundary, then equanimity by itself is not the answer — it has become a way of avoiding the harder task. Accepting 'this is how things are right now' never means accepting that they must remain that way."
+    },
+    {
+      "title": "What a disagreement can be",
+      "content": "A disagreement is not in itself evidence that the relationship is failing. It can be where you come to understand someone you care about more deeply, where you practise saying true things under pressure, where your own values become clearer to you, and where you find out whether this relationship can hold honest difference without breaking.",
+      "learnMore": "The principles underneath this section are Interconnected Living, which treats the relationship rather than the argument as the thing being tended, and Aware Presence, which is what makes the pause in the practice above possible at all."
+    }
+  ],
+
+  "obstacles": [
+    {
+      "question": "Does this mean I should just put up with how they treat me?",
+      "response": "No, and this is the misreading worth naming out loud. Working on your own response is a way of meeting a situation clearly; it is not a reason to tolerate one that is harming you. Justice matters here as much as composure does: where you have the power to act — to set a boundary, to leave, to report what happened — remaining serene about harm is not equanimity at all, it is avoidance wearing its clothes.",
+      "tip": "Ask yourself directly: is this something I could change and am choosing not to? If the answer is yes, the work in front of you is action, not acceptance."
+    },
+    {
+      "question": "What if I do all of this and they don't change at all?",
+      "response": "They may not. That possibility is real and this practice does not promise otherwise. What changes first is your own footing — you stop spending yourself on the part of the situation that was never yours to move. Sometimes the other person softens once they are no longer being pushed. Sometimes they do not, and what you gain instead is a clear enough view to decide what you want to do about that.",
+      "tip": "Notice the difference between 'I have not persuaded them yet' and 'this is not going to change'. The second is information you can act on."
+    },
+    {
+      "question": "I stayed calm and then said something cutting anyway. Did I fail?",
+      "response": "No. Noticing it afterwards is the same faculty as noticing it during, arriving a little late — and it arrives earlier with practice. The aim was never a person who has no reactions; it is a slightly longer gap between the reaction and what you do with it.",
+      "tip": "Go back and name the specific thing you said, rather than concluding you handled it badly. Precision is what makes the next one easier to catch."
+    }
+  ],
+
+  "classicalAnchor": {
+    "text": "The best way of avenging thyself is not to become like the wrong doer.",
+    "author": "Marcus Aurelius",
+    "source": "Meditations 6.6 (trans. George Long)"
+  }
+}
