@@ -69,6 +69,17 @@ const REAL_SCRIPT = path.resolve(__dirname, '../../scripts/e2e-sim-build.sh');
 const REAL_SAFETY = path.resolve(__dirname, '../../scripts/e2e-safety.sh');
 const REAL_PROVENANCE = path.resolve(__dirname, '../../scripts/e2e-provenance.js');
 const REAL_SIM_DEVICE = path.resolve(__dirname, '../../scripts/e2e-sim-device.sh');
+const REAL_REAL_DEVICE = path.resolve(__dirname, '../../scripts/e2e-real-device.sh');
+
+// INFRA-424 — attached physical-device fixtures. Declared here rather than beside their
+// describe block because the device-only tests in the earlier `explicit flow name` block
+// consume them too. Fields omitted here default to an ELIGIBLE iPhone in the writeDevices
+// helper, so a test only spells out the property that makes a device ineligible.
+const ONE_DEVICE = [{ udid: 'DEV-1111', name: 'Max iPhone' }];
+const TWO_DEVICES = [
+  { udid: 'DEV-1111', name: 'Max iPhone' },
+  { udid: 'DEV-2222', name: 'Test iPhone' },
+];
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
 const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
@@ -154,6 +165,10 @@ function makeProject(opts = {}) {
   // INFRA-405: the shared device resolver, sourced by BOTH scripts. Copied as the real
   // file so "they resolve identically" is exercised rather than asserted.
   fs.copyFileSync(REAL_SIM_DEVICE, path.join(root, 'scripts', 'e2e-sim-device.sh'));
+  // INFRA-424: the physical-device resolver, sourced by e2e-safety.sh. Real file for the
+  // same reason as the simulator resolver — the point is to exercise the shipped refusal
+  // semantics, not a re-implementation that agrees with the test by construction.
+  fs.copyFileSync(REAL_REAL_DEVICE, path.join(root, 'scripts', 'e2e-real-device.sh'));
   // INFRA-423: the driver-ownership classifier, sourced by e2e-safety.sh. Copied as the
   // real file for the same reason as the device resolver — the point is to exercise the
   // shipped classification, not a re-implementation of it.
@@ -276,6 +291,11 @@ function runScript(opts = {}) {
     midBuildBoot = null,
     simUdid = null,
     simctlListFails = false,
+    // INFRA-424: physical devices `xcrun devicectl list devices` reports. Default EMPTY —
+    // a machine with no iPhone attached, which is every CI runner and most dev machines,
+    // and is the state under which the device-only refusal must fire.
+    attachedDevices = [],
+    devicectlFails = false,
   } = opts;
 
   const root = makeProject({ iosExists, cngStamp });
@@ -304,6 +324,41 @@ function runScript(opts = {}) {
       })
     );
   writeBooted(bootedDevices);
+
+  // INFRA-424: attached-device state lives in a FILE for the same reason booted-device
+  // state does — a test must be able to change what is attached BETWEEN the build and the
+  // gate run, and the stub is written once at runScript time.
+  //
+  // The fixture carries the FULL devicectl shape, not a convenient flattening, because the
+  // filter under test reads four different nested fields (hardwareProperties.platform,
+  // .deviceType, connectionProperties.pairingState, .tunnelState). A flattened fixture
+  // would make the ineligible-device cases unrepresentable — which is exactly the class
+  // this resolver exists to reject, and on the machine this was developed against the ONLY
+  // device present is ineligible on two of those four fields.
+  const deviceStatePath = path.join(root, 'attached-devices.json');
+  const writeDevices = (devices) =>
+    fs.writeFileSync(
+      deviceStatePath,
+      JSON.stringify({
+        result: {
+          devices: devices.map((d) => ({
+            hardwareProperties: {
+              udid: d.udid,
+              platform: d.platform || 'iOS',
+              deviceType: d.deviceType || 'iPhone',
+              productType: d.productType || 'iPhone17,1',
+            },
+            deviceProperties: { name: d.name },
+            connectionProperties: {
+              pairingState: d.pairingState || 'paired',
+              tunnelState: d.tunnelState || 'connected',
+            },
+          })),
+        },
+      })
+    );
+  writeDevices(attachedDevices);
+
   fs.writeFileSync(trace, '');
 
   if (seedStaleApp) {
@@ -397,8 +452,31 @@ function runScript(opts = {}) {
     'xcrun',
     [
       `BOOTED_JSON="${bootedStatePath}"`,
+      `DEVICE_JSON="${deviceStatePath}"`,
       `CONTAINERS="${containersRoot}"`,
       `TRACE="${trace}"`,
+      // INFRA-424 — `xcrun devicectl list devices --json-output <path>`.
+      //
+      // devicectl writes its JSON to a caller-supplied FILE and prints only a human table
+      // on stdout; there is no stdout-JSON mode. A stub that echoed JSON instead would let
+      // a resolver reading stdout pass here and fail against the real tool, so this parses
+      // the flag out of "$@" and writes there — the same shape the npx build stub already
+      // uses for `--output`.
+      //
+      // The failure mode writes NOTHING and exits non-zero, which is what makes
+      // "enumeration failed" distinguishable from "zero attached": an absent or empty file
+      // is the normal shape of a devicectl failure, not an exotic one.
+      'if [ "$1" = "devicectl" ] && [ "$2" = "list" ]; then',
+      '  echo "devicectl list" >> "$TRACE"',
+      ...(devicectlFails
+        ? ['  echo "xcrun: error: unable to find utility \\"devicectl\\"" >&2; exit 72']
+        : []),
+      '  OUT=""',
+      '  prev=""',
+      '  for a in "$@"; do if [ "$prev" = "--json-output" ]; then OUT="$a"; fi; prev="$a"; done',
+      '  if [ -n "$OUT" ]; then cp "$DEVICE_JSON" "$OUT"; fi',
+      '  exit 0',
+      'fi',
       'booted_udids() {',
       `  node -e 'const j=require(process.argv[1]);const o=[];for(const l of Object.values(j.devices||{}))for(const d of l)if(d.state==="Booted")o.push(d.udid);console.log(o.join("\\n"))' "$BOOTED_JSON" 2>/dev/null | grep -v "^$"`,
       '}',
@@ -529,6 +607,7 @@ function runScript(opts = {}) {
     container: activeContainer,
     containerFor,
     bootedStatePath,
+    deviceStatePath,
     stubs,
     root,
   };
@@ -554,6 +633,10 @@ function runSafety(built, opts = {}) {
     env = {},
     maestroExits = 0,
     booted = null,
+    // INFRA-424: what `devicectl` reports at GATE time. Same rationale as `booted` — an
+    // operator can attach or unplug an iPhone between the build and the run, and the
+    // device-only refusal is decided at gate time, not build time.
+    devices = null,
     // DEBUG-392: let a test supply the whole maestro stub. The default below is a
     // process that exits immediately; the cases this work exists for need one that
     // WEDGES, and one that writes a JUnit report the gate then adjudicates.
@@ -578,6 +661,29 @@ function runSafety(built, opts = {}) {
             udid: d.udid,
             name: d.name,
             state: 'Booted',
+          })),
+        },
+      })
+    );
+  }
+
+  if (devices) {
+    fs.writeFileSync(
+      built.deviceStatePath,
+      JSON.stringify({
+        result: {
+          devices: devices.map((d) => ({
+            hardwareProperties: {
+              udid: d.udid,
+              platform: d.platform || 'iOS',
+              deviceType: d.deviceType || 'iPhone',
+              productType: d.productType || 'iPhone17,1',
+            },
+            deviceProperties: { name: d.name },
+            connectionProperties: {
+              pairingState: d.pairingState || 'paired',
+              tunnelState: d.tunnelState || 'connected',
+            },
           })),
         },
       })
@@ -1089,36 +1195,52 @@ describe('e2e-safety.sh — flow selection and the no-silent-green rule', () => 
   });
 
   test('an explicit name may address a device-only flow the tag filter excludes', () => {
-    const built = runScript({});
+    // INFRA-424 rewrote this. It used to assert status 0 / flowsRun 1 with NO device
+    // present, which pinned the defect: the flow ran, unpinned, against whatever maestro
+    // chose. The property actually worth keeping is that an explicit name REACHES a
+    // device-only flow at all (the tag filter excludes it from the suite), so supply the
+    // device the flow now requires and assert it is reached and pinned.
+    const built = runScript({ attachedDevices: ONE_DEVICE });
     const gate = runSafety(built, { flows: ['crisis-988-dial'] });
     expect(gate.status).toBe(0);
     expect(gate.flowsRun).toBe(1);
+    expect(gate.trace).toMatch(/maestro test --device DEV-1111/);
   });
 
-  test('a device-only flow SKIPS the simulator pre-flight entirely', () => {
+  test('a device-only flow skips the SIMULATOR pre-flight but is still pinned', () => {
     // crisis-988-dial runs against a REAL iPhone (the sim's canOpenURL returns false
-    // unconditionally). Everything in the pre-flight reasons about the booted SIM's
-    // installed app, so applying it here is worse than useless: with no sim booted it
-    // aborts a documented procedure, and with an unrelated sim booted it would print
-    // "gate target verified / provenance" banners describing an artifact the flow is not
-    // running against — attesting the wrong binary, the exact failure this item removes.
-    const built = runScript({});
+    // unconditionally). The simulator pre-flight reasons about the booted SIM's installed
+    // app, so it cannot apply here — but "no simulator pre-flight" never implied "no
+    // target". INFRA-424 separates the two claims: the target is named, the binary on it
+    // is not vouched for.
+    const built = runScript({ attachedDevices: ONE_DEVICE });
     fs.rmSync(built.container, { recursive: true, force: true }); // no app on the sim
     const gate = runSafety(built, { flows: ['crisis-988-dial'] });
     expect(gate.status).toBe(0);
     expect(gate.flowsRun).toBe(1);
+    // The attestation warning must SURVIVE pinning — shape and provenance are still
+    // simulator-container-bound and still unavailable for a device.
     expect(gate.output).toMatch(/NO artifact attestation/i);
     expect(gate.output).not.toMatch(/provenance: built from this exact tree/);
+    // ...and no simctl container lookup was performed for the gate.
+    expect(gate.trace).not.toMatch(/get_app_container/);
   });
 
-  test('a MIXED selection is not treated as device-only', () => {
-    // Only an all-device-only selection may skip the pre-flight. One sim flow in the set
-    // means the sim artifact is genuinely under test again.
+  test('a MIXED selection is REFUSED, not resolved to one target class', () => {
+    // INFRA-424 rewrote this. It used to assert the mixed set fell through to the SIM
+    // pre-flight and failed there on provenance — which is the defect: the 988 device flow
+    // would then have run against that simulator underneath "✓ gate target verified" and
+    // "✓ provenance" banners. There is no correct target for a mixed set, so it refuses.
     const built = runScript({});
-    fs.unlinkSync(path.join(built.container, MARKER_NAME));
     const gate = runSafety(built, { flows: ['crisis-988-dial', 'q9-single-alert'] });
     expect(gate.status).not.toBe(0);
-    expect(gate.output).toMatch(/MISSING/);
+    expect(gate.output).toMatch(/mixed flow selection/i);
+    expect(gate.flowsRun).toBe(0);
+    // The refusal must name the offending flow so the operator can split the invocation.
+    expect(gate.output).toMatch(/crisis-988-dial/);
+    // It must refuse BEFORE attesting anything — the whole point is that the banners
+    // described a binary the device flow never ran against.
+    expect(gate.output).not.toMatch(/gate target verified/);
   });
 });
 
@@ -1397,15 +1519,192 @@ describe('INFRA-405 — e2e-safety.sh device selection', () => {
     expect(r.trace).toMatch(/maestro test --device BBBB-2222/);
   });
 
-  test('device-only runs are untouched: no simctl resolution, no --device, still exit 0', () => {
-    // The real-iPhone procedure. It must gain no simulator dependency whatsoever — with
-    // two sims booted it would otherwise abort a documented manual procedure.
-    const built = runScript({ bootedDevices: ONE });
+  test('device-only runs gain no SIMULATOR dependency — 2 sims booted does not abort them', () => {
+    // INFRA-424 rewrote the tail of this test. Its `expect(r.trace).not.toMatch(/--device/)`
+    // asserted the defect itself: an unpinned run is what let the 988 flow attach to an
+    // arbitrary booted simulator, including a peer worktree's.
+    //
+    // The load-bearing half SURVIVES unchanged and is why the test still exists: the
+    // real-iPhone procedure must gain no simulator dependency, so TWO booted sims — which
+    // abort any simulator run as ambiguous — must NOT abort this one. That property is
+    // exactly what INFRA-405's DEVICE_ONLY scoping bought, and it is easy to lose while
+    // adding device pinning.
+    const built = runScript({ bootedDevices: ONE, attachedDevices: ONE_DEVICE });
     const r = runSafety(built, { flows: ['crisis-988-dial'], booted: TWO });
     expect(r.status).toBe(0);
     expect(r.flowsRun).toBe(1);
     expect(r.output).toMatch(/NO artifact attestation/i);
+    // Not aborted as ambiguous despite two sims booted, and no simctl resolution ran.
+    expect(r.output).not.toMatch(/ambiguous/i);
+    expect(r.trace).not.toMatch(/simctl list/);
+    // Pinned to the DEVICE, never to either simulator.
+    expect(r.trace).toMatch(/maestro test --device DEV-1111/);
+    expect(r.trace).not.toMatch(/--device AAAA-1111/);
+    expect(r.trace).not.toMatch(/--device BBBB-2222/);
+  });
+});
+
+// =====================================================================================
+// INFRA-424 — a `safety-device-only` flow resolves and pins its target device.
+//
+// INFRA-405 pinned every flow to the attested simulator, but scoped that under
+// `DEVICE_ONLY != 1` so the real-iPhone procedure gained no simctl dependency. The
+// residue: crisis-988-dial, the only `safety-device-only` flow, was the only flow that ran
+// with no `--device` at all — and `maestro test` picks its own target when not told one.
+// With simulators booted and no iPhone attached it could attach to one of them, which is
+// both a guaranteed red (a simulator's canOpenURL('tel:') is false regardless of
+// LSApplicationQueriesSchemes) and a way to corrupt a peer worktree's in-flight run.
+//
+// HONESTY NOTE ON COVERAGE. The happy path here is STUB-ONLY: it proves the `--device`
+// argument is constructed from the resolved UDID and passed, NOT that maestro drives a
+// real iPhone. Only the three REFUSAL branches are honestly covered under stubs, which is
+// the same limitation the work item records — the refusal branches are testable with
+// stubs, the happy path is not. Real-hardware validation remains a manual step.
+// =====================================================================================
+describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () => {
+  test('ZERO attached devices REFUSES and runs nothing — no silent simulator fallback', () => {
+    // The headline regression assertion. Two simulators are booted and the app is
+    // installed on one, so a fallback would have something to attach to — and the old
+    // behaviour did exactly that.
+    const built = runScript({ bootedDevices: ONE, attachedDevices: [] });
+    const r = runSafety(built, { flows: ['crisis-988-dial'], booted: TWO });
+    expect(r.status).not.toBe(0);
+    expect(r.flowsRun).toBe(0);
+    expect(r.output).toMatch(/device-only/i);
+    // Never runs maestro at all, and never names a simulator as the target.
+    expect(r.trace).not.toMatch(/maestro test/);
     expect(r.trace).not.toMatch(/--device/);
+    // Says the consequence out loud rather than only "no device found" — a bare refusal
+    // trains abandonment, and an unrun gate is worse than a noisy one.
+    expect(r.output).toMatch(/NOT verified/i);
+    // Names the override so the refusal is actionable.
+    expect(r.output).toMatch(/E2E_DEVICE_UDID/);
+  });
+
+  test('EXACTLY ONE attached device is pinned and the flow runs', () => {
+    const built = runScript({ attachedDevices: ONE_DEVICE });
+    const r = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(r.status).toBe(0);
+    expect(r.flowsRun).toBe(1);
+    expect(r.trace).toMatch(/maestro test --device DEV-1111/);
+  });
+
+  test('TWO attached devices refuse as AMBIGUOUS and list the candidates', () => {
+    const built = runScript({ attachedDevices: TWO_DEVICES });
+    const r = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(r.status).not.toBe(0);
+    expect(r.flowsRun).toBe(0);
+    expect(r.output).toMatch(/ambiguous/i);
+    expect(r.output).toMatch(/DEV-1111/);
+    expect(r.output).toMatch(/DEV-2222/);
+    expect(r.output).toMatch(/E2E_DEVICE_UDID/);
+    expect(r.trace).not.toMatch(/maestro test/);
+  });
+
+  test('E2E_DEVICE_UDID selects among two attached devices', () => {
+    const built = runScript({ attachedDevices: TWO_DEVICES });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      env: { E2E_DEVICE_UDID: 'DEV-2222' },
+    });
+    expect(r.status).toBe(0);
+    expect(r.trace).toMatch(/maestro test --device DEV-2222/);
+  });
+
+  test('E2E_DEVICE_UDID naming an unattached device refuses rather than falling back', () => {
+    const built = runScript({ attachedDevices: TWO_DEVICES });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      env: { E2E_DEVICE_UDID: 'DEV-9999' },
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/not among the attached devices/i);
+    expect(r.trace).not.toMatch(/maestro test/);
+  });
+
+  test('E2E_SIM_UDID is NOT honoured as a device override', () => {
+    // The override is deliberately a SEPARATE variable. docs/testing/e2e-maestro.md tells
+    // operators to export E2E_SIM_UDID for both halves of a session, so it is routinely
+    // live in the environment holding a SIMULATOR udid. If this resolver read it, that
+    // simulator udid would refuse a correctly-attached iPhone — documented, correct
+    // operator behaviour turned into a confusing refusal.
+    const built = runScript({ attachedDevices: ONE_DEVICE });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      env: { E2E_SIM_UDID: 'AAAA-1111' },
+    });
+    expect(r.status).toBe(0);
+    // Resolved from the attached device, NOT from the simulator udid in the environment.
+    expect(r.trace).toMatch(/maestro test --device DEV-1111/);
+    expect(r.trace).not.toMatch(/--device AAAA-1111/);
+  });
+
+  test('enumeration FAILURE is reported distinctly from zero devices attached', () => {
+    // The same two-facts-must-not-collapse property e2e_booted_devices carries. It is
+    // sharper here: devicectl writes JSON to a caller-supplied FILE, so an unwritten file
+    // is the normal shape of a failure and would otherwise read as "nothing attached".
+    const built = runScript({ devicectlFails: true });
+    const r = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/could not enumerate/i);
+    expect(r.output).not.toMatch(/no eligible iPhone attached/i);
+    expect(r.trace).not.toMatch(/maestro test/);
+  });
+
+  test('an INELIGIBLE device does not count as attached', () => {
+    // The filter is load-bearing, not hygiene. On the machine this was developed against
+    // the only devicectl entry is an iPad in tunnelState "unavailable" — ineligible on two
+    // independent grounds. A loose filter would resolve it as "exactly one", pin maestro
+    // to an iPad, and produce a FALSE RED on the crisis path: a Wi-Fi iPad has no
+    // telephony, so canOpenURL('tel:') is legitimately false there.
+    const built = runScript({
+      attachedDevices: [
+        { udid: 'IPAD-1', name: 'Max IPA', deviceType: 'iPad', tunnelState: 'unavailable' },
+        { udid: 'PHONE-OFF', name: 'Old iPhone', tunnelState: 'unavailable' },
+        { udid: 'PHONE-UNPAIRED', name: 'Someone elses iPhone', pairingState: 'unpaired' },
+        { udid: 'WATCH-1', name: 'Max Watch', platform: 'watchOS' },
+      ],
+    });
+    const r = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/no eligible iPhone attached/i);
+    expect(r.trace).not.toMatch(/maestro test/);
+    expect(r.trace).not.toMatch(/--device/);
+  });
+
+  test('a connected iPhone alongside ineligible devices resolves unambiguously', () => {
+    // The complement of the test above, and the one that proves the filter is not simply
+    // rejecting everything — a negative-only filter test can pass while matching nothing.
+    const built = runScript({
+      attachedDevices: [
+        { udid: 'IPAD-1', name: 'Max IPA', deviceType: 'iPad', tunnelState: 'unavailable' },
+        { udid: 'DEV-1111', name: 'Max iPhone' },
+        { udid: 'WATCH-1', name: 'Max Watch', platform: 'watchOS' },
+      ],
+    });
+    const r = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(r.status).toBe(0);
+    expect(r.trace).toMatch(/maestro test --device DEV-1111/);
+  });
+
+  test('the driver reset stays disabled on a device run and never sees the device UDID', () => {
+    // An empty SIM_UDID is a SENTINEL, not merely an unset value: e2e_reset_drivers reads
+    // it as "device-only, nothing to reset" and returns early. The tempting shortcut —
+    // assigning the resolved device UDID to SIM_UDID to get --device for free — would
+    // silently re-enable XCUITest driver reaping during a real-device run, filtered by a
+    // physical-device UDID the INFRA-423 classifier was never designed for.
+    const built = runScript({ attachedDevices: ONE_DEVICE });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      psInventory: [
+        '  501   999  501 java /usr/bin/java -cp maestro.cli.AppKt',
+        '  502   501  501 xcodebuild /usr/bin/xcodebuild test-without-building -destination id=DEV-1111',
+      ].join('\n'),
+    });
+    expect(r.status).toBe(0);
+    // No reset line of either kind — the function returned before logging.
+    expect(r.output).not.toMatch(/driver reset/);
+    expect(r.trace).not.toMatch(/pkill/);
   });
 });
 
