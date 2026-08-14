@@ -411,9 +411,40 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 > being://daily` raises `Open in "Being"?` on its own. Confirmed causal, not ordering — on a
 > freshly rebooted sim the flow's own `_seeded-home` assertion passes (so no alert at start),
 > `Open being://daily` completes, and the next assertion fails with the alert present twice
-> in that command's captured hierarchy. The same flow is green on iPhone 16 Plus / **iOS
-> 18.6** across 9 runs (2026-08-08 → 2026-08-12), so this is iOS-version-dependent, not a
-> flow regression.
+> in that command's captured hierarchy.
+>
+> **CORRECTED 2026-08-13 (DEBUG-403 close-out) — it is NOT iOS-version-dependent.** This
+> passage used to conclude that it was, from the same flow being green on iPhone 16 Plus /
+> **iOS 18.6** across 9 runs (2026-08-08 → 2026-08-12). It reproduced **three times on that
+> exact device and OS**, including standalone on a freshly-cycled sim.
+>
+> **It is a one-time per-simulator permission.** Tapping `Open` once turned the flow green
+> with no code, flow, or build change, and the full 8-flow suite went green immediately
+> after. The allowance then **survived a later rebuild + reinstall**, so only `simctl erase`
+> wipes it — which is exactly what the 9 green runs and the two "iOS 26" failures have in
+> common: state, not version. A long-lived sim has already been allowed; a freshly erased
+> one has not.
+>
+> ⚠️ **The two remedies on this page are in direct tension, and this is the trap.**
+> `simctl erase` is the fix for driver rot (next section) and is precisely what wipes this
+> permission. Erase to clear a dead driver and your next run hits this alert — which the
+> old text sent you off hunting as an iOS-26 issue on an iOS-18 device.
+>
+> **After any `simctl erase`, allow the scheme once** before trusting a suite run:
+>
+> ```bash
+> # Run any flow that does `openLink being://…` (or the suite), let it raise the alert, then:
+> cat > /tmp/allow-scheme.yaml <<'YAML'
+> appId: fyi.being.app
+> ---
+> - tapOn: "Open"
+> YAML
+> maestro test /tmp/allow-scheme.yaml
+> ```
+>
+> This is device SETUP, like the erase itself — not a flow change. The warning above still
+> stands: do **not** move that tap into `_seeded-home.yaml`, where it would silently no-op
+> once the permission is granted and later start tapping something real.
 >
 > Two consequences worth knowing before you debug a red suite:
 >
@@ -435,6 +466,34 @@ When a work item touches the safety surface (signals: `crisis`, `988`, `PHQ`, `G
 > `daily-loop-skip-breath`, then `nav-back-button` — three different elements on two
 > different screens, same flow, same binary. A layout or testID defect is deterministic
 > about *which* element it hides; a crashing driver fails wherever the crash lands.
+>
+> **Faster, from a SINGLE run: did Maestro print the element's BOUNDS?** The moving-step
+> tell above needs several runs to establish. This one needs one log. On every `tapOn`
+> Maestro logs the element it resolved, with pixel bounds, *before* acting:
+>
+> ```bash
+> grep -a "Tapping on element" ~/.maestro/tests/<timestamp>/maestro.log | tail -3
+> ```
+>
+> ```text
+> Tapping on element: UiElement(… resource-id=continue-button,
+>                     bounds=[20,478][410,534], enabled=true …)
+> ```
+>
+> If that line exists for the element the run then reports as **not found**, the verdict
+> contradicts the log: Maestro located it, printed where it was, tapped it, and died in the
+> post-tap `waitForAppToSettle` (`IOSDriver.kt`). Below-the-fold and missing-testID are both
+> falsified outright — you cannot print the bounds of an element you could not find. Observed
+> on DEBUG-403's first gate run, where `bounds=[20,478][410,534]` on a 430x932 grid is
+> mid-screen, nowhere near a fold.
+>
+> Cross-check the bounds against the viewport (`heightGrid` is in the same log,
+> `Got device info: DeviceInfo(… widthGrid=430, heightGrid=932)`) before concluding a layout
+> defect. **An element whose CENTRE is off-screen or under a reserved band is a real bug,
+> not a dead driver** — Maestro taps centres, so it reports `COMPLETED` on a tap the app
+> never receives. DEBUG-403 was exactly that: `begin-fresh-button` at `[56,730][374,785]`,
+> centre y 757.5, against a content box ending at 756. Both shapes print bounds; the
+> timestamp test below is what separates them.
 >
 > **Confirming it: do NOT just grep for `ConnectException`.** Every run has them. A clean
 > 83-of-83 passing run contains **14** `Failed to connect to /127.0.0.1` lines; a run whose
