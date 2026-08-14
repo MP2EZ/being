@@ -55,6 +55,7 @@ import {
   type WindowSummary,
 } from '../utils/wellnessTrendData';
 import SessionNoteComposer from './SessionNoteComposer';
+import { useRootOverlay } from '@/core/navigation/rootOverlaySlot';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // TYPES & PROPS
@@ -530,6 +531,25 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
   const handleEditNote = (session: AssessmentSession, subtitle: string): void =>
     setEditing({ session, subtitle });
 
+  // DEBUG-406 — publish into the root overlay slot. Declared before the early
+  // return below so hook order stays stable across renders.
+  useRootOverlay('session-note-composer', notesEnabled && editing !== null, () => (
+    <SessionNoteComposer
+      visible
+      initialText={editing?.session.note ?? ''}
+      subtitle={editing?.subtitle}
+      onSave={async (text) => {
+        if (editing) await setSessionNote(editing.session.id, text);
+        setEditing(null);
+      }}
+      onDelete={async () => {
+        if (editing) await clearSessionNote(editing.session.id);
+        setEditing(null);
+      }}
+      onCancel={() => setEditing(null)}
+    />
+  ));
+
   // Don't show the section until there's at least one completed screening.
   if (!hasPhq9 && !hasGad7) return null;
 
@@ -580,22 +600,13 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
         check-ins?
       </Text>
 
-      {notesEnabled && (
-        <SessionNoteComposer
-          visible={editing !== null}
-          initialText={editing?.session.note ?? ''}
-          subtitle={editing?.subtitle}
-          onSave={async (text) => {
-            if (editing) await setSessionNote(editing.session.id, text);
-            setEditing(null);
-          }}
-          onDelete={async () => {
-            if (editing) await clearSessionNote(editing.session.id);
-            setEditing(null);
-          }}
-          onCancel={() => setEditing(null)}
-        />
-      )}
+      {/* DEBUG-406: the composer renders into the ROOT overlay slot, published by
+          `useRootOverlay` above — not here. This component is mounted by TWO
+          screens (InsightsScreen and WellnessTrendsDetailScreen), inside a card
+          inside a ScrollView in both. RN resolves `position: 'absolute'` against
+          the parent's padding box, so an inline full-bleed overlay would cover
+          the card, scroll with the content, and be clipped on Android. The slot
+          also guarantees it paints below the crisis button. */}
     </View>
   );
 };

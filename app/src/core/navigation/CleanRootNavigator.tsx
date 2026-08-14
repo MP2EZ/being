@@ -20,6 +20,7 @@ import { DailyLoopNavigator } from '@/features/practices/dailyloop';
 import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
+import { RootOverlaySlot } from '@/core/navigation/rootOverlaySlot';
 // DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
 // above and by the overlay boundary below.
 import Static988Button from '@/features/crisis/components/Static988Button';
@@ -707,6 +708,23 @@ const CleanRootNavigator: React.FC = () => {
           Its fallback is the same Static988Button, so the user still has a working dial
           control exactly where the crisis button used to be.
         */}
+        {/*
+          DEBUG-406 — full-screen overlays render HERE, and the ordering is the
+          whole point.
+
+          This slot is a sibling of the Stack.Navigator, so an overlay's
+          `position: 'absolute'` inset-0 resolves against the screen rather than
+          against whatever card or ScrollView happens to contain the component
+          that owns it. And because siblings paint in JSX order, an overlay in
+          this slot CANNOT paint above the crisis button below it — not by
+          convention, by construction.
+
+          Do NOT move this after <RootCrisisBoundary>. That single reordering
+          would reintroduce, for every overlay at once, the exact
+          zero-988-affordance state DEBUG-403 and DEBUG-406 were filed to remove.
+        */}
+        <RootOverlaySlot />
+
         <RootCrisisBoundary>
           <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
         </RootCrisisBoundary>
