@@ -81,6 +81,7 @@ const TWO_DEVICES = [
   { udid: 'DEV-2222', name: 'Test iPhone' },
 ];
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
+const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
 const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
 const PRODUCT_REL = 'ios/build/Build/Products/Release-iphonesimulator';
@@ -177,6 +178,11 @@ function makeProject(opts = {}) {
   // reason as the provenance helper — `node` is not shimmed, so the adjudication logic
   // runs for real rather than being stubbed into always agreeing with the exit code.
   fs.copyFileSync(REAL_VERDICT, path.join(root, 'scripts', 'e2e-verdict.js'));
+  // INFRA-436: both gate scripts now source the simulator lock, so the sandbox has to stage
+  // it or they die on the source line before reaching anything under test. Real file, same
+  // reasoning as the device resolver — a stub that always grants the lock would hide a
+  // wiring mistake that wedges the gate on a real machine.
+  fs.copyFileSync(REAL_SIM_LOCK, path.join(root, 'scripts', 'e2e-sim-lock.sh'));
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
@@ -296,9 +302,14 @@ function runScript(opts = {}) {
     // and is the state under which the device-only refusal must fire.
     attachedDevices = [],
     devicectlFails = false,
+    // INFRA-436: mutate the generated project after makeProject but before the script runs.
+    // Needed for state that only exists on disk (e.g. Finder droppings under ios/Pods) and
+    // has no representation among the option flags above.
+    beforeRun = null,
   } = opts;
 
   const root = makeProject({ iosExists, cngStamp });
+  if (beforeRun) beforeRun(root);
   const stubs = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-stubs-'));
   // INFRA-405: containers are PER-DEVICE. The old harness modelled one global container,
   // which made the install-target/assert-target divergence structurally unrepresentable —
@@ -576,6 +587,9 @@ function runScript(opts = {}) {
     env: {
       ...process.env,
       PATH: `${stubs}:${process.env.PATH}`,
+      // INFRA-436: per-sandbox lock root. The default is a shared /tmp path, which would
+      // make concurrently-running suites contend for a real lock and leave one behind.
+      E2E_LOCK_ROOT: path.join(root, '.locks'),
       CI: '', // export:embed silently discards --reset-cache when CI is set
       ...(simUdid ? { E2E_SIM_UDID: simUdid } : {}),
     },
@@ -749,6 +763,14 @@ function runSafety(built, opts = {}) {
       // assertion passed vacuously against an empty reap set.
       'case "$*" in',
       '  *"-o pgid="*) echo " 99999"; exit 0;;',
+      // INFRA-436: the lock asks for a DIFFERENT column shape (`-axo pid=,lstart=,comm=`)
+      // than INFRA-423's inventory (`pid ppid pgid comm args`). Without this arm the stub
+      // answered both with the 5-column table, so the lock read `ppid pgid comm args` as a
+      // start time and could never match — it failed to record its own ownership and every
+      // gate run aborted. Delegate to the real `ps`: liveness is a claim about actual
+      // processes, and the lock must see itself. The synthetic inventory below still serves
+      // the ownership classifier, which is the only thing that needs a fabricated table.
+      '  *lstart*) exec /bin/ps "$@";;',
       'esac',
       `cat <<'PSEOF'`,
       psInventory,
@@ -768,7 +790,12 @@ function runSafety(built, opts = {}) {
   const res = spawnSync('bash', [path.join(built.root, 'scripts', 'e2e-safety.sh'), ...flows], {
     encoding: 'utf8',
     cwd: built.root,
-    env: { ...process.env, PATH: `${built.stubs}:${process.env.PATH}`, ...env },
+    env: {
+      ...process.env,
+      PATH: `${built.stubs}:${process.env.PATH}`,
+      E2E_LOCK_ROOT: path.join(built.root, '.locks'), // INFRA-436, see runBuild
+      ...env,
+    },
     timeout: 45000,
     killSignal: 'SIGKILL',
   });
@@ -856,6 +883,46 @@ describe('e2e-sim-build.sh — fail-closed install ordering', () => {
     const r = runScript({ buildProducesApp: false });
     expect(r.status).not.toBe(0);
     expect(r.installed).toBe(false);
+  });
+});
+
+describe('e2e-sim-build.sh — Finder droppings under ios/ (INFRA-436)', () => {
+  // RN's `[CP-User] [RNDeps] Replace React Native Dependencies` phase rm's
+  // `Pods/ReactNativeDependencies/framework` and re-extracts it, and its rm is not
+  // tolerant of unexpected contents. One `.DS_Store` kills the build with
+  // `ENOTEMPTY ... exited with error code 65`, and the error names nothing useful.
+  // Observed for real: ten of them under ios/Pods, all created during the build.
+  test('deletes .DS_Store under ios/ before building', () => {
+    const built = runScript({
+      beforeRun: root => {
+        const dir = path.join(root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, '.DS_Store'), 'finder junk');
+      },
+    });
+    expect(
+      fs.existsSync(
+        path.join(built.root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework', '.DS_Store')
+      )
+    ).toBe(false);
+  });
+
+  test('leaves real Pods content alone — the purge is scoped to .DS_Store', () => {
+    // A purge that took the framework with it would "fix" the build by breaking it
+    // differently, and the test above alone could not tell the difference.
+    const built = runScript({
+      beforeRun: root => {
+        const dir = path.join(root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, '.DS_Store'), 'finder junk');
+        fs.writeFileSync(path.join(dir, 'real.txt'), 'keep me');
+      },
+    });
+    expect(
+      fs.existsSync(
+        path.join(built.root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework', 'real.txt')
+      )
+    ).toBe(true);
   });
 });
 

@@ -53,6 +53,13 @@ cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + su
 # shellcheck source=scripts/e2e-driver-ownership.sh
 . "$(dirname "$0")/e2e-driver-ownership.sh"
 
+# INFRA-436 — simulator mutual exclusion. Complements ownership, it does not duplicate it:
+# e2e-driver-ownership.sh decides which XCUITest drivers may be REAPED once a run is under
+# way; this decides whether a run may START on this device at all. The gap it closes is a
+# peer's e2e-sim-build.sh uninstalling fyi.being.app out from under the flows below.
+# shellcheck source=scripts/e2e-sim-lock.sh
+. "$(dirname "$0")/e2e-sim-lock.sh"
+
 MAESTRO_DIR=".maestro"
 
 BUNDLE_ID="fyi.being.app"
@@ -197,6 +204,23 @@ else
   DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 1
 fi
 
+# INFRA-436 — claim the simulator for the whole run, before the provenance/shape pre-flights
+# below read the installed container. Reading the artifact is exactly what a peer's build
+# would invalidate underneath us, so the lock has to precede it, not merely precede the flows.
+#
+# Simulator runs only. A device-only run resolves DEVICE_UDID instead, and is deliberately
+# left unlocked for the same reason e2e_reset_drivers is not taught about it (see above): the
+# contended resource here is a simulator this machine owns, whereas a physical handset is
+# attached by a human who already knows they are using it.
+#
+# The trap releases on every exit path. e2e_lock_release is a no-op unless we are the
+# recorded owner, so an early `exit 1` from a pre-flight that ran before the acquire cannot
+# release a peer's lock.
+if [ -n "$SIM_UDID" ]; then
+  e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "safety flows" || exit 1
+  trap 'e2e_lock_release "$SIM_UDID"' EXIT INT TERM
+fi
+
 if [ "$DEVICE_ONLY" = "1" ]; then
   # The target is now RESOLVED and PINNED, so this no longer says "skipping the pre-flight"
   # wholesale — that conflated two separable claims and only one of them is still true.
@@ -266,6 +290,11 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
       echo ""
       ;;
     *)
+      # INFRA-436 — print WHAT moved before refusing. "Rebuild" alone costs up to 21m31s
+      # of blind guessing, and under the gate-worktree workflow the same verdict covers two
+      # unrelated causes (different commits vs. stray local files) whose fixes differ.
+      # Diagnostic only: it always exits 0, so it can never soften the refusal below.
+      node scripts/e2e-provenance.js explain "$APP" 2>/dev/null || true
       preflight_fail "provenance check returned '${VERDICT:-<no verdict>}' — the installed binary was not built from the current tree (or carries no marker). Rebuild: npm run e2e:safety:build"
       ;;
   esac
