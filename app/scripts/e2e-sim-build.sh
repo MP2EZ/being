@@ -186,6 +186,29 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------
+# 4b. Purge Finder droppings from ios/ before building (INFRA-436).
+#
+#     React Native's `[CP-User] [RNDeps] Replace React Native Dependencies` build phase
+#     removes `Pods/ReactNativeDependencies/framework` and re-extracts it. Its rm is not
+#     tolerant of unexpected contents, so a single `.DS_Store` left by Finder or Spotlight
+#     makes the whole build die with:
+#
+#       Error: ENOTEMPTY, Directory not empty: ReactNativeDependencies/framework
+#       CommandError: Failed to build iOS project. "xcodebuild" exited with error code 65.
+#
+#     Observed for real on 2026-08-14: ten `.DS_Store` files under `ios/Pods/`, all stamped
+#     during the build itself. Nothing in the error names the cause, and the obvious reading
+#     ("stale Pods, deintegrate and reinstall") is a 20-minute detour that does not fix it —
+#     Finder can recreate the file before the next attempt.
+#
+#     They are gitignored (`**/.DS_Store`), so this cannot move the provenance fingerprint,
+#     which excludes ignored paths. Safe to delete unconditionally.
+# ---------------------------------------------------------------------------------------
+if [ -d ios ]; then
+  find ios -name '.DS_Store' -type f -delete 2>/dev/null || true
+fi
+
+# ---------------------------------------------------------------------------------------
 # 5. Destroy the prior product, then assert it came back (§ freshness). Same shape as the
 #    DEBUG-315 `rm -f "$OUT"` + `[ -f "$OUT" ]` remedy this replaces. Object files live in
 #    Intermediates/, so this forces a re-copy and re-bundle without losing incrementality.

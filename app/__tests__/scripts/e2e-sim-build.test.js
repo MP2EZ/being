@@ -302,9 +302,14 @@ function runScript(opts = {}) {
     // and is the state under which the device-only refusal must fire.
     attachedDevices = [],
     devicectlFails = false,
+    // INFRA-436: mutate the generated project after makeProject but before the script runs.
+    // Needed for state that only exists on disk (e.g. Finder droppings under ios/Pods) and
+    // has no representation among the option flags above.
+    beforeRun = null,
   } = opts;
 
   const root = makeProject({ iosExists, cngStamp });
+  if (beforeRun) beforeRun(root);
   const stubs = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-stubs-'));
   // INFRA-405: containers are PER-DEVICE. The old harness modelled one global container,
   // which made the install-target/assert-target divergence structurally unrepresentable —
@@ -878,6 +883,46 @@ describe('e2e-sim-build.sh — fail-closed install ordering', () => {
     const r = runScript({ buildProducesApp: false });
     expect(r.status).not.toBe(0);
     expect(r.installed).toBe(false);
+  });
+});
+
+describe('e2e-sim-build.sh — Finder droppings under ios/ (INFRA-436)', () => {
+  // RN's `[CP-User] [RNDeps] Replace React Native Dependencies` phase rm's
+  // `Pods/ReactNativeDependencies/framework` and re-extracts it, and its rm is not
+  // tolerant of unexpected contents. One `.DS_Store` kills the build with
+  // `ENOTEMPTY ... exited with error code 65`, and the error names nothing useful.
+  // Observed for real: ten of them under ios/Pods, all created during the build.
+  test('deletes .DS_Store under ios/ before building', () => {
+    const built = runScript({
+      beforeRun: root => {
+        const dir = path.join(root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, '.DS_Store'), 'finder junk');
+      },
+    });
+    expect(
+      fs.existsSync(
+        path.join(built.root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework', '.DS_Store')
+      )
+    ).toBe(false);
+  });
+
+  test('leaves real Pods content alone — the purge is scoped to .DS_Store', () => {
+    // A purge that took the framework with it would "fix" the build by breaking it
+    // differently, and the test above alone could not tell the difference.
+    const built = runScript({
+      beforeRun: root => {
+        const dir = path.join(root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, '.DS_Store'), 'finder junk');
+        fs.writeFileSync(path.join(dir, 'real.txt'), 'keep me');
+      },
+    });
+    expect(
+      fs.existsSync(
+        path.join(built.root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework', 'real.txt')
+      )
+    ).toBe(true);
   });
 });
 
