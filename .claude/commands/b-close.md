@@ -345,6 +345,34 @@ only against a real device for supplementary runtime verification.
 # over-trigger that trains the --skip-e2e reflex. That exemption is RECORDED, not
 # implicit: `.claude/scripts/check-safety-paths.sh` fails if a Protected Path is
 # neither matched here nor in its EXEMPT_PATHS list. Run it after editing either.
+#
+# INFRA-428 — `features/consent/` STAYS gated directory-wide. The over-trigger is
+# real (an unrouted screen added there fires a flow that cannot observe it), and
+# narrowing it was examined and REJECTED. Recorded so the next reader does not
+# re-derive two dead ends:
+#   - A SUBPATH EXEMPTION cannot work, mechanically. `EXEMPT_PATHS` is consumed
+#     ONLY by check-safety-paths.sh's reconciliation loop — it never feeds
+#     SAFETY_CANDIDATES above, so no entry there can stop this gate firing. And a
+#     subpath fails that script twice over: the ORPHAN check requires each entry to
+#     string-equal a Protected Path row from CLAUDE.md (`app/src/features/consent/`
+#     is the only consent row), and the STALE check's `gated()` probe prefix-matches
+#     the subpath through this very regex. `EXEMPT_PATHS` means "this Protected Path
+#     is deliberately ungated"; it is not a file-level suppressor.
+#   - KEYING ON THE ROUTED SCREEN is the fix this reads as needing, and it would
+#     have UNDER-triggered on the branch that raised the question. That branch also
+#     edited `features/consent/index.ts`, and CleanRootNavigator imports
+#     `CombinedLegalGateScreen` from that BARREL — so adding a screen and a service
+#     to it put two new modules on the cold-start pre-consent path, in front of the
+#     988 footer `deeplink-consent-gate.yaml` drives. Render-unreachable is NOT
+#     module-unreachable. The trigger surface is "what do the changed files pull
+#     into the eager graph of a routed safety path", which a path grep cannot
+#     compute — same family as CLAUDE.md's MaterialDesignIcons eager-import rule.
+# The asymmetry decides it: over-trigger costs ONE scoped flow on a ~1 min warm
+# build (INFRA-383); under-trigger merges an unverified change to the only crisis
+# affordance a user has before consenting, on a route the root overlay deliberately
+# does not cover. EXPIRY: when FEAT-417 routes ReConsentScreen the screen becomes
+# render-reachable and the over-trigger becomes a correct trigger, so this note can
+# be deleted rather than revisited.
 # "Could not compute the diff" is NOT "there is no diff", and a bare `|| true`
 # renders them identically. On `_bare` — a true ORPHAN branch (its root commit
 # differs from development's; it holds only .claude/, .gitignore, README.md) —
@@ -484,6 +512,7 @@ fi
 | Comment merely NAMING the overlay, in any file | **skip** | Not a re-host; changes no rendered output, so no flow can see it. Citing its 44pt decision as a precedent is normal. |
 | `core/services/security` (non-encryption) / `core/navigation` change | **full suite** | Cross-cutting; existing override in Step 2.5.3. |
 | `features/consent/` change | **`e2e:safety:consent-gate`** | INFRA-416. Hosts the pre-consent 988 footer; `LegalGate` is in `SUPPRESSED_ROUTES`, so the root overlay does not cover for it. |
+| Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
 | `features/guidance/` change | **gated → crisis-button fail-safe** | INFRA-416. No flow pins its threshold routing; the gap is logged loudly rather than silently skipped. |
 | `features/practices/` change | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
