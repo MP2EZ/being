@@ -333,6 +333,44 @@ describe('ResumeSessionModal', () => {
       );
       expect(overlayStyle.justifyContent).toBeUndefined();
       expect(overlayStyle.alignItems).toBeUndefined();
+
+      // ...and NOT on the contentContainer either. This is the half that a first pass at
+      // this fix missed: bounding the frame alone changed nothing, because
+      // `justifyContent: 'center'` on a contentContainerStyle centres content that is
+      // TALLER than the frame, splitting the overflow across both edges and putting the
+      // top permanently out of scroll reach. The on-device render was pixel-identical
+      // before and after that first attempt.
+      //
+      // `flexGrow: 1` + `justifyContent: 'center'` is the widely-recommended pairing and
+      // holds only while the content fits. The overflow-safe idiom is `flexGrow: 1` on
+      // the container plus `marginVertical: 'auto'` on the child: auto margins absorb
+      // free space when it exists and collapse to zero when it does not.
+      const contentStyle = StyleSheet.flatten(
+        UNSAFE_getByType(ScrollView).props.contentContainerStyle
+      );
+      expect(contentStyle.flexGrow).toBe(1);
+      expect(contentStyle.justifyContent).toBeUndefined();
+    });
+
+    it('centres the card via auto margins, which collapse instead of clipping', () => {
+      const { UNSAFE_getByType } = render(
+        <ResumeSessionModal
+          visible={true}
+          session={mockSession}
+          onResume={mockOnResume}
+          onBeginFresh={mockOnBeginFresh}
+        />
+      );
+
+      // eslint-disable-next-line @typescript-eslint/no-var-requires
+      const { ScrollView } = require('react-native');
+      const card = UNSAFE_getByType(ScrollView).props.children;
+      const cardStyle = StyleSheet.flatten(card.props.style);
+
+      // Short content: auto margins split the free space and the card sits centred —
+      // preserving the original visual. Tall content: no free space, margins collapse to
+      // 0, the card starts at the top and the whole of it is reachable by scrolling.
+      expect(cardStyle.marginVertical).toBe('auto');
     });
   });
 });

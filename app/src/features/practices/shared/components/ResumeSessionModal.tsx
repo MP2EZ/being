@@ -418,11 +418,20 @@ const styles = StyleSheet.create({
   },
   scrollContainer: {
     flexGrow: 1,
-    justifyContent: 'center',
+    // NO justifyContent HERE. `flexGrow: 1` + `justifyContent: 'center'` is the common
+    // pairing and holds only while the content FITS: once the card is taller than the
+    // frame, centring splits the overflow across both edges and puts the top out of
+    // scroll reach entirely. Centring is done with auto margins on the card instead —
+    // see modalContainer.marginVertical.
     alignItems: 'center',
     padding: spacing[24],
   },
   modalContainer: {
+    // Centres the card when there is free space and COLLAPSES to 0 when there is not, so
+    // tall content starts at the top and scrolls in full. This is what makes the prompt
+    // usable on short viewports; with `justifyContent: 'center'` above, "Begin Fresh" was
+    // sliced off the bottom and stayed untappable while still resolving in the hierarchy.
+    marginVertical: 'auto',
     backgroundColor: colorSystem.base.white,
     borderRadius: borderRadius.large,
     padding: spacing[32],
