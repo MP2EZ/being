@@ -369,6 +369,145 @@ else
   exit 1
 fi
 
+# DEBUG-422 — pre-approve the URL scheme(s) the flows open, before flow 1.
+#
+# WHAT BREAKS WITHOUT THIS. `openLink:` is `xcrun simctl openurl` and nothing else (Maestro
+# 2.6.0: SimctlIOSDevice.openLink -> LocalSimulatorUtils.openURL -> argv
+# ["xcrun","simctl","openurl",<udid>,<url>]; Maestro contributes zero logic). On a simulator
+# carrying no approval for that scheme, LaunchServices answers the open by asking SpringBoard
+# to raise `Open in "Being"?` and WAITS for it. The alert renders above the app, so the flow
+# that opened the link fails its next assertion — and because the alert outlives the flow,
+# every LATER flow in the same invocation dies on its first assertion too. The flow that
+# looks broken is not the one at fault.
+#
+# THE MECHANISM, since two work items guessed at it and both guessed wrong. It is a
+# LaunchServices *scheme approval*, not a Maestro bug and not an app defect:
+#
+#   SpringBoard … Received request to activate alertItem:
+#     <SBUserNotificationAlert; title: Open in "Being"?; source: lsd>
+#
+# `lsd` requests it, SpringBoard only presents it, and the string is
+# SCHEME_APPROVAL_PROMPT_TITLE_NO_SOURCE in CoreServices.framework/…/SchemeApproval.strings
+# (the _NO_SOURCE variant because a simctl open has no originating app). The answer is
+# recorded per-simulator in Library/Preferences/com.apple.launchservices.schemeapproval.plist
+# keyed `<source-bundle>-->{scheme}`, and it survives reboot, uninstall and reinstall. Only
+# `simctl erase` — or a newly created device — clears it.
+#
+# IT IS NOT AN iOS-VERSION ISSUE, despite presenting as one twice. A freshly created iPhone
+# 16 Plus / iOS 18.6 device raises it identically to a 26.0 device; a long-lived 18.6 sim
+# only looked like a green "baseline" because it had been approved by hand. Version and
+# model are both confounds. The single variable is whether this simulator has been approved.
+#
+# WHY SEEDING, AND NOT DISMISSING. A `tapOn:` on the alert is forbidden in a flow — it
+# silently no-ops once the alert stops appearing, then silently starts tapping whatever is
+# under those coordinates. A `defaults write` has no such failure mode in either direction:
+# if a runtime ever stops honouring the key the alert returns and the flows go red, which is
+# the safe direction, and if the prompt is ever retired the key is inert. It also retires a
+# manual setup step that had to be remembered after every `simctl erase` — which is itself
+# this guide's remedy for driver rot, so the two procedures were in direct tension and the
+# gate lost that race silently.
+#
+# SCOPE IS DELIBERATELY NARROW, and the allowlist is DERIVED, not parsed. The flows decide
+# *whether* an approval is needed; `app.json`'s `expo.scheme` decides *what* may be approved.
+# A flow file is repo-authored text, so letting it name the scheme would let a typo — or a
+# well-meaning future flow — silently seed an arbitrary one. Deriving from `expo.scheme`
+# excludes `fyi.being.app` and `exp+being` by construction (both are CNG-generated, not
+# authored) and agrees with the app's own security allowlist, DEEP_LINK_CONFIG
+# .ALLOWED_SCHEMES, without having to restate it.
+#
+# `exp+being` is excluded ON PURPOSE and must stay excluded (crisis ruling, DEBUG-422).
+# `exp+being://expo-development-client/?url=…` reaching a launcher-free Release build is the
+# signature of the INFRA-407 regression — the build having LAUNCHED the app instead of
+# build-only + `simctl install`. The build's launcher-free asserts catch a dev-client
+# *binary*; they do not catch a correct binary launched with a dev-client URL, and this
+# alert is currently the only observable for that. Approving it would convert a loud,
+# already-diagnosed failure into a silent one.
+#
+# AND: a red deeplink flow is NEVER to be triaged by widening this. If a flow goes red with
+# approval verified below, that is the app's contract failing, which is what the flow is for.
+if [ -n "$SIM_UDID" ]; then
+  # Selected flows plus the helper subflows they actually run — not the whole directory. A
+  # scoped Phase 2.5 run (`q9-single-alert`, say) opens no link and must not be blockable by
+  # a write it has no use for; but a helper CAN carry an `openLink`, so one level of
+  # `runFlow:` is resolved rather than assumed empty.
+  SCHEME_SCAN_FILES=("${FLOWS[@]}")
+  while IFS= read -r sub; do
+    [ -n "$sub" ] && [ -f "$MAESTRO_DIR/$sub" ] && SCHEME_SCAN_FILES+=("$MAESTRO_DIR/$sub")
+  done <<EOF
+$(grep -hoE '^[[:space:]]*-[[:space:]]*runFlow:[[:space:]]*[A-Za-z0-9._-]+\.yaml' "${FLOWS[@]}" 2>/dev/null \
+    | sed -E 's#.*runFlow:[[:space:]]*##' | sort -u)
+EOF
+
+  FLOW_SCHEMES="$(grep -hoE '^[[:space:]]*-[[:space:]]*openLink:[[:space:]]*[A-Za-z0-9.+-]+://' \
+    "${SCHEME_SCAN_FILES[@]}" 2>/dev/null | sed -E 's#.*openLink:[[:space:]]*##; s#://$##' | sort -u)"
+
+  # `https` needs no approval — LaunchServices routes it to Safari, and a universal link is
+  # deliberately not how these flows enter the app (it would put an AASA network fetch inside
+  # a safety gate). Filtered rather than rejected so an https flow is simply a no-op here.
+  FLOW_SCHEMES="$(printf '%s\n' "$FLOW_SCHEMES" | grep -vE '^(https?)$' || true)"
+
+  if [ -z "$(printf '%s' "$FLOW_SCHEMES" | tr -d '[:space:]')" ]; then
+    # Not a failure — the selected flows open no custom-scheme link. Said out loud anyway:
+    # a matcher that silently stops matching looks exactly like a run with nothing to do
+    # (same reasoning as INFRA-423's "nothing attributable" line).
+    echo "ℹ️  scheme approval: no selected flow opens a custom-scheme link — nothing to approve."
+  else
+    APP_SCHEME="$(node -e 'process.stdout.write(String(require("./app.json").expo.scheme || ""))' 2>/dev/null || true)"
+    if [ -z "$APP_SCHEME" ]; then
+      echo "❌ e2e:safety pre-flight — could not read expo.scheme from app.json, so the set of" >&2
+      echo "   schemes this gate is allowed to approve cannot be established. Refusing rather" >&2
+      echo "   than falling back to a literal: the derivation IS the guard." >&2
+      exit 1
+    fi
+
+    for scheme in $FLOW_SCHEMES; do
+      if [ "$scheme" != "$APP_SCHEME" ]; then
+        echo "❌ e2e:safety pre-flight — a selected flow opens '$scheme://', which is not the" >&2
+        echo "   app's declared scheme ('$APP_SCHEME://' per app.json expo.scheme)." >&2
+        echo "   This gate approves only the declared scheme, by derivation and never from the" >&2
+        echo "   flow text. If '$scheme://' is legitimate, declare it; if it is 'exp+being', the" >&2
+        echo "   build launched the app and that is an INFRA-407 regression to fix, not approve." >&2
+        exit 1
+      fi
+
+      KEY="com.apple.CoreSimulator.CoreSimulatorBridge-->$scheme"
+
+      # Idempotent and additive. This simulator is shared across worktrees, so device-wide
+      # state we did not author is not ours to reset: read first, write only what is missing,
+      # never `defaults delete` the domain or touch another key in it.
+      CURRENT="$(xcrun simctl spawn "$SIM_UDID" defaults read com.apple.launchservices.schemeapproval "$KEY" 2>/dev/null | tr -d '[:space:]')"
+      if [ "$CURRENT" = "$BUNDLE_ID" ]; then
+        echo "✓ scheme approval already present: \"$KEY\" = $BUNDLE_ID"
+        continue
+      fi
+
+      xcrun simctl spawn "$SIM_UDID" defaults write com.apple.launchservices.schemeapproval \
+        "$KEY" -string "$BUNDLE_ID" 2>/dev/null || true
+
+      # READ BACK. `defaults write` can exit 0 without the value landing where lsd will look
+      # for it (domain resolution, cfprefsd caching), and an unverified write treated as
+      # success is the same class of defect as attesting one binary while testing another.
+      VERIFY="$(xcrun simctl spawn "$SIM_UDID" defaults read com.apple.launchservices.schemeapproval "$KEY" 2>/dev/null | tr -d '[:space:]')"
+      if [ "$VERIFY" = "$BUNDLE_ID" ]; then
+        echo "✓ scheme approval seeded: \"$KEY\" = $BUNDLE_ID (DEBUG-422)"
+      else
+        # FAIL CLOSED — and deliberately NOT via preflight_fail(), whose remediation line
+        # says "rebuild the gate target". A rebuild cannot fix this and would send the next
+        # reader down a 14-minute dead end. The cost this guard exists to remove is
+        # MISDIAGNOSIS, not false-green: without approval every flow after the first
+        # `openLink` fails its first assertion against a perfectly healthy app.
+        echo "❌ e2e:safety pre-flight — could not seed the '$scheme://' scheme approval on $SIM_UDID." >&2
+        echo "   Wrote \"$KEY\" = $BUNDLE_ID but read back '${VERIFY:-<nothing>}'." >&2
+        echo "   Without it iOS raises \`Open in …?\` on the first openLink, it outlives that flow," >&2
+        echo "   and every later flow fails on its first assertion while the app is fine." >&2
+        echo "   This is NOT fixed by rebuilding. Check the simulator is responsive:" >&2
+        echo "     xcrun simctl spawn $SIM_UDID defaults read com.apple.launchservices.schemeapproval" >&2
+        exit 1
+      fi
+    done
+  fi
+fi
+
 # INFRA-423 — PRE-FLIGHT reset, before flow 1.
 #
 # The reset used to exist only INSIDE the per-flow loop, so a driver left wedged by this
@@ -557,6 +696,18 @@ else
   # "Open in …?" alert could not be reproduced on demand (`simctl openurl` on an unhandled
   # scheme fails silently rather than prompting), so a pre-flight's refusal path could not
   # have been demonstrated — and an undemonstrated guard is the shape this repo distrusts.
+  #
+  # CLAUSE (c) IS NOW FALSE, and DEBUG-422 records why: that observation was made on an
+  # UNHANDLED scheme. On a HANDLED one — `being://`, which app.json declares — the alert
+  # reproduces on demand every time, on any simulator with no approval on record, from the
+  # single command `xcrun simctl openurl <udid> being://daily`.
+  #
+  # (a) and (b) SURVIVE UNCHANGED, and this block stays exactly as it is. DEBUG-422 added a
+  # SEEDER for one derived scheme, not a DETECTOR: it removes the one alert the gate can
+  # legitimately pre-empt, and buys no probe for any other. This grep still owns everything
+  # the seeder does not and must not cover — the notification-permission alert, and an
+  # `Open in …?` raised by an `exp+being` dev-client URL, which is the INFRA-407 build
+  # regression and must stay loud rather than be approved away.
   #
   # Reading Maestro's own failure artifact costs nothing and needs no output capture: it
   # writes the UI hierarchy AT THE POINT OF FAILURE into commands-*.json, which is exactly
