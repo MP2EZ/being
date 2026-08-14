@@ -3,11 +3,22 @@
  *
  * Owns the three lifecycle concerns the scheduler cannot own for itself:
  *
- * THE GATE. Composed from three independent conditions, all of which must hold:
- * the build-time feature flag, the persisted preference, and the screen's own
- * active/paused state. The engine re-reads this before every cue, so revoking
- * any one of them takes effect on the next boundary rather than at the next
- * mount.
+ * THE GATE. Two channels ride this hook, and they are gated differently
+ * (DEBUG-425).
+ *
+ * The build-time feature flag gates the WHOLE pipeline: with it off, neither
+ * channel exists. Below it, the persisted `practiceHaptics` preference gates
+ * ONLY the tactile channel, and the screen's active/paused state gates both.
+ * Consent to be vibrated is not consent to be told where you are: a
+ * practitioner who declines vibration must keep the paired speech, because on
+ * Body Scan it is the only signal that a region boundary passed. The engine
+ * re-reads the tactile gate before every cue, so revoking it takes effect on
+ * the next boundary rather than at the next mount.
+ *
+ * The scheduler therefore runs whenever EITHER channel is live — see
+ * `schedulerNeeded` below. It must never be widened to run on the flag alone:
+ * ReflectionTimerScreen and PracticeTimerScreen supply no `announce`, and an
+ * empty schedule must keep short-circuiting the effect entirely.
  *
  * APP STATE. Lives here rather than in the emitter or the screens. The emitter
  * can only drop cues — it cannot re-anchor the session origin, so a five-minute
@@ -115,13 +126,29 @@ export function usePracticeHaptics({
   sessionAnchors = false,
 }: UsePracticeHapticsOptions): UsePracticeHapticsReturn {
   const practices = usePracticeSettings();
-  const enabled = isFeatureEnabled('practice_haptics') && practices?.practiceHaptics === true;
+
+  const flagOn = isFeatureEnabled('practice_haptics');
+  /** The tactile channel: flag AND the practitioner's recorded answer. */
+  const tactileEnabled = flagOn && practices?.practiceHaptics === true;
+  /** The speech channel: flag AND a screen that asked for paired speech. */
+  const speechEnabled = flagOn && announce !== undefined;
+  /**
+   * Run the scheduler if EITHER channel is live.
+   *
+   * Derived here rather than inside the effect so that `announce` itself never
+   * enters the dependency array — it is `!== undefined` that matters, not the
+   * callback's identity, and depending on the identity would tear down and
+   * rebuild the scheduler on any render that re-created it, resetting the
+   * absolute region timeline to zero mid-session.
+   */
+  const schedulerNeeded = tactileEnabled || speechEnabled;
+
   const isFocused = useIsFocusedSafe();
 
   // Refs so the effect below does not re-run (and tear down the scheduler) every
   // time one of these changes.
-  const enabledRef = useRef(enabled);
-  enabledRef.current = enabled;
+  const enabledRef = useRef(tactileEnabled);
+  enabledRef.current = tactileEnabled;
   const activeRef = useRef(isActive);
   activeRef.current = isActive;
   const announceRef = useRef(announce);
@@ -209,10 +236,38 @@ export function usePracticeHaptics({
   }, []);
 
   useEffect(() => {
-    if (!enabled || schedule.length === 0) return undefined;
+    // Only the tactile half of the old gate is relaxed. `schedule.length === 0`
+    // MUST stay: ReflectionTimerScreen's schedule is empty by default, and
+    // arming a scheduler plus an AppState listener on a screen that has neither
+    // today would be a behaviour change nobody asked for.
+    if (!schedulerNeeded || schedule.length === 0) return undefined;
 
     /** Pending announcement timers, so a stray utterance cannot outlive us. */
     const staggerHandles = new Set<ReturnType<typeof setTimeout>>();
+
+    /**
+     * Speak the boundary.
+     *
+     * The stagger is a TACTILE accommodation — every justification for it in
+     * `constants.ts` is about letting the tap land first and own the "now".
+     * With no tap there is nothing to trail, so a practitioner who declined
+     * vibration hears the boundary on the boundary.
+     */
+    const scheduleAnnouncement = (cue: PracticeCue): void => {
+      const announceFn = announceRef.current;
+      if (!announceFn) return;
+
+      if (!enabledRef.current) {
+        if (activeRef.current) announceFn(cue);
+        return;
+      }
+
+      const handle = setTimeout(() => {
+        staggerHandles.delete(handle);
+        if (activeRef.current) announceFn(cue);
+      }, HAPTIC_ANNOUNCEMENT_STAGGER_MS);
+      staggerHandles.add(handle);
+    };
 
     const engine = createHapticEngine({
       // Re-read on every cue: the practitioner may revoke mid-session.
@@ -224,19 +279,22 @@ export function usePracticeHaptics({
       schedule,
       now: () => performance.now(),
       onCue: (cue) => {
+        // ORDER IS LOAD-BEARING (DEBUG-425). The speech channel is scheduled
+        // FIRST, so it is neither textually nor causally downstream of the
+        // tactile call. `engine.fire` returns a promise whose value is
+        // discarded below; the announcement's independence used to rest on
+        // nothing but that `void`, and a later refactor to
+        // `if (await engine.fire(cue)) { ...announce... }` would have silently
+        // made the utterance conditional on the actuator. Keeping it ahead of
+        // the fire makes that impossible rather than merely unlikely.
+        //
+        // Felt order is unchanged: the stagger timer is armed microseconds
+        // before `fire()` is invoked synchronously below.
+        scheduleAnnouncement(cue);
+
         // Fire-and-forget. The engine never rejects; the void is deliberate so
         // a slow actuator cannot delay the next scheduling decision.
         void engine.fire(cue);
-
-        const announceFn = announceRef.current;
-        if (!announceFn) return;
-
-        // The haptic leads; the announcement follows. See the constant.
-        const handle = setTimeout(() => {
-          staggerHandles.delete(handle);
-          if (activeRef.current) announceFn(cue);
-        }, HAPTIC_ANNOUNCEMENT_STAGGER_MS);
-        staggerHandles.add(handle);
       },
     });
 
@@ -261,7 +319,15 @@ export function usePracticeHaptics({
       staggerHandles.clear();
     };
     // `schedule` identity governs the session; callers must memoise it.
-  }, [enabled, schedule]);
+    //
+    // Note this depends on `schedulerNeeded`, NOT on `tactileEnabled`: toggling
+    // the preference mid-session no longer tears down and rebuilds the
+    // scheduler, so the absolute timeline is not reset to zero. That is what
+    // the hook's own docstring has always claimed ("revoking any one of them
+    // takes effect on the next boundary rather than at the next mount") — the
+    // engine re-reads the gate per cue, so the teardown was never what enforced
+    // it.
+  }, [schedulerNeeded, schedule]);
 
   /**
    * Drive the scheduler from the screen's running state AND navigation focus.
@@ -280,7 +346,7 @@ export function usePracticeHaptics({
 
     if (running) scheduler.start();
     else scheduler.pause();
-  }, [isActive, isFocused, enabled, schedule]);
+  }, [isActive, isFocused, schedulerNeeded, schedule]);
 
   return { emitSessionEnd };
 }
