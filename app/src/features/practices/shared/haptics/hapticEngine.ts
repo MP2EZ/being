@@ -24,6 +24,7 @@
 
 import * as Haptics from 'expo-haptics';
 
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { logAccessibility } from '@/core/services/logging';
 
 import { primitiveFor, type HapticPlatform, type HapticPrimitive, type PracticeCue } from './cueCatalog';
@@ -43,10 +44,15 @@ import { MIN_CUE_INTERVAL_MS } from './constants';
  * just the attempt, so a suppressed cue is distinguishable from a delivered one
  * and from one that was never scheduled at all.
  *
- * Stripped in production by the __DEV__ guard.
+ * Reachable in two ways, and it needs both. `__DEV__` keeps the everyday dev
+ * diagnostic exactly as it was. `haptic_trace` (INFRA-395) additionally reaches
+ * a RELEASE build, because the on-device sign-off that gates `practice_haptics`
+ * must measure the build users actually get — and in that build `__DEV__` folds
+ * to false, taking every line below with it. The flag is false in every
+ * committed env, so production still emits nothing.
  */
 function trace(cue: PracticeCue, outcome: string, primitive?: HapticPrimitive): void {
-  if (!__DEV__) return;
+  if (!__DEV__ && !isFeatureEnabled('haptic_trace')) return;
   logAccessibility(
     `[haptics] ${cue} → ${outcome}${primitive ? ` (${primitive})` : ''}`,
     { action: outcome === 'delivered' ? 'triggered' : 'disabled' }
@@ -153,7 +159,16 @@ export function createHapticEngine(options: HapticEngineOptions): HapticEngine {
         lastDeliveredAt = timestamp;
         // On a simulator this line still prints even though nothing is felt —
         // that is the point. It separates "not wired" from "no hardware".
-        trace(cue, 'delivered', primitive);
+        //
+        // INFRA-395: the elapsed figure is the JS→native round trip, and it is
+        // the HALF THE SCHEDULER CANNOT SEE. `usePracticeHaptics` dispatches
+        // this as `void engine.fire(cue)`, so the scheduler's own lateness
+        // report is closed out before any of this runs and measures timer
+        // jitter alone. Neither number is the whole cue latency on its own; the
+        // sign-off adds them, and notes that the final actuator segment
+        // (~10-20ms iOS, 30-80ms Android per constants.ts) is not observable
+        // from JS at all.
+        trace(cue, `delivered in ${Math.round(now() - timestamp)}ms`, primitive);
         return true;
       } catch {
         trace(cue, 'failed: latching off permanently');

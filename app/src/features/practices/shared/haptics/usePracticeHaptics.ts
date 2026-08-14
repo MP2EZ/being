@@ -29,6 +29,7 @@ import { AppState, type AppStateStatus, Platform } from 'react-native';
 import { NavigationContext } from '@react-navigation/native';
 
 import { isFeatureEnabled } from '@/core/services/featureFlags';
+import { logAccessibility } from '@/core/services/logging';
 import { usePracticeSettings } from '@/core/stores/settingsStore';
 
 import { createHapticEngine } from './hapticEngine';
@@ -223,6 +224,21 @@ export function usePracticeHaptics({
     const scheduler = createCueScheduler({
       schedule,
       now: () => performance.now(),
+      // INFRA-395: the cue-latency figures the production flag flip is gated on.
+      //
+      // Same predicate as `hapticEngine`'s trace, deliberately: this reports
+      // scheduler-side timer jitter and the engine reports the JS→native round
+      // trip, and a latency figure assembled from only one of them is not the
+      // cue latency. They must switch on together. See
+      // docs/testing/haptics-device-signoff.md.
+      onLateness:
+        __DEV__ || isFeatureEnabled('haptic_trace')
+          ? ({ cue, latenessMs, delivered }) =>
+              logAccessibility(
+                `[haptics] ${cue} ${delivered ? 'delivered' : 'DROPPED'} late=${Math.round(latenessMs)}ms`,
+                { action: delivered ? 'triggered' : 'disabled' }
+              )
+          : undefined,
       onCue: (cue) => {
         // Fire-and-forget. The engine never rejects; the void is deliberate so
         // a slow actuator cannot delay the next scheduling decision.

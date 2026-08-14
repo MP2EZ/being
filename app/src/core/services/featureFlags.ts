@@ -71,6 +71,22 @@ export type FeatureFlag =
   // (100% ubuntu, and the iOS simulator emits no haptics at all), so the flag
   // stays false in production until that checklist is signed off.
   | 'practice_haptics'
+  // INFRA-395: enables the practice-haptics cue DIAGNOSTIC — per-cue lateness
+  // from `cueScheduler`, and the JS→native round trip from `hapticEngine`.
+  // Gates observability only; it can neither enable nor suppress a single
+  // haptic, and `practice_haptics` governs the feature itself.
+  //
+  // It exists because a haptic is the one output this codebase produces that
+  // CANNOT be observed on a simulator or in CI (100% ubuntu; the iOS simulator
+  // emits no haptics at all), so `practice_haptics` ships dark pending an
+  // attended on-device sign-off — and that sign-off must run a RELEASE build,
+  // where the pre-existing `__DEV__` traces fold away to nothing. Without a
+  // flag reachable in Release, the acceptance criteria ask for numbers that no
+  // build could produce.
+  //
+  // FALSE EVERYWHERE, including e2e-sim. Enabled only by hand, on a throwaway
+  // sign-off build, and never merged on. See docs/testing/haptics-device-signoff.md.
+  | 'haptic_trace'
   // FEAT-283: gates the voice journal / spoken reflection surface (capture,
   // on-device transcription, encrypted store, crisis scan). Build-time, NOT
   // runtime/PostHog, for three reasons: it gates a whole screen + entry point
