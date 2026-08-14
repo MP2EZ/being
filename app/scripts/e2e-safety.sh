@@ -43,6 +43,11 @@ cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + su
 # shellcheck source=scripts/e2e-sim-device.sh
 . "$(dirname "$0")/e2e-sim-device.sh"
 
+# INFRA-424 — the PHYSICAL-device equivalent of the above, for `safety-device-only` flows.
+# Same sourced-helper contract: no `set` options, every call handles its own failure.
+# shellcheck source=scripts/e2e-real-device.sh
+. "$(dirname "$0")/e2e-real-device.sh"
+
 # INFRA-423 — XCUITest driver ownership. Same sourced-helper contract as above: it sets no
 # `set` options, because this file runs under a bare `set -u`.
 # shellcheck source=scripts/e2e-driver-ownership.sh
@@ -91,17 +96,64 @@ fi
 
 # --- Device-only detection --------------------------------------------------------------
 # `crisis-988-dial` is tagged `safety-device-only` and is documented to be run by hand
-# against a REAL iPhone, because the simulator's canOpenURL returns false unconditionally
-# regardless of LSApplicationQueriesSchemes. Everything below this line reasons about the
-# booted SIMULATOR's installed app, so applying it to a device run is worse than useless:
-# with no sim booted it aborts a documented procedure, and with an unrelated sim booted it
-# would print "✓ gate target verified / ✓ provenance" banners describing an artifact the
-# flow is not running against. Attesting the wrong binary is precisely the failure this
-# work item exists to remove, so detect the case and say plainly that no attestation applies.
+# against a REAL iPhone, because the simulator's canOpenURL is reported to return false
+# unconditionally regardless of LSApplicationQueriesSchemes. (That claim traces to
+# INFRA-184 and has never been re-measured on iOS >= 26 — DEBUG-392 flagged it as
+# unverified. It is stated here as the flow's premise, not as a checked fact. If it turns
+# out to be stale the flow becomes sim-runnable, which is a one-line retag: the tag is the
+# ONLY thing selecting which resolver runs below.)
+#
+# The SIMULATOR pre-flight below reasons about a booted simulator's installed app, so it
+# cannot apply to a device run — its container lookup, otool/plutil shape checks and
+# provenance marker are all simulator-container-bound.
+#
+# INFRA-424 — but "the simulator pre-flight does not apply" never implied "no target".
+# That conflation is what left this the only flow running unpinned, free for `maestro test`
+# to point at an arbitrary booted simulator. The two claims are now separated: the device
+# path resolves and pins its own target (e2e-real-device.sh), and the run still declares
+# that it carries NO artifact attestation — the target is named, the binary on it is not
+# vouched for.
 DEVICE_ONLY=1
+DEVICE_ONLY_COUNT=0
 for f in "${FLOWS[@]}"; do
-  grep -qE '^[[:space:]]*-[[:space:]]+safety-device-only[[:space:]]*$' "$f" || DEVICE_ONLY=0
+  if grep -qE '^[[:space:]]*-[[:space:]]+safety-device-only[[:space:]]*$' "$f"; then
+    DEVICE_ONLY_COUNT=$((DEVICE_ONLY_COUNT + 1))
+  else
+    DEVICE_ONLY=0
+  fi
 done
+
+# INFRA-424 — a MIXED selection is refused, not resolved.
+#
+# The flag above is set only when EVERY selected flow carries the tag, which reads as
+# conservative and is the opposite. A selection like
+#
+#     bash scripts/e2e-safety.sh q9-single-alert crisis-988-dial
+#
+# clears DEVICE_ONLY, so the sim pre-flight runs, prints "✓ gate target verified" and
+# "✓ provenance" — and then the 988 DEVICE flow is pinned to that simulator and run against
+# it. That is a guaranteed red on the crisis path underneath two green attestation banners
+# describing a binary the flow never touched: false attestation reachable from a supported
+# invocation, and strictly worse than the unpinned case this work item was filed for,
+# because it comes with reassurance attached.
+#
+# There is no correct target for a mixed set — the two families need different hardware —
+# so the only honest answers are "refuse" or "silently pick one and mislabel the result".
+# Refuse. Both families still run; they just run as two invocations.
+if [ "$DEVICE_ONLY" != "1" ] && [ "$DEVICE_ONLY_COUNT" -gt 0 ]; then
+  echo "❌ mixed flow selection: $DEVICE_ONLY_COUNT device-only flow(s) alongside simulator flow(s)." >&2
+  echo "   These need different targets — a \`safety-device-only\` flow requires a real iPhone," >&2
+  echo "   and every other safety flow requires the attested simulator. Running them together" >&2
+  echo "   would pin the device flow to the simulator and then print artifact-attestation" >&2
+  echo "   banners describing a binary it never ran against." >&2
+  echo "   Run them as two invocations instead:" >&2
+  for f in "${FLOWS[@]}"; do
+    if grep -qE '^[[:space:]]*-[[:space:]]+safety-device-only[[:space:]]*$' "$f"; then
+      echo "     bash scripts/e2e-safety.sh $(basename "$f" .yaml)      # real iPhone" >&2
+    fi
+  done
+  exit 1
+fi
 
 # INFRA-383 — artifact-shape pre-flight, once, before any flow runs (<1s).
 #
@@ -125,16 +177,38 @@ done
 #
 # Scoped under DEVICE_ONLY so the real-iPhone procedure gains no simctl dependency: with
 # two simulators booted it would otherwise abort a documented manual run.
+# INFRA-424 — DEVICE_UDID is a SEPARATE variable from SIM_UDID, and that separation is
+# load-bearing rather than stylistic.
+#
+# The tempting shortcut is to assign the resolved device UDID to SIM_UDID, since the
+# MAESTRO_DEVICE_ARGS block below already builds `--device` from it. That would be a silent
+# regression: an EMPTY SIM_UDID is a SENTINEL, not merely an unset value. e2e_reset_drivers
+# reads it as "device-only run, no simulator driver to reset" and returns early, and
+# e2e-driver-ownership.sh fails closed on an empty UDID for the same reason. Populating it
+# would re-enable XCUITest driver reaping during a real-device run, filtered by a
+# physical-device UDID that INFRA-423's classifier was never designed to reason about — a
+# UDID is a device filter and never an ownership signal. So the two stay separate, and
+# e2e_reset_drivers is deliberately NOT taught about DEVICE_UDID.
 SIM_UDID=""
+DEVICE_UDID=""
 if [ "$DEVICE_ONLY" != "1" ]; then
   SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 1
+else
+  DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 1
 fi
 
 if [ "$DEVICE_ONLY" = "1" ]; then
-  echo "📱 Device-only flow(s) selected — skipping the simulator pre-flight."
-  echo "   This run carries NO artifact attestation: shape and provenance both describe"
-  echo "   the booted simulator's app, not the device's. Run it against a real iPhone"
-  echo "   with a build you installed deliberately."
+  # The target is now RESOLVED and PINNED, so this no longer says "skipping the pre-flight"
+  # wholesale — that conflated two separable claims and only one of them is still true.
+  # Naming the target and vouching for the binary are different claims: the artifact-shape
+  # checks (otool/plutil on the container) and provenance lineage are simulator-container-
+  # bound and remain unavailable for a device, so the NO-attestation warning stands in
+  # substance even though the run is no longer unpinned.
+  echo "📱 Device-only flow(s) selected — pinned to device $DEVICE_UDID."
+  echo "   The simulator pre-flight does not apply: its shape and provenance checks describe"
+  echo "   a simulator container, which a device does not have."
+  echo "   This run therefore carries NO artifact attestation — the target is named, but the"
+  echo "   binary on it is not vouched for. Install a Release build deliberately."
 elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" && [ -d "$APP" ]; then
   preflight_fail() {
     echo "❌ e2e:safety pre-flight — $1" >&2
@@ -251,6 +325,14 @@ e2e_reset_drivers() {
   if [ -z "$SIM_UDID" ]; then
     # Device-only run: maestro drives a real iPhone and there is no simulator driver to
     # reset. Reaping on an empty UDID would match every driver on the machine.
+    #
+    # INFRA-424 — this early return is why the resolved device UDID lives in DEVICE_UDID
+    # and NOT in SIM_UDID. An empty SIM_UDID is the sentinel that selects this branch, so
+    # assigning the device UDID to it (the obvious way to get `--device` for free from the
+    # block below) would silently re-enable reaping for device runs. Do NOT teach this
+    # function about DEVICE_UDID: e2e_drivers_to_reap classifies SIMULATOR XCUITest
+    # drivers, a physical-device UDID means nothing to that classifier, and a UDID is a
+    # device filter and never an ownership signal (INFRA-423).
     return 0
   fi
 
@@ -270,11 +352,21 @@ e2e_reset_drivers() {
   fi
 }
 
-# INFRA-405: pin every flow to the device the pre-flight just attested. Empty for a
-# device-only run, where maestro must be left to find the real iPhone.
+# INFRA-405: pin every flow to the simulator the pre-flight just attested.
+# INFRA-424: and pin a device-only run to the iPhone resolved above, rather than leaving
+# maestro to choose. Exactly one of the two is set — the branch above resolves SIM_UDID or
+# DEVICE_UDID and exits non-zero if it cannot — so the array is never empty on a successful
+# run and the fall-through is unreachable by construction. It is kept as a refusal anyway:
+# an empty --device list is the original defect, and it must not be reachable by a future
+# edit that adds a third target class without noticing.
 MAESTRO_DEVICE_ARGS=()
 if [ -n "$SIM_UDID" ]; then
   MAESTRO_DEVICE_ARGS=(--device "$SIM_UDID")
+elif [ -n "$DEVICE_UDID" ]; then
+  MAESTRO_DEVICE_ARGS=(--device "$DEVICE_UDID")
+else
+  echo "❌ no target resolved — refusing to let maestro choose its own device." >&2
+  exit 1
 fi
 
 # DEBUG-422 — pre-approve the URL scheme(s) the flows open, before flow 1.
@@ -458,7 +550,7 @@ for f in "${FLOWS[@]}"; do
   DEBUG_DIR="$RUN_DIR/debug"
   mkdir -p "$DEBUG_DIR"
 
-  echo "🛡️  [$ran] maestro test $f${SIM_UDID:+ (device $SIM_UDID)}  [bound ${FLOW_TIMEOUT_S}s]"
+  echo "🛡️  [$ran] maestro test $f${SIM_UDID:+ (simulator $SIM_UDID)}${DEVICE_UDID:+ (device $DEVICE_UDID)}  [bound ${FLOW_TIMEOUT_S}s]"
 
   # `${arr[@]+"${arr[@]}"}` — NOT a bare "${arr[@]}". This script runs under `set -u`, and
   # in the bash 3.2 that ships with macOS expanding an EMPTY array is an unbound-variable

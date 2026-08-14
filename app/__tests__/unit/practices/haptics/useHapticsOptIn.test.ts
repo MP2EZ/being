@@ -161,3 +161,105 @@ describe('both choices spend the prompt', () => {
     });
   });
 });
+
+/**
+ * DEBUG-426 — hardware that cannot vibrate is never asked.
+ *
+ * The prompt recommends "Turn on", accepts the practitioner's assent, spends
+ * their single unrepeatable choice, and then does nothing — on an iPad there
+ * is no actuator and iOS raises no error, so `hapticEngine`'s catch-only latch
+ * never fires and a production build records nothing.
+ *
+ * Suppression must be a PURE READ. The two assertions that matter most here are
+ * therefore the negative ones: nothing may be persisted. If suppression wrote
+ * `practiceHapticsPrompted: true`, the choice would be spent by the very fix
+ * meant to preserve it, and a practitioner who later moved to a device that CAN
+ * deliver would never be asked.
+ */
+describe('DEBUG-426: device capability', () => {
+  const mockDevice = jest.requireMock('expo-device') as {
+    isDevice: boolean;
+    modelId: string | null;
+    deviceType: number;
+  };
+
+  const asCapableIPhone = (): void => {
+    mockDevice.isDevice = true;
+    mockDevice.modelId = 'iPhone14,2';
+    mockDevice.deviceType = 1;
+  };
+  const asIPad = (): void => {
+    mockDevice.isDevice = true;
+    mockDevice.modelId = 'iPad13,16';
+    mockDevice.deviceType = 2;
+  };
+
+  beforeEach(asCapableIPhone);
+  afterEach(asCapableIPhone);
+
+  it('still prompts on hardware that can vibrate', () => {
+    // POSITIVE CONTROL, and it is not optional. `shouldPrompt === false` also
+    // holds if the flag is off, if settings never hydrated, if the render threw,
+    // or if the expo-device mock returned a shape the predicate does not read.
+    // Only a same-file case that goes the other way distinguishes those from a
+    // working suppression.
+    const { result } = renderHook(() => useHapticsOptIn());
+    expect(result.current.shouldPrompt).toBe(true);
+  });
+
+  it('does not prompt on an iPad', () => {
+    asIPad();
+    const { result } = renderHook(() => useHapticsOptIn());
+    expect(result.current.shouldPrompt).toBe(false);
+  });
+
+  it('spends nothing when it suppresses — no write of any kind', () => {
+    asIPad();
+    renderHook(() => useHapticsOptIn());
+    expect(mockUpdatePracticeSettings).not.toHaveBeenCalled();
+  });
+
+  it('leaves the prompt unspent across a relaunch, so a capable device still asks', () => {
+    // Simulate the app being opened again on the iPad: the module latch resets,
+    // the persisted bit is still false because nothing wrote it.
+    asIPad();
+    renderHook(() => useHapticsOptIn());
+    __resetHapticsOptInLatch();
+    const second = renderHook(() => useHapticsOptIn());
+    expect(second.result.current.shouldPrompt).toBe(false);
+    expect(mockUpdatePracticeSettings).not.toHaveBeenCalled();
+
+    // Now the same unspent state on a device that CAN deliver.
+    __resetHapticsOptInLatch();
+    asCapableIPhone();
+    const onCapable = renderHook(() => useHapticsOptIn());
+    expect(onCapable.result.current.shouldPrompt).toBe(true);
+  });
+
+  it('does not prompt on a simulator', () => {
+    mockDevice.isDevice = false;
+    mockDevice.modelId = 'arm64';
+    const { result } = renderHook(() => useHapticsOptIn());
+    expect(result.current.shouldPrompt).toBe(false);
+  });
+
+  it('still prompts on an unrecognised device — the predicate fails open', () => {
+    mockDevice.modelId = null;
+    mockDevice.deviceType = 0; // DeviceType.UNKNOWN
+    const { result } = renderHook(() => useHapticsOptIn());
+    expect(result.current.shouldPrompt).toBe(true);
+  });
+
+  it('does not take the cross-screen claim when it suppresses', () => {
+    // The capability term belongs INSIDE `eligible`, not as a late guard on
+    // `shouldPrompt`: only `eligible` gates the claim-taking effect. A late
+    // guard would let an incapable mount consume `claimHolder` and starve a
+    // capable sibling screen for the rest of the session.
+    asIPad();
+    renderHook(() => useHapticsOptIn());
+
+    asCapableIPhone();
+    const sibling = renderHook(() => useHapticsOptIn());
+    expect(sibling.result.current.shouldPrompt).toBe(true);
+  });
+});

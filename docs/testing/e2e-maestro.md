@@ -206,6 +206,11 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike. Set it for
   both halves of a session, or the gate will resolve a different device than the build did
   and refuse the artifact.
+
+  It names a **simulator** only. The device-only flow (`e2e:safety:988-dial`) uses a
+  separate `E2E_DEVICE_UDID`, deliberately — because you are told right here to export
+  `E2E_SIM_UDID` for a whole session, a shared variable would hand a simulator UDID to the
+  physical-device resolver and refuse a correctly-attached iPhone (INFRA-424).
 - Working CocoaPods, for the prebuild stage — `pod --version`. *(If `brew install
   fastlane` ever upgrades Ruby and orphans CocoaPods' `ffi` gem, `brew reinstall
   cocoapods`.)*
@@ -306,11 +311,36 @@ npm run e2e:safety:crisis-button   # crisis button reaches CrisisResources from 
 #
 # INFRA-384: this one SKIPS the simulator pre-flight and the provenance check, and
 # says so. Both describe the booted simulator's installed app, which is not what a
-# device run executes — enforcing them here would abort the procedure when no sim is
-# booted, and, worse, print "gate target verified / provenance" banners about an
-# artifact the flow never touches. A device-only run therefore carries NO artifact
-# attestation; install the build you mean to test, deliberately.
+# device run executes — enforcing them here would print "gate target verified /
+# provenance" banners about an artifact the flow never touches. A device-only run
+# therefore carries NO artifact attestation; install the build you mean to test,
+# deliberately.
+#
+# INFRA-424: it does NOT skip target resolution. That used to be bundled into the
+# same sentence, and the bundling is what left this the only flow with no `--device`
+# at all — so `maestro test` chose its own target and could attach to an arbitrary
+# booted simulator, including one another worktree was mid-suite on. It now resolves
+# a real iPhone and REFUSES rather than falling back:
+#
+#   exactly one eligible iPhone  -> pinned, flow runs
+#   zero                         -> refuses, and says the 988 dial path is NOT verified
+#   two or more                  -> refuses as ambiguous; name one with E2E_DEVICE_UDID
+#   devicectl could not enumerate-> refuses, reported distinctly from "none attached"
+#
+# "Eligible" means platform iOS + deviceType iPhone + paired + a live tunnel. iPads and
+# disconnected devices are excluded deliberately: a Wi-Fi iPad has no telephony, so
+# canOpenURL('tel:') is legitimately false there and pinning one would produce a red
+# that looks like a crisis-path regression and is not.
+#
+# The override is E2E_DEVICE_UDID, NOT E2E_SIM_UDID. They are separate on purpose —
+# see the E2E_SIM_UDID note above, which tells you to export that one for a whole
+# session; if the device resolver read it, that simulator UDID would refuse a
+# correctly-attached iPhone.
 npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" fallback (device-only)
+
+# Two device-only + simulator flows in ONE invocation is REFUSED, not resolved — the
+# two families need different hardware, and picking either one mislabels the result.
+# Run them as two invocations.
 ```
 
 `/b-close` Phase 2.5 automatically picks the scoped subset of flows based on changed paths — see CLAUDE.md Workflow Commands. `app.json` / `Info.plist` changes no longer trigger a Maestro flow: the jest static-config test in precommit catches `LSApplicationQueriesSchemes` regressions deterministically (INFRA-184).
