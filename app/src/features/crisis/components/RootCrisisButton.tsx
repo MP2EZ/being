@@ -43,11 +43,43 @@
  *   - `immersive` (starts faded — see FADED_OPACITY) during meditative practice flows/timers.
  *   - `standard` everywhere else (tabs, onboarding, library, module detail, subscription…).
  *
- * NATIVE <Modal> EXCEPTION: React Native's <Modal> renders in a separate native view
- * hierarchy ABOVE any JS overlay, so this button is covered while a RN <Modal> is open
- * (ThresholdEducationModal, ResumeSessionModal, CelebrationToast, NotificationTimePicker,
- * SessionNoteComposer, WeeklyReflectionComposer). This matches the prior per-screen
- * behavior — NOT a regression — and none of those modals sit on the crisis path.
+ * NATIVE <Modal> EXCEPTION — NARROWED BY DEBUG-403. React Native's <Modal> renders in a
+ * separate native view hierarchy ABOVE any JS overlay, so this button is not merely
+ * dimmed while a RN <Modal> is open: it is not on screen at all. The exception still
+ * stands on STANDARD routes. It does NOT stand on an IMMERSIVE route.
+ *
+ * Why the line falls there. IMMERSIVE_ROUTES is the set already treated as elevated
+ * risk — meditative, eyes-closed, emotionally exposed practice surfaces — which is the
+ * whole reason this button stays MOUNTED (faded) there rather than being dropped as it
+ * is on SUPPRESSED_ROUTES. A <Modal> opening on top of one removes the affordance
+ * entirely, for an indeterminate duration, on the surface class the app has already
+ * classified as needing it most.
+ *
+ * The previous wording here — "this matches the prior per-screen behavior — NOT a
+ * regression — and none of those modals sit on the crisis path" — was a MIGRATION-PARITY
+ * claim (MAINT-290 did not regress against the pre-existing per-screen code), not a
+ * correctness one. It also predated FEAT-291, which added DailyLoop to IMMERSIVE_ROUTES,
+ * so it never actually evaluated the immersive-plus-Modal combination.
+ *
+ * Current state of each mounted RN <Modal>:
+ *   • ResumeSessionModal    — DailyLoopNavigator, IMMERSIVE. FIXED by DEBUG-403: it is
+ *                             no longer a <Modal>, but a full-bleed absolute overlay with
+ *                             accessibilityViewIsModal, so this button paints above it.
+ *                             It was also the worst case, being AUTO-triggered on stale-
+ *                             session detection — a user could reach zero 988 affordance
+ *                             without having tapped anything.
+ *   • ThresholdEducationModal   — ProfileScreen,            standard route
+ *   • NotificationTimePicker    — OnboardingScreen,         standard route
+ *   • SessionNoteComposer       — WellnessScreeningTrends,  standard route
+ *   • WeeklyReflectionComposer  — WeeklyReflectionCard,     standard route
+ * Those four keep the exception: non-immersive, and each opened by an explicit user tap.
+ * That reasoning is by analogy rather than individually verified, so it is tracked for
+ * audit rather than treated as settled — DEBUG-406. Note the counter-argument it has to
+ * answer: on a standard route this button renders at FULL opacity, so a <Modal> there is a
+ * drop from fully-visible to absent — arguably a starker delta than an immersive route's.
+ *
+ * CelebrationToast was listed here as a live exception and is NOT one: it has zero JSX
+ * mount sites anywhere in app/src and appears only in comments. Removed from the list.
  *
  * CrisisErrorBoundary keeps its OWN CollapsibleCrisisButton: it lives outside the
  * navigation tree and dials tel:988 directly, so it is the last-resort 988 access when
