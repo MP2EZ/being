@@ -789,13 +789,17 @@ Fires **only** on one of two triggers:
    - *Project* fact (build, env, native, dependency gotcha) → propose an entry for
      `.claude/CLAUDE.md` → Known Gotchas instead
    - Lesson about closing/merging → flag it for `/b-close`, don't record it here
-2. **Draft the smallest edit.** Prefer amending or tightening existing text over
-   appending. This file is large and loads every run — if appending, note what could be
-   pruned to pay for it.
+2. **Draft the smallest edit. Hard limits, not preferences.** Prefer amending or
+   tightening existing text over appending. **~4 lines of prose, ceiling.** State the
+   rule and stop: **no worked examples, no incident retellings, no work-item ID cited
+   as illustration** — git already holds the story, and a rule that needs a case study
+   to be understood is not yet a rule. These files load every run and grow one
+   "small" addition at a time, so if appending, name what could be pruned to pay for it.
 3. **Present as a diff** with one line of justification: the lesson, and which future
    runs it helps.
-4. **Never auto-apply.** On approval, make the edit. On decline, drop it — do not
-   re-propose the same lesson on later runs.
+4. **Never auto-apply, and apply EXACTLY the approved text.** On approval, make that
+   edit verbatim — "make it concise" means trim what was shown, never rewrite or add.
+   On decline, drop it — do not re-propose the same lesson on later runs.
 
 ---
 
