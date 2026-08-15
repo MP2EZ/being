@@ -1237,11 +1237,27 @@ Worktree: ~/being/[worktree-dir]/
 ```bash
 cd /Users/max/dev/being
 git worktree remove [worktree-dir] --force
+# `remove` refuses on leftover untracked files (node_modules, a Finder .DS_Store
+# recreated mid-delete). The merge is already confirmed by Step 3.5, so:
+[ -d "[worktree-dir]" ] && rm -rf "[worktree-dir]" && git worktree prune
+
+# INFRA-435 — reap the DerivedData this removal just orphaned. Only on "y":
+# on n/later the worktree is still live and its root still resolves, so the
+# sweep could not touch it anyway.
+bash /Users/max/dev/being/development/app/scripts/e2e-sim-clean.sh --orphans --yes
 ```
+
+Run the sweep from the `development` worktree, not the one being removed — the
+script goes with it. Removal is simultaneously the moment the orphan is created
+and the last moment its path is known, which is why the hook lives here.
+
+The sweep is repo-wide, so the reported figure covers **every** orphan on the
+machine, not just this worktree's. Say so when reporting it.
 
 **Display**:
 ```
 🗑️  Worktree removed: [worktree-dir]
+♻️  DerivedData: ~N GB reclaimed across M orphaned cache(s) (machine-wide)
 ```
 
 **If user chooses "later"**:
