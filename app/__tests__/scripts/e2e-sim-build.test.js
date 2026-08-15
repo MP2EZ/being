@@ -306,6 +306,9 @@ function runScript(opts = {}) {
     // Needed for state that only exists on disk (e.g. Finder droppings under ios/Pods) and
     // has no representation among the option flags above.
     beforeRun = null,
+    // INFRA-435: override env for a single run. Added so the disk-headroom pre-flight,
+    // which is disabled for every other case, can be switched on for its own test.
+    extraEnv = {},
   } = opts;
 
   const root = makeProject({ iosExists, cngStamp });
@@ -590,8 +593,14 @@ function runScript(opts = {}) {
       // INFRA-436: per-sandbox lock root. The default is a shared /tmp path, which would
       // make concurrently-running suites contend for a real lock and leave one behind.
       E2E_LOCK_ROOT: path.join(root, '.locks'),
+      // INFRA-435: disable the disk-headroom pre-flight by default. It probes the REAL
+      // $HOME filesystem, not the sandbox, so a CI runner (or a full laptop) would refuse
+      // every build here and red the whole suite for a reason unrelated to the assertion
+      // under test. The check gets its own opt-in test below.
+      E2E_MIN_FREE_GB: '0',
       CI: '', // export:embed silently discards --reset-cache when CI is set
       ...(simUdid ? { E2E_SIM_UDID: simUdid } : {}),
+      ...extraEnv,
     },
   });
 
@@ -2022,5 +2031,40 @@ describe('INFRA-423 — the driver reset reaps by ownership, never by pattern', 
       env: safetyEnv,
     });
     expect(r.trace).not.toMatch(/pkill/);
+  }, 60000);
+});
+
+describe('e2e-sim-build.sh — INFRA-435 disk-headroom pre-flight', () => {
+  /**
+   * The refusal must land BEFORE step 3's `simctl uninstall`. That ordering is the whole
+   * design constraint: `cleanup` does not reinstall, so refusing after the uninstall would
+   * leave the simulator with no fyi.being.app AND a peer-visible lock taken and released,
+   * turning a disk warning into a broken device for the next session.
+   */
+  it('refuses before mutating anything when free space is below the floor', () => {
+    // 1 PB floor — unreachable on any real filesystem, so the check always trips.
+    const built = runScript({ extraEnv: { E2E_MIN_FREE_GB: '1073741824' } });
+
+    expect(built.status).not.toBe(0);
+    expect(built.output).toMatch(/DISK SPACE/);
+    // Names the remedy, not just the problem.
+    expect(built.output).toMatch(/e2e:safety:clean:orphans/);
+    // Nothing was touched: no uninstall, no build, no prebuild.
+    expect(built.trace).not.toMatch(/uninstall/);
+    expect(built.buildRan).toBe(false);
+  }, 60000);
+
+  it('says DISK SPACE rather than surfacing a lipo linker error', () => {
+    const built = runScript({ extraEnv: { E2E_MIN_FREE_GB: '1073741824' } });
+    // The originating incident read as `lipo: can't write to output file` + xcodebuild 65,
+    // which names the linker and sends the reader at the wrong subsystem.
+    expect(built.output).toMatch(/Free: \d+ GB/);
+    expect(built.output).toMatch(/required: \d+ GB/);
+  }, 60000);
+
+  it('builds normally when the check is disabled', () => {
+    const built = runScript({ extraEnv: { E2E_MIN_FREE_GB: '0' } });
+    expect(built.status).toBe(0);
+    expect(built.buildRan).toBe(true);
   }, 60000);
 });

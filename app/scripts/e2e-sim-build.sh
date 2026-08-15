@@ -139,6 +139,54 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------
+# 1b. Disk-headroom pre-flight (INFRA-435).
+#
+#     PLACEMENT IS FORCED, NOT STYLISTIC. This must run before step 2's device resolution,
+#     before step 2b's lock acquisition, and decisively before step 3's `simctl uninstall` —
+#     the first mutation. `cleanup` only reinstalls nothing; a refusal after step 3 leaves
+#     the simulator with no fyi.being.app, having also taken and released a peer-visible
+#     lock. Refusing here costs nothing and mutates nothing.
+#
+#     Why it exists: out of disk, `xcodebuild` fails as
+#     `lipo: can't write to output file ... (No space left on device)` + error 65, which
+#     names the linker rather than the disk and sends the reader diagnosing the wrong
+#     subsystem. The dominant consumer is orphaned DerivedData from removed worktrees, so
+#     the message points at the sweep that reclaims it.
+#
+#     Fails OPEN on an unreadable probe. This check is advisory plumbing; it must never be
+#     the reason the gate cannot run. `df -P` forces single-line POSIX output so a long
+#     device name cannot shift the column that `awk` reads.
+# ---------------------------------------------------------------------------------------
+MIN_FREE_GB="${E2E_MIN_FREE_GB:-10}"
+AVAIL_KB="$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print $4}' || true)"
+case "$AVAIL_KB" in
+  '' | *[!0-9]*)
+    echo "⚠️  Could not read free disk space — skipping the headroom check." >&2
+    ;;
+  *)
+    AVAIL_GB=$((AVAIL_KB / 1048576))
+    if [ "$MIN_FREE_GB" -gt 0 ] && [ "$AVAIL_GB" -lt "$MIN_FREE_GB" ]; then
+      echo "❌ Not enough DISK SPACE to build." >&2
+      echo "   Free: ${AVAIL_GB} GB · required: ${MIN_FREE_GB} GB" >&2
+      echo "   A cold build writes ~5-8 GB of DerivedData. Out of space, xcodebuild fails" >&2
+      echo "   as a 'lipo: No space left on device' linker error, which names the wrong" >&2
+      echo "   subsystem — hence this check." >&2
+      echo "" >&2
+      echo "   Reclaim caches whose worktree no longer exists:" >&2
+      echo "     npm run e2e:safety:clean:orphans            # list" >&2
+      echo "     npm run e2e:safety:clean:orphans -- --yes   # reap" >&2
+      echo "" >&2
+      echo "   Override with E2E_MIN_FREE_GB=0 if you know the build fits." >&2
+      exit 1
+    fi
+    if [ "$MIN_FREE_GB" -gt 0 ] && [ "$AVAIL_GB" -lt $((MIN_FREE_GB * 2)) ]; then
+      echo "⚠️  DISK SPACE is tight: ${AVAIL_GB} GB free. A cold build wants ~5-8 GB." >&2
+      echo "    npm run e2e:safety:clean:orphans   # see what is reclaimable" >&2
+    fi
+    ;;
+esac
+
+# ---------------------------------------------------------------------------------------
 # 2. Resolve the target simulator — ONCE, here, before anything is mutated.
 #
 #    INFRA-405. This used to be a bare "is anything booted?" probe, with the actual UDID
