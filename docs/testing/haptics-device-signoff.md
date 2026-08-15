@@ -1,7 +1,13 @@
 # Practice-haptics device sign-off (INFRA-395)
 
-The attended, on-device checklist that gates `practice_haptics:true` in
-`.config/.env.production`. Nothing in CI can stand in for it, and nothing in CI ever
+> **STATUS (2026-08-15): the flag is ON.** `practice_haptics:true` in
+> `.config/.env.production` **and** in the EAS-stored `production` environment — both
+> are required, neither implies the other. Founder decision: ship it to TestFlight and
+> judge it there, with the founder as the only tester, rather than gate the flip on a
+> measurement session. This document is therefore no longer a gate; it is the procedure
+> to follow **if it feels wrong** and you need to know why.
+
+The attended, on-device checklist for `practice_haptics`. Nothing in CI can stand in for it, and nothing in CI ever
 will: CI is 100% `ubuntu-latest`, and even a macOS runner would not help, because
 **the iOS simulator emits no haptics at all**. `expo-haptics` no-ops silently rather
 than erroring, so on a simulator "correctly wired" and "completely broken" produce
@@ -41,50 +47,62 @@ returns. Consequences:
 |---|---|
 | A real iPhone **with a Taptic Engine** | The measurement cases are unobservable anywhere else. |
 | An iPad or other actuator-less iOS device | Case (ii) below. An **iPad Air M1 (`iPad13,16`) is registered on this machine** and is exactly the right hardware. |
-| A **Release** build, from this repo, with two flags on | See §3. |
-| Console.app, with the device attached | A Release build has **no Metro console**. This is how the trace is read. |
+| A **dev** build and a **Release** build | Two different questions; see §3. |
+| Console.app, with the device attached | How the trace is read on the dev build. |
 | VoiceOver, toggled via Accessibility Shortcut (triple-click) | §6 is executed with it running. |
 
-### The sign-off build is a throwaway. Never merge it.
+### Two builds, because no single build can answer both questions
 
-Two flags must be on, and **both are false in every committed env**:
+This is the constraint everything below is shaped by, and it is not a preference.
 
-- `practice_haptics:true` — otherwise `usePracticeHaptics`'s effect early-returns at
-  line 212 and there is nothing to measure.
-- `haptic_trace:true` — the INFRA-395 diagnostic. Without it the numbers do not exist
-  in a Release build: the pre-existing `__DEV__` traces fold away, which is the whole
-  reason the flag was added.
+**A production bundle deletes the trace.** `babel.config.js` runs
+`transform-remove-console`, and `metro.config.js` sets `drop_console: true` — which
+strips `console.error` and `console.warn` too, despite babel excluding them. So *no*
+console diagnostic survives a Release bundle, under any flag. INFRA-395 added a
+`haptic_trace` flag to try, discovered this, and **deleted the flag** rather than leave
+something that promised numbers it could not deliver.
 
-`haptic_trace` gates **observability only**. It can neither enable nor suppress a
-single haptic, and that contract is pinned behaviourally in
-`app/__tests__/unit/practices/haptics/hapticTraceFlag.test.ts`.
+**A dev bundle misreports frames.** Unbundled JS and unoptimised React commits make
+frame timing unrepresentative, so a Release build is the only honest source there.
+
+Hence:
+
+| Question | Build | Why |
+|---|---|---|
+| Cue latency, drops | **Dev** device build | The `__DEV__` traces work. Dev JS is *slower* than Release, so clearing the budget here clears it there — conservative, not unrepresentative. |
+| Frame timing, and "does it feel right" | **Release** device build or TestFlight | Representative. No trace; judged by feel and by Instruments. |
 
 ---
 
 ## 3. Build recipe
 
-Edit `~/dev/being/.config/.env.production` **locally and temporarily** — it is
-gitignored and symlinked into every worktree, so revert it the moment the session
-ends:
+### Dev build — for the latency figures
 
-```
-EXPO_PUBLIC_FEATURE_FLAGS=...,practice_haptics:true,...,haptic_trace:true
+`practice_haptics` is already `true` in `.config/.env.development`, so nothing needs
+editing. From the worktree's `app/`:
+
+```bash
+npx expo run:ios --device
 ```
 
-Then, from the worktree's `app/`:
+### Release build — for frames and feel
+
+`practice_haptics` is now `true` in `.config/.env.production` as well, so again no edit:
 
 ```bash
 npx expo run:ios --device --configuration Release
 ```
 
-**Never pipe this command** (`| tee`, `| tail`). A pipeline reports the *last*
+**Never pipe either command** (`| tee`, `| tail`). A pipeline reports the *last*
 command's status, so a failed build reads as exit 0. Use `set -o pipefail` if you must
 capture it.
 
-Revert `.config/.env.production` afterwards and confirm with
-`grep EXPO_PUBLIC_FEATURE_FLAGS ~/dev/being/.config/.env.production`.
+> TestFlight works for the Release half too, and is the better choice when other things
+> need testing in the same build. It reads its flags from the **EAS-stored production
+> environment**, never from the gitignored `.config/.env.production` — the two are kept
+> in step by hand. Check with `npx eas env:list production`.
 
-### Reading the trace
+### Reading the trace (dev build only)
 
 Console.app → select the device → filter on `[haptics]`. Two line shapes, and you need
 both, because **neither is the cue latency on its own**:
@@ -316,7 +334,7 @@ sign-off with no numbers is not a sign-off.**
 Date:              
 Handset:                          ProMotion? [ ]
 iOS version:       
-Build:             Release, practice_haptics:true, haptic_trace:true
+Builds:            dev (latency) + Release (frames/feel), practice_haptics:true
 Commit:            
 
 CUE LATENCY (scheduler jitter + JS→native; actuator segment cited, not measured)

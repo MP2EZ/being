@@ -24,7 +24,6 @@
 
 import * as Haptics from 'expo-haptics';
 
-import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { logAccessibility } from '@/core/services/logging';
 
 import { primitiveFor, type HapticPlatform, type HapticPrimitive, type PracticeCue } from './cueCatalog';
@@ -44,15 +43,22 @@ import { MIN_CUE_INTERVAL_MS } from './constants';
  * just the attempt, so a suppressed cue is distinguishable from a delivered one
  * and from one that was never scheduled at all.
  *
- * Reachable in two ways, and it needs both. `__DEV__` keeps the everyday dev
- * diagnostic exactly as it was. `haptic_trace` (INFRA-395) additionally reaches
- * a RELEASE build, because the on-device sign-off that gates `practice_haptics`
- * must measure the build users actually get — and in that build `__DEV__` folds
- * to false, taking every line below with it. The flag is false in every
- * committed env, so production still emits nothing.
+ * DEV-ONLY, and it cannot be otherwise (INFRA-395 established this the hard
+ * way). A production bundle strips `console.*` TWICE — `babel.config.js` runs
+ * `transform-remove-console`, and `metro.config.js` sets `drop_console: true`,
+ * which takes `error` and `warn` with it despite babel excluding them. So no
+ * console-based diagnostic can survive a Release build by any gating, and a
+ * feature flag promising otherwise was deleted rather than left to mislead.
+ *
+ * Consequence for the on-device sign-off: cue-latency figures come from a DEV
+ * device build, where these lines work. That is conservative rather than
+ * unrepresentative — dev JS is slower than Release, so a latency that clears
+ * the budget here clears it there. Frame timing is the opposite (dev is not
+ * representative) and is measured separately via Instruments against a real
+ * Release build. See docs/testing/haptics-device-signoff.md.
  */
 function trace(cue: PracticeCue, outcome: string, primitive?: HapticPrimitive): void {
-  if (!__DEV__ && !isFeatureEnabled('haptic_trace')) return;
+  if (!__DEV__) return;
   logAccessibility(
     `[haptics] ${cue} → ${outcome}${primitive ? ` (${primitive})` : ''}`,
     { action: outcome === 'delivered' ? 'triggered' : 'disabled' }

@@ -279,21 +279,22 @@ export function usePracticeHaptics({
     const scheduler = createCueScheduler({
       schedule,
       now: () => performance.now(),
-      // INFRA-395: the cue-latency figures the production flag flip is gated on.
+      // INFRA-395: the cue-latency figures the sign-off records.
       //
-      // Same predicate as `hapticEngine`'s trace, deliberately: this reports
-      // scheduler-side timer jitter and the engine reports the JS→native round
-      // trip, and a latency figure assembled from only one of them is not the
-      // cue latency. They must switch on together. See
-      // docs/testing/haptics-device-signoff.md.
-      onLateness:
-        __DEV__ || isFeatureEnabled('haptic_trace')
-          ? ({ cue, latenessMs, delivered }) =>
-              logAccessibility(
-                `[haptics] ${cue} ${delivered ? 'delivered' : 'DROPPED'} late=${Math.round(latenessMs)}ms`,
-                { action: delivered ? 'triggered' : 'disabled' }
-              )
-          : undefined,
+      // Same `__DEV__` gate as `hapticEngine`'s trace, deliberately — and for
+      // the same unavoidable reason (a production bundle strips console.* twice
+      // over; see that file's trace block). The two must switch together
+      // regardless: this reports scheduler-side timer JITTER, the engine reports
+      // the JS→native ROUND TRIP, and they are disjoint because `onCue` below
+      // dispatches `void engine.fire(cue)` without awaiting. A figure taken from
+      // only one of them is not the cue latency.
+      onLateness: __DEV__
+        ? ({ cue, latenessMs, delivered }) =>
+            logAccessibility(
+              `[haptics] ${cue} ${delivered ? 'delivered' : 'DROPPED'} late=${Math.round(latenessMs)}ms`,
+              { action: delivered ? 'triggered' : 'disabled' }
+            )
+        : undefined,
       onCue: (cue) => {
         // ORDER IS LOAD-BEARING (DEBUG-425). The speech channel is scheduled
         // FIRST, so it is neither textually nor causally downstream of the
