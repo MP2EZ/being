@@ -612,9 +612,7 @@ Phase 2.5 gate; do not re-author Maestro flows here.
   not apply), the red proof is a **mutation run**: break the mechanism the test
   claims to cover, confirm red, revert. One mutation per *mechanism*, not per
   file — a control that conflates two mechanisms stays green while either
-  survives, and looks exactly like a working pin. INFRA-427 is the worked
-  example: its `no-hide-descendants` control passed with that prop deleted,
-  because an `aria-modal` sibling was hiding the same node.
+  survives, and looks exactly like a working pin.
   Co-locate per repo convention; clinical/safety specs must land in the suites
   wired into `test:clinical` / `test:crisis-detection`. Then drive the
   red → green → refactor loop via the **`/tdd` skill** through Step 3.5.
