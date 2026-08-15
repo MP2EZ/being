@@ -607,6 +607,14 @@ Phase 2.5 gate; do not re-author Maestro flows here.
   confirm each fails for the reason you intended — a spec that is green before the
   implementation exists is passing on unrelated behaviour, so re-fixture it until
   only the change under test can satisfy it.
+  **When the code under test already exists** (a regression pin on landed code —
+  there is no implementation to withhold, so the instruction above silently does
+  not apply), the red proof is a **mutation run**: break the mechanism the test
+  claims to cover, confirm red, revert. One mutation per *mechanism*, not per
+  file — a control that conflates two mechanisms stays green while either
+  survives, and looks exactly like a working pin. INFRA-427 is the worked
+  example: its `no-hide-descendants` control passed with that prop deleted,
+  because an `aria-modal` sibling was hiding the same node.
   Co-locate per repo convention; clinical/safety specs must land in the suites
   wired into `test:clinical` / `test:crisis-detection`. Then drive the
   red → green → refactor loop via the **`/tdd` skill** through Step 3.5.
