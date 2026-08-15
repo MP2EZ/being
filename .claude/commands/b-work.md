@@ -795,6 +795,8 @@ Fires **only** on one of two triggers:
    as illustration** — git already holds the story, and a rule that needs a case study
    to be understood is not yet a rule. These files load every run and grow one
    "small" addition at a time, so if appending, name what could be pruned to pay for it.
+   An example that *defines a trigger* rather than illustrating a rule is load-bearing —
+   don't count it as prunable.
 3. **Present as a diff** with one line of justification: the lesson, and which future
    runs it helps.
 4. **Never auto-apply, and apply EXACTLY the approved text.** On approval, make that
