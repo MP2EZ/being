@@ -1,35 +1,32 @@
 /**
- * CombinedLegalGateScreen — the Art. 9 tick is MANDATORY (DEBUG-382 tripwire)
+ * CombinedLegalGateScreen — the wellness-data tick is MANDATORY
  *
  * WHY THIS SUITE EXISTS, AND WHY IT MUST NOT BE "FIXED" BY RELAXING IT
  *
- * This is not a feature test. It is a tripwire protecting an inference made
- * somewhere else in the codebase.
+ * NOTE (DEBUG-419): this suite no longer underwrites a reconstruction elsewhere.
+ * It was written as a tripwire for DEBUG-382's inference — that reaching the
+ * privacy step proved the tick had been given, so an unreadable record could be
+ * reconstructed as `true`. DEBUG-419 removed that inference: an unreadable record
+ * is now re-asked rather than reconstructed in either direction, because a value
+ * derived at read time evidences the shape of the code, not the user's act. So
+ * nothing downstream depends on this invariant for its correctness any more.
  *
- * `OnboardingScreen.handlePrivacyContinue` reads the four legal-gate consents
- * back out of SecureStore to fold the GDPR Art. 9(2)(a) flag into the granted
- * ConsentRecord. That read can fail — `getLegalGateConsents` returns null for
- * both "no record" and "the read or JSON.parse threw" (consentStore.ts:78-85).
- * DEBUG-382 fixed the resulting `?? false` coercion, which had been silently
- * recording users who GRANTED the Art. 9 consent as having REFUSED it.
+ * The invariant is still worth pinning on its own terms. It is the screen's
+ * consent-capture contract: the wellness-data processing tick is required to
+ * advance, and the screen refuses to record anything when it is withheld. That is
+ * a user-facing guarantee about how consent is collected, not scaffolding for an
+ * inference — and it is exactly what makes the DEBUG-419 re-ask meaningful, since
+ * returning a user to this gate only obtains a genuine answer if the gate still
+ * demands one.
  *
- * The fix reconstructs the value rather than defaulting it, and it is only
- * sound because of the invariant asserted below: a user cannot pass this screen
- * without ticking the Art. 9 box, so reaching the privacy step is itself
- * evidence the consent was given. Recording `true` is therefore reconstruction
- * from an enforced precondition, not fabrication.
- *
- * THE MOMENT THAT PRECONDITION GOES AWAY, THE INFERENCE BECOMES A LIE.
- *
- * FEAT-318 Slice 2 plans exactly that: unbundling the Art. 9 tick so refusal
- * becomes a real, freely-given user choice (GDPR Art. 7(4) — a mandatory
- * special-category tick is arguably not valid consent, which is the point of
- * that work). When that lands, this suite fails — and it is SUPPOSED to. The
- * correct response is to revisit the reconstruction in
- * `OnboardingScreen.handlePrivacyContinue`, not to delete or loosen these
- * assertions. A silent reconstruction that outlives its justification would
- * record consent the user actively declined, which is materially worse than the
- * defect DEBUG-382 fixed.
+ * FEAT-318 Slice 2 plans to unbundle the tick so refusal becomes a real, freely
+ * given choice (a mandatory special-category tick is arguably not valid consent,
+ * which is the point of that work). When that lands, this suite fails — and it is
+ * SUPPOSED to. The correct response is to re-state the capture contract for the
+ * unbundled gate, not to delete or loosen these assertions. Under DEBUG-419 the
+ * consequence of that change is now contained: a refusal recorded here is read
+ * back and passed through untouched, with no reconstruction to outlive its
+ * justification.
  *
  * Filed under `.privacy.` deliberately: that puts it in the `Safety + privacy
  * gates` CI job (INFRA-368), so unbundling the tick fails a PR rather than

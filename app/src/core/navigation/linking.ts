@@ -100,9 +100,25 @@ let coldStartCrisisLinkPending = false;
  * `initialRouteName`, so a deep link would otherwise render its target route
  * even when CleanRootNavigator resolved 'LegalGate'. Deep links are delivered
  * only when the consent store shows currently-valid consent AND a passed 18+
- * age verification; every other state (`missing`, `under_age`, `invalid`,
- * `expired`) drops the URL. Fail-safe by construction: any state not
- * affirmatively valid — including future consentStatus additions — blocks.
+ * age verification; every other state (`missing`, `under_age`, `expired`,
+ * `version_mismatch`, `integrity_error`, `revoked`, `loading`) drops the URL.
+ * Fail-safe by construction: any state not affirmatively valid — including
+ * future consentStatus additions — blocks.
+ *
+ * FEAT-417: this list previously named `'invalid'`, a status that has not
+ * existed since FEAT-316 slice A split it into `version_mismatch` /
+ * `integrity_error` / `revoked` (`consentStore.ts:357-360`). The BEHAVIOUR was
+ * always correct — the gate tests for `valid` affirmatively and never
+ * enumerated anything at runtime — but a stale status list on a safety-path
+ * file is exactly the kind of thing that gets copied into the next story as
+ * fact.
+ *
+ * 🚫 `ReConsent` (FEAT-417) is deliberately absent from `config.screens` below
+ * and from `DeepLinkValidationService.ALLOWED_PATHS`: nothing external may
+ * summon a consent prompt. There is exactly ONE place to keep it out of —
+ * `PRE_CONSENT_CRISIS_CONFIG` spreads the SAME `screens` object reference, so
+ * adding a path there would also make it reachable from a cold-start
+ * `being://crisis` link.
  *
  * Safe to read synchronously: NavigationContainer only mounts after
  * `loadConsent()` settles (CleanRootNavigator gates on `initialRoute`), so the

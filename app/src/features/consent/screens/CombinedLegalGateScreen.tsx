@@ -32,6 +32,7 @@ import {
   Linking,
   Alert,
   AccessibilityInfo,
+  type AccessibilityActionEvent,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker';
@@ -55,6 +56,75 @@ interface CombinedLegalGateScreenProps {
   onUnderAge: () => void;
 }
 
+/**
+ * The two documents this gate asks the user to accept (DEBUG-430).
+ *
+ * Hoisted to constants because each URL now has TWO call sites — the inline
+ * `<Text onPress>` and the rotor action — and two hard-coded literals is exactly
+ * the drift a second call site invites. The rotor action must open the same
+ * document the visible link does.
+ */
+const TERMS_URL = 'https://being.fyi/terms';
+const PRIVACY_URL = 'https://being.fyi/privacy';
+
+/**
+ * Custom actions for the two checkboxes carrying an inline document link
+ * (DEBUG-430, porting FEAT-376's shipped ReConsentScreen shape).
+ *
+ * THE DEFECT. `Pressable` defaults `accessible` to true (`Pressable.js:252`
+ * reads `accessible: accessible !== false`), which collapses its subtree into
+ * ONE accessibility element on iOS. The inline `<Text onPress>` in the label
+ * therefore gets no node of its own: VoiceOver cannot focus it, and a
+ * double-tap anywhere in the row fires the checkbox instead of opening the
+ * document. Since `styles.linkRow` was never rendered and the other `linkText`
+ * uses are on the under-age branch, these inline links were the ONLY route to
+ * the Terms and the Privacy Policy on this screen — so a screen-reader user was
+ * asked to give sensitive-data consent to documents the app gave them no way to
+ * read. Custom actions surface in VoiceOver's Actions rotor and TalkBack's
+ * local context menu, which fixes it while preserving both the checkbox
+ * semantics and the inline-link visual design.
+ *
+ * ⚠️ WHY `onPress` MUST STAY WIRED TO THE SAME CALLBACK — and note this differs
+ * per platform, which the sibling screen's comment gets half wrong. Read from
+ * react-native 0.85.3:
+ *
+ *   iOS (Fabric, mandatory on SDK 56): `RCTViewComponentView.mm`'s
+ *   `accessibilityActivate` consults ONLY `onAccessibilityTap` and returns NO
+ *   when it is unset, so UIKit synthesizes a touch and `onPress` runs. A
+ *   declared `activate` is reachable here ONLY via
+ *   `didActivateAccessibilityCustomAction` — i.e. it is an extra rotor entry,
+ *   NOT an interception.
+ *
+ *   Android: `ReactAccessibilityDelegate.kt` maps `activate` to
+ *   `ACTION_CLICK.id`, and `performAccessibilityAction` dispatches to JS then
+ *   returns true WITHOUT calling super — so `performClick()`/`onPress` IS
+ *   suppressed and the JS handler is the only thing that toggles.
+ *
+ * Net: the two platforms take opposite paths, exactly one fires on each, so
+ * there is no double-toggle — but BOTH require `onPress` and the action handler
+ * to resolve to the same callback. `CollapsibleCrisisButton.tsx` is the other
+ * in-repo precedent.
+ *
+ * The toggle is the DEFAULT FALLTHROUGH rather than a `case 'activate'`, so a
+ * future third action still toggles instead of silently no-opping. On Android
+ * that fallthrough is the only thing standing between a TalkBack user and an
+ * untickable consent gate.
+ */
+const documentActions = (label: string) => [
+  { name: 'activate', label: 'Toggle acceptance' },
+  { name: 'openDocument', label },
+];
+
+const onDocumentAction =
+  (url: string, toggle: () => void) =>
+  (e: AccessibilityActionEvent): void => {
+    if (e.nativeEvent.actionName === 'openDocument') {
+      void Linking.openURL(url);
+      return;
+    }
+    toggle();
+  };
+
 const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
   onComplete,
   onUnderAge,
@@ -68,6 +138,25 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
   const [mentalHealthProcessingConsented, setMentalHealthProcessingConsented] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * DEBUG-430 — hoisted so `onPress` and `onAccessibilityAction` share ONE
+   * reference.
+   *
+   * This is the single place the port of FEAT-376 is NOT a copy. ReConsentScreen's
+   * onPress is a bare toggle, but this screen's also does `setError(null)`. Wiring
+   * the action handler to a bare flip would let screen-reader activation diverge
+   * from touch — the inline error banner would stay up after a rotor tick and clear
+   * after a tap. Functional updaters because these are memoised with no deps.
+   */
+  const toggleTos = useCallback(() => {
+    setTosAccepted((v) => !v);
+    setError(null);
+  }, []);
+  const togglePrivacy = useCallback(() => {
+    setPrivacyAccepted((v) => !v);
+    setError(null);
+  }, []);
   const [showUnderAge, setShowUnderAge] = useState(false);
 
   const allConsentsTicked =
@@ -301,13 +390,12 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
           {/* 1. Terms of Service */}
           <Pressable
             style={[styles.checkbox, tosAccepted && styles.checkboxChecked]}
-            onPress={() => {
-              setTosAccepted(!tosAccepted);
-              setError(null);
-            }}
+            onPress={toggleTos}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: tosAccepted }}
             accessibilityLabel="I agree to the Terms of Service"
+            accessibilityActions={documentActions('Open Terms of Service')}
+            onAccessibilityAction={onDocumentAction(TERMS_URL, toggleTos)}
           >
             {/* testID on the 24px indicator (INFRA-181): outer Pressable center
                 falls in the text region and overlaps the inline TOS link. */}
@@ -315,26 +403,25 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
               {tosAccepted && <Text style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
-              I agree to the <Text style={styles.checkboxLink} onPress={() => Linking.openURL('https://being.fyi/terms')}>Terms of Service</Text>.
+              I agree to the <Text style={styles.checkboxLink} onPress={() => Linking.openURL(TERMS_URL)}>Terms of Service</Text>.
             </Text>
           </Pressable>
 
           {/* 2. Privacy Policy */}
           <Pressable
             style={[styles.checkbox, privacyAccepted && styles.checkboxChecked, styles.checkboxStacked]}
-            onPress={() => {
-              setPrivacyAccepted(!privacyAccepted);
-              setError(null);
-            }}
+            onPress={togglePrivacy}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: privacyAccepted }}
             accessibilityLabel="I agree to the Privacy Policy"
+            accessibilityActions={documentActions('Open Privacy Policy')}
+            onAccessibilityAction={onDocumentAction(PRIVACY_URL, togglePrivacy)}
           >
             <View testID="legal-consent-privacy" style={styles.checkboxIndicator}>
               {privacyAccepted && <Text style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
-              I agree to the <Text style={styles.checkboxLink} onPress={() => Linking.openURL('https://being.fyi/privacy')}>Privacy Policy</Text>.
+              I agree to the <Text style={styles.checkboxLink} onPress={() => Linking.openURL(PRIVACY_URL)}>Privacy Policy</Text>.
             </Text>
           </Pressable>
 
@@ -567,12 +654,19 @@ const styles = StyleSheet.create({
     color: semantic.text.secondary,
     lineHeight: 22,
   },
-  linkRow: {
-    flexDirection: 'row',
-    justifyContent: 'center',
-    marginTop: spacing[16],
-    gap: spacing[24],
-  },
+  /*
+   * `linkRow` was removed in DEBUG-430. It was declared here and rendered
+   * nowhere — evidence of an original intent to put the two documents in a
+   * separate centred row below the checkbox group.
+   *
+   * That shape was the REJECTED alternative to the rotor actions above, and the
+   * reason is recorded here so the deletion does not erase it: it would have
+   * made the links plainly focusable, but it changes the visual design (which
+   * the work item's AC explicitly holds fixed), it adds two focusable elements
+   * ahead of the crisis footer on the one screen where RootCrisisButton is
+   * suppressed, and a single centred row severs each link from the checkbox it
+   * belongs to. `linkText` is NOT removed — it is live on the under-age branch.
+   */
   linkText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,

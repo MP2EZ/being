@@ -77,6 +77,21 @@ const ALLOWED: ReadonlyArray<{ file: string; property: string; reason: string }>
       'Button FILL, not text. Same 4.608:1 white-on-fill as above. Lawful under both bars.',
   },
   {
+    file: 'features/consent/screens/ReConsentScreen.tsx',
+    property: 'borderColor',
+    reason:
+      'Checkbox indicator BORDER, not text — governed by WCAG 1.4.11 at 3:1, which gray[600] ' +
+      'clears on every surface in the matrix (4.414:1 on the gray[100] card ground it sits on). ' +
+      'No semantic token expresses it: `semantic.border.strong` is gray[400] at 1.463:1 and ' +
+      '`border.default` is gray[200], both below the non-text bar, and the text tokens are the ' +
+      'wrong intent for a border. The 2px border is the ONLY visual signal an unchecked box ' +
+      'exists, and all eight controls on that screen mount unchecked, so this is its default ' +
+      'state rather than an edge case — which is why it deliberately diverges from ' +
+      'CombinedLegalGateScreen.tsx:552, whose gray[400] indicator fails 1.4.11 by half. Pinned ' +
+      'by ReConsentScreen.accessibility.test.tsx. Retire this entry if a >=3:1 semantic border ' +
+      'token is ever minted.',
+  },
+  {
     file: 'core/navigation/CleanTabNavigator.tsx',
     property: 'color',
     reason:

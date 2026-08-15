@@ -219,6 +219,39 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
     visible:
       id: "begin-fresh-button"
     timeout: 15000
+
+# ── DEBUG-403: the resume prompt must NOT occlude the root crisis button ─────────
+#    ResumeSessionModal used to be an RN <Modal>, which renders in a separate native
+#    window ABOVE the JS tree — so while it was up, crisis-button-root was not merely
+#    faded, it was not on screen at all. DailyLoop is an IMMERSIVE_ROUTE and this prompt
+#    AUTO-triggers on stale-session detection, so a user could reach zero 988 affordance
+#    without having tapped anything. It is now a full-bleed absolute overlay instead.
+#
+#    assertVisible on the overlay FIRST is load-bearing: it proves the resume state was
+#    actually reached, so the crisis assertions below cannot pass vacuously on a screen
+#    where no prompt ever appeared.
+#
+#    The tap-and-land assertion is the one that matters. assertVisible alone is not proof
+#    of reachability under a NATIVE-LAYER occlusion bug class — the hierarchy dump can
+#    list a view that a separate native window is covering. Only actually tapping it and
+#    landing on crisis-resources-screen would have caught the original defect.
+- assertVisible:
+    id: "resume-session-overlay"
+- assertVisible:
+    id: "crisis-button-root"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+# Back on the prompt, which must have survived the round trip intact.
+- assertVisible:
+    id: "resume-session-overlay"
+- assertVisible:
+    id: "begin-fresh-button"
+# ── end DEBUG-403 ───────────────────────────────────────────────────────────────
+
 - tapOn:
     id: "begin-fresh-button"
 - assertVisible:

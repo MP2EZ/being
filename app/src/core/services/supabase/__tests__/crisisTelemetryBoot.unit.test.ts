@@ -67,7 +67,9 @@ jest.mock('@/core/services/security/pinned-fetch', () => ({
 }));
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import supabaseService from '@/core/services/supabase/SupabaseService';
+import supabaseService, {
+  PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS,
+} from '@/core/services/supabase/SupabaseService';
 import { useConsentStore } from '@/core/stores/consentStore';
 
 const payload = {
@@ -160,6 +162,16 @@ describe('DEBUG-409 — crisis telemetry on the default boot path (no consent, n
   });
 
   it('AC6 — a backlog persisted by a previous install is recovered at boot', async () => {
+    // DEBUG-413 narrowed what "a backlog" means here, and the narrowing IS this item's
+    // resolution of AC6. AC6 asked what should happen to queues already accumulated on
+    // shipped devices; the answer was: a POST-fix backlog is recovered and flushed (what
+    // this test asserts), while a PRE-fix one is suppressed at load rather than delivered
+    // with a NOW() timestamp — see crisisBacklogSuppression.unit.test.ts.
+    //
+    // The fixture was `enqueued_at: 1_753_000_000_000` (2025-07-20), which is now before
+    // PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS and is exactly the class DEBUG-413 drops, so it
+    // would have failed here for the right reason in the wrong test. Dated post-cutoff
+    // and derived from the constant so it cannot drift back.
     (AsyncStorage.getItem as jest.Mock).mockImplementation(async (k: string) =>
       k === '@being/supabase/crisis_analytics_queue'
         ? JSON.stringify([
@@ -167,7 +179,7 @@ describe('DEBUG-409 — crisis telemetry on the default boot path (no consent, n
               event_type: 'crisis_detected',
               properties: payload,
               session_id: 'session_2026-07-25_oldsession',
-              enqueued_at: 1_753_000_000_000,
+              enqueued_at: PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS + 1,
             },
           ])
         : null

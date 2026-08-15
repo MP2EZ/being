@@ -31,8 +31,8 @@
 import React from 'react';
 import fs from 'fs';
 import path from 'path';
-import { render, within } from '@testing-library/react-native';
-import { ScrollView, StyleSheet } from 'react-native';
+import { fireEvent, render, within } from '@testing-library/react-native';
+import { Linking, ScrollView, StyleSheet } from 'react-native';
 import { colorSystem, getContrastRatio, TOUCH_TARGETS } from '@/core/theme';
 
 jest.mock('@react-native-picker/picker', () => {
@@ -212,5 +212,140 @@ describe('DEBUG-390 — crisis footer contrast (regression guard)', () => {
     // 700+), so the 4.5:1 normal-text bar applies, not 3:1.
     expect(ratio).toBeGreaterThanOrEqual(4.5); // 1.4.3 text
     expect(ratio).toBeGreaterThanOrEqual(3); // 1.4.11 non-text border
+  });
+});
+
+/**
+ * DEBUG-430 — the Terms and Privacy links are reachable by screen reader.
+ *
+ * THE DEFECT. Both consent rows are a `Pressable` with
+ * `accessibilityRole="checkbox"` and no `accessible` prop, and
+ * `Pressable.js:252` reads `accessible: accessible !== false` — so they default
+ * to `accessible={true}`, which collapses the whole subtree into ONE
+ * accessibility element on iOS. The inline `<Text onPress>` document links get
+ * no node of their own: VoiceOver cannot focus them, and a double-tap anywhere
+ * in the row fires the PARENT's onPress, toggling the checkbox instead of
+ * opening the document.
+ *
+ * There is no second route on this screen — `styles.linkRow` was declared and
+ * rendered nowhere, and the other `linkText` uses are on the under-age branch a
+ * passing user never sees. So a screen-reader user was asked to give
+ * sensitive-data consent to documents the app gave them no way to read.
+ *
+ * THE FIX ports FEAT-376's shipped `ReConsentScreen` shape: `accessibilityActions`
+ * surfacing in VoiceOver's Actions rotor and TalkBack's local context menu, which
+ * preserves both the checkbox semantics and the inline-link visual design.
+ *
+ * WHAT THESE ASSERTIONS ARE FOR. Jest renders the tree; it does NOT model iOS
+ * accessibility-element collapsing, which is precisely why no existing test
+ * caught this. So these pin the DECLARED CONTRACT — the props and the handler
+ * behaviour — and cannot prove a rotor traversal. Real VoiceOver/TalkBack
+ * confirmation is device work and is not claimed here.
+ */
+describe('DEBUG-430 — the document links are reachable by screen reader', () => {
+  /** Query by label, never by getAllByRole index: this screen has FOUR checkboxes. */
+  const box = (screen: ReturnType<typeof renderScreen>, label: string) =>
+    screen.getByLabelText(label);
+
+  const TOS = 'I agree to the Terms of Service';
+  const PRIVACY = 'I agree to the Privacy Policy';
+
+  beforeEach(() => {
+    // Linking.openURL is a shared global jest.fn; without this the openURL
+    // assertions bleed across cases in this file, which has no clearAllMocks.
+    jest.clearAllMocks();
+  });
+
+  it('exposes an open-document action on both linked checkboxes', () => {
+    const screen = renderScreen();
+
+    for (const [label, actionLabel] of [
+      [TOS, 'Open Terms of Service'],
+      [PRIVACY, 'Open Privacy Policy'],
+    ]) {
+      const actions = box(screen, label).props.accessibilityActions as
+        | { name: string; label?: string }[]
+        | undefined;
+      expect(actions).toBeDefined();
+      expect(actions?.map((a) => a.name)).toEqual(
+        expect.arrayContaining(['activate', 'openDocument'])
+      );
+      expect(actions?.map((a) => a.label)).toEqual(expect.arrayContaining([actionLabel]));
+    }
+  });
+
+  it('opens the document when the custom action fires — without toggling consent', () => {
+    // Two properties in one case, deliberately: opening a document must not
+    // silently tick a consent box. That would be a worse defect than the one
+    // being fixed, on the screen where it matters most.
+    const screen = renderScreen();
+    const tos = box(screen, TOS);
+    expect(tos.props.accessibilityState.checked).toBe(false);
+
+    fireEvent(tos, 'accessibilityAction', { nativeEvent: { actionName: 'openDocument' } });
+
+    expect(Linking.openURL).toHaveBeenCalledWith('https://being.fyi/terms');
+    expect(box(screen, TOS).props.accessibilityState.checked).toBe(false);
+
+    fireEvent(box(screen, PRIVACY), 'accessibilityAction', {
+      nativeEvent: { actionName: 'openDocument' },
+    });
+    expect(Linking.openURL).toHaveBeenCalledWith('https://being.fyi/privacy');
+  });
+
+  it('still toggles the checkbox on the activate action', () => {
+    // THE TRAP GUARD. On Android, declaring `activate` maps to ACTION_CLICK and
+    // ReactAccessibilityDelegate returns true WITHOUT calling super, so the
+    // View's own click handling is bypassed and TalkBack activation depends
+    // entirely on the JS handler's fallthrough. If that fallthrough is ever
+    // rewritten as a `switch` without a default, the consent checkboxes become
+    // untickable by TalkBack while every touch test still passes — a consent
+    // lockout on the gate that blocks the whole app.
+    const screen = renderScreen();
+
+    fireEvent(box(screen, TOS), 'accessibilityAction', {
+      nativeEvent: { actionName: 'activate' },
+    });
+    expect(box(screen, TOS).props.accessibilityState.checked).toBe(true);
+
+    fireEvent(box(screen, PRIVACY), 'accessibilityAction', {
+      nativeEvent: { actionName: 'activate' },
+    });
+    expect(box(screen, PRIVACY).props.accessibilityState.checked).toBe(true);
+  });
+
+  it('routes touch and screen-reader activation through ONE callback', () => {
+    // WHY THIS IS STRUCTURAL AND NOT BEHAVIOURAL. This screen's onPress does TWO
+    // things — the toggle AND setError(null) — where ReConsentScreen's is a bare
+    // toggle, so a verbatim port of FEAT-376 would wire only the boolean flip and
+    // let screen-reader activation diverge from touch. But the divergence cannot
+    // be observed from the outside today: the error banner is only raised by
+    // handleContinue, and the Continue button is `disabled` until a year is
+    // selected AND all four consents are ticked, so those two setError guards are
+    // currently unreachable defensive code. The parity still has to be pinned,
+    // because it becomes observable the moment that disabled condition changes.
+    //
+    // So: assert both props reference the SAME hoisted callback identity.
+    for (const cb of ['toggleTos', 'togglePrivacy']) {
+      expect(code).toMatch(new RegExp(`onPress=\\{${cb}\\}`));
+      expect(code).toMatch(new RegExp(`onAccessibilityAction=\\{onDocumentAction\\([A-Z_]+,\\s*${cb}\\)\\}`));
+    }
+    // Guard the guard (DEBUG-390): comment-stripping plus a narrow regex is the
+    // combination that can silently match nothing, so prove the matcher fires
+    // against a known-good literal and that the stripped source is non-trivial.
+    expect(/onPress=\{toggleTos\}/.test('<Pressable onPress={toggleTos} />')).toBe(true);
+    expect(code.length).toBeGreaterThan(1000);
+  });
+
+  it('keeps the inline link and the rotor action pointed at the same URL', () => {
+    // The rotor action duplicates a destination that is also hard-coded in the
+    // inline <Text onPress>. Two literals is exactly the drift a second call
+    // site invites, so both must resolve through one constant.
+    expect(code).toMatch(/const TERMS_URL\s*=\s*'https:\/\/being\.fyi\/terms'/);
+    expect(code).toMatch(/const PRIVACY_URL\s*=\s*'https:\/\/being\.fyi\/privacy'/);
+    // Guard the guard (DEBUG-390): prove the comment-stripped source is not
+    // trivially empty and the matcher can still fire.
+    expect(code.length).toBeGreaterThan(1000);
+    expect(/const TERMS_URL\s*=\s*'https:\/\/being\.fyi\/terms'/.test('const TERMS_URL = \'https://being.fyi/terms\';')).toBe(true);
   });
 });
