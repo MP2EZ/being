@@ -274,6 +274,116 @@ function verify(containerPath) {
   return verdict === VERDICT.MISMATCH ? 1 : 0;
 }
 
+/**
+ * INFRA-436 — say WHAT moved, not merely THAT something did.
+ *
+ * `verify` prints one word, and e2e-safety.sh turns MISMATCH into "rebuild". Correct, and
+ * useless: a cold rebuild measured 21m31s, so a blind one is an expensive coin flip. Under
+ * the gate-worktree workflow the same one-word verdict covers two unrelated causes — the
+ * two worktrees are at different commits, or the running one carries stray files — and the
+ * fix differs completely.
+ *
+ * The marker stores a hash, which cannot be inverted, but it does not need to be:
+ *   * heads differ -> `git diff --name-only` between them names the difference exactly;
+ *   * heads match and the marker recorded dirty:false -> the build tree's porcelain was
+ *     empty, so everything dirty or untracked HERE is, precisely, the difference.
+ * A same-head both-clean mismatch cannot occur (an empty porcelain implies no `??` entries
+ * either), so for a clean-built marker those two cases are exhaustive.
+ *
+ * DIAGNOSTIC ONLY — always exits 0. If this could fail a run it would become a second
+ * verdict channel, and e2e-verdict.js exists precisely because two channels that can
+ * disagree is a bug class in this subsystem.
+ */
+const EXPLAIN_CAP = 20;
+
+function explainList(label, files) {
+  if (!files.length) return;
+  console.log(`  ${label}:`);
+  for (const f of files.slice(0, EXPLAIN_CAP)) console.log(`    ${f}`);
+  if (files.length > EXPLAIN_CAP) {
+    console.log(`    … and ${files.length - EXPLAIN_CAP} more`);
+  }
+}
+
+function explain(containerPath) {
+  let marker;
+  try {
+    marker = JSON.parse(fs.readFileSync(markerPath(containerPath), 'utf8'));
+  } catch (e) {
+    // Distinguish "never built here" from "built, but the record is corrupt" — they lead
+    // to different next actions.
+    const missing = e && e.code === 'ENOENT';
+    console.log(
+      missing
+        ? `No provenance marker in ${containerPath} — nothing was installed by e2e-sim-build.sh, or it was reinstalled since.`
+        : `Provenance marker is unreadable/unparseable in ${containerPath}: ${e.message}`
+    );
+    return 0;
+  }
+
+  const fp = fingerprint(process.cwd());
+  if (!fp) {
+    console.log('Could not fingerprint the current tree, so the difference cannot be attributed.');
+    return 0;
+  }
+
+  if (fp.treeHash === marker.treeHash) {
+    console.log('Provenance MATCHES: the installed binary was built from this exact tree.');
+    return 0;
+  }
+
+  console.log('Provenance MISMATCH — the installed binary was not built from this tree.');
+  console.log(`  built in:  ${marker.repoRoot || '<unknown>'}`);
+  console.log(`  running in: ${fp.repoRoot}`);
+
+  if (marker.head !== fp.head) {
+    console.log('');
+    console.log('COMMIT DIVERGENCE — the build and this tree are at different commits.');
+    console.log(`  marker head:  ${marker.head}`);
+    console.log(`  current head: ${fp.head}`);
+    // The marker's commit may not exist locally (a different clone, a pruned branch).
+    // Naming the SHAs is still useful; inventing a file list is not.
+    const known = spawnSync('git', ['cat-file', '-e', `${marker.head}^{commit}`], {
+      cwd: fp.repoRoot,
+    });
+    if (known.status === 0) {
+      const out = gitText(['diff', '--name-only', marker.head, fp.head], fp.repoRoot);
+      explainList('files differing between those commits', out ? out.split('\n').filter(Boolean) : []);
+    } else {
+      console.log('  (that commit is not present locally, so the file list cannot be computed)');
+    }
+    console.log('  Fix: rebuild the gate against THIS commit — the back-merge belongs in the');
+    console.log('  item worktree first, then point the gate worktree at the resulting commit.');
+  }
+
+  if (marker.dirty === true) {
+    console.log('');
+    console.log('The build was made from a DIRTY tree, so its working-tree state was not');
+    console.log('recorded and the remaining difference cannot be attributed to files.');
+    console.log('Rebuild from a clean tree: a dirty build is refused as merge evidence anyway.');
+    return 0;
+  }
+
+  // Heads match (or already reported). The marker's tree was clean, so anything uncommitted
+  // here is the whole remaining difference. Use ls-files/diff rather than `status
+  // --porcelain`, which collapses an untracked directory to one `?? dir/` entry and would
+  // send the operator rummaging.
+  const modified = gitText(['diff', '--name-only', 'HEAD'], fp.repoRoot);
+  const untracked = gitText(['ls-files', '-o', '--exclude-standard'], fp.repoRoot);
+  const mod = modified ? modified.split('\n').filter(Boolean) : [];
+  const unt = untracked ? untracked.split('\n').filter(Boolean) : [];
+
+  if (mod.length || unt.length) {
+    console.log('');
+    console.log('WORKING-TREE DIVERGENCE — the build tree was clean, so these files ARE the');
+    console.log('difference. Commit, stash, or remove them, then re-run the gate.');
+    explainList('modified', mod);
+    explainList('untracked', unt);
+  }
+
+  return 0;
+}
+
 function main(argv) {
   const [cmd, containerPath, ...rest] = argv;
   switch (cmd) {
@@ -296,6 +406,12 @@ function main(argv) {
         return 1;
       }
       return verify(containerPath);
+    case 'explain':
+      if (!containerPath) {
+        console.log('usage: e2e-provenance.js explain <containerPath>');
+        return 0;
+      }
+      return explain(containerPath);
     default:
       console.error('usage: e2e-provenance.js <write|verify> <containerPath>');
       return 2;

@@ -24,7 +24,13 @@
  *
  * ACCESSIBILITY:
  * - WCAG AA compliant
- * - Screen reader announcements via ProgressiveBodyScanList
+ * - Region-boundary announcements come from the `announce` callback passed to
+ *   `usePracticeHaptics` below — NOT from ProgressiveBodyScanList, which only
+ *   rewrites its item labels and declares no live region (corrected in
+ *   DEBUG-425; the previous claim here contradicted the note at the callback
+ *   itself and would have told the next reader the boundary was already
+ *   covered). Since DEBUG-425 that announcement no longer rides the tactile
+ *   preference, so declining vibration does not silence it.
  */
 
 import React, { useCallback, useMemo } from 'react';

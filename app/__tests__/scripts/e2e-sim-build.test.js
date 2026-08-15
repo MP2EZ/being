@@ -69,6 +69,20 @@ const REAL_SCRIPT = path.resolve(__dirname, '../../scripts/e2e-sim-build.sh');
 const REAL_SAFETY = path.resolve(__dirname, '../../scripts/e2e-safety.sh');
 const REAL_PROVENANCE = path.resolve(__dirname, '../../scripts/e2e-provenance.js');
 const REAL_SIM_DEVICE = path.resolve(__dirname, '../../scripts/e2e-sim-device.sh');
+const REAL_REAL_DEVICE = path.resolve(__dirname, '../../scripts/e2e-real-device.sh');
+
+// INFRA-424 — attached physical-device fixtures. Declared here rather than beside their
+// describe block because the device-only tests in the earlier `explicit flow name` block
+// consume them too. Fields omitted here default to an ELIGIBLE iPhone in the writeDevices
+// helper, so a test only spells out the property that makes a device ineligible.
+const ONE_DEVICE = [{ udid: 'DEV-1111', name: 'Max iPhone' }];
+const TWO_DEVICES = [
+  { udid: 'DEV-1111', name: 'Max iPhone' },
+  { udid: 'DEV-2222', name: 'Test iPhone' },
+];
+const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
+const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
+const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
 const PRODUCT_REL = 'ios/build/Build/Products/Release-iphonesimulator';
 const MARKER_NAME = '.e2e-provenance.json';
@@ -152,6 +166,23 @@ function makeProject(opts = {}) {
   // INFRA-405: the shared device resolver, sourced by BOTH scripts. Copied as the real
   // file so "they resolve identically" is exercised rather than asserted.
   fs.copyFileSync(REAL_SIM_DEVICE, path.join(root, 'scripts', 'e2e-sim-device.sh'));
+  // INFRA-424: the physical-device resolver, sourced by e2e-safety.sh. Real file for the
+  // same reason as the simulator resolver — the point is to exercise the shipped refusal
+  // semantics, not a re-implementation that agrees with the test by construction.
+  fs.copyFileSync(REAL_REAL_DEVICE, path.join(root, 'scripts', 'e2e-real-device.sh'));
+  // INFRA-423: the driver-ownership classifier, sourced by e2e-safety.sh. Copied as the
+  // real file for the same reason as the device resolver — the point is to exercise the
+  // shipped classification, not a re-implementation of it.
+  fs.copyFileSync(REAL_DRIVER_OWNERSHIP, path.join(root, 'scripts', 'e2e-driver-ownership.sh'));
+  // DEBUG-392: the gate's second verdict channel. Copied as the REAL file for the same
+  // reason as the provenance helper — `node` is not shimmed, so the adjudication logic
+  // runs for real rather than being stubbed into always agreeing with the exit code.
+  fs.copyFileSync(REAL_VERDICT, path.join(root, 'scripts', 'e2e-verdict.js'));
+  // INFRA-436: both gate scripts now source the simulator lock, so the sandbox has to stage
+  // it or they die on the source line before reaching anything under test. Real file, same
+  // reasoning as the device resolver — a stub that always grants the lock would hide a
+  // wiring mistake that wedges the gate on a real machine.
+  fs.copyFileSync(REAL_SIM_LOCK, path.join(root, 'scripts', 'e2e-sim-lock.sh'));
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
@@ -266,9 +297,19 @@ function runScript(opts = {}) {
     midBuildBoot = null,
     simUdid = null,
     simctlListFails = false,
+    // INFRA-424: physical devices `xcrun devicectl list devices` reports. Default EMPTY —
+    // a machine with no iPhone attached, which is every CI runner and most dev machines,
+    // and is the state under which the device-only refusal must fire.
+    attachedDevices = [],
+    devicectlFails = false,
+    // INFRA-436: mutate the generated project after makeProject but before the script runs.
+    // Needed for state that only exists on disk (e.g. Finder droppings under ios/Pods) and
+    // has no representation among the option flags above.
+    beforeRun = null,
   } = opts;
 
   const root = makeProject({ iosExists, cngStamp });
+  if (beforeRun) beforeRun(root);
   const stubs = fs.mkdtempSync(path.join(os.tmpdir(), 'e2e-stubs-'));
   // INFRA-405: containers are PER-DEVICE. The old harness modelled one global container,
   // which made the install-target/assert-target divergence structurally unrepresentable —
@@ -294,6 +335,41 @@ function runScript(opts = {}) {
       })
     );
   writeBooted(bootedDevices);
+
+  // INFRA-424: attached-device state lives in a FILE for the same reason booted-device
+  // state does — a test must be able to change what is attached BETWEEN the build and the
+  // gate run, and the stub is written once at runScript time.
+  //
+  // The fixture carries the FULL devicectl shape, not a convenient flattening, because the
+  // filter under test reads four different nested fields (hardwareProperties.platform,
+  // .deviceType, connectionProperties.pairingState, .tunnelState). A flattened fixture
+  // would make the ineligible-device cases unrepresentable — which is exactly the class
+  // this resolver exists to reject, and on the machine this was developed against the ONLY
+  // device present is ineligible on two of those four fields.
+  const deviceStatePath = path.join(root, 'attached-devices.json');
+  const writeDevices = (devices) =>
+    fs.writeFileSync(
+      deviceStatePath,
+      JSON.stringify({
+        result: {
+          devices: devices.map((d) => ({
+            hardwareProperties: {
+              udid: d.udid,
+              platform: d.platform || 'iOS',
+              deviceType: d.deviceType || 'iPhone',
+              productType: d.productType || 'iPhone17,1',
+            },
+            deviceProperties: { name: d.name },
+            connectionProperties: {
+              pairingState: d.pairingState || 'paired',
+              tunnelState: d.tunnelState || 'connected',
+            },
+          })),
+        },
+      })
+    );
+  writeDevices(attachedDevices);
+
   fs.writeFileSync(trace, '');
 
   if (seedStaleApp) {
@@ -387,8 +463,31 @@ function runScript(opts = {}) {
     'xcrun',
     [
       `BOOTED_JSON="${bootedStatePath}"`,
+      `DEVICE_JSON="${deviceStatePath}"`,
       `CONTAINERS="${containersRoot}"`,
       `TRACE="${trace}"`,
+      // INFRA-424 — `xcrun devicectl list devices --json-output <path>`.
+      //
+      // devicectl writes its JSON to a caller-supplied FILE and prints only a human table
+      // on stdout; there is no stdout-JSON mode. A stub that echoed JSON instead would let
+      // a resolver reading stdout pass here and fail against the real tool, so this parses
+      // the flag out of "$@" and writes there — the same shape the npx build stub already
+      // uses for `--output`.
+      //
+      // The failure mode writes NOTHING and exits non-zero, which is what makes
+      // "enumeration failed" distinguishable from "zero attached": an absent or empty file
+      // is the normal shape of a devicectl failure, not an exotic one.
+      'if [ "$1" = "devicectl" ] && [ "$2" = "list" ]; then',
+      '  echo "devicectl list" >> "$TRACE"',
+      ...(devicectlFails
+        ? ['  echo "xcrun: error: unable to find utility \\"devicectl\\"" >&2; exit 72']
+        : []),
+      '  OUT=""',
+      '  prev=""',
+      '  for a in "$@"; do if [ "$prev" = "--json-output" ]; then OUT="$a"; fi; prev="$a"; done',
+      '  if [ -n "$OUT" ]; then cp "$DEVICE_JSON" "$OUT"; fi',
+      '  exit 0',
+      'fi',
       'booted_udids() {',
       `  node -e 'const j=require(process.argv[1]);const o=[];for(const l of Object.values(j.devices||{}))for(const d of l)if(d.state==="Booted")o.push(d.udid);console.log(o.join("\\n"))' "$BOOTED_JSON" 2>/dev/null | grep -v "^$"`,
       '}',
@@ -488,6 +587,9 @@ function runScript(opts = {}) {
     env: {
       ...process.env,
       PATH: `${stubs}:${process.env.PATH}`,
+      // INFRA-436: per-sandbox lock root. The default is a shared /tmp path, which would
+      // make concurrently-running suites contend for a real lock and leave one behind.
+      E2E_LOCK_ROOT: path.join(root, '.locks'),
       CI: '', // export:embed silently discards --reset-cache when CI is set
       ...(simUdid ? { E2E_SIM_UDID: simUdid } : {}),
     },
@@ -519,6 +621,7 @@ function runScript(opts = {}) {
     container: activeContainer,
     containerFor,
     bootedStatePath,
+    deviceStatePath,
     stubs,
     root,
   };
@@ -538,7 +641,24 @@ function runScript(opts = {}) {
  * @param opts.maestroExits exit code for every `maestro test`
  */
 function runSafety(built, opts = {}) {
-  const { flows = [], git: gitMutation = null, env = {}, maestroExits = 0, booted = null } = opts;
+  const {
+    flows = [],
+    git: gitMutation = null,
+    env = {},
+    maestroExits = 0,
+    booted = null,
+    // INFRA-424: what `devicectl` reports at GATE time. Same rationale as `booted` — an
+    // operator can attach or unplug an iPhone between the build and the run, and the
+    // device-only refusal is decided at gate time, not build time.
+    devices = null,
+    // DEBUG-392: let a test supply the whole maestro stub. The default below is a
+    // process that exits immediately; the cases this work exists for need one that
+    // WEDGES, and one that writes a JUnit report the gate then adjudicates.
+    maestroBody = null,
+    // DEBUG-392: the `ps -axo` table the driver-reset guard reads. Default empty =
+    // quiet machine, preserving the pre-existing behaviour for every old test.
+    psInventory = '',
+  } = opts;
   const trace = path.join(built.root, 'safety-trace.log');
   fs.writeFileSync(trace, '');
 
@@ -561,19 +681,123 @@ function runSafety(built, opts = {}) {
     );
   }
 
+  if (devices) {
+    fs.writeFileSync(
+      built.deviceStatePath,
+      JSON.stringify({
+        result: {
+          devices: devices.map((d) => ({
+            hardwareProperties: {
+              udid: d.udid,
+              platform: d.platform || 'iOS',
+              deviceType: d.deviceType || 'iPhone',
+              productType: d.productType || 'iPhone17,1',
+            },
+            deviceProperties: { name: d.name },
+            connectionProperties: {
+              pairingState: d.pairingState || 'paired',
+              tunnelState: d.tunnelState || 'connected',
+            },
+          })),
+        },
+      })
+    );
+  }
+
   // maestro, pkill and sleep are all shimmed. `sleep` MATTERS: the real loop sleeps 8s
   // between flows to let the XCUITest driver settle, which would make this suite take
   // 16s+ instead of milliseconds.
-  writeStub(built.stubs, 'maestro', [`echo "maestro $@" >> "${trace}"`, `exit ${maestroExits}`].join('\n'));
-  writeStub(built.stubs, 'pkill', 'exit 0');
+  // DEBUG-392: the DEFAULT stub now writes a JUnit report, because a real maestro does.
+  // The gate's verdict is a conjunction of exit code AND report, so a stub that exits 0
+  // while writing nothing is not "a passing maestro" — it is the wedged-and-killed
+  // signature, and every pre-existing green test would fail closed on it. Keeping the
+  // default faithful is what lets those tests keep asserting what they were written to
+  // assert. `maestroExits` still drives the outcome; it now drives both channels
+  // coherently, exactly as the real tool would.
+  const defaultMaestro = [
+    'out=""; flow=""',
+    'for a in "$@"; do',
+    '  case "$a" in',
+    '    --output=*) out="${a#--output=}";;',
+    '    *.yaml) flow="$a";;',
+    '  esac',
+    'done',
+    'nm="$(basename "$flow" .yaml)"',
+    'if [ -n "$out" ]; then',
+    `  f=${maestroExits === 0 ? '0' : '1'}`,
+    '  printf \'<?xml version="1.0"?><testsuites><testsuite name="s" tests="1" failures="%s" errors="0">\' "$f" > "$out"',
+    maestroExits === 0
+      ? '  printf \'<testcase name="%s" classname="%s"/>\' "$nm" "$nm" >> "$out"'
+      : '  printf \'<testcase name="%s" classname="%s"><failure>stubbed failure</failure></testcase>\' "$nm" "$nm" >> "$out"',
+    "  printf '</testsuite></testsuites>' >> \"$out\"",
+    'fi',
+    `exit ${maestroExits}`,
+  ].join('\n');
+  writeStub(
+    built.stubs,
+    'maestro',
+    [`echo "maestro $@" >> "${trace}"`, maestroBody !== null ? maestroBody : defaultMaestro].join('\n')
+  );
+  // INFRA-423: `pkill` is gone from the gate entirely — the reap now targets an explicit
+  // pid list. The stub survives only so that a REGRESSION reintroducing a pattern kill
+  // shows up in the trace instead of silently succeeding.
+  writeStub(built.stubs, 'pkill', [`echo "pkill $@" >> "${trace}"`, 'exit 0'].join('\n'));
+  // DEBUG-392: `ps`, not `pgrep`. Identity must come from the executable, so the stub
+  // answers both shapes the scripts use: the `-axo` inventory and the `-o pgid= -p`
+  // lookup. `psInventory` is the raw table, so a test can inject a line that MENTIONS
+  // maestro without being it — the false positive that shipped and had to be fixed.
+  //
+  // INFRA-423 widened the inventory to five columns — `pid ppid pgid comm args` — because
+  // ownership is decided by PARENT, not by pattern: a driver whose ppid is a live maestro
+  // JVM belongs to a peer, and one whose JVM is gone belongs to nobody. Fixtures written
+  // for the old three-column shape must be migrated, not merely padded.
+  writeStub(
+    built.stubs,
+    'ps',
+    [
+      `echo "ps $@" >> "${trace}"`,
+      // Match the single-process LOOKUP shape only (`ps -o pgid= -p <pid>`). The bare
+      // `*pgid*` this used to be also swallowed INFRA-423's inventory call, which asks
+      // for `-axo pid=,ppid=,pgid=,comm=,args=` — so the classifier received a PGID
+      // where it expected a process table, found no drivers, and every ownership
+      // assertion passed vacuously against an empty reap set.
+      'case "$*" in',
+      '  *"-o pgid="*) echo " 99999"; exit 0;;',
+      // INFRA-436: the lock asks for a DIFFERENT column shape (`-axo pid=,lstart=,comm=`)
+      // than INFRA-423's inventory (`pid ppid pgid comm args`). Without this arm the stub
+      // answered both with the 5-column table, so the lock read `ppid pgid comm args` as a
+      // start time and could never match — it failed to record its own ownership and every
+      // gate run aborted. Delegate to the real `ps`: liveness is a claim about actual
+      // processes, and the lock must see itself. The synthetic inventory below still serves
+      // the ownership classifier, which is the only thing that needs a fabricated table.
+      '  *lstart*) exec /bin/ps "$@";;',
+      'esac',
+      `cat <<'PSEOF'`,
+      psInventory,
+      'PSEOF',
+    ].join('\n')
+  );
   writeStub(built.stubs, 'sleep', 'exit 0');
 
   if (gitMutation) writeGitState(built.root, gitMutation);
 
+  // DEBUG-392: bound the harness itself. spawnSync blocks the jest process outright, so
+  // jest's own per-test timeout cannot interrupt it — a script under test that fails to
+  // bound its child would wedge the whole suite for as long as that child lives. That is
+  // the same defect this work fixes in the gate, and a test suite that can hang while
+  // proving the gate cannot is not worth much. 45s is far above any stubbed run (all
+  // sub-second) and far below the wedges these tests simulate.
   const res = spawnSync('bash', [path.join(built.root, 'scripts', 'e2e-safety.sh'), ...flows], {
     encoding: 'utf8',
     cwd: built.root,
-    env: { ...process.env, PATH: `${built.stubs}:${process.env.PATH}`, ...env },
+    env: {
+      ...process.env,
+      PATH: `${built.stubs}:${process.env.PATH}`,
+      E2E_LOCK_ROOT: path.join(built.root, '.locks'), // INFRA-436, see runBuild
+      ...env,
+    },
+    timeout: 45000,
+    killSignal: 'SIGKILL',
   });
 
   const traceText = fs.readFileSync(trace, 'utf8');
@@ -659,6 +883,46 @@ describe('e2e-sim-build.sh — fail-closed install ordering', () => {
     const r = runScript({ buildProducesApp: false });
     expect(r.status).not.toBe(0);
     expect(r.installed).toBe(false);
+  });
+});
+
+describe('e2e-sim-build.sh — Finder droppings under ios/ (INFRA-436)', () => {
+  // RN's `[CP-User] [RNDeps] Replace React Native Dependencies` phase rm's
+  // `Pods/ReactNativeDependencies/framework` and re-extracts it, and its rm is not
+  // tolerant of unexpected contents. One `.DS_Store` kills the build with
+  // `ENOTEMPTY ... exited with error code 65`, and the error names nothing useful.
+  // Observed for real: ten of them under ios/Pods, all created during the build.
+  test('deletes .DS_Store under ios/ before building', () => {
+    const built = runScript({
+      beforeRun: root => {
+        const dir = path.join(root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, '.DS_Store'), 'finder junk');
+      },
+    });
+    expect(
+      fs.existsSync(
+        path.join(built.root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework', '.DS_Store')
+      )
+    ).toBe(false);
+  });
+
+  test('leaves real Pods content alone — the purge is scoped to .DS_Store', () => {
+    // A purge that took the framework with it would "fix" the build by breaking it
+    // differently, and the test above alone could not tell the difference.
+    const built = runScript({
+      beforeRun: root => {
+        const dir = path.join(root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework');
+        fs.mkdirSync(dir, { recursive: true });
+        fs.writeFileSync(path.join(dir, '.DS_Store'), 'finder junk');
+        fs.writeFileSync(path.join(dir, 'real.txt'), 'keep me');
+      },
+    });
+    expect(
+      fs.existsSync(
+        path.join(built.root, 'ios', 'Pods', 'ReactNativeDependencies', 'framework', 'real.txt')
+      )
+    ).toBe(true);
   });
 });
 
@@ -998,36 +1262,52 @@ describe('e2e-safety.sh — flow selection and the no-silent-green rule', () => 
   });
 
   test('an explicit name may address a device-only flow the tag filter excludes', () => {
-    const built = runScript({});
+    // INFRA-424 rewrote this. It used to assert status 0 / flowsRun 1 with NO device
+    // present, which pinned the defect: the flow ran, unpinned, against whatever maestro
+    // chose. The property actually worth keeping is that an explicit name REACHES a
+    // device-only flow at all (the tag filter excludes it from the suite), so supply the
+    // device the flow now requires and assert it is reached and pinned.
+    const built = runScript({ attachedDevices: ONE_DEVICE });
     const gate = runSafety(built, { flows: ['crisis-988-dial'] });
     expect(gate.status).toBe(0);
     expect(gate.flowsRun).toBe(1);
+    expect(gate.trace).toMatch(/maestro test --device DEV-1111/);
   });
 
-  test('a device-only flow SKIPS the simulator pre-flight entirely', () => {
+  test('a device-only flow skips the SIMULATOR pre-flight but is still pinned', () => {
     // crisis-988-dial runs against a REAL iPhone (the sim's canOpenURL returns false
-    // unconditionally). Everything in the pre-flight reasons about the booted SIM's
-    // installed app, so applying it here is worse than useless: with no sim booted it
-    // aborts a documented procedure, and with an unrelated sim booted it would print
-    // "gate target verified / provenance" banners describing an artifact the flow is not
-    // running against — attesting the wrong binary, the exact failure this item removes.
-    const built = runScript({});
+    // unconditionally). The simulator pre-flight reasons about the booted SIM's installed
+    // app, so it cannot apply here — but "no simulator pre-flight" never implied "no
+    // target". INFRA-424 separates the two claims: the target is named, the binary on it
+    // is not vouched for.
+    const built = runScript({ attachedDevices: ONE_DEVICE });
     fs.rmSync(built.container, { recursive: true, force: true }); // no app on the sim
     const gate = runSafety(built, { flows: ['crisis-988-dial'] });
     expect(gate.status).toBe(0);
     expect(gate.flowsRun).toBe(1);
+    // The attestation warning must SURVIVE pinning — shape and provenance are still
+    // simulator-container-bound and still unavailable for a device.
     expect(gate.output).toMatch(/NO artifact attestation/i);
     expect(gate.output).not.toMatch(/provenance: built from this exact tree/);
+    // ...and no simctl container lookup was performed for the gate.
+    expect(gate.trace).not.toMatch(/get_app_container/);
   });
 
-  test('a MIXED selection is not treated as device-only', () => {
-    // Only an all-device-only selection may skip the pre-flight. One sim flow in the set
-    // means the sim artifact is genuinely under test again.
+  test('a MIXED selection is REFUSED, not resolved to one target class', () => {
+    // INFRA-424 rewrote this. It used to assert the mixed set fell through to the SIM
+    // pre-flight and failed there on provenance — which is the defect: the 988 device flow
+    // would then have run against that simulator underneath "✓ gate target verified" and
+    // "✓ provenance" banners. There is no correct target for a mixed set, so it refuses.
     const built = runScript({});
-    fs.unlinkSync(path.join(built.container, MARKER_NAME));
     const gate = runSafety(built, { flows: ['crisis-988-dial', 'q9-single-alert'] });
     expect(gate.status).not.toBe(0);
-    expect(gate.output).toMatch(/MISSING/);
+    expect(gate.output).toMatch(/mixed flow selection/i);
+    expect(gate.flowsRun).toBe(0);
+    // The refusal must name the offending flow so the operator can split the invocation.
+    expect(gate.output).toMatch(/crisis-988-dial/);
+    // It must refuse BEFORE attesting anything — the whole point is that the banners
+    // described a binary the device flow never ran against.
+    expect(gate.output).not.toMatch(/gate target verified/);
   });
 });
 
@@ -1306,14 +1586,441 @@ describe('INFRA-405 — e2e-safety.sh device selection', () => {
     expect(r.trace).toMatch(/maestro test --device BBBB-2222/);
   });
 
-  test('device-only runs are untouched: no simctl resolution, no --device, still exit 0', () => {
-    // The real-iPhone procedure. It must gain no simulator dependency whatsoever — with
-    // two sims booted it would otherwise abort a documented manual procedure.
-    const built = runScript({ bootedDevices: ONE });
+  test('device-only runs gain no SIMULATOR dependency — 2 sims booted does not abort them', () => {
+    // INFRA-424 rewrote the tail of this test. Its `expect(r.trace).not.toMatch(/--device/)`
+    // asserted the defect itself: an unpinned run is what let the 988 flow attach to an
+    // arbitrary booted simulator, including a peer worktree's.
+    //
+    // The load-bearing half SURVIVES unchanged and is why the test still exists: the
+    // real-iPhone procedure must gain no simulator dependency, so TWO booted sims — which
+    // abort any simulator run as ambiguous — must NOT abort this one. That property is
+    // exactly what INFRA-405's DEVICE_ONLY scoping bought, and it is easy to lose while
+    // adding device pinning.
+    const built = runScript({ bootedDevices: ONE, attachedDevices: ONE_DEVICE });
     const r = runSafety(built, { flows: ['crisis-988-dial'], booted: TWO });
     expect(r.status).toBe(0);
     expect(r.flowsRun).toBe(1);
     expect(r.output).toMatch(/NO artifact attestation/i);
+    // Not aborted as ambiguous despite two sims booted, and no simctl resolution ran.
+    expect(r.output).not.toMatch(/ambiguous/i);
+    expect(r.trace).not.toMatch(/simctl list/);
+    // Pinned to the DEVICE, never to either simulator.
+    expect(r.trace).toMatch(/maestro test --device DEV-1111/);
+    expect(r.trace).not.toMatch(/--device AAAA-1111/);
+    expect(r.trace).not.toMatch(/--device BBBB-2222/);
+  });
+});
+
+// =====================================================================================
+// INFRA-424 — a `safety-device-only` flow resolves and pins its target device.
+//
+// INFRA-405 pinned every flow to the attested simulator, but scoped that under
+// `DEVICE_ONLY != 1` so the real-iPhone procedure gained no simctl dependency. The
+// residue: crisis-988-dial, the only `safety-device-only` flow, was the only flow that ran
+// with no `--device` at all — and `maestro test` picks its own target when not told one.
+// With simulators booted and no iPhone attached it could attach to one of them, which is
+// both a guaranteed red (a simulator's canOpenURL('tel:') is false regardless of
+// LSApplicationQueriesSchemes) and a way to corrupt a peer worktree's in-flight run.
+//
+// HONESTY NOTE ON COVERAGE. The happy path here is STUB-ONLY: it proves the `--device`
+// argument is constructed from the resolved UDID and passed, NOT that maestro drives a
+// real iPhone. Only the three REFUSAL branches are honestly covered under stubs, which is
+// the same limitation the work item records — the refusal branches are testable with
+// stubs, the happy path is not. Real-hardware validation remains a manual step.
+// =====================================================================================
+describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () => {
+  test('ZERO attached devices REFUSES and runs nothing — no silent simulator fallback', () => {
+    // The headline regression assertion. Two simulators are booted and the app is
+    // installed on one, so a fallback would have something to attach to — and the old
+    // behaviour did exactly that.
+    const built = runScript({ bootedDevices: ONE, attachedDevices: [] });
+    const r = runSafety(built, { flows: ['crisis-988-dial'], booted: TWO });
+    expect(r.status).not.toBe(0);
+    expect(r.flowsRun).toBe(0);
+    expect(r.output).toMatch(/device-only/i);
+    // Never runs maestro at all, and never names a simulator as the target.
+    expect(r.trace).not.toMatch(/maestro test/);
+    expect(r.trace).not.toMatch(/--device/);
+    // Says the consequence out loud rather than only "no device found" — a bare refusal
+    // trains abandonment, and an unrun gate is worse than a noisy one.
+    expect(r.output).toMatch(/NOT verified/i);
+    // Names the override so the refusal is actionable.
+    expect(r.output).toMatch(/E2E_DEVICE_UDID/);
+  });
+
+  test('EXACTLY ONE attached device is pinned and the flow runs', () => {
+    const built = runScript({ attachedDevices: ONE_DEVICE });
+    const r = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(r.status).toBe(0);
+    expect(r.flowsRun).toBe(1);
+    expect(r.trace).toMatch(/maestro test --device DEV-1111/);
+  });
+
+  test('TWO attached devices refuse as AMBIGUOUS and list the candidates', () => {
+    const built = runScript({ attachedDevices: TWO_DEVICES });
+    const r = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(r.status).not.toBe(0);
+    expect(r.flowsRun).toBe(0);
+    expect(r.output).toMatch(/ambiguous/i);
+    expect(r.output).toMatch(/DEV-1111/);
+    expect(r.output).toMatch(/DEV-2222/);
+    expect(r.output).toMatch(/E2E_DEVICE_UDID/);
+    expect(r.trace).not.toMatch(/maestro test/);
+  });
+
+  test('E2E_DEVICE_UDID selects among two attached devices', () => {
+    const built = runScript({ attachedDevices: TWO_DEVICES });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      env: { E2E_DEVICE_UDID: 'DEV-2222' },
+    });
+    expect(r.status).toBe(0);
+    expect(r.trace).toMatch(/maestro test --device DEV-2222/);
+  });
+
+  test('E2E_DEVICE_UDID naming an unattached device refuses rather than falling back', () => {
+    const built = runScript({ attachedDevices: TWO_DEVICES });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      env: { E2E_DEVICE_UDID: 'DEV-9999' },
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/not among the attached devices/i);
+    expect(r.trace).not.toMatch(/maestro test/);
+  });
+
+  test('E2E_SIM_UDID is NOT honoured as a device override', () => {
+    // The override is deliberately a SEPARATE variable. docs/testing/e2e-maestro.md tells
+    // operators to export E2E_SIM_UDID for both halves of a session, so it is routinely
+    // live in the environment holding a SIMULATOR udid. If this resolver read it, that
+    // simulator udid would refuse a correctly-attached iPhone — documented, correct
+    // operator behaviour turned into a confusing refusal.
+    const built = runScript({ attachedDevices: ONE_DEVICE });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      env: { E2E_SIM_UDID: 'AAAA-1111' },
+    });
+    expect(r.status).toBe(0);
+    // Resolved from the attached device, NOT from the simulator udid in the environment.
+    expect(r.trace).toMatch(/maestro test --device DEV-1111/);
+    expect(r.trace).not.toMatch(/--device AAAA-1111/);
+  });
+
+  test('enumeration FAILURE is reported distinctly from zero devices attached', () => {
+    // The same two-facts-must-not-collapse property e2e_booted_devices carries. It is
+    // sharper here: devicectl writes JSON to a caller-supplied FILE, so an unwritten file
+    // is the normal shape of a failure and would otherwise read as "nothing attached".
+    const built = runScript({ devicectlFails: true });
+    const r = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/could not enumerate/i);
+    expect(r.output).not.toMatch(/no eligible iPhone attached/i);
+    expect(r.trace).not.toMatch(/maestro test/);
+  });
+
+  test('an INELIGIBLE device does not count as attached', () => {
+    // The filter is load-bearing, not hygiene. On the machine this was developed against
+    // the only devicectl entry is an iPad in tunnelState "unavailable" — ineligible on two
+    // independent grounds. A loose filter would resolve it as "exactly one", pin maestro
+    // to an iPad, and produce a FALSE RED on the crisis path: a Wi-Fi iPad has no
+    // telephony, so canOpenURL('tel:') is legitimately false there.
+    const built = runScript({
+      attachedDevices: [
+        { udid: 'IPAD-1', name: 'Max IPA', deviceType: 'iPad', tunnelState: 'unavailable' },
+        { udid: 'PHONE-OFF', name: 'Old iPhone', tunnelState: 'unavailable' },
+        { udid: 'PHONE-UNPAIRED', name: 'Someone elses iPhone', pairingState: 'unpaired' },
+        { udid: 'WATCH-1', name: 'Max Watch', platform: 'watchOS' },
+      ],
+    });
+    const r = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/no eligible iPhone attached/i);
+    expect(r.trace).not.toMatch(/maestro test/);
     expect(r.trace).not.toMatch(/--device/);
   });
+
+  test('a connected iPhone alongside ineligible devices resolves unambiguously', () => {
+    // The complement of the test above, and the one that proves the filter is not simply
+    // rejecting everything — a negative-only filter test can pass while matching nothing.
+    const built = runScript({
+      attachedDevices: [
+        { udid: 'IPAD-1', name: 'Max IPA', deviceType: 'iPad', tunnelState: 'unavailable' },
+        { udid: 'DEV-1111', name: 'Max iPhone' },
+        { udid: 'WATCH-1', name: 'Max Watch', platform: 'watchOS' },
+      ],
+    });
+    const r = runSafety(built, { flows: ['crisis-988-dial'] });
+    expect(r.status).toBe(0);
+    expect(r.trace).toMatch(/maestro test --device DEV-1111/);
+  });
+
+  test('the driver reset stays disabled on a device run and never sees the device UDID', () => {
+    // An empty SIM_UDID is a SENTINEL, not merely an unset value: e2e_reset_drivers reads
+    // it as "device-only, nothing to reset" and returns early. The tempting shortcut —
+    // assigning the resolved device UDID to SIM_UDID to get --device for free — would
+    // silently re-enable XCUITest driver reaping during a real-device run, filtered by a
+    // physical-device UDID the INFRA-423 classifier was never designed for.
+    const built = runScript({ attachedDevices: ONE_DEVICE });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      psInventory: [
+        '  501   999  501 java /usr/bin/java -cp maestro.cli.AppKt',
+        '  502   501  501 xcodebuild /usr/bin/xcodebuild test-without-building -destination id=DEV-1111',
+      ].join('\n'),
+    });
+    expect(r.status).toBe(0);
+    // No reset line of either kind — the function returned before logging.
+    expect(r.output).not.toMatch(/driver reset/);
+    expect(r.trace).not.toMatch(/pkill/);
+  });
+});
+
+// =====================================================================================
+// DEBUG-392 — the gate must be able to say "I could not run", not only "pass"/"fail".
+//
+// On 2026-08-08 `maestro test` wedged ~80 minutes inside `Maestro.clearAppState`
+// (Maestro.kt:93), had to be `kill -9`'d, and emitted no flow verdict at all. The gate
+// read exit codes only, and a process that never exits has no exit code — so /b-close
+// Phase 2.5, which routes the merge decision on this script's status, would have blocked
+// forever. These tests pin the three properties that fix makes load-bearing:
+//
+//   1. every invocation is BOUNDED, and a bound that fires can never produce a pass;
+//   2. the verdict is a CONJUNCTION of the exit code and a JUnit report written into a
+//      per-invocation private directory — neither source can vouch for the other;
+//   3. the driver reset never reaps a neighbouring session's run.
+//
+// Property 3 is not hypothetical. On 2026-08-12 six consecutive runs from another
+// worktree produced zero commands artifacts and 239+ `Failed to connect to /127.0.0.1`
+// lines each — the signature of `pkill -f test-without-building` firing across sessions
+// while that session's invocation was live.
+
+/** A maestro stub that never returns. `/bin/sleep` by absolute path — the PATH `sleep` is stubbed. */
+const MAESTRO_WEDGES = 'exec /bin/sleep 3600';
+
+/** A maestro stub that writes a JUnit report to whatever `--output` it was given. */
+function maestroWrites({ flow = 'crisis-button-reachability', failures = 0, exit = 0, omitReport = false, wedgeAfter = false } = {}) {
+  return [
+    'out=""',
+    'for a in "$@"; do case "$a" in --output=*) out="${a#--output=}";; esac; done',
+    `if [ -n "$out" ] && [ "${omitReport ? 1 : 0}" != "1" ]; then`,
+    `  printf '%s\\n' '<?xml version="1.0"?><testsuites><testsuite name="s" tests="1" failures="${failures}" errors="0">' > "$out"`,
+    failures > 0
+      ? `  printf '%s\\n' '<testcase name="${flow}" classname="${flow}"><failure>Assertion is false</failure></testcase>' >> "$out"`
+      : `  printf '%s\\n' '<testcase name="${flow}" classname="${flow}"/>' >> "$out"`,
+    `  printf '%s\\n' '</testsuite></testsuites>' >> "$out"`,
+    'fi',
+    // The nastiest real shape: the report lands, THEN the process wedges. Adjudication
+    // would read a clean report; the bound must still win.
+    wedgeAfter ? MAESTRO_WEDGES : `exit ${exit}`,
+  ].join('\n');
+}
+
+describe('DEBUG-392 — bounded invocation', () => {
+  test('a wedged maestro is killed at the bound and reported as TIMEOUT, not FAIL', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: MAESTRO_WEDGES,
+      env: { E2E_FLOW_TIMEOUT_S: '1' },
+    });
+    expect(r.output).toMatch(/TIMEOUT/);
+    // A distinct exit code, because "the gate found a regression" and "the gate could
+    // not run" are different facts and a human triaging a red needs to tell them apart.
+    expect(r.status).toBe(2);
+  }, 60000);
+
+  test('a timeout can never be laundered into a pass by a clean report', () => {
+    // The dangerous shape: the bound fires, but a report (stale, or from the flow's own
+    // earlier completion) parses clean. Adjudication may only ever downgrade.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({ wedgeAfter: true }),
+      env: { E2E_FLOW_TIMEOUT_S: '1' },
+    });
+    expect(r.output).toMatch(/TIMEOUT/);
+    expect(r.output).not.toMatch(/all safety flows passed/);
+    expect(r.status).toBe(2);
+  }, 60000);
+
+  test('the second timeout aborts the remaining flows', () => {
+    // 8 flows x a 600s bound is an 80-minute worst case, which reinstates the problem
+    // being solved. And the wedge lives in CoreSimulator, which does not un-wedge, so
+    // flows 3..N would emit garbage reds that train re-run-until-green.
+    const built = runScript({});
+    const r = runSafety(built, {
+      // Three, because the abort is observable only in what it PREVENTS: with two
+      // flows the second timeout has nothing left to skip.
+      flows: ['crisis-button-reachability', 'q9-single-alert', 'crisis-button-reachability'],
+      maestroBody: MAESTRO_WEDGES,
+      env: { E2E_FLOW_TIMEOUT_S: '1' },
+    });
+    expect(r.output).toMatch(/abort/i);
+    expect(r.flowsRun).toBe(2); // the third never invoked maestro at all
+    expect(r.status).toBe(2);
+  }, 90000);
+});
+
+describe('DEBUG-392 — the verdict is a conjunction', () => {
+  test('exit 0 with NO report is a FAIL, not a pass', () => {
+    // The core of the fix. Exit 0 proves the process finished; it does not prove the
+    // assertions held. Absence of a report is the wedged/killed signature.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({ omitReport: true, exit: 0 }),
+    });
+    expect(r.status).toBe(1);
+    expect(r.output).toMatch(/NO_REPORT/);
+    expect(r.output).not.toMatch(/all safety flows passed/);
+  }, 60000);
+
+  test('exit 0 with a clean report naming the flow is the only green', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+    });
+    expect(r.status).toBe(0);
+    expect(r.output).toMatch(/all safety flows passed/);
+  }, 60000);
+
+  test('a failing report is a FAIL even though the harness exited cleanly', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({ failures: 1, exit: 0 }),
+    });
+    expect(r.status).toBe(1);
+  }, 60000);
+
+  test('exit non-zero with a clean report is still a FAIL, and says the sources disagree', () => {
+    // A harness bug deserves its own investigation, never a green.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({ exit: 3 }),
+    });
+    expect(r.status).toBe(1);
+    expect(r.output).toMatch(/disagree/i);
+  }, 60000);
+});
+
+describe('DEBUG-392 — evidence comes from a private per-invocation directory', () => {
+  test('maestro is told to write JUNIT and a debug dump to paths this run owns', () => {
+    // ~/.maestro/tests is global and this machine drives one simulator from several
+    // worktrees, so `ls -dt ~/.maestro/tests/*/ | head -1` can select a NEIGHBOUR's run.
+    // Adjudicating a merge on that is a laundered pass.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+    });
+    // `=` form, matching `maestro test --help` verbatim. picocli accepts both, but the
+    // gate gets exactly one real run per build and an argument-parsing failure there is
+    // an expensive way to learn that.
+    expect(r.trace).toMatch(/--format=JUNIT/);
+    expect(r.trace).toMatch(/--output=\S+/);
+    expect(r.trace).toMatch(/--debug-output=\S+/);
+    expect(r.trace).not.toMatch(/--output=\S*\.maestro\/tests/);
+  }, 60000);
+});
+
+describe('INFRA-423 — the driver reset reaps by ownership, never by pattern', () => {
+  // Retargeted from DEBUG-392's suite. That guard SKIPPED the whole reset whenever any
+  // peer JVM was live, so its tests asserted on skip-vs-fire. Ownership is now decided
+  // per-process, so the assertions move to WHICH pids are reaped — and the outcome for a
+  // live peer is stronger than before: its driver is protected while ours is still reset,
+  // where the old guard had to forgo our own reset to spare theirs.
+  //
+  // Columns are `pid ppid pgid comm args`. The UDID MUST be the sandbox's booted device
+  // (`bootedDevices` default), because the classifier scopes to the resolved simulator —
+  // a mismatched UDID here would make every assertion below pass vacuously against an
+  // empty reap set, the same silently-wrong shape INFRA-405 found in this file's stubs.
+  const UDID = 'AAAA-1111';
+  const DRIVER_ARGS = `/usr/bin/xcodebuild test-without-building -destination id=${UDID}`;
+
+  /** A peer mid-flow: live JVM (pid 4242) with its driver (4243) as a direct child. */
+  const PEER_JVM_AND_DRIVER = [
+    `  4242 4241 4242 java /usr/bin/java -classpath /opt/homebrew/lib/* maestro.cli.AppKt test --device ${UDID} flow.yaml`,
+    `  4243 4242 4242 /usr/bin/xcodebuild ${DRIVER_ARGS}`,
+  ].join('\n');
+
+  /** A wedged leftover from a crashed run: JVM gone, reparented to launchd. */
+  const ORPHANED_DRIVER = `  5150 1 5150 /usr/bin/xcodebuild ${DRIVER_ARGS}`;
+
+  // A shell POLLING for maestro. Not hypothetical: a peer session running
+  // `pgrep -f 'maestro.cli.AppKt'` to see whether we had finished is what broke the
+  // first implementation, and Claude Code's own `/bin/zsh -c` wrapper reproduces it.
+  const SHELL_MENTIONING_MAESTRO =
+    `  7306 7305 7306 /bin/zsh /bin/zsh -c pgrep -f 'maestro.cli.AppKt' && echo "${DRIVER_ARGS}"`;
+
+  const safetyEnv = { E2E_DRIVER_REAP_DRY_RUN: '1' };
+
+  test('never reaps a driver belonging to a live neighbouring session', () => {
+    // THE DEFECT. `pkill -f "test-without-building"` reaped this pid; six zero-artifact
+    // runs on 2026-08-12 carried 239+ `Failed to connect to /127.0.0.1` lines apiece,
+    // the signature of a driver pulled out from under a running invocation.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+      psInventory: PEER_JVM_AND_DRIVER,
+      env: safetyEnv,
+    });
+    expect(r.output).not.toMatch(/would kill:.*\b4243\b/);
+    expect(r.output).toMatch(/PROTECTED/);
+  }, 60000);
+
+  test('reaps an orphaned driver left by an earlier crashed run', () => {
+    // The self-recovery case DEBUG-392's guard declined, and which the in-loop reap alone
+    // could never reach on flow 1 — hence the pre-flight reset.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+      psInventory: ORPHANED_DRIVER,
+      env: safetyEnv,
+    });
+    expect(r.output).toMatch(/would kill:.*\b5150\b/);
+  }, 60000);
+
+  test('protects the peer AND still resets, where the old guard had to choose', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+      psInventory: `${PEER_JVM_AND_DRIVER}\n${ORPHANED_DRIVER}`,
+      env: safetyEnv,
+    });
+    expect(r.output).toMatch(/would kill:.*\b5150\b/);
+    expect(r.output).not.toMatch(/would kill:.*\b4243\b/);
+  }, 60000);
+
+  test('a shell that merely MENTIONS the driver string is never reaped', () => {
+    // THE REGRESSION, retargeted. It used to pin that such a shell did not SUPPRESS the
+    // reset; it now pins that such a shell is not itself KILLED. Same defect class —
+    // substring-as-identity — caught on the side that can now do damage. `pkill -f`
+    // would have matched this line on both counts.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+      psInventory: SHELL_MENTIONING_MAESTRO,
+      env: safetyEnv,
+    });
+    expect(r.output).not.toMatch(/would kill:.*\b7306\b/);
+  }, 60000);
+
+  test('no pattern kill survives anywhere in the gate', () => {
+    // The blunt structural guard: whatever else changes, `pkill` must not come back.
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroWrites({}),
+      psInventory: ORPHANED_DRIVER,
+      env: safetyEnv,
+    });
+    expect(r.trace).not.toMatch(/pkill/);
+  }, 60000);
 });

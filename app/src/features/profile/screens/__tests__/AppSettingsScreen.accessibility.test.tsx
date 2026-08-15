@@ -16,7 +16,7 @@
  */
 
 import React from 'react';
-import { render, waitFor } from '@testing-library/react-native';
+import { fireEvent, render, waitFor } from '@testing-library/react-native';
 
 import AppSettingsScreen from '@/features/profile/screens/AppSettingsScreen';
 import { useSettingsStore } from '@/core/stores/settingsStore';
@@ -211,5 +211,125 @@ describe('retrofitted switches — WCAG 4.1.2 Name, Role, Value', () => {
     for (const node of switches) {
       expect(node.props.accessibilityLabel).toBeTruthy();
     }
+  });
+});
+
+/**
+ * DEBUG-426 — the Practices rows on hardware that cannot vibrate.
+ *
+ * Suppressing the once-ever prompt (useHapticsOptIn) removes the false PROMISE
+ * at the moment of asking, but it leaves a second false affirmative behind: this
+ * row still says "Vibration marks phase changes", the Switch still reports
+ * `checked: true` if the practitioner turned it on, and nothing is ever felt.
+ * That defect is independent of the prompt and needs its own disclosure.
+ *
+ * The remedy is a note, NOT a removal and NOT a disabled state — see the
+ * assertions below, each of which pins a thing that must NOT happen.
+ */
+describe('DEBUG-426: capability disclosure on the haptics row', () => {
+  const mockDevice = jest.requireMock('expo-device') as {
+    isDevice: boolean;
+    modelId: string | null;
+    deviceType: number;
+  };
+
+  const asCapableIPhone = (): void => {
+    mockDevice.isDevice = true;
+    mockDevice.modelId = 'iPhone14,2';
+    mockDevice.deviceType = 1;
+  };
+  const asIPad = (): void => {
+    mockDevice.isDevice = true;
+    mockDevice.modelId = 'iPad13,16';
+    mockDevice.deviceType = 2;
+  };
+
+  const NOTE = /no vibration motor/i;
+
+  beforeEach(asCapableIPhone);
+  afterEach(asCapableIPhone);
+
+  it('says nothing about capability on hardware that CAN vibrate', async () => {
+    // The two-sided half. A presence-only assertion cannot detect a note that
+    // leaked onto every device, which would be its own false statement.
+    const { getByTestId } = render(<AppSettingsScreen />);
+    await waitFor(() => getByTestId('haptics-master-toggle'));
+
+    expect(getByTestId('haptics-master-description').props.children).not.toMatch(NOTE);
+    expect(getByTestId('haptics-master-toggle').props.accessibilityHint).not.toMatch(NOTE);
+  });
+
+  it('discloses the hardware fact in the VISIBLE description on an iPad', async () => {
+    asIPad();
+    const { getByTestId } = render(<AppSettingsScreen />);
+    await waitFor(() => getByTestId('haptics-master-toggle'));
+
+    expect(getByTestId('haptics-master-description').props.children).toMatch(NOTE);
+  });
+
+  it('also carries it in the HINT, which is the only channel a rotor user reaches', async () => {
+    // Not redundant with the assertion above. The description is a SEPARATE
+    // accessibility node with no labelledBy/describedBy relationship to the
+    // Switch, so navigating by form-controls rotor, Switch Control, or full
+    // keyboard access lands on the Switch and never encounters it.
+    asIPad();
+    const { getByTestId } = render(<AppSettingsScreen />);
+    await waitFor(() => getByTestId('haptics-master-toggle'));
+
+    expect(getByTestId('haptics-master-toggle').props.accessibilityHint).toMatch(NOTE);
+  });
+
+  it('keeps the label byte-identical across capability', async () => {
+    const { getByTestId, rerender } = render(<AppSettingsScreen />);
+    await waitFor(() => getByTestId('haptics-master-toggle'));
+    const labelWhenCapable = getByTestId('haptics-master-toggle').props.accessibilityLabel;
+
+    asIPad();
+    rerender(<AppSettingsScreen />);
+    await waitFor(() => getByTestId('haptics-master-toggle'));
+
+    // A mutating label breaks find-by-name and rotor search — the same rule the
+    // interval row already follows, for the same reason.
+    expect(getByTestId('haptics-master-toggle').props.accessibilityLabel).toBe(labelWhenCapable);
+  });
+
+  it('keeps BOTH Practices rows rendered on the suppressed device', async () => {
+    // getByTestId throws when absent, so this is a positive assertion rather
+    // than a queryByTestId not-null shape that reads like one.
+    asIPad();
+    const { getByTestId } = render(<AppSettingsScreen />);
+    await waitFor(() => getByTestId('haptics-master-toggle'));
+
+    expect(getByTestId('haptics-master-toggle')).toBeTruthy();
+    expect(getByTestId('haptics-interval-toggle')).toBeTruthy();
+  });
+
+  it('does NOT disable the master switch on capability grounds', async () => {
+    // `disabled` in this card already means a RECOVERABLE precondition — the
+    // interval row's hint reads "Available when haptic cues are on". Reusing it
+    // for a permanent hardware fact would send the practitioner looking for a
+    // switch that will restore it.
+    asIPad();
+    const { getByTestId } = render(<AppSettingsScreen />);
+    await waitFor(() => getByTestId('haptics-master-toggle'));
+
+    expect(getByTestId('haptics-master-toggle').props.accessibilityState.disabled).toBe(false);
+  });
+
+  it('leaves the master switch OPERABLE, exercised rather than inspected', async () => {
+    // accessibilityState.disabled is a CLAIM about operability; firing the
+    // switch and observing the persisted write is evidence of it.
+    asIPad();
+    const updatePracticeSettings = jest.fn(async () => {});
+    useSettingsStore.setState({ updatePracticeSettings } as never);
+
+    const { getByTestId } = render(<AppSettingsScreen />);
+    await waitFor(() => getByTestId('haptics-master-toggle'));
+
+    fireEvent(getByTestId('haptics-master-toggle'), 'valueChange', true);
+
+    await waitFor(() => {
+      expect(updatePracticeSettings).toHaveBeenCalledWith({ practiceHaptics: true });
+    });
   });
 });
