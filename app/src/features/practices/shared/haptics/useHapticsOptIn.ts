@@ -34,6 +34,8 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 
+import { hasHapticActuator } from './hapticActuator';
+
 /** The mount that currently owns the right to render the prompt, if any. */
 let claimHolder: object | null = null;
 
@@ -70,8 +72,23 @@ export function useHapticsOptIn(): HapticsOptInController {
   const [holdsClaim, setHoldsClaim] = useState(false);
   const [answered, setAnswered] = useState(false);
 
+  // DEBUG-426: the capability term sits INSIDE `eligible`, not as a later guard
+  // on `shouldPrompt`, and the placement is load-bearing twice over.
+  //
+  // It is what makes suppression a PURE READ: `eligible` gates the claim-taking
+  // effect below, so false means the claim is never taken, the prompt never
+  // mounts, `onChoose` is never reachable, and `updatePracticeSettings` is never
+  // called. Nothing is persisted, so the unrepeatable choice survives unspent
+  // and a practitioner who later moves to hardware that CAN deliver is still
+  // asked.
+  //
+  // And a late guard would let an incapable mount consume `claimHolder`,
+  // starving a capable sibling screen for the rest of the session.
+  //
+  // Ordered after the flag test, which is the cheapest and most often false.
   const eligible =
     isFeatureEnabled('practice_haptics') &&
+    hasHapticActuator() &&
     settings !== null &&
     settings !== undefined &&
     !settings.practices.practiceHapticsPrompted &&

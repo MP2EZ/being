@@ -184,7 +184,12 @@ const { data, error } = await supabase.functions.invoke('verify-apple-receipt', 
 5. Verify stale receipts (not verified in 24 hours)
 
 **Environment Variables:**
-- `CRON_SECRET`: Secret for cron job authentication
+- `GRACE_PERIOD_CRON_SECRET`: Secret for cron job authentication. Deliberately **not** the
+  shared `CRON_SECRET` the crisis functions read — edge secrets are project-wide, so a shared
+  name would put the ops and crisis pipelines behind one bearer and let an ops-side rotation
+  silently break crisis paging (INFRA-379). Must equal Vault `grace_period_cron_secret`.
+- `SUBSCRIPTION_HEALTHCHECK_PING_URL`: ops-domain healthchecks.io capability URL (INFRA-296).
+  Unset ⇒ the ping skips silently by design, so its absence is not self-announcing.
 
 ## Setup Instructions
 
@@ -236,8 +241,11 @@ supabase secrets set APPLE_SHARED_SECRET=your_apple_shared_secret
 # Google receipt verification
 supabase secrets set GOOGLE_SERVICE_ACCOUNT='{"type":"service_account",...}'
 
-# Cron job authentication
+# Cron job authentication — TWO separate bearers, one per trust domain (INFRA-379).
+# Crisis pipeline (crisis-detection-alerting + crisis-liveness-probe share this one):
 supabase secrets set CRON_SECRET=your_random_secret
+# Subscription/ops pipeline (grace-period-automation only):
+supabase secrets set GRACE_PERIOD_CRON_SECRET=a_different_random_secret
 ```
 
 ### 5. Configure Webhooks

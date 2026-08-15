@@ -31,6 +31,33 @@ import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useAnalytics } from '@/core/analytics';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
+import { hasHapticActuator } from '@/features/practices/shared/haptics/hapticActuator';
+
+/**
+ * The Haptic Cues row's copy (DEBUG-426).
+ *
+ * Derived in ONE place and used for BOTH the visible description and the
+ * Switch's accessibilityHint, which were previously verbatim duplicates
+ * maintained by hand. That duplication is not redundancy — it is what makes
+ * the control self-describing — but keeping it in sync manually is how a note
+ * ends up in one and not the other.
+ *
+ * The note is required on BOTH channels. Description-only is insufficient: the
+ * description is a separate accessibility node with no
+ * accessibilityLabelledBy/DescribedBy relationship to the Switch, so anyone
+ * navigating by VoiceOver's form-controls rotor, Switch Control, or full
+ * keyboard access lands on the Switch and hears label + role + state + hint,
+ * never reaching it. Hint-only is equally wrong: iOS lets users disable hint
+ * speech outright and TalkBack truncates it, so a hint must never be the sole
+ * carrier of load-bearing information.
+ *
+ * It states a hardware fact in plain present tense — not an error, not
+ * something the practitioner can fix or retry, and not a comment on the choice
+ * they made.
+ */
+const HAPTIC_CUES_DESCRIPTION =
+  'Vibration marks phase changes during breathing, body scan, and timed practices';
+const NO_ACTUATOR_NOTE = 'This device has no vibration motor, so these cues are silent here.';
 
 // FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
 // supplies the back chevron (SubMenuHeader's ✕ removed).
@@ -38,6 +65,19 @@ const AppSettingsScreen: React.FC = () => {
   const settingsStore = useSettingsStore();
   const { trackScreenView, trackSettingsOpened } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
+
+  // DEBUG-426. Note what this does NOT do: it never gates whether the Practices
+  // section renders, and never feeds either Switch's `disabled`. The rows stay
+  // present and operable on hardware that cannot vibrate — the control is not
+  // inert (it persists a real preference, and a settings surface may outlive
+  // the device), and `disabled` in this very card already means a RECOVERABLE
+  // precondition ("Available when haptic cues are on"), so reusing it for a
+  // permanent hardware fact would tell the practitioner to go find a switch
+  // that will restore it.
+  const hapticsAvailable = hasHapticActuator();
+  const hapticCuesDescription = hapticsAvailable
+    ? HAPTIC_CUES_DESCRIPTION
+    : `${HAPTIC_CUES_DESCRIPTION}. ${NO_ACTUATOR_NOTE}`;
 
   // Track screen view and settings opened for analytics
   useFocusEffect(
@@ -333,9 +373,8 @@ const AppSettingsScreen: React.FC = () => {
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
                   <Text style={styles.settingLabel}>Haptic Cues</Text>
-                  <Text style={styles.settingDescription}>
-                    Vibration marks phase changes during breathing, body scan, and
-                    timed practices
+                  <Text style={styles.settingDescription} testID="haptics-master-description">
+                    {hapticCuesDescription}
                   </Text>
                 </View>
                 <Switch
@@ -346,8 +385,10 @@ const AppSettingsScreen: React.FC = () => {
                   disabled={isSaving}
                   accessible={true}
                   accessibilityRole="switch"
+                  // The LABEL stays byte-identical whatever the hardware —
+                  // mutating it would break find-by-name and rotor search.
                   accessibilityLabel="Haptic cues in practices"
-                  accessibilityHint="Vibration marks phase changes during breathing, body scan, and timed practices"
+                  accessibilityHint={hapticCuesDescription}
                   accessibilityState={{ checked: settings.practices.practiceHaptics, disabled: isSaving }}
                   testID="haptics-master-toggle"
                 />

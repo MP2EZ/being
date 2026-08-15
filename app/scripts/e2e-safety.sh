@@ -43,10 +43,22 @@ cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + su
 # shellcheck source=scripts/e2e-sim-device.sh
 . "$(dirname "$0")/e2e-sim-device.sh"
 
+# INFRA-424 — the PHYSICAL-device equivalent of the above, for `safety-device-only` flows.
+# Same sourced-helper contract: no `set` options, every call handles its own failure.
+# shellcheck source=scripts/e2e-real-device.sh
+. "$(dirname "$0")/e2e-real-device.sh"
+
 # INFRA-423 — XCUITest driver ownership. Same sourced-helper contract as above: it sets no
 # `set` options, because this file runs under a bare `set -u`.
 # shellcheck source=scripts/e2e-driver-ownership.sh
 . "$(dirname "$0")/e2e-driver-ownership.sh"
+
+# INFRA-436 — simulator mutual exclusion. Complements ownership, it does not duplicate it:
+# e2e-driver-ownership.sh decides which XCUITest drivers may be REAPED once a run is under
+# way; this decides whether a run may START on this device at all. The gap it closes is a
+# peer's e2e-sim-build.sh uninstalling fyi.being.app out from under the flows below.
+# shellcheck source=scripts/e2e-sim-lock.sh
+. "$(dirname "$0")/e2e-sim-lock.sh"
 
 MAESTRO_DIR=".maestro"
 
@@ -91,17 +103,64 @@ fi
 
 # --- Device-only detection --------------------------------------------------------------
 # `crisis-988-dial` is tagged `safety-device-only` and is documented to be run by hand
-# against a REAL iPhone, because the simulator's canOpenURL returns false unconditionally
-# regardless of LSApplicationQueriesSchemes. Everything below this line reasons about the
-# booted SIMULATOR's installed app, so applying it to a device run is worse than useless:
-# with no sim booted it aborts a documented procedure, and with an unrelated sim booted it
-# would print "✓ gate target verified / ✓ provenance" banners describing an artifact the
-# flow is not running against. Attesting the wrong binary is precisely the failure this
-# work item exists to remove, so detect the case and say plainly that no attestation applies.
+# against a REAL iPhone, because the simulator's canOpenURL is reported to return false
+# unconditionally regardless of LSApplicationQueriesSchemes. (That claim traces to
+# INFRA-184 and has never been re-measured on iOS >= 26 — DEBUG-392 flagged it as
+# unverified. It is stated here as the flow's premise, not as a checked fact. If it turns
+# out to be stale the flow becomes sim-runnable, which is a one-line retag: the tag is the
+# ONLY thing selecting which resolver runs below.)
+#
+# The SIMULATOR pre-flight below reasons about a booted simulator's installed app, so it
+# cannot apply to a device run — its container lookup, otool/plutil shape checks and
+# provenance marker are all simulator-container-bound.
+#
+# INFRA-424 — but "the simulator pre-flight does not apply" never implied "no target".
+# That conflation is what left this the only flow running unpinned, free for `maestro test`
+# to point at an arbitrary booted simulator. The two claims are now separated: the device
+# path resolves and pins its own target (e2e-real-device.sh), and the run still declares
+# that it carries NO artifact attestation — the target is named, the binary on it is not
+# vouched for.
 DEVICE_ONLY=1
+DEVICE_ONLY_COUNT=0
 for f in "${FLOWS[@]}"; do
-  grep -qE '^[[:space:]]*-[[:space:]]+safety-device-only[[:space:]]*$' "$f" || DEVICE_ONLY=0
+  if grep -qE '^[[:space:]]*-[[:space:]]+safety-device-only[[:space:]]*$' "$f"; then
+    DEVICE_ONLY_COUNT=$((DEVICE_ONLY_COUNT + 1))
+  else
+    DEVICE_ONLY=0
+  fi
 done
+
+# INFRA-424 — a MIXED selection is refused, not resolved.
+#
+# The flag above is set only when EVERY selected flow carries the tag, which reads as
+# conservative and is the opposite. A selection like
+#
+#     bash scripts/e2e-safety.sh q9-single-alert crisis-988-dial
+#
+# clears DEVICE_ONLY, so the sim pre-flight runs, prints "✓ gate target verified" and
+# "✓ provenance" — and then the 988 DEVICE flow is pinned to that simulator and run against
+# it. That is a guaranteed red on the crisis path underneath two green attestation banners
+# describing a binary the flow never touched: false attestation reachable from a supported
+# invocation, and strictly worse than the unpinned case this work item was filed for,
+# because it comes with reassurance attached.
+#
+# There is no correct target for a mixed set — the two families need different hardware —
+# so the only honest answers are "refuse" or "silently pick one and mislabel the result".
+# Refuse. Both families still run; they just run as two invocations.
+if [ "$DEVICE_ONLY" != "1" ] && [ "$DEVICE_ONLY_COUNT" -gt 0 ]; then
+  echo "❌ mixed flow selection: $DEVICE_ONLY_COUNT device-only flow(s) alongside simulator flow(s)." >&2
+  echo "   These need different targets — a \`safety-device-only\` flow requires a real iPhone," >&2
+  echo "   and every other safety flow requires the attested simulator. Running them together" >&2
+  echo "   would pin the device flow to the simulator and then print artifact-attestation" >&2
+  echo "   banners describing a binary it never ran against." >&2
+  echo "   Run them as two invocations instead:" >&2
+  for f in "${FLOWS[@]}"; do
+    if grep -qE '^[[:space:]]*-[[:space:]]+safety-device-only[[:space:]]*$' "$f"; then
+      echo "     bash scripts/e2e-safety.sh $(basename "$f" .yaml)      # real iPhone" >&2
+    fi
+  done
+  exit 1
+fi
 
 # INFRA-383 — artifact-shape pre-flight, once, before any flow runs (<1s).
 #
@@ -125,16 +184,55 @@ done
 #
 # Scoped under DEVICE_ONLY so the real-iPhone procedure gains no simctl dependency: with
 # two simulators booted it would otherwise abort a documented manual run.
+# INFRA-424 — DEVICE_UDID is a SEPARATE variable from SIM_UDID, and that separation is
+# load-bearing rather than stylistic.
+#
+# The tempting shortcut is to assign the resolved device UDID to SIM_UDID, since the
+# MAESTRO_DEVICE_ARGS block below already builds `--device` from it. That would be a silent
+# regression: an EMPTY SIM_UDID is a SENTINEL, not merely an unset value. e2e_reset_drivers
+# reads it as "device-only run, no simulator driver to reset" and returns early, and
+# e2e-driver-ownership.sh fails closed on an empty UDID for the same reason. Populating it
+# would re-enable XCUITest driver reaping during a real-device run, filtered by a
+# physical-device UDID that INFRA-423's classifier was never designed to reason about — a
+# UDID is a device filter and never an ownership signal. So the two stay separate, and
+# e2e_reset_drivers is deliberately NOT taught about DEVICE_UDID.
 SIM_UDID=""
+DEVICE_UDID=""
 if [ "$DEVICE_ONLY" != "1" ]; then
   SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 1
+else
+  DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 1
+fi
+
+# INFRA-436 — claim the simulator for the whole run, before the provenance/shape pre-flights
+# below read the installed container. Reading the artifact is exactly what a peer's build
+# would invalidate underneath us, so the lock has to precede it, not merely precede the flows.
+#
+# Simulator runs only. A device-only run resolves DEVICE_UDID instead, and is deliberately
+# left unlocked for the same reason e2e_reset_drivers is not taught about it (see above): the
+# contended resource here is a simulator this machine owns, whereas a physical handset is
+# attached by a human who already knows they are using it.
+#
+# The trap releases on every exit path. e2e_lock_release is a no-op unless we are the
+# recorded owner, so an early `exit 1` from a pre-flight that ran before the acquire cannot
+# release a peer's lock.
+if [ -n "$SIM_UDID" ]; then
+  e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "safety flows" || exit 1
+  trap 'e2e_lock_release "$SIM_UDID"' EXIT INT TERM
 fi
 
 if [ "$DEVICE_ONLY" = "1" ]; then
-  echo "📱 Device-only flow(s) selected — skipping the simulator pre-flight."
-  echo "   This run carries NO artifact attestation: shape and provenance both describe"
-  echo "   the booted simulator's app, not the device's. Run it against a real iPhone"
-  echo "   with a build you installed deliberately."
+  # The target is now RESOLVED and PINNED, so this no longer says "skipping the pre-flight"
+  # wholesale — that conflated two separable claims and only one of them is still true.
+  # Naming the target and vouching for the binary are different claims: the artifact-shape
+  # checks (otool/plutil on the container) and provenance lineage are simulator-container-
+  # bound and remain unavailable for a device, so the NO-attestation warning stands in
+  # substance even though the run is no longer unpinned.
+  echo "📱 Device-only flow(s) selected — pinned to device $DEVICE_UDID."
+  echo "   The simulator pre-flight does not apply: its shape and provenance checks describe"
+  echo "   a simulator container, which a device does not have."
+  echo "   This run therefore carries NO artifact attestation — the target is named, but the"
+  echo "   binary on it is not vouched for. Install a Release build deliberately."
 elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" && [ -d "$APP" ]; then
   preflight_fail() {
     echo "❌ e2e:safety pre-flight — $1" >&2
@@ -192,6 +290,11 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
       echo ""
       ;;
     *)
+      # INFRA-436 — print WHAT moved before refusing. "Rebuild" alone costs up to 21m31s
+      # of blind guessing, and under the gate-worktree workflow the same verdict covers two
+      # unrelated causes (different commits vs. stray local files) whose fixes differ.
+      # Diagnostic only: it always exits 0, so it can never soften the refusal below.
+      node scripts/e2e-provenance.js explain "$APP" 2>/dev/null || true
       preflight_fail "provenance check returned '${VERDICT:-<no verdict>}' — the installed binary was not built from the current tree (or carries no marker). Rebuild: npm run e2e:safety:build"
       ;;
   esac
@@ -251,6 +354,14 @@ e2e_reset_drivers() {
   if [ -z "$SIM_UDID" ]; then
     # Device-only run: maestro drives a real iPhone and there is no simulator driver to
     # reset. Reaping on an empty UDID would match every driver on the machine.
+    #
+    # INFRA-424 — this early return is why the resolved device UDID lives in DEVICE_UDID
+    # and NOT in SIM_UDID. An empty SIM_UDID is the sentinel that selects this branch, so
+    # assigning the device UDID to it (the obvious way to get `--device` for free from the
+    # block below) would silently re-enable reaping for device runs. Do NOT teach this
+    # function about DEVICE_UDID: e2e_drivers_to_reap classifies SIMULATOR XCUITest
+    # drivers, a physical-device UDID means nothing to that classifier, and a UDID is a
+    # device filter and never an ownership signal (INFRA-423).
     return 0
   fi
 
@@ -270,11 +381,160 @@ e2e_reset_drivers() {
   fi
 }
 
-# INFRA-405: pin every flow to the device the pre-flight just attested. Empty for a
-# device-only run, where maestro must be left to find the real iPhone.
+# INFRA-405: pin every flow to the simulator the pre-flight just attested.
+# INFRA-424: and pin a device-only run to the iPhone resolved above, rather than leaving
+# maestro to choose. Exactly one of the two is set — the branch above resolves SIM_UDID or
+# DEVICE_UDID and exits non-zero if it cannot — so the array is never empty on a successful
+# run and the fall-through is unreachable by construction. It is kept as a refusal anyway:
+# an empty --device list is the original defect, and it must not be reachable by a future
+# edit that adds a third target class without noticing.
 MAESTRO_DEVICE_ARGS=()
 if [ -n "$SIM_UDID" ]; then
   MAESTRO_DEVICE_ARGS=(--device "$SIM_UDID")
+elif [ -n "$DEVICE_UDID" ]; then
+  MAESTRO_DEVICE_ARGS=(--device "$DEVICE_UDID")
+else
+  echo "❌ no target resolved — refusing to let maestro choose its own device." >&2
+  exit 1
+fi
+
+# DEBUG-422 — pre-approve the URL scheme(s) the flows open, before flow 1.
+#
+# WHAT BREAKS WITHOUT THIS. `openLink:` is `xcrun simctl openurl` and nothing else (Maestro
+# 2.6.0: SimctlIOSDevice.openLink -> LocalSimulatorUtils.openURL -> argv
+# ["xcrun","simctl","openurl",<udid>,<url>]; Maestro contributes zero logic). On a simulator
+# carrying no approval for that scheme, LaunchServices answers the open by asking SpringBoard
+# to raise `Open in "Being"?` and WAITS for it. The alert renders above the app, so the flow
+# that opened the link fails its next assertion — and because the alert outlives the flow,
+# every LATER flow in the same invocation dies on its first assertion too. The flow that
+# looks broken is not the one at fault.
+#
+# THE MECHANISM, since two work items guessed at it and both guessed wrong. It is a
+# LaunchServices *scheme approval*, not a Maestro bug and not an app defect:
+#
+#   SpringBoard … Received request to activate alertItem:
+#     <SBUserNotificationAlert; title: Open in "Being"?; source: lsd>
+#
+# `lsd` requests it, SpringBoard only presents it, and the string is
+# SCHEME_APPROVAL_PROMPT_TITLE_NO_SOURCE in CoreServices.framework/…/SchemeApproval.strings
+# (the _NO_SOURCE variant because a simctl open has no originating app). The answer is
+# recorded per-simulator in Library/Preferences/com.apple.launchservices.schemeapproval.plist
+# keyed `<source-bundle>-->{scheme}`, and it survives reboot, uninstall and reinstall. Only
+# `simctl erase` — or a newly created device — clears it.
+#
+# IT IS NOT AN iOS-VERSION ISSUE, despite presenting as one twice. A freshly created iPhone
+# 16 Plus / iOS 18.6 device raises it identically to a 26.0 device; a long-lived 18.6 sim
+# only looked like a green "baseline" because it had been approved by hand. Version and
+# model are both confounds. The single variable is whether this simulator has been approved.
+#
+# WHY SEEDING, AND NOT DISMISSING. A `tapOn:` on the alert is forbidden in a flow — it
+# silently no-ops once the alert stops appearing, then silently starts tapping whatever is
+# under those coordinates. A `defaults write` has no such failure mode in either direction:
+# if a runtime ever stops honouring the key the alert returns and the flows go red, which is
+# the safe direction, and if the prompt is ever retired the key is inert. It also retires a
+# manual setup step that had to be remembered after every `simctl erase` — which is itself
+# this guide's remedy for driver rot, so the two procedures were in direct tension and the
+# gate lost that race silently.
+#
+# SCOPE IS DELIBERATELY NARROW, and the allowlist is DERIVED, not parsed. The flows decide
+# *whether* an approval is needed; `app.json`'s `expo.scheme` decides *what* may be approved.
+# A flow file is repo-authored text, so letting it name the scheme would let a typo — or a
+# well-meaning future flow — silently seed an arbitrary one. Deriving from `expo.scheme`
+# excludes `fyi.being.app` and `exp+being` by construction (both are CNG-generated, not
+# authored) and agrees with the app's own security allowlist, DEEP_LINK_CONFIG
+# .ALLOWED_SCHEMES, without having to restate it.
+#
+# `exp+being` is excluded ON PURPOSE and must stay excluded (crisis ruling, DEBUG-422).
+# `exp+being://expo-development-client/?url=…` reaching a launcher-free Release build is the
+# signature of the INFRA-407 regression — the build having LAUNCHED the app instead of
+# build-only + `simctl install`. The build's launcher-free asserts catch a dev-client
+# *binary*; they do not catch a correct binary launched with a dev-client URL, and this
+# alert is currently the only observable for that. Approving it would convert a loud,
+# already-diagnosed failure into a silent one.
+#
+# AND: a red deeplink flow is NEVER to be triaged by widening this. If a flow goes red with
+# approval verified below, that is the app's contract failing, which is what the flow is for.
+if [ -n "$SIM_UDID" ]; then
+  # Selected flows plus the helper subflows they actually run — not the whole directory. A
+  # scoped Phase 2.5 run (`q9-single-alert`, say) opens no link and must not be blockable by
+  # a write it has no use for; but a helper CAN carry an `openLink`, so one level of
+  # `runFlow:` is resolved rather than assumed empty.
+  SCHEME_SCAN_FILES=("${FLOWS[@]}")
+  while IFS= read -r sub; do
+    [ -n "$sub" ] && [ -f "$MAESTRO_DIR/$sub" ] && SCHEME_SCAN_FILES+=("$MAESTRO_DIR/$sub")
+  done <<EOF
+$(grep -hoE '^[[:space:]]*-[[:space:]]*runFlow:[[:space:]]*[A-Za-z0-9._-]+\.yaml' "${FLOWS[@]}" 2>/dev/null \
+    | sed -E 's#.*runFlow:[[:space:]]*##' | sort -u)
+EOF
+
+  FLOW_SCHEMES="$(grep -hoE '^[[:space:]]*-[[:space:]]*openLink:[[:space:]]*[A-Za-z0-9.+-]+://' \
+    "${SCHEME_SCAN_FILES[@]}" 2>/dev/null | sed -E 's#.*openLink:[[:space:]]*##; s#://$##' | sort -u)"
+
+  # `https` needs no approval — LaunchServices routes it to Safari, and a universal link is
+  # deliberately not how these flows enter the app (it would put an AASA network fetch inside
+  # a safety gate). Filtered rather than rejected so an https flow is simply a no-op here.
+  FLOW_SCHEMES="$(printf '%s\n' "$FLOW_SCHEMES" | grep -vE '^(https?)$' || true)"
+
+  if [ -z "$(printf '%s' "$FLOW_SCHEMES" | tr -d '[:space:]')" ]; then
+    # Not a failure — the selected flows open no custom-scheme link. Said out loud anyway:
+    # a matcher that silently stops matching looks exactly like a run with nothing to do
+    # (same reasoning as INFRA-423's "nothing attributable" line).
+    echo "ℹ️  scheme approval: no selected flow opens a custom-scheme link — nothing to approve."
+  else
+    APP_SCHEME="$(node -e 'process.stdout.write(String(require("./app.json").expo.scheme || ""))' 2>/dev/null || true)"
+    if [ -z "$APP_SCHEME" ]; then
+      echo "❌ e2e:safety pre-flight — could not read expo.scheme from app.json, so the set of" >&2
+      echo "   schemes this gate is allowed to approve cannot be established. Refusing rather" >&2
+      echo "   than falling back to a literal: the derivation IS the guard." >&2
+      exit 1
+    fi
+
+    for scheme in $FLOW_SCHEMES; do
+      if [ "$scheme" != "$APP_SCHEME" ]; then
+        echo "❌ e2e:safety pre-flight — a selected flow opens '$scheme://', which is not the" >&2
+        echo "   app's declared scheme ('$APP_SCHEME://' per app.json expo.scheme)." >&2
+        echo "   This gate approves only the declared scheme, by derivation and never from the" >&2
+        echo "   flow text. If '$scheme://' is legitimate, declare it; if it is 'exp+being', the" >&2
+        echo "   build launched the app and that is an INFRA-407 regression to fix, not approve." >&2
+        exit 1
+      fi
+
+      KEY="com.apple.CoreSimulator.CoreSimulatorBridge-->$scheme"
+
+      # Idempotent and additive. This simulator is shared across worktrees, so device-wide
+      # state we did not author is not ours to reset: read first, write only what is missing,
+      # never `defaults delete` the domain or touch another key in it.
+      CURRENT="$(xcrun simctl spawn "$SIM_UDID" defaults read com.apple.launchservices.schemeapproval "$KEY" 2>/dev/null | tr -d '[:space:]')"
+      if [ "$CURRENT" = "$BUNDLE_ID" ]; then
+        echo "✓ scheme approval already present: \"$KEY\" = $BUNDLE_ID"
+        continue
+      fi
+
+      xcrun simctl spawn "$SIM_UDID" defaults write com.apple.launchservices.schemeapproval \
+        "$KEY" -string "$BUNDLE_ID" 2>/dev/null || true
+
+      # READ BACK. `defaults write` can exit 0 without the value landing where lsd will look
+      # for it (domain resolution, cfprefsd caching), and an unverified write treated as
+      # success is the same class of defect as attesting one binary while testing another.
+      VERIFY="$(xcrun simctl spawn "$SIM_UDID" defaults read com.apple.launchservices.schemeapproval "$KEY" 2>/dev/null | tr -d '[:space:]')"
+      if [ "$VERIFY" = "$BUNDLE_ID" ]; then
+        echo "✓ scheme approval seeded: \"$KEY\" = $BUNDLE_ID (DEBUG-422)"
+      else
+        # FAIL CLOSED — and deliberately NOT via preflight_fail(), whose remediation line
+        # says "rebuild the gate target". A rebuild cannot fix this and would send the next
+        # reader down a 14-minute dead end. The cost this guard exists to remove is
+        # MISDIAGNOSIS, not false-green: without approval every flow after the first
+        # `openLink` fails its first assertion against a perfectly healthy app.
+        echo "❌ e2e:safety pre-flight — could not seed the '$scheme://' scheme approval on $SIM_UDID." >&2
+        echo "   Wrote \"$KEY\" = $BUNDLE_ID but read back '${VERIFY:-<nothing>}'." >&2
+        echo "   Without it iOS raises \`Open in …?\` on the first openLink, it outlives that flow," >&2
+        echo "   and every later flow fails on its first assertion while the app is fine." >&2
+        echo "   This is NOT fixed by rebuilding. Check the simulator is responsive:" >&2
+        echo "     xcrun simctl spawn $SIM_UDID defaults read com.apple.launchservices.schemeapproval" >&2
+        exit 1
+      fi
+    done
+  fi
 fi
 
 # INFRA-423 — PRE-FLIGHT reset, before flow 1.
@@ -319,7 +579,7 @@ for f in "${FLOWS[@]}"; do
   DEBUG_DIR="$RUN_DIR/debug"
   mkdir -p "$DEBUG_DIR"
 
-  echo "🛡️  [$ran] maestro test $f${SIM_UDID:+ (device $SIM_UDID)}  [bound ${FLOW_TIMEOUT_S}s]"
+  echo "🛡️  [$ran] maestro test $f${SIM_UDID:+ (simulator $SIM_UDID)}${DEVICE_UDID:+ (device $DEVICE_UDID)}  [bound ${FLOW_TIMEOUT_S}s]"
 
   # `${arr[@]+"${arr[@]}"}` — NOT a bare "${arr[@]}". This script runs under `set -u`, and
   # in the bash 3.2 that ships with macOS expanding an EMPTY array is an unbound-variable
@@ -465,6 +725,18 @@ else
   # "Open in …?" alert could not be reproduced on demand (`simctl openurl` on an unhandled
   # scheme fails silently rather than prompting), so a pre-flight's refusal path could not
   # have been demonstrated — and an undemonstrated guard is the shape this repo distrusts.
+  #
+  # CLAUSE (c) IS NOW FALSE, and DEBUG-422 records why: that observation was made on an
+  # UNHANDLED scheme. On a HANDLED one — `being://`, which app.json declares — the alert
+  # reproduces on demand every time, on any simulator with no approval on record, from the
+  # single command `xcrun simctl openurl <udid> being://daily`.
+  #
+  # (a) and (b) SURVIVE UNCHANGED, and this block stays exactly as it is. DEBUG-422 added a
+  # SEEDER for one derived scheme, not a DETECTOR: it removes the one alert the gate can
+  # legitimately pre-empt, and buys no probe for any other. This grep still owns everything
+  # the seeder does not and must not cover — the notification-permission alert, and an
+  # `Open in …?` raised by an `exp+being` dev-client URL, which is the INFRA-407 build
+  # regression and must stay loud rather than be approved away.
   #
   # Reading Maestro's own failure artifact costs nothing and needs no output capture: it
   # writes the UI hierarchy AT THE POINT OF FAILURE into commands-*.json, which is exactly

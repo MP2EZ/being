@@ -299,36 +299,21 @@ describe('FEAT-311: sessionEnd anchor', () => {
   });
 });
 
-describe('FEAT-311: anchors never speak through the scheduler announcement', () => {
-  it('does not invoke `announce` for either anchor', async () => {
-    // BodyScanScreen's announce callback takes NO cue argument and speaks
-    // "Next area" unconditionally. Routing an anchor through it would tell a
-    // blind practitioner to move body region at t=0 and again at completion.
-    // The anchors bypass the scheduler entirely; this pins that they keep
-    // doing so, because the mis-instruction would be inaudible in review.
-    const announce = jest.fn();
-
-    const { result, rerender } = renderHook(
-      ({ isActive }) =>
-        usePracticeHaptics({
-          schedule: NO_SCHEDULE,
-          isActive,
-          sessionAnchors: true,
-          announce,
-        }),
-      { initialProps: { isActive: false } }
-    );
-
-    await act(async () => {
-      rerender({ isActive: true });
-    });
-    await act(async () => {
-      result.current.emitSessionEnd();
-    });
-
-    expect(announce).not.toHaveBeenCalled();
-  });
-});
+/*
+ * FEAT-311: anchors never speak through the scheduler announcement.
+ *
+ * This guard MOVED to regionAnnouncement.test.tsx (DEBUG-425), because the
+ * version that lived here could not fail. It mounted with `NO_SCHEDULE`, and
+ * the scheduler effect early-returns on an empty schedule — so `announce` was
+ * unreachable in that fixture no matter how the anchors were wired. It would
+ * have stayed green if an anchor HAD been routed through `announce`, which is
+ * the single regression it existed to catch.
+ *
+ * Its replacement uses a real region timeline and asserts both directions:
+ * the anchors are silent, AND a scheduled boundary on the same fixture does
+ * reach `announce` — so the silence is a constraint rather than an
+ * unreachable code path.
+ */
 
 describe('FEAT-311: the t=0 collision', () => {
   it('boundariesWithin emits an opening boundary at atMs 0 by default', () => {

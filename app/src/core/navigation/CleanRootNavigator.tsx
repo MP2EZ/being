@@ -46,6 +46,13 @@ import { useStoicPracticeStore } from '@/features/practices/stores/stoicPractice
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { CombinedLegalGateScreen } from '@/features/consent';
+// FEAT-417: imported by direct path, not through the `@/features/consent`
+// barrel. The barrel is already in this file's eager graph via the line above,
+// so this is not about load cost — it is about not GROWING that barrel's
+// surface. Per FEAT-376's lesson (CLAUDE.md), a barrel re-export enlarges the
+// eager module graph of every importer, including safety paths.
+import ReConsentRoute from '@/features/consent/screens/ReConsentRoute';
+import { useReConsentTrigger } from '@/features/consent/hooks/useReConsentTrigger';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { DailyLoopMode, DailyLoopDepth, DailyLoopSessionData } from '@/features/practices/types/flows';
 import {
@@ -64,6 +71,17 @@ export type RootStackParamList = {
   LegalGate: undefined;
   Onboarding: undefined;
   Main: undefined;
+  /**
+   * FEAT-417 — re-consent after a CONSENT_VERSION bump. Presented OVER Main by
+   * `useReConsentTrigger`, never as an initial route.
+   *
+   * 🔴 `undefined`, and it must stay that way. Handlers are NOT route params:
+   * non-serializable params corrupt React Navigation's state handling, and that
+   * state is read on the crisis path by `getActiveRootRouteName()`. The
+   * container reads the store directly and takes only `onDismiss`, supplied by
+   * the render prop below.
+   */
+  ReConsent: undefined;
   // The single daily ritual (FEAT-298 slice 5: the default practice; no longer flagged).
   // `mode` is a test/tooling param only — the tense is inferred from the clock, and there
   // is no mode picker.
@@ -310,6 +328,27 @@ const CleanRootNavigator: React.FC = () => {
     }
   };
 
+  /**
+   * FEAT-417 — present ReConsent once per launch when consent has gone stale.
+   *
+   * ⚠️ THIS CALL MUST STAY ABOVE THE `!initialRoute` EARLY RETURN BELOW. Rules of
+   * hooks: moving it down makes it a conditional hook call and React throws. The
+   * consequence is that it DOES run during the pre-route LoadingScreen window on
+   * every cold launch — the hook's `navigationRef.isReady()` condition is the
+   * only thing keeping it inert there, and it is deliberately its last resort
+   * rather than its first.
+   *
+   * `activeRootRoute` is passed in rather than read inside: it is already the
+   * value `onReady`/`onStateChange` maintain for the crisis overlay, so the
+   * trigger needs no second navigation listener, and it is what re-evaluates the
+   * decision when the user leaves a crisis surface.
+   *
+   * The hook cannot throw (its effect body fails closed) — a throw from this
+   * component's body escapes to App.tsx's boundary and replaces the whole app
+   * with the Static988Button fallback.
+   */
+  useReConsentTrigger(activeRootRoute);
+
   if (!initialRoute) {
     return <LoadingScreen />;
   }
@@ -391,6 +430,43 @@ const CleanRootNavigator: React.FC = () => {
 
         {/* Main App */}
         <Stack.Screen name="Main" component={CleanTabNavigator} />
+
+        {/* FEAT-417 — re-consent after a CONSENT_VERSION bump.
+            Presented over Main by useReConsentTrigger; never an initial route.
+
+            `transparentModal` is load-bearing, NOT cosmetic. It is the only
+            presentation that sets `detachPreviousScreen: false`
+            (@react-navigation/stack CardStack.js:210), which keeps Main MOUNTED
+            underneath — that is the AC's "presents over Main, never replacing
+            the root route". Do not "simplify" it to `modal` on the grounds that
+            the screen is opaque so the transparency is invisible; the mount
+            semantics are the reason, and the screen renders identically.
+
+            🔴 gestureEnabled: false. Every other modal route here sets `true`,
+            so the copy-paste default is WRONG for this screen. ReConsentScreen's
+            contract is an explicit Decline button, always visible, never a
+            swipe-dismiss — a swipe-dismissable card silently defeats it by
+            letting the user leave with no decision recorded either way.
+
+            🔴 headerShown: false, stated explicitly rather than inherited. A
+            header adds a back affordance, which is the same defeat as the swipe.
+
+            988: ReConsent is deliberately NOT in RootCrisisButton's
+            SUPPRESSED_ROUTES and owns no crisis section of its own (founder
+            decision D1), so the root overlay below is its ONLY affordance. It
+            survives because that overlay is a later sibling of this entire
+            Stack.Navigator, and this is a JS stack — so no presentation mode
+            here can paint over it. Pinned by RootCrisisButton.test.tsx. */}
+        <Stack.Screen
+          name="ReConsent"
+          options={{
+            headerShown: false,
+            presentation: 'transparentModal',
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation }) => <ReConsentRoute onDismiss={() => navigation.goBack()} />}
+        </Stack.Screen>
 
         {/* Educational Module Detail */}
         <Stack.Screen

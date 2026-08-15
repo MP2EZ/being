@@ -262,11 +262,13 @@ describe('FEAT-376 — the document links are reachable by screen reader', () =>
    * `Pressable` defaults `accessible` to true (`Pressable.js:252`), collapsing
    * its subtree into one element on iOS — so an inline `<Text onPress>` inside a
    * checkbox label has no a11y node and a double-tap toggles the checkbox
-   * instead of opening the document. On `CombinedLegalGateScreen` those two
-   * inline links are the ONLY path to the Terms and Privacy Policy (its
-   * `styles.linkRow` is declared but never rendered), so a screen-reader user
-   * cannot read what they are agreeing to. That file is not this item's to
-   * change; this screen does not reproduce the defect.
+   * instead of opening the document.
+   *
+   * `CombinedLegalGateScreen` had the same defect — where it was worse, because
+   * those two inline links were the ONLY path to the Terms and Privacy Policy on
+   * the pre-consent gate. DEBUG-430 closed it (2026-08-14) by porting this
+   * shape, and removed the never-rendered `styles.linkRow` this note used to
+   * cite as evidence. Both screens now carry it; neither reproduces the defect.
    */
   it('exposes an open-document action on the Terms and Privacy checkboxes', () => {
     const boxes = renderScreen().getAllByRole('checkbox');

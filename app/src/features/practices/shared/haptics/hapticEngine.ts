@@ -43,7 +43,19 @@ import { MIN_CUE_INTERVAL_MS } from './constants';
  * just the attempt, so a suppressed cue is distinguishable from a delivered one
  * and from one that was never scheduled at all.
  *
- * Stripped in production by the __DEV__ guard.
+ * DEV-ONLY, and it cannot be otherwise (INFRA-395 established this the hard
+ * way). A production bundle strips `console.*` TWICE — `babel.config.js` runs
+ * `transform-remove-console`, and `metro.config.js` sets `drop_console: true`,
+ * which takes `error` and `warn` with it despite babel excluding them. So no
+ * console-based diagnostic can survive a Release build by any gating, and a
+ * feature flag promising otherwise was deleted rather than left to mislead.
+ *
+ * Consequence for the on-device sign-off: cue-latency figures come from a DEV
+ * device build, where these lines work. That is conservative rather than
+ * unrepresentative — dev JS is slower than Release, so a latency that clears
+ * the budget here clears it there. Frame timing is the opposite (dev is not
+ * representative) and is measured separately via Instruments against a real
+ * Release build. See docs/testing/haptics-device-signoff.md.
  */
 function trace(cue: PracticeCue, outcome: string, primitive?: HapticPrimitive): void {
   if (!__DEV__) return;
@@ -153,7 +165,16 @@ export function createHapticEngine(options: HapticEngineOptions): HapticEngine {
         lastDeliveredAt = timestamp;
         // On a simulator this line still prints even though nothing is felt —
         // that is the point. It separates "not wired" from "no hardware".
-        trace(cue, 'delivered', primitive);
+        //
+        // INFRA-395: the elapsed figure is the JS→native round trip, and it is
+        // the HALF THE SCHEDULER CANNOT SEE. `usePracticeHaptics` dispatches
+        // this as `void engine.fire(cue)`, so the scheduler's own lateness
+        // report is closed out before any of this runs and measures timer
+        // jitter alone. Neither number is the whole cue latency on its own; the
+        // sign-off adds them, and notes that the final actuator segment
+        // (~10-20ms iOS, 30-80ms Android per constants.ts) is not observable
+        // from JS at all.
+        trace(cue, `delivered in ${Math.round(now() - timestamp)}ms`, primitive);
         return true;
       } catch {
         trace(cue, 'failed: latching off permanently');

@@ -31,11 +31,49 @@ export interface ScheduledCue {
   cue: PracticeCue;
 }
 
+/**
+ * One cue's outcome, with the number that decided it.
+ *
+ * `latenessMs` is the overshoot against the cue's absolute target — never
+ * clamped to MAX_CUE_LATENESS_MS, because a report clamped to the budget could
+ * not distinguish a cue that scraped in from one that missed by a minute.
+ */
+export interface CueLatenessReport {
+  cue: PracticeCue;
+  latenessMs: number;
+  /** False for both drop paths: skipped at re-arm, and re-checked at fire time. */
+  delivered: boolean;
+}
+
 export interface CueSchedulerOptions {
   /** The full session timeline, sorted or not — the scheduler sorts. */
   schedule: ScheduledCue[];
   /** Deliver a cue. Should be the haptic engine's `fire`. */
   onCue: (cue: PracticeCue) => void;
+  /**
+   * Diagnostic sink for per-cue lateness (INFRA-395). Optional; omitted in
+   * production.
+   *
+   * This is the only layer that can report cue latency at all. `hapticEngine`
+   * sees a cue arrive but never learns what its target WAS, so it cannot
+   * compute an overshoot — and its own trace is `__DEV__`-only and carries no
+   * timing. Meanwhile the number is already computed here to decide dropping;
+   * before INFRA-395 it was simply discarded.
+   *
+   * Injected rather than logged directly, because this module deliberately
+   * imports no app services — the same reason its clock and timers are
+   * injected. `usePracticeHaptics` supplies it under `__DEV__`, which Metro
+   * folds away in production, leaving every call site below a no-op.
+   *
+   * INVARIANT: every cue the scheduler passes is reported EXACTLY ONCE, whether
+   * delivered or dropped. A drop rate computed from delivered-only reports
+   * would read 100% on a session that silently lost half its cues.
+   *
+   * The explicit `| undefined` is required, not stylistic: `exactOptionalPropertyTypes`
+   * is on, and the caller passes `__DEV__ ? fn : undefined` — a property that is
+   * PRESENT and undefined, which a bare `?:` rejects.
+   */
+  onLateness?: ((report: CueLatenessReport) => void) | undefined;
   /** Monotonic clock. Injectable for tests. */
   now: () => number;
   /** Timer primitives, injectable so tests need not rely on global fakes. */
@@ -57,7 +95,7 @@ export interface CueScheduler {
 }
 
 export function createCueScheduler(options: CueSchedulerOptions): CueScheduler {
-  const { onCue, now } = options;
+  const { onCue, onLateness, now } = options;
   const setTimer = options.setTimer ?? setTimeout;
   const clearTimer = options.clearTimer ?? clearTimeout;
 
@@ -96,10 +134,17 @@ export function createCueScheduler(options: CueSchedulerOptions): CueScheduler {
 
     const elapsed = elapsedMs();
 
-    // Skip anything too late to be meaningful.
+    // Skip anything too late to be meaningful. Each skip is a DROP and is
+    // reported as one — these cues never reach a timer, so the fire-time report
+    // below would otherwise miss them entirely.
     for (;;) {
       const candidate = schedule[nextIdx];
       if (!candidate || elapsed - candidate.atMs <= MAX_CUE_LATENESS_MS) break;
+      onLateness?.({
+        cue: candidate.cue,
+        latenessMs: elapsed - candidate.atMs,
+        delivered: false,
+      });
       nextIdx += 1;
     }
 
@@ -117,9 +162,11 @@ export function createCueScheduler(options: CueSchedulerOptions): CueScheduler {
 
       // Re-check lateness at fire time: the timer itself may have been delayed
       // by a React commit landing on the same tick.
-      if (lateness <= MAX_CUE_LATENESS_MS) {
+      const delivered = lateness <= MAX_CUE_LATENESS_MS;
+      if (delivered) {
         onCue(target.cue);
       }
+      onLateness?.({ cue: target.cue, latenessMs: lateness, delivered });
 
       arm();
     }, delay);

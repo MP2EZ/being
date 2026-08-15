@@ -254,13 +254,25 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
    * VoiceOver's Actions rotor and TalkBack's local context menu, which fixes it
    * without changing the visual design or the checkbox semantics.
    *
-   * ⚠️ Declaring an `activate` action routes activation through
-   * `onAccessibilityAction`, so `onPress` must stay wired to the same handler —
-   * exactly as `CollapsibleCrisisButton.tsx:383-398` does.
+   * ⚠️ `onPress` must stay wired to the same handler as the action — exactly as
+   * `CollapsibleCrisisButton.tsx:383-398` does. This comment used to justify that
+   * with "declaring an `activate` action routes activation through
+   * `onAccessibilityAction`", which is true on Android and FALSE on iOS;
+   * corrected in DEBUG-430 after reading react-native 0.85.3:
    *
-   * `CombinedLegalGateScreen.tsx:302-339` has the same defect and is NOT fixed
-   * here: it is a Protected Path file this work item does not own, and editing it
-   * would pull an unrelated screen into this PR. Filed separately.
+   *   iOS (Fabric): `accessibilityActivate` consults ONLY `onAccessibilityTap`
+   *   and returns NO when unset, so UIKit synthesizes a touch and `onPress`
+   *   runs. A declared `activate` is reachable only via the Actions rotor.
+   *
+   *   Android: `activate` maps to ACTION_CLICK and `performAccessibilityAction`
+   *   returns true WITHOUT calling super, so `onPress` IS suppressed.
+   *
+   * Opposite paths, exactly one per platform, so no double-toggle — but both
+   * require the shared callback. The requirement stands; only the reason was
+   * wrong.
+   *
+   * `CombinedLegalGateScreen.tsx` had the same defect and now carries the same
+   * shape — DEBUG-430 closed it (2026-08-14). Do not read this as a live defect.
    */
   const documentActions = (label: string) => [
     { name: 'activate', label: 'Toggle acceptance' },

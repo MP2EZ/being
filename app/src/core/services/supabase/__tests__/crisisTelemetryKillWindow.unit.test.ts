@@ -109,7 +109,9 @@ jest.mock('@react-native-async-storage/async-storage', () => {
 });
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import supabaseService from '@/core/services/supabase/SupabaseService';
+import supabaseService, {
+  PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS,
+} from '@/core/services/supabase/SupabaseService';
 
 const storage = AsyncStorage as unknown as {
   __settleWrites: (reverse?: boolean) => Promise<void>;
@@ -243,6 +245,13 @@ describe('crisis telemetry durability across an app kill (DEBUG-335)', () => {
 
   it('does not clobber an in-memory event when the lazy startup load runs late (loss path 3)', async () => {
     // A prior session left an unflushed event on disk.
+    //
+    // DEBUG-413: `enqueued_at` was the sentinel `1` here, which is now BEFORE
+    // PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS and would be suppressed at load — so this test
+    // would fail for a reason unrelated to what it asserts. The property under test is
+    // the DEBUG-335 merge (a live in-memory event must survive a late startup load), not
+    // backlog age, so the fixture is dated post-cutoff. Derived from the constant rather
+    // than hardcoded, so it cannot silently drift back if the cutoff ever moves.
     storage.__seedDisk(
       CRISIS_KEY,
       JSON.stringify([
@@ -250,7 +259,7 @@ describe('crisis telemetry durability across an app kill (DEBUG-335)', () => {
           event_type: 'crisis_detected',
           properties: secondPayload,
           session_id: 'prior_session',
-          enqueued_at: 1,
+          enqueued_at: PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS + 1,
         },
       ])
     );
