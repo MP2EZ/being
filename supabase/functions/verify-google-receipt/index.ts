@@ -316,8 +316,22 @@ serve(async (req) => {
 
     console.log('[Google Receipt Verification] Starting verification for user:', authUid);
 
-    // MOCK MODE: Handle mock purchase tokens for local development
+    // MOCK MODE: Handle mock purchase tokens for local development.
+    //
+    // FAIL CLOSED — same reasoning as verify-apple-receipt's mock branch: this
+    // returns a valid subscription for an attacker-supplied prefix, the gate is
+    // opt-in, and an unset ALLOW_MOCK_RECEIPTS rejects. Both functions share one
+    // variable deliberately: they are the same trust domain, and a per-function
+    // variable is how one of them gets re-enabled and forgotten.
     if (purchaseToken.startsWith('mock_token_')) {
+      if (Deno.env.get('ALLOW_MOCK_RECEIPTS') !== 'true') {
+        console.warn('[Google Receipt Verification] Mock token rejected - ALLOW_MOCK_RECEIPTS not enabled');
+        return new Response(
+          JSON.stringify({ error: 'Invalid purchase token' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
       console.log('[Google Receipt Verification] Mock mode - auto-approving token');
 
       // Extract interval from subscription ID
