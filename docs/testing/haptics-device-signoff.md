@@ -239,8 +239,15 @@ structurally **cannot** see.
    title. (`HapticsOptInPrompt.tsx:151-168` is a rAF plus a 350ms retry; either can lose
    the race.)
 2. **Modal scope.** Swipe right repeatedly past "Leave off". Focus must never reach
-   "Begin", the practice title, the instructions, or the tab bar. **Record — do not
-   judge — whether it reaches the crisis button** (INFRA-427, §7).
+   "Begin", the practice title, the instructions, or the tab bar.
+   **If it does, STOP — modality is not active, and a crisis-button reading taken now
+   is VOID, not a pass.** That is a different defect (FEAT-385's modality claim), and
+   it belongs to `accessibility`, not INFRA-427.
+   Otherwise **record — do not judge — whether focus reaches "I need support"**. Swipe
+   in **both** directions and complete a full wrap first: the button paints last and
+   sits bottom-right, so it is most likely the *final* stop, and forward-only swiping
+   is how a false FAIL gets recorded. Then double-tap it — focused but not activatable
+   is a FAIL, not a pass. Repeat on all three hosts (INFRA-427, §7).
 3. **The recommendation survives the speech channel.** Confirm the body prose, including
    the suggestion sentence, is reached and read *before* either button. Repeat at the
    largest Dynamic Type size: the prose lives in a `flexShrink: 1` ScrollView that gives
@@ -317,6 +324,25 @@ on is non-negotiable (988 <3 taps from any screen). The prompt sets
 and the component's own argument is about *contrast* (2.71:1 faded, 8.31:1 full) —
 **contrast is not reachability**. Record the answer; do not judge it. If it comes back
 unreachable it becomes a `crisis` fix and a hard blocker, and only then.
+
+**Escalation trigger, so a FAIL is unambiguous:** escalate if, on either platform, with
+the prompt displayed *and the practice content confirmed silenced*, the screen reader
+cannot bring focus to "I need support" by swipe navigation in either direction, or can
+focus it but activating it does not open Crisis Support Resources.
+
+**Three hosts, one once-ever prompt.** `useHapticsOptIn.ts` releases the claim on unmount
+if the mount never answered, so: enter host → observe → **leave without choosing** → next
+host. No reset, no relaunch. There is no accessible exit while the reader is on (the
+header is inside the hidden subtree; Android back is consumed), so turn the reader OFF,
+tap back, navigate, turn it on. If you *do* answer: App Settings → Reset Settings **and
+force-quit** — the reset alone cannot clear `answeredThisSession`, which is module state.
+
+**Already settled, don't re-derive on device:** taps-to-988 from this state is **2**, and
+the `NAV_READY_DEADLINE_MS` fallback can only reduce it to 1. The immersive fade withdraws
+no accessibility exposure — `mode === 'immersive'` reaches opacity, shadow and the re-fade
+timer only. Both are pinned by `__tests__/safety/crisis-button-under-haptics-prompt.test.tsx`,
+which is a structural regression pin and explicitly **not** this verification. What the
+device answers is Steps A–C above, and whether the 988 card needs scrolling.
 
 **Also unresolved: Android.** One flag string turns this on for both platforms, and
 `constants.ts:63-66` documents Android's actuator at 30-80ms against iOS's 10-20ms — a
