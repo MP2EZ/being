@@ -476,11 +476,14 @@ A forced `--depth` flag is **not** a signal — forcing expresses preference, no
 1. Identify the miss: which tier fired (or fell through), and what token/signal in the
    Name + brief *should* have routed it correctly.
 2. Draft the smallest table edit — usually one keyword added to Tier 1 or Tier 2, or a
-   keyword moved. Preserve the determinism notes: Tier 1 must stay superset-aligned with
+   keyword moved. **Keyword only: no explanatory prose, no worked example** — the
+   rationale belongs in the proposal and the commit message, never in the file.
+   Preserve the determinism notes: Tier 1 must stay superset-aligned with
    the AGENTS REQUIRED safety groups (update both together if the keyword is safety-adjacent).
 3. Present as a diff: the miss (item, resolved vs. correct depth, why), the edit, and a
    quick check that the new keyword doesn't over-trigger on common backend terms.
-4. Never auto-apply. On decline, drop it — do not re-propose.
+4. **Never auto-apply, and apply EXACTLY the approved text** — "make it concise" means
+   trim what was shown, never rewrite or add. On decline, drop it — do not re-propose.
 
 ---
 

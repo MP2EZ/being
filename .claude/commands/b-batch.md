@@ -1054,16 +1054,17 @@ features with no observed trigger this batch.
 
 **If a lesson qualifies:**
 1. Draft the smallest edit to this file
-   (`/Users/max/dev/being/.claude/commands/b-batch.md`) — amend over append.
+   (`/Users/max/dev/being/.claude/commands/b-batch.md`) — amend over append,
+   **~4 lines of prose, ceiling.**
 2. Present as a diff. Because edits here touch resume/concurrency/race logic, the
    justification must show exactly what went wrong, not a hypothetical — but it
-   belongs in the **proposal and the commit message, never in the file text**. This
-   file loads in full on every run, so a dated incident log (`Observed 2026-08-04: …`,
-   `Learned the hard way on MAINT-244 …`) charges every future batch for a one-time
-   lesson, and git already stores it — `git log -S` finds the incident on demand.
-   Write the **rule and why it holds**; strip the date, the work-item ID, and the
-   war story.
-3. Never auto-apply. On decline, drop it — do not re-propose.
+   belongs in the **proposal and the commit message, never in the file text**. Write
+   the **rule and why it holds**; strip the date, the work-item ID, the worked example
+   and the war story. This file loads in full on every run, so a one-time lesson
+   logged here charges every future batch, and `git log -S` finds it on demand.
+3. **Never auto-apply, and apply EXACTLY the approved text** — "make it concise"
+   means trim what was shown, never rewrite or add. On decline, drop it — do not
+   re-propose.
 
 ---
 
