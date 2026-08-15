@@ -371,8 +371,20 @@ serve(async (req) => {
     // Replaces the previous `Authorization.includes(cronSecret)` substring
     // check, which would accept anything like `Bearer leak-<secret>-trailing`
     // and didn't defend against timing-based secret extraction.
+    //
+    // READS ITS OWN EDGE SECRET, NOT THE SHARED `CRON_SECRET` (INFRA-379).
+    // Edge secrets are PROJECT-WIDE — there is no per-function scoping — and
+    // `crisis-detection-alerting` + `crisis-liveness-probe` both authenticate against
+    // `CRON_SECRET`, whose value is the crisis pipeline's `crisis_alert_cron_secret`.
+    // 20260616000000_grace_period_automation_cron.sql requires this function's bearer to
+    // be DISTINCT from that one (separate trust domain) while also equalling the secret
+    // this line reads. Both cannot hold for one shared name: reading `CRON_SECRET` here
+    // either 401s every cron tick (if the Vault value is genuinely distinct, as the
+    // migration instructs) or collapses the two trust domains into one bearer, so that an
+    // ops-side rotation silently breaks crisis paging. A distinct name is what makes the
+    // documented separation actually true. Do not rename this back.
     const providedSecret = req.headers.get('x-cron-secret');
-    const expectedSecret = Deno.env.get('CRON_SECRET');
+    const expectedSecret = Deno.env.get('GRACE_PERIOD_CRON_SECRET');
 
     if (!expectedSecret || !providedSecret || !constantTimeEqual(providedSecret, expectedSecret)) {
       return new Response(

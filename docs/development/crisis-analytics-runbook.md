@@ -288,7 +288,7 @@ at row granularity unless they clear the floor.
 The migration references all secrets BY NAME — bootstrap the values out of band before the jobs can fire.
 
 1. **Resend:** verify `being.fyi` as a sending domain, create an API key, choose a sender (e.g. `alerts@being.fyi`). Sign the standard Resend DPA (recorded as a sub-processor in the DPIA v1.3).
-2. **Supabase Edge secrets** (`supabase secrets set …`), read by the edge function: `CRON_SECRET` (fresh ≥256-bit random, **distinct from grace-period-automation's**), `RESEND_API_KEY`, `CRISIS_ALERT_FROM`, `CRISIS_ALERT_TO`, plus any threshold overrides above.
+2. **Supabase Edge secrets** (`supabase secrets set …`), read by the edge function: `CRON_SECRET` (fresh ≥256-bit random, **distinct from grace-period-automation's `GRACE_PERIOD_CRON_SECRET`** — INFRA-379 gave the ops domain its own edge-secret *name*, because edge secrets are project-wide and a shared name made this asserted distinctness impossible; note `crisis-liveness-probe` deliberately *does* share `CRON_SECRET`, same trust domain), `RESEND_API_KEY`, `CRISIS_ALERT_FROM`, `CRISIS_ALERT_TO`, plus any threshold overrides above.
 3. **Supabase Vault secrets** (dashboard → Vault, or non-committed psql), read by the cron/watchdog SQL: `crisis_alert_cron_secret` (must equal the edge `CRON_SECRET`), `crisis_alert_function_url`, `crisis_alert_resend_key`, `crisis_alert_from`, `crisis_alert_to`. (The Resend key/from/to are duplicated in Vault deliberately so the watchdog is an independent send path.)
 4. Deploy: `supabase functions deploy crisis-detection-alerting` and `supabase db push`. Test-fire the function with a valid `x-cron-secret` and confirm a `crisis_alert_runs` row appears and (if forcing a breach) an email arrives.
 
