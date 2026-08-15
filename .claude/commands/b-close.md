@@ -1291,6 +1291,41 @@ Next steps:
 
 ---
 
+## Phase 6: Skill Retrospective (conditional — most runs skip this)
+
+Fires **only** on one of two triggers:
+
+- **A durable process correction**: the user corrected how this skill operates, a
+  documented step here was wrong or missing, or friction hit that would recur on
+  unrelated future closes. The load-bearing seams are Phase 0's drift check, Phase
+  2.5's gate scoping and provenance, Step 3.4's merge verdict, and the Notion +
+  cleanup tail.
+- **An observed improvement opportunity** (stricter bar, max ONE per run): nothing
+  broke, but something in *this* close would have gone measurably smoother with a
+  procedure change, and you can cite the concrete moment. No observed moment this
+  run → not a suggestion, regardless of how good the idea seems.
+
+**Not a lesson — skip silently, say nothing:** anything about the work item being
+closed (its bug, its diff, its review), a one-off CI flake that passed on re-run,
+anything already covered here or in `.claude/CLAUDE.md`, and speculative flags or
+phases with no observed trigger this run.
+
+**If a lesson qualifies:**
+1. **Route it**: close / merge / gate procedure → this file
+   (`/Users/max/dev/being/.claude/commands/b-close.md`); a *project* fact (build, env,
+   native, CI, dependency) → propose an entry for `.claude/CLAUDE.md` → Known Gotchas;
+   a lesson about planning or implementing → flag it for `/b-work`, don't record it here.
+2. **Draft the smallest edit.** Amend over append, **~4 lines of prose, ceiling.**
+   **No worked examples, no incident retellings, no work-item ID cited as
+   illustration** — git already holds the story. This file is large and loads every
+   run, so if appending, name what could be pruned to pay for it.
+3. **Present as a diff** with one line of justification: the lesson, and which future
+   closes it helps.
+4. **Never auto-apply, and apply EXACTLY the approved text** — "make it concise" means
+   trim what was shown, never rewrite or add. On decline, drop it — do not re-propose.
+
+---
+
 ## Error Recovery
 
 **If command interrupted mid-execution**:
