@@ -38,6 +38,16 @@
  * BOTTOM SHEET (`justifyContent: 'flex-end'`), where a full-width 176pt inset
  * would detach the sheet from the bottom edge and destroy the affordance.
  *
+ * ⚠️  BEFORE MAKING ANY OF THIS DYNAMIC, read
+ * docs/development/crisis-button-keyboard-occlusion.md (DEBUG-431, ruled
+ * 2026-08-16). The rect is satisfied by an EQUALITY with zero slack — a sheet's
+ * action row sits at exactly `.top` (176) — so any change to the button's
+ * `bottom` breaks it in one direction or the other, and there is no intermediate
+ * value. A raised button lands either on the action row or on the multiline
+ * TextInput, and at zIndex 9999 it wins the tap: a caret placement or a Cancel
+ * press fires an audit-logged crisis navigation instead. That document rules the
+ * dynamic raise OUT and records the shape the constraints do permit.
+ *
  * DEBUG-406's audit derived the band from two centred cards and initially applied
  * it to four bottom sheets. That was wrong, and the correction is worth recording
  * precisely because the two constants look interchangeable: the band's virtue was
