@@ -71,6 +71,16 @@ export type FeatureFlag =
   // (100% ubuntu, and the iOS simulator emits no haptics at all), so the flag
   // stays false in production until that checklist is signed off.
   | 'practice_haptics'
+  // INFRA-395 briefly added a `haptic_trace` diagnostic flag here and REMOVED it
+  // again. Recorded so nobody re-derives it: the goal was a cue-latency trace
+  // reachable in a Release build, since `practice_haptics` ships dark pending an
+  // on-device sign-off and the existing traces are `__DEV__`-only. It cannot
+  // work. A production bundle strips `console.*` twice — `babel.config.js` runs
+  // `transform-remove-console`, and `metro.config.js` sets `drop_console: true`,
+  // which removes `error` and `warn` too despite babel excluding them. No flag
+  // can reach a sink that the bundler has deleted. A Release-observable
+  // diagnostic would need a different channel entirely (Sentry, or an in-app
+  // surface), which is a real design decision and not a flag.
   // FEAT-283: gates the voice journal / spoken reflection surface (capture,
   // on-device transcription, encrypted store, crisis scan). Build-time, NOT
   // runtime/PostHog, for three reasons: it gates a whole screen + entry point

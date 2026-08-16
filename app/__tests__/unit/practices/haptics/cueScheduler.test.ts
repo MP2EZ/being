@@ -381,6 +381,147 @@ describe('lateness budget', () => {
   });
 });
 
+/**
+ * INFRA-395 — the lateness report.
+ *
+ * The scheduler already COMPUTES per-cue lateness in order to decide whether to
+ * drop; it simply discarded the number. INFRA-395's acceptance criteria require
+ * recording cue latency as figures from an attended on-device session, and no
+ * other layer can produce them: `hapticEngine`'s trace is `__DEV__`-only and
+ * carries no timing, and the engine never learns what a cue's target WAS.
+ *
+ * Reported as an injected callback rather than a log call, because this module
+ * imports no app services by design — its clock and timers are injected for the
+ * same reason. `usePracticeHaptics` supplies the callback under `__DEV__`, so
+ * production folds it to `undefined` and every call site below no-ops.
+ *
+ * The invariant that makes the figures trustworthy: EVERY cue the scheduler
+ * passes is reported exactly once, whether it was delivered or dropped. A drop
+ * rate computed from delivered-only reports would read 100% on a session that
+ * silently lost half its cues.
+ */
+describe('lateness reporting', () => {
+  it('reports a delivered cue with its actual lateness', () => {
+    const h = makeHarness();
+    const onLateness = jest.fn();
+    const scheduler = createCueScheduler({
+      schedule: [{ atMs: 1000, cue: 'inhale' }],
+      onCue: jest.fn(),
+      onLateness,
+      now: h.now,
+      setTimer: h.setTimer,
+      clearTimer: h.clearTimer,
+    });
+
+    scheduler.start();
+    h.advance(1000);
+
+    expect(onLateness).toHaveBeenCalledTimes(1);
+    expect(onLateness).toHaveBeenCalledWith({
+      cue: 'inhale',
+      latenessMs: 0,
+      delivered: true,
+    });
+  });
+
+  it('reports the real overshoot, not a value clamped to the budget', () => {
+    const h = makeHarness();
+    const onLateness = jest.fn();
+    const scheduler = createCueScheduler({
+      schedule: [{ atMs: 1000, cue: 'inhale' }],
+      onCue: jest.fn(),
+      onLateness,
+      now: h.now,
+      setTimer: h.setTimer,
+      clearTimer: h.clearTimer,
+    });
+
+    scheduler.start();
+    // Inside the budget, so it still delivers — but late by a measurable amount.
+    h.suspend(1000 + MAX_CUE_LATENESS_MS - 1);
+    h.advance(0);
+
+    expect(onLateness).toHaveBeenCalledWith({
+      cue: 'inhale',
+      latenessMs: MAX_CUE_LATENESS_MS - 1,
+      delivered: true,
+    });
+  });
+
+  it('reports a cue dropped at fire time as undelivered', () => {
+    const h = makeHarness();
+    const onCue = jest.fn();
+    const onLateness = jest.fn();
+    const scheduler = createCueScheduler({
+      schedule: [{ atMs: 1000, cue: 'inhale' }],
+      onCue,
+      onLateness,
+      now: h.now,
+      setTimer: h.setTimer,
+      clearTimer: h.clearTimer,
+    });
+
+    scheduler.start();
+    h.suspend(1000 + MAX_CUE_LATENESS_MS + 1);
+    h.advance(0);
+
+    expect(onCue).not.toHaveBeenCalled();
+    expect(onLateness).toHaveBeenCalledWith({
+      cue: 'inhale',
+      latenessMs: MAX_CUE_LATENESS_MS + 1,
+      delivered: false,
+    });
+  });
+
+  it('accounts for cues skipped during re-arm, not just those that reach a timer', () => {
+    const h = makeHarness();
+    const onCue = jest.fn();
+    const onLateness = jest.fn();
+    const scheduler = createCueScheduler({
+      schedule: [
+        { atMs: 1000, cue: 'inhale' },
+        { atMs: 2000, cue: 'exhale' },
+        { atMs: 9000, cue: 'intervalTick' },
+      ],
+      onCue,
+      onLateness,
+      now: h.now,
+      setTimer: h.setTimer,
+      clearTimer: h.clearTimer,
+    });
+
+    scheduler.start();
+    h.suspend(3000); // 1000 and 2000 are now stale and are skipped, never armed
+    h.advance(6000); // reaches 9000
+
+    // Every cue in the schedule is accounted for exactly once.
+    expect(onLateness.mock.calls.map((c) => c[0])).toEqual([
+      { cue: 'inhale', latenessMs: 2000, delivered: false },
+      { cue: 'exhale', latenessMs: 1000, delivered: false },
+      { cue: 'intervalTick', latenessMs: 0, delivered: true },
+    ]);
+    expect(onCue.mock.calls.map((c) => c[0])).toEqual(['intervalTick']);
+  });
+
+  it('is optional — a scheduler built without it runs unchanged', () => {
+    const h = makeHarness();
+    const onCue = jest.fn();
+    const scheduler = createCueScheduler({
+      schedule: [{ atMs: 1000, cue: 'inhale' }],
+      onCue,
+      now: h.now,
+      setTimer: h.setTimer,
+      clearTimer: h.clearTimer,
+    });
+
+    expect(() => {
+      scheduler.start();
+      h.advance(1000);
+    }).not.toThrow();
+    expect(onCue).toHaveBeenCalledWith('inhale');
+  });
+});
+
 describe('schedule builders', () => {
   it('intervalSchedule places one identical tick per interval, excluding the end', () => {
     expect(intervalSchedule(300_000, 60_000)).toEqual([
