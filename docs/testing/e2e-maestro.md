@@ -303,6 +303,23 @@ rollback and as a re-measurable baseline after toolchain upgrades.
 
 ## Running the flows
 
+> **Operator rule (INFRA-434): do not replace the installed app while a suite is running.**
+> The gate resolves and attests its target once at pre-flight, then runs for minutes.
+> INFRA-436's per-UDID lock covers a peer's `npm run e2e:safety:build`, so that path now
+> waits rather than trampling. It does **not** cover anything that never takes the lock:
+> `npm run e2e:safety:build:eas` (zero lock acquisitions — it uninstalls and installs
+> directly), `npm run ios`, Xcode Run, or a hand-run `xcrun simctl install` / `uninstall` /
+> `erase`.
+>
+> Since INFRA-434 the gate re-reads its target's provenance marker between flows and after
+> the last one, and **aborts with exit 3** if it changed or disappeared — distinct from
+> exit 1 (a flow regression) and exit 2 (the harness could not complete). Every flow that
+> had already finished is reported `VOID`, not `PASS`: a marker change bounds a window
+> rather than an instant, so nothing that ran before it is evidence. When the marker was
+> replaced rather than deleted, the abort names the replacing worktree's `repoRoot` and
+> `branch`; an uninstall leaves no marker, so that case reports `VANISHED` with no
+> attribution.
+
 ```bash
 # Sim suite (4 flows tagged `safety`, ~3–5 min) — runnable on iOS sim.
 # INFRA-220: runs each flow as a SEPARATE maestro invocation with an XCUITest-

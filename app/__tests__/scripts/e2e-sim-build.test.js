@@ -2068,3 +2068,213 @@ describe('e2e-sim-build.sh — INFRA-435 disk-headroom pre-flight', () => {
     expect(built.buildRan).toBe(true);
   }, 60000);
 });
+
+// =====================================================================================
+// INFRA-434 — the gate cannot detect its target being replaced MID-SUITE.
+//
+// SCOPE, and why it is narrower than the ticket says. INFRA-436's per-UDID mutex
+// (e2e-sim-lock.sh, acquired at e2e-safety.sh:220 and e2e-sim-build.sh:158) already
+// serialises the scenario the ticket was written against — a peer running
+// `npm run e2e:safety:build`. What it does NOT cover is every replacement that never
+// takes the lock: e2e-sim-build-eas.sh (zero acquisitions; uninstall+install at :137-138),
+// `npm run ios`, Xcode Run, a hand-run `xcrun simctl install`, a lock reclaimed as
+// DEAD/RECYCLED, or a peer with a different E2E_LOCK_ROOT. Those are what these tests
+// model, and they are why detection is still worth having on top of the mutex.
+//
+// THE SIGNAL IS MARKER BYTES, not a recomputed fingerprint and not the container path.
+//  - A per-flow `e2e-provenance.js verify` would abort on any mid-suite operator edit,
+//    because fingerprint() hashes untracked file contents repo-wide. The discriminator
+//    test below is what holds that line.
+//  - Container-path change is unobservable here: the xcrun stub resolves a fixed path and
+//    install-target rewrites in place, so a simulated reinstall does not move it.
+
+/** A maestro stub that writes a clean report, then mutates the marker after `afterFlow`. */
+function maestroMutatesMarker({ afterFlow, container, replaceWith = null }) {
+  const markerPath = path.join(container, MARKER_NAME);
+  const mutate = replaceWith
+    ? `printf '%s' '${JSON.stringify(replaceWith)}' > '${markerPath}'`
+    : `rm -f '${markerPath}'`;
+  return [
+    'out=""; flow=""',
+    'for a in "$@"; do',
+    '  case "$a" in',
+    '    --output=*) out="${a#--output=}" ;;',
+    '    *.yaml) flow="$a" ;;',
+    '  esac',
+    'done',
+    // Derive the testcase name from the flow file so per-flow adjudication passes.
+    'nm="$(basename "$flow" .yaml)"',
+    'if [ -n "$out" ]; then',
+    `  printf '%s\\n' '<?xml version="1.0"?><testsuites><testsuite name="s" tests="1" failures="0" errors="0">' > "$out"`,
+    `  printf '<testcase name="%s" classname="%s"/>\\n' "$nm" "$nm" >> "$out"`,
+    `  printf '%s\\n' '</testsuite></testsuites>' >> "$out"`,
+    'fi',
+    `case "$nm" in ${afterFlow}) ${mutate} ;; esac`,
+    'exit 0',
+  ].join('\n');
+}
+
+/** A marker a PEER worktree would legitimately have written: real schema, foreign lineage. */
+function peerMarker(built) {
+  const real = JSON.parse(fs.readFileSync(path.join(built.container, MARKER_NAME), 'utf8'));
+  return {
+    ...real,
+    repoRoot: '/Users/max/dev/being/peer-gate',
+    branch: 'chore/PEER-999',
+    head: 'b'.repeat(40),
+    treeHash: 'deadbeefdeadbeefdeadbeefdeadbeefdeadbeef',
+  };
+}
+
+describe('INFRA-434 — mid-suite gate-target substitution', () => {
+  const TWO_FLOWS = ['crisis-button-reachability', 'q9-single-alert'];
+
+  test('a marker REPLACED between flows aborts the suite and names the replacing worktree', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: TWO_FLOWS,
+      maestroBody: maestroMutatesMarker({
+        afterFlow: 'crisis-button-reachability',
+        container: built.container,
+        replaceWith: peerMarker(built),
+      }),
+    });
+
+    expect(r.status).not.toBe(0);
+    expect(r.output).not.toMatch(/all safety flows passed/);
+    expect(r.output).toMatch(/replaced/i);
+    // Attribution is free — the marker already carries repoRoot and branch.
+    expect(r.output).toMatch(/peer-gate/);
+    expect(r.output).toMatch(/chore\/PEER-999/);
+    // Flow 2 must never have been invoked.
+    expect(r.flowsRun).toBe(1);
+  }, 60000);
+
+  test('a marker DELETED between flows aborts, and says vanished rather than replaced', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: TWO_FLOWS,
+      maestroBody: maestroMutatesMarker({
+        afterFlow: 'crisis-button-reachability',
+        container: built.container,
+        replaceWith: null, // rm -f — an uninstall, or a Debug reinstall
+      }),
+    });
+
+    expect(r.status).not.toBe(0);
+    // The two arms are distinguishable on purpose: an uninstall leaves NO marker, so
+    // "name the replacing worktree" is unsatisfiable for it and must not be claimed.
+    expect(r.output).toMatch(/vanished|gone|absent/i);
+    expect(r.flowsRun).toBe(1);
+  }, 60000);
+
+  /**
+   * THE DISCRIMINATOR. This is the case that rules out implementing the check as a
+   * per-flow `e2e-provenance.js verify`: the operator edits the working tree mid-suite
+   * (an untracked file, and a .maestro flow) while the INSTALLED BINARY never moves.
+   * A fingerprint-based check aborts here; a marker-bytes check runs to completion.
+   * Without this test, the cheapest wrong implementation passes every other case.
+   */
+  test('an operator editing the tree mid-suite does NOT abort — the binary never moved', () => {
+    const built = runScript({});
+    const untracked = path.join(built.root, GIT_STATE_DIR, 'untracked');
+    const flowYaml = path.join(built.root, '.maestro', 'q9-single-alert.yaml');
+    const r = runSafety(built, {
+      flows: TWO_FLOWS,
+      maestroBody: [
+        'out=""; flow=""',
+        'for a in "$@"; do',
+        '  case "$a" in',
+        '    --output=*) out="${a#--output=}" ;;',
+        '    *.yaml) flow="$a" ;;',
+        '  esac',
+        'done',
+        'nm="$(basename "$flow" .yaml)"',
+        'if [ -n "$out" ]; then',
+        `  printf '%s\\n' '<?xml version="1.0"?><testsuites><testsuite name="s" tests="1" failures="0" errors="0">' > "$out"`,
+        `  printf '<testcase name="%s" classname="%s"/>\\n' "$nm" "$nm" >> "$out"`,
+        `  printf '%s\\n' '</testsuite></testsuites>' >> "$out"`,
+        'fi',
+        // Move the TREE, not the binary: a new untracked file and a comment appended to a
+        // flow. fingerprint() hashes untracked contents repo-wide, so this is exactly what
+        // would flip MATCH->MISMATCH under the wrong implementation.
+        `case "$nm" in crisis-button-reachability)`,
+        `  printf 'scratch.txt\\n' >> '${untracked}'`,
+        `  printf '\\n# touched mid-suite\\n' >> '${flowYaml}' ;;`,
+        `esac`,
+        'exit 0',
+      ].join('\n'),
+    });
+
+    expect(r.status).toBe(0);
+    expect(r.flowsRun).toBe(2);
+    expect(r.output).toMatch(/all safety flows passed/);
+  }, 60000);
+
+  test('a replacement during the FINAL flow is still caught', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-button-reachability'],
+      maestroBody: maestroMutatesMarker({
+        afterFlow: 'crisis-button-reachability',
+        container: built.container,
+        replaceWith: peerMarker(built),
+      }),
+    });
+
+    // A top-of-loop-only check would report this 1-of-1 run — the common /b-close
+    // per-flow shape — as a clean pass.
+    expect(r.status).not.toBe(0);
+    expect(r.output).not.toMatch(/all safety flows passed/);
+  }, 60000);
+
+  test('completed flows are rendered inconclusive, not PASS, when the target is replaced', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: TWO_FLOWS,
+      maestroBody: maestroMutatesMarker({
+        afterFlow: 'crisis-button-reachability',
+        container: built.container,
+        replaceWith: peerMarker(built),
+      }),
+      env: { E2E_REQUIRE_CLEAN_PROVENANCE: '1' },
+    });
+
+    expect(r.status).not.toBe(0);
+    // The marker change bounds a WINDOW, not an instant — the substitution could have
+    // happened at any point during flow 1 — so no completed flow survives as evidence.
+    expect(r.output).toMatch(/VOID|inconclusive/i);
+    expect(r.output).not.toMatch(/^\s*PASS\s/m);
+  }, 60000);
+
+  test('a device-only run is unaffected — there is no container to watch', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      devices: ONE_DEVICE,
+      maestroBody: maestroWrites({ flow: 'crisis-988-dial' }),
+    });
+
+    expect(r.status).toBe(0);
+    expect(r.output).not.toMatch(/replaced|vanished/i);
+  }, 60000);
+
+  test('the marker filename has ONE source — e2e-safety.sh does not hardcode it', () => {
+    // Originally written expecting the filename to be duplicated into e2e-safety.sh, with
+    // this test pinning the two copies together. The implementation resolves it from
+    // e2e-provenance.js's export instead, which makes drift impossible rather than
+    // merely detectable — so this asserts the stronger property: the literal must be
+    // ABSENT here, and the single source must be consulted.
+    //
+    // Why it matters: if the guard ever watches a path nothing writes, every read returns
+    // empty, and empty means "vanished" — the gate would refuse every run. Fail-closed, so
+    // not a false green, but it would take the gate offline and train --skip-e2e.
+    const exported = require('../../scripts/e2e-provenance.js').MARKER_NAME;
+    const safetySrc = fs.readFileSync(REAL_SAFETY, 'utf8');
+
+    expect(exported).toBeTruthy();
+    expect(safetySrc).not.toContain(exported);
+    expect(safetySrc).toMatch(/MARKER_NAME/);
+    expect(safetySrc).toMatch(/e2e-provenance/);
+  });
+});
