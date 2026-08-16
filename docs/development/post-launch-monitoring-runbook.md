@@ -482,3 +482,9 @@ mid-tier nor 60Hz.
   still stands. The live probe is INFRA-448 and is blocked on a Supabase PAT (repo secrets hold
   only `SUPABASE_URL` + `SUPABASE_ANON_KEY`, and the anon key can read none of the three drift
   classes). Until it lands, the §4 manual verification remains the only check on deployed state.
+- **The mirror direction — deployed ≠ merged (INFRA-454).** Everything above asks whether prod is
+  behind the repo. It does not answer whether prod contains objects the repo has never heard of,
+  and `supabase/migrations/` is **not** a complete description of production. A census dated
+  2026-08-16 lists every such object and why each is platform-managed rather than ours:
+  `supabase/README.md` → *Objects present in production but created by no migration*. Read it
+  before treating "the migration is in the repo" as proof the object in prod came from it.
