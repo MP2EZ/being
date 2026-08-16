@@ -404,6 +404,30 @@ jobs:
         # other self-clearing patterns.
         run: node scripts/check-service-interval-guards.js
 
+      - name: Supabase deploy-manifest reconciliation
+        # INFRA-442: There is no CI auto-deploy for Supabase migrations, edge
+        # functions or secrets, so "merged" and "running" drift apart silently.
+        # It has bitten three times (INFRA-278 dormant crisis-monitoring stack,
+        # INFRA-379 four unapplied migrations, and the service_role DML gap found
+        # while executing INFRA-379) and every discovery was incidental.
+        #
+        # This step is the CREDENTIAL-FREE half: it reconciles
+        # supabase/deploy-manifest.json against the source, so a secret name
+        # entering the code without anyone declaring it fails on THAT PR rather
+        # than six weeks later. It catches the commonest cause of live drift —
+        # a name nobody provisioned — without needing project access.
+        #
+        # It does NOT prove the project is deployed. That is the live probe
+        # (INFRA-448), blocked on a Supabase PAT: repo secrets hold only
+        # SUPABASE_URL + SUPABASE_ANON_KEY, and the anon key can read none of the
+        # three drift classes (schema_migrations is not PostgREST-exposed under
+        # this project's [api] schemas pin; vault.secrets is postgres-role-only).
+        #
+        # Fails closed: exit 1 on drift, exit 2 on "could not determine" (an
+        # unreadable manifest or a broken scan). It never reports clean when it
+        # could not look.
+        run: node scripts/supabase-deploy-drift.js --reconcile
+
       - name: Crisis-dial guard check
         # DEBUG-314: Verifies every tel:/sms: dial routes through
         # `openCrisisUrl`, which owns the canOpenURL guard, the manual-dial

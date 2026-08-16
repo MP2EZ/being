@@ -474,5 +474,11 @@ mid-tier nor 60Hz.
 - **Merged ≠ deployed.** There is no CI auto-deploy for Supabase migrations/functions/secrets — a
   PR merging to `development`/`main` does not touch the live project. Run the §4 verification after
   every deploy and secret rotation. (This is why the grace-period stack was found dormant in prod.)
-</content>
-</invoke>
+- **What is now automated, and what is not (INFRA-442).** `node scripts/supabase-deploy-drift.js
+  --reconcile` runs in CI's `security` job and fails a PR that introduces a secret name, a Vault
+  name or a function nobody declared in `supabase/deploy-manifest.json`. That closes the commonest
+  *cause* of live drift — a name nobody provisioned — on the PR that creates it. It does **not**
+  observe the live project, so it cannot tell you whether anything is deployed; the bullet above
+  still stands. The live probe is INFRA-448 and is blocked on a Supabase PAT (repo secrets hold
+  only `SUPABASE_URL` + `SUPABASE_ANON_KEY`, and the anon key can read none of the three drift
+  classes). Until it lands, the §4 manual verification remains the only check on deployed state.
