@@ -28,6 +28,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { timingSafeEqual } from 'node:crypto';
 import { shouldPingSubscriptionHealthcheck } from './healthcheckGate.ts';
+import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
 
 /**
  * Constant-time string comparison via node:crypto's timingSafeEqual.
@@ -205,11 +206,11 @@ async function notifyExpiringTrials(supabase: any): Promise<number> {
 
   // Log events for expiring trials
   for (const trial of expiringTrials) {
-    await supabase.rpc('log_subscription_event', {
-      p_user_id: trial.user_id,
-      p_subscription_id: null,
-      p_event_type: 'trial_ending_soon',
-      p_metadata: {
+    await logSubscriptionEvent(supabase, {
+      userId: trial.user_id,
+      subscriptionId: null,
+      eventType: 'trial_ending_soon',
+      metadata: {
         trial_end_date: trial.trial_end_date,
         days_remaining: trial.days_remaining,
         timestamp: new Date().toISOString(),
@@ -247,11 +248,11 @@ async function notifyExpiringGracePeriods(supabase: any): Promise<number> {
 
   // Log events for expiring grace periods
   for (const grace of expiringGrace) {
-    await supabase.rpc('log_subscription_event', {
-      p_user_id: grace.user_id,
-      p_subscription_id: null,
-      p_event_type: 'grace_period_ending',
-      p_metadata: {
+    await logSubscriptionEvent(supabase, {
+      userId: grace.user_id,
+      subscriptionId: null,
+      eventType: 'grace_period_ending',
+      metadata: {
         grace_period_end: grace.grace_period_end,
         days_remaining: grace.days_remaining,
         timestamp: new Date().toISOString(),
