@@ -16,8 +16,20 @@ import {
   Pressable,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
 } from 'react-native';
+/**
+ * MAINT-437 — `edges` applies to all 2 SafeAreaView root(s) in this file.
+ *
+ * Root-stack card with `headerShown: false`: no navigator supplies either
+ * inset, which is what RN core's iOS-only SafeAreaView already did here — so iOS
+ * rendering is unchanged by construction and the whole behavioural delta is Android.
+ *
+ * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
+ * are never listed. NOTE: no test in this repo can observe an `edges` value having
+ * a layout effect — the jest mock pins all insets to zero. The rendered result is
+ * verified by MAINT-437's deferred Android/iOS device pass.
+ */
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
@@ -47,7 +59,7 @@ const PassageReaderScreen: React.FC = () => {
   const renderBody = () => {
     if (!passage) return null;
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={{ flex: 1 }}>
           <View style={styles.container}>
             <View style={styles.header}>
@@ -131,7 +143,7 @@ const PassageReaderScreen: React.FC = () => {
 
   if (!passage) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Passage not found.</Text>
           <TouchableOpacity style={styles.errorButton} onPress={() => navigation.goBack()}>

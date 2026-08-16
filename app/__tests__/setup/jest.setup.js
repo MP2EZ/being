@@ -293,7 +293,21 @@ jest.mock('react-native', () => {
     // `Element type is invalid: ... got: undefined` on first render of
     // any screen that uses it.
     KeyboardAvoidingView: RN.KeyboardAvoidingView,
-    SafeAreaView: RN.SafeAreaView,
+
+    // MAINT-437: `SafeAreaView: RN.SafeAreaView` removed. Reading that property off the
+    // core export invokes the deprecating getter (react-native/index.js:96-107), and
+    // because this file runs before any app module in every test registry, it was the
+    // SOLE emitter of the deprecation warning — verified, not assumed: with this line
+    // gone, a full `npm test` (245 suites, 3861 tests) emits zero deprecation lines, as
+    // do `test:accessibility` and `validate:accessibility`. Migrating the 8 app files
+    // silenced nothing on its own; this line was the whole of it. Note several suites
+    // spread `jest.requireActual('react-native')`, which looks like it should re-emit and
+    // does not — do not "fix" them on the theory that it should.
+    //
+    // Removing it is also a third enforcement layer, after the ESLint rule and the
+    // check script: any future core import now fails at RENDER with
+    // `Element type is invalid`, rather than rendering fine and warning once.
+    // Use `react-native-safe-area-context`, which is mocked below with prop forwarding.
 
     // Layout & Styling (SAFE)
     StyleSheet: RN.StyleSheet,
@@ -586,10 +600,36 @@ jest.mock('react-native-safe-area-context', () => {
   const inset = { top: 0, right: 0, bottom: 0, left: 0 };
   const frame = { x: 0, y: 0, width: 390, height: 844 };
   const passthrough = ({ children }) => children;
+
+  // MAINT-437 — SafeAreaView renders a real host element and FORWARDS its props.
+  //
+  // It was `passthrough`, which renders no host node and silently drops `style`,
+  // `testID` and every accessibility prop. Screens rooted on it were therefore
+  // unqueryable: `getByTestId('practice-screen')` resolved only because
+  // PracticeScreenLayout used the DEPRECATED core import, which the curated RN mock
+  // backs with a real host component. Migrating the import without fixing this would
+  // have deleted that testID — which is why this lands first and is verified green
+  // with the old imports still in place.
+  //
+  // `edges` is forwarded deliberately: it is the ONLY thing in ACs 1-4 that can
+  // observe an edges decision at all. Insets are pinned at zero here, so no test can
+  // see an edges value having a layout EFFECT — a per-site `props.edges` assertion
+  // pins the value, never the pixels. The rendered result is AC5/AC6 device work.
+  //
+  // `mode` is consumed, not forwarded — it is not a View prop and leaking it would
+  // pollute prop assertions.
+  //
+  // SafeAreaProvider deliberately stays `passthrough`: promoting it to a host View
+  // would insert a second node at the root of every rendered tree app-wide, which is
+  // a far larger blast radius than this item's.
+  const { View: RNView } = require('react-native');
+  const SafeAreaViewMock = ({ children, edges, mode: _mode, ...props }) =>
+    require('react').createElement(RNView, { ...props, edges }, children);
+
   return {
     SafeAreaProvider: passthrough,
     SafeAreaConsumer: ({ children }) => children(inset),
-    SafeAreaView: passthrough,
+    SafeAreaView: SafeAreaViewMock,
     useSafeAreaInsets: () => inset,
     useSafeAreaFrame: () => frame,
     SafeAreaInsetsContext: { Consumer: ({ children }) => children(inset), Provider: passthrough },

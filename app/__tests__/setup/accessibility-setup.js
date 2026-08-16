@@ -45,7 +45,12 @@ jest.mock('react-native', () => {
     },
     // Mock deprecated components to prevent warnings
     ProgressBarAndroid: MockComponent,
-    SafeAreaView: MockComponent,
+    // MAINT-437: SafeAreaView removed — use react-native-safe-area-context.
+    // NOTE: this whole file is DEAD. jest.config.js references it nowhere, and
+    // `/__tests__/setup/` is in testPathIgnorePatterns. Left in place rather than
+    // deleted because removing an unreferenced 60-line file is its own cleanup, but
+    // be aware its `...RN` spread would touch every deprecating getter if anyone
+    // ever wired it up.
     Clipboard: {
       getString: jest.fn(() => Promise.resolve('')),
       setString: jest.fn(() => Promise.resolve())

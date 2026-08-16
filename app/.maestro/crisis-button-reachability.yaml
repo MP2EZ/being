@@ -231,6 +231,54 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 - tapOn:
     id: "nav-back-button"
 
+# ── DEBUG-406: the education sheet must not occlude the button ───
+# The sheet at ProfileScreen's ⓘ was a real RN <Modal> until DEBUG-406. An RN
+# <Modal> renders in a separate native window ABOVE the JS view hierarchy, so
+# while it was open `crisis-button-root` was not dimmed — it was not on screen,
+# a zero-988-affordance state. It is now a full-bleed absolute overlay published
+# into the root overlay slot, which paints immediately BELOW this button.
+#
+# This TAPS THROUGH rather than merely asserting visibility, and that is the
+# whole point of doing it here instead of in jest. Under a native-layer
+# occlusion bug the hierarchy dump can still LIST a view that another native
+# window is covering, so `assertVisible` alone would have passed against the
+# original defect. Only tap-and-land is evidence.
+#
+# Placed in the Profile block because the trigger lives on the Profile menu; it
+# re-taps `tab-profile` first like every other segment here, so it is immune to
+# wherever the previous nav-back-button landed.
+- tapOn:
+    id: "tab-profile"
+- tapOn:
+    id: "profile-assessment-info"
+# The sheet is up. Under the old <Modal> this next assertion was impossible —
+# the button did not exist in the hierarchy at all.
+- assertVisible:
+    id: "threshold-education-overlay"
+- assertVisible:
+    id: "crisis-button-root"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
+- tapOn:
+    id: "nav-back-button"
+# The sheet survives the round trip — the user returns to where they were, not
+# to a dismissed sheet. Post-condition, not a tap: DEBUG-403's failure was a tap
+# that reported COMPLETED while the app never received it.
+- assertVisible:
+    id: "threshold-education-overlay"
+# And its own dismissal still works after the excursion. This also pins that the
+# dismiss control is reachable — it was moved OUT of the sheet's ScrollView in
+# DEBUG-406, where it could be pushed below the fold.
+- tapOn:
+    id: "threshold-education-dismiss"
+- assertNotVisible:
+    id: "threshold-education-overlay"
+
 # depth-1: Notifications & Display
 - tapOn:
     id: "tab-profile" # re-tap → pop ProfileStack to menu root (immune to over-pop)
