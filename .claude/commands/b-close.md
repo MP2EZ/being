@@ -104,6 +104,11 @@ git worktree list
 - Pattern: `[TYPE]-[NUMBER]` (e.g., FEAT-42, DEBUG-15)
 - If not found: Error "Cannot determine work item. Provide as argument: /b-close FEAT-42"
 
+**Items with no feature branch** (verification-only, or `.claude/`-only work committed on
+`_bare`): auto-detect yields a non-work-item branch name, so pass the ID explicitly. Phase 3
+has no PR to open and Phase 5 no worktree to remove — run Phase 0, record Phase 2.5 as
+INAPPLICABLE per its no-merge-base branch, then go straight to Phase 4.
+
 ---
 
 ### Step 1.2: Query Notion for Work Item
