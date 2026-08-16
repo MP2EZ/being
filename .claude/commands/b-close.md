@@ -879,6 +879,11 @@ fi
 
 Proceed to Step 3.1 only on success.
 
+**`development` can advance while the gate runs.** After Phase 2.5 completes, re-check
+`git rev-list --count HEAD..origin/development`. If the new commits leave your NET diff
+free of runtime code, proceed and record that reasoning — re-gating would validate their
+changes, not yours. If your net diff still carries runtime code, re-merge and re-gate.
+
 ---
 
 ## Phase 3: PR + Merge to Development
