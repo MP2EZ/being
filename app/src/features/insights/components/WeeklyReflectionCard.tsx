@@ -18,7 +18,7 @@
  *   - No algorithmic prompts.
  */
 
-import React, { useMemo, useState, useCallback } from 'react';
+import React, { useMemo, useState, useCallback, useRef } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import {
   colorSystem,
@@ -30,6 +30,7 @@ import {
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { getIsoWeekStart } from '@/core/utils/isoWeek';
 import WeeklyReflectionComposer from './WeeklyReflectionComposer';
+import { useRootOverlay } from '@/core/navigation/rootOverlaySlot';
 
 const MIN_CHECK_INS_TO_SHOW = 4;
 const PROMPT_LABEL = 'What did this week teach you?';
@@ -37,6 +38,9 @@ const FRAMING = 'For deepening, not catching up. Daily practice remains the work
 
 const WeeklyReflectionCard: React.FC = () => {
   const [composerOpen, setComposerOpen] = useState(false);
+  // Focus returns here when the composer closes — the overlay is no longer an
+  // RN <Modal>, so nothing restores it for free.
+  const triggerRef = useRef<React.ComponentRef<typeof Pressable> | null>(null);
 
   const getCheckInHistory = useStoicPracticeStore((s) => s.getCheckInHistory);
   const checkInCompletions = useStoicPracticeStore((s) => s.checkInCompletions);
@@ -69,6 +73,18 @@ const WeeklyReflectionCard: React.FC = () => {
     [addWeeklyReflection]
   );
 
+  // DEBUG-406: publish the composer into the root overlay slot. Declared before
+  // the early return below so the hook order is stable across renders.
+  useRootOverlay('weekly-reflection-composer', composerOpen, () => (
+    <WeeklyReflectionComposer
+      visible
+      initialText={reflection?.text ?? ''}
+      onSave={handleSave}
+      onCancel={() => setComposerOpen(false)}
+      returnFocusRef={triggerRef}
+    />
+  ));
+
   if (checkInsThisWeek < MIN_CHECK_INS_TO_SHOW) {
     return null;
   }
@@ -82,6 +98,7 @@ const WeeklyReflectionCard: React.FC = () => {
         <View style={styles.savedSection}>
           <Text style={styles.savedText}>{reflection.text}</Text>
           <Pressable
+            ref={triggerRef}
             style={({ pressed }) => [styles.editButton, pressed && styles.pressed]}
             onPress={() => setComposerOpen(true)}
             accessibilityRole="button"
@@ -93,6 +110,7 @@ const WeeklyReflectionCard: React.FC = () => {
         </View>
       ) : (
         <Pressable
+          ref={triggerRef}
           style={({ pressed }) => [styles.promptButton, pressed && styles.pressed]}
           onPress={() => setComposerOpen(true)}
           accessibilityRole="button"
@@ -104,12 +122,13 @@ const WeeklyReflectionCard: React.FC = () => {
         </Pressable>
       )}
 
-      <WeeklyReflectionComposer
-        visible={composerOpen}
-        initialText={reflection?.text ?? ''}
-        onSave={handleSave}
-        onCancel={() => setComposerOpen(false)}
-      />
+      {/* DEBUG-406: the composer renders into the ROOT overlay slot, not here.
+          This card sits inside InsightsScreen's ScrollView, and RN resolves
+          `position: 'absolute'` against the parent's padding box — so an inline
+          full-bleed overlay would cover the card, scroll away with the content,
+          and be clipped outright on Android. The slot's box is the screen and it
+          paints immediately below the crisis button. Nothing is rendered at this
+          point in the tree; `useRootOverlay` above publishes it. */}
     </View>
   );
 };

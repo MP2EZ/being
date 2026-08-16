@@ -206,6 +206,12 @@ check-*.py
 # openCrisisUrl. Enforced both in precommit (via __tests__/safety) and in the
 # CI security job, not an ad-hoc developer scratch script.
 !app/scripts/check-crisis-dial-guard.js
+# Whitelist the modal-occlusion guard (DEBUG-406) — fails on any RN <Modal> in
+# app/src outside a recorded allowlist, because a <Modal> renders in a separate
+# native window above the root crisis button and produces a zero-988-affordance
+# state. Enforced in precommit (via __tests__/safety) and in the CI security
+# job, not an ad-hoc developer scratch script.
+!app/scripts/check-modal-occlusion-guard.js
 !app/__tests__/scripts/check-breathing-worklet-purity.test.js
 execute-*.js
 execute-*.py
