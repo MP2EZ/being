@@ -328,10 +328,16 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
   #
   # Bytes, not a recomputed fingerprint: e2e-provenance.js's fingerprint() hashes untracked
   # file contents repo-wide, so re-verifying per flow would abort a suite whose binary never
-  # moved the moment an operator saves a file. And not the container path either — the
-  # "simctl mints a new UUID per fresh install" claim is asserted in this repo but verified
-  # nowhere in it, so nothing here depends on it being true. A vanished container makes the
-  # read empty, which the GONE arm already handles without the claim.
+  # moved the moment an operator saves a file. That is the half of the original reasoning
+  # that survived.
+  #
+  # The other half — "and not the container path either, because the 'simctl mints a new
+  # UUID per fresh install' claim is asserted in this repo but verified nowhere in it, so
+  # nothing here depends on it being true" — was FALSE, and is deleted rather than softened.
+  # It is the reasoning that produced DEBUG-432: the claim is true, the cached path did
+  # depend on it, and every scoped run VOIDed. Declining to rely on an unverified fact is
+  # not the same as being safe from it. The path is re-resolved per check in
+  # e2e_assert_gate_target(), which quotes this in full where it refutes it.
   GATE_MARKER_NAME="$(node -e 'process.stdout.write(require("./scripts/e2e-provenance.js").MARKER_NAME)' 2>/dev/null || true)"
   GATE_MARKER="$APP/$GATE_MARKER_NAME"
   case "$GATE_MARKER" in

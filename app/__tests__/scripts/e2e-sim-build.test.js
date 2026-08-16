@@ -526,11 +526,24 @@ function runScript(opts = {}) {
       // that divergence is the whole point of the multi-device model above.
       '  echo "install-target $d" >> "$TRACE"',
       `  mkdir -p "$CONTAINERS/$d"; rm -rf "$CONTAINERS/$d/${BUNDLE_ID}.app"`,
+      // An install supersedes any prior relocation — see the get_app_container arm below.
+      `  rm -f "$CONTAINERS/$d/.relocated"`,
       `  cp -Rp "$4" "$CONTAINERS/$d/${BUNDLE_ID}.app"; exit 0`,
       'fi',
       'if [ "$1" = "simctl" ] && [ "$2" = "get_app_container" ]; then',
       '  echo "get_app_container $3" >> "$TRACE"',
       '  d="$(resolve_dev "$3")" || { echo "No devices are booted." >&2; exit 1; }',
+      // A real container lives under a per-install UUID that simctl re-mints on every fresh
+      // install, so its absolute path is NOT stable across an uninstall+install cycle. The
+      // stable path below is a simplification every other test in this file leans on; a test
+      // that needs the true relocating behaviour writes `.relocated` and this follows it.
+      // Keeping the simplification as the DEFAULT is deliberate — making relocation
+      // universal here would change what dozens of unrelated assertions are testing.
+      `  if [ -f "$CONTAINERS/$d/.relocated" ]; then`,
+      `    rel="$(cat "$CONTAINERS/$d/.relocated")"`,
+      `    if [ -d "$rel" ]; then echo "$rel"; exit 0; fi`,
+      '    echo "No such app" >&2; exit 1',
+      '  fi',
       `  if [ -d "$CONTAINERS/$d/${BUNDLE_ID}.app" ]; then echo "$CONTAINERS/$d/${BUNDLE_ID}.app"; exit 0; fi`,
       '  echo "No such app" >&2; exit 1',
       'fi',
@@ -2114,6 +2127,41 @@ function maestroMutatesMarker({ afterFlow, container, replaceWith = null }) {
   ].join('\n');
 }
 
+/**
+ * Maestro's iOS `clearState` is implemented as copy-out + `simctl uninstall` +
+ * `simctl install`, so the bundle bytes (and the marker inside them) survive intact while
+ * simctl mints a NEW container UUID. Every one of the 8 safety flows calls
+ * `launchApp: { clearState: true }`, so this happens between flow 1 and flow 2 on every
+ * real run — it is the ordinary case, not an edge case.
+ */
+function maestroRelocatesContainer({ afterFlow, container }) {
+  const deviceDir = path.dirname(container);
+  const relocated = path.join(deviceDir, 'RELOCATED-UUID', path.basename(container));
+  const move = [
+    `mkdir -p '${path.dirname(relocated)}'`,
+    `cp -Rp '${container}' '${relocated}'`,
+    `rm -rf '${container}'`,
+    `printf '%s' '${relocated}' > '${deviceDir}/.relocated'`,
+  ].join('; ');
+  return [
+    'out=""; flow=""',
+    'for a in "$@"; do',
+    '  case "$a" in',
+    '    --output=*) out="${a#--output=}" ;;',
+    '    *.yaml) flow="$a" ;;',
+    '  esac',
+    'done',
+    'nm="$(basename "$flow" .yaml)"',
+    'if [ -n "$out" ]; then',
+    `  printf '%s\\n' '<?xml version="1.0"?><testsuites><testsuite name="s" tests="1" failures="0" errors="0">' > "$out"`,
+    `  printf '<testcase name="%s" classname="%s"/>\\n' "$nm" "$nm" >> "$out"`,
+    `  printf '%s\\n' '</testsuite></testsuites>' >> "$out"`,
+    'fi',
+    `case "$nm" in ${afterFlow}) ${move} ;; esac`,
+    'exit 0',
+  ].join('\n');
+}
+
 /** A marker a PEER worktree would legitimately have written: real schema, foreign lineage. */
 function peerMarker(built) {
   const real = JSON.parse(fs.readFileSync(path.join(built.container, MARKER_NAME), 'utf8'));
@@ -2148,6 +2196,36 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
     expect(r.output).toMatch(/chore\/PEER-999/);
     // Flow 2 must never have been invoked.
     expect(r.flowsRun).toBe(1);
+  }, 60000);
+
+  /**
+   * INFRA-429 — THE FALSE-POSITIVE CASE, and the reason the suite could not complete at all.
+   *
+   * The watch cached the marker's ABSOLUTE path at pre-flight and re-read that same path
+   * after every flow. Maestro's `clearState` relocates the container, so from flow 2 onward
+   * that path is dangling: the read returns empty, the GONE arm fires, and the gate aborts
+   * reporting `vanished` on a binary nothing ever touched — VOIDing the flows that passed.
+   * Every safety flow uses clearState, so this fired on flow 1 of 8, every run, for everyone.
+   *
+   * It was invisible to the tests above because the `xcrun` shim modelled the container as a
+   * fixed per-device path — the harness encoded the very assumption that is false. The
+   * discriminator against the cheapest wrong fix (dropping the GONE arm) is that a real
+   * uninstall must STILL abort; that is the test immediately below this one.
+   */
+  test('Maestro clearState relocating the container does NOT abort — the bytes never moved', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: TWO_FLOWS,
+      maestroBody: maestroRelocatesContainer({
+        afterFlow: 'crisis-button-reachability',
+        container: built.container,
+      }),
+    });
+
+    expect(r.status).toBe(0);
+    expect(r.output).toMatch(/all safety flows passed/);
+    expect(r.output).not.toMatch(/vanished|replaced/i);
+    expect(r.flowsRun).toBe(2);
   }, 60000);
 
   test('a marker DELETED between flows aborts, and says vanished rather than replaced', () => {
