@@ -177,6 +177,18 @@ These feed the safety scan in Phase 3.
 
 ## Phase 2: Create Worktree
 
+### Step 2.0: Does this item need a worktree at all?
+
+Skip Phase 2 when the item produces **no commit on a short-lived branch** — verification
+/measurement items whose deliverable is a Notion record, and items whose only file lives
+in `.claude/` (tracked on `_bare`, gitignored on `development`, so it can never travel in
+a feature PR). Confirm with:
+    git ls-tree origin/development --name-only .claude/   # empty ⇒ _bare-only
+Build/run from the existing `development` worktree instead: a fresh worktree starts with a
+COLD DerivedData cache (21m31s for a first Release build), paid for a branch that will
+never carry a commit. Skip to Phase 3, and note in Step 5.2 that `/b-close` has no PR to
+open.
+
 ### Step 2.1: Determine Branch Naming
 
 **Branch prefix** (based on Type from Notion):
