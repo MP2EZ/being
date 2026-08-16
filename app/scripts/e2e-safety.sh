@@ -203,11 +203,11 @@ DEVICE_UDID=""
 # because this script runs under `set -u`: a device-only run never reaches the simulator
 # pre-flight that populates them, and an unset expansion later would be a hard error.
 #
-# GATE_MARKER staying EMPTY is also how the guard is scoped to the simulator path by
+# GATE_MARKER_NAME staying EMPTY is also how the guard is scoped to the simulator path by
 # construction rather than by an `if DEVICE_ONLY` test at each call site — a device has no
 # container, so there is nothing to watch and nothing to claim. Same empty-string-as-
 # sentinel discipline INFRA-424 established for SIM_UDID.
-GATE_MARKER=""
+GATE_MARKER_NAME=""
 GATE_MARKER_SNAPSHOT=""
 GATE_TARGET_REPLACED=0
 GATE_REPLACED_AT=""
@@ -325,16 +325,20 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
   #
   # Bytes, not a recomputed fingerprint: e2e-provenance.js's fingerprint() hashes untracked
   # file contents repo-wide, so re-verifying per flow would abort a suite whose binary never
-  # moved the moment an operator saves a file. And not the container path either — the
-  # "simctl mints a new UUID per fresh install" claim is asserted in this repo but verified
-  # nowhere in it, so nothing here depends on it being true. A vanished container makes the
-  # read empty, which the GONE arm already handles without the claim.
-  GATE_MARKER="$APP/$(node -e 'process.stdout.write(require("./scripts/e2e-provenance.js").MARKER_NAME)' 2>/dev/null || true)"
-  case "$GATE_MARKER" in
-    "$APP/"?*) ;;
-    *) preflight_fail "could not resolve the provenance marker filename from e2e-provenance.js — refusing to run an unwatched suite." ;;
+  # moved the moment an operator saves a file.
+  #
+  # INFRA-429 — store the marker FILENAME, never the resolved path. The container path is
+  # not stable for the life of a suite: `simctl` mints a new UUID on every fresh install,
+  # and Maestro's iOS `clearState` IS an uninstall+install, so the path is dangling from
+  # flow 2 onward on every run. Caching it made the watch read empty and abort as `vanished`
+  # on a binary nothing had touched. The path is therefore re-resolved per check, below.
+  GATE_MARKER_NAME="$(node -e 'process.stdout.write(require("./scripts/e2e-provenance.js").MARKER_NAME)' 2>/dev/null || true)"
+  case "$GATE_MARKER_NAME" in
+    # Must be a bare filename: a path here would reintroduce the caching defect by the back
+    # door, and an empty value would leave the suite unwatched.
+    ""|*/*) preflight_fail "could not resolve the provenance marker filename from e2e-provenance.js — refusing to run an unwatched suite." ;;
   esac
-  GATE_MARKER_SNAPSHOT="$(cat "$GATE_MARKER" 2>/dev/null || true)"
+  GATE_MARKER_SNAPSHOT="$(cat "$APP/$GATE_MARKER_NAME" 2>/dev/null || true)"
   if [ -z "$GATE_MARKER_SNAPSHOT" ]; then
     preflight_fail "the provenance marker verified a moment ago but reads empty now — the gate target is already moving. Rebuild: npm run e2e:safety:build"
   fi
@@ -433,9 +437,25 @@ e2e_reset_drivers() {
 # Returns 0 to continue, 1 to abort. Never exits directly — the caller owns the summary.
 e2e_assert_gate_target() {
   # No marker to watch: device-only run, or no container. Nothing to claim either way.
-  [ -n "$GATE_MARKER" ] || return 0
+  [ -n "$GATE_MARKER_NAME" ] || return 0
 
-  _now="$(cat "$GATE_MARKER" 2>/dev/null || true)"
+  # INFRA-429 — re-resolve the container, never reuse the pre-flight's path. Maestro's iOS
+  # `clearState` copies the bundle out, uninstalls and reinstalls it, so the bytes (and this
+  # marker) survive while the container UUID changes. All 8 safety flows use clearState.
+  #
+  # This LOSES no detection. A genuine uninstall still fails to resolve; a foreign build
+  # still differs in bytes and is still attributed; a deleted marker still reads empty. Only
+  # the case where the bytes are provably unchanged stops aborting — which is the case this
+  # watch was never trying to catch.
+  _app="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null || true)"
+  if [ -z "$_app" ] || [ ! -d "$_app" ]; then
+    GATE_TARGET_REPLACED=1
+    GATE_REPLACED_KIND="vanished"
+    GATE_REPLACED_BY=""
+    return 1
+  fi
+
+  _now="$(cat "$_app/$GATE_MARKER_NAME" 2>/dev/null || true)"
 
   if [ -z "$_now" ]; then
     # Absent or unreadable. This is the DOMINANT residual case — an uninstall, an
