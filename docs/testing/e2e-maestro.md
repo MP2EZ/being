@@ -321,7 +321,9 @@ rollback and as a re-measurable baseline after toolchain upgrades.
 > attribution.
 
 ```bash
-# Sim suite (4 flows tagged `safety`, ~3–5 min) — runnable on iOS sim.
+# Sim suite (currently 8 flows tagged `safety`, ~12 min) — runnable on iOS sim.
+# The count is DESCRIPTIVE: the runner globs by tag, so adding a `safety`-tagged
+# flow silently changes it. Verify with `grep -c 'safety$' app/.maestro/*.yaml`.
 # INFRA-220: runs each flow as a SEPARATE maestro invocation with an XCUITest-
 # driver reset between (scripts/e2e-safety.sh), NOT one batch
 # `maestro test .maestro/` session. A shared session degrades across the suite
@@ -379,6 +381,48 @@ npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" f
 ```
 
 `/b-close` Phase 2.5 automatically picks the scoped subset of flows based on changed paths — see CLAUDE.md Workflow Commands. `app.json` / `Info.plist` changes no longer trigger a Maestro flow: the jest static-config test in precommit catches `LSApplicationQueriesSchemes` regressions deterministically (INFRA-184).
+
+## Which iOS runtime is a gate result allowed to be earned on? (INFRA-429)
+
+**Decision: 18.6 is retired as a *gate* target and retained as a *triage* target.** The gate
+runs against whichever single simulator is resolved. No runtime is pinned and none is refused.
+
+**Validation record.** `npm run e2e:safety`, all 8 safety-tagged flows green in one
+uninterrupted invocation on **iPhone 16 Plus / iOS 26.0** — a freshly created simulator with
+no scheme approval and no driver history — clean-tree provenance, no reboot between flows
+(2026-08-16, INFRA-429). This is the first full-suite result recorded on 26.x. The
+per-device matrix lives in `daily-loop-quick-depth.yaml`; extend it, don't replace rows.
+
+**Why not "both runtimes must pass".** The version has never been the variable. Both prior
+version-attributions in this repo were wrong and both resolved to simulator *state*: the
+`Open in "Being"?` alert (DEBUG-422 — a fresh 18.6 sim alerts identically) and DEBUG-408's
+iPhone 17 Pro / 26.0 failure (fixed by `simctl erase`). Two false signals, zero true ones.
+Requiring both doubles the slowest gate in the repo, and a gate made slow enough is one
+people learn to `--skip-e2e` past.
+
+**Why not pin a runtime.** `e2e-sim-device.sh` only *resolves* among already-booted
+simulators; it never boots one. A pin is therefore implementable only as a *refusal*, which
+hard-fails on a machine whose sole booted simulator is 26.x — and `--skip-e2e` is a
+`hotfix/*`-only bypass, so the operator's remaining options would be "boot a different sim"
+or "don't merge". Fresh Xcode installs land on 26.x, so that population only grows.
+
+**What "triage target" obliges.** Before concluding a red flow is a runtime difference rather
+than an app regression, re-run it on the other runtime. That is not advice — it is the step
+that disproved DEBUG-408's below-the-fold hypothesis in minutes, after a full investigation
+had already accepted it.
+
+**Residual risk, stated rather than hidden.** A reactive cross-version check catches 26.x
+regressions that go *red* and misses any that go *false green*. The known instance is
+`journal-crisis-scan.yaml`'s `hideKeyboard`: were a runtime to degrade it to a no-op, the
+specificity assertions would pass without proving anything and nothing would turn red.
+Measured on 26.0 for INFRA-429 and it is genuinely dismissing — hierarchy after `hideKeyboard`
+contains no keyboard elements and no `journal-crisis-banner`, against a control with the
+keyboard raised that shows nine. Closing the class rather than this instance would require
+both-must-pass, and should be argued on that basis if it is ever revisited.
+
+**Not recorded anywhere yet:** which runtime a given green was earned on.
+`e2e_resolve_sim_device` returns a bare UDID and the provenance marker is git-tree-based, so
+the flow headers are the only record and they are maintained by hand.
 
 ## How a flow works
 
