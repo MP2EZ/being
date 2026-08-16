@@ -2,7 +2,8 @@
 
 **ARGUMENTS**: $ARGUMENTS
 
-**Format**: `[Work Item ID] - [Additional context]`
+**Format**: `[Work Item ID] - [Additional context]` — or **no arguments**, which auto-selects
+the top item of the attended queue (Step 0.2)
 
 ---
 
@@ -27,6 +28,38 @@ Parse `$ARGUMENTS` to extract two components:
 - Input: `DEBUG-13`
   - WORK_ITEM_ID: `DEBUG-13`
   - ADDITIONAL_CONTEXT: null
+
+### Step 0.2: Auto-select (only when `$ARGUMENTS` is empty)
+
+A bare `/b-work` runs the top of the **attended queue** — the one pool `/b-batch` structurally
+cannot execute. `Batch Route: Attended-only` is the only one of its five values meaning
+*`/b-work` could produce a diff*; the other four are out of reach for this skill too (another
+repo, `.claude/`-only, no diff at all, blocked).
+
+1. Read `view://3b7a1108-c208-8055-bc9b-000cfccdb28e` via `notion-query-data-sources`
+   `mode: "view"`. **Never SQL** — `Priority` is in `notAvailableInQuerySql`, and SQL mode is
+   metered on this workspace.
+2. **Assert the filter, fail closed.** If any row's `Status` ∉ {`Not started`, `Blocked`,
+   `Batched`}, STOP: the view's Status filter is gone, and Priority-sorted-unfiltered puts
+   `Done` rows on top. Same assertion as `/b-batch` Step 0.1a.1 — the filter is hand-maintained
+   and this API silently drops `status` filter leaves, so it cannot be repaired from here.
+3. Pool = `Batch Route` is `Attended-only` **and** `Status` is `Not started`. **Rank is row
+   order**; `Priority` returns an opaque `formulaResult://` handle — never parse or compare it.
+   Rebuild each ID as `{Type}-{userDefined:ID}`.
+4. Drop any whose branch already has an open PR (`gh pr list --head <branch>`). A plain
+   `/b-work` session leaves no manifest, so the PR is the only evidence it exists.
+5. **Empty pool → stop and say so. Never widen the criteria** — falling back to unstamped items
+   makes a bare `/b-work` a worse `/b-batch`, and can pull an item out from under a slate about
+   to be batched.
+6. **Propose, never auto-run.** Offer the pick via `AskUserQuestion` with a one-line reason and
+   the next two alternates. On accept, set WORK_ITEM_ID and continue to Phase 1 as though it had
+   been typed; ADDITIONAL_CONTEXT stays null.
+
+Set `ATTENDED = true` for Phase 5. **Step 1.3's comment read is what validates the stamp** —
+`Batch Route` is a cached verdict, and a rescope retiring the device requirement lands in
+comments. Selecting on a stale stamp sends a human to do work that no longer exists, which is
+the one place this property can do harm; if the body no longer demands human observation, say so
+and stop rather than proceeding on the stamp.
 
 ---
 
@@ -776,6 +809,24 @@ Notion updated: Status → Testing
 1. Test the implementation
 2. Provide any feedback
 3. Run: /b-close [WORK_ITEM_ID]
+```
+
+**When `ATTENDED` (Step 0.2), report a hand-off instead.** Step 5.1 will have left the item
+`In progress` by its own rule — an attended item's ACs demand human observation, so no headless
+run serves them, and this skill's job was to stage the session rather than finish it. Emit the
+observation script **extracted from the item's own ACs and Technical Notes, never invented**:
+the exact device or simulator geometry, the exact commands, and exactly what to capture. If the
+item states no procedure, say so — a confidently wrong device workflow is worse than none.
+
+```
+🖐️  [WORK_ITEM_ID] staged for an attended session — Status stays In progress
+    Worktree: [dir]
+    Landed headless: [what this run actually did]
+
+    Run, from that worktree:
+      [commands, verbatim from the item]
+    Capture: [the evidence the AC names]
+    Serves AC: [n]    Still unserved: [n, …]
 ```
 
 ---
