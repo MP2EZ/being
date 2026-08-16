@@ -38,6 +38,17 @@
  * state where the button is visible. That is a mitigation, not a fix — the
  * app-wide keyboard-occlusion problem is tracked separately and is not specific
  * to these overlays (the journal and VoiceReflection have it too).
+ *
+ * RULED 2026-08-16 (DEBUG-431): that occlusion is a DEFECT, not an accepted
+ * state — the <3-taps contract binds while a keyboard is up. Two corrections to
+ * the paragraph above, both load-bearing for anyone acting on it. "156pt" is the
+ * iOS-STANDARD case only; the app-wide maximum is 172 (Android offset 104 +
+ * prominent 56 + 12). And "Cancel remains reachable … a one-tap route back" does
+ * not discharge the contract: the baseline route to 988 is already 2 taps, so
+ * Cancel-then-2 is 3, which is not <3 — and on the two DailyLoop screens there is
+ * no header, no back gesture and no Done key, so there is no bounded route at all.
+ * Reasoning and options: docs/development/crisis-button-keyboard-occlusion.md.
+ * Fix: DEBUG-450. Do NOT make the button's `bottom` dynamic — see that document.
  */
 
 import { useEffect, useState } from 'react';
