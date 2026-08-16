@@ -1,8 +1,13 @@
 # Supabase Row-Level Security (RLS) Verification
 
-**Work Item**: INFRA-260 (supersedes MAINT-116)
-**Last verified**: 2026-06-08
+**Work Item**: INFRA-260 (supersedes MAINT-116); role-grant layer added MAINT-441
+**Last verified**: 2026-06-08 (RLS) · 2026-08-16 (role grants)
 **Status**: VERIFIED — runtime-enforced
+
+> **Scope note.** This document covers **two** access-control layers, not one. RLS is
+> checked only after the GRANT passes, and `service_role` bypasses RLS entirely — so the
+> RLS verdict below says nothing about server-side access. See *Role grants — the layer
+> RLS does not cover*.
 
 ---
 
@@ -119,6 +124,115 @@ deletes only the JWT-verified caller's `auth.uid()`.
 
 ---
 
+## Role grants — the layer RLS does not cover
+
+**RLS and table grants are orthogonal, and a document that verifies only the first can
+read PASS while the second is broken.** Postgres checks the GRANT before it ever
+evaluates a policy: no grant means `permission denied` regardless of how correct the
+policy is. And `service_role` carries `rolbypassrls = true`, so for that role the grant
+is the *only* access control in play — every RLS conclusion above simply does not apply
+to it.
+
+This section exists because the omission has already cost something. `service_role` held
+no DML on `subscriptions`, so every service-role `.from('subscriptions')` failed
+`permission denied` — taking out receipt verification, store webhooks, and trial/grace
+expiry, **invisibly**, because there are no live subscribers to notice. INFRA-379 found
+it by accident. Until MAINT-441 this document mentioned `service_role` zero times, which
+is the structural reason nothing pointed at it.
+
+### Live grant matrix
+
+Measured against `yliycxslzdsgjtpxggtf` on 2026-08-16 via
+`information_schema.role_table_grants`. `anon` holds **nothing** on any of these tables.
+
+| Table | `service_role` | `authenticated` |
+|---|---|---|
+| `users` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT, UPDATE |
+| `encrypted_backups` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT, UPDATE, DELETE |
+| `analytics_events` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT |
+| `subscription_events` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT |
+| `subscriptions` | SELECT, INSERT, UPDATE *(INFRA-379)* — no DELETE | SELECT, INSERT, UPDATE |
+
+REFERENCES / TRIGGER / TRUNCATE are **not granted by our migrations**. `pg_default_acl`
+carries `service_role=Dxtm/postgres` with grantor `postgres`, and the platform re-applies
+it at every `CREATE TABLE`. `service_role` is also `rolcanlogin = false` (assumed via
+`SET ROLE` by PostgREST/GoTrue only) and PostgREST exposes no TRUNCATE verb, so no
+request shape reaches it. Revoking it on two tables would create an undocumented
+exception that the next `supabase db push` silently re-establishes for any new table.
+
+### Decision: no `service_role` grant on `users` or `encrypted_backups` (MAINT-441)
+
+Every edge function was grepped for direct `.from('users')` and
+`.from('encrypted_backups')`, including non-literal forms — double and backtick quotes,
+`.from(<identifier>)`, `.schema()`, raw `rest/v1` fetches, table names held in constants,
+and the `_shared/` helper wrappers. **Zero call sites.** The live deployed function set
+matches the repo set, so no prod-only function evades the repo grep, and nothing outside
+`supabase/functions/` holds the service-role key.
+
+Standing privilege is a data-minimisation negative, not a neutral no-op, so the grant was
+declined rather than added "for symmetry".
+
+**State the reasoning correctly — a widely-repeated version of it is wrong.** Both
+`20260814000000_service_role_subscriptions_grant.sql` and MAINT-441's own body cite DPIA
+§6.1 Scenario 3 / control 7 as crediting "no operational reason to touch these rows".
+It does not say that. Scenario 3 credits **key custody and blob opacity** ("decryption
+key never leaves the device") and expressly holds *even in the event of a full Supabase
+compromise*; control 12 in the same table credits the `delete-account` cascade **over**
+those rows. The argument that actually holds is control 6: it credits `auth.uid()` RLS as
+a live isolation control, and `service_role.rolbypassrls` is true — so a `service_role`
+DML grant sits entirely **outside** the credited control, converting a per-row privilege
+into an all-users one.
+
+Relatedly, "`delete-account` touches no table directly" is grant-correct but misleading
+about reach: the live FKs `users_id_auth_fkey` and `encrypted_backups_user_id_fkey` both
+carry `ON DELETE CASCADE`, so `auth.admin.deleteUser()` does delete rows in both. No DML
+grant is needed (referential actions run with the referencing table's owner privileges),
+but the tables **are** reached on that path.
+
+### ⚠️ If a real call site ever appears
+
+The minimal grant is not what it looks like. `public.update_backup_stats()` is
+`SECURITY INVOKER` and its body is `UPDATE users …`, wired `AFTER INSERT OR UPDATE ON
+public.encrypted_backups`. Because it is INVOKER, that inner UPDATE is permission-checked
+against the **calling** role — so granting `service_role` INSERT on `encrypted_backups`
+and nothing else dies on the first insert with `permission denied for table users`. The
+genuinely minimal set for that call site is {INSERT on `encrypted_backups`} ∪ {UPDATE on
+`users`}.
+
+Per-table rules for any future grant:
+
+- **`users`** — SELECT only, column-scoped, and prefer routing a read-only need through
+  an existing view or a `SECURITY DEFINER` function over a table grant. UPDATE only if a
+  server path must maintain `last_sync`/`backup_count`. **INSERT never** (rows are
+  provisioned by the `handle_new_auth_user` trigger and the FK forbids a parentless row,
+  so the grant would be inert and misleading). **DELETE never** (it would orphan a live
+  `auth.users` principal while cascading away its backups, analytics and subscriptions).
+- **`encrypted_backups`** — SELECT only for a named purpose, column-scoped to exclude
+  `encrypted_data` and `checksum`. **INSERT/UPDATE never** without a DPIA §1
+  material-change review *first*: control 7's credited invariant is that ciphertext is
+  only ever produced on-device, so a server write path is the capability to corrupt or
+  substitute a user's only restore point. **DELETE never** — MAINT-347 removed
+  `cleanup_orphaned_backups()` because a non-user-act server-side delete contradicts
+  privacy-policy §7.3, an FTC Act §5 promise.
+- **Never justify a `service_role` grant by symmetry with `authenticated`.** INFRA-379
+  used that reasoning; it does not hold. `authenticated` is RLS-confined to one row,
+  `service_role` bypasses RLS across all rows, so identical verbs are not identical
+  privileges.
+
+### Enforcement
+
+`supabase/tests/maint441_service_role_grants.sql` asserts the no-grant state, pins the
+`update_backup_stats` coupling above, and carries a positive control on `subscriptions`
+(SELECT/INSERT/UPDATE present, DELETE absent) so the privilege query cannot silently stop
+discriminating and let the negative assertions pass vacuously.
+
+**It pins by assertion, not by gate.** There is no CI Postgres in this repo, so nothing
+runs it automatically — same standing as `maint347_retention_heartbeat.sql` and
+`infra260_account_deletion_cascade.sql`. It is read-only and safe to run against the
+shared project.
+
+---
+
 ## Runtime Verification
 
 Reproducible suite (committed): `supabase/tests/infra260_rls_negative.sql`. It seeds two
@@ -187,6 +301,7 @@ durable queue (INFRA-214) holds an event until a session exists, then it lands.
 |------|------|------|--------|
 | Security Review | Claude (Security Agent) | 2026-06-08 | ✅ APPROVED (runtime) |
 | Compliance Review | Claude (Compliance Agent) | 2026-06-08 | ✅ APPROVED (runtime) |
+| Compliance Review | Claude (Compliance Agent) | 2026-08-16 | ✅ APPROVED — role grants (MAINT-441): no `service_role` grant on `users` / `encrypted_backups` |
 
 ---
 
@@ -195,10 +310,14 @@ durable queue (INFRA-214) holds an event until a session exists, then it lands.
 - Schema: `app/src/core/services/supabase/schema.sql`
 - Migrations: `supabase/migrations/20260607120000_auth_uid_rls.sql`, `…130000_iap_receipt_binding.sql`
 - Runtime tests: `supabase/tests/infra260_{rls_negative,iap_replay,account_deletion_cascade}.sql`
+- Role-grant assertion: `supabase/tests/maint441_service_role_grants.sql`
+- Grant migrations: `supabase/migrations/20260523000000_base_schema.sql` §9 (`users`,
+  `encrypted_backups` → `authenticated`), `…20260814000000_service_role_subscriptions_grant.sql`
+  (§16 is the *subscriptions* block — a commonly mis-cited reference)
 - Supabase RLS docs: https://supabase.com/docs/guides/auth/row-level-security
 
 ---
 
-**Document Version**: 2.0
-**Last Updated**: 2026-06-08
-**Work Item**: INFRA-260 (supersedes MAINT-116 v1.0)
+**Document Version**: 2.1
+**Last Updated**: 2026-08-16
+**Work Item**: INFRA-260 (supersedes MAINT-116 v1.0); role-grant layer MAINT-441

@@ -29,12 +29,24 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   StatusBar,
   ScrollView,
   Animated,
 } from 'react-native';
+/**
+ * MAINT-437 — `edges` applies to all 1 SafeAreaView root(s) in this file.
+ *
+ * Root-stack card with `headerShown: false`: no navigator supplies either
+ * inset, which is what RN core's iOS-only SafeAreaView already did here — so iOS
+ * rendering is unchanged by construction and the whole behavioural delta is Android.
+ *
+ * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
+ * are never listed. NOTE: no test in this repo can observe an `edges` value having
+ * a layout effect — the jest mock pins all insets to zero. The rendered result is
+ * verified by MAINT-437's deferred Android/iOS device pass.
+ */
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
@@ -117,7 +129,7 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container} testID={testID}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container} testID={testID}>
       <StatusBar barStyle="dark-content" backgroundColor={colorSystem.base.white} />
 
       {/* Header */}
