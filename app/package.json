@@ -68,6 +68,7 @@
     "platform:setup": "node scripts/cross-platform-testing.js setup",
     "platform:parallel": "node scripts/cross-platform-testing.js both --parallel",
     "lint": "eslint src --ext .ts,.tsx",
+    "check:safe-area-imports": "node scripts/check-safe-area-imports.js",
     "lint:baseline": "node scripts/lint-baseline.js",
     "lint:clinical": "eslint --max-warnings=0 src/core/analytics/PostHogProvider.tsx",
     "lint:fix": "eslint src --ext .ts,.tsx --fix",

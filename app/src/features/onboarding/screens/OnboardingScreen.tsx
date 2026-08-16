@@ -14,12 +14,24 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  SafeAreaView,
   Alert,
   AccessibilityInfo,
   Platform,
   Image,
 } from 'react-native';
+/**
+ * MAINT-437 — `edges` applies to all 5 SafeAreaView root(s) in this file.
+ *
+ * Root-stack card with `headerShown: false`: no navigator supplies either
+ * inset, which is what RN core's iOS-only SafeAreaView already did here — so iOS
+ * rendering is unchanged by construction and the whole behavioural delta is Android.
+ *
+ * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
+ * are never listed. NOTE: no test in this repo can observe an `edges` value having
+ * a layout effect — the jest mock pins all insets to zero. The rendered result is
+ * verified by MAINT-437's deferred Android/iOS device pass.
+ */
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -585,7 +597,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     // it collapsed the entire screen into one a11y element and hid the inner
     // "Begin Your Practice" Pressable from VoiceOver AND Maestro. The header
     // Text below provides the screen-level announcement.
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollContainer}
@@ -713,7 +725,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const renderStoicIntro = (): React.ReactElement => (
     // INFRA-181: same fix as renderWelcome — collapsing the screen as one
     // a11y element hides interior buttons from VoiceOver and Maestro.
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollContainer}
@@ -800,7 +812,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   );
 
   const renderNotifications = (): React.ReactElement => (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Crisis button removed from Notifications screen - only on assessment screens for safety */}
 
@@ -1023,7 +1035,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   };
 
   const renderPrivacy = (): React.ReactElement => (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Crisis button removed from Privacy screen - only on assessment screens for safety */}
 
@@ -1117,7 +1129,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   );
 
   const renderCelebration = (): React.ReactElement => (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Crisis button removed from Celebration screen - only on assessment screens for safety */}
 
