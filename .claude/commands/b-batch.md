@@ -1011,9 +1011,13 @@ which is precisely the case this file cannot see.
 
 `e2e-sim-lock.sh` now enforces it: build and flow runs take a per-UDID lock for the
 duration of each invocation, and a contended run waits (bounded) and then fails naming the
-holding pid rather than trampling it. So overlapping closes are now **safe**, not merely
-discouraged — but still not *fast*, since they serialize on the device either way. Close
-them one at a time.
+holding pid rather than trampling it. Close them one at a time — they serialize on the
+device either way.
+
+**The lock is per-INVOCATION, so a build and its flow run are not atomic.** A peer can
+rebuild the shared gate worktree between `e2e:safety:gate` and `e2e:safety`; the flow run
+then refuses on provenance having run zero flows. Re-run both back to back, and treat a
+gate as unstarted until the flows themselves report.
 
 Note what the lock does **not** do: it is a liveness fix, not a correctness one. INFRA-384
 provenance already fails closed across sessions — a foreign binary carries a foreign
