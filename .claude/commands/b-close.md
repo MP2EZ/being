@@ -1274,20 +1274,7 @@ Add to Notion comment:
 
 ---
 
-### Step 5.2: Push to Remote (DEPRECATED — kept for backward compat)
-
-**INFRA-145 GitHub Flow note**: This step is now a no-op. The PR merge in
-Phase 3.5 already pushes development to origin via the GitHub API. The
-`--push` flag is accepted as a no-op for backward compatibility with prior
-invocations.
-
-```
-ℹ️  Push handled automatically by gh pr merge (Phase 3.5). No action needed.
-```
-
----
-
-### Step 5.3: Final Summary
+### Step 5.2: Final Summary
 
 ```
 ✅ [WORK_ITEM_ID] closed successfully!
@@ -1298,15 +1285,8 @@ Summary:
   Merged to: development
   Notion updated: ✓
   Worktree: [removed/kept]
-  Pushed to remote: [✓ / -]
 
 Next steps:
-  [If NOT pushed]
-  - Push to remote: cd ~/being/development && git push
-
-  [If pushed]
-  - Remote updated ✓
-
   - Continue with next item: /b-work [NEXT-ITEM]
 ```
 
@@ -1356,7 +1336,6 @@ phases with no observed trigger this run.
 - Phase 3.7 interruption (branch cleanup): Safe to re-run; check is idempotent
 - Phase 4 interruption (Notion): Re-run will update status/comment
 - Phase 5.1 interruption (worktree): Manual cleanup if needed
-- Phase 5.2 interruption (push): Re-run will attempt push again (idempotent)
 
 **Safe to run multiple times**: Command checks state at each phase and skips completed steps.
 
