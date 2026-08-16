@@ -77,6 +77,44 @@ e2e_booted_devices() {
 # obvious shorthand `DEV="${UDID:-booted}"` is deliberately NOT used anywhere: it restores
 # the ambiguous literal at exactly the moment resolution failed, so all call sites would
 # look pinned while silently degrading together.
+# e2e_warn_if_not_smallest_viewport <udid> <listing>
+#
+# DEBUG-432. The resolver above pins a UDID but says nothing about the device MODEL, and
+# for layout-sensitive safety flows the model IS the verdict. Measured proof, on one
+# unchanged build: `crisis-call-988-button` sat at y=746..797 against a fold of y=86..667
+# on an iPhone SE 3 (below the fold, 0% of the tap target on screen) and at y=776..827
+# against y=128..956 on an iPhone 16 Pro Max (fully visible). The identical assertion
+# therefore failed on the small phone and passed on the large one.
+#
+# `.maestro/deeplink-consent-gate.yaml` had asserted that button visible on that screen,
+# green, for its entire life — because nobody had booted a small device. The assertion was
+# never vacuous; its CONFIGURATION was uninformative, which is strictly harder to notice.
+#
+# WARNS, does not fail. Most safety flows assert reachability and thresholds, not layout,
+# and refusing to run them on a large simulator would block real verification to enforce a
+# concern they do not have. A gate that fails for a reason the operator judges irrelevant
+# is the shape that trains the --skip-e2e reflex this gate exists to prevent. What must not
+# happen is a green result being READ as device-independent, so the device is named on
+# every run and the understatement is stated out loud.
+E2E_SMALLEST_SUPPORTED_MODEL="${E2E_SMALLEST_SUPPORTED_MODEL:-iPhone SE}"
+
+e2e_warn_if_not_smallest_viewport() {
+  local udid="$1" listing="$2" name
+  name="$(printf '%s\n' "$listing" | grep -F "$udid" | cut -f2 | head -1)"
+  [ -n "$name" ] || name="unknown"
+
+  echo "📱 Simulator: $name  ($udid)" >&2
+  case "$name" in
+    *"$E2E_SMALLEST_SUPPORTED_MODEL"*) : ;;
+    *)
+      echo "⚠️  This is NOT the smallest supported viewport (${E2E_SMALLEST_SUPPORTED_MODEL}, 375x667)." >&2
+      echo "   Layout-sensitive safety assertions (above-the-fold 988 reachability) can pass" >&2
+      echo "   here and fail there — DEBUG-432 measured exactly that on one unchanged build." >&2
+      echo "   A green run on this device does not certify the small viewport." >&2
+      ;;
+  esac
+}
+
 e2e_resolve_sim_device() {
   local context="${1:-gate}"
   local listing count udid
@@ -96,13 +134,16 @@ e2e_resolve_sim_device() {
   count="$(printf '%s\n' "$listing" | grep -c .)"
 
   if [ "$count" -eq 1 ]; then
-    printf '%s' "$(printf '%s' "$listing" | cut -f1)"
+    udid="$(printf '%s' "$listing" | cut -f1)"
+    e2e_warn_if_not_smallest_viewport "$udid" "$listing"
+    printf '%s' "$udid"
     return 0
   fi
 
   # 2+ booted. Honour an explicit override when it names one of them; otherwise refuse.
   if [ -n "${E2E_SIM_UDID:-}" ]; then
     if udid="$(printf '%s\n' "$listing" | grep -F "$E2E_SIM_UDID" | cut -f1 | head -1)" && [ -n "$udid" ]; then
+      e2e_warn_if_not_smallest_viewport "$udid" "$listing"
       printf '%s' "$udid"
       return 0
     fi
