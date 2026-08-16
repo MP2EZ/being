@@ -72,6 +72,55 @@ details that are easy to get wrong (name the SHA, not `origin/main`; branch off
 only** — never on `feat/*`, `fix/*`, or `chore/*`. That is the whole bypass surface;
 there is no separate emergency authorization, override flag, or approval matrix.
 
+## Precondition: `main` must be able to pass CI (INFRA-452)
+
+**Check this before you need it, not while you need it.**
+
+`main` can be unmergeable through no fault of your diff. Audit remediations —
+allowlist entries in `app/.audit-ci.json`, `overrides` in `app/package.json` — land on
+`development` and reach `main` only through a release. Between releases `main`'s
+dependency posture is frozen while the advisory database keeps moving, so `main` drifts
+red on its own, with no commit and no PR. Verified 2026-08-15: a hotfix branch touching
+only `supabase/functions/` and no dependency failed `Security + compliance` on three
+advisories, while the same command exited 0 on a freshly-synced `development`.
+
+`.github/workflows/main-branch-health.yml` now probes this daily and files an issue
+under the `main-branch-health` label. To check on demand:
+
+```bash
+gh workflow run main-branch-health.yml     # then read the run, or the open issue
+```
+
+### Which remediations are hotfix-eligible
+
+Not all of them, and the distinction is the lockfile:
+
+| Change | Hotfix-eligible? | Why |
+|---|---|---|
+| `app/.audit-ci.json` allowlist entries | **Yes** | Allowlist-only. Touches no dependency resolution; the lockfile stays byte-identical, so it cherry-picks onto `main` cleanly. |
+| `app/package.json` `overrides` / `resolutions` | **No** | Requires regenerating `main`'s `package-lock.json`. `main` is hundreds of commits divergent, so cherry-picking `development`'s lockfile drags the entire dependency delta — that *is* a release. |
+
+If an override-based remediation genuinely cannot wait: branch off `main`, edit the
+overrides, run `npm install` to regenerate **`main`'s own** lockfile in place, then
+verify `npx patch-package` still resolves `expo-modules-jsi@56.0.7`. That is real work
+under time pressure, which is itself the argument for releasing promptly rather than
+relying on the escape hatch.
+
+**Never run a blanket `npm audit fix`.** It bumps past the `expo-modules-jsi@56.0.7`
+pin and breaks `npm ci` for everyone (see `CLAUDE.md` → npm-audit gate).
+
+### What a green probe does not prove
+
+The probe covers the audit gate only. Nine of `ci.yml`'s ten gates are pure functions of
+the tree and cannot change verdict without a commit; the audit gate is the only one that
+also depends on a time-varying external database, which is why it is the one that drifts
+between releases.
+
+But a `pull_request` resolves its workflow from the **merge commit**, so a hotfix PR runs
+**`main`'s** `ci.yml` — which is separately stale. Tracked as INFRA-458 (`main` has no
+`Safety + privacy gates` job) and INFRA-459 (`main` still carries retired workflows).
+Until those close, a green probe means "the audit gate will pass," not "the PR will pass."
+
 ## Caveat worth knowing
 
 The Hotfix Process is documented but, as of this writing, **has never been executed** —
