@@ -45,6 +45,13 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #       iPhone 16e         / iOS 18.6         390x844    PASS
 #       iPhone 16e         / iOS 26.0         390x844    PASS
 #       iPhone 17 Pro      / iOS 26.0         402x874    FAIL, then PASS after erase
+#       iPhone 16 Plus     / iOS 26.0         430x932    PASS  (INFRA-429, 2026-08-16)
+#
+#     ✅ SUITE-VALIDATED 2026-08-16 (INFRA-429) — iPhone 16 Plus / iOS 26.0, a freshly
+#     created simulator with no approval or driver history. All 8 safety-tagged flows green
+#     in one uninterrupted `npm run e2e:safety`, clean-tree provenance, no reboot between
+#     flows. This matrix is the suite's only record of what was proven on what, so extend it
+#     rather than replacing rows. Suite-level detail: docs/testing/e2e-maestro.md.
 #
 #     ROOT CAUSE: corrupted simulator state on one iPhone 17 Pro instance. Its Maestro
 #     XCUITest driver died mid-flow — `java.net.ConnectException: Connection refused` on
