@@ -21,6 +21,42 @@
  *
  * Audit reference: SEC-01 (closed) + SEC-01-FOLLOWUP (closed) — see
  * ~/dev/being/.audit-report.md and ~/.claude/plans/audit-roadmap.md.
+ *
+ * ---------------------------------------------------------------------------
+ * WHY THIS LIVES IN `_shared/` WHEN `healthcheckGate` DELIBERATELY DOES NOT
+ * ---------------------------------------------------------------------------
+ *
+ * This repo has a standing convention of duplicating small helpers rather than
+ * sharing them: `grace-period-automation/healthcheckGate.ts` copies ~12 lines of
+ * `shouldPingHealthcheck` from `crisis-detection-alerting/alertLogic.ts` on purpose,
+ * because the crisis and ops trust domains must stay code-independent — an edit made
+ * for an ops reason must not be able to change when the crisis alerter pings.
+ *
+ * The opposite holds here, and the difference is not a matter of taste. Both
+ * consumers — `subscription-webhook` and `verify-apple-receipt` — verify the SAME
+ * Apple-signed artifact against the SAME pinned trust anchor. They are one trust
+ * domain, not two. So divergence between two copies is not isolation, it is a
+ * SECURITY DEFECT: rotating `APPLE_ROOT_CA_G3_SPKI` in one copy and not the other
+ * silently splits the anchor, and the copy still pinning the old key keeps accepting
+ * chains the rotation was performed to stop accepting. Nothing would fail; one path
+ * would simply go on trusting what the other no longer does.
+ *
+ * The test for which convention applies is therefore "would the two copies ever
+ * legitimately need to differ?" For the healthcheck gates the answer is yes, by
+ * design. For an anchor pin the answer is never.
+ *
+ * Do NOT weaken anything here to accommodate a caller. The ES256-only `alg`
+ * allowlist, the per-link `cert.verify(issuerCert.publicKey)` chain walk (the
+ * SEC-01-FOLLOWUP fix — anchor-only verification was the original bug), the pinned
+ * SPKI comparison, the self-signed-root check, the validity-period checks and
+ * MAX_CHAIN_LENGTH are all load-bearing. A caller needing different behaviour
+ * (e.g. a different `signedDate` freshness window for a client-supplied,
+ * potentially long-cached transaction JWS) should receive it through an explicit
+ * options argument or a wrapper — never by relaxing a default here, which would
+ * relax it for every caller at once.
+ *
+ * Promoted from `subscription-webhook/` by INFRA-438 as a pure move (byte-identical
+ * body) ahead of the App Store Server API migration, which adds the second consumer.
  */
 
 import { importX509, jwtVerify, JWTPayload, errors } from 'https://esm.sh/jose@5.9.6';

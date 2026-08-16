@@ -27,7 +27,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { verifyAppleJWS } from './verifyAppleJWS.ts';
+import { verifyAppleJWS } from '../_shared/verifyAppleJWS.ts';
 import { verifyGoogleOIDC } from './verifyGoogleOIDC.ts';
 import { wasProcessed, markProcessed } from './replayCache.ts';
 
@@ -76,7 +76,7 @@ interface GoogleWebhookPayload {
 /**
  * Verify Apple webhook signature (JWS).
  *
- * Delegates to `verifyAppleJWS` in ./verifyAppleJWS.ts which:
+ * Delegates to `verifyAppleJWS` in ../_shared/verifyAppleJWS.ts which:
  * - Parses the JWS header for the x5c cert chain
  * - Anchors the chain to a pinned Apple Root CA - G3 SPKI (rejects forged
  *   chains not terminating in Apple's root)
