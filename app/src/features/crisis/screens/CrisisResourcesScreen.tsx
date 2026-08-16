@@ -30,7 +30,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, useFocusEffect, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { useAnalytics } from '@/core/analytics';
-import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography, TOUCH_TARGETS } from '@/core/theme';
 import { logPerformance, logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 import { endCrisisTap } from '@/features/crisis/services/crisisTapTrace';
@@ -67,13 +67,26 @@ const validateUrlProtocol = (url: string, allowedProtocols: string[]): boolean =
 interface ResourceCardProps {
   resource: CrisisResource;
   onPress: () => void;
+  /**
+   * DEBUG-432: suppress this card's own "Call Now" control. Set ONLY for the
+   * 988 lifeline, whose dial now lives in the pinned footer outside the
+   * ScrollView. The card keeps all of its information (availability, languages,
+   * TTY); only the duplicate action is withheld.
+   *
+   * Why suppress rather than render both: DEBUG-341 reverted a duplicated crisis
+   * control because two differently-labelled Call-988 buttons on one screen is
+   * worse for a screen reader user than the gap it was meant to close, and a
+   * duplicated `crisis-call-988-button` testID makes the selectors in
+   * crisis-988-dial.yaml and deeplink-consent-gate.yaml ambiguous.
+   */
+  hidePrimaryAction?: boolean;
 }
 
 /**
  * Resource Card Component
  * Displays individual crisis resource with contact actions
  */
-const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
+const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress, hidePrimaryAction = false }) => {
   const getPriorityColor = (priority: CrisisResourcePriority): string => {
     switch (priority) {
       case 'emergency':
@@ -184,7 +197,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
 
       {/* Action Buttons */}
       <View style={styles.actionButtons}>
-        {resource.phone && (
+        {resource.phone && !hidePrimaryAction && (
           <Pressable
             style={({ pressed }) => [
               styles.primaryButton,
@@ -194,7 +207,7 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress }) => {
               }
             ]}
             onPress={onPress}
-            testID={resource.id === '988_lifeline' ? 'crisis-call-988-button' : `crisis-call-${resource.id}-button`}
+            testID={`crisis-call-${resource.id}-button`}
             accessibilityRole="button"
             accessibilityLabel={`Call ${resource.name}`}
           >
@@ -307,10 +320,37 @@ export default function CrisisResourcesScreen() {
     });
   };
 
+  /**
+   * DEBUG-432 — the pinned footer's dial.
+   *
+   * Deliberately does NOT look the number up from CRISIS_RESOURCE_CATEGORIES. The
+   * footer is this screen's only 988 affordance and the screen is in
+   * SUPPRESSED_ROUTES, so a data-shape change (renaming `988_lifeline`, re-tiering
+   * its priority, filtering it out of a section) must not be able to leave the
+   * crisis destination with no reachable control. 988 is a constant contract per
+   * CLAUDE.md, so it is written as one.
+   *
+   * Routed through openCrisisUrl, never a bare Linking.openURL: that is what
+   * supplies the canOpenURL guard, the manual-dial fallback, and the CRISIS audit
+   * record (DEBUG-314, pinned by scripts/check-crisis-dial-guard.js).
+   */
+  const handleCall988 = useCallback(() => {
+    logSecurity('Crisis resource contact initiated', 'medium', {
+      resourceId: '988_lifeline',
+      resourceName: '988 Suicide & Crisis Lifeline',
+      contactType: 'phone'
+    });
+
+    void openCrisisUrl('tel:988', {
+      manualLabel: '988',
+      onTap: trackCrisisHotlineTapped,
+    });
+  }, [trackCrisisHotlineTapped]);
+
   const priorityResources = getPriorityCrisisResources();
 
   return (
-    <SafeAreaView style={styles.container} edges={['top']} testID="crisis-resources-screen">
+    <SafeAreaView style={styles.container} edges={['top', 'bottom']} testID="crisis-resources-screen">
       <ScrollView
         style={styles.scrollView}
         contentContainerStyle={styles.scrollContent}
@@ -324,7 +364,47 @@ export default function CrisisResourcesScreen() {
           </Text>
         </View>
 
-        {/* Emergency Banner */}
+        {/* Priority Crisis Resources */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Immediate Crisis Support</Text>
+          <Text style={styles.sectionDescription}>
+            Free, confidential, 24/7 support for emotional distress
+          </Text>
+
+          {priorityResources
+            .filter(r => r.priority === 'high')
+            .map(resource => (
+              <ResourceCard
+                key={resource.id}
+                resource={resource}
+                onPress={() => handleResourceContact(resource)}
+                hidePrimaryAction={resource.id === '988_lifeline'}
+              />
+            ))}
+        </View>
+
+        {/*
+          DEBUG-432 — the 911 banner sits BELOW the 988 section, deliberately.
+
+          It used to be the first thing on the screen, above the 988 card. Two
+          independent grounds retired that ordering, per the `crisis` pass:
+
+            1. CONTRACT. This screen is the destination every crisis affordance in
+               the app routes to — root crisis button, `being://crisis`, assessment
+               thresholds, journal scan. CLAUDE.md's non-negotiable names 988
+               ("<3 taps from any screen"); there is no 911 contract anywhere. The
+               dominant slot belongs to the control the contract names.
+            2. TRIAGE. 911 dispatches law enforcement. For someone in suicidal
+               distress without imminent physical danger that carries real risk of
+               an involuntary hold and a police response to a mental-health call.
+               988 exists specifically as the non-police option. Giving 911 the
+               first, visually dominant slot nudged toward the higher-harm path.
+
+          De-emphasised, NOT removed: the "In immediate danger?" qualifier is what
+          makes 911 the right call when it IS the right call, and it stays. Its
+          continued presence inside the scroll region is pinned by
+          CrisisResourcesScreen.reachability.test.tsx.
+        */}
         <View style={styles.emergencyBanner}>
           <Text style={styles.emergencyBannerText}>
             🚨 In immediate danger? Call emergency services
@@ -375,24 +455,6 @@ export default function CrisisResourcesScreen() {
           </Pressable>
         </View>
 
-        {/* Priority Crisis Resources */}
-        <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Immediate Crisis Support</Text>
-          <Text style={styles.sectionDescription}>
-            Free, confidential, 24/7 support for emotional distress
-          </Text>
-
-          {priorityResources
-            .filter(r => r.priority === 'high')
-            .map(resource => (
-              <ResourceCard
-                key={resource.id}
-                resource={resource}
-                onPress={() => handleResourceContact(resource)}
-              />
-            ))}
-        </View>
-
         {/* Additional Resources */}
         {CRISIS_RESOURCE_CATEGORIES
           .filter(cat => cat.id !== 'emergency' && cat.id !== 'immediate_crisis')
@@ -413,12 +475,67 @@ export default function CrisisResourcesScreen() {
           ))}
 
         {/* Footer Note */}
-        <View style={styles.footer}>
+        {/*
+          DEBUG-432: this disclaimer is the LAST unconditional child of the
+          ScrollView, which makes it a structurally guaranteed below-the-fold
+          element on every device and every Dynamic Type step. The Maestro flow
+          uses that as an in-band calibration control — asserting it NOT visible
+          alongside the 988 button being visible proves, on every run, that the
+          driver's predicate can still tell above-fold from below-fold on this
+          screen. Without that control a green `assertVisible` cannot be
+          distinguished from a predicate that stopped discriminating.
+        */}
+        <View style={styles.footer} testID="crisis-resources-footer-disclaimer">
           <Text style={styles.footerText}>
             Being. provides referrals to crisis services. We do not operate these services or provide emergency response. All contacts are external, professional crisis support organizations.
           </Text>
         </View>
       </ScrollView>
+
+      {/*
+        DEBUG-432 — pinned OUTSIDE the ScrollView, deliberately.
+
+        This control used to be the LAST child of the 988 resource card, itself
+        inside the screen's only ScrollView. Measured on a Release build with
+        `maestro hierarchy` real bounds (not screenshots — DEBUG-403 records two
+        wrong fixes diagnosed from pixel-identical renders):
+
+          iPhone SE 3  375x667  DEFAULT type  fold y=86..667   button y=746..797
+          iPhone SE 3  375x667  AX5           fold y=86..667   button y=3926..4095
+          16 Pro Max   440x956  default type  fold y=128..956  button y=776..827  (ok)
+          16 Pro Max   440x956  AX5           fold y=128..956  button y=3612..3781
+
+        Three of four configurations put it below the fold — including the small
+        phone at DEFAULT Dynamic Type, where it was not merely clipped but absent
+        from the accessibility tree: 0% of a 51pt tap target on screen.
+
+        `CrisisResources` is in RootCrisisButton.SUPPRESSED_ROUTES, so the root
+        overlay is deliberately absent and this is the ONLY 988 affordance here —
+        on the screen every other crisis affordance routes TO. Suppression is
+        earned by an affordance reachable WITHOUT SCROLLING, never by one that
+        merely exists. As a flex sibling of a `flex: 1` ScrollView this is on
+        screen at every scroll offset and every Dynamic Type step, with no
+        absolute positioning to keep in sync.
+
+        Do NOT re-nest it, and do NOT add a second 988 control to a card: position
+        is pinned by __tests__/safety/crisis-zero-988-windows.test.tsx (precommit)
+        and by CrisisResourcesScreen.reachability.test.tsx (CI, render-tree), and
+        the count is pinned by both.
+
+        Do NOT add accessibilityViewIsModal here: it traps VoiceOver in the footer
+        and orphans the entire resource list above it.
+      */}
+      <View style={styles.crisisFooter}>
+        <Pressable
+          style={({ pressed }) => [styles.crisisFooterButton, { opacity: pressed ? 0.9 : 1 }]}
+          onPress={handleCall988}
+          testID="crisis-call-988-button"
+          accessibilityRole="button"
+          accessibilityLabel="Call 988 Suicide & Crisis Lifeline"
+        >
+          <Text style={styles.crisisFooterButtonText}>📞 Call 988</Text>
+        </Pressable>
+      </View>
     </SafeAreaView>
   );
 }
@@ -611,6 +728,45 @@ const styles = StyleSheet.create({
     color: colorSystem.gray[800],
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold
+  },
+  crisisFooter: {
+    // DEBUG-432: horizontal and bottom padding are this block's own responsibility.
+    // Pinned outside the ScrollView it no longer inherits `scrollContent`, and
+    // `SafeAreaView edges` now includes 'bottom' so it clears the home indicator
+    // rather than sitting under it (the screen previously reserved nothing there,
+    // which is why the fold had to be clamped by the inset when measuring).
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[16],
+    paddingBottom: spacing[16],
+    borderTopWidth: 1,
+    borderTopColor: colorSystem.gray[200],
+    backgroundColor: colorSystem.base.white,
+    // DEBUG-390's recorded failure: without wrap, a row has a fixed intrinsic width
+    // (RN defaults flexShrink to 0) that overflows the column above font multiplier
+    // ~1.351 at 375pt — i.e. at xxxLarge, reachable from ordinary iOS Settings — and
+    // clipped the crisis control at both edges. Wrap, never cap the label with
+    // maxFontSizeMultiplier: capping text growth on the crisis affordance
+    // specifically inverts the priority.
+    flexWrap: 'wrap',
+    justifyContent: 'center'
+  },
+  crisisFooterButton: {
+    backgroundColor: '#D32F2F',
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[24],
+    borderRadius: borderRadius.medium,
+    alignItems: 'center',
+    justifyContent: 'center',
+    // TOUCH_TARGETS.large names "Crisis buttons" as its application. DEBUG-390's
+    // footer shipped at ~34.7pt, clearing WCAG 2.2 AA 2.5.8 (24) but failing
+    // 2.5.5 AAA / iOS HIG (44) and this token.
+    minHeight: TOUCH_TARGETS.large
+  },
+  crisisFooterButtonText: {
+    color: '#FFFFFF',
+    fontSize: typography.bodyLarge.size,
+    fontWeight: typography.fontWeight.bold,
+    textAlign: 'center'
   },
   footer: {
     paddingHorizontal: spacing[24],
