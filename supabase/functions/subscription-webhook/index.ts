@@ -28,6 +28,7 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { verifyAppleJWS } from '../_shared/verifyAppleJWS.ts';
+import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
 import { verifyGoogleOIDC } from './verifyGoogleOIDC.ts';
 import { wasProcessed, markProcessed } from './replayCache.ts';
 
@@ -174,11 +175,11 @@ async function handleAppleWebhook(
   }
 
   // Log event
-  await supabase.rpc('log_subscription_event', {
-    p_user_id: userId,
-    p_subscription_id: originalTransactionId,
-    p_event_type: eventType,
-    p_metadata: {
+  await logSubscriptionEvent(supabase, {
+    userId: userId,
+    subscriptionId: originalTransactionId,
+    eventType: eventType,
+    metadata: {
       platform: 'apple',
       notification_type: notificationType,
       timestamp: new Date().toISOString(),
@@ -270,11 +271,11 @@ async function handleGoogleWebhook(
   }
 
   // Log event
-  await supabase.rpc('log_subscription_event', {
-    p_user_id: subscription.user_id,
-    p_subscription_id: subscription.id,
-    p_event_type: eventType,
-    p_metadata: {
+  await logSubscriptionEvent(supabase, {
+    userId: subscription.user_id,
+    subscriptionId: subscription.id,
+    eventType: eventType,
+    metadata: {
       platform: 'google',
       notification_type: notificationType,
       timestamp: new Date().toISOString(),
