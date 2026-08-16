@@ -693,8 +693,10 @@ this run's manifest **or** already `Done` in Notion. If any prerequisite is not 
 dependent off a `development` that lacks its prerequisite. Set the item's manifest
 `state: running` before each.
 
-**Re-check `deferred` items too, between items.** A sibling batch can land a cross-batch
-prerequisite mid-run, and nothing else looks until `--resume`. If `blocked_by` is now
+**Re-check `deferred` items too, between items — and once before the final report.** A
+sibling batch can land a cross-batch prerequisite mid-run, and nothing else looks until
+`--resume`. A batch with one executing item has no "between", and its longest unwatched
+window is that item's own close. If `blocked_by` is now
 satisfied on both sources, clear it and set `state: pending`; run it only if a cap slot
 remains AND the remaining context can fund the Phase-1 panel it never got.
 
