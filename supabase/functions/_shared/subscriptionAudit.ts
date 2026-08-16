@@ -30,12 +30,24 @@
  * at 2KB by the metadata_size CHECK).
  */
 
+/**
+ * The client's `rpc()` returns a PostgrestFilterBuilder — a THENABLE, not a Promise: it has
+ * `.then` but no `.catch`/`.finally`/`Symbol.toStringTag`. Typing this parameter as
+ * `Promise<any>` therefore rejects the real client (TS2345), which `deno check` catches and
+ * the `Edge Functions (Deno)` CI job does not, because that job runs `deno test` only.
+ * `PromiseLike` is the accurate constraint and is all `await` requires.
+ */
 // deno-lint-ignore no-explicit-any
-type SupabaseLike = { rpc: (fn: string, params: Record<string, unknown>) => Promise<any> };
+type SupabaseLike = { rpc: (fn: string, params: Record<string, unknown>) => PromiseLike<any> };
 
 export interface SubscriptionAuditEvent {
   userId: string;
-  subscriptionId: string | null;
+  /**
+   * `undefined` is accepted alongside `null` because callers pass optional fields straight
+   * through (e.g. `verification.subscriptionId`, typed `string | undefined`). Both are
+   * normalised to SQL NULL at the boundary below, so the RPC sees one shape.
+   */
+  subscriptionId: string | null | undefined;
   eventType: string;
   metadata: Record<string, unknown>;
 }
@@ -52,7 +64,7 @@ export async function logSubscriptionEvent(
 ): Promise<boolean> {
   const { error } = await supabase.rpc('log_subscription_event', {
     p_user_id: event.userId,
-    p_subscription_id: event.subscriptionId,
+    p_subscription_id: event.subscriptionId ?? null,
     p_event_type: event.eventType,
     p_metadata: event.metadata,
   });

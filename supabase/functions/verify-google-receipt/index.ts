@@ -23,7 +23,13 @@
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { encryptReceipt, receiptHash } from '../_shared/receiptCrypto.ts';
-import { assertNoCrossIdentityReplay, ReceiptReplayError, isUniqueViolation } from '../_shared/receiptBinding.ts';
+import {
+  assertNoCrossIdentityReplay,
+  ReceiptReplayError,
+  isUniqueViolation,
+  InvalidTransactionIdentifierError,
+  isUsableTransactionIdentifier,
+} from '../_shared/receiptBinding.ts';
 import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
 
 /**
@@ -210,6 +216,14 @@ async function updateSubscription(
 
   // Parse product ID to determine interval
   const interval = verification.productId?.includes('yearly') ? 'yearly' : 'monthly';
+
+  // DEBUG-447 — independent call-site guard. assertNoCrossIdentityReplay now fails closed on
+  // a missing identifier too, so this is deliberately redundant: it means a future edit to the
+  // helper alone cannot silently reopen the gap here. Both layers must be removed to write an
+  // unbound subscription row, and this one sits before the upsert so no row is written.
+  if (!isUsableTransactionIdentifier(purchaseToken)) {
+    throw new InvalidTransactionIdentifierError('google');
+  }
 
   // Replay guard binds on the purchaseToken — the Google bearer credential that
   // could be replayed across identities (orderId is not the replay vector).
@@ -407,6 +421,30 @@ serve(async (req) => {
           return new Response(
             JSON.stringify({ valid: false, error: 'Receipt already bound to another account' }),
             { status: 409, headers: { 'Content-Type': 'application/json' } }
+          );
+        }
+        if (err instanceof InvalidTransactionIdentifierError) {
+          // DEBUG-447 — no usable purchaseToken reached the binding, so the replay guard
+          // cannot be evaluated. Fail closed: no subscriptions row is written (the throw
+          // happens before the upsert).
+          //
+          // This branch is not optional dressing. Without it the throw falls through to the
+          // generic outer catch and becomes an undifferentiated 500 with NO audit row —
+          // technically fail-closed but indistinguishable from any other bug, which defeats
+          // the point of failing closed at all.
+          console.error('[Google Receipt Verification] No stable transaction identifier for user:', authUid);
+          await logSubscriptionEvent(supabase, {
+            userId: authUid,
+            subscriptionId: null,
+            eventType: 'receipt_verification_failed',
+            metadata: { platform: 'google', reason: 'missing_txn_identifier', timestamp: new Date().toISOString() },
+          });
+          // 500, not 4xx: the caller's request was well-formed. What failed is that
+          // verification produced no usable identifier — an upstream/internal condition,
+          // matching the existing Google-API-failure branch's framing.
+          return new Response(
+            JSON.stringify({ valid: false, error: 'Verification produced no stable transaction identifier' }),
+            { status: 500, headers: { 'Content-Type': 'application/json' } }
           );
         }
         throw err;
