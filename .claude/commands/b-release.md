@@ -6,9 +6,16 @@
 **interactively prompts** for it. Once you're comfortable with the flow,
 pass explicitly to skip the prompt.
 
-**--finish**: Run AFTER the release PR has been merged on GitHub. Tags
-`main` with `vX.Y.Z` and pushes the tag. Also syncs the bare-repo's local
-`refs/heads/main` to the merged state.
+**--finish**: **Recovery entry point only — a normal release is one command.**
+Phase 7 (tag + push tag + sync the bare-repo's local `refs/heads/main`) runs
+inline after the merge. `--finish` re-enters at Phase 7 for the case where the
+merge landed but tagging did not — a 7.2 version mismatch, a 7.3 legacy-tag
+collision, or an interrupted run.
+
+This used to be a mandatory second invocation. It was not a technical wait:
+Phase 6.6 does the merge itself via `gh pr merge --admin`, so nothing is
+pending between merge and tag. The split dated from when the PR was merged by
+hand in the browser and was never collapsed after 6.6 took that over.
 
 **GitHub Flow note (INFRA-145)**: This skill replaces "merge to main" as a
 manual `gh pr create --base main` ceremony. Single source of release truth.
@@ -26,15 +33,18 @@ manual `gh pr create --base main` ceremony. Single source of release truth.
 /b-release patch           # Patch bump (0.1.0 → 0.1.1) without prompt
 /b-release minor           # Minor bump (0.1.0 → 0.2.0) without prompt
 /b-release major           # Major bump (0.1.0 → 1.0.0) without prompt
-/b-release --finish        # Post-merge: tag + push tag + sync worktrees
+/b-release --finish        # RECOVERY ONLY: merge landed but tagging did not
 ```
+
+A normal release is a single `/b-release` invocation, start to tag.
 
 ---
 
 ## Phase 1: Argument parsing
 
 Parse `$ARGUMENTS`:
-- If contains `--finish`: this is the POST-merge step. Skip to Phase 7.
+- If contains `--finish`: recovery re-entry. Skip to Phase 7. (Phases 2–6 are
+  skipped wholesale — this path assumes the release PR already merged.)
 - Otherwise, look for `patch` / `minor` / `major` as the first non-flag arg.
   If present: `BUMP=<arg>`. If absent: `BUMP=null` (prompt later).
 
@@ -483,21 +493,18 @@ gh pr merge $PR_NUMBER --merge --admin
 
 Display:
 ```
-✅ Release v[NEXT_VERSION] merged to main!
-
-Next: Run /b-release --finish to:
-  - Tag origin/main as v[NEXT_VERSION]
-  - Push the tag
-  - Sync bare-repo local refs
-
-(Or do it manually with: git tag v[NEXT_VERSION] origin/main && git push origin --tags)
+✅ Release v[NEXT_VERSION] merged to main. Tagging…
 ```
 
-STOP here. The user runs `/b-release --finish` after reviewing.
+**Do NOT stop here — continue straight into Phase 7.** `gh pr merge --admin`
+returns only once the merge has landed, so there is nothing to wait for.
 
 ---
 
-## Phase 7: --finish (post-merge tagging + sync)
+## Phase 7: Tag + sync
+
+Runs inline after Phase 6. `--finish` re-enters here after a failure below —
+see the recovery note on that flag at the top of this file.
 
 ### 7.1 Fetch latest (CRITICAL: separate calls)
 
@@ -528,6 +535,11 @@ MAIN_PKG_VERSION=$(git show origin/main:app/package.json | jq -r '.version')
 `MAIN_PKG_VERSION` must equal `PKG_VERSION`. If not, ABORT with
 "version on origin/main ($MAIN_PKG_VERSION) doesn't match local ($PKG_VERSION);
 did the release PR actually merge? Verify with: gh pr view <release-pr-num>"
+
+**Reaching this abort inline means the merge succeeded and only tagging did
+not** — Phase 6.6 already landed it. Do not re-run `/b-release`, which would
+attempt a second bump and a second PR. Resolve the mismatch, then re-enter with
+`/b-release --finish`. Same for a 7.3 tag collision.
 
 ### 7.3 Tag origin/main
 

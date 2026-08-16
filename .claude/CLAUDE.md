@@ -189,7 +189,12 @@ Short-lived branches:
    - Bumps version across **FOUR sources** (INFRA-141): `app/package.json`, `app/app.json`, `~/dev/being/.config/env.production`, `~/dev/being/.config/env.development`. Refuses to run if any source disagrees.
    - Opens PR `development → main` (CI runs the same 10 gates — the PR resolves its workflow from the merge commit, so it runs `development`'s `ci.yml`, not `main`'s older copy).
    - Merges via **merge commit** (NOT squash — preserves per-tranche history visible on main).
-3. After GitHub merges, run `/b-release --finish` to tag and push.
+   - Tags `main` with `vX.Y.Z`, pushes the tag, syncs the bare repo's `refs/heads/main`.
+3. **A release is one command.** `--finish` is a recovery re-entry point, not a
+   required second step: Phase 6.6 merges the PR itself via `gh pr merge --admin`, so
+   nothing is pending between merge and tag. Use it only when the merge landed but
+   tagging did not (version mismatch, legacy-tag collision, interrupted run) — and
+   never re-run bare `/b-release` in that state, which would bump and PR a second time.
 
 Tag scheme: `vX.Y.Z` semver. Pre-launch: `v0.x.y`. App Store launch: `v1.0.0`. Legacy `v2.x` tags from earlier development phases are filtered out by the b-release `--match 'v[0-9]*.[0-9]*.[0-9]*'` pattern.
 
@@ -233,7 +238,7 @@ Cherry-pick is preferred over rebase to keep dev's "prevent force-push" protecti
 | `/b-create [TYPE] - [Name]` | Create Notion work item from conversation context with dimension scores |
 | `/b-work [WORK_ITEM_ID]` | Fetch work item, create worktree off `development` (with env symlinks per INFRA-141), install deps, then Phase 3 runs two test passes — Pass 1 picks the lane (test-first / test-after / skip; clinical/safety logic forced test-first), Pass 2 identifies tests via the Validation Matrix and writes them — before/around implement |
 | `/b-close [WORK_ITEM_ID]` | Push feature branch, open PR to `development`, wait for CI, merge via merge-commit (INFRA-145), update Notion to Done. Phase 2.5 Maestro safety-e2e gate runs scoped flow(s) when safety paths change (INFRA-171). `--push` deprecated (PR merge always pushes). `--skip-e2e` hotfix-only. |
-| `/b-release [BUMP] [--finish]` | Promote `development → main` as a release. Interactive bump prompt + FOUR-place version bump (INFRA-141) + env schema pre-flight + auto release notes. Run with `--finish` after the PR merges to tag + push. |
+| `/b-release [BUMP] [--finish]` | Promote `development → main` as a release. Interactive bump prompt + FOUR-place version bump (INFRA-141) + env schema pre-flight + auto release notes. Tags + pushes inline; one command start to finish. `--finish` is recovery-only re-entry when the merge landed but tagging did not. |
 
 Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conventional commits. Aim for <400 LOC per PR.
 
