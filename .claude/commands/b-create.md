@@ -99,7 +99,7 @@ yet judged," and there is deliberately no value meaning "batchable."
 - `Tooling (_bare)` — `.claude/`-only; gitignored on `development`, so no worktree can commit it.
 - `Not a code change` — console configuration, an external account, procurement, a founder decision.
 - `External blocker` — real work here, blocked by something that is not a work item (a compliance ruling, a scheduling call). Pair with `Status: Blocked`; flipping the status back is what retires it.
-- `Release-gated` — real work here, but it cannot land until the next release ships (needs the version bump, a TestFlight build to test against, or code on `main`). A specialization of `External blocker`, kept separate so the post-release cohort is identifiable without reading bodies. Pair with `Status: Blocked`; the `Release-gated` view is the worklist to sweep once the release lands.
+- `Release-gated` — the item cannot be **worked** until the next release ships. The reliable test is whether its ACs are written against `main`, or against a build only a release produces — if so, no diff satisfies them today. A specialization of `External blocker`, kept separate so the post-release cohort is identifiable without reading bodies. Pair with `Status: Blocked`; the `Release-gated` view is the worklist to sweep once the release lands.
 
 Setting it now spares `/b-batch` a body fetch and the same re-derivation on every future run.
 

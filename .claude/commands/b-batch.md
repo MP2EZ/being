@@ -160,7 +160,7 @@ non-zero.** An empty relation resolves four different ways, and only the first i
 | a work item | set the relation | prerequisite named only in Technical Notes |
 | gone or already `Done` | `→ Not started` | prereq landed; or the named prereq was `Cancelled` |
 | **not a work item at all** | **set `Batch Route: External blocker`** | procurement, a compliance ruling, a scheduling call, an external tool upgrade |
-| **the next release** | **set `Batch Route: Release-gated`** | needs the version bump, a TestFlight build to test against, or code on `main` |
+| **the next release** | **set `Batch Route: Release-gated`** | ACs written against `main`, or needing a build only a release produces |
 
 That third class is why the wording matters. Those rows have real, often thoroughly
 documented blockers that a *relation* structurally cannot express — before `Batch Route`
