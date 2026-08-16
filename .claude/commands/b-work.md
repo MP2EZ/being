@@ -32,9 +32,9 @@ Parse `$ARGUMENTS` to extract two components:
 ### Step 0.2: Auto-select (only when `$ARGUMENTS` is empty)
 
 A bare `/b-work` runs the top of the **attended queue** — the one pool `/b-batch` structurally
-cannot execute. `Batch Route: Attended-only` is the only one of its five values meaning
-*`/b-work` could produce a diff*; the other four are out of reach for this skill too (another
-repo, `.claude/`-only, no diff at all, blocked).
+cannot execute. `Batch Route: Attended-only` is the only one of its six values meaning
+*`/b-work` could produce a diff*; the other five are out of reach for this skill too (another
+repo, `.claude/`-only, no diff at all, blocked, waiting on a release).
 
 1. Read `view://3b7a1108-c208-8055-bc9b-000cfccdb28e` via `notion-query-data-sources`
    `mode: "view"`. **Never SQL** — `Priority` is in `notAvailableInQuerySql`, and SQL mode is

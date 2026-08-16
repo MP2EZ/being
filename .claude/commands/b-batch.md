@@ -153,13 +153,14 @@ recorded reason, so re-listing it is the noise this report must not carry. Not j
 cannot say both, and the durable value is the one worth keeping.
 
 **Report it as a review list, never as a defect count, and expect the steady state to be
-non-zero.** An empty relation resolves three different ways, and only the first is a defect:
+non-zero.** An empty relation resolves four different ways, and only the first is a defect:
 
 | The blocker is… | Correct fix | Example |
 |---|---|---|
 | a work item | set the relation | prerequisite named only in Technical Notes |
 | gone or already `Done` | `→ Not started` | prereq landed; or the named prereq was `Cancelled` |
 | **not a work item at all** | **set `Batch Route: External blocker`** | procurement, a compliance ruling, a scheduling call, an external tool upgrade |
+| **the next release** | **set `Batch Route: Release-gated`** | needs the version bump, a TestFlight build to test against, or code on `main` |
 
 That third class is why the wording matters. Those rows have real, often thoroughly
 documented blockers that a *relation* structurally cannot express — before `Batch Route`
@@ -168,7 +169,7 @@ asserted something false about them and trained you to ignore the whole list, hi
 genuinely stale rows among them. Stamping one is what retires it from this report.
 
     📌 N `Blocked` items have no `Blocked by` relation and no `Batch Route`: …
-       Each is either stale or needs `External blocker` set. Only a relation contributes an
+       Each is either stale or needs `External blocker` / `Release-gated` set. Only a relation contributes an
        edge to the Step 2.2 graph.
 
 #### 0.1a.4 — Exclude, and name every exclusion
@@ -184,8 +185,8 @@ Drop from the pool, reporting each class. **Never silently** — a hidden cap re
 - **Routed out of the batch** — `Batch Route` ∈ {`Attended-only`, `Other repo`,
   `Tooling (_bare)`, `Not a code change`}. Step 0.1a.5 defines these; the property is where a
   previous run (or `/b-create`) recorded the same verdict, so the drop happens with no body
-  fetched. (`External blocker` is absent here because those rows are `Blocked`, which 0.1a.2
-  already partitioned out.) Report as a roll-up with per-class counts, naming individually
+  fetched. (`External blocker` and `Release-gated` are absent here because those rows are
+  `Blocked`, which 0.1a.2 already partitioned out.) Report as a roll-up with per-class counts, naming individually
   only those that would otherwise have entered the 0.1a.5 window — a per-item list here grows
   with the backlog and stops being read.
 
