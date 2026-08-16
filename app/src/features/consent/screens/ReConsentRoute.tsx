@@ -41,11 +41,13 @@
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getConsentDeltaSince,
+  isBaseEligibleForRenewal,
   useConsentStore,
   type ConsentDelta,
 } from '@/core/stores/consentStore';
 import { logError, LogCategory } from '@/core/services/logging';
 import ReConsentScreen from './ReConsentScreen';
+import StaleConsentIneligibleScreen from './StaleConsentIneligibleScreen';
 import { submitReConsent, type ReConsentSubmission } from '../services/submitReConsent';
 
 /**
@@ -174,6 +176,30 @@ const ReConsentRoute: React.FC<ReConsentRouteProps> = ({ onDismiss }) => {
 
   if (!base || !delta) {
     return null;
+  }
+
+  /**
+   * DEBUG-418 — which screen, decided HERE rather than passed in.
+   *
+   * Re-derived from the SAME `isBaseEligibleForRenewal` the trigger used, so
+   * there is one definition of the 18+ boundary and no route param that could
+   * drift out of sync with the record — or be constructed by a caller to reach
+   * the renewable screen with an ineligible record.
+   *
+   * 🔴 THE BLOCK IS STRUCTURAL, NOT COSMETIC. `ReConsentScreen` is the only
+   * component that can produce an Art. 9(2)(a) affirmation, and this branch means
+   * it is never MOUNTED for this cohort. That makes `submitReConsent`'s
+   * `'ineligible'` age-failure stage — which this file's header describes as a
+   * reachable race — unreachable from this path entirely.
+   */
+  if (!isBaseEligibleForRenewal(base)) {
+    return (
+      <StaleConsentIneligibleScreen
+        delta={delta}
+        isSubmitting={isSubmitting}
+        onAcknowledge={handleDecline}
+      />
+    );
   }
 
   return (
