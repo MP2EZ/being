@@ -146,7 +146,9 @@ reverted to `Not started`, so it re-enters the pool on the next read.
 List `Blocked` rows whose `Blocked by` relation is **empty**, with count and IDs. Do **not**
 read those bodies and do not adjudicate whether each blocker still holds — that is the
 in-context judgement Step 2.1 exists to avoid, and at this stage the bodies have not been
-fetched anyway.
+fetched anyway. **Exclude rows whose `Batch Route` is `External blocker`** — that value
+records a blocker a relation cannot express, so re-listing them is the noise this report
+must not carry.
 
 **Report it as a review list, never as a defect count, and expect the steady state to be
 non-zero.** An empty relation resolves three different ways, and only the first is a defect:
@@ -155,17 +157,17 @@ non-zero.** An empty relation resolves three different ways, and only the first 
 |---|---|---|
 | a work item | set the relation | prerequisite named only in Technical Notes |
 | gone or already `Done` | `→ Not started` | prereq landed; or the named prereq was `Cancelled` |
-| **not a work item at all** | **nothing — already correct** | procurement, a compliance ruling, a scheduling call, an external tool upgrade |
+| **not a work item at all** | **set `Batch Route: External blocker`** | procurement, a compliance ruling, a scheduling call, an external tool upgrade |
 
 That third class is why the wording matters. Those rows have real, often thoroughly
-documented blockers that a *relation* structurally cannot express, so they will appear in
-this list on every run forever. Calling them "items with no recorded blocker" asserts
-something false about them and trains you to ignore the whole list — which is worse than not
-reporting it, because the genuinely stale rows hide among them.
+documented blockers that a *relation* structurally cannot express — before `Batch Route`
+existed they reappeared here every run, and calling them "items with no recorded blocker"
+asserted something false about them and trained you to ignore the whole list, hiding the
+genuinely stale rows among them. Stamping one is what retires it from this report.
 
-    📌 N `Blocked` items have no `Blocked by` relation: …
-       Some are correct (blocker isn't a work item); some are stale. Worth a periodic look —
-       only a relation contributes an edge to the Step 2.2 graph.
+    📌 N `Blocked` items have no `Blocked by` relation and no `Batch Route`: …
+       Each is either stale or needs `External blocker` set. Only a relation contributes an
+       edge to the Step 2.2 graph.
 
 #### 0.1a.4 — Exclude, and name every exclusion
 Drop from the pool, reporting each class. **Never silently** — a hidden cap reads as
@@ -177,6 +179,13 @@ Drop from the pool, reporting each class. **Never silently** — a hidden cap re
 - **Too large to batch** — `Effort` `XL` / `XXL`. One `/b-work` in one worktree cannot carry
   5–8+ weeks; these need slicing via `/b-create` first. Naming them makes the omission a
   recommendation rather than a silence.
+- **Routed out of the batch** — `Batch Route` ∈ {`Attended-only`, `Other repo`,
+  `Tooling (_bare)`, `Not a code change`}. Step 0.1a.5 defines these; the property is where a
+  previous run (or `/b-create`) recorded the same verdict, so the drop happens with no body
+  fetched. (`External blocker` is absent here because those rows are `Blocked`, which 0.1a.2
+  already partitioned out.) Report as a roll-up with per-class counts, naming individually
+  only those that would otherwise have entered the 0.1a.5 window — a per-item list here grows
+  with the backlog and stops being read.
 
 **When an exclusion names a sibling manifest, report that batch's outstanding work too — but
 verify each item against git first.** A manifest is authoritative for OWNERSHIP (it closes the
@@ -198,20 +207,39 @@ rather than in the story, so a body-only read re-proposes items already passed o
 any re-batch condition you find as a claim to verify — a stale one keeps a ready item out
 of every slate.
 
-**Then apply the two exclusions only a body can decide.** `Priority` says what is worth
-doing, `Effort` says how big it is; neither says whether `/b-work` can reach the work at all.
+**Skip the BODY fetch — never the comments — when the planning digest already answers.**
+`/Users/max/dev/being/.config/.b-batch-digest.json` (gitignored, beside the manifests) holds
+one entry per item: the `Last edited time` it was derived at, the route verdict, the RED
+prediction, `Effort`, and a one-line subject for the coherence tie-break. Reuse an entry when
+`Last edited time` still matches **and** no comment postdates it; otherwise fetch, re-derive,
+rewrite it. A missing, unparseable or clobbered digest is a MISS, never an admission — the run
+then costs what it always cost. Entries are keyed by ID and derived from the same body, so
+concurrent batches converge; a lost entry costs one re-derive, never correctness.
+
+**Comments are read every run regardless.** A comment does **not** move `Last edited time`
+(measured, not assumed), so the key is blind to exactly the channel that carries rescopes and
+reversals — caching through it would serve a body whose premise was retired.
+
+**Then apply the two exclusions only a body can decide** — for any item `Batch Route` did not
+already drop at 0.1a.4. `Priority` says what is worth doing, `Effort` says how big it is;
+neither says whether `/b-work` can reach the work at all.
 Expect these near the **top** of the pool — work outgrows the batch model by becoming a
-release, a cross-repo change, or a decision, and none of that lowers its rank.
+release, a cross-repo change, or a decision, and none of that lowers its rank. **Write each
+verdict you derive back to `Batch Route`**, so the next run drops it at 0.1a.4 rather than
+re-deriving it here.
 
 - **Out of reach** — the deliverable is not a feature-branch PR into `development` in *this*
   repo: another repo (`being-website`, the design system — `/b-work` cannot worktree outside
-  the `being` bare repo); a release (route: `/b-release`); a console configuration; an
-  external account, procurement, or a founder decision. Name the real route, so the item
-  reads as *routed elsewhere* rather than *skipped*.
+  the `being` bare repo) → stamp `Other repo`; `.claude/`-only, gitignored on `development` so
+  no worktree can commit it → `Tooling (_bare)`; a console configuration, an external account,
+  procurement, or a founder decision → `Not a code change`. A release (route: `/b-release`) is
+  deliberately **not** stamped — "it just needs to ship" is live state, not a property of the
+  item. Name the real route, so the item reads as *routed elsewhere* rather than *skipped*.
 - **Attended-only** — `/b-work` could produce a diff, but the ACs demand human-*observed*
   work (bisect build, device run, N consecutive clean runs). Running one unattended is worse
   than skipping it: a plausible fix lands, the item closes, and the question it existed to
-  answer stays open. Surface as **run solo, attended**; never use one to fill the budget.
+  answer stays open. Stamp `Attended-only`; Step 4.1 surfaces it beside the sim queue, since
+  both want the same human at the same machine. Never use one to fill the budget.
 
     🔀 Routed elsewhere: INFRA-363 (being-website) · MAINT-388 (design-system release)
                          DEBUG-360 (ships via /b-release)
@@ -388,8 +416,11 @@ flag-tier ruling. Read newest-last and let them **override** the body. A lens gi
 body reasons impeccably to a conclusion ruled out months ago, and sounds just as confident.
 
 **Apply Step 0.1a.5's attended-only test on every entry path, not just auto-select** —
-the question is about the ITEM, not how the ID arrived. Defer before the panel spends:
-the approach is unexecutable, and an unattended run closes the item with its question open.
+the question is about the ITEM, not how the ID arrived. **The SQL resolve above already
+returned `Batch Route`**, so a stamped ID defers here having fetched nothing. Defer before the
+panel spends: the approach is unexecutable, an unattended run closes the item with its
+question open, and a panel costs 2–3 agents where a body costs one call. Write any verdict you
+derive here back to `Batch Route`.
 
 **Claim the page as you resolve it (Step 0.2's Notion half).** The fetch returns `Status`
 directly, so the moment a page resolves: if its `Status` is `Not started`, set
@@ -996,6 +1027,14 @@ not as N independent build-then-close instructions:
      /b-close <ID>
 
    First build ≈21 min (cold gate worktree), each one after ≈90 s.
+```
+**Append this run's `Attended-only` items to the same session** (stamped at Step 0.1a.5 or
+Phase 1). They are not closes — they are work the loop declined to run headless — but they
+want the same human at the same machine, and surfacing them anywhere else means they get read
+at a moment when nothing can be done about them:
+```
+   🖐️  Also attended, while you are here — not started, no worktree:
+      DEBUG-392   ACs require a bisect build + 5 clean runs
 ```
 **Why one session and not N (INFRA-436).** Each item is still gated on **its own tree at
 its own commit** — this is emphatically *not* batching several items against one merged

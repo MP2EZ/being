@@ -91,6 +91,17 @@ structured **`Blocked by`** relation in Phase 7.6 — not just prose in Technica
 `/b-batch` can read it directly. If a true dependency is only describable in prose, still
 note it in Technical Notes *and* list the ID here. Empty is fine — most items have no prereqs.
 
+### Batch Route (set only when the item is outside `/b-batch`'s reach)
+Five values, all exclusions. **Leave it empty unless one plainly applies** — empty means "not
+yet judged," and there is deliberately no value meaning "batchable."
+- `Attended-only` — a diff is producible, but the ACs demand human-*observed* work (bisect build, device run, N consecutive clean runs).
+- `Other repo` — the deliverable lives in `being-website` or the design system.
+- `Tooling (_bare)` — `.claude/`-only; gitignored on `development`, so no worktree can commit it.
+- `Not a code change` — console configuration, an external account, procurement, a founder decision.
+- `External blocker` — real work here, blocked by something that is not a work item (a compliance ruling, a scheduling call). Pair with `Status: Blocked`; flipping the status back is what retires it.
+
+Setting it now spares `/b-batch` a body fetch and the same re-derivation on every future run.
+
 ### AGENTS REQUIRED (keyword suggestion)
 Scan Name + context:
 - **Crisis/Safety** (`crisis`, `PHQ`, `GAD`, `threshold`, `988`, `suicide`, `safety plan`, `emergency`) → `crisis, compliance`
@@ -337,7 +348,8 @@ pages: [
       "Strat Fit": [Strategic Fit score],
       "Urgency": [Urgency score],
       "Risk": [Risk score],
-      "Effort": "[Effort size]"
+      "Effort": "[Effort size]",
+      "Batch Route": "[value from Phase 2 — OMIT this key entirely if none applies]"
     },
     "content": "[See content template below]"
   }
