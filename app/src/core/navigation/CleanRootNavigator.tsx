@@ -20,6 +20,8 @@ import { DailyLoopNavigator } from '@/features/practices/dailyloop';
 import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
+// DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
+import CrisisKeyboardAccessory from '@/features/crisis/components/CrisisKeyboardAccessory';
 import { RootOverlaySlot } from '@/core/navigation/rootOverlaySlot';
 // DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
 // above and by the overlay boundary below.
@@ -143,7 +145,11 @@ export type RootStackParamList = {
   };
   CrisisResources: {
     severityLevel?: 'moderate' | 'high' | 'emergency';
-    source?: 'assessment' | 'direct' | 'crisis_button';
+    // ⚠️ DEBUG-450 — kept in sync BY HAND with `CrisisTapSource` in
+    // features/crisis/services/crisisTapTrace.ts. Separately declared, nothing enforces
+    // the correspondence. 'assessment' and 'direct' are route-only; 'error_boundary'
+    // never navigates (it dials 988 directly), so it has no member here.
+    source?: 'assessment' | 'direct' | 'crisis_button' | 'keyboard_accessory';
   } | undefined;
   Subscription: undefined;
   SubscriptionStatus: undefined;
@@ -804,6 +810,22 @@ const CleanRootNavigator: React.FC = () => {
         <RootCrisisBoundary>
           <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
         </RootCrisisBoundary>
+
+        {/* DEBUG-450 — the crisis affordance for when a software keyboard occludes the
+            root button. Mounted ONCE: RN registers InputAccessoryView content by
+            nativeID app-wide, so every TextInput spreading crisisAccessoryProps() reaches
+            this single instance.
+
+            ADDITIVE, and a SIBLING of RootCrisisButton rather than a replacement for it.
+            Neither control suppresses the other — coordinating them would be a fourth
+            instance of the two-list reconciliation failure CLAUDE.md names for
+            features/guidance/ and features/consent/.
+
+            Deliberately OUTSIDE RootCrisisBoundary: that boundary's fallback renders
+            Static988Button, which dials directly and needs no keyboard. Nesting this
+            inside would tie a keyboard-only affordance to a crash-recovery surface that
+            has no TextInput. */}
+        <CrisisKeyboardAccessory />
       </View>
     </NavigationContainer>
   );

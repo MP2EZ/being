@@ -462,6 +462,20 @@ jobs:
         # is permitted on hotfix/* branches.
         run: cd app && npm run check:modal-occlusion
 
+      - name: Crisis keyboard accessory guard
+        # DEBUG-450 — every shipping <TextInput> must carry the accessory props. While a
+        # software keyboard is up the root crisis button is inside the keyboard's own
+        # UIWindow and unreachable, so an unwired input has NO 988 access.
+        #
+        # Attribute-level, not tag-presence: a file-level check would pass a screen whose
+        # first input is wired and whose second is not.
+        #
+        # Primary pin is `app/__tests__/safety/crisisKeyboardAccessoryGuard.test.ts`, which
+        # shares this script's detection logic and runs in `precommit`. This step exists
+        # for the same reason as the one above: `test:safety` is not a CI job and
+        # --no-verify is permitted on hotfix/* branches.
+        run: cd app && npm run check:crisis-keyboard-accessory
+
       - name: Security test suite
         # --coverage omitted on subset runs (see Unit tests rationale).
         #

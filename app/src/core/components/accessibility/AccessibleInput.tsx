@@ -23,6 +23,7 @@
  */
 
 import React, { useState } from 'react';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 import {
   View,
   Text,
@@ -118,6 +119,7 @@ export const AccessibleInput: React.FC<AccessibleInputProps> = ({
 
       {/* Text Input */}
       <TextInput
+        {...crisisAccessoryProps()} /* DEBUG-450 */
         {...textInputProps}
         accessible={true}
         accessibilityRole={A11Y_ROLES.text}

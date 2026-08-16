@@ -36,6 +36,7 @@ import { BreathingCircle, Timer, SkipLink } from '@/features/practices/shared/co
 import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
 import type { DailyLoopMode, DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
 import { CLOSING, STEP_TITLES, getStepKeysForDepth, getCompleteTitle } from '../config/tenseMode';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const CLOSING_BREATH_MS = 15 * 1000;
 
@@ -171,6 +172,7 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
 
             <Text style={styles.inputLabel}>{CLOSING.noteLabel}</Text>
             <TextInput
+              {...crisisAccessoryProps()} /* DEBUG-450 */
               style={[
                 styles.textInput,
                 { borderColor: integrationNote ? themeColors.primary : colorSystem.gray[300] },
