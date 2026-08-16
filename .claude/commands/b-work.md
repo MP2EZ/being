@@ -263,6 +263,11 @@ Non-empty output means their work is NOT on development: a `development`-based w
 will show pre-migration code, and cannot host edits to files only their branch has in
 current form. Ask which base to use — don't assume `development`.
 
+**Re-fetch immediately before any expensive verification run.** A worktree created minutes
+earlier can already be behind. If the deliverable is a build, gate run, or e2e suite,
+`git fetch && git merge origin/development` first — a 20-minute build on a stale base is
+discarded work, and the commit you missed may be the one that breaks the run.
+
 ```bash
 cd /Users/max/dev/being
 git worktree add [dir-name] -b [branch-name] development
