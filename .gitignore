@@ -207,6 +207,12 @@ check-*.py
 # CI security job, not an ad-hoc developer scratch script.
 !app/scripts/check-crisis-dial-guard.js
 !app/__tests__/scripts/check-breathing-worklet-purity.test.js
+# Whitelist the SafeAreaView core-import guard (MAINT-437) — CI-enforced via
+# test:scripts. RN's SafeAreaView is iOS-only and applies zero insets on Android,
+# where SDK 56 makes edge-to-edge mandatory, so a regression is a silent layout
+# defect rather than a warning. Not an ad-hoc developer scratch script.
+!app/scripts/check-safe-area-imports.js
+!app/__tests__/scripts/check-safe-area-imports.test.js
 execute-*.js
 execute-*.py
 batch_*.py
