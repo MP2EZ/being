@@ -63,6 +63,77 @@ Supabase Backend
 **`expire_grace_periods()`**
 - Automatically expires grace periods past end date
 
+### Objects present in production but created by no migration
+
+`supabase/migrations/` is **not** a complete description of production. Check this section
+before treating "the migration is in the repo" and "the object exists in prod" as the same
+claim. Census run 2026-08-16 (INFRA-454) against the live project, read-only, diffed against
+all 14 tracked migrations.
+
+| Kind | Live | Created by a migration | Untracked |
+|---|---|---|---|
+| Functions | 13 | 12 | **1** |
+| Tables | 10 | 10 | 0 |
+| Views | 8 | 8 | 0 |
+| Triggers | 2 | 2 | 0 |
+| Event triggers | 7 | 0 | **7** |
+| Policies | 14 | 14 | 0 |
+| pg_cron jobs | 10 | 10 | 0 |
+| Extensions | 7 | 2 | **5** |
+
+**Untracked-ours: zero.** Every untracked object below is platform-managed. Nothing has been
+applied to this database out of band by us.
+
+| Object | Kind | Owner / schema | Classification |
+|---|---|---|---|
+| `rls_auto_enable()` | function | `postgres` / `public` | platform toggle |
+| `ensure_rls` | event trigger | `postgres` → `public.rls_auto_enable` | platform toggle |
+| `issue_graphql_placeholder` | event trigger | `supabase_admin` → `extensions.*` | bootstrap wiring |
+| `issue_pg_cron_access` | event trigger | `supabase_admin` → `extensions.*` | bootstrap wiring |
+| `issue_pg_graphql_access` | event trigger | `supabase_admin` → `extensions.*` | bootstrap wiring |
+| `issue_pg_net_access` | event trigger | `supabase_admin` → `extensions.*` | bootstrap wiring |
+| `pgrst_ddl_watch` | event trigger | `supabase_admin` → `extensions.*` | bootstrap wiring |
+| `pgrst_drop_watch` | event trigger | `supabase_admin` → `extensions.*` | bootstrap wiring |
+| `pg_stat_statements`, `pgcrypto`, `plpgsql`, `supabase_vault`, `uuid-ossp` | extension | — | platform default |
+
+**Do not capture any of these in a migration.** Adopting a platform-managed object means
+fighting Supabase on its next change to it, and a bare `REVOKE`/`CREATE` for one would fail
+`supabase db reset` on a fresh local stack where nothing creates it.
+
+**The classification criterion is owner + schema**, which the census derived rather than
+assumed:
+- `postgres`-owned in `public`, created by no migration → per-project **platform provisioning
+  toggle** (Supabase's auto-enable-RLS-on-new-tables feature). `rls_auto_enable()` is
+  `SECURITY DEFINER` with `search_path=pg_catalog`, iterates
+  `pg_event_trigger_ddl_commands()`, and runs `ALTER TABLE … ENABLE ROW LEVEL SECURITY`. It
+  `RETURNS event_trigger`, so Postgres refuses direct invocation (`ERROR 42809`) whatever the
+  grants — no exposure either way.
+- `supabase_admin`-owned, body in `extensions` → canonical **bootstrap wiring**, outside
+  `public` entirely.
+
+Two false-positive classes this census hit. Both will recur — reproduce the method, not just
+the verdict:
+1. **A migration creates an object a later migration drops.** `get_or_create_user` and
+   `cleanup_orphaned_backups` are in `base_schema.sql` but absent live; `20260607120000` and
+   `20260808000000` drop them. Repo-has / prod-lacks is not drift.
+2. **Grep is a weak oracle for names.** All 14 policies first read as untracked because
+   `20260607120000_auth_uid_rls.sql` declares them **unquoted** (`CREATE POLICY users_select
+   ON users`) while `base_schema.sql` used quoted descriptive names (`"Users can only access
+   own data"`) that were later dropped and replaced. Match both forms.
+
+`pg_cron` and extensions are outside AC1's six object kinds and were swept anyway, because
+this category has already caused undetected drift here — `20260806000000`'s own comment
+records a retention job that was never `cron.schedule`d, so real retention was indefinite.
+**Result: clean.** All 10 jobs are scheduled by a tracked migration. The gap at `jobid 9` is
+fully explained by the idempotent unschedule-then-reschedule pattern the cron migrations use
+(`20260808000000` re-scheduled `analytics-retention-prune`, minting a new id), not by
+out-of-band scheduling. Note `pg_net` is installed into `public`, not `extensions`.
+
+This is a point-in-time census with no regression protection; it is true as of the date
+above and goes stale on the next platform change. The repeatable drift check is INFRA-442,
+which approaches the same trust problem from the other direction ("is prod behind the
+repo?") and can consume the table above rather than re-deriving the classification.
+
 ## Edge Functions
 
 ### 1. verify-apple-receipt
