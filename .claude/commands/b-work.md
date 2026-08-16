@@ -346,6 +346,10 @@ suite and lands in the PR diff; on an item whose scope explicitly forbids touchi
 dependencies it is a scope violation delivered by the setup step. Use `install` only when the
 work item *is* a dependency change.
 
+**Install even when the deliverable needs no app build.** `node_modules` is where husky lives,
+so a worktree without it runs no pre-commit hook — the commit succeeds unverified and says
+nothing. A migration- or docs-only item is exactly where this looks skippable.
+
 **The `GITHUB_TOKEN=` prefix is required, not defensive.** `app/.npmrc` resolves
 `@mp2ez:registry` with `${GITHUB_TOKEN}`, which shadows the PAT in `~/.npmrc` — so a bare
 install 401s on `@mp2ez/being-design-system` in a fresh worktree. (The same shadow makes a

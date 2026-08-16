@@ -523,6 +523,9 @@ Then:
    manifests (a one-shot Notion check alone is a TOCTOU race when another batch is
    mid-flight):
    - Notion `Status: Done` ⇒ satisfied.
+     **Confirm with git, not the status column.** A dependency can read `Done` while its PR is
+     still open, so its code is not on `development` and a dependent branched off it compiles
+     against absent symbols. `git log --oneline origin/development --grep=<ID> -i` is the check.
    - Else if the dep is an item in a **sibling `.b-batch-state.*.json`** whose `state ≠
      done` ⇒ it is an **in-flight cross-batch dependency**: the dependent is **deferred**
      with a precise message —
