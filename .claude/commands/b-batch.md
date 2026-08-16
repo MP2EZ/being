@@ -1094,7 +1094,11 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
        First SPLIT them: a batch whose only non-`done`/`deferred` items are `queued_red`
        has no unattended work left — it belongs in the Phase 4.1 sim queue, not the
        resume picker. List those separately as a reminder and do not offer them as
-       resume targets. Present the remainder (slug, `created`, pending/done counts) via
+       resume targets. Withhold a batch whose manifest was written in the last ~15
+       minutes too: a recent write means a live session is mid-run and owns its items
+       however their `state` reads. Step 2's per-item handoff check comes too late —
+       the pick has already been made. Name it as live rather than offering it.
+       Present the remainder (slug, `created`, pending/done counts) via
        `AskUserQuestion` and resume the one the user picks; never silently pick one. If
        more than 4 remain, rank by ACTIONABILITY first — a batch holding a `pending`,
        `running`, or `parked` item outranks one whose only non-`done` items are
