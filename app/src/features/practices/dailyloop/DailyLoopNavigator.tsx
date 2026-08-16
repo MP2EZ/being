@@ -286,12 +286,22 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
 
   return (
     <>
-    <ResumeSessionModal
-      visible={showResumeModal}
-      session={resumableSession}
-      onResume={handleResumeSession}
-      onBeginFresh={handleBeginFresh}
-    />
+    {/*
+      DEBUG-403: this View is the overlay host PracticeScreenLayout would normally
+      provide. DailyLoop does not use PracticeScreenLayout at all (HapticsOptInPrompt's
+      header says so explicitly), so the navigator has to take on its two jobs itself:
+      this wrapper supplies the Android accessibility hiding, and the ordering below
+      supplies the paint order.
+
+      importantForAccessibility hides the navigator subtree from TalkBack while the
+      prompt is up. iOS gets the equivalent from the prompt's own
+      accessibilityViewIsModal; Android has no such property, which is why the hiding
+      must happen out here on the sibling rather than inside the prompt.
+    */}
+    <View
+      style={styles.navigatorHost}
+      importantForAccessibility={showResumeModal ? 'no-hide-descendants' : 'auto'}
+    >
     <Stack.Navigator
       initialRouteName="AwarePresence"
       screenOptions={{
@@ -337,11 +347,33 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
         {CompleteScreen}
       </Stack.Screen>
     </Stack.Navigator>
+    </View>
+    {/*
+      DEBUG-403: MUST render AFTER <Stack.Navigator>, not before it.
+
+      This used to sit above the navigator, which worked only because it was an RN
+      <Modal> and escaped into its own native window — JSX order was irrelevant. It is
+      now a plain absolutely-positioned sibling in the same React tree, so paint order
+      is JSX order: placed first, it would render UNDERNEATH the DailyLoop screens and
+      be invisible. Do not move it back up.
+
+      The root crisis button is mounted as a later sibling still, at the root navigator
+      (CleanRootNavigator), so it continues to paint above this prompt — which is the
+      point of DEBUG-403.
+    */}
+    <ResumeSessionModal
+      visible={showResumeModal}
+      session={resumableSession}
+      onResume={handleResumeSession}
+      onBeginFresh={handleBeginFresh}
+    />
     </>
   );
 };
 
 const styles = StyleSheet.create({
+  /** DEBUG-403: hosts the navigator so the resume prompt can be an absolute sibling. */
+  navigatorHost: { flex: 1 },
   pickerContainer: { flex: 1, backgroundColor: colorSystem.base.white },
   pickerHeader: {
     height: 56,

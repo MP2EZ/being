@@ -404,6 +404,30 @@ jobs:
         # other self-clearing patterns.
         run: node scripts/check-service-interval-guards.js
 
+      - name: Supabase deploy-manifest reconciliation
+        # INFRA-442: There is no CI auto-deploy for Supabase migrations, edge
+        # functions or secrets, so "merged" and "running" drift apart silently.
+        # It has bitten three times (INFRA-278 dormant crisis-monitoring stack,
+        # INFRA-379 four unapplied migrations, and the service_role DML gap found
+        # while executing INFRA-379) and every discovery was incidental.
+        #
+        # This step is the CREDENTIAL-FREE half: it reconciles
+        # supabase/deploy-manifest.json against the source, so a secret name
+        # entering the code without anyone declaring it fails on THAT PR rather
+        # than six weeks later. It catches the commonest cause of live drift —
+        # a name nobody provisioned — without needing project access.
+        #
+        # It does NOT prove the project is deployed. That is the live probe
+        # (INFRA-448), blocked on a Supabase PAT: repo secrets hold only
+        # SUPABASE_URL + SUPABASE_ANON_KEY, and the anon key can read none of the
+        # three drift classes (schema_migrations is not PostgREST-exposed under
+        # this project's [api] schemas pin; vault.secrets is postgres-role-only).
+        #
+        # Fails closed: exit 1 on drift, exit 2 on "could not determine" (an
+        # unreadable manifest or a broken scan). It never reports clean when it
+        # could not look.
+        run: node scripts/supabase-deploy-drift.js --reconcile
+
       - name: Crisis-dial guard check
         # DEBUG-314: Verifies every tel:/sms: dial routes through
         # `openCrisisUrl`, which owns the canOpenURL guard, the manual-dial
@@ -418,6 +442,25 @@ jobs:
         # and `--no-verify` is permitted on hotfix/* branches, so CI must not
         # depend on the local hook having run.
         run: cd app && npm run check:crisis-dial
+
+      - name: Modal-occlusion guard check
+        # DEBUG-406: fails on any RN <Modal> in app/src outside an explicit
+        # allowlist. An RN <Modal> renders in a separate native window above the
+        # JS view hierarchy, so while one is open the root crisis button is not
+        # on screen at all — a zero-988-affordance render state.
+        #
+        # This exists because a Protected Paths row could not catch it. The four
+        # sites DEBUG-406 audited live in src/core/components/ and
+        # src/features/insights/, neither of which is on that list and neither of
+        # which should be: the risk is a component SHAPE, not a directory. Same
+        # failure class CLAUDE.md already records for features/guidance/ and
+        # features/consent/.
+        #
+        # The primary pin is `app/__tests__/safety/modalOcclusionGuard.test.ts`,
+        # which shares this script's detection logic and runs in `precommit`.
+        # This step exists because `test:safety` is not a CI job and --no-verify
+        # is permitted on hotfix/* branches.
+        run: cd app && npm run check:modal-occlusion
 
       - name: Security test suite
         # --coverage omitted on subset runs (see Unit tests rationale).

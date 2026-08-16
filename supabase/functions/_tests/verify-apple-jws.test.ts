@@ -33,7 +33,7 @@ import {
 import {
   verifyAppleJWS,
   APPLE_ROOT_CA_G3_SPKI,
-} from '../subscription-webhook/verifyAppleJWS.ts';
+} from '../_shared/verifyAppleJWS.ts';
 
 // Helper: base64url-encode a string for constructing test JWS payloads.
 function b64url(input: string): string {

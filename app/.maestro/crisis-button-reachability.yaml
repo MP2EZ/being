@@ -23,7 +23,12 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 #   • AssessmentFlow — keeps its own per-screen `prominent` buttons; the root
 #     overlay is SUPPRESSED there (MAINT-290 must not touch the assessment flow).
 #   • CrisisResources — the destination itself; overlay suppressed.
-#   • LegalGate — under-age gate with its own inline Call-988 / Text UI; suppressed.
+#   • LegalGate — owns a persistent inline Call-988 / Text footer, pinned OUTSIDE its
+#     ScrollView (DEBUG-390) so it is reachable without scrolling; suppressed on that
+#     condition, not merely because the controls exist. Not walked here: this flow boots
+#     via _seeded-home.yaml, which seeds consent and onboarding, so it structurally cannot
+#     reach LegalGate. That contract lives in deeplink-consent-gate.yaml, which already
+#     stands on LegalGate in the post-dismiss state DEBUG-372 created.
 #   • Practice flows/timers (Morning/Midday/Evening, PracticeTimer, BodyScan, …)
 #     now DO carry the root overlay in `immersive` mode — previously the exact
 #     "steps with no 988 access" gap this refactor closes. Their on-device walk
@@ -33,6 +38,27 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # Maestro's default assertVisible timeout (~10s) covers the <3s SLA from CLAUDE.md.
 # On-device timing budgets live in CLAUDE.md's "Performance Budgets" section and
 # are validated by hand until a real perf harness exists.
+#
+# DEBUG-392 — every `crisis-resources-screen` assertion below is followed by
+#   - extendedWaitUntil: { notVisible: "Unable to Call", timeout: 3000 }
+#
+# Why. DEBUG-341 gave RootCrisisButton a fallback: if `navigationRef.isReady()` is
+# still false 400ms after the tap (NAV_READY_DEADLINE_MS), it stops waiting and calls
+# `openCrisisUrl('tel:988')` instead of navigating. On the SIMULATOR that dial cannot
+# complete — `canOpenURL('tel:')` is unconditionally false there, independent of
+# LSApplicationQueriesSchemes — so openCrisisUrl.ts renders its manual-dial alert,
+# titled "Unable to Call". That string is app-owned and nothing else on this path
+# produces it, which makes it a precise witness that the degraded branch fired.
+#
+# This flow otherwise cannot tell "navigated" from "dialled, then recovered": it only
+# ever asserts the destination is present. Distinguishing them matters because the two
+# outcomes are not equivalent — dialling skips the resource list, the safety plan and
+# the text-line option that CrisisResources carries.
+#
+# Placed AFTER the assertVisible, never before. `extendedWaitUntil: notVisible` returns
+# the instant its condition holds, so at t=0 — before an alert ~500ms out could render —
+# it would pass vacuously and mask the very thing it is here to catch. After the
+# assertion it can only ever add a check.
 
 - launchApp:
     clearState: true
@@ -73,6 +99,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -83,6 +112,45 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
+
+# ── DEBUG-432: the DESTINATION's own 988 control is above the fold ──────────────
+#
+# Every other assertion in this flow stops at "the destination is present". That
+# left the destination itself unverified, and it was broken: crisis-call-988-button
+# was the last child of the 988 card, inside this screen's only ScrollView.
+# Measured with `maestro hierarchy` (Release build, provenance 505fc417):
+#
+#   iPhone SE 3  375x667  DEFAULT type  fold y=86..667   button y=746..797
+#   iPhone SE 3  375x667  AX5           fold y=86..667   button y=3926..4095
+#   16 Pro Max   440x956  default type  fold y=128..956  button y=776..827  (ok)
+#   16 Pro Max   440x956  AX5           fold y=128..956  button y=3612..3781
+#
+# CrisisResources is in RootCrisisButton.SUPPRESSED_ROUTES, so this is the ONLY
+# 988 affordance on the screen every other crisis affordance routes TO.
+#
+# ASSERTED AS A PAIR, AND THE SECOND HALF IS NOT OPTIONAL. A bare assertVisible
+# here would be indistinguishable from a predicate that had stopped discriminating
+# — which is exactly how this defect survived: deeplink-consent-gate.yaml has
+# asserted this same id visible on this same screen, green, for its whole life.
+# It was green because it only ever ran on whatever simulator happened to be
+# booted, and scripts/e2e-sim-device.sh pins no MODEL. The assertion was correct;
+# its configuration was uninformative.
+#
+# crisis-resources-footer-disclaimer is the ScrollView's last unconditional child,
+# so it is structurally below the fold on every device. Asserting it NOT visible
+# in the same breath re-proves the driver can still see clipping, on every run.
+#
+# DEVICE MATTERS HERE AND THE RUNNER DOES NOT PIN IT. A green result on a 6.9"
+# simulator does NOT certify a 4.7" one — the pre-fix build passed this assertion
+# on a 16 Pro Max and failed it on an SE 3. Run the gate on the SMALLEST supported
+# viewport (iPhone SE 3, 375x667) or the result understates coverage.
+- assertVisible:
+    id: "crisis-call-988-button"
+- assertNotVisible:
+    id: "crisis-resources-footer-disclaimer"
 # INFRA-185: pop the CrisisResources modal via the explicit nav-back-button
 # testID added to CleanRootNavigator's HeaderBackButton override. Maestro's
 # `- back` action on iOS 18.6 sim reports COMPLETED but doesn't actually
@@ -99,6 +167,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -114,6 +185,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -151,8 +225,59 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
+
+# ── DEBUG-406: the education sheet must not occlude the button ───
+# The sheet at ProfileScreen's ⓘ was a real RN <Modal> until DEBUG-406. An RN
+# <Modal> renders in a separate native window ABOVE the JS view hierarchy, so
+# while it was open `crisis-button-root` was not dimmed — it was not on screen,
+# a zero-988-affordance state. It is now a full-bleed absolute overlay published
+# into the root overlay slot, which paints immediately BELOW this button.
+#
+# This TAPS THROUGH rather than merely asserting visibility, and that is the
+# whole point of doing it here instead of in jest. Under a native-layer
+# occlusion bug the hierarchy dump can still LIST a view that another native
+# window is covering, so `assertVisible` alone would have passed against the
+# original defect. Only tap-and-land is evidence.
+#
+# Placed in the Profile block because the trigger lives on the Profile menu; it
+# re-taps `tab-profile` first like every other segment here, so it is immune to
+# wherever the previous nav-back-button landed.
+- tapOn:
+    id: "tab-profile"
+- tapOn:
+    id: "profile-assessment-info"
+# The sheet is up. Under the old <Modal> this next assertion was impossible —
+# the button did not exist in the hierarchy at all.
+- assertVisible:
+    id: "threshold-education-overlay"
+- assertVisible:
+    id: "crisis-button-root"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
+- tapOn:
+    id: "nav-back-button"
+# The sheet survives the round trip — the user returns to where they were, not
+# to a dismissed sheet. Post-condition, not a tap: DEBUG-403's failure was a tap
+# that reported COMPLETED while the app never received it.
+- assertVisible:
+    id: "threshold-education-overlay"
+# And its own dismissal still works after the excursion. This also pins that the
+# dismiss control is reachable — it was moved OUT of the sheet's ScrollView in
+# DEBUG-406, where it could be pushed below the fold.
+- tapOn:
+    id: "threshold-education-dismiss"
+- assertNotVisible:
+    id: "threshold-education-overlay"
 
 # depth-1: Notifications & Display
 - tapOn:
@@ -167,6 +292,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -183,6 +311,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -221,6 +352,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -259,6 +393,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -275,6 +412,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -291,6 +431,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -307,6 +450,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -327,5 +473,8 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"

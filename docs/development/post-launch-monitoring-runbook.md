@@ -223,8 +223,18 @@ Keeping the two checks separate is console discipline, which is why it is writte
 1. **Deploy the grace-period stack** (`supabase db push`, Vault secrets first) and confirm
    with `SELECT jobname, schedule, active FROM cron.job;` that `grace-period-automation`
    exists and is active, and that `grace_period_automation_runs` is present.
+   **Both ends of the cron bearer are `GRACE_PERIOD_*`, never `CRON_SECRET`** — Vault
+   `grace_period_cron_secret` must equal the `GRACE_PERIOD_CRON_SECRET` **edge** secret.
+   INFRA-379 renamed the edge side: edge secrets are project-wide and `CRON_SECRET` is the
+   crisis pipeline's bearer, so pointing this job at it is the one way to break the
+   trust-domain separation stated above while appearing to follow the instructions.
 2. **Redeploy the edge function** — `supabase functions deploy grace-period-automation
    --no-verify-jwt` — so the deployed code contains both the heartbeat and this ping.
+   **Then trigger one run by hand before step 3.** The §4 watchdog fires every 6h and
+   escalates when `grace_period_automation_runs` has no `ok` row inside 26h — an empty
+   table reads as `never`, so a watchdog armed ahead of the first 02:00 UTC run pages on a
+   pipeline that is in fact healthy. One manual run seeds the heartbeat and doubles as the
+   step-5 ping check.
 3. **Create the healthchecks.io check.** A NEW check, distinct from the crisis one.
    **Period 1 day, grace 26h** — the daily 02:00 UTC cadence plus one tolerated skip, which
    also matches the 26h healthy window hard-coded in the §4 watchdog. If the cron schedule
@@ -415,10 +425,25 @@ listeners. No live gate was asserting on random numbers, but the trap was set: a
 "wire up the existing UI frame rate" would have produced a permanently-green control. Both getters
 and both fields are gone.
 
-Note also that `RenderingOptimizer` samples the **JS thread** via a `requestAnimationFrame` loop
-and is reachable only through `useAssessmentPerformance`, whose sole consumer is
-`AssessmentIntegrationExample.tsx` — a demo component. It is not, and must not become, the 60fps
-control. A warning to that effect now sits in its module header.
+**`RenderingOptimizer` no longer exists (MAINT-252).** The paragraph that stood here described it
+as reachable only through `useAssessmentPerformance`, whose sole consumer was the demo component
+`AssessmentIntegrationExample.tsx`, and pointed at a warning in its module header. MAINT-398
+deleted that consumer chain and MAINT-252 then deleted the whole of
+`app/src/core/services/performance/`, module header included — so the warning has to live here
+instead, because the reasoning outlives the module:
+
+> A `requestAnimationFrame` loop samples the **JS thread**. The breathing circle carries the
+> therapeutic budget and runs entirely in Reanimated worklets on the **UI thread**, which a rAF
+> loop cannot observe. A JS-thread rAF loop is also the exact pattern PERF-02 (commit `ff591f3a`)
+> deleted from `BreathingCircle.tsx` *as a performance fix*. Do not rebuild one and call it the
+> 60fps control.
+
+Deleted with it: a `deltaTime > 20` dropped-frame constant and an `fps >= 55` "smooth" threshold —
+both device-naive in exactly the way described two sections above, and both a live temptation for
+whoever picks up INFRA-373.
+
+The 60fps control is, and remains, `check-breathing-worklets` (structural proxy) plus INFRA-373
+(the real on-device UI-thread measurement, still unbuilt).
 
 ### The real control
 
@@ -449,5 +474,17 @@ mid-tier nor 60Hz.
 - **Merged ≠ deployed.** There is no CI auto-deploy for Supabase migrations/functions/secrets — a
   PR merging to `development`/`main` does not touch the live project. Run the §4 verification after
   every deploy and secret rotation. (This is why the grace-period stack was found dormant in prod.)
-</content>
-</invoke>
+- **What is now automated, and what is not (INFRA-442).** `node scripts/supabase-deploy-drift.js
+  --reconcile` runs in CI's `security` job and fails a PR that introduces a secret name, a Vault
+  name or a function nobody declared in `supabase/deploy-manifest.json`. That closes the commonest
+  *cause* of live drift — a name nobody provisioned — on the PR that creates it. It does **not**
+  observe the live project, so it cannot tell you whether anything is deployed; the bullet above
+  still stands. The live probe is INFRA-448 and is blocked on a Supabase PAT (repo secrets hold
+  only `SUPABASE_URL` + `SUPABASE_ANON_KEY`, and the anon key can read none of the three drift
+  classes). Until it lands, the §4 manual verification remains the only check on deployed state.
+- **The mirror direction — deployed ≠ merged (INFRA-454).** Everything above asks whether prod is
+  behind the repo. It does not answer whether prod contains objects the repo has never heard of,
+  and `supabase/migrations/` is **not** a complete description of production. A census dated
+  2026-08-16 lists every such object and why each is platform-managed rather than ours:
+  `supabase/README.md` → *Objects present in production but created by no migration*. Read it
+  before treating "the migration is in the repo" as proof the object in prod came from it.

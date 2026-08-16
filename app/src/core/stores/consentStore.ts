@@ -27,6 +27,7 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import { getCurrentUserId } from '@/core/constants/devMode';
+import { logSecurity } from '@/core/services/logging';
 
 // Storage keys
 const CONSENT_SECURE_KEY = 'consent_record_v1';
@@ -75,13 +76,92 @@ export const recordLegalGateConsents = async (
   await SecureStore.setItemAsync(LEGAL_GATE_CONSENTS_KEY, JSON.stringify(record));
 };
 
+/**
+ * Runtime shape check for a stored legal-gate record (DEBUG-419).
+ *
+ * The read used to blind-cast `JSON.parse(stored) as LegalGateConsents`. `as` has
+ * no runtime effect, so any parseable value came back as a record — `{}`, a
+ * truncated object, a foreign schema. Callers guard with `if (!record)`, which is
+ * FALSE for a truthy malformed object, so their "unreadable" branch never fired and
+ * a missing consent field silently took whatever fallback the caller applied.
+ *
+ * Every field is checked, not just the consent flag. A record missing `version` or
+ * `timestamp` cannot support the demonstrability obligation the record exists for,
+ * and a record missing a sibling consent is evidence of the same corruption.
+ */
+const isLegalGateConsents = (value: unknown): value is LegalGateConsents => {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+  const record = value as Record<string, unknown>;
+  return (
+    typeof record['tosAccepted'] === 'boolean' &&
+    typeof record['privacyAccepted'] === 'boolean' &&
+    typeof record['wellnessDisclaimerAcknowledged'] === 'boolean' &&
+    typeof record['mentalHealthProcessingConsent'] === 'boolean' &&
+    typeof record['timestamp'] === 'number' &&
+    typeof record['version'] === 'string'
+  );
+};
+
+/**
+ * Read the legal-gate consents, or null if there is no record this layer is willing
+ * to vouch for.
+ *
+ * Null means three different things and they are logged differently on purpose:
+ *
+ * - **absent** — nothing stored. A legitimate state (the gate has not been
+ *   completed yet), so it is NOT logged. Shouting about it would train the reader
+ *   to ignore the channel.
+ * - **read_failed** — SecureStore threw, or the payload would not parse. A fault.
+ * - **shape_invalid** — it parsed, but is not a record this function will vouch
+ *   for. A fault, and the one that used to be invisible.
+ *
+ * Callers decide what to DO about a null and log that themselves; this layer only
+ * reports why. Neither log carries the record contents — it is consent evidence,
+ * and copying it into an unencrypted sink to explain a shape fault would be a worse
+ * outcome than the fault.
+ */
 export const getLegalGateConsents = async (): Promise<LegalGateConsents | null> => {
+  let stored: string | null;
   try {
-    const stored = await SecureStore.getItemAsync(LEGAL_GATE_CONSENTS_KEY);
-    return stored ? (JSON.parse(stored) as LegalGateConsents) : null;
-  } catch {
+    stored = await SecureStore.getItemAsync(LEGAL_GATE_CONSENTS_KEY);
+  } catch (error) {
+    logSecurity('legal-gate consents could not be read from secure storage', 'high', {
+      component: 'consentStore',
+      action: 'getLegalGateConsents',
+      result: 'failure',
+      reason: 'read_failed',
+      cause: error instanceof Error ? error.name : 'unknown',
+    });
     return null;
   }
+
+  if (!stored) return null;
+
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(stored);
+  } catch {
+    logSecurity('legal-gate consents payload could not be parsed', 'high', {
+      component: 'consentStore',
+      action: 'getLegalGateConsents',
+      result: 'failure',
+      reason: 'read_failed',
+      cause: 'unparseable',
+    });
+    return null;
+  }
+
+  if (!isLegalGateConsents(parsed)) {
+    logSecurity('legal-gate consents record failed shape validation', 'high', {
+      component: 'consentStore',
+      action: 'getLegalGateConsents',
+      result: 'failure',
+      reason: 'shape_invalid',
+    });
+    return null;
+  }
+
+  return parsed;
 };
 
 /**
@@ -652,7 +732,7 @@ const calculateAge = (birthYear: number): number => {
  * Fails closed on a missing `birthYear` — the field is optional, and refusing
  * is the only safe reading of "we cannot establish an age".
  */
-function isBaseEligibleForRenewal(base: ConsentRecord): boolean {
+export function isBaseEligibleForRenewal(base: ConsentRecord): boolean {
   if (base.ageVerification.isEligible !== true) return false;
   const { birthYear } = base.ageVerification;
   if (typeof birthYear !== 'number' || !Number.isFinite(birthYear)) return false;
@@ -1511,11 +1591,38 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
    * Export consent records (CCPA compliance)
    */
   exportConsentRecords: async () => {
-    const { currentConsent, consentHistory } = get();
+    const { currentConsent } = get();
+
+    // DEBUG-402: read the chain from the encrypted blob, NOT `get().consentHistory`.
+    //
+    // `loadConsent` returns from five branches — integrity_error, revoked,
+    // version_mismatch, under_age, expired — before it reaches the history load
+    // near the end of the function. In every one of those states the in-memory
+    // array is `[]` while the real chain sits intact on disk, so a lapsed user's
+    // DSR payload asserted an empty consent history: indistinguishable from
+    // "never granted", and false for anyone who ever did. `history` is the
+    // Art. 7(1) demonstrability artifact and `DataExportService` passes it
+    // through unchanged, so the claim reaches the data subject as-is.
+    //
+    // Read unconditionally rather than branching on `consentStatus` — the status
+    // is irrelevant to what the blob contains, and a branch would have to
+    // re-enumerate those five states correctly forever.
+    //
+    // This is the same read `loadConsentHistoryWithMigration` performs, taken
+    // WITHOUT its migration side effect: that function writes on its first call
+    // (setting the INFRA-144 flag even when there is no legacy data, and
+    // persisting an annotated chain when there is). An export must never write
+    // to the audit trail it exists to disclose, so the migration stays owned by
+    // the ordinary load path.
+    const history = await SecureStorageService.retrieveWellnessBlob<ConsentHistoryEntry[]>(
+      CONSENT_HISTORY_BLOB_KEY,
+      LEGACY_CONSENT_HISTORY_KEY,
+      { legacyFormat: 'plaintext_json', sensitivityLevel: 'level_2_assessment_data' }
+    );
 
     return {
       currentConsent,
-      history: consentHistory,
+      history: history ?? [],
       exportedAt: Date.now(),
     };
   },

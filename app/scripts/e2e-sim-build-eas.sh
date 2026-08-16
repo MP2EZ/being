@@ -24,6 +24,19 @@
 #
 # Prereqs (one-time per machine):
 #   - eas-cli logged in:        npx eas login   (npx eas whoami to check)
+#   - eas-cli VERSION in range: eas --version must satisfy `cli.version` in
+#     eas.json (INFRA-351: `>=21.6.0 <22.0.0`, floor pinned in lockstep with
+#     `.github/workflows/release.yml`'s `eas-version:`). Line 98 below calls the
+#     BARE GLOBAL `eas`, not `npx`, so this is the machine's global CLI — the one
+#     thing here that no PR can carry, review, or revert. The check is ENFORCEABLE,
+#     not advisory: eas-cli THROWS (it does not warn) when its own version misses
+#     the range, so an out-of-range global CLI fails this script at `eas build`
+#     with "does not satisfy the CLI version constraint defined in eas.json".
+#     Fix with `npm i -g eas-cli@21.6.0`; `EAS_SKIP_CLI_VERSION_CHECK=1` is the
+#     documented escape hatch if you must step outside the bound deliberately.
+#     Note the DEFAULT gate path (`e2e-sim-build.sh`, INFRA-383) invokes no `eas`
+#     at all, so this constraint binds only this EAS fallback and ad-hoc local use
+#     — it CANNOT take the /b-close Phase 2.5 safety gate offline.
 #   - fastlane:                 brew install fastlane
 #   - cocoapods working:        pod --version    (brew reinstall cocoapods if broken)
 #   - a booted iOS simulator
@@ -41,6 +54,11 @@
 # and it cannot help at all when a stage "succeeds" without producing output. Hence the
 # explicit per-stage checks below and the $OUT freshness handling.
 set -euo pipefail
+
+# INFRA-405 — shared device resolution (see scripts/e2e-sim-device.sh). This script never
+# cd's, so the helper is located relative to the script itself rather than to $PWD.
+# shellcheck source=scripts/e2e-sim-device.sh
+. "$(dirname "$0")/e2e-sim-device.sh"
 
 OUT="${TMPDIR:-/tmp}/being-e2e-sim.tar.gz"
 
@@ -72,10 +90,16 @@ else
   echo "⚠️  Not inside a git work tree — skipping the clean-tree pre-flight (EAS still enforces requireCommit)." >&2
 fi
 
-if ! xcrun simctl list devices booted | grep -qE '\(Booted\)'; then
-  echo "❌ No iOS simulator booted. Open Simulator (or 'xcrun simctl boot <device>') first."
-  exit 1
-fi
+# INFRA-405 — resolve the target simulator once, exactly as e2e-sim-build.sh does.
+#
+# This path had the same defect and one worse instance of it: the install at the bottom of
+# this file targets the literal `booted` with no UDID resolution anywhere, so on a machine
+# with 2+ simulators booted it installs to whichever one simctl happens to pick, and
+# e2e-safety.sh then attests a different device. The rollback path deserves the same
+# guarantee as the primary one — a fallback you reach for under pressure is the worst place
+# for a silent mis-target.
+SIM_UDID="$(e2e_resolve_sim_device "EAS gate build")" || exit 1
+echo "🎯 Target simulator: $SIM_UDID"
 
 # Remove any artifact left by a previous run BEFORE building. $OUT is a fixed path, so
 # without this a build that exits 0 without writing output would silently hand the stale
@@ -108,11 +132,11 @@ if [ -z "$APP" ]; then
   fail "artifact extraction — no .app found in build output ($OUT)"
 fi
 
-echo "📲 Installing $(basename "$APP") on the booted sim (replacing any dev-client build)…"
+echo "📲 Installing $(basename "$APP") on simulator $SIM_UDID (replacing any dev-client build)…"
 # Deliberately tolerant: a fresh sim has nothing to uninstall, and that is not an error.
-xcrun simctl uninstall booted fyi.being.app 2>/dev/null || true
-if ! xcrun simctl install booted "$APP"; then
-  fail "sim install ($APP)"
+xcrun simctl uninstall "$SIM_UDID" fyi.being.app 2>/dev/null || true
+if ! xcrun simctl install "$SIM_UDID" "$APP"; then
+  fail "sim install ($APP on $SIM_UDID)"
 fi
 
 echo "✅ No-dev-client build installed. The app now boots straight past the dev launcher."

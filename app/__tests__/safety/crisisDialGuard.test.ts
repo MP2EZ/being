@@ -36,6 +36,7 @@
 
 const {
   EXPECTED_CALL_COUNTS,
+  GUARDED_DIRS,
   REQUIRE_CATCH,
   bareDialHasCatch,
   collectGuardedCallCounts,
@@ -77,6 +78,33 @@ describe('crisis-dial guard — the real source tree', () => {
     const { APP_ROOT } = require('../../scripts/check-crisis-dial-guard');
     for (const rel of [...Object.keys(EXPECTED_CALL_COUNTS), ...REQUIRE_CATCH]) {
       expect(fs.existsSync(path.join(APP_ROOT, rel))).toBe(true);
+    }
+  });
+
+  it('guards exactly the expected directories, and each one exists', () => {
+    // MAINT-252: until now nothing pinned GUARDED_DIRS, so the guard's COVERAGE
+    // could shrink with every test still green — deleting a line here removes a
+    // whole directory from Rule 1 silently. That is not hypothetical: MAINT-252
+    // deleted `src/core/services/performance`, and the reflex fix was to drop
+    // its entry rather than widen to `src/core/services`.
+    //
+    // The existence half matters just as much. `collectSourceFiles` returns []
+    // for a missing directory, so a GUARDED_DIRS entry pointing at a moved or
+    // renamed path degrades to "guards nothing" without failing anything.
+    expect(GUARDED_DIRS).toEqual([
+      'src/features/crisis',
+      'src/features/assessment',
+      'src/features/journal',
+      'src/features/consent',
+      'src/features/insights',
+      'src/core/services',
+    ]);
+
+    const fs = require('fs');
+    const path = require('path');
+    const { APP_ROOT } = require('../../scripts/check-crisis-dial-guard');
+    for (const dir of GUARDED_DIRS) {
+      expect(fs.existsSync(path.join(APP_ROOT, dir))).toBe(true);
     }
   });
 });

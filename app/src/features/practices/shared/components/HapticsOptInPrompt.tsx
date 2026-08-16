@@ -67,21 +67,37 @@
  *
  * The backdrop was `gray[900]` (#171717) with NO alpha — an opaque fill, not a scrim.
  * All three hosts are in RootCrisisButton's IMMERSIVE_ROUTES, so the crisis button
- * renders at FADED_OPACITY 0.5 on top of this layer. Against #171717 the faded button
+ * renders at FADED_OPACITY on top of this layer. Against #171717 the faded button
  * measured 1.34:1, and 2.16:1 at full opacity — on a prompt with no dismissal path.
  * A darker scrim cannot fix that: #991B1B is LIGHTER than #171717, so darkening moves
  * the wrong way. White is the maximum available:
  *
- *      backdrop      faded (0.5)     full opacity
+ *      backdrop      faded           full opacity
  *      #171717       1.34:1          2.16:1
  *      #FFFFFF       2.71:1          8.31:1   ← this file
  *
- * Full opacity — what reduce-motion users get always, and what any interaction
- * restores — now passes comfortably. The FADED resting state still does not reach
- * 1.4.11's 3:1, and no backdrop can make it: white is the ceiling at 2.71:1 because
- * the composite is pinned halfway to the red. Closing that last gap requires
- * suppressing the immersive fade while a modal prompt is up, which is a change to the
- * crisis components themselves and deliberately out of this item's scope.
+ * ⚠️ The `faded` column above is measured at the PRE-DEBUG-396 opacity of 0.5 and is
+ * retained because the point it makes is about BACKDROPS, which still holds: darkening
+ * moves the wrong way and white is the ceiling, so never try to close a contrast gap
+ * here by changing this file's `backgroundColor`. The current numbers are higher —
+ * DEBUG-396 raised FADED_OPACITY to 0.6, which clears 3:1 on every immersive host.
+ *
+ * ── CORRECTED BY DEBUG-396 ──
+ *
+ * This block used to conclude that closing the faded-state gap required suppressing the
+ * immersive fade while a modal prompt is up. That was wrong, and the reason is worth
+ * keeping: it searched only the BACKDROP axis at a fixed 0.5 opacity and generalised
+ * "no backdrop can fix this" into "only fade-suppression can". Sweeping the OPACITY axis
+ * instead closes it at 0.6 with no new mechanism.
+ *
+ * It also mislocated the defect. This prompt never caused the 2.71:1 —
+ * `sharedPracticeStyles.container` is already `base.white`, so the button composited at
+ * exactly that ratio on these screens with NO overlay present. Moving the backdrop from
+ * #171717 to white did not create the gap; it restored the ambient screen value from a
+ * worse one. What this prompt uniquely contributes is SEVERITY, not ratio: it is the one
+ * layer with no dismissal path, so a user cannot escape the state. The contrast fix
+ * therefore belongs to the fade constant and covers all six IMMERSIVE_ROUTES, including
+ * DailyLoop, which does not use `PracticeScreenLayout`'s `overlay` prop at all.
  */
 
 import React, { useCallback, useEffect, useRef } from 'react';

@@ -73,12 +73,39 @@ button-response latency.
 
 ---
 
+## ⚠️ Read this before interpreting ANY count below (INFRA-400, 2026-08-12)
+
+**A zero-row reading is currently EXPECTED and does not indicate a dead pipeline.** The
+delivery path cannot fire for most users. Measured against the live project:
+
+```sql
+SELECT event_type, count(*) FROM public.analytics_events GROUP BY event_type;
+ crisis_detected | 1     -- one row, total, of ANY event type, ever
+```
+
+`flushCrisisAnalytics()` early-returns at `if (!this.client) return;`, and the only thing
+that constructs that client is `initializeCloudServices()` — whose module-scope eager call
+is gated on `canPerformOperation('cloud_sync')`, evaluated at module-load time when consent
+has not yet hydrated from SecureStore, so the predicate is necessarily `false` and never
+re-runs. The client therefore exists only for a user who has navigated to Profile → Cloud
+Backup. Events are durably queued on-device and reconcile if a client ever appears; the
+single row above has a `session_id` dated the day *before* its `created_at`, which is that
+reconciliation signature.
+
+Tracked in **DEBUG-409**. Until it lands, the liveness assertion below will fail on any
+device that has not opened Cloud Backup — that is the defect, not a regression you have
+just introduced. Do not "fix" it by granting `cloud_sync` consent on the test device: that
+hides the defect and certifies a configuration no real crisis user is in.
+
+---
+
 ## Post-release confidence check (target: < 5 min)
 
 Run after every release. The goal is the question *"did the crisis safety net survive this
 release?"* — which a count alone **cannot** answer, because a count view renders "no crises
 happened" and "`crisis_detected` stopped firing" identically (both look like zero/absent
-rows).
+rows). Since 2026-08-12 there is a third indistinguishable case — *"the transport never
+initialised"* — which is the one actually in effect; see the DEBUG-409 note above.
 
 So the check has two parts:
 
@@ -261,7 +288,7 @@ at row granularity unless they clear the floor.
 The migration references all secrets BY NAME — bootstrap the values out of band before the jobs can fire.
 
 1. **Resend:** verify `being.fyi` as a sending domain, create an API key, choose a sender (e.g. `alerts@being.fyi`). Sign the standard Resend DPA (recorded as a sub-processor in the DPIA v1.3).
-2. **Supabase Edge secrets** (`supabase secrets set …`), read by the edge function: `CRON_SECRET` (fresh ≥256-bit random, **distinct from grace-period-automation's**), `RESEND_API_KEY`, `CRISIS_ALERT_FROM`, `CRISIS_ALERT_TO`, plus any threshold overrides above.
+2. **Supabase Edge secrets** (`supabase secrets set …`), read by the edge function: `CRON_SECRET` (fresh ≥256-bit random, **distinct from grace-period-automation's `GRACE_PERIOD_CRON_SECRET`** — INFRA-379 gave the ops domain its own edge-secret *name*, because edge secrets are project-wide and a shared name made this asserted distinctness impossible; note `crisis-liveness-probe` deliberately *does* share `CRON_SECRET`, same trust domain), `RESEND_API_KEY`, `CRISIS_ALERT_FROM`, `CRISIS_ALERT_TO`, plus any threshold overrides above.
 3. **Supabase Vault secrets** (dashboard → Vault, or non-committed psql), read by the cron/watchdog SQL: `crisis_alert_cron_secret` (must equal the edge `CRON_SECRET`), `crisis_alert_function_url`, `crisis_alert_resend_key`, `crisis_alert_from`, `crisis_alert_to`. (The Resend key/from/to are duplicated in Vault deliberately so the watchdog is an independent send path.)
 4. Deploy: `supabase functions deploy crisis-detection-alerting` and `supabase db push`. Test-fire the function with a valid `x-cron-secret` and confirm a `crisis_alert_runs` row appears and (if forcing a breach) an email arrives.
 
@@ -397,6 +424,7 @@ check reads the **live project**, never the worktree.
 | 4 | **Secret parity, proven by a fresh heartbeat** | Re-run the `crisis-detection-alerting` cron body (reads Vault, posts to the function), then `SELECT ran_at, status FROM crisis_alert_runs ORDER BY ran_at DESC LIMIT 1;` | a row newer than the fire, `status = 'ok'`/`'alerted'`, **never** `error`. A 401 (Edge≠Vault) writes **no row at all** — "no fresh row" *is* the failure. Parity is **never** asserted by reading the two secret values (Vault is write-only in practice). |
 | 5 | Probe ingest leg alive | Re-run the `crisis-liveness-probe` cron body, then `SELECT probed_at, status FROM crisis_liveness_probe ORDER BY probed_at DESC LIMIT 1;` | a fresh `status = 'ok'` row within the 6h cadence. Absent/stale ⇒ the cron→edge→PostgREST write leg is dead. |
 | 6 | External dead-man's-switch armed | `supabase secrets list …` shows `CRISIS_HEALTHCHECK_PING_URL` set, **and** the healthchecks.io check shows a recent ping / **up** | an unset ping URL makes the alerter skip the ping *silently* — a never-pinged check looks identical to a newly-created one. Confirm a real ping landed. |
+| 7 | **Watchdog RPC not publicly callable** (DEBUG-440) | `SELECT has_function_privilege('anon','public.crisis_alert_watchdog()','EXECUTE');` — or run the whole suite, `supabase/tests/debug440_watchdog_privilege.sql`, which is read-only and prod-safe | **`false`**. `true` means anyone holding the app-embedded anon key can fire the watchdog at `POST /rest/v1/rpc/crisis_alert_watchdog`, burning the Resend quota on the founder's only escalation channel — and the send path arms itself precisely when the alerter is unhealthy. **Never assert this by reading the migration**: `20260607000000` line 154 has always contained a `REVOKE … FROM anon, authenticated`, which is inert against the inherited PUBLIC grant, so source looked correct throughout. Privilege is runtime state; query it. |
 
 The exact cron command bodies for checks 4–5 are the `command` columns of the `crisis-detection-alerting` /
 `crisis-liveness-probe` rows in `cron.job`; re-run them verbatim via `SELECT net.http_post(…)` so the

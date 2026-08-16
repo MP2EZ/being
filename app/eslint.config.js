@@ -45,6 +45,36 @@ module.exports = [
       // and bypassed the fix entirely — this rule is what stops site 35.
       // The matching test-file override below keeps the theme-contrast regression
       // pin (which must reference gray[500] to assert it fails) legal.
+      // MAINT-437 — react-native's SafeAreaView is deprecated AND iOS-only: on Android it
+      // renders a plain View applying zero insets, and SDK 56 makes edge-to-edge mandatory
+      // and non-disableable. So a regression here is a silent Android layout defect, not
+      // just a deprecation warning.
+      //
+      // SCOPE, and why it is not widened. This block is `src/**/*.{ts,tsx}`, which covers
+      // all 8 migrated source sites (and, because the relaxed test-file block below never
+      // redefines this rule, src co-located tests too). It does NOT cover `app/__tests__`,
+      // and that gap is RECORDED rather than closed, for two reasons:
+      //   1. `no-restricted-imports` structurally cannot see the shape that actually lived
+      //      there — `SafeAreaView: RN.SafeAreaView` is an object property in a jest.mock
+      //      factory, not an import node — so widening the glob would not have caught it.
+      //   2. Widening via the `lint` script would be INERT in CI anyway:
+      //      scripts/lint-baseline.js hardcodes `eslint src --ext .ts,.tsx`, and ci.yml
+      //      runs `lint:baseline`, never `lint`.
+      // `scripts/check-safe-area-imports.js` owns both test roots and `.js`, and runs in
+      // CI via `test:scripts`. The two guards are complementary, not redundant.
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'react-native',
+              importNames: ['SafeAreaView'],
+              message:
+                "MAINT-437: react-native's SafeAreaView is deprecated and iOS-only (a no-op View on Android). Import SafeAreaView from 'react-native-safe-area-context' and pass an explicit `edges` prop with a rationale comment. The curated react-native jest mock no longer exports it, so this also fails at render time under jest.",
+            },
+          ],
+        },
+      ],
       'no-restricted-syntax': [
         'error',
         {

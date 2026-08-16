@@ -18,6 +18,10 @@
  * - Labels: "Mood Wellness Screening (PHQ-9)" / "Stress Wellness Screening (GAD-7)";
  *   section title "Wellness Screening Trends". Never "clinical assessment"/"diagnosis".
  * - Disclaimer displayed ABOVE charts (non-dismissible) with a 988 tap target.
+ *   See WellnessDisclaimer's JSDoc for what "non-dismissible" was ruled to mean
+ *   (DEBUG-406) and for the fact that the phrase is uncited beyond an internal
+ *   FEAT-30 note — it constrains placement and permanence, not visibility under
+ *   a transient overlay.
  * - No raw score values leave the device (no analytics on the values).
  *
  * @see /docs/product/FEAT-28-insights-design-plan.md
@@ -55,6 +59,7 @@ import {
   type WindowSummary,
 } from '../utils/wellnessTrendData';
 import SessionNoteComposer from './SessionNoteComposer';
+import { useRootOverlay } from '@/core/navigation/rootOverlaySlot';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // TYPES & PROPS
@@ -158,6 +163,38 @@ const formatWindowChip = (prefix: string, w: WindowSummary): string => {
 /**
  * Required disclaimer (compliance-mandated). MUST appear ABOVE charts and be
  * non-dismissible. Exported so future trend surfaces render identical copy.
+ *
+ * WHAT "NON-DISMISSIBLE" MEANS — ruled by `compliance`, DEBUG-406.
+ *
+ * It means this cannot be PERMANENTLY or session-persistently removed from the
+ * trends surface: no close control, no "don't show again", no swipe-to-hide. It
+ * does NOT mean it must stay visible underneath a transient, user-initiated
+ * overlay. `SessionNoteComposer` opens as a bottom sheet over this card and
+ * covers it; that is not dismissal, and the disclaimer is back unchanged the
+ * moment the sheet closes.
+ *
+ * The ruling holds only BECAUSE the thing this requirement protects — 988
+ * reachability — is independently satisfied while the composer is open.
+ * `Insights` and `WellnessTrendsDetail` are not in `RootCrisisButton`'s
+ * SUPPRESSED_ROUTES, and since DEBUG-406 the composer renders into a root
+ * overlay slot painted BEFORE that button, so the button is structurally on top.
+ * The user loses sight of this inline link for the life of the sheet and never
+ * loses 988 access. If either of those facts changes, the ruling is void.
+ *
+ * Do NOT "fix" a future finding here by adding a second 988 control inside the
+ * composer. `__tests__/safety/crisis-zero-988-windows.test.tsx:44-50` records
+ * that duplicating a Call-988 control on one screen was shipped, reverted, and
+ * judged WORSE for screen-reader users than the gap it closed.
+ *
+ * PROVENANCE, recorded because it changes how much weight the wording carries:
+ * "non-dismissible" is NOT traceable to a statute. `compliance` traced it to
+ * `docs/development/FEAT-30-assessment-trends-exploration.md` §11 ("Required
+ * Compliance Labels (Non-Negotiable) — From legal review"), which cites no
+ * review and no provision, and it was copied verbatim into this file's header.
+ * What IS independently grounded is FTC Act §5's clear-and-conspicuous
+ * principle — which supports "above the charts, legible, not buried", not
+ * "survives every later overlay". Treat the phrase as a real constraint on
+ * placement and permanence, and as uncited beyond that.
  */
 export const WellnessDisclaimer: React.FC = () => (
   <View style={styles.disclaimerContainer}>
@@ -530,6 +567,25 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
   const handleEditNote = (session: AssessmentSession, subtitle: string): void =>
     setEditing({ session, subtitle });
 
+  // DEBUG-406 — publish into the root overlay slot. Declared before the early
+  // return below so hook order stays stable across renders.
+  useRootOverlay('session-note-composer', notesEnabled && editing !== null, () => (
+    <SessionNoteComposer
+      visible
+      initialText={editing?.session.note ?? ''}
+      subtitle={editing?.subtitle}
+      onSave={async (text) => {
+        if (editing) await setSessionNote(editing.session.id, text);
+        setEditing(null);
+      }}
+      onDelete={async () => {
+        if (editing) await clearSessionNote(editing.session.id);
+        setEditing(null);
+      }}
+      onCancel={() => setEditing(null)}
+    />
+  ));
+
   // Don't show the section until there's at least one completed screening.
   if (!hasPhq9 && !hasGad7) return null;
 
@@ -580,22 +636,13 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
         check-ins?
       </Text>
 
-      {notesEnabled && (
-        <SessionNoteComposer
-          visible={editing !== null}
-          initialText={editing?.session.note ?? ''}
-          subtitle={editing?.subtitle}
-          onSave={async (text) => {
-            if (editing) await setSessionNote(editing.session.id, text);
-            setEditing(null);
-          }}
-          onDelete={async () => {
-            if (editing) await clearSessionNote(editing.session.id);
-            setEditing(null);
-          }}
-          onCancel={() => setEditing(null)}
-        />
-      )}
+      {/* DEBUG-406: the composer renders into the ROOT overlay slot, published by
+          `useRootOverlay` above — not here. This component is mounted by TWO
+          screens (InsightsScreen and WellnessTrendsDetailScreen), inside a card
+          inside a ScrollView in both. RN resolves `position: 'absolute'` against
+          the parent's padding box, so an inline full-bleed overlay would cover
+          the card, scroll with the content, and be clipped on Android. The slot
+          also guarantees it paints below the crisis button. */}
     </View>
   );
 };

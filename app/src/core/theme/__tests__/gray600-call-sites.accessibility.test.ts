@@ -66,19 +66,30 @@ const RAW_REF = `colorSystem.gray[${600}]`;
  * here and fails set equality. No separate alias rule is needed.
  */
 const ALLOWED: ReadonlyArray<{ file: string; property: string; reason: string }> = [
-  {
-    file: 'features/crisis/components/CrisisAccessibility.tsx',
-    property: 'backgroundColor',
-    reason:
-      'Button FILL, not text. The label on it is base.white; white on #757575 is 4.608:1, ' +
-      'which clears WCAG 1.4.3 for normal text, and the fill clears 1.4.11 against the page. ' +
-      'Nothing to fix — re-pointing it would darken a lawful control for no accessibility gain.',
-  },
+  // MAINT-393 removed the CrisisAccessibility.tsx entry: the file was deleted
+  // with the unmounted advanced-accessibility subtree. Because the assertion
+  // below is set equality in BOTH directions, a stale entry here is a
+  // deliberate red — the allowlist must keep describing the tree as it is.
   {
     file: 'features/crisis/components/CrisisErrorBoundary.tsx',
     property: 'backgroundColor',
     reason:
       'Button FILL, not text. Same 4.608:1 white-on-fill as above. Lawful under both bars.',
+  },
+  {
+    file: 'features/consent/screens/ReConsentScreen.tsx',
+    property: 'borderColor',
+    reason:
+      'Checkbox indicator BORDER, not text — governed by WCAG 1.4.11 at 3:1, which gray[600] ' +
+      'clears on every surface in the matrix (4.414:1 on the gray[100] card ground it sits on). ' +
+      'No semantic token expresses it: `semantic.border.strong` is gray[400] at 1.463:1 and ' +
+      '`border.default` is gray[200], both below the non-text bar, and the text tokens are the ' +
+      'wrong intent for a border. The 2px border is the ONLY visual signal an unchecked box ' +
+      'exists, and all eight controls on that screen mount unchecked, so this is its default ' +
+      'state rather than an edge case — which is why it deliberately diverges from ' +
+      'CombinedLegalGateScreen.tsx:552, whose gray[400] indicator fails 1.4.11 by half. Pinned ' +
+      'by ReConsentScreen.accessibility.test.tsx. Retire this entry if a >=3:1 semantic border ' +
+      'token is ever minted.',
   },
   {
     file: 'core/navigation/CleanTabNavigator.tsx',
@@ -173,7 +184,11 @@ describe('DEBUG-370: raw gray[600] survives only where it is lawful', () => {
     // — a walker that silently stopped at core/ would still clear the count above.
     const scanned = files.map((f) => relative(SRC_ROOT, f).split(sep).join('/'));
     expect(scanned).toContain('core/navigation/CleanTabNavigator.tsx');
-    expect(scanned).toContain('features/crisis/components/CrisisAccessibility.tsx');
+    // MAINT-393 moved this anchor from CrisisAccessibility.tsx, which it deleted.
+    // The assertion is STRUCTURAL — it proves the walker reaches features/ and
+    // not only core/ — so it was re-pointed rather than removed. Dropping it
+    // would silently degrade this guard to a core-only scan.
+    expect(scanned).toContain('features/crisis/components/CrisisErrorBoundary.tsx');
   });
 
   it('leaves exactly the allowlisted references, no more and no fewer', () => {

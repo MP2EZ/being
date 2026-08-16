@@ -56,6 +56,18 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
 
+# INFRA-405 — shared device resolution, used identically by e2e-safety.sh. Sourced, so it
+# must not set shell options (this script runs under `set -euo pipefail`, that one under a
+# bare `set -u`).
+# shellcheck source=scripts/e2e-sim-device.sh
+. "$(dirname "$0")/e2e-sim-device.sh"
+
+# INFRA-436 — simulator mutual exclusion. Sourced under the same contract (sets no shell
+# options). Step 3 below uninstalls fyi.being.app BEFORE building, so without this a peer's
+# in-flight flow run loses its app mid-flow; that is the 2026-08-14 incident verbatim.
+# shellcheck source=scripts/e2e-sim-lock.sh
+. "$(dirname "$0")/e2e-sim-lock.sh"
+
 BUNDLE_ID="fyi.being.app"
 PRODUCT_DIR="ios/build/Build/Products/Release-iphonesimulator"
 CNG_STAMP="ios/.cng-stamp"
@@ -64,6 +76,12 @@ CNG_STAMP="ios/.cng-stamp"
 CNG_INPUTS=(app.json package.json plugins patches)
 
 BUILD_OK=0
+# INFRA-405. Declared HERE, before the trap is armed at the bottom of this block: cleanup()
+# references it, and under `set -euo pipefail` a trap body touching an unassigned variable
+# aborts the very cleanup it exists to perform. Resolution happens at step 2 — before this
+# script mutates any simulator state — so on every path where SIM_UDID is still empty,
+# nothing has been installed and there is nothing to clean up.
+SIM_UDID=""
 
 fail() {
   echo "❌ e2e:safety:build failed at stage: $1" >&2
@@ -76,8 +94,20 @@ fail() {
 # EXIT INT TERM, not just a non-zero exit: Ctrl-C during the assert block is precisely the
 # window in which an unverified binary is installed.
 cleanup() {
-  if [ "$BUILD_OK" != "1" ]; then
-    xcrun simctl uninstall booted "$BUNDLE_ID" >/dev/null 2>&1 || true
+  # INFRA-405: uninstall from the device we actually installed to. This used the literal
+  # `booted`, so on a multi-simulator machine the cleanup could target a different device
+  # and silently miss — leaving a marker-less app behind, which e2e-safety.sh then refuses
+  # while reporting a provenance problem rather than the build failure that caused it.
+  if [ "$BUILD_OK" != "1" ] && [ -n "$SIM_UDID" ]; then
+    xcrun simctl uninstall "$SIM_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
+  fi
+  # INFRA-436: release the simulator lock on EVERY exit path, including Ctrl-C. Held across
+  # the uninstall above deliberately — a peer must not be able to start a flow run against
+  # the half-removed app this cleanup is in the middle of removing. e2e_lock_release is a
+  # no-op unless we are the recorded owner, so an early failure that never acquired cannot
+  # hand a peer's device away.
+  if [ -n "$SIM_UDID" ]; then
+    e2e_lock_release "$SIM_UDID"
   fi
 }
 trap cleanup EXIT INT TERM
@@ -109,18 +139,78 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------
-# 2. Booted simulator
+# 1b. Disk-headroom pre-flight (INFRA-435).
+#
+#     PLACEMENT IS FORCED, NOT STYLISTIC. This must run before step 2's device resolution,
+#     before step 2b's lock acquisition, and decisively before step 3's `simctl uninstall` —
+#     the first mutation. `cleanup` only reinstalls nothing; a refusal after step 3 leaves
+#     the simulator with no fyi.being.app, having also taken and released a peer-visible
+#     lock. Refusing here costs nothing and mutates nothing.
+#
+#     Why it exists: out of disk, `xcodebuild` fails as
+#     `lipo: can't write to output file ... (No space left on device)` + error 65, which
+#     names the linker rather than the disk and sends the reader diagnosing the wrong
+#     subsystem. The dominant consumer is orphaned DerivedData from removed worktrees, so
+#     the message points at the sweep that reclaims it.
+#
+#     Fails OPEN on an unreadable probe. This check is advisory plumbing; it must never be
+#     the reason the gate cannot run. `df -P` forces single-line POSIX output so a long
+#     device name cannot shift the column that `awk` reads.
 # ---------------------------------------------------------------------------------------
-if ! xcrun simctl list devices booted | grep -qE '\(Booted\)'; then
-  fail "booted-simulator check — open Simulator (or 'xcrun simctl boot <device>') first"
-fi
+MIN_FREE_GB="${E2E_MIN_FREE_GB:-10}"
+AVAIL_KB="$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print $4}' || true)"
+case "$AVAIL_KB" in
+  '' | *[!0-9]*)
+    echo "⚠️  Could not read free disk space — skipping the headroom check." >&2
+    ;;
+  *)
+    AVAIL_GB=$((AVAIL_KB / 1048576))
+    if [ "$MIN_FREE_GB" -gt 0 ] && [ "$AVAIL_GB" -lt "$MIN_FREE_GB" ]; then
+      echo "❌ Not enough DISK SPACE to build." >&2
+      echo "   Free: ${AVAIL_GB} GB · required: ${MIN_FREE_GB} GB" >&2
+      echo "   A cold build writes ~5-8 GB of DerivedData. Out of space, xcodebuild fails" >&2
+      echo "   as a 'lipo: No space left on device' linker error, which names the wrong" >&2
+      echo "   subsystem — hence this check." >&2
+      echo "" >&2
+      echo "   Reclaim caches whose worktree no longer exists:" >&2
+      echo "     npm run e2e:safety:clean:orphans            # list" >&2
+      echo "     npm run e2e:safety:clean:orphans -- --yes   # reap" >&2
+      echo "" >&2
+      echo "   Override with E2E_MIN_FREE_GB=0 if you know the build fits." >&2
+      exit 1
+    fi
+    if [ "$MIN_FREE_GB" -gt 0 ] && [ "$AVAIL_GB" -lt $((MIN_FREE_GB * 2)) ]; then
+      echo "⚠️  DISK SPACE is tight: ${AVAIL_GB} GB free. A cold build wants ~5-8 GB." >&2
+      echo "    npm run e2e:safety:clean:orphans   # see what is reclaimable" >&2
+    fi
+    ;;
+esac
+
+# ---------------------------------------------------------------------------------------
+# 2. Resolve the target simulator — ONCE, here, before anything is mutated.
+#
+#    INFRA-405. This used to be a bare "is anything booted?" probe, with the actual UDID
+#    resolved ~80 lines later at build time and the post-build asserts using the literal
+#    `booted`. Two problems: the two selectors could name different devices, and a device
+#    that boots MID-BUILD (observed — Simulator.app auto-boots without being asked) makes
+#    any pre-build count check stale before it is used. Resolving once and reusing the
+#    value is immune to both; re-querying `booted` at each step is not.
+# ---------------------------------------------------------------------------------------
+SIM_UDID="$(e2e_resolve_sim_device "gate build")" || fail "simulator selection"
+echo "🎯 Target simulator: $SIM_UDID"
+
+# ---------------------------------------------------------------------------------------
+# 2b. Claim the device (INFRA-436) — AFTER resolution (we need the UDID as the key) and
+#     BEFORE step 3's uninstall, which is the first mutation and the destructive one.
+# ---------------------------------------------------------------------------------------
+e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "gate build" || fail "simulator lock"
 
 # ---------------------------------------------------------------------------------------
 # 3. Uninstall FIRST. One bundle ID is shared with the dev-client build (`npm run ios`),
 #    and `expo run:ios` installs over the top — so a differently-linked prior binary must
 #    be removed rather than overwritten.
 # ---------------------------------------------------------------------------------------
-xcrun simctl uninstall booted "$BUNDLE_ID" >/dev/null 2>&1 || true
+xcrun simctl uninstall "$SIM_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
 
 # ---------------------------------------------------------------------------------------
 # 4. CNG staleness -> prebuild. Conditional ON PURPOSE: an unconditional prebuild would
@@ -141,6 +231,29 @@ if [ "$NEEDS_PREBUILD" = "1" ]; then
   touch "$CNG_STAMP" || fail "CNG stamp write"
 else
   echo "✓ Native project is current with app.json / plugins / patches — skipping prebuild"
+fi
+
+# ---------------------------------------------------------------------------------------
+# 4b. Purge Finder droppings from ios/ before building (INFRA-436).
+#
+#     React Native's `[CP-User] [RNDeps] Replace React Native Dependencies` build phase
+#     removes `Pods/ReactNativeDependencies/framework` and re-extracts it. Its rm is not
+#     tolerant of unexpected contents, so a single `.DS_Store` left by Finder or Spotlight
+#     makes the whole build die with:
+#
+#       Error: ENOTEMPTY, Directory not empty: ReactNativeDependencies/framework
+#       CommandError: Failed to build iOS project. "xcodebuild" exited with error code 65.
+#
+#     Observed for real on 2026-08-14: ten `.DS_Store` files under `ios/Pods/`, all stamped
+#     during the build itself. Nothing in the error names the cause, and the obvious reading
+#     ("stale Pods, deintegrate and reinstall") is a 20-minute detour that does not fix it —
+#     Finder can recreate the file before the next attempt.
+#
+#     They are gitignored (`**/.DS_Store`), so this cannot move the provenance fingerprint,
+#     which excludes ignored paths. Safe to delete unconditionally.
+# ---------------------------------------------------------------------------------------
+if [ -d ios ]; then
+  find ios -name '.DS_Store' -type f -delete 2>/dev/null || true
 fi
 
 # ---------------------------------------------------------------------------------------
@@ -194,14 +307,9 @@ if [ ${#ENV_ARGS[@]} -eq 0 ]; then
   fail "eas.json env resolution — resolved profile e2e-sim to an empty env block"
 fi
 
-UDID="$(xcrun simctl list devices booted -j 2>/dev/null | node -e '
-  let s = ""; process.stdin.on("data", d => s += d).on("end", () => {
-    try {
-      for (const v of Object.values(JSON.parse(s).devices || {}))
-        for (const d of v) if (d.state === "Booted") { console.log(d.udid); process.exit(0); }
-    } catch {}
-    process.exit(1);
-  });' 2>/dev/null)" || UDID=""
+# (INFRA-405: device resolution used to happen here. It moved to step 2 — see the comment
+# there. It is a pure query with no dependency on the intervening steps, and hoisting it is
+# the entire fix: the value must be captured before the build, not re-derived during it.)
 
 # Snapshot the tree HERE, immediately before bundling — not at step 1 (an `expo prebuild`
 # can touch tracked files) and not at step 7g (too late by definition). The binary about to
@@ -211,24 +319,75 @@ UDID="$(xcrun simctl list devices booted -j 2>/dev/null | node -e '
 TREE_BEFORE_BUILD="$(node scripts/e2e-provenance.js fingerprint 2>/dev/null || true)"
 
 echo "🏗  Building Release simulator app (warm ≈1 min, cold ≈11 min)…"
-BUILD_CMD=(npx expo run:ios --configuration Release --no-bundler)
-[ -n "$UDID" ] && BUILD_CMD+=(--device "$UDID")
+
+# INFRA-407: BUILD ONLY, then install ourselves. Never let expo launch the app.
+#
+# `expo run:ios` builds, installs AND launches as one invocation, and its launch step ends
+# by opening the dev-client deep link `exp+being://expo-development-client/?url=…`. The app
+# registers `being://` (app.json `scheme`), not `exp+being://`, and a launcher-free Release
+# build links no dev-launcher — so nothing handles that URL, iOS raises a SpringBoard-level
+# "Open in 'Being'?" confirmation, and LEAVES IT ON SCREEN.
+#
+# Maestro's `launchApp: { clearState: true }` resets the APP; it cannot dismiss a SYSTEM
+# alert above it. The alert therefore survives into the gate run, and every flow fails its
+# first assertion (`_seeded-home` → `home-screen is visible`) while the app renders
+# perfectly behind it — a maximally misleading red on the one check that gates safety
+# merges, whose own error text suggests "could be a real regression".
+#
+# The gate never needs the app launched: every flow issues its own `launchApp`. So build to
+# a directory and install with simctl — no launch, no URL open, no alert. `--device generic
+# --output <dir>` is the documented build-only form (`expo run:ios --help`).
+#
+# The output goes OUTSIDE the worktree deliberately. The provenance fingerprint hashes
+# untracked files, and while `git ls-files -o --exclude-standard` would hide a gitignored
+# directory, keeping the artifact out of the tree entirely removes the question.
+#
+# (The step-7 comment below used to assert "there is no --no-install". That was wrong.)
+#
+# `--device generic` is what makes it build-only, so it REPLACES INFRA-405's
+# `--device "$SIM_UDID"` here rather than conflicting with it: expo no longer chooses a
+# device because expo no longer installs. INFRA-405's guarantee is preserved and in fact
+# tightened — `$SIM_UDID` is now passed to the explicit `simctl install` below, so the
+# device we resolved is provably the device we install to, with no "let expo pick" path
+# left anywhere.
+BUILD_OUT="$(mktemp -d "${TMPDIR:-/tmp}/being-e2e-build.XXXXXX")"
+BUILD_CMD=(npx expo run:ios --configuration Release --no-bundler --device generic --output "$BUILD_OUT")
 
 if ! env "${ENV_ARGS[@]}" NODE_ENV=production BABEL_ENV=production "${BUILD_CMD[@]}"; then
-  fail "Release build (expo run:ios)"
+  rm -rf "$BUILD_OUT"
+  fail "Release build (expo run:ios --device generic)"
 fi
+
+APP_SRC="$(/usr/bin/find "$BUILD_OUT" -maxdepth 2 -name '*.app' -type d 2>/dev/null | head -1)"
+if [ -z "$APP_SRC" ]; then
+  rm -rf "$BUILD_OUT"
+  fail "build output — expo reported success but produced no .app under $BUILD_OUT"
+fi
+
+# Install to INFRA-405's resolved device, never the bare `booted` alias — `booted` is
+# ambiguous with two simulators up. Since INFRA-407 split build from install, this is the
+# single point at which anything reaches a simulator, so "the device we resolved" and "the
+# device carrying the gate target" are now the same claim by construction.
+if ! xcrun simctl install "$SIM_UDID" "$APP_SRC"; then
+  rm -rf "$BUILD_OUT"
+  fail "install — simctl could not install $APP_SRC onto $SIM_UDID"
+fi
+rm -rf "$BUILD_OUT"
 
 # ---------------------------------------------------------------------------------------
 # 7. Post-build asserts, all against the INSTALLED container — that is the artifact the
 #    flows actually run, and the only thing whose correctness matters.
 #
-#    These run after install because `expo run:ios` builds, installs and launches as one
-#    atomic invocation (there is no --no-install). The post-condition is what matters and
-#    it is preserved: any failure below exits non-zero via the trap with NO app installed,
-#    so no gate consumer can ever observe a binary that failed an assert.
+#    These run after install because the asserts are about the INSTALLED artifact, which is
+#    what the flows execute. Since INFRA-407 the build and the install are separate steps
+#    (`--device generic --output` + `simctl install`) rather than one atomic `expo run:ios`
+#    invocation — the launch that used to come with it is what left a system alert on the
+#    simulator. The post-condition is unchanged: any failure below exits non-zero via the
+#    trap with NO app installed, so no gate consumer can ever observe a binary that failed
+#    an assert.
 # ---------------------------------------------------------------------------------------
-APP="$(xcrun simctl get_app_container booted "$BUNDLE_ID" 2>/dev/null)" \
-  || fail "artifact discovery — the build reported success but installed no $BUNDLE_ID"
+APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" \
+  || fail "artifact discovery — the build reported success but installed no $BUNDLE_ID on $SIM_UDID"
 [ -d "$APP" ] || fail "artifact discovery — container path does not exist: $APP"
 
 # 7a. main.jsbundle present. Strongest single signal: a Debug/dev-client build has none

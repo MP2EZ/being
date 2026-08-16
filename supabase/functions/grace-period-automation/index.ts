@@ -28,6 +28,7 @@ import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
 import { timingSafeEqual } from 'node:crypto';
 import { shouldPingSubscriptionHealthcheck } from './healthcheckGate.ts';
+import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
 
 /**
  * Constant-time string comparison via node:crypto's timingSafeEqual.
@@ -205,11 +206,11 @@ async function notifyExpiringTrials(supabase: any): Promise<number> {
 
   // Log events for expiring trials
   for (const trial of expiringTrials) {
-    await supabase.rpc('log_subscription_event', {
-      p_user_id: trial.user_id,
-      p_subscription_id: null,
-      p_event_type: 'trial_ending_soon',
-      p_metadata: {
+    await logSubscriptionEvent(supabase, {
+      userId: trial.user_id,
+      subscriptionId: null,
+      eventType: 'trial_ending_soon',
+      metadata: {
         trial_end_date: trial.trial_end_date,
         days_remaining: trial.days_remaining,
         timestamp: new Date().toISOString(),
@@ -247,11 +248,11 @@ async function notifyExpiringGracePeriods(supabase: any): Promise<number> {
 
   // Log events for expiring grace periods
   for (const grace of expiringGrace) {
-    await supabase.rpc('log_subscription_event', {
-      p_user_id: grace.user_id,
-      p_subscription_id: null,
-      p_event_type: 'grace_period_ending',
-      p_metadata: {
+    await logSubscriptionEvent(supabase, {
+      userId: grace.user_id,
+      subscriptionId: null,
+      eventType: 'grace_period_ending',
+      metadata: {
         grace_period_end: grace.grace_period_end,
         days_remaining: grace.days_remaining,
         timestamp: new Date().toISOString(),
@@ -371,8 +372,20 @@ serve(async (req) => {
     // Replaces the previous `Authorization.includes(cronSecret)` substring
     // check, which would accept anything like `Bearer leak-<secret>-trailing`
     // and didn't defend against timing-based secret extraction.
+    //
+    // READS ITS OWN EDGE SECRET, NOT THE SHARED `CRON_SECRET` (INFRA-379).
+    // Edge secrets are PROJECT-WIDE — there is no per-function scoping — and
+    // `crisis-detection-alerting` + `crisis-liveness-probe` both authenticate against
+    // `CRON_SECRET`, whose value is the crisis pipeline's `crisis_alert_cron_secret`.
+    // 20260616000000_grace_period_automation_cron.sql requires this function's bearer to
+    // be DISTINCT from that one (separate trust domain) while also equalling the secret
+    // this line reads. Both cannot hold for one shared name: reading `CRON_SECRET` here
+    // either 401s every cron tick (if the Vault value is genuinely distinct, as the
+    // migration instructs) or collapses the two trust domains into one bearer, so that an
+    // ops-side rotation silently breaks crisis paging. A distinct name is what makes the
+    // documented separation actually true. Do not rename this back.
     const providedSecret = req.headers.get('x-cron-secret');
-    const expectedSecret = Deno.env.get('CRON_SECRET');
+    const expectedSecret = Deno.env.get('GRACE_PERIOD_CRON_SECRET');
 
     if (!expectedSecret || !providedSecret || !constantTimeEqual(providedSecret, expectedSecret)) {
       return new Response(

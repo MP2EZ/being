@@ -17,8 +17,19 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
-  SafeAreaView,
 } from 'react-native';
+/**
+ * MAINT-437 — `edges` applies to all 1 SafeAreaView root(s) in this file.
+ *
+ * Tab-hosted (CleanTabNavigator, `headerShown: false`), so the tab bar owns the
+ * bottom inset and this screen claims only the top.
+ *
+ * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
+ * are never listed. NOTE: no test in this repo can observe an `edges` value having
+ * a layout effect — the jest mock pins all insets to zero. The rendered result is
+ * verified by MAINT-437's deferred Android/iOS device pass.
+ */
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAnalytics } from '@/core/analytics';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -119,7 +130,7 @@ const LearnScreen: React.FC = () => {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea} testID="learn-screen">
+    <SafeAreaView edges={['top']} style={styles.safeArea} testID="learn-screen">
       <View style={{ flex: 1 }}>
         <View style={styles.container}>
         {/* Header (MAINT-257: shared BodyHeader idiom — borderless, left headline2) */}

@@ -51,7 +51,7 @@
  *
  * MODES:
  * - 'standard': 44px, persistent, full opacity (Learn, check-ins)
- * - 'immersive': 44px, starts faded (50%), tap reveals briefly (practices)
+ * - 'immersive': 44px, starts faded (FADED_OPACITY), tap reveals briefly (practices)
  * - 'prominent': 56px, full emphasis (assessments, PHQ>=15)
  *
  * Usage:
@@ -64,7 +64,7 @@
  * ```
  */
 
-import React, { useCallback, useState, useEffect } from 'react';
+import React, { useCallback, useState, useEffect, useRef } from 'react';
 import {
   View,
   StyleSheet,
@@ -110,7 +110,27 @@ const COLLAPSED_WIDTH_STANDARD = 44;
 const COLLAPSED_WIDTH_PROMINENT = 56;
 
 // Fade configuration for immersive mode
-const FADED_OPACITY = 0.5; // 50% opacity minimum for 3:1+ contrast
+//
+// DEBUG-396 — 0.6, not 0.5. The prior comment here read "50% opacity minimum for
+// 3:1+ contrast" and was arithmetically false: `status.critical` (#991B1B)
+// composited at 0.5 measures **2.71:1** against white, which is the BEST case.
+// White is the mathematical ceiling — the composite is pinned halfway toward
+// #991B1B, so lightening the backdrop lightens the composite almost as fast and
+// the ratio saturates near 2.7 — so 0.5 failed WCAG 1.4.11 on every surface, not
+// just under a modal.
+//
+// This is a property of the immersive fade itself, NOT of any overlay:
+// `sharedPracticeStyles.container` is already `base.white`, so the button
+// composited at 2.71:1 on the practice screens with nothing on top of it. At 0.6
+// every host in RootCrisisButton's IMMERSIVE_ROUTES clears 3:1 — white 3.42,
+// midday 3.36, morning 3.33, evening 3.33, learn 3.30 — pinned as a table in
+// CollapsibleCrisisButton.accessibility.test.ts against the real tokens.
+//
+// Do NOT "fix" a future contrast finding here by raising this to 1: MAINT-127's
+// recessive-during-practice behaviour is deliberate, and a test pins that this
+// stays below 1. Do NOT chase it via the backdrop either — that axis is
+// genuinely exhausted (see the measured table on DEBUG-396).
+const FADED_OPACITY = 0.6;
 const FADE_DURATION_MS = 300;
 const FADE_BACK_DELAY_MS = 3000; // Re-fade after interaction
 
@@ -125,6 +145,32 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
 }) => {
   const [reduceMotionEnabled, setReduceMotionEnabled] = useState(false);
   const fadeOpacity = useSharedValue(1);
+
+  /**
+   * DEBUG-396 — the pending auto-fade-back handle.
+   *
+   * `resetFade`'s re-fade used to be an unowned `setTimeout` with no handle and
+   * no cleanup, while its `mode === 'immersive' && !reduceMotionEnabled` guard
+   * was evaluated at SCHEDULE time only. The timer therefore applied a decision
+   * that could already be stale by the time it fired: tap the button in
+   * immersive mode, leave immersive (or enable reduce-motion) within 3s, and the
+   * orphaned timer drove the crisis button back to FADED_OPACITY regardless —
+   * re-creating the under-contrast state on a surface that had stopped
+   * qualifying for it. The reduce-motion case mis-fires today: the listener
+   * restores full opacity, then the stale timer undoes it.
+   *
+   * Holding the handle also COALESCES redundant arming. One tap calls
+   * `resetFade` twice — `handleTap` calls it, then `handleCrisisAction` calls it
+   * again — which previously stacked two independent timers per tap.
+   */
+  const refadeTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const clearRefadeTimer = useCallback(() => {
+    if (refadeTimer.current !== null) {
+      clearTimeout(refadeTimer.current);
+      refadeTimer.current = null;
+    }
+  }, []);
 
   // DEBUG-299: declared FIRST, above every consumer. The original defect was a
   // closure capturing these before their initializer ran. Nothing in this file
@@ -184,12 +230,20 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
     if (mode !== 'immersive' || reduceMotionEnabled) {
       // Full opacity in non-immersive modes or for accessibility
       fadeOpacity.value = withTiming(1, { duration: FADE_DURATION_MS / 2 });
-      return;
+      // DEBUG-396: returned here too, not just on the immersive path — this is
+      // the branch a user reaches by leaving immersive or enabling reduce-motion,
+      // i.e. exactly when a stale re-fade would undo what we just set.
+      return clearRefadeTimer;
     }
 
     // Start faded immediately - no jarring transition during practice
     fadeOpacity.value = withTiming(FADED_OPACITY, { duration: FADE_DURATION_MS });
-  }, [mode, reduceMotionEnabled, fadeOpacity]);
+
+    // DEBUG-396: disarms on unmount AND before every re-run of this effect, so a
+    // timer armed under one (mode, reduceMotion) pair can never apply itself
+    // after that pair has changed.
+    return clearRefadeTimer;
+  }, [mode, reduceMotionEnabled, fadeOpacity, clearRefadeTimer]);
 
   /**
    * DEBUG-299 — in-session self-heal.
@@ -220,15 +274,23 @@ export const CollapsibleCrisisButton: React.FC<CollapsibleCrisisButtonProps> = (
    * Reset fade on interaction, then auto-fade back in immersive mode
    */
   const resetFade = useCallback(() => {
+    // DEBUG-396: always disarm first. One tap reaches this twice (handleTap, then
+    // handleCrisisAction), so without this each tap stacked a second independent
+    // timer; and a re-tap must restart the 3s window rather than inherit the
+    // remainder of the previous one.
+    clearRefadeTimer();
+
     if (mode === 'immersive' && !reduceMotionEnabled) {
       // Brief full visibility on interaction
       fadeOpacity.value = withTiming(1, { duration: FADE_DURATION_MS / 2 });
-      // Auto-fade back after brief delay
-      setTimeout(() => {
+      // Auto-fade back after brief delay. The handle is owned so the effect above
+      // can cancel it if mode or reduce-motion changes inside the window.
+      refadeTimer.current = setTimeout(() => {
+        refadeTimer.current = null;
         fadeOpacity.value = withTiming(FADED_OPACITY, { duration: FADE_DURATION_MS });
       }, FADE_BACK_DELAY_MS);
     }
-  }, [mode, reduceMotionEnabled, fadeOpacity]);
+  }, [mode, reduceMotionEnabled, fadeOpacity, clearRefadeTimer]);
 
   /**
    * CRITICAL: <200ms crisis response - navigate to CrisisResourcesScreen

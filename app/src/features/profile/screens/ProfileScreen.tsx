@@ -4,7 +4,7 @@
  * Provides access to settings, virtue dashboard, wellbeing tracking, and onboarding
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -55,6 +55,10 @@ const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
   const subscriptionStore = useSubscriptionStore();
   const [showEducationModal, setShowEducationModal] = useState(false);
+  // DEBUG-406: the education sheet is no longer an RN <Modal>, so nothing
+  // restores accessibility focus when it closes. Hand it the control that
+  // opened it.
+  const educationTriggerRef = useRef<React.ComponentRef<typeof Pressable> | null>(null);
   const [phq9Metadata, setPhq9Metadata] = useState<AssessmentMetadata>({ status: 'never' });
   const [gad7Metadata, setGad7Metadata] = useState<AssessmentMetadata>({ status: 'never' });
   const { trackScreenView } = useAnalytics();
@@ -207,9 +211,13 @@ const ProfileScreen: React.FC = () => {
               Wellbeing Check-ins
             </Text>
             <Pressable
+              ref={educationTriggerRef}
               style={styles.infoIconButton}
               onPress={() => setShowEducationModal(true)}
               hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+              // DEBUG-406: addressed by the safety e2e flow that pins the
+              // education sheet no longer occluding the crisis button.
+              testID="profile-assessment-info"
               accessibilityRole="button"
               accessibilityLabel="Learn about assessment scoring"
               accessibilityHint="Opens educational information about how assessments are scored"
@@ -472,10 +480,16 @@ const ProfileScreen: React.FC = () => {
         </Pressable>
       </ScrollView>
 
-      {/* Education Modal */}
+      {/* Education sheet — DEBUG-406: a full-bleed absolute overlay, NOT an RN
+          <Modal>, so the root crisis button still paints above it. It must stay
+          the LAST child here: as a plain absolute sibling it paints in JSX
+          order, so moving it before the ScrollView would hide it underneath the
+          content. Under <Modal> that ordering was irrelevant, which is exactly
+          why the trap is easy to walk into. */}
       <ThresholdEducationModal
         visible={showEducationModal}
         onDismiss={() => setShowEducationModal(false)}
+        returnFocusRef={educationTriggerRef}
       />
     </SafeAreaView>
   );

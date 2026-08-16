@@ -47,10 +47,28 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
    * one consent screen two differently-labelled Call-988 buttons, which is worse for a
    * screen reader user than the situation it was meant to fix.
    *
-   * WHAT IS ACTUALLY TRUE, and left alone deliberately: the footer sits at the BOTTOM of
-   * a long ScrollView, below age verification and four consent checkboxes. The <3-tap
-   * contract is met (scrolling is not tapping) but it is below the fold. Moving it is a
-   * UX decision on a compliance screen, not a safety fix, and was out of scope here.
+   * WHAT WAS ACTUALLY TRUE, and left alone deliberately AT THE TIME: the footer sat at
+   * the BOTTOM of a long ScrollView, below age verification and four consent checkboxes.
+   * The <3-tap contract was met (scrolling is not tapping) but it was below the fold.
+   * Moving it was judged a UX decision on a compliance screen, not a safety fix, and was
+   * out of scope here.
+   *
+   * ⚠️ RESOLVED BY DEBUG-390 — and the "out of scope" call above did not survive.
+   * DEBUG-372 made LegalGate the route a dismissed cold-start `being://crisis` lands on,
+   * which turned a latent wart into a live regression: the post-dismiss state traded the
+   * persistent 1-tap 988 that Main offers for a scroll-then-tap one. Measured before the
+   * fix: 1433pt of content against a 759pt viewport on iPhone 15, with the 988 button's
+   * top edge at 95.3% of scroll depth — 642pt of scrolling, 754pt on SE 3.
+   *
+   * The footer is now pinned OUTSIDE the ScrollView. `LegalGate` STAYS in
+   * SUPPRESSED_ROUTES: the suppression was re-earned, not withdrawn, because suppression
+   * is earned by an affordance reachable WITHOUT SCROLLING, never by one that merely
+   * exists.
+   *
+   * NOTE WHAT THIS BLOCK GOT WRONG, because it is the reusable lesson: the assertion
+   * below tested that the footer EXISTS, and it passed for the entire period the defect
+   * was live. Existence was never the property in question. The position assertion is
+   * the one that would have caught it.
    *
    * The runtime behaviour is already pinned by
    * src/features/consent/screens/__tests__/CombinedLegalGateScreen.crisis.test.tsx
@@ -74,6 +92,25 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
     expect(mainBranch).toContain('accessibilityLabel="Text Crisis Line"');
   });
 
+  test('DEBUG-390: the crisis footer is pinned OUTSIDE the ScrollView', () => {
+    // The assertion above is satisfied by a footer anywhere in the main branch —
+    // including the bottom of the ScrollView, which is where the defect lived. This
+    // one pins POSITION, so re-nesting the footer inside the ScrollView fails CI.
+    //
+    // Source-level on purpose: this file is the structural safety suite and renders
+    // nothing. The render-tree equivalent (walking ancestors from the 988 control)
+    // lives in
+    // src/features/consent/screens/__tests__/CombinedLegalGateScreen.accessibility.test.tsx
+    // and is the authoritative one; this is the copy that runs in precommit.
+    const mainBranch = source.slice(source.lastIndexOf('  return ('));
+    const scrollViewCloses = mainBranch.indexOf('</ScrollView>');
+    const footerOpens = mainBranch.indexOf('styles.crisisFooter}');
+
+    expect(scrollViewCloses).toBeGreaterThan(-1);
+    expect(footerOpens).toBeGreaterThan(-1);
+    expect(footerOpens).toBeGreaterThan(scrollViewCloses);
+  });
+
   test('the under-age branch keeps its own crisis section', () => {
     const underAge = source.slice(
       source.indexOf('if (showUnderAge)'),
@@ -85,6 +122,94 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
   test('both crisis blocks route through the guarded dial helper', () => {
     // DEBUG-314: a bare Linking.openURL fails silently when the scheme cannot open.
     expect(source).toContain("openCrisisUrl('tel:988'");
+    expect(source).not.toMatch(/Linking\.openURL\(\s*['"]tel:988/);
+  });
+});
+
+describe('CrisisResourcesScreen — DEBUG-432: the 988 control is pinned OUTSIDE the ScrollView', () => {
+  /**
+   * The same defect as DEBUG-390's, on the screen DEBUG-390's principle exists to protect.
+   * `CrisisResources` is in SUPPRESSED_ROUTES — the root overlay is absent — and it is the
+   * destination every other crisis affordance in the app routes to. Its own 988 control
+   * was the LAST child of the 988 resource card, itself inside the screen's only
+   * ScrollView, so the destination failed the standard every other surface is held to.
+   *
+   * Measured before the fix (`maestro hierarchy`, Release build, provenance 505fc417):
+   * iPhone SE 3 at DEFAULT Dynamic Type put the button at y=746..797 against a fold of
+   * y=86..667 — 130pt of scrolling, and 0% of the tap target on screen. At AX5 the same
+   * button sat at y=3926..4095. Three of four measured configurations failed; only the
+   * largest phone at default type passed, which is why the existing green Maestro
+   * assertion said nothing (the gate pins no simulator model).
+   *
+   * Source-level on purpose: this file is the structural safety suite, renders nothing,
+   * and is the copy that runs in precommit. The authoritative render-tree equivalent —
+   * walking ancestors from the control — is
+   * src/features/crisis/screens/__tests__/CrisisResourcesScreen.reachability.test.tsx.
+   */
+  const rawSource = require('fs').readFileSync(
+    require('path').join(
+      __dirname,
+      '../../src/features/crisis/screens/CrisisResourcesScreen.tsx',
+    ),
+    'utf8',
+  );
+
+  /**
+   * DEBUG-390's lesson: this codebase deliberately names anti-patterns in prose to warn
+   * the next reader off them, so an assertion about what the file DOES must not read what
+   * it SAYS. The comment block above this very screen's pinned footer names `ScrollView`.
+   */
+  const stripComments = (s: string): string =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const source = stripComments(rawSource);
+
+  /**
+   * The second failure mode DEBUG-390 flagged: comment-stripping plus a narrow matcher is
+   * exactly the combination that can silently match NOTHING and go green forever. This
+   * test is the proof-of-liveness for the two below — it fails if stripping ate the render
+   * body, and it fails if the comparator stops discriminating a known-bad shape.
+   */
+  test('the comment-stripped matcher can still go red', () => {
+    expect(source.length).toBeGreaterThan(2000);
+    expect(source).toContain('</ScrollView>');
+    expect(source).toContain('crisis-call-988-button');
+
+    const knownBad = `
+      <ScrollView>
+        <Pressable testID="crisis-call-988-button" />
+      </ScrollView>
+    `;
+    // The comparator applied to a nested control must FAIL, or it proves nothing.
+    expect(knownBad.indexOf('crisis-call-988-button')).toBeLessThan(
+      knownBad.indexOf('</ScrollView>'),
+    );
+  });
+
+  test('crisis-call-988-button is declared AFTER the ScrollView closes', () => {
+    // Whole-file ordering, NOT a slice from the last `return (`. The pre-fix defect
+    // declared this testID inside `ResourceCard`, a component defined ABOVE the screen,
+    // so a slice of the screen's own return would report "not found" (-1) instead of
+    // "wrongly ordered" — a red for the wrong reason, and one that would go green if a
+    // future refactor moved the control back into a card.
+    const scrollViewCloses = source.indexOf('</ScrollView>');
+    const buttonDeclared = source.indexOf('crisis-call-988-button');
+
+    expect(scrollViewCloses).toBeGreaterThan(-1);
+    expect(buttonDeclared).toBeGreaterThan(-1);
+    expect(buttonDeclared).toBeGreaterThan(scrollViewCloses);
+  });
+
+  test('exactly one crisis-call-988-button exists in the file', () => {
+    // DEBUG-341 reverted a duplicated crisis control: two differently-labelled Call-988
+    // buttons on one screen is worse for a screen reader user than the gap it closed.
+    // Two Maestro flows address this id (crisis-988-dial, deeplink-consent-gate), so a
+    // duplicate also makes their selectors ambiguous.
+    expect(source.match(/crisis-call-988-button/g)).toHaveLength(1);
+  });
+
+  test('the pinned control dials through the guarded helper, never a bare openURL', () => {
+    expect(source).toContain('openCrisisUrl');
     expect(source).not.toMatch(/Linking\.openURL\(\s*['"]tel:988/);
   });
 });

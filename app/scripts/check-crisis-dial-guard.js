@@ -98,7 +98,18 @@ const GUARDED_DIRS = [
   'src/features/journal',
   'src/features/consent',
   'src/features/insights',
-  'src/core/services/performance',
+  // MAINT-252 WIDENED this from `src/core/services/performance` to the whole
+  // of `src/core/services` when that directory was deleted. Narrowing to
+  // nothing was the other option and was rejected: `collectSourceFiles`
+  // returns [] for a missing directory, so a stale entry would have been
+  // silently inert rather than loud, and dropping it would have shrunk Rule 1's
+  // reach with no replacement. Rule 2's repo-wide `tel:`/`sms:` literal ban does
+  // NOT cover the gap — its regex only matches a literal placed directly in the
+  // `openURL(` call, so a variable-built dial (the `phoneUrl` shape in
+  // CrisisResourcesScreen) is invisible to it. Widening cost zero new
+  // EXPECTED_CALL_COUNTS entries: `src/core/services` contains no
+  // `Linking.openURL` call at all.
+  'src/core/services',
 ];
 
 /**
@@ -118,8 +129,26 @@ const EXPECTED_CALL_COUNTS = {
   'src/features/assessment/stores/assessmentStore.ts': 1,
   // `resource.website` — an https: link, not a dial.
   'src/features/crisis/screens/CrisisResourcesScreen.tsx': 1,
-  // Four https: legal / external-resource links.
-  'src/features/consent/screens/CombinedLegalGateScreen.tsx': 4,
+  // Five https: legal / external-resource links, no dial. Four are the inline
+  // links (Terms, Privacy, and the two under-age resources); the fifth is the
+  // shared `onDocumentAction` handler added by DEBUG-430, which is what makes
+  // Terms and Privacy reachable by screen reader — a Pressable collapses its
+  // subtree on iOS, so the inline links alone had no accessibility node. Same
+  // shape and same reason as the ReConsentScreen entry below. This screen DOES
+  // own a crisis affordance (the pre-consent 988 footer, DEBUG-390) and
+  // `LegalGate` IS in RootCrisisButton.SUPPRESSED_ROUTES — but that footer
+  // dials through `openCrisisUrl`, so it contributes no count here, and this
+  // entry must stay https-only. A `tel:`/`sms:` literal appearing in this file
+  // is caught by Rule 2 regardless of this count.
+  'src/features/consent/screens/CombinedLegalGateScreen.tsx': 5,
+  // Three https: legal links, no dial (FEAT-376). Terms and Privacy Policy are
+  // each reachable two ways — the inline link inside the checkbox label, and the
+  // `openDocument` accessibility action that exists because a Pressable collapses
+  // its subtree on iOS and would otherwise make the inline link unreachable to a
+  // screen reader. The third is the shared handler both actions route through.
+  // This screen owns no crisis affordance at all: `ReConsent` is deliberately
+  // absent from RootCrisisButton.SUPPRESSED_ROUTES so the root overlay covers it.
+  'src/features/consent/screens/ReConsentScreen.tsx': 3,
 };
 
 /**
