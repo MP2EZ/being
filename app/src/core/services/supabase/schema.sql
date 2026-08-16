@@ -489,7 +489,8 @@ CREATE TABLE IF NOT EXISTS subscription_events (
     'grace_period_ending',
     'subscription_expired',
     'subscription_restored',
-    'receipt_verification_failed'
+    'receipt_verification_failed',
+    'receipt_verification_succeeded'   -- DEBUG-446
   )),
 
   -- Event metadata (JSONB for flexibility)
