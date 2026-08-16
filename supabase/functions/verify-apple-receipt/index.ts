@@ -321,8 +321,27 @@ serve(async (req) => {
 
     console.log('[Apple Receipt Verification] Starting verification for user:', authUid);
 
-    // MOCK MODE: Handle mock receipts for local development
+    // MOCK MODE: Handle mock receipts for local development.
+    //
+    // FAIL CLOSED. This branch returns a valid year-long subscription for any
+    // caller who supplies a string with the right prefix, so it must never be
+    // reachable in a deployed environment. The gate is opt-in and defaults off:
+    // an unset ALLOW_MOCK_RECEIPTS rejects, so a project that has never heard of
+    // this variable is safe rather than exposed.
+    //
+    // The client-side guard is NOT a control. IAPService.ts gates its own mock
+    // path on `this.mockMode` (= __DEV__) and returns locally without calling
+    // this function at all, so no legitimate caller reaches this branch from
+    // either a dev or a Release build. Only a direct request does.
     if (receiptData.startsWith('mock_receipt_')) {
+      if (Deno.env.get('ALLOW_MOCK_RECEIPTS') !== 'true') {
+        console.warn('[Apple Receipt Verification] Mock receipt rejected - ALLOW_MOCK_RECEIPTS not enabled');
+        return new Response(
+          JSON.stringify({ error: 'Invalid receipt' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+
       console.log('[Apple Receipt Verification] Mock mode - auto-approving receipt');
 
       // Extract interval from mock receipt (format: mock_receipt_{interval}_{timestamp})
