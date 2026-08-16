@@ -704,6 +704,11 @@ INFRA-383's fast build, since `e2e-sim-build.sh` is app code that arrives with t
 back-merge. `git merge` does not fire the pre-commit hook, so run `npm run precommit`
 against the merged tree before spending a build on it.
 
+If `development` advances again WHILE you gate, re-classify rather than re-gate
+reflexively: re-run the flows only when the newly merged work touches a Step 2.5.1
+safety path. Unrelated churn does not invalidate a passing gate, and re-gating on
+every dev merge does not terminate on a busy day.
+
 **SECOND — is this worktree's build script the new one?** `.claude/` is shared across every
 worktree (it lives on `_bare`), but `app/scripts/e2e-sim-build.sh` is **app code**, so it
 arrives only when INFRA-383 is on *this branch*. Until a branch back-merges `development`,
