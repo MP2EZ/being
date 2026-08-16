@@ -146,9 +146,11 @@ reverted to `Not started`, so it re-enters the pool on the next read.
 List `Blocked` rows whose `Blocked by` relation is **empty**, with count and IDs. Do **not**
 read those bodies and do not adjudicate whether each blocker still holds — that is the
 in-context judgement Step 2.1 exists to avoid, and at this stage the bodies have not been
-fetched anyway. **Exclude rows whose `Batch Route` is `External blocker`** — that value
-records a blocker a relation cannot express, so re-listing them is the noise this report
-must not carry.
+fetched anyway. **Exclude rows carrying ANY `Batch Route` value** — a stamped row has a
+recorded reason, so re-listing it is the noise this report must not carry. Not just
+`External blocker`: an item can be both externally blocked *and* permanently out of reach
+(INFRA-114 is Play-Console config gated on the decision to ship Android at all), one select
+cannot say both, and the durable value is the one worth keeping.
 
 **Report it as a review list, never as a defect count, and expect the steady state to be
 non-zero.** An empty relation resolves three different ways, and only the first is a defect:
