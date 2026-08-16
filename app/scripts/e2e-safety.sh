@@ -198,6 +198,22 @@ fi
 # e2e_reset_drivers is deliberately NOT taught about DEVICE_UDID.
 SIM_UDID=""
 DEVICE_UDID=""
+
+# INFRA-434 — mid-suite substitution watch. Declared HERE, before the DEVICE_ONLY branch,
+# because this script runs under `set -u`: a device-only run never reaches the simulator
+# pre-flight that populates them, and an unset expansion later would be a hard error.
+#
+# GATE_MARKER staying EMPTY is also how the guard is scoped to the simulator path by
+# construction rather than by an `if DEVICE_ONLY` test at each call site — a device has no
+# container, so there is nothing to watch and nothing to claim. Same empty-string-as-
+# sentinel discipline INFRA-424 established for SIM_UDID.
+GATE_MARKER=""
+GATE_MARKER_SNAPSHOT=""
+GATE_TARGET_REPLACED=0
+GATE_REPLACED_AT=""
+GATE_REPLACED_KIND=""
+GATE_REPLACED_BY=""
+
 if [ "$DEVICE_ONLY" != "1" ]; then
   SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 1
 else
@@ -298,6 +314,30 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
       preflight_fail "provenance check returned '${VERDICT:-<no verdict>}' — the installed binary was not built from the current tree (or carries no marker). Rebuild: npm run e2e:safety:build"
       ;;
   esac
+
+  # INFRA-434 — snapshot the marker BYTES for the mid-suite watch below.
+  #
+  # Taken AFTER the case closes, deliberately: reaching here means the verdict was
+  # MATCH_CLEAN or an accepted MATCH_DIRTY, so the marker provably exists and parses. An
+  # empty read at THIS point is therefore an anomaly in its own right, not the ordinary
+  # not-yet-built case the `else` branch below handles — hence preflight_fail rather than
+  # a silent skip. Fail closed, same rule as the `*)` arm.
+  #
+  # Bytes, not a recomputed fingerprint: e2e-provenance.js's fingerprint() hashes untracked
+  # file contents repo-wide, so re-verifying per flow would abort a suite whose binary never
+  # moved the moment an operator saves a file. And not the container path either — the
+  # "simctl mints a new UUID per fresh install" claim is asserted in this repo but verified
+  # nowhere in it, so nothing here depends on it being true. A vanished container makes the
+  # read empty, which the GONE arm already handles without the claim.
+  GATE_MARKER="$APP/$(node -e 'process.stdout.write(require("./scripts/e2e-provenance.js").MARKER_NAME)' 2>/dev/null || true)"
+  case "$GATE_MARKER" in
+    "$APP/"?*) ;;
+    *) preflight_fail "could not resolve the provenance marker filename from e2e-provenance.js — refusing to run an unwatched suite." ;;
+  esac
+  GATE_MARKER_SNAPSHOT="$(cat "$GATE_MARKER" 2>/dev/null || true)"
+  if [ -z "$GATE_MARKER_SNAPSHOT" ]; then
+    preflight_fail "the provenance marker verified a moment ago but reads empty now — the gate target is already moving. Rebuild: npm run e2e:safety:build"
+  fi
 else
   echo "⚠️  $BUNDLE_ID is not installed on simulator $SIM_UDID — run 'npm run e2e:safety:build' first." >&2
   exit 1
@@ -379,6 +419,49 @@ e2e_reset_drivers() {
   if [ -n "$(printf '%s' "$_peers" | tr -d ' ')" ]; then
     echo "   peer maestro JVM(s) live and PROTECTED:$_peers"
   fi
+}
+
+# INFRA-434 — has the gate target been replaced since the pre-flight attested it?
+#
+# The pre-flight verifies ONCE and the flow loop then runs for minutes. INFRA-436's mutex
+# closed the peer-`e2e:safety:build` case, but several replacement paths never take that
+# lock: e2e-sim-build-eas.sh (no acquisition; uninstall+install), `npm run ios`, Xcode Run,
+# a hand-run `xcrun simctl install`, a lock reclaimed as DEAD/RECYCLED, and a peer running
+# with a different E2E_LOCK_ROOT. Any of those swaps the binary underneath a suite that
+# then reports PASS about someone else's build.
+#
+# Returns 0 to continue, 1 to abort. Never exits directly — the caller owns the summary.
+e2e_assert_gate_target() {
+  # No marker to watch: device-only run, or no container. Nothing to claim either way.
+  [ -n "$GATE_MARKER" ] || return 0
+
+  _now="$(cat "$GATE_MARKER" 2>/dev/null || true)"
+
+  if [ -z "$_now" ]; then
+    # Absent or unreadable. This is the DOMINANT residual case — an uninstall, an
+    # interrupted build, a Debug reinstall — and it is why AC4's single-arm wording could
+    # not be met as written: there is no new marker, so there is no repoRoot to name.
+    # Refusing without attribution is correct here; inventing one would be worse.
+    GATE_TARGET_REPLACED=1
+    GATE_REPLACED_KIND="vanished"
+    GATE_REPLACED_BY=""
+    return 1
+  fi
+
+  if [ "$_now" != "$GATE_MARKER_SNAPSHOT" ]; then
+    GATE_TARGET_REPLACED=1
+    GATE_REPLACED_KIND="replaced"
+    # Attribution is free: the marker already carries repoRoot and branch. Diagnostics must
+    # never be able to fail the refusal, so every extraction defaults rather than erroring.
+    _who="$(printf '%s' "$_now" \
+      | sed -n 's/.*"repoRoot"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    _br="$(printf '%s' "$_now" \
+      | sed -n 's/.*"branch"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    GATE_REPLACED_BY="${_who:-<unknown worktree>} (${_br:-<unknown branch>})"
+    return 1
+  fi
+
+  return 0
 }
 
 # INFRA-405: pin every flow to the simulator the pre-flight just attested.
@@ -550,8 +633,19 @@ fi
 # mid-flow is protected by the same rule that protects it later.
 e2e_reset_drivers "" "pre-flight"
 
+flow_idx=0
+FLOW_TOTAL=${#FLOWS[@]}
+
 for f in "${FLOWS[@]}"; do
   name="$(basename "$f" .yaml)"
+  flow_idx=$((flow_idx + 1))
+
+  # INFRA-434 — is the binary we attested still the binary installed?
+  if ! e2e_assert_gate_target; then
+    GATE_REPLACED_AT="$flow_idx"
+    results+=("ABORTED  $name  (gate target $GATE_REPLACED_KIND before this flow)")
+    break
+  fi
 
   # A second wedge aborts the rest. 8 flows x a 600s bound is an 80-minute worst case,
   # which would reinstate the very problem the bound solves; and the wedge lives down in
@@ -683,9 +777,33 @@ for f in "${FLOWS[@]}"; do
   sleep 8
 done
 
+# INFRA-434 — check once more AFTER the loop. A top-of-loop-only watch cannot see a
+# replacement during the last flow, and the 1-of-1 case is not an edge case: it is the
+# common /b-close Phase 2.5 shape, where a scoped run is a single flow. Without this the
+# guard would be absent from exactly the run type that most often adjudicates a merge.
+if [ "$GATE_TARGET_REPLACED" != "1" ]; then
+  if ! e2e_assert_gate_target; then
+    GATE_REPLACED_AT="$flow_idx"
+  fi
+fi
+
 echo ""
 echo "──── e2e:safety summary (${ran} flow(s), isolated invocations) ────"
-for r in "${results[@]}"; do echo "  $r"; done
+if [ "$GATE_TARGET_REPLACED" = "1" ]; then
+  # Every completed flow is VOID, unconditionally — not merely under
+  # E2E_REQUIRE_CLEAN_PROVENANCE. A marker change bounds a WINDOW, not an instant: the
+  # substitution could have happened at any point during the flow that preceded it, and a
+  # marker could even be changed and changed back. So no completed flow survives as
+  # evidence, and none is printed as PASS for a reader (or a grep) to salvage.
+  for r in "${results[@]}"; do
+    case "$r" in
+      ABORTED*) echo "  $r" ;;
+      *) echo "  VOID     ${r#* } — inconclusive, ran against an unverified target" ;;
+    esac
+  done
+else
+  for r in "${results[@]}"; do echo "  $r"; done
+fi
 
 # A zero-flow run must never be laundered into a green. This script previously printed
 # "all safety flows passed" and exited 0 when `ran` was 0 — vacuously true and read by
@@ -694,6 +812,31 @@ for r in "${results[@]}"; do echo "  $r"; done
 if [ "$ran" -lt 1 ]; then
   echo "❌ no flows actually ran — refusing to report success." >&2
   exit 1
+fi
+
+# INFRA-434 — the target moved. Checked BEFORE the pass/fail branches below, because
+# neither of their verdicts is available any more: a PASS would describe someone else's
+# binary and a FAIL might too. This is "the gate could not render a verdict", which is a
+# third outcome and gets a third exit code.
+if [ "$GATE_TARGET_REPLACED" = "1" ]; then
+  echo ""
+  if [ "$GATE_REPLACED_KIND" = "vanished" ]; then
+    echo "❌ aborted — the gate target VANISHED at flow ${GATE_REPLACED_AT} of ${FLOW_TOTAL}."
+    echo "   The app was uninstalled or reinstalled mid-suite, so no marker remains to"
+    echo "   attribute it. Likely causes: 'npm run ios', Xcode Run, a manual"
+    echo "   'xcrun simctl install/uninstall', or e2e-sim-build-eas.sh (which takes no lock)."
+  else
+    echo "❌ aborted — the gate target was REPLACED at flow ${GATE_REPLACED_AT} of ${FLOW_TOTAL}."
+    echo "   Replaced by: ${GATE_REPLACED_BY}"
+  fi
+  echo ""
+  echo "   This is NOT a flow failure and NOT a pass. The flows that completed ran against"
+  echo "   a binary this gate never attested, so they are inconclusive rather than green."
+  echo "   Rebuild and re-run:  npm run e2e:safety:gate"
+  echo ""
+  echo "   INFRA-436's simulator lock covers a peer's 'npm run e2e:safety:build'. It does"
+  echo "   NOT cover the paths above — none of them acquire it."
+  exit 3
 fi
 
 if [ "$timeouts" -gt 0 ]; then

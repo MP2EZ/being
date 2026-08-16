@@ -223,8 +223,18 @@ Keeping the two checks separate is console discipline, which is why it is writte
 1. **Deploy the grace-period stack** (`supabase db push`, Vault secrets first) and confirm
    with `SELECT jobname, schedule, active FROM cron.job;` that `grace-period-automation`
    exists and is active, and that `grace_period_automation_runs` is present.
+   **Both ends of the cron bearer are `GRACE_PERIOD_*`, never `CRON_SECRET`** — Vault
+   `grace_period_cron_secret` must equal the `GRACE_PERIOD_CRON_SECRET` **edge** secret.
+   INFRA-379 renamed the edge side: edge secrets are project-wide and `CRON_SECRET` is the
+   crisis pipeline's bearer, so pointing this job at it is the one way to break the
+   trust-domain separation stated above while appearing to follow the instructions.
 2. **Redeploy the edge function** — `supabase functions deploy grace-period-automation
    --no-verify-jwt` — so the deployed code contains both the heartbeat and this ping.
+   **Then trigger one run by hand before step 3.** The §4 watchdog fires every 6h and
+   escalates when `grace_period_automation_runs` has no `ok` row inside 26h — an empty
+   table reads as `never`, so a watchdog armed ahead of the first 02:00 UTC run pages on a
+   pipeline that is in fact healthy. One manual run seeds the heartbeat and doubles as the
+   step-5 ping check.
 3. **Create the healthchecks.io check.** A NEW check, distinct from the crisis one.
    **Period 1 day, grace 26h** — the daily 02:00 UTC cadence plus one tolerated skip, which
    also matches the 26h healthy window hard-coded in the §4 watchdog. If the cron schedule

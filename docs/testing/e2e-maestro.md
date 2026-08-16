@@ -216,9 +216,27 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   cocoapods`.)*
 - **Timing (measured, SDK 56 / Xcode 26.0.1):** ~14 min for the first build in a *fresh*
   worktree — it also pays the CNG prebuild and `pod install`; ~11 min if `app/ios/`
-  already exists; **~35-75 s warm** thereafter. DerivedData is ~7.5 GB and keyed by
+  already exists; **~35-75 s warm** thereafter. DerivedData is ~5-7 GB and keyed by
   project path, so each worktree pays its own cold build once. Use
   `npm run e2e:safety:clean` to see what that is costing and to reclaim it.
+- **Orphaned DerivedData is the one that fills the disk (INFRA-435).** Removing a worktree
+  does not remove its cache, and nothing reaped them, so they accumulated at roughly one
+  per closed work item — observed at **119 GB across 24 `Being-*` directories against only
+  5 live worktrees**, which surfaced as a build dying with `lipo: can't write to output
+  file … (No space left on device)` and `xcodebuild` error 65. That message names the
+  linker, not the disk. Reclaim with:
+
+  ```bash
+  npm run e2e:safety:clean:orphans            # list orphans + reclaimable total
+  npm run e2e:safety:clean:orphans -- --yes   # reap them
+  ```
+
+  Orphanhood is keyed on the **worktree root**, never the `.xcworkspace` leaf: under CNG
+  `app/ios/` is generated, and `e2e-sim-build.sh` deletes it for the duration of a
+  `prebuild --clean`, so a leaf-keyed sweep would reap the shared gate worktree's own cache
+  mid-build. A cache whose `WorkspacePath` is unreadable is reported as unknown and never
+  reaped. `e2e-sim-build.sh` also refuses up front below `E2E_MIN_FREE_GB` (default 10)
+  with a message naming **disk space**, so this never again presents as a linker error.
 - The EAS fallback (`npm run e2e:safety:build:eas`) *does* still need `eas-cli` logged in
   (`npx eas whoami`), `fastlane`, and a clean tree, and takes 10–15 min every run.
 - **eas-cli version (INFRA-351).** That fallback calls the **bare global** `eas`, whose
@@ -284,6 +302,23 @@ instead of 10–15 min; `npm run e2e:safety:build:eas` keeps the old EAS path as
 rollback and as a re-measurable baseline after toolchain upgrades.
 
 ## Running the flows
+
+> **Operator rule (INFRA-434): do not replace the installed app while a suite is running.**
+> The gate resolves and attests its target once at pre-flight, then runs for minutes.
+> INFRA-436's per-UDID lock covers a peer's `npm run e2e:safety:build`, so that path now
+> waits rather than trampling. It does **not** cover anything that never takes the lock:
+> `npm run e2e:safety:build:eas` (zero lock acquisitions — it uninstalls and installs
+> directly), `npm run ios`, Xcode Run, or a hand-run `xcrun simctl install` / `uninstall` /
+> `erase`.
+>
+> Since INFRA-434 the gate re-reads its target's provenance marker between flows and after
+> the last one, and **aborts with exit 3** if it changed or disappeared — distinct from
+> exit 1 (a flow regression) and exit 2 (the harness could not complete). Every flow that
+> had already finished is reported `VOID`, not `PASS`: a marker change bounds a window
+> rather than an instant, so nothing that ran before it is evidence. When the marker was
+> replaced rather than deleted, the abort names the replacing worktree's `repoRoot` and
+> `branch`; an uninstall leaves no marker, so that case reports `VANISHED` with no
+> attribution.
 
 ```bash
 # Sim suite (4 flows tagged `safety`, ~3–5 min) — runnable on iOS sim.
