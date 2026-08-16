@@ -817,6 +817,9 @@ run serves them, and this skill's job was to stage the session rather than finis
 observation script **extracted from the item's own ACs and Technical Notes, never invented**:
 the exact device or simulator geometry, the exact commands, and exactly what to capture. If the
 item states no procedure, say so — a confidently wrong device workflow is worse than none.
+Re-resolve any `file:line` the item or its comments cite before emitting it. Line references rot,
+including inside a comment that corrected an earlier one, and a handoff spends a human's session
+on them unverified.
 
 ```
 🖐️  [WORK_ITEM_ID] staged for an attended session — Status stays In progress
