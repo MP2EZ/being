@@ -193,7 +193,14 @@ export type SubscriptionEventType =
   | 'grace_period_ending'           // 2 days before grace ends
   | 'subscription_expired'
   | 'subscription_restored'         // User restored purchases
-  | 'receipt_verification_failed';
+  | 'receipt_verification_failed'
+  | 'receipt_verification_succeeded';   // DEBUG-446
+
+// NOTE (DEBUG-446): this union is one of THREE copies of the allowed set. The others are the
+// DB CHECK constraint (supabase/migrations/, most recently 20260816010000) and the mirror at
+// app/src/core/services/supabase/schema.sql. They drifted apart, which is exactly how the
+// success-audit path stayed dead: the edge functions sent a value the constraint rejected and
+// nothing read the error. Change all three together.
 
 /**
  * Subscription Store (Zustand)
