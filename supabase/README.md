@@ -483,7 +483,7 @@ supabase functions logs grace-period-automation
 - [x] Ownership validation on subscription event logging (MAINT-116)
 - [ ] TODO: Implement receipt data encryption at rest (currently stored as-is)
 - [x] Apple JWS signature verification implemented in subscription-webhook
-      (verifyAppleJWS.ts) with full cert chain validation — closes SEC-01.
+      (`_shared/verifyAppleJWS.ts`) with full cert chain validation — closes SEC-01.
 - [x] Google Pub/Sub OIDC signature verification implemented in
       subscription-webhook (verifyGoogleOIDC.ts).
 - [x] Receipt-verification functions extract auth.uid() from caller JWT
