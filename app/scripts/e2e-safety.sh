@@ -209,6 +209,9 @@ DEVICE_UDID=""
 # sentinel discipline INFRA-424 established for SIM_UDID.
 GATE_MARKER=""
 GATE_MARKER_SNAPSHOT=""
+# DEBUG-432 — the marker FILENAME, kept separately from the resolved path above so the
+# watch can re-resolve the container between flows. See e2e_assert_gate_target().
+GATE_MARKER_NAME=""
 GATE_TARGET_REPLACED=0
 GATE_REPLACED_AT=""
 GATE_REPLACED_KIND=""
@@ -329,7 +332,8 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
   # "simctl mints a new UUID per fresh install" claim is asserted in this repo but verified
   # nowhere in it, so nothing here depends on it being true. A vanished container makes the
   # read empty, which the GONE arm already handles without the claim.
-  GATE_MARKER="$APP/$(node -e 'process.stdout.write(require("./scripts/e2e-provenance.js").MARKER_NAME)' 2>/dev/null || true)"
+  GATE_MARKER_NAME="$(node -e 'process.stdout.write(require("./scripts/e2e-provenance.js").MARKER_NAME)' 2>/dev/null || true)"
+  GATE_MARKER="$APP/$GATE_MARKER_NAME"
   case "$GATE_MARKER" in
     "$APP/"?*) ;;
     *) preflight_fail "could not resolve the provenance marker filename from e2e-provenance.js — refusing to run an unwatched suite." ;;
@@ -434,6 +438,34 @@ e2e_reset_drivers() {
 e2e_assert_gate_target() {
   # No marker to watch: device-only run, or no container. Nothing to claim either way.
   [ -n "$GATE_MARKER" ] || return 0
+
+  # DEBUG-432 — RE-RESOLVE the container before reading. The pre-flight caches an absolute
+  # path, and the comment above once reasoned that the container path was safe to bind
+  # because "the 'simctl mints a new UUID per fresh install' claim is asserted in this repo
+  # but verified nowhere in it, so nothing here depends on it being true."
+  #
+  # It is true, and this DID depend on it. Verified on iOS 18.6, one simulator, one build,
+  # nothing else running — a single `launchApp: { clearState: true }` moved the bundle:
+  #     before  …/Application/F52767BD-…/fyi.being.app-1786869100818.app
+  #     after   …/Application/EC9AA845-…/fyi.being.app-1786869250864.app
+  # Maestro implements iOS clearState as an uninstall+reinstall, and EVERY safety flow opens
+  # with one. So the cached path was dead by the first command of the first flow, the read
+  # came back empty, and the GONE arm below reported a healthy suite as "vanished" — VOID,
+  # every run, for every close that reaches Phase 2.5. A gate that cannot return PASS is not
+  # a strict gate; it is an outage that trains --skip-e2e.
+  #
+  # Re-resolving restores the property the guard actually wants. What is compared is
+  # UNCHANGED and still the marker's BYTES: the marker is content-addressed (INFRA-436), so
+  # a peer's build swapped in underneath us carries a different repoRoot/head/treeHash and
+  # still trips the replaced arm below, wherever the container happens to live. Only the
+  # question "which file do I read" is fixed here — not "what counts as substitution".
+  #
+  # The GONE arm keeps its meaning and its teeth: a genuine uninstall leaves
+  # get_app_container failing, so _app is empty and _now is empty, exactly as before.
+  _app="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null || true)"
+  if [ -n "$_app" ] && [ -n "$GATE_MARKER_NAME" ]; then
+    GATE_MARKER="$_app/$GATE_MARKER_NAME"
+  fi
 
   _now="$(cat "$GATE_MARKER" 2>/dev/null || true)"
 
