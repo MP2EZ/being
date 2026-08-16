@@ -42,6 +42,11 @@ import {
 // FEAT-293: standalone practice discoverability.
 import SortingPracticeRoute from '@/features/practices/catalog/SortingPracticeRoute';
 import PracticeLibraryScreen from '@/features/practices/screens/PracticeLibraryScreen';
+// FEAT-433 — direct paths, never a features/guidance barrel (FEAT-376): a barrel
+// would pull guidanceGate and the content loader into this navigator's eager graph,
+// defeating the lazy load the suppression ordering depends on.
+import DomainGuidanceScreen from '@/features/guidance/screens/DomainGuidanceScreen';
+import type { GuidanceDomain } from '@/features/guidance/types/guidance';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
@@ -143,8 +148,18 @@ export type RootStackParamList = {
   };
   CrisisResources: {
     severityLevel?: 'moderate' | 'high' | 'emergency';
-    source?: 'assessment' | 'direct' | 'crisis_button';
+    // FEAT-433: `guidance_gate` added. `features/guidance/types/guidance.ts` has
+    // hard-coded that literal since slice 1, and it compiled only because
+    // GuidanceCrisisRoute is a free-standing interface with no structural relationship
+    // to this list AND decideGuidanceAccess had no production consumer. Slice 3a gives
+    // it one, so the omission became a real typecheck failure rather than a latent one.
+    //
+    // Widen the union — do NOT loosen this to `string`, and do NOT cast at the call
+    // site. The sole reader is CrisisResourcesScreen.tsx:268 (`source ?? 'direct'` into
+    // a logSecurity metadata bag), so there is no exhaustive switch to break.
+    source?: 'assessment' | 'direct' | 'crisis_button' | 'guidance_gate';
   } | undefined;
+  DomainGuidance: { domain: GuidanceDomain };
   Subscription: undefined;
   SubscriptionStatus: undefined;
   WellnessTrendsDetail: undefined;
@@ -533,6 +548,22 @@ const CleanRootNavigator: React.FC = () => {
             NOT modal — it is a browsable listing surface, and it must keep the
             root crisis overlay in its default `standard` mode (hence its
             deliberate absence from RootCrisisButton's route sets). */}
+        {/* FEAT-433 slice 3a. Deliberately absent from BOTH of RootCrisisButton's
+            route sets (SUPPRESSED_ROUTES and IMMERSIVE_ROUTES), so the root 988
+            overlay renders here in default `standard` mode — the feature ships zero
+            floating UI of its own, so without the overlay it would have no crisis
+            affordance at all. `MUST_RENDER_STANDARD` in RootCrisisButton.test.tsx
+            pins that rather than leaving it safe-by-accident.
+
+            No entry point until FEAT-457 adds the Home affordance: this route is
+            reachable only by an explicit navigate. That unreachability is also why
+            the slice ships unflagged. */}
+        <Stack.Screen
+          name="DomainGuidance"
+          component={DomainGuidanceScreen}
+          options={{ headerShown: true, title: 'Guidance', headerBackTitle: 'Back' }}
+        />
+
         <Stack.Screen
           name="PracticeLibrary"
           options={{ headerShown: false, presentation: 'card' }}
