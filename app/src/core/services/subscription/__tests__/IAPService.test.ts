@@ -263,8 +263,11 @@ describe('IAPService - Receipt Verification', () => {
     // apart; see the trap-control test at the end of this describe block.
     const [fnName, opts] = mockInvoke.mock.calls[0] as [string, { body: Record<string, unknown> }];
     expect(fnName).toBe('verify-apple-receipt');
-    expect(Object.keys(opts.body).sort()).toEqual(['receiptData']);
-    expect(opts.body.receiptData).toBe('base64-receipt');
+    // Empty body when the purchase carries no transaction identity: `receiptData` is no
+    // longer sent at all (INFRA-467 slice 4). The server stopped reading it at slice 3,
+    // so continuing to send a base64 app receipt on every purchase was pure waste.
+    expect(Object.keys(opts.body).sort()).toEqual([]);
+    expect('receiptData' in opts.body).toBe(false);
 
     expect(result.valid).toBe(true);
     expect(result.subscriptionId).toBe('test-sub-id');
@@ -423,17 +426,15 @@ describe('IAPService - Receipt Verification', () => {
     expect(result.error).toBe('EMPTY_RECEIPT');
     const [fnName, opts] = mockInvoke.mock.calls[0] as [string, { body: Record<string, unknown> }];
     expect(fnName).toBe('verify-apple-receipt');
-    expect(Object.keys(opts.body).sort()).toEqual(['receiptData']);
-    expect(opts.body.receiptData).toBe('');
+    expect('receiptData' in opts.body).toBe(false);
   });
 
   // -------------------------------------------------------------------------
   // INFRA-467 slice 2 — Apple transaction identity travels to the server.
   //
-  // Additive and client-first, deliberately: a client ships through App Store review
-  // while an edge function deploys in seconds, so this field has to be in flight long
-  // before the server depends on it. Today's deployed function destructures only
-  // `receiptData`, so these extra keys are inert against it.
+  // Slice 2 shipped this additively, before the server read it. Slice 4 then dropped
+  // `receiptData`, which needed no adoption window of its own: nothing server-side ever
+  // read it successfully, so there was no traffic to strand.
   // -------------------------------------------------------------------------
 
   it('sends transactionId and the environment hint when the purchase carries them', async () => {
@@ -446,9 +447,11 @@ describe('IAPService - Receipt Verification', () => {
     });
 
     const [, opts] = mockInvoke.mock.calls[0] as [string, { body: Record<string, unknown> }];
-    expect(Object.keys(opts.body).sort()).toEqual(['environment', 'receiptData', 'transactionId']);
+    expect(Object.keys(opts.body).sort()).toEqual(['environment', 'transactionId']);
     expect(opts.body.transactionId).toBe('2000000847061713');
     expect(opts.body.environment).toBe('Sandbox');
+    // The receipt blob is gone from the wire even when identity IS present.
+    expect('receiptData' in opts.body).toBe(false);
   });
 
   it('OMITS the keys entirely when identity is absent — never sends them as undefined', async () => {
