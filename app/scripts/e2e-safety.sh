@@ -203,15 +203,23 @@ DEVICE_UDID=""
 # because this script runs under `set -u`: a device-only run never reaches the simulator
 # pre-flight that populates them, and an unset expansion later would be a hard error.
 #
-# GATE_MARKER staying EMPTY is also how the guard is scoped to the simulator path by
+# INFRA-466 — the marker FILENAME is the ONLY thing retained. There is deliberately no
+# cached absolute path: the container is re-resolved on every check, so a failed re-resolve
+# has nothing stale to fall back to and must refuse. Storing the path made the guard's
+# safety depend on an invariant living outside it ("every install mints a new container
+# UUID, so a substituted binary deletes the old container and the stale read comes back
+# empty") — true today, owned by simctl rather than by this repo, and load-bearing inside a
+# guard whose entire job is to fail closed. Re-resolving makes the fallback impossible by
+# construction instead of merely unreachable.
+#
+# GATE_MARKER_NAME staying EMPTY is also how the guard is scoped to the simulator path by
 # construction rather than by an `if DEVICE_ONLY` test at each call site — a device has no
 # container, so there is nothing to watch and nothing to claim. Same empty-string-as-
-# sentinel discipline INFRA-424 established for SIM_UDID.
-GATE_MARKER=""
-GATE_MARKER_SNAPSHOT=""
-# DEBUG-432 — the marker FILENAME, kept separately from the resolved path above so the
-# watch can re-resolve the container between flows. See e2e_assert_gate_target().
+# sentinel discipline INFRA-424 established for SIM_UDID. The sentinel moved here from the
+# retired path variable; it must stay the first test in e2e_assert_gate_target(), or a
+# device-only run starts consulting xcrun for a container it does not have.
 GATE_MARKER_NAME=""
+GATE_MARKER_SNAPSHOT=""
 GATE_TARGET_REPLACED=0
 GATE_REPLACED_AT=""
 GATE_REPLACED_KIND=""
@@ -331,20 +339,16 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
   # moved the moment an operator saves a file. That is the half of the original reasoning
   # that survived.
   #
-  # The other half — "and not the container path either, because the 'simctl mints a new
-  # UUID per fresh install' claim is asserted in this repo but verified nowhere in it, so
-  # nothing here depends on it being true" — was FALSE, and is deleted rather than softened.
-  # It is the reasoning that produced DEBUG-432: the claim is true, the cached path did
-  # depend on it, and every scoped run VOIDed. Declining to rely on an unverified fact is
-  # not the same as being safe from it. The path is re-resolved per check in
-  # e2e_assert_gate_target(), which quotes this in full where it refutes it.
+  # INFRA-466 — only the FILENAME is retained. `$APP` is used here to take the snapshot and
+  # is then discarded; nothing outside this block ever holds a container path again. The
+  # validation therefore targets the name rather than a composed path: empty means node
+  # failed and the suite would run unwatched, and a value containing a slash means a path
+  # has been smuggled back in, which is the shape this item removed. Both refuse.
   GATE_MARKER_NAME="$(node -e 'process.stdout.write(require("./scripts/e2e-provenance.js").MARKER_NAME)' 2>/dev/null || true)"
-  GATE_MARKER="$APP/$GATE_MARKER_NAME"
-  case "$GATE_MARKER" in
-    "$APP/"?*) ;;
-    *) preflight_fail "could not resolve the provenance marker filename from e2e-provenance.js — refusing to run an unwatched suite." ;;
+  case "$GATE_MARKER_NAME" in
+    ""|*/*) preflight_fail "could not resolve the provenance marker filename from e2e-provenance.js — refusing to run an unwatched suite." ;;
   esac
-  GATE_MARKER_SNAPSHOT="$(cat "$GATE_MARKER" 2>/dev/null || true)"
+  GATE_MARKER_SNAPSHOT="$(cat "$APP/$GATE_MARKER_NAME" 2>/dev/null || true)"
   if [ -z "$GATE_MARKER_SNAPSHOT" ]; then
     preflight_fail "the provenance marker verified a moment ago but reads empty now — the gate target is already moving. Rebuild: npm run e2e:safety:build"
   fi
@@ -443,43 +447,67 @@ e2e_reset_drivers() {
 # Returns 0 to continue, 1 to abort. Never exits directly — the caller owns the summary.
 e2e_assert_gate_target() {
   # No marker to watch: device-only run, or no container. Nothing to claim either way.
-  [ -n "$GATE_MARKER" ] || return 0
+  # MUST stay the first statement — before any xcrun — or a device-only run starts
+  # consulting simctl for a container it does not have.
+  [ -n "$GATE_MARKER_NAME" ] || return 0
 
-  # DEBUG-432 — RE-RESOLVE the container before reading. The pre-flight caches an absolute
-  # path, and the comment above once reasoned that the container path was safe to bind
-  # because "the 'simctl mints a new UUID per fresh install' claim is asserted in this repo
-  # but verified nowhere in it, so nothing here depends on it being true."
-  #
-  # It is true, and this DID depend on it. Verified on iOS 18.6, one simulator, one build,
-  # nothing else running — a single `launchApp: { clearState: true }` moved the bundle:
+  # DEBUG-432 — RE-RESOLVE the container before reading, because its path is NOT stable.
+  # Verified on iOS 18.6, one simulator, one build, nothing else running: a single
+  # `launchApp: { clearState: true }` moved the bundle —
   #     before  …/Application/F52767BD-…/fyi.being.app-1786869100818.app
   #     after   …/Application/EC9AA845-…/fyi.being.app-1786869250864.app
-  # Maestro implements iOS clearState as an uninstall+reinstall, and EVERY safety flow opens
-  # with one. So the cached path was dead by the first command of the first flow, the read
-  # came back empty, and the GONE arm below reported a healthy suite as "vanished" — VOID,
-  # every run, for every close that reaches Phase 2.5. A gate that cannot return PASS is not
-  # a strict gate; it is an outage that trains --skip-e2e.
+  # Maestro implements iOS clearState as an uninstall+reinstall and EVERY safety flow opens
+  # with one, so a bound path is dead by the first command of the first flow. Binding one
+  # made the read come back empty and reported a healthy suite as "vanished" — VOID, every
+  # run, for every close reaching Phase 2.5. A gate that cannot return PASS is not a strict
+  # gate; it is an outage that trains --skip-e2e.
   #
-  # Re-resolving restores the property the guard actually wants. What is compared is
-  # UNCHANGED and still the marker's BYTES: the marker is content-addressed (INFRA-436), so
-  # a peer's build swapped in underneath us carries a different repoRoot/head/treeHash and
-  # still trips the replaced arm below, wherever the container happens to live. Only the
-  # question "which file do I read" is fixed here — not "what counts as substitution".
+  # What is compared is UNCHANGED and still the marker's BYTES: the marker is
+  # content-addressed (INFRA-436), so a peer's build swapped in underneath us carries a
+  # different repoRoot/head/treeHash and still trips the replaced arm below, wherever the
+  # container happens to live. Only "which file do I read" is resolved here — not "what
+  # counts as substitution". Deliberately NOT a per-flow `e2e-provenance.js verify`: its
+  # fingerprint() hashes untracked file contents repo-wide, so that would abort a suite
+  # whose binary never moved the moment an operator saves a file.
   #
-  # The GONE arm keeps its meaning and its teeth: a genuine uninstall leaves
-  # get_app_container failing, so _app is empty and _now is empty, exactly as before.
+  # INFRA-466 — the re-resolve is now the ONLY source of the path, and a failed one is a
+  # REFUSAL rather than a fallback. Previously this assigned into a cached GATE_MARKER only
+  # on success, so a failed lookup left the pre-flight's path in place; if that container
+  # was still readable the marker bytes matched and the guard returned 0, continuing on a
+  # target it could not verify. Proven reachable in the harness: a container indirection
+  # pointing at a missing directory fails the lookup while leaving the original container
+  # and its marker intact, and the suite ran to completion reporting PASS.
   _app="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null || true)"
-  if [ -n "$_app" ] && [ -n "$GATE_MARKER_NAME" ]; then
-    GATE_MARKER="$_app/$GATE_MARKER_NAME"
+
+  if [ -z "$_app" ] || [ ! -d "$_app" ]; then
+    # AC6 — a tightened arm converts a flaky lookup into an aborted suite, so it must say
+    # WHICH of the two happened. Discriminating on simctl's stderr would be brittle; the
+    # independent probe is e2e_booted_devices, which already separates "none booted" (exit
+    # 0, empty) from "could not find out" (exit 1).
+    #
+    #   enumeration failed, or this simulator is no longer booted
+    #     -> `unresolved`: the lookup itself is unavailable. Says nothing about the binary,
+    #        so it is an aborted suite rather than a verdict about substitution.
+    #   simulator still booted, app will not resolve
+    #     -> `vanished`: a genuine uninstall, the meaning this kind has always carried.
+    GATE_TARGET_REPLACED=1
+    GATE_REPLACED_BY=""
+    if _booted="$(e2e_booted_devices 2>/dev/null)" \
+       && printf '%s\n' "$_booted" | grep -qx "$SIM_UDID"; then
+      GATE_REPLACED_KIND="vanished"
+    else
+      GATE_REPLACED_KIND="unresolved"
+    fi
+    return 1
   fi
 
-  _now="$(cat "$GATE_MARKER" 2>/dev/null || true)"
+  _now="$(cat "$_app/$GATE_MARKER_NAME" 2>/dev/null || true)"
 
   if [ -z "$_now" ]; then
-    # Absent or unreadable. This is the DOMINANT residual case — an uninstall, an
-    # interrupted build, a Debug reinstall — and it is why AC4's single-arm wording could
-    # not be met as written: there is no new marker, so there is no repoRoot to name.
-    # Refusing without attribution is correct here; inventing one would be worse.
+    # The container resolved but the marker is gone — an uninstall+reinstall that landed a
+    # markerless build, an interrupted build, a Debug reinstall. There is no new marker, so
+    # there is no repoRoot to name; refusing without attribution is correct here, and
+    # inventing one would be worse.
     GATE_TARGET_REPLACED=1
     GATE_REPLACED_KIND="vanished"
     GATE_REPLACED_BY=""
@@ -858,15 +886,28 @@ fi
 # third outcome and gets a third exit code.
 if [ "$GATE_TARGET_REPLACED" = "1" ]; then
   echo ""
-  if [ "$GATE_REPLACED_KIND" = "vanished" ]; then
-    echo "❌ aborted — the gate target VANISHED at flow ${GATE_REPLACED_AT} of ${FLOW_TOTAL}."
-    echo "   The app was uninstalled or reinstalled mid-suite, so no marker remains to"
-    echo "   attribute it. Likely causes: 'npm run ios', Xcode Run, a manual"
-    echo "   'xcrun simctl install/uninstall', or e2e-sim-build-eas.sh (which takes no lock)."
-  else
-    echo "❌ aborted — the gate target was REPLACED at flow ${GATE_REPLACED_AT} of ${FLOW_TOTAL}."
-    echo "   Replaced by: ${GATE_REPLACED_BY}"
-  fi
+  # INFRA-466 — three kinds, so this is a case rather than an if/else. A third kind added to
+  # a two-way branch falls into the `replaced` arm and prints "Replaced by:" with an empty
+  # attribution, which reads as a substitution that was never observed.
+  case "$GATE_REPLACED_KIND" in
+    unresolved)
+      echo "❌ aborted — the gate target could not be RESOLVED at flow ${GATE_REPLACED_AT} of ${FLOW_TOTAL}."
+      echo "   The container lookup itself failed, so this says NOTHING about the binary —"
+      echo "   it is not a substitution and not an uninstall. The simulator is gone, was"
+      echo "   shut down or erased mid-suite, or 'xcrun simctl' is unavailable or flaking."
+      echo "   Confirm the simulator is still booted, then re-run:  npm run e2e:safety:gate"
+      ;;
+    vanished)
+      echo "❌ aborted — the gate target VANISHED at flow ${GATE_REPLACED_AT} of ${FLOW_TOTAL}."
+      echo "   The app was uninstalled or reinstalled mid-suite, so no marker remains to"
+      echo "   attribute it. Likely causes: 'npm run ios', Xcode Run, a manual"
+      echo "   'xcrun simctl install/uninstall', or e2e-sim-build-eas.sh (which takes no lock)."
+      ;;
+    *)
+      echo "❌ aborted — the gate target was REPLACED at flow ${GATE_REPLACED_AT} of ${FLOW_TOTAL}."
+      echo "   Replaced by: ${GATE_REPLACED_BY}"
+      ;;
+  esac
   echo ""
   echo "   This is NOT a flow failure and NOT a pass. The flows that completed ran against"
   echo "   a binary this gate never attested, so they are inconclusive rather than green."
