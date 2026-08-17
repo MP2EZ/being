@@ -470,6 +470,11 @@ it dies again mark the item AMBER naming the dead lens. EXCEPT for INFRASTRUCTUR
 times, pacing between waves. Two MALFORMED returns is still AMBER: that is the item
 resisting analysis. Never classify an item whose Architecture lens did not return.
 
+**Lenses contradict each other on CHECKABLE facts — verify, never adjudicate.** A
+disagreement about a count, a call site, or whether some capability exists is settled by
+running the check yourself, not by the more confident lens, the majority, or the
+specialist whose domain it nominally is. Confidence does not track correctness here.
+
 **Dependencies are structured, not free text.** The `Being. Product Backlog` data
 source has two reciprocal **relation** properties:
 - **`Blocked by`** — this item's prerequisites (JSON array of page URLs).
