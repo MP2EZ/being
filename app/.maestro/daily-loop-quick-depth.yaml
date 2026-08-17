@@ -217,11 +217,39 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #     it must not double as the thing that proves the step. `daily-loop-input-response`
 #     is tense-invariant — AwarePresence declares exactly one field, key `response`, in
 #     all three ModeConfigs — so it keeps the flow deterministic across all tenses.
+#
+# ⛔ DEBUG-468: BOTH of those assertions were passing VACUOUSLY on a 375x667 device, and
+#    the reasoning above says why without noticing it. The `when:` predicate was keyed on
+#    `daily-loop-skip-breath` — the element under suspicion — which sat ~107pt below the
+#    fold and was therefore ABSENT from the hierarchy. So the guard was STRUCTURALLY
+#    FALSE, the block SKIPPED (observed: `Run flow when id: daily-loop-skip-breath is
+#    visible... SKIPPED`), and `assertNotVisible` then passed because the link was
+#    off-screen, not because the breath had completed. Read the bullet above again: it
+#    claims a skipped conditional means "the SkipLink would still be mounted and this goes
+#    red." Mounted is not what Maestro measures. It measures ON SCREEN, and the two part
+#    company exactly when a layout defect is present — which is the only time the
+#    assertion was needed.
+#
+#    THE FIX IS TO KEY THE GUARD ON THE BREATH, NOT ON THE ESCAPE HATCH.
+#    `daily-loop-breathing-circle` is the discriminator: it is what actually distinguishes
+#    "breath still running" from "breath auto-completed during a stalled crisis
+#    round-trip", it is tense-invariant, and it is measured at y=252..568 inside a
+#    y=130..667 fold — 99pt of clearance at the smallest supported viewport, where the
+#    SkipLink had none. The nested assertVisible is then a REAL assertion: if the breath is
+#    up, its escape hatch must be on screen at scroll offset 0. That is the DEBUG-408
+#    principle applied correctly — the element under suspicion must not double as the
+#    thing that proves the step — and it is the assertion this flow was missing.
+#
+#    NO `scrollUntilVisible` HERE, EVER. Reachable-after-scrolling satisfies nothing: the
+#    breath is a GATE, and a gate whose exit the user cannot see is not one they chose to
+#    enter. Scrolling to find it would restore a green flow over the identical defect.
 - runFlow:
     when:
       visible:
-        id: "daily-loop-skip-breath"
+        id: "daily-loop-breathing-circle"
     commands:
+      - assertVisible:
+          id: "daily-loop-skip-breath"
       - tapOn:
           id: "daily-loop-skip-breath"
 - assertNotVisible:
