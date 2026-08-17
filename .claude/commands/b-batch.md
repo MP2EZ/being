@@ -263,6 +263,16 @@ Fill **in view order**, subject to all three:
   cheapest batch available. Weaker tie-break: shared `Type` and overlapping subject matter,
   which tend to share files and merge cheaply.
 
+**A slate under the cap must say WHICH cap bound it.** The ~10 window is never refilled and
+0.1a.5's exclusions cluster at its top, so a depleted window and an exhausted backlog produce
+identical output. When the slate stops short of all three budgets while survivors remain below
+rank 10, report it — a hidden cap reads as "considered everything", and the 0.1a.5 stamps just
+written are what make the next run's window start deeper.
+
+    📉 Window depleted: 6 of 10 read candidates routed out at 0.1a.5; 14 survivors below
+       rank 10 were never read. Slate is 3 items / 5 pts — short of the 6/12 cap for lack
+       of read candidates, not for lack of backlog.
+
 #### 0.1a.7 — Propose, never auto-run
 Present the slate via `AskUserQuestion`: the picks, the point total, the RED count, and a
 one-line reason each (rank / chain / cheap). Offer at least accept, edit-the-slate, and fall
