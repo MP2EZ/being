@@ -462,7 +462,7 @@ app/package-lock.json`) unless the work item is itself a dependency change.
 
 ---
 
-## Phase 3: Safety Scan, Flag Decision, Test Strategy & Implement
+## Phase 3: Safety Scan, Flag & Analytics Decisions, Test Strategy & Implement
 
 ### Step 3.1: Safety Scan
 
@@ -506,7 +506,7 @@ Reference `CLAUDE.md` for safety facts (PHQ/GAD thresholds, 988 access budget, p
 > - [ ] Scoped flow passes locally: `npm run e2e:safety:<flow>` (full suite: `npm run e2e:safety`)
 > The `/b-close` Phase 2.5 gate will block push when safety-surface paths change and Maestro fails. This is advisory; the hard gate is in `/b-close`.
 
-**If no signals match**: proceed to Step 3.2 (Feature-Flag Decision). General UI work and backend changes don't require a *specialist* planning pass, but they still pass through the flag and TDD decisions below.
+**If no signals match**: proceed to Step 3.2 (Feature-Flag Decision). General UI work and backend changes don't require a *specialist* planning pass, but they still pass through the flag, analytics, and TDD decisions below.
 
 ---
 
@@ -589,6 +589,67 @@ key to the `FeatureFlag` union and the env blob; ships dark via env default `fal
 
 The chosen lane feeds the test strategy below: if a flag was added, the Step 3.4 tests
 must exercise both flag states.
+
+---
+
+### Step 3.2a: Analytics Instrumentation Decision
+
+Decide whether this work item should **emit a PostHog product event**, reading the same
+story fields as Step 3.2 in the same pass. Classify into one **lane**:
+
+| Lane | Use when | Mechanism |
+|---|---|---|
+| **No event** *(default)* | `DEBUG`/`INFRA`/`MAINT`, backend-only, cosmetic — no net-new user-facing interaction | — |
+| **Existing event** | the interaction maps onto a name already in `SAFE_EVENT_TYPES` | call the `useAnalytics()` tracker at the new site |
+| **New event** | net-new interaction that no whitelisted name covers | register it (below), then add a tracker |
+
+Most whitelisted events have **no emit site yet** — read `PHIFilter.SAFE_EVENT_TYPES`
+before concluding you need a new name.
+
+**Signals to read:**
+- **Step 3.2's lane** — a Runtime flag makes an event near-mandatory: a gradual rollout or
+  A/B you cannot measure is decorative.
+- **Net-new user-facing surface** (screen, entry point, completed action) vs. internal/backend.
+- **A half-instrumented funnel** — a `_started` with no `_completed` is worse than neither:
+  a denominator with no numerator.
+
+**Guardrails (non-negotiable — INFRA-214 routing):**
+- **The sink is a legal-basis partition, not a preference.** PostHog = consented product
+  analytics; Supabase = vital-interest crisis telemetry. Crisis *access*
+  (`crisis_resources_viewed`, `crisis_hotline_tapped`) is whitelisted for PostHog; crisis
+  *detection* never routes there.
+- PostHog no-ops without analytics consent — never build a safety or compliance mechanism
+  on an event's delivery.
+- Any screen name carried in a property goes through `coarsenScreenNameForAnalytics` (DEBUG-239).
+- An event carrying data outside the categories disclosed in
+  `docs/architecture/analytics-architecture.md` § Privacy Policy Disclosure needs a
+  `compliance` pass — it moves the policy and the App Store labels. Within them, no doc change.
+- Events are surface area. Default to **No event** unless the story earns one.
+
+**If New event — execution.** Every miss below fails *silently*: `trackEvent` logs the block
+and returns, nothing throws.
+1. Add the string to `SAFE_EVENT_TYPES` **and** the constant to `AnalyticsEvents` — both in
+   `app/src/core/analytics/PHIFilter.ts`.
+2. Add a named tracker to `useAnalytics.ts` and export it; call sites use the tracker, never
+   a raw string.
+3. Properties — `PHIFilter.validate` drops the **whole event** on any violation: numeric
+   props must be keys in `SAFE_NUMERIC_KEYS`, and string *values* are substring-scanned
+   against `PHI_KEYWORDS`, which includes `name`, `note`, `entry`, `result`, `reflection`
+   (so a value like `evening_reflection` kills the event).
+4. Update the event list in `docs/architecture/analytics-architecture.md`.
+
+**Emit the decision:**
+
+```
+📊 Analytics Decision
+   Lane:        [No event | Existing event | New event]
+   Rationale:   [why this lane; cite the story signal or the Step 3.2 lane that drove it]
+   Event(s):    `event_name` · [already whitelisted | registered in PHIFilter] · props: [...]
+```
+
+Any lane but **No event** feeds Step 3.4: the tests must assert the tracker fires at the
+intended site **and** that `PHIFilter.validate` returns valid for the real property shape —
+an emit test alone proves nothing if the filter then drops the event.
 
 ---
 
@@ -797,7 +858,7 @@ rich_text: [
   {
     "type": "text",
     "text": {
-      "content": "Ready for testing via /b-work\n\nAgents invoked: [List or 'none']\nFeature flag: [No flag | Runtime: <name> | Build-time: <name>] — [rationale]; [Runtime lane: PostHog flag created at 0% via MCP | already existed | deferred to manual]\nTest lane: [Test-first | Test-after | Skip] — [rationale]\nTests written: [files/commands, or 'none — skip rationale']\nTest result: [paste passing npm run test:* line]\n\nImplementation: [Brief summary]\nDeliverables: [List]\n\nNext: Test and run /b-close [WORK_ITEM_ID] when complete"
+      "content": "Ready for testing via /b-work\n\nAgents invoked: [List or 'none']\nFeature flag: [No flag | Runtime: <name> | Build-time: <name>] — [rationale]; [Runtime lane: PostHog flag created at 0% via MCP | already existed | deferred to manual]\nAnalytics: [No event | Existing: <name> | New: <name>] — [rationale]\nTest lane: [Test-first | Test-after | Skip] — [rationale]\nTests written: [files/commands, or 'none — skip rationale']\nTest result: [paste passing npm run test:* line]\n\nImplementation: [Brief summary]\nDeliverables: [List]\n\nNext: Test and run /b-close [WORK_ITEM_ID] when complete"
     }
   }
 ]

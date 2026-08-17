@@ -461,7 +461,8 @@ end-of-run summary for manual lookup. Never guess a page or proceed on the wrong
   ambiguities: string[],
   files_touched: string[],     // best-effort prediction
   declared_deps: string[],     // supplementary body-text prerequisites (see below)
-  flag_signal: boolean }       // Architecture lens only — see Step 2.3a
+  flag_signal: boolean,        // Architecture lens only — see Step 2.3a
+  analytics_signal: boolean }  // Architecture lens only — net-new user-facing interaction; Step 2.3b
 ```
 **This shape cannot be machine-enforced from here — the `Agent` tool has no schema
 parameter.** So state it verbatim in each lens's prompt, require the reply to be that JSON
@@ -650,6 +651,17 @@ string as a decision, not a suggestion. `/b-work`'s Step 3.2 guardrails still bi
 particular, safety-critical *availability* is build-time tier only, whatever is answered
 here; a runtime flag couples it to analytics consent.
 
+### Step 2.3b: Analytics lane (recorded, never asked)
+`/b-work` Step 3.2a decides whether an item emits a PostHog event. Unlike the flag lane
+above this is **not** a checkpoint question: instrumentation follows mechanically from
+whether the item adds a user-facing interaction, where rollout is a judgement the loop may
+not make alone. Manufacturing a prompt per item is the cost this phase exists to avoid.
+
+Record the Architecture lens's `analytics_signal` on the manifest item and pass it through
+at Step 3.1 as context — `/b-work` 3.2a still classifies and its guardrails still bind.
+The one thing worth folding into the Step 2.3 round is a panel finding that a proposed
+event carries data outside the disclosed categories: that moves the privacy policy.
+
 ### Step 2.4: Soft cap (effort points, plus an item ceiling)
 The cap governs **every item that will run `/b-work` this session — GREEN and RED both**
 (a RED is implemented headless, then queued; it consumes the same context budget as a green).
@@ -709,7 +721,7 @@ other's `approach` strings + dependency graph (the parts Notion can't reconstruc
     { "id": "FEAT-130", "verdict": "green", "tranche": 0,
       "approach": "<synthesized (possibly narrowed) approved approach>",
       "scoped": false, "defer_note": null,
-      "effort": "M", "effort_points": 3, "flag_lane": null,
+      "effort": "M", "effort_points": 3, "flag_lane": null, "analytics_signal": false,
       "depends_on": [], "blocked_by": null,
       "state": "pending", "pr": null, "notes": "",
       "skill_lessons": [] }
@@ -792,7 +804,9 @@ Invoke with the approved approach fed through the existing `ADDITIONAL_CONTEXT` 
 ```
 If the manifest carries a `flag_lane` (Step 2.3a), append it as a settled decision —
 `Feature-flag lane: <lane> (decided at batch approval; do not re-derive)` — so `/b-work`
-Step 3.2 records and executes it instead of re-classifying from the story text.
+Step 3.2 records and executes it instead of re-classifying from the story text. If the panel
+set `analytics_signal`, append it as context — `Analytics: net-new user-facing interaction
+(panel)` — not as a decision; Step 3.2a still picks the lane.
 
 **Park `/b-work`'s retrospective; never answer it.** Its Phase 6 can propose a process edit
 and requires that you "never auto-apply" — but the human who must approve it is not here, and
