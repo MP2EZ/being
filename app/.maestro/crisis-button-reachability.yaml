@@ -373,18 +373,21 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     centerElement: true
 - tapOn:
     id: "profile-card-privacy"
-# profile-card-delete is the BOTTOM-MOST element on the Privacy screen, so its
-# right edge sits under the always-on-top crisis button (bottom-right overlay).
-# centerElement can't center a last element (no content below to scroll past it),
-# so it never reaches 100% visibility — drop the threshold to 60% (the card is
-# substantially visible; only the chevron corner is occluded). That the
-# destructive control is partly under the crisis button while 988 stays
-# reachable is itself the contract this segment pins.
+# profile-card-delete is the BOTTOM-MOST element on the Privacy screen. It needs
+# centerElement:true for the same reason every other card scroll here does —
+# without it scrollUntilVisible stops short of maximum scroll and reports
+# COMPLETED anyway. Measured on iPhone SE 3 (DEBUG-453): it stopped at 87% with
+# the card at [24,623][351,740], entirely below the ScrollView's clip bottom of
+# 583, then tapped its centre at y=681.5 and hit nothing. At true maximum the
+# card sits at [24,385][351,503] — fully visible, 80pt of trailing padding below.
+# visibilityPercentage stays 60: the threshold was never the problem, so lowering
+# OR raising it would both miss the defect (DEBUG-432 rejected lowering it).
 - scrollUntilVisible:
     element:
       id: "profile-card-delete"
     direction: DOWN
     visibilityPercentage: 60
+    centerElement: true
 - tapOn:
     id: "profile-card-delete"
 - assertVisible:
