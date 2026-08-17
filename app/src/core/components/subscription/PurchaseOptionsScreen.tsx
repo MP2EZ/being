@@ -36,6 +36,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { IAPService, useIAPService } from '@/core/services/subscription/IAPService';
+import { appleTransactionIdentityFrom } from '@/core/services/subscription/appleTransactionIdentity';
 import SubMenuHeader from '@/features/profile/components/SubMenuHeader';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import {
@@ -177,7 +178,17 @@ export default function PurchaseOptionsScreen({
 
       for (const purchase of purchases) {
         const receiptData = purchase.transactionReceipt || '';
-        const verification = await service.verifyReceipt(receiptData, platform);
+        // Restore must carry the transaction identity too (INFRA-467). The App Store
+        // Server API is keyed on a transactionId, so once the server cuts over, a
+        // restore that sends only a receipt blob cannot be verified at all. This is
+        // the one call site the migration's fork analysis recorded as unchanged —
+        // true of the purchaseToken argument, not of this one.
+        const verification = await service.verifyReceipt(
+          receiptData,
+          platform,
+          undefined,
+          appleTransactionIdentityFrom(purchase)
+        );
 
         if (verification.valid) {
           await subscriptionStore.updateSubscriptionStatus('active');
