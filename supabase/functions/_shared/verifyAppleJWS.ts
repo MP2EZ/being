@@ -339,3 +339,91 @@ export async function verifyAppleJWS(
     leafCertFingerprint: fingerprint,
   };
 }
+
+// ---------------------------------------------------------------------------
+// INFRA-449 — APP SCOPING.
+//
+// verifyAppleJWS above proves APPLE signed a payload. It does not prove Apple
+// signed it FOR US. Every App Store developer's transaction JWS chains to the
+// same pinned Apple Root CA - G3, so a genuine, correctly-signed notification
+// from any other developer's app passes every check above.
+//
+// That was previously covered by accident: the legacy `verifyReceipt` call
+// carried APPLE_SHARED_SECRET, and Apple would only answer for the app that
+// secret belonged to. The App Store Server API migration (INFRA-467) drops the
+// shared secret, so the implicit scoping goes with it — which is why this
+// assertion ships ahead of the migration rather than inside it.
+//
+// Scope of the environment check, stated plainly so it is not mistaken for more
+// than it is: this asserts the claim is PRESENT, well-formed and recognized. It
+// does NOT pin it to `Production`, because one Supabase project serves both
+// production and development and edge secrets are project-wide, so neither a
+// constant nor a secret can discriminate. Sandbox transactions are mintable free
+// by anyone with a sandbox Apple ID, so that residual acceptance is real and is
+// tracked with the environment decision in INFRA-467. Reading the claim at all
+// is still strictly better than the previous state, where it was never read.
+// ---------------------------------------------------------------------------
+
+/**
+ * The one bundle identifier this backend will accept Apple payloads for.
+ *
+ * MAINT-161: `com.being.app` was claimed by a third party and retired. Asserting
+ * that value would reject every genuine notification — a fail-closed outage
+ * wearing the costume of a security control.
+ */
+export const BEING_BUNDLE_ID = 'fyi.being.app';
+
+/** The only values Apple sets on the `environment` claim. */
+export const APPLE_ENVIRONMENTS = ['Production', 'Sandbox'] as const;
+
+export interface AppleAppScope {
+  bundleId: string;
+  environment: string;
+}
+
+/**
+ * Assert that a verified Apple payload belongs to THIS app, and carries a
+ * recognized environment. Throws on any failure — there is no permissive path.
+ *
+ * `context` names the call site (the ASSNv2 notification body vs. the inner
+ * signed transaction) because the webhook validates both; without it an operator
+ * reading a failure cannot tell which half was wrong.
+ *
+ * The thrown message names the offending claim and nothing else. Edge-function
+ * logs are operator-visible and the payload carries transaction identifiers and
+ * `appAccountToken`, none of which add diagnostic value here.
+ */
+export function assertAppleAppScope(
+  claims: Record<string, unknown>,
+  context: string,
+): AppleAppScope {
+  const bundleId = claims?.bundleId;
+  if (typeof bundleId !== 'string' || bundleId.length === 0) {
+    throw new Error(
+      `Apple payload (${context}) has no usable bundleId claim — refusing. ` +
+        `App scoping cannot be established, so the payload is not provably ours.`,
+    );
+  }
+  if (bundleId !== BEING_BUNDLE_ID) {
+    throw new Error(
+      `Apple payload (${context}) is scoped to bundleId "${bundleId}", not ` +
+        `"${BEING_BUNDLE_ID}" — refusing. A correctly Apple-signed payload for a ` +
+        `different app is exactly what this check exists to reject.`,
+    );
+  }
+
+  const environment = claims?.environment;
+  if (
+    typeof environment !== 'string' ||
+    !(APPLE_ENVIRONMENTS as readonly string[]).includes(environment)
+  ) {
+    throw new Error(
+      `Apple payload (${context}) has no recognized environment claim — refusing. ` +
+        `Expected one of ${APPLE_ENVIRONMENTS.join(', ')}. An unset environment must ` +
+        `fail closed: routing picks which host to call, it does not stop a ` +
+        `Sandbox-signed payload being accepted as production.`,
+    );
+  }
+
+  return { bundleId, environment };
+}

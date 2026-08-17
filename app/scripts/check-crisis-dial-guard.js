@@ -149,6 +149,16 @@ const EXPECTED_CALL_COUNTS = {
   // This screen owns no crisis affordance at all: `ReConsent` is deliberately
   // absent from RootCrisisButton.SUPPRESSED_ROUTES so the root overlay covers it.
   'src/features/consent/screens/ReConsentScreen.tsx': 3,
+  // Two https: youth mental-health referrals, no dial (DEBUG-418) — the same
+  // childmind.org / teenmentalhealth.org pair CombinedLegalGateScreen's under-age
+  // branch carries, for the same cohort. This screen owns NO crisis affordance of
+  // its own by founder decision D1: `ReConsent` is deliberately absent from
+  // RootCrisisButton.SUPPRESSED_ROUTES, so the root overlay renders over the
+  // modal and dials through `openCrisisUrl`, contributing no count here. This
+  // entry must stay https-only; a `tel:`/`sms:` literal in this file is caught by
+  // Rule 2 regardless of the count, and a 988 block appearing here at all is
+  // caught by __tests__/safety/reconsentIneligibleCrisisReachability.test.tsx.
+  'src/features/consent/screens/StaleConsentIneligibleScreen.tsx': 2,
 };
 
 /**
