@@ -124,6 +124,7 @@ Matching is **case-insensitive, substring** against Name + brief text (same conv
 
 | # | Match condition (first to fire wins) | → DEPTH | Rationale |
 |---|---|---|---|
+| 0 | **Safety-adjacent tooling.** TYPE = `INFRA`/`MAINT` **AND** Name matches `gate`, `harness`, `worktree`, `simulator`, `DerivedData`, `lease`, `CI`, `build` **AND** Technical Notes reference no protected path | `quick` | Tooling that protects safety code is not safety code. |
 | 1 | **Safety / regulated.** Any keyword: `crisis`, `PHQ`, `PHQ-9`, `GAD`, `GAD-7`, `threshold`, `988`, `suicide`, `self-harm`, `safety plan`, `emergency`, `intervention`, `assessment`, `scoring`, `questionnaire`, `encryption`, `consent`, `data export`, `privacy`, `PCI`, `payment` — **OR** Technical Notes reference a protected path (`features/crisis/`, `features/assessment/`, `core/services/security/`) | `full` | Highest-stakes / compliance-adjacent — warrants an independent product critique. |
 | 2 | **User-facing FEAT.** TYPE = `FEAT` **AND** any user-facing-surface keyword: `practices`, `breathing`, `body scan`, `mindfulness`, `learn`, `onboarding`, `check-in`, `journal`, `reflection`, `profile`, `settings`, `paywall`, `subscription`, `UI`, `screen`, `flow`, `experience`, `notification` | `design` | Audience + JTBD genuinely shape the design — run segmentation. |
 | 3 | **Default.** Anything else — `INFRA`, `MAINT`, `DEBUG`, `AGENT`, or a `FEAT` with no user-facing signal (backend/mechanical) | `quick` | Fast capture; no product agent needed. |
