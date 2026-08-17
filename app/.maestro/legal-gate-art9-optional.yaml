@@ -1,0 +1,144 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Art. 9 consent is refusable (FEAT-470): entry proceeds with the wellness tick unticked"
+---
+# FEAT-470 safety flow — pins, on the RUNNING app, the one user-visible contract this
+# change creates: a user may DECLINE the GDPR Art. 9(2)(a) wellness-processing consent
+# and still enter the app.
+#
+# WHY THIS FLOW EXISTS AT ALL
+# ===========================
+# The jest side already pins the capture contract
+# (CombinedLegalGateScreen.consentInvariant.privacy.test.tsx), but jest renders the tree
+# with a mocked consent store — it cannot show that the real Release build lets a refusing
+# user through the gate. And no existing flow could cover it:
+#   • 7 of the 8 sim safety flows enter via `_seeded-home.yaml`, and the e2e-sim build
+#     seeds consent at launch (INFRA-217), so they never see LegalGate at all;
+#   • `deeplink-consent-gate.yaml` does reach LegalGate but never ticks a box or presses
+#     Continue, so it cannot observe either consent outcome;
+#   • `_legal-and-onboarding.yaml` ticks all four and presses Continue — the ACCEPT path
+#     only, and it is upstream of most of the suite, so it must not be repurposed.
+# Refusal was therefore the one path with no on-device coverage.
+#
+# WHY THE BOOT STATE IS `?e2eSeed=ungranted`
+# ==========================================
+# Identical reasoning to `deeplink-consent-gate.yaml`: a consent gate cannot be tested from
+# a build that has already granted consent. The marker suppresses the seed's writes only —
+# the empty state comes from `clearState` + `clearKeychain`, exactly as a fresh install
+# would. `stopApp` + `clearState` + `openLink` rather than `launchApp` because the marker
+# must be visible to `Linking.getInitialURL()`, which only carries a URL on a cold start,
+# and an intervening `launchApp` would run the seed unmarked and grant consent.
+#
+# SCOPE — deliberately stops at the gate
+# ======================================
+# This flow asserts that the gate RELEASES, and nothing further. It does not drive on to
+# `home-screen`: that would drag in the 16-question onboarding traversal, which is the slow
+# and brittle part of the suite and is already covered by `_legal-and-onboarding.yaml`.
+# What happens to a refusing user's data after entry is FEAT-318's write-gate, which does
+# not exist yet — asserting anything about it here would pin a contract the code does not
+# yet make.
+- stopApp
+- clearState
+- clearKeychain
+- openLink: being://daily?e2eSeed=ungranted
+
+# 90s: cold boot + encryption init on the Release build, mirroring the other cold-start
+# flows. Landing on the gate is itself the precondition — `being://daily` is a gated link,
+# so an ungranted boot resolves to LegalGate.
+- extendedWaitUntil:
+    visible:
+      id: "legal-dob-picker"
+    timeout: 90000
+
+# ── The birth year. Required independently of any consent, so it MUST actually be set,
+#    or the Continue assertion below would be about the missing year rather than about the
+#    Art. 9 tick — the flow would pass for the wrong reason, or hang for the wrong reason.
+#
+# Mirrors `_legal-and-onboarding.yaml` exactly rather than inventing a shorter version.
+# `@react-native-picker/picker` renders an inline UIPickerView on iOS whose wheel items are
+# not tappable as text in the accessibility tree, so swiping is the only option, and the
+# swipe must both start and end inside the picker's y-range or the parent ScrollView claims
+# the gesture and the wheel never moves (INFRA-181). Anchoring on the picker's id keeps the
+# coordinates from drifting with layout — and this screen's layout DID change in FEAT-470.
+# Years are sorted descending from the current year, placeholder at index 0, so any of these
+# lands on a year comfortably over 18.
+- tapOn:
+    id: "legal-dob-picker"
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+# Fail fast if the wheel did not actually scroll. Without this, an unscrolled wheel leaves
+# Continue disabled for a reason that has nothing to do with the Art. 9 tick, and the
+# failure would surface 30s later at the final assertion looking like a regression in the
+# thing under test.
+- assertNotVisible:
+    text: "Select year..."
+
+# ── Tick the THREE required acceptances, and deliberately NOT the Art. 9 box ───────────
+# testIDs sit on the 24px indicator View, not the outer Pressable (INFRA-181): the
+# Pressable's bounding-box centre falls in the text region where an inline
+# `Linking.openURL` link would intercept the tap and navigate away. The parent Pressable
+# still receives the event via RN tap propagation.
+#
+# 🔴 `legal-consent-mh-processing` IS NOT TAPPED HERE, AND THAT IS THE ENTIRE POINT.
+# Anyone "fixing" a failure in this flow by adding that tap has deleted the test.
+- tapOn:
+    id: "legal-consent-tos"
+- tapOn:
+    id: "legal-consent-privacy"
+- tapOn:
+    id: "legal-consent-wellness"
+
+# ── The 988 footer survives the refusal state ─────────────────────────────────────────
+# Re-pins DEBUG-390's above-the-fold guarantee in a consent state that did not exist
+# before FEAT-470. `LegalGate` is in `RootCrisisButton`'s SUPPRESSED_ROUTES, so this footer
+# is the only crisis affordance a user has before accepting anything — and FEAT-470 added
+# new conditional copy to this screen, which is exactly the kind of change that can push a
+# pinned footer off screen. `assertVisible` defaults to 100% visibility, so this fails if
+# either control is even partially clipped. No scroll action: the footer is a flex sibling
+# OUTSIDE the ScrollView and must be reachable at the landing offset.
+- assertVisible:
+    id: "legal-gate-crisis-988"
+- assertVisible:
+    id: "legal-gate-crisis-text"
+
+# ── THE CONTRACT: Continue releases with the Art. 9 tick withheld ─────────────────────
+# `scrollUntilVisible` rather than a blind swipe, per INFRA-181 — and `centerElement`
+# because DEBUG-465 established that a control sharing screen coordinates with content
+# clipped behind a pinned sibling gets scored visible by XCUITest, so Maestro would skip
+# the scroll and tap the wrong thing.
+- scrollUntilVisible:
+    element:
+      id: "legal-gate-continue"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "legal-gate-continue"
+
+# The gate released. Asserted as the DISAPPEARANCE of the gate's own anchor rather than the
+# appearance of a downstream screen: what comes next is the onboarding sequence, whose
+# first screen has changed more than once, and pinning it here would couple this flow to
+# an unrelated surface. If the Art. 9 tick were still mandatory, Continue would be
+# `disabled` and the picker would still be on screen.
+- extendedWaitUntil:
+    notVisible:
+      id: "legal-dob-picker"
+    timeout: 30000

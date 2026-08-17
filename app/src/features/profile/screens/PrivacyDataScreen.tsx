@@ -23,6 +23,7 @@ import {
   ActivityIndicator,
   Alert,
   Platform,
+  AccessibilityInfo,
 } from 'react-native';
 import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -177,6 +178,18 @@ const PrivacyDataScreen: React.FC = () => {
   const crashReportsEnabled = currentConsent?.preferences?.crashReportsEnabled ?? false;
   const cloudSyncEnabled = currentConsent?.preferences?.cloudSyncEnabled ?? false;
   const researchEnabled = currentConsent?.preferences?.researchEnabled ?? false;
+  /**
+   * FEAT-470 — the Art. 9(2)(a) wellness-processing consent, now withdrawable.
+   *
+   * Read with `?? false` like its siblings, but note the fallback means something
+   * different here: for the other four, false is the privacy-first default. For
+   * this one, a record that exists always carries an explicit value (the legal gate
+   * records the user's answer either way), so `?? false` is only reached when
+   * there is no record at all — in which case nothing is being processed under this
+   * basis anyway.
+   */
+  const mentalHealthProcessingEnabled =
+    currentConsent?.preferences?.mentalHealthProcessingConsent ?? false;
   // INFRA-151: GPC-equivalent universal opt-out flag
   const universalOptOut = currentConsent?.universalOptOut ?? false;
 
@@ -189,12 +202,33 @@ const PrivacyDataScreen: React.FC = () => {
     load();
   }, [loadConsent]);
 
-  // Consent toggles write directly to consentStore (source of truth)
-  const handleConsentToggle = async (key: string, value: boolean) => {
+  /**
+   * Consent toggles write directly to consentStore (source of truth).
+   *
+   * `announceLabel` (FEAT-470) opts a control into a VoiceOver/TalkBack
+   * announcement of its new state. The consent domain's own precedent is that
+   * consent toggles announce — `ConsentToggleCard.tsx:79-85`, which renders every
+   * consent toggle in onboarding and re-consent, does exactly this. The four
+   * preference toggles on this screen are the anomaly: they are consent toggles
+   * rendered without that component, and they announce nothing. Rather than
+   * retrofit all four here (out of scope, and each needs its own copy decision),
+   * the parameter is opt-in and only the Art. 9 control passes it.
+   *
+   * The announcement is deliberately INSIDE the try and AFTER the await.
+   * `ConsentToggleCard` announces synchronously because its `onValueChange` is a
+   * bare setter; copying that here would announce a new state on a write that then
+   * throws, and immediately contradict itself with the Save Failed alert.
+   */
+  const handleConsentToggle = async (key: string, value: boolean, announceLabel?: string) => {
     setIsSaving(true);
     try {
       await updateConsent({ [key]: value });
       trackConsentChanged();
+      if (announceLabel) {
+        AccessibilityInfo.announceForAccessibility(
+          `${announceLabel} ${value ? 'enabled' : 'disabled'}`,
+        );
+      }
     } catch (error) {
       Alert.alert(
         'Save Failed',
@@ -260,6 +294,89 @@ const PrivacyDataScreen: React.FC = () => {
                 disabled={isSaving}
                 accessibilityLabel="Honor Universal Opt-Out"
                 accessibilityHint="Enables the Global Privacy Control equivalent — overrides all non-essential analytics and tracking preferences"
+              />
+            </View>
+          </View>
+        </View>
+
+        {/*
+          Wellness Data Processing (FEAT-470) — GDPR Art. 9(2)(a) / state-law
+          sensitive-data opt-in consent, withdrawable per Art. 7(3).
+
+          IN ITS OWN SECTION, deliberately. It is not a "Data Sharing" preference:
+          it authorises the app's primary processing of the user's own wellness
+          data, not sharing it with anyone. The practical reason is the Data Sharing
+          blurb below, which reads "These toggles are overridden while Universal
+          Opt-Out is on" — true of those four, false of this one, so placing this
+          control there would make that sentence a lie.
+
+          🔴 INDEPENDENT OF `universalOptOut`. No `&& !universalOptOut` on value and
+          no `|| universalOptOut` on disabled, unlike the four below. Two sources
+          require this and they agree: `canPerformOperation` deliberately does not
+          short-circuit `mental_health_processing` on `honorUniversalOptOut`
+          (consentStore.ts:1536-1553 — "universal opt-out targets analytics and
+          tracking, not the user's primary wellness data processing"), and
+          docs/legal/multi-state-privacy.md:38 publishes the same rule. Inheriting
+          the sweep pattern would either lie about the user's real consent state or
+          silently force it off; both are defects.
+
+          A plain Switch is correct in both directions. The bar on rendering this
+          field via `ConsentToggleCard` (consentDetails.ts:15-22) is about that
+          component's whatWeCollect/whatWeDontCollect/whyItHelps triple having no
+          truthful value here — not a rule that this consent needs a modal. What
+          "informed" requires is that the disclosure sits at the point of the act in
+          BOTH directions, which an always-visible description delivers and a
+          grant-only confirmation dialog would not.
+        */}
+        <View style={styles.section}>
+          <Text style={styles.sectionTitle}>Wellness Data Processing</Text>
+          <Text style={styles.sectionDescription}>
+            Your explicit consent for Being to process your wellness data. Separate from
+            the sharing preferences below, and never affected by Universal Opt-Out.
+          </Text>
+
+          <View style={styles.settingCard}>
+            <View style={styles.settingRow}>
+              <View style={styles.settingInfo}>
+                <Text style={styles.settingLabel}>Process My Wellness Data</Text>
+                {/*
+                  Categories match consentStore.ts:181-186 and the legal gate's own
+                  wording. Two divergent copies of the same consent text is an
+                  Art. 7(2) problem, so this is pulled from that list rather than
+                  freshly written.
+
+                  Says what withdrawal DOES (records the decision) and points at the
+                  flow that actually deletes data. It must not claim withdrawal
+                  purges anything — no deletion is wired to this control — and must
+                  not promise processing stops, because nothing enforces this consent
+                  yet (enforcement is FEAT-318).
+                */}
+                <Text style={styles.settingDescription}>
+                  Covers mood check-ins, anxiety and depression self-screenings, and journal
+                  entries. Turning this off records your decision to withdraw consent. To
+                  remove wellness data already stored on your device, use Your Data Rights
+                  below.
+                </Text>
+              </View>
+              <Switch
+                value={mentalHealthProcessingEnabled}
+                onValueChange={(value) =>
+                  handleConsentToggle(
+                    'mentalHealthProcessingConsent',
+                    value,
+                    'Process my wellness data',
+                  )
+                }
+                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                thumbColor={colorSystem.base.white}
+                disabled={isSaving}
+                hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="Process my wellness data"
+                accessibilityHint="Covers mood check-ins, anxiety and depression self-screenings, and journal entries. Turning this off records your decision to withdraw consent."
+                accessibilityState={{ checked: mentalHealthProcessingEnabled, disabled: isSaving }}
+                testID="privacy-wellness-processing-toggle"
               />
             </View>
           </View>
