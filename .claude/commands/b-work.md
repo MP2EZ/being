@@ -208,6 +208,31 @@ These feed the safety scan in Phase 3.
 
 ---
 
+### Step 1.6: Mark Work Item as In Progress
+
+Here, not after the worktree — Phase 2 can hand off to a 20-minute cold build, and Step 2.0
+skips Phase 2 entirely for items that need no worktree, so marking it there leaves those
+items reading `Not started` to every other session for the whole run.
+
+```
+mcp__notion__notion-update-page
+data: {
+  "page_id": "[page_id from Phase 1]",
+  "command": "update_properties",
+  "properties": {
+    "Status": "In progress"
+  }
+}
+```
+
+**Display:**
+```
+📝 Notion updated: Status → In progress
+   Work item: [WORK_ITEM_ID]
+```
+
+---
+
 ## Phase 2: Create Worktree
 
 ### Step 2.0: Does this item need a worktree at all?
@@ -433,27 +458,6 @@ app/package-lock.json`) unless the work item is itself a dependency change.
    Status: [clean/modified]
 
 📁 Working directory: ~/being/[dir-name]
-```
-
----
-
-### Step 2.7: Mark Work Item as In Progress
-
-```
-mcp__notion__notion-update-page
-data: {
-  "page_id": "[page_id from Phase 1]",
-  "command": "update_properties",
-  "properties": {
-    "Status": "In progress"
-  }
-}
-```
-
-**Display:**
-```
-📝 Notion updated: Status → In progress
-   Work item: [WORK_ITEM_ID]
 ```
 
 ---
