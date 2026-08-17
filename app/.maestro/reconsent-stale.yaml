@@ -1,0 +1,172 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Re-consent over Main (INFRA-377): 988 stays reachable and Decline is not eaten by the FAB"
+---
+# INFRA-377 safety flow — pins the re-consent screen's crisis contract on the RUNNING app.
+#
+# WHAT THIS FLOW IS ACTUALLY FOR
+# =============================
+# It is NOT for "the root 988 overlay survives on ReConsent". That is structural and
+# already guaranteed three ways: `RootCrisisButton` is a JSX sibling painted AFTER
+# `<Stack.Navigator>` inside the same `<View>` (`CleanRootNavigator.tsx:802-806`), the
+# stack is a JS stack (`createStackNavigator`) so no `presentation` mode can paint above
+# it, and `RootCrisisButton.test.tsx` pins `'ReConsent'` against the real exported
+# `SUPPRESSED_ROUTES` Set. Asserting it here restates a fact three layers already hold —
+# it is a cheap rider below, not the justification.
+#
+# The justification is a HIT-TEST COLLISION that nothing else can measure.
+# `CollapsibleCrisisButton` is `position: absolute`, `right: 0`, 44pt wide with
+# `hitSlop: 12` (`CollapsibleCrisisButton.tsx:471-478`), and its `bottom: 100` is
+# commented "Above tab bar". ReConsent is a root `transparentModal` with NO tab bar, so
+# that band lands squarely on this screen's pinned action footer, and the FAB wins both
+# z-order and hit-testing. The only thing between that and a swallowed Decline tap is a
+# hand-computed constant, `CRISIS_FAB_CLEARANCE = spacing[72]` (`ReConsentScreen.tsx:88`).
+#
+# Jest cannot falsify that number: RN Testing Library has no layout engine, so no jest
+# test can know whether a 44pt FAB at `bottom: 100` overlaps a footer whose height depends
+# on Dynamic Type and safe-area insets. The source pin at
+# `ReConsentScreen.accessibility.test.tsx:156-157` proves the constant is DECLARED; it
+# cannot fail if 72 is the wrong value. Step 9 below is the only assertion in the
+# codebase that can.
+#
+# WHY THE LAUNCH URL IS `being://daily?e2eSeed=stale` AND NOT `being://crisis`
+# ===========================================================================
+# `CrisisResources` is in `RECONSENT_DEFERRAL_ROUTES` (`useReConsentTrigger.ts:144-148`),
+# so a crisis launch resolves the trigger to 'none' and ReConsent never presents — a 90s
+# opaque timeout that looks like a screen regression. `being://daily` is used because it
+# is a real gated route: under `version_mismatch` the consent gate DROPS it
+# (`linking.ts:235-241`) and the app resolves to Main, which is exactly the base state
+# ReConsent must present over. Step 1b asserts that mechanism rather than assuming it.
+#
+# The `?e2eSeed=stale` marker rides INFRA-317's launch-URL channel (INFRA-377 adds no new
+# env var and no second EAS profile). It is a WRITER, not a suppressor: it forges a
+# v1.0.0 consent record via the named store seam `__seedStaleConsentRecordForE2E`, because
+# `grantConsent` hardcodes `version: CONSENT_VERSION` and so no real store API can produce
+# a stale record. `DeepLinkValidationService` strips the param (not in ALLOWED_PARAMS), so
+# React Navigation receives a bare `being://daily`.
+#
+# WHY `stopApp` + `clearState` + `openLink` AND NOT `launchApp`
+# =============================================================
+# Same reason as `deeplink-consent-gate.yaml`: the marker must be visible to
+# `Linking.getInitialURL()`, which only carries a URL on a COLD start, and `launchApp`
+# cannot carry one. Clearing must happen WITHOUT an intervening launch, or the seed runs
+# unmarked, grants CURRENT consent, and every assertion below goes vacuous.
+#
+# The 90s waits mirror `_seeded-home.yaml`: cold boot + encryption init on the Release
+# build. Deliberately NOT `runFlow: _seeded-home.yaml` — that helper waits on
+# `home-screen`, and here ReConsent is presented over it.
+
+- stopApp
+- clearState
+- clearKeychain
+- openLink: being://daily?e2eSeed=stale
+
+# ── 1. The seed landed AND the trigger fired ──────────────────────────────────────────
+# Proves `loadConsent` resolved 'version_mismatch' (not 'expired', 'revoked', or
+# 'integrity_error' — see the branch order at `consentStore.ts:875-935`) and that
+# `useReConsentTrigger` presented over Main.
+- extendedWaitUntil:
+    visible:
+      id: "reconsent-screen"
+    timeout: 90000
+
+# ── 2. It is the RENEWABLE screen, not the ineligible one ─────────────────────────────
+# NOT optional. `ReConsentRoute.tsx:195-203` re-derives the branch from
+# `isBaseEligibleForRenewal`, which fails closed on a missing or non-finite `birthYear`.
+# A drifted seed value silently flips to the ineligible screen and every assertion below
+# would be about the wrong component.
+- assertNotVisible:
+    id: "stale-consent-ineligible"
+
+# ── 1b. The gated link was DROPPED, which is why we are on Main ───────────────────────
+# Honest about which mechanism landed us here: under `version_mismatch`,
+# `hasValidConsent()` is false so every non-crisis deep link is dropped. If `daily` had
+# rendered, ReConsent would be presenting over the wrong base route.
+- assertNotVisible:
+    id: "daily-loop-exit"
+
+# ── 3. The root 988 overlay is present (the cheap rider) ──────────────────────────────
+# `assertVisible` defaults to 100% visibility, so this also catches clipping.
+- assertVisible:
+    id: "crisis-button-root"
+
+# ── 4. The delta is the REAL 1.1.0 changelog, not the generic fallback ────────────────
+# `computeConsentDelta` returns `isKnownVersion: false` + GENERIC_CONSENT_CHANGE_SUMMARY
+# for any stored version that is unparseable or newer. Without this, a typo'd seed version
+# renders a PASSING screen showing the wrong copy. Regex form (`.*…*`) is required: RN
+# merges accessibility nodes, so a bare full-match `text:` fails.
+- assertVisible:
+    id: "reconsent-delta"
+- assertVisible:
+    text: ".*raised the minimum age to use Being to 18.*"
+
+# ── 5. Both footer controls are reachable at the landing offset, with no scroll ───────
+# They are flex siblings of the ScrollView (`ReConsentScreen.tsx:477-482`) — the DEBUG-390
+# shape. Asserting both with no scroll action is what pins that they are not clipped.
+- assertVisible:
+    id: "reconsent-submit"
+- assertVisible:
+    id: "reconsent-decline"
+
+# ── 6. The overlay is HIT-TESTABLE through the transparentModal, not merely present ───
+# Safe to tap: `RootCrisisButton`'s onNavigate calls `navigationRef.navigate` and does not
+# dial (`RootCrisisButton.tsx:238`). Contrast `crisis-call-988-button`, which must stay
+# assert-only on the simulator — `canOpenURL('tel:988')` is unconditionally false there
+# (INFRA-184), so tapping it would assert the manual-dial fallback. That contract stays
+# owned by the device-only `crisis-988-dial.yaml`.
+- tapOn:
+    id: "crisis-button-root"
+- extendedWaitUntil:
+    visible:
+      id: "crisis-resources-screen"
+    timeout: 30000
+
+# ── 7. It NAVIGATED — it did not fall through to the degraded dial branch ─────────────
+# DEBUG-392 witness. MUST come after the assertVisible above, never before: placed first
+# it passes vacuously at t=0. `RootCrisisButton.tsx:277-299` dials directly if navigation
+# is not ready by NAV_READY_DEADLINE_MS, which on the sim surfaces "Unable to Call" —
+# indistinguishable from success unless asserted.
+- extendedWaitUntil:
+    notVisible:
+      text: ".*Unable to Call.*"
+    timeout: 3000
+
+# ── 8. Returning lands back on ReConsent, and does not re-present it ──────────────────
+# `shownThisLaunch` (`useReConsentTrigger.ts:232`) is set at NAVIGATE time (`:308`), not
+# dismiss time, so the activeRootRoute change re-runs the effect and must resolve 'none'.
+- tapOn:
+    id: "nav-back-button"
+- assertVisible:
+    id: "reconsent-screen"
+
+# ── 9. THE LOAD-BEARING ASSERTION — Decline is not eaten by the crisis FAB ────────────
+# Element-relative point (Maestro 2.6.0 maps a `point` inside a tapOn selector to
+# `TapOnElementCommand.relativePoint`, consumed by `Orchestra.tapOnElement`). A CENTRE tap
+# cannot reproduce this: the occlusion is at the button's right-hand END.
+#
+# With the 72pt clearance the button's right edge sits clear of the FAB band and Decline
+# fires. Remove the clearance (paddingRight → 24) and the edge falls inside
+# x ∈ [width−56, width], the FAB takes the touch, and step 10 lands on CrisisResources
+# instead of Main. That divergence is the whole point of the flow.
+- tapOn:
+    id: "reconsent-decline"
+    point: "95%,50%"
+
+# ── 10. The falsifier pair for step 9 ─────────────────────────────────────────────────
+# Clearance intact → `declineReConsent()` + `onDismiss()` (`ReConsentRoute.tsx:139-151`)
+# pops back to Main. Clearance broken → the FAB won and we are on CrisisResources.
+# Two distinguishable outcomes; without BOTH assertions step 9 asserts nothing.
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000
+- assertNotVisible:
+    id: "crisis-resources-screen"
+
+# ── Deliberately NOT asserted ─────────────────────────────────────────────────────────
+# `assertNotVisible: id: "home-screen"` while ReConsent is up. `deeplink-consent-gate.yaml`
+# uses that legitimately because DEBUG-372 substitutes LegalGate as the base route there,
+# so Main is genuinely unmounted. Here `transparentModal` is chosen precisely SO Main stays
+# mounted underneath (`CleanRootNavigator.tsx:435-445`) — the node is in the hierarchy and
+# the assertion would be flaky at best and simply false at worst.
