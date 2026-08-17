@@ -178,7 +178,10 @@ Drop from the pool, reporting each class. **Never silently** — a hidden cap re
 - **Owned elsewhere** — the ID is in a live `.b-batch-state.*.json` with `state ∉ {done,
   deferred}`, or `gh pr list` shows an open PR on its branch. A plain `/b-work` + `/b-close`
   session has no manifest, so the PR is the only evidence it exists.
-- **Unlanded prerequisites** — `Blocked by` non-empty with any target not `Done`.
+- **Unlanded prerequisites** — `Blocked by` non-empty with any target not `Done`. The relation is
+  not the only source: a sibling at `Testing`/`In progress` is unmerged, absent from the view, and
+  invisible to `gh pr list` until a PR opens. If a candidate's body cites one, grep
+  `origin/development` for it first.
 - **Too large to batch** — `Effort` `XL` / `XXL`. One `/b-work` in one worktree cannot carry
   5–8+ weeks; these need slicing via `/b-create` first. Naming them makes the omission a
   recommendation rather than a silence.
