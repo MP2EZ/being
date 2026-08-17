@@ -797,9 +797,14 @@ jobs:
     # (contents: read + packages: read) rather than merging with it, so
     # `contents: read` is restated here deliberately. `packages: read` is
     # omitted because this job never checks out or runs npm ci.
+    #
+    # INFRA-460 added `actions: read` for the probe-liveness cross-check, which
+    # calls the Actions API. Because this block replaces rather than merges, an
+    # omission here is a runtime 403, not a config warning.
     permissions:
       contents: read
       issues: write
+      actions: read
     needs:
       - typecheck
       - lint
@@ -1017,4 +1022,196 @@ jobs:
               core.notice(`Closed CI-health issue #${existing.number}`);
             } catch (e) {
               core.warning(`CI-health recovery step failed (non-fatal): ${e.message}`);
+            }
+
+      # ---------------------------------------------------------------------
+      # INFRA-460 — cross-check that the `main-branch-health` probe still runs.
+      #
+      # A scheduled control cannot observe its own silence. DEBUG-389 is the
+      # standing proof: a scheduled job in this repo failed on every run for two
+      # months unnoticed, then was switched off in the GitHub UI. A workflow's
+      # `active` flag is API state, not file state, so a green `git log` says
+      # nothing about whether the control actually ran.
+      #
+      # A STEP, NEVER A JOB. A job wired into ci-pass's `needs:` must also appear
+      # in three more hand-synced lists that check-ci-test-coverage.js asserts
+      # agree; and a schedule-gated job resolves to `skipped` on every PR run,
+      # which the aggregate's `!= "success"` test reads as failure — red-gating
+      # every PR in the repo.
+      #
+      # ITS OWN MARKER, DELIBERATELY. This files under the probe's LABEL — same
+      # notification stream, same triage queue — but a DISTINCT marker. Both
+      # notifiers select by `listForRepo({labels})` then `.find(body.includes(
+      # MARKER))` and close whatever they find, with no control discriminator.
+      # Sharing the marker would mean the probe's recovery arm closes a live
+      # liveness alarm, and this step's recovery arm closes a live main-is-red
+      # alarm while `main` is still red. Neither marker is a substring of the
+      # other, so the two `.find()` calls stay disjoint. Do not align them.
+      #
+      # FAILS CLOSED ON A VERDICT, QUIET ONLY ON UNCERTAINTY. `getWorkflow`
+      # throws 404 on a deleted workflow — one of the very conditions this step
+      # exists to catch — so 404 and 403 are ALARMS, not warnings. Every other
+      # error warns and returns WITHOUT touching issue state, because closing an
+      # open alarm because an API call failed is a false all-clear.
+      #
+      # ONLY `schedule` RUNS COUNT toward staleness. A manual dispatch would
+      # otherwise reset the clock and mask a dead cron for another full window —
+      # including the dispatch used to verify this step.
+      #
+      # THRESHOLD ARITHMETIC. The probe runs at 11:00 UTC and this workflow at
+      # 09:00 UTC, so a healthy last-run age here is ~22h. One dropped probe day
+      # reads 46h and stays quiet; two consecutive misses read ~70h and fire.
+      # 48h is therefore deliberately one-miss-tolerant: GitHub drops scheduled
+      # runs under load, and a 24h threshold would fire on that and train the
+      # reader to ignore it. The cost is ~2-day worst-case detection latency.
+      #
+      # WHO WATCHES THE WATCHER — NOBODY, AND THAT IS STATED RATHER THAN IMPLIED.
+      # This step rides ci.yml's own 09:00 schedule, so it observes the probe's
+      # silence and not its own. Both workflows also live in this repo, and
+      # GitHub's 60-day-inactivity auto-disable of scheduled workflows is
+      # repo-wide — so the single likeliest cause of the probe going quiet
+      # disables this check in the same instant. It is genuinely independent only
+      # for a probe-scoped disable, delete, or cron hiccup. Covering
+      # non-execution of the outermost control needs an external dead-man's
+      # switch (healthchecks.io, tracked as INFRA-296) and is out of scope here.
+      # The chain terminates at this step.
+      - name: Cross-check main-branch-health probe liveness
+        if: >-
+          !cancelled()
+          && (github.event_name == 'schedule'
+              || (github.event_name == 'workflow_dispatch' && inputs.simulate_schedule))
+        uses: actions/github-script@v8
+        continue-on-error: true
+        with:
+          script: |
+            const MARKER = '<!-- main-branch-health-liveness-tracker -->';
+            const LABEL = 'main-branch-health';
+            const WATCHED = 'main-branch-health.yml';
+            const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const today = new Date().toISOString().slice(0, 10);
+
+            // `silent` doubles as verdict and reason. null === healthy.
+            let silent = null;
+            let observed = '';
+
+            try {
+              const wf = await github.rest.actions.getWorkflow({
+                owner, repo, workflow_id: WATCHED,
+              });
+              observed = `state=${wf.data.state}`;
+              // `disabled_manually` is the DEBUG-389 mode (a UI toggle git
+              // cannot see); `disabled_inactivity` is the 60-day auto-disable.
+              if (wf.data.state !== 'active') {
+                silent = `the workflow is \`${wf.data.state}\``;
+              }
+            } catch (e) {
+              if (e.status === 404) {
+                observed = 'state=absent';
+                silent = 'the workflow no longer exists — deleted or renamed';
+              } else if (e.status === 403) {
+                observed = 'state=forbidden';
+                silent = 'the Actions API returned 403 — `actions: read` may have been dropped from this job';
+              } else {
+                core.warning(
+                  `probe liveness: could not read ${WATCHED} (${e.status || '?'} ${e.message}). ` +
+                  'Leaving issue state untouched.');
+                return;
+              }
+            }
+
+            if (!silent) {
+              try {
+                const runs = await github.rest.actions.listWorkflowRuns({
+                  owner, repo, workflow_id: WATCHED, event: 'schedule', per_page: 1,
+                });
+                const latest = runs.data.workflow_runs[0];
+                if (!latest) {
+                  observed += ' lastScheduledRun=never';
+                  silent = 'it has never produced a scheduled run';
+                } else {
+                  // Deliberately NOT filtered on conclusion: the question is
+                  // whether it EXECUTED. A failing probe is a working probe, and
+                  // its own notifier already reports that.
+                  const startedAt = new Date(latest.run_started_at || latest.created_at).getTime();
+                  const ageH = Math.round((Date.now() - startedAt) / 3600000);
+                  observed += ` lastScheduledRun=${ageH}h`;
+                  if (Date.now() - startedAt > STALE_AFTER_MS) {
+                    silent = `its last scheduled run was ${ageH}h ago, past the 48h threshold — ${latest.html_url}`;
+                  }
+                }
+              } catch (e) {
+                core.warning(
+                  `probe liveness: could not list runs for ${WATCHED} (${e.status || '?'} ${e.message}). ` +
+                  'Leaving issue state untouched.');
+                return;
+              }
+            }
+
+            // Emitted on EVERY run, healthy or not, so the threshold arithmetic
+            // is observable from one log line instead of by waiting 48h.
+            core.notice(`probe liveness: ${silent ? 'SILENT' : 'ok'} — ${observed}`);
+
+            try {
+              // The label normally exists already, but the deleted-probe path is
+              // exactly the one where its creator is gone, and issues.create with
+              // an unknown label 422s.
+              try {
+                await github.rest.issues.createLabel({
+                  owner, repo, name: LABEL, color: 'B60205',
+                  description: 'main branch health probe (INFRA-452) and its liveness cross-check (INFRA-460)',
+                });
+              } catch (e) {
+                if (e.status !== 422) core.warning(`createLabel: ${e.message}`);
+              }
+
+              const open = (await github.rest.issues.listForRepo({
+                owner, repo, state: 'open', labels: LABEL, per_page: 100,
+              })).data.find(i => (i.body || '').includes(MARKER));
+
+              if (silent) {
+                const body = [
+                  MARKER,
+                  '**The `main-branch-health` probe is silent.**',
+                  '',
+                  `- Reason: ${silent}`,
+                  `- Observed: \`${observed}\``,
+                  `- Detected by: ${runUrl}`,
+                  `- Detected: ${today}`,
+                  '',
+                  'While it is silent, nothing is checking whether `main` still passes its',
+                  'own audit gate between releases — so a hotfix branch cut from `main` can',
+                  'find CI red on arrival, with no warning.',
+                  '',
+                  'Re-arm with `gh workflow enable main-branch-health.yml`, then',
+                  '`gh workflow run main-branch-health.yml` to confirm it reports.',
+                ].join('\n');
+                if (open) {
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: open.number, body,
+                  });
+                  core.notice(`Updated probe-liveness issue #${open.number}`);
+                } else {
+                  const created = await github.rest.issues.create({
+                    owner, repo,
+                    title: `main-branch-health probe is silent (${today})`,
+                    labels: [LABEL],
+                    body,
+                  });
+                  core.notice(`Opened probe-liveness issue #${created.data.number}`);
+                }
+              } else if (open) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: open.number,
+                  body: `${MARKER}\n✅ The \`main-branch-health\` probe is running again (${observed}). ${runUrl}`,
+                });
+                await github.rest.issues.update({
+                  owner, repo, issue_number: open.number,
+                  state: 'closed', state_reason: 'completed',
+                });
+                core.notice(`Closed probe-liveness issue #${open.number}`);
+              }
+            } catch (e) {
+              core.warning(`probe liveness: issue update failed (non-fatal): ${e.message}`);
             }
