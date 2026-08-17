@@ -37,7 +37,7 @@
  * its purpose. The SkipLink has no such property, so it stays in flow.
  *
  * WHAT THIS FILE CAN AND CANNOT PROVE. No layout engine runs in jest — same limit
- * DEBUG-465's supportLineReachability header records. A green result here is NEVER
+ * DEBUG-465's crisisSupportLineReachability header records. A green result here is NEVER
  * the reachability contract. It pins STRUCTURE: that the fix took the shape the
  * ruling requires, and that the elements whose removal would trivially satisfy a
  * position assertion are still present. The fold itself is proven only by
