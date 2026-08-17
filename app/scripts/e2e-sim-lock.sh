@@ -39,6 +39,21 @@
 # device is the contended resource. INFRA-423 observed that two worktrees could share a
 # simulator; this is what stops them. Different jobs, nothing regressed.
 #
+# TWO RESOURCES, ONE PRIMITIVE (INFRA-463). The gate worktree is also shared mutable state
+# and needs the same exclusion, so acquire/release take a NAMESPACE alongside the key:
+# `sim` (default) keys on a UDID, `gatetree` on a gate-worktree path. The holder logic is
+# subtle enough to have been re-derived wrongly twice in this subsystem (DEBUG-392,
+# INFRA-423), so it is parameterised rather than copied. The default keeps every existing
+# path at /tmp/being-e2e-locks/sim-<udid>.d, which matters: a peer session running an older
+# checkout must still contend on the same path as a newer one.
+#
+# THE SCOPE RULE ABOVE IS ABOUT THE SIMULATOR, NOT ABOUT LOCKS IN GENERAL. It holds because
+# both the build and the flows touch the device, with no process spanning them. The gate
+# WORKTREE is different: `e2e-safety.sh` re-reads the provenance marker inside the installed
+# container and never consults the worktree, so the worktree is an input to `e2e-gate.sh`
+# alone. Its entire contention window sits inside one live process and is anchored to that
+# process's pid — no TTL, so the objection above does not apply to it.
+#
 # NOT $TMPDIR. macOS gives each user a private /var/folders/<hash>/T, and a lock two
 # sessions cannot both see is not a lock. The root is an explicit shared path.
 
@@ -49,9 +64,30 @@ E2E_LOCK_ROOT="${E2E_LOCK_ROOT:-/tmp/being-e2e-locks}"
 # indistinguishable from a hang.
 E2E_LOCK_TIMEOUT_DEFAULT="${E2E_LOCK_TIMEOUT:-1800}"
 
+# e2e_lock_dir <key> [namespace]
 e2e_lock_dir() {
   [ -n "${1:-}" ] || return 1
-  printf '%s/sim-%s.d\n' "$E2E_LOCK_ROOT" "$1"
+  printf '%s/%s-%s.d\n' "$E2E_LOCK_ROOT" "${2:-sim}" "$1"
+}
+
+# Human nouns for the contended resource, keyed off the namespace. A gate-worktree timeout
+# that says "simulator lock" sends the operator hunting through the wrong subsystem, which
+# is the failure mode this whole area keeps relearning.
+e2e_lock_resource() {
+  case "${1:-sim}" in
+    sim)      printf 'simulator lock for %s' "${2:-}" ;;
+    # No key: it is a path mangled into one segment, and the caller prints the real one.
+    gatetree) printf 'gate-worktree lock' ;;
+    *)        printf '%s lock for %s' "${1}" "${2:-}" ;;
+  esac
+}
+
+e2e_lock_keyname() {
+  case "${1:-sim}" in
+    sim)      printf 'udid' ;;
+    gatetree) printf 'gate worktree path' ;;
+    *)        printf 'key' ;;
+  esac
 }
 
 # lstart is ALWAYS 5 whitespace-separated tokens under awk, including when the day of month
@@ -100,21 +136,23 @@ e2e_lock_write_owner() {
   printf '%s\t%s\t%s\t%s\n' "$$" "$start" "${comm:-unknown}" "$label" > "$dir/owner"
 }
 
-# e2e_lock_acquire <udid> [timeout_s] [label]
+# e2e_lock_acquire <key> [timeout_s] [label] [namespace]
 e2e_lock_acquire() {
   local udid="${1:-}" timeout="${2:-$E2E_LOCK_TIMEOUT_DEFAULT}" label="${3:-${E2E_LOCK_LABEL:-gate}}"
-  local dir deadline line pid start comm held state now
+  local ns="${4:-sim}"
+  local dir deadline line pid start comm held state now what
 
-  # An empty key would collapse every device onto a single lock path — the same "an empty
+  # An empty key would collapse every resource onto a single lock path — the same "an empty
   # match string must never widen" rule INFRA-423 pins for the reaper.
   if [ -z "$udid" ]; then
-    echo "e2e-sim-lock: refusing to acquire with an empty udid." >&2
-    echo "  An empty key would lock every simulator onto one path. Resolve the device first" >&2
-    echo "  (e2e-sim-device.sh), then pass the resolved UDID." >&2
+    echo "e2e-sim-lock: refusing to acquire with an empty $(e2e_lock_keyname "$ns")." >&2
+    echo "  An empty key would collapse every resource in this namespace onto one path." >&2
+    echo "  Resolve it first (e2e-sim-device.sh for a simulator), then pass the result." >&2
     return 2
   fi
 
-  dir="$(e2e_lock_dir "$udid")" || return 2
+  what="$(e2e_lock_resource "$ns" "$udid")"
+  dir="$(e2e_lock_dir "$udid" "$ns")" || return 2
   mkdir -p "$E2E_LOCK_ROOT" 2>/dev/null || true
   now="$(date +%s)"
   deadline=$(( now + timeout ))
@@ -137,7 +175,7 @@ e2e_lock_acquire() {
     if [ "$attempts" -ge 3 ] && [ "$saw_live" != "1" ]; then
       now="$(date +%s)"
       if [ "$now" -ge "$deadline" ]; then
-        echo "e2e-sim-lock: could not acquire the simulator lock for $udid within ${timeout}s," >&2
+        echo "e2e-sim-lock: could not acquire the $what within ${timeout}s," >&2
         echo "  and no live holder was found. Check that $E2E_LOCK_ROOT is writable and that" >&2
         echo "  $dir is not being recreated by a looping process." >&2
         return 1
@@ -174,10 +212,10 @@ e2e_lock_acquire() {
           saw_live=1
           now="$(date +%s)"
           if [ "$now" -ge "$deadline" ]; then
-            echo "e2e-sim-lock: could not acquire the simulator lock for $udid within ${timeout}s." >&2
+            echo "e2e-sim-lock: could not acquire the $what within ${timeout}s." >&2
             echo "  Held by pid $pid ($comm, label: ${held:-unknown}), running since $start." >&2
-            echo "  Another session is building or running flows on this device. Wait for it," >&2
-            echo "  or raise E2E_LOCK_TIMEOUT. Do NOT delete $dir by hand while that pid lives." >&2
+            echo "  Another session holds this resource. Wait for it, or raise" >&2
+            echo "  E2E_LOCK_TIMEOUT. Do NOT delete $dir by hand while that pid lives." >&2
             return 1
           fi
           sleep 1
@@ -189,10 +227,11 @@ e2e_lock_acquire() {
 
 # Release only what we actually hold. An unconditional `rm -rf` in a trap would hand a
 # peer's device away mid-flow — precisely the interleaving this exists to prevent.
+# e2e_lock_release <key> [namespace]
 e2e_lock_release() {
-  local udid="${1:-}" dir line pid
+  local udid="${1:-}" ns="${2:-sim}" dir line pid
   [ -n "$udid" ] || return 0
-  dir="$(e2e_lock_dir "$udid")" || return 0
+  dir="$(e2e_lock_dir "$udid" "$ns")" || return 0
   [ -d "$dir" ] || return 0
 
   line="$(cat "$dir/owner" 2>/dev/null || true)"
