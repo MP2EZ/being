@@ -351,6 +351,13 @@ only against a real device for supplementary runtime verification.
 # implicit: `.claude/scripts/check-safety-paths.sh` fails if a Protected Path is
 # neither matched here nor in its EXEMPT_PATHS list. Run it after editing either.
 #
+# `practices/dailyloop` IS carved back in (DEBUG-465) — the exemption above is
+# scoped to the rest of practices, not to this subtree. DailyLoopStepScreen hosts
+# SUPPORT_LINE, a crisis affordance routing to CrisisResources, and crisis review
+# ruled the root overlay does NOT discharge its above-the-fold obligation. It is a
+# fourth instance of the guidance/consent shape: the fix file matched nothing, and
+# the gate fired only because the same branch edited a `.maestro` flow.
+#
 # "Could not compute the diff" is NOT "there is no diff", and a bare `|| true`
 # renders them identically. On `_bare` — a true ORPHAN branch (its root commit
 # differs from development's; it holds only .claude/, .gitignore, README.md) —
@@ -368,7 +375,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|practices/dailyloop)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -492,7 +499,8 @@ fi
 | `features/consent/` change | **`e2e:safety:consent-gate`** | INFRA-416. Hosts the pre-consent 988 footer; `LegalGate` is in `SUPPRESSED_ROUTES`, so the root overlay does not cover for it. |
 | Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
 | `features/guidance/` change | **gated → crisis-button fail-safe** | INFRA-416. No flow pins its threshold routing; the gap is logged loudly rather than silently skipped. |
-| `features/practices/` change | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
+| `features/practices/dailyloop/` change | **full suite** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. Both daily-loop flows lack a scoped script. |
+| `features/practices/` change (outside `dailyloop/`) | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
 | `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
 | `.maestro/<flow>.yaml` added or edited | **trigger** that flow | The flow IS the contract; one that has never run is not coverage. Bypasses the inert filter — a deletion-only diff here is assertions being removed. |
@@ -590,6 +598,12 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/guidance/'; then
   echo "    Falling through to the crisis-button fail-safe; jest owns the threshold"
   echo "    logic (npm run test:clinical). Coverage gap tracked separately."
 fi
+# DEBUG-465: practices/dailyloop hosts SUPPORT_LINE (a crisis affordance) on a beat
+# chosen by showsSupportLine(), and it is pinned OUTSIDE the ScrollView. Both daily-loop
+# flows — daily-loop-quick-depth, daily-loop-deeplink — lack a scoped npm script, so the
+# full suite is the only reachable mapping today. Adding scoped scripts would narrow this
+# to ~1 flow; that is package.json (app code), not a `.claude` edit.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/practices/dailyloop' && FULL_SUITE=1
 # INFRA-184: app.json / Info.plist changes are caught by the precommit jest static-config
 # test (lsApplicationQueriesSchemes.config.test.ts); no Maestro flow runs here. The device-
 # only crisis-988-dial.yaml is tagged safety-device-only and not part of the sim suite.
