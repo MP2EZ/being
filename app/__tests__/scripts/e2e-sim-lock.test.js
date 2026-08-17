@@ -262,6 +262,65 @@ describe('the lock is per-device', () => {
   });
 });
 
+// --- Namespaces (INFRA-463) --------------------------------------------------------
+
+describe('the lock guards two resources without letting them collide', () => {
+  // The gate worktree is shared mutable state exactly as the simulator is, so it reuses this
+  // primitive rather than re-deriving the holder logic — a re-derivation this subsystem has
+  // already got wrong twice (DEBUG-392, INFRA-423).
+
+  it('keeps the default path at sim-<udid>.d', () => {
+    // Load-bearing compatibility, not cosmetics: worktrees hold independent copies of this
+    // file, so a peer session on an older checkout must land on the SAME path as a newer
+    // one. If the default moved, two sessions would each hold "the" lock and see no contest.
+    const r = runHelper(`e2e_lock_dir "${UDID}"`, { table: psTable([]) });
+    expect(r.stdout).toMatch(new RegExp(`/sim-${UDID}\\.d$`));
+  });
+
+  it('puts a gatetree lock on its own path', () => {
+    const r = runHelper(`e2e_lock_dir "some_gate_path" gatetree`, { table: psTable([]) });
+    expect(r.stdout).toMatch(/\/gatetree-some_gate_path\.d$/);
+  });
+
+  it('a held sim lock does not block the same key in the gatetree namespace', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra463-ns-'));
+    fs.mkdirSync(path.join(root, `sim-${UDID}.d`), { recursive: true });
+    fs.writeFileSync(path.join(root, `sim-${UDID}.d`, 'owner'), `999001\t${START_A}\tbash\tpeer\n`);
+
+    const r = runHelper(`e2e_lock_acquire "${UDID}" 1 mine gatetree`, {
+      table: psTable([LIVE_HOLDER]),
+      lockRoot: root,
+    });
+    expect(r.status).toBe(0);
+  });
+
+  it('names the gate worktree, not the simulator, when a gatetree lock times out', () => {
+    // A timeout that says "simulator lock" sends the operator into the wrong subsystem.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra463-nsmsg-'));
+    fs.mkdirSync(path.join(root, 'gatetree-k.d'), { recursive: true });
+    fs.writeFileSync(path.join(root, 'gatetree-k.d', 'owner'), `999001\t${START_A}\tbash\tpeer\n`);
+
+    const r = runHelper(`e2e_lock_acquire "k" 1 mine gatetree`, {
+      table: psTable([LIVE_HOLDER]),
+      lockRoot: root,
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.stderr).toMatch(/gate-worktree/i);
+    expect(r.stderr).not.toMatch(/simulator/i);
+  });
+
+  it('releases only within its own namespace', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra463-nsrel-'));
+    const r = runHelper(
+      `e2e_lock_acquire "${UDID}" 1 mine gatetree && e2e_lock_release "${UDID}" && ` +
+        `{ [ -d "$(e2e_lock_dir "${UDID}" gatetree)" ] && echo STILL_THERE || echo GONE; }`,
+      { table: psTable([LIVE_HOLDER]), lockRoot: root }
+    );
+    // A release that ignored the namespace would silently free a lock it does not hold.
+    expect(r.stdout).toContain('STILL_THERE');
+  });
+});
+
 describe('release', () => {
   it('releases a lock this process owns', () => {
     const r = runHelper(
