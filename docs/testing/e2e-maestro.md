@@ -319,6 +319,16 @@ rollback and as a re-measurable baseline after toolchain upgrades.
 > replaced rather than deleted, the abort names the replacing worktree's `repoRoot` and
 > `branch`; an uninstall leaves no marker, so that case reports `VANISHED` with no
 > attribution.
+>
+> **INFRA-472 — `npm run e2e:safety:gate` leases the worktree and the simulator together,
+> and exits 4 when a peer owns either.** The pair is taken before the gate re-points the
+> shared worktree, so a refusal has mutated nothing; the message names the holder's work
+> item, commit, and when the lease was taken. Exit 4 is the gate slot being busy — wait,
+> or build in your own worktree — and is deliberately distinct from 1/2/3 above. Stale
+> leases are reclaimed automatically (the holder is identified by pid **and** process
+> start time, so a recycled pid cannot be mistaken for a live one). For a holder you have
+> confirmed is wedged rather than working, `E2E_LOCK_FORCE=1` overrides and prints the
+> full record it destroys; it will clobber a genuinely running peer, so confirm first.
 
 ```bash
 # Sim suite (currently 8 flows tagged `safety`, ~12 min) — runnable on iOS sim.
