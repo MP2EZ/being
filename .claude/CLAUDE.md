@@ -42,6 +42,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/crisis/` | `crisis` |
 | `app/src/features/assessment/` | `crisis` + `philosopher` |
 | `app/src/features/practices/` | `philosopher` |
+| `app/src/features/practices/dailyloop/` | `crisis` + `philosopher` |
 | `app/src/features/guidance/` | `crisis` + `philosopher` |
 | `app/src/features/consent/` | `crisis` + `compliance` |
 | `app/src/core/services/security/` | `compliance` |
@@ -69,6 +70,14 @@ runs it too. It is deliberately **not** a CI job: both files are tracked only on
 gitignored on `development`, so a CI checkout cannot read them — and Phase 2.5's Maestro gate
 is itself local-only, so a CI guard would go green on a list for flows CI never runs.
 Adding a row to the table above without doing one or the other will fail that check.
+
+`features/practices/dailyloop/` is the third (added DEBUG-465), and it is a carve-in from the
+`practices/` exemption directly above rather than a new dir. `DailyLoopStepScreen.tsx` hosts
+`SUPPORT_LINE` — a crisis affordance routing to `CrisisResources` — on whichever beat
+`showsSupportLine()` selects, and crisis review ruled the floating root overlay does **not**
+discharge its above-the-fold obligation. `crisis` owns that affordance; `philosopher` still
+owns the beat's content. Phase 2.5 gates `practices/dailyloop` only; the rest of `practices/`
+stays exempt.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
@@ -285,6 +294,7 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
 - **A control pinned below a ScrollView shares screen coordinates with the content clipped behind it (DEBUG-465).** XCUITest drops elements outside the SCREEN but keeps ones merely outside a ScrollView's clip, so Maestro scores them visible, skips `scrollUntilVisible`, and taps the pinned control instead. Use `centerElement: true` to force a real scroll.
 - **`app/` has two test roots, so a `src`-scoped grep cannot answer "is this dead?" (INFRA-84).** Co-located suites sit under `app/src/**/__tests__/`, but a second tree at `app/__tests__/` holds 14 suite directories (`unit`, `safety`, `clinical`, `privacy`, `security`, `integration`, …) and the `package.json` scripts glob it by name — `test:unit` matches `/unit/i`, so a suite there runs in `precommit` while staying invisible to `grep -rn … app/src`. A "no callers, safe to delete" finding drawn from `app/src` alone is unverified; grep both roots, plus `supabase/functions` for anything the edge functions call.
 - **Proving a migration landed before an observed event**: `schema_migrations` is `(version, statements, name)` only and `track_commit_timestamp` is off, so no application timestamp exists. Compare `xmin::text::bigint` on the changed `pg_proc`/`pg_class` row against the observed row's — transaction ids are monotonic, so ordering is provable from data.
+- **A new `Deno.env.get` in `supabase/functions/` needs a `deploy-manifest.json` entry in the SAME commit (INFRA-442).** `scripts/supabase-deploy-drift.js --reconcile` (CI `Security + compliance`) fails both ways — undeclared read, and declared-but-unread (`SECRET STALE`) — so a secret cannot be pre-declared ahead of its reader. It walks `_shared/` too, where nothing reads env at all: config arrives as a parameter.
 
 ## Git Hooks (INFRA-155)
 
