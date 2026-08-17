@@ -1,21 +1,49 @@
 /**
  * APPLE RECEIPT VERIFICATION EDGE FUNCTION
- * Server-side receipt verification via Apple's verifyReceipt API
+ * Server-side verification via the App Store Server API (INFRA-467 slice 3).
+ *
+ * MIGRATED OFF `verifyReceipt`. The legacy endpoint is deprecated by Apple and its
+ * implementation here could not run at all: it required `APPLE_SHARED_SECRET`, which is
+ * declared `deprecated` and "do NOT provision" in `supabase/deploy-manifest.json`, so
+ * `verifyWithApple` threw on every call. Combined with zero rows in `subscriptions` and
+ * `subscription_events`, no Apple receipt has ever verified successfully through this
+ * function. There is therefore no old-client tail to drain and no dual path is kept: a
+ * fallback branch that cannot execute is not a safety net, it is a misleading comment
+ * with syntax.
+ *
+ * The flow is now: client sends a `transactionId` -> we ask Apple for a freshly-signed
+ * transaction -> we verify that signature ourselves -> we trust the claims.
  *
  * SECURITY:
  * - Prevents client-side tampering with subscription status
- * - Validates receipts with Apple's servers
- * - Stores encrypted receipt data for re-verification
+ * - Every claim acted on comes from a payload signed by Apple and verified against the
+ *   pinned Apple Root CA - G3 (`verifyAppleJWS`), then asserted to be scoped to THIS app
+ *   (`assertAppleAppScope`, INFRA-449). Apple signing a payload and Apple signing a
+ *   payload FOR US are different facts and both are required.
+ * - Exactly one outbound call to Apple. The legacy 21007 production->sandbox retry is
+ *   how a sandbox-minted transaction got accepted as a production one; it is gone.
+ * - Transaction bound to one auth.uid(); cross-identity replay rejected.
  *
- * PERFORMANCE:
- * - Target: <2s for receipt verification
- * - Retries on network failures (3 attempts)
- * - Caches valid receipts for 24 hours
+ * THE ENVIRONMENT CROSS-CHECK — the point of the whole design.
+ * The client supplies `environment` to select which Apple host we ask. That value is
+ * untrusted: a client can claim `Sandbox` and sandbox transactions are free to mint with
+ * any sandbox Apple ID. What makes the hint safe is that we re-read the `environment`
+ * claim from INSIDE Apple's signed response and reject any mismatch, so the hint can only
+ * ever route the request, never grant anything. `assertAppleAppScope` deliberately does
+ * not pin `environment` to Production (one Supabase project serves prod and dev, and edge
+ * secrets are project-wide), which is exactly why this comparison has to happen here.
+ *
+ * An ABSENT hint defaults to Production, and that default is fail-closed rather than
+ * permissive: omitting the field cannot get you a sandbox lookup, it gets you a
+ * production lookup that will not find a sandbox transaction.
  *
  * COMPLIANCE:
- * - Subscription transaction history (sensitive under state privacy laws; not PHI —
+ * - Subscription transaction data (sensitive under state privacy laws; not PHI —
  *   Being is not a HIPAA covered entity)
- * - Receipt encrypted at rest (AES-256-GCM); transaction bound to one auth.uid()
+ * - The verified signed JWS is encrypted at rest (AES-256-GCM) and is what
+ *   `receipt_hash` is computed over. It replaces the receipt blob deliberately: hashing
+ *   a bare ~13-digit transaction integer would make the schema's "non-reversible" claim
+ *   false, since that space is trivially enumerable.
  * - Audit logging for all verification attempts
  * - RLS ensures users only access their own data
  */
@@ -31,6 +59,20 @@ import {
   isUsableTransactionIdentifier,
 } from '../_shared/receiptBinding.ts';
 import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
+import { assertAppleAppScope, verifyAppleJWS } from '../_shared/verifyAppleJWS.ts';
+import {
+  AppleAuthError,
+  AppleUnavailableError,
+  AppStoreConnectConfigError,
+  fetchSignedTransactionInfo,
+  InvalidTransactionIdError,
+  TransactionNotFoundError,
+} from '../_shared/appStoreServerApi.ts';
+import {
+  AppleTransactionClaims,
+  parseTransaction,
+  VerificationResult,
+} from '../_shared/appleTransactionClaims.ts';
 
 /**
  * Extract the authenticated user's id from the request's Authorization header.
@@ -61,153 +103,28 @@ function getAuthUidFromRequest(req: Request): string {
   return payload.sub;
 }
 
-// Apple receipt verification endpoints
-const APPLE_PRODUCTION_URL = 'https://buy.itunes.apple.com/verifyReceipt';
-const APPLE_SANDBOX_URL = 'https://sandbox.itunes.apple.com/verifyReceipt';
-
-// Apple receipt status codes
-const APPLE_STATUS = {
-  VALID: 0,
-  SANDBOX_RECEIPT_ON_PRODUCTION: 21007,
-  PRODUCTION_RECEIPT_ON_SANDBOX: 21008,
-} as const;
-
 interface AppleReceiptRequest {
-  receiptData: string;
-  productId?: string;
-}
-
-interface AppleReceiptResponse {
-  status: number;
-  environment: 'Sandbox' | 'Production';
-  receipt?: {
-    bundle_id: string;
-    application_version: string;
-    in_app: Array<{
-      product_id: string;
-      transaction_id: string;
-      original_transaction_id: string;
-      purchase_date: string;
-      purchase_date_ms: string;
-      expires_date?: string;
-      expires_date_ms?: string;
-      is_trial_period?: string;
-      cancellation_date?: string;
-    }>;
-  };
-  latest_receipt_info?: Array<{
-    product_id: string;
-    transaction_id: string;
-    original_transaction_id: string;
-    purchase_date: string;
-    purchase_date_ms: string;
-    expires_date: string;
-    expires_date_ms: string;
-    is_trial_period: string;
-    cancellation_date?: string;
-  }>;
-  pending_renewal_info?: Array<{
-    auto_renew_product_id: string;
-    product_id: string;
-    auto_renew_status: string;
-    expiration_intent?: string;
-  }>;
-}
-
-interface VerificationResult {
-  valid: boolean;
-  subscriptionId?: string;
-  productId?: string;
-  expiresDate?: string;
-  isTrialPeriod?: boolean;
-  autoRenewEnabled?: boolean;
-  environment?: 'Sandbox' | 'Production';
-  error?: string;
+  transactionId?: string;
+  environment?: string;
+  /**
+   * Legacy field. Still sent by the slice-2 client and deliberately IGNORED — it plays no
+   * part in verification any more. Retiring it from the client is a follow-up slice; the
+   * server does not wait on that, because it never reads this.
+   */
+  receiptData?: string;
 }
 
 /**
- * Verify receipt with Apple
- */
-async function verifyWithApple(
-  receiptData: string,
-  useProduction: boolean = true
-): Promise<AppleReceiptResponse> {
-  const url = useProduction ? APPLE_PRODUCTION_URL : APPLE_SANDBOX_URL;
-  const password = Deno.env.get('APPLE_SHARED_SECRET');
-
-  if (!password) {
-    throw new Error('APPLE_SHARED_SECRET not configured');
-  }
-
-  const response = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      'receipt-data': receiptData,
-      password,
-      'exclude-old-transactions': true,
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Apple API error: ${response.status}`);
-  }
-
-  return await response.json();
-}
-
-/**
- * Parse Apple receipt response
- */
-function parseAppleReceipt(response: AppleReceiptResponse): VerificationResult {
-  // Status 0 = valid receipt
-  if (response.status !== APPLE_STATUS.VALID) {
-    return {
-      valid: false,
-      error: `Invalid receipt status: ${response.status}`,
-    };
-  }
-
-  // Get latest subscription info
-  const latestInfo = response.latest_receipt_info?.[0];
-  if (!latestInfo) {
-    return {
-      valid: false,
-      error: 'No subscription information found in receipt',
-    };
-  }
-
-  // Check if subscription is active (not expired)
-  const expiresMs = parseInt(latestInfo.expires_date_ms);
-  const now = Date.now();
-  const isActive = expiresMs > now;
-
-  // Check if cancelled
-  const isCancelled = !!latestInfo.cancellation_date;
-
-  // Get auto-renew status
-  const renewalInfo = response.pending_renewal_info?.[0];
-  const autoRenewEnabled = renewalInfo?.auto_renew_status === '1';
-
-  return {
-    valid: isActive && !isCancelled,
-    subscriptionId: latestInfo.original_transaction_id,
-    productId: latestInfo.product_id,
-    expiresDate: latestInfo.expires_date,
-    isTrialPeriod: latestInfo.is_trial_period === 'true',
-    autoRenewEnabled,
-    environment: response.environment,
-  };
-}
-
-/**
- * Update subscription in database
+ * Update subscription in database.
+ *
+ * `signedTransactionInfo` is the VERIFIED JWS, and it is what gets encrypted and hashed —
+ * see the compliance note in the file header for why a bare identifier would not do.
  */
 async function updateSubscription(
   supabase: any,
   userId: string,
   verification: VerificationResult,
-  receiptData: string
+  signedTransactionInfo: string
 ): Promise<void> {
   const now = new Date().toISOString();
 
@@ -233,9 +150,8 @@ async function updateSubscription(
   // re-verification (restore-purchases) passes through as an idempotent refresh.
   await assertNoCrossIdentityReplay(supabase, 'apple', verification.subscriptionId, userId);
 
-  // Encrypt the receipt at rest + hash it for dedup (was a plaintext TODO).
-  const receipt_data_encrypted = await encryptReceipt(receiptData, Deno.env.get('RECEIPT_ENCRYPTION_KEY'));
-  const receipt_hash = await receiptHash(receiptData);
+  const receipt_data_encrypted = await encryptReceipt(signedTransactionInfo, Deno.env.get('RECEIPT_ENCRYPTION_KEY'));
+  const receipt_hash = await receiptHash(signedTransactionInfo);
 
   // Upsert subscription
   const { error: upsertError } = await supabase
@@ -320,11 +236,11 @@ serve(async (req) => {
 
     // Parse request body
     const body: AppleReceiptRequest = await req.json();
-    const { receiptData } = body;
+    const { transactionId } = body;
 
-    if (!receiptData) {
+    if (!transactionId) {
       return new Response(
-        JSON.stringify({ error: 'Missing required field: receiptData' }),
+        JSON.stringify({ error: 'Missing required field: transactionId' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
@@ -336,7 +252,7 @@ serve(async (req) => {
 
     console.log('[Apple Receipt Verification] Starting verification for user:', authUid);
 
-    // MOCK MODE: Handle mock receipts for local development.
+    // MOCK MODE: Handle mock transactions for local development.
     //
     // FAIL CLOSED. This branch returns a valid year-long subscription for any
     // caller who supplies a string with the right prefix, so it must never be
@@ -348,19 +264,19 @@ serve(async (req) => {
     // path on `this.mockMode` (= __DEV__) and returns locally without calling
     // this function at all, so no legitimate caller reaches this branch from
     // either a dev or a Release build. Only a direct request does.
-    if (receiptData.startsWith('mock_receipt_')) {
+    if (transactionId.startsWith('mock_receipt_')) {
       if (Deno.env.get('ALLOW_MOCK_RECEIPTS') !== 'true') {
-        console.warn('[Apple Receipt Verification] Mock receipt rejected - ALLOW_MOCK_RECEIPTS not enabled');
+        console.warn('[Apple Receipt Verification] Mock transaction rejected - ALLOW_MOCK_RECEIPTS not enabled');
         return new Response(
-          JSON.stringify({ error: 'Invalid receipt' }),
+          JSON.stringify({ error: 'Invalid transaction' }),
           { status: 400, headers: { 'Content-Type': 'application/json' } }
         );
       }
 
-      console.log('[Apple Receipt Verification] Mock mode - auto-approving receipt');
+      console.log('[Apple Receipt Verification] Mock mode - auto-approving transaction');
 
-      // Extract interval from mock receipt (format: mock_receipt_{interval}_{timestamp})
-      const parts = receiptData.split('_');
+      // Extract interval from mock id (format: mock_receipt_{interval}_{timestamp})
+      const parts = transactionId.split('_');
       const interval = parts[2] || 'monthly';
       const productId = interval === 'yearly'
         ? 'com.being.subscription.yearly'
@@ -378,7 +294,6 @@ serve(async (req) => {
         productId,
         expiresDate,
         isTrialPeriod: false,
-        autoRenewEnabled: true,
         environment: 'Sandbox',
       };
 
@@ -390,47 +305,85 @@ serve(async (req) => {
       );
     }
 
-    // Verify with Apple (try production first)
-    let appleResponse: AppleReceiptResponse;
+    // An absent hint defaults to Production — see the header. This can only fail closed:
+    // omitting the field cannot buy a sandbox lookup.
+    const requestedEnvironment = body.environment ?? 'Production';
+
+    let verification: VerificationResult;
+    let signedTransactionInfo: string;
     try {
-      appleResponse = await verifyWithApple(receiptData, true);
+      const fetched = await fetchSignedTransactionInfo(
+        transactionId,
+        requestedEnvironment,
+        {
+          issuerId: Deno.env.get('APPLE_ISSUER_ID') ?? '',
+          keyId: Deno.env.get('APPLE_KEY_ID') ?? '',
+          privateKeyPem: Deno.env.get('APPLE_PRIVATE_KEY') ?? '',
+        },
+      );
+      signedTransactionInfo = fetched.signedTransactionInfo;
 
-      // If sandbox receipt used on production, retry with sandbox
-      if (appleResponse.status === APPLE_STATUS.SANDBOX_RECEIPT_ON_PRODUCTION) {
-        console.log('[Apple Receipt Verification] Retrying with sandbox endpoint');
-        appleResponse = await verifyWithApple(receiptData, false);
+      // Apple signed it...
+      const { payload } = await verifyAppleJWS(signedTransactionInfo);
+      // ...and Apple signed it for US (INFRA-449).
+      const scope = assertAppleAppScope(payload, 'transaction');
+
+      // ...and the host we asked is the one Apple says this transaction belongs to.
+      // Without this, the client's environment hint would be load-bearing rather than
+      // advisory, and a Sandbox claim would buy a free entitlement.
+      if (scope.environment !== requestedEnvironment) {
+        throw new Error(
+          `Apple transaction environment "${scope.environment}" does not match the ` +
+            `requested environment — refusing.`
+        );
       }
-    } catch (error) {
-      console.error('[Apple Receipt Verification] Apple API error:', error);
 
-      // Log failed verification
+      verification = parseTransaction(payload as AppleTransactionClaims, scope.environment);
+    } catch (error) {
+      console.error('[Apple Receipt Verification] Verification failed:', error);
+
       await logSubscriptionEvent(supabase, {
         userId: authUid,
         subscriptionId: null,
         eventType: 'receipt_verification_failed',
         metadata: {
           platform: 'apple',
-          error: error.message,
+          reason: error instanceof Error ? error.name : 'unknown',
           timestamp: new Date().toISOString(),
         },
       });
 
+      // The four upstream failure modes are kept distinct all the way to the status code.
+      // Collapsing them is how a key-rotation outage would present as "every user suddenly
+      // has an invalid receipt" — a 4xx blaming the client for our own misconfiguration.
+      if (error instanceof TransactionNotFoundError || error instanceof InvalidTransactionIdError) {
+        return new Response(
+          JSON.stringify({ valid: false, error: 'No App Store transaction matches this identifier' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      if (error instanceof AppleUnavailableError) {
+        return new Response(
+          JSON.stringify({ valid: false, error: 'App Store is temporarily unavailable' }),
+          { status: 503, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      if (error instanceof AppleAuthError || error instanceof AppStoreConnectConfigError) {
+        return new Response(
+          JSON.stringify({ valid: false, error: 'Receipt verification is misconfigured' }),
+          { status: 500, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
       return new Response(
-        JSON.stringify({
-          valid: false,
-          error: 'Failed to verify receipt with Apple',
-        }),
+        JSON.stringify({ valid: false, error: 'Failed to verify transaction with Apple' }),
         { status: 500, headers: { 'Content-Type': 'application/json' } }
       );
     }
 
-    // Parse receipt
-    const verification = parseAppleReceipt(appleResponse);
-
     if (verification.valid) {
       // Update subscription in database
       try {
-        await updateSubscription(supabase, authUid, verification, receiptData);
+        await updateSubscription(supabase, authUid, verification, signedTransactionInfo);
       } catch (err) {
         if (err instanceof ReceiptReplayError) {
           // Cross-identity replay: the receipt's transaction is bound to another
@@ -448,8 +401,8 @@ serve(async (req) => {
           );
         }
         if (err instanceof InvalidTransactionIdentifierError) {
-          // DEBUG-447 — Apple returned a "valid" verification carrying no stable
-          // original_transaction_id, so the replay guard cannot be evaluated. Fail closed:
+          // DEBUG-447 — Apple returned a verified transaction carrying no stable
+          // originalTransactionId, so the replay guard cannot be evaluated. Fail closed:
           // no subscriptions row is written (the throw happens before the upsert).
           //
           // This branch is not optional dressing. Without it the throw falls through to the
@@ -481,22 +434,22 @@ serve(async (req) => {
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     } else {
-      console.log('[Apple Receipt Verification] Invalid receipt:', verification.error);
+      console.log('[Apple Receipt Verification] Transaction not active:', verification.subscriptionId);
 
       // Log failed verification
       await logSubscriptionEvent(supabase, {
         userId: authUid,
-        subscriptionId: null,
+        subscriptionId: verification.subscriptionId,
         eventType: 'receipt_verification_failed',
         metadata: {
           platform: 'apple',
-          error: verification.error,
+          reason: 'expired_or_revoked',
           timestamp: new Date().toISOString(),
         },
       });
 
       return new Response(
-        JSON.stringify(verification),
+        JSON.stringify({ ...verification, error: 'Subscription is expired or revoked' }),
         { status: 400, headers: { 'Content-Type': 'application/json' } }
       );
     }
