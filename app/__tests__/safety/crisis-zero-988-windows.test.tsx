@@ -374,7 +374,7 @@ describe('DailyLoopStepScreen — DEBUG-465: the support line is pinned OUTSIDE 
    * Source-level on purpose: this file is the structural safety suite, renders nothing,
    * and is the copy that runs in precommit. The authoritative render-tree equivalent —
    * the ancestor walk from the control — is
-   * src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.supportLineReachability.test.tsx.
+   * src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.crisisSupportLineReachability.test.tsx.
    */
   const rawSource = require('fs').readFileSync(
     require('path').join(
