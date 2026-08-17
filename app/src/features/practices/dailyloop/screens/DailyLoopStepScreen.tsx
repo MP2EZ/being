@@ -428,7 +428,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
         on a crisis affordance it reads as alarm). Persistence is not prominence.
 
         Position is pinned by __tests__/safety/crisis-zero-988-windows.test.tsx (precommit)
-        and DailyLoopStepScreen.supportLineReachability.test.tsx (CI, render-tree). Do NOT
+        and DailyLoopStepScreen.crisisSupportLineReachability.test.tsx (CI, render-tree). Do NOT
         re-nest it, and do not add a second support line to a beat.
       */}
       {showSupportLine && (
