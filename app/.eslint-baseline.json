@@ -183,6 +183,7 @@
   "src/features/practices/dailyloop/__tests__/DailyLoopCompleteScreen.completionRegister.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/DailyLoopDepthSelectScreen.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.stageNote.test.tsx": 1,
+  "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.supportLineReachability.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/dailyLoopEngagement.test.ts": 1,
   "src/features/practices/dailyloop/__tests__/stageNotes.test.ts": 1,
   "src/features/practices/dailyloop/__tests__/tenseMode.test.ts": 1,

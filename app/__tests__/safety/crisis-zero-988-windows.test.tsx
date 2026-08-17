@@ -350,3 +350,111 @@ describe('App.tsx — the root boundary exists at all', () => {
   });
 });
 
+describe('DailyLoopStepScreen — DEBUG-465: the support line is pinned OUTSIDE the ScrollView', () => {
+  /**
+   * DEBUG-432's defect, on the daily-loop practice beat. FEAT-301 re-hosted SUPPORT_LINE
+   * onto a no-breath-gate beat so it renders the instant the user lands — anything less
+   * makes quick's crisis affordance strictly less available than deep's, which the
+   * FEAT-301 crisis review rejected. As the second-to-last child of the beat's only
+   * ScrollView it did not hold.
+   *
+   * Measured before the fix (`maestro hierarchy`, Release build, provenance c1c01157,
+   * clean tree; quick depth, flat tense, default Dynamic Type, no stage note):
+   *   iPhone SE 3   375x667  fold y=130..667  ABSENT from the hierarchy (~90pt below)
+   *   iPhone 16e    390x844  fold y=157..844  y=785..843  (1pt clearance)
+   *   iPhone 16 Pro 402x874  fold y=172..874  y=800..858  (16pt clearance)
+   * On the viewport scripts/e2e-sim-device.sh names E2E_SMALLEST_SUPPORTED_MODEL it was
+   * not clipped but ABSENT — 0% of the tap target on screen.
+   *
+   * The bar must also stay INSIDE the KeyboardAvoidingView: this beat exists to be typed
+   * into, and with the keyboard up `crisis-button-root` is not dimmed but gone, in
+   * UIRemoteKeyboardWindow above the app's. That is asserted here too, because it is an
+   * ordering property no render test in jsdom can see.
+   *
+   * Source-level on purpose: this file is the structural safety suite, renders nothing,
+   * and is the copy that runs in precommit. The authoritative render-tree equivalent —
+   * the ancestor walk from the control — is
+   * src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.supportLineReachability.test.tsx.
+   */
+  const rawSource = require('fs').readFileSync(
+    require('path').join(
+      __dirname,
+      '../../src/features/practices/dailyloop/screens/DailyLoopStepScreen.tsx',
+    ),
+    'utf8',
+  );
+
+  /**
+   * DEBUG-390's lesson. This screen's prose names `ScrollView`, `KeyboardAvoidingView` and
+   * the support line repeatedly — the block comment at the bar's own render site does all
+   * three — so an assertion about what the file DOES must not read what it SAYS.
+   */
+  const stripComments = (s: string): string =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const source = stripComments(rawSource);
+
+  /**
+   * DEBUG-390's second failure mode: comment-stripping plus a narrow matcher is exactly
+   * the combination that can silently match NOTHING and stay green forever. This is the
+   * proof-of-liveness for the tests below — it fails if stripping ate the render body, and
+   * it fails if the comparator stops discriminating a known-bad shape.
+   */
+  test('the comment-stripped matcher can still go red', () => {
+    expect(source.length).toBeGreaterThan(2000);
+    expect(source).toContain('</ScrollView>');
+    expect(source).toContain('</KeyboardAvoidingView>');
+    expect(source).toContain('daily-loop-support-line');
+
+    const knownBad = `
+      <ScrollView>
+        <Pressable testID="daily-loop-support-line" />
+      </ScrollView>
+    `;
+    // The comparator applied to a nested control must FAIL, or it proves nothing.
+    expect(knownBad.indexOf('daily-loop-support-line')).toBeLessThan(
+      knownBad.indexOf('</ScrollView>'),
+    );
+  });
+
+  test('daily-loop-support-line is declared AFTER the ScrollView closes', () => {
+    const scrollViewCloses = source.indexOf('</ScrollView>');
+    const lineDeclared = source.indexOf('daily-loop-support-line');
+
+    expect(scrollViewCloses).toBeGreaterThan(-1);
+    expect(lineDeclared).toBeGreaterThan(-1);
+    expect(lineDeclared).toBeGreaterThan(scrollViewCloses);
+  });
+
+  test('...and BEFORE the KeyboardAvoidingView closes', () => {
+    // Not a stylistic preference. Outside the KAV the software keyboard covers the bar,
+    // and keyboard-up is this beat's typical state — which is precisely the state in which
+    // crisis-button-root is absent from the app's window entirely.
+    const kavCloses = source.indexOf('</KeyboardAvoidingView>');
+    const lineDeclared = source.indexOf('daily-loop-support-line');
+
+    expect(kavCloses).toBeGreaterThan(-1);
+    expect(lineDeclared).toBeLessThan(kavCloses);
+  });
+
+  test('exactly one daily-loop-support-line exists in the file', () => {
+    // The exactly-once-per-depth invariant is owned at the data level by showsSupportLine()
+    // and asserted in tenseMode.test.ts. This guards the render site: a duplicate would
+    // also make the selector in .maestro/daily-loop-quick-depth.yaml ambiguous.
+    expect(source.match(/daily-loop-support-line/g)).toHaveLength(1);
+  });
+
+  test('the line still navigates to CrisisResources and never dials directly', () => {
+    // The destination owns the dial. A bare tel: here would bypass the guarded path and
+    // put a second dialling control on a practice surface (DEBUG-341).
+    expect(source).toContain('openCrisisResources');
+    expect(source).not.toMatch(/Linking\.openURL\(\s*['"]tel:/);
+  });
+
+  test('the bar reserves the bottom safe area', () => {
+    // DEBUG-432's trap: pinned bars sit under the home indicator unless the 'bottom' edge
+    // is claimed. This screen previously reserved nothing there at all.
+    expect(source).toMatch(/edges=\{\[\s*'bottom'\s*\]\}/);
+  });
+});
+

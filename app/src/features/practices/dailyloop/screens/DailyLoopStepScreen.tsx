@@ -10,12 +10,16 @@
  *  - step 3 (Sphere Sovereignty): two order-agnostic fields (the full dichotomy),
  *  - step 4 (Virtuous Response): MULTI-select virtue chips (optional lens) + one
  *    synthesized action, plus — morning only — the guardrailed premeditatio,
- *  - step 2 (Radical Acceptance): a quiet static crisis-support line (crisis review).
+ *  - the quiet static crisis-support line (crisis review) — deep: step 2 (Radical
+ *    Acceptance); quick: step 3 (Sphere Sovereignty). Which beat hosts it is decided
+ *    by showsSupportLine(), never here.
  *
  * The screen owns no navigation for step advance (calls onSave; the navigator
  * advances). The support line taps to CrisisResources via the root nav ref — the
  * only crisis path; NO scan of the free text. Themed as 'midday'. Crisis access is
  * otherwise inherited from the single root overlay (MAINT-290); no per-step button.
+ * DEBUG-465 pinned the support line outside the ScrollView, inside the
+ * KeyboardAvoidingView — see the block comment at its render site for the measurements.
  */
 import React, { useState, useCallback, useMemo } from 'react';
 import {
@@ -28,6 +32,9 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
+// MAINT-437: never the `react-native` core export — it is iOS-only and applies zero
+// insets on Android, where Expo SDK 56 makes edge-to-edge mandatory.
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { semantic, colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import {
@@ -325,21 +332,6 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               </View>
             )}
 
-            {/* Quiet, static crisis-support line (crisis review). Deep: Radical
-                Acceptance; quick: re-hosted to Aware Presence (its first beat). */}
-            {showSupportLine && (
-              <Pressable
-                onPress={openCrisisResources}
-                style={styles.supportLine}
-                accessibilityRole="button"
-                accessibilityLabel={SUPPORT_LINE}
-                accessibilityHint="Opens crisis support resources"
-                testID="daily-loop-support-line"
-              >
-                <Text style={styles.supportLineText}>{SUPPORT_LINE}</Text>
-              </Pressable>
-            )}
-
             <Text style={styles.reflectNote}>Reflect as long as you like — writing is optional.</Text>
 
             <AccessibleButton
@@ -354,6 +346,63 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
           </>
         )}
       </ScrollView>
+
+      {/*
+        DEBUG-465: the quiet, static crisis-support line (crisis review), pinned OUTSIDE
+        the ScrollView. Deep: Radical Acceptance; quick: Sphere Sovereignty. Placement is
+        resolved at the data level by showsSupportLine() — this block renders it, it never
+        decides where it goes, so the "exactly once per depth" invariant stays config-owned.
+
+        WHY IT IS NOT IN THE SCROLLVIEW. tenseMode.ts records that FEAT-301 re-hosted this
+        line onto a no-breath-gate beat so it "renders the instant the user lands", since
+        anything less makes quick's crisis affordance strictly less available than deep's —
+        which crisis review rejected. In the ScrollView it did not hold: measured on a
+        Release build (provenance c1c01157, clean tree) with `maestro hierarchy`, quick /
+        flat / default type / no stage note —
+
+          iPhone SE 3   375x667   fold y=130..667   ABSENT from the hierarchy (~90pt below)
+          iPhone 16e    390x844   fold y=157..844   y=785..843   (1pt clearance)
+          iPhone 16 Pro 402x874   fold y=172..874   y=800..858   (16pt clearance)
+
+        On the smallest supported viewport it was not clipped but absent — DEBUG-432's
+        signature. Trimming the beat cannot fix it: every editorial lever spent at once is
+        ~-129pt against a ~141pt overflow at 402x874, and leaves it one Dynamic Type step
+        from re-breaking. Pinning makes the deficit zero at every viewport and type size.
+
+        WHY IT MUST STAY INSIDE THE KeyboardAvoidingView. This beat exists to be typed
+        into, so keyboard-up is its TYPICAL state — and there `crisis-button-root` is not
+        dimmed but GONE, rendered in UIRemoteKeyboardWindow above the app's window
+        (RootCrisisButton.tsx). Inside the KAV this bar is lifted by the KAV's own padding
+        and is the only non-scrolling crisis affordance that survives. Move it outside the
+        KAV and the keyboard covers it — the argument for pinning it then inverts.
+
+        Continue is deliberately NOT pinned here. Crisis review confirmed it carries no
+        reachability contract, and a two-control bar reads as "continue vs. I'm in crisis",
+        compelling the user to declare which they are.
+
+        Register is unchanged from the in-scroll version and is load-bearing: bodySmall,
+        semantic.text.secondary, underline, hairline divider, no icon, no fill, no shadow,
+        never accent teal (tenseMode.ts names accent teal as this app's reward vocabulary;
+        on a crisis affordance it reads as alarm). Persistence is not prominence.
+
+        Position is pinned by __tests__/safety/crisis-zero-988-windows.test.tsx (precommit)
+        and DailyLoopStepScreen.supportLineReachability.test.tsx (CI, render-tree). Do NOT
+        re-nest it, and do not add a second support line to a beat.
+      */}
+      {showSupportLine && (
+        <SafeAreaView edges={['bottom']} style={styles.supportBar}>
+          <Pressable
+            onPress={openCrisisResources}
+            style={styles.supportLine}
+            accessibilityRole="button"
+            accessibilityLabel={SUPPORT_LINE}
+            accessibilityHint="Opens crisis support resources"
+            testID="daily-loop-support-line"
+          >
+            <Text style={styles.supportLineText}>{SUPPORT_LINE}</Text>
+          </Pressable>
+        </SafeAreaView>
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -463,9 +512,21 @@ const styles = StyleSheet.create({
     minHeight: 96,
   },
 
+  /**
+   * DEBUG-465: the pinned bar. Horizontal and vertical padding are its own responsibility
+   * — outside the ScrollView it no longer inherits `scrollContent` — and `edges={['bottom']}`
+   * clears the home indicator, which this screen previously reserved nothing for.
+   * As a flex sibling of a `flex: 1` ScrollView it is on screen at every scroll offset and
+   * every Dynamic Type step, with no absolute positioning to keep in sync.
+   */
+  supportBar: {
+    paddingHorizontal: spacing[20],
+    borderTopWidth: 1,
+    borderTopColor: colorSystem.gray[200],
+    backgroundColor: colorSystem.base.white,
+  },
   supportLine: {
     paddingVertical: spacing[12],
-    marginBottom: spacing[8],
     minHeight: 44,
     justifyContent: 'center',
   },
