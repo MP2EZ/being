@@ -19,6 +19,66 @@ name: "Voice journal crisis scan surfaces support"
 # see the long note in q9-single-alert.yaml. The banner is also the durable
 # affordance: the Alert is one tap from gone, the banner persists.
 #
+# ── DEVICE MATRIX ────────────────────────────────────────────────────────────
+#   iPhone 16 Pro / iOS 18.6   402x874   PASS
+#   iPhone SE 3   / iOS 18.6   375x667   FAIL, then PASS after DEBUG-477
+#
+# ── DEBUG-477: hideKeyboard IS VIEWPORT-DEPENDENT ON THIS SCREEN ─────────────
+# RED at 375x667 with "Couldn't hide the keyboard. This can happen if the app uses
+# a custom input or doesn't expose a standard dismiss action." The app is fine; the
+# heuristic is not. Measured from the XCUITest driver log, Maestro's iOS
+# hideKeyboard swipes twice at a FIXED point, the screen centre:
+#
+#   Swipe (v2) from (187.0, 333.0) to (187.0, 313.0)
+#   Swipe (v2) from (187.0, 333.0) to (176.0, 333.0)
+#
+# (187,333) is the centre of a 375x667 screen, and journal-transcript-input measures
+# [25,166][350,344] — so the centre lands INSIDE the focused multiline TextInput,
+# where a swipe moves the caret and does not resign first responder. At 402x874 the
+# same centre is (201,437), which falls on ScrollView background and blurs the input.
+# Nothing about the app changed between the two; the heuristic's anchor did.
+#
+# The replacement taps journal-review-header — inert content with no onPress, so the
+# touch falls through to the root ScrollView, where RN's default
+# keyboardShouldPersistTaps='never' blurs the input. That is the real user gesture,
+# and it is element-anchored rather than screen-relative, so it does not go stale.
+#
+# WHY THE ORACLE BELOW IS MANDATORY. hideKeyboard checked itself; a bare tapOn does
+# not — it reports COMPLETED whether or not the keyboard went away. Dropping the
+# check would make the negative case below assert nothing while staying green, which
+# docs/testing/e2e-maestro.md already names as this flow's known false-green hazard.
+#
+# THE ORACLE CANNOT BE AN APP ELEMENT. The iOS keyboard is a SEPARATE WINDOW, so app
+# elements underneath keep their bounds and still read as visible to XCUITest.
+# Measured: with the keyboard raised, journal-discard-button sits at [24,429][351,462]
+# — fully underneath it — and assertNotVisible on it FAILED. Any app-element oracle
+# would pass regardless of keyboard state. The keyboard itself is in the hierarchy,
+# so it is the oracle. Asserted in BOTH directions on purpose: the assertVisible
+# proves the matcher still fires, so an iOS rename of this identifier turns the flow
+# RED rather than silently satisfying the assertNotVisible.
+#
+# ── DEBUG-477: THE CARD SCROLL STOPS SHORT AND THE TAP MISSES ───────────────
+# INTERMITTENT, and the intermittency is the tell. Caught by the Phase 2.5 gate as
+# "Assertion is false: id: voice-reflection-screen is visible" after 3/3 green in
+# isolation, so do not treat a few passes as evidence.
+#
+# Measured at the failing step: profile-card-voice-reflection bounds
+# [24,463][351,666], and Maestro logged "Visibility Percent: 1.0". It is not.
+# The ScrollView clip (#profile-screen) ends at y=583; the card runs to y=666, so
+# 83pt of it sits BEHIND the tab bar. XCUITest drops elements outside the SCREEN
+# but keeps ones merely outside a ScrollView's clip, so Maestro scores the card
+# fully visible, stops scrolling early, and reports COMPLETED. Same shape DEBUG-465
+# named and DEBUG-453 measured ("stopped short of maximum scroll and reported
+# COMPLETED anyway"). On the runs that pass, the scroll happens to reach the bottom
+# boundary instead and the card lands at y~255 — which is why this is a coin flip.
+#
+# centerElement: true forces a REAL scroll, so the card ends up inside the clip and
+# the tap lands on it. This is the same remedy crisis-button-reachability already
+# uses on every one of its card scrolls, for this exact reason. It is NOT the fix
+# used for gad7-severe's swallowed tap — that one is a different defect and
+# centerElement provably does not fix it. Do not generalise either remedy to the
+# other; check which signature you have first.
+#
 # FLAG DEPENDENCY
 # The entry point is gated on the build-time `voice_journal` flag, which is
 # false in .env.production. The e2e-sim EAS profile sets voice_journal:true —
@@ -41,6 +101,7 @@ name: "Voice journal crisis scan surfaces support"
     element:
       id: "profile-card-voice-reflection"
     direction: DOWN
+    centerElement: true # DEBUG-477 — load-bearing, see header
 - tapOn:
     id: "profile-card-voice-reflection"
 - assertVisible:
@@ -59,7 +120,13 @@ name: "Voice journal crisis scan surfaces support"
 - tapOn:
     id: "journal-transcript-input"
 - inputText: "today was hard but i made it through and i slept well"
-- hideKeyboard
+# DEBUG-477: replaces `- hideKeyboard`. See header. Two-sided oracle.
+- assertVisible:
+    id: "UIKeyboardLayoutStar Preview"
+- tapOn:
+    id: "journal-review-header"
+- assertNotVisible:
+    id: "UIKeyboardLayoutStar Preview"
 - assertNotVisible:
     id: "journal-crisis-banner"
 - tapOn:
@@ -80,6 +147,7 @@ name: "Voice journal crisis scan surfaces support"
     element:
       id: "profile-card-voice-reflection"
     direction: DOWN
+    centerElement: true # DEBUG-477 — load-bearing, see header
 - tapOn:
     id: "profile-card-voice-reflection"
 - tapOn:
@@ -91,7 +159,13 @@ name: "Voice journal crisis scan surfaces support"
 - tapOn:
     id: "journal-transcript-input"
 - inputText: "i went over the day and honestly i want to die"
-- hideKeyboard
+# DEBUG-477: replaces `- hideKeyboard`. See header. Two-sided oracle.
+- assertVisible:
+    id: "UIKeyboardLayoutStar Preview"
+- tapOn:
+    id: "journal-review-header"
+- assertNotVisible:
+    id: "UIKeyboardLayoutStar Preview"
 - tapOn:
     id: "journal-save-button"
 
@@ -110,6 +184,13 @@ name: "Voice journal crisis scan surfaces support"
 - assertVisible:
     id: "journal-crisis-call-988"
 
+# NO scrollUntilVisible IN FRONT OF THE FOUR ASSERTIONS IN THIS BLOCK, EVER
+# (DEBUG-477 crisis ruling). Their absence is load-bearing: it is what pins "<3 taps
+# to 988 from the point of disclosure" at this viewport, and crisisBanner is the
+# ScrollView's first child, so a scrolled position can carry it off screen. A crisis
+# affordance reachable only by scrolling is a WEAKER contract than the one this flow
+# exists to pin — scrolling to it would be a prohibited relaxation, not a fix.
+#
 # ── Root crisis affordance stays reachable on this surface ────────────────
 # The journal routes must NOT be in RootCrisisButton's SUPPRESSED_ROUTES:
 # crisis text can be on screen here, so the always-available path matters most.
