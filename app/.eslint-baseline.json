@@ -78,6 +78,7 @@
   "src/core/services/supabase/index.ts": 3,
   "src/core/stores/__tests__/consentChangelog.privacy.test.ts": 1,
   "src/core/stores/__tests__/consentExportHistory.privacy.test.ts": 1,
+  "src/core/stores/__tests__/consentStaleSeed.privacy.test.ts": 1,
   "src/core/stores/__tests__/consentStore.test.ts": 1,
   "src/core/stores/__tests__/legalGateConsentsRead.privacy.test.ts": 1,
   "src/core/stores/__tests__/reConsent.privacy.test.ts": 1,

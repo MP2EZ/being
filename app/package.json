@@ -102,6 +102,7 @@
     "e2e:safety:988-dial": "bash scripts/e2e-safety.sh crisis-988-dial",
     "e2e:safety:journal": "bash scripts/e2e-safety.sh journal-crisis-scan",
     "e2e:safety:consent-gate": "bash scripts/e2e-safety.sh deeplink-consent-gate",
+    "e2e:safety:reconsent": "bash scripts/e2e-safety.sh reconsent-stale",
     "e2e:safety:daily-loop": "bash scripts/e2e-safety.sh daily-loop-quick-depth"
   },
   "overrides": {

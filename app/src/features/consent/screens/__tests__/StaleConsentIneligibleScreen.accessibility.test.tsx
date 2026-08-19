@@ -22,10 +22,22 @@
  */
 
 import React from 'react';
+import fs from 'fs';
+import path from 'path';
 import { render } from '@testing-library/react-native';
 import { TOUCH_TARGETS } from '@/core/theme';
 import type { ConsentDelta } from '@/core/stores/consentStore';
 import StaleConsentIneligibleScreen from '../StaleConsentIneligibleScreen';
+
+const SCREEN_PATH = path.join(__dirname, '../StaleConsentIneligibleScreen.tsx');
+const source = fs.readFileSync(SCREEN_PATH, 'utf-8');
+
+/** The stylesheet block for a single named style, for source-level assertions. */
+const styleBlock = (name: string): string => {
+  const start = source.indexOf(`  ${name}: {`);
+  if (start === -1) throw new Error(`style "${name}" not found in StaleConsentIneligibleScreen`);
+  return source.slice(start, source.indexOf('\n  },', start));
+};
 
 const DELTA: ConsentDelta = {
   fromVersion: '1.0.0',
@@ -198,5 +210,50 @@ describe('StaleConsentIneligibleScreen — ordinary accessibility', () => {
     const onAcknowledge = jest.fn();
     renderScreen({ onAcknowledge });
     expect(onAcknowledge).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * INFRA-377 — the crisis-FAB clearance.
+ *
+ * `ReConsentScreen` has had this pin since FEAT-376
+ * (`ReConsentScreen.accessibility.test.tsx`); this screen carries the identical
+ * constant for the identical reason and had none. The asymmetry mattered more
+ * here than there: `ReConsentScreen` degrades to "Decline is hard to hit", but
+ * this screen has exactly ONE control, `gestureEnabled: false`, and no other
+ * exit (`ReConsentRoute.tsx:135-137`) — so a swallowed tap strands the user on a
+ * modal with Main visible but unreachable beneath it.
+ *
+ * These are source-level and cannot measure geometry: RN Testing Library has no
+ * layout engine, so no jest test can know whether a 44pt FAB at `bottom: 100`
+ * overlaps a footer whose height depends on Dynamic Type and safe-area insets.
+ * They pin that the mitigation is DECLARED and ORDERED correctly. Falsifying the
+ * value of 72 itself is device work, owned by the Maestro flow.
+ */
+describe('INFRA-377 — the acknowledge footer stays clear of the crisis button', () => {
+  it('reserves horizontal room for the FAB on the footer', () => {
+    expect(styleBlock('footer')).toContain('paddingRight: CRISIS_FAB_CLEARANCE');
+    expect(source).toMatch(/const CRISIS_FAB_CLEARANCE = spacing\[72\]/);
+  });
+
+  it('declares paddingRight AFTER paddingHorizontal, so it is not overridden', () => {
+    // RN StyleSheet is last-key-wins. `paddingHorizontal: spacing[24]` and
+    // `paddingRight: CRISIS_FAB_CLEARANCE` both set the right inset, so swapping
+    // the two lines silently drops the clearance to 24 while leaving both the
+    // constant and the assertion above intact. Nothing else catches that.
+    const footer = styleBlock('footer');
+    expect(footer.indexOf('paddingRight')).toBeGreaterThan(footer.indexOf('paddingHorizontal'));
+  });
+
+  it('the matchers above can still fail (DEBUG-390 control)', () => {
+    // A source-shape assertion is only worth its cost if some plausible change
+    // makes it go red. Prove each matcher fires against a known-bad literal
+    // rather than silently matching nothing.
+    expect(() => styleBlock('noSuchStyleBlock')).toThrow(/not found/);
+    expect('  paddingHorizontal: spacing[24],\n    paddingRight: X,').toContain('paddingRight');
+    expect('const CRISIS_FAB_CLEARANCE = spacing[24];').not.toMatch(
+      /const CRISIS_FAB_CLEARANCE = spacing\[72\]/,
+    );
+    expect(source.length).toBeGreaterThan(1000);
   });
 });
