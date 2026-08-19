@@ -237,6 +237,19 @@ else
   DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 1
 fi
 
+# INFRA-478 — describe the resolved device in THIS shell.
+#
+# The resolver already describes it internally (that is where the smallest-viewport warning
+# gets its numbers), but it is invoked as `$(...)` above, so it runs in a SUBSHELL and every
+# global it sets dies there. Re-invoking here is not redundancy: it is the only way the
+# values reach the verdict lines and the summary below. Do not "optimise" this away, and do
+# not try to return them through the resolver's stdout — its bare-UDID contract is consumed
+# identically by e2e-sim-build.sh and e2e-sim-build-eas.sh.
+E2E_SIM_DEVICE_LINE=""
+if [ -n "$SIM_UDID" ]; then
+  e2e_describe_sim_device "$SIM_UDID"
+fi
+
 # INFRA-436 — claim the simulator for the whole run, before the provenance/shape pre-flights
 # below read the installed container. Reading the artifact is exactly what a peer's build
 # would invalidate underneath us, so the lock has to precede it, not merely precede the flows.
@@ -835,11 +848,11 @@ for f in "${FLOWS[@]}"; do
     # Report the per-command adjudication ALONGSIDE the timeout rather than instead of
     # it: an all-COMPLETED run that had to be killed is still not merge evidence, but
     # throwing away what it did complete would discard the diagnosis for no gain.
-    results+=("TIMEOUT  $name  ($flow_elapsed; no verdict in ${FLOW_TIMEOUT_S}s; report: ${VERDICT:-<none>})")
+    results+=("TIMEOUT  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown}; no verdict in ${FLOW_TIMEOUT_S}s; report: ${VERDICT:-<none>})")
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     echo "⏱️  $name exceeded ${FLOW_TIMEOUT_S}s and was killed. Evidence: $RUN_DIR" >&2
   elif [ "$rc" -eq 0 ] && [ "$VERDICT" = "PASS" ]; then
-    results+=("PASS  $name  ($flow_elapsed)")
+    results+=("PASS  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown})")
     rm -rf "$RUN_DIR"
   else
     if [ "$rc" -ne 0 ] && [ "$VERDICT" = "PASS" ]; then
@@ -847,7 +860,7 @@ for f in "${FLOWS[@]}"; do
       echo "   report is clean. That is a harness bug and deserves its own work item; it is" >&2
       echo "   never a green." >&2
     fi
-    results+=("FAIL  $name  ($flow_elapsed; exit=$rc, report: ${VERDICT:-<none>})")
+    results+=("FAIL  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown}; exit=$rc, report: ${VERDICT:-<none>})")
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     fail=1
     echo "   Evidence kept: $RUN_DIR" >&2
@@ -878,6 +891,15 @@ fi
 
 echo ""
 echo "──── e2e:safety summary (${ran} flow(s), isolated invocations) ────"
+# INFRA-478 — name the device the verdicts below were earned on. A verdict that does not
+# name its device is not a verdict: the same tree measured 8/8 PASS on an iPhone 16 Pro and
+# 5/8 on an SE 3, so a green whose viewport is unrecorded is unauditable after the fact.
+# WHICH device the gate should run on is INFRA-486; this only records the one it did.
+if [ -n "${E2E_SIM_DEVICE_LINE:-}" ]; then
+  echo "📱 Device: ${E2E_SIM_DEVICE_LINE}"
+elif [ -n "${DEVICE_UDID:-}" ]; then
+  echo "📱 Device: physical device ${DEVICE_UDID}"
+fi
 # INFRA-476 — restate the host reading beside the verdicts. Per-flow wall-clock alone does
 # not say WHY a flow was slow, and the pre-flight line has scrolled far off screen by now.
 e2e_host_summary_line "${HOST_FACTS:-}"
