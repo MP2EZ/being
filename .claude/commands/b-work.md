@@ -177,6 +177,11 @@ is more dangerous than an unverified one, because the rigour of the original che
 stops the next reader re-testing it. Re-read every file the blocker names and confirm it still
 says what the blocker says; `git log --oneline -5 -- <path>` shows whether it moved.
 
+**A blocker asserting *external* state — a provisioning portal, deployed functions, a
+dashboard — cannot be settled by the repo at all.** Re-run the authoritative query
+(`eas device:list`, `supabase functions list`); a grep that merely reproduces the
+original absence re-confirms the stale reading instead of testing it.
+
 ---
 
 ### Step 1.4: Incorporate Additional Context
