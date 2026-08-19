@@ -297,8 +297,18 @@ export function VoiceReflectionScreen(): React.ReactElement {
 
       {phase === 'review' && (
         <View>
-          <Text style={styles.title}>Check the transcript.</Text>
-          <Text style={styles.hint}>Fix anything the transcription got wrong.</Text>
+          {/* DEBUG-477: testID is a test anchor on inert content, not an affordance.
+              Maestro's hideKeyboard swipes at the SCREEN CENTRE, which at 375x667 is
+              (187,333) — inside this screen's multiline transcript field (measured
+              [25,166][350,344]), where a swipe moves the caret instead of resigning
+              first responder. journal-crisis-scan taps this block instead: it has no
+              onPress, so the touch falls through to the root ScrollView, where RN's
+              default keyboardShouldPersistTaps='never' blurs the input. Element-
+              anchored, so it does not go stale the way a screen-relative point does. */}
+          <View testID="journal-review-header">
+            <Text style={styles.title}>Check the transcript.</Text>
+            <Text style={styles.hint}>Fix anything the transcription got wrong.</Text>
+          </View>
 
           <TextInput
             style={styles.input}
