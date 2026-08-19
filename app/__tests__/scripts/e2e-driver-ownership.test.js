@@ -94,24 +94,62 @@ const REAL_JVM_ARGS =
 const XCODEBUILD_COMM = '/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild';
 
 /**
- * Build a `ps -axo pid=,ppid=,pgid=,comm=,args=` table.
- * Columns are whitespace-separated with args running to end of line, matching real `ps`.
+ * INFRA-476 — the fixture must model what `ps` ACTUALLY returns, per column form.
+ *
+ * This used to build ONE five-column table with the full `comm` path. Real macOS `ps`
+ * cannot produce that: when `args` is requested in the same invocation, `comm` is capped
+ * at 16 characters (measured — a 119-char comm renders as `/System/Library/`). So the
+ * old fixture was unfaithful to the very command it claimed to exercise, and every
+ * xcodebuild matcher passed here while matching nothing on a real machine.
+ *
+ * `psTable` is now just the row set; `runHelper` renders it per form.
  */
 function psTable(rows) {
-  return rows
-    .map(r => `${r.pid} ${r.ppid} ${r.pgid} ${r.comm} ${r.args}`)
-    .join('\n');
+  return rows;
 }
 
+/** `comm` as macOS renders it when `args` shares the invocation: 16 chars, hard cap. */
+const COMM_CAP = 16;
+
 /**
- * Run one helper function with `ps` stubbed to emit `table`.
+ * Run one helper function with `ps` stubbed. The stub DISPATCHES ON ARGUMENT SHAPE so
+ * each column form returns what the real tool returns for that form — including the
+ * truncation, so a regression back to the single five-column read fails here.
+ *
  * The stub is a real executable earlier on PATH, so the helper's own `ps` invocation is
  * exercised verbatim — we are testing the shipped command, not a re-implementation.
  */
-function runHelper(fnCall, table) {
+function runHelper(fnCall, rows) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infra423-'));
   const stub = path.join(dir, 'ps');
-  fs.writeFileSync(stub, `#!/bin/sh\ncat <<'PSEOF'\n${table}\nPSEOF\n`, { mode: 0o755 });
+
+  const commTable = rows.map(r => `${r.pid} ${r.ppid} ${r.pgid} ${r.comm}`).join('\n');
+  const argsTable = rows.map(r => `${r.pid} ${r.args}`).join('\n');
+  const truncTable = rows
+    .map(r => `${r.pid} ${r.ppid} ${r.pgid} ${r.comm.slice(0, COMM_CAP)} ${r.args}`)
+    .join('\n');
+
+  fs.writeFileSync(
+    stub,
+    `#!/bin/sh
+case "$*" in
+  *comm=*args=*) cat <<'PSEOF'
+${truncTable}
+PSEOF
+  ;;
+  *args=*) cat <<'PSEOF'
+${argsTable}
+PSEOF
+  ;;
+  *comm=*) cat <<'PSEOF'
+${commTable}
+PSEOF
+  ;;
+  *) exit 0 ;;
+esac
+`,
+    { mode: 0o755 }
+  );
 
   const res = spawnSync('/bin/bash', ['-c', `. "${HELPER}"; ${fnCall}`], {
     encoding: 'utf8',
@@ -241,5 +279,64 @@ describe('the matcher can still go red — it matches the REAL captured driver',
     };
     const r = runHelper('e2e_maestro_jvm_pids', psTable([mentioner]));
     expect(r.stdout).toBe('');
+  });
+});
+
+/**
+ * INFRA-476 — the truncation that made every xcodebuild matcher dead code.
+ *
+ * `_e2e_ps_table` read `ps -axo pid=,ppid=,pgid=,comm=,args=`. macOS caps `comm` at 16
+ * characters whenever `args` is requested in the same invocation, so the driver's
+ * `/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild` arrived as
+ * `/Applications/Xc` and could never satisfy `(^|/)xcodebuild$`. The java matchers kept
+ * working because `java` is 4 characters — which is exactly why the asymmetry survived
+ * review, and why the reap looked healthy on a quiet machine.
+ *
+ * These run REAL `ps`, no stub. They are the reason the helper makes two reads.
+ */
+describe('INFRA-476: real `ps` truncates comm when args shares the invocation', () => {
+  const realPs = args =>
+    spawnSync('/bin/sh', ['-c', `ps ${args}`], { encoding: 'utf8' }).stdout || '';
+
+  const maxCommLen = out =>
+    out
+      .split('\n')
+      .filter(Boolean)
+      .reduce((m, line) => Math.max(m, (line.trim().split(/\s+/)[3] || '').length), 0);
+
+  it('caps comm at 16 chars in the five-column form', () => {
+    const five = maxCommLen(realPs('-axo pid=,ppid=,pgid=,comm=,args='));
+    expect(five).toBeLessThanOrEqual(COMM_CAP);
+  });
+
+  it('returns comm in full when args is NOT requested', () => {
+    const four = maxCommLen(realPs('-axo pid=,ppid=,pgid=,comm='));
+    // Any real machine has at least one executable path longer than the 16-char cap.
+    expect(four).toBeGreaterThan(COMM_CAP);
+  });
+
+  it('proves the old single-read form could not have matched a real xcodebuild path', () => {
+    const truncated = XCODEBUILD_COMM.slice(0, COMM_CAP);
+    expect(truncated).toBe('/Applications/Xc');
+    expect(/(^|\/)xcodebuild$/.test(truncated)).toBe(false);
+    // ...while the untruncated path, which the two-read helper now yields, does match.
+    expect(/(^|\/)xcodebuild$/.test(XCODEBUILD_COMM)).toBe(true);
+  });
+});
+
+/**
+ * Liveness. A matcher that silently stops matching is indistinguishable from a quiet
+ * machine, which is the failure this whole item exists to remove — so assert the shipped
+ * matcher FIRES against the verbatim captured driver, through the real two-read path.
+ */
+describe('INFRA-476: the xcodebuild matcher fires through the two-read table', () => {
+  it('finds the captured driver when comm arrives untruncated', () => {
+    const r = runHelper(`e2e_xcuitest_drivers ${UDID}`, psTable([PEER_JVM, PEER_DRIVER]));
+    expect(r.stdout).toContain('301');
+  });
+
+  it('reaps an orphaned xcodebuild driver — the case the truncation silently disabled', () => {
+    const r = reap(psTable([ORPHAN]), 100, UDID);
+    expect(r.pids).toContain('400');
   });
 });
