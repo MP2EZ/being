@@ -428,7 +428,19 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             Please review and accept each item separately:
           </Text>
 
-          <Text style={styles.consentGroupHeading} accessibilityRole="header">
+          {/*
+            testID is for the Maestro gate, and it is load-bearing there rather than
+            decorative: these headings are inert `Text` nodes, so a tap on one falls
+            through to the ScrollView and ABSORBS the touch that DEBUG-477's
+            swallowed-tap defect would otherwise eat after a mid-content scroll. The
+            usual absorber — an element outside the ScrollView — is unusable on this
+            screen, because outside this ScrollView is the pinned 988 footer.
+          */}
+          <Text
+            style={styles.consentGroupHeading}
+            accessibilityRole="header"
+            testID="legal-consent-group-required"
+          >
             Required to continue
           </Text>
 
@@ -492,7 +504,11 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             </Text>
           </Pressable>
 
-          <Text style={styles.consentGroupHeading} accessibilityRole="header">
+          <Text
+            style={styles.consentGroupHeading}
+            accessibilityRole="header"
+            testID="legal-consent-group-optional"
+          >
             Optional
           </Text>
 

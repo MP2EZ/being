@@ -143,46 +143,56 @@ name: "Art. 9 consent is refusable (FEAT-470): entry proceeds with the wellness 
 # line, the pinned 988 footer.
 #
 # Note this is reasoning from DEBUG-477's predicate, not a measurement on this flow.
+# ── The third required tick — it is BELOW THE FOLD and must be scrolled to ───────────
+# Measured at 375x667 from the failure screenshot of the first run: the checkbox labels
+# wrap hard at this width (the Art. 9 label alone runs ~7 lines / ~340pt), so the content
+# is far taller than a minHeight-based estimate suggests and the wellness box never shares
+# a viewport with Continue. The two must therefore be scrolled to separately.
+#
+# `visibilityPercentage: 100` alongside `centerElement: true` is NOT belt-and-braces — it
+# is the half whose absence caused run 2 to fail. Without it XCUITest scores a target
+# "visible" while it is clipped behind the pinned 988 footer (DEBUG-465), so the scroll
+# stops short; with it, the pair drives a real scroll, which is exactly why
+# `crisis-button-reachability` is immune by construction (DEBUG-477).
+- scrollUntilVisible:
+    element:
+      id: "legal-consent-wellness"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 100
+
+# ⚠️ ABSORBING TAP — do not delete as a no-op. This scroll terminates MID-CONTENT, and
+# DEBUG-477 established that eats exactly one touch, cleared by any touch. Without this
+# the wellness tap is silently swallowed: Maestro reports the tap COMPLETED, the box never
+# ticks, and the failure surfaces much later as Continue staying disabled — i.e. looking
+# like the gate refusing to release, a false regression in the thing under test.
+# `legal-consent-group-optional` is an inert Text, so the touch falls through to the
+# ScrollView and changes nothing. It must NOT be an element outside the ScrollView here:
+# out there is the 988 footer, and an absorbing tap on that dials a crisis line.
+- tapOn:
+    id: "legal-consent-group-optional"
+
+- assertVisible:
+    id: "legal-consent-wellness"
+- tapOn:
+    id: "legal-consent-wellness"
+
+# ── Continue, at the bottom boundary ─────────────────────────────────────────────────
+# Continue is the LAST child of this ScrollView, so this scroll clamps at the content
+# boundary — which is also DEBUG-477's clearing condition, so no absorber is needed here.
+# Arrival assertion first: a scroll that lands short is then attributed in ~2s instead of
+# surfacing 30s later as the final `notVisible` timing out.
 - scrollUntilVisible:
     element:
       id: "legal-gate-continue"
     direction: DOWN
     centerElement: true
-
-# ── The third required tick, taken at the BOTTOM offset ───────────────────────────────
-# This scroll does double duty, and that is deliberate rather than incidental.
-#
-#   1. It reveals `legal-consent-wellness`, which is below the fold at the landing offset
-#      (see the measurement above). At the bottom clamp the visible window is roughly the
-#      last 526pt of ~1089pt of content, and the wellness box sits inside it.
-#   2. It CLEARS DEBUG-477's swallowed-tap state. That predicate is: a scroll terminating
-#      MID-CONTENT eats exactly one touch, cleared by a scroll terminating at a CONTENT
-#      BOUNDARY. `legal-gate-continue` is the LAST child of this ScrollView, so scrolling
-#      to it clamps at the bottom boundary — the clearing condition.
-#
-# This is why the fix is a reorder and not a `scrollUntilVisible` on the wellness box
-# itself: centring wellness would terminate mid-content and the very next tap would be
-# eaten. The usual remedy — an absorbing tap on an inert element outside the ScrollView —
-# is unavailable here, because outside this ScrollView is the pinned 988 footer.
-#
-# Arrival assertions before each tap, per DEBUG-477's second remedy: without them a scroll
-# that landed short is misreported ~30s later as the final `notVisible` timing out, which
-# reads like the gate refusing to release — a regression in the exact thing under test.
-- assertVisible:
-    id: "legal-consent-wellness"
-- tapOn:
-    id: "legal-consent-wellness"
-
+    visibilityPercentage: 100
 - assertVisible:
     id: "legal-gate-continue"
 - tapOn:
     id: "legal-gate-continue"
 
-# The gate released. Asserted as the DISAPPEARANCE of the gate's own anchor rather than the
-# appearance of a downstream screen: what comes next is the onboarding sequence, whose
-# first screen has changed more than once, and pinning it here would couple this flow to
-# an unrelated surface. If the Art. 9 tick were still mandatory, Continue would be
-# `disabled` and the picker would still be on screen.
 - extendedWaitUntil:
     notVisible:
       id: "legal-dob-picker"
