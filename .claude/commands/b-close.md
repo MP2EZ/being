@@ -30,7 +30,13 @@ them once just resets the clock, so the reconciliation is enforced:
 
 ```bash
 bash /Users/max/dev/being/.claude/scripts/check-safety-paths.sh || exit 1
+(cd app && npm run check:ci-test-coverage) || exit 1
 ```
+
+The second is the same class of cheap local check: a test file added under `src/**`
+that matches no CI `--testPathPattern` runs on nobody's PR, and this gate is in
+neither `precommit` nor any hook, so it surfaces only as a red `Safety + privacy
+gates` after the PR exists. Fix by pattern, never by renaming a file toward one.
 
 It fails when a Protected Path is neither matched by Phase 2.5's grep nor listed
 in the script's `EXEMPT_PATHS` with a recorded reason. ~1s, no network, no build.
