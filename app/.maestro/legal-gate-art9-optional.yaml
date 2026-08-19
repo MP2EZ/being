@@ -63,6 +63,18 @@ name: "Art. 9 consent is refusable (FEAT-470): entry proceeds with the wellness 
 # coordinates from drifting with layout — and this screen's layout DID change in FEAT-470.
 # Years are sorted descending from the current year, placeholder at index 0, so any of these
 # lands on a year comfortably over 18.
+# Bring the wheel fully on screen and centred BEFORE swiping. Anchoring a swipe on the
+# picker's id is not sufficient on its own: if the wheel sits near a screen edge the
+# gesture extends past its y-range, the PARENT ScrollView claims it, and the wheel never
+# turns (INFRA-181 records the same failure from hardcoded coords). At the landing offset
+# the picker is normally already visible, so this issues no swipe and cannot itself eat a
+# touch.
+- scrollUntilVisible:
+    element:
+      id: "legal-dob-picker"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 100
 - tapOn:
     id: "legal-dob-picker"
 - swipe:
@@ -89,6 +101,17 @@ name: "Art. 9 consent is refusable (FEAT-470): entry proceeds with the wellness 
 # Continue disabled for a reason that has nothing to do with the Art. 9 tick, and the
 # failure would surface 30s later at the final assertion looking like a regression in the
 # thing under test.
+# 🔴 BOTH assertions are required, and the order matters.
+#
+# `assertNotVisible: "Select year..."` ALONE IS A FALSE GUARD, and it is how this flow
+# failed in a full-suite run while passing solo. The placeholder disappears in two very
+# different situations: the wheel turned and a year is selected (what we want), or the
+# ScrollView claimed the swipes and carried the whole picker off screen (what actually
+# happened — the failure screenshot showed the picker gone, all three checkboxes still
+# unticked, and every later tap landing on shifted content). Asserting the picker is
+# STILL VISIBLE first is what separates the two.
+- assertVisible:
+    id: "legal-dob-picker"
 - assertNotVisible:
     text: "Select year..."
 
