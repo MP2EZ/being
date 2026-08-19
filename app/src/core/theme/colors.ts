@@ -55,7 +55,7 @@ export const colors = colorSystem;
 export const semantic = {
   text: {
     primary: colorSystem.base.black,
-    secondary: colorSystem.gray[700],
+    secondary: colorSystem.gray[650],
     // DEBUG-323: was gray[500], which is 1.98:1 on background.primary (white) —
     // failing WCAG AA for normal text (4.5:1) AND for large text (3:1). A
     // semantic *text* token that could not legally render text on the default
@@ -101,22 +101,36 @@ export const semantic = {
     // 4.5) — but a prose ratio that nothing asserts drifts every time the surface
     // set grows, and it has now drifted twice.
     //
-    // gray[700] (#424242) clears 4.5:1 on EVERY surface (worst case 8.202 on
-    // gray[300]), which makes these tokens SURFACE-INDEPENDENT. That property is
-    // the point, not a side effect: `SkipLink` renders `muted` with no
-    // backgroundColor of its own over five different hosts, so its surface is
-    // not statically knowable and no per-site fix could ever cover it.
+    // MAINT-471: these tokens are now gray[650] (#686868), which clears 4.5:1 on
+    // all 17 ENUMERATED surfaces — worst case 4.5478 on gray[300], a margin of
+    // 0.0478. (gray[700] cleared them at 8.202; the mid-tier spends that margin on
+    // purpose, to buy back a visible tier.) Surface-independence is still the point,
+    // not a side effect: `SkipLink` renders `muted` with no backgroundColor of its
+    // own over five different hosts, so its surface is not statically knowable and
+    // no per-site fix could ever cover it. All five hosts were re-checked at the
+    // re-point; worst is 5.1579.
+    //
+    // THE QUALIFICATION THAT MATTERS: surface-independence now holds over the
+    // enumerated grounds, NOT over a ground computed at render time. The severity
+    // bands composite their fill onto the card at up to 0.16 alpha, reaching #E1E1E1
+    // — darker than gray[300] — where gray[650] measures 4.2612 and is illegal. That
+    // is why `severityBands.label` reads gray[700] directly rather than this token;
+    // see the note there. Anything added to SURFACES darker than gray[300] breaks
+    // gray[650] everywhere at once, so it is the constraint to check first.
     //
     // The cost is that the subordinate tier and body text are now the same
     // colour. That is the DEBUG-323 ruling above being paid, not violated —
     // there was never a legal chromatic tier to preserve.
     //
-    // DEBUG-380 TESTED THAT COST AND UPHELD IT. The complaint was that `primary`
-    // (base.black #1C1C1C) and `secondary` (gray[700]) are now 1.696:1 apart,
-    // down from 3.699:1 before DEBUG-357 — near-indistinguishable, in a token
-    // vocabulary that claims two tiers. Real, and DEBUG-370 multiplied the
-    // affected sites roughly fivefold. But the proposed remedy — re-point
-    // `primary` to gray[800] — is arithmetically impossible twice over:
+    // DEBUG-380 TESTED THAT COST AND UPHELD IT — AND MAINT-471 LATER PAID IT OFF.
+    // The complaint was that `primary` (base.black #1C1C1C) and `secondary`, then
+    // gray[700], were 1.696:1 apart, down from 3.699:1 before DEBUG-357 —
+    // near-indistinguishable, in a token vocabulary that claims two tiers. Real, and
+    // DEBUG-370 multiplied the affected sites roughly fivefold. `secondary` now reads
+    // gray[650] and the separation is 3.0583:1: restored past the 3:1 large-text bar,
+    // still short of the original 3.699:1, and both bounds are pinned. The remedy
+    // DEBUG-380 REJECTED — re-point `primary` to gray[800] — remains arithmetically
+    // impossible twice over, and is still the wrong lever:
     //
     //   - gray[800] #212121 is rgb(33,33,33); base.black #1C1C1C is rgb(28,28,28).
     //     gray[800] is LIGHTER, so the re-point moves the separation to 1.602:1
@@ -142,11 +156,29 @@ export const semantic = {
     // indistinguishable blacks. That is the DEBUG-342 token-bypass shape exactly,
     // one token up, and it is the real prerequisite for ever moving this token.
     //
-    // The only lever that can actually restore a chromatic tier is LIGHTENING
-    // `secondary`, which the app cannot do — it can re-point which ramp value a
-    // semantic token reads, not add one. That needs a design-system release
-    // minting a legal mid-tier (~#686868, 4.548:1 on gray[300]), tracked
-    // separately. Until then the ruling stands: subordination is structural.
+    // THAT LEVER HAS NOW BEEN PULLED (MAINT-471). The only thing that could restore
+    // a chromatic tier was LIGHTENING `secondary`, which the app cannot do for
+    // itself — it re-points which ramp value a token reads, it cannot add one.
+    // MAINT-388 shipped design-system v1.10.0 minting gray[650] #686868 (4.5478 on
+    // gray[300]) and this token now reads it: the primary↔secondary separation went
+    // 1.696:1 → 3.0583:1, clearing the 3:1 large-text bar.
+    //
+    // DEBUG-323's ruling still stands BELOW `secondary`: there is no legal fourth
+    // tier — the design system kept `colors.text.tertiary` #757575 white-only for
+    // exactly the reason DEBUG-357 moved off gray[600] — so subordination past
+    // `secondary` remains structural, never chromatic.
+    //
+    // DECIDED, MAINT-471 — the app does NOT adopt the DS `colors.text` group and
+    // keeps hand-rolling `semantic.text` from `base` + `gray`. Four reasons, in
+    // order of weight: (1) `colors.text.tertiary` is gray[600] renamed, white-only,
+    // and adopting the group wholesale would mint a third tier the app does not
+    // have — reintroducing the DEBUG-357 defect by another route; (2) v1.10.0
+    // already re-points `colors.text.secondary` to #686868, so adoption is a
+    // value-level no-op and buys nothing; (3) the DS group has no `muted` and no
+    // `learn`, both of which this object carries under standing rulings, so
+    // adoption could only ever be partial; (4) it would weaken the ramp-containment
+    // guard from a membership assertion into a coincidence between two
+    // independently-maintained token groups.
     //
     // Pinned mechanically by the DEBUG-380 describe in
     // core/theme/__tests__/theme-contrast.accessibility.test.ts, including an
@@ -157,7 +189,7 @@ export const semantic = {
     // Pinned by core/theme/__tests__/theme-contrast.accessibility.test.ts, which
     // DEBUG-357 widened from a single-surface assertion to a per-(foreground,
     // surface) matrix so "valid only on white" cannot become tribal knowledge again.
-    muted: colorSystem.gray[700],
+    muted: colorSystem.gray[650],
     inverse: colorSystem.base.white,
     // DEBUG-364: the learn-brand purple that is LEGAL AS TEXT on light surfaces.
     //
@@ -244,8 +276,23 @@ export const severityBands = {
   fill: colorSystem.gray[700],
   /** Hairline colour for reference-boundary gridlines (neutral, matches list dividers). */
   gridline: colorSystem.gray[300],
-  /** Neutral colour for band range labels. */
-  label: semantic.text.muted,
+  /**
+   * Neutral colour for band range labels.
+   *
+   * DELIBERATELY NOT `semantic.text.muted` (MAINT-471). This label renders on the
+   * band FILL alpha-composited onto the card, and at the two deepest opacities that
+   * ground is #E6E6E6 and #E1E1E1 — DARKER than gray[300] #E8E8E8, which is the
+   * binding constraint for the mid-tier neutral. gray[650] clears 4.5:1 on all 17
+   * enumerated surfaces but is illegal here BY CONSTRUCTION, measuring 4.4647 and
+   * 4.2612 on those two composites.
+   *
+   * So the surface-independence that makes `muted` safe everywhere else does not
+   * extend to a ground computed at render time, and this is the one site the
+   * surface matrix structurally cannot express. Pinned by the DEBUG-357 severity-band
+   * describe in theme-contrast.accessibility.test.ts; if a future ramp value is legal
+   * on #E1E1E1, re-point this back and delete the exception.
+   */
+  label: colorSystem.gray[700],
   /**
    * Per-severity fill opacity. Keyed by the clinical severity names used by
    * PHQ-9 (includes `moderately_severe`) and GAD-7. Stepped, not hued.

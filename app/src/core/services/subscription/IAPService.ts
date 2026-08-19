@@ -534,12 +534,18 @@ class IAPServiceClass {
 
       // Call appropriate Edge Function based on platform
       if (platform === 'apple') {
+        // `receiptData` is NOT sent (INFRA-467 slice 4). The server verifies against the
+        // App Store Server API, which is keyed on a transactionId, and stopped reading
+        // this field at slice 3 — so continuing to send it would ship a base64 app
+        // receipt over the wire on every purchase for no consumer at all. Retiring it
+        // needed no adoption window: nothing server-side ever read it successfully, and
+        // the value is still available locally for the Google branch below.
+        //
         // Conditional spread, NOT `transactionId: appleTransaction?.transactionId`.
         // An explicitly-undefined key is indistinguishable from an absent one under
         // toEqual, which is what made the old body assertions in IAPService.test.ts
         // pass exactly when this feature did nothing. Absent must mean absent.
         const body = {
-          receiptData,
           ...(appleTransaction
             ? {
                 transactionId: appleTransaction.transactionId,
