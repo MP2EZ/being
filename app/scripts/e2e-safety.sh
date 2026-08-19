@@ -60,6 +60,12 @@ cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + su
 # shellcheck source=scripts/e2e-sim-lock.sh
 . "$(dirname "$0")/e2e-sim-lock.sh"
 
+# INFRA-476 — host contention is ADVISORY reporting, not exclusion. The lock above decides
+# whether a run may start on this DEVICE; this only says whether the MACHINE is quiet
+# enough for the result to mean anything. It warns and never refuses.
+# shellcheck source=scripts/e2e-host-contention.sh
+. "$(dirname "$0")/e2e-host-contention.sh"
+
 MAESTRO_DIR=".maestro"
 
 BUNDLE_ID="fyi.being.app"
@@ -699,6 +705,20 @@ fi
 # mid-flow is protected by the same rule that protects it later.
 e2e_reset_drivers "" "pre-flight"
 
+# INFRA-476 — host contention, reported once, immediately before the first flow.
+#
+# Placement is load-bearing and both halves are deliberate. AFTER the INFRA-436 lock
+# acquire, which can block up to 1800s and would make an earlier reading stale by the time
+# a flow runs. AFTER the pre-flight reap, so our own about-to-die orphans are not counted
+# as someone else's contention.
+#
+# Deliberately NOT scoped under `[ -n "$SIM_UDID" ]` the way the driver reset is: host
+# starvation hurts a device-only run identically, and unlike the reset nothing is killed
+# here, so the empty-UDID widening hazard does not apply.
+HOST_FACTS="$(e2e_host_contention_facts "")"
+e2e_host_summary_line "$HOST_FACTS"
+e2e_host_contention_warn "$HOST_FACTS"
+
 flow_idx=0
 FLOW_TOTAL=${#FLOWS[@]}
 
@@ -750,6 +770,8 @@ for f in "${FLOWS[@]}"; do
   # That matters: the wedge is not in the JVM, it is in the `xcrun simctl` the JVM
   # spawned. Killing only the JVM leaves CoreSimulator stuck and every later flow
   # meaningless.
+  flow_t0="$(date +%s)"   # INFRA-476 — stopped at `wait` below, so the 8s settle is
+                          # not laundered into the flow's own time.
   set -m
   maestro test ${MAESTRO_DEVICE_ARGS[@]+"${MAESTRO_DEVICE_ARGS[@]}"} \
     --format=JUNIT --output="$REPORT" \
@@ -790,6 +812,7 @@ for f in "${FLOWS[@]}"; do
 
   wait "$child" 2>/dev/null
   rc=$?
+  flow_elapsed="$(e2e_fmt_elapsed "$(( $(date +%s) - flow_t0 ))")"
   kill -TERM -"$watchdog" 2>/dev/null || kill -TERM "$watchdog" 2>/dev/null || true
   wait "$watchdog" 2>/dev/null || true
 
@@ -812,11 +835,11 @@ for f in "${FLOWS[@]}"; do
     # Report the per-command adjudication ALONGSIDE the timeout rather than instead of
     # it: an all-COMPLETED run that had to be killed is still not merge evidence, but
     # throwing away what it did complete would discard the diagnosis for no gain.
-    results+=("TIMEOUT  $name  (no verdict in ${FLOW_TIMEOUT_S}s; report: ${VERDICT:-<none>})")
+    results+=("TIMEOUT  $name  ($flow_elapsed; no verdict in ${FLOW_TIMEOUT_S}s; report: ${VERDICT:-<none>})")
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     echo "⏱️  $name exceeded ${FLOW_TIMEOUT_S}s and was killed. Evidence: $RUN_DIR" >&2
   elif [ "$rc" -eq 0 ] && [ "$VERDICT" = "PASS" ]; then
-    results+=("PASS  $name")
+    results+=("PASS  $name  ($flow_elapsed)")
     rm -rf "$RUN_DIR"
   else
     if [ "$rc" -ne 0 ] && [ "$VERDICT" = "PASS" ]; then
@@ -824,7 +847,7 @@ for f in "${FLOWS[@]}"; do
       echo "   report is clean. That is a harness bug and deserves its own work item; it is" >&2
       echo "   never a green." >&2
     fi
-    results+=("FAIL  $name  (exit=$rc, report: ${VERDICT:-<none>})")
+    results+=("FAIL  $name  ($flow_elapsed; exit=$rc, report: ${VERDICT:-<none>})")
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     fail=1
     echo "   Evidence kept: $RUN_DIR" >&2
@@ -855,6 +878,9 @@ fi
 
 echo ""
 echo "──── e2e:safety summary (${ran} flow(s), isolated invocations) ────"
+# INFRA-476 — restate the host reading beside the verdicts. Per-flow wall-clock alone does
+# not say WHY a flow was slow, and the pre-flight line has scrolled far off screen by now.
+e2e_host_summary_line "${HOST_FACTS:-}"
 if [ "$GATE_TARGET_REPLACED" = "1" ]; then
   # Every completed flow is VOID, unconditionally — not merely under
   # E2E_REQUIRE_CLEAN_PROVENANCE. A marker change bounds a WINDOW, not an instant: the

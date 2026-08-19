@@ -407,17 +407,45 @@ regression at the point of reading, and it invites a device-specific diagnosis t
 geometry does not support. DEBUG-473 was filed as a 402x874 fold defect on exactly that
 basis; `maestro hierarchy` showed both cards 100% inside the fold.
 
-**Before running the gate:** confirm the host is quiet. Identify processes by executable,
-never by command line — an `args` match also matches the shell that mentions it (DEBUG-392):
+**The gate now reports this itself (INFRA-476).** `e2e-safety.sh` prints a host reading at
+pre-flight — after the INFRA-436 lock acquire and after the pre-flight driver reap, so the
+figure is current and our own about-to-die orphans are not counted as someone else's load —
+and repeats it beside the summary. Every verdict line also carries that flow's wall-clock,
+so a 45-minute "pass" reads as untrustworthy rather than green:
+
+```
+🖥️  Host at gate start: load1 3.20 / 10 cpu (0.32x) · 0 peer maestro JVM · 0 peer driver · 0 other xcodebuild
+    PASS  crisis-button-reachability  (1m57s)
+```
+
+**It WARNS and never refuses.** Same reasoning `e2e_warn_if_not_smallest_viewport`
+documents: a pre-flight that refuses on a judgement the operator disagrees with trains the
+`--skip-e2e` reflex the gate exists to prevent, and a false "someone else is running" means
+the human does not run the gate at all — failing toward *not testing*, which DEBUG-392
+recorded happening in this exact shape. Tune the threshold with
+`E2E_HOST_LOAD_WARN_RATIO` (default `1.0`, i.e. load ≥ `hw.ncpu`). It is advisory reporting
+only and takes no lock; INFRA-472 owns any actual lease.
+
+To check by hand before starting a build, identify processes by executable, never by
+command line — an `args` match also matches the shell that mentions it (DEBUG-392):
 
 ```bash
-ps -axo comm= | awk '$0 ~ /(^|\/)(xcodebuild|java)$/'   # empty = quiet
+ps -axo comm= | awk '$0 ~ /(^|\/)(xcodebuild|java)$/'
 ```
+
+Read that as *what else is running*, not as a verdict: it counts any unrelated Xcode build
+or JVM on the machine, so a non-empty result is not proof a peer gate run is in progress.
+**Use the single-column form.** Asking for `comm` and `args` in one `ps` invocation caps
+`comm` at 16 characters, so `/Applications/Xcode.app/…/xcodebuild` arrives as
+`/Applications/Xc` and matches nothing — the defect INFRA-476 fixed in
+`e2e-driver-ownership.sh`, where it had silently disabled every xcodebuild matcher while
+the `java` ones kept working because `java` is 4 characters.
 
 Do not tune a flow's timeouts to survive a contended host. A machine slow enough to blow a
 scroll budget is a machine on which that flow's crisis assertions — the ~10s `assertVisible`
 standing in for the <3s 988 SLA, the 3000ms `notVisible: "Unable to Call"` windows — are not
-trustworthy either. Contention must fail loudly.
+trustworthy either. Contention must be **visible**, never absorbed: the run reports it
+loudly and lets the operator decide, rather than failing closed on it.
 
 ## Which iOS runtime is a gate result allowed to be earned on? (INFRA-429)
 
