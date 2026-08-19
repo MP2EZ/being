@@ -185,11 +185,11 @@ Drop from the pool, reporting each class. **Never silently** — a hidden cap re
 - **Too large to batch** — `Effort` `XL` / `XXL`. One `/b-work` in one worktree cannot carry
   5–8+ weeks; these need slicing via `/b-create` first. Naming them makes the omission a
   recommendation rather than a silence.
-- **Routed out of the batch** — `Batch Route` ∈ {`Attended-only`, `Other repo`,
-  `Tooling (_bare)`, `Not a code change`}. Step 0.1a.5 defines these; the property is where a
-  previous run (or `/b-create`) recorded the same verdict, so the drop happens with no body
-  fetched. (`External blocker` and `Release-gated` are absent here because those rows are
-  `Blocked`, which 0.1a.2 already partitioned out.) Report as a roll-up with per-class counts, naming individually
+- **Routed out of the batch** — ANY non-empty `Batch Route`, whatever the row's status. Step
+  0.1a.5 defines the values; the property is where a previous run (or `/b-create`) recorded the
+  same verdict, so the drop happens with no body fetched. Do not assume `External blocker` and
+  `Release-gated` only appear on `Blocked` rows — they sit on `Not started` ones too, and a
+  status-conditioned rule silently re-proposes them. Report as a roll-up with per-class counts, naming individually
   only those that would otherwise have entered the 0.1a.5 window — a per-item list here grows
   with the backlog and stops being read.
 
