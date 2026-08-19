@@ -382,6 +382,43 @@ npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" f
 
 `/b-close` Phase 2.5 automatically picks the scoped subset of flows based on changed paths — see CLAUDE.md Workflow Commands. `app.json` / `Info.plist` changes no longer trigger a Maestro flow: the jest static-config test in precommit catches `LSApplicationQueriesSchemes` regressions deterministically (INFRA-184).
 
+## Run the gate on an UNCONTENDED machine (DEBUG-473)
+
+The gate is single-*device* by construction (`e2e_resolve_sim_device` refuses when 2+ are
+booted). It is not single-*machine-run*, and nothing enforces that — so two worktrees can
+each resolve their own simulator, both pass the pre-flight, and still invalidate each
+other's result by starving the host.
+
+**Measured.** `crisis-button-reachability` at 402x874, one unchanged tree, Release build,
+clean provenance:
+
+| host state | flow wall-clock | verdict |
+|---|---|---|
+| idle (load ~3-5, 0 peer processes) | 1m57s, 5/5 | PASS |
+| 2 peer Maestro drivers + 1 Xcode build (load 300-480) | 2m21s / 15m12s / **45m20s** | FAIL |
+
+A single `scrollUntilVisible` iteration cost ~1.5s idle and up to 13.7s contended. Under
+load the failing element **wandered** between `profile-card-export` and
+`profile-card-delete` across runs of a byte-identical tree — which is the tell, because
+geometry is deterministic about which element it hides and a budget is not.
+
+**Why this matters beyond flakiness.** A contended red is indistinguishable from a layout
+regression at the point of reading, and it invites a device-specific diagnosis that the
+geometry does not support. DEBUG-473 was filed as a 402x874 fold defect on exactly that
+basis; `maestro hierarchy` showed both cards 100% inside the fold.
+
+**Before running the gate:** confirm the host is quiet. Identify processes by executable,
+never by command line — an `args` match also matches the shell that mentions it (DEBUG-392):
+
+```bash
+ps -axo comm= | awk '$0 ~ /(^|\/)(xcodebuild|java)$/'   # empty = quiet
+```
+
+Do not tune a flow's timeouts to survive a contended host. A machine slow enough to blow a
+scroll budget is a machine on which that flow's crisis assertions — the ~10s `assertVisible`
+standing in for the <3s 988 SLA, the 3000ms `notVisible: "Unable to Call"` windows — are not
+trustworthy either. Contention must fail loudly.
+
 ## Which iOS runtime is a gate result allowed to be earned on? (INFRA-429)
 
 **Decision: 18.6 is retired as a *gate* target and retained as a *triage* target.** The gate

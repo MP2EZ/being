@@ -103,6 +103,28 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #     flows. This matrix is the suite's only record of what was proven on what, so extend it
 #     rather than replacing rows. Suite-level detail: docs/testing/e2e-maestro.md.
 #
+#     ✅ 402x874 RESOLVED, AND IT WAS NEVER THE VIEWPORT (DEBUG-473, 2026-08-17).
+#     DEBUG-473 recorded this flow as "marginal at the boundary" at 402x874 — FAIL on
+#     feat/FEAT-433 @ d1ab9f37, PASS on development @ aef27ebc, relevant files verified
+#     byte-identical — and read that as DEBUG-465 having moved continue-button into the
+#     hierarchy without reliably clearing the fold. That reading is wrong.
+#
+#       iPhone 16 Pro / iOS 18.6   402x874   PASS (1m09s), in a full 8/8 `npm run
+#                                            e2e:safety`, clean provenance bc6f83fa,
+#                                            quiet host (0 peer processes, load ~3)
+#
+#     The inconsistency was MACHINE CONTENTION, not geometry. Measured on the sibling flow
+#     crisis-button-reachability on one unchanged tree: 1m57s and PASS x5 on an idle host,
+#     versus 2m21s / 15m12s / 45m20s and FAIL with two peer Maestro drivers plus an Xcode
+#     build running (load 300-480). A single scrollUntilVisible iteration cost ~1.5s idle
+#     and up to 13.7s contended, and under load the failing element WANDERED between
+#     targets across runs of a byte-identical tree — which is the tell, because geometry is
+#     deterministic about which element it hides and a budget is not.
+#
+#     So: before reading a red here as a layout regression, check the host is quiet
+#     (`ps -axo comm= | awk '$0 ~ /(^|\/)(xcodebuild|java)$/'` — empty). See
+#     docs/testing/e2e-maestro.md "Run the gate on an UNCONTENDED machine" and INFRA-476.
+#
 #     ROOT CAUSE: corrupted simulator state on one iPhone 17 Pro instance. Its Maestro
 #     XCUITest driver died mid-flow — `java.net.ConnectException: Connection refused` on
 #     the driver port, inside `Maestro.waitForAppToSettle` — and Maestro reports the
