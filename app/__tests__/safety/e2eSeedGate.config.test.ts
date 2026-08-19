@@ -118,12 +118,13 @@ describe('env.ts defaults the seed var to disabled', () => {
  * the same reason as the assertions above — independent of module-load behaviour,
  * and they fail loudly if someone "simplifies" the mechanism later.
  */
-describe('INFRA-317 ungranted-boot switch stays inside the build-time gate', () => {
-  const seedSource = fs.readFileSync(
-    path.join(__dirname, '..', '..', 'src', 'core', 'config', 'e2eSeed.ts'),
-    'utf8',
-  );
+// Module scope: INFRA-377's block below reads the same source.
+const seedSource = fs.readFileSync(
+  path.join(__dirname, '..', '..', 'src', 'core', 'config', 'e2eSeed.ts'),
+  'utf8',
+);
 
+describe('INFRA-317 ungranted-boot switch stays inside the build-time gate', () => {
   it('introduces NO new EXPO_PUBLIC_* variable', () => {
     // The switch must ride the existing gate. A second env var would be a second
     // boundary to scope in eas.json and to pin here — and the "appears in exactly
@@ -132,7 +133,12 @@ describe('INFRA-317 ungranted-boot switch stays inside the build-time gate', () 
     expect([...new Set(envVars)]).toEqual(['EXPO_PUBLIC_E2E_SEED_ONBOARDED']);
   });
 
-  it('reads the ungranted marker ONLY after the SEED_ACTIVE early-return', () => {
+  // INFRA-377 extended this to cover BOTH markers. Each is asserted separately —
+  // a single loop over both would stay green while either one regressed.
+  it.each([
+    ['ungranted (INFRA-317)', 'isUngrantedBootRequested('],
+    ['stale-consent (INFRA-377)', 'isStaleConsentBootRequested('],
+  ])('reads the %s marker ONLY after the SEED_ACTIVE early-return', (_label, callSite) => {
     // With the build var at its 'false' default, `if (!SEED_ACTIVE) return;` makes
     // every line below it unreachable. So the marker check must sit AFTER that
     // guard inside maybeSeedE2EOnboardedState — that ordering is what makes the
@@ -140,7 +146,7 @@ describe('INFRA-317 ungranted-boot switch stays inside the build-time gate', () 
     // argument for not adding a new pin.
     const seedFn = seedSource.slice(seedSource.indexOf('export async function maybeSeedE2EOnboardedState'));
     const guardIdx = seedFn.indexOf('if (!SEED_ACTIVE) return;');
-    const markerIdx = seedFn.indexOf('isUngrantedBootRequested()');
+    const markerIdx = seedFn.indexOf(callSite);
 
     expect(guardIdx).toBeGreaterThanOrEqual(0);
     expect(markerIdx).toBeGreaterThan(guardIdx);
@@ -155,5 +161,67 @@ describe('INFRA-317 ungranted-boot switch stays inside the build-time gate', () 
     // narrower structural fact: no revoke/clear API is referenced anywhere in the
     // module at all.
     expect(seedSource).not.toMatch(/revokeConsent|clearConsent|resetConsent|withdrawConsent/);
+  });
+});
+
+/**
+ * INFRA-377 — the stale-consent forge stays behind the named store seam.
+ *
+ * The stale variant is a WRITER, so INFRA-317's suppressor guarantee does not
+ * and cannot cover it. What replaces that guarantee is a separation: the write
+ * lives in `consentStore.ts` behind `__seedStaleConsentRecordForE2E`, and
+ * `e2eSeed.ts` has no way to reach around it to storage directly.
+ *
+ * The regex above (`revokeConsent|clearConsent|…`) does NOT cover this on its
+ * own: a raw `SecureStore.setItemAsync('consent_record_v1', …)` in the seed
+ * module passes all four names while being strictly more powerful than any of
+ * them — it can write a record that reads as revoked, under-age, or
+ * integrity-broken. These close that.
+ */
+describe('INFRA-377 stale-consent forge is reachable only through the store seam', () => {
+  it('e2eSeed.ts does not import expo-secure-store at all', () => {
+    // The strongest available form: not "does not currently call setItemAsync"
+    // but "has no handle on secure storage to call". A future edit that wants to
+    // write directly has to add the import, and this goes red.
+    expect(seedSource).not.toMatch(/from\s+['"]expo-secure-store['"]/);
+    expect(seedSource).not.toMatch(/require\(\s*['"]expo-secure-store['"]\s*\)/);
+  });
+
+  it('e2eSeed.ts never names the raw consent storage key', () => {
+    expect(seedSource).not.toContain('consent_record_v1');
+  });
+
+  it('the seam exists, is exported, and is guarded by the build flag inline', () => {
+    const storeSource = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'src', 'core', 'stores', 'consentStore.ts'),
+      'utf8',
+    );
+
+    expect(storeSource).toMatch(/export async function __seedStaleConsentRecordForE2E/);
+
+    // The guard must be the FIRST statement in the function body, and must read
+    // the env var directly rather than importing `isE2EOnboardingSeedEnabled`
+    // from e2eSeed.ts — that module already imports this one, so the back-import
+    // would be a cycle and could break Babel's build-time inlining of the var.
+    const fnIdx = storeSource.indexOf('export async function __seedStaleConsentRecordForE2E');
+    const body = storeSource.slice(fnIdx, fnIdx + 600);
+    expect(body).toMatch(
+      /\{[\s\S]{0,200}?if \(env\.EXPO_PUBLIC_E2E_SEED_ONBOARDED !== 'true'\) return false;/,
+    );
+    expect(storeSource).not.toMatch(/from\s+['"]@\/core\/config\/e2eSeed['"]/);
+  });
+
+  it('the assertions above can still fail (DEBUG-390 control)', () => {
+    // Comment-stripping is absent here by design — these match import syntax and
+    // a storage-key literal, neither of which this codebase names in prose. But a
+    // regex pin is only worth its cost if it can go red, so prove each fires.
+    expect("import * as SecureStore from 'expo-secure-store';").toMatch(
+      /from\s+['"]expo-secure-store['"]/,
+    );
+    expect("const K = 'consent_record_v1';").toContain('consent_record_v1');
+    expect('export async function __seedStaleConsentRecordForE2E(').toMatch(
+      /export async function __seedStaleConsentRecordForE2E/,
+    );
+    expect(seedSource.length).toBeGreaterThan(1000);
   });
 });

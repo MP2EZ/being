@@ -28,6 +28,11 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import { getCurrentUserId } from '@/core/constants/devMode';
 import { logSecurity } from '@/core/services/logging';
+// INFRA-377: read directly rather than importing `isE2EOnboardingSeedEnabled`
+// from `@/core/config/e2eSeed` — that module already imports THIS one, so the
+// back-import would be a cycle. `env` is a leaf config module with no dependency
+// on the store, so this direction is cycle-free.
+import { env } from '@/core/config/env';
 
 // Storage keys
 const CONSENT_SECURE_KEY = 'consent_record_v1';
@@ -1677,3 +1682,85 @@ export const canPerformCrisisIntervention = (): boolean => {
   // This is a Privacy vital interests exception
   return true;
 };
+
+/**
+ * The age-verification and (optional) preference values a forged stale record
+ * should carry. Deliberately a parameter rather than a frozen constant: the
+ * DEBUG-418 ineligible cohort needs a different shape (a 13–17 birth year, or a
+ * missing one, which `isBaseEligibleForRenewal` fails closed on), and a seam
+ * hardcoded to the renewable cohort would have to be rewritten to serve it.
+ */
+export interface E2EStaleConsentVariant {
+  /** Must differ from CONSENT_VERSION, and should be an older, PARSEABLE version. */
+  version: string;
+  ageVerification: AgeVerification;
+  preferences?: ConsentPreferences;
+}
+
+/**
+ * INFRA-377 — forge a stale (version-mismatched) consent record. E2E ONLY.
+ *
+ * ⚠️ THIS IS NOT A STORE API. It is a test seam, named to be unmistakable.
+ *
+ * Every real mutator stamps `version: CONSENT_VERSION` (`grantConsent` :1017,
+ * `renewConsent` :1207, `recordLegalGateConsents` :74), so no sequence of real
+ * user actions can produce a record that `loadConsent` classifies as
+ * `version_mismatch`. The Maestro safety gate needs precisely that state to
+ * exercise the re-consent flow on device, so this forges the ONE field a real
+ * flow can never write and leaves everything else genuine — the record then runs
+ * through the real `loadConsent` classification exactly as a true stale install
+ * would.
+ *
+ * ── SAFETY / COMPLIANCE BOUNDARY (compliance + crisis review, INFRA-377) ──────
+ * Gated solely by `EXPO_PUBLIC_E2E_SEED_ONBOARDED === 'true'`, which is set only
+ * in the `e2e-sim` EAS profile — the same single belt the original INFRA-217
+ * seed relies on, and pinned by `__tests__/safety/e2eSeedGate.config.test.ts`.
+ * In every shippable build this returns `false` before touching storage.
+ *
+ * It deliberately writes NO consent-history entry. A 'granted' entry stamped
+ * today, for a version that could not be granted today, would fabricate an audit
+ * event that never happened — the same refusal `renewConsent` makes about
+ * `legal_gate_consents_v1`. It would also mask the history-reload path that
+ * `renewConsent` depends on, which is live in exactly this state.
+ *
+ * It cannot revoke, clear, or downgrade an existing record's permissions: it
+ * only ever writes a complete, non-revoked record built from its argument.
+ */
+export async function __seedStaleConsentRecordForE2E(
+  seedVariant: E2EStaleConsentVariant,
+): Promise<boolean> {
+  if (env.EXPO_PUBLIC_E2E_SEED_ONBOARDED !== 'true') return false;
+
+  const now = Date.now();
+  // Backdate the grant a year and keep the expiry in the future, so the record
+  // is stale for exactly ONE reason. `expired` is checked after `version`
+  // (`loadConsent` :875-935) so an expired forge would still read as
+  // version_mismatch, but a fixture stale for two reasons at once is a worse
+  // fixture — a later reordering would change which branch it lands on.
+  const oneYearMs = 365 * 24 * 60 * 60 * 1000;
+
+  const record: ConsentRecord = {
+    consentId: generateConsentId(),
+    userId: getCurrentUserId(),
+    version: seedVariant.version,
+    preferences: seedVariant.preferences ?? {
+      analyticsEnabled: true,
+      crashReportsEnabled: true,
+      cloudSyncEnabled: true,
+      researchEnabled: true,
+      mentalHealthProcessingConsent: true,
+    },
+    universalOptOut: false,
+    ageVerification: seedVariant.ageVerification,
+    timestamp: now - oneYearMs,
+    updatedAt: now - oneYearMs,
+    expiresAt: now + oneYearMs,
+    // Non-negotiable: `revoked` is checked BEFORE `version`, and a revoked
+    // record is terminal — never re-prompted (Art. 7(3)). A forge that set this
+    // true would produce `revoked`, not `version_mismatch`.
+    revoked: false,
+  };
+
+  await SecureStore.setItemAsync(CONSENT_SECURE_KEY, JSON.stringify(record));
+  return true;
+}

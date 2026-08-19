@@ -8,6 +8,68 @@ name: "GAD-7 score >=15 shows crisis results"
 # trigger; only the completion banner is in scope here.
 #
 # Threshold source: app/src/core/constants/safety.ts (GAD7_SEVERE_THRESHOLD)
+#
+# ── DEVICE MATRIX ────────────────────────────────────────────────────────────
+#   iPhone 16 Pro / iOS 18.6   402x874   PASS
+#   iPhone SE 3   / iOS 18.6   375x667   FAIL, then PASS after DEBUG-477
+#
+# ── DEBUG-477: THE SCROLLVIEW ATE THE TAP; IT WAS NOT LOST TO A FOLD ────────
+# RED at 375x667 with `No visible element found: id: assessment-begin-button`,
+# deterministic across two runs on an idle host (load 2.4). The message points at
+# the intro screen and the defect is one step earlier — measure before believing it.
+#
+# Measured, Release build, clean provenance 086d6139, `maestro hierarchy` at the
+# point of failure:
+#
+#   take-gad7-button   bounds=[24,201][351,396]   visibility 100%, tap centre (187,298)
+#   ScrollView fold    [0,0][375,583]             the card cleared it by ~187pt
+#   tap                reported COMPLETED
+#   hierarchy at fail  still #profile-screen, scrolled to 100% — never navigated
+#
+# So it is NOT a below-the-fold defect. The app never received the tap at all.
+# Measured with temporary instrumentation on this ScrollView (onScrollEndDrag /
+# onMomentumScrollBegin / onMomentumScrollEnd) plus onPressIn on the card, rendered
+# into the hierarchy so it could be read headlessly:
+#
+#   after the scroll, BEFORE any tap   d1 mb1 me1 pi0
+#   after the swallowed tap            d2 mb1 me1 pi0
+#
+# Read that carefully. Momentum had already BEGUN AND ENDED before the tap, so the
+# list was fully at rest by RN's own accounting — this is not inertia. The tap
+# incremented onScrollEndDrag (the ScrollView took it as a zero-distance drag) and
+# NEVER fired onPressIn (the Pressable never saw it). UIScrollView consumed it.
+#
+# A first guess that this was deceleration is wrong and was tested: a 6000ms
+# waitToSettleTimeoutMs — honoured, Maestro logs the full wait — does not fix it.
+# Time is not the variable. `waitToSettleTimeoutMs` is deliberately NOT used here;
+# it would encode a false cause.
+#
+# The control is what settles the classification: phq9-severe-completion runs the
+# same scroll->tap->assessment-begin-button sequence through the SAME handler
+# (ProfileScreen.tsx:146 navigate('AssessmentFlow') is unconditional and identical
+# for both types) and PASSES on this device and build in 15s — because take-phq9
+# is the FIRST card and is already 100% visible at offset 0, so its scroll performs
+# ZERO swipes and there is no swallowed touch. take-gad7 is the second card and
+# needs one swipe at 375x667. Both fit without a swipe at 402x874, which is why
+# this was only ever red on the small one.
+# IF phq9-severe-completion EVER GOES RED AT 375x667 THIS CLASSIFICATION IS VOID
+# and must be re-derived — it rests entirely on that control.
+#
+# THE PREDICATE, so you can recognise it elsewhere: a swipe that terminates
+# MID-CONTENT is followed by exactly ONE swallowed touch. It is cleared by any
+# touch, or by a scroll that terminates at a CONTENT BOUNDARY. It is not cleared by
+# time. Full derivation and the nine-probe table: docs/testing/e2e-maestro.md.
+#
+# DO NOT REACH FOR retryTapIfNoChange — it cannot work here. The swallowed tap
+# nudges the list 1-3pt, so Maestro sees "the hierarchy changed" and does not retry.
+# The defect defeats Maestro's own guard against it.
+#
+# `centerElement: true` is also the WRONG fix and was rejected in crisis review: it
+# treats a fold/clip defect, and the card was 100% visible and 187pt clear. Measured
+# anyway — with centering the card sits at y=300 instead of y=279 and the tap is
+# STILL swallowed. This is NOT DEBUG-465's pinned-control-over-ScrollView case
+# despite the adjacency. A faster swipe was tried too (speed:60 -> 0.401s: still
+# swallowed; speed:100 -> 0.001s: the scroll itself fails). Both negative.
 
 - launchApp:
     clearState: true
@@ -23,8 +85,28 @@ name: "GAD-7 score >=15 shows crisis results"
     element:
       id: "take-gad7-button"
     direction: DOWN
+# DEBUG-477 ABSORBING TAP — LOAD-BEARING, NOT A COPY-PASTE SLIP.
+# tab-profile is DELIBERATELY re-tapped while already the active tab. Its only job
+# is to absorb the one touch the ScrollView swallows after a mid-content swipe, so
+# that the card tap below is the SECOND touch and reaches the Pressable. It is
+# chosen because it is element-anchored (not a screen-relative coordinate) and
+# lives OUTSIDE the ScrollView; verified it does not reset the scroll offset — the
+# card was still at bounds=[24,199][351,394] when tapped afterwards.
+# COUPLING: this app does not implement scroll-to-top on active-tab re-press. If
+# someone adds it, this flow breaks RED (the card scrolls away and the tap misses),
+# which is the safe direction — but that is the first thing to check if it does.
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "take-gad7-button"
+# DEBUG-477: attribute the failure to the tap that caused it. Without this the
+# swallowed tap surfaces 20s later as "assessment-begin-button not found", naming
+# a screen the run never reached. assessment-close-button is the intro screen's
+# top-left control (AssessmentIntroduction.tsx:145; onSkip is always supplied at
+# this route — CleanRootNavigator.tsx:709) and is above the fold at 375x667, so
+# this fails in ~2s and says which screen we are actually on.
+- assertVisible:
+    id: "assessment-close-button"
 - scrollUntilVisible:
     element:
       id: "assessment-begin-button"
@@ -39,5 +121,11 @@ name: "GAD-7 score >=15 shows crisis results"
       - tapOn:
           id: "assessment-response-group-option-3"
 
+# NO scrollUntilVisible IN FRONT OF THIS ASSERTION, EVER (DEBUG-477 crisis ruling).
+# The banner is a crisis affordance and the contract is that it is on screen when
+# the severe result lands. If this goes red at a small viewport, that is the
+# contract failing — a banner reachable only by scrolling is a weaker contract than
+# the one this flow exists to pin, so scrolling to it would be a prohibited
+# relaxation under the item's AC 4, not a fix.
 - assertVisible:
     id: "results-crisis-banner"

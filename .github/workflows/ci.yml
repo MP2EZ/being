@@ -335,6 +335,24 @@ jobs:
         # running them — the exact failure mode MAINT-366 exists to remove.
         run: cd app && npm run test:scripts -- --ci --testTimeout=20000
 
+      - name: Practice + daily-loop tests
+        # DEBUG-468. These are co-located under src/features/practices/, which no
+        # existing pattern reaches: `test:unit` is --testPathPattern=unit and
+        # `test:integration` is =integration. Ten suites ran on NOBODY'S pull request
+        # until this step existed, including the render-tree pins for the daily loop's
+        # breath beat and the tenseMode config invariants.
+        #
+        # Wired by PATTERN, never by renaming files toward one — scripts/ci-uncovered
+        # -tests.json records coverage-by-filename as the defect it exists to remove.
+        #
+        # Scoped to src/features/practices/ deliberately, NOT widened to src/**: the
+        # ledger's own "wiring-them-is-deferred" note blocks the general case on
+        # src/features/assessment/stores/__tests__/assessmentStore.test.ts, which is
+        # load-dependent (3/3 solo, 2 of 6 failures under parallel load). `CI pass` is
+        # the sole required check on main and development with enforce_admins:true, so
+        # dragging a flaky suite in here would intermittently block every PR in the repo.
+        run: cd app && npm run test:practices -- --ci --testTimeout=20000
+
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v6

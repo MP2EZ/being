@@ -382,6 +382,43 @@ npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" f
 
 `/b-close` Phase 2.5 automatically picks the scoped subset of flows based on changed paths — see CLAUDE.md Workflow Commands. `app.json` / `Info.plist` changes no longer trigger a Maestro flow: the jest static-config test in precommit catches `LSApplicationQueriesSchemes` regressions deterministically (INFRA-184).
 
+## Run the gate on an UNCONTENDED machine (DEBUG-473)
+
+The gate is single-*device* by construction (`e2e_resolve_sim_device` refuses when 2+ are
+booted). It is not single-*machine-run*, and nothing enforces that — so two worktrees can
+each resolve their own simulator, both pass the pre-flight, and still invalidate each
+other's result by starving the host.
+
+**Measured.** `crisis-button-reachability` at 402x874, one unchanged tree, Release build,
+clean provenance:
+
+| host state | flow wall-clock | verdict |
+|---|---|---|
+| idle (load ~3-5, 0 peer processes) | 1m57s, 5/5 | PASS |
+| 2 peer Maestro drivers + 1 Xcode build (load 300-480) | 2m21s / 15m12s / **45m20s** | FAIL |
+
+A single `scrollUntilVisible` iteration cost ~1.5s idle and up to 13.7s contended. Under
+load the failing element **wandered** between `profile-card-export` and
+`profile-card-delete` across runs of a byte-identical tree — which is the tell, because
+geometry is deterministic about which element it hides and a budget is not.
+
+**Why this matters beyond flakiness.** A contended red is indistinguishable from a layout
+regression at the point of reading, and it invites a device-specific diagnosis that the
+geometry does not support. DEBUG-473 was filed as a 402x874 fold defect on exactly that
+basis; `maestro hierarchy` showed both cards 100% inside the fold.
+
+**Before running the gate:** confirm the host is quiet. Identify processes by executable,
+never by command line — an `args` match also matches the shell that mentions it (DEBUG-392):
+
+```bash
+ps -axo comm= | awk '$0 ~ /(^|\/)(xcodebuild|java)$/'   # empty = quiet
+```
+
+Do not tune a flow's timeouts to survive a contended host. A machine slow enough to blow a
+scroll budget is a machine on which that flow's crisis assertions — the ~10s `assertVisible`
+standing in for the <3s 988 SLA, the 3000ms `notVisible: "Unable to Call"` windows — are not
+trustworthy either. Contention must fail loudly.
+
 ## Which iOS runtime is a gate result allowed to be earned on? (INFRA-429)
 
 **Decision: 18.6 is retired as a *gate* target and retained as a *triage* target.** The gate
@@ -392,6 +429,19 @@ uninterrupted invocation on **iPhone 16 Plus / iOS 26.0** — a freshly created 
 no scheme approval and no driver history — clean-tree provenance, no reboot between flows
 (2026-08-16, INFRA-429). This is the first full-suite result recorded on 26.x. The
 per-device matrix lives in `daily-loop-quick-depth.yaml`; extend it, don't replace rows.
+
+**Validation record — the SMALLEST supported viewport (DEBUG-477, 2026-08-18).**
+`npm run e2e:safety` on **iPhone SE 3 / iOS 18.6 (375x667)**, a freshly created simulator,
+Release build, clean-tree provenance `086d6139`, idle host: **7 of 8 green**. The eighth,
+`daily-loop-quick-depth`, fails on `Element not found: Id matching regex: daily-loop-skip-breath`
+— that is **DEBUG-468's** defect, whose fix is on `fix/DEBUG-468-daily-loop-skip-breath-fold`
+and not yet on `development`. Every flow DEBUG-477 owns is green here.
+
+This is the **first** full-suite result ever recorded at 375x667, and it matters more than the
+count: the suite had never been run as a whole on this viewport, while `e2e-sim-device.sh`
+actively directs operators to it and DEBUG-465 ruled the gate should be pinned to it. Do not
+read the earlier 430x932 and 402x874 greens as covering it — two of the three flows that were
+red here were red for reasons no larger viewport can exhibit.
 
 **Why not "both runtimes must pass".** The version has never been the variable. Both prior
 version-attributions in this repo were wrong and both resolved to simulator *state*: the
@@ -423,6 +473,100 @@ both-must-pass, and should be argued on that basis if it is ever revisited.
 **Not recorded anywhere yet:** which runtime a given green was earned on.
 `e2e_resolve_sim_device` returns a bare UDID and the provenance marker is git-tree-based, so
 the flow headers are the only record and they are maintained by hand.
+
+**Update (DEBUG-477, 2026-08-18):** `journal-crisis-scan` no longer uses `hideKeyboard`. The
+false-green hazard described above is now pinned by a two-sided assertion on the keyboard
+itself rather than trusted. See the next section.
+
+## The swallowed tap: a mid-content swipe eats the next touch (DEBUG-477)
+
+**The predicate, so you can recognise it without re-deriving it.** A Maestro
+`scrollUntilVisible` whose swipe terminates **mid-content**, followed by a `tapOn`, loses
+exactly **one** touch. The command reports `COMPLETED`; the app never receives it.
+
+It is cleared by **any** prior touch, or by a scroll that terminates at a **content
+boundary**. It is *not* cleared by time. `retryTapIfNoChange` cannot save you: the swallowed
+tap nudges the list 1–3 pt, so Maestro sees "the hierarchy changed" and does not retry — the
+defect defeats Maestro's own guard against it.
+
+**Positive evidence, not inference.** The Profile `ScrollView` was temporarily instrumented
+(`onScrollEndDrag` / `onMomentumScrollBegin` / `onMomentumScrollEnd`, plus `onPressIn` on the
+card) with the counters rendered into the hierarchy so they could be read headlessly:
+
+| point | `d` | `mb` | `me` | `pi` |
+|---|---|---|---|---|
+| after the scroll, before any tap | 1 | 1 | 1 | 0 |
+| after the swallowed tap | 2 | 1 | 1 | 0 |
+
+Momentum had already **begun and ended** before the tap, so the list was at rest by RN's own
+accounting — this is not inertia. The tap incremented `onScrollEndDrag` (the ScrollView took
+it as a zero-distance drag) and never fired `onPressIn`. `UIScrollView` consumed it.
+
+**The probe table.** All on iPhone SE 3 / iOS 18.6 (375x667), Release, one flow each, idle
+host. Nine observations; the model explains all nine.
+
+| # | sequence | result |
+|---|---|---|
+| A/B | scroll DOWN to a mid-list card → tap → tap again | tap 1 does nothing, **tap 2 navigates** |
+| C | same, `waitToSettleTimeoutMs: 6000` (honoured), one tap | **fails** — time is not the variable |
+| D | scroll DOWN to card 2, scroll UP to card 1 (top boundary), tap card 1 | **passes** |
+| E | DOWN → UP → DOWN to card 2, tap | fails |
+| F | same as A but `centerElement: true` (centre y=300 not y=279) | fails — not position |
+| G | DOWN past the card, UP back to it, tap | fails — not scroll direction |
+| H | scroll, tap an **inert blank gap**, then tap the card | **passes** — not card-specific |
+| I | scroll, tap `tab-profile` (outside the ScrollView), then tap the card | **passes**, offset survives |
+| K | faster swipe: `speed: 60` → 0.401 s | fails. `speed: 100` → 0.001 s: the scroll itself fails |
+| P | same-point `swipe` (a touch held for a stated duration) at 120 / 300 / 600 / 1200 ms | **all four fail** |
+| P-ctl | same 120 ms touch, but with the swallow already absorbed by a prior tap | **passes** — so the primitive is valid and P's result is real |
+
+**Which flows this can bite.** Only a flow that scrolls to a **mid-list** target and then taps
+it. The suite's other card scrolls are immune by construction, and it is worth knowing why
+rather than assuming they are lucky:
+
+- `phq9-severe-completion` / `q9-single-alert` scroll to `take-phq9-button`, the **first**
+  card, already 100% visible at offset 0 — **zero swipes**, so no swallowed touch.
+- `crisis-button-reachability` uses `centerElement: true` + `visibilityPercentage: 100`
+  throughout, which per DEBUG-453 drives those scrolls to **maximum scroll**, i.e. to a
+  boundary.
+- `journal-crisis-scan`'s `profile-card-voice-reflection` is the **last** card in the list, so
+  its DOWN scroll *usually* terminates at the bottom boundary and the swallow does not
+  reproduce — it passed 3/3 in isolation. **Do not read that as immunity.** The same site
+  then failed in the Phase 2.5 gate, by a *different* mechanism: the scroll stopped short
+  with the card at `[24,463][351,666]` while Maestro logged `Visibility Percent: 1.0`,
+  because the ScrollView clip ends at y=583 and XCUITest keeps elements that are merely
+  clipped. That is DEBUG-465's shape, not this one, and `centerElement: true` is its fix.
+  **Two different defects can wear the same red on one line of a flow** — check the bounds
+  before choosing a remedy, and do not let a handful of green runs stand in for that.
+
+**Do not add the workaround to a flow that is green.** In particular do not add
+`waitToSettleTimeoutMs` to `crisis-button-reachability`: it is spent per swipe iteration
+*inside* the scroll's own timeout, and DEBUG-473 measured that flow's budget at 95% consumed
+on an idle machine. Hardening a structurally immune flow at the cost of turning the suite's
+most important flow red on a busy host is a net loss.
+
+**The remedy, where it is needed:** an absorbing `tapOn` on an element-anchored target
+*outside* the ScrollView, between the scroll and the real tap — `gad7-severe` re-taps
+`tab-profile`, which is already the active tab. Comment it, because a bare extra tap on the
+active tab reads as a copy-paste slip and will be tidied away otherwise.
+
+**Open, and it is a close condition on DEBUG-477, not a curiosity — and probe P narrowed it
+the wrong way.** Everything above shows the app never receives the touch. It does not show
+that a *human's* first tap after a flick is delivered, and the obvious reassuring explanation
+has now been tested and failed: **touch duration is not the variable.** A stationary touch
+held for 120 ms — a normal human tap — is swallowed, and so are 300 ms, 600 ms and 1200 ms,
+against a control proving the primitive activates the control when the swallow is
+pre-absorbed. Position, gesture shape, card identity and elapsed time are all excluded too.
+
+The only difference left between every probe here and a real finger is the **input producer**:
+XCUITest synthesises on the automation path, while the Simulator's own trackpad input goes
+through the simulated HID stack. That is a thinner reed than it looked, so treat "harness
+artefact" as the *leading hypothesis with an untested premise*, not as established.
+
+Verify by hand — it takes a minute and needs no tooling: open the Simulator on an iPhone SE 3,
+go to Profile, flick the list so the GAD-7 card is mid-screen, and tap it **once**. Repeat five
+times. If a human's first tap is also swallowed, that is an **app-side** defect reaching every
+mid-list card in the app, it is P1, and it is tracked separately — the flow remedy above is
+correct either way, which is why DEBUG-477 does not block on it.
 
 ## How a flow works
 
