@@ -46,9 +46,11 @@ const AA_NORMAL_TEXT = 4.5;
  * `DailyLoopCompleteScreen`'s passage box. Without it the matrix ships green
  * while a site the story names by name still fails.
  *
- * Note the ramp is non-monotonic at the light end — gray[100] (#FAFAFA) is
- * LIGHTER than gray[50] (#F9F9F9) — so this list must be explicit and must not
- * assume ordering.
+ * The list stays explicit, but the REASON changed (MAINT-471). It used to be that
+ * the ramp was non-monotonic at the light end; design-system v1.10.0 swapped
+ * gray[50] and gray[100] — they had shipped inverted — so it is now monotonic by
+ * luminance end to end. The list is explicit so that a surface ADDED to the app
+ * fails here until it is enumerated, which is the property that actually matters.
  */
 const SURFACES: Array<[string, string]> = [
   ['base.white', colorSystem.base.white],
@@ -166,7 +168,11 @@ describe('semantic text tokens come from the design-system ramp', () => {
     // The ruling is UNCHANGED and the correction strengthens it rather than
     // weakening it: #686868 is four hex steps from gray[600] (#757575), so it is
     // still visually indistinguishable and still cannot express a third tier.
-    // The bespoke hex buys nothing and costs the ramp guarantee. That is the
+    // MAINT-471: #686868 IS gray[650] now, so the guard passes on the shipped
+    // token by ramp membership rather than by luck. What it still forbids is
+    // HAND-TYPING that value: a literal #686868 has the same pixels and none of the
+    // ramp's guarantee, and it is the invent-a-lighter-grey reflex — not this
+    // particular hex — that the guard exists to catch. That is the
     // trap this assertion exists to close.
     const ramp = Object.values(colorSystem.gray as Record<string, string>);
     expect(ramp).toContain(semantic.text.muted);
@@ -194,11 +200,13 @@ describe('gray[500] is not a legal UI colour (DEBUG-342)', () => {
     // The 4 CleanTabNavigator inactive icons moved here. 1.4.11 governs them
     // (graphical objects identifying a UI state), not 1.4.3.
     //
-    // DEBUG-357 note: this assertion's PREMISE VALUE changed under it. When
-    // DEBUG-342 wrote it, muted was gray[600] and the margin over the 3:1 bar was
-    // 4.61 → thin. It is now gray[700] at 10.05:1. The assertion is unchanged and
-    // still correct; recorded here so a future reader does not mistake the large
-    // margin for a mis-stated bar. The 3.0 bar is right — these are graphical
+    // This assertion's PREMISE VALUE has now changed under it TWICE, and the
+    // assertion itself has never moved. When DEBUG-342 wrote it, muted was gray[600]
+    // and the margin over the 3:1 bar was 4.61 → thin. DEBUG-357 took it to gray[700]
+    // at 10.05:1. MAINT-471 took it to gray[650] at 5.5723:1 — still comfortably over
+    // the bar, and deliberately LESS margin than gray[700] gave, because the point of
+    // the mid-tier is to be lighter. Recorded so a future reader does not mistake a
+    // shrinking margin for a regression. The 3.0 bar is right — these are graphical
     // objects, not text.
     const ratio = getContrastRatio(semantic.text.muted, semantic.background.primary);
     expect(ratio).toBeGreaterThanOrEqual(3.0);
@@ -212,9 +220,14 @@ describe('gray[500] is not a legal UI colour (DEBUG-342)', () => {
     // the same commit rather than quietly removed: deleting it would erase the
     // record of why the gap was knowingly left open across DEBUG-323 and DEBUG-342.
     //
-    // The gap closed structurally, not by finding a better grey. There is no legal
-    // third grey — the ramp jumps gray[500] 1.98:1 → gray[600] 4.61:1 → gray[700]
-    // 10.05:1 with nothing usable between — so the resolution was to collapse the
+    // WHEN DEBUG-357 CLOSED THIS, the gap closed structurally rather than by finding
+    // a better grey, because at the time there was no legal third grey — the ramp
+    // jumped gray[500] 1.98:1 → gray[600] 4.61:1 → gray[700]
+    // 10.05:1 with nothing usable between. THAT IS NO LONGER TRUE (MAINT-471):
+    // design-system v1.10.0 minted gray[650] #686868 at 5.5723:1, which sits exactly
+    // in that gap and is what `muted` reads today. The historical reasoning is kept
+    // because it explains why the collapse was the right call THEN; do not read it as
+    // a standing claim about the ramp. The resolution at the time was to collapse the
     // muted tier onto gray[700] and express subordination structurally instead.
     // That is DEBUG-323's own standing ruling (colors.ts) applied one level up.
     const ratio = getContrastRatio(semantic.text.muted, semantic.background.secondary);
@@ -407,43 +420,68 @@ describe('DEBUG-357: severity-band labels clear AA on the composited band fill',
  *      so with `secondary` at gray[700] the supremum is 2.090:1 at pure #000000.
  *      2.3:1 would require 23.1:1 on white against a 21:1 physical ceiling.
  *
- * THE RULING: accept the flattening; subordination is expressed structurally —
- * italic, position, size, enclosure — never chromatically. That is DEBUG-323's
- * standing ruling, and DEBUG-380 does not overturn it. WCAG has no success
- * criterion governing contrast between two text tiers (1.4.3/1.4.6 govern text
- * against its own background; 1.4.11 governs UI components and graphical
- * objects), and both tiers clear AA on all 17 grounds this file asserts — so this
- * is a hierarchy judgement, not a gate failure.
+ * THE RULING HELD FOR EXACTLY AS LONG AS ITS PREMISE DID (MAINT-471).
  *
- * The only lever that could actually move the number is LIGHTENING `secondary`,
- * which requires a design-system release minting a legal mid-tier; the app cannot
- * add a ramp value, only re-point which one a semantic token reads. Tracked
- * separately. Note also that `semantic.text.primary` reaches only ~26 render
- * sites while `colorSystem.base.black` is read directly at ~102 — so any future
- * primary move must be preceded by that sweep, or it ships two indistinguishable
- * blacks. That is the DEBUG-342 shape, one token up.
+ * The ruling was: accept the flattening; subordination is expressed structurally —
+ * italic, position, size, enclosure — never chromatically. Its PREMISE was that the
+ * ramp had no legal step between gray[600] and gray[700], so the only lever was a
+ * design-system release minting a mid-tier, which the app cannot do for itself.
+ *
+ * MAINT-388 minted it. `gray[650]` #686868 clears 4.5:1 on all 17 enumerated
+ * grounds (worst case 4.5478 on gray[300], margin 0.0478), and MAINT-471 re-pointed
+ * `secondary`/`muted` onto it. Separation went 1.696:1 → 3.0583:1 and the supremum
+ * went 2.090:1 → 3.7686:1.
+ *
+ * So both assertions below going red was the ruling WORKING AS DESIGNED, not
+ * failing: they were written to fire the moment the dark end of the ramp widened,
+ * because that was the only moment worth re-opening this. They are now RESIDUAL
+ * pins on the new state — the tier is restored but NOT back to its pre-DEBUG-357
+ * value, and that gap stays visible rather than being declared closed.
+ *
+ * WHAT SURVIVES UNCHANGED:
+ *   - Both arithmetic impossibilities above. gray[800] is still LIGHTER than
+ *     base.black, and the supremum is still (L_sec + 0.05) / (L_fg + 0.05)
+ *     maximised at L_fg = 0. That formula is precisely WHY the fix worked from the
+ *     other side: the supremum is a function OF `secondary`, so widening the ramp
+ *     moved it. Re-pointing `primary` remains the wrong lever.
+ *   - DEBUG-323's structural-subordination ruling. No legal FOURTH text tier
+ *     exists — the design system kept `colors.text.tertiary` #757575 white-only for
+ *     the same reason — so subordination past `secondary` is still structural.
+ *   - `semantic.text.primary` reaches only ~26 render sites while
+ *     `colorSystem.base.black` is read directly at ~102, so any future primary move
+ *     must still be preceded by that sweep. That is the DEBUG-342 shape, one token
+ *     up — and it now has a sibling: ~61 raw `colorSystem.gray[700]` text reads
+ *     across 27 files did NOT follow this re-point, so the app ships two subordinate
+ *     greys until that sweep lands. Tracked separately.
  */
 describe('DEBUG-380: the primary↔secondary separation ruling', () => {
   it('records the collapse — the two text tiers are not chromatically distinct', () => {
-    // A RESIDUAL PIN in the DEBUG-357 shape (see the muted-on-secondary test
-    // above): assert the gap EXISTS so it stays visible rather than assumed
-    // closed. This goes RED if the design system ever widens the dark end of the
-    // ramp — which is exactly the moment to re-open DEBUG-380, and the only
-    // moment worth re-opening it.
+    // MAINT-471 INVERTED THIS PIN. It used to assert the collapse (< 3.0) and fired
+    // when the ramp widened — which is exactly what it was for. gray[650] restored
+    // the tier, so it now asserts the RESTORATION, and keeps the residual visible:
+    // 3.0583 clears the 3:1 large-text threshold but is still short of the 3.699
+    // this had before DEBUG-357. The upper bound is what stops "restored" being
+    // read as "back to where we were".
     const separation = getContrastRatio(semantic.text.primary, semantic.text.secondary);
-    expect(separation).toBeLessThan(3.0);
-    expect(separation).toBeGreaterThan(1.5);
+    expect(separation).toBeGreaterThan(3.0);
+    expect(separation).toBeLessThan(3.699);
   });
 
   it('proves the ~2.3:1 acceptance target is unreachable by ANY foreground', () => {
-    // THE LOAD-BEARING ASSERTION. Pure black is the theoretical maximum contrast
-    // against anything, so if #000000 cannot reach 2.3:1 against `secondary`,
-    // no colour can — in the ramp or out of it, hardcoded or not. Without this,
-    // the target survives as a plausible-sounding number in prose and gets
-    // re-proposed. #000000 is a literal on purpose: it is named to be REJECTED,
-    // the same way gray[500] is named in the DEBUG-342 block above.
+    // MAINT-471: the 2.3 VERDICT is retired — the shipped token now exceeds it
+    // (3.7686) — but the MECHANISM this test existed to pin is unchanged and is
+    // what made the fix legible. Pure black is the theoretical maximum contrast
+    // against anything, so the supremum is a function of `secondary` alone. Pinning
+    // that relation keeps the arithmetic re-derivable if `secondary` ever moves
+    // again, where pinning the old verdict would only record a number that is no
+    // longer true. #000000 stays a literal on purpose: it is named to be REJECTED
+    // as a foreground, the same way gray[500] is named in the DEBUG-342 block above.
     const ceiling = getContrastRatio('#000000', semantic.text.secondary);
-    expect(ceiling).toBeLessThan(2.3);
+    expect(ceiling).toBeGreaterThan(2.3);
+    // No real foreground can beat pure black, so the shipped separation must sit at
+    // or below the supremum. This is the invariant; the numbers above are its values.
+    const separation = getContrastRatio(semantic.text.primary, semantic.text.secondary);
+    expect(separation).toBeLessThanOrEqual(ceiling);
   });
 
   it('blocks the gray[800] proposal by name — it is LIGHTER than base.black', () => {
@@ -460,7 +498,9 @@ describe('DEBUG-380: the primary↔secondary separation ruling', () => {
   it('confirms secondary is the binding constraint, not primary', () => {
     // Why the remedy has to move `secondary` and not `primary`: `primary` already
     // sits within 0.9 of the 21:1 ceiling, so there is almost nothing left to
-    // gain by darkening it, while `secondary` has ~10 points of headroom. States
+    // gain by darkening it, while `secondary` still has headroom above the 4.5 bar
+    // (1.07 points on white as of MAINT-471's gray[650], down from ~5.6 under
+    // gray[700] — the mid-tier spends headroom on purpose). States
     // the asymmetry mechanically so the next reader does not have to re-derive it.
     const white = colorSystem.base.white;
     const primaryHeadroom = 21 - getContrastRatio(semantic.text.primary, white);
