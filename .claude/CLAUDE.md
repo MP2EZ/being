@@ -299,6 +299,12 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
 - **`app/` has two test roots, so a `src`-scoped grep cannot answer "is this dead?" (INFRA-84).** Co-located suites sit under `app/src/**/__tests__/`, but a second tree at `app/__tests__/` holds 14 suite directories (`unit`, `safety`, `clinical`, `privacy`, `security`, `integration`, …) and the `package.json` scripts glob it by name — `test:unit` matches `/unit/i`, so a suite there runs in `precommit` while staying invisible to `grep -rn … app/src`. A "no callers, safe to delete" finding drawn from `app/src` alone is unverified; grep both roots, plus `supabase/functions` for anything the edge functions call.
 - **Proving a migration landed before an observed event**: `schema_migrations` is `(version, statements, name)` only and `track_commit_timestamp` is off, so no application timestamp exists. Compare `xmin::text::bigint` on the changed `pg_proc`/`pg_class` row against the observed row's — transaction ids are monotonic, so ordering is provable from data.
 - **A new `Deno.env.get` in `supabase/functions/` needs a `deploy-manifest.json` entry in the SAME commit (INFRA-442).** `scripts/supabase-deploy-drift.js --reconcile` (CI `Security + compliance`) fails both ways — undeclared read, and declared-but-unread (`SECRET STALE`) — so a secret cannot be pre-declared ahead of its reader. It walks `_shared/` too, where nothing reads env at all: config arrives as a parameter.
+- **An empty result from a filtered test run is not a pass.** Bash working directory
+  persists between calls, so a `cd` earlier in a session leaves `npm run test:*`
+  executing outside `app/`, where npm exits ENOENT and prints nothing a
+  `grep -E "Tests:|FAIL"` would match. Assert the `Tests: N passed` line is PRESENT;
+  never infer a pass from absent failures. Same family as the "never pipe the build
+  command" rule — both turn a command that never ran into a green reading.
 
 ## Git Hooks (INFRA-155)
 
