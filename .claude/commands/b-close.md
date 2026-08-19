@@ -9,6 +9,11 @@
 Does NOT promote to `main` — use `/b-release` for that. The `--push` flag is
 deprecated (PR merge always pushes); accepted as a no-op for backward compat.
 
+**A multi-slice item closes ONCE, on its final slice.** Step 4.1 sets `Done`
+unconditionally and Step 5.1 removes the worktree, so running this on slice 1..n-1
+misreports state and destroys the worktree the next slice needs. Land intermediate
+slices by hand — Step 3.1–3.7 verbatim, especially 3.4's rollup verdict.
+
 > 💡 For best flow: ensure Accept Edits mode is active (Shift+Tab to cycle).
 > This skill makes multiple tool calls (Notion + git + gh CLI) per run.
 
@@ -58,8 +63,6 @@ a path list for flows CI can never execute.
 **Examples**:
 ```bash
 /b-close MAINT-79           # Close without push
-/b-close MAINT-79 --push    # Close and push (--push is a no-op, kept for backcompat)
-/b-close --push             # Auto-detect work item, push
 /b-close MAINT-79 --skip-e2e  # Bypass Phase 2.5 Maestro gate (HOTFIX BRANCHES ONLY)
 ```
 
