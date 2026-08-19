@@ -275,7 +275,10 @@ async function verifyStaleReceipts(supabase: any): Promise<number> {
   // Get subscriptions that need verification (last verified > 24 hours ago)
   const { data: subscriptions, error } = await supabase
     .from('subscriptions')
-    .select('id, user_id, platform, receipt_data_encrypted, platform_subscription_id')
+    // Only what the deferral below actually reports on. Selecting
+    // `receipt_data_encrypted` would pull an encrypted bearer-ish credential into memory
+    // for no consumer, which is a data-minimization regression the moment it is unused.
+    .select('id, platform')
     .in('status', ['active', 'trial', 'grace'])
     .or('last_receipt_verified.is.null,last_receipt_verified.lt.' + new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString())
     .limit(100); // Limit to 100 per run to avoid timeout
@@ -292,62 +295,49 @@ async function verifyStaleReceipts(supabase: any): Promise<number> {
 
   console.log(`[Automation] Found ${subscriptions.length} stale receipts`);
 
-  let verifiedCount = 0;
+  // ---------------------------------------------------------------------------
+  // DEFERRED TO DEBUG-474 — this path does not re-verify anything, and says so.
+  //
+  // It previously POSTed to verify-{apple,google}-receipt and counted a 2xx. It could
+  // never have worked, for four independent reasons, and INFRA-467 slice 4 chose an
+  // explicit deferral over a re-point because repairing it needs API surface that does
+  // not exist yet:
+  //
+  //   1. It sent `receipt_data_encrypted` as `receiptData` / `purchaseToken`. That column
+  //      holds AES-256-GCM CIPHERTEXT written by encryptReceipt — never a value a verifier
+  //      could read. This predates both INFRA-260 and INFRA-467.
+  //   2. It sent a `userId` body field that INFRA-260 stopped reading, identity having
+  //      moved to auth.uid().
+  //   3. The Authorization header is the SERVICE-ROLE key, whose JWT carries no `sub`.
+  //      verify-apple-receipt runs verify_jwt=true and throws in getAuthUidFromRequest,
+  //      so every call 401s before any of the above matters. Calling a user-scoped
+  //      endpoint from cron cannot work by construction, not by accident.
+  //   4. Since INFRA-467 slice 3, verify-apple-receipt does not accept `receiptData` at
+  //      all — Apple verification is keyed on a transactionId.
+  //
+  // The correct fix is Apple's SUBSCRIPTION-STATUS endpoint
+  // (/inApps/v1/subscriptions/{originalTransactionId}), called directly from here rather
+  // than hopping through a user-scoped function. Re-verification asks "is this still
+  // renewing?", which is renewal state — not the point-in-time transaction that
+  // /inApps/v1/transactions/{id} returns. See DEBUG-474.
+  //
+  // WHY LOUD RATHER THAN DELETED. The query above is genuine diagnostics: the count of
+  // stale rows is worth knowing even while nothing acts on it. What is removed is the
+  // PRETENCE — the old loop reported success by omission, since a non-ok response was
+  // silently not counted and the catch discarded the throw, so a run in which every single
+  // verification 401'd was indistinguishable from a clean one.
+  // ---------------------------------------------------------------------------
+  const apple = subscriptions.filter((s: { platform: string }) => s.platform === 'apple').length;
+  const google = subscriptions.filter((s: { platform: string }) => s.platform === 'google').length;
+  console.error(
+    `[Automation] STALE RECEIPT RE-VERIFICATION IS DISABLED (DEBUG-474). ` +
+      `${subscriptions.length} subscription(s) past the 24h window were NOT re-verified ` +
+      `(apple=${apple}, google=${google}). Their status may be stale in either direction.`
+  );
 
-  // Verify each receipt
-  for (const subscription of subscriptions) {
-    try {
-      if (subscription.platform === 'apple') {
-        // Call Apple verification function
-        const response = await fetch(
-          `${Deno.env.get('SUPABASE_URL')}/functions/v1/verify-apple-receipt`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            },
-            body: JSON.stringify({
-              receiptData: subscription.receipt_data_encrypted,
-              userId: subscription.user_id,
-            }),
-          }
-        );
-
-        if (response.ok) {
-          verifiedCount++;
-        }
-      } else if (subscription.platform === 'google') {
-        // Call Google verification function
-        const response = await fetch(
-          `${Deno.env.get('SUPABASE_URL')}/functions/v1/verify-google-receipt`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              'Authorization': `Bearer ${Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')}`,
-            },
-            body: JSON.stringify({
-              packageName: 'fyi.being.app', // TODO: Make configurable
-              subscriptionId: subscription.platform_subscription_id,
-              purchaseToken: subscription.receipt_data_encrypted,
-              userId: subscription.user_id,
-            }),
-          }
-        );
-
-        if (response.ok) {
-          verifiedCount++;
-        }
-      }
-    } catch (error) {
-      console.error(`[Automation] Failed to verify receipt for subscription ${subscription.id}:`, error);
-      // Continue with next subscription
-    }
-  }
-
-  console.log(`[Automation] Verified ${verifiedCount} receipts`);
-  return verifiedCount;
+  // Zero verified, reported as zero. The caller's `receiptsVerified` total therefore
+  // stays honest rather than counting attempts that never happened.
+  return 0;
 }
 
 /**
