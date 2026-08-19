@@ -875,6 +875,12 @@ fi
 
 Proceed to Step 3.1 only on success.
 
+**Use the wait.** The build (~7 min post-regen, 21 min cold) and the flow run are dead
+time on the critical path, and everything downstream is already knowable: draft Step 3.3's
+PR body and Step 4.2's Notion comment while they run, so both paste straight in when the
+gate goes green. Draft in the scratchpad, never the worktree — an untracked file there
+reads as MISMATCH on the next provenance verify and costs a rebuild (CLAUDE.md).
+
 **`development` can advance while the gate runs.** After Phase 2.5 completes, re-check
 `git rev-list --count HEAD..origin/development`. If the new commits leave your NET diff
 free of runtime code, proceed and record that reasoning — re-gating would validate their
