@@ -125,11 +125,28 @@ name: "Art. 9 consent is refusable (FEAT-470): entry proceeds with the wellness 
 # because DEBUG-465 established that a control sharing screen coordinates with content
 # clipped behind a pinned sibling gets scored visible by XCUITest, so Maestro would skip
 # the scroll and tap the wrong thing.
+#
+# DEBUG-477 (the ScrollView eats the tap) does NOT apply here, and the reason is worth
+# stating so nobody "hardens" this with an absorbing tap. That predicate is: a scroll
+# terminating MID-CONTENT eats exactly one touch, cleared by a scroll terminating at a
+# CONTENT BOUNDARY. `legal-gate-continue` is the LAST child of this ScrollView — nothing
+# follows it but `</ScrollView>` — so centring it clamps the scroll at the bottom
+# boundary, which is the clearing condition. An absorbing tap would be actively unsafe on
+# this screen: every tappable thing here is either a consent checkbox or, below the fold
+# line, the pinned 988 footer.
+#
+# Note this is reasoning from DEBUG-477's predicate, not a measurement on this flow.
 - scrollUntilVisible:
     element:
       id: "legal-gate-continue"
     direction: DOWN
     centerElement: true
+# Arrival assertion before the tap, per DEBUG-477's second remedy: without it, a scroll
+# that failed to reach Continue is misreported ~30s later as the final `notVisible`
+# timing out, which reads like the gate refusing to release — i.e. like a regression in
+# the exact thing under test. This attributes it in ~2s instead.
+- assertVisible:
+    id: "legal-gate-continue"
 - tapOn:
     id: "legal-gate-continue"
 
