@@ -498,9 +498,34 @@ contains no keyboard elements and no `journal-crisis-banner`, against a control 
 keyboard raised that shows nine. Closing the class rather than this instance would require
 both-must-pass, and should be argued on that basis if it is ever revisited.
 
-**Not recorded anywhere yet:** which runtime a given green was earned on.
-`e2e_resolve_sim_device` returns a bare UDID and the provenance marker is git-tree-based, so
-the flow headers are the only record and they are maintained by hand.
+**Recorded since INFRA-478.** This used to say the runtime a green was earned on was not
+recorded anywhere, leaving the hand-maintained flow headers as the only record. The gate now
+derives and prints the resolved device's **model, iOS runtime and viewport** — on every
+verdict line and in the run summary:
+
+```
+📱 Device: iPhone SE (3rd generation) / iOS 18.6 / 375x667
+    PASS  crisis-button-reachability  (1m57s · 375x667)
+```
+
+Derived, not tabulated: `deviceTypeIdentifier` and the runtime key come from the
+`xcrun simctl list devices booted -j` call the resolver already made and discarded, and the
+viewport from the device type's own `profile.plist` (`mainScreenWidth`/`Height`/`Scale`). A
+hand-kept model→points table is the thing that rots — every `375x667` and `430x932` figure
+elsewhere in this repo is typed into a comment by hand.
+
+The smallest-viewport check now keys on that **derived viewport** rather than on the
+simulator's display name. The old `case` against the substring `"iPhone SE"` was wrong in
+both directions: an iPhone SE 1st-gen (320x568) is genuinely smaller than the baseline and
+silently satisfied it, while any renamed simulator defeated it. Both are pinned in
+`app/__tests__/scripts/e2e-sim-device-attribution.test.js`.
+
+**Still warn-only, and still not a pin.** The gate records which device it ran on; it does
+not choose one. Choosing is **INFRA-486**, and it is deliberately separate: "pin to the
+smallest model" and "never refuse because the device is large" are the same behaviour with
+opposite verdicts, since the resolver consumes an already-booted simulator and never boots
+one. That item is also blocked on a full **9-flow** SE 3 measurement that has never been run
+— the 8-flow baseline predates `reconsent-stale.yaml`.
 
 **Update (DEBUG-477, 2026-08-18):** `journal-crisis-scan` no longer uses `hideKeyboard`. The
 false-green hazard described above is now pinned by a two-sided assertion on the keyboard
