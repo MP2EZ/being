@@ -35,10 +35,27 @@ plan mode, say so and stop — ask the user to switch (Shift+Tab) and re-invoke.
 > (separate Claude chats), provided their item lists are **disjoint** — each batch owns
 > its own manifest (per-batch slug, Step 0.1b), refuses IDs already live in a sibling
 > batch (Step 0.1c), and self-recovers from the `origin/development` merge race
-> (Phase 3.4). The one resource that is *not* parallelizable is the **human-attended
-> simulator close** (Phase 4.1) — but a single human serializes that naturally, so no
-> lock is needed. **Do not** run two simultaneous batches that each carry a Supabase
-> DB-migration item (one shared live DB).
+> (Phase 3.4). The simulator and the gate worktree are **not** parallelizable, and they
+> are **locked** — INFRA-436 (simulator), INFRA-463 (gate worktree), INFRA-472 (the pair,
+> taken up front). Concurrent batches therefore serialise on them rather than clobber each
+> other. Do not remove those locks: this note previously said the contended resource was
+> the human-attended close (Phase 4.1) and that "a single human serializes that naturally,
+> so no lock is needed", which was wrong twice over. It was **falsified** across sessions —
+> `e2e-sim-lock.sh`'s own header names the claim — and it was **wrongly scoped**, because
+> Phase 3 walks GREEN and RED-GATED items through `/b-close` mechanically and every one of
+> those fires Phase 2.5's gate with no human present. The rationale never covered the
+> majority of this loop's own closes, even before it was falsified.
+>
+> **Waiting is silent, and that is normal.** An unattended batch can block on a peer's
+> lease for up to `E2E_LOCK_TIMEOUT` (1800 s default). The acquire loop prints nothing
+> while it waits — output appears only on success, on timeout (naming the holding pid,
+> command and acquisition time), or under `E2E_LOCK_FORCE`. So a quiet terminal is the
+> EXPECTED appearance of waiting, not a hang. Tell them apart by the holder, never by the
+> silence: `ls $E2E_LOCK_ROOT` and check the recorded pid is alive. A wedged holder is
+> cleared with `E2E_LOCK_FORCE=1`, never by deleting the lock directory by hand.
+>
+> **Do not** run two simultaneous batches that each carry a Supabase DB-migration item
+> (one shared live DB).
 
 ### Step 0.0: Reap orphaned `Batched` claims (runs on BOTH fresh and `--resume`)
 
@@ -743,8 +760,9 @@ back, and leaving it `Batched` is exactly the stranded claim Step 0.0 exists to 
 ## Phase 3: Serial Execution (greens + reds, ≤ cap)
 
 Walk GREEN **and RED** items **one at a time, in tranche order** (serial — the merge
-serializes on `origin/development` anyway, and the simulator is a single serial
-resource).
+serializes on `origin/development` anyway, and the simulator is a single serial resource).
+Serial *within* this batch; across sessions the locks named in Phase 0 do the serialising,
+so a mechanical close here may WAIT on a peer rather than fail.
 
 **RED items are NOT skipped — they are implemented, then tiered.** Every GREEN and RED item
 runs `/b-work` (Step 3.1) and the safety re-check (Step 3.2); only the close differs —
@@ -1023,6 +1041,11 @@ Two cheap habits that came out of the same run: a gate reporting an unclassified
 (`audit-ci`'s bare `code undefined:`) is **not** a finding — re-run the underlying command
 directly to get the real message before theorising; and confirm a fix hypothesis is even
 testable locally before pushing it, since a CI-only fix costs a full round-trip per attempt.
+
+**Exit 4 from the gate is a THIRD thing, and it is neither (a) nor (b).** INFRA-472 returns
+it when a peer holds the gate slot, which says nothing about this item. `/b-close` Step 2.5.4
+reports it as contention; never park it as CI-red, never tier it as a safety regression, and
+never `--skip-e2e` past it. Re-run the item once the named holder finishes.
 
 Tell the two apart by the **full rollup** — not the error text, and not
 `gh pr checks --watch`. **Both refusals name `Required status check` at merge time**, so the
