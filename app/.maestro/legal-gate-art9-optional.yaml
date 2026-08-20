@@ -123,7 +123,24 @@ name: "Art. 9 consent is refusable (FEAT-470): entry proceeds with the wellness 
 #
 # 🔴 `legal-consent-mh-processing` IS NOT TAPPED HERE, AND THAT IS THE ENTIRE POINT.
 # Anyone "fixing" a failure in this flow by adding that tap has deleted the test.
-# ── The three required ticks, each VERIFIED and re-tapped once if swallowed ──────────
+# ── The three required ticks, each SCROLLED TO, VERIFIED, and re-tapped if swallowed ──
+#
+# 🔴 EVERY checkbox is scrolled to before it is tapped, including the FIRST. That is not
+# defensive padding — it is the fix for the defect that made this flow unreliable across
+# six suite runs, and removing it for the boxes that "look visible at landing" reproduces
+# the failure exactly.
+#
+# At 375x667 the pinned 988 footer takes ~121pt off the ScrollView's viewport and the
+# labels wrap hard, so even `legal-consent-tos` is clipped by the footer at the landing
+# offset. XCUITest DROPS elements outside the SCREEN but KEEPS ones merely outside a
+# ScrollView's clip (DEBUG-465), so Maestro scored these boxes visible, skipped scrolling,
+# and tapped coordinates the footer was occupying. Every tap reported COMPLETED and no box
+# ever ticked — which is what the failure screenshots showed, and why this looked like
+# DEBUG-477's swallowed tap when it was not.
+#
+# `visibilityPercentage: 100` is the half that forces a REAL scroll; `centerElement` then
+# lands the target mid-screen instead of flush against the fold. That pair is what
+# DEBUG-477 credits for crisis-button-reachability being immune by construction.
 #
 # 🔴 WHY EVERY TAP IS FOLLOWED BY A CONDITIONAL RE-TAP. DEBUG-477: a swipe or scroll
 # terminating mid-content causes UIScrollView to consume the NEXT touch as a zero-distance
@@ -142,6 +159,12 @@ name: "Art. 9 consent is refusable (FEAT-470): entry proceeds with the wellness 
 # tick. One re-tap is sufficient by the predicate — exactly one touch is eaten — and the
 # re-tap is safe precisely because it is conditional: if the first tap landed, the check is
 # visible, the block does not run, and the box is never toggled back off.
+- scrollUntilVisible:
+    element:
+      id: "legal-consent-tos"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 100
 - tapOn:
     id: "legal-consent-tos"
 - runFlow:
@@ -154,6 +177,12 @@ name: "Art. 9 consent is refusable (FEAT-470): entry proceeds with the wellness 
 - assertVisible:
     id: "legal-consent-tos-check"
 
+- scrollUntilVisible:
+    element:
+      id: "legal-consent-privacy"
+    direction: DOWN
+    centerElement: true
+    visibilityPercentage: 100
 - tapOn:
     id: "legal-consent-privacy"
 - runFlow:
