@@ -384,7 +384,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|practices/dailyloop)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|practices/dailyloop)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -515,6 +515,7 @@ fi
 | `.maestro/<flow>.yaml` added or edited | **trigger** that flow | The flow IS the contract; one that has never run is not coverage. Bypasses the inert filter — a deletion-only diff here is assertions being removed. |
 | `.maestro/_<helper>.yaml` edited | **full suite** | Any flow may include a helper subflow. |
 | `.maestro/crisis-988-dial.yaml` edited | **no sim flow** — hardware notice | `safety-device-only`; sim `canOpenURL` is unconditionally false, so it cannot pass here. Run `e2e:safety:988-dial` on a real iPhone. |
+| `src/core/stores/consentStore.ts` | **`deeplink-consent-gate` + `reconsent-stale`** | INFRA-482. File-level, not `src/core/stores/`. Owns the consent-record writes, `canPerformOperation`, the forging seam, and the safety-critical `loadConsent` branch order. Siblings in that dir have no safety surface. |
 | `src/core/config/e2eSeed.ts` | **full suite** | Sets the launch state every flow starts from; no narrower scope is valid. |
 | Mixed comment + code on one line / pure type-only edit | **trigger** | Bash can't safely prove inert → bias safe. |
 
@@ -605,6 +606,18 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/' && \
 # affordance, so it is the correct scoped target — NOT the fail-safe crisis-button.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/consent/' && \
   FLOWS+=("deeplink-consent-gate")
+# INFRA-482: consentStore.ts is FILE-level, not the whole of src/core/stores/. It owns every
+# consent-record write, `canPerformOperation`, the INFRA-377 forging seam, and the loadConsent
+# branch order whose own comment says "THE ORDER OF THESE THREE CHECKS IS SAFETY-CRITICAL" —
+# testing `revoked` after `version` re-prompts someone who deliberately withdrew (GDPR Art.
+# 7(3)). Its only two siblings there (settingsStore, subscriptionStore) carry no safety surface,
+# and gating the directory would charge a sim build for a subscription edit — the over-trigger
+# that trains the --skip-e2e reflex. `assessmentStore.ts` is already covered via
+# features/assessment/. Scoped to the two flows that exercise consent state end-to-end rather
+# than the full suite: unlike e2eSeed.ts it does not author the launch state, it classifies a
+# record that already exists.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/stores/consentStore\.ts' && \
+  FLOWS+=("deeplink-consent-gate" "reconsent-stale")
 # INFRA-416: features/guidance has NO flow. guidanceGate.ts consumes the PHQ-9/GAD-7
 # thresholds to route a distressed user to Stoic content vs crisis resources — a live
 # safety decision with ZERO e2e coverage (no flow references guidance or tier content;

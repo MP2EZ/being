@@ -46,6 +46,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/guidance/` | `crisis` + `philosopher` |
 | `app/src/features/consent/` | `crisis` + `compliance` |
 | `app/src/core/services/security/` | `compliance` |
+| `app/src/core/stores/consentStore.ts` | `compliance` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
