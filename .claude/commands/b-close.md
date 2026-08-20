@@ -553,7 +553,18 @@ Avoids running all 5 flows on every safety touch (~3-4 min full run trains
 pin the surfaces affected.
 
 ```bash
-SCRIPTS=()
+# INFRA-483 — this holds FLOW NAMES, not npm script names, because Step 2.5.5 passes the
+# whole set to ONE `e2e-safety.sh` invocation. The simulator lease is taken and released
+# per PROCESS (e2e-safety.sh:266-267 acquire + trap), so a loop of `npm run` calls drops it
+# between every flow, and a peer's gate build landing in one of those gaps installs over
+# the target and fails the NEXT flow's pre-flight. The per-flow `e2e:safety:*` scripts stay
+# in package.json for manual use; they must keep routing through `e2e-safety.sh`.
+FLOWS=()
+# Declared HERE, once. It used to be re-declared empty further down — AFTER the
+# practices/dailyloop clause had already set it — which discarded DEBUG-465's carve-in, so
+# a dailyloop-only change fell through to the crisis-button fail-safe instead of the full
+# suite. A single declaration point is what makes the override order legible.
+FULL_SUITE=""
 # --- Classify: which safety changes are RENDER/BOOT-relevant vs SERVICE-LAYER-only? ---
 # The sim flows drive the UI; they can ONLY validate render / boot / navigation surfaces.
 # Pure service-layer code is jest-owned (precommit + CI's crisis/clinical/security/
@@ -584,16 +595,16 @@ RENDER_BOOT_RELEVANT=$(echo "$SAFETY_CHANGED" | awk '
 # Crisis UI dir touched (overlay/screens/components — services/ already carved out) OR the
 # overlay re-hosted/edited anywhere (FEAT-212 content detection) → reachability flow.
 if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/crisis/' || [ -n "$CRISIS_HOST_CHANGED" ]; then
-  SCRIPTS+=("e2e:safety:crisis-button")
+  FLOWS+=("crisis-button-reachability")
 fi
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/' && \
-  SCRIPTS+=("e2e:safety:q9" "e2e:safety:phq9" "e2e:safety:gad7")
+  FLOWS+=("q9-single-alert" "phq9-severe-completion" "gad7-severe")
 # INFRA-416: features/consent hosts the PRE-consent 988 footer (CombinedLegalGateScreen),
 # and LegalGate is in SUPPRESSED_ROUTES so the root overlay does not cover for it.
 # deeplink-consent-gate.yaml is the flow that lands on that screen and asserts the
 # affordance, so it is the correct scoped target — NOT the fail-safe crisis-button.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/consent/' && \
-  SCRIPTS+=("e2e:safety:consent-gate")
+  FLOWS+=("deeplink-consent-gate")
 # INFRA-416: features/guidance has NO flow. guidanceGate.ts consumes the PHQ-9/GAD-7
 # thresholds to route a distressed user to Stoic content vs crisis resources — a live
 # safety decision with ZERO e2e coverage (no flow references guidance or tier content;
@@ -625,7 +636,7 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/practices/dailyloop' && FUL
 # TRADEOFF (unchanged): if such a change ALSO touches assessment persistence, run
 # `npm run e2e:safety` (full suite) manually.
 echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/services/security' && \
-  SCRIPTS+=("e2e:safety:crisis-button")
+  FLOWS+=("crisis-button-reachability")
 # --- `.maestro/` flow edits + e2eSeed.ts: this gate's OWN contract surface ---
 # An edited flow is validated by running that flow. Three cases the obvious mapping
 # gets wrong, which is why this is a case statement and not a name transform:
@@ -637,7 +648,6 @@ echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/services/security' && \
 #     canOpenURL returns false unconditionally there regardless of the array's
 #     contents. Adding it would make every 988-flow edit an unfixable red gate, so it
 #     is deliberately excluded and surfaced as a hardware instruction instead.
-FULL_SUITE=""
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$(basename "$f")" in
@@ -647,12 +657,12 @@ while IFS= read -r f; do
       echo "   returns false unconditionally, so this flow cannot pass here and is NOT"
       echo "   added to the run set. Validate on real hardware before merging:"
       echo "   npm run e2e:safety:988-dial (with an iPhone connected)." ;;
-    q9-single-alert.yaml)            SCRIPTS+=("e2e:safety:q9") ;;
-    phq9-severe-completion.yaml)     SCRIPTS+=("e2e:safety:phq9") ;;
-    gad7-severe.yaml)                SCRIPTS+=("e2e:safety:gad7") ;;
-    crisis-button-reachability.yaml) SCRIPTS+=("e2e:safety:crisis-button") ;;
-    journal-crisis-scan.yaml)        SCRIPTS+=("e2e:safety:journal") ;;
-    deeplink-consent-gate.yaml)      SCRIPTS+=("e2e:safety:consent-gate") ;;
+    q9-single-alert.yaml)            FLOWS+=("q9-single-alert") ;;
+    phq9-severe-completion.yaml)     FLOWS+=("phq9-severe-completion") ;;
+    gad7-severe.yaml)                FLOWS+=("gad7-severe") ;;
+    crisis-button-reachability.yaml) FLOWS+=("crisis-button-reachability") ;;
+    journal-crisis-scan.yaml)        FLOWS+=("journal-crisis-scan") ;;
+    deeplink-consent-gate.yaml)      FLOWS+=("deeplink-consent-gate") ;;
     *) FULL_SUITE=1 ;;
   esac
 done <<< "$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
@@ -663,17 +673,19 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/config/e2eSeed\.ts' && FULL_SUI
 # tab/stack re-point can break ANY flow's reachability. Keep the full suite, LAST so
 # this replace-override wins over the += clauses above when combined.
 echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/navigation/|CleanRootNavigator' && \
-  SCRIPTS=("e2e:safety")  # full suite — cross-cutting change, override scope
-[ -n "$FULL_SUITE" ] && SCRIPTS=("e2e:safety")  # same override, from the block above
+  FULL_SUITE=1  # full suite — cross-cutting change, override scope
+# FULL_SUITE wins over every += above. Step 2.5.5 ignores FLOWS when it is set and runs
+# `e2e-safety.sh` with NO arguments, which is how the tagged suite is selected.
+[ -n "$FULL_SUITE" ] && FLOWS=()
 
 # Safety net / clean-skip split: if nothing mapped, decide WHY via RENDER_BOOT_RELEVANT.
 #  • render/boot-relevant change we failed to map → fail SAFE to crisis-button (never
 #    enter the gate on a render/boot change and run zero flows).
 #  • ONLY service-layer carve-outs changed → deliberate, LOGGED skip (no silent cap):
 #    jest owns the surface; no sim build needed (this is the MAINT-237 narrowing payoff).
-if [ ${#SCRIPTS[@]} -eq 0 ]; then
+if [ ${#FLOWS[@]} -eq 0 ] && [ -z "$FULL_SUITE" ]; then
   if [ -n "$RENDER_BOOT_RELEVANT" ]; then
-    SCRIPTS=("e2e:safety:crisis-button")
+    FLOWS=("crisis-button-reachability")
   else
     echo "ℹ️  Safety-surface change is SERVICE-LAYER ONLY (MAINT-237 narrowing) — no sim flow:"
     echo "$SAFETY_CHANGED" | sed 's/^/      /'
@@ -683,8 +695,8 @@ if [ ${#SCRIPTS[@]} -eq 0 ]; then
   fi
 fi
 
-# Dedupe (only when non-empty — a clean service-layer skip leaves SCRIPTS intentionally empty)
-[ ${#SCRIPTS[@]} -gt 0 ] && SCRIPTS=($(printf "%s\n" "${SCRIPTS[@]}" | sort -u))
+# Dedupe (only when non-empty — a clean service-layer skip leaves FLOWS intentionally empty)
+[ ${#FLOWS[@]} -gt 0 ] && FLOWS=($(printf "%s\n" "${FLOWS[@]}" | sort -u))
 ```
 
 ### Step 2.5.4: Verify simulator readiness
@@ -712,7 +724,10 @@ the guidance below describes a build that worktree cannot produce. Detect it rat
 letting the operator discover it 12 minutes in:
 
 ```bash
-if [ ${#SCRIPTS[@]} -gt 0 ]; then
+# INFRA-483: FULL_SUITE means "run the tagged suite with no arguments", so an empty
+# FLOWS[] does NOT mean "no flows" — check both or a cross-cutting change skips the
+# readiness guards entirely and enters the gate with no simulator.
+if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ]; then
   if ! grep -q 'INFRA-383' app/scripts/e2e-sim-build.sh 2>/dev/null; then
     echo "⚠️  This worktree still has the LEGACY EAS gate build (pre-INFRA-383)."
     echo "    'npm run e2e:safety:build' here = eas build --local: 10-15 min EVERY run,"
@@ -760,6 +775,38 @@ npm run precommit                # 2. `git merge` does not fire the pre-commit h
 npm run e2e:safety:gate          # 3. gate worktree detaches at the RESULTING commit
 ```
 
+**INFRA-483 — run step 3 from here and ROUTE ON ITS EXIT CODE.** This used to be prose
+plus the example block above, so `e2e:safety:gate` was never actually invoked by this step
+and INFRA-472's lease-contention exit code reached no decision point at all. Exit **4** is
+the one that matters: it means a peer session holds the gate slot, which says nothing about
+this item. Reporting it as a gate failure would park a healthy branch and, repeated, is
+exactly the pressure that produces `--skip-e2e`.
+
+```bash
+if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ]; then
+  npm run e2e:safety:gate
+  GATE_RC=$?
+  case "$GATE_RC" in
+    0) : ;;   # artifact built and provenance-bound to this tree — continue to 2.5.5
+    4) # INFRA-472: the pair lease (gate worktree + simulator) is held elsewhere. The
+       # wrapper has already named the holding pid on stderr — surface it, do not
+       # re-derive it, and NEVER identify the holder with pgrep -f (DEBUG-392).
+       echo "⏸️  Gate slot busy (exit 4) — a peer session holds the gate worktree +"
+       echo "    simulator lease. This is CONTENTION, not a regression and not a gate"
+       echo "    failure: nothing has been learned about this branch either way."
+       echo "    Wait for the holder named above and re-run /b-close. Do NOT --skip-e2e,"
+       echo "    and do NOT record this as a red gate."
+       exit 1 ;;
+    *) echo "❌ e2e:safety:gate failed (exit $GATE_RC) — the gate artifact could not be"
+       echo "   produced or does not correspond to this tree. Fix before closing."
+       exit 1 ;;
+  esac
+fi
+```
+
+A caller that parks or tiers on close failures — `/b-batch` Phase 3.4 is the one in
+tree — must read exit 4 as "retry later", never as a CI-red or a safety regression.
+
 Pointing the gate at a bare branch tip gates a tree that will never merge — the same
 mistake this step's "sync FIRST" rule exists to prevent, just relocated. The wrapper
 refuses a dirty worktree up front and names the offending files, and on any provenance
@@ -789,7 +836,7 @@ back-merged `development`. Without the guard, every open feature branch's close 
 ```bash
 # Only require a simulator when there are flows to run. A service-layer-only safety
 # change (Step 2.5.3) resolves to zero flows and closes with no sim build at all.
-if [ ${#SCRIPTS[@]} -gt 0 ]; then
+if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ]; then
   if ! xcrun simctl list devices booted | grep -qE '\([A-F0-9-]+\) \(Booted\)'; then
     echo "❌ No iOS simulator booted."
     echo "   Run 'npm run e2e:safety:build' first (Release build, INFRA-383) to build +"
@@ -850,26 +897,52 @@ to the user.
 
 ```bash
 cd /Users/max/dev/being/[worktree-dir]/app
-if [ ${#SCRIPTS[@]} -eq 0 ]; then
+if [ ${#FLOWS[@]} -eq 0 ] && [ -z "$FULL_SUITE" ]; then
   echo "✅ No sim flows required (service-layer-only safety change, Step 2.5.3) — proceeding to close."
 else
   # INFRA-384 — a merge gate's evidence must correspond to the commit being merged, so
   # a dirty-tree marker is a FAILURE here even though it is only a banner for a human
   # iterating locally. AC3 and AC4 are opposite policies over one implementation; this
-  # variable is the whole difference. Set here as well as checked in 2.5.4 because the
-  # per-flow scripts route through e2e-safety.sh, which re-verifies at run time — the
-  # tree can move between the readiness check and the flow.
+  # variable is the whole difference. Set here as well as checked in 2.5.4 because
+  # e2e-safety.sh re-verifies at run time — the tree can move between the readiness
+  # check and the flow.
   export E2E_REQUIRE_CLEAN_PROVENANCE=1
-  for script in "${SCRIPTS[@]}"; do
-    echo "🛡️  Running: npm run $script"
-    if ! npm run "$script"; then
-      echo "❌ Maestro flow '$script' failed."
-      echo "   Fix the issue, or — on a hotfix/* branch only — re-run with --skip-e2e."
-      echo "   Debug a single flow with: maestro test .maestro/<flow>.yaml --debug"
-      exit 1
-    fi
-  done
-  echo "✅ All scoped Maestro safety flows passed (${#SCRIPTS[@]} script(s))"
+
+  # INFRA-483 — ONE invocation for the whole scoped set. This used to loop `npm run` per
+  # flow; the simulator lease is acquired and released per PROCESS (e2e-safety.sh:266-267),
+  # so N flows meant N-1 windows in which a peer's gate build could install over the target
+  # and fail the next flow's pre-flight, discarding the flows that had already passed.
+  # It also restores INFRA-434's mid-suite substitution watch, which re-reads the provenance
+  # marker's bytes between flows WITHIN one invocation — one flow per process made every
+  # flow a one-flow "suite" and left it nothing to watch.
+  if [ -n "$FULL_SUITE" ]; then
+    echo "🛡️  Running the full safety suite (cross-cutting change)"
+    bash scripts/e2e-safety.sh
+  else
+    echo "🛡️  Running ${#FLOWS[@]} scoped flow(s): ${FLOWS[*]}"
+    bash scripts/e2e-safety.sh "${FLOWS[@]}"
+  fi
+  E2E_RC=$?
+
+  # Exit alphabet is e2e-safety.sh's, not this file's. Do not collapse these arms: 2 and 3
+  # are NOT regressions, and reporting them as one trains a reflex to re-run or bypass.
+  case "$E2E_RC" in
+    0) echo "✅ All scoped Maestro safety flows passed" ;;
+    1) echo "❌ A Maestro safety flow FAILED — this is a regression."
+       echo "   Fix it, or — on a hotfix/* branch only — re-run with --skip-e2e."
+       echo "   Debug a single flow with: maestro test .maestro/<flow>.yaml --debug"
+       exit 1 ;;
+    2) echo "❌ The gate harness could not complete (exit 2) — NOT a flow regression."
+       echo "   No verdict was produced, so this is neither a pass nor a failure."
+       echo "   Diagnose the harness before re-running; do not re-run blind."
+       exit 1 ;;
+    3) echo "❌ The gate TARGET WAS REPLACED mid-suite (exit 3, INFRA-434) — NOT a regression."
+       echo "   A peer replaced the installed app, so completed flows are VOID, not PASS."
+       echo "   Re-run the whole scoped set once the other session is done."
+       exit 1 ;;
+    *) echo "❌ e2e-safety.sh exited $E2E_RC — unrecognised. Treat as no verdict."
+       exit 1 ;;
+  esac
 fi
 ```
 
