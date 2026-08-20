@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   },
   practiceDescription: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   instructionsSection: {
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   instructionsLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   instructionRow: {
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   instructionText: {
     flex: 1,
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   instructionsMore: {
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   tipText: {
     flex: 1,
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   tipBold: {

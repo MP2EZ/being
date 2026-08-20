@@ -510,7 +510,7 @@ const styles = StyleSheet.create({
   },
 
   privacyNoticeText: {
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     fontSize: typography.bodySmall.size,
     marginBottom: spacing[8],
     lineHeight: 20,

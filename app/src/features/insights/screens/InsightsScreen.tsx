@@ -190,7 +190,7 @@ const styles = StyleSheet.create({
   },
   quoteText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     fontStyle: 'italic',
     lineHeight: 24,
     marginBottom: spacing[8],

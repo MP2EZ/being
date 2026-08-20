@@ -292,7 +292,7 @@ const styles = StyleSheet.create({
   quoteAuthor: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textAlign: 'right',
   },
   section: {
@@ -306,12 +306,12 @@ const styles = StyleSheet.create({
   },
   summaryText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 24,
   },
   bodyText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 24,
   },
   conceptsSection: {
@@ -350,7 +350,7 @@ const styles = StyleSheet.create({
   },
   conceptText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   learnMoreSection: {
@@ -395,7 +395,7 @@ const styles = StyleSheet.create({
   exampleLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
   },
   obstacleResponse: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   tipBox: {
@@ -466,12 +466,12 @@ const styles = StyleSheet.create({
   tipLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   tipText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   stagesIntro: {
@@ -533,7 +533,7 @@ const styles = StyleSheet.create({
   indicatorsLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   indicatorRow: {
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   indicatorText: {
     flex: 1,
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
 });

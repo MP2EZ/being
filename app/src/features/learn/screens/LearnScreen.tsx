@@ -340,7 +340,7 @@ const styles = StyleSheet.create({
   },
   recommendationDescription: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
     marginBottom: spacing[16],
   },
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   moduleNumberText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
   },
   moduleTag: {
     paddingHorizontal: spacing[8],
