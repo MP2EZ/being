@@ -30,7 +30,10 @@ them once just resets the clock, so the reconciliation is enforced:
 
 ```bash
 bash /Users/max/dev/being/.claude/scripts/check-safety-paths.sh || exit 1
-(cd app && npm run check:ci-test-coverage) || exit 1
+# No app/ here means a no-worktree item (Step 1.1) closing from the bare root — run the
+# ledger from the development worktree rather than aborting the close on a missing dir.
+APP_DIR=app; [ -d app ] || APP_DIR=/Users/max/dev/being/development/app
+(cd "$APP_DIR" && npm run check:ci-test-coverage) || exit 1
 ```
 
 The second is the same class of cheap local check: a test file added under `src/**`
