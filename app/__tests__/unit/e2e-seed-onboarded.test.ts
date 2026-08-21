@@ -22,6 +22,7 @@ interface SeedMocks {
   grantConsent: jest.Mock;
   verifyAge: jest.Mock;
   recordLegalGateConsents: jest.Mock;
+  seedStaleConsentRecord: jest.Mock;
   logSystem: jest.Mock;
   logError: jest.Mock;
 }
@@ -56,6 +57,7 @@ function loadSeed(
     grantConsent: jest.fn().mockResolvedValue(undefined),
     verifyAge: jest.fn().mockResolvedValue({ eligible: true, age: 36 }),
     recordLegalGateConsents: jest.fn().mockResolvedValue(undefined),
+    seedStaleConsentRecord: jest.fn().mockResolvedValue(true),
     logSystem: jest.fn(),
     logError: jest.fn(),
   };
@@ -76,6 +78,7 @@ function loadSeed(
       getState: () => ({ verifyAge: mocks.verifyAge, grantConsent: mocks.grantConsent }),
     },
     recordLegalGateConsents: mocks.recordLegalGateConsents,
+    __seedStaleConsentRecordForE2E: mocks.seedStaleConsentRecord,
   }));
   jest.doMock('@/core/services/logging', () => ({
     logSystem: mocks.logSystem,
@@ -237,5 +240,112 @@ describe('maybeSeedE2EOnboardedState — ungranted boot variant (INFRA-317)', ()
     await run();
     expect(mocks.markOnboardingComplete).toHaveBeenCalledTimes(1);
     expect(mocks.grantConsent).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * INFRA-377 — stale-consent boot variant.
+ *
+ * Rides the same launch-URL channel as INFRA-317's marker, but is a WRITER
+ * rather than a suppressor: no real store API can produce a version-mismatched
+ * record, so the Maestro re-consent flow has no other way to reach that state.
+ *
+ * Its posture is the ORIGINAL seed's — gated solely by SEED_ACTIVE — not
+ * INFRA-317's stricter suppressor rule. The first test here is what holds that
+ * boundary in place. The shape of the record the seam actually persists is
+ * pinned separately, against the real store, in
+ * `src/core/stores/__tests__/consentStaleSeed.privacy.test.ts`.
+ */
+describe('maybeSeedE2EOnboardedState — stale-consent boot variant (INFRA-377)', () => {
+  const STALE_URL = 'being://daily?e2eSeed=stale';
+
+  afterEach(() => {
+    jest.clearAllMocks();
+    jest.resetModules();
+  });
+
+  it('COMPLIANCE: the marker forges nothing when the build flag is off', async () => {
+    // The strongest assertion in this block. The forge lives inside the
+    // SEED_ACTIVE branch, so with the build var at its 'false' default a marker
+    // URL arriving at a shipping build must do exactly nothing.
+    for (const flag of [undefined, 'false', '1']) {
+      const { run, mocks } = loadSeed(flag, STALE_URL);
+      await run();
+      expect(mocks.seedStaleConsentRecord).not.toHaveBeenCalled();
+      expect(mocks.grantConsent).not.toHaveBeenCalled();
+      expect(mocks.markOnboardingComplete).not.toHaveBeenCalled();
+      jest.clearAllMocks();
+    }
+  });
+
+  it('forges a stale record instead of granting a current one', async () => {
+    const { run, mocks } = loadSeed('true', STALE_URL);
+    await run();
+
+    expect(mocks.seedStaleConsentRecord).toHaveBeenCalledTimes(1);
+    // The distinguishing property: `grantConsent` stamps CONSENT_VERSION, so
+    // calling it here would produce 'valid' and the re-consent screen would
+    // never present.
+    expect(mocks.grantConsent).not.toHaveBeenCalled();
+  });
+
+  it('seeds the prior policy version, parseable and older', async () => {
+    // `computeConsentDelta` falls back to the generic "something changed" copy
+    // for anything unparseable or newer, so a typo'd version renders a PASSING
+    // screen showing the wrong text — a silent wrong-fixture failure.
+    const { run, mocks } = loadSeed('true', STALE_URL);
+    await run();
+
+    const [seedVariant] = mocks.seedStaleConsentRecord.mock.calls[0];
+    expect(seedVariant.version).toBe('1.0.0');
+  });
+
+  it('marks onboarding complete, or the navigator routes to LegalGate instead', async () => {
+    // CleanRootNavigator checks `onboardingCompleted` BEFORE consent. Without
+    // this the app never reaches Main, so ReConsent has nothing to present over
+    // and the flow times out opaquely at 90s.
+    const { run, mocks } = loadSeed('true', STALE_URL);
+    await run();
+    expect(mocks.markOnboardingComplete).toHaveBeenCalledTimes(1);
+  });
+
+  it('carries an eligible age verification through to the forged record', async () => {
+    // `isBaseEligibleForRenewal` fails closed on a missing or non-finite
+    // birthYear, which would route the device flow to
+    // StaleConsentIneligibleScreen instead of ReConsentScreen.
+    const { run, mocks } = loadSeed('true', STALE_URL);
+    await run();
+
+    const [seedVariant] = mocks.seedStaleConsentRecord.mock.calls[0];
+    expect(seedVariant.ageVerification.verified).toBe(true);
+    expect(seedVariant.ageVerification.isEligible).toBe(true);
+    expect(Number.isFinite(seedVariant.ageVerification.birthYear)).toBe(true);
+  });
+
+  it('does not write a legal-gate record (its version stamp would be incoherent)', async () => {
+    // `recordLegalGateConsents` stamps CONSENT_VERSION, which would leave a
+    // v1.1.0 legal-gate record beside a v1.0.0 consent record — a state no real
+    // user could occupy. The screen's own dual-write creates it on submit, which
+    // is the behaviour under test.
+    const { run, mocks } = loadSeed('true', STALE_URL);
+    await run();
+    expect(mocks.recordLegalGateConsents).not.toHaveBeenCalled();
+  });
+
+  it('is mutually exclusive with the ungranted marker, which wins', async () => {
+    // Both markers on one URL is a flow-authoring error. The suppressor is
+    // checked first, so the failure direction is "write nothing" rather than
+    // "write something the flow did not ask for".
+    const { run, mocks } = loadSeed('true', 'being://daily?e2eSeed=ungranted&e2eSeed=stale');
+    await run();
+    expect(mocks.seedStaleConsentRecord).not.toHaveBeenCalled();
+    expect(mocks.grantConsent).not.toHaveBeenCalled();
+  });
+
+  it('is non-blocking: a forge failure is swallowed, not thrown', async () => {
+    const { run, mocks } = loadSeed('true', STALE_URL);
+    mocks.seedStaleConsentRecord.mockRejectedValueOnce(new Error('SecureStore unavailable'));
+    await expect(run()).resolves.toBeUndefined();
+    expect(mocks.logError).toHaveBeenCalled();
   });
 });

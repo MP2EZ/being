@@ -541,12 +541,18 @@ describe('Subscription Integration - Platform Specifics', () => {
       error: null,
     });
 
-    const result = await IAPService.verifyReceipt('apple-receipt-data', 'apple');
+    const result = await IAPService.verifyReceipt('apple-receipt-data', 'apple', undefined, {
+      transactionId: '2000000847061713',
+      environment: 'Production',
+    });
 
-    expect(mockInvoke).toHaveBeenCalledWith(
-      'verify-apple-receipt',
-      { body: { receiptData: 'apple-receipt-data' } }
-    );
+    // INFRA-467: Apple verification is keyed on a transactionId, and `receiptData` is no
+    // longer sent at all. Asserted on captured keys rather than toHaveBeenCalledWith,
+    // whose toEqual semantics cannot distinguish an absent key from an undefined one.
+    const [fnName, opts] = mockInvoke.mock.calls[0] as [string, { body: Record<string, unknown> }];
+    expect(fnName).toBe('verify-apple-receipt');
+    expect(Object.keys(opts.body).sort()).toEqual(['environment', 'transactionId']);
+    expect('receiptData' in opts.body).toBe(false);
 
     expect(result.valid).toBe(true);
     expect(result.subscriptionId).toBe('apple-sub-id');

@@ -17,7 +17,7 @@
 import React from 'react';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
-import { colorSystem, typography } from '@/core/theme';
+import { semantic, colorSystem, typography } from '@/core/theme';
 import { getLegalDocument, type LegalDocumentType } from './content/legalDocuments';
 import ProfileScreen from './screens/ProfileScreen';
 import AccountSettingsScreen from './screens/AccountSettingsScreen';
@@ -73,7 +73,7 @@ const ProfileStackNavigator: React.FC = () => {
           // harmonization that lands here.
           fontSize: typography.headline3.size,
           fontWeight: typography.fontWeight.semibold,
-          color: colorSystem.base.black,
+          color: semantic.text.primary,
         },
         headerTintColor: colorSystem.base.midnightBlue,
         headerBackTitle: 'Profile',

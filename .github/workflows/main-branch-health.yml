@@ -49,7 +49,22 @@ name: Main Branch Health
 # job-list that differs from development's). A pull_request into `main` runs
 # MAIN's ci.yml, not this repo's current one, so a green probe does NOT by
 # itself prove a hotfix PR will pass. Those gaps are tracked as INFRA-458 and
-# INFRA-459. This probe also cannot observe its own silence — INFRA-460.
+# INFRA-459.
+#
+# THIS PROBE STILL CANNOT OBSERVE ITS OWN SILENCE, but something else now does:
+# INFRA-460 added a liveness cross-check as a step in ci.yml's `ci-pass` job,
+# which alarms if this workflow is disabled, deleted, or produces no scheduled
+# run for over 48h. It files under this workflow's own `main-branch-health`
+# label but a DISTINCT `<!-- main-branch-health-liveness-tracker -->` marker —
+# the recovery step below closes any open issue matching label + marker with no
+# control discriminator, so a shared marker would have each control closing the
+# other's alarm. Do not align the two markers.
+#
+# That chain terminates there. The cross-check rides ci.yml's own schedule, and
+# GitHub's 60-day-inactivity auto-disable is repo-wide, so it is independent of
+# this probe only for a probe-scoped disable, delete, or cron hiccup. Covering
+# non-execution of the outermost control needs an external dead-man's switch
+# (INFRA-296).
 
 on:
   schedule:

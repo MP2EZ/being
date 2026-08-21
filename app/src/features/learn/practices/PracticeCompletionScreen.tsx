@@ -452,14 +452,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.headline2.weight,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
   practiceName: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     marginBottom: spacing[32],
     textAlign: 'center',
   },
@@ -476,7 +476,7 @@ const styles = StyleSheet.create({
   quoteText: {
     fontSize: typography.bodyLarge.size,
     fontStyle: 'italic',
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     lineHeight: typography.bodyLarge.size * (typography.bodyLarge.lineHeight || 1.5),
     marginBottom: spacing[16],
     textAlign: 'center',
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   },
   educationalMessage: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: typography.bodyRegular.size * (typography.bodyRegular.lineHeight || 1.5),
     marginBottom: spacing[32],
@@ -536,10 +536,10 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   secondaryButtonTextPressed: {
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
   },
 });
 

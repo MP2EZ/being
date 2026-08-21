@@ -39,7 +39,7 @@ import { useSettingsStore } from '@/core/stores/settingsStore';
 import {
   RECONSENT_TRIGGER_STATUSES,
   RECONSENT_DEFERRAL_ROUTES,
-  shouldPresentReConsent,
+  resolveReConsentPresentation,
   useReConsentTrigger,
   hasShownReConsentThisLaunch,
   __resetReConsentTriggerForTests,
@@ -122,7 +122,7 @@ describe('RECONSENT_TRIGGER_STATUSES (allowlist membership)', () => {
     'under_age',
   ])('never triggers from status %s', (status) => {
     expect(RECONSENT_TRIGGER_STATUSES.has(status)).toBe(false);
-    expect(shouldPresentReConsent(passingInputs({ consentStatus: status }))).toBe(false);
+    expect(resolveReConsentPresentation(passingInputs({ consentStatus: status }))).toBe('none');
   });
 });
 
@@ -145,9 +145,9 @@ describe('RECONSENT_DEFERRAL_ROUTES (live crisis surfaces)', () => {
   });
 });
 
-describe('shouldPresentReConsent — the six conditions', () => {
+describe('resolveReConsentPresentation — the six conditions', () => {
   it('presents when every condition holds', () => {
-    expect(shouldPresentReConsent(passingInputs())).toBe(true);
+    expect(resolveReConsentPresentation(passingInputs())).toBe('renew');
   });
 
   describe('(2) the age predicate — NOT the record\'s own isEligible flag', () => {
@@ -161,7 +161,7 @@ describe('shouldPresentReConsent — the six conditions', () => {
      * value, no forward path. A dead end after a legally meaningless
      * affirmation. The trigger must never get them that far.
      */
-    it('refuses a 15-year-old whose stale record still claims isEligible: true', () => {
+    it('routes a 15-year-old with isEligible: true to the ineligible destination', () => {
       const fifteen = new Date().getFullYear() - 15;
       const minor = eligibleBase({
         ageVerification: {
@@ -175,10 +175,10 @@ describe('shouldPresentReConsent — the six conditions', () => {
       });
 
       expect(minor.ageVerification.isEligible).toBe(true);
-      expect(shouldPresentReConsent(passingInputs({ base: minor }))).toBe(false);
+      expect(resolveReConsentPresentation(passingInputs({ base: minor }))).toBe('ineligible');
     });
 
-    it('presents at exactly 18 and refuses at exactly 17 (boundary)', () => {
+    it('renews at exactly 18 and routes 17 to the ineligible destination (boundary)', () => {
       const atAge = (age: number): ConsentRecord =>
         eligibleBase({
           ageVerification: {
@@ -190,8 +190,8 @@ describe('shouldPresentReConsent — the six conditions', () => {
           },
         });
 
-      expect(shouldPresentReConsent(passingInputs({ base: atAge(18) }))).toBe(true);
-      expect(shouldPresentReConsent(passingInputs({ base: atAge(17) }))).toBe(false);
+      expect(resolveReConsentPresentation(passingInputs({ base: atAge(18) }))).toBe('renew');
+      expect(resolveReConsentPresentation(passingInputs({ base: atAge(17) }))).toBe('ineligible');
     });
 
     /**
@@ -200,7 +200,7 @@ describe('shouldPresentReConsent — the six conditions', () => {
      * safe reading of "we cannot establish an age". That means the trigger goes
      * permanently silent for such a user, which is deliberate.
      */
-    it('refuses when birthYear is absent (fails closed, not open)', () => {
+    it('routes to ineligible when birthYear is absent (fails closed, not open)', () => {
       const noBirthYear = eligibleBase({
         ageVerification: {
           verified: true,
@@ -209,29 +209,29 @@ describe('shouldPresentReConsent — the six conditions', () => {
           isEligible: true,
         },
       });
-      expect(shouldPresentReConsent(passingInputs({ base: noBirthYear }))).toBe(false);
+      expect(resolveReConsentPresentation(passingInputs({ base: noBirthYear }))).toBe('ineligible');
     });
 
     it('refuses when there is no base record at all', () => {
-      expect(shouldPresentReConsent(passingInputs({ base: null }))).toBe(false);
+      expect(resolveReConsentPresentation(passingInputs({ base: null }))).toBe('none');
     });
   });
 
   describe('(3) onboardingCompleted', () => {
     it('refuses mid-onboarding, so re-consent cannot land on the onboarding flow', () => {
-      expect(shouldPresentReConsent(passingInputs({ onboardingCompleted: false }))).toBe(false);
+      expect(resolveReConsentPresentation(passingInputs({ onboardingCompleted: false }))).toBe('none');
     });
   });
 
   describe('(4) shownThisLaunch', () => {
     it('refuses once already presented this launch', () => {
-      expect(shouldPresentReConsent(passingInputs({ shownThisLaunch: true }))).toBe(false);
+      expect(resolveReConsentPresentation(passingInputs({ shownThisLaunch: true }))).toBe('none');
     });
   });
 
   describe('(5) navigationReady', () => {
     it('refuses before the navigation container is ready', () => {
-      expect(shouldPresentReConsent(passingInputs({ navigationReady: false }))).toBe(false);
+      expect(resolveReConsentPresentation(passingInputs({ navigationReady: false }))).toBe('none');
     });
   });
 
@@ -239,7 +239,7 @@ describe('shouldPresentReConsent — the six conditions', () => {
     it.each([...RECONSENT_DEFERRAL_ROUTES])(
       'refuses while %s is the active root route',
       (route) => {
-        expect(shouldPresentReConsent(passingInputs({ activeRootRoute: route }))).toBe(false);
+        expect(resolveReConsentPresentation(passingInputs({ activeRootRoute: route }))).toBe('none');
       },
     );
 
@@ -264,8 +264,8 @@ describe('shouldPresentReConsent — the six conditions', () => {
      */
     it('presents once the user leaves the crisis surface, same inputs otherwise', () => {
       const onCrisis = passingInputs({ activeRootRoute: 'CrisisResources' });
-      expect(shouldPresentReConsent(onCrisis)).toBe(false);
-      expect(shouldPresentReConsent({ ...onCrisis, activeRootRoute: 'Main' })).toBe(true);
+      expect(resolveReConsentPresentation(onCrisis)).toBe('none');
+      expect(resolveReConsentPresentation({ ...onCrisis, activeRootRoute: 'Main' })).toBe('renew');
     });
 
     /**
@@ -275,8 +275,8 @@ describe('shouldPresentReConsent — the six conditions', () => {
      */
     it('does not treat an undefined active route as a deferral', () => {
       expect(
-        shouldPresentReConsent(passingInputs({ activeRootRoute: undefined })),
-      ).toBe(true);
+        resolveReConsentPresentation(passingInputs({ activeRootRoute: undefined })),
+      ).toBe('renew');
     });
 
     /**
@@ -288,7 +288,7 @@ describe('shouldPresentReConsent — the six conditions', () => {
      * surprise for whoever adds re-arming.
      */
     it('reads the root route only — Main is presentable even with a nested surface open', () => {
-      expect(shouldPresentReConsent(passingInputs({ activeRootRoute: 'Main' }))).toBe(true);
+      expect(resolveReConsentPresentation(passingInputs({ activeRootRoute: 'Main' }))).toBe('renew');
     });
   });
 });
@@ -387,7 +387,22 @@ describe('useReConsentTrigger — the effect', () => {
     expect(hasShownReConsentThisLaunch()).toBe(true);
   });
 
-  it('does not navigate for an under-18 holder of a stale record', () => {
+  /**
+   * 🔄 DEBUG-418 INVERTED THIS TEST, DELIBERATELY.
+   *
+   * It previously asserted `expect(mockNavigate).not.toHaveBeenCalled()` — that
+   * an under-18 holder of a stale record is shown nothing. That WAS the intended
+   * behaviour (founder decision D2) and it is the defect: it left them at a `Main`
+   * where `canPerformOperation` returns false for every operation, with no prompt
+   * and no explanation.
+   *
+   * They are still excluded from `ReConsentScreen` — that exclusion is what stops
+   * a legally meaningless Art. 9(2)(a) affirmation, and it is unchanged. What
+   * changed is that the exclusion now has a destination. `ReConsentRoute`
+   * re-derives eligibility from the same predicate and mounts the decline-only
+   * notice instead, so navigating here does NOT mean they can re-grant.
+   */
+  it('navigates for an under-18 holder of a stale record (to the ineligible notice)', () => {
     useConsentStore.setState({
       staleConsent: eligibleBase({
         ageVerification: {
@@ -400,7 +415,10 @@ describe('useReConsentTrigger — the effect', () => {
       }),
     });
     render(React.createElement(Harness, { activeRootRoute: 'Main' }));
-    expect(mockNavigate).not.toHaveBeenCalled();
+    expect(mockNavigate).toHaveBeenCalledWith('ReConsent');
+    // The launch-scoped flag is consumed on this path too — one presentation
+    // attempt per launch, whichever screen it resolves to.
+    expect(hasShownReConsentThisLaunch()).toBe(true);
   });
 });
 
@@ -454,5 +472,72 @@ describe('the launch-scoped flag', () => {
     );
 
     expect(/AsyncStorage|SecureStore|expo-secure-store/.test(code)).toBe(false);
+  });
+});
+
+/**
+ * DEBUG-418 — the stranding, and why a boolean could not express the fix.
+ *
+ * Before this, "not eligible to renew" and "should see nothing" were the same
+ * `false`. That collapse is the defect: a 13-17-year-old on a v1.0.0 record was
+ * excluded from the prompt AND given nowhere to go, landing at a `Main` where
+ * `canPerformOperation` returns false for every operation with nothing explaining
+ * why.
+ *
+ * These cases pin the distinction itself, not just the new value — asserting
+ * `not.toBe('none')` alongside `toBe('ineligible')`, because a future refactor
+ * that folds the two back together would still satisfy a bare equality check
+ * against whatever single value it kept.
+ */
+describe('DEBUG-418 — ineligible is a destination, not a silence', () => {
+  const minorRecord = (): ConsentRecord =>
+    eligibleBase({
+      ageVerification: {
+        verified: true,
+        birthYear: new Date().getFullYear() - 16,
+        // Computed under the OLD 13+ rule — the trap this cohort is caught in.
+        ageAtVerification: 16,
+        verifiedAt: 1_700_000_000_000,
+        isEligible: true,
+      },
+    });
+
+  it('resolves ineligible — and explicitly NOT none — for the titular cohort', () => {
+    const result = resolveReConsentPresentation(passingInputs({ base: minorRecord() }));
+
+    expect(result).toBe('ineligible');
+    // The load-bearing half: 'none' is what stranded them.
+    expect(result).not.toBe('none');
+  });
+
+  it('never resolves renew for them, so ReConsentScreen can never mount', () => {
+    // ReConsentScreen is the only component that can produce an Art. 9(2)(a)
+    // affirmation. Reaching it with this record is the dead end the age
+    // predicate exists to prevent, and that must not regress.
+    expect(resolveReConsentPresentation(passingInputs({ base: minorRecord() }))).not.toBe('renew');
+  });
+
+  it('still defers on a live crisis surface, exactly as the renewable cohort does', () => {
+    // The crisis deferral is evaluated BEFORE the age branch, so the ineligible
+    // cohort inherits it for free — a minor sitting on CrisisResources is not
+    // yanked onto a consent notice either. Asserting it because "for free" is
+    // precisely the kind of property a later reorder silently removes.
+    for (const route of RECONSENT_DEFERRAL_ROUTES) {
+      expect(
+        resolveReConsentPresentation(passingInputs({ base: minorRecord(), activeRootRoute: route })),
+      ).toBe('none');
+    }
+
+    // Anti-vacuity: the loop above proves nothing if the set is empty.
+    expect(RECONSENT_DEFERRAL_ROUTES.size).toBeGreaterThan(0);
+  });
+
+  it('resolves all three values across the input space, so the type is not vestigial', () => {
+    const seen = new Set([
+      resolveReConsentPresentation(passingInputs()),
+      resolveReConsentPresentation(passingInputs({ base: minorRecord() })),
+      resolveReConsentPresentation(passingInputs({ shownThisLaunch: true })),
+    ]);
+    expect([...seen].sort()).toEqual(['ineligible', 'none', 'renew']);
   });
 });

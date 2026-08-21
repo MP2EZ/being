@@ -5,17 +5,22 @@
  * tenseMode step config. Reflect-first: every text field is OPTIONAL — after the
  * breath, Continue is always enabled (typing is capture, not a gate), suiting the
  * walking, eyes-up practice. Step-specific surfaces are declared by the config:
- *  - step 1 (Aware Presence): a 30s micro-breath with a grounding prompt (body
- *    sensation + environment + mind) in the guidance card, then optional capture,
+ *  - step 1 (Aware Presence): a 30s micro-breath whose grounding prompt (body
+ *    sensation + environment + mind) is paced through the breath one anchor per
+ *    cycle, in the circle's own guidance slot (DEBUG-468), then optional capture,
  *  - step 3 (Sphere Sovereignty): two order-agnostic fields (the full dichotomy),
  *  - step 4 (Virtuous Response): MULTI-select virtue chips (optional lens) + one
  *    synthesized action, plus — morning only — the guardrailed premeditatio,
- *  - step 2 (Radical Acceptance): a quiet static crisis-support line (crisis review).
+ *  - the quiet static crisis-support line (crisis review) — deep: step 2 (Radical
+ *    Acceptance); quick: step 3 (Sphere Sovereignty). Which beat hosts it is decided
+ *    by showsSupportLine(), never here.
  *
  * The screen owns no navigation for step advance (calls onSave; the navigator
  * advances). The support line taps to CrisisResources via the root nav ref — the
  * only crisis path; NO scan of the free text. Themed as 'midday'. Crisis access is
  * otherwise inherited from the single root overlay (MAINT-290); no per-step button.
+ * DEBUG-465 pinned the support line outside the ScrollView, inside the
+ * KeyboardAvoidingView — see the block comment at its render site for the measurements.
  */
 import React, { useState, useCallback, useMemo } from 'react';
 import {
@@ -28,12 +33,14 @@ import {
   Platform,
   Pressable,
 } from 'react-native';
+// MAINT-437: never the `react-native` core export — it is iOS-only and applies zero
+// insets on Android, where Expo SDK 56 makes edge-to-edge mandatory.
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { semantic, colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import {
   BreathingCircle,
   Timer,
-  GuidanceCard,
   SkipLink,
   FlowBackButton,
   PreviousAnswerCard,
@@ -67,6 +74,20 @@ import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const BREATH_DURATION_MS = 30 * 1000;
+
+/**
+ * Module scope, not an inline `??` fallback at the call site (DEBUG-468).
+ * `guidanceItems` feeds a `React.memo`'d component, so a literal written inline
+ * would mint a new array identity on every parent render — DEBUG-394's failure
+ * mode, which cost a restarted breath cycle mid-practice. Unreachable in practice
+ * (every ModeConfig declares `grounding`), kept only so the prop is never
+ * undefined; if you delete it, do not replace it with an inline literal.
+ */
+const FALLBACK_GROUNDING: readonly string[] = [
+  'one physical sensation — where your body meets the world',
+  'the space around you — where you are right now',
+  "what's present in your mind",
+];
 
 export interface DailyLoopStepScreenProps {
   stepKey: DailyLoopStepKey;
@@ -191,15 +212,31 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
       >
         {showBack && <FlowBackButton onPress={() => onBack?.()} theme="midday" />}
 
-        {/* Breath gate (step 1) — grounding prompt lives in the guidance card */}
+        {/*
+          Breath gate (step 1). DEBUG-468 moved the grounding prompt INTO the breath
+          — one anchor per completed cycle, in the circle's own guidance slot —
+          rather than listing it in a card below the SkipLink.
+
+          WHY, beyond the fold. A static three-bullet list asks the practitioner to
+          read three lines, hold them in working memory and allocate them across the
+          sit themselves. That is language processing, the exact mode an arriving
+          breath steps out of; pacing the anchors is what 01-aware-presence.md:29
+          means by anchor points "to which you can return attention". All three
+          still surface: 30s of the 4-4 default is 3.75 cycles.
+
+          The subtitle that used to sit here ("Let your body settle. Notice what's
+          here.") was deleted, not relocated — it paraphrased grounding anchors 1
+          and 3, so with the triad delivered properly it was the redundancy. The
+          title stays: it names the act, and is the cheapest instruction layer.
+        */}
         {!breathCompleted && (
           <View style={styles.breathSection}>
             <Text style={styles.breathTitle}>Take a moment to arrive</Text>
-            <Text style={styles.breathSubtitle}>Let your body settle. Notice what's here.</Text>
             <View style={styles.breathCircleContainer}>
               <BreathingCircle
                 isActive={isBreathActive}
                 pattern={DEFAULT_PATTERN}
+                guidanceItems={config.grounding ?? FALLBACK_GROUNDING}
                 testID="daily-loop-breathing-circle"
               />
             </View>
@@ -215,18 +252,30 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               theme="midday"
               testID="daily-loop-breath-timer"
             />
+            {/*
+              DEBUG-468: stays IN FLOW, inside the ScrollView, after the Timer — it
+              is NOT pinned into a bottom bar the way DEBUG-465 pinned the crisis
+              support line. Two reasons, both philosopher rulings. A permanently
+              visible exit is a permanently available object of attention, which is
+              an app-authored pull away from the anchor at the moment the beat is
+              training the return to it. And the bottom edge of a Daily Loop screen
+              now MEANS "crisis support" — same bar, same hairline divider, same
+              muted register — so `Skip →` there would give one learned position two
+              meanings for a user who runs this loop daily. The support line earns a
+              persistent surface because unconditional availability is its whole
+              purpose; skipping has no such property.
+
+              What it does need is to be VISIBLE without scrolling at 375x667 and
+              default type — the breath is a gate, and a gate whose exit the user
+              cannot see is not one they chose to enter. It was never unreachable,
+              only undiscoverable. That is bought above, by deleting the subtitle
+              and pacing the triad, not by moving this control.
+            */}
             <SkipLink
               onPress={handleBreathComplete}
               accessibilityLabel="Skip breathing exercise"
               testID="daily-loop-skip-breath"
             />
-            <View style={styles.guidanceWrapper}>
-              <GuidanceCard
-                title="As you breathe, notice:"
-                items={config.grounding ?? ['Your posture right now', 'The rhythm of your breath', "What's asking for your attention"]}
-                testID="daily-loop-grounding"
-              />
-            </View>
           </View>
         )}
 
@@ -328,21 +377,6 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               </View>
             )}
 
-            {/* Quiet, static crisis-support line (crisis review). Deep: Radical
-                Acceptance; quick: re-hosted to Aware Presence (its first beat). */}
-            {showSupportLine && (
-              <Pressable
-                onPress={openCrisisResources}
-                style={styles.supportLine}
-                accessibilityRole="button"
-                accessibilityLabel={SUPPORT_LINE}
-                accessibilityHint="Opens crisis support resources"
-                testID="daily-loop-support-line"
-              >
-                <Text style={styles.supportLineText}>{SUPPORT_LINE}</Text>
-              </Pressable>
-            )}
-
             <Text style={styles.reflectNote}>Reflect as long as you like — writing is optional.</Text>
 
             <AccessibleButton
@@ -357,6 +391,63 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
           </>
         )}
       </ScrollView>
+
+      {/*
+        DEBUG-465: the quiet, static crisis-support line (crisis review), pinned OUTSIDE
+        the ScrollView. Deep: Radical Acceptance; quick: Sphere Sovereignty. Placement is
+        resolved at the data level by showsSupportLine() — this block renders it, it never
+        decides where it goes, so the "exactly once per depth" invariant stays config-owned.
+
+        WHY IT IS NOT IN THE SCROLLVIEW. tenseMode.ts records that FEAT-301 re-hosted this
+        line onto a no-breath-gate beat so it "renders the instant the user lands", since
+        anything less makes quick's crisis affordance strictly less available than deep's —
+        which crisis review rejected. In the ScrollView it did not hold: measured on a
+        Release build (provenance c1c01157, clean tree) with `maestro hierarchy`, quick /
+        flat / default type / no stage note —
+
+          iPhone SE 3   375x667   fold y=130..667   ABSENT from the hierarchy (~90pt below)
+          iPhone 16e    390x844   fold y=157..844   y=785..843   (1pt clearance)
+          iPhone 16 Pro 402x874   fold y=172..874   y=800..858   (16pt clearance)
+
+        On the smallest supported viewport it was not clipped but absent — DEBUG-432's
+        signature. Trimming the beat cannot fix it: every editorial lever spent at once is
+        ~-129pt against a ~141pt overflow at 402x874, and leaves it one Dynamic Type step
+        from re-breaking. Pinning makes the deficit zero at every viewport and type size.
+
+        WHY IT MUST STAY INSIDE THE KeyboardAvoidingView. This beat exists to be typed
+        into, so keyboard-up is its TYPICAL state — and there `crisis-button-root` is not
+        dimmed but GONE, rendered in UIRemoteKeyboardWindow above the app's window
+        (RootCrisisButton.tsx). Inside the KAV this bar is lifted by the KAV's own padding
+        and is the only non-scrolling crisis affordance that survives. Move it outside the
+        KAV and the keyboard covers it — the argument for pinning it then inverts.
+
+        Continue is deliberately NOT pinned here. Crisis review confirmed it carries no
+        reachability contract, and a two-control bar reads as "continue vs. I'm in crisis",
+        compelling the user to declare which they are.
+
+        Register is unchanged from the in-scroll version and is load-bearing: bodySmall,
+        semantic.text.secondary, underline, hairline divider, no icon, no fill, no shadow,
+        never accent teal (tenseMode.ts names accent teal as this app's reward vocabulary;
+        on a crisis affordance it reads as alarm). Persistence is not prominence.
+
+        Position is pinned by __tests__/safety/crisis-zero-988-windows.test.tsx (precommit)
+        and DailyLoopStepScreen.crisisSupportLineReachability.test.tsx (CI, render-tree). Do NOT
+        re-nest it, and do not add a second support line to a beat.
+      */}
+      {showSupportLine && (
+        <SafeAreaView edges={['bottom']} style={styles.supportBar}>
+          <Pressable
+            onPress={openCrisisResources}
+            style={styles.supportLine}
+            accessibilityRole="button"
+            accessibilityLabel={SUPPORT_LINE}
+            accessibilityHint="Opens crisis support resources"
+            testID="daily-loop-support-line"
+          >
+            <Text style={styles.supportLineText}>{SUPPORT_LINE}</Text>
+          </Pressable>
+        </SafeAreaView>
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -366,27 +457,24 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { padding: spacing[20], paddingBottom: spacing[40] },
 
-  breathSection: { alignItems: 'center', paddingTop: spacing[16] },
+  // DEBUG-468: paddingTop 16 -> 8 and the circle's marginBottom 24 -> 8. Pure
+  // spacing, spent last and worth ~24pt of the fix; the structural changes above
+  // (subtitle deleted, card paced into the circle) are what actually bought the
+  // ~107pt. Do not re-inflate these without re-measuring on an SE 3.
+  breathSection: { alignItems: 'center', paddingTop: spacing[8] },
   breathTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     marginBottom: spacing[8],
   },
-  breathSubtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: semantic.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing[32],
-  },
-  breathCircleContainer: { marginBottom: spacing[24] },
-  guidanceWrapper: { marginTop: spacing[24], width: '100%' },
+  breathCircleContainer: { marginBottom: spacing[8] },
 
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   sectionSubtitle: {
@@ -420,7 +508,7 @@ const styles = StyleSheet.create({
   virtuePrompt: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   virtueReference: {
@@ -447,7 +535,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   inputHint: {
@@ -461,14 +549,26 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     backgroundColor: colorSystem.base.white,
     minHeight: 96,
   },
 
+  /**
+   * DEBUG-465: the pinned bar. Horizontal and vertical padding are its own responsibility
+   * — outside the ScrollView it no longer inherits `scrollContent` — and `edges={['bottom']}`
+   * clears the home indicator, which this screen previously reserved nothing for.
+   * As a flex sibling of a `flex: 1` ScrollView it is on screen at every scroll offset and
+   * every Dynamic Type step, with no absolute positioning to keep in sync.
+   */
+  supportBar: {
+    paddingHorizontal: spacing[20],
+    borderTopWidth: 1,
+    borderTopColor: colorSystem.gray[200],
+    backgroundColor: colorSystem.base.white,
+  },
   supportLine: {
     paddingVertical: spacing[12],
-    marginBottom: spacing[8],
     minHeight: 44,
     justifyContent: 'center',
   },

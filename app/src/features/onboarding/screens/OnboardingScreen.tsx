@@ -47,7 +47,10 @@ import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 const localColors = {
   // Base colors
   white: colorSystem.base.white,
-  black: colorSystem.base.black,
+  // DEBUG-387: this single alias fed 14 downstream `color: localColors.black`
+  // text sites, all of them invisible to a grep for the raw token. Re-pointing
+  // the declaration moves all 14 at once.
+  black: semantic.text.primary,
   midnightBlue: colorSystem.base.midnightBlue,
   // Gray scale
   gray100: colorSystem.gray[100],

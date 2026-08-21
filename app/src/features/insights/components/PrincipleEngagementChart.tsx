@@ -593,7 +593,7 @@ const styles = StyleSheet.create({
   },
   insightText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textAlign: 'center',
     // MAINT-224: absolute lineHeight literals (here and below) left as-is — DS gap.
     // The design system has no standalone line-height token scale (typography variants
@@ -635,7 +635,7 @@ const styles = StyleSheet.create({
   beginnerTipText: {
     flex: 1,
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   beginnerTipDismiss: {
