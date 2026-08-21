@@ -140,6 +140,21 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 >
 > Net: local iteration on a dirty tree is free, and *merging* on a dirty-tree build is
 > impossible. The old pre-flight could not tell those two cases apart — it banned both.
+> The tree hash deliberately includes **untracked file contents**; `git status --porcelain`
+> plus `git diff HEAD` is blind to them (same `?? path` line whatever the bytes), and
+> untracked `.ts` under `app/src` is bundled into `main.jsbundle`.
+>
+> Blind spots worth knowing: `app/ios/` and `app/.env.*` are gitignored, so native and env
+> edits do not move the fingerprint (INFRA-383's env-parity and `Info.plist` asserts cover
+> that surface at build time); and the fingerprint is repo-wide, so editing a `.maestro`
+> flow between build and run invalidates the marker. That is over-refusal — the safe
+> direction — but it will surprise you once.
+>
+> Stage-level failure paths are covered by `app/__tests__/scripts/e2e-sim-build.test.js`,
+> which PATH-shims `git`/`npx`/`xcrun`/`otool`/`plutil` and runs anywhere in
+> milliseconds. What stays manual is the genuine end-to-end run against a real simulator
+> — CI is 100% `ubuntu-latest`, so nothing there proves Xcode actually rebuilt the
+> bundle, only that the script refuses to proceed when the evidence says it did not.
 
 > **A peer can still replace your target between the gate build and the flows (INFRA-484).**
 > `e2e-gate.sh` releases its leases on exit and `e2e-safety.sh` acquires the simulator lease
@@ -156,21 +171,6 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > measurement: 17 of 18 spans already overlap another session, median 14.5 min and worst 58.3,
 > so spanning would serialise every close on the machine to remove a failure that already
 > fails closed.
-> The tree hash deliberately includes **untracked file contents**; `git status --porcelain`
-> plus `git diff HEAD` is blind to them (same `?? path` line whatever the bytes), and
-> untracked `.ts` under `app/src` is bundled into `main.jsbundle`.
->
-> Blind spots worth knowing: `app/ios/` and `app/.env.*` are gitignored, so native and env
-> edits do not move the fingerprint (INFRA-383's env-parity and `Info.plist` asserts cover
-> that surface at build time); and the fingerprint is repo-wide, so editing a `.maestro`
-> flow between build and run invalidates the marker. That is over-refusal — the safe
-> direction — but it will surprise you once.
->
-> Stage-level failure paths are covered by `app/__tests__/scripts/e2e-sim-build.test.js`,
-> which PATH-shims `git`/`npx`/`xcrun`/`otool`/`plutil` and runs anywhere in
-> milliseconds. What stays manual is the genuine end-to-end run against a real simulator
-> — CI is 100% `ubuntu-latest`, so nothing there proves Xcode actually rebuilt the
-> bundle, only that the script refuses to proceed when the evidence says it did not.
 
 > ⚠️ **The gate target is a Release build — `npm run ios` (Debug) will not do.**
 > The **configuration**, not the EAS profile, is what removes the dev launcher.
