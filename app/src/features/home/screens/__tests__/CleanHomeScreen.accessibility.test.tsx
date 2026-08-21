@@ -74,3 +74,15 @@ describe('CleanHomeScreen accessibility (MAINT-257)', () => {
     expect(greeting.props.accessibilityLevel).toBeUndefined();
   });
 });
+
+describe('CleanHomeScreen safe-area edges (MAINT-456)', () => {
+  // Pins the VALUE, never the pixels: the safe-area-context jest mock holds every
+  // inset at zero, so no test here can observe an edges value having a layout
+  // effect. Home is tab-hosted and React Navigation reserves the tab bar's height,
+  // so claiming `bottom` would re-add the ~34pt dead band MAINT-456 measured and
+  // removed. `edges` must stay explicit — omitting it silently claims all four.
+  it('claims only the top edge, matching InsightsScreen', () => {
+    const { getByTestId } = render(<CleanHomeScreen />);
+    expect(getByTestId('home-screen').props.edges).toEqual(['top']);
+  });
+});

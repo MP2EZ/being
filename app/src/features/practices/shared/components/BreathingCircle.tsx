@@ -65,6 +65,7 @@ import Animated, {
 } from 'react-native-reanimated';
 import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { DEFAULT_PATTERN } from '../breathingPatterns';
+import { groundingItemForCycle } from '../breathingGuidance';
 
 interface BreathingPattern {
   inhale: number;  // milliseconds
@@ -81,6 +82,19 @@ interface BreathingCircleProps {
     inhale?: string;
     exhale?: string;
   };
+  /**
+   * DEBUG-468 — OPT-IN. Authored grounding anchors, paced one per completed cycle
+   * in place of the generic guidance copy below the circle. Omit it and this
+   * component renders exactly as before; `PracticeTimerScreen`,
+   * `ReflectionTimerScreen` and `DailyLoopCompleteScreen` all do.
+   *
+   * MUST be reference-stable across the parent's renders. It does not sit in the
+   * animation effect's dep array, but a fresh array identity each render defeats
+   * this component's `React.memo` — DEBUG-394's failure mode, where that cost a
+   * restarted breath cycle mid-practice. Hoist it to module scope or memoise it;
+   * never write `items ?? [...]` at the call site.
+   */
+  guidanceItems?: readonly string[];
 }
 
 /**
@@ -106,6 +120,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   reducedMotion = false,
   pattern = DEFAULT_PATTERN,
   phaseText = DEFAULT_PHASE_TEXT,
+  guidanceItems,
 }) => {
   // High-performance shared values for 60fps animations
   const scale = useSharedValue(1);
@@ -118,6 +133,14 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
   // Cycle counter for completion tracking
   const cycleCountRef = useRef(0);
+
+  // DEBUG-468. Rendered state, unlike cycleCountRef, because the guidance slot has
+  // to repaint when the anchor changes. Advanced from handleCycleComplete via the
+  // functional form so that callback's identity stays fixed — it IS in the
+  // animation effect's dep array, and a new identity there re-runs the effect and
+  // restarts the breath.
+  const [completedCycles, setCompletedCycles] = useState(0);
+  const groundingItem = groundingItemForCycle(guidanceItems, completedCycles);
 
   /**
    * OS reduce-motion, OR'd with the explicit prop (MAINT-386).
@@ -202,6 +225,10 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   // Handle cycle completion on JS thread
   const handleCycleComplete = useCallback(() => {
     cycleCountRef.current += 1;
+    // Functional update, and `guidanceItems` deliberately absent from the deps —
+    // clamping is the selector's job, so this stays a bare increment and this
+    // callback's identity stays pinned to `onCycleComplete` alone (DEBUG-468).
+    setCompletedCycles((n) => n + 1);
     onCycleComplete?.();
   }, [onCycleComplete]);
 
@@ -348,7 +375,22 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       </Animated.View>
 
       {/* Guidance text */}
-      <View style={styles.guidanceContainer}>
+      <View
+        style={styles.guidanceContainer}
+        /*
+          DEBUG-468. With paced anchors the visible text is a moving target, so the
+          container speaks the WHOLE triad as one label — the pre-sit read a screen
+          reader user would otherwise never assemble, since nothing here announces
+          and focus would catch whichever anchor happened to be up. Undefined when
+          no items are supplied, leaving the other three callers' tree untouched.
+        */
+        accessible={guidanceItems && guidanceItems.length > 0 ? true : undefined}
+        accessibilityLabel={
+          guidanceItems && guidanceItems.length > 0
+            ? `As you breathe, notice: ${guidanceItems.join('; ')}`
+            : undefined
+        }
+      >
         {/*
           Visible phase cue — the pacing that replaces suppressed motion
           (MAINT-386). Rendered ONLY under reduced motion: with the circle
@@ -378,25 +420,57 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
             {phaseCue}
           </Text>
         )}
-        <Text style={styles.guidanceText}>
-          {/*
-            DEBUG-394: this read 'Each phase change is announced as it happens'.
-            "Announced" describes `announceForAccessibility`, which only
-            VoiceOver/TalkBack speak — and Being ships no audio playback at all.
-            Reduce-motion is a vestibular/migraine setting, so the MODAL user of
-            this branch is sighted with no screen reader, and for them the
-            sentence was simply false: nothing is announced, they get the silent
-            text label above. Copy here must be true for every user regardless of
-            assistive tech; a screen-reader user additionally hears it.
-          */}
-          {effectiveReducedMotion
-            ? 'Each phase change is shown above as it happens'
-            : 'Follow the circle as it expands and contracts'
-          }
-        </Text>
-        <Text style={styles.instructionText}>
-          Let your breath find its natural rhythm
-        </Text>
+        {/*
+          DEBUG-468 — the paced grounding anchor, when a caller supplies one.
+
+          IT STACKS BELOW THE PHASE CUE, NEVER REPLACES IT. Under reduce-motion the
+          cue above is the ONLY pacing a sighted vestibular-sensitive practitioner
+          receives (MAINT-386, DEBUG-394) — the circle is static and Being ships no
+          audio. This line is content, not pacing, so it may not take that slot.
+
+          IT REPLACES THE GENERIC COPY BELOW, and that is the point: "Follow the
+          circle as it expands and contracts" is instruction for the widget, where
+          these anchors are the principle's three capacities (Present Perception,
+          Metacognitive Space, Embodied Awareness — 01-aware-presence.md:12,66).
+          When the widget instruction and the authored content compete for one
+          viewport, the authored content wins.
+
+          NOT ANNOUNCED, and this is a decision rather than an omission. A 4-4
+          cycle already pushes two phase announcements through
+          `announceForAccessibility` every 8s, and the third would land on the same
+          instant as the next "Breathe in" — the cycle-end callback fires both.
+          Instead the container carries all three anchors as one label (below), so
+          a screen-reader user gets the triad whole on focus rather than a stream
+          racing the phase cues. Revisit only with an accessibility pass; do not
+          add a bare announcement here.
+        */}
+        {groundingItem ? (
+          <Text style={styles.groundingText} testID={testID ? `${testID}-grounding` : undefined}>
+            {groundingItem}
+          </Text>
+        ) : (
+          <>
+            <Text style={styles.guidanceText}>
+              {/*
+                DEBUG-394: this read 'Each phase change is announced as it happens'.
+                "Announced" describes `announceForAccessibility`, which only
+                VoiceOver/TalkBack speak — and Being ships no audio playback at all.
+                Reduce-motion is a vestibular/migraine setting, so the MODAL user of
+                this branch is sighted with no screen reader, and for them the
+                sentence was simply false: nothing is announced, they get the silent
+                text label above. Copy here must be true for every user regardless of
+                assistive tech; a screen-reader user additionally hears it.
+              */}
+              {effectiveReducedMotion
+                ? 'Each phase change is shown above as it happens'
+                : 'Follow the circle as it expands and contracts'
+              }
+            </Text>
+            <Text style={styles.instructionText}>
+              Let your breath find its natural rhythm
+            </Text>
+          </>
+        )}
       </View>
     </View>
   );
@@ -432,7 +506,13 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   guidanceContainer: {
-    marginTop: spacing[56], // Extra space to account for circle expansion (1.5x scale adds 30px to bottom)
+    // DEBUG-468: 56 -> 32. The clearance this reserves is for the circle's 1.5x
+    // expansion, which adds exactly 30pt below a 120pt circle — 32 is the floor
+    // plus 2, where 56 was 26pt of unexplained slack. This is what keeps the
+    // reduce-motion branch (which stacks an extra phase-cue line) above the fold
+    // on a 375x667 viewport. If the circle's diameter ever changes, this floor
+    // moves with it: it is 0.25 x diameter, not a constant.
+    marginTop: spacing[32],
     alignItems: 'center',
     paddingHorizontal: spacing[24],
   },
@@ -446,10 +526,26 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     marginBottom: spacing[8],
   },
+  /**
+   * DEBUG-468. Same size and colour as `guidanceText`, which it replaces — this is
+   * a swap of WHICH sentence occupies the slot, not a promotion of the slot's
+   * register. It is centred and wraps freely: the longest authored anchor ("one
+   * physical sensation — feet on the ground, air on your skin") takes two lines at
+   * 375pt, and no `numberOfLines` may be added — a truncated anchor is not an
+   * anchor. Reserving a min-height for the two-line case would defeat the point of
+   * reclaiming the space, so the slot is allowed to breathe with its content.
+   */
+  groundingText: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: semantic.text.primary,
+    textAlign: 'center',
+    lineHeight: 22,
+  },
   guidanceText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     marginBottom: spacing[8],
     lineHeight: 22,

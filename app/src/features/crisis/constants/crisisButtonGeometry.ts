@@ -208,3 +208,66 @@ export function intersectsCrisisButtonExclusion(
 export function overlayBottomInset(keyboardHeight: number): number {
   return Math.max(CRISIS_BUTTON_RESERVED_BAND, keyboardHeight);
 }
+
+/**
+ * Height of the button's top edge above the screen's bottom, iOS.
+ *
+ * 100 + 44 + 12 = 156. Uses the iOS offset specifically, not the MAX: this
+ * bounds the region a keyboard must reach to occlude the button, and taking the
+ * larger (Android) value would raise the bar and UNDER-report occlusion on the
+ * platform this predicate actually runs on.
+ */
+export const CRISIS_BUTTON_TOP_EDGE_FROM_BOTTOM =
+  CRISIS_BUTTON_BOTTOM_OFFSET.ios + CRISIS_BUTTON_SIZE + CRISIS_BUTTON_HIT_SLOP;
+
+/** Slack when testing whether a keyboard frame sits flush to the screen bottom. */
+const BOTTOM_ANCHOR_TOLERANCE = 1;
+
+/**
+ * True when THIS keyboard frame occludes the crisis button (DEBUG-450).
+ *
+ * The question is deliberately not "is a keyboard up". Two real cases are up
+ * without occluding, and treating them as occlusion would mount a second crisis
+ * control for no reason:
+ *
+ *   - a paired HARDWARE keyboard shows only a ~55pt shortcuts bar, well under
+ *     the button's 156pt top edge;
+ *   - an iPad SPLIT or UNDOCKED keyboard is not bottom-anchored at all, so the
+ *     button below it is untouched.
+ *
+ * FAILS TOWARD SHOWING. A frame we cannot interpret — a non-finite height or
+ * origin, a screen height of zero — returns `true`. This matches the house rule
+ * the rest of the crisis path already follows: `RootCrisisButton` treats an
+ * undefined `routeName` as a non-suppressed surface, and `overlayBottomInset(0)`
+ * returns the full reserved band rather than nothing. An unnecessary affordance
+ * costs a strip of screen; a missing one costs the contract.
+ *
+ * A null/absent frame is NOT unknown — it means no keyboard, which is a known
+ * absence of occlusion and correctly returns `false`.
+ */
+export function keyboardOccludesCrisisButton(
+  frame: { screenY?: number; height?: number } | null | undefined,
+  screen: { height: number },
+): boolean {
+  // Known absence, not uncertainty: no keyboard means nothing occludes.
+  if (!frame) return false;
+
+  const { screenY, height } = frame;
+
+  // Uninterpretable → fail toward showing.
+  if (!Number.isFinite(height) || !Number.isFinite(screenY)) return true;
+  if (!Number.isFinite(screen.height) || screen.height <= 0) return true;
+
+  const h = height as number;
+  const y = screenY as number;
+
+  // A frame with no height is a dismissed keyboard, not an unknown one.
+  if (h <= 0) return false;
+
+  // Not bottom-anchored → iPad floating/split; the button is not behind it.
+  const bottomEdge = y + h;
+  if (bottomEdge < screen.height - BOTTOM_ANCHOR_TOLERANCE) return false;
+
+  // Shorter than the button's top edge → hardware shortcuts bar.
+  return h > CRISIS_BUTTON_TOP_EDGE_FROM_BOTTOM;
+}

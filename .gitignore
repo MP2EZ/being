@@ -198,6 +198,11 @@ check-*.py
 # workaround — the failure it prevents is silent, since `git add .` simply does
 # not stage an ignored file and reports nothing.
 !app/scripts/check-ci-test-coverage.js
+# Whitelist the crisis keyboard-accessory guard (DEBUG-450) — a CI-enforced safety
+# gate (Security + compliance), not an ad-hoc developer scratch script. A jest suite
+# imports it too, so without this line BOTH that step and `Crisis authority
+# validation` fail with MODULE_NOT_FOUND while every local check passes.
+!app/scripts/check-crisis-keyboard-accessory-guard.js
 !app/__tests__/scripts/check-ci-test-coverage.test.js
 # Whitelist the breathing-worklet purity guard (INFRA-306) — CI-enforced
 # structural guard on the animation path, not an ad-hoc developer scratch script.

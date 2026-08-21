@@ -461,7 +461,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
   },
   infoSection: {
@@ -479,7 +479,7 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[16],
   },
   progressSection: {
@@ -505,7 +505,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: spacing[8],
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
   },
   tooltipButtonText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     fontWeight: typography.fontWeight.semibold,
   },
   tooltip: {
@@ -544,18 +544,18 @@ const styles = StyleSheet.create({
   tooltipTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   tooltipText: {
     fontSize: 13,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     lineHeight: typography.bodyLarge.size,
     marginBottom: spacing[4],
   },
   tooltipBold: {
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   tooltipCitation: {
     fontSize: typography.micro.size,
@@ -598,6 +598,6 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
   },
 });

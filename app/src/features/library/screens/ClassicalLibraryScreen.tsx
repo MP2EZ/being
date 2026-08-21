@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing[8],
@@ -284,7 +284,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
   },
   chipTextSelected: {
     color: colorSystem.base.white,
@@ -317,11 +317,11 @@ const styles = StyleSheet.create({
   rowCitation: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
   },
   rowText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     lineHeight: 22,
   },
   rowPrinciple: {

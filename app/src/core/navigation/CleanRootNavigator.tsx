@@ -14,12 +14,14 @@ import { linkingConfig } from './linking';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
-import { spacing, typography } from '@/core/theme';
+import { semantic, spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
 import { DailyLoopNavigator } from '@/features/practices/dailyloop';
 import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
+// DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
+import CrisisKeyboardAccessory from '@/features/crisis/components/CrisisKeyboardAccessory';
 import { RootOverlaySlot } from '@/core/navigation/rootOverlaySlot';
 // DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
 // above and by the overlay boundary below.
@@ -148,16 +150,21 @@ export type RootStackParamList = {
   };
   CrisisResources: {
     severityLevel?: 'moderate' | 'high' | 'emergency';
-    // FEAT-433: `guidance_gate` added. `features/guidance/types/guidance.ts` has
-    // hard-coded that literal since slice 1, and it compiled only because
-    // GuidanceCrisisRoute is a free-standing interface with no structural relationship
-    // to this list AND decideGuidanceAccess had no production consumer. Slice 3a gives
-    // it one, so the omission became a real typecheck failure rather than a latent one.
+    // How the CrisisResources route was REACHED. Widened by FEAT-433 (`guidance_gate`)
+    // and DEBUG-450 (`keyboard_accessory`).
     //
-    // Widen the union — do NOT loosen this to `string`, and do NOT cast at the call
-    // site. The sole reader is CrisisResourcesScreen.tsx:268 (`source ?? 'direct'` into
-    // a logSecurity metadata bag), so there is no exhaustive switch to break.
-    source?: 'assessment' | 'direct' | 'crisis_button' | 'guidance_gate';
+    // Do NOT loosen this to `string` and do NOT cast at the call site. The sole reader is
+    // CrisisResourcesScreen.tsx (`source ?? 'direct'` into a logSecurity metadata bag), so
+    // there is no exhaustive switch to break.
+    //
+    // ⚠️ Related to `CrisisTapSource` (features/crisis/services/crisisTapTrace.ts) but
+    // deliberately NOT equal to it, and nothing enforces either way. That union means "a
+    // human TAP on a crisis control"; this one means "how the route was reached". The
+    // route-only members are `assessment`, `direct` and `guidance_gate` — a gate redirect
+    // is not a tap, which is why guidance never calls beginCrisisTap. `error_boundary` is
+    // tap-only: it dials 988 directly and never navigates. So do not "resync" these lists
+    // by making them identical; adding a member to one is a decision about which it is.
+    source?: 'assessment' | 'direct' | 'crisis_button' | 'guidance_gate' | 'keyboard_accessory';
   } | undefined;
   DomainGuidance: { domain: GuidanceDomain };
   Subscription: undefined;
@@ -835,6 +842,22 @@ const CleanRootNavigator: React.FC = () => {
         <RootCrisisBoundary>
           <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
         </RootCrisisBoundary>
+
+        {/* DEBUG-450 — the crisis affordance for when a software keyboard occludes the
+            root button. Mounted ONCE: RN registers InputAccessoryView content by
+            nativeID app-wide, so every TextInput spreading crisisAccessoryProps() reaches
+            this single instance.
+
+            ADDITIVE, and a SIBLING of RootCrisisButton rather than a replacement for it.
+            Neither control suppresses the other — coordinating them would be a fourth
+            instance of the two-list reconciliation failure CLAUDE.md names for
+            features/guidance/ and features/consent/.
+
+            Deliberately OUTSIDE RootCrisisBoundary: that boundary's fallback renders
+            Static988Button, which dials directly and needs no keyboard. Nesting this
+            inside would tie a keyboard-only affordance to a crash-recovery surface that
+            has no TextInput. */}
+        <CrisisKeyboardAccessory />
       </View>
     </NavigationContainer>
   );
@@ -861,7 +884,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.regular,
-    color: '#1C1C1C',
+    color: semantic.text.primary,
   },
 });
 

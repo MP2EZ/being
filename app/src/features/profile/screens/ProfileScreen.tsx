@@ -523,7 +523,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[16],
   },
   // Row that pairs a section heading with a trailing inline action (the ⓘ).
@@ -564,7 +564,7 @@ const styles = StyleSheet.create({
   cardTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   cardDescription: {
@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
   statusDue: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     backgroundColor: colorSystem.gray[100],
     paddingHorizontal: spacing[8],
     paddingVertical: spacing[4],

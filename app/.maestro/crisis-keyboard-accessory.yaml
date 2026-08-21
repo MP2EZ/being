@@ -1,0 +1,72 @@
+appId: fyi.being.app
+tags:
+  - safety-device-only
+name: "Crisis affordance stays reachable while a software keyboard is up (device-only)"
+---
+# DEVICE-ONLY (DEBUG-450). This flow CANNOT be trusted on the iOS simulator, and the
+# reason is a false-GREEN, not a false-red — which is the dangerous direction.
+#
+# The simulator boots with "Connect Hardware Keyboard" enabled, so tapping into a
+# TextInput raises NO software keyboard. A naive "type, then assert the crisis control
+# is visible" flow therefore PASSES against a build where the accessory never mounts:
+# nothing was ever occluded, so the root button was visible the whole time and the
+# assertion succeeded for the wrong reason.
+#
+# Same family as the canOpenURL caveat that makes crisis-988-dial device-only, and the
+# `safety-device-only` tag excludes this from `npm run e2e:safety` for the same reason.
+#
+# On a real device (or a simulator with I/O ▸ Keyboard ▸ Connect Hardware Keyboard
+# UNCHECKED), run:
+#   npm run e2e:safety:keyboard-accessory
+#
+# CONTRACT PINNED: while a software keyboard occludes the root crisis button, a crisis
+# affordance is reachable in ONE tap from the keyboard accessory, and tapping it reaches
+# CrisisResourcesScreen. DEBUG-431 ruled the occluded state a defect against CLAUDE.md's
+# "988 access: <3 taps from any screen"; this is the flow that proves the fix holds.
+#
+# THE KEYBOARD-UP ASSERTION IS LOAD-BEARING. `crisis-keyboard-accessory` is rendered
+# always but COLLAPSED (height 0, a11y-hidden) when nothing occludes — so asserting the
+# accessory *bar* exists proves nothing. What proves the keyboard is genuinely up is that
+# the accessory's own BUTTON is visible, which only happens when the occlusion predicate
+# fired. Assert that before asserting reachability, or this flow degrades to the
+# false-green above.
+
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
+- runFlow: _legal-and-onboarding.yaml
+- runFlow: _seeded-home.yaml
+
+# Reach a free-text surface. The journal composer is the canonical distress-bearing
+# multiline input — the surface DEBUG-431's tap arithmetic showed had no bounded exit.
+- tapOn:
+    id: "tab-insights"
+- scrollUntilVisible:
+    element:
+      id: "weekly-reflection-card"
+    direction: DOWN
+# `weekly-reflection-prompt` is the trigger on a seeded state (no reflection yet);
+# `weekly-reflection-edit` replaces it once one exists. Seeded state means the prompt.
+- tapOn:
+    id: "weekly-reflection-prompt"
+
+- assertVisible:
+    id: "weekly-reflection-input"
+- tapOn:
+    id: "weekly-reflection-input"
+
+# THE GUARD AGAINST FALSE GREEN. The accessory button is only visible when the occlusion
+# predicate returned true — i.e. a bottom-anchored software keyboard taller than the
+# button's 156pt top edge is actually up. With a hardware keyboard connected this fails
+# here, loudly, instead of silently passing the reachability assertion below.
+- assertVisible:
+    id: "crisis-keyboard-accessory-button"
+
+# ONE TAP. Not "dismiss the keyboard, then find the root button" — DEBUG-431 measured
+# that path at 3 taps minimum and unbounded on DailyLoop, which is why keyboard-dismiss
+# hygiene was explicitly ruled insufficient to close this item.
+- tapOn:
+    id: "crisis-keyboard-accessory-button"
+
+- assertVisible:
+    id: "crisis-resources-screen"
