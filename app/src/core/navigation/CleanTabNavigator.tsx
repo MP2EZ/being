@@ -64,7 +64,7 @@ const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ na
     <Text style={{
       fontSize: typography.headline4.size,
       fontWeight: typography.fontWeight.semibold,
-      color: colorSystem.base.black,
+      color: semantic.text.primary,
       marginBottom: spacing[8],
       textAlign: 'center'
     }}>
@@ -168,7 +168,7 @@ const CleanTabNavigator: React.FC = () => {
         headerTitleStyle: {
           fontSize: typography.title.size,
           fontWeight: typography.fontWeight.semibold,
-          color: colorSystem.base.black,
+          color: semantic.text.primary,
         },
       }}
     >

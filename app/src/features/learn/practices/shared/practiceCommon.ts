@@ -43,6 +43,7 @@ export {
 // ============================================================================
 export {
   colorSystem,
+  semantic,
   spacing,
   typography,
   borderRadius,

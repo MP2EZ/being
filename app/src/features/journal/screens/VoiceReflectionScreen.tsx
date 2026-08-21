@@ -69,6 +69,7 @@ import {
   startGuardedRecognition,
 } from '@/core/services/speech/onDeviceSpeechGuard';
 import { sweepAllAudioArtifacts } from '@/core/services/speech/audioArtifactSweeper';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 type Phase = 'idle' | 'recording' | 'review' | 'saved' | 'unavailable';
 
@@ -311,6 +312,7 @@ export function VoiceReflectionScreen(): React.ReactElement {
           </View>
 
           <TextInput
+            {...crisisAccessoryProps()} /* DEBUG-450 */
             style={styles.input}
             testID="journal-transcript-input"
             accessibilityLabel="Your reflection transcript"

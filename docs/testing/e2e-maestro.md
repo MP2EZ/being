@@ -457,6 +457,63 @@ standing in for the <3s 988 SLA, the 3000ms `notVisible: "Unable to Call"` windo
 trustworthy either. Contention must be **visible**, never absorbed: the run reports it
 loudly and lets the operator decide, rather than failing closed on it.
 
+## Lease waits and host load are recorded, not just printed (INFRA-490)
+
+Three locks exist — INFRA-436 (simulator), INFRA-463 (gate worktree), INFRA-472 (the pair)
+— and until INFRA-490 none of them recorded anything, so *how often does a session actually
+wait, and for how long?* had no answer. Each lock was filed on one captured incident: real,
+but an incident is not a rate. INFRA-476 computed the host reading above and then discarded
+it.
+
+Every `e2e_lock_acquire` now appends one JSON line, and so does every flow that runs:
+
+```
+/tmp/being-e2e-telemetry/events.jsonl
+{"epoch":1755647051,"kind":"lock","ns":"sim","key":"5C81…","outcome":"acquired","waited_s":0,"contended":false,"pid":52118,"label":"gate build"}
+{"epoch":1755647312,"kind":"flow","flow":"crisis-button-reachability","verdict":"PASS","elapsed_s":117,"viewport":"402x874","pid":52118,"peer_jvms":0,…,"ratio":0.32}
+```
+
+Read it with one command — `npm run e2e:safety:telemetry` (append `-- <file>` for a log
+elsewhere):
+
+```
+📊 e2e gate telemetry — /tmp/being-e2e-telemetry/events.jsonl
+   lock acquires   12    (contended 6 = 50.0%; inherited 1 not counted)
+   wait median     0s     p90  61s     max  1800s
+   outcomes        acquired 10 · reclaimed-stale 1 · refused 1 · inherited 1
+   flow runs       2    (PASS 1 · FAIL 1)
+   flow median     117s     p90  912s     max  912s
+```
+
+Four things about it are load-bearing:
+
+- **The path is outside every worktree, and that is correctness, not tidiness.**
+  `e2e-provenance.js` fingerprints untracked file contents repo-wide, so a log under the
+  repo would make the next verify return `MISMATCH` and force a rebuild on every gate run.
+  Not `$TMPDIR` either — macOS gives each user a private one, and telemetry two sessions
+  cannot both append to answers the wrong question. `/tmp/being-e2e-locks` is the sibling
+  precedent.
+- **A zero-wait acquire is recorded.** Without the denominator a wait distribution has no
+  population, and the answer would always look like "waits are long" because only waits
+  would be in it.
+- **A wait is timed from the first lost `mkdir`**, not from function entry. `date +%s` is
+  second-granular and the acquire path spends ~100 ms in its own `ps` scans, so anchoring
+  at entry stamped phantom 1-second waits onto the overwhelmingly-uncontended population —
+  directly on top of the median this exists to measure.
+- **`inherited` is excluded from the contended rate.** A child honouring its parent's lease
+  (INFRA-472) could never have waited; counting it would drag the rate toward zero by
+  construction.
+
+Nothing locks the log: a single `printf` of a sub-`PIPE_BUF` line to an `O_APPEND` file is
+atomic, so peers interleave records but never characters — and a lock around the record of
+lock contention would be circular. Writes fail open and are silenced with
+`E2E_TELEMETRY=0`; a telemetry writer that can fail an acquire would make the gate less
+reliable in the name of measuring its reliability.
+
+This is a **two-week collection feeding one decision** (INFRA-491: whether parallel gate
+runs are possible on this machine). Append-only, no rotation, no aggregation at write time.
+Delete the file once that decision is recorded.
+
 ## Which iOS runtime is a gate result allowed to be earned on? (INFRA-429)
 
 **Decision: 18.6 is retired as a *gate* target and retained as a *triage* target.** The gate

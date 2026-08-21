@@ -545,7 +545,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   subtitle: {
@@ -574,7 +574,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   sectionDescription: {

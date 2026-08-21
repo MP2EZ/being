@@ -127,7 +127,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   intro: {
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     flex: 1,
     paddingRight: spacing[8],
   },

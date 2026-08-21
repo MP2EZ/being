@@ -223,7 +223,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[16],
   },
   sectionDescription: {
@@ -266,7 +266,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   principleDescription: {
     fontSize: typography.bodySmall.size,
