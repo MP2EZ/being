@@ -96,11 +96,21 @@ e2e_booted_devices() {
 # is the shape that trains the --skip-e2e reflex this gate exists to prevent. What must not
 # happen is a green result being READ as device-independent, so the device is named on
 # every run and the understatement is stated out loud.
-E2E_SMALLEST_SUPPORTED_MODEL="${E2E_SMALLEST_SUPPORTED_MODEL:-iPhone SE}"
+# INFRA-486 — RATIFIED: the predicate is the derived VIEWPORT below, never this name and
+# never a deviceTypeIdentifier allowlist. An allowlist would be the hand-kept model-to-
+# viewport table this file exists to avoid, reintroduced one indirection later; the
+# viewport is what the layout assertions actually depend on and is rename-proof by
+# derivation. This constant is the REMEDIATION LABEL, and it is now read as one (see the
+# warning text below) — INFRA-478 said it was retained for that and then never used it,
+# which is how a dead constant keeps reading as live behaviour.
+E2E_SMALLEST_SUPPORTED_MODEL="${E2E_SMALLEST_SUPPORTED_MODEL:-iPhone SE (3rd generation)}"
 # INFRA-478 — the viewport is the real predicate (see e2e_warn_if_not_smallest_viewport).
-# The model name above is retained as a LABEL for remediation text only. Note SE 2 also
-# derives to 375x667 and legitimately satisfies this, while SE 1 derives to 320x568 and
-# does not — a distinction the old display-name substring could not make.
+# Compared by EQUALITY, never `<=`: we certify THE declared configuration, and `<=` would
+# admit 320x568. That is not a supported viewport — iOS minimum is 16.4 (SDK 56) and every
+# 320x568 iPhone caps at iOS 15.8, so no user can be there. Note SE 2 also derives to
+# 375x667 and legitimately satisfies this, while SE 1 derives to 320x568 and does not — a
+# distinction the old display-name substring could not make. The floor moves the day the
+# deployment target rises past what SE 2/3 support.
 E2E_SMALLEST_SUPPORTED_VIEWPORT="${E2E_SMALLEST_SUPPORTED_VIEWPORT:-375x667}"
 
 # =========================================================================================
@@ -259,9 +269,64 @@ e2e_warn_if_not_smallest_viewport() {
     return 0
   fi
   echo "⚠️  This is NOT the smallest supported viewport (${E2E_SMALLEST_SUPPORTED_VIEWPORT}); this run is ${E2E_SIM_VIEWPORT}." >&2
+  echo "   To certify it, boot a ${E2E_SMALLEST_SUPPORTED_MODEL} (a viewport is not bootable; a model is)." >&2
   echo "   Layout-sensitive safety assertions (above-the-fold 988 reachability) can pass" >&2
   echo "   here and fail there — DEBUG-432 measured exactly that on one unchanged build." >&2
   echo "   A green run on this device does not certify the small viewport." >&2
+  return 0
+}
+
+# =========================================================================================
+# PER-FLOW CERTIFYING VIEWPORT (INFRA-486)
+#
+# WHY PER FLOW AND NOT PER SUITE. Only some flows are layout-sensitive. Requiring the whole
+# suite to certify 375x667 makes the pin expensive and fragile — DEBUG-477 showed flows
+# going red there for HARNESS-geometry reasons that say nothing about the product — and an
+# expensive gate is the pressure that produces `--skip-e2e`. Declaring per flow keeps the
+# refusal surface small, so most closes never touch a layout-sensitive flow at all.
+#
+# THIS IS DATA, NOT A VERDICT. Both functions are WARN-ONLY and structurally cannot refuse;
+# a jest pin asserts that. Turning a non-certifying run into a verdict token, and into a
+# /b-close refusal, is INFRA-493 — deliberately sequenced AFTER the 375x667 measurement so
+# a refusal is never armed over unmeasured or known-red flows.
+
+# e2e_flow_certifies <flow-file>
+#
+# Echoes the viewport this flow's assertions are declared to certify, or `any` when its
+# contract is viewport-independent. FAILS CLOSED: no declaration means the smallest
+# supported viewport, so a newly added flow is flagged on a large device rather than
+# silently certified everywhere. Prose would not survive this — the declaration is a
+# grep-able key precisely so the runner, and not a reader, is the consumer.
+e2e_flow_certifies() {
+  local f="${1:-}" v=""
+  if [ -n "$f" ] && [ -r "$f" ]; then
+    v="$(grep -m1 -E '^#[[:space:]]*e2e-certifies:' "$f" 2>/dev/null \
+         | sed -E 's/^#[[:space:]]*e2e-certifies:[[:space:]]*//; s/[[:space:]]*$//')"
+  fi
+  [ -n "$v" ] || v="$E2E_SMALLEST_SUPPORTED_VIEWPORT"
+  printf '%s\n' "$v"
+  return 0
+}
+
+# e2e_flow_certification_note <declared> <ran>
+#
+# The label that goes beside a per-flow result. An underivable viewport counts as NON-
+# certifying: "we could not derive it" and "it was wrong" are the same quality of evidence.
+e2e_flow_certification_note() {
+  local declared="${1:-}" ran="${2:-unknown}"
+  if [ "$declared" = "any" ]; then
+    printf 'viewport-independent\n'
+    return 0
+  fi
+  if [ "$ran" = "unknown" ]; then
+    printf 'declares %s, viewport underivable — does not certify\n' "$declared"
+    return 0
+  fi
+  if [ "$declared" = "$ran" ]; then
+    printf 'certifies %s\n' "$declared"
+    return 0
+  fi
+  printf 'declares %s, ran %s — does not certify\n' "$declared" "$ran"
   return 0
 }
 

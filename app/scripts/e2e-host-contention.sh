@@ -128,7 +128,7 @@ e2e_host_summary_line() {
 }
 
 # Warn ONLY when contended. Returns 0 unconditionally — see the header. The threshold is
-# env-tunable in the same shape as E2E_SMALLEST_SUPPORTED_MODEL. 1.0x sits ~2x above the
+# env-tunable in the same shape as E2E_SMALLEST_SUPPORTED_VIEWPORT. 1.0x sits ~2x above the
 # observed idle ceiling (3-5 on hw.ncpu=10, i.e. 0.3-0.5x) and an order of magnitude below
 # the contended floor (30-48x), so the band it splits is empty in the measurements.
 e2e_host_contention_warn() {

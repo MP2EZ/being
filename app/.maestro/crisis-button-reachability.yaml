@@ -2,6 +2,9 @@ appId: fyi.being.app
 tags:
   - safety
 name: "Crisis button (single root mount) reaches CrisisResources from every surface"
+# e2e-certifies: 375x667
+# INFRA-486 — Asserts crisis-call-988-button visible against the fold on the one screen where the
+# root overlay is SUPPRESSED, so this control is the only 988 affordance there.
 ---
 # Pins the safety fact: 988 access <3 taps from any screen. Asserts that the
 # SINGLE persistent root-level crisis button (MAINT-290, testID
