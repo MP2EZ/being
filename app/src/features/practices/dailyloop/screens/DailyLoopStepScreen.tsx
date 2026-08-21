@@ -71,6 +71,7 @@ import {
   type StagesByStep,
 } from '../config/stageNotes';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const BREATH_DURATION_MS = 30 * 1000;
 
@@ -182,6 +183,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
       <Text style={styles.inputLabel}>{label}</Text>
       {hint ? <Text style={styles.inputHint}>{hint}</Text> : null}
       <TextInput
+        {...crisisAccessoryProps()} /* DEBUG-450 */
         style={[styles.textInput, { borderColor: values[key] ? themeColors.primary : colorSystem.gray[300] }]}
         value={values[key]}
         onChangeText={(t) => setField(key, t)}
@@ -356,6 +358,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
                 <Text style={styles.inputLabel}>{PREMEDITATIO.label}</Text>
                 <Text style={styles.inputHint}>{PREMEDITATIO.hint}</Text>
                 <TextInput
+                  {...crisisAccessoryProps()} /* DEBUG-450 */
                   style={[
                     styles.textInput,
                     { borderColor: adversityRehearsal ? themeColors.primary : colorSystem.gray[300] },

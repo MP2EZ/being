@@ -33,6 +33,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const CONFIRM_WORD = 'DELETE';
 
@@ -110,6 +111,7 @@ const DeleteAccountScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Type {CONFIRM_WORD} to confirm</Text>
           <TextInput
+            {...crisisAccessoryProps()} /* DEBUG-450 */
             style={styles.input}
             value={confirmText}
             onChangeText={setConfirmText}
