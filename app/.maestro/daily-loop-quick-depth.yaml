@@ -2,6 +2,9 @@ appId: fyi.being.app
 tags:
   - safety
 name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter arc"
+# e2e-certifies: 375x667
+# INFRA-486 — Asserts daily-loop-support-line visible with no scroll; DEBUG-465 pinned it outside the
+# ScrollView precisely because its position relative to the fold is the contract.
 ---
 # FEAT-301 safety flow — pins the crisis-affordance contract for the per-session
 # QUICK depth variant (canonical steps 1→3→4: Aware Presence → Sphere Sovereignty →
@@ -114,6 +117,14 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #     flows. This matrix is the suite's only record of what was proven on what, so extend it
 #     rather than replacing rows. Suite-level detail: docs/testing/e2e-maestro.md.
 #
+#     ✅ SUITE-VALIDATED 2026-08-19 (INFRA-486) — iPhone SE 3 / iOS 18.6 / 375x667.
+#     All 9 safety-tagged flows green in one uninterrupted `npm run e2e:safety`,
+#     development @ 93efef69, Release, clean-tree provenance, default Dynamic Type.
+#     THE FIRST full-suite green at the smallest supported viewport for the current
+#     suite: DEBUG-477's two remaining reds (gad7-severe, journal-crisis-scan) are
+#     fixed, and reconsent-stale — merged after the row above, which is why that row
+#     legitimately says 8 — ran here for the first time.
+#
 #     ✅ AX5 MEASURED 2026-08-21 (DEBUG-469) — iPhone SE 3 / iOS 18.6, 375x667, provenance
 #     7e484b61, clean tree, content_size accessibility-extra-extra-extra-large. Every row
 #     above is at the DEFAULT content size; this is the first scaled-type measurement of
@@ -176,20 +187,19 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #     step as a real regression. Then check `~/.maestro/tests/<latest>/maestro.log` for
 #     `ConnectException` / `EOFException` — the console output does not surface them.
 #
-#     THE DEVICE IS AN UNPINNED INPUT. `app/scripts/e2e-sim-device.sh` resolves whichever
-#     simulator happens to be booted; it enforces that exactly ONE is (INFRA-405) but
-#     pins no model and no iOS version. This header records what WAS tested and
-#     guarantees nothing about what will run. Pinning the model is INFRA scope.
+#     THE DEVICE IS DECLARED, AND THIS FLOW DECLARES 375x667 (INFRA-486). The mechanism
+#     DEBUG-465 deferred now exists: the `# e2e-certifies:` key at the top of this file is
+#     read by `e2e_flow_certifies`, and every run labels the result with whether the device
+#     it ran on matches. DEBUG-465's ruling — layout-sensitive safety flows belong on the
+#     smallest supported viewport — is CARRIED, not overturned; what changed is that it is
+#     now machine-readable per flow rather than prose, and scoped to the flows that are
+#     actually layout-sensitive rather than to the whole suite.
 #
-#     DEBUG-465 RULES THAT IT SHOULD BE PINNED, and this flow is the second measured
-#     warrant for it. DEBUG-432 found a 988 control below the fold that a green gate had
-#     missed for the life of the assertion; DEBUG-465 found this beat's crisis support
-#     line ABSENT from the hierarchy at 375x667 while the same build cleared it at
-#     402x874. Both were invisible on a large simulator, and in both the gate's colour
-#     was a function of which device the operator last booted. The decision is: run
-#     layout-sensitive safety flows on E2E_SMALLEST_SUPPORTED_MODEL (iPhone SE 3,
-#     375x667). The MECHANISM stays INFRA scope — it changes device resolution for every
-#     flow, and e2e-sim-device.sh's own comment explains why it warns rather than fails.
+#     IT IS STILL A LABEL, NOT A REFUSAL, AND THAT IS DELIBERATE. Arming a refusal is
+#     INFRA-493, sequenced after the measurement above so it is never armed over unmeasured
+#     or known-red flows — a gate that refuses for a reason the operator judges irrelevant
+#     is what trains the `--skip-e2e` reflex. Until then a run on another device still
+#     executes and still reports; it simply does not claim to certify this viewport.
 #
 #     What DEBUG-408 changed below is hardening and coverage, NOT a fix for the above:
 #     a re-anchor assertion after every crisis round-trip (which pins the previously

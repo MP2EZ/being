@@ -112,6 +112,11 @@ const mockOpenCrisisUrl = openCrisisUrl as jest.MockedFunction<typeof openCrisis
  * suppressed, AND renders, AND `standard` mode).
  */
 const MUST_RENDER_STANDARD = [
+  // FEAT-433 — guidance ships zero floating UI of its own, so the root overlay is
+  // the ONLY 988 affordance on this screen. It is also a surface a distressed
+  // reader reaches by naming a hardship, which makes losing the button here worse
+  // than average rather than merely bad.
+  'DomainGuidance',
   'ReConsent',
   'PracticeLibrary',
   'VoiceReflection',

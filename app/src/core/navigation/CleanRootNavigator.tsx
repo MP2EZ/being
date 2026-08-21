@@ -44,6 +44,11 @@ import {
 // FEAT-293: standalone practice discoverability.
 import SortingPracticeRoute from '@/features/practices/catalog/SortingPracticeRoute';
 import PracticeLibraryScreen from '@/features/practices/screens/PracticeLibraryScreen';
+// FEAT-433 — direct paths, never a features/guidance barrel (FEAT-376): a barrel
+// would pull guidanceGate and the content loader into this navigator's eager graph,
+// defeating the lazy load the suppression ordering depends on.
+import DomainGuidanceScreen from '@/features/guidance/screens/DomainGuidanceScreen';
+import type { GuidanceDomain } from '@/features/guidance/types/guidance';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
@@ -159,12 +164,23 @@ export type RootStackParamList = {
   };
   CrisisResources: {
     severityLevel?: 'moderate' | 'high' | 'emergency';
-    // ⚠️ DEBUG-450 — kept in sync BY HAND with `CrisisTapSource` in
-    // features/crisis/services/crisisTapTrace.ts. Separately declared, nothing enforces
-    // the correspondence. 'assessment' and 'direct' are route-only; 'error_boundary'
-    // never navigates (it dials 988 directly), so it has no member here.
-    source?: 'assessment' | 'direct' | 'crisis_button' | 'keyboard_accessory';
+    // How the CrisisResources route was REACHED. Widened by FEAT-433 (`guidance_gate`)
+    // and DEBUG-450 (`keyboard_accessory`).
+    //
+    // Do NOT loosen this to `string` and do NOT cast at the call site. The sole reader is
+    // CrisisResourcesScreen.tsx (`source ?? 'direct'` into a logSecurity metadata bag), so
+    // there is no exhaustive switch to break.
+    //
+    // ⚠️ Related to `CrisisTapSource` (features/crisis/services/crisisTapTrace.ts) but
+    // deliberately NOT equal to it, and nothing enforces either way. That union means "a
+    // human TAP on a crisis control"; this one means "how the route was reached". The
+    // route-only members are `assessment`, `direct` and `guidance_gate` — a gate redirect
+    // is not a tap, which is why guidance never calls beginCrisisTap. `error_boundary` is
+    // tap-only: it dials 988 directly and never navigates. So do not "resync" these lists
+    // by making them identical; adding a member to one is a decision about which it is.
+    source?: 'assessment' | 'direct' | 'crisis_button' | 'guidance_gate' | 'keyboard_accessory';
   } | undefined;
+  DomainGuidance: { domain: GuidanceDomain };
   Subscription: undefined;
   SubscriptionStatus: undefined;
   WellnessTrendsDetail: undefined;
@@ -589,6 +605,22 @@ const CleanRootNavigator: React.FC = () => {
             NOT modal — it is a browsable listing surface, and it must keep the
             root crisis overlay in its default `standard` mode (hence its
             deliberate absence from RootCrisisButton's route sets). */}
+        {/* FEAT-433 slice 3a. Deliberately absent from BOTH of RootCrisisButton's
+            route sets (SUPPRESSED_ROUTES and IMMERSIVE_ROUTES), so the root 988
+            overlay renders here in default `standard` mode — the feature ships zero
+            floating UI of its own, so without the overlay it would have no crisis
+            affordance at all. `MUST_RENDER_STANDARD` in RootCrisisButton.test.tsx
+            pins that rather than leaving it safe-by-accident.
+
+            No entry point until FEAT-457 adds the Home affordance: this route is
+            reachable only by an explicit navigate. That unreachability is also why
+            the slice ships unflagged. */}
+        <Stack.Screen
+          name="DomainGuidance"
+          component={DomainGuidanceScreen}
+          options={{ headerShown: true, title: 'Guidance', headerBackTitle: 'Back' }}
+        />
+
         <Stack.Screen
           name="PracticeLibrary"
           options={{ headerShown: false, presentation: 'card' }}
