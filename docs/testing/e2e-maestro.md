@@ -319,6 +319,16 @@ rollback and as a re-measurable baseline after toolchain upgrades.
 > replaced rather than deleted, the abort names the replacing worktree's `repoRoot` and
 > `branch`; an uninstall leaves no marker, so that case reports `VANISHED` with no
 > attribution.
+>
+> **INFRA-472 — `npm run e2e:safety:gate` leases the worktree and the simulator together,
+> and exits 4 when a peer owns either.** The pair is taken before the gate re-points the
+> shared worktree, so a refusal has mutated nothing; the message names the holder's work
+> item, commit, and when the lease was taken. Exit 4 is the gate slot being busy — wait,
+> or build in your own worktree — and is deliberately distinct from 1/2/3 above. Stale
+> leases are reclaimed automatically (the holder is identified by pid **and** process
+> start time, so a recycled pid cannot be mistaken for a live one). For a holder you have
+> confirmed is wedged rather than working, `E2E_LOCK_FORCE=1` overrides and prints the
+> full record it destroys; it will clobber a genuinely running peer, so confirm first.
 
 ```bash
 # Sim suite (currently 8 flows tagged `safety`, ~12 min) — runnable on iOS sim.
@@ -407,17 +417,45 @@ regression at the point of reading, and it invites a device-specific diagnosis t
 geometry does not support. DEBUG-473 was filed as a 402x874 fold defect on exactly that
 basis; `maestro hierarchy` showed both cards 100% inside the fold.
 
-**Before running the gate:** confirm the host is quiet. Identify processes by executable,
-never by command line — an `args` match also matches the shell that mentions it (DEBUG-392):
+**The gate now reports this itself (INFRA-476).** `e2e-safety.sh` prints a host reading at
+pre-flight — after the INFRA-436 lock acquire and after the pre-flight driver reap, so the
+figure is current and our own about-to-die orphans are not counted as someone else's load —
+and repeats it beside the summary. Every verdict line also carries that flow's wall-clock,
+so a 45-minute "pass" reads as untrustworthy rather than green:
+
+```
+🖥️  Host at gate start: load1 3.20 / 10 cpu (0.32x) · 0 peer maestro JVM · 0 peer driver · 0 other xcodebuild
+    PASS  crisis-button-reachability  (1m57s)
+```
+
+**It WARNS and never refuses.** Same reasoning `e2e_warn_if_not_smallest_viewport`
+documents: a pre-flight that refuses on a judgement the operator disagrees with trains the
+`--skip-e2e` reflex the gate exists to prevent, and a false "someone else is running" means
+the human does not run the gate at all — failing toward *not testing*, which DEBUG-392
+recorded happening in this exact shape. Tune the threshold with
+`E2E_HOST_LOAD_WARN_RATIO` (default `1.0`, i.e. load ≥ `hw.ncpu`). It is advisory reporting
+only and takes no lock; INFRA-472 owns any actual lease.
+
+To check by hand before starting a build, identify processes by executable, never by
+command line — an `args` match also matches the shell that mentions it (DEBUG-392):
 
 ```bash
-ps -axo comm= | awk '$0 ~ /(^|\/)(xcodebuild|java)$/'   # empty = quiet
+ps -axo comm= | awk '$0 ~ /(^|\/)(xcodebuild|java)$/'
 ```
+
+Read that as *what else is running*, not as a verdict: it counts any unrelated Xcode build
+or JVM on the machine, so a non-empty result is not proof a peer gate run is in progress.
+**Use the single-column form.** Asking for `comm` and `args` in one `ps` invocation caps
+`comm` at 16 characters, so `/Applications/Xcode.app/…/xcodebuild` arrives as
+`/Applications/Xc` and matches nothing — the defect INFRA-476 fixed in
+`e2e-driver-ownership.sh`, where it had silently disabled every xcodebuild matcher while
+the `java` ones kept working because `java` is 4 characters.
 
 Do not tune a flow's timeouts to survive a contended host. A machine slow enough to blow a
 scroll budget is a machine on which that flow's crisis assertions — the ~10s `assertVisible`
 standing in for the <3s 988 SLA, the 3000ms `notVisible: "Unable to Call"` windows — are not
-trustworthy either. Contention must fail loudly.
+trustworthy either. Contention must be **visible**, never absorbed: the run reports it
+loudly and lets the operator decide, rather than failing closed on it.
 
 ## Which iOS runtime is a gate result allowed to be earned on? (INFRA-429)
 
@@ -470,9 +508,34 @@ contains no keyboard elements and no `journal-crisis-banner`, against a control 
 keyboard raised that shows nine. Closing the class rather than this instance would require
 both-must-pass, and should be argued on that basis if it is ever revisited.
 
-**Not recorded anywhere yet:** which runtime a given green was earned on.
-`e2e_resolve_sim_device` returns a bare UDID and the provenance marker is git-tree-based, so
-the flow headers are the only record and they are maintained by hand.
+**Recorded since INFRA-478.** This used to say the runtime a green was earned on was not
+recorded anywhere, leaving the hand-maintained flow headers as the only record. The gate now
+derives and prints the resolved device's **model, iOS runtime and viewport** — on every
+verdict line and in the run summary:
+
+```
+📱 Device: iPhone SE (3rd generation) / iOS 18.6 / 375x667
+    PASS  crisis-button-reachability  (1m57s · 375x667)
+```
+
+Derived, not tabulated: `deviceTypeIdentifier` and the runtime key come from the
+`xcrun simctl list devices booted -j` call the resolver already made and discarded, and the
+viewport from the device type's own `profile.plist` (`mainScreenWidth`/`Height`/`Scale`). A
+hand-kept model→points table is the thing that rots — every `375x667` and `430x932` figure
+elsewhere in this repo is typed into a comment by hand.
+
+The smallest-viewport check now keys on that **derived viewport** rather than on the
+simulator's display name. The old `case` against the substring `"iPhone SE"` was wrong in
+both directions: an iPhone SE 1st-gen (320x568) is genuinely smaller than the baseline and
+silently satisfied it, while any renamed simulator defeated it. Both are pinned in
+`app/__tests__/scripts/e2e-sim-device-attribution.test.js`.
+
+**Still warn-only, and still not a pin.** The gate records which device it ran on; it does
+not choose one. Choosing is **INFRA-486**, and it is deliberately separate: "pin to the
+smallest model" and "never refuse because the device is large" are the same behaviour with
+opposite verdicts, since the resolver consumes an already-booted simulator and never boots
+one. That item is also blocked on a full **9-flow** SE 3 measurement that has never been run
+— the 8-flow baseline predates `reconsent-stale.yaml`.
 
 **Update (DEBUG-477, 2026-08-18):** `journal-crisis-scan` no longer uses `hideKeyboard`. The
 false-green hazard described above is now pinned by a two-sided assertion on the keyboard

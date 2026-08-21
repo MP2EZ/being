@@ -136,7 +136,7 @@
     "nanoid@^3.3.16": "3.3.18"
   },
   "dependencies": {
-    "@mp2ez/being-design-system": "^1.9.0",
+    "@mp2ez/being-design-system": "^1.10.0",
     "@react-native-async-storage/async-storage": "2.2.0",
     "@react-native-community/datetimepicker": "9.1.0",
     "@react-native-community/netinfo": "12.0.1",
