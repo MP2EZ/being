@@ -5,6 +5,11 @@
 **Format**: `[Work Item ID] - [Additional context]` — or **no arguments**, which auto-selects
 the top item of the attended queue (Step 0.2)
 
+**Always print all three decision blocks** — 🚩 Feature-Flag (3.2), 📊 Analytics (3.2a),
+🧪 Test Strategy (3.3) — including when every answer is the default (No flag / No event /
+Skip). They leave no artifact behind, so an unprinted decision is indistinguishable from an
+unmade one, and the defaults are exactly the runs where they get silently dropped.
+
 ---
 
 ## Phase 0: Parse Arguments
