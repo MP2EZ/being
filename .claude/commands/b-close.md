@@ -1248,6 +1248,11 @@ base branch), the flag still works and this step becomes a confirmation.
 
 ### Step 3.8: Delete local feature branch
 
+**Runs AFTER Phase 5.1, not here.** Neither `-d` nor `-D` can delete a branch that is
+checked out in a worktree, and the item's worktree is still present at this point — so
+this step fails with `cannot delete branch … used by worktree` on every close that has
+one. Remove the worktree first, then delete the branch.
+
 After the PR is merged and the worktree is synced, the local feature branch
 sits as an orphan ref (`gh pr merge --delete-branch` deletes only the remote
 ref, and even that fails on the bare-repo worktree-conflict pattern from
