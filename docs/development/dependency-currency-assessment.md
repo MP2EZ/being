@@ -520,21 +520,19 @@ per-advisory by construction.
 
 ## 8. AC6 — Native and config surface inventory
 
-### 8.1 The 17 `react-native-*` / `@react-native-*` modules
+### 8.1 The 15 `react-native-*` / `@react-native-*` modules
 
 | Module | Pin | Verdict |
 |---|---|---|
 | `@react-native-async-storage/async-storage` | `2.2.0` | **hold** — §5.2 |
 | `@react-native-community/datetimepicker` | `9.1.0` | current |
 | `@react-native-community/netinfo` | `12.0.1` | current |
-| `@react-native-community/slider` | `5.2.0` | current |
 | `@react-native-picker/picker` | `^2.11.4` | current |
 | `@react-native-vector-icons/ionicons` | `13.1.2` | current |
 | `@react-native-vector-icons/material-design-icons` | `13.1.2` | current — **crisis path**, keep eager-imported |
 | `react-native-aes-crypto` | `^3.2.1` | current — **wellness encryption**; any move needs `compliance` |
 | `react-native-gesture-handler` | `~2.31.1` | **hold at 2.x** — §5.9 |
 | `react-native-iap` | `^15.3.1` | **GO** — §5.4 |
-| `react-native-keychain` | `^10.0.0` | current — secure storage; `compliance` on any move |
 | `react-native-markdown-display` | `^7.0.2` | at latest; carries 4 allowlisted GHSAs (§7.5) |
 | `react-native-reanimated` | `4.3.1` | **breathing path** — move with Bucket A |
 | `react-native-safe-area-context` | `~5.7.0` | within-major bump available |
