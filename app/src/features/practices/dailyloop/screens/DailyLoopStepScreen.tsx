@@ -71,6 +71,7 @@ import {
   type StagesByStep,
 } from '../config/stageNotes';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const BREATH_DURATION_MS = 30 * 1000;
 
@@ -182,6 +183,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
       <Text style={styles.inputLabel}>{label}</Text>
       {hint ? <Text style={styles.inputHint}>{hint}</Text> : null}
       <TextInput
+        {...crisisAccessoryProps()} /* DEBUG-450 */
         style={[styles.textInput, { borderColor: values[key] ? themeColors.primary : colorSystem.gray[300] }]}
         value={values[key]}
         onChangeText={(t) => setField(key, t)}
@@ -356,6 +358,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
                 <Text style={styles.inputLabel}>{PREMEDITATIO.label}</Text>
                 <Text style={styles.inputHint}>{PREMEDITATIO.hint}</Text>
                 <TextInput
+                  {...crisisAccessoryProps()} /* DEBUG-450 */
                   style={[
                     styles.textInput,
                     { borderColor: adversityRehearsal ? themeColors.primary : colorSystem.gray[300] },
@@ -462,7 +465,7 @@ const styles = StyleSheet.create({
   breathTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     marginBottom: spacing[8],
   },
@@ -471,7 +474,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   sectionSubtitle: {
@@ -505,7 +508,7 @@ const styles = StyleSheet.create({
   virtuePrompt: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   virtueReference: {
@@ -532,7 +535,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   inputHint: {
@@ -546,7 +549,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     backgroundColor: colorSystem.base.white,
     minHeight: 96,
   },

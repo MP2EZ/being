@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
   author: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   citation: {

@@ -36,6 +36,7 @@ import { BreathingCircle, Timer, SkipLink } from '@/features/practices/shared/co
 import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
 import type { DailyLoopMode, DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
 import { CLOSING, STEP_TITLES, getStepKeysForDepth, getCompleteTitle } from '../config/tenseMode';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const CLOSING_BREATH_MS = 15 * 1000;
 
@@ -171,6 +172,7 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
 
             <Text style={styles.inputLabel}>{CLOSING.noteLabel}</Text>
             <TextInput
+              {...crisisAccessoryProps()} /* DEBUG-450 */
               style={[
                 styles.textInput,
                 { borderColor: integrationNote ? themeColors.primary : colorSystem.gray[300] },
@@ -233,7 +235,7 @@ const styles = StyleSheet.create({
   breathTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     marginBottom: spacing[8],
   },
@@ -248,7 +250,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     // FEAT-328 removed a badge that sat above this line and contributed its own leading
     // margin. Without a little top space the title butts against the header and reads as
     // a rendering fault rather than as the top of the block. This is deliberately less
@@ -358,7 +360,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   textInput: {
@@ -366,7 +368,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     backgroundColor: colorSystem.base.white,
     minHeight: spacing[96],
     // numberOfLines is Android-only for multiline; without this iOS grows unbounded.

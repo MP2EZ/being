@@ -294,6 +294,12 @@ jest.mock('react-native', () => {
     // any screen that uses it.
     KeyboardAvoidingView: RN.KeyboardAvoidingView,
 
+    // DEBUG-450: same omission class as KeyboardAvoidingView above. The crisis keyboard
+    // accessory mounts inside CleanRootNavigator, so its absence from this curated list
+    // broke not just its own suite but every test that renders the navigator, with the
+    // same misleading `Element type is invalid: ... got: undefined`. Safe + non-deprecated.
+    InputAccessoryView: RN.InputAccessoryView,
+
     // MAINT-437: `SafeAreaView: RN.SafeAreaView` removed. Reading that property off the
     // core export invokes the deprecating getter (react-native/index.js:96-107), and
     // because this file runs before any app module in every test registry, it was the

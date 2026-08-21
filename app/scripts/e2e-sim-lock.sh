@@ -98,6 +98,28 @@
 # to do. It prints the whole record it destroys, because an override that is quiet is
 # indistinguishable from a lock that stopped working.
 
+# INFRA-490 — the lease wait is recorded, not just waited out. Self-contained when this
+# file is sourced alone (its own unit test does that); a no-op where a caller already
+# sourced the writer. Every e2e_telemetry_* function returns 0 on every path, so nothing
+# below can be failed by telemetry.
+if ! command -v e2e_telemetry_lock >/dev/null 2>&1; then
+  if [ -f "$(dirname "${BASH_SOURCE[0]}")/e2e-telemetry.sh" ]; then
+    # shellcheck source=scripts/e2e-telemetry.sh
+    . "$(dirname "${BASH_SOURCE[0]}")/e2e-telemetry.sh"
+  else
+    # A missing writer degrades to no-ops rather than killing the caller. An unconditional
+    # source of an absent file aborts e2e-sim-build.sh outright under its `set -euo
+    # pipefail` — a gate that refuses to run because it cannot measure itself is the exact
+    # inversion this telemetry is built to avoid. Loud, though: a recorder that silently
+    # stops recording looks identical to a machine with no contention on it.
+    echo "⚠️  e2e-telemetry.sh not found — lease-wait telemetry (INFRA-490) is off for this run." >&2
+    e2e_telemetry_lock() { return 0; }
+    e2e_telemetry_flow() { return 0; }
+    e2e_telemetry_append() { return 0; }
+    e2e_telemetry_summary() { return 0; }
+  fi
+fi
+
 E2E_LOCK_ROOT="${E2E_LOCK_ROOT:-/tmp/being-e2e-locks}"
 
 # Default wait. Sized to outlast a legitimate peer: a full 8-flow suite plus its build.
@@ -174,7 +196,10 @@ e2e_lock_write_owner() {
   # Refuse to claim ownership we cannot later prove. An owner record with no start time
   # reads as RECYCLED to every other session, i.e. a lock that silently protects nothing.
   [ -n "$start" ] || return 1
-  printf '%s\t%s\t%s\t%s\t%s\n' "$$" "$start" "${comm:-unknown}" "$label" "$(date +%s)" > "$dir/owner"
+  # Published rather than discarded (INFRA-490): it is the acquisition instant, so the
+  # telemetry writer reuses it instead of forking a second `date` on the critical path.
+  E2E_LOCK_ACQUIRED_AT="$(date +%s)"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$$" "$start" "${comm:-unknown}" "$label" "$E2E_LOCK_ACQUIRED_AT" > "$dir/owner"
 }
 
 # Field 5 is absent on records written by an older checkout, so this must read as "unknown"
@@ -224,6 +249,12 @@ e2e_lock_acquire() {
   local udid="${1:-}" timeout="${2:-$E2E_LOCK_TIMEOUT_DEFAULT}" label="${3:-${E2E_LOCK_LABEL:-gate}}"
   local ns="${4:-sim}"
   local dir deadline line pid start comm held acq state now what
+  # INFRA-490 — what this acquire cost, assembled as it happens. `reclaimed` counts stale
+  # records cleared; `holder_*` is the FIRST contender observed, which is the one that
+  # actually made us wait; `wait_t0` is the wait clock and is deliberately NOT `t0` — see
+  # where it is stamped, below.
+  local t0 wait_t0='' waited reclaimed=0 holder_pid='' holder_label='' forced=''
+  E2E_LOCK_ACQUIRED_AT=''
 
   # An empty key would collapse every resource onto a single lock path — the same "an empty
   # match string must never widen" rule INFRA-423 pins for the reaper.
@@ -237,6 +268,10 @@ e2e_lock_acquire() {
   # Our own lineage already holds it (INFRA-472). Checked before the mkdir, because the mkdir
   # is exactly what would fail and send this process to wait out its own parent's lease.
   if e2e_lock_inherited_holds "$ns" "$udid"; then
+    # Recorded as `inherited`, never as a zero-wait acquire: a child honouring its parent's
+    # hold could not have waited, so counting it would drag the contended rate toward zero
+    # by construction.
+    e2e_telemetry_lock "$(date +%s)" "$ns" "$udid" inherited 0 "$label"
     return 0
   fi
 
@@ -244,6 +279,7 @@ e2e_lock_acquire() {
   dir="$(e2e_lock_dir "$udid" "$ns")" || return 2
   mkdir -p "$E2E_LOCK_ROOT" 2>/dev/null || true
   now="$(date +%s)"
+  t0="$now"
   deadline=$(( now + timeout ))
 
   attempts=0
@@ -267,6 +303,8 @@ e2e_lock_acquire() {
         echo "e2e-sim-lock: could not acquire the $what within ${timeout}s," >&2
         echo "  and no live holder was found. Check that $E2E_LOCK_ROOT is writable and that" >&2
         echo "  $dir is not being recreated by a looping process." >&2
+        e2e_telemetry_lock "$now" "$ns" "$udid" refused $(( now - ${wait_t0:-$t0} )) "$label" \
+          "$holder_pid" "$holder_label" "$forced"
         return 1
       fi
     fi
@@ -275,17 +313,41 @@ e2e_lock_acquire() {
     # test-then-act window for a peer to slip through.
     if mkdir "$dir" 2>/dev/null; then
       if e2e_lock_write_owner "$dir" "$label"; then
+        waited=0
+        if [ -n "$wait_t0" ]; then
+          waited=$(( ${E2E_LOCK_ACQUIRED_AT:-$wait_t0} - wait_t0 ))
+          if [ "$waited" -lt 0 ]; then waited=0; fi
+        fi
+        if [ "$reclaimed" -gt 0 ]; then
+          e2e_telemetry_lock "${E2E_LOCK_ACQUIRED_AT:-$t0}" "$ns" "$udid" reclaimed-stale \
+            "$waited" "$label" "$holder_pid" "$holder_label" "$forced"
+        else
+          e2e_telemetry_lock "${E2E_LOCK_ACQUIRED_AT:-$t0}" "$ns" "$udid" acquired \
+            "$waited" "$label" "$holder_pid" "$holder_label" "$forced"
+        fi
         return 0
       fi
       rmdir "$dir" 2>/dev/null
       echo "e2e-sim-lock: acquired the lock but could not record ownership; released it." >&2
+      e2e_telemetry_lock "$t0" "$ns" "$udid" refused 0 "$label" "$holder_pid" "$holder_label" "$forced"
       return 1
     fi
+
+    # WE LOST THE MKDIR — only from here is the clock measuring someone else. Anchoring the
+    # wait at function entry instead made an UNCONTENDED acquire report a phantom 1s wait
+    # whenever it straddled a second boundary: `date +%s` is second-granular and this
+    # function spends ~100ms in its own two `ps` scans, which is self-inflicted latency, not
+    # a lease wait. Almost the entire population is uncontended, so that noise would land
+    # directly on the median this item exists to produce. Same granularity trap the
+    # `attempts >= 3` valve above documents. Stamped once, on a path that is about to sleep
+    # anyway, so the fork costs nothing that matters.
+    if [ -z "$wait_t0" ]; then wait_t0="$(date +%s)"; fi
 
     line="$(cat "$dir/owner" 2>/dev/null || true)"
     if [ -z "$line" ]; then
       # mkdir succeeded for someone but the owner write did not land (a kill in between).
       # Reclaimable: nobody can prove they hold it.
+      reclaimed=$(( reclaimed + 1 ))
       rm -rf "$dir" 2>/dev/null || true
     else
       pid="$(printf '%s' "$line" | cut -f1)"
@@ -295,8 +357,15 @@ e2e_lock_acquire() {
       # Field 5 only exists on records written since INFRA-472; empty is a valid reading.
       acq="$(printf '%s' "$line" | cut -f5)"
       state="$(e2e_lock_holder_state "$pid" "$start")"
+      # FIRST contender wins the attribution: on a long wait the record can be replaced by
+      # a third session, and the one that actually blocked us is the one worth naming.
+      if [ -z "$holder_pid" ] && [ -n "$pid" ]; then
+        holder_pid="$pid"
+        holder_label="$held"
+      fi
       case "$state" in
         DEAD|RECYCLED)
+          reclaimed=$(( reclaimed + 1 ))
           rm -rf "$dir" 2>/dev/null || true
           ;;
         *)
@@ -308,6 +377,9 @@ e2e_lock_acquire() {
             echo "   That process is still alive. If it is mid-build or mid-flow, this run" >&2
             echo "   will clobber it. E2E_LOCK_FORCE is for a holder you have confirmed is" >&2
             echo "   wedged — the classifier reclaims crashed and recycled holders by itself." >&2
+            # A flag, not a fourth outcome, and deliberately NOT counted as a reclaim: the
+            # holder was LIVE, so calling it stale would misreport the lock as unreliable.
+            forced=1
             rm -rf "$dir" 2>/dev/null || true
             continue
           fi
@@ -320,6 +392,8 @@ e2e_lock_acquire() {
             echo "  Another session holds this resource. Wait for it, or raise" >&2
             echo "  E2E_LOCK_TIMEOUT. Do NOT delete $dir by hand while that pid lives —" >&2
             echo "  if you have confirmed it is wedged, re-run with E2E_LOCK_FORCE=1." >&2
+            e2e_telemetry_lock "$now" "$ns" "$udid" refused $(( now - ${wait_t0:-$t0} )) "$label" \
+              "$holder_pid" "$holder_label" "$forced"
             return 1
           fi
           sleep 1

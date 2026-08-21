@@ -206,6 +206,12 @@ DEBUG-374, DEBUG-389 — is enough. `app/scripts/check-workflow-scripts.js` now 
 every `npm run` target in a loadable workflow resolves, following alias chains, and runs
 in CI's `Safety + privacy gates` job.
 
+It carries a second assertion since INFRA-499: every file an `app/package.json` script
+hands to an interpreter must be in the **git index**, not merely on disk. That half runs
+in `prepush`, because the state it catches — a new guard written, wired up, and silently
+left untracked — exists only on the author's machine; by CI the file is simply absent and
+the run is already red.
+
 It scans `*.yml`/`*.yaml` only. That is not an allowlist and needs no maintenance: it is
 the same predicate GitHub Actions uses to decide what to load, so the scanned set is
 defined by what can actually execute. `deploy.yml.disabled`'s 10 knowingly-missing

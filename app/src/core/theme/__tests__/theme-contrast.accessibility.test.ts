@@ -121,6 +121,27 @@ const SUBORDINATE_TEXT: Array<[string, string]> = [
   ['muted', semantic.text.muted],
 ];
 
+/**
+ * DEBUG-387 — the PRIMARY text token, deliberately its own array.
+ *
+ * Kept separate from `SUBORDINATE_TEXT` rather than appended to it: that array's
+ * describe title and rationale ("subordinate text tokens are surface-INDEPENDENT")
+ * are specifically about the quieted tier, and folding `primary` in would make
+ * both statements false about their own contents.
+ *
+ * WHY IT NEEDED ADDING AT ALL. Before DEBUG-387, `primary` was asserted against
+ * `semantic.background.primary` ONLY — one ground. That was tolerable while the
+ * token described roughly a fifth of the app's primary-text render sites; it is
+ * not tolerable now that the sweep has landed ~96 more on it. Asserting a token
+ * on a single ground and then routing the whole app through it manufactures
+ * exactly the "valid only on white was tribal knowledge" defect DEBUG-357 exists
+ * to have closed, one tier up.
+ *
+ * Green on day one across all 17 grounds — worst case gray[300] at 13.909:1,
+ * best base.white at 17.042:1 — so this adds coverage, not a new obligation.
+ */
+const PRIMARY_TEXT: Array<[string, string]> = [['primary', semantic.text.primary]];
+
 describe('semantic text tokens meet WCAG AA on the default background', () => {
   // Every one of the 7 non-test consumers of `muted` audited under DEBUG-323
   // renders on a white surface (WellnessScreeningTrends, WeeklyReflectionCard
@@ -337,6 +358,9 @@ describe('DEBUG-370: subordinate text also clears AA on app-local tinted grounds
     expect(cases).toHaveLength(16);
   });
 
+  // (DEBUG-387's primary-tier equivalents of both matrices are at the end of this
+  // file, kept in their own describes for the reason given at PRIMARY_TEXT.)
+
   test.each(cases)(
     'semantic.text.%s is >= 4.5:1 on %s',
     (tokenName, surfaceName, color, surface) => {
@@ -458,10 +482,10 @@ describe('DEBUG-357: severity-band labels clear AA on the composited band fill',
  * ramp had no legal step between gray[600] and gray[700], so the only lever was a
  * design-system release minting a mid-tier, which the app cannot do for itself.
  *
- * MAINT-388 minted it. `gray[650]` #686868 clears 4.5:1 on all 17 enumerated
- * grounds (worst case 4.5478 on gray[300], margin 0.0478), and MAINT-471 re-pointed
- * `secondary`/`muted` onto it. Separation went 1.696:1 → 3.0583:1 and the supremum
- * went 2.090:1 → 3.7686:1.
+ * MAINT-388 minted it. `gray[650]` #686868 clears 4.5:1 on all enumerated grounds
+ * (worst case 4.5478 on gray[300], margin 0.0478), and MAINT-471 re-pointed
+ * `secondary`/`muted` onto it. Separation went 1.696:1 -> 3.0583:1 and the supremum
+ * went 2.090:1 -> 3.7686:1.
  *
  * So both assertions below going red was the ruling WORKING AS DESIGNED, not
  * failing: they were written to fire the moment the dark end of the ramp widened,
@@ -478,12 +502,26 @@ describe('DEBUG-357: severity-band labels clear AA on the composited band fill',
  *   - DEBUG-323's structural-subordination ruling. No legal FOURTH text tier
  *     exists — the design system kept `colors.text.tertiary` #757575 white-only for
  *     the same reason — so subordination past `secondary` is still structural.
- *   - `semantic.text.primary` reaches only ~26 render sites while
- *     `colorSystem.base.black` is read directly at ~102, so any future primary move
- *     must still be preceded by that sweep. That is the DEBUG-342 shape, one token
- *     up — and it now has a sibling: ~61 raw `colorSystem.gray[700]` text reads
- *     across 27 files did NOT follow this re-point, so the app ships two subordinate
- *     greys until that sweep lands. Tracked separately.
+ *
+ * WHAT NO LONGER SURVIVES — BOTH BYPASS COUNTS ARE NOW SPENT. This bullet used to
+ * read that `semantic.text.primary` reaches "only ~26 render sites" against "~102"
+ * raw `colorSystem.base.black`, and that a future primary move must be preceded by
+ * that sweep. It also gained a sibling clause about "~61 raw gray[700] text reads
+ * across 27 files" shipping two subordinate greys. Neither condition is live:
+ *   - MAINT-487 swept the gray[700] reads (54 of 60; the six survivors are
+ *     non-text or unrendered, named in `gray700-call-sites.accessibility.test.ts`).
+ *   - DEBUG-387 swept the base.black reads. `semantic.text.primary` is now the sole
+ *     reader of the primary text ramp; `colorSystem.base.black` survives only as the
+ *     token's own definition in `colors.ts` plus three decorative `shadowColor:`
+ *     sites, and the raw `#1C1C1C` literal is a hard zero in source. Those survivors
+ *     are pinned by name, in both directions, by
+ *     `black-call-sites.accessibility.test.ts`.
+ * Both figures were inherited prose rather than measurements when they were written
+ * (the real counts were 32-34 and 100, and 60 across 26 files, not 61 across 27) —
+ * which is the fourth time a stale ratio or count in this file has been copied into
+ * the next story. A future primary re-point now moves every site at once, so leaving
+ * either wording would tell the next reader a bypass is still open and re-block
+ * DEBUG-380 for no reason.
  */
 describe('DEBUG-380: the primary↔secondary separation ruling', () => {
   it('records the collapse — the two text tiers are not chromatically distinct', () => {
@@ -539,4 +577,77 @@ describe('DEBUG-380: the primary↔secondary separation ruling', () => {
     expect(primaryHeadroom).toBeLessThan(5);
     expect(secondaryHeadroom).toBeGreaterThan(primaryHeadroom);
   });
+});
+
+/**
+ * DEBUG-387 — the primary text token, across every ground the matrix knows.
+ *
+ * The sweep that this file's stale-figure note used to demand as a PREREQUISITE has
+ * now happened: `semantic.text.primary` is the sole reader of the primary text ramp,
+ * and `colorSystem.base.black` survives only as the token's own definition plus three
+ * decorative `shadowColor:` sites. Those survivors are pinned by name in
+ * `black-call-sites.accessibility.test.ts`.
+ *
+ * That makes this matrix newly load-bearing rather than merely tidy. Every one of
+ * those ~96 swept sites now resolves through one token, so a single ground this file
+ * fails to assert is a ground the whole app renders primary text on unchecked.
+ */
+describe('DEBUG-387: primary text is surface-INDEPENDENT too', () => {
+  const cases: Array<[string, string, string, string]> = PRIMARY_TEXT.flatMap(
+    ([tokenName, color]) =>
+      SURFACES.map(
+        ([surfaceName, surface]) =>
+          [tokenName, surfaceName, color, surface] as [string, string, string, string],
+      ),
+  );
+
+  it('covers every token x surface pair (guards against a silently empty matrix)', () => {
+    // Same MAINT-358 standard as the subordinate matrix: the derived assertion only
+    // proves `cases` was built from the two arrays and stays green if a surface is
+    // quietly deleted; the literal is what makes shrinking the matrix a failure.
+    // Both must move together.
+    expect(cases).toHaveLength(PRIMARY_TEXT.length * SURFACES.length);
+    expect(cases).toHaveLength(12);
+  });
+
+  test.each(cases)(
+    'semantic.text.%s is >= 4.5:1 on %s',
+    (tokenName, surfaceName, color, surface) => {
+      const ratio = getContrastRatio(color, surface);
+      expect(`${tokenName} on ${surfaceName}: ${ratio >= AA_NORMAL_TEXT}`).toBe(
+        `${tokenName} on ${surfaceName}: true`,
+      );
+    },
+  );
+});
+
+/** DEBUG-387 — same obligation on the app-local hex grounds. */
+describe('DEBUG-387: primary text also clears AA on app-local tinted grounds', () => {
+  const cases: Array<[string, string, string, string]> = PRIMARY_TEXT.flatMap(
+    ([tokenName, color]) =>
+      APP_LOCAL_TINTED_SURFACES.map(
+        ([surfaceName, surface]) =>
+          [tokenName, surfaceName, color, surface] as [string, string, string, string],
+      ),
+  );
+
+  it('covers every token x app-local surface pair', () => {
+    expect(cases).toHaveLength(PRIMARY_TEXT.length * APP_LOCAL_TINTED_SURFACES.length);
+    // 5 -> 8 at the MAINT-487 back-merge. This literal is the belt to the derived
+    // length's braces and is SUPPOSED to go red when a ground is added — it is the
+    // one number neither branch had right alone, since MAINT-487 grew
+    // APP_LOCAL_TINTED_SURFACES from 5 to 8 while this describe was authored here.
+    // The sibling PRIMARY_TEXT x SURFACES literal stays 12: no DS surface was added.
+    expect(cases).toHaveLength(8);
+  });
+
+  test.each(cases)(
+    'semantic.text.%s is >= 4.5:1 on %s',
+    (tokenName, surfaceName, color, surface) => {
+      const ratio = getContrastRatio(color, surface);
+      expect(`${tokenName} on ${surfaceName}: ${ratio >= AA_NORMAL_TEXT}`).toBe(
+        `${tokenName} on ${surfaceName}: true`,
+      );
+    },
+  );
 });
