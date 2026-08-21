@@ -55,6 +55,44 @@ function run(script, { file, env = {} } = {}) {
 
 const FACTS = 'peer_jvms=2 peer_drivers=1 other_xcodebuild=1 load1=31.5 ncpu=10 ratio=3.15';
 
+// --- The settle record (INFRA-500) ------------------------------------------------
+
+describe('INFRA-500: the settle is recorded, not just printed', () => {
+  const SETTLED = `${FACTS.replace('ratio=3.15', 'ratio=0.62')} settle=settled settle_waited_s=15`;
+
+  it('writes one settle record carrying the POST-settle load', () => {
+    const r = run(`e2e_telemetry_settle "${SETTLED}"`);
+    expect(r.records).toHaveLength(1);
+    expect(r.records[0]).toMatchObject({
+      kind: 'settle',
+      outcome: 'settled',
+      waited_s: 15,
+      ratio: 0.62,
+      ncpu: 10,
+    });
+  });
+
+  it('records a zero-wait settle too — the denominator argument, again', () => {
+    // Same reasoning as the zero-wait acquire above: a log holding only the runs that
+    // waited cannot say how often the host is warm enough to need waiting on.
+    const r = run(`e2e_telemetry_settle "${FACTS} settle=quiet settle_waited_s=0"`);
+    expect(r.records[0]).toMatchObject({ kind: 'settle', outcome: 'quiet', waited_s: 0 });
+  });
+
+  it('writes nothing for a facts line that never went through the settle', () => {
+    const r = run(`e2e_telemetry_settle "${FACTS}"`);
+    expect(r.records).toHaveLength(0);
+  });
+
+  it('fails open when the log is unwritable', () => {
+    const r = run(`e2e_telemetry_settle "${SETTLED}"; echo done`, {
+      file: '/proc/nonexistent/events.jsonl',
+    });
+    expect(r.stdout).toBe('done');
+    expect(r.status).toBe(0);
+  });
+});
+
 // --- The path (AC4) ---------------------------------------------------------------
 
 describe('the log lives outside every worktree', () => {
