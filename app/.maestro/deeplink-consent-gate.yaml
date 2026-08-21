@@ -2,6 +2,10 @@ appId: fyi.being.app
 tags:
   - safety
 name: "Deep-link consent gate (INFRA-308): gated link blocked, crisis link never is"
+# e2e-certifies: 375x667
+# INFRA-486 — Asserts the pre-consent 988 footer at the landing offset with no scroll. This flow IS
+# the DEBUG-432 false green: it was green for its entire life against a control that
+# sat below the fold on an SE 3.
 ---
 # INFRA-317 safety flow — pins the INFRA-308 deep-link consent-gate contracts on the
 # RUNNING app. Until now they existed only in jest, where `canOpenURL` and the consent

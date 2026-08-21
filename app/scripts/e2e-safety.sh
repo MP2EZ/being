@@ -781,6 +781,13 @@ FLOW_TOTAL=${#FLOWS[@]}
 
 for f in "${FLOWS[@]}"; do
   name="$(basename "$f" .yaml)"
+
+  # INFRA-486 — does THIS flow's declared viewport match the device we are running on?
+  # WARN-ONLY and deliberately so: this records the answer beside the result, it does not
+  # change the result or the exit code. Arming a refusal is INFRA-493, sequenced after the
+  # 375x667 measurement so it is never armed over unmeasured or known-red flows.
+  FLOW_CERTIFIES="$(e2e_flow_certifies "$f")"
+  FLOW_CERT_NOTE="$(e2e_flow_certification_note "$FLOW_CERTIFIES" "${E2E_SIM_VIEWPORT:-unknown}")"
   flow_idx=$((flow_idx + 1))
 
   # INFRA-434 — is the binary we attested still the binary installed?
@@ -894,12 +901,12 @@ for f in "${FLOWS[@]}"; do
     # Report the per-command adjudication ALONGSIDE the timeout rather than instead of
     # it: an all-COMPLETED run that had to be killed is still not merge evidence, but
     # throwing away what it did complete would discard the diagnosis for no gain.
-    results+=("TIMEOUT  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown}; no verdict in ${FLOW_TIMEOUT_S}s; report: ${VERDICT:-<none>})")
+    results+=("TIMEOUT  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown} · ${FLOW_CERT_NOTE}; no verdict in ${FLOW_TIMEOUT_S}s; report: ${VERDICT:-<none>})")
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     echo "⏱️  $name exceeded ${FLOW_TIMEOUT_S}s and was killed. Evidence: $RUN_DIR" >&2
   elif [ "$rc" -eq 0 ] && [ "$VERDICT" = "PASS" ]; then
     flow_outcome=PASS
-    results+=("PASS  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown})")
+    results+=("PASS  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown} · ${FLOW_CERT_NOTE})")
     rm -rf "$RUN_DIR"
   else
     flow_outcome=FAIL
@@ -908,7 +915,7 @@ for f in "${FLOWS[@]}"; do
       echo "   report is clean. That is a harness bug and deserves its own work item; it is" >&2
       echo "   never a green." >&2
     fi
-    results+=("FAIL  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown}; exit=$rc, report: ${VERDICT:-<none>})")
+    results+=("FAIL  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown} · ${FLOW_CERT_NOTE}; exit=$rc, report: ${VERDICT:-<none>})")
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     fail=1
     echo "   Evidence kept: $RUN_DIR" >&2
@@ -975,6 +982,38 @@ if [ "$GATE_TARGET_REPLACED" = "1" ]; then
 else
   for r in "${results[@]}"; do echo "  $r"; done
 fi
+
+# INFRA-486 (AC 6) — RETAIN a durable, device-attributed record of this run.
+#
+# The per-flow RUN_DIRs are mktemp'd and `rm -rf`'d in the PASS arm, so on exactly the run
+# that adjudicates a merge, nothing survives. Note the AC's own premise needed correcting:
+# device properties CANNOT live in the JUnit — Maestro authors report.xml via
+# --format=JUNIT and nothing in this repo writes to it, so this is a SIBLING file.
+#
+# It must NOT live inside the worktree: the provenance fingerprint is repo-wide and
+# includes untracked file contents, so a receipt written there would read as MISMATCH on
+# the next verify and cost a rebuild. TMPDIR by default, overridable.
+#
+# This RECORDS. It is not read by any gate — /b-close consuming it is INFRA-493.
+SUITE_RECEIPT_DIR="${E2E_EVIDENCE_DIR:-${TMPDIR:-/tmp}}"
+SUITE_RECEIPT="${SUITE_RECEIPT_DIR%/}/e2e-safety-receipt-$(date -u +%Y%m%dT%H%M%SZ)-$$.txt"
+{
+  echo "e2e:safety receipt"
+  echo "generated_utc:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "repo_head:       $(git rev-parse HEAD 2>/dev/null || echo unknown)"
+  echo "repo_branch:     $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+  echo "device_line:     ${E2E_SIM_DEVICE_LINE:-${DEVICE_UDID:+physical device $DEVICE_UDID}}"
+  echo "device_model_id: ${E2E_SIM_MODEL_ID:-unknown}"
+  echo "device_ios:      ${E2E_SIM_IOS:-unknown}"
+  echo "device_viewport: ${E2E_SIM_VIEWPORT:-unknown}"
+  echo "declared_target: ${E2E_SMALLEST_SUPPORTED_VIEWPORT}"
+  echo "host_at_start:   ${HOST_FACTS:-unknown}"
+  echo "flows_ran:       ${ran} of ${FLOW_TOTAL}"
+  echo "target_replaced: ${GATE_TARGET_REPLACED}"
+  echo "results:"
+  for r in "${results[@]}"; do echo "  $r"; done
+} > "$SUITE_RECEIPT" 2>/dev/null && echo "🧾 Receipt: $SUITE_RECEIPT" \
+  || echo "⚠️  could not write the run receipt to ${SUITE_RECEIPT_DIR} — verdict unaffected." >&2
 
 # A zero-flow run must never be laundered into a green. This script previously printed
 # "all safety flows passed" and exited 0 when `ran` was 0 — vacuously true and read by

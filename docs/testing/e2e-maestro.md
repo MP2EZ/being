@@ -13,14 +13,15 @@ Being is a wellness app touching at-risk users. These user-visible safety contra
 7. A cold-start `being://daily` deep link mounts an immersive practice screen with the crisis overlay present and an escape available (FEAT-298 slice 4).
 8. The DailyLoop **quick**-depth arc keeps the crisis affordance reachable despite omitting Radical Acceptance, deep's inline support-line carrier (FEAT-301).
 9. A consent-gated deep link is blocked pre-consent while a crisis deep link never is (INFRA-308 / INFRA-317).
+10. Over a stale-consent re-consent modal, 988 stays reachable and Decline is not eaten by the crisis FAB (INFRA-377).
 
 **Keep this list in step with the flows.** It read "Five" for a long stretch after contracts 6–9 shipped, which understates what the gate covers — the opposite error to the telemetry overclaim below, and just as misleading. The count is not enforced anywhere; the runner globs by tag. Verify with:
 
 ```bash
-grep -lE '^[[:space:]]*-[[:space:]]+safety[[:space:]]*$' app/.maestro/*.yaml | wc -l   # 8 sim-runnable
+grep -lE '^[[:space:]]*-[[:space:]]+safety[[:space:]]*$' app/.maestro/*.yaml | wc -l   # 9 sim-runnable
 ```
 
-Contract 5 is the ninth flow and is tagged `safety-device-only`, so it is excluded from that count and from `npm run e2e:safety`.
+Contract 5 is the tenth flow and is tagged `safety-device-only`, so it is excluded from that count and from `npm run e2e:safety`.
 
 Every Jest test in the suite mocks `Alert.alert` and `Linking.canOpenURL`. That's correct for Jest's job (fast logic verification), but it means these user-visible contracts are invisible to the rest of the test stack. The MAINT-166 PR 1 double-Alert regression existed because nothing mechanically pinned them — the bug only surfaced because a code-review docstring (`⚠️`) flagged it.
 
@@ -540,6 +541,46 @@ reliable in the name of measuring its reliability.
 This is a **two-week collection feeding one decision** (INFRA-491: whether parallel gate
 runs are possible on this machine). Append-only, no rotation, no aggregation at write time.
 Delete the file once that decision is recorded.
+
+## Which VIEWPORT is a gate result allowed to certify? (INFRA-486)
+
+**Decision: a declared target plus a labelled verdict, declared PER FLOW — never an exit
+status.** Each flow carries a machine-readable `# e2e-certifies: <viewport>|any` key, read by
+`e2e_flow_certifies`. Every run labels each result with whether the device it ran on matches
+that declaration. A run on another viewport still executes and still reports; it simply does
+not claim to certify.
+
+**Why per flow, not per suite.** Only some flows are layout-sensitive. Four declare
+`375x667` — `crisis-button-reachability`, `deeplink-consent-gate`, `reconsent-stale`,
+`daily-loop-quick-depth` — because each asserts a position against the fold or a hit test
+against the FAB band. The other five assert a threshold, a detection, or the structural
+presence of a root overlay, and declare `any`. Requiring the whole suite to certify the
+small viewport would roughly double the cost of satisfying the gate for no added coverage,
+and an expensive gate is what trains the `--skip-e2e` reflex.
+
+Contract-independence is **not** run-independence: a flow declaring `any` can still go red on
+a small device for harness-geometry reasons (DEBUG-477). That is a flake to diagnose, not a
+certification claim.
+
+**Fails closed.** A flow with no declaration is treated as declaring the smallest supported
+viewport, so a newly added flow is flagged rather than silently certified everywhere. A jest
+coverage pin asserts every safety-tagged flow carries the key.
+
+**The predicate is the derived VIEWPORT, by equality** — not the display name (renameable),
+not `deviceTypeIdentifier` (a hand-kept table that rots), and not `<=` (which would admit
+320x568; iOS minimum is 16.4 and every 320x568 iPhone caps at iOS 15.8, so no user is there).
+
+**Still WARN-ONLY.** Turning a non-certifying run into a verdict token and a `/b-close`
+refusal is INFRA-493, sequenced after the measurement below so a refusal is never armed over
+unmeasured or known-red flows. Negative jest pins fail a change that arms it early.
+
+**Validation record — the first full-suite green at the declared target (INFRA-486,
+2026-08-19).** `npm run e2e:safety`, all **9** safety-tagged flows green in one uninterrupted
+invocation on **iPhone SE 3 / iOS 18.6 (375x667)**, `development` @ `93efef69`, Release,
+clean-tree provenance, default Dynamic Type. DEBUG-477's two remaining reds (`gad7-severe`,
+`journal-crisis-scan`) are fixed, and `reconsent-stale` ran at this viewport for the first
+time. This supersedes the 5/8 and 7/8 figures recorded elsewhere, both of which predate
+`reconsent-stale`.
 
 ## Which iOS runtime is a gate result allowed to be earned on? (INFRA-429)
 

@@ -2,6 +2,8 @@ appId: fyi.being.app
 tags:
   - safety
 name: "PHQ-9 Q9 single canonical alert"
+# e2e-certifies: any
+# INFRA-486 — Asserts a system UIAlertController button set — a centred modal with no fold.
 ---
 # Pins MAINT-166 PR 1: PHQ-9 Q9 response >0 fires exactly one canonical
 # alert with three correct buttons. The old mockCrisisEngine alert

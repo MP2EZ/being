@@ -2,6 +2,8 @@ appId: fyi.being.app
 tags:
   - safety
 name: "Voice journal crisis scan surfaces support"
+# e2e-certifies: any
+# INFRA-486 — Asserts crisis-language detection surfaces its banner; detection, not placement.
 ---
 # FEAT-283 Slice A. Pins the user-visible contract for AC #4: an entry
 # containing crisis language surfaces support, and a clean entry does not.
