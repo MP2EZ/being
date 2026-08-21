@@ -326,6 +326,10 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
   `grep -E "Tests:|FAIL"` would match. Assert the `Tests: N passed` line is PRESENT;
   never infer a pass from absent failures. Same family as the "never pipe the build
   command" rule — both turn a command that never ran into a green reading.
+- **Stopping a backgrounded `npm run test:*` leaves its jest child running.** The wrapper
+  dies, jest does not, so a re-run puts two suites on one tree — they contend, and an edit
+  made "between" runs lands mid-flight in the survivor. Reap the jest PID itself, matched on
+  YOUR worktree path; `pkill -f jest` and `grep -c jest` also hit other repos' stale workers.
 - **A new `app/scripts/*` file needs `git add` before the npm script naming it will pass
   (DEBUG-389).** `check-workflow-scripts.js` resolves every `npm run` target against the git
   INDEX, not the working tree, so an unstaged new script fails `test:scripts` as an
