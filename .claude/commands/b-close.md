@@ -61,6 +61,10 @@ bash /Users/max/dev/being/.claude/scripts/check-safety-paths.sh || exit 1
 # ledger from the development worktree rather than aborting the close on a missing dir.
 APP_DIR=app; [ -d app ] || APP_DIR=/Users/max/dev/being/development/app
 (cd "$APP_DIR" && npm run check:ci-test-coverage) || exit 1
+# Third check, conditional: if the diff touches any .tsx, run `npm run test:accessibility`
+# (~30s). It is NOT in precommit, so a design-token violation passes all six local chains
+# and fails CI. On a safety-path branch the fix commit then invalidates the provenance
+# marker, so it costs a gate rebuild plus a full suite re-run, not just a CI round-trip.
 ```
 
 The second is the same class of cheap local check: a test file added under `src/**`
