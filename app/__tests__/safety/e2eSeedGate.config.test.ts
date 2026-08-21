@@ -42,6 +42,35 @@ describe('EXPO_PUBLIC_E2E_SEED_ONBOARDED is scoped to the e2e-sim profile only',
     },
   );
 
+  it('the ineligible marker cannot be swallowed by another marker (INFRA-481)', () => {
+    // Every predicate in e2eSeed.ts is `url.includes(MARKER)`, so no marker token may be a
+    // substring of another. The AC proposed `e2eSeed=stale-ineligible`, which
+    // `isStaleConsentBootRequested` matches — an ineligible launch would have silently
+    // seeded the RENEWABLE cohort and landed on the wrong screen ~90s of cold boot later,
+    // presenting as a screen regression rather than a marker bug.
+    //
+    // Read from SOURCE, like every other assertion in this file: importing e2eSeed would
+    // execute its module-level seed gate.
+    const src = fs.readFileSync(
+      path.join(__dirname, '..', '..', 'src', 'core', 'config', 'e2eSeed.ts'),
+      'utf8',
+    );
+    const markers = [...src.matchAll(/E2E_SEED_[A-Z_]*MARKER\s*=\s*'([^']+)'/g)].map(m => m[1]);
+
+    // Fail CLOSED: a regex that stopped matching would make the loop below vacuous.
+    expect(markers.length).toBeGreaterThanOrEqual(3);
+
+    for (const a of markers) {
+      for (const b of markers) {
+        if (a === b) continue;
+        expect(a.includes(b)).toBe(false);
+      }
+    }
+
+    // Proof the comparator still discriminates: the REJECTED token does collide.
+    expect('e2eSeed=stale-ineligible'.includes('e2eSeed=stale')).toBe(true);
+  });
+
   it('appears in exactly one build profile across all of eas.json', () => {
     const profilesWithVar = Object.entries(easJson.build)
       .filter(([, cfg]) => cfg.env && Object.prototype.hasOwnProperty.call(cfg.env, SEED_VAR))
@@ -138,6 +167,7 @@ describe('INFRA-317 ungranted-boot switch stays inside the build-time gate', () 
   it.each([
     ['ungranted (INFRA-317)', 'isUngrantedBootRequested('],
     ['stale-consent (INFRA-377)', 'isStaleConsentBootRequested('],
+    ['stale-ineligible (INFRA-481)', 'isStaleIneligibleBootRequested('],
   ])('reads the %s marker ONLY after the SEED_ACTIVE early-return', (_label, callSite) => {
     // With the build var at its 'false' default, `if (!SEED_ACTIVE) return;` makes
     // every line below it unreachable. So the marker check must sit AFTER that
