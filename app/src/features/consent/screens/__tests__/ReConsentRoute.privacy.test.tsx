@@ -253,7 +253,7 @@ describe('ReConsentRoute (FEAT-417 container)', () => {
     });
 
     /**
-     * `consentStore.ts:519-522` bars consent copy from characterising what
+     * `consentStore.ts:522-527` bars consent copy from characterising what
      * happens if the user does not re-consent — the lapse window is open
      * counsel work. Describing the prompt CADENCE ("we'll ask again") is
      * observable and permitted; describing consequences is not.
