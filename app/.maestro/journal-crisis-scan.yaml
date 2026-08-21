@@ -39,9 +39,18 @@ name: "Voice journal crisis scan surfaces support"
 # Nothing about the app changed between the two; the heuristic's anchor did.
 #
 # The replacement taps journal-review-header — inert content with no onPress, so the
-# touch falls through to the root ScrollView, where RN's default
-# keyboardShouldPersistTaps='never' blurs the input. That is the real user gesture,
-# and it is element-anchored rather than screen-relative, so it does not go stale.
+# touch falls through to the root ScrollView, which blurs the input. That is the real
+# user gesture, and it is element-anchored rather than screen-relative, so it does
+# not go stale.
+#
+# DEBUG-480 CHANGED THAT SCROLLVIEW TO keyboardShouldPersistTaps='handled' AND THIS
+# STEP STILL WORKS — the mechanism moved, so the old wording ("RN's default
+# 'never'") is gone rather than merely outdated. Under 'handled' the ScrollView no
+# longer claims the touch in the CAPTURE phase; journal-review-header has no
+# onPress, so it declines the responder and the ScrollView claims it on the BUBBLE
+# phase, where release blurs. A Pressable such as journal-save-button claims at the
+# leaf first and the keyboard PERSISTS — which is the whole point of the change,
+# and is what the third block at the end of this file exercises.
 #
 # WHY THE ORACLE BELOW IS MANDATORY. hideKeyboard checked itself; a bare tapOn does
 # not — it reports COMPLETED whether or not the keyboard went away. Dropping the
@@ -196,3 +205,78 @@ name: "Voice journal crisis scan surfaces support"
 # crisis text can be on screen here, so the always-available path matters most.
 - assertVisible:
     id: "crisis-button-root"
+
+# ── DEBUG-480: SAVE WITH THE KEYBOARD STILL UP ───────────────────────────────
+# THIS IS THE BLOCK THAT WOULD HAVE CAUGHT DEBUG-480. Both blocks above dismiss
+# the keyboard (tapOn journal-review-header) BEFORE tapping Save, which is why
+# this flow stayed green while journal-save-button was ~100% occluded and its
+# first keyboard-up tap was swallowed outright. A real user is not required to
+# dismiss the keyboard first. This block does not.
+#
+# scrollUntilVisible IS PERMITTED HERE, and prohibited in the block above. Those
+# are different contracts and the distinction must not be generalised in either
+# direction: above, its absence pins "<3 taps to 988 from the point of
+# disclosure", so scrolling to the banner would RELAX the contract. Here, the
+# scroll toward Save IS the user gesture under test — at 375x667 the 180pt
+# transcript field fills the band above the keyboard, so no layout can show the
+# field and Save at once and scrolling is unavoidable by construction.
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- runFlow: _seeded-home.yaml
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-voice-reflection"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "profile-card-voice-reflection"
+- tapOn:
+    id: "journal-record-button"
+- tapOn:
+    id: "journal-stop-button"
+- assertVisible:
+    id: "journal-transcript-input"
+- tapOn:
+    id: "journal-transcript-input"
+- inputText: "i went over the day and honestly i want to die"
+# PRECONDITION, and proof the matcher still fires. Without it this block
+# silently degrades into a duplicate of the keyboard-down path and stays green —
+# the false-green this file's header already warns about. Asserted positively
+# here; the two blocks above assert the same id negatively, so a rename of the
+# keyboard node goes red in this file rather than quietly satisfying a negative.
+- assertVisible:
+    id: "UIKeyboardLayoutStar Preview"
+# centerElement is load-bearing (DEBUG-465): XCUITest keeps elements that are
+# merely outside a ScrollView's clip, so Maestro scores them visible and would
+# skip the scroll entirely.
+- scrollUntilVisible:
+    element:
+      id: "journal-save-button"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "journal-save-button"
+# THE ORACLE IS THE STATE CHANGE, NOT THE KEYBOARD. `tapOn` reports COMPLETED
+# whether or not the app received the touch, and an app-element visibility
+# assertion is worthless here because the iOS keyboard is a separate window —
+# DEBUG-477 measured assertNotVisible on a fully-occluded element FAILING.
+# journal-saved-state is produced ONLY by handleSave's success branch, so it
+# cannot be reached without the tap having landed.
+#
+# Deliberately NOT `assertNotVisible: UIKeyboardLayoutStar Preview`: under
+# keyboardShouldPersistTaps='handled' the keyboard legitimately persists through
+# the tap and disappears only because setPhase('saved') unmounts the TextInput.
+# That would pass for the wrong reason.
+- assertVisible:
+    id: "journal-saved-state"
+# The save-time scan ran over the TYPED text. A simulator cannot speak, so
+# scanOnFinalize saw '' and scanOnSave is the ONLY scan of this string.
+- extendedWaitUntil:
+    visible:
+      id: "journal-crisis-banner"
+    timeout: 10000
+- assertVisible:
+    id: "journal-crisis-call-988"

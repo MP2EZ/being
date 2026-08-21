@@ -86,7 +86,23 @@ const DeleteAccountScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']} testID="delete-account-screen">
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        testID="delete-account-scroll"
+        // DEBUG-480 companion. Same shape as VoiceReflectionScreen: delete-error
+        // renders between delete-confirm-input and delete-account-button and
+        // pushes the button down, while the keyboard is necessarily up — the user
+        // has just typed the confirmation word.
+        //
+        // This is a DATA-SUBJECT-RIGHT access fix, not polish. This screen's own
+        // header cites CCPA / TDPSA / VCDPA / CPA / GDPR Art. 17; a confirm button
+        // that is occluded or whose first tap is swallowed is a functional
+        // obstruction of the right to erasure.
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <Text style={styles.heading}>Delete account & wellness data</Text>
         <Text style={styles.lead}>
           This permanently erases your account and on-device wellness data. It cannot be undone.
