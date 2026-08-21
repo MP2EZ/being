@@ -424,7 +424,7 @@ and repeats it beside the summary. Every verdict line also carries that flow's w
 so a 45-minute "pass" reads as untrustworthy rather than green:
 
 ```
-🖥️  Host at gate start: load1 3.20 / 10 cpu (0.32x) · 0 peer maestro JVM · 0 peer driver · 0 other xcodebuild
+🖥️  Host at flow start: load1 3.20 / 10 cpu (0.32x) · 0 peer maestro JVM · 0 peer driver · 0 other xcodebuild
     PASS  crisis-button-reachability  (1m57s)
 ```
 
@@ -433,8 +433,35 @@ documents: a pre-flight that refuses on a judgement the operator disagrees with 
 `--skip-e2e` reflex the gate exists to prevent, and a false "someone else is running" means
 the human does not run the gate at all — failing toward *not testing*, which DEBUG-392
 recorded happening in this exact shape. Tune the threshold with
-`E2E_HOST_LOAD_WARN_RATIO` (default `1.0`, i.e. load ≥ `hw.ncpu`). It is advisory reporting
-only and takes no lock; INFRA-472 owns any actual lease.
+`E2E_HOST_LOAD_WARN_RATIO` (default `0.7`). It is advisory reporting only and takes no
+lock; INFRA-472 owns any actual lease.
+
+**The threshold was 1.0x and that was too high (INFRA-500).** It was justified as splitting
+a band that was "empty in the measurements", but DEBUG-473's sample is bimodal — idle at
+0.3-0.5x, catastrophic peer contention at 30-48x — and never observed the moderate band a
+gate's own build produces. INFRA-490's per-flow telemetry did: at **0.91x**, scroll-bound
+flows stretched 35-88% and `daily-loop-quick-depth` failed at `scrollUntilVisible`, while
+fixed-duration flows did not move at all. Nothing warned, because `0.91 < 1.0` and the
+build had already exited so the peer count was 0. Two things not to unlearn: the stretch is
+*selective* (scroll budgets, not wall-clock generally), and elapsed time *hides* it on the
+runs that fail — that FAIL took 61s against 64s/65s passes, because it aborted at the blown
+budget instead of completing. The full re-derivation is in `e2e-host-contention.sh`'s
+header.
+
+**The gate now settles before flow 1, rather than only reporting (INFRA-500).** The
+documented recipe runs `npm run e2e:safety:gate` and then the flows back to back, so the
+load it warns about is usually *its own build's*, decaying on a ~60s time constant. So
+`e2e-safety.sh` waits — up to `E2E_HOST_SETTLE_MAX_S` (default `120`, polling every
+`E2E_HOST_SETTLE_INTERVAL_S`, `0` disables) — for the ratio to fall below the threshold,
+then says which happened and runs either way. The host line you see is the *post*-settle
+reading, i.e. the load the flows actually ran under.
+
+**A settle is a wait, not a refusal, and must never become one.** Every flow still runs,
+the exit alphabet is unchanged, and nothing is excluded — the reasoning above against
+refusing is not overturned by it. A **peer's** load is never waited out, because a peer
+mid-build holds the host for as long as its build takes and no useful bound covers that;
+the wait ends immediately and the warning does the work. Each settle is recorded to the
+INFRA-490 log as `"kind":"settle"` so the next recalibration has a sample.
 
 To check by hand before starting a build, identify processes by executable, never by
 command line — an `args` match also matches the shell that mentions it (DEBUG-392):
