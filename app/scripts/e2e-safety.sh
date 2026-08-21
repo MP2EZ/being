@@ -411,6 +411,11 @@ fail=0
 ran=0
 timeouts=0
 results=()
+# INFRA-493 — a THIRD outcome, deliberately not a fourth exit code. The alphabet is spent
+# (0 pass / 1 regression / 2 harness / 3 target replaced) and both /b-close and e2e-gate.sh
+# route on it, so the policy is carried by a verdict token and a receipt line instead.
+uncertified=0
+uncertified_flows=()
 LAST_EVIDENCE_DIR=""
 
 # DEBUG-392 — how long ONE maestro invocation may run before the gate calls it wedged.
@@ -783,11 +788,11 @@ for f in "${FLOWS[@]}"; do
   name="$(basename "$f" .yaml)"
 
   # INFRA-486 — does THIS flow's declared viewport match the device we are running on?
-  # WARN-ONLY and deliberately so: this records the answer beside the result, it does not
-  # change the result or the exit code. Arming a refusal is INFRA-493, sequenced after the
-  # 375x667 measurement so it is never armed over unmeasured or known-red flows.
+  # INFRA-493 — and it is now a VERDICT, armed on the 9/9 measurement at 375x667 that PR 1
+  # recorded. It still does not change the EXIT CODE; the token and the receipt carry it.
   FLOW_CERTIFIES="$(e2e_flow_certifies "$f")"
   FLOW_CERT_NOTE="$(e2e_flow_certification_note "$FLOW_CERTIFIES" "${E2E_SIM_VIEWPORT:-unknown}")"
+  FLOW_CERTIFYING="$(e2e_run_certifies "$FLOW_CERTIFIES" "${E2E_SIM_VIEWPORT:-unknown}")"
   flow_idx=$((flow_idx + 1))
 
   # INFRA-434 — is the binary we attested still the binary installed?
@@ -904,6 +909,19 @@ for f in "${FLOWS[@]}"; do
     results+=("TIMEOUT  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown} · ${FLOW_CERT_NOTE}; no verdict in ${FLOW_TIMEOUT_S}s; report: ${VERDICT:-<none>})")
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     echo "⏱️  $name exceeded ${FLOW_TIMEOUT_S}s and was killed. Evidence: $RUN_DIR" >&2
+  elif [ "$rc" -eq 0 ] && [ "$VERDICT" = "PASS" ] && [ "$FLOW_CERTIFYING" != "yes" ]; then
+    # INFRA-493 — the assertions held, but not on the viewport this flow declares, so this
+    # run does not certify it. NOT `FAIL`: that re-creates the "refuses because the device
+    # is large" shape INFRA-478's AC 3 forbade, and makes a real 988 regression
+    # indistinguishable from a wrong-device run. NOT `PASS`: a PASS a grep or a reader can
+    # salvage is an unenforced guarantee. INFRA-434's VOID is the in-tree precedent.
+    #
+    # `fail` is untouched on purpose — see the exit-alphabet note at the counters.
+    flow_outcome=UNCERTIFIED
+    uncertified=$((uncertified + 1))
+    uncertified_flows+=("$name")
+    results+=("UNCERTIFIED  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown} · ${FLOW_CERT_NOTE})")
+    rm -rf "$RUN_DIR"
   elif [ "$rc" -eq 0 ] && [ "$VERDICT" = "PASS" ]; then
     flow_outcome=PASS
     results+=("PASS  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown} · ${FLOW_CERT_NOTE})")
@@ -994,15 +1012,24 @@ fi
 # includes untracked file contents, so a receipt written there would read as MISMATCH on
 # the next verify and cost a rebuild. TMPDIR by default, overridable.
 #
-# This RECORDS. It is not read by any gate — /b-close consuming it is INFRA-493.
+# INFRA-493 — this is now READ: /b-close routes on the `certification:` line below, because
+# the frozen exit alphabet cannot carry that verdict. E2E_RECEIPT_PATH lets the CALLER name
+# the file — the default path is timestamped and PID-suffixed, so a reader would have to
+# glob for it and would race every peer gate on the machine. The other option, capturing
+# this script's stdout and grepping it, is the shape that makes a failed command read as
+# exit 0 (CLAUDE.md), on the one run that adjudicates a merge.
 SUITE_RECEIPT_DIR="${E2E_EVIDENCE_DIR:-${TMPDIR:-/tmp}}"
-SUITE_RECEIPT="${SUITE_RECEIPT_DIR%/}/e2e-safety-receipt-$(date -u +%Y%m%dT%H%M%SZ)-$$.txt"
+SUITE_RECEIPT="${E2E_RECEIPT_PATH:-${SUITE_RECEIPT_DIR%/}/e2e-safety-receipt-$(date -u +%Y%m%dT%H%M%SZ)-$$.txt}"
 {
   echo "e2e:safety receipt"
   echo "generated_utc:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "repo_head:       $(git rev-parse HEAD 2>/dev/null || echo unknown)"
   echo "repo_branch:     $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
   echo "device_line:     ${E2E_SIM_DEVICE_LINE:-${DEVICE_UDID:+physical device $DEVICE_UDID}}"
+  # INFRA-493 — the UDID, so a caller's refusal can print a PASTEABLE remediation rather
+  # than a `<current-udid>` placeholder. A command the operator has to fill in by hand is
+  # not the one-command remediation the policy rests on.
+  echo "device_udid:     ${SIM_UDID:-${DEVICE_UDID:-unknown}}"
   echo "device_model_id: ${E2E_SIM_MODEL_ID:-unknown}"
   echo "device_ios:      ${E2E_SIM_IOS:-unknown}"
   echo "device_viewport: ${E2E_SIM_VIEWPORT:-unknown}"
@@ -1010,6 +1037,20 @@ SUITE_RECEIPT="${SUITE_RECEIPT_DIR%/}/e2e-safety-receipt-$(date -u +%Y%m%dT%H%M%
   echo "host_at_start:   ${HOST_FACTS:-unknown}"
   echo "flows_ran:       ${ran} of ${FLOW_TOTAL}"
   echo "target_replaced: ${GATE_TARGET_REPLACED}"
+  # INFRA-493 — the machine-readable verdict /b-close routes on. CERTIFIED means every
+  # flow that ran certified its declared target; it is NOT a synonym for green. A flow can
+  # be red and certifying (a real regression on the right device), and green and
+  # non-certifying (this token). The two axes are reported separately because collapsing
+  # them is exactly what made a large-device green readable as merge evidence.
+  # VOID subsumes both axes. When the target moved, INFRA-434 already ruled every completed
+  # flow inconclusive, so `CERTIFIED` here would be a claim about flows this run no longer
+  # vouches for — and the receipt outlives the terminal that printed the exit 3.
+  if [ "$GATE_TARGET_REPLACED" = "1" ]; then
+    echo "certification:   VOID"
+  else
+    echo "certification:   $([ "$uncertified" -eq 0 ] && echo CERTIFIED || echo UNCERTIFIED)"
+  fi
+  echo "uncertified_flows: ${uncertified_flows[*]:-none}"
   echo "results:"
   for r in "${results[@]}"; do echo "  $r"; done
 } > "$SUITE_RECEIPT" 2>/dev/null && echo "🧾 Receipt: $SUITE_RECEIPT" \
@@ -1070,10 +1111,25 @@ if [ "$timeouts" -gt 0 ]; then
   echo "❌ the gate could not complete: $timeouts flow(s) exceeded ${FLOW_TIMEOUT_S}s and were killed."
   echo "   This is NOT a pass and NOT an ordinary failure. The simulator is likely wedged;"
   echo "   restart it before re-running:  xcrun simctl shutdown all"
+elif [ "$fail" -eq 0 ] && [ "$uncertified" -gt 0 ]; then
+  # INFRA-493 — a bare "✅ all safety flows passed" printed under an UNCERTIFIED result
+  # reads as an all-clear, and the whole failure this item closes is a green being read as
+  # merge evidence for a viewport it never touched. The assertions DID hold, so this is not
+  # a red; it is a green of narrower scope than the one the flows declare.
+  echo "⚠️  all safety flows passed, but ${uncertified} of ${ran} did NOT certify their"
+  echo "   declared viewport: ${uncertified_flows[*]}"
+  e2e_uncertified_remediation "${E2E_SIM_VIEWPORT:-unknown}" "${SIM_UDID:-<udid>}"
+  echo "   Iterating or debugging? Nothing here blocks you — this run still exits 0 and"
+  echo "   every flow reported. It is /b-close that refuses, and only for a MERGE."
 elif [ "$fail" -eq 0 ]; then
   echo "✅ all safety flows passed"
 else
   echo "❌ one or more safety flows failed"
+  if [ "$uncertified" -gt 0 ]; then
+    echo "   Separately, ${uncertified} flow(s) did not certify their declared viewport:"
+    echo "     ${uncertified_flows[*]}"
+    echo "   That is a different fact from the failure above and does not explain it."
+  fi
 
   # INFRA-407 — name a system alert instead of letting it read as an app regression.
   #

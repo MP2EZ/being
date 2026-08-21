@@ -542,7 +542,7 @@ This is a **two-week collection feeding one decision** (INFRA-491: whether paral
 runs are possible on this machine). Append-only, no rotation, no aggregation at write time.
 Delete the file once that decision is recorded.
 
-## Which VIEWPORT is a gate result allowed to certify? (INFRA-486)
+## Which VIEWPORT is a gate result allowed to certify? (INFRA-486, armed INFRA-493)
 
 **Decision: a declared target plus a labelled verdict, declared PER FLOW — never an exit
 status.** Each flow carries a machine-readable `# e2e-certifies: <viewport>|any` key, read by
@@ -570,9 +570,31 @@ coverage pin asserts every safety-tagged flow carries the key.
 not `deviceTypeIdentifier` (a hand-kept table that rots), and not `<=` (which would admit
 320x568; iOS minimum is 16.4 and every 320x568 iPhone caps at iOS 15.8, so no user is there).
 
-**Still WARN-ONLY.** Turning a non-certifying run into a verdict token and a `/b-close`
-refusal is INFRA-493, sequenced after the measurement below so a refusal is never armed over
-unmeasured or known-red flows. Negative jest pins fail a change that arms it early.
+**ARMED (INFRA-493).** A flow whose assertions held on a viewport it does not declare
+reports a third verdict token — `UNCERTIFIED`, never `PASS` (a green a reader or a grep can
+salvage is an unenforced guarantee) and never `FAIL` (which would make a real 988 regression
+indistinguishable from a wrong-device run). `E2E_SIM_VIEWPORT=unknown` counts as
+non-certifying for a layout-sensitive flow and as certifying for a `viewport-independent`
+one. `e2e_run_certifies` is the single authority; the label consumes it rather than
+re-deriving it, so the two cannot drift.
+
+**The exit alphabet is unchanged: 0 pass / 1 regression / 2 harness / 3 target replaced.** A
+non-certifying all-green run still exits **0**, so any device remains usable for iterating
+and debugging. The refusal is `/b-close`'s alone and applies only to a MERGE — it fires on
+the ABSENCE of a certifying run, never on the presence of a large device. It reads
+`certification: CERTIFIED|UNCERTIFIED` from the run receipt, whose path the caller sets with
+`E2E_RECEIPT_PATH`; an absent or unreadable receipt refuses, because that is an absence too.
+There is no `--allow-any-viewport`; `--skip-e2e` stays hotfix-only. What keeps this from
+training the skip reflex is that remediation is one pasteable command, which the refusal
+prints. The gate never boots or creates a simulator — the simulator is shared across
+worktrees and whoever owns the boot owns the driver (INFRA-423).
+
+**Dynamic Type is a second axis and is deliberately NOT carried by this key.** INFRA-493
+planned to shape `e2e-certifies` to hold a type setting; DEBUG-469 owns the axis and is
+closing it by ASSERTING default content size at pre-flight instead, with scaled type as its
+own tag class. An invariant the harness enforces needs no per-flow declaration, and
+declaring one would imply a variable the default suite does not have. Revisit only if that
+approach changes.
 
 **Validation record — the first full-suite green at the declared target (INFRA-486,
 2026-08-19).** `npm run e2e:safety`, all **9** safety-tagged flows green in one uninterrupted
