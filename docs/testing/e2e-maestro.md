@@ -140,6 +140,22 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 >
 > Net: local iteration on a dirty tree is free, and *merging* on a dirty-tree build is
 > impossible. The old pre-flight could not tell those two cases apart — it banned both.
+
+> **A peer can still replace your target between the gate build and the flows (INFRA-484).**
+> `e2e-gate.sh` releases its leases on exit and `e2e-safety.sh` acquires the simulator lease
+> when it starts, so inside `/b-close` nothing owns the device between the two steps. Measured
+> at 4 of 28 flow-run attempts over 19h.
+>
+> The pre-flight now **rebuilds once, automatically**, when the installed marker names a
+> *different* worktree, and says whose build it found. `E2E_NO_AUTO_REGATE=1` restores the
+> plain refusal. Two cases deliberately never auto-rebuild: a marker naming **your own**
+> worktree (your tree moved — that is your edit and your call) and **no marker at all**
+> (nothing to attribute, so nothing to act on).
+>
+> Holding one lease across gate → flows would close the window outright and was rejected on
+> measurement: 17 of 18 spans already overlap another session, median 14.5 min and worst 58.3,
+> so spanning would serialise every close on the machine to remove a failure that already
+> fails closed.
 > The tree hash deliberately includes **untracked file contents**; `git status --porcelain`
 > plus `git diff HEAD` is blind to them (same `?? path` line whatever the bytes), and
 > untracked `.ts` under `app/src` is bundled into `main.jsbundle`.

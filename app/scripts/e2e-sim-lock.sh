@@ -30,9 +30,15 @@
 # THAT RULE IS ABOUT A HAND-RUN GATE, NOT ABOUT A SINGLE-PROCESS CLOSE (INFRA-484). Its whole
 # premise is that no process spans build -> flows; run both from ONE shell and that shell is
 # the anchor, so no TTL is needed and `E2E_LOCK_INHERITED` lets both children inherit rather
-# than contend. `/b-close` does not do that, and its not doing it is an open decision rather
-# than an oversight: the span buys a gap provenance already fails closed on, at up to ~33 min
-# of exclusive device ownership — serialising every session on the machine.
+# than contend. So the span is available — and INFRA-484 DECIDED AGAINST IT, on measurement.
+# Do not re-derive it as an oversight.
+#
+# The window is real: 4 of 28 flow-run attempts over 19h refused after a peer built into it
+# (INFRA-490 telemetry, 2026-08-21). But the same window shows 17 of 18 gate->flows spans
+# already overlapping another session, median 14.5 min and worst 58.3 — so a spanning lease
+# would serialise every close on this machine, always, to remove a failure that already fails
+# closed. `e2e-safety.sh` instead rebuilds ONCE on a peer-attributed mismatch: the same span,
+# charged only to the runs that actually collide.
 #
 # HOLDER IDENTITY: PID + PROCESS START TIME, never command-line text. That is what keeps
 # this clear of the DEBUG-392 defect class: there is no substring to over-match, so no
