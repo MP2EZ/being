@@ -215,7 +215,7 @@ const styles = StyleSheet.create({
   },
   instructionsText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: spacing[24],
   },
@@ -264,7 +264,7 @@ const styles = StyleSheet.create({
   noteText: {
     flex: 1,
     fontSize: typography.caption.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: spacing[20],
     fontStyle: 'italic',
   },

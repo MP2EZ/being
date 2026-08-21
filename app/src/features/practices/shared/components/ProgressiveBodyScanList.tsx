@@ -166,7 +166,7 @@ const styles = StyleSheet.create({
   },
   guidanceText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     lineHeight: typography.title.size,
     marginTop: spacing[8],
     paddingLeft: spacing[32] + spacing[16], // Align with area name (status indicator width + margin)

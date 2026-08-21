@@ -666,7 +666,15 @@ const styles = StyleSheet.create({
   },
   resourceDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    // MAINT-487: was raw gray[700]. `resourceAvailability` above and `contactLabel`
+    // below already read this token, so the card rendered two subordinate greys once
+    // MAINT-471 moved it. Worst ground is NOT white: `emergencyCard` overrides the
+    // 911 card to #FFEBEE, where gray[650] is 4.8744 (gray[700] was 8.7911) — passing,
+    // and pinned in APP_LOCAL_TINTED_SURFACES rather than left ungoverned.
+    // Deliberately NOT `primary`: that would put orienting prose at parity with
+    // `resourceName` and `contactValue` (both gray[800]), and the phone number must
+    // out-rank the description on a crisis card.
+    color: semantic.text.secondary,
     lineHeight: spacing[20],
     marginBottom: spacing[16]
   },

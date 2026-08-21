@@ -255,7 +255,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textAlign: 'center',
   },
   errorButton: {
@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   headerTagText: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     letterSpacing: 0.5,
   },
   headerTagTextEssential: {
