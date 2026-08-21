@@ -57,6 +57,12 @@ cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + su
 # e2e-driver-ownership.sh decides which XCUITest drivers may be REAPED once a run is under
 # way; this decides whether a run may START on this device at all. The gap it closes is a
 # peer's e2e-sim-build.sh uninstalling fyi.being.app out from under the flows below.
+# DEBUG-469 — Dynamic Type is a device-global, persistent input that nothing has ever
+# asserted. A size left behind by an earlier run silently poisons every layout assertion
+# here and in a peer worktree sharing this simulator.
+# shellcheck source=scripts/e2e-content-size.sh
+. "$(dirname "$0")/e2e-content-size.sh"
+
 # shellcheck source=scripts/e2e-sim-lock.sh
 . "$(dirname "$0")/e2e-sim-lock.sh"
 
@@ -233,6 +239,12 @@ GATE_REPLACED_BY=""
 
 if [ "$DEVICE_ONLY" != "1" ]; then
   SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 1
+
+  # DEBUG-469 — refuse a non-default content size BEFORE taking the simulator lease, so a
+  # misconfigured device fails fast instead of holding a shared resource. Exit 1 matches
+  # every other pre-flight refusal in this script; the exit alphabet is frozen (INFRA-486)
+  # and the message is what distinguishes this from a flow regression.
+  e2e_assert_default_content_size "$SIM_UDID" || exit 1
 else
   DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 1
 fi

@@ -389,7 +389,12 @@ describe('FEAT-301 depth — picker copy is symmetric + non-ranking', () => {
   });
 
   it('the picker frames BOTH as complete practices', () => {
-    expect(DEPTH_PICKER_COPY.subtitle.toLowerCase()).toMatch(/both.*complete|complete practices/);
+    // DEBUG-469 — the guarantee moved OUT of `subtitle` and into its own pinned string so
+    // it travels with the controls. Assert it on the field that now carries it; asserting
+    // the old field would either fail or, if relaxed, stop pinning the invariant at all.
+    expect(DEPTH_PICKER_COPY.guarantee.toLowerCase()).toMatch(/both.*complete|complete practices/);
+    // And that it was RELOCATED, not reworded away.
+    expect(DEPTH_PICKER_COPY.guarantee).toBe('Both are complete practices.');
   });
 
   it('deep is never framed by a count of principles or as the "full/real/complete" one', () => {

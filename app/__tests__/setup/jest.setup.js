@@ -319,11 +319,17 @@ jest.mock('react-native', () => {
       Version: 15
     },
     Dimensions: {
-      get: jest.fn(() => ({ width: 375, height: 812 })),
+      get: jest.fn(() => ({ width: 375, height: 812, scale: 2, fontScale: 1 })),
       set: jest.fn(),
       addEventListener: jest.fn(),
       removeEventListener: jest.fn()
     },
+    // DEBUG-469: this allow-list mock never exported `useWindowDimensions`, so any screen
+    // reading it threw `is not a function` at render. Additive — nothing could have
+    // depended on its absence. `fontScale: 1` is DEFAULT Dynamic Type; a suite exercising
+    // a scaled-type branch overrides it with
+    // `jest.spyOn(RN, 'useWindowDimensions').mockReturnValue({ ...,  fontScale: 3.1 })`.
+    useWindowDimensions: jest.fn(() => ({ width: 375, height: 812, scale: 2, fontScale: 1 })),
 
     // Interaction APIs (SAFE)
     Alert: {
