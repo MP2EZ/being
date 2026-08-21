@@ -27,7 +27,15 @@ A detached close (Step 2.5.3a) reports through a run directory, not a terminal �
 un-acknowledged result is work nobody has looked at. Read it before starting new work:
 
 ```bash
-cd /Users/max/dev/being/development/app && npm run --silent close:status
+# Capability-gated: `.claude/` is shared by every worktree the instant it lands on _bare,
+# but app/scripts/ arrives only on branches that have back-merged development. Without
+# this guard every session errors on a missing script until INFRA-492 reaches development.
+DEV_APP=/Users/max/dev/being/development/app
+if node -e "process.exit(require('$DEV_APP/package.json').scripts['close:status']?0:1)" 2>/dev/null; then
+  (cd "$DEV_APP" && npm run --silent close:status)
+else
+  echo "ℹ️  development predates INFRA-492 — no detached closes are possible yet."
+fi
 ```
 
 Non-zero exit means something needs a human: a named failure verdict, or a run that
@@ -754,8 +762,12 @@ entry points, so the INFRA-436/463/472 leases still queue it.
 | A multi-slice item's non-final slice | Step 4.1/5.1 would misreport state anyway (see this file's header). |
 | The worktree is dirty | The runner does not commit. Phase 2 must have landed everything first. |
 
-Otherwise offer the handoff. The item's Notion `Batch Route` is read in Phase 1 — if it was
-not, read it now rather than assuming.
+Otherwise offer the handoff — but only if **this worktree** has the runner. Same
+capability gate as Step 0.0 and for the same reason: this file is shared instantly,
+`app/scripts/` is not. `npm run close:detached` absent ⇒ say so and stay attached.
+
+The item's Notion `Batch Route` is read in Phase 1 — if it was not, read it now rather
+than assuming.
 
 ```bash
 cd /Users/max/dev/being/[worktree-dir]/app

@@ -74,7 +74,15 @@ A detached close reports through a run directory, not a terminal. Read it before
 new work, in every run including a bare `/b-work`:
 
 ```bash
-cd /Users/max/dev/being/development/app && npm run --silent close:status
+# Capability-gated: `.claude/` is shared by every worktree the instant it lands on _bare,
+# but app/scripts/ arrives only on branches that have back-merged development. Without
+# this guard every session errors on a missing script until INFRA-492 reaches development.
+DEV_APP=/Users/max/dev/being/development/app
+if node -e "process.exit(require('$DEV_APP/package.json').scripts['close:status']?0:1)" 2>/dev/null; then
+  (cd "$DEV_APP" && npm run --silent close:status)
+else
+  echo "ℹ️  development predates INFRA-492 — no detached closes are possible yet."
+fi
 ```
 
 Non-zero means a named failure verdict or a run presumed dead. Surface each line and stop
