@@ -114,6 +114,32 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #     flows. This matrix is the suite's only record of what was proven on what, so extend it
 #     rather than replacing rows. Suite-level detail: docs/testing/e2e-maestro.md.
 #
+#     ✅ AX5 MEASURED 2026-08-21 (DEBUG-469) — iPhone SE 3 / iOS 18.6, 375x667, provenance
+#     7e484b61, clean tree, content_size accessibility-extra-extra-extra-large. Every row
+#     above is at the DEFAULT content size; this is the first scaled-type measurement of
+#     this beat, and it discharges the AX5 obligation DEBUG-465's crisis pass left open
+#     (it could not be measured then, because the loop could not be ENTERED at AX5).
+#
+#       daily-loop-support-line   [20,344][355,667]   335x323 tap target   untruncated
+#
+#     Keyboard DOWN: fully visible, untruncated, taps through to CrisisResources. HOLDS.
+#
+#     ⚠️  Keyboard UP: RED, and tracked separately rather than asserted. Focusing the beat's
+#     input collapses the scroll viewport to 83pt — below the >=88pt residual floor that
+#     same crisis pass set — and the support line TRUNCATES: "...support is here" renders,
+#     "anytime." does not. It still TAPS and still routes, so this is a legibility and floor
+#     defect, NOT a crisis false negative. The defect is in the beat screen, which DEBUG-469
+#     did not change; asserting it here would make this flow red on arrival, which gates
+#     nothing and trains a bypass.
+#
+#     This flow itself stays at the DEFAULT content size. The AX5 assertions live in
+#     `daily-loop-ax5-entry.yaml`, tagged `safety-dynamic-type` so the exact `- safety` tag
+#     match keeps it out of `npm run e2e:safety` — the nine-flow suite must keep measuring
+#     the shipped default, or a red in it cannot be read without first asking which text
+#     size produced it. Run it with `npm run e2e:safety:ax5`, never a bare `maestro test`:
+#     content size is device-global and persistent, and the wrapper's trap is what restores
+#     it for the next worktree.
+#
 #     ✅ 402x874 RESOLVED, AND IT WAS NEVER THE VIEWPORT (DEBUG-473, 2026-08-17).
 #     DEBUG-473 recorded this flow as "marginal at the boundary" at 402x874 — FAIL on
 #     feat/FEAT-433 @ d1ab9f37, PASS on development @ aef27ebc, relevant files verified
