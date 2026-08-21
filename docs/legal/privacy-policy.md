@@ -224,6 +224,7 @@ You have the following rights regarding your personal information:
 - **Deletion:** Delete all of your in-app and backed-up data
 - **Export:** Download your data in portable JSON format
 - **Opt-Out:** Disable settings backup, analytics, or crash reporting
+- **Withdraw Wellness-Processing Consent:** Decline, or later withdraw, your explicit consent for Being to process your wellness data (mood check-ins, anxiety and depression self-screenings, journal entries). This consent is optional — declining it does not prevent you from using the app — and it can be changed at any time from *Settings → Privacy & Data*. Withdrawing does not by itself delete wellness data already stored on your device; use **Deletion** or **Export** above for that.
 
 To exercise these rights, email [privacy@being.fyi](mailto:privacy@being.fyi) or use the in-app settings.
 

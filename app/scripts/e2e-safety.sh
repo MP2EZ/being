@@ -34,7 +34,10 @@
 # `maestro` directly.
 set -u
 
-cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
+# DEBUG-496 — exit 2 ("harness could not complete"), not 1. The alphabet is stated in full
+# where the flows run, below; the rule it encodes is that 1 is reserved for a Maestro flow
+# that went red, and nothing that fails before a flow can have produced one.
+cd "$(dirname "$0")/.." || exit 2 # -> app/ (npm already sets cwd=app; belt + suspenders)
 
 # INFRA-405 — the same device resolution e2e-sim-build.sh uses. Shared rather than
 # duplicated so "both scripts resolve identically" holds by construction. Note this file
@@ -240,10 +243,26 @@ GATE_REPLACED_AT=""
 GATE_REPLACED_KIND=""
 GATE_REPLACED_BY=""
 
+# DEBUG-496 — a resolution refusal is exit 2, and specifically NOT the resolver's own code.
+#
+# These two lines carried `|| exit 1`, which reported "a Maestro safety flow FAILED — this
+# is a regression" for a machine with two simulators booted. It fired live during the
+# MAINT-487 close on 2026-08-20: the resolver refused CORRECTLY, the branch was fine, and
+# the gate blamed the branch. That red is the documented pressure that produces a reflexive
+# `--skip-e2e`, so the mislabel costs more than its size suggests.
+#
+# Note what is NOT done here: the resolver's status is DISCARDED, deliberately. Both
+# resolvers carry their own private alphabet (1 could-not-enumerate / 2 none-present /
+# 3 ambiguous-or-bad-override) which collides numerically with this script's while meaning
+# something unrelated — propagating a resolver 3 would announce INFRA-434's "a peer replaced
+# the installed binary mid-suite" for what is actually "two simulators are booted". Every
+# refusal arm is ONE fact here: no target, so no flow ran, so no verdict exists. That is 2.
+# `|| exit 2` is therefore the whole fix; capturing the status would be a more elaborate way
+# to be wrong.
 if [ "$DEVICE_ONLY" != "1" ]; then
-  SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 1
+  SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 2
 else
-  DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 1
+  DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 2
 fi
 
 # INFRA-478 — describe the resolved device in THIS shell.
@@ -272,7 +291,10 @@ fi
 # recorded owner, so an early `exit 1` from a pre-flight that ran before the acquire cannot
 # release a peer's lock.
 if [ -n "$SIM_UDID" ]; then
-  e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "safety flows" || exit 1
+  # DEBUG-496 — same flattening, found by the AC4 sweep rather than by chance. A lock the
+  # gate cannot take means a peer holds the device (or the lock root is unwritable): no
+  # flow ran, so this is 2. Reporting 1 blamed the branch for a machine that was busy.
+  e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "safety flows" || exit 2
   trap 'e2e_lock_release "$SIM_UDID"' EXIT INT TERM
 fi
 
@@ -572,7 +594,10 @@ elif [ -n "$DEVICE_UDID" ]; then
   MAESTRO_DEVICE_ARGS=(--device "$DEVICE_UDID")
 else
   echo "❌ no target resolved — refusing to let maestro choose its own device." >&2
-  exit 1
+  # DEBUG-496 — a device-resolution refusal, so 2 like the two above. Bare rather than
+  # `|| exit 1`, which is why the sweep had to be read for the FACT each exit reports and
+  # not merely grepped for the idiom that first exposed it.
+  exit 2
 fi
 
 # DEBUG-422 — pre-approve the URL scheme(s) the flows open, before flow 1.
@@ -737,15 +762,32 @@ e2e_reset_drivers "" "pre-flight"
 # Deliberately NOT scoped under `[ -n "$SIM_UDID" ]` the way the driver reset is: host
 # starvation hurts a device-only run identically, and unlike the reset nothing is killed
 # here, so the empty-UDID widening hazard does not apply.
-HOST_FACTS="$(e2e_host_contention_facts "")"
+#
+# INFRA-500 — SETTLE FIRST, then read. The documented recipe is `npm run e2e:safety:gate`
+# followed immediately by the flows, and the gate's own 90s-to-21min build leaves the host
+# at several times its idle load. That is the reliably reproducible contention on this
+# machine, and unlike a peer's it decays on its own, so a bounded wait removes it. The
+# reading below is therefore the POST-settle one — the load the flows will actually run
+# under, not the one they inherited. `e2e_host_settle` never skips a flow; see its header.
+HOST_FACTS="$(e2e_host_settle "")"
 e2e_host_summary_line "$HOST_FACTS"
 e2e_host_contention_warn "$HOST_FACTS"
+if command -v e2e_telemetry_settle >/dev/null 2>&1; then
+  e2e_telemetry_settle "$HOST_FACTS"
+fi
 
 flow_idx=0
 FLOW_TOTAL=${#FLOWS[@]}
 
 for f in "${FLOWS[@]}"; do
   name="$(basename "$f" .yaml)"
+
+  # INFRA-486 — does THIS flow's declared viewport match the device we are running on?
+  # WARN-ONLY and deliberately so: this records the answer beside the result, it does not
+  # change the result or the exit code. Arming a refusal is INFRA-493, sequenced after the
+  # 375x667 measurement so it is never armed over unmeasured or known-red flows.
+  FLOW_CERTIFIES="$(e2e_flow_certifies "$f")"
+  FLOW_CERT_NOTE="$(e2e_flow_certification_note "$FLOW_CERTIFIES" "${E2E_SIM_VIEWPORT:-unknown}")"
   flow_idx=$((flow_idx + 1))
 
   # INFRA-434 — is the binary we attested still the binary installed?
@@ -859,12 +901,12 @@ for f in "${FLOWS[@]}"; do
     # Report the per-command adjudication ALONGSIDE the timeout rather than instead of
     # it: an all-COMPLETED run that had to be killed is still not merge evidence, but
     # throwing away what it did complete would discard the diagnosis for no gain.
-    results+=("TIMEOUT  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown}; no verdict in ${FLOW_TIMEOUT_S}s; report: ${VERDICT:-<none>})")
+    results+=("TIMEOUT  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown} · ${FLOW_CERT_NOTE}; no verdict in ${FLOW_TIMEOUT_S}s; report: ${VERDICT:-<none>})")
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     echo "⏱️  $name exceeded ${FLOW_TIMEOUT_S}s and was killed. Evidence: $RUN_DIR" >&2
   elif [ "$rc" -eq 0 ] && [ "$VERDICT" = "PASS" ]; then
     flow_outcome=PASS
-    results+=("PASS  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown})")
+    results+=("PASS  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown} · ${FLOW_CERT_NOTE})")
     rm -rf "$RUN_DIR"
   else
     flow_outcome=FAIL
@@ -873,7 +915,7 @@ for f in "${FLOWS[@]}"; do
       echo "   report is clean. That is a harness bug and deserves its own work item; it is" >&2
       echo "   never a green." >&2
     fi
-    results+=("FAIL  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown}; exit=$rc, report: ${VERDICT:-<none>})")
+    results+=("FAIL  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown} · ${FLOW_CERT_NOTE}; exit=$rc, report: ${VERDICT:-<none>})")
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     fail=1
     echo "   Evidence kept: $RUN_DIR" >&2
@@ -940,6 +982,38 @@ if [ "$GATE_TARGET_REPLACED" = "1" ]; then
 else
   for r in "${results[@]}"; do echo "  $r"; done
 fi
+
+# INFRA-486 (AC 6) — RETAIN a durable, device-attributed record of this run.
+#
+# The per-flow RUN_DIRs are mktemp'd and `rm -rf`'d in the PASS arm, so on exactly the run
+# that adjudicates a merge, nothing survives. Note the AC's own premise needed correcting:
+# device properties CANNOT live in the JUnit — Maestro authors report.xml via
+# --format=JUNIT and nothing in this repo writes to it, so this is a SIBLING file.
+#
+# It must NOT live inside the worktree: the provenance fingerprint is repo-wide and
+# includes untracked file contents, so a receipt written there would read as MISMATCH on
+# the next verify and cost a rebuild. TMPDIR by default, overridable.
+#
+# This RECORDS. It is not read by any gate — /b-close consuming it is INFRA-493.
+SUITE_RECEIPT_DIR="${E2E_EVIDENCE_DIR:-${TMPDIR:-/tmp}}"
+SUITE_RECEIPT="${SUITE_RECEIPT_DIR%/}/e2e-safety-receipt-$(date -u +%Y%m%dT%H%M%SZ)-$$.txt"
+{
+  echo "e2e:safety receipt"
+  echo "generated_utc:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+  echo "repo_head:       $(git rev-parse HEAD 2>/dev/null || echo unknown)"
+  echo "repo_branch:     $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
+  echo "device_line:     ${E2E_SIM_DEVICE_LINE:-${DEVICE_UDID:+physical device $DEVICE_UDID}}"
+  echo "device_model_id: ${E2E_SIM_MODEL_ID:-unknown}"
+  echo "device_ios:      ${E2E_SIM_IOS:-unknown}"
+  echo "device_viewport: ${E2E_SIM_VIEWPORT:-unknown}"
+  echo "declared_target: ${E2E_SMALLEST_SUPPORTED_VIEWPORT}"
+  echo "host_at_start:   ${HOST_FACTS:-unknown}"
+  echo "flows_ran:       ${ran} of ${FLOW_TOTAL}"
+  echo "target_replaced: ${GATE_TARGET_REPLACED}"
+  echo "results:"
+  for r in "${results[@]}"; do echo "  $r"; done
+} > "$SUITE_RECEIPT" 2>/dev/null && echo "🧾 Receipt: $SUITE_RECEIPT" \
+  || echo "⚠️  could not write the run receipt to ${SUITE_RECEIPT_DIR} — verdict unaffected." >&2
 
 # A zero-flow run must never be laundered into a green. This script previously printed
 # "all safety flows passed" and exited 0 when `ran` was 0 — vacuously true and read by

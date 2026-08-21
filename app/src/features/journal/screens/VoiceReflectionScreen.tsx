@@ -58,6 +58,7 @@ import {
   borderRadius,
   typography,
   semantic,
+  TOUCH_TARGETS,
 } from '@/core/theme';
 
 import { useSpeechRecognitionEvent, ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
@@ -70,6 +71,7 @@ import {
 } from '@/core/services/speech/onDeviceSpeechGuard';
 import { sweepAllAudioArtifacts } from '@/core/services/speech/audioArtifactSweeper';
 import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
 
 type Phase = 'idle' | 'recording' | 'review' | 'saved' | 'unavailable';
 
@@ -105,6 +107,18 @@ export function VoiceReflectionScreen(): React.ReactElement {
 
   // Stable per-capture id so the scanner can dedupe across its two scan points.
   const draftIdRef = useRef(`draft-${Date.now()}`);
+
+  // DEBUG-480: scrolled programmatically when journal-save-error renders, which
+  // pushes Save further under the keyboard at exactly the moment the text is at
+  // most risk — the save has already failed once, and there is no autosave or
+  // draft persistence to fall back on.
+  const scrollRef = useRef<ScrollView>(null);
+
+  // DEBUG-480: in-flight guard. saveEntry is awaited with nothing blocking
+  // re-entry, so a double-tap writes two encrypted entries. Making Save smaller
+  // and scroll-dependent makes double-tapping MORE likely, so the guard ships
+  // with the fix that causes it, not after.
+  const savingRef = useRef(false);
 
   const prompt = REFLECTION_PROMPTS[0];
 
@@ -190,26 +204,40 @@ export function VoiceReflectionScreen(): React.ReactElement {
    * The scan runs BEFORE the write and never blocks it.
    */
   const handleSave = useCallback(async () => {
-    setSaveError(null);
+    // DEBUG-480: re-entry guard, NOT a scan guard. A second tap while the first
+    // save is still awaiting would write a second encrypted entry; the scan
+    // itself is already idempotent per draftId. The scan below still runs on
+    // every save that is actually admitted.
+    if (savingRef.current) return;
+    savingRef.current = true;
 
-    const result = journalCrisisScanner.scanOnSave(draftIdRef.current, transcript);
-    if (result.interventionActive) {
-      setCrisisActive(true);
+    try {
+      setSaveError(null);
+
+      const result = journalCrisisScanner.scanOnSave(draftIdRef.current, transcript);
+      if (result.interventionActive) {
+        setCrisisActive(true);
+      }
+
+      const saved = await saveEntry({ text: transcript });
+      if (!saved.saved) {
+        setSaveError(
+          saved.reason === 'too_long'
+            ? 'That reflection is longer than we can save. Trim it a little.'
+            : saved.reason === 'empty'
+              ? 'There’s nothing to save yet.'
+              : 'That didn’t save. Try once more.'
+        );
+        return;
+      }
+
+      setPhase('saved');
+    } finally {
+      // Released on EVERY path, including the save-error return above: the retry
+      // is the whole point of that path, and a guard that latched on failure
+      // would make an unreachable Save permanently unreachable.
+      savingRef.current = false;
     }
-
-    const saved = await saveEntry({ text: transcript });
-    if (!saved.saved) {
-      setSaveError(
-        saved.reason === 'too_long'
-          ? 'That reflection is longer than we can save. Trim it a little.'
-          : saved.reason === 'empty'
-            ? 'There’s nothing to save yet.'
-            : 'That didn’t save. Try once more.'
-      );
-      return;
-    }
-
-    setPhase('saved');
   }, [transcript]);
 
   const handleDiscard = useCallback(() => {
@@ -245,9 +273,37 @@ export function VoiceReflectionScreen(): React.ReactElement {
 
   return (
     <ScrollView
+      ref={scrollRef}
       style={styles.container}
       contentContainerStyle={styles.content}
       testID="voice-reflection-screen"
+      // DEBUG-480. journal-save-button is the only caller of handleSave, whose
+      // scanOnSave is the ONLY scan of text the user typed or corrected. Two
+      // independent defects made it unreachable with the keyboard up, and both
+      // are fixed here — separately, because fixing either alone still loses the
+      // text unscanned.
+      //
+      // OCCLUSION. UIKit intersects the keyboard frame with this ScrollView's
+      // frame in WINDOW coordinates and insets natively. That is why this is a
+      // native prop rather than a JS keyboard-height listener: a JS
+      // `paddingBottom = keyboardHeight` measures against the view's own frame
+      // and over-pads by the header + modal-card offset — the exact failure that
+      // rules KeyboardAvoidingView out for this screen (useOverlayBottomInset.ts).
+      // It is also accessory-inclusive for free: UIKeyboardFrameEndUserInfoKey
+      // already covers DEBUG-450's CrisisKeyboardAccessory, so the journal's
+      // reachability never becomes a function of that bar's height.
+      automaticallyAdjustKeyboardInsets
+      // TAP-SWALLOWING. RN's default 'never' let the ScrollView consume the first
+      // keyboard-up tap for dismissal, so it never reached handleSave. Under
+      // 'handled' the capture-phase handler no longer claims the touch, so the
+      // Pressable wins at the leaf; a tap on inert content still blurs via the
+      // bubble-phase handler, which is what journal-review-header relies on.
+      keyboardShouldPersistTaps="handled"
+      // At 375x667 the 180pt transcript field fills the band above the keyboard,
+      // so NO layout shows the field and Save at once — scrolling is unavoidable.
+      // on-drag makes the scroll gesture itself dismiss the keyboard, so the drag
+      // toward Save lands it fully clear instead of scrolling underneath.
+      keyboardDismissMode="on-drag"
     >
       {crisisBanner}
 
@@ -303,9 +359,16 @@ export function VoiceReflectionScreen(): React.ReactElement {
               (187,333) — inside this screen's multiline transcript field (measured
               [25,166][350,344]), where a swipe moves the caret instead of resigning
               first responder. journal-crisis-scan taps this block instead: it has no
-              onPress, so the touch falls through to the root ScrollView, where RN's
-              default keyboardShouldPersistTaps='never' blurs the input. Element-
-              anchored, so it does not go stale the way a screen-relative point does. */}
+              onPress, so the touch falls through to the root ScrollView, which blurs
+              the input. Element-anchored, so it does not go stale the way a
+              screen-relative point does.
+              DEBUG-480 changed the mechanism this relies on and the step still
+              works: under keyboardShouldPersistTaps='handled' the ScrollView no
+              longer claims the touch in the CAPTURE phase, but this View has no
+              onPress, so it declines the responder and the ScrollView still claims
+              it on the BUBBLE phase, where release blurs. A Pressable — Save —
+              claims at the leaf first and keeps the keyboard up, which is exactly
+              the asymmetry the fix needs. */}
           <View testID="journal-review-header">
             <Text style={styles.title}>Check the transcript.</Text>
             <Text style={styles.hint}>Fix anything the transcription got wrong.</Text>
@@ -324,28 +387,53 @@ export function VoiceReflectionScreen(): React.ReactElement {
           />
 
           {saveError ? (
-            <Text style={styles.error} testID="journal-save-error">
+            <Text
+              style={styles.error}
+              testID="journal-save-error"
+              // DEBUG-480: this node renders BETWEEN the input and Save and pushes
+              // Save down by roughly its own height — on the retry path, where the
+              // text has already survived one failed write. Scroll on the error's
+              // own layout rather than on keyboard-raise: yanking the view while
+              // the user is still editing would move the caret off screen.
+              onLayout={() => scrollRef.current?.scrollToEnd({ animated: true })}
+            >
               {saveError}
             </Text>
           ) : null}
 
-          <Pressable
-            style={styles.primaryButton}
-            testID="journal-save-button"
-            accessibilityRole="button"
-            accessibilityLabel="Save this reflection"
-            onPress={handleSave}
-          >
-            <Text style={styles.primaryButtonText}>Save</Text>
-          </Pressable>
+          {/* DEBUG-480: keeps Save and Discard out of the crisis button's
+              contested column. CollapsibleCrisisButton renders at zIndex 9999 and
+              wins an overlapping tap, so an un-inset full-width Save that scrolls
+              into CRISIS_BUTTON_EXCLUSION_RECT can fire an audit-logged crisis
+              navigation AND swallow the save-time scan. This is unconditional:
+              the transcript field grows without a cap, so Save's y is not fixed.
+              Same shape as the DEBUG-406 composers. */}
+          <View style={styles.actionBlock} testID="journal-action-block">
+            <Pressable
+              style={styles.primaryButton}
+              testID="journal-save-button"
+              accessibilityRole="button"
+              accessibilityLabel="Save this reflection"
+              onPress={handleSave}
+            >
+              <Text style={styles.primaryButtonText}>Save</Text>
+            </Pressable>
 
-          <Pressable
-            onPress={handleDiscard}
-            testID="journal-discard-button"
-            accessibilityRole="button"
-          >
-            <Text style={styles.subtleAction}>Discard</Text>
-          </Pressable>
+            {/* DEBUG-480: the 44pt minimum goes on the PRESSABLE. styles.subtleAction
+                is a Text style shared with journal-clear-prompt, so growing it there
+                would resize an unrelated control. Discard destroys the transcript
+                with the save-time scan never having run, so a mis-tap here is
+                DEBUG-480's own failure reached by a different route — hence real
+                separation from Save, not just a compliant hit rect. */}
+            <Pressable
+              onPress={handleDiscard}
+              testID="journal-discard-button"
+              accessibilityRole="button"
+              style={styles.discardButton}
+            >
+              <Text style={styles.discardLabel}>Discard</Text>
+            </Pressable>
+          </View>
         </View>
       )}
 
@@ -425,6 +513,28 @@ const styles = StyleSheet.create({
     fontSize: typography.bodySmall.size,
     textAlign: 'center',
     marginTop: spacing[16],
+  },
+  // DEBUG-480 — see the render site. Wraps Save + Discard only.
+  actionBlock: {
+    paddingRight: OVERLAY_ACTION_ROW_PADDING_RIGHT,
+  },
+  discardButton: {
+    // Real height, not hitSlop: hitSlop enlarges the touch area but not the
+    // visible target, which is what WCAG 2.5.5 measures.
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
+    alignItems: 'center',
+    // Separation from Save. A destructive control flush under the primary one is
+    // a coin-flip under a thumb even when both hit rects are compliant.
+    marginTop: spacing[16],
+  },
+  // subtleAction without its marginTop — the spacing now belongs to the
+  // Pressable, so the label centres inside the 44pt target instead of being
+  // pushed to its bottom edge.
+  discardLabel: {
+    color: semantic.text.secondary,
+    fontSize: typography.bodySmall.size,
+    textAlign: 'center',
   },
   error: {
     color: colorSystem.status.error,

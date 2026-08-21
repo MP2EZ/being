@@ -59,6 +59,9 @@ import { CombinedLegalGateScreen } from '@/features/consent';
 // surface. Per FEAT-376's lesson (CLAUDE.md), a barrel re-export enlarges the
 // eager module graph of every importer, including safety paths.
 import ReConsentRoute from '@/features/consent/screens/ReConsentRoute';
+// Deep path, not the feature barrel: a barrel re-export enlarges the eager
+// module graph of every importer, including safety paths (FEAT-376).
+import ConsentBlockedRoute from '@/features/consent/screens/ConsentBlockedRoute';
 import { useReConsentTrigger } from '@/features/consent/hooks/useReConsentTrigger';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { DailyLoopMode, DailyLoopDepth, DailyLoopSessionData } from '@/features/practices/types/flows';
@@ -89,6 +92,17 @@ export type RootStackParamList = {
    * the render prop below.
    */
   ReConsent: undefined;
+  /**
+   * DEBUG-451 — the explanation for `integrity_error`, `revoked` and
+   * `under_age`. Presented OVER Main by `useReConsentTrigger`, never as an
+   * initial route.
+   *
+   * 🔴 `undefined`, and it must stay that way — for the serializability reason
+   * above, and for a second one: the variant is re-derived from `consentStatus`
+   * inside `ConsentBlockedRoute`. A status param could be constructed by any
+   * caller to show a user copy that contradicts the state the app is in.
+   */
+  ConsentBlocked: undefined;
   // The single daily ritual (FEAT-298 slice 5: the default practice; no longer flagged).
   // `mode` is a test/tooling param only — the tense is inferred from the clock, and there
   // is no mode picker.
@@ -488,6 +502,42 @@ const CleanRootNavigator: React.FC = () => {
           }}
         >
           {({ navigation }) => <ReConsentRoute onDismiss={() => navigation.goBack()} />}
+        </Stack.Screen>
+
+        {/* DEBUG-451 — the explanation for the three fail-closed consent
+            statuses (integrity_error, revoked, under_age). Presented over Main by
+            useReConsentTrigger; never an initial route.
+
+            🔴 WHY THIS IS NOT AN `initialRoute` CHANGE. checkInitialRoute tests
+            `settings?.onboardingCompleted` first and unconditionally, which is
+            what makes the resolved status irrelevant to routing — but that test
+            is CORRECT under this architecture. Main is the right initial route;
+            the missing piece was a trigger-layer handler, not a routing-table
+            entry. Routing these statuses at initialRoute instead would change
+            the root route for a cohort, which DEBUG-418 rejected as the riskiest
+            available fix on the navigator that owns the crisis overlay.
+
+            Every option below is copied from ReConsent deliberately and for the
+            same reasons — `transparentModal` for its `detachPreviousScreen: false`
+            mount semantics, `gestureEnabled: false` and `headerShown: false` so
+            the notice cannot be dismissed without the user pressing its own
+            control. See the ReConsent block above for the full rationale.
+
+            988: ConsentBlocked is deliberately NOT in RootCrisisButton's
+            SUPPRESSED_ROUTES or IMMERSIVE_ROUTES, and owns no crisis section of
+            its own, so the root overlay below is its ONLY affordance — identical
+            to the Main these users come from. Adding it to either set would
+            silently switch 988 off for a cohort already in a fail-closed app.
+            Pinned by __tests__/safety/consentBlockedCrisisReachability.test.tsx. */}
+        <Stack.Screen
+          name="ConsentBlocked"
+          options={{
+            headerShown: false,
+            presentation: 'transparentModal',
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation }) => <ConsentBlockedRoute onDismiss={() => navigation.goBack()} />}
         </Stack.Screen>
 
         {/* Educational Module Detail */}
