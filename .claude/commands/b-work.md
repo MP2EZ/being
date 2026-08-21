@@ -299,7 +299,11 @@ git worktree list | grep "[branch-name]"
 **Three scenarios:**
 
 **A) Worktree exists for this branch:**
-→ Skip to Step 2.4 (cd into existing worktree)
+→ **Measure drift first**: `git rev-list --count HEAD..origin/development`. Hundreds of commits
+  mean the branch is a record, not work in progress — re-check each defect it claims against
+  `origin/development`, since siblings routinely fix the same thing and a superseded migration
+  collides rather than merges. Reset and re-derive what survives; tag first if unpushed.
+→ Otherwise skip to Step 2.4 (cd into existing worktree)
 → Display: `ℹ️  Using existing worktree: feat-42`
 
 **B) Branch exists but no worktree (orphaned branch):**
