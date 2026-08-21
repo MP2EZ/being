@@ -553,7 +553,9 @@ If BOTH `SAFETY_CHANGED` and `CRISIS_HOST_CHANGED` are empty → skip the gate:
 ```
 ℹ️  No safety-surface changes detected — skipping Maestro e2e gate
 ```
-Proceed to Step 3.1.
+Proceed to **Step 2.5.3a**, not Step 3.1: the handoff decision is reached on every close,
+and a gate-less one is the case with least reason to hold a session. `FLOWS` is empty and
+`FULL_SUITE` unset, so a detached run takes `--no-flows`.
 
 ### Step 2.5.2: Honor `--skip-e2e` flag (hotfix-only)
 
