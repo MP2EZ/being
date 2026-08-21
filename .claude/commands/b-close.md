@@ -588,7 +588,10 @@ FULL_SUITE=""
 RENDER_BOOT_RELEVANT=$(echo "$SAFETY_CHANGED" | awk '
   /src\/features\/crisis\/services\// { next }
   /src\/core\/services\/security\// {
-    if ($0 ~ /EncryptionService|SecureStorageService/) { print }
+    # Bare regex, NOT `$0 ~ …`: the harness substitutes $0 with the run's arguments when
+    # rendering this file, so a copied `$0` matches nothing and drops every security file
+    # from the render-boot set — failing toward not gating. Bare regex matches $0 implicitly.
+    if (/EncryptionService|SecureStorageService/) { print }
     next
   }
   { print }
