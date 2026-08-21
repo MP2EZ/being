@@ -234,14 +234,14 @@ const styles = StyleSheet.create({
   contextLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing[8],
   },
   contextText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   groundsSection: {
@@ -250,7 +250,7 @@ const styles = StyleSheet.create({
   groundsLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing[8],
@@ -287,7 +287,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
   },
   errorButton: {

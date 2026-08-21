@@ -393,7 +393,7 @@ const styles = StyleSheet.create({
   },
   selectionPrompt: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
     marginBottom: spacing[16],
   },
@@ -448,7 +448,7 @@ const styles = StyleSheet.create({
   feedbackLabel: {
     fontSize: typography.caption.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing[8],
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
   },
   listItem: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     lineHeight: typography.bodySmall.size * (typography.bodySmall.lineHeight || 1.4),
     marginBottom: spacing[4],
   },
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   },
   virtueCheckText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     fontStyle: 'italic',
     lineHeight: typography.bodySmall.size * (typography.bodySmall.lineHeight || 1.4),
   },

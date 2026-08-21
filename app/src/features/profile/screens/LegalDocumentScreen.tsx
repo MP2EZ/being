@@ -76,7 +76,7 @@ const markdownStyles = StyleSheet.create({
   body: {
     fontSize: typography.bodyRegular.size,
     lineHeight: 24,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
   },
   heading1: {
     fontSize: typography.headline2.size,
@@ -99,7 +99,7 @@ const markdownStyles = StyleSheet.create({
   heading3: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold as '600',
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     marginTop: spacing[16],
     marginBottom: spacing[8],
   },

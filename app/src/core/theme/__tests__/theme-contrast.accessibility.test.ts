@@ -94,6 +94,25 @@ const APP_LOCAL_TINTED_SURFACES: Array<[string, string]> = [
   ['#FFF9E6 (OverviewTab.exampleCard)', '#FFF9E6'],
   ['#F8F5FF (ModuleDetailScreen / PassageReaderScreen)', '#F8F5FF'],
   ['#E8F5E9 (ProgressiveBodyScanList)', '#E8F5E9'],
+  // MAINT-487 addition, on the same "the sweep genuinely lands token text on them"
+  // rule as the four above. `CrisisResourcesScreen.emergencyCard` overrides the 911
+  // card's white ground to this tint, and the sweep moved `resourceDescription` onto
+  // `semantic.text.secondary` inside it — so without this entry the one test whose
+  // purpose is to govern swept text would ship green over an ungoverned ground.
+  // gray[650] measures 4.8744 here, the thinnest margin the sweep produced.
+  ['#FFEBEE (CrisisResourcesScreen.emergencyCard)', '#FFEBEE'],
+  // MAINT-487, the two ALPHA-COMPOSITED learn tints. Unlike every entry above, these
+  // are not authored hexes — they are `colorSystem.navigation.learn + '10' | '15'`
+  // resolved over a white host, so the literal here is DERIVED and only valid while
+  // the host stays white. Every live host was checked and is (`sharedPracticeStyles`
+  // container, GuidedBodyScanScreen:203, SortingPracticeScreen:343, and
+  // PracticeScreenLayout, which sets none and inherits the white navigator default).
+  // Same class as `severityBands` — a surface computed at render time — but unlike the
+  // bands these composite LIGHTER than gray[300], so the mid-tier neutral is legal and
+  // a static entry can express them. gray[600] is 4.3278 / 4.2292 here, so the
+  // "would have FAILED" loop below still holds on both.
+  ['#F9F7FB (navigation.learn +10 over white)', '#F9F7FB'],
+  ['#F7F4FA (navigation.learn +15 over white)', '#F7F4FA'],
 ];
 
 /** The two aliased body-subordinate text tokens this matrix governs. */
@@ -311,7 +330,11 @@ describe('DEBUG-370: subordinate text also clears AA on app-local tinted grounds
 
   it('covers every token x app-local surface pair', () => {
     expect(cases).toHaveLength(SUBORDINATE_TEXT.length * APP_LOCAL_TINTED_SURFACES.length);
-    expect(cases).toHaveLength(10);
+    // MAINT-487: 10 -> 16 (2 tokens x 8 grounds). The literal is the belt to the
+    // derived length's braces, so it is SUPPOSED to go red when a ground is added —
+    // updating it is the moment you confirm the new surface was deliberate. Do not
+    // replace it with the expression.
+    expect(cases).toHaveLength(16);
   });
 
   test.each(cases)(
@@ -326,10 +349,18 @@ describe('DEBUG-370: subordinate text also clears AA on app-local tinted grounds
 
   it('records that gray[600] would have FAILED on these same grounds', () => {
     // The reason the sweep was worth doing, stated as an assertion rather than
-    // prose. Every one of these grounds carried raw gray[600] text before
-    // DEBUG-370; each was a real AA failure, none was detectable by any pin that
+    // prose. Each of the DEBUG-370 grounds carried raw gray[600] text before that
+    // sweep; each was a real AA failure, none was detectable by any pin that
     // existed at the time. If a future change makes gray[600] legal here, this
     // goes red and the sweep's justification should be re-read, not assumed.
+    //
+    // MAINT-487 NARROWED THE CLAIM: #FFEBEE carried raw gray[700] (8.7911), not
+    // gray[600], so "every one of these grounds carried gray[600]" stopped being
+    // true when that entry was added. The ASSERTION still holds on it — gray[600]
+    // is 4.0305 there — and is kept for that reason, but the history sentence is
+    // now about the DEBUG-370 five only. Same class of prose drift this file has
+    // twice corrected in colors.ts: a stale ratio or provenance gets copied into
+    // the next story.
     for (const [surfaceName, surface] of APP_LOCAL_TINTED_SURFACES) {
       const ratio = getContrastRatio(colorSystem.gray[600], surface);
       expect(`${surfaceName}: ${ratio < AA_NORMAL_TEXT}`).toBe(`${surfaceName}: true`);

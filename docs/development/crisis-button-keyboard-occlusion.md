@@ -83,8 +83,9 @@ Every non-test `TextInput` host on `development`, 2026-08-16:
 | `DailyLoopCompleteScreen` | Same. |
 | `DeleteAccountScreen` | No inline crisis affordance. |
 
-`core/components/accessibility/AccessibleInput.tsx` also renders a `TextInput` but was traced
-and has **zero consumers**, so it is not a live surface. The count is exact, not a floor.
+`core/components/accessibility/AccessibleInput.tsx` used to render a second `TextInput`,
+but was traced and had **zero consumers**, so it was never a live surface — MAINT-487
+deleted it on that finding. The count is exact, not a floor.
 
 The two `DailyLoop` screens are the worst case and were absent from the original item's scope
 list: the button is *both* faded and occluded there, and the route sets
