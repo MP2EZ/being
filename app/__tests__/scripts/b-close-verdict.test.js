@@ -317,6 +317,21 @@ describe('INFRA-492 run directory — the status surface an operator is told to 
     expect(r.stdout).toContain('MERGED');
   });
 
+  it('survives a stat that answers non-numerically, instead of corrupting the age', () => {
+    // GNU coreutils reads `stat -f` as --file-system and `%m` as the MOUNT POINT, so on
+    // Linux `stat -f %m` prints "/" and EXITS 0 — a `||` fallback never fires and the
+    // arithmetic below gets a path. Caught by CI, not by this suite, because the dev
+    // machine is BSD-only. The stub reproduces the GNU answer on any host.
+    const d = path.join(root, 'r6');
+    withRoot(`b_close_run_init "${d}" INFRA-492 chore/x && b_close_status_write "${d}" flows`);
+    const stub = fs.mkdtempSync(path.join(os.tmpdir(), 'infra492s-'));
+    fs.writeFileSync(path.join(stub, 'stat'), '#!/bin/sh\necho /\n');
+    fs.chmodSync(path.join(stub, 'stat'), 0o755);
+    const r = sh('b_close_status', { B_CLOSE_RUN_ROOT: root, PATH: `${stub}:${process.env.PATH}` });
+    expect(r.stdout).not.toMatch(/\(\/s\)|\(-\d+s\)/); // no path or negative age leaked
+    expect(r.stdout).toContain('in flight');
+  });
+
   it('flags a stale in-flight run rather than reporting it as still working', () => {
     // A runner killed mid-flight leaves `status` frozen and no DONE. Silence there is
     // indistinguishable from a long build, which is the failure mode the item names.

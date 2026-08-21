@@ -214,7 +214,13 @@ b_close_status() {
 
     phase=$(awk '{print $1}' "$dir/status" 2>/dev/null)
     [ -n "$phase" ] || phase='(none)'
-    age=$(( now - $(stat -f %m "$dir/status" 2>/dev/null || stat -c %Y "$dir/status" 2>/dev/null || echo "$now") ))
+    # GNU first, BSD second — NOT the reverse. On GNU coreutils `stat -f` is
+    # --file-system and `%m` is the MOUNT POINT, so `stat -f %m` prints "/" and exits 0,
+    # defeating a `||` fallback and feeding a non-number to the arithmetic below. BSD stat
+    # has no -c, so it errors cleanly and falls through. Ordering is the whole fix.
+    mtime=$(stat -c %Y "$dir/status" 2>/dev/null || stat -f %m "$dir/status" 2>/dev/null || echo "$now")
+    case "$mtime" in (*[!0-9]*|'') mtime="$now" ;; esac
+    age=$(( now - mtime ))
     if [ "$age" -gt "$B_CLOSE_STALE_S" ]; then
       printf '⚠️  %s  %s  STALE at %s (%ss without progress) — presumed dead, no verdict\n' \
         "$item" "$branch" "$phase" "$age"
