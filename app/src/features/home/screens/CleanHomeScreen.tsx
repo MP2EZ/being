@@ -17,6 +17,11 @@ import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
+// FEAT-457 — direct path, never a features/guidance barrel (FEAT-376). This
+// component reaches only DOMAIN_BINDINGS (constants over types), so it adds no
+// edge from Home to guidanceGate or the content loader.
+import RightNowAffordance from '@/features/guidance/components/RightNowAffordance';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { IntroOverlay } from '../components/IntroOverlay';
 import { useAnalytics } from '@/core/analytics';
 import { themeKeyFor } from '@/core/types/practice-identity';
@@ -206,6 +211,28 @@ const CleanHomeScreen: React.FC = () => {
             onPress={handleCheckInPress}
           />
         </View>
+
+        {/* FEAT-457: the guidance entry point. Ships behind `domain_guidance`,
+            build-time and dark in production — the surface it reveals routes a
+            suppressed reader to CrisisResources, so its availability must not be
+            a function of analytics consent or a network round-trip (INFRA-199).
+
+            SITED HERE, between checkInSection and the Practices row, for two
+            reasons. What it displaces: `checkInSection` is flex:1, so a
+            fixed-height row above the Practices row absorbs its height from the
+            Daily Practice card (~44pt) and nothing below moves — in particular
+            the Practices row does not shift DOWN toward the floating
+            CollapsibleCrisisButton, which sits absolutely at bottom:100 / zIndex
+            9999 and must never be crowded or overlaid.
+
+            It does NOT compete with AssessmentStatusBadge. The badge is a STATE
+            indicator that renders above checkInSection at its natural height and
+            changes with assessment cadence; this row is a static navigation
+            affordance that renders identically every day and never carries a
+            badge, count or urgency colour. Different region, different register.
+
+            Subordinate to the daily ritual, never above it. */}
+        {isFeatureEnabled('domain_guidance') && <RightNowAffordance />}
 
         {/* FEAT-293: standalone-practice discoverability.
             Deliberately a FIXED-HEIGHT row BELOW checkInSection, not a fifth

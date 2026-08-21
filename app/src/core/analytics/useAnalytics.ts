@@ -134,6 +134,26 @@ export function useAnalytics() {
     trackEvent(AnalyticsEvents.CRISIS_HOTLINE_TAPPED);
   }, [trackEvent]);
 
+  /**
+   * Domain guidance opened from its Home entry point (FEAT-457).
+   *
+   * 🔴 TAKES NO ARGUMENTS, DELIBERATELY. Do not add a `domain` parameter.
+   *
+   * The hardship domain ("this user opened grief") IS the wellness inference, and
+   * `docs/architecture/analytics-architecture.md` publishes "What We NEVER
+   * Collect: … Any mental health data." Shipping it would make that published
+   * promise false — an FTC Act §5 exposure, not a disclosure gap you can close by
+   * editing the policy — and would trip the DPIA's own material-change trigger
+   * plus new App Store mental-health labels.
+   *
+   * The house pattern this follows: track ACCESS, never CONTENT.
+   * `assessment_started` carries no score; `crisis_resources_viewed` carries no
+   * contact details; this carries no domain.
+   */
+  const trackGuidanceOpened = useCallback(() => {
+    trackEvent(AnalyticsEvents.GUIDANCE_OPENED);
+  }, [trackEvent]);
+
   const trackSettingsOpened = useCallback(() => {
     trackEvent(AnalyticsEvents.SETTINGS_OPENED);
   }, [trackEvent]);
@@ -235,6 +255,7 @@ export function useAnalytics() {
     trackPracticeCompleted,
     trackCrisisResourcesViewed,
     trackCrisisHotlineTapped,
+    trackGuidanceOpened,
     trackSettingsOpened,
     trackConsentChanged,
 

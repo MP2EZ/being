@@ -72,6 +72,12 @@ export class PHIFilter {
     'learn_content_viewed',
     'learn_module_started',
     'learn_module_completed',
+
+    // Domain guidance (FEAT-457) — REACH ONLY, and deliberately carries no
+    // `domain` property. See the PHI_KEYWORDS note below: the hardship domain is
+    // itself the wellness inference, so this event measures that the surface was
+    // opened and nothing about what for.
+    'guidance_opened',
   ]);
 
   /**
@@ -112,6 +118,25 @@ export class PHIFilter {
     'phone',
     'name',
     'address',
+
+    // Guidance hardship domains (FEAT-457).
+    //
+    // DEFENCE-IN-DEPTH, AND INERT AGAINST THE EVENT WE ACTUALLY SHIP.
+    // `guidance_opened` carries no properties, so none of these tokens can appear
+    // in its payload — these exist solely to make a FUTURE reintroduction of a
+    // `domain` property fail closed instead of shipping.
+    //
+    // The gap they close is real and was measured: before this addition, the
+    // values 'conflict' / 'career' / 'grief' / 'pain' matched NOTHING in this
+    // list, so the filter would have passed a hardship domain straight through.
+    // The only thing standing between that value and PostHog was a sentence in
+    // `analytics-architecture.md` — "What We NEVER Collect: … Any mental health
+    // data" — which is a published FTC-relevant promise with no mechanical
+    // enforcement behind it. This is that enforcement.
+    'conflict',
+    'career',
+    'grief',
+    'pain',
   ];
 
   /**
@@ -261,6 +286,9 @@ export const AnalyticsEvents = {
   LEARN_CONTENT_VIEWED: 'learn_content_viewed',
   LEARN_MODULE_STARTED: 'learn_module_started',
   LEARN_MODULE_COMPLETED: 'learn_module_completed',
+
+  // Domain guidance (FEAT-457) — no properties, ever. See SAFE_EVENT_TYPES.
+  GUIDANCE_OPENED: 'guidance_opened',
 } as const;
 
 export type AnalyticsEventType = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];

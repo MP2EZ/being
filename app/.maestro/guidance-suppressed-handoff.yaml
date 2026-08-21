@@ -1,0 +1,160 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Guidance entry point routes a suppressed reader to crisis resources"
+# e2e-certifies: 375x667
+# FEAT-457 — LAYOUT-SENSITIVE, so it declares the smallest supported viewport rather
+# than `any`. The sibling threshold flows (gad7-severe, q9-single-alert) declare `any`
+# because they assert a score verdict that no viewport can change. This one does too,
+# BUT it also asserts `home-guidance-entry` is visible — and that row is new furniture
+# on a screen with no ScrollView, where `checkInSection` is flex:1 and the row's fixed
+# height is absorbed from the Daily Practice card. The smallest viewport is precisely
+# where that card runs out of room, so `any` would let this flow certify on a large
+# device and never exercise the case most likely to break it.
+# It also runs the DEBUG-477 scroll-then-absorbing-tap sequence, which only occurs at
+# 375x667 — at 402x874 both Profile cards fit without a swipe and no touch is swallowed.
+---
+# WHY THIS FLOW IS REQUIRED BY FEAT-457 AND WAS NOT REQUIRED BY FEAT-433.
+#
+# Slice 3a shipped `DomainGuidanceScreen` with no Maestro flow, on the explicit
+# grounds that the screen had NO user-reachable entry point — it was registered on
+# the root stack and reachable only by an explicit `navigate`, so unreachability
+# was itself the rollout control. Slice 4 adds `RightNowAffordance` to Home and
+# removes that justification. This flow is what replaces it.
+#
+# WHAT IT PINS, which is a USER-VISIBLE CONTRACT and not a unit under test:
+# a reader whose stored assessment suppresses guidance can tap the Home entry
+# point, receives ZERO philosophy, and is offered a live route into crisis
+# resources with a working 988 affordance at the end of it. The jest suites pin
+# the gate's verdict; only this pins that the verdict survives navigation,
+# hydration from encrypted storage, and a Release bundle.
+#
+# ── ABSENCE IS THE ASSERTION ────────────────────────────────────────────────
+# `assertNotVisible` on all four tier testIDs is the load-bearing half, per the
+# crisis planning pass: asserting only that the suppression notice is PRESENT
+# would stay green if a tier rendered underneath it. The notice appearing is not
+# the contract — the philosophy being absent is.
+#
+# ── FLAG DEPENDENCY, READ BEFORE DEBUGGING A FAILURE ────────────────────────
+# `home-guidance-entry` is gated by the build-time flag `domain_guidance`, which
+# ships DARK in `.env.production`. The `e2e-sim` EAS profile sets it true
+# (eas.json → build.e2e-sim.env.EXPO_PUBLIC_FEATURE_FLAGS). If this flow fails at
+# the `home-guidance-entry` tap with "no visible element", check that blob FIRST —
+# a dark flag makes this flow unrunnable rather than failing informatively, and
+# that is the single most likely cause of a red here that is not a regression.
+#
+# ── WHY GAD-7 21 RATHER THAN A PHQ-9 PATH ───────────────────────────────────
+# GAD-7 is seven questions to PHQ-9's nine, so it is the cheaper route to a
+# suppressing state, and 7 x option-3 = 21 clears the >=15 severe floor with
+# margin. It also exercises the axis FEAT-457 changed: the GAD-7 arm gained a
+# gentle band at 10 this item, and 21 must still SUPPRESS rather than merely
+# gentle — a mis-wired band that swallowed the severe floor would show up here as
+# tier content rendering instead of the notice.
+
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState — wipe keychain too (INFRA-179)
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
+
+# ── Record a suppressing GAD-7 result ───────────────────────────────────────
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "take-gad7-button"
+    direction: DOWN
+# DEBUG-477 ABSORBING TAP — LOAD-BEARING, NOT A COPY-PASTE SLIP.
+# `take-gad7-button` is the SECOND card on ProfileScreen, so reaching it needs a
+# swipe that terminates mid-content, and UIScrollView then swallows exactly one
+# subsequent touch (measured: the tap increments onScrollEndDrag and never fires
+# onPressIn). This re-tap of the already-active tab absorbs it, so the card tap
+# below is the second touch and reaches the Pressable. It is element-anchored and
+# lives outside the ScrollView. See gad7-severe.yaml for the full derivation.
+# COUPLING: this app does not implement scroll-to-top on active-tab re-press. If
+# someone adds it, this flow breaks RED, which is the safe direction.
+- tapOn:
+    id: "tab-profile"
+- tapOn:
+    id: "take-gad7-button"
+# Attribute a swallowed tap to the tap that caused it, rather than surfacing it
+# 20s later as a missing element on a screen this run never reached.
+- assertVisible:
+    id: "assessment-close-button"
+- scrollUntilVisible:
+    element:
+      id: "assessment-begin-button"
+    direction: DOWN
+- tapOn:
+    id: "assessment-begin-button"
+
+# All 7 questions at "Nearly every day" (option 3) = 21, clear of the >=15 floor.
+- repeat:
+    times: 7
+    commands:
+      - tapOn:
+          id: "assessment-response-group-option-3"
+
+# The severe result landed. This is gad7-severe.yaml's contract, re-asserted here
+# only as a PRECONDITION: if it fails, the rest of this flow is testing nothing,
+# and the failure should be read as that flow's regression rather than this one's.
+- assertVisible:
+    id: "results-crisis-banner"
+
+# ── Home → the guidance entry point ─────────────────────────────────────────
+- tapOn:
+    id: "tab-home"
+- assertVisible:
+    id: "home-screen"
+
+# The entry point is visible to a SUPPRESSED reader, deliberately and not
+# incidentally. An affordance that disappeared based on a score would be an
+# ambient disclosure of that score to anyone who can see the screen — and for this
+# reader the tap is a net-positive path, since it lands on a surface carrying a
+# live route into crisis resources. Suppression is a routing decision, never a
+# hiding decision. If this assertion is ever "fixed" by hiding the row, the fix is
+# the regression.
+- assertVisible:
+    id: "home-guidance-entry"
+- tapOn:
+    id: "home-guidance-entry"
+
+# ── The gate's verdict, on the real screen ──────────────────────────────────
+- assertVisible:
+    id: "guidance-suppression-notice"
+
+# 🔴 THE ABSENCE ASSERTIONS. Zero philosophy reaches a suppressed reader — stated
+# per tier so a partial regression cannot pass. `guidance-content` is the
+# ScrollView that wraps all four; the tiers are named individually because a
+# future render path that skipped the wrapper would otherwise go unnoticed.
+- assertNotVisible:
+    id: "guidance-content"
+- assertNotVisible:
+    id: "guidance-tier0"
+- assertNotVisible:
+    id: "guidance-tier1"
+- assertNotVisible:
+    id: "guidance-tier2"
+- assertNotVisible:
+    id: "guidance-tier3"
+
+# ── The hand-off is OFFERED, then taken by the user ─────────────────────────
+# The app's crisis idiom is offer, never move: there is no auto-navigation here,
+# and every CrisisResources navigation in this app is a user tap.
+- assertVisible:
+    id: "guidance-open-crisis-resources"
+- tapOn:
+    id: "guidance-open-crisis-resources"
+
+- assertVisible:
+    id: "crisis-resources-screen"
+# The end of the path is a working 988 affordance, not merely the screen. A
+# handoff that lands on a crisis screen with no reachable hotline is the failure
+# this whole chain exists to prevent.
+#
+# NO scrollUntilVisible IN FRONT OF THIS, EVER — same standing crisis ruling as
+# gad7-severe.yaml's results banner. The contract is that 988 is ON SCREEN when a
+# suppressed reader arrives; a button reachable only by scrolling is a weaker
+# contract than the one this flow exists to pin, so scrolling to it would be a
+# prohibited relaxation rather than a fix.
+- assertVisible:
+    id: "crisis-call-988-button"

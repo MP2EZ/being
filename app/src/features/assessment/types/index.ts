@@ -197,6 +197,30 @@ export const CRISIS_THRESHOLDS = {
   PHQ9_CRISIS_SCORE: 15, // Support floor (see DIVERGENCE WARNING above)
   GAD7_CRISIS_SCORE: 15,
   GAD7_SEVERE_THRESHOLD: 15,
+  /**
+   * Floor of the standard GAD-7 `moderate` band (Spitzer 2006), mirroring
+   * `GAD7_SCORING_CONFIG.severityThresholds.moderate[0]` (FEAT-457).
+   *
+   * 🔴 NOT A CRISIS OR SUPPORT TRIGGER. NO DETECTION PATH MAY READ THIS.
+   *
+   * Named for the BAND, deliberately, and the name is doing safety work. This
+   * object is re-exported wholesale through `@/features/assessment/types`, so a
+   * `*_SUPPORT_*` or `*_CRISIS_*` name here would read to the next author as a
+   * ratified intervention floor at GAD-7 10 and invite a crisis banner or a
+   * `crisis_detected` emit — an unratified expansion of what counts as crisis,
+   * arrived at by nothing more than a plausible-looking constant.
+   *
+   * Its ONE consumer is the domain-guidance gate, which uses it as that surface's
+   * `gentle` floor under a rule it applies to both axes: the gentle floor is the
+   * floor of the standard severity band immediately BELOW that axis's suppression
+   * floor. PHQ-9 suppresses at 20 (`severe`) → gentle at 15 (`moderately_severe`);
+   * GAD-7 suppresses at 15 (`severe`) → gentle at 10 (`moderate`). The instrument
+   * states the band; the gate applies the policy.
+   *
+   * Pinned — value, derivation source, and the no-gap invariant against the
+   * suppression floor — by `crisis-thresholds.test.ts`.
+   */
+  GAD7_MODERATE_THRESHOLD: 10,
   PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9', // Question 9: Suicidal ideation
 } as const;
 

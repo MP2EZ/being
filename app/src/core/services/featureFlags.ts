@@ -107,7 +107,24 @@ export type FeatureFlag =
   // stays reachable when it is false.
   //
   // Ships dark (`data_export:false` in both env files and the e2e-sim profile).
-  | 'data_export';
+  | 'data_export'
+  // FEAT-457: gates the Home entry point into domain-specific guidance. Build-time,
+  // NOT runtime/PostHog, and the INFRA-199 carve-out applies at its strongest here:
+  // the surface this reveals routes a suppressed reader to CrisisResources, so its
+  // availability must never be a function of analytics consent or a network
+  // round-trip. Same shape as `voice_journal` — it gates a whole entry point, not a
+  // per-user rollout.
+  //
+  // Note this flag buys NO incident response: flipping a build-time flag needs a
+  // new build, exactly like a revert. Its value is ship-dark-then-enable — merge
+  // the code, run the safety gate and validate on device, then expose with a
+  // one-line env change rather than another code change.
+  //
+  // Ships dark (`domain_guidance:false` in `.env.production`). ⚠️ The e2e-sim EAS
+  // profile MUST set it true: `/b-close` Phase 2.5 runs a safety-tagged Maestro
+  // flow through this entry point, and a dark flag makes that flow unrunnable
+  // rather than failing loudly.
+  | 'domain_guidance';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.

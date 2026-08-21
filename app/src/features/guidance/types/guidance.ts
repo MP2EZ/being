@@ -119,6 +119,28 @@ export interface GuidanceContent {
   readonly classicalAnchor: ClassicalQuote;
 
   // ---- Dormant in P0. Declared so later phases are content-adds. ----
+  //
+  // FEAT-457 wrote a render branch for `medicalCaveat` ONLY, and the omission of
+  // the other three is deliberate — read this before "finishing the job".
+  //
+  //   · `medicalCaveat` — DONE. Unambiguous semantics (one CalloutBox), and it is
+  //     sited above Tier 1 so it can never push Tier 0's abuse/safety escape
+  //     clause down the page.
+  //   · `stageGate` — NOT written. Needs an ordering over `DevelopmentalStage`
+  //     that does not exist, and a stage producer: `setDevelopmentalStage` has
+  //     zero call sites, so any gate on it would hide content for every user.
+  //   · `lossFork` — NOT written. There is no selector anywhere in the tree for
+  //     choosing `preLoss` vs `inLoss`, and guessing wrong shows a bereaved reader
+  //     pre-loss material. That selector is a product decision, not wiring.
+  //   · `stageSequence` — NOT written, and this one is a HARD constraint rather
+  //     than a gap: reordering tiers can move Tier 0 off the top, and the crisis
+  //     pass ruled that Tier 0 renders first at every access level, always. A
+  //     dormant reorder branch would be a latent safety defect that activates the
+  //     day someone authors pain content.
+  //
+  // The forward-compatibility these fields exist for is delivered by the TYPES,
+  // which are complete. A future phase adds content plus one gated branch — still
+  // a content-add, not a schema migration.
 
   /** Gates content on the reader's self-assessed developmental stage. */
   readonly stageGate?: DevelopmentalStage;
