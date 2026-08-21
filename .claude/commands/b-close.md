@@ -508,7 +508,7 @@ fi
 | `CollapsibleCrisisButton` re-host in ANY dir | **trigger** crisis-button | Content detection (`CRISIS_HOST_CHANGED`), exempt from inert filter. |
 | Comment merely NAMING the overlay, in any file | **skip** | Not a re-host; changes no rendered output, so no flow can see it. Citing its 44pt decision as a precedent is normal. |
 | `core/services/security` (non-encryption) / `core/navigation` change | **full suite** | Cross-cutting; existing override in Step 2.5.3. |
-| `features/consent/` change | **`e2e:safety:consent-gate`** | INFRA-416. Hosts the pre-consent 988 footer; `LegalGate` is in `SUPPRESSED_ROUTES`, so the root overlay does not cover for it. |
+| `features/consent/` change | **`deeplink-consent-gate` + `reconsent-stale`** | INFRA-416. Hosts the pre-consent 988 footer (`LegalGate` is in `SUPPRESSED_ROUTES`). The dir hosts TWO gated screens: `reconsent-stale` is the only flow rendering `ReConsentScreen`, and mapping it under `consentStore.ts` alone left screen-level edits gated by a flow that never renders them. |
 | Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
 | `features/guidance/` change | **gated → crisis-button fail-safe** | INFRA-416. No flow pins its threshold routing; the gap is logged loudly rather than silently skipped. |
 | `features/practices/dailyloop/` change | **full suite** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. Both daily-loop flows lack a scoped script. |
@@ -611,7 +611,7 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/' && \
 # deeplink-consent-gate.yaml is the flow that lands on that screen and asserts the
 # affordance, so it is the correct scoped target — NOT the fail-safe crisis-button.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/consent/' && \
-  FLOWS+=("deeplink-consent-gate")
+  FLOWS+=("deeplink-consent-gate" "reconsent-stale")
 # INFRA-482: consentStore.ts is FILE-level, not the whole of src/core/stores/. It owns every
 # consent-record write, `canPerformOperation`, the INFRA-377 forging seam, and the loadConsent
 # branch order whose own comment says "THE ORDER OF THESE THREE CHECKS IS SAFETY-CRITICAL" —
