@@ -1,0 +1,282 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Legal gate: Art. 9 consent is refusable (FEAT-470 contract)"
+# e2e-certifies: 375x667
+# INFRA-494 — This flow is viewport-load-bearing and must NOT be certified `any`.
+# Its entire subject is that every consent checkbox sits BELOW THE FOLD at 375x667,
+# including the first. On a taller device the scrolling this flow exists to prove
+# does not happen, and the flow would pass without exercising anything.
+---
+# INFRA-494 safety flow — pins the FEAT-470 contract that the GDPR Art. 9(2)(a)
+# wellness-processing consent is REFUSABLE: a user may tick the three required
+# consents, leave Art. 9 unticked, and still be released through the gate.
+#
+# Until this flow, NO sim flow drove this screen's interactions at all.
+# `deeplink-consent-gate.yaml` reaches the gate and asserts the 988 footer but never
+# ticks a box; `_legal-and-onboarding.yaml`'s gate steps only ever execute on real
+# hardware via `crisis-988-dial`, because the seeded e2e build (INFRA-217) skips the
+# gate entirely. So this screen's controls were the one safety surface with no
+# simulator coverage.
+#
+# ── WHY THIS FLOW DOES NOT USE scrollUntilVisible ─────────────────────────────────
+# A previous attempt (FEAT-470, dropped before merge after six suite runs produced
+# one pass) used `scrollUntilVisible`, then `centerElement: true`, then
+# `visibilityPercentage: 100`. None of them work here, and the reason is structural
+# rather than a matter of parameters:
+#
+#   XCUITest DROPS elements outside the SCREEN but KEEPS elements that are merely
+#   outside a ScrollView's CLIP (DEBUG-465). `visibilityPercentage` measures the
+#   element against the SCREEN, not against the clip. A checkbox clipped by the
+#   ScrollView therefore reports 100% VISIBLE.
+#
+# So `scrollUntilVisible` concludes no scroll is needed and performs none, and the
+# subsequent tap lands on the screen coordinates the PINNED 988 FOOTER occupies
+# (the footer is outside the ScrollView by design — DEBUG-390). Every tap reports
+# COMPLETED and no box ever ticks. The remedy fails because the measurement the
+# remedy depends on is the thing that is broken. Do not re-attempt it.
+#
+# This flow uses explicit fixed-delta drags on the ScrollView body instead, and
+# verifies the OUTCOME of every tap rather than trusting the gesture.
+
+# ── Boot: cold start into a genuinely ungranted state ─────────────────────────────
+# Same mechanism as `deeplink-consent-gate.yaml`: `?e2eSeed=ungranted` suppresses the
+# INFRA-217 seed's writes, so the app boots from the empty state that `clearState` +
+# `clearKeychain` produce and resolves to LegalGate. The marker must be visible to
+# `Linking.getInitialURL()`, which only carries a URL on a COLD start — hence
+# stop/clear/openLink rather than `launchApp`, and the clearing must happen with no
+# intervening launch or the seed would grant consent and every assertion below would
+# be vacuous.
+- stopApp
+- clearState
+- clearKeychain
+- openLink: being://daily?e2eSeed=ungranted
+
+- extendedWaitUntil:
+    visible:
+      id: "legal-dob-picker"
+    timeout: 90000
+
+# ── AC: the 988 footer is reachable in the refusal state at the LANDING offset ────
+# Asserted BEFORE any scrolling, with no scroll action, because that is the contract:
+# LegalGate is in RootCrisisButton's SUPPRESSED_ROUTES, so this inline footer is the
+# ONLY crisis affordance a user has before accepting anything. `assertVisible`
+# defaults to 100% visibility, so this fails if either control is clipped.
+#
+# Deliberately NOT tapped: the simulator's `canOpenURL('tel:988')` returns false
+# unconditionally (INFRA-184), so a tap would assert the manual-dial fallback rather
+# than reachability. The dial contract belongs to `crisis-988-dial.yaml`
+# (safety-device-only, real hardware).
+- assertVisible:
+    id: "legal-gate-crisis-988"
+- assertVisible:
+    id: "legal-gate-crisis-text"
+
+# ── Age: turn the DOB wheel ───────────────────────────────────────────────────────
+# @react-native-picker/picker renders an inline UIPickerView whose wheel items are
+# not tappable in the accessibility tree, so swiping is the only option. Swipe
+# coords must start AND end inside the picker's own y-range (INFRA-181) or the
+# parent ScrollView claims the gesture. Anchoring on the picker's id keeps the
+# coordinates correct as the layout shifts. Years descend from the current year with
+# a null placeholder at index 0, so any few notches lands on a year >= 18.
+- tapOn:
+    id: "legal-dob-picker"
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+
+# Paired guard (INFRA-494). `assertNotVisible: "Select year..."` on its own is a
+# FALSE GUARD: the placeholder also disappears when the ScrollView steals the swipes
+# and carries the picker off the top of the screen. Asserting the picker is still
+# on screen FIRST discriminates the two, because a stolen gesture scrolls content UP
+# and XCUITest drops what leaves the screen.
+- assertVisible:
+    id: "legal-dob-picker"
+- assertNotVisible:
+    text: "Select year..."
+
+# ── Tick the THREE required consents; NEVER the Art. 9 box ────────────────────────
+# 🔴 `legal-consent-mh-processing` IS NOT TAPPED ANYWHERE IN THIS FLOW, AND THAT IS THE
+# ENTIRE POINT. Anyone "fixing" a failure here by adding that tap has deleted the test.
+#
+# THE ORACLE. Each `-check` testID is on a `<Text>✓</Text>` that renders ONLY when its
+# own state is true, so the id EXISTING is the tick. This matters because Maestro
+# reporting a tap COMPLETED does not mean the app received it: a swipe terminating
+# mid-content makes UIScrollView consume the NEXT touch as a zero-distance drag
+# (DEBUG-477), and `retryTapIfNoChange` cannot rescue it — the swallowed tap still nudges
+# the list 1-3pt, so Maestro sees a change and declines to retry. The oracle is therefore
+# "did the box tick", never "did something move".
+#
+# WHY A `repeat … while` AND NOT A FIXED TAP. One loop absorbs BOTH failure modes with a
+# single un-spoofable predicate: a swallowed touch, and a control not yet scrolled into
+# the ScrollView's visible region. The body is idempotent under the guard — once the box
+# is ticked the condition is false, the body does not run again, and the box is never
+# toggled back off.
+#
+# WHY EVERY SWIPE IS ANCHORED ON AN ELEMENT AND NEVER ON SCREEN COORDINATES. A
+# percentage corridor degrades SILENTLY: the pinned footer is ~102pt today and ~162pt at
+# xxxLarge Dynamic Type once its `flexWrap` row breaks (~24% of a 667pt screen), so a
+# hardcoded corridor eventually starts ON the footer and every swipe becomes a no-op —
+# and in the worst case a gesture at the 988 button. An element anchor cannot resolve
+# onto the footer, because the anchor is scroll CONTENT and moves with it; when it leaves
+# the hierarchy the step ERRORS instead of silently gesturing at nothing. Loud beats
+# silent. Each anchor below is the element most recently PROVEN on screen — the box whose
+# tick we just verified — so the ladder is self-validating.
+- repeat:
+    maxRuns: 4
+    while:
+      notVisible:
+        id: "legal-consent-tos-check"
+    commands:
+      - swipe:
+          from:
+            id: "legal-gate-age-help"
+          direction: UP
+      - tapOn:
+          id: "legal-consent-tos"
+- assertVisible:
+    id: "legal-consent-tos-check"
+
+- repeat:
+    maxRuns: 4
+    while:
+      notVisible:
+        id: "legal-consent-privacy-check"
+    commands:
+      - swipe:
+          from:
+            id: "legal-consent-tos"
+          direction: UP
+      - tapOn:
+          id: "legal-consent-privacy"
+- assertVisible:
+    id: "legal-consent-privacy-check"
+
+# ── The wellness disclaimer must STAY required (crisis review, INFRA-494) ─────────────
+# `legal-consent-wellness` is a crisis control, not a compliance checkbox: its label is
+# the screen's crisis instruction verbatim ("In a crisis I will call 911 or 988"), and it
+# is the only place the user is told what to do in a crisis before consenting to
+# anything. FEAT-470 has just demonstrated that boxes migrate OUT of the required set,
+# and nothing on-device would notice if this one went next.
+#
+# Pinned WITHOUT tapping Continue: the button's `accessibilityHint` is dynamic and names
+# the outstanding count (`CombinedLegalGateScreen.tsx:603-608`), so with ToS and Privacy
+# ticked, "1 remaining" says precisely that ONE required item is still outstanding and
+# that it is the wellness box. If the wellness tick ever became optional this reads "0
+# remaining" or drops the hint entirely, and this assertion goes red. Asserting it here
+# also avoids a Continue tap in a state where the gate must not release, which would put
+# a tap in the footer's y-range for no benefit.
+- assertVisible:
+    text: ".*1 remaining.*"
+
+- repeat:
+    maxRuns: 4
+    while:
+      notVisible:
+        id: "legal-consent-wellness-check"
+    commands:
+      - swipe:
+          from:
+            id: "legal-consent-privacy"
+          direction: UP
+      - tapOn:
+          id: "legal-consent-wellness"
+- assertVisible:
+    id: "legal-consent-wellness-check"
+
+# ── Reach Continue by scrolling to the CONTENT BOUNDARY, not to an element ────────────
+# Deliberately an over-swipe rather than `scrollUntilVisible: legal-gate-continue`. The
+# element-targeted form is the closed path (see the header): a Continue clipped by the
+# ScrollView still reports 100% visible, so the scroll no-ops and the tap lands on the
+# pinned footer's coordinates — i.e. on the 988 button.
+#
+# Over-swiping is deterministic where element-targeting is not, because a UIScrollView
+# CLAMPS at its content boundary: extra swipes are no-ops, so the count only has to be
+# "enough", never "exact". And `scrollContent` carries `paddingBottom: spacing[32]`
+# (CombinedLegalGateScreen.tsx:674), so at the clamp Continue sits ~32pt above the
+# ScrollView's bottom edge — which IS the footer's top edge, the footer being a flex
+# sibling outside it. Continue is therefore fully clear of the footer by construction,
+# with no visibility measurement involved anywhere.
+- swipe:
+    from:
+      id: "legal-consent-wellness"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-consent-wellness"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-consent-wellness"
+    direction: UP
+
+# ── The 988 footer survives at MAXIMUM scroll depth (crisis review, INFRA-494) ────────
+# Not in the acceptance criteria; ruled in by crisis review, and it is the strongest
+# reason this flow exists. DEBUG-390 makes two claims about this footer — reachable
+# WITHOUT scrolling, and "on screen at every scroll offset" — and only the first is
+# pinned on-device today, by `deeplink-consent-gate.yaml`, which never scrolls. This is
+# the ONLY flow that scrolls this screen, so it is the only place the second claim can
+# live. The stakes are asymmetric: LegalGate is in RootCrisisButton's SUPPRESSED_ROUTES,
+# so if the footer ever detaches at a non-zero offset the user has NO 988 affordance at
+# all, pre-consent, on the app's first screen.
+#
+# `assertVisible` is sound for these two ids specifically BECAUSE the footer is outside
+# the ScrollView: the out-of-clip-reports-visible defect that governs everything else on
+# this screen cannot apply to it.
+- assertVisible:
+    id: "legal-gate-crisis-988"
+- assertVisible:
+    id: "legal-gate-crisis-text"
+
+# The refusal is real: the Art. 9 box is still unticked at the moment the gate releases.
+# Its check glyph renders only when consented, so its ABSENCE is the contract. This is the
+# assertion a "fix" that ticks all four boxes would trip.
+- assertNotVisible:
+    id: "legal-consent-mh-processing-check"
+
+# Fail fast, WITH ATTRIBUTION, if any tap above missed its box and landed in the footer.
+# `canOpenURL('tel:')` is unconditionally false on the simulator (INFRA-184), so a tap on
+# either footer control raises the manual-dial Alert — which is modal, and would swallow
+# the Continue tap below. Without this the run would die 30s later on "gate never
+# released", pointing at the thing under test instead of at the stray tap.
+- assertNotVisible:
+    text: ".*Unable to (Call|Text).*"
+
+# ── The gate releases with Art. 9 refused — the contract this flow exists to pin ──────
+# Continue is `disabled` on `!selectedYear || !requiredConsentsTicked`
+# (CombinedLegalGateScreen.tsx:593), so nothing but three real checkbox toggles can flip
+# it. That makes gate release the un-spoofable terminal proof: a tap that missed and hit
+# the footer leaves Continue dead and the gate shut, and this flow cannot green.
+- assertVisible:
+    id: "legal-gate-continue"
+- tapOn:
+    id: "legal-gate-continue"
+
+- extendedWaitUntil:
+    notVisible:
+      id: "legal-dob-picker"
+    timeout: 30000
+# Positive half of the release proof: LegalGate being gone is necessary but not
+# sufficient — a crash also satisfies it. Onboarding is where a released gate lands when
+# `onboardingCompleted` is false, which is the state `?e2eSeed=ungranted` produces.
+# Selected by text because this control carries no testID; `_legal-and-onboarding.yaml`
+# already addresses it the same way.
+- assertVisible:
+    text: "Begin Your Practice"

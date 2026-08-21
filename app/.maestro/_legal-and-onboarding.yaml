@@ -90,6 +90,24 @@ name: "Helper: traverse LegalGate + Onboarding"
 # (placeholder still visible = no year selected, Continue would stay
 # disabled and the downstream `assertVisible: text "Home"` failure
 # would take ~90s to surface).
+#
+# INFRA-494: `assertNotVisible: "Select year..."` ALONE IS A FALSE GUARD, and it
+# passes in the failure case it was written to catch. The placeholder disappears
+# for two different reasons: the wheel turned (what we want), or the parent
+# ScrollView claimed the swipes and carried the picker off the top of the screen
+# with the placeholder still selected (what we fear). Both leave the placeholder
+# unmatched, so the guard greens either way.
+#
+# Pairing it with `assertVisible: legal-dob-picker` discriminates, and does so in
+# the direction that can actually occur here: these swipes scroll the content UP,
+# so a stolen gesture carries the picker past the TOP of the screen, and XCUITest
+# DROPS elements outside the screen — the assert fails loudly. (It would NOT
+# discriminate for content pushed below the fold: XCUITest keeps elements that are
+# merely outside a ScrollView's clip but still on screen, which is the whole
+# INFRA-494 finding. Ordering matters: assert the picker is still there BEFORE
+# concluding anything from the placeholder's absence.)
+- assertVisible:
+    id: "legal-dob-picker"
 - assertNotVisible:
     text: "Select year..."
 
@@ -111,10 +129,56 @@ name: "Helper: traverse LegalGate + Onboarding"
 # Continue. INFRA-181: Continue button sits below the consents; on smaller
 # screens it's offscreen until scrolled. scrollUntilVisible is more durable
 # than blind swipes — adapts to layout shifts across SDK upgrades.
-- scrollUntilVisible:
-    element:
-      id: "legal-gate-continue"
-    direction: DOWN
+#
+# ⚠️ RECORDED, NOT FIXED (INFRA-494, crisis review). The reasoning above is now
+# known to be unsound, and this is the DEBUG-465 shape verbatim:
+# `legal-gate-continue` is INSIDE the ScrollView (CombinedLegalGateScreen.tsx:587)
+# while the 988 footer is pinned OUTSIDE it (:638) and overlays the bottom ~102pt.
+# XCUITest keeps elements that are outside a ScrollView's clip but still on screen,
+# so a clipped Continue reports 100% visible, `scrollUntilVisible` performs NO
+# scroll, and this `tapOn` can land on the footer's coordinates instead — i.e. on
+# `legal-gate-crisis-988`. The footer grows to ~162pt at xxxLarge Dynamic Type once
+# its `flexWrap` row breaks, which widens the window.
+#
+# WHO ACTUALLY RUNS THIS. Verified rather than assumed: the only callers are
+# `crisis-988-dial.yaml` and `crisis-keyboard-accessory.yaml`, both tagged
+# `safety-device-only`. The sim flows enter through `_seeded-home.yaml`, which only
+# MENTIONS this file in a comment and never runs it. So the defect is live on REAL
+# HARDWARE and is not exercised by any simulator run — including INFRA-494's own
+# five-run validation, which cannot cover these lines.
+#
+# THE FIX, same technique INFRA-494 proves on `legal-gate-art9-optional.yaml`: scroll
+# to the CONTENT BOUNDARY instead of to an element. A UIScrollView clamps at its
+# boundary, so extra swipes are no-ops and the count only has to be "enough", never
+# "exact" — no visibility measurement is involved, which is the whole point, since
+# visibility is the broken signal here. `scrollContent` carries
+# `paddingBottom: spacing[32]` (CombinedLegalGateScreen.tsx:674), so at the clamp
+# Continue sits ~32pt above the ScrollView's bottom edge — which is the footer's top
+# edge — and is therefore clear of the footer by construction.
+#
+# Anchored on `legal-consent-mh-processing` (the last checkbox, just tapped above, so
+# it is on screen) rather than on screen coordinates: an element anchor cannot resolve
+# onto the footer and ERRORS loudly if it scrolls away, where a percentage corridor
+# would silently become a no-op as the footer grows with Dynamic Type.
+- swipe:
+    from:
+      id: "legal-consent-mh-processing"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-consent-mh-processing"
+    direction: UP
+- swipe:
+    from:
+      id: "legal-consent-mh-processing"
+    direction: UP
+# Attribution guard: if a tap above missed and landed in the footer, the manual-dial
+# Alert is now modal and would swallow the Continue tap, surfacing ~90s later as
+# "Home never appeared". Naming it here says "you tapped 988" instead.
+- assertNotVisible:
+    text: ".*Unable to (Call|Text).*"
+- assertVisible:
+    id: "legal-gate-continue"
 - tapOn:
     id: "legal-gate-continue"
 
