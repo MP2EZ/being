@@ -537,6 +537,7 @@ fi
 | `core/services/security` (non-encryption) / `core/navigation` change | **full suite** | Cross-cutting; existing override in Step 2.5.3. |
 | `features/consent/` change | **`deeplink-consent-gate` + `reconsent-stale`** | INFRA-416. Hosts the pre-consent 988 footer (`LegalGate` is in `SUPPRESSED_ROUTES`). The dir hosts TWO gated screens: `reconsent-stale` is the only flow rendering `ReConsentScreen`, and mapping it under `consentStore.ts` alone left screen-level edits gated by a flow that never renders them. |
 | Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
+| `features/journal/` change | **`journal-crisis-scan`** | DEBUG-480. Hosts `scanOnSave`, the only crisis scan of typed/corrected text, plus the in-page banner and 988 action. |
 | `features/guidance/` change | **gated → crisis-button fail-safe** | INFRA-416. No flow pins its threshold routing; the gap is logged loudly rather than silently skipped. |
 | `features/practices/dailyloop/` change | **full suite** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. Both daily-loop flows lack a scoped script. |
 | `features/practices/` change (outside `dailyloop/`) | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
@@ -641,6 +642,13 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/' && \
 # affordance, so it is the correct scoped target — NOT the fail-safe crisis-button.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/consent/' && \
   FLOWS+=("deeplink-consent-gate" "reconsent-stale")
+# DEBUG-480: features/journal hosts scanOnSave — the app's only crisis scan of text a
+# user typed or corrected — plus journal-crisis-banner and journal-crisis-call-988.
+# journal-crisis-scan.yaml is the flow that drives that surface, so it is the scoped
+# target. Without this clause a journal-only source change falls through to the
+# crisis-button fail-safe, which gates the wrong contract.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/journal/' && \
+  FLOWS+=("journal-crisis-scan")
 # INFRA-482: consentStore.ts is FILE-level, not the whole of src/core/stores/. It owns every
 # consent-record write, `canPerformOperation`, the INFRA-377 forging seam, and the loadConsent
 # branch order whose own comment says "THE ORDER OF THESE THREE CHECKS IS SAFETY-CRITICAL" —
