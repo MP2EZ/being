@@ -436,6 +436,36 @@ describe('INFRA-500 AC2: a bounded post-build settle', () => {
   });
 });
 
+describe('INFRA-500: e2e-safety.sh actually goes through the settle', () => {
+  // The one thing the jest suite cannot execute: the four lines in e2e-safety.sh that
+  // consume this helper. Running them needs a booted simulator and an installed gate
+  // target, so a typo'd function name would surface only as a live gate failure — at
+  // which point it is someone else's close that pays. Pin the seam statically instead.
+  const safety = fs.readFileSync(path.join(REPO_APP, 'scripts', 'e2e-safety.sh'), 'utf8');
+  const helper = fs.readFileSync(HELPER, 'utf8');
+
+  it('reads its host facts through a settle-capable entry point that exists', () => {
+    const m = safety.match(/HOST_FACTS="\$\((e2e_host_\w+)\s+""\)"/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toBe('e2e_host_settle');
+    // …and that name resolves to a function the sourced helper defines.
+    expect(helper).toMatch(new RegExp(`^${m[1]}\\(\\)\\s*\\{`, 'm'));
+  });
+
+  it('feeds the SAME post-settle reading to the summary and the warning', () => {
+    // Re-reading the facts for either would report a host state that the settle has
+    // already changed, which is the defect this item exists to remove, one step later.
+    expect(safety).toMatch(/e2e_host_summary_line "\$HOST_FACTS"/);
+    expect(safety).toMatch(/e2e_host_contention_warn "\$HOST_FACTS"/);
+    expect(safety).not.toMatch(/e2e_host_(summary_line|contention_warn) "\$\(/);
+  });
+
+  it('the matchers can still go red', () => {
+    expect(/HOST_FACTS="\$\((e2e_host_\w+)\s+""\)"/.test('HOST_FACTS="$(e2e_host_typo "")"')).toBe(true);
+    expect(new RegExp('^e2e_host_settle\\(\\)\\s*\\{', 'm').test('e2e_host_settle() {')).toBe(true);
+  });
+});
+
 describe('INFRA-500 AC3: a settle is a WAIT, never a refusal', () => {
   const timedOut = () =>
     run('f="$(e2e_host_settle "")"; e2e_host_contention_warn "$f"', {
