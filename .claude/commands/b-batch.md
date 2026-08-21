@@ -892,7 +892,7 @@ git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2
 # safety change merges unattended, whereas an unnecessary sim run is only friction.
 SAFETY=$(git -C /Users/max/dev/being/<worktree-dir> diff --name-only origin/development...HEAD \
   | grep -vE '(__tests__/|\.test\.|\.spec\.)' \
-  | grep -E 'app/(src/features/(assessment|consent|crisis|guidance)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  | grep -E 'app/(src/features/(assessment|consent|crisis|guidance|practices/dailyloop)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 # Two exclusions apply to the crisis content detector. The overlay can be re-hosted
 # in any SOURCE dir, which is why this check greps content rather than paths — but
 # neither excluded class can change what a flow sees, because Maestro drives the
