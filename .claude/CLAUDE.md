@@ -319,6 +319,10 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
   `grep -E "Tests:|FAIL"` would match. Assert the `Tests: N passed` line is PRESENT;
   never infer a pass from absent failures. Same family as the "never pipe the build
   command" rule — both turn a command that never ran into a green reading.
+- **A new `app/scripts/*` file needs `git add` before the npm script naming it will pass
+  (DEBUG-389).** `check-workflow-scripts.js` resolves every `npm run` target against the git
+  INDEX, not the working tree, so an unstaged new script fails `test:scripts` as an
+  unrelated-looking red. Stage the file with the package.json edit.
 
 ## Git Hooks (INFRA-155)
 
