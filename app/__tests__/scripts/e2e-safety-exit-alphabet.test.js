@@ -250,37 +250,148 @@ describe('DEBUG-496 — the AC4 sweep: every other `|| exit 1` that flattens a h
 
 // --- The falsifiability guard -------------------------------------------------------------
 
-describe('DEBUG-496 — the alphabet still has teeth (this suite can go red)', () => {
-  test('a refusal that is genuinely about the SELECTION still exits 1', () => {
-    // AC2's local control. A mixed simulator + device-only selection is refused because the
-    // INVOCATION is wrong — the operator asked for something incoherent — not because the
-    // harness could not run. If a blanket "every refusal is 2" edit ever lands, this goes
-    // red, which is what stops this file being satisfied by `exit 2` everywhere.
+describe('DEBUG-505 — every invocation error and pre-flight refusal is 2, not 1', () => {
+  // DEBUG-496 moved the five sites its ACs scoped. These are the rest: each reports a fact
+  // that is NOT "a Maestro flow was adjudicated red", and each is reachable in this sandbox
+  // without an artifact. One case per CLASS — the eight preflight_fail callers share a
+  // single exit, so the per-fact reasoning lives in a table above that function rather than
+  // in eight near-identical specs here.
+
+  test('a helper subflow named by name is an invocation error, not a regression', () => {
+    // `_`-prefixed files are includes, not runnable flows. No flow ran.
+    const r = runGate(makeSandbox({ booted: [SIM_A] }), { flows: ['_seeded-home'] });
+    expect(r.output).toMatch(/helper subflow/i);
+    expect(r.status).toBe(2);
+  }, 60000);
+
+  test('naming a flow that does not exist is an invocation error', () => {
+    // The closest call of the four: a branch that renamed a flow while /b-close's mapping
+    // still names it IS a branch fault. 2 still wins, because the alphabet is defined by
+    // whether a VERDICT EXISTS, not by who is at fault — and the exit-1 message tells the
+    // operator to debug a flow file that is not there.
+    const r = runGate(makeSandbox({ booted: [SIM_A] }), { flows: ['no-such-flow'] });
+    expect(r.output).toMatch(/no such flow/i);
+    expect(r.status).toBe(2);
+  }, 60000);
+
+  test('a mixed simulator + device-only selection is an invocation error', () => {
+    // This used to be this file's exit-1 falsifiability control. It moves because `ran` is
+    // 0 here by construction: the refusal fires during selection, before any flow starts.
+    // The control it anchored is replaced by the source-shape proof below.
     const r = runGate(makeSandbox({ booted: [SIM_A] }), {
       flows: ['q9-single-alert', 'crisis-988-dial'],
     });
     expect(r.output).toMatch(/mixed flow selection/i);
-    expect(r.status).toBe(1);
+    expect(r.status).toBe(2);
   }, 60000);
 
-  test('no `|| exit 1` survives on a line that resolves a target or claims the device', () => {
-    // A source-shape backstop for the arms an executable test cannot cheaply reach, and the
-    // pin that makes the AC4 sweep re-checkable rather than a one-time reading. Comments are
-    // stripped first (DEBUG-390): this file's own prose discusses `|| exit 1` by name.
-    const src = fs
-      .readFileSync(path.join(SCRIPTS, 'e2e-safety.sh'), 'utf8')
-      .replace(/\/\*[\s\S]*?\*\//g, '')
+  test('the app not being installed is a pre-flight refusal, not a crisis regression', () => {
+    // The likeliest of all of these to fire in practice: a fresh worktree whose gate target
+    // has not been built yet. Reported today as "a Maestro safety flow FAILED", pointing at
+    // --skip-e2e, when the remedy is one build command.
+    const r = runGate(makeSandbox({ booted: [SIM_A] }), { flows: ['q9-single-alert'] });
+    expect(r.output).toMatch(/not installed/i);
+    expect(r.status).toBe(2);
+  }, 60000);
+});
+
+// --- The falsifiability guard -------------------------------------------------------------
+
+describe('DEBUG-505 — the alphabet still has teeth (this suite can go red)', () => {
+  // WHERE THE EXECUTABLE EXIT-1 CONTROL LIVES, AND WHY NOT HERE.
+  //
+  // It used to be the mixed-selection case above, which now correctly exits 2 — and after
+  // this change NO exit-1 path is reachable from this sandbox at all, by design: 1 now means
+  // exactly "a Maestro flow was adjudicated red", which requires a real artifact and a real
+  // report. That is precisely what this file's header declines to duplicate. The executable
+  // control therefore lives in e2e-sim-build.test.js, whose runSafety() harness stages a
+  // container and a stubbed maestro, and which pins `status).toBe(1)` on genuinely red
+  // flows. Do not re-import that harness here to restore a local exit-1 case; it would test
+  // the duplicate.
+  //
+  // What replaces it is stronger than what it replaced: a proof of AC 2 itself.
+
+  test('AC 2 — no bare `exit 1` survives anywhere; the sole 1-producer is the verdict', () => {
+    // Comments are stripped first (DEBUG-390): this file and the script both discuss
+    // `exit 1` by name in prose, and a bare identifier match cannot tell a use from a
+    // mention.
+    const raw = fs.readFileSync(path.join(SCRIPTS, 'e2e-safety.sh'), 'utf8');
+    const src = raw
       .split('\n')
       .filter((l) => !/^\s*#/.test(l))
       .join('\n');
 
-    // The matcher must still fire, or "no matches" would read as a pass forever.
-    expect(/e2e_resolve_sim_device/.test(src)).toBe(true);
+    // Two canaries. Comment-stripping plus a narrow regex is exactly the combination that
+    // can silently match nothing and read as a pass forever, so prove the matcher fires and
+    // prove the stripped source is still substantial.
+    expect(src.split('\n').length).toBeGreaterThan(500);
+    expect(/\bexit\s+2\b/.test(src)).toBe(true);
 
-    const offenders = src
-      .split('\n')
-      .filter((l) => /\|\|\s*exit\s+1\b/.test(l))
-      .filter((l) => /e2e_resolve_sim_device|e2e_resolve_real_device|e2e_lock_acquire/.test(l));
+    const offenders = src.split('\n').filter((l) => /\bexit\s+1\b/.test(l));
     expect(offenders).toEqual([]);
+
+    // The verdict line is the ONLY thing that may produce 1, and `fail` is assigned 1 in
+    // exactly one place — the FAIL arm of the per-flow adjudication.
+    expect(/exit\s+"\$fail"/.test(src)).toBe(true);
+    expect(src.match(/^\s*fail=1\s*$/gm)).toHaveLength(1);
+  });
+
+  test('AC 3 — the rest of the alphabet is unchanged and still present', () => {
+    const src = fs
+      .readFileSync(path.join(SCRIPTS, 'e2e-safety.sh'), 'utf8')
+      .split('\n')
+      .filter((l) => !/^\s*#/.test(l))
+      .join('\n');
+
+    expect(/\bexit\s+3\b/.test(src)).toBe(true); // INFRA-434, target replaced
+    expect(/\bexit\s+4\b/.test(src)).toBe(false); // belongs to e2e-gate.sh (INFRA-472)
+  });
+
+  test('the target-replaced verdict is reached BEFORE the zero-flow guard', () => {
+    // Found while sweeping the 11 sites, and not covered by any AC.
+    //
+    // The flow loop `break`s when e2e_assert_gate_target fails, and that break is ABOVE
+    // `ran=$((ran + 1))` — so a target replaced before the first flow leaves ran at 0. With
+    // the zero-flow guard checked first, that fell straight through it and exited 1: for the
+    // 1-of-1 scoped run /b-close Phase 2.5 usually takes, INFRA-434's exit 3 was unreachable
+    // and a mid-suite substitution reported a crisis-flow regression instead.
+    //
+    // Ordering is the whole fix, so ordering is what this pins. Line-index comparison rather
+    // than a runtime case because reaching it live needs a peer swapping the container
+    // mid-run.
+    const lines = fs
+      .readFileSync(path.join(SCRIPTS, 'e2e-safety.sh'), 'utf8')
+      .split('\n')
+      .map((l) => (/^\s*#/.test(l) ? '' : l));
+
+    // Anchor on `exit 3` itself, which occurs exactly once. Matching the CONDITION instead
+    // is what a first draft of this test did, and it passed against the unfixed script:
+    // `GATE_TARGET_REPLACED` appears seven times — three assignments, a summary-labelling
+    // branch at the VOID arm, the receipt line — so findIndex hit an earlier occurrence and
+    // compared the wrong pair. Same trap the AC 2 canaries above exist for.
+    const exit3Idx = lines.findIndex((l) => /\bexit\s+3\b/.test(l));
+    const zeroFlowIdx = lines.findIndex((l) => /"\$ran"\s*-lt\s*1/.test(l));
+
+    expect(exit3Idx).toBeGreaterThan(-1);
+    expect(zeroFlowIdx).toBeGreaterThan(-1);
+    expect(lines.filter((l) => /\bexit\s+3\b/.test(l))).toHaveLength(1);
+    expect(exit3Idx).toBeLessThan(zeroFlowIdx);
+  });
+
+  test('`ran` counts flows that actually launched maestro', () => {
+    // Companion to the ordering fix: the increment sits below the run-directory creation, so
+    // an iteration that refuses before invoking maestro is not counted as a flow that ran.
+    // That is what makes AC 2's proof exact rather than approximately true, and it stops the
+    // receipt's flows_ran over-reporting.
+    const lines = fs
+      .readFileSync(path.join(SCRIPTS, 'e2e-safety.sh'), 'utf8')
+      .split('\n')
+      .map((l) => (/^\s*#/.test(l) ? '' : l));
+
+    const mktempIdx = lines.findIndex((l) => /RUN_DIR="\$\(mktemp -d/.test(l));
+    const ranIdx = lines.findIndex((l) => /ran=\$\(\(ran \+ 1\)\)/.test(l));
+
+    expect(mktempIdx).toBeGreaterThan(-1);
+    expect(ranIdx).toBeGreaterThan(mktempIdx);
   });
 });
