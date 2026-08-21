@@ -330,6 +330,10 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
   dies, jest does not, so a re-run puts two suites on one tree — they contend, and an edit
   made "between" runs lands mid-flight in the survivor. Reap the jest PID itself, matched on
   YOUR worktree path; `pkill -f jest` and `grep -c jest` also hit other repos' stale workers.
+- **A jest test that drives `e2e-safety.sh` end-to-end must set `E2E_HOST_SETTLE_MAX_S=0`.**
+  The host-contention settle waits up to 120s for a busy machine to go quiet, so the suite's
+  runtime becomes a function of peer load and blows its own `spawnSync` timeout — a kill, not
+  a failure, so it reads as a defect in the code under test.
 - **A new `app/scripts/*` file needs `git add` before the npm script naming it will pass
   (DEBUG-389).** `check-workflow-scripts.js` resolves every `npm run` target against the git
   INDEX, not the working tree, so an unstaged new script fails `test:scripts` as an
