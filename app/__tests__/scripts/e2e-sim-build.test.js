@@ -1621,7 +1621,7 @@ describe('INFRA-405 — e2e-safety.sh device selection', () => {
   test('refuses when a second simulator booted between the build and the gate run', () => {
     const built = runScript({ bootedDevices: ONE });
     const r = runSafety(built, { booted: TWO });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.flowsRun).toBe(0);
     expect(r.output).toMatch(/ambiguous/i);
   });
@@ -1682,7 +1682,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
     // behaviour did exactly that.
     const built = runScript({ bootedDevices: ONE, attachedDevices: [] });
     const r = runSafety(built, { flows: ['crisis-988-dial'], booted: TWO });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.flowsRun).toBe(0);
     expect(r.output).toMatch(/device-only/i);
     // Never runs maestro at all, and never names a simulator as the target.
@@ -1706,7 +1706,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
   test('TWO attached devices refuse as AMBIGUOUS and list the candidates', () => {
     const built = runScript({ attachedDevices: TWO_DEVICES });
     const r = runSafety(built, { flows: ['crisis-988-dial'] });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.flowsRun).toBe(0);
     expect(r.output).toMatch(/ambiguous/i);
     expect(r.output).toMatch(/DEV-1111/);
@@ -1731,7 +1731,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
       flows: ['crisis-988-dial'],
       env: { E2E_DEVICE_UDID: 'DEV-9999' },
     });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.output).toMatch(/not among the attached devices/i);
     expect(r.trace).not.toMatch(/maestro test/);
   });
@@ -1759,7 +1759,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
     // is the normal shape of a failure and would otherwise read as "nothing attached".
     const built = runScript({ devicectlFails: true });
     const r = runSafety(built, { flows: ['crisis-988-dial'] });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.output).toMatch(/could not enumerate/i);
     expect(r.output).not.toMatch(/no eligible iPhone attached/i);
     expect(r.trace).not.toMatch(/maestro test/);
@@ -2213,7 +2213,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
       }),
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).not.toMatch(/all safety flows passed/);
     expect(r.output).toMatch(/replaced/i);
     // Attribution is free — the marker already carries repoRoot and branch.
@@ -2264,7 +2264,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
       }),
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     // The two arms are distinguishable on purpose: an uninstall leaves NO marker, so
     // "name the replacing worktree" is unsatisfiable for it and must not be claimed.
     expect(r.output).toMatch(/vanished|gone|absent/i);
@@ -2327,7 +2327,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
 
     // A top-of-loop-only check would report this 1-of-1 run — the common /b-close
     // per-flow shape — as a clean pass.
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).not.toMatch(/all safety flows passed/);
   }, 60000);
 
@@ -2343,7 +2343,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
       env: { E2E_REQUIRE_CLEAN_PROVENANCE: '1' },
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     // The marker change bounds a WINDOW, not an instant — the substitution could have
     // happened at any point during flow 1 — so no completed flow survives as evidence.
     expect(r.output).toMatch(/VOID|inconclusive/i);
@@ -2442,7 +2442,7 @@ describe('INFRA-466 — a failed container re-resolve is a refusal, not a fallba
 
     // On unmodified `development` this suite runs to completion and reports PASS —
     // that is the fail-open, and this assertion is what makes it visible.
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).not.toMatch(/all safety flows passed/);
     expect(r.flowsRun).toBe(1);
   }, 60000);
@@ -2492,7 +2492,7 @@ describe('INFRA-466 — a failed container re-resolve is a refusal, not a fallba
       }),
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).toMatch(/vanished/i);
   }, 60000);
 });
