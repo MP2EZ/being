@@ -84,12 +84,48 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
     'utf8',
   );
 
+  /**
+   * Comment-stripped source (DEBUG-390's own lesson, applied to this block).
+   *
+   * This block asserted against RAW source and survived on luck. The screen
+   * deliberately names anti-patterns in prose to warn the next reader off them —
+   * `accessibilityViewIsModal`, and a bare `Linking.openURL('tel:988')` — and the
+   * negative matcher below is exactly the shape that goes red on correct code the
+   * moment such a warning is written. FEAT-470 added several explanatory comments
+   * to this screen, so the latent hazard becomes a live one. Strip first.
+   */
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+  /**
+   * The main render branch, bounded at the stylesheet.
+   *
+   * Bounding matters: an unbounded `slice(lastIndexOf('  return ('))` runs to EOF
+   * and therefore swallows `const styles`, where `crisisFooter:` is DEFINED. The
+   * `toContain('crisisFooter')` assertion below would pass with the footer JSX
+   * deleted outright. It has teeth only because of the accessibilityLabel checks —
+   * so bound the slice and let the structural assertion stand on its own.
+   */
+  const mainBranch = (() => {
+    const start = code.lastIndexOf('  return (');
+    const stylesAt = code.indexOf('const styles = StyleSheet.create(', start);
+    return code.slice(start, stylesAt === -1 ? undefined : stylesAt);
+  })();
+
   test('the MAIN branch keeps its always-visible crisis footer', () => {
-    const mainBranchStart = source.lastIndexOf('  return (');
-    const mainBranch = source.slice(mainBranchStart);
     expect(mainBranch).toContain('crisisFooter');
     expect(mainBranch).toContain('accessibilityLabel="Call 988"');
     expect(mainBranch).toContain('accessibilityLabel="Text Crisis Line"');
+  });
+
+  test('the bounded main-branch slice excludes the stylesheet', () => {
+    // Proves the bound above actually works. Without this, a future refactor that
+    // renamed the stylesheet const would silently restore the unbounded slice and
+    // re-hollow the assertion above.
+    expect(mainBranch.length).toBeGreaterThan(200);
+    expect(mainBranch).not.toContain('StyleSheet.create(');
+    expect(mainBranch).not.toContain('crisisFooter: {');
   });
 
   test('DEBUG-390: the crisis footer is pinned OUTSIDE the ScrollView', () => {
@@ -102,13 +138,78 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
     // lives in
     // src/features/consent/screens/__tests__/CombinedLegalGateScreen.accessibility.test.tsx
     // and is the authoritative one; this is the copy that runs in precommit.
-    const mainBranch = source.slice(source.lastIndexOf('  return ('));
     const scrollViewCloses = mainBranch.indexOf('</ScrollView>');
     const footerOpens = mainBranch.indexOf('styles.crisisFooter}');
 
     expect(scrollViewCloses).toBeGreaterThan(-1);
     expect(footerOpens).toBeGreaterThan(-1);
     expect(footerOpens).toBeGreaterThan(scrollViewCloses);
+  });
+
+  /**
+   * FEAT-470 — the footer is UNCONDITIONAL, and the Art. 9 state cannot reach it.
+   *
+   * WHY THESE ARE NEW. Every assertion above is a substring or an ordering check, so
+   * all of them pass against a footer wrapped in a conditional. FEAT-470 introduced
+   * new conditional state to this screen (the Art. 9 tick, now optional, plus the
+   * refusal copy), which makes "the footer renders unconditionally" a property worth
+   * asserting for the first time rather than an obvious one.
+   *
+   * The stakes: `LegalGate` is in `RootCrisisButton.SUPPRESSED_ROUTES`, so the root
+   * overlay deliberately does not cover this screen. This footer is the ONLY crisis
+   * affordance a user has before accepting anything. A footer that renders for some
+   * consent states and not others is a zero-988 window by construction.
+   */
+  const footerRegion = (() => {
+    const from = mainBranch.indexOf('</ScrollView>');
+    const to = mainBranch.indexOf('</SafeAreaView>');
+    return mainBranch.slice(from, to === -1 ? undefined : to);
+  })();
+
+  test('FEAT-470: nothing conditional sits between the ScrollView and the footer', () => {
+    // The gap where a `{someState && (` wrapper would be introduced. Kept narrow on
+    // purpose: this is the span whose contents decide whether the footer mounts.
+    const gap = footerRegion.slice(0, footerRegion.indexOf('styles.crisisFooter}'));
+
+    expect(gap).not.toMatch(/&&/);
+    expect(gap).not.toMatch(/\?[^.]/); // ternary, but not optional chaining
+    expect(gap.length).toBeGreaterThan(0);
+  });
+
+  test('FEAT-470: the Art. 9 consent state never reaches the footer subtree', () => {
+    // The assertion that directly discharges FEAT-470's red AC. Mechanically proves
+    // the optional consent cannot gate, relabel or reorder the crisis affordance —
+    // no reasoning about JSX required.
+    expect(footerRegion).not.toContain('mentalHealthProcessingConsented');
+    expect(footerRegion).not.toContain('requiredConsentsTicked');
+  });
+
+  test('FEAT-470: no sibling was appended after the footer', () => {
+    // A view added AFTER the footer competes for the same fixed vertical budget as
+    // the footer itself and clips it at large Dynamic Type — the same failure mode
+    // DEBUG-390 fixed, arriving from the other side.
+    const afterFooter = footerRegion.slice(footerRegion.lastIndexOf('</View>'));
+    expect(afterFooter).not.toMatch(/<View/);
+    expect(afterFooter).not.toMatch(/<Text/);
+  });
+
+  test('FEAT-470: the footer-region matchers can actually fail', () => {
+    // DEBUG-390's bar: a comment-stripped source plus narrow regexes is exactly the
+    // combination that can silently match nothing. Prove each matcher still fires
+    // against a literal known-bad string, and that the slices are non-trivial.
+    expect(footerRegion.length).toBeGreaterThan(100);
+    expect(code.length).toBeGreaterThan(1000);
+
+    expect(/&&/.test('{!refused && (')).toBe(true);
+    expect(/\?[^.]/.test('{refused ? null : (')).toBe(true);
+    expect('<View style={styles.crisisFooter}>'.includes('mentalHealthProcessingConsented')).toBe(
+      false,
+    );
+    expect(
+      '{mentalHealthProcessingConsented && <View style={styles.crisisFooter}>'.includes(
+        'mentalHealthProcessingConsented',
+      ),
+    ).toBe(true);
   });
 
   test('the under-age branch keeps its own crisis section', () => {
@@ -121,8 +222,18 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
 
   test('both crisis blocks route through the guarded dial helper', () => {
     // DEBUG-314: a bare Linking.openURL fails silently when the scheme cannot open.
-    expect(source).toContain("openCrisisUrl('tel:988'");
-    expect(source).not.toMatch(/Linking\.openURL\(\s*['"]tel:988/);
+    // Asserted against the COMMENT-STRIPPED source: the negative matcher would
+    // otherwise go red the moment anyone documents this anti-pattern in prose, which
+    // is a house convention on this very screen.
+    expect(code).toContain("openCrisisUrl('tel:988'");
+    expect(code).not.toMatch(/Linking\.openURL\(\s*['"]tel:988/);
+  });
+
+  test('the guarded-dial matcher can still fail', () => {
+    // Pairs with the comment-stripping above: proves the negative assertion is not
+    // vacuous now that it runs against a transformed string.
+    expect(/Linking\.openURL\(\s*['"]tel:988/.test("Linking.openURL('tel:988')")).toBe(true);
+    expect(/Linking\.openURL\(\s*['"]tel:988/.test("openCrisisUrl('tel:988')")).toBe(false);
   });
 });
 

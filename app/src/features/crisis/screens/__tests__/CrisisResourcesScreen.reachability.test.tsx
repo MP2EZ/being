@@ -8,9 +8,10 @@
  * affordance on the screen. This is also the screen every other crisis affordance in the
  * app routes to, which makes it the worst possible place for the invariant to fail.
  *
- * IT DID FAIL. Measured on a Release build (provenance 505fc417, clean tree) via
- * `maestro hierarchy` real bounds — not screenshots, per DEBUG-403, which records two
- * wrong fixes diagnosed from renders that were pixel-identical:
+ * IT DID FAIL — PRE-DEBUG-432, SUPERSEDED. Measured on a Release build
+ * (provenance 505fc417, clean tree) via `maestro hierarchy` real bounds — not
+ * screenshots, per DEBUG-403, which records two wrong fixes diagnosed from
+ * renders that were pixel-identical:
  *
  *   iPhone SE 3   375x667  default type  fold y=86..667   button y=746..797   FAIL  -130pt
  *   iPhone SE 3   375x667  AX5           fold y=86..667   button y=3926..4095 FAIL  -3428pt
@@ -20,6 +21,20 @@
  * Three of four configurations failed, including the small phone at DEFAULT Dynamic Type,
  * where the button was not merely clipped but absent from the accessibility tree — 0% of
  * a 51pt tap target on screen, 79pt of dead space between the fold and its top edge.
+ *
+ * POST-FIX, RE-MEASURED — DEBUG-488, 2026-08-20 (Release, provenance MATCH_CLEAN at tree
+ * b7260565). The rows above describe the OLD position and must not be read as current.
+ * Bar is 100% of the control inside the fold, not 44pt: 44 is a touch-target number, and
+ * a clipped element's centre can leave the visible region while XCUITest still finds it.
+ *
+ *   iPhone SE 3   375x667  default type  fold y=86..667   button y=595..651  PASS  (h=56)
+ *   iPhone SE 3   375x667  AX5           fold y=86..667   button y=465..651  PASS  (h=186)
+ *   16 Pro        402x874  default type  fold y=128..874  button y=768..824  PASS  (h=56)
+ *   16 Pro        402x874  AX5           fold y=128..874  button y=638..824  PASS  (h=186)
+ *
+ * Four of four inside the fold, and the control held identical bounds across a full
+ * scroll. The large device is a 16 Pro (402x874), not the 16 Pro Max (440x956) of the
+ * pre-fix rows, so the two tables are not row-for-row comparable on that line.
  *
  * WHY THIS SUITE EXISTS RATHER THAN A MAESTRO ASSERTION ALONE. `.maestro/
  * deeplink-consent-gate.yaml` has asserted `crisis-call-988-button` visible on this exact

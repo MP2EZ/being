@@ -424,7 +424,7 @@ and repeats it beside the summary. Every verdict line also carries that flow's w
 so a 45-minute "pass" reads as untrustworthy rather than green:
 
 ```
-🖥️  Host at gate start: load1 3.20 / 10 cpu (0.32x) · 0 peer maestro JVM · 0 peer driver · 0 other xcodebuild
+🖥️  Host at flow start: load1 3.20 / 10 cpu (0.32x) · 0 peer maestro JVM · 0 peer driver · 0 other xcodebuild
     PASS  crisis-button-reachability  (1m57s)
 ```
 
@@ -433,8 +433,35 @@ documents: a pre-flight that refuses on a judgement the operator disagrees with 
 `--skip-e2e` reflex the gate exists to prevent, and a false "someone else is running" means
 the human does not run the gate at all — failing toward *not testing*, which DEBUG-392
 recorded happening in this exact shape. Tune the threshold with
-`E2E_HOST_LOAD_WARN_RATIO` (default `1.0`, i.e. load ≥ `hw.ncpu`). It is advisory reporting
-only and takes no lock; INFRA-472 owns any actual lease.
+`E2E_HOST_LOAD_WARN_RATIO` (default `0.7`). It is advisory reporting only and takes no
+lock; INFRA-472 owns any actual lease.
+
+**The threshold was 1.0x and that was too high (INFRA-500).** It was justified as splitting
+a band that was "empty in the measurements", but DEBUG-473's sample is bimodal — idle at
+0.3-0.5x, catastrophic peer contention at 30-48x — and never observed the moderate band a
+gate's own build produces. INFRA-490's per-flow telemetry did: at **0.91x**, scroll-bound
+flows stretched 35-88% and `daily-loop-quick-depth` failed at `scrollUntilVisible`, while
+fixed-duration flows did not move at all. Nothing warned, because `0.91 < 1.0` and the
+build had already exited so the peer count was 0. Two things not to unlearn: the stretch is
+*selective* (scroll budgets, not wall-clock generally), and elapsed time *hides* it on the
+runs that fail — that FAIL took 61s against 64s/65s passes, because it aborted at the blown
+budget instead of completing. The full re-derivation is in `e2e-host-contention.sh`'s
+header.
+
+**The gate now settles before flow 1, rather than only reporting (INFRA-500).** The
+documented recipe runs `npm run e2e:safety:gate` and then the flows back to back, so the
+load it warns about is usually *its own build's*, decaying on a ~60s time constant. So
+`e2e-safety.sh` waits — up to `E2E_HOST_SETTLE_MAX_S` (default `120`, polling every
+`E2E_HOST_SETTLE_INTERVAL_S`, `0` disables) — for the ratio to fall below the threshold,
+then says which happened and runs either way. The host line you see is the *post*-settle
+reading, i.e. the load the flows actually ran under.
+
+**A settle is a wait, not a refusal, and must never become one.** Every flow still runs,
+the exit alphabet is unchanged, and nothing is excluded — the reasoning above against
+refusing is not overturned by it. A **peer's** load is never waited out, because a peer
+mid-build holds the host for as long as its build takes and no useful bound covers that;
+the wait ends immediately and the warning does the work. Each settle is recorded to the
+INFRA-490 log as `"kind":"settle"` so the next recalibration has a sample.
 
 To check by hand before starting a build, identify processes by executable, never by
 command line — an `args` match also matches the shell that mentions it (DEBUG-392):
@@ -456,6 +483,63 @@ scroll budget is a machine on which that flow's crisis assertions — the ~10s `
 standing in for the <3s 988 SLA, the 3000ms `notVisible: "Unable to Call"` windows — are not
 trustworthy either. Contention must be **visible**, never absorbed: the run reports it
 loudly and lets the operator decide, rather than failing closed on it.
+
+## Lease waits and host load are recorded, not just printed (INFRA-490)
+
+Three locks exist — INFRA-436 (simulator), INFRA-463 (gate worktree), INFRA-472 (the pair)
+— and until INFRA-490 none of them recorded anything, so *how often does a session actually
+wait, and for how long?* had no answer. Each lock was filed on one captured incident: real,
+but an incident is not a rate. INFRA-476 computed the host reading above and then discarded
+it.
+
+Every `e2e_lock_acquire` now appends one JSON line, and so does every flow that runs:
+
+```
+/tmp/being-e2e-telemetry/events.jsonl
+{"epoch":1755647051,"kind":"lock","ns":"sim","key":"5C81…","outcome":"acquired","waited_s":0,"contended":false,"pid":52118,"label":"gate build"}
+{"epoch":1755647312,"kind":"flow","flow":"crisis-button-reachability","verdict":"PASS","elapsed_s":117,"viewport":"402x874","pid":52118,"peer_jvms":0,…,"ratio":0.32}
+```
+
+Read it with one command — `npm run e2e:safety:telemetry` (append `-- <file>` for a log
+elsewhere):
+
+```
+📊 e2e gate telemetry — /tmp/being-e2e-telemetry/events.jsonl
+   lock acquires   12    (contended 6 = 50.0%; inherited 1 not counted)
+   wait median     0s     p90  61s     max  1800s
+   outcomes        acquired 10 · reclaimed-stale 1 · refused 1 · inherited 1
+   flow runs       2    (PASS 1 · FAIL 1)
+   flow median     117s     p90  912s     max  912s
+```
+
+Four things about it are load-bearing:
+
+- **The path is outside every worktree, and that is correctness, not tidiness.**
+  `e2e-provenance.js` fingerprints untracked file contents repo-wide, so a log under the
+  repo would make the next verify return `MISMATCH` and force a rebuild on every gate run.
+  Not `$TMPDIR` either — macOS gives each user a private one, and telemetry two sessions
+  cannot both append to answers the wrong question. `/tmp/being-e2e-locks` is the sibling
+  precedent.
+- **A zero-wait acquire is recorded.** Without the denominator a wait distribution has no
+  population, and the answer would always look like "waits are long" because only waits
+  would be in it.
+- **A wait is timed from the first lost `mkdir`**, not from function entry. `date +%s` is
+  second-granular and the acquire path spends ~100 ms in its own `ps` scans, so anchoring
+  at entry stamped phantom 1-second waits onto the overwhelmingly-uncontended population —
+  directly on top of the median this exists to measure.
+- **`inherited` is excluded from the contended rate.** A child honouring its parent's lease
+  (INFRA-472) could never have waited; counting it would drag the rate toward zero by
+  construction.
+
+Nothing locks the log: a single `printf` of a sub-`PIPE_BUF` line to an `O_APPEND` file is
+atomic, so peers interleave records but never characters — and a lock around the record of
+lock contention would be circular. Writes fail open and are silenced with
+`E2E_TELEMETRY=0`; a telemetry writer that can fail an acquire would make the gate less
+reliable in the name of measuring its reliability.
+
+This is a **two-week collection feeding one decision** (INFRA-491: whether parallel gate
+runs are possible on this machine). Append-only, no rotation, no aggregation at write time.
+Delete the file once that decision is recorded.
 
 ## Which iOS runtime is a gate result allowed to be earned on? (INFRA-429)
 

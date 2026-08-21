@@ -83,7 +83,7 @@ const styles = StyleSheet.create({
   answer: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     fontStyle: 'italic',
     lineHeight: typography.bodyRegular.size * 1.4,
   },

@@ -34,7 +34,10 @@
 # `maestro` directly.
 set -u
 
-cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
+# DEBUG-496 — exit 2 ("harness could not complete"), not 1. The alphabet is stated in full
+# where the flows run, below; the rule it encodes is that 1 is reserved for a Maestro flow
+# that went red, and nothing that fails before a flow can have produced one.
+cd "$(dirname "$0")/.." || exit 2 # -> app/ (npm already sets cwd=app; belt + suspenders)
 
 # INFRA-405 — the same device resolution e2e-sim-build.sh uses. Shared rather than
 # duplicated so "both scripts resolve identically" holds by construction. Note this file
@@ -71,6 +74,15 @@ cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + su
 # enough for the result to mean anything. It warns and never refuses.
 # shellcheck source=scripts/e2e-host-contention.sh
 . "$(dirname "$0")/e2e-host-contention.sh"
+
+# INFRA-490 — the host reading and each flow's wall-clock are written down rather than
+# printed and dropped. Sourced explicitly rather than relied on transitively via
+# e2e-sim-lock.sh: a reordering of the sources above should not silently stop the gate
+# recording itself.
+if [ -f "$(dirname "$0")/e2e-telemetry.sh" ]; then
+  # shellcheck source=scripts/e2e-telemetry.sh
+  . "$(dirname "$0")/e2e-telemetry.sh"
+fi
 
 MAESTRO_DIR=".maestro"
 
@@ -237,16 +249,35 @@ GATE_REPLACED_AT=""
 GATE_REPLACED_KIND=""
 GATE_REPLACED_BY=""
 
+# DEBUG-496 — a resolution refusal is exit 2, and specifically NOT the resolver's own code.
+#
+# These two lines carried `|| exit 1`, which reported "a Maestro safety flow FAILED — this
+# is a regression" for a machine with two simulators booted. It fired live during the
+# MAINT-487 close on 2026-08-20: the resolver refused CORRECTLY, the branch was fine, and
+# the gate blamed the branch. That red is the documented pressure that produces a reflexive
+# `--skip-e2e`, so the mislabel costs more than its size suggests.
+#
+# Note what is NOT done here: the resolver's status is DISCARDED, deliberately. Both
+# resolvers carry their own private alphabet (1 could-not-enumerate / 2 none-present /
+# 3 ambiguous-or-bad-override) which collides numerically with this script's while meaning
+# something unrelated — propagating a resolver 3 would announce INFRA-434's "a peer replaced
+# the installed binary mid-suite" for what is actually "two simulators are booted". Every
+# refusal arm is ONE fact here: no target, so no flow ran, so no verdict exists. That is 2.
+# `|| exit 2` is therefore the whole fix; capturing the status would be a more elaborate way
+# to be wrong.
 if [ "$DEVICE_ONLY" != "1" ]; then
-  SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 1
+  SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 2
 
   # DEBUG-469 — refuse a non-default content size BEFORE taking the simulator lease, so a
-  # misconfigured device fails fast instead of holding a shared resource. Exit 1 matches
-  # every other pre-flight refusal in this script; the exit alphabet is frozen (INFRA-486)
-  # and the message is what distinguishes this from a flow regression.
-  e2e_assert_default_content_size "$SIM_UDID" || exit 1
+  # misconfigured device fails fast instead of holding a shared resource. Exit 2, not 1:
+  # content size is device-global host state a peer session or an earlier run can leave
+  # behind, so it flattens a HARNESS fact (no valid verdict is producible — every layout
+  # assertion would measure a text size the app does not ship) and is not a statement about
+  # this branch. Blaming the branch here is exactly the reflexive-`--skip-e2e` pressure
+  # DEBUG-496 removed from the resolver refusal one line above.
+  e2e_assert_default_content_size "$SIM_UDID" || exit 2
 else
-  DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 1
+  DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 2
 fi
 
 # INFRA-478 — describe the resolved device in THIS shell.
@@ -275,7 +306,10 @@ fi
 # recorded owner, so an early `exit 1` from a pre-flight that ran before the acquire cannot
 # release a peer's lock.
 if [ -n "$SIM_UDID" ]; then
-  e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "safety flows" || exit 1
+  # DEBUG-496 — same flattening, found by the AC4 sweep rather than by chance. A lock the
+  # gate cannot take means a peer holds the device (or the lock root is unwritable): no
+  # flow ran, so this is 2. Reporting 1 blamed the branch for a machine that was busy.
+  e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "safety flows" || exit 2
   trap 'e2e_lock_release "$SIM_UDID"' EXIT INT TERM
 fi
 
@@ -575,7 +609,10 @@ elif [ -n "$DEVICE_UDID" ]; then
   MAESTRO_DEVICE_ARGS=(--device "$DEVICE_UDID")
 else
   echo "❌ no target resolved — refusing to let maestro choose its own device." >&2
-  exit 1
+  # DEBUG-496 — a device-resolution refusal, so 2 like the two above. Bare rather than
+  # `|| exit 1`, which is why the sweep had to be read for the FACT each exit reports and
+  # not merely grepped for the idiom that first exposed it.
+  exit 2
 fi
 
 # DEBUG-422 — pre-approve the URL scheme(s) the flows open, before flow 1.
@@ -740,9 +777,19 @@ e2e_reset_drivers "" "pre-flight"
 # Deliberately NOT scoped under `[ -n "$SIM_UDID" ]` the way the driver reset is: host
 # starvation hurts a device-only run identically, and unlike the reset nothing is killed
 # here, so the empty-UDID widening hazard does not apply.
-HOST_FACTS="$(e2e_host_contention_facts "")"
+#
+# INFRA-500 — SETTLE FIRST, then read. The documented recipe is `npm run e2e:safety:gate`
+# followed immediately by the flows, and the gate's own 90s-to-21min build leaves the host
+# at several times its idle load. That is the reliably reproducible contention on this
+# machine, and unlike a peer's it decays on its own, so a bounded wait removes it. The
+# reading below is therefore the POST-settle one — the load the flows will actually run
+# under, not the one they inherited. `e2e_host_settle` never skips a flow; see its header.
+HOST_FACTS="$(e2e_host_settle "")"
 e2e_host_summary_line "$HOST_FACTS"
 e2e_host_contention_warn "$HOST_FACTS"
+if command -v e2e_telemetry_settle >/dev/null 2>&1; then
+  e2e_telemetry_settle "$HOST_FACTS"
+fi
 
 flow_idx=0
 FLOW_TOTAL=${#FLOWS[@]}
@@ -837,7 +884,8 @@ for f in "${FLOWS[@]}"; do
 
   wait "$child" 2>/dev/null
   rc=$?
-  flow_elapsed="$(e2e_fmt_elapsed "$(( $(date +%s) - flow_t0 ))")"
+  flow_secs=$(( $(date +%s) - flow_t0 ))
+  flow_elapsed="$(e2e_fmt_elapsed "$flow_secs")"
   kill -TERM -"$watchdog" 2>/dev/null || kill -TERM "$watchdog" 2>/dev/null || true
   wait "$watchdog" 2>/dev/null || true
 
@@ -856,6 +904,7 @@ for f in "${FLOWS[@]}"; do
   # `${VERDICT:-…}` default matters because this script runs under `set -u` without `-e`,
   # so a failed `node` leaves VERDICT empty and empty must refuse.
   if [ "$timed_out" = "1" ]; then
+    flow_outcome=TIMEOUT
     timeouts=$((timeouts + 1))
     # Report the per-command adjudication ALONGSIDE the timeout rather than instead of
     # it: an all-COMPLETED run that had to be killed is still not merge evidence, but
@@ -864,9 +913,11 @@ for f in "${FLOWS[@]}"; do
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     echo "⏱️  $name exceeded ${FLOW_TIMEOUT_S}s and was killed. Evidence: $RUN_DIR" >&2
   elif [ "$rc" -eq 0 ] && [ "$VERDICT" = "PASS" ]; then
+    flow_outcome=PASS
     results+=("PASS  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown})")
     rm -rf "$RUN_DIR"
   else
+    flow_outcome=FAIL
     if [ "$rc" -ne 0 ] && [ "$VERDICT" = "PASS" ]; then
       echo "⚠️  $name: the two verdict sources disagree — maestro exited $rc but its JUnit" >&2
       echo "   report is clean. That is a harness bug and deserves its own work item; it is" >&2
@@ -877,6 +928,15 @@ for f in "${FLOWS[@]}"; do
     fail=1
     echo "   Evidence kept: $RUN_DIR" >&2
   fi
+
+  # INFRA-490 — this flow's wall-clock and verdict, against the host reading taken at gate
+  # start. DEBUG-473 measured the same unchanged tree at 1m57s idle and 45m20s contended,
+  # and nothing recorded either; without the pair on one line the correlation has to be
+  # reconstructed from memory. Written for every flow that RAN — a suite later voided by
+  # INFRA-434 still leaves its rows, because how long a flow took under a given load is a
+  # real measurement whatever the provenance verdict says about its verdict.
+  e2e_telemetry_flow "$name" "$flow_outcome" "$flow_secs" \
+    "${E2E_SIM_VIEWPORT:-unknown}" "$HOST_FACTS"
 
   # Reset the XCUITest driver between flows so the next flow starts fresh
   # (docs/testing/e2e-maestro.md "driver wedged" note). ~8s lets it settle.

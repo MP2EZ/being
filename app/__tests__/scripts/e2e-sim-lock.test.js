@@ -93,6 +93,9 @@ function psTable(rows) {
  */
 function runHelper(script, { table = '', lockRoot, env = {} } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infra436-'));
+  // INFRA-490 — every acquire now appends a telemetry row. Pin it to a throwaway file so
+  // the suite neither pollutes the shared /tmp log nor reads a peer session's rows.
+  const telemetryFile = path.join(dir, 'telemetry.jsonl');
   const stub = path.join(dir, 'ps');
   // Fixture rows FIRST, then the REAL process table appended. The helper has to find this
   // very bash process in `ps` to record itself as owner, so a purely synthetic table would
@@ -103,14 +106,24 @@ function runHelper(script, { table = '', lockRoot, env = {} } = {}) {
 
   const res = spawnSync('/bin/bash', ['-c', `. "${HELPER}"; ${script}`], {
     encoding: 'utf8',
-    env: { ...process.env, PATH: `${dir}:${process.env.PATH}`, E2E_LOCK_ROOT: root, ...env },
+    env: {
+      ...process.env,
+      PATH: `${dir}:${process.env.PATH}`,
+      E2E_LOCK_ROOT: root,
+      E2E_TELEMETRY_FILE: telemetryFile,
+      ...env,
+    },
   });
+  const telemetry = fs.existsSync(telemetryFile)
+    ? fs.readFileSync(telemetryFile, 'utf8').split('\n').filter(Boolean).map(l => JSON.parse(l))
+    : [];
   fs.rmSync(dir, { recursive: true, force: true });
   return {
     status: res.status,
     stdout: (res.stdout || '').trim(),
     stderr: (res.stderr || '').trim(),
     root,
+    telemetry,
   };
 }
 
@@ -670,5 +683,124 @@ describe('the liveness check can still go red against a REAL live process', () =
       env: { ...process.env },
     });
     expect((res.stdout || '').trim()).toBe('LIVE');
+  });
+});
+
+// --- INFRA-490: the lease wait is written down -------------------------------------
+
+describe('every acquire records what it cost, so waits are a distribution not an anecdote', () => {
+  it('records a zero-wait acquire — the denominator, without which no rate exists', () => {
+    const r = runHelper(`e2e_lock_acquire "${UDID}" 1`, { table: psTable([LIVE_HOLDER]) });
+    expect(r.status).toBe(0);
+    expect(r.telemetry).toHaveLength(1);
+    expect(r.telemetry[0]).toMatchObject({
+      kind: 'lock', ns: 'sim', key: UDID, outcome: 'acquired', waited_s: 0, contended: false,
+    });
+  });
+
+  it('never reports a phantom wait on an uncontended acquire', () => {
+    // The clock is anchored at the FIRST LOST mkdir, not at function entry. Anchored at
+    // entry, `date +%s`'s one-second granularity turned the ~100ms this function spends in
+    // its own two `ps` scans into a 1s wait whenever it straddled a second boundary. Almost
+    // the entire population is uncontended, so that noise would sit directly on the median
+    // and p90 the log exists to produce. Repeated because it only fired on the boundary.
+    const waits = [];
+    for (let i = 0; i < 6; i++) {
+      const r = runHelper(`e2e_lock_acquire "${UDID}" 1`, { table: psTable([LIVE_HOLDER]) });
+      expect(r.status).toBe(0);
+      waits.push(r.telemetry[0].waited_s);
+    }
+    expect(waits).toEqual([0, 0, 0, 0, 0, 0]);
+  });
+
+  it('counts a reclaim as contended even when the stale record named nobody', () => {
+    // A half-written owner file (killed between mkdir and write) leaves no pid to attribute,
+    // and the reclaim can finish inside the same second — so neither a holder nor a non-zero
+    // wait is available. `reclaimed-stale` is only reachable by having lost a mkdir, which
+    // is what keeps it out of the uncontended bucket.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra490-halfwritten-'));
+    fs.mkdirSync(path.join(root, `sim-${UDID}.d`), { recursive: true });
+    const r = runHelper(`e2e_lock_acquire "${UDID}" 1`, { table: psTable([]), lockRoot: root });
+    expect(r.status).toBe(0);
+    expect(r.telemetry[0]).toMatchObject({ outcome: 'reclaimed-stale', contended: true });
+    expect(r.telemetry[0]).not.toHaveProperty('holder_pid');
+  });
+
+  it('carries the namespace, so a gate-worktree wait is not read as a simulator wait', () => {
+    const r = runHelper(`e2e_lock_acquire "GATE" 1 mine gatetree`, { table: psTable([]) });
+    expect(r.telemetry[0]).toMatchObject({ ns: 'gatetree', key: 'GATE', label: 'mine' });
+  });
+
+  it('attributes a refusal to the holder that caused it, by pid and label', () => {
+    // "Something held it" is not attributable to a work item; a label is.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra490-refused-'));
+    plantOwner(root, 'sim', UDID, {
+      pid: 999001, start: START_A, comm: 'bash', label: 'peer-suite', acquired: 1755400000,
+    });
+    const r = runHelper(`e2e_lock_acquire "${UDID}" 1`, { table: psTable([LIVE_HOLDER]), lockRoot: root });
+    expect(r.status).not.toBe(0);
+    expect(r.telemetry[0]).toMatchObject({
+      outcome: 'refused', contended: true, holder_pid: 999001, holder_label: 'peer-suite',
+    });
+    expect(r.telemetry[0].waited_s).toBeGreaterThanOrEqual(0);
+  });
+
+  it('distinguishes reclaiming a crashed holder from an uncontended acquire', () => {
+    // A reclaim means a peer died holding the lease. Folded into `acquired` it would be
+    // invisible, and it is one of the few signals that the locks themselves are misbehaving.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra490-reclaim-'));
+    plantOwner(root, 'sim', UDID, { pid: 999001, start: START_A, comm: 'bash', label: 'dead-peer' });
+    const r = runHelper(`e2e_lock_acquire "${UDID}" 1`, { table: psTable([]), lockRoot: root });
+    expect(r.status).toBe(0);
+    expect(r.telemetry[0]).toMatchObject({ outcome: 'reclaimed-stale', holder_pid: 999001 });
+  });
+
+  it('records an inherited lease as inherited, never as a zero-wait acquire', () => {
+    // A child honouring its parent's hold could not have waited. Counting it as an acquire
+    // would drag the contended rate toward zero by construction.
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra490-inh-'));
+    plantOwner(root, 'sim', UDID, {
+      pid: process.pid, start: realStartOf(process.pid), label: 'parent-gate',
+    });
+    const r = runHelper(`e2e_lock_acquire "${UDID}" 1`, {
+      lockRoot: root, env: { E2E_LOCK_INHERITED: `sim:${UDID}:${process.pid}` },
+    });
+    expect(r.status).toBe(0);
+    expect(r.telemetry[0]).toMatchObject({ outcome: 'inherited', contended: false });
+  });
+
+  it('flags a forced override rather than laundering it into a clean acquire', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra490-force-'));
+    plantOwner(root, 'sim', UDID, {
+      pid: process.pid, start: realStartOf(process.pid), label: 'wedged-peer',
+    });
+    const r = runHelper(`e2e_lock_acquire "${UDID}" 1`, {
+      lockRoot: root, env: { E2E_LOCK_FORCE: '1' },
+    });
+    expect(r.status).toBe(0);
+    expect(r.telemetry[0]).toMatchObject({ forced: true, holder_label: 'wedged-peer' });
+  });
+
+  it('writes one row per leg of a pair acquire', () => {
+    const r = runHelper(`e2e_lock_acquire_pair sim "${UDID}" gatetree GATE 1 mine`, { table: psTable([]) });
+    expect(r.status).toBe(0);
+    expect(r.telemetry.map(t => t.ns).sort()).toEqual(['gatetree', 'sim']);
+  });
+
+  it('acquires normally when the telemetry file cannot be written', () => {
+    // Telemetry that can fail an acquire would make the gate less reliable in the name of
+    // measuring its reliability.
+    const r = runHelper(`e2e_lock_acquire "${UDID}" 1`, {
+      table: psTable([]), env: { E2E_TELEMETRY_FILE: '/dev/null/nope/events.jsonl' },
+    });
+    expect(r.status).toBe(0);
+  });
+
+  it('writes nothing when telemetry is switched off', () => {
+    const r = runHelper(`e2e_lock_acquire "${UDID}" 1`, {
+      table: psTable([]), env: { E2E_TELEMETRY: '0' },
+    });
+    expect(r.status).toBe(0);
+    expect(r.telemetry).toHaveLength(0);
   });
 });

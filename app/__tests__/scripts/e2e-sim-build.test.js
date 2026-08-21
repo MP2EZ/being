@@ -83,6 +83,7 @@ const TWO_DEVICES = [
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
 const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
 const REAL_HOST_CONTENTION = path.resolve(__dirname, '../../scripts/e2e-host-contention.sh');
+const REAL_TELEMETRY = path.resolve(__dirname, '../../scripts/e2e-telemetry.sh');
 const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
 const PRODUCT_REL = 'ios/build/Build/Products/Release-iphonesimulator';
@@ -188,6 +189,10 @@ function makeProject(opts = {}) {
   // stage it or every test here dies on the source line before reaching anything under
   // test. Real file: it warns and never exits, so staging it cannot change a verdict.
   fs.copyFileSync(REAL_HOST_CONTENTION, path.join(root, 'scripts', 'e2e-host-contention.sh'));
+  // INFRA-490: both gate scripts source the telemetry writer. Real file, not a stub — it
+  // appends to E2E_TELEMETRY_FILE, which runInSandbox points at the sandbox, so staging it
+  // cannot touch the shared /tmp log or change a verdict.
+  fs.copyFileSync(REAL_TELEMETRY, path.join(root, 'scripts', 'e2e-telemetry.sh'));
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
@@ -611,6 +616,10 @@ function runScript(opts = {}) {
       // INFRA-436: per-sandbox lock root. The default is a shared /tmp path, which would
       // make concurrently-running suites contend for a real lock and leave one behind.
       E2E_LOCK_ROOT: path.join(root, '.locks'),
+      // INFRA-490: same reasoning for the telemetry log — the default is a shared /tmp
+      // path, and a test suite must not append rows to the collection a real decision
+      // will be read off.
+      E2E_TELEMETRY_FILE: path.join(root, '.telemetry.jsonl'),
       // INFRA-435: disable the disk-headroom pre-flight by default. It probes the REAL
       // $HOME filesystem, not the sandbox, so a CI runner (or a full laptop) would refuse
       // every build here and red the whole suite for a reason unrelated to the assertion
@@ -821,6 +830,7 @@ function runSafety(built, opts = {}) {
       ...process.env,
       PATH: `${built.stubs}:${process.env.PATH}`,
       E2E_LOCK_ROOT: path.join(built.root, '.locks'), // INFRA-436, see runBuild
+      E2E_TELEMETRY_FILE: path.join(built.root, '.telemetry.jsonl'), // INFRA-490, see runBuild
       ...env,
     },
     timeout: 45000,
@@ -1421,7 +1431,17 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
 
     const res = spawnSync('bash', [path.join(root, 'scripts', 'e2e-sim-build.sh')], {
       encoding: 'utf8',
-      env: { ...process.env, PATH: `${stubs}:${process.env.PATH}`, CI: '' },
+      // INFRA-490: this third invocation site does not go through runBuild(), so it
+      // inherited neither isolation. Unset, it takes a real lease in the SHARED lock root
+      // and appends a fabricated row to the SHARED telemetry collection INFRA-491 is read
+      // off — this spec's stubbed UDID is the literal "ABC".
+      env: {
+        ...process.env,
+        PATH: `${stubs}:${process.env.PATH}`,
+        E2E_LOCK_ROOT: path.join(root, '.locks'),
+        E2E_TELEMETRY_FILE: path.join(root, '.telemetry.jsonl'),
+        CI: '',
+      },
     });
 
     const output = `${res.stdout || ''}${res.stderr || ''}`;
@@ -1601,7 +1621,7 @@ describe('INFRA-405 — e2e-safety.sh device selection', () => {
   test('refuses when a second simulator booted between the build and the gate run', () => {
     const built = runScript({ bootedDevices: ONE });
     const r = runSafety(built, { booted: TWO });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.flowsRun).toBe(0);
     expect(r.output).toMatch(/ambiguous/i);
   });
@@ -1662,7 +1682,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
     // behaviour did exactly that.
     const built = runScript({ bootedDevices: ONE, attachedDevices: [] });
     const r = runSafety(built, { flows: ['crisis-988-dial'], booted: TWO });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.flowsRun).toBe(0);
     expect(r.output).toMatch(/device-only/i);
     // Never runs maestro at all, and never names a simulator as the target.
@@ -1686,7 +1706,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
   test('TWO attached devices refuse as AMBIGUOUS and list the candidates', () => {
     const built = runScript({ attachedDevices: TWO_DEVICES });
     const r = runSafety(built, { flows: ['crisis-988-dial'] });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.flowsRun).toBe(0);
     expect(r.output).toMatch(/ambiguous/i);
     expect(r.output).toMatch(/DEV-1111/);
@@ -1711,7 +1731,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
       flows: ['crisis-988-dial'],
       env: { E2E_DEVICE_UDID: 'DEV-9999' },
     });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.output).toMatch(/not among the attached devices/i);
     expect(r.trace).not.toMatch(/maestro test/);
   });
@@ -1739,7 +1759,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
     // is the normal shape of a failure and would otherwise read as "nothing attached".
     const built = runScript({ devicectlFails: true });
     const r = runSafety(built, { flows: ['crisis-988-dial'] });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.output).toMatch(/could not enumerate/i);
     expect(r.output).not.toMatch(/no eligible iPhone attached/i);
     expect(r.trace).not.toMatch(/maestro test/);
@@ -2193,7 +2213,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
       }),
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).not.toMatch(/all safety flows passed/);
     expect(r.output).toMatch(/replaced/i);
     // Attribution is free — the marker already carries repoRoot and branch.
@@ -2244,7 +2264,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
       }),
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     // The two arms are distinguishable on purpose: an uninstall leaves NO marker, so
     // "name the replacing worktree" is unsatisfiable for it and must not be claimed.
     expect(r.output).toMatch(/vanished|gone|absent/i);
@@ -2307,7 +2327,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
 
     // A top-of-loop-only check would report this 1-of-1 run — the common /b-close
     // per-flow shape — as a clean pass.
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).not.toMatch(/all safety flows passed/);
   }, 60000);
 
@@ -2323,7 +2343,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
       env: { E2E_REQUIRE_CLEAN_PROVENANCE: '1' },
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     // The marker change bounds a WINDOW, not an instant — the substitution could have
     // happened at any point during flow 1 — so no completed flow survives as evidence.
     expect(r.output).toMatch(/VOID|inconclusive/i);
@@ -2422,7 +2442,7 @@ describe('INFRA-466 — a failed container re-resolve is a refusal, not a fallba
 
     // On unmodified `development` this suite runs to completion and reports PASS —
     // that is the fail-open, and this assertion is what makes it visible.
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).not.toMatch(/all safety flows passed/);
     expect(r.flowsRun).toBe(1);
   }, 60000);
@@ -2472,7 +2492,7 @@ describe('INFRA-466 — a failed container re-resolve is a refusal, not a fallba
       }),
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).toMatch(/vanished/i);
   }, 60000);
 });

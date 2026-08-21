@@ -42,11 +42,19 @@ import { sweepAllAudioArtifacts } from '@/core/services/speech/audioArtifactSwee
 import { showCrisisAlert } from '@/features/crisis/services/crisisAlert';
 import { saveEntry } from '../../services/journalEntryStore';
 import { VoiceReflectionScreen } from '../VoiceReflectionScreen';
+import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
 
 const mockSave = saveEntry as jest.Mock;
 const mockAlert = showCrisisAlert as jest.Mock;
 const mockAvailability = checkOnDeviceAvailability as jest.Mock;
 const mockSweep = sweepAllAudioArtifacts as jest.Mock;
+
+/** RN accepts a style, an array, or nested arrays; flatten before asserting. */
+function flatten(style: unknown): Record<string, number> {
+  if (!style) return {};
+  if (Array.isArray(style)) return Object.assign({}, ...style.map(flatten));
+  return style as Record<string, number>;
+}
 
 const CRISIS_TEXT = 'i want to die';
 const CLEAN_TEXT = 'today was hard but i made it through';
@@ -174,6 +182,103 @@ describe('crisis scan on save', () => {
       );
       expect(Linking.openURL).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe('keyboard reachability of the save control (DEBUG-480)', () => {
+  // journal-save-button is the ONLY caller of handleSave, whose scanOnSave is the
+  // ONLY scan of text the user typed or corrected. scanOnFinalize runs on the
+  // PRE-EDIT transcript, and on a simulator (which cannot speak) it scans ''.
+  // So an unreachable Save does not defer the crisis scan — it destroys the text
+  // unscanned. These pin the two independent defects separately, because fixing
+  // the occlusion while leaving the tap-swallowing still loses the text.
+  //
+  // Assertions read the RENDERED TREE, never the file's source. A source-string
+  // pin would match the prose in this screen that names the old
+  // keyboardShouldPersistTaps='never' behaviour to warn readers off it (DEBUG-390).
+  //
+  // jest has no keyboard and no layout: these are shape pins. The behavioural
+  // evidence is the keyboard-up block in .maestro/journal-crisis-scan.yaml.
+
+  it('does not let the ScrollView swallow the first keyboard-up tap', async () => {
+    const utils = await reachReview(CLEAN_TEXT);
+    const scroll = utils.getByTestId('voice-reflection-screen');
+    // 'handled' — NOT true/'always', which would stop inert content from
+    // blurring the input and break journal-review-header's dismissal.
+    expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+  });
+
+  it('insets the scroll view for the keyboard natively, not from a JS height', async () => {
+    const utils = await reachReview(CLEAN_TEXT);
+    const scroll = utils.getByTestId('voice-reflection-screen');
+    // UIKit intersects the keyboard frame with this view's frame in window
+    // coordinates, so it is immune to the header/modal-card offset that rules
+    // out KeyboardAvoidingView here, and already includes DEBUG-450's accessory.
+    expect(scroll.props.automaticallyAdjustKeyboardInsets).toBe(true);
+  });
+
+  it('offers a dismissal that does not depend on tapping a specific element', async () => {
+    const utils = await reachReview(CLEAN_TEXT);
+    const scroll = utils.getByTestId('voice-reflection-screen');
+    // The transcript field is multiline, so Return inserts a newline and there is
+    // no Done key. on-drag makes the scroll toward Save dismiss the keyboard.
+    expect(scroll.props.keyboardDismissMode).toBe('on-drag');
+  });
+
+  it('keeps Save and Discard out of the crisis button contested column', async () => {
+    const utils = await reachReview(CLEAN_TEXT);
+    const block = utils.getByTestId('journal-action-block');
+    const flat = flatten(block.props.style);
+    // Both controls live inside it.
+    expect(utils.getByTestId('journal-save-button')).toBeTruthy();
+    expect(utils.getByTestId('journal-discard-button')).toBeTruthy();
+    // CollapsibleCrisisButton renders at zIndex 9999 and wins an overlapping tap,
+    // so a full-width Save that scrolls into the exclusion rect could fire an
+    // audit-logged crisis navigation AND swallow the save-time scan.
+    expect(flat.paddingRight).toBe(OVERLAY_ACTION_ROW_PADDING_RIGHT);
+    expect(flat.paddingRight).toBeGreaterThan(0);
+  });
+
+  it('gives Discard a real 44pt target on the pressable, not on its label', async () => {
+    const utils = await reachReview(CLEAN_TEXT);
+    const discard = utils.getByTestId('journal-discard-button');
+    const flat = flatten(discard.props.style);
+    // Discard destroys the transcript with the save-time scan never having run,
+    // so a mis-tap here is DEBUG-480's own failure by another route.
+    expect(flat.minHeight).toBeGreaterThanOrEqual(44);
+    // Separation from Save — a destructive control flush under the primary one
+    // is a coin-flip under a thumb even when both hit rects are compliant.
+    expect(flat.marginTop).toBeGreaterThan(0);
+  });
+
+  it('scrolls the save error into view, since it pushes Save further down', async () => {
+    mockSave.mockResolvedValue({ saved: false, reason: 'unknown' });
+    const utils = await reachReview(CLEAN_TEXT);
+    fireEvent.press(utils.getByTestId('journal-save-button'));
+
+    const err = await waitFor(() => utils.getByTestId('journal-save-error'));
+    // The error renders BETWEEN the input and Save on the retry path, where the
+    // text has already survived one failed write and there is no autosave.
+    expect(typeof err.props.onLayout).toBe('function');
+    expect(() => fireEvent(err, 'layout', {
+      nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 20 } },
+    })).not.toThrow();
+  });
+
+  it('writes one entry when Save is double-tapped', async () => {
+    let release: (v: unknown) => void = () => {};
+    mockSave.mockImplementationOnce(
+      () => new Promise((res) => { release = res; })
+    );
+    const utils = await reachReview(CLEAN_TEXT);
+    const save = utils.getByTestId('journal-save-button');
+
+    // Making Save smaller and scroll-dependent makes double-tapping MORE likely,
+    // so the guard ships with the fix that causes it.
+    fireEvent.press(save);
+    fireEvent.press(save);
+    release({ saved: true, entry: { id: 'x' } });
+    await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(1));
   });
 });
 

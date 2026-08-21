@@ -38,6 +38,7 @@ import { StyleSheet } from 'react-native';
 
 import GuidanceCard from '@/features/practices/shared/components/GuidanceCard';
 import StoicQuoteCard from '@/features/practices/shared/components/StoicQuoteCard';
+import { PreviousAnswerCard } from '@/features/practices/shared/components/PreviousAnswerCard';
 import { getContrastRatio } from '@/core/theme/accessibility';
 import { colorSystem, semantic, themeAccent } from '@/core/theme';
 
@@ -186,5 +187,59 @@ describe('DEBUG-364: known-failing pairs, pinned rather than omitted', () => {
     expect(
       getContrastRatio(colorSystem.gray[300], colorSystem.base.white),
     ).toBeLessThan(AA_NON_TEXT);
+  });
+});
+
+/**
+ * MAINT-487 — the two practices findings the gray[700] call-site sweep produced.
+ *
+ * Neither is covered by the pins that already exist. `gray700-call-sites.
+ * accessibility.test.ts` asserts that no raw reference survives outside its allowlist;
+ * it is deliberately blind to WHY a survivor is lawful, which is a prose field there.
+ * `theme-contrast.accessibility.test.ts` asserts tokens against enumerated surfaces and
+ * structurally cannot enumerate `themes.*.light` — the whole point of the first pin
+ * below is that no ramp value is legal on that ground, so adding it to the matrix would
+ * produce a permanent red with no fix available.
+ */
+describe('MAINT-487: the gray[700] sweep on practices surfaces', () => {
+  it('BodyAreaGrid: no ramp neutral is legal on themes.*.light, so its text stayed raw', () => {
+    // The carve-out's arithmetic, asserted rather than described. `noteSection` takes
+    // `themeColors.light`, and these are SATURATED ACCENT MID-TONES, not light
+    // surfaces. Two already fail at today's value, and the swept token would take all
+    // four under — so a blind sweep here would have made a latent failure worse. This
+    // goes red the moment a ramp value becomes legal on evening, which is the only
+    // event that should reopen the carve-out.
+    for (const theme of ['morning', 'midday', 'evening', 'learn'] as const) {
+      const ground = colorSystem.themes[theme].light;
+      expect(`${theme}: ${getContrastRatio(semantic.text.secondary, ground) < AA_NORMAL_TEXT}`)
+        .toBe(`${theme}: true`);
+    }
+
+    // And that it is LATENT rather than live — the reason it is a carve-out and not a
+    // bug. Two of the four already fail at the raw value the component still carries.
+    expect(
+      getContrastRatio(colorSystem.gray[700], colorSystem.themes.evening.light),
+    ).toBeLessThan(AA_NORMAL_TEXT);
+  });
+
+  it("PreviousAnswerCard renders the user's own answer at primary, above its own caption", () => {
+    // Read off the tree, per this file's contract. The card already subordinates the
+    // caption structurally — enclosure, left rule, gray[100] fill, italic, quotation
+    // marks — so the answer carries no chromatic demotion on top: at `secondary` it
+    // would render the same colour as its own label and the card would collapse into
+    // one grey block. The substantive reason is that this is the practitioner's
+    // exercised judgement, and the app's instructional voice sits at primary
+    // throughout; ranking the user's assent below the app's prompts is the thing this
+    // assertion exists to prevent regressing.
+    const { getByText } = render(
+      <PreviousAnswerCard label="What's weighing on you:" answer="the meeting" theme="midday" />,
+    );
+    expect(resolved(getByText('"the meeting"')).color).toBe(semantic.text.primary);
+    expect(resolved(getByText("What's weighing on you:")).color).toBe(semantic.text.secondary);
+    expect(semantic.text.primary).not.toBe(semantic.text.secondary);
+
+    // gray[100] is the declared fill, and it is already in the matrix's SURFACES.
+    expect(getContrastRatio(semantic.text.primary, colorSystem.gray[100]))
+      .toBeGreaterThanOrEqual(AA_NORMAL_TEXT);
   });
 });
