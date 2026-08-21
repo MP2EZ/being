@@ -14,7 +14,7 @@ import { linkingConfig } from './linking';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
-import { spacing, typography } from '@/core/theme';
+import { semantic, spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
 import { DailyLoopNavigator } from '@/features/practices/dailyloop';
 import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
@@ -830,7 +830,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.regular,
-    color: '#1C1C1C',
+    color: semantic.text.primary,
   },
 });
 

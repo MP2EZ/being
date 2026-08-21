@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   headerDescription: {
     fontSize: typography.bodyRegular.size,

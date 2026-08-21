@@ -321,7 +321,7 @@ const styles = StyleSheet.create({
   },
   rowText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     lineHeight: 22,
   },
   rowPrinciple: {

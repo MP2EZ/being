@@ -17,7 +17,7 @@ import {
   Pressable, 
   Vibration 
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface BodyAreaGridProps {
   selectedAreas?: string[];
@@ -98,8 +98,12 @@ const BodyAreaGrid: React.FC<BodyAreaGridProps> = ({
           styles.areaButtonText,
           {
             color: isActive
+              // DEBUG-387: the inactive arm moves onto the text token. The active
+              // arm stays on `base.white` deliberately — the correct destination
+              // for it is `semantic.text.inverse`, a different token and a
+              // different item's scope.
               ? colorSystem.base.white
-              : colorSystem.base.black
+              : semantic.text.primary
           }
         ]}>
           {area}
@@ -212,7 +216,7 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   /**
