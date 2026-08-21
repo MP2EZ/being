@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
   },
   tooltipButtonText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     fontWeight: typography.fontWeight.semibold,
   },
   tooltip: {
@@ -549,7 +549,7 @@ const styles = StyleSheet.create({
   },
   tooltipText: {
     fontSize: 13,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     lineHeight: typography.bodyLarge.size,
     marginBottom: spacing[4],
   },
@@ -598,6 +598,6 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
   },
 });

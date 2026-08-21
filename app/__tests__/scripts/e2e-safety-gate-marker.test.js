@@ -42,6 +42,25 @@
  * e2e-driver-ownership.test.js sources its helper. Extracting it is a real refactor and is
  * not smuggled into a crisis-screen fix. If it is ever extracted, replace this with a
  * stubbed-`xcrun` execution test — that would be strictly stronger.
+ *
+ * INFRA-466 — THE CACHED PATH IS GONE, AND THESE PINS WERE RE-EXPRESSED
+ * ====================================================================
+ * The design narrated above kept a resolved absolute path (`GATE_MARKER`) and overwrote it
+ * only when the per-check re-resolve SUCCEEDED. A failed re-resolve therefore fell back to
+ * the pre-flight's path; if that container was still readable, the bytes matched and the
+ * guard returned 0 — continuing on a target it could not verify. INFRA-466 removed the
+ * variable entirely: only the FILENAME is retained and the container is re-resolved every
+ * check, which makes the fallback impossible by construction rather than merely unreachable.
+ *
+ * That necessarily deleted the literal `cat "$GATE_MARKER"` this file used to locate the
+ * read. The ordering property is UNCHANGED and still pinned — only the expression it is
+ * anchored on moved, to `cat "$_app/$GATE_MARKER_NAME"`. This is a re-pin, not a weakening,
+ * and the negative pin below is what makes that claim checkable: it fails if the cached
+ * variable ever returns.
+ *
+ * The behavioural counterpart lives in e2e-sim-build.test.js's `INFRA-466` block, which
+ * drives the real script through a failed container lookup with the stale container still
+ * readable. Prefer adding to that block over adding shape assertions here.
  */
 
 const fs = require('fs');
@@ -69,10 +88,10 @@ describe('DEBUG-432 — e2e_assert_gate_target re-resolves the container before 
    */
   test('the extractor still finds a non-trivial function body', () => {
     expect(body.length).toBeGreaterThan(200);
-    expect(body).toContain('GATE_MARKER');
+    expect(body).toContain('GATE_MARKER_NAME');
 
     // And the matcher used below must be able to FAIL: prove it against a known-bad body
-    // that reads the cached path with no re-resolution.
+    // that reads a cached path with no re-resolution.
     const knownBad = 'e2e_assert_gate_target() {\n  _now="$(cat "$GATE_MARKER")"\n';
     expect(knownBad).not.toMatch(/get_app_container/);
   });
@@ -84,8 +103,9 @@ describe('DEBUG-432 — e2e_assert_gate_target re-resolves the container before 
   test('the re-resolve happens BEFORE the marker is read', () => {
     // Ordering is the whole property. A re-resolve placed after the `cat` would satisfy a
     // bare "contains get_app_container" assertion while changing nothing.
+    // INFRA-466: anchored on the re-resolved local, since no cached path exists any more.
     const resolveAt = body.indexOf('get_app_container');
-    const readAt = body.indexOf('cat "$GATE_MARKER"');
+    const readAt = body.indexOf('cat "$_app/$GATE_MARKER_NAME"');
 
     expect(resolveAt).toBeGreaterThan(-1);
     expect(readAt).toBeGreaterThan(-1);
@@ -93,9 +113,36 @@ describe('DEBUG-432 — e2e_assert_gate_target re-resolves the container before 
   });
 
   test('the marker FILENAME is tracked separately from the resolved path', () => {
-    // Re-resolution needs the bare filename; if it were only ever concatenated into
-    // GATE_MARKER at pre-flight there would be nothing to rebuild the path from.
+    // Re-resolution needs the bare filename; if it were only ever concatenated into a
+    // resolved path at pre-flight there would be nothing to rebuild the path from.
     expect(source).toMatch(/GATE_MARKER_NAME=/);
+  });
+
+  /**
+   * INFRA-466 — the fallback must be impossible by construction, not merely unreachable.
+   * A cached absolute path is the only thing a failed re-resolve could fall back TO, so
+   * its absence is the property worth pinning. Both regexes deliberately exclude the
+   * `_NAME` / `_SNAPSHOT` suffixed variables, which are the shape that must survive.
+   */
+  test('no cached container path survives anywhere in the script', () => {
+    const stripped = source
+      .split('\n')
+      .filter((l) => !/^\s*#/.test(l)) // prose still discusses the retired design
+      .join('\n');
+
+    expect(stripped).not.toMatch(/\bGATE_MARKER=(?!")/);
+    expect(stripped).not.toMatch(/\bGATE_MARKER="\$/);
+    expect(stripped).not.toMatch(/\$GATE_MARKER"/);
+    expect(stripped).not.toMatch(/\$\{GATE_MARKER\}/);
+
+    // The matcher must be able to fire — comment-stripping plus a narrow regex is exactly
+    // the combination that can silently match nothing (DEBUG-390).
+    expect('  GATE_MARKER="$APP/$GATE_MARKER_NAME"').toMatch(/\bGATE_MARKER="\$/);
+    expect('  _now="$(cat "$GATE_MARKER")"').toMatch(/\$GATE_MARKER"/);
+    // …and must NOT fire on the variables that legitimately remain.
+    expect('GATE_MARKER_NAME=""').not.toMatch(/\bGATE_MARKER=(?!")/);
+    expect('  _now="$(cat "$_app/$GATE_MARKER_NAME")"').not.toMatch(/\$GATE_MARKER"/);
+    expect(stripped.length).toBeGreaterThan(1000);
   });
 
   test('a genuine uninstall still reads empty (the GONE arm keeps its teeth)', () => {

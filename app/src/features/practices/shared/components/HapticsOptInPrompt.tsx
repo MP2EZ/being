@@ -112,7 +112,7 @@ import {
   View,
 } from 'react-native';
 
-import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 
 export interface HapticsOptInPromptProps {
@@ -283,7 +283,7 @@ const styles = StyleSheet.create({
   body: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     marginBottom: spacing[24],
   },
   choices: {

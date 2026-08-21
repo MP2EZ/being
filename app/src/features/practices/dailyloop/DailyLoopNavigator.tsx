@@ -312,7 +312,14 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
           backgroundColor: colorSystem.themes.midday.background,
           borderBottomColor: colorSystem.themes.midday.primary,
           borderBottomWidth: 1,
-          height: 100,
+          // DEBUG-468: 100 -> 72. The header's content is the two-line title block
+          // — "Daily Practice" (18pt) + 4 + a 4pt progress bar + 4 + "step n of m"
+          // (12pt) ≈ 47pt — so 100 carried ~50pt of slack, on EVERY beat, on the
+          // wrong side of the fold. 72 keeps ~12pt of vertical padding around that
+          // block and still clears the 44pt close button in `headerLeft`. Measured
+          // on an SE 3 the fold began at y=130; this is the cheapest 28pt in the
+          // flow and it is chrome, so it costs no practice content.
+          height: 72,
         },
         headerTintColor: colorSystem.themes.midday.primary,
         headerLeft: () => closeButton,

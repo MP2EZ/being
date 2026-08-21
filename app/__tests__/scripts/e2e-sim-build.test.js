@@ -82,6 +82,7 @@ const TWO_DEVICES = [
 ];
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
 const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
+const REAL_HOST_CONTENTION = path.resolve(__dirname, '../../scripts/e2e-host-contention.sh');
 const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
 const PRODUCT_REL = 'ios/build/Build/Products/Release-iphonesimulator';
@@ -183,6 +184,10 @@ function makeProject(opts = {}) {
   // reasoning as the device resolver — a stub that always grants the lock would hide a
   // wiring mistake that wedges the gate on a real machine.
   fs.copyFileSync(REAL_SIM_LOCK, path.join(root, 'scripts', 'e2e-sim-lock.sh'));
+  // INFRA-476: e2e-safety.sh sources the host-contention reporter, so the sandbox must
+  // stage it or every test here dies on the source line before reaching anything under
+  // test. Real file: it warns and never exits, so staging it cannot change a verdict.
+  fs.copyFileSync(REAL_HOST_CONTENTION, path.join(root, 'scripts', 'e2e-host-contention.sh'));
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
@@ -526,11 +531,24 @@ function runScript(opts = {}) {
       // that divergence is the whole point of the multi-device model above.
       '  echo "install-target $d" >> "$TRACE"',
       `  mkdir -p "$CONTAINERS/$d"; rm -rf "$CONTAINERS/$d/${BUNDLE_ID}.app"`,
+      // An install supersedes any prior relocation — see the get_app_container arm below.
+      `  rm -f "$CONTAINERS/$d/.relocated"`,
       `  cp -Rp "$4" "$CONTAINERS/$d/${BUNDLE_ID}.app"; exit 0`,
       'fi',
       'if [ "$1" = "simctl" ] && [ "$2" = "get_app_container" ]; then',
       '  echo "get_app_container $3" >> "$TRACE"',
       '  d="$(resolve_dev "$3")" || { echo "No devices are booted." >&2; exit 1; }',
+      // A real container lives under a per-install UUID that simctl re-mints on every fresh
+      // install, so its absolute path is NOT stable across an uninstall+install cycle. The
+      // stable path below is a simplification every other test in this file leans on; a test
+      // that needs the true relocating behaviour writes `.relocated` and this follows it.
+      // Keeping the simplification as the DEFAULT is deliberate — making relocation
+      // universal here would change what dozens of unrelated assertions are testing.
+      `  if [ -f "$CONTAINERS/$d/.relocated" ]; then`,
+      `    rel="$(cat "$CONTAINERS/$d/.relocated")"`,
+      `    if [ -d "$rel" ]; then echo "$rel"; exit 0; fi`,
+      '    echo "No such app" >&2; exit 1',
+      '  fi',
       `  if [ -d "$CONTAINERS/$d/${BUNDLE_ID}.app" ]; then echo "$CONTAINERS/$d/${BUNDLE_ID}.app"; exit 0; fi`,
       '  echo "No such app" >&2; exit 1',
       'fi',
@@ -2114,6 +2132,41 @@ function maestroMutatesMarker({ afterFlow, container, replaceWith = null }) {
   ].join('\n');
 }
 
+/**
+ * Maestro's iOS `clearState` is implemented as copy-out + `simctl uninstall` +
+ * `simctl install`, so the bundle bytes (and the marker inside them) survive intact while
+ * simctl mints a NEW container UUID. Every one of the 8 safety flows calls
+ * `launchApp: { clearState: true }`, so this happens between flow 1 and flow 2 on every
+ * real run — it is the ordinary case, not an edge case.
+ */
+function maestroRelocatesContainer({ afterFlow, container }) {
+  const deviceDir = path.dirname(container);
+  const relocated = path.join(deviceDir, 'RELOCATED-UUID', path.basename(container));
+  const move = [
+    `mkdir -p '${path.dirname(relocated)}'`,
+    `cp -Rp '${container}' '${relocated}'`,
+    `rm -rf '${container}'`,
+    `printf '%s' '${relocated}' > '${deviceDir}/.relocated'`,
+  ].join('; ');
+  return [
+    'out=""; flow=""',
+    'for a in "$@"; do',
+    '  case "$a" in',
+    '    --output=*) out="${a#--output=}" ;;',
+    '    *.yaml) flow="$a" ;;',
+    '  esac',
+    'done',
+    'nm="$(basename "$flow" .yaml)"',
+    'if [ -n "$out" ]; then',
+    `  printf '%s\\n' '<?xml version="1.0"?><testsuites><testsuite name="s" tests="1" failures="0" errors="0">' > "$out"`,
+    `  printf '<testcase name="%s" classname="%s"/>\\n' "$nm" "$nm" >> "$out"`,
+    `  printf '%s\\n' '</testsuite></testsuites>' >> "$out"`,
+    'fi',
+    `case "$nm" in ${afterFlow}) ${move} ;; esac`,
+    'exit 0',
+  ].join('\n');
+}
+
 /** A marker a PEER worktree would legitimately have written: real schema, foreign lineage. */
 function peerMarker(built) {
   const real = JSON.parse(fs.readFileSync(path.join(built.container, MARKER_NAME), 'utf8'));
@@ -2148,6 +2201,36 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
     expect(r.output).toMatch(/chore\/PEER-999/);
     // Flow 2 must never have been invoked.
     expect(r.flowsRun).toBe(1);
+  }, 60000);
+
+  /**
+   * INFRA-429 — THE FALSE-POSITIVE CASE, and the reason the suite could not complete at all.
+   *
+   * The watch cached the marker's ABSOLUTE path at pre-flight and re-read that same path
+   * after every flow. Maestro's `clearState` relocates the container, so from flow 2 onward
+   * that path is dangling: the read returns empty, the GONE arm fires, and the gate aborts
+   * reporting `vanished` on a binary nothing ever touched — VOIDing the flows that passed.
+   * Every safety flow uses clearState, so this fired on flow 1 of 8, every run, for everyone.
+   *
+   * It was invisible to the tests above because the `xcrun` shim modelled the container as a
+   * fixed per-device path — the harness encoded the very assumption that is false. The
+   * discriminator against the cheapest wrong fix (dropping the GONE arm) is that a real
+   * uninstall must STILL abort; that is the test immediately below this one.
+   */
+  test('Maestro clearState relocating the container does NOT abort — the bytes never moved', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: TWO_FLOWS,
+      maestroBody: maestroRelocatesContainer({
+        afterFlow: 'crisis-button-reachability',
+        container: built.container,
+      }),
+    });
+
+    expect(r.status).toBe(0);
+    expect(r.output).toMatch(/all safety flows passed/);
+    expect(r.output).not.toMatch(/vanished|replaced/i);
+    expect(r.flowsRun).toBe(2);
   }, 60000);
 
   test('a marker DELETED between flows aborts, and says vanished rather than replaced', () => {
@@ -2277,4 +2360,119 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
     expect(safetySrc).toMatch(/MARKER_NAME/);
     expect(safetySrc).toMatch(/e2e-provenance/);
   });
+});
+
+/**
+ * INFRA-466 — the substitution watch must not continue on a target it could not verify.
+ *
+ * THE FAIL-OPEN. `e2e_assert_gate_target()` caches the container path resolved once at
+ * pre-flight and overwrites it only when the per-check re-resolve SUCCEEDS. When the
+ * re-resolve fails but the pre-flight's container is still readable on disk, the read
+ * falls back to the stale path, finds unchanged bytes, and the guard returns 0 —
+ * continuing on a target it could not verify.
+ *
+ * WHY THIS IS REACHABLE IN THE HARNESS TODAY. The `xcrun` stub's `.relocated` indirection
+ * already models exactly this: a `.relocated` pointing at a directory that does not exist
+ * makes `get_app_container` fail ("No such app", exit 1) while leaving the original
+ * container — and its marker — intact. No new stub capability is required; the existing
+ * relocation test simply always points `.relocated` at a container that DOES exist.
+ *
+ * WHY IT IS NOT MERELY THEORETICAL. The safety argument for the current shape is that
+ * every install mints a new container UUID, so a genuine substitution deletes the old
+ * container and the stale read comes back empty. That is a property of `simctl`, owned by
+ * nobody in this repo, holding up a fail-open inside a guard whose entire job is to fail
+ * closed. This block removes the dependency rather than restating it.
+ */
+function maestroBreaksContainerLookup({ afterFlow, container }) {
+  const deviceDir = path.dirname(container);
+  // Point the indirection at a path that does not exist, and — critically — leave the
+  // ORIGINAL container in place. get_app_container fails; the cached path still reads.
+  const brk = `printf '%s' '${path.join(deviceDir, 'NO-SUCH-UUID', 'fyi.being.app')}' > '${deviceDir}/.relocated'`;
+  return [
+    'out=""; flow=""',
+    'for a in "$@"; do',
+    '  case "$a" in',
+    '    --output=*) out="${a#--output=}" ;;',
+    '    *.yaml) flow="$a" ;;',
+    '  esac',
+    'done',
+    'nm="$(basename "$flow" .yaml)"',
+    'if [ -n "$out" ]; then',
+    `  printf '%s\\n' '<?xml version="1.0"?><testsuites><testsuite name="s" tests="1" failures="0" errors="0">' > "$out"`,
+    `  printf '<testcase name="%s" classname="%s"/>\\n' "$nm" "$nm" >> "$out"`,
+    `  printf '%s\\n' '</testsuite></testsuites>' >> "$out"`,
+    'fi',
+    `case "$nm" in ${afterFlow}) ${brk} ;; esac`,
+    'exit 0',
+  ].join('\n');
+}
+
+describe('INFRA-466 — a failed container re-resolve is a refusal, not a fallback', () => {
+  const TWO_FLOWS = ['crisis-button-reachability', 'q9-single-alert'];
+
+  test('a failed re-resolve with a readable stale container ABORTS instead of continuing', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: TWO_FLOWS,
+      maestroBody: maestroBreaksContainerLookup({
+        afterFlow: 'crisis-button-reachability',
+        container: built.container,
+      }),
+    });
+
+    // On unmodified `development` this suite runs to completion and reports PASS —
+    // that is the fail-open, and this assertion is what makes it visible.
+    expect(r.status).not.toBe(0);
+    expect(r.output).not.toMatch(/all safety flows passed/);
+    expect(r.flowsRun).toBe(1);
+  }, 60000);
+
+  test('the refusal says the lookup FAILED — not a bare "vanished"', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: TWO_FLOWS,
+      maestroBody: maestroBreaksContainerLookup({
+        afterFlow: 'crisis-button-reachability',
+        container: built.container,
+      }),
+    });
+
+    // AC6: tightening this arm converts a flaky lookup into an aborted suite, so the
+    // message must distinguish "could not resolve the container" from "the app is gone".
+    // Reading the two as one class is what sends an operator hunting a phantom uninstall.
+    expect(r.output).toMatch(/could not (be )?resolve|unresolved|lookup failed/i);
+  }, 60000);
+
+  test('completed flows are still rendered inconclusive, not PASS', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: TWO_FLOWS,
+      maestroBody: maestroBreaksContainerLookup({
+        afterFlow: 'crisis-button-reachability',
+        container: built.container,
+      }),
+    });
+
+    expect(r.output).toMatch(/VOID|inconclusive/i);
+  }, 60000);
+
+  /**
+   * THE DISCRIMINATOR against over-tightening. A genuine uninstall must still read as
+   * `vanished`, not as the new lookup-failure class — otherwise the fix has simply
+   * relabelled every abort and the two causes are conflated in the other direction.
+   */
+  test('a genuine uninstall STILL reads as vanished, not as a lookup failure', () => {
+    const built = runScript({});
+    const r = runSafety(built, {
+      flows: TWO_FLOWS,
+      maestroBody: maestroMutatesMarker({
+        afterFlow: 'crisis-button-reachability',
+        container: built.container,
+        replaceWith: null,
+      }),
+    });
+
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/vanished/i);
+  }, 60000);
 });

@@ -39,8 +39,57 @@
 # device is the contended resource. INFRA-423 observed that two worktrees could share a
 # simulator; this is what stops them. Different jobs, nothing regressed.
 #
+# TWO RESOURCES, ONE PRIMITIVE (INFRA-463). The gate worktree is also shared mutable state
+# and needs the same exclusion, so acquire/release take a NAMESPACE alongside the key:
+# `sim` (default) keys on a UDID, `gatetree` on a gate-worktree path. The holder logic is
+# subtle enough to have been re-derived wrongly twice in this subsystem (DEBUG-392,
+# INFRA-423), so it is parameterised rather than copied. The default keeps every existing
+# path at /tmp/being-e2e-locks/sim-<udid>.d, which matters: a peer session running an older
+# checkout must still contend on the same path as a newer one.
+#
+# THE SCOPE RULE ABOVE IS ABOUT THE SIMULATOR, NOT ABOUT LOCKS IN GENERAL. It holds because
+# both the build and the flows touch the device, with no process spanning them. The gate
+# WORKTREE is different: `e2e-safety.sh` re-reads the provenance marker inside the installed
+# container and never consults the worktree, so the worktree is an input to `e2e-gate.sh`
+# alone. Its entire contention window sits inside one live process and is anchored to that
+# process's pid — no TTL, so the objection above does not apply to it.
+#
 # NOT $TMPDIR. macOS gives each user a private /var/folders/<hash>/T, and a lock two
 # sessions cannot both see is not a lock. The root is an explicit shared path.
+#
+# THE PAIR (INFRA-472). The gate leases two resources, and took them one at a time at
+# different moments. That is not enough: the provenance marker lives inside the INSTALLED
+# CONTAINER on a device and `simctl install` of the same bundle id replaces it, so two
+# sessions building in separate worktrees but installing to one simulator still clobber.
+# `e2e_lock_acquire_pair` takes both or neither.
+#
+# ORDER IS THE DEADLOCK GUARD, AND IT LIVES HERE, NOT AT THE CALL SITE. The moment a session
+# holds one lease and waits for another, two sessions taking them in opposite orders wait out
+# the full 1800 s — inside `/b-close`, indistinguishable from a hang. The helper sorts its own
+# arguments, so every caller acquires in the same global order whether it knows to or not.
+#
+# INHERITANCE, BECAUSE A PARENT'S LEASE MUST NOT DEADLOCK ITS OWN CHILD. `e2e-gate.sh` holds
+# the simulator lease and then invokes `e2e-sim-build.sh`, which acquires the same one.
+# `E2E_LOCK_INHERITED` carries `<ns>:<key>:<pid>` tokens to the child. It is NOT inferred from
+# the process tree — DEBUG-392 and INFRA-423 are two prior burns from process-identity
+# heuristics in this subsystem. Nor is the token trusted on its own: it is honoured only when
+# the record ON DISK names that same pid and that pid classifies LIVE, so a stale or
+# hand-exported variable falls through to a normal acquire instead of silently disabling the
+# lock. A child never owns what it inherited, so release is already a no-op for it — the
+# owner pid is the parent's, not `$$`.
+#
+# ACQUISITION TIME IS RECORDED SEPARATELY FROM PROCESS START. They are different facts: a
+# long-lived shell can take a lease hours after it started, and "running since 09:02" then
+# badly misreports how long the gate has been held. Appended as a FIFTH field, which is why
+# every reader uses `cut -f1..4` for the rest — a peer on an older checkout writes four
+# fields, and a record that failed to parse would classify RECYCLED and get a LIVE peer's
+# lease reclaimed underneath it.
+#
+# E2E_LOCK_FORCE EXISTS FOR A GENUINELY WEDGED HOLDER — a process alive but no longer doing
+# anything, which the classifier correctly calls LIVE and will never reclaim. Without it the
+# only remedy is `rm -rf`ing a path by hand, which the timeout message tells operators never
+# to do. It prints the whole record it destroys, because an override that is quiet is
+# indistinguishable from a lock that stopped working.
 
 E2E_LOCK_ROOT="${E2E_LOCK_ROOT:-/tmp/being-e2e-locks}"
 
@@ -49,9 +98,30 @@ E2E_LOCK_ROOT="${E2E_LOCK_ROOT:-/tmp/being-e2e-locks}"
 # indistinguishable from a hang.
 E2E_LOCK_TIMEOUT_DEFAULT="${E2E_LOCK_TIMEOUT:-1800}"
 
+# e2e_lock_dir <key> [namespace]
 e2e_lock_dir() {
   [ -n "${1:-}" ] || return 1
-  printf '%s/sim-%s.d\n' "$E2E_LOCK_ROOT" "$1"
+  printf '%s/%s-%s.d\n' "$E2E_LOCK_ROOT" "${2:-sim}" "$1"
+}
+
+# Human nouns for the contended resource, keyed off the namespace. A gate-worktree timeout
+# that says "simulator lock" sends the operator hunting through the wrong subsystem, which
+# is the failure mode this whole area keeps relearning.
+e2e_lock_resource() {
+  case "${1:-sim}" in
+    sim)      printf 'simulator lock for %s' "${2:-}" ;;
+    # No key: it is a path mangled into one segment, and the caller prints the real one.
+    gatetree) printf 'gate-worktree lock' ;;
+    *)        printf '%s lock for %s' "${1}" "${2:-}" ;;
+  esac
+}
+
+e2e_lock_keyname() {
+  case "${1:-sim}" in
+    sim)      printf 'udid' ;;
+    gatetree) printf 'gate worktree path' ;;
+    *)        printf 'key' ;;
+  esac
 }
 
 # lstart is ALWAYS 5 whitespace-separated tokens under awk, including when the day of month
@@ -97,24 +167,74 @@ e2e_lock_write_owner() {
   # Refuse to claim ownership we cannot later prove. An owner record with no start time
   # reads as RECYCLED to every other session, i.e. a lock that silently protects nothing.
   [ -n "$start" ] || return 1
-  printf '%s\t%s\t%s\t%s\n' "$$" "$start" "${comm:-unknown}" "$label" > "$dir/owner"
+  printf '%s\t%s\t%s\t%s\t%s\n' "$$" "$start" "${comm:-unknown}" "$label" "$(date +%s)" > "$dir/owner"
 }
 
-# e2e_lock_acquire <udid> [timeout_s] [label]
+# Field 5 is absent on records written by an older checkout, so this must read as "unknown"
+# rather than as a parse failure.
+e2e_lock_fmt_time() {
+  local e="${1:-}"
+  [ -n "$e" ] || { printf 'unknown'; return 0; }
+  date -r "$e" '+%Y-%m-%d %H:%M:%S' 2>/dev/null || printf 'epoch %s' "$e"
+}
+
+# e2e_lock_inherited_holds <namespace> <key>
+#
+# 0 when this process's LINEAGE already holds the lease. Verified against the record on disk
+# — the token names a pid and is believed only if that pid is the recorded owner AND is LIVE.
+e2e_lock_inherited_holds() {
+  local ns="${1:-sim}" key="${2:-}" tok want pid dir line
+  [ -n "${E2E_LOCK_INHERITED:-}" ] || return 1
+  [ -n "$key" ] || return 1
+  want="${ns}:${key}:"
+
+  # Deliberate word splitting: the variable is a space-separated token list.
+  # shellcheck disable=SC2086
+  for tok in ${E2E_LOCK_INHERITED}; do
+    case "$tok" in "$want"*) ;; *) continue ;; esac
+    pid="${tok#"$want"}"
+    [ -n "$pid" ] || continue
+
+    dir="$(e2e_lock_dir "$key" "$ns")" || return 1
+    line="$(cat "$dir/owner" 2>/dev/null || true)"
+    [ -n "$line" ] || return 1
+    [ "$(printf '%s' "$line" | cut -f1)" = "$pid" ] || return 1
+    [ "$(e2e_lock_holder_state "$pid" "$(printf '%s' "$line" | cut -f2)")" = "LIVE" ] || return 1
+    return 0
+  done
+  return 1
+}
+
+e2e_lock_force_requested() {
+  case "${E2E_LOCK_FORCE:-}" in
+    '' | 0 | false | no) return 1 ;;
+    *) return 0 ;;
+  esac
+}
+
+# e2e_lock_acquire <key> [timeout_s] [label] [namespace]
 e2e_lock_acquire() {
   local udid="${1:-}" timeout="${2:-$E2E_LOCK_TIMEOUT_DEFAULT}" label="${3:-${E2E_LOCK_LABEL:-gate}}"
-  local dir deadline line pid start comm held state now
+  local ns="${4:-sim}"
+  local dir deadline line pid start comm held acq state now what
 
-  # An empty key would collapse every device onto a single lock path — the same "an empty
+  # An empty key would collapse every resource onto a single lock path — the same "an empty
   # match string must never widen" rule INFRA-423 pins for the reaper.
   if [ -z "$udid" ]; then
-    echo "e2e-sim-lock: refusing to acquire with an empty udid." >&2
-    echo "  An empty key would lock every simulator onto one path. Resolve the device first" >&2
-    echo "  (e2e-sim-device.sh), then pass the resolved UDID." >&2
+    echo "e2e-sim-lock: refusing to acquire with an empty $(e2e_lock_keyname "$ns")." >&2
+    echo "  An empty key would collapse every resource in this namespace onto one path." >&2
+    echo "  Resolve it first (e2e-sim-device.sh for a simulator), then pass the result." >&2
     return 2
   fi
 
-  dir="$(e2e_lock_dir "$udid")" || return 2
+  # Our own lineage already holds it (INFRA-472). Checked before the mkdir, because the mkdir
+  # is exactly what would fail and send this process to wait out its own parent's lease.
+  if e2e_lock_inherited_holds "$ns" "$udid"; then
+    return 0
+  fi
+
+  what="$(e2e_lock_resource "$ns" "$udid")"
+  dir="$(e2e_lock_dir "$udid" "$ns")" || return 2
   mkdir -p "$E2E_LOCK_ROOT" 2>/dev/null || true
   now="$(date +%s)"
   deadline=$(( now + timeout ))
@@ -137,7 +257,7 @@ e2e_lock_acquire() {
     if [ "$attempts" -ge 3 ] && [ "$saw_live" != "1" ]; then
       now="$(date +%s)"
       if [ "$now" -ge "$deadline" ]; then
-        echo "e2e-sim-lock: could not acquire the simulator lock for $udid within ${timeout}s," >&2
+        echo "e2e-sim-lock: could not acquire the $what within ${timeout}s," >&2
         echo "  and no live holder was found. Check that $E2E_LOCK_ROOT is writable and that" >&2
         echo "  $dir is not being recreated by a looping process." >&2
         return 1
@@ -165,19 +285,34 @@ e2e_lock_acquire() {
       start="$(printf '%s' "$line" | cut -f2)"
       comm="$(printf '%s' "$line" | cut -f3)"
       held="$(printf '%s' "$line" | cut -f4)"
+      # Field 5 only exists on records written since INFRA-472; empty is a valid reading.
+      acq="$(printf '%s' "$line" | cut -f5)"
       state="$(e2e_lock_holder_state "$pid" "$start")"
       case "$state" in
         DEAD|RECYCLED)
           rm -rf "$dir" 2>/dev/null || true
           ;;
         *)
+          if e2e_lock_force_requested; then
+            echo "⚠️  e2e-sim-lock: FORCE — overriding a LIVE holder of the $what." >&2
+            echo "     holder:        pid $pid ($comm), label: ${held:-unknown}" >&2
+            echo "     running since: $start" >&2
+            echo "     acquired:      $(e2e_lock_fmt_time "$acq")" >&2
+            echo "   That process is still alive. If it is mid-build or mid-flow, this run" >&2
+            echo "   will clobber it. E2E_LOCK_FORCE is for a holder you have confirmed is" >&2
+            echo "   wedged — the classifier reclaims crashed and recycled holders by itself." >&2
+            rm -rf "$dir" 2>/dev/null || true
+            continue
+          fi
           saw_live=1
           now="$(date +%s)"
           if [ "$now" -ge "$deadline" ]; then
-            echo "e2e-sim-lock: could not acquire the simulator lock for $udid within ${timeout}s." >&2
-            echo "  Held by pid $pid ($comm, label: ${held:-unknown}), running since $start." >&2
-            echo "  Another session is building or running flows on this device. Wait for it," >&2
-            echo "  or raise E2E_LOCK_TIMEOUT. Do NOT delete $dir by hand while that pid lives." >&2
+            echo "e2e-sim-lock: could not acquire the $what within ${timeout}s." >&2
+            echo "  Held by pid $pid ($comm, label: ${held:-unknown})." >&2
+            echo "  running since $start; acquired $(e2e_lock_fmt_time "$acq")." >&2
+            echo "  Another session holds this resource. Wait for it, or raise" >&2
+            echo "  E2E_LOCK_TIMEOUT. Do NOT delete $dir by hand while that pid lives —" >&2
+            echo "  if you have confirmed it is wedged, re-run with E2E_LOCK_FORCE=1." >&2
             return 1
           fi
           sleep 1
@@ -189,10 +324,11 @@ e2e_lock_acquire() {
 
 # Release only what we actually hold. An unconditional `rm -rf` in a trap would hand a
 # peer's device away mid-flow — precisely the interleaving this exists to prevent.
+# e2e_lock_release <key> [namespace]
 e2e_lock_release() {
-  local udid="${1:-}" dir line pid
+  local udid="${1:-}" ns="${2:-sim}" dir line pid
   [ -n "$udid" ] || return 0
-  dir="$(e2e_lock_dir "$udid")" || return 0
+  dir="$(e2e_lock_dir "$udid" "$ns")" || return 0
   [ -d "$dir" ] || return 0
 
   line="$(cat "$dir/owner" 2>/dev/null || true)"
@@ -200,5 +336,51 @@ e2e_lock_release() {
   if [ "$pid" = "$$" ]; then
     rm -rf "$dir" 2>/dev/null || true
   fi
+  return 0
+}
+
+# --- The pair (INFRA-472) ---------------------------------------------------------------
+
+# e2e_lock_pair_order <ns1> <key1> <ns2> <key2>
+#
+# The canonical acquisition order, as `<ns><TAB><key>` lines. Sorted rather than taken as
+# given: this is the ONLY thing standing between two sessions and a mutual 1800 s wait, and
+# a rule the call sites have to remember is a rule that gets forgotten. `gatetree` sorts
+# before `sim`, which also happens to put the cheaper refusal first.
+e2e_lock_pair_order() {
+  printf '%s\t%s\n%s\t%s\n' "${1:-}" "${2:-}" "${3:-}" "${4:-}" | LC_ALL=C sort
+}
+
+# e2e_lock_acquire_pair <ns1> <key1> <ns2> <key2> [timeout_s] [label]
+#
+# Both or neither. A partial acquire is worse than none: this session refuses anyway, and a
+# peer that needed only the OTHER resource is left blocked by a lease whose holder is LIVE
+# (this pid) and therefore not reclaimable.
+e2e_lock_acquire_pair() {
+  local timeout="${5:-$E2E_LOCK_TIMEOUT_DEFAULT}" label="${6:-${E2E_LOCK_LABEL:-gate}}"
+  local ordered ns key taken_ns='' taken_key=''
+
+  ordered="$(e2e_lock_pair_order "$1" "$2" "$3" "$4")"
+
+  # Heredoc, not a pipe: a pipeline would run this loop in a subshell and lose `taken_*`,
+  # so the rollback below would silently never fire.
+  while IFS=$'\t' read -r ns key; do
+    [ -n "$ns" ] || continue
+    if ! e2e_lock_acquire "$key" "$timeout" "$label" "$ns"; then
+      [ -n "$taken_ns" ] && e2e_lock_release "$taken_key" "$taken_ns"
+      return 1
+    fi
+    taken_ns="$ns"
+    taken_key="$key"
+  done <<EOF
+$ordered
+EOF
+  return 0
+}
+
+# e2e_lock_release_pair <ns1> <key1> <ns2> <key2>
+e2e_lock_release_pair() {
+  e2e_lock_release "${2:-}" "${1:-sim}"
+  e2e_lock_release "${4:-}" "${3:-sim}"
   return 0
 }

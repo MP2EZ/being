@@ -652,7 +652,7 @@ const styles = StyleSheet.create({
   statusDue: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     backgroundColor: colorSystem.gray[100],
     paddingHorizontal: spacing[8],
     paddingVertical: spacing[4],

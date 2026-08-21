@@ -41,6 +41,22 @@ jest.mock('../ReConsentScreen', () => {
   return { __esModule: true, default: Stub };
 });
 
+/**
+ * DEBUG-418's destination, stubbed for the same reason as `ReConsentScreen`:
+ * this file is about what the container DECIDES. The screen's own rendering
+ * contract is pinned by `StaleConsentIneligibleScreen.accessibility.test.tsx`.
+ */
+const mockIneligibleProps: Array<Record<string, any>> = [];
+jest.mock('../StaleConsentIneligibleScreen', () => {
+  const ReactActual = require('react');
+  const { Text: RNText } = require('react-native');
+  const Stub = (props: any) => {
+    mockIneligibleProps.push(props);
+    return ReactActual.createElement(RNText, { testID: 'ineligible-screen-stub' }, 'stub');
+  };
+  return { __esModule: true, default: Stub };
+});
+
 const mockSubmitReConsent = jest.fn();
 jest.mock('../../services/submitReConsent', () => ({
   submitReConsent: (...args: any[]) => mockSubmitReConsent(...args),
@@ -50,9 +66,18 @@ const mockDeclineReConsent = jest.fn();
 const mockGetConsentDeltaSince = jest.fn();
 
 let mockStoreState: Record<string, any> = {};
+/**
+ * `isBaseEligibleForRenewal` is mockable so the DEBUG-418 branch can be driven
+ * from both sides without constructing birth years. It defaults to TRUE so every
+ * pre-existing case keeps exercising the renewable path unchanged — a default of
+ * false would silently re-point the whole suite at the ineligible screen and it
+ * would still pass, for the wrong reason.
+ */
+const mockIsBaseEligibleForRenewal = jest.fn(() => true);
 jest.mock('@/core/stores/consentStore', () => ({
   useConsentStore: (selector: (state: any) => unknown) => selector(mockStoreState),
   getConsentDeltaSince: (...args: any[]) => mockGetConsentDeltaSince(...args),
+  isBaseEligibleForRenewal: (...args: any[]) => mockIsBaseEligibleForRenewal(...args),
 }));
 
 const mockLogError = jest.fn();
@@ -119,6 +144,8 @@ describe('ReConsentRoute (FEAT-417 container)', () => {
 
   beforeEach(() => {
     mockScreenProps.length = 0;
+    mockIneligibleProps.length = 0;
+    mockIsBaseEligibleForRenewal.mockReset().mockReturnValue(true);
     mockSubmitReConsent.mockReset();
     mockDeclineReConsent.mockReset().mockResolvedValue(undefined);
     mockGetConsentDeltaSince.mockReset().mockReturnValue(DELTA);
@@ -334,5 +361,96 @@ describe('ReConsentRoute (FEAT-417 container)', () => {
 
       expect(/posthog|captureEvent|trackEvent/i.test(code)).toBe(false);
     });
+  });
+});
+
+/**
+ * DEBUG-418 — the container picks the screen, and the choice is structural.
+ *
+ * `ReConsentScreen` is the ONLY component that can produce an Art. 9(2)(a)
+ * affirmation. Deciding here — rather than accepting a route param — means it is
+ * never MOUNTED for an ineligible record, so `submitReConsent`'s `'ineligible'`
+ * age-failure stage (which this container's own header calls a reachable race)
+ * becomes unreachable from this path entirely.
+ */
+describe('ReConsentRoute — DEBUG-418 ineligible branch', () => {
+  let onDismiss: jest.Mock;
+
+  beforeEach(() => {
+    mockScreenProps.length = 0;
+    mockIneligibleProps.length = 0;
+    mockIsBaseEligibleForRenewal.mockReset().mockReturnValue(false);
+    mockSubmitReConsent.mockReset();
+    mockDeclineReConsent.mockReset().mockResolvedValue(undefined);
+    mockGetConsentDeltaSince.mockReset().mockReturnValue(DELTA);
+    mockLogError.mockReset();
+    onDismiss = jest.fn();
+    mockStoreState = {
+      staleConsent: staleRecord(),
+      currentConsent: null,
+      declineReConsent: mockDeclineReConsent,
+    };
+  });
+
+  it('mounts the ineligible notice and NEVER the renewable screen', () => {
+    const { getByTestId, queryByTestId } = render(<ReConsentRoute onDismiss={onDismiss} />);
+
+    expect(getByTestId('ineligible-screen-stub')).toBeTruthy();
+    expect(queryByTestId('reconsent-screen-stub')).toBeNull();
+    // The load-bearing assertion: the renewable screen was never even
+    // constructed, so no Art. 9 affirmation is reachable from this branch.
+    expect(mockScreenProps).toHaveLength(0);
+  });
+
+  it('passes the delta through, so the user is told what changed', () => {
+    render(<ReConsentRoute onDismiss={onDismiss} />);
+    expect(mockIneligibleProps[0]?.delta).toBe(DELTA);
+  });
+
+  it('gives the notice no submit affordance — only an acknowledge callback', () => {
+    render(<ReConsentRoute onDismiss={onDismiss} />);
+    const props = mockIneligibleProps[0] ?? {};
+
+    expect(typeof props.onAcknowledge).toBe('function');
+    // Nothing on this branch may offer a way to grant consent.
+    expect(props.onSubmit).toBeUndefined();
+    expect(props.onDecline).toBeUndefined();
+  });
+
+  it('records the refusal and dismisses when the user acknowledges', async () => {
+    render(<ReConsentRoute onDismiss={onDismiss} />);
+    await mockIneligibleProps[0].onAcknowledge();
+
+    expect(mockDeclineReConsent).toHaveBeenCalledTimes(1);
+    expect(onDismiss).toHaveBeenCalledTimes(1);
+  });
+
+  it('dismisses even when the audit write rejects', async () => {
+    // Same reasoning as the renewable decline path: holding the user on a screen
+    // with no header and no back gesture because OUR write failed would convert a
+    // refusal they already made into a trap.
+    mockDeclineReConsent.mockRejectedValueOnce(new Error('audit chain unavailable'));
+    render(<ReConsentRoute onDismiss={onDismiss} />);
+    await mockIneligibleProps[0].onAcknowledge();
+
+    await waitFor(() => expect(onDismiss).toHaveBeenCalledTimes(1));
+    expect(mockLogError).toHaveBeenCalled();
+  });
+
+  it('does not fire the refusal on mount — it must be a user act', () => {
+    // An auto-fired audit entry fabricates a decision the user did not make,
+    // which is the exact inverse of declineReConsent's stated rationale.
+    render(<ReConsentRoute onDismiss={onDismiss} />);
+    expect(mockDeclineReConsent).not.toHaveBeenCalled();
+    expect(onDismiss).not.toHaveBeenCalled();
+  });
+
+  it('still fails closed and dismisses when there is no record to explain', () => {
+    mockStoreState = { staleConsent: null, currentConsent: null, declineReConsent: mockDeclineReConsent };
+    render(<ReConsentRoute onDismiss={onDismiss} />);
+
+    expect(onDismiss).toHaveBeenCalled();
+    expect(mockIneligibleProps).toHaveLength(0);
+    expect(mockScreenProps).toHaveLength(0);
   });
 });

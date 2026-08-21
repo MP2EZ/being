@@ -315,7 +315,7 @@ const styles = StyleSheet.create({
   },
   featuredFraming: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     lineHeight: 22,
   },
   citation: {

@@ -219,6 +219,19 @@ const styles = StyleSheet.create({
     color: semantic.text.primary,
     marginBottom: spacing[4],
   },
+  /**
+   * MAINT-487 LEFT BOTH TEXT COLOURS BELOW ON RAW gray[700] — the sweep's only
+   * text carve-out. `noteSection` takes `themeColors.light`, and `themes.*.light`
+   * are saturated accent mid-tones, not light surfaces: gray[700] is already BELOW
+   * AA there on evening (#6B9B78, 3.1513) and learn (#B89DD1, 4.2025), and
+   * `semantic.text.secondary` would take all four themes under. No ramp neutral is
+   * legal on #6B9B78, so the fix is the GROUND, not the text.
+   *
+   * It is latent rather than live only because this component has no render
+   * consumers — every importer takes `BODY_AREAS` and nothing else. Revive it and
+   * the two failures become real. Pinned with the full ratio table in
+   * core/theme/__tests__/gray700-call-sites.accessibility.test.ts.
+   */
   summaryText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],

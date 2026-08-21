@@ -1,5 +1,5 @@
 import { StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, semantic, spacing, typography, borderRadius } from '@/core/theme';
 
 export const sharedPracticeStyles = StyleSheet.create({
   // Layout containers
@@ -22,7 +22,7 @@ export const sharedPracticeStyles = StyleSheet.create({
   },
   instructionsText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center' as const,
     lineHeight: 24,
   },
@@ -47,7 +47,7 @@ export const sharedPracticeStyles = StyleSheet.create({
   noteText: {
     flex: 1,
     fontSize: typography.caption.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
     fontStyle: 'italic' as const,
   },

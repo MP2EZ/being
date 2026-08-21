@@ -459,7 +459,7 @@ const styles = StyleSheet.create({
   practiceName: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     marginBottom: spacing[32],
     textAlign: 'center',
   },
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
   },
   educationalMessage: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: typography.bodyRegular.size * (typography.bodyRegular.lineHeight || 1.5),
     marginBottom: spacing[32],
@@ -539,7 +539,7 @@ const styles = StyleSheet.create({
     color: semantic.text.primary,
   },
   secondaryButtonTextPressed: {
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
   },
 });
 
