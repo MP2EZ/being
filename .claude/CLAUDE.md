@@ -45,6 +45,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/practices/dailyloop/` | `crisis` + `philosopher` |
 | `app/src/features/guidance/` | `crisis` + `philosopher` |
 | `app/src/features/consent/` | `crisis` + `compliance` |
+| `app/src/features/journal/` | `crisis` |
 | `app/src/core/services/security/` | `compliance` |
 | `app/src/core/stores/consentStore.ts` | `compliance` |
 
@@ -79,6 +80,12 @@ Adding a row to the table above without doing one or the other will fail that ch
 discharge its above-the-fold obligation. `crisis` owns that affordance; `philosopher` still
 owns the beat's content. Phase 2.5 gates `practices/dailyloop` only; the rest of `practices/`
 stays exempt.
+
+`features/journal/` is the fourth (added DEBUG-480). `VoiceReflectionScreen.tsx` hosts the
+app's only save-time crisis scan — `scanOnSave`, reachable solely through `journal-save-button`
+— plus `journal-crisis-banner` and `journal-crisis-call-988`. It is the sole scan point for text
+a user typed or corrected, so a reachability defect there is a crisis false negative, not a
+usability bug. `crisis` owns the scan and the affordances.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 

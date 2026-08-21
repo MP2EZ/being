@@ -406,7 +406,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|practices/dailyloop)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
