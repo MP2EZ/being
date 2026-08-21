@@ -155,7 +155,14 @@ fi
 # --- Step 3.2 / 3.3 ---------------------------------------------------------------------
 stage push git push -u origin "$BRANCH"
 
+# Idempotent, because CI-red re-entry is the common case and /b-close is documented as
+# safe to re-run. `gh pr create` errors when one already exists, which would have made a
+# relaunch after any red gate report PR_FAILED and strand the branch.
 open_pr() {
+  if [ -n "$(gh pr list --head "$BRANCH" --state open --json number -q '.[0].number')" ]; then
+    echo "reusing the open PR for $BRANCH"
+    return 0
+  fi
   gh pr create --base development --head "$BRANCH" --title "$TITLE" --body-file "$BODY_FILE"
 }
 stage pr open_pr

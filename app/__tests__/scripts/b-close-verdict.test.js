@@ -380,6 +380,13 @@ describe('INFRA-492 runner — structural guarantees that cannot be asserted by 
     if (watch) expect(watch[0]).toMatch(/\|\|\s*true/);
   });
 
+  it('is idempotent at the PR stage, because CI-red re-entry is the common case', () => {
+    // /b-close is documented as safe to re-run. `gh pr create` errors when one exists, so
+    // without this a relaunch after any red gate reports PR_FAILED and strands the branch.
+    const src = stripped(RUNNER);
+    expect(src).toMatch(/gh pr list[^\n]*--head[^\n]*--state open/);
+  });
+
   it('bounds the lease retry rather than looping forever on a peer (approved fork)', () => {
     const src = stripped(RUNNER);
     expect(src).toMatch(/B_CLOSE_LEASE_RETRIES/);
