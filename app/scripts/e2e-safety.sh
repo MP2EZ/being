@@ -737,9 +737,19 @@ e2e_reset_drivers "" "pre-flight"
 # Deliberately NOT scoped under `[ -n "$SIM_UDID" ]` the way the driver reset is: host
 # starvation hurts a device-only run identically, and unlike the reset nothing is killed
 # here, so the empty-UDID widening hazard does not apply.
-HOST_FACTS="$(e2e_host_contention_facts "")"
+#
+# INFRA-500 — SETTLE FIRST, then read. The documented recipe is `npm run e2e:safety:gate`
+# followed immediately by the flows, and the gate's own 90s-to-21min build leaves the host
+# at several times its idle load. That is the reliably reproducible contention on this
+# machine, and unlike a peer's it decays on its own, so a bounded wait removes it. The
+# reading below is therefore the POST-settle one — the load the flows will actually run
+# under, not the one they inherited. `e2e_host_settle` never skips a flow; see its header.
+HOST_FACTS="$(e2e_host_settle "")"
 e2e_host_summary_line "$HOST_FACTS"
 e2e_host_contention_warn "$HOST_FACTS"
+if command -v e2e_telemetry_settle >/dev/null 2>&1; then
+  e2e_telemetry_settle "$HOST_FACTS"
+fi
 
 flow_idx=0
 FLOW_TOTAL=${#FLOWS[@]}
