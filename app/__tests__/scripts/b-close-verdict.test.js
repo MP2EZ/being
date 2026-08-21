@@ -380,6 +380,23 @@ describe('INFRA-492 runner — structural guarantees that cannot be asserted by 
     if (watch) expect(watch[0]).toMatch(/\|\|\s*true/);
   });
 
+  it('decides the merge by PR STATE, never by `gh pr merge`\'s exit code', () => {
+    // `gh pr merge --delete-branch` ALWAYS fails its local-checkout step in this repo:
+    // development is held by a worktree, so gh reports `fatal: 'development' is already
+    // used by worktree at …` and exits 1 — after the merge has landed. Routing on that
+    // exit code reports MERGE_REFUSED for a successful merge and skips the postmerge
+    // sync, which is worse than a plain failure because it invites re-running a merge
+    // that already happened. Same lesson as Step 3.4's rollup: route on the state the
+    // command produced, not on the status it returned.
+    const src = stripped(RUNNER);
+    expect(src).toMatch(/gh pr view[^\n]*--json state|--json state[^\n]*state/);
+    expect(src).toMatch(/MERGED/);
+    // The merge invocation itself must not be what decides.
+    const call = src.match(/gh pr merge[^\n]*/);
+    expect(call).not.toBeNull();
+    expect(call[0]).toMatch(/\|\|\s*true/);
+  });
+
   it('is idempotent at the PR stage, because CI-red re-entry is the common case', () => {
     // /b-close is documented as safe to re-run. `gh pr create` errors when one exists, so
     // without this a relaunch after any red gate reports PR_FAILED and strands the branch.

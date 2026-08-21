@@ -197,7 +197,18 @@ CI_VERDICT="$(b_close_stage_verdict ci "$CI_WORD")"
 b_close_mergeable "$CI_VERDICT" || finish "$CI_VERDICT" ci "rollup=$CI_WORD on PR #$PR_NUMBER"
 
 # --- Step 3.5 - 3.7 ---------------------------------------------------------------------
-stage merge gh pr merge "$PR_NUMBER" --merge --delete-branch --admin
+# The merge is decided by the PR's STATE, not by gh's exit code — the same rule Step 3.4
+# applies to the CI rollup, for the same reason. `gh pr merge --delete-branch` ALWAYS fails
+# its local-checkout step in this repo (development is held by a worktree, so gh reports
+# `fatal: 'development' is already used by worktree at …`) and exits 1 AFTER the merge has
+# landed. Routing on that reports MERGE_REFUSED for a successful merge and skips the
+# postmerge sync — worse than a plain failure, because it invites re-running a merge that
+# already happened. Step 3.7 exists to clean up the branch-delete half of the same defect.
+do_merge() {
+  gh pr merge "$PR_NUMBER" --merge --delete-branch --admin || true
+  [ "$(gh pr view "$PR_NUMBER" --json state -q '.state' 2>/dev/null)" = "MERGED" ]
+}
+stage merge do_merge
 
 b_close_status_write "$RUN_DIR" postmerge
 say "postmerge"
