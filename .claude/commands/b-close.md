@@ -925,6 +925,13 @@ fi
 A caller that parks or tiers on close failures — `/b-batch` Phase 3.4 is the one in
 tree — must read exit 4 as "retry later", never as a CI-red or a safety regression.
 
+**Exit 0 here does not reserve the simulator for 2.5.5.** The lease spans the build only
+(`e2e-gate.sh`), so a peer parked in `e2e_lock_acquire` takes the device the instant the
+build releases and installs over the attested binary — 2.5.5 then refuses on provenance
+`MISMATCH`. That refusal is correct; retry both steps when the machine is quiet. Holding
+the pair in an outer shell does NOT work around it: `e2e-gate.sh` assigns rather than
+appends to `E2E_LOCK_INHERITED`, so the build deadlocks on its own ancestor's lease.
+
 Pointing the gate at a bare branch tip gates a tree that will never merge — the same
 mistake this step's "sync FIRST" rule exists to prevent, just relocated. The wrapper
 refuses a dirty worktree up front and names the offending files, and on any provenance
