@@ -78,4 +78,38 @@ describe('DeleteAccountScreen', () => {
     expect(getByTestId('delete-error').props.children).toMatch(/intact/i);
     expect(mockReset).not.toHaveBeenCalled();
   });
+
+  // DEBUG-480 companion. This is a data-subject-right ACCESS pin, not polish:
+  // the screen's header cites CCPA / TDPSA / VCDPA / CPA / GDPR Art. 17, and a
+  // confirm control that is keyboard-occluded or whose first tap is swallowed is
+  // a functional obstruction of the right to erasure.
+  //
+  // The retry path is the one that matters: delete-error renders BETWEEN the
+  // confirm input and the button and pushes the button down, while the keyboard
+  // is necessarily up because the user has just typed the confirmation word.
+  describe('erasure stays reachable with the keyboard up (DEBUG-480)', () => {
+    it('does not let the scroll view swallow the first keyboard-up tap', () => {
+      const { getByTestId } = render(<DeleteAccountScreen />);
+      const scroll = getByTestId('delete-account-scroll');
+      expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
+      expect(scroll.props.automaticallyAdjustKeyboardInsets).toBe(true);
+      expect(scroll.props.keyboardDismissMode).toBe('on-drag');
+    });
+
+    it('keeps the confirm button pressable once the error has pushed it down', async () => {
+      mockDeleteAccountAndWipe.mockResolvedValue({ ok: false, retryable: true });
+      const { getByTestId } = render(<DeleteAccountScreen />);
+
+      fireEvent.changeText(getByTestId('delete-confirm-input'), 'DELETE');
+      fireEvent.press(getByTestId('delete-account-button'));
+      await waitFor(() => expect(getByTestId('delete-error')).toBeTruthy());
+
+      // The retry must still reach the handler with the error rendered.
+      mockDeleteAccountAndWipe.mockResolvedValue({ ok: true });
+      fireEvent.press(getByTestId('delete-account-button'));
+      await waitFor(() =>
+        expect(mockDeleteAccountAndWipe).toHaveBeenCalledTimes(2)
+      );
+    });
+  });
 });

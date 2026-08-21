@@ -41,8 +41,18 @@ import * as Sentry from '@sentry/react-native';
 
 import { logSecurity, logPerformance } from '@/core/services/logging';
 
-/** Where the crisis tap came from. Label only — never wellness data. */
-export type CrisisTapSource = 'crisis_button' | 'error_boundary';
+/**
+ * Where the crisis tap came from. Label only — never wellness data.
+ *
+ * ⚠️ Kept in sync BY HAND with the `CrisisResources` route param's own `source` union in
+ * `core/navigation/CleanRootNavigator.tsx`. They are separately declared and nothing
+ * enforces the correspondence; a member added here and not there compiles, and the route
+ * silently receives a value its type does not admit.
+ */
+export type CrisisTapSource =
+  | 'crisis_button'
+  | 'error_boundary'
+  | 'keyboard_accessory'; // DEBUG-450 — the InputAccessoryView control
 
 /**
  * How the tap terminated. `screen_commit` and `url_open` are different physical

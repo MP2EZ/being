@@ -2,6 +2,8 @@ appId: fyi.being.app
 tags:
   - safety
 name: "PHQ-9 score >=20 completion shows crisis results"
+# e2e-certifies: any
+# INFRA-486 — Asserts a score threshold and the intervention it triggers, not a layout.
 ---
 # Pins the score-based completion path (orthogonal to the Q9 inline
 # trigger). Score 24 (8 questions x 3) passes the >=20 severe threshold;

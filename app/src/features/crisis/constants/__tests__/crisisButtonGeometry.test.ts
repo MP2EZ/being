@@ -15,6 +15,8 @@
 
 import {
   CRISIS_BUTTON_BOTTOM_OFFSET,
+  CRISIS_BUTTON_TOP_EDGE_FROM_BOTTOM,
+  keyboardOccludesCrisisButton,
   CRISIS_BUTTON_CLEARANCE,
   CRISIS_BUTTON_EXCLUSION_RECT,
   CRISIS_BUTTON_HIT_SLOP,
@@ -167,5 +169,67 @@ describe('DEBUG-406 · crisis button geometry', () => {
       expect(buttonTopEdge).toBe(156);
       expect(overlayBottomInset(216)).toBeGreaterThan(buttonTopEdge);
     });
+  });
+});
+
+/**
+ * DEBUG-450 — the occlusion predicate.
+ *
+ * AC3 is explicit that the trigger is "the keyboard's top edge occludes the button",
+ * NOT "a keyboard is up". Two real states are up-without-occluding, and treating them
+ * as occlusion mounts a second crisis control for no reason — which is the cost AC2
+ * exists to avoid paying.
+ */
+describe('keyboardOccludesCrisisButton (DEBUG-450)', () => {
+  const SCREEN = { height: 844 }; // iPhone 14 logical height
+
+  /** A docked keyboard of `height`, flush to the bottom of `screen`. */
+  const docked = (height: number, screen = SCREEN) => ({
+    screenY: screen.height - height,
+    height,
+  });
+
+  it('reports occlusion for a normal docked software keyboard', () => {
+    expect(keyboardOccludesCrisisButton(docked(291), SCREEN)).toBe(true);
+    expect(keyboardOccludesCrisisButton(docked(216), SCREEN)).toBe(true);
+  });
+
+  it('does NOT report occlusion for a hardware-keyboard shortcuts bar', () => {
+    // ~55pt, far below the button's 156pt top edge. The button is fully reachable,
+    // so mounting the accessory here would be a gratuitous second control.
+    expect(keyboardOccludesCrisisButton(docked(55), SCREEN)).toBe(false);
+  });
+
+  it('is bounded by the button top edge, not by an arbitrary constant', () => {
+    expect(CRISIS_BUTTON_TOP_EDGE_FROM_BOTTOM).toBe(156);
+    // Half-open: a frame that reaches EXACTLY the top edge does not occlude it.
+    expect(keyboardOccludesCrisisButton(docked(156), SCREEN)).toBe(false);
+    expect(keyboardOccludesCrisisButton(docked(157), SCREEN)).toBe(true);
+  });
+
+  it('does NOT report occlusion for an iPad floating/split keyboard', () => {
+    // Tall enough to clear the threshold, but not bottom-anchored — it floats
+    // mid-screen, so the button below it is untouched.
+    expect(keyboardOccludesCrisisButton({ screenY: 300, height: 300 }, SCREEN)).toBe(false);
+  });
+
+  it('treats an absent frame as no keyboard, not as uncertainty', () => {
+    expect(keyboardOccludesCrisisButton(null, SCREEN)).toBe(false);
+    expect(keyboardOccludesCrisisButton(undefined, SCREEN)).toBe(false);
+    expect(keyboardOccludesCrisisButton(docked(0), SCREEN)).toBe(false);
+  });
+
+  /**
+   * The house rule for the crisis path: an unknown state fails toward SHOWING the
+   * affordance. `RootCrisisButton` treats an undefined routeName as non-suppressed;
+   * `overlayBottomInset(0)` returns the full band. An unnecessary affordance costs a
+   * strip of screen; a missing one costs the contract.
+   */
+  it('fails TOWARD showing when the frame cannot be interpreted', () => {
+    expect(keyboardOccludesCrisisButton({ screenY: 0, height: NaN }, SCREEN)).toBe(true);
+    expect(keyboardOccludesCrisisButton({ screenY: NaN, height: 300 }, SCREEN)).toBe(true);
+    expect(keyboardOccludesCrisisButton({ height: 300 }, SCREEN)).toBe(true);
+    expect(keyboardOccludesCrisisButton(docked(300), { height: 0 })).toBe(true);
+    expect(keyboardOccludesCrisisButton(docked(300), { height: NaN })).toBe(true);
   });
 });

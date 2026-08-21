@@ -335,12 +335,12 @@ const styles = StyleSheet.create({
   recommendationTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   recommendationDescription: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
     marginBottom: spacing[16],
   },
@@ -362,7 +362,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   moduleCard: {
@@ -398,7 +398,7 @@ const styles = StyleSheet.create({
   moduleNumberText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
   },
   moduleTag: {
     paddingHorizontal: spacing[8],
@@ -421,7 +421,7 @@ const styles = StyleSheet.create({
   moduleTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   moduleDescription: {
@@ -477,7 +477,7 @@ const styles = StyleSheet.create({
   libraryEntryTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   libraryEntryDescription: {

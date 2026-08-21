@@ -2,6 +2,9 @@ appId: fyi.being.app
 tags:
   - safety-device-only
 name: "988 dial does not surface 'Unable to Call' fallback (device-only)"
+# e2e-certifies: any
+# INFRA-486 — safety-device-only: runs on real hardware to prove canOpenURL(tel:) does not fall
+# back. The axis is the OS URL handler, not the viewport.
 ---
 # DEVICE-ONLY (INFRA-184). Cannot pass on iOS simulator: the sim's
 # Linking.canOpenURL('tel:988') returns false unconditionally because the

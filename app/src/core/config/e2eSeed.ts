@@ -361,8 +361,15 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
     });
 
     // 3. Age verification (≥18) + full consent record via the real store API.
-    //    mentalHealthProcessingConsent unlocks the assessment / check-in screens
-    //    the safety flows exercise (GDPR Art. 9(2)(a) explicit consent).
+    //    `mentalHealthProcessingConsent` is the GDPR Art. 9(2)(a) explicit consent.
+    //    It is seeded true to mirror a fully-consented user, NOT because anything
+    //    depends on it: this comment used to claim it "unlocks the assessment /
+    //    check-in screens the safety flows exercise," which was never true and is a
+    //    trap. Nothing gates on it — `canPerformOperation('mental_health_processing')`
+    //    has zero production callers and `consentCache.canProcessMentalHealthData` has
+    //    no consumer outside consentStore. A reader who believed the old comment would
+    //    conclude that refusing this consent blocks assessments and therefore blocks
+    //    crisis detection; it blocks neither. Enforcement is FEAT-318.
     const { verifyAge, grantConsent } = useConsentStore.getState();
     const { age, eligible } = await verifyAge(SEED_BIRTH_YEAR);
     const ageVerification: AgeVerification = {

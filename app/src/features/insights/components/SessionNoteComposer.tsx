@@ -73,6 +73,7 @@ import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useOverlayBottomInset } from '@/core/hooks/useOverlayBottomInset';
 import { SESSION_NOTE_MAX_LENGTH } from '@/features/assessment/stores/assessmentStore';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 /** Fixed label — compliance + philosopher red line; never "clinical context". */
 export const SESSION_NOTE_LABEL = 'Your note';
@@ -178,6 +179,7 @@ const SessionNoteComposer: React.FC<SessionNoteComposerProps> = ({
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
 
           <TextInput
+            {...crisisAccessoryProps()} /* DEBUG-450 */
             style={styles.input}
             value={text}
             onChangeText={(next) =>

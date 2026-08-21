@@ -21,7 +21,7 @@
 
 import React from 'react';
 import { View, Text, StyleSheet, ViewStyle, TextStyle } from 'react-native';
-import { colorSystem, spacing, typography, semantic } from '@/core/theme';
+import { spacing, typography, semantic } from '@/core/theme';
 
 interface FlowHeaderProps {
   /** Main title text */
@@ -79,7 +79,7 @@ const styles = StyleSheet.create({
   },
   title: {
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   titleLarge: {
     fontSize: typography.headline2.size,

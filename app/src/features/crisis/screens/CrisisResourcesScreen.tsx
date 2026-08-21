@@ -498,7 +498,9 @@ export default function CrisisResourcesScreen() {
         This control used to be the LAST child of the 988 resource card, itself
         inside the screen's only ScrollView. Measured on a Release build with
         `maestro hierarchy` real bounds (not screenshots — DEBUG-403 records two
-        wrong fixes diagnosed from pixel-identical renders):
+        wrong fixes diagnosed from pixel-identical renders).
+
+        PRE-DEBUG-432 — SUPERSEDED, retained to show what the fix moved:
 
           iPhone SE 3  375x667  DEFAULT type  fold y=86..667   button y=746..797
           iPhone SE 3  375x667  AX5           fold y=86..667   button y=3926..4095
@@ -509,13 +511,35 @@ export default function CrisisResourcesScreen() {
         phone at DEFAULT Dynamic Type, where it was not merely clipped but absent
         from the accessibility tree: 0% of a 51pt tap target on screen.
 
+        POST-FIX — DEBUG-488, 2026-08-20. Release build, provenance MATCH_CLEAN
+        at tree b7260565. The bar is 100% of the control inside the fold: 44 is a
+        touch-target number, not a clipping number, and a clipped element's centre
+        can fall outside the visible region while XCUITest still finds it.
+
+          iPhone SE 3  375x667  DEFAULT type  fold y=86..667   button y=595..651  (h=56)
+          iPhone SE 3  375x667  AX5           fold y=86..667   button y=465..651  (h=186)
+          16 Pro       402x874  default type  fold y=128..874  button y=768..824  (h=56)
+          16 Pro       402x874  AX5           fold y=128..874  button y=638..824  (h=186)
+
+        Four of four fully inside the fold. The AX5 rows are the load-bearing ones:
+        the footer grows to 186pt there and no resource card is in the hierarchy at
+        offset 0, but the list does remain reachable by scrolling — Crisis Text
+        Line's tap target at y=307..410 (SE 3) and y=352..454 (16 Pro).
+
+        Assert here with centerElement: mid-scroll a card's text reports at
+        y=559..866 while the footer occupies y=465..651, i.e. clipped BEHIND the
+        pinned control yet still scored visible (DEBUG-465).
+
         `CrisisResources` is in RootCrisisButton.SUPPRESSED_ROUTES, so the root
         overlay is deliberately absent and this is the ONLY 988 affordance here —
         on the screen every other crisis affordance routes TO. Suppression is
         earned by an affordance reachable WITHOUT SCROLLING, never by one that
-        merely exists. As a flex sibling of a `flex: 1` ScrollView this is on
-        screen at every scroll offset and every Dynamic Type step, with no
-        absolute positioning to keep in sync.
+        merely exists. As a flex sibling of a `flex: 1` ScrollView it carries no
+        absolute positioning to keep in sync, and DEBUG-488 measured it holding
+        position across a full scroll at DEFAULT and AX5 on both devices above.
+        Scoped deliberately to what was measured — the intermediate Dynamic Type
+        steps are reasoned, not measured. This comment previously claimed "every
+        Dynamic Type step" on the strength of no post-fix measurement at all.
 
         Do NOT re-nest it, and do NOT add a second 988 control to a card: position
         is pinned by __tests__/safety/crisis-zero-988-windows.test.tsx (precommit)
@@ -666,7 +690,15 @@ const styles = StyleSheet.create({
   },
   resourceDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    // MAINT-487: was raw gray[700]. `resourceAvailability` above and `contactLabel`
+    // below already read this token, so the card rendered two subordinate greys once
+    // MAINT-471 moved it. Worst ground is NOT white: `emergencyCard` overrides the
+    // 911 card to #FFEBEE, where gray[650] is 4.8744 (gray[700] was 8.7911) — passing,
+    // and pinned in APP_LOCAL_TINTED_SURFACES rather than left ungoverned.
+    // Deliberately NOT `primary`: that would put orienting prose at parity with
+    // `resourceName` and `contactValue` (both gray[800]), and the phone number must
+    // out-rank the description on a crisis card.
+    color: semantic.text.secondary,
     lineHeight: spacing[20],
     marginBottom: spacing[16]
   },

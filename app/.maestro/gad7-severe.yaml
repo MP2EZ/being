@@ -2,6 +2,8 @@ appId: fyi.being.app
 tags:
   - safety
 name: "GAD-7 score >=15 shows crisis results"
+# e2e-certifies: any
+# INFRA-486 — Asserts a score threshold and the severe handoff, not a layout.
 ---
 # Pins GAD-7 severe-threshold completion path. Score 21 (7 questions x 3)
 # passes the >=15 severe threshold. GAD-7 has no Q9-equivalent inline

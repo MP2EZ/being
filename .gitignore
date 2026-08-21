@@ -148,81 +148,41 @@ PHASE_*.json
 *crisis-performance*
 comprehensive-performance-baseline-report.md
 
-# Cleanup and Migration Scripts
-cleanup-*.js
-cleanup-*.py
-cleanup-*.sh
-cleanup_*.js
-cleanup_*.py
-cleanup_*.sh
-migrate-*.js
-migrate-*.py
-migrate-*.sh
-migration-*.js
-migration-*.py
-migration-*.sh
-validate-*.js
-validate-*.py
-validate_*.js
-validate_*.py
-verify-*.js
-verify-*.py
-check-*.js
-check-*.py
-# Whitelist the crisis-hotline pre-push guard (MAINT-154) — it's a permanent
-# safety check, not an ad-hoc developer scratch script.
-!app/scripts/check-crisis-hotline.js
-!app/__tests__/scripts/check-crisis-hotline.test.js
-
-# Same carve-out, DEBUG-389. NOTE FOR WHOEVER ADDS THE NEXT ONE: the blanket
-# `check-*.js` above was written for ad-hoc developer scratch scripts, but it
-# catches every permanent guard in app/scripts/ too — and it does so SILENTLY.
-# `git add -A` reports nothing, `git status` shows nothing, and the miss only
-# surfaces when CI runs the step and the file it names is not in the repo.
-# Every permanent guard therefore needs an explicit un-ignore here. The ones
-# already tracked (check-breathing-worklet-purity, check-ci-test-coverage,
-# check-crisis-dial-guard) are tracked only because someone force-added them,
-# so this list reads shorter than the real set.
-!app/scripts/check-workflow-scripts.js
-!app/__tests__/scripts/check-workflow-scripts.test.js
-# Whitelist the service-singleton setInterval guard check (INFRA-177) —
-# CI-enforced convention guard, not an ad-hoc developer scratch script.
-!scripts/check-service-interval-guards.js
-# Whitelist the CI test-coverage ledger (INFRA-368) — CI-enforced gate, not an
-# ad-hoc developer scratch script. Without these two lines the `check-*.js` rule
-# above silently swallows both files, and the CI step added by INFRA-368 would
-# invoke a script that is not in the repository.
+# Ad-hoc developer scratch scripts — REPOSITORY ROOT ONLY (INFRA-499).
 #
-# Every permanent guard script in this repo has an entry in this negation block;
-# there is no force-added exception. Adding one is the convention, not a
-# workaround — the failure it prevents is silent, since `git add .` simply does
-# not stage an ignored file and reports nothing.
-!app/scripts/check-ci-test-coverage.js
-!app/__tests__/scripts/check-ci-test-coverage.test.js
-# Whitelist the breathing-worklet purity guard (INFRA-306) — CI-enforced
-# structural guard on the animation path, not an ad-hoc developer scratch script.
-!app/scripts/check-breathing-worklet-purity.js
-# Whitelist the crisis-dial guard (DEBUG-314) — pins every tel:/sms: dial to
-# openCrisisUrl. Enforced both in precommit (via __tests__/safety) and in the
-# CI security job, not an ad-hoc developer scratch script.
-!app/scripts/check-crisis-dial-guard.js
-# Whitelist the modal-occlusion guard (DEBUG-406) — fails on any RN <Modal> in
-# app/src outside a recorded allowlist, because a <Modal> renders in a separate
-# native window above the root crisis button and produces a zero-988-affordance
-# state. Enforced in precommit (via __tests__/safety) and in the CI security
-# job, not an ad-hoc developer scratch script.
-!app/scripts/check-modal-occlusion-guard.js
-!app/__tests__/scripts/check-breathing-worklet-purity.test.js
-# Whitelist the SafeAreaView core-import guard (MAINT-437) — CI-enforced via
-# test:scripts. RN's SafeAreaView is iOS-only and applies zero insets on Android,
-# where SDK 56 makes edge-to-edge mandatory, so a regression is a silent layout
-# defect rather than a warning. Not an ad-hoc developer scratch script.
-!app/scripts/check-safe-area-imports.js
-!app/__tests__/scripts/check-safe-area-imports.test.js
-execute-*.js
-execute-*.py
-batch_*.py
-final_*.py
+# The leading `/` is load-bearing. Unanchored, these globs match at every
+# depth and swallow the permanent guard scripts in app/scripts/ and scripts/
+# — silently, because `git add .` simply does not stage an ignored file and
+# reports nothing, so the miss first surfaces as a red CI step invoking a
+# file that is not in the repository. Anchoring keeps the original
+# scratch-file intent and makes app/scripts/ and scripts/ tracked by default,
+# which retired the 13 hand-written negation entries this block used to carry.
+# Adding a guard script now needs no .gitignore change at all; if one is ever
+# re-ignored, `npm run check:workflow-scripts` fails on the PR that does it.
+/cleanup-*.js
+/cleanup-*.py
+/cleanup-*.sh
+/cleanup_*.js
+/cleanup_*.py
+/cleanup_*.sh
+/migrate-*.js
+/migrate-*.py
+/migrate-*.sh
+/migration-*.js
+/migration-*.py
+/migration-*.sh
+/validate-*.js
+/validate-*.py
+/validate_*.js
+/validate_*.py
+/verify-*.js
+/verify-*.py
+/check-*.js
+/check-*.py
+/execute-*.js
+/execute-*.py
+/batch_*.py
+/final_*.py
 
 # Temporary Scripts and Executables
 *.cleanup
