@@ -204,9 +204,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   E2E_SIM_UDID=<udid> npm run e2e:safety:build   # …or name the target explicitly
   ```
 
-  `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike. Set it for
-  both halves of a session, or the gate will resolve a different device than the build did
-  and refuse the artifact.
+  `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike, **and at any
+  device count** (DEBUG-497). Set it for both halves of a session, or the gate will resolve
+  a different device than the build did and refuse the artifact.
+
+  It is matched as an exact UDID, never a prefix and never against the device name. A pin
+  naming a simulator that is not booted **refuses** rather than falling back to whatever is
+  running — including when only one device is up, which used to resolve the booted one and
+  report success. So a stale exported pin now stops a session instead of silently
+  mis-attributing it; boot the device you named, or clear the variable.
 
   It names a **simulator** only. The device-only flow (`e2e:safety:988-dial`) uses a
   separate `E2E_DEVICE_UDID`, deliberately — because you are told right here to export

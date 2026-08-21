@@ -613,6 +613,15 @@ function runScript(opts = {}) {
     env: {
       ...process.env,
       PATH: `${stubs}:${process.env.PATH}`,
+      // DEBUG-497: scrub the OPERATOR'S session pin out of the inherited environment.
+      // These fixtures boot a stubbed "AAAA-1111", and since the override is now honoured
+      // at any device count, an exported E2E_SIM_UDID naming a real simulator refuses
+      // every one of them — measured at 79 of 126 specs in this file and e2e-gate's.
+      // docs/testing/e2e-maestro.md tells operators to export it for a whole session, so
+      // this is the common case, not a corner. Placed before any `...env` spread so an
+      // explicit per-case override still wins. Precedent: e2e-safety-exit-alphabet.test.js.
+      E2E_SIM_UDID: '',
+      E2E_DEVICE_UDID: '',
       // INFRA-436: per-sandbox lock root. The default is a shared /tmp path, which would
       // make concurrently-running suites contend for a real lock and leave one behind.
       E2E_LOCK_ROOT: path.join(root, '.locks'),
@@ -829,6 +838,8 @@ function runSafety(built, opts = {}) {
     env: {
       ...process.env,
       PATH: `${built.stubs}:${process.env.PATH}`,
+      E2E_SIM_UDID: '', // DEBUG-497, see runBuild
+      E2E_DEVICE_UDID: '', // DEBUG-497, see runBuild
       E2E_LOCK_ROOT: path.join(built.root, '.locks'), // INFRA-436, see runBuild
       E2E_TELEMETRY_FILE: path.join(built.root, '.telemetry.jsonl'), // INFRA-490, see runBuild
       ...env,
@@ -1438,6 +1449,8 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
       env: {
         ...process.env,
         PATH: `${stubs}:${process.env.PATH}`,
+        E2E_SIM_UDID: '', // DEBUG-497, see runBuild — this site bypasses it, same as INFRA-490
+        E2E_DEVICE_UDID: '', // DEBUG-497, see runBuild
         E2E_LOCK_ROOT: path.join(root, '.locks'),
         E2E_TELEMETRY_FILE: path.join(root, '.telemetry.jsonl'),
         CI: '',
