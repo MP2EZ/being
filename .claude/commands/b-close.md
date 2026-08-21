@@ -542,7 +542,7 @@ fi
 | `features/consent/` change | **`deeplink-consent-gate` + `reconsent-stale`** | INFRA-416. Hosts the pre-consent 988 footer (`LegalGate` is in `SUPPRESSED_ROUTES`). The dir hosts TWO gated screens: `reconsent-stale` is the only flow rendering `ReConsentScreen`, and mapping it under `consentStore.ts` alone left screen-level edits gated by a flow that never renders them. |
 | Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
 | `features/journal/` change | **`journal-crisis-scan`** | DEBUG-480. Hosts `scanOnSave`, the only crisis scan of typed/corrected text, plus the in-page banner and 988 action. |
-| `features/guidance/` change | **gated → crisis-button fail-safe** | INFRA-416. No flow pins its threshold routing; the gap is logged loudly rather than silently skipped. |
+| `features/guidance/` change | **`guidance-suppressed-handoff`** | FEAT-457. Drives Home entry → suppressed → notice → CrisisResources → 988, and asserts all four tier testIDs ABSENT. Supersedes the INFRA-416 crisis-button fail-safe, which stood only while no flow pinned guidance's threshold routing. |
 | `features/practices/dailyloop/` change | **full suite** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. Both daily-loop flows lack a scoped script. |
 | `features/practices/` change (outside `dailyloop/`) | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
@@ -703,7 +703,9 @@ echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/services/security' && \
 #   • `_`-prefixed files are helper subflows, not flows — any flow may include one,
 #     so the blast radius is the whole suite.
 #   • daily-loop-*.yaml have NO scoped npm script (verify against package.json before
-#     assuming one exists) — they can only be reached via the full suite.
+#     assuming one exists) — they can only be reached via the full suite. ONE exception:
+#     daily-loop-ax5-entry.yaml (DEBUG-469) has `e2e:safety:ax5` and is safety-dynamic-type,
+#     so the suite can neither select nor validly run it — its own arm below, like 988's.
 #   • crisis-988-dial.yaml is tagged safety-device-only and CANNOT pass in the sim:
 #     canOpenURL returns false unconditionally there regardless of the array's
 #     contents. Adding it would make every 988-flow edit an unfixable red gate, so it
@@ -717,6 +719,12 @@ while IFS= read -r f; do
       echo "   returns false unconditionally, so this flow cannot pass here and is NOT"
       echo "   added to the run set. Validate on real hardware before merging:"
       echo "   npm run e2e:safety:988-dial (with an iPhone connected)." ;;
+    daily-loop-ax5-entry.yaml)
+      echo "🔠 daily-loop-ax5-entry.yaml changed — safety-dynamic-type. The tagged suite"
+      echo "   selects on an exact \`- safety\` tag and runs at the DEFAULT content size,"
+      echo "   so it can neither select this flow nor validly run it. NOT added, and"
+      echo "   deliberately NOT a full-suite trigger. Validate it directly:"
+      echo "   npm run e2e:safety:ax5" ;;
     q9-single-alert.yaml)            FLOWS+=("q9-single-alert") ;;
     phq9-severe-completion.yaml)     FLOWS+=("phq9-severe-completion") ;;
     gad7-severe.yaml)                FLOWS+=("gad7-severe") ;;
