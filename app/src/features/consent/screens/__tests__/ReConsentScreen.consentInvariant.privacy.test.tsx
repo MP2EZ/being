@@ -18,32 +18,24 @@
  *      widen what is submitted.
  *   3. The Art. 9(2)(a) tick is collected once and written to BOTH records with
  *      the same value.
- *   4. Submit is unreachable until all four document acceptances are ticked.
+ *   4. Submit is unreachable until the THREE required document acceptances are
+ *      ticked. The Art. 9(2)(a) tick is captured and recorded, but never gates.
  *
- * ⚠️ INVARIANT 4 CARRIES A KNOWN, TRACKED DEFECT — see FEAT-475.
+ * Invariant 4 was "all four" until FEAT-475 unbundled it, closing on this surface
+ * the Art. 7(4) freely-given defect FEAT-470 closed on `CombinedLegalGateScreen`.
  *
- * FEAT-470 unbundled the Art. 9(2)(a) tick on `CombinedLegalGateScreen`, because a
- * mandatory special-category consent is not freely given under Art. 7(4). This screen
- * still bundles it: `allAccepted` (ReConsentScreen.tsx:158-163) requires all four,
- * and refusing here routes through `declineReConsent`, which restricts all FIVE
- * operations rather than just wellness processing — the same conditionality defect,
- * arriving from a version lapse instead of onboarding.
- *
- * It is NOT a live defect and FEAT-470 does not make it one. This screen presents only
- * from `RECONSENT_TRIGGER_STATUSES` (`useReConsentTrigger.ts`), whose sole member is
- * `version_mismatch`; the v1.0.0 cohort is empty, `expired` does not fire until
- * ~2027-05, and FEAT-470 deliberately does not bump `CONSENT_VERSION`. So the bundled
- * gate here is currently unreachable.
- *
- * 🔴 IT MUST BE UNBUNDLED BEFORE EITHER of these ships, whichever comes first:
- *   • the next `CONSENT_VERSION` bump, or
- *   • activation of the FEAT-399 one-year `expired` expiry (~2027-05).
- * Shipping either against this invariant re-opens on this surface exactly the Art. 7(4)
- * defect FEAT-470 closed on the legal gate. Written here rather than left implicit
- * because this is the file that will go red, and because a comment with no tracked
- * item is how this class of trap goes stale — which is precisely how
- * `CombinedLegalGateScreen.consentInvariant.privacy.test.tsx` handed FEAT-470 its own
- * instructions.
+ * The forward-note FEAT-470 left here also misstated the mechanism, and the
+ * correction is worth keeping: refusing does NOT route through `declineReConsent`
+ * "restricting all five operations". `declineReConsent` (`consentStore.ts:1293`)
+ * writes only an audit entry and mutates no consent state. The over-breadth came
+ * from `canPerformOperation` (`consentStore.ts:1549`) failing closed on
+ * `consentStatus !== 'valid'` — declining leaves the record stale at
+ * `version_mismatch`, so all five died together. Unbundling fixes it precisely
+ * because a refusing user now SUBMITS: `renewConsent` writes a `valid` record with
+ * `canProcessMentalHealthData: false`, and only `mental_health_processing` is
+ * denied. `declineReConsent` is deliberately untouched — its stale-on-purpose
+ * behaviour is load-bearing for the next-launch re-prompt
+ * (`ReConsentRoute.tsx:128-137`).
  */
 
 import React from 'react';
@@ -156,28 +148,149 @@ describe('FEAT-376 · the Art. 9 tick reaches both records', () => {
   });
 });
 
-describe('FEAT-376 · submit is gated on all four acceptances', () => {
-  it('does not submit with three of four ticked', () => {
+/**
+ * Checkbox order is load-bearing for every index below: Group 1 renders ToS,
+ * Privacy, Wellness disclaimer, then Art. 9 LAST. `crisis` ruled the disclaimer
+ * (index 2) must never drift into the optional group — it carries this screen's
+ * only inline "call 911 or 988" string.
+ */
+const TOS = 0;
+const PRIVACY = 1;
+const DISCLAIMER = 2;
+const ART9 = 3;
+
+describe('FEAT-475 · the three contract acceptances remain individually required', () => {
+  it.each([
+    ['Terms of Service', TOS],
+    ['Privacy Policy', PRIVACY],
+    ['wellness disclaimer', DISCLAIMER],
+  ])('does not submit when the %s is the one left unticked', (_label, omitted) => {
     const { screen, onSubmit } = renderScreen();
     const boxes = screen.getAllByRole('checkbox');
-    fireEvent.press(boxes[0]);
-    fireEvent.press(boxes[1]);
-    fireEvent.press(boxes[2]);
+    [TOS, PRIVACY, DISCLAIMER].filter((i) => i !== omitted).forEach((i) => fireEvent.press(boxes[i]));
 
     fireEvent.press(screen.getByTestId('reconsent-submit'));
 
     expect(onSubmit).not.toHaveBeenCalled();
   });
 
-  it('does not submit when a previously-ticked box is un-ticked again', () => {
+  /**
+   * 🔴 The comparator, not just the count. Relaxing `=== 4` to `>= 3` while
+   * leaving the Art. 9 term in the sum would satisfy every test above — a user
+   * could tick Art. 9 plus any two required items and submit WITHOUT the
+   * wellness disclaimer. `crisis` named this as the failure mode to pin.
+   */
+  it('does not submit on Art. 9 plus two required — the count is not interchangeable', () => {
     const { screen, onSubmit } = renderScreen();
     const boxes = screen.getAllByRole('checkbox');
-    boxes.forEach((box) => fireEvent.press(box));
-    fireEvent.press(boxes[3]);
+    fireEvent.press(boxes[ART9]);
+    fireEvent.press(boxes[TOS]);
+    fireEvent.press(boxes[PRIVACY]);
 
     fireEvent.press(screen.getByTestId('reconsent-submit'));
 
     expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('does not submit when a previously-ticked REQUIRED box is un-ticked again', () => {
+    const { screen, onSubmit } = renderScreen();
+    const boxes = screen.getAllByRole('checkbox');
+    boxes.forEach((box) => fireEvent.press(box));
+    fireEvent.press(boxes[DISCLAIMER]);
+
+    fireEvent.press(screen.getByTestId('reconsent-submit'));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+});
+
+describe('FEAT-475 · the Art. 9 wellness-processing tick is optional', () => {
+  it('does NOT gate Submit — the three required ticked, Art. 9 withheld, still submits', () => {
+    const { screen, onSubmit } = renderScreen();
+    const boxes = screen.getAllByRole('checkbox');
+    [TOS, PRIVACY, DISCLAIMER].forEach((i) => fireEvent.press(boxes[i]));
+
+    fireEvent.press(screen.getByTestId('reconsent-submit'));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not gate Submit on its own either — the two gates are independent', () => {
+    const { screen, onSubmit } = renderScreen();
+    fireEvent.press(screen.getAllByRole('checkbox')[ART9]);
+
+    fireEvent.press(screen.getByTestId('reconsent-submit'));
+
+    expect(onSubmit).not.toHaveBeenCalled();
+  });
+
+  it('un-ticking Art. 9 after ticking everything still submits', () => {
+    const { screen, onSubmit } = renderScreen();
+    const boxes = screen.getAllByRole('checkbox');
+    boxes.forEach((box) => fireEvent.press(box));
+    fireEvent.press(boxes[ART9]);
+
+    fireEvent.press(screen.getByTestId('reconsent-submit'));
+
+    expect(onSubmit).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('🔴 FEAT-475 · the recorded Art. 9 value tracks the checkbox in BOTH directions', () => {
+  /**
+   * The fabrication guard. An unbundle that silently recorded `true` regardless
+   * — or dropped the field from one payload half — would pass every gating test
+   * above while destroying the consent record's meaning. `submitReConsent.ts`
+   * refuses outright (`art9_mismatch`) if the two halves disagree, so BOTH are
+   * asserted, not just one.
+   */
+  const submitWith = (art9: boolean) => {
+    const { screen, onSubmit } = renderScreen();
+    const boxes = screen.getAllByRole('checkbox');
+    [TOS, PRIVACY, DISCLAIMER].forEach((i) => fireEvent.press(boxes[i]));
+    if (art9) fireEvent.press(boxes[ART9]);
+    fireEvent.press(screen.getByTestId('reconsent-submit'));
+    return onSubmit;
+  };
+
+  it('records mentalHealthProcessingConsent: true when the tick is GIVEN', () => {
+    const onSubmit = submitWith(true);
+    const payload = onSubmit.mock.calls[0][0];
+
+    expect(payload.legalGate.mentalHealthProcessingConsent).toBe(true);
+    expect(payload.preferences.mentalHealthProcessingConsent).toBe(true);
+  });
+
+  it('records mentalHealthProcessingConsent: false when the tick is WITHHELD', () => {
+    const onSubmit = submitWith(false);
+    const payload = onSubmit.mock.calls[0][0];
+
+    expect(payload.legalGate.mentalHealthProcessingConsent).toBe(false);
+    expect(payload.preferences.mentalHealthProcessingConsent).toBe(false);
+  });
+
+  /**
+   * Proves the two assertions above can fail. Without this, a payload that hard-coded
+   * one value would still satisfy one of them, and a reader could not tell which.
+   */
+  it('proves these assertions can fail — the two recorded values are not constants', () => {
+    const granted = submitWith(true).mock.calls[0][0];
+    const withheld = submitWith(false).mock.calls[0][0];
+
+    expect(granted.legalGate.mentalHealthProcessingConsent).not.toBe(
+      withheld.legalGate.mentalHealthProcessingConsent,
+    );
+    expect(granted.preferences.mentalHealthProcessingConsent).not.toBe(
+      withheld.preferences.mentalHealthProcessingConsent,
+    );
+  });
+
+  it('still carries the three required acceptances through as true', () => {
+    const payload = submitWith(false).mock.calls[0][0];
+
+    expect(payload.legalGate.tosAccepted).toBe(true);
+    expect(payload.legalGate.privacyAccepted).toBe(true);
+    expect(payload.legalGate.wellnessDisclaimerAcknowledged).toBe(true);
   });
 });
 
@@ -188,7 +301,7 @@ describe('FEAT-376 · the current-preferences notice', () => {
    * `renewConsent` takes all five booleans non-optional and carries none forward
    * — but it may NOT characterise the lapse window (what happens if the user
    * does not re-consent at all). That characterisation is open counsel work and
-   * `consentStore.ts:439-443` bars consent copy from pre-empting it.
+   * `consentStore.ts:522-527` bars consent copy from pre-empting it.
    */
   it('names the preferences that are currently on', () => {
     const { screen } = renderScreen({
