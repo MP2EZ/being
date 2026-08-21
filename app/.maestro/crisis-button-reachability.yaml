@@ -121,12 +121,29 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # Every other assertion in this flow stops at "the destination is present". That
 # left the destination itself unverified, and it was broken: crisis-call-988-button
 # was the last child of the 988 card, inside this screen's only ScrollView.
-# Measured with `maestro hierarchy` (Release build, provenance 505fc417):
+# Measured with `maestro hierarchy` (Release build, provenance 505fc417).
+#
+# PRE-DEBUG-432 — SUPERSEDED, the OLD position; do not read as current:
 #
 #   iPhone SE 3  375x667  DEFAULT type  fold y=86..667   button y=746..797
 #   iPhone SE 3  375x667  AX5           fold y=86..667   button y=3926..4095
 #   16 Pro Max   440x956  default type  fold y=128..956  button y=776..827  (ok)
 #   16 Pro Max   440x956  AX5           fold y=128..956  button y=3612..3781
+#
+# POST-FIX — DEBUG-488, 2026-08-20 (Release, provenance MATCH_CLEAN at tree b7260565).
+# Bar is 100% of the control inside the fold, not 44pt.
+#
+#   iPhone SE 3  375x667  DEFAULT type  fold y=86..667   button y=595..651  PASS (h=56)
+#   iPhone SE 3  375x667  AX5           fold y=86..667   button y=465..651  PASS (h=186)
+#   16 Pro       402x874  default type  fold y=128..874  button y=768..824  PASS (h=56)
+#   16 Pro       402x874  AX5           fold y=128..874  button y=638..824  PASS (h=186)
+#
+# Four of four inside the fold; bounds unchanged across a full scroll. At AX5 the
+# footer grows to 186pt and no resource card is in the hierarchy at offset 0 — the
+# list stays reachable by SCROLLING, which this flow does not exercise. Any future
+# assertion on a card here needs centerElement: mid-scroll a card's text reports at
+# y=559..866 while the footer holds y=465..651, i.e. clipped behind it yet scored
+# visible (DEBUG-465).
 #
 # CrisisResources is in RootCrisisButton.SUPPRESSED_ROUTES, so this is the ONLY
 # 988 affordance on the screen every other crisis affordance routes TO.
