@@ -34,7 +34,10 @@
 # `maestro` directly.
 set -u
 
-cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
+# DEBUG-496 — exit 2 ("harness could not complete"), not 1. The alphabet is stated in full
+# where the flows run, below; the rule it encodes is that 1 is reserved for a Maestro flow
+# that went red, and nothing that fails before a flow can have produced one.
+cd "$(dirname "$0")/.." || exit 2 # -> app/ (npm already sets cwd=app; belt + suspenders)
 
 # INFRA-405 — the same device resolution e2e-sim-build.sh uses. Shared rather than
 # duplicated so "both scripts resolve identically" holds by construction. Note this file
@@ -240,10 +243,26 @@ GATE_REPLACED_AT=""
 GATE_REPLACED_KIND=""
 GATE_REPLACED_BY=""
 
+# DEBUG-496 — a resolution refusal is exit 2, and specifically NOT the resolver's own code.
+#
+# These two lines carried `|| exit 1`, which reported "a Maestro safety flow FAILED — this
+# is a regression" for a machine with two simulators booted. It fired live during the
+# MAINT-487 close on 2026-08-20: the resolver refused CORRECTLY, the branch was fine, and
+# the gate blamed the branch. That red is the documented pressure that produces a reflexive
+# `--skip-e2e`, so the mislabel costs more than its size suggests.
+#
+# Note what is NOT done here: the resolver's status is DISCARDED, deliberately. Both
+# resolvers carry their own private alphabet (1 could-not-enumerate / 2 none-present /
+# 3 ambiguous-or-bad-override) which collides numerically with this script's while meaning
+# something unrelated — propagating a resolver 3 would announce INFRA-434's "a peer replaced
+# the installed binary mid-suite" for what is actually "two simulators are booted". Every
+# refusal arm is ONE fact here: no target, so no flow ran, so no verdict exists. That is 2.
+# `|| exit 2` is therefore the whole fix; capturing the status would be a more elaborate way
+# to be wrong.
 if [ "$DEVICE_ONLY" != "1" ]; then
-  SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 1
+  SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 2
 else
-  DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 1
+  DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 2
 fi
 
 # INFRA-478 — describe the resolved device in THIS shell.
@@ -272,7 +291,10 @@ fi
 # recorded owner, so an early `exit 1` from a pre-flight that ran before the acquire cannot
 # release a peer's lock.
 if [ -n "$SIM_UDID" ]; then
-  e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "safety flows" || exit 1
+  # DEBUG-496 — same flattening, found by the AC4 sweep rather than by chance. A lock the
+  # gate cannot take means a peer holds the device (or the lock root is unwritable): no
+  # flow ran, so this is 2. Reporting 1 blamed the branch for a machine that was busy.
+  e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "safety flows" || exit 2
   trap 'e2e_lock_release "$SIM_UDID"' EXIT INT TERM
 fi
 
@@ -572,7 +594,10 @@ elif [ -n "$DEVICE_UDID" ]; then
   MAESTRO_DEVICE_ARGS=(--device "$DEVICE_UDID")
 else
   echo "❌ no target resolved — refusing to let maestro choose its own device." >&2
-  exit 1
+  # DEBUG-496 — a device-resolution refusal, so 2 like the two above. Bare rather than
+  # `|| exit 1`, which is why the sweep had to be read for the FACT each exit reports and
+  # not merely grepped for the idiom that first exposed it.
+  exit 2
 fi
 
 # DEBUG-422 — pre-approve the URL scheme(s) the flows open, before flow 1.
