@@ -56,14 +56,41 @@
 # serialised. A session unwilling to wait is told to build in its own worktree, which is
 # correct and merely cold.
 
+# THE LEASED UNIT IS THE PAIR (INFRA-472). INFRA-463 above leased the worktree; that is not
+# the whole contended resource. The provenance marker lives inside the INSTALLED CONTAINER on
+# a simulator and `simctl install` of the same bundle id replaces it, so two sessions building
+# in separate worktrees but installing to ONE device still clobber each other with the
+# worktree lease held and satisfied throughout. CLAUDE.md already records that two worktrees
+# routinely share one simulator.
+#
+# AND IT IS TAKEN UP FRONT. INFRA-436's simulator lock is acquired inside `e2e-sim-build.sh`,
+# i.e. after this script has already re-pointed the shared worktree and run `npm ci`. A device
+# collision was therefore discovered late — having already taken the worktree away from a peer
+# — and then waited on for up to 1800 s while still holding it. The device is now resolved and
+# both leases taken BEFORE anything is mutated, so a collision refuses having changed nothing.
+#
+# WHY THIS DOES NOT CONTRADICT e2e-sim-lock.sh's "PER-INVOCATION, NOT SPANNING BUILD -> FLOWS".
+# That rule forbids a lease outliving the process that anchors it, because liveness would then
+# need a TTL. The span here is this script's own lifetime — resolve, build, verify — anchored
+# to this pid, exactly as the gatetree lease already was. The flow run afterwards takes its own
+# simulator lease in `e2e-safety.sh`, unchanged.
+#
+# EXIT CODES. 0 success · 1 refusal or failure · 3 (reserved: e2e-safety.sh's target-replaced)
+# · 4 a peer owns the gate slot. 4 exists because `e2e-safety.sh` already spends 0/1/2/3
+# (INFRA-434) and "come back in ninety seconds" must be distinguishable from "your change
+# broke a safety flow" without parsing prose.
+
 set -uo pipefail
 
 BUNDLE_ID="fyi.being.app"
+EXIT_LEASE=4
 
 die() { echo "❌ e2e-gate: $*" >&2; exit 1; }
 
 # shellcheck source=scripts/e2e-sim-lock.sh
 . "$(dirname "$0")/e2e-sim-lock.sh"
+# shellcheck source=scripts/e2e-sim-device.sh
+. "$(dirname "$0")/e2e-sim-device.sh"
 
 # --- Where are we, and what are we gating? ---------------------------------------------
 CALLER_ROOT="$(git rev-parse --show-toplevel 2>/dev/null)" \
@@ -107,25 +134,59 @@ esac
 BARE_ROOT="$(cd "$(dirname "$COMMON_DIR")" && pwd)"
 GATE="${E2E_GATE_WORKTREE:-$BARE_ROOT/e2e-gate}"
 
-# --- Take ownership of the gate worktree BEFORE touching it -----------------------------
-# The key is the gate PATH, sanitised into one path segment — readable in diagnostics, and
-# per-path so a caller pointed elsewhere via E2E_GATE_WORKTREE contends only with its own.
+# --- Resolve the SIMULATOR before anything is mutated ------------------------------------
+# Deliberately here rather than just before the provenance verify, where it used to sit as an
+# inline `simctl` reader. It is the second half of the leased pair, so it has to be known
+# before the lease is taken — and `e2e_resolve_sim_device` is a refusal in its own right
+# (0 booted, 2+ booted), which is far better spent now than after a 21-minute build.
+#
+# Threading this UDID down to the child build via E2E_SIM_UDID would look like INFRA-405's
+# "resolve once, thread it through", but exported it SUPPRESSES the 2+ refusal inside
+# `e2e-sim-build.sh`, so a simulator booted mid-run would be silently tolerated by the check
+# that exists to catch it. The child re-resolves; the shared lease is what stops it
+# deadlocking, not a pre-answered device.
+SIM_UDID="$(e2e_resolve_sim_device "gate build")" || exit 1
+
+# --- Who is asking? ---------------------------------------------------------------------
+# A lease refusal that says `pid 48213 (bash)` identifies a process, not a piece of work. The
+# blocked session needs the work item to judge how long to wait, or whom to ask.
+ITEM="${E2E_LOCK_ITEM:-}"
+if [ -z "$ITEM" ]; then
+  ITEM="$(git -C "$CALLER_ROOT" branch --show-current 2>/dev/null \
+    | grep -oE '[A-Z]+-[0-9]+' | head -1)"
+fi
+[ -n "$ITEM" ] || ITEM="unknown-item"
+SHA8="$(echo "$SHA" | cut -c1-8)"
+
+# --- Take ownership of BOTH resources BEFORE touching either -----------------------------
+# The gatetree key is the gate PATH, sanitised into one path segment — readable in
+# diagnostics, and per-path so a caller pointed elsewhere via E2E_GATE_WORKTREE contends only
+# with its own. The pair helper sorts its own arguments, so the acquisition order is global
+# and two sessions cannot take them in opposite orders and deadlock.
 GATE_KEY="$(printf '%s' "$GATE" | tr -c 'A-Za-z0-9._-' '_')"
 
-if ! e2e_lock_acquire "$GATE_KEY" \
+if ! e2e_lock_acquire_pair gatetree "$GATE_KEY" sim "$SIM_UDID" \
      "${E2E_GATE_LOCK_TIMEOUT:-${E2E_LOCK_TIMEOUT:-1800}}" \
-     "gate build $(echo "$SHA" | cut -c1-8)" gatetree; then
+     "$ITEM @ $SHA8"; then
   echo "" >&2
-  echo "❌ e2e-gate: another session owns the shared gate worktree at" >&2
-  echo "   $GATE" >&2
+  echo "❌ e2e-gate: another session owns the gate slot (exit $EXIT_LEASE)." >&2
+  echo "   worktree:  $GATE" >&2
+  echo "   simulator: $SIM_UDID" >&2
+  echo "   The holder is named above. Nothing has been changed by this run." >&2
   echo "" >&2
   echo "   Waiting is usually right — a gate build is ~90 s warm. If you would rather not:" >&2
   echo "     cd $CALLER_ROOT/app && npm run e2e:safety:build" >&2
   echo "   builds in your own worktree instead. That is correct and gates the same tree;" >&2
-  echo "   it is only cold (~21 min the first time in a fresh worktree)." >&2
-  exit 1
+  echo "   it is only cold (~21 min the first time in a fresh worktree). Note it still" >&2
+  echo "   needs the simulator, so it waits too if that is the contended half." >&2
+  exit "$EXIT_LEASE"
 fi
-trap 'e2e_lock_release "$GATE_KEY" gatetree' EXIT INT TERM
+trap 'e2e_lock_release_pair gatetree "$GATE_KEY" sim "$SIM_UDID"' EXIT INT TERM
+
+# Children re-acquire the simulator lease (e2e-sim-build.sh does, by design) and would
+# otherwise wait out the full timeout on a lease their own parent holds. Verified against the
+# records on disk by the child, not taken on trust — see e2e-sim-lock.sh.
+export E2E_LOCK_INHERITED="gatetree:$GATE_KEY:$$ sim:$SIM_UDID:$$"
 
 # Which worktree currently sits at a given commit — best effort, so a refusal can name the
 # peer rather than leaving the operator to find them.
@@ -220,13 +281,10 @@ assert_gate_at "after the build"
 # --- Prove the artifact corresponds to the CALLER's tree --------------------------------
 # The whole design rests on this being checkable rather than assumed, so check it, from the
 # caller's worktree, exactly as /b-close will.
-SIM_UDID="${E2E_SIM_UDID:-}"
-if [ -z "$SIM_UDID" ]; then
-  SIM_UDID="$(xcrun simctl list devices booted -j 2>/dev/null \
-    | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{const j=JSON.parse(s);const a=[];for(const k in j.devices)for(const d of j.devices[k])a.push(d.udid);if(a.length===1)console.log(a[0]);}catch(e){}})')"
-fi
-[ -n "$SIM_UDID" ] || die "could not resolve a single booted simulator to verify against (set E2E_SIM_UDID)"
-
+# $SIM_UDID is the device resolved and LEASED before the build, not a fresh reading. This
+# used to re-derive it here with an inline simctl parser, which could name a different device
+# than the build installed to if one booted meanwhile — and silently accepted no override
+# validation and no viewport warning, both of which e2e_resolve_sim_device provides.
 APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" \
   || die "the build reported success but no $BUNDLE_ID is installed on $SIM_UDID"
 

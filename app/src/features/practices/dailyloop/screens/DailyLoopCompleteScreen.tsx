@@ -36,6 +36,7 @@ import { BreathingCircle, Timer, SkipLink } from '@/features/practices/shared/co
 import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
 import type { DailyLoopMode, DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
 import { CLOSING, STEP_TITLES, getStepKeysForDepth, getCompleteTitle } from '../config/tenseMode';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const CLOSING_BREATH_MS = 15 * 1000;
 
@@ -171,6 +172,7 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
 
             <Text style={styles.inputLabel}>{CLOSING.noteLabel}</Text>
             <TextInput
+              {...crisisAccessoryProps()} /* DEBUG-450 */
               style={[
                 styles.textInput,
                 { borderColor: integrationNote ? themeColors.primary : colorSystem.gray[300] },
@@ -233,7 +235,7 @@ const styles = StyleSheet.create({
   breathTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     marginBottom: spacing[8],
   },
@@ -248,7 +250,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     // FEAT-328 removed a badge that sat above this line and contributed its own leading
     // margin. Without a little top space the title butts against the header and reads as
     // a rendering fault rather than as the top of the block. This is deliberately less
@@ -274,19 +276,44 @@ const styles = StyleSheet.create({
     lineHeight: typography.bodySmall.size * typography.bodySmall.lineHeight,
   },
   /**
-   * FEAT-298 slice 6b — gratitude + posture share ONE quiet passage.
+   * FEAT-298 slice 6b — gratitude + posture share ONE quiet box.
    *
-   * Reuses the app's existing vocabulary for "a passage to sit with": the same
-   * `spacing[4]` left rule + `gray[50]` fill + `gray[700]` text as PassageReaderScreen. So
-   * these read as the same KIND of thing as a Marcus passage in the Library — which is what
-   * they are — rather than as invented emphasis. One container, not two: De Ira 3.36 is a
-   * single act (review → clemency), and the pardon being terminal is expressed by the
-   * posture being last INSIDE the box.
+   * MAINT-487 DELETED A KINSHIP CLAIM THAT WAS FALSE. This block used to say the box
+   * reuses "the same `spacing[4]` left rule + `gray[50]` fill + `gray[700]` text as
+   * PassageReaderScreen", so the lines read "as the same KIND of thing as a Marcus
+   * passage in the Library — which is what they are". Both halves fail on reading that
+   * file. The Marcus passage there is `passageText`: `gray[800]`, `bodyLarge`, UNBOXED
+   * on the white screen body. The `gray[50]` + `spacing[4]`-rule box is `contextBox`,
+   * and it holds the editorial apparatus ABOUT the passage — its rule is
+   * `navigation.learn`, not `gray[400]`. So the vocabulary copied here was the
+   * Library's COMMENTARY vocabulary, and the box was telling the reader these lines
+   * are supporting matter while this comment insisted they are the practice.
    *
-   * ⚠️ `gray[700]` is REQUIRED BY THE FILL, not chosen for emphasis. `gray[600]` on
-   * `gray[50]` is 4.38:1 and FAILS AA. Do not "simplify" the text back to `gray[600]` while
-   * keeping the fill. Nothing here is hued — reward in this app is carried by the accent
-   * teal, and the passage has none, so darker reads as "body content", not "you did well".
+   * WHAT THE BOX ACTUALLY DOES, and all it claims: it groups two lines into one act.
+   * De Ira 3.36 is a single movement (review → clemency), and the pardon being
+   * terminal is expressed by the posture being last INSIDE the box. It asserts no
+   * passage-hood. The content is app-authored second-person paraphrase — warrants at
+   * `config/tenseMode.ts` (Enchiridion 11, Meditations 7.27, De Ira 3.36.3) — and
+   * quotes nothing: no quotation marks, no author, no citation, unlike
+   * `PRACTICE_QUOTES` entries, which carry all three.
+   *
+   * TIER: `semantic.text.primary`, not `secondary`. These are the coda's terminal
+   * instruction, and instruction is at primary everywhere else in this screen family
+   * (`DailyLoopStepScreen.virtuePrompt`, `HapticsOptInPrompt.heading`,
+   * `ResumeSessionModal.message`). `styles.subtitle` above is `secondary` and its own
+   * note says why — metadata, redundant in DEEP mode. If the passage also read
+   * `secondary` the screen would render its terminal Stoic act at the same tier as a
+   * redundant list of principle names.
+   *
+   * ⚠️ THE AA RULE IS ABOUT THE FILL, NOT ABOUT THESE TWO LINES. It survives the
+   * re-point because the fill outlives them: any SUBORDINATE text added to this box
+   * must clear 4.5:1 on `gray[50]`. `gray[600]` is 4.4143 and FAILS — do not "simplify"
+   * anything here onto it. `semantic.text.secondary` is 5.3387 and is the correct
+   * subordinate token. The contrast matrix cannot catch a violation for you:
+   * `SUBORDINATE_TEXT` governs the two tokens, and `gray[600]` is a raw ramp step.
+   *
+   * Nothing here is hued — reward in this app is carried by the accent teal, and this
+   * box has none — so a darker value reads as "body content", not "you did well".
    */
   passage: {
     backgroundColor: colorSystem.gray[50],
@@ -298,14 +325,14 @@ const styles = StyleSheet.create({
   },
   gratitudeLine: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     marginBottom: spacing[16],
     // Most air on the screen — this is the line the copy asks you to dwell on.
     lineHeight: typography.bodySmall.size * 1.6,
   },
   postureLine: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     lineHeight: typography.bodySmall.size * 1.6,
   },
   /**
@@ -333,7 +360,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   textInput: {
@@ -341,7 +368,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     backgroundColor: colorSystem.base.white,
     minHeight: spacing[96],
     // numberOfLines is Android-only for multiline; without this iOS grows unbounded.

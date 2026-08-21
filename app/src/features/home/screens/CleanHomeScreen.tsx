@@ -156,8 +156,13 @@ const CleanHomeScreen: React.FC = () => {
     }
   }, [navigation]);
 
+  // MAINT-456: `edges={['top']}`, not the implicit all-four. Home is tab-hosted and
+  // React Navigation already reserves the tab bar's height at the bottom, so a bottom
+  // inset here is a dead band rather than protection — measured at ~34pt on iPhone
+  // 16 Pro when the same change was made to LearnScreen. Matches InsightsScreen's
+  // `['top']`; MAINT-437 recorded the divergence and left it for this pass.
   return (
-    <SafeAreaView style={styles.container} testID="home-screen">
+    <SafeAreaView edges={['top']} style={styles.container} testID="home-screen">
       <View style={styles.content}>
         {/* Header — MAINT-257: Home is the SOLE intentional exception to the
             shared BodyHeader idiom. The centered display2 "Being" wordmark is the
@@ -255,7 +260,7 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: borderRadius.xs,
   },
   subtitle: {
@@ -281,7 +286,7 @@ const styles = StyleSheet.create({
   practicesEntryLabel: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   practicesEntryAction: {
     fontSize: typography.bodySmall.size,

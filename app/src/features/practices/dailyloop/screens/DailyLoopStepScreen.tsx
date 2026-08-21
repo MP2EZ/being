@@ -5,8 +5,9 @@
  * tenseMode step config. Reflect-first: every text field is OPTIONAL — after the
  * breath, Continue is always enabled (typing is capture, not a gate), suiting the
  * walking, eyes-up practice. Step-specific surfaces are declared by the config:
- *  - step 1 (Aware Presence): a 30s micro-breath with a grounding prompt (body
- *    sensation + environment + mind) in the guidance card, then optional capture,
+ *  - step 1 (Aware Presence): a 30s micro-breath whose grounding prompt (body
+ *    sensation + environment + mind) is paced through the breath one anchor per
+ *    cycle, in the circle's own guidance slot (DEBUG-468), then optional capture,
  *  - step 3 (Sphere Sovereignty): two order-agnostic fields (the full dichotomy),
  *  - step 4 (Virtuous Response): MULTI-select virtue chips (optional lens) + one
  *    synthesized action, plus — morning only — the guardrailed premeditatio,
@@ -40,7 +41,6 @@ import { AccessibleButton } from '@/core/components/accessibility/AccessibleButt
 import {
   BreathingCircle,
   Timer,
-  GuidanceCard,
   SkipLink,
   FlowBackButton,
   PreviousAnswerCard,
@@ -71,8 +71,23 @@ import {
   type StagesByStep,
 } from '../config/stageNotes';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const BREATH_DURATION_MS = 30 * 1000;
+
+/**
+ * Module scope, not an inline `??` fallback at the call site (DEBUG-468).
+ * `guidanceItems` feeds a `React.memo`'d component, so a literal written inline
+ * would mint a new array identity on every parent render — DEBUG-394's failure
+ * mode, which cost a restarted breath cycle mid-practice. Unreachable in practice
+ * (every ModeConfig declares `grounding`), kept only so the prop is never
+ * undefined; if you delete it, do not replace it with an inline literal.
+ */
+const FALLBACK_GROUNDING: readonly string[] = [
+  'one physical sensation — where your body meets the world',
+  'the space around you — where you are right now',
+  "what's present in your mind",
+];
 
 export interface DailyLoopStepScreenProps {
   stepKey: DailyLoopStepKey;
@@ -168,6 +183,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
       <Text style={styles.inputLabel}>{label}</Text>
       {hint ? <Text style={styles.inputHint}>{hint}</Text> : null}
       <TextInput
+        {...crisisAccessoryProps()} /* DEBUG-450 */
         style={[styles.textInput, { borderColor: values[key] ? themeColors.primary : colorSystem.gray[300] }]}
         value={values[key]}
         onChangeText={(t) => setField(key, t)}
@@ -196,15 +212,31 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
       >
         {showBack && <FlowBackButton onPress={() => onBack?.()} theme="midday" />}
 
-        {/* Breath gate (step 1) — grounding prompt lives in the guidance card */}
+        {/*
+          Breath gate (step 1). DEBUG-468 moved the grounding prompt INTO the breath
+          — one anchor per completed cycle, in the circle's own guidance slot —
+          rather than listing it in a card below the SkipLink.
+
+          WHY, beyond the fold. A static three-bullet list asks the practitioner to
+          read three lines, hold them in working memory and allocate them across the
+          sit themselves. That is language processing, the exact mode an arriving
+          breath steps out of; pacing the anchors is what 01-aware-presence.md:29
+          means by anchor points "to which you can return attention". All three
+          still surface: 30s of the 4-4 default is 3.75 cycles.
+
+          The subtitle that used to sit here ("Let your body settle. Notice what's
+          here.") was deleted, not relocated — it paraphrased grounding anchors 1
+          and 3, so with the triad delivered properly it was the redundancy. The
+          title stays: it names the act, and is the cheapest instruction layer.
+        */}
         {!breathCompleted && (
           <View style={styles.breathSection}>
             <Text style={styles.breathTitle}>Take a moment to arrive</Text>
-            <Text style={styles.breathSubtitle}>Let your body settle. Notice what's here.</Text>
             <View style={styles.breathCircleContainer}>
               <BreathingCircle
                 isActive={isBreathActive}
                 pattern={DEFAULT_PATTERN}
+                guidanceItems={config.grounding ?? FALLBACK_GROUNDING}
                 testID="daily-loop-breathing-circle"
               />
             </View>
@@ -220,18 +252,30 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               theme="midday"
               testID="daily-loop-breath-timer"
             />
+            {/*
+              DEBUG-468: stays IN FLOW, inside the ScrollView, after the Timer — it
+              is NOT pinned into a bottom bar the way DEBUG-465 pinned the crisis
+              support line. Two reasons, both philosopher rulings. A permanently
+              visible exit is a permanently available object of attention, which is
+              an app-authored pull away from the anchor at the moment the beat is
+              training the return to it. And the bottom edge of a Daily Loop screen
+              now MEANS "crisis support" — same bar, same hairline divider, same
+              muted register — so `Skip →` there would give one learned position two
+              meanings for a user who runs this loop daily. The support line earns a
+              persistent surface because unconditional availability is its whole
+              purpose; skipping has no such property.
+
+              What it does need is to be VISIBLE without scrolling at 375x667 and
+              default type — the breath is a gate, and a gate whose exit the user
+              cannot see is not one they chose to enter. It was never unreachable,
+              only undiscoverable. That is bought above, by deleting the subtitle
+              and pacing the triad, not by moving this control.
+            */}
             <SkipLink
               onPress={handleBreathComplete}
               accessibilityLabel="Skip breathing exercise"
               testID="daily-loop-skip-breath"
             />
-            <View style={styles.guidanceWrapper}>
-              <GuidanceCard
-                title="As you breathe, notice:"
-                items={config.grounding ?? ['Your posture right now', 'The rhythm of your breath', "What's asking for your attention"]}
-                testID="daily-loop-grounding"
-              />
-            </View>
           </View>
         )}
 
@@ -314,6 +358,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
                 <Text style={styles.inputLabel}>{PREMEDITATIO.label}</Text>
                 <Text style={styles.inputHint}>{PREMEDITATIO.hint}</Text>
                 <TextInput
+                  {...crisisAccessoryProps()} /* DEBUG-450 */
                   style={[
                     styles.textInput,
                     { borderColor: adversityRehearsal ? themeColors.primary : colorSystem.gray[300] },
@@ -412,27 +457,24 @@ const styles = StyleSheet.create({
   scrollView: { flex: 1 },
   scrollContent: { padding: spacing[20], paddingBottom: spacing[40] },
 
-  breathSection: { alignItems: 'center', paddingTop: spacing[16] },
+  // DEBUG-468: paddingTop 16 -> 8 and the circle's marginBottom 24 -> 8. Pure
+  // spacing, spent last and worth ~24pt of the fix; the structural changes above
+  // (subtitle deleted, card paced into the circle) are what actually bought the
+  // ~107pt. Do not re-inflate these without re-measuring on an SE 3.
+  breathSection: { alignItems: 'center', paddingTop: spacing[8] },
   breathTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     marginBottom: spacing[8],
   },
-  breathSubtitle: {
-    fontSize: typography.bodyRegular.size,
-    color: semantic.text.secondary,
-    textAlign: 'center',
-    marginBottom: spacing[32],
-  },
-  breathCircleContainer: { marginBottom: spacing[24] },
-  guidanceWrapper: { marginTop: spacing[24], width: '100%' },
+  breathCircleContainer: { marginBottom: spacing[8] },
 
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   sectionSubtitle: {
@@ -466,7 +508,7 @@ const styles = StyleSheet.create({
   virtuePrompt: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   virtueReference: {
@@ -493,7 +535,7 @@ const styles = StyleSheet.create({
   inputLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   inputHint: {
@@ -507,7 +549,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     backgroundColor: colorSystem.base.white,
     minHeight: 96,
   },

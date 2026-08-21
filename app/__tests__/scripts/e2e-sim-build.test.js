@@ -82,6 +82,8 @@ const TWO_DEVICES = [
 ];
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
 const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
+const REAL_HOST_CONTENTION = path.resolve(__dirname, '../../scripts/e2e-host-contention.sh');
+const REAL_TELEMETRY = path.resolve(__dirname, '../../scripts/e2e-telemetry.sh');
 const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
 const PRODUCT_REL = 'ios/build/Build/Products/Release-iphonesimulator';
@@ -183,6 +185,14 @@ function makeProject(opts = {}) {
   // reasoning as the device resolver — a stub that always grants the lock would hide a
   // wiring mistake that wedges the gate on a real machine.
   fs.copyFileSync(REAL_SIM_LOCK, path.join(root, 'scripts', 'e2e-sim-lock.sh'));
+  // INFRA-476: e2e-safety.sh sources the host-contention reporter, so the sandbox must
+  // stage it or every test here dies on the source line before reaching anything under
+  // test. Real file: it warns and never exits, so staging it cannot change a verdict.
+  fs.copyFileSync(REAL_HOST_CONTENTION, path.join(root, 'scripts', 'e2e-host-contention.sh'));
+  // INFRA-490: both gate scripts source the telemetry writer. Real file, not a stub — it
+  // appends to E2E_TELEMETRY_FILE, which runInSandbox points at the sandbox, so staging it
+  // cannot touch the shared /tmp log or change a verdict.
+  fs.copyFileSync(REAL_TELEMETRY, path.join(root, 'scripts', 'e2e-telemetry.sh'));
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
@@ -606,6 +616,10 @@ function runScript(opts = {}) {
       // INFRA-436: per-sandbox lock root. The default is a shared /tmp path, which would
       // make concurrently-running suites contend for a real lock and leave one behind.
       E2E_LOCK_ROOT: path.join(root, '.locks'),
+      // INFRA-490: same reasoning for the telemetry log — the default is a shared /tmp
+      // path, and a test suite must not append rows to the collection a real decision
+      // will be read off.
+      E2E_TELEMETRY_FILE: path.join(root, '.telemetry.jsonl'),
       // INFRA-435: disable the disk-headroom pre-flight by default. It probes the REAL
       // $HOME filesystem, not the sandbox, so a CI runner (or a full laptop) would refuse
       // every build here and red the whole suite for a reason unrelated to the assertion
@@ -816,6 +830,7 @@ function runSafety(built, opts = {}) {
       ...process.env,
       PATH: `${built.stubs}:${process.env.PATH}`,
       E2E_LOCK_ROOT: path.join(built.root, '.locks'), // INFRA-436, see runBuild
+      E2E_TELEMETRY_FILE: path.join(built.root, '.telemetry.jsonl'), // INFRA-490, see runBuild
       ...env,
     },
     timeout: 45000,
@@ -1416,7 +1431,17 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
 
     const res = spawnSync('bash', [path.join(root, 'scripts', 'e2e-sim-build.sh')], {
       encoding: 'utf8',
-      env: { ...process.env, PATH: `${stubs}:${process.env.PATH}`, CI: '' },
+      // INFRA-490: this third invocation site does not go through runBuild(), so it
+      // inherited neither isolation. Unset, it takes a real lease in the SHARED lock root
+      // and appends a fabricated row to the SHARED telemetry collection INFRA-491 is read
+      // off — this spec's stubbed UDID is the literal "ABC".
+      env: {
+        ...process.env,
+        PATH: `${stubs}:${process.env.PATH}`,
+        E2E_LOCK_ROOT: path.join(root, '.locks'),
+        E2E_TELEMETRY_FILE: path.join(root, '.telemetry.jsonl'),
+        CI: '',
+      },
     });
 
     const output = `${res.stdout || ''}${res.stderr || ''}`;
