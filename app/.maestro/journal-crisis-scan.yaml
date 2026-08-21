@@ -213,13 +213,22 @@ name: "Voice journal crisis scan surfaces support"
 # first keyboard-up tap was swallowed outright. A real user is not required to
 # dismiss the keyboard first. This block does not.
 #
-# scrollUntilVisible IS PERMITTED HERE, and prohibited in the block above. Those
-# are different contracts and the distinction must not be generalised in either
-# direction: above, its absence pins "<3 taps to 988 from the point of
-# disclosure", so scrolling to the banner would RELAX the contract. Here, the
-# scroll toward Save IS the user gesture under test — at 375x667 the 180pt
-# transcript field fills the band above the keyboard, so no layout can show the
-# field and Save at once and scrolling is unavoidable by construction.
+# NO SCROLL STEP HERE, DELIBERATELY — and do not add one back.
+# An earlier draft of this block used `scrollUntilVisible: journal-save-button`.
+# MEASURED: it reports COMPLETED without scrolling anything. The iOS keyboard is a
+# separate window, so XCUITest scores Save as 100% visible even while the keyboard
+# covers its lower half, and `centerElement: true` does not force a scroll the way
+# it does for the ScrollView-clip case in DEBUG-465. The step was inert and read as
+# scroll coverage that did not exist.
+#
+# `- swipe` is NOT the replacement: keyboardDismissMode='on-drag' means any drag
+# dismisses the keyboard, which destroys the one condition this block tests.
+#
+# Tapping Save DIRECTLY at its resting position is therefore both the honest shape
+# and the stricter one. MEASURED at 375x667 with the keyboard up: Save sits at
+# [24,377][279,429] against an occluding edge of y=407 — 42% covered, tap centre
+# y=403 clearing by 4pt. With no scroll to rescue it, this block goes red if
+# anything ever erodes that clearance. That sensitivity is the point.
 - launchApp:
     clearState: true
     clearKeychain: true
@@ -249,14 +258,6 @@ name: "Voice journal crisis scan surfaces support"
 # keyboard node goes red in this file rather than quietly satisfying a negative.
 - assertVisible:
     id: "UIKeyboardLayoutStar Preview"
-# centerElement is load-bearing (DEBUG-465): XCUITest keeps elements that are
-# merely outside a ScrollView's clip, so Maestro scores them visible and would
-# skip the scroll entirely.
-- scrollUntilVisible:
-    element:
-      id: "journal-save-button"
-    direction: DOWN
-    centerElement: true
 - tapOn:
     id: "journal-save-button"
 # THE ORACLE IS THE STATE CHANGE, NOT THE KEYBOARD. `tapOn` reports COMPLETED
