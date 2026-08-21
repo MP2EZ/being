@@ -27,6 +27,13 @@
 # gap — a peer rebuilding between your build and your flows — is exactly what provenance
 # already refuses.
 #
+# THAT RULE IS ABOUT A HAND-RUN GATE, NOT ABOUT A SINGLE-PROCESS CLOSE (INFRA-484). Its whole
+# premise is that no process spans build -> flows; run both from ONE shell and that shell is
+# the anchor, so no TTL is needed and `E2E_LOCK_INHERITED` lets both children inherit rather
+# than contend. `/b-close` does not do that, and its not doing it is an open decision rather
+# than an oversight: the span buys a gap provenance already fails closed on, at up to ~33 min
+# of exclusive device ownership — serialising every session on the machine.
+#
 # HOLDER IDENTITY: PID + PROCESS START TIME, never command-line text. That is what keeps
 # this clear of the DEBUG-392 defect class: there is no substring to over-match, so no
 # `/bin/zsh -c '…'` wrapper can be mistaken for a holder. The start time is the half that
