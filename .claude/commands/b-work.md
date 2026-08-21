@@ -187,6 +187,11 @@ dashboard — cannot be settled by the repo at all.** Re-run the authoritative q
 (`eas device:list`, `supabase functions list`); a grep that merely reproduces the
 original absence re-confirms the stale reading instead of testing it.
 
+**An AC that demands *observed* evidence is a dependency on whatever records it.** Nothing
+links a decision item to the instrument that would settle it, so find that instrument and
+confirm it is in service and has collected — a log that exists but holds only its own test
+traffic reads as data. If it has not, the decision is not yours to make this run.
+
 ---
 
 ### Step 1.4: Incorporate Additional Context
