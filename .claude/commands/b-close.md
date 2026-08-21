@@ -19,7 +19,26 @@ slices by hand — Step 3.1–3.7 verbatim, especially 3.4's rollup verdict.
 
 ---
 
-## Phase 0: Safety-path drift check (INFRA-416)
+## Phase 0: Detached-close mailbox, then safety-path drift check
+
+### Step 0.0: Read the mailbox first (INFRA-492)
+
+A detached close (Step 2.5.3a) reports through a run directory, not a terminal — so an
+un-acknowledged result is work nobody has looked at. Read it before starting new work:
+
+```bash
+cd /Users/max/dev/being/development/app && npm run --silent close:status
+```
+
+Non-zero exit means something needs a human: a named failure verdict, or a run that
+stopped writing progress and is presumed dead. Neither is this item's business, but both
+must be surfaced now rather than discovered later — that is the whole of AC2. Report each
+line, then for a `MERGED` run do its Phase 4 Notion update (the runner deliberately does
+not touch Notion) and `touch <dir>/ACK`. Acknowledge nothing you have not acted on; ACK is
+the record that a human saw it, and a swept-away failure is exactly the silence detaching
+was supposed to remove.
+
+### Step 0.1: Safety-path drift check (INFRA-416)
 
 Phase 2.5 below decides whether the Maestro gate fires by matching changed paths
 against a hand-maintained grep. That grep and CLAUDE.md's Protected Paths table
@@ -717,6 +736,60 @@ fi
 # Dedupe (only when non-empty — a clean service-layer skip leaves FLOWS intentionally empty)
 [ ${#FLOWS[@]} -gt 0 ] && FLOWS=($(printf "%s\n" "${FLOWS[@]}" | sort -u))
 ```
+
+### Step 2.5.3a: Hand off, or stay attached (INFRA-492)
+
+Everything from Step 2.5.4 to Step 3.8 is mechanical **given the classification just
+made** — and is also the 5–35 minute block that holds this session. `app/scripts/b-close-run.sh`
+runs exactly that span detached, so serialised closes cost wall-clock instead of costing a
+human twice. Serialisation itself is unchanged: the runner invokes the same gate and suite
+entry points, so the INFRA-436/463/472 leases still queue it.
+
+**Do NOT detach when any of these hold** — in each case a human is the point:
+
+| Condition | Why it stays attached |
+|---|---|
+| `Batch Route: Attended-only` | The item's ACs require human observation. The runner cannot read Notion, so this check only exists here. |
+| The branch is `hotfix/*` | The one branch class where `--skip-e2e` and `--no-verify` are permitted; a hotfix is by definition being watched. |
+| A multi-slice item's non-final slice | Step 4.1/5.1 would misreport state anyway (see this file's header). |
+| The worktree is dirty | The runner does not commit. Phase 2 must have landed everything first. |
+
+Otherwise offer the handoff. The item's Notion `Batch Route` is read in Phase 1 — if it was
+not, read it now rather than assuming.
+
+```bash
+cd /Users/max/dev/being/[worktree-dir]/app
+# The PR body must exist as a file BEFORE launching, and must NOT live in the worktree:
+# e2e-provenance.js fingerprints untracked file contents repo-wide, so a draft there reads
+# as MISMATCH and costs a rebuild. Write it to the session scratchpad.
+nohup npm run --silent close:detached -- \
+  --worktree /Users/max/dev/being/[worktree-dir] \
+  --branch   [feature-branch-name] \
+  --item     [WORK_ITEM_ID] \
+  --title    "[type]: [WORK_ITEM_ID] [Name from Notion]" \
+  --body-file [scratchpad]/pr-body.md \
+  --flows    "${FLOWS[*]}" \
+  >/dev/null 2>&1 &
+disown
+```
+
+Pass `--full-suite` instead of `--flows` for a cross-cutting change, and `--no-flows` for
+the service-layer-only skip Step 2.5.3 logs. One of the three is required — an omitted
+flow argument is refused rather than silently treated as "no flows".
+
+**The `nohup` is the whole detachment, and it happens exactly once.** Inside the runner
+every child is foreground, because the safety suite must never be a reap-able background
+task: a killed run takes the XCUITest driver with it and reports `Unknown error` with
+`ConnectException` only in `maestro.log`, indistinguishable from a regression (CLAUDE.md).
+Never launch the suite itself with `&`, and never re-detach the runner.
+
+Then **stop** — do not fall through to 2.5.4. Report the run directory, tell the operator
+to read `npm run close:status`, leave Notion `In progress`, and end the session. Phase 4
+belongs to whoever acknowledges the result.
+
+Staying attached is always valid and is the default when anything above is unclear.
+
+---
 
 ### Step 2.5.4: Verify simulator readiness
 

@@ -68,6 +68,21 @@ and stop rather than proceeding on the stamp.
 
 ---
 
+### Step 0.3: Read the detached-close mailbox (INFRA-492)
+
+A detached close reports through a run directory, not a terminal. Read it before starting
+new work, in every run including a bare `/b-work`:
+
+```bash
+cd /Users/max/dev/being/development/app && npm run --silent close:status
+```
+
+Non-zero means a named failure verdict or a run presumed dead. Surface each line and stop
+to handle it; a result nobody looked at is the silence detaching was meant to remove. Do
+not `touch <dir>/ACK` for anything you have not acted on.
+
+---
+
 ## Phase 1: Fetch & Parse Work Item
 
 ### Step 1.1: Parse Work Item ID
