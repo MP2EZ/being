@@ -244,6 +244,11 @@ Parse from Notion page:
 
 These feed the safety scan in Phase 3.
 
+**Verify the item's own factual claims the way you verify a blocker's.** ACs routinely
+assert that a constant, count or file state does not exist, and those claims age between
+authoring and execution. Re-derive each one you are about to act on — a stale premise
+usually widens scope or reopens a decision the tree has already settled.
+
 ---
 
 ### Step 1.6: Mark Work Item as In Progress
