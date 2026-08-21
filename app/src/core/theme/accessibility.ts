@@ -21,7 +21,15 @@ import { colors as dsColors } from '@mp2ez/being-design-system/native';
  * WCAG 2.1 AA Compliant Color Palette
  *
  * Color contrast tested with WebAIM Contrast Checker.
- * All ratios verified against white (#FFFFFF) background.
+ *
+ * ⚠️ "All ratios verified against white (#FFFFFF) background" USED TO STAND HERE AS A
+ * COMPLIANCE CLAIM. MAINT-487 removed it: a single-surface verification is exactly the
+ * defect DEBUG-357 corrected one file over, where a token legal only on white failed on
+ * every tinted ground in the app. Any ratio quoted below is a white-only figure unless
+ * it names its ground, and none of them do. This palette is NOT covered by
+ * theme-contrast.accessibility.test.ts, which asserts over `semantic.*` and the
+ * `colorSystem` ramp and cannot see these hand-minted values at all — which is how a
+ * sub-bar entry survived here unnoticed until MAINT-487 went looking.
  *
  * UX-03 audit note (2026-05-17): the original audit flagged this file as a
  * "duplicate of colors.accessibility from the DS package." On inspection
@@ -32,14 +40,32 @@ import { colors as dsColors } from '@mp2ez/being-design-system/native';
  *     directly via `dsColors.themes.*`. They are intentional semantic
  *     aliases over the canonical palette, not drifting copies.
  *
- *   - The remaining 17 entries are project-specific WCAG-tuned values
- *     (e.g., textHelper '#6B6B6B' replaces the original '#999' which
- *     failed at 2.85:1; borderDefault '#B0B0B0' replaces '#DDD' which
- *     failed at 1.36:1; error '#C92A2A' replaces '#D64545' which failed
- *     at 3.88:1). The DS package's `colors.accessibility` does not expose
- *     equivalents — it covers `highContrast`, `focus`, `text`, and
- *     `notification` shapes only. Replacing these locals with DS tokens
- *     would regress documented contrast compliance.
+ *   - The remaining entries are project-specific WCAG-tuned values. The DS
+ *     package's `colors.accessibility` does not expose equivalents — it covers
+ *     `highContrast`, `focus`, `text`, and `notification` shapes only.
+ *
+ * MAINT-487 UPHELD UX-03'S VERDICT AND OVERTURNED ITS REASONING. The verdict stands:
+ * this file extends the DS rather than duplicating it, and it is NOT dead —
+ * `TOUCH_TARGETS` alone has seven live importers, and `A11Y_ROLES` / `FOCUS_STYLES` /
+ * `TYPOGRAPHY` are load-bearing. Do not delete the file.
+ *
+ * But "replacing these locals with DS tokens would regress documented contrast
+ * compliance" is no longer a defence, because two of the three values UX-03 cited to
+ * support it do not survive audit. `textHelper` '#6B6B6B' was 4.3494 on gray[300] —
+ * BELOW the 4.5:1 bar on the darkest enumerated ground, while its own comment claimed
+ * "5.5:1 - PASS", a figure true on white alone; MAINT-487 deleted the key with its sole
+ * consumer, `AccessibleInput.tsx`, which had zero importers across both test roots.
+ * `borderDefault` '#B0B0B0' is 2.1687 on white and fails even the 3:1 non-text bar,
+ * against a comment below claiming "3.3:1 - PASS". Only `error` '#C92A2A' holds up.
+ *
+ * FOLLOW-UP, DELIBERATELY NOT DONE HERE: after that deletion `ACCESSIBLE_COLORS` has
+ * ONE consumer — `AccessibleButton` — reading 8 of its remaining keys, leaving ~15
+ * dead. Consolidating them onto the `colorSystem` ramp is a separate item, because
+ * `AccessibleButton`'s only two render sites are in `features/practices/dailyloop/`,
+ * a Protected Path needing `crisis` + `philosopher` passes and a Phase 2.5 gate — a
+ * different validation matrix row than a colour-coherence sweep. That item should also
+ * correct the false ratio comments and rule on the `disabled` branch, where
+ * `textWhite` on `textDisabled` is 2.8490.
  *
  *   - Touch targets, A11y roles, live-region patterns, focus styles, and
  *     spacing/border-radius scales below are likewise project-specific
@@ -110,13 +136,6 @@ export const ACCESSIBLE_COLORS = {
    */
   textSecondary: '#666666',
   
-  /**
-   * Helper Text Color (Fixed from #999)
-   * - Original: #999999 (2.85:1 - FAIL)
-   * - Fixed: #6B6B6B (5.5:1 - PASS)
-   * - Use for: Placeholder text, helper text, hints
-   */
-  textHelper: '#6B6B6B',
   
   /**
    * Disabled Text Color

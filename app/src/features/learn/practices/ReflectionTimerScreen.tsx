@@ -34,6 +34,7 @@ import {
   useTimerPractice,
   sharedPracticeStyles,
   colorSystem,
+  semantic,
   spacing,
   typography,
   borderRadius,
@@ -260,7 +261,7 @@ const styles = StyleSheet.create({
   },
   contemplationText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: spacing[24],
     paddingHorizontal: spacing[16],

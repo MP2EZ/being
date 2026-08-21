@@ -17,7 +17,7 @@ import {
   Pressable, 
   Vibration 
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 
 interface BodyAreaGridProps {
   selectedAreas?: string[];
@@ -98,8 +98,12 @@ const BodyAreaGrid: React.FC<BodyAreaGridProps> = ({
           styles.areaButtonText,
           {
             color: isActive
+              // DEBUG-387: the inactive arm moves onto the text token. The active
+              // arm stays on `base.white` deliberately — the correct destination
+              // for it is `semantic.text.inverse`, a different token and a
+              // different item's scope.
               ? colorSystem.base.white
-              : colorSystem.base.black
+              : semantic.text.primary
           }
         ]}>
           {area}
@@ -212,9 +216,22 @@ const styles = StyleSheet.create({
   summaryTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
+  /**
+   * MAINT-487 LEFT BOTH TEXT COLOURS BELOW ON RAW gray[700] — the sweep's only
+   * text carve-out. `noteSection` takes `themeColors.light`, and `themes.*.light`
+   * are saturated accent mid-tones, not light surfaces: gray[700] is already BELOW
+   * AA there on evening (#6B9B78, 3.1513) and learn (#B89DD1, 4.2025), and
+   * `semantic.text.secondary` would take all four themes under. No ramp neutral is
+   * legal on #6B9B78, so the fix is the GROUND, not the text.
+   *
+   * It is latent rather than live only because this component has no render
+   * consumers — every importer takes `BODY_AREAS` and nothing else. Revive it and
+   * the two failures become real. Pinned with the full ratio table in
+   * core/theme/__tests__/gray700-call-sites.accessibility.test.ts.
+   */
   summaryText: {
     fontSize: typography.caption.size,
     color: colorSystem.gray[700],

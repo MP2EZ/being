@@ -66,6 +66,15 @@ cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + su
 # shellcheck source=scripts/e2e-host-contention.sh
 . "$(dirname "$0")/e2e-host-contention.sh"
 
+# INFRA-490 — the host reading and each flow's wall-clock are written down rather than
+# printed and dropped. Sourced explicitly rather than relied on transitively via
+# e2e-sim-lock.sh: a reordering of the sources above should not silently stop the gate
+# recording itself.
+if [ -f "$(dirname "$0")/e2e-telemetry.sh" ]; then
+  # shellcheck source=scripts/e2e-telemetry.sh
+  . "$(dirname "$0")/e2e-telemetry.sh"
+fi
+
 MAESTRO_DIR=".maestro"
 
 BUNDLE_ID="fyi.being.app"
@@ -832,7 +841,8 @@ for f in "${FLOWS[@]}"; do
 
   wait "$child" 2>/dev/null
   rc=$?
-  flow_elapsed="$(e2e_fmt_elapsed "$(( $(date +%s) - flow_t0 ))")"
+  flow_secs=$(( $(date +%s) - flow_t0 ))
+  flow_elapsed="$(e2e_fmt_elapsed "$flow_secs")"
   kill -TERM -"$watchdog" 2>/dev/null || kill -TERM "$watchdog" 2>/dev/null || true
   wait "$watchdog" 2>/dev/null || true
 
@@ -851,6 +861,7 @@ for f in "${FLOWS[@]}"; do
   # `${VERDICT:-…}` default matters because this script runs under `set -u` without `-e`,
   # so a failed `node` leaves VERDICT empty and empty must refuse.
   if [ "$timed_out" = "1" ]; then
+    flow_outcome=TIMEOUT
     timeouts=$((timeouts + 1))
     # Report the per-command adjudication ALONGSIDE the timeout rather than instead of
     # it: an all-COMPLETED run that had to be killed is still not merge evidence, but
@@ -859,9 +870,11 @@ for f in "${FLOWS[@]}"; do
     LAST_EVIDENCE_DIR="$DEBUG_DIR"
     echo "⏱️  $name exceeded ${FLOW_TIMEOUT_S}s and was killed. Evidence: $RUN_DIR" >&2
   elif [ "$rc" -eq 0 ] && [ "$VERDICT" = "PASS" ]; then
+    flow_outcome=PASS
     results+=("PASS  $name  ($flow_elapsed · ${E2E_SIM_VIEWPORT:-unknown} · ${FLOW_CERT_NOTE})")
     rm -rf "$RUN_DIR"
   else
+    flow_outcome=FAIL
     if [ "$rc" -ne 0 ] && [ "$VERDICT" = "PASS" ]; then
       echo "⚠️  $name: the two verdict sources disagree — maestro exited $rc but its JUnit" >&2
       echo "   report is clean. That is a harness bug and deserves its own work item; it is" >&2
@@ -872,6 +885,15 @@ for f in "${FLOWS[@]}"; do
     fail=1
     echo "   Evidence kept: $RUN_DIR" >&2
   fi
+
+  # INFRA-490 — this flow's wall-clock and verdict, against the host reading taken at gate
+  # start. DEBUG-473 measured the same unchanged tree at 1m57s idle and 45m20s contended,
+  # and nothing recorded either; without the pair on one line the correlation has to be
+  # reconstructed from memory. Written for every flow that RAN — a suite later voided by
+  # INFRA-434 still leaves its rows, because how long a flow took under a given load is a
+  # real measurement whatever the provenance verdict says about its verdict.
+  e2e_telemetry_flow "$name" "$flow_outcome" "$flow_secs" \
+    "${E2E_SIM_VIEWPORT:-unknown}" "$HOST_FACTS"
 
   # Reset the XCUITest driver between flows so the next flow starts fresh
   # (docs/testing/e2e-maestro.md "driver wedged" note). ~8s lets it settle.

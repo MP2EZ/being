@@ -155,12 +155,28 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
   const [cloudSyncEnabled, setCloudSyncEnabled] = useState(false);
   const [researchEnabled, setResearchEnabled] = useState(false);
 
-  const acceptedCount =
-    Number(tosAccepted) +
-    Number(privacyAccepted) +
-    Number(wellnessDisclaimerAcknowledged) +
-    Number(mentalHealthProcessingConsent);
-  const allAccepted = acceptedCount === 4;
+  /**
+   * FEAT-475 — the Art. 9(2)(a) tick is deliberately NOT a conjunct here.
+   *
+   * ToS, the Privacy Policy and the wellness disclaimer are contract terms and a
+   * scope acknowledgment, not GDPR Art. 4(11) consent, so requiring them raises no
+   * Art. 7(4) question. `mentalHealthProcessingConsent` is the one true
+   * special-category consent on this screen, and bundling it into a mandatory set
+   * is what made it not freely given. It is still CAPTURED and still written to
+   * BOTH records at whatever value it holds (see `handleSubmit`); it just no
+   * longer gates Submit. Ported from `CombinedLegalGateScreen.tsx:163-180`, which
+   * FEAT-470 unbundled first.
+   *
+   * 🔴 Written as three named conjuncts, NOT as a relaxed comparator over the old
+   * four-term sum. `acceptedCount >= 3` would let a user tick Art. 9 plus any two
+   * required items and submit WITHOUT the wellness disclaimer — the screen's only
+   * mandatory acknowledgment naming 911/988. A count cannot express WHICH three.
+   */
+  const requiredConsentsTicked =
+    tosAccepted && privacyAccepted && wellnessDisclaimerAcknowledged;
+
+  const requiredRemaining =
+    Number(!tosAccepted) + Number(!privacyAccepted) + Number(!wellnessDisclaimerAcknowledged);
 
   /**
    * iOS has no trait that auto-announces an alert, and `accessibilityLiveRegion`
@@ -187,7 +203,7 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
    *
    * 🚫 It must NOT describe what happens if the user does not re-consent at all.
    * The lapse window (its duration, its Art. 18 restriction-of-processing
-   * characterisation) is open counsel work, and `consentStore.ts:439-443` bars
+   * characterisation) is open counsel work, and `consentStore.ts:522-527` bars
    * consent copy from characterising it.
    */
   const currentlyOnNotice = useMemo(() => {
@@ -212,7 +228,7 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
   }, [currentPreferences]);
 
   const handleSubmit = useCallback(() => {
-    if (!allAccepted || isSubmitting) return;
+    if (!requiredConsentsTicked || isSubmitting) return;
     onSubmit({
       legalGate: {
         tosAccepted,
@@ -230,7 +246,7 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
       },
     });
   }, [
-    allAccepted,
+    requiredConsentsTicked,
     isSubmitting,
     onSubmit,
     tosAccepted,
@@ -302,7 +318,7 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
         {/* What changed. `delta.changes` already carries the generic summary when
             the stored version is unknown, so there is no branch here. */}
         <View style={styles.deltaSection} accessible={false} testID="reconsent-delta">
-          <Text style={styles.sectionTitle} accessibilityRole="header">
+          <Text style={styles.sectionTitle} accessibilityRole="header" accessibilityLevel={2}>
             What changed
           </Text>
           {delta.changes.map((change) => (
@@ -318,11 +334,17 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
             single iOS element and hides all four Pressables from VoiceOver and
             from Maestro. Pinned by the accessibility suite. */}
         <View style={styles.section} accessible={false} testID="reconsent-group-required">
-          <Text style={styles.sectionTitle} accessibilityRole="header">
-            What you need to accept
+          {/* FEAT-475 — "What you need to accept" was literally false once one of
+              this group's four children became optional. */}
+          <Text style={styles.sectionTitle} accessibilityRole="header" accessibilityLevel={2}>
+            What you agree to
           </Text>
           <Text style={styles.sectionDescription}>
             Please review and accept each item separately.
+          </Text>
+
+          <Text style={styles.consentGroupHeading} accessibilityRole="header" accessibilityLevel={3}>
+            Required to continue
           </Text>
 
           <Pressable
@@ -330,7 +352,7 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
             onPress={() => setTosAccepted((v) => !v)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: tosAccepted }}
-            accessibilityLabel="I agree to the Terms of Service"
+            accessibilityLabel="I agree to the Terms of Service, required"
             accessibilityHint="Required to continue"
             accessibilityActions={documentActions('Open Terms of Service')}
             onAccessibilityAction={onDocumentAction(TERMS_URL, () => setTosAccepted((v) => !v))}
@@ -355,7 +377,7 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
             onPress={() => setPrivacyAccepted((v) => !v)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: privacyAccepted }}
-            accessibilityLabel="I agree to the Privacy Policy"
+            accessibilityLabel="I agree to the Privacy Policy, required"
             accessibilityHint="Required to continue"
             accessibilityActions={documentActions('Open Privacy Policy')}
             onAccessibilityAction={onDocumentAction(PRIVACY_URL, () => setPrivacyAccepted((v) => !v))}
@@ -381,7 +403,7 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
             onPress={() => setWellnessDisclaimerAcknowledged((v) => !v)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: wellnessDisclaimerAcknowledged }}
-            accessibilityLabel="I understand Being provides wellness support, not medical care, and in a crisis I will call 911 or 988"
+            accessibilityLabel="I understand Being provides wellness support, not medical care, and in a crisis I will call 911 or 988, required"
             accessibilityHint="Required to continue"
           >
             <View testID="reconsent-consent-wellness" style={styles.checkboxIndicator}>
@@ -393,6 +415,29 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
             </Text>
           </Pressable>
 
+          {/*
+            FEAT-475 — the optional half of the split, carried on THREE independent
+            channels because no one of them is sufficient:
+              1. this visible subheading, with `accessibilityRole="header"` so it is
+                 reachable by the headings rotor;
+              2. a `, optional` suffix on the accessibilityLabel — the only channel
+                 the user cannot switch off;
+              3. an accessibilityHint leading with "Optional".
+            Hint alone would not do: iOS VoiceOver → Verbosity → Speak Hints disables
+            hint speech outright, and TalkBack truncates it.
+
+            The heading text is NOT bare "Optional" (which is what the legal gate
+            uses) because this screen already ships an "Optional data sharing"
+            heading below. Two rotor entries where one is a prefix of the other is a
+            navigation ambiguity, and `accessibilityLevel` cannot resolve it — RN
+            maps level to AccessibilityNodeInfo on Android only, and iOS has no
+            heading-level API at all. Distinct text is the only channel that works
+            on both platforms.
+          */}
+          <Text style={styles.consentGroupHeading} accessibilityRole="header" accessibilityLevel={3}>
+            Optional — wellness data processing
+          </Text>
+
           {/* GDPR Art. 9(2)(a). Collected ONCE, here, and written to both records. */}
           <Pressable
             style={[
@@ -403,8 +448,8 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
             onPress={() => setMentalHealthProcessingConsent((v) => !v)}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: mentalHealthProcessingConsent }}
-            accessibilityLabel="I explicitly consent to Being processing my personal wellness data including mood check-ins, anxiety and depression self-screenings, and journal entries, to provide wellness support features"
-            accessibilityHint="Required to continue"
+            accessibilityLabel="I explicitly consent to Being processing my personal wellness data including mood check-ins, anxiety and depression self-screenings, and journal entries, to provide wellness support features, optional"
+            accessibilityHint="Optional — you can continue without accepting this"
           >
             <View testID="reconsent-consent-mh-processing" style={styles.checkboxIndicator}>
               {mentalHealthProcessingConsent && <Text style={styles.checkboxCheck}>✓</Text>}
@@ -415,11 +460,29 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
               wellness support features.
             </Text>
           </Pressable>
+
+          {/*
+            Outside the Pressable on purpose: `Pressable` defaults `accessible` to
+            true, which collapses its subtree into one element on iOS — a note
+            placed inside would be swallowed into the checkbox's accessible name.
+
+            Copy constraints (compliance, ported from FEAT-470): it may state that
+            the item is optional, that submission is unaffected, and where the answer
+            can be changed — Art. 7(3) signposting. It must NOT characterise what
+            declining leads to, and must NOT promise that processing stops, because
+            nothing enforces this consent yet (`canPerformOperation('mental_health_processing')`
+            has no production callers; enforcement is FEAT-318). Promising an effect
+            the code does not deliver would be the worse defect.
+          */}
+          <Text style={styles.optionalConsentNote}>
+            This one is optional. You can submit without it, and you can change your answer
+            at any time in Settings → Privacy &amp; Data.
+          </Text>
         </View>
 
         {/* ── GROUP 2 — optional preferences ─────────────────────────────────── */}
         <View style={styles.section} accessible={false} testID="reconsent-group-optional">
-          <Text style={styles.sectionTitle} accessibilityRole="header">
+          <Text style={styles.sectionTitle} accessibilityRole="header" accessibilityLevel={2}>
             Optional data sharing
           </Text>
           <Text style={styles.noticeText} testID="reconsent-current-preferences-notice">
@@ -481,9 +544,9 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
           sync. See CRISIS_FAB_CLEARANCE for why it is inset on the right. */}
       <View style={styles.actionFooter}>
         <Pressable
-          style={[styles.submitButton, (!allAccepted || isSubmitting) && styles.submitButtonDisabled]}
+          style={[styles.submitButton, (!requiredConsentsTicked || isSubmitting) && styles.submitButtonDisabled]}
           onPress={handleSubmit}
-          disabled={!allAccepted || isSubmitting}
+          disabled={!requiredConsentsTicked || isSubmitting}
           testID="reconsent-submit"
           accessibilityRole="button"
           accessibilityLabel="Accept and continue"
@@ -492,16 +555,16 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
           // hints. The enabled branch restates this form's effect at the moment
           // of action, where FTC §5 "clear and conspicuous" wants it.
           accessibilityHint={
-            allAccepted
+            requiredConsentsTicked
               ? 'Records your updated consent. Optional preferences you left unchecked will be turned off.'
-              : `Disabled until you accept all four required items. ${4 - acceptedCount} remaining.`
+              : `Disabled until you accept all three required items. ${requiredRemaining} remaining.`
           }
-          accessibilityState={{ disabled: !allAccepted || isSubmitting, busy: isSubmitting }}
+          accessibilityState={{ disabled: !requiredConsentsTicked || isSubmitting, busy: isSubmitting }}
         >
           <Text
             style={[
               styles.submitButtonText,
-              (!allAccepted || isSubmitting) && styles.submitButtonTextDisabled,
+              (!requiredConsentsTicked || isSubmitting) && styles.submitButtonTextDisabled,
             ]}
           >
             {isSubmitting ? 'Saving...' : 'Accept and continue'}
@@ -545,7 +608,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   subtitle: {
@@ -571,10 +634,26 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: spacing[24],
   },
+  /** FEAT-475 — the visible half of the required/optional split. */
+  consentGroupHeading: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: semantic.text.secondary,
+    marginBottom: spacing[8],
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  /** The refusal explanation. Tokens only — same token as the group heading. */
+  optionalConsentNote: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: semantic.text.secondary,
+    marginTop: spacing[8],
+  },
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   sectionDescription: {

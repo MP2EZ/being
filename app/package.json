@@ -81,9 +81,10 @@
     "check:workflow-scripts": "node scripts/check-workflow-scripts.js",
     "check:crisis-dial": "node scripts/check-crisis-dial-guard.js",
     "check:modal-occlusion": "node scripts/check-modal-occlusion-guard.js",
+    "check:crisis-keyboard-accessory": "node scripts/check-crisis-keyboard-accessory-guard.js",
     "prepare": "[ ! -e ../.git ] && exit 0; cd .. && husky app/.husky",
     "postinstall": "patch-package && node scripts/generate-legal-content.js",
-    "prepush": "npm run check:crisis-hotline",
+    "prepush": "npm run check:crisis-hotline && npm run check:workflow-scripts",
     "version-check": "node -e \"const pkg=require('./package.json'); if(pkg.dependencies.react !== '19.2.3') throw new Error('React must be 19.2.3 for RN 0.85.x compatibility')\"",
     "security:sast": "echo \"\ud83d\udd0d Running SAST Analysis...\" && audit-ci --config .audit-ci.json && echo \"\u2705 SAST Analysis completed\"",
     "security:deps": "npm audit --audit-level high",
@@ -100,10 +101,12 @@
     "e2e:safety:gad7": "bash scripts/e2e-safety.sh gad7-severe",
     "e2e:safety:crisis-button": "bash scripts/e2e-safety.sh crisis-button-reachability",
     "e2e:safety:988-dial": "bash scripts/e2e-safety.sh crisis-988-dial",
+    "e2e:safety:keyboard-accessory": "bash scripts/e2e-safety.sh crisis-keyboard-accessory",
     "e2e:safety:journal": "bash scripts/e2e-safety.sh journal-crisis-scan",
     "e2e:safety:consent-gate": "bash scripts/e2e-safety.sh deeplink-consent-gate",
     "e2e:safety:reconsent": "bash scripts/e2e-safety.sh reconsent-stale",
-    "e2e:safety:daily-loop": "bash scripts/e2e-safety.sh daily-loop-quick-depth"
+    "e2e:safety:daily-loop": "bash scripts/e2e-safety.sh daily-loop-quick-depth",
+    "e2e:safety:telemetry": "bash -c '. scripts/e2e-telemetry.sh; e2e_telemetry_summary \"${1:-}\"' --"
   },
   "overrides": {
     "react": "19.2.3",

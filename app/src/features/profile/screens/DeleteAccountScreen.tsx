@@ -33,6 +33,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const CONFIRM_WORD = 'DELETE';
 
@@ -110,6 +111,7 @@ const DeleteAccountScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Type {CONFIRM_WORD} to confirm</Text>
           <TextInput
+            {...crisisAccessoryProps()} /* DEBUG-450 */
             style={styles.input}
             value={confirmText}
             onChangeText={setConfirmText}
@@ -166,7 +168,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   lead: {
@@ -182,7 +184,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[12],
   },
   card: {
@@ -230,7 +232,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[12],
     paddingHorizontal: spacing[16],
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   errorText: {
     fontSize: typography.bodySmall.size,

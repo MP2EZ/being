@@ -24,8 +24,14 @@
  * design and a `crisis` agent pass, not a `git revert` — see
  * docs/development/inclusive-design-standards.md.
  *
- * Note `AccessibleButton` and `AccessibleInput` are deliberately absent here:
- * they live beside this file and their consumers import them by path.
+ * Note `AccessibleButton` is deliberately absent here: it lives beside this file and
+ * its two consumers (both in features/practices/dailyloop/) import it by path.
+ *
+ * MAINT-487 NARROWED THIS NOTE. It used to cover `AccessibleInput` too, on the same
+ * "their consumers import them by path" reasoning — but that component had NO
+ * consumers, in either test root, so the sentence explained its absence from the
+ * barrel with a fact that was not true of it. The component is deleted, along with
+ * the `textHelper` palette entry it alone read (4.3494 on gray[300], below AA).
  */
 
 // === FOUNDATIONAL ACCESSIBILITY COMPONENTS ===

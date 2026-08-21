@@ -47,12 +47,34 @@
  * this package, so requiring it would work locally and break on a pruned install.
  * `npm run` invocations are single-line and regex-extractable; that is enough.
  *
+ * SECOND ASSERTION — npm script -> a file git actually has (INFRA-499). The
+ * check above walks workflow -> npm script; this one walks npm script -> the
+ * file it hands to an interpreter, and requires that file to be in the GIT
+ * INDEX, not merely on disk. `.gitignore`'s scratch-script globs used to match
+ * at every depth, so a new guard in app/scripts/ was ignored: `git add .` staged
+ * nothing and said nothing, every local check passed because the file was on
+ * disk, and CI went red on a tree that did not contain it (DEBUG-450). INFRA-499
+ * anchored those globs to the repo root; this assertion is what makes a
+ * re-introduction fail on the PR that introduces it rather than silently.
+ *
+ * It runs in `prepush`, and that placement is the point rather than belt-and-
+ * braces: in CI the file is not on disk either, so CI already fails — just with
+ * a MODULE_NOT_FOUND naming no cause. The only place the untracked-but-present
+ * state exists to be caught is the author's machine, before the push.
+ *
+ * SCOPE of the second assertion. `app/package.json` scripts only, whose cwd is
+ * unambiguously `app/`. Bare `node scripts/x.js` in a workflow step is out for
+ * the same reason `npm run` indirection is the only thing scanned above — it
+ * would mean modelling per-step working directories. The four such invocations
+ * in .github/workflows today all name repo-root scripts/ files.
+ *
  * Usage:
  *   node scripts/check-workflow-scripts.js     # verify, exit 1 on drift
  */
 
 const fs = require('fs');
 const path = require('path');
+const { execFileSync } = require('child_process');
 
 const APP_DIR = path.resolve(__dirname, '..');
 const WORKFLOW_DIR = path.resolve(APP_DIR, '..', '.github', 'workflows');
@@ -117,6 +139,59 @@ function resolveMissing(invocations, scripts) {
 }
 
 /**
+ * Every file path an npm script body hands to an interpreter, app-relative.
+ *
+ * The required script extension is what keeps interpreter FLAGS out: `version-check`
+ * is `node -e "…"` and `e2e:safety:telemetry` is `bash -c '…'`, and a bare token
+ * capture would demand files named `-e` and `-c`. `.`/`source` are included because
+ * a sourced helper that is not in the repository fails exactly like an executed one
+ * — `e2e:safety:telemetry` reaches `scripts/e2e-telemetry.sh` that way.
+ */
+function extractScriptFileRefs(body) {
+  const out = [];
+  const re = /(?:^|[\s;&|('"`])(?:node|bash|sh|source|\.)\s+((?:\.\/)?[A-Za-z0-9_./-]+\.(?:js|cjs|mjs|sh))/g;
+  let m;
+  while ((m = re.exec(body)) !== null) {
+    const file = m[1].replace(/^\.\//, '');
+    if (!out.includes(file)) out.push(file);
+  }
+  return out;
+}
+
+/**
+ * Every distinct file referenced by a scripts map, as REPO-relative paths with
+ * the scripts that reach it.
+ *
+ * npm runs a script with cwd = app/, so `scripts/x.js` in app/package.json is
+ * `app/scripts/x.js` to git. Getting that prefix wrong reads every file as
+ * untracked, which is the one failure shape indistinguishable from a real finding.
+ */
+function collectScriptFileRefs(scripts) {
+  const byFile = new Map();
+  for (const name of Object.keys(scripts).sort()) {
+    for (const file of extractScriptFileRefs(scripts[name])) {
+      const key = `app/${file}`;
+      if (!byFile.has(key)) byFile.set(key, []);
+      byFile.get(key).push(name);
+    }
+  }
+  return [...byFile.entries()].map(([file, refs]) => ({ file, scripts: refs }));
+}
+
+/**
+ * Refs whose file is not in the git index (`untracked`) or not on disk (`missing`).
+ * `exists` is injected so this stays free of I/O and testable without a fixture repo.
+ */
+function resolveUntracked(refs, tracked, exists) {
+  const findings = [];
+  for (const ref of refs) {
+    if (!tracked.has(ref.file)) findings.push({ ...ref, reason: 'untracked' });
+    else if (!exists(ref.file)) findings.push({ ...ref, reason: 'missing' });
+  }
+  return findings;
+}
+
+/**
  * Scan a workflow directory. Returns one finding per unresolvable invocation,
  * each carrying `file`, `name`, `line` and the broken `chain`.
  */
@@ -135,6 +210,57 @@ function scanWorkflowDir(dir, scripts) {
 // ---------------------------------------------------------------------------
 // I/O
 // ---------------------------------------------------------------------------
+
+/**
+ * The subset of `paths` that git has in its index.
+ *
+ * One `git ls-files` for the whole set rather than `--error-unmatch` per file:
+ * a pathspec-scoped listing returns only tracked entries, so the untracked ones
+ * are exactly the set difference. Fails loudly if git is unavailable — a guard
+ * that silently skips is worse than one that errors, because a skip reads as a
+ * pass in the CI log.
+ */
+function listTracked(repoRoot, paths) {
+  if (!paths.length) return new Set();
+  const out = execFileSync('git', ['ls-files', '-z', '--', ...paths], {
+    cwd: repoRoot,
+    encoding: 'utf8',
+  });
+  return new Set(out.split('\0').filter(Boolean));
+}
+
+function checkScriptFiles(scripts) {
+  const repoRoot = path.resolve(APP_DIR, '..');
+  const refs = collectScriptFileRefs(scripts);
+  const tracked = listTracked(repoRoot, refs.map((r) => r.file));
+  const findings = resolveUntracked(refs, tracked, (f) => fs.existsSync(path.join(repoRoot, f)));
+
+  console.log(`\nScript files invoked by app/package.json: ${refs.length}`);
+  if (!findings.length) {
+    console.log('✅ Every one of them is in the git index.');
+    return 0;
+  }
+
+  console.error(
+    `\n❌ ${findings.length} npm script(s) invoke a file the repository does not have.`
+  );
+  if (findings.some((f) => f.reason === 'untracked')) {
+    console.error(
+      '   `untracked` is the silent one: the file is on disk, so every local check\n' +
+        '   passes, but `git add .` never staged it and CI checks out a tree without it.'
+    );
+  }
+  console.error('');
+  for (const f of findings) {
+    const via = f.scripts.slice(0, 3).join(', ') + (f.scripts.length > 3 ? `, +${f.scripts.length - 3} more` : '');
+    console.error(`   ${f.file}  [${f.reason}]  invoked by: ${via}`);
+  }
+  console.error(
+    '\n   Fix by committing the file. If `.gitignore` is swallowing it, scope the\n' +
+      '   glob instead of adding a negation — see the scratch-script block there.\n'
+  );
+  return 1;
+}
 
 function main() {
   const scripts = JSON.parse(fs.readFileSync(PKG_JSON, 'utf8')).scripts || {};
@@ -161,17 +287,23 @@ function main() {
       '\n   Fix the workflow, restore the script, or — if the workflow is parked —\n' +
         '   rename it so Actions no longer loads it.\n'
     );
+    // Run the second assertion anyway: two independent findings in one run beats
+    // two round-trips, and neither check depends on the other's result.
+    checkScriptFiles(scripts);
     return 1;
   }
 
   console.log('\n✅ Every npm script invoked by a loadable workflow exists.');
-  return 0;
+  return checkScriptFiles(scripts);
 }
 
 module.exports = {
   extractNpmRunNames,
+  extractScriptFileRefs,
+  collectScriptFileRefs,
   isScannedWorkflow,
   resolveMissing,
+  resolveUntracked,
   scanWorkflowDir,
 };
 

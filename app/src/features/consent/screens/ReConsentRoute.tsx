@@ -27,7 +27,7 @@
  *     their legal state.
  *
  * 🚫 The copy must NOT say what happens if they never re-consent. The
- * lapse-window characterisation is open counsel work — `consentStore.ts:519-522`
+ * lapse-window characterisation is open counsel work — `consentStore.ts:522-527`
  * bars consent copy from it. Saying "you'll be asked again next launch"
  * describes the PROMPT CADENCE, which is observable and true; saying anything
  * about restricted processing would not be.
