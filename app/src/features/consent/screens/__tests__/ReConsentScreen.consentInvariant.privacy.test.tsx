@@ -19,6 +19,31 @@
  *   3. The Art. 9(2)(a) tick is collected once and written to BOTH records with
  *      the same value.
  *   4. Submit is unreachable until all four document acceptances are ticked.
+ *
+ * ⚠️ INVARIANT 4 CARRIES A KNOWN, TRACKED DEFECT — see FEAT-475.
+ *
+ * FEAT-470 unbundled the Art. 9(2)(a) tick on `CombinedLegalGateScreen`, because a
+ * mandatory special-category consent is not freely given under Art. 7(4). This screen
+ * still bundles it: `allAccepted` (ReConsentScreen.tsx:158-163) requires all four,
+ * and refusing here routes through `declineReConsent`, which restricts all FIVE
+ * operations rather than just wellness processing — the same conditionality defect,
+ * arriving from a version lapse instead of onboarding.
+ *
+ * It is NOT a live defect and FEAT-470 does not make it one. This screen presents only
+ * from `RECONSENT_TRIGGER_STATUSES` (`useReConsentTrigger.ts`), whose sole member is
+ * `version_mismatch`; the v1.0.0 cohort is empty, `expired` does not fire until
+ * ~2027-05, and FEAT-470 deliberately does not bump `CONSENT_VERSION`. So the bundled
+ * gate here is currently unreachable.
+ *
+ * 🔴 IT MUST BE UNBUNDLED BEFORE EITHER of these ships, whichever comes first:
+ *   • the next `CONSENT_VERSION` bump, or
+ *   • activation of the FEAT-399 one-year `expired` expiry (~2027-05).
+ * Shipping either against this invariant re-opens on this surface exactly the Art. 7(4)
+ * defect FEAT-470 closed on the legal gate. Written here rather than left implicit
+ * because this is the file that will go red, and because a comment with no tracked
+ * item is how this class of trap goes stale — which is precisely how
+ * `CombinedLegalGateScreen.consentInvariant.privacy.test.tsx` handed FEAT-470 its own
+ * instructions.
  */
 
 import React from 'react';

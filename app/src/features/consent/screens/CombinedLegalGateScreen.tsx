@@ -159,8 +159,26 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
   }, []);
   const [showUnderAge, setShowUnderAge] = useState(false);
 
-  const allConsentsTicked =
-    tosAccepted && privacyAccepted && wellnessDisclaimerAcknowledged && mentalHealthProcessingConsented;
+  /**
+   * FEAT-470 — the Art. 9(2)(a) tick is deliberately NOT a conjunct here.
+   *
+   * ToS, the Privacy Policy and the wellness disclaimer are contract terms and a
+   * scope acknowledgment — not GDPR Art. 4(11) consent — so conditioning entry on
+   * them raises no Art. 7(4) question. `mentalHealthProcessingConsent` is the one
+   * true special-category consent on this screen, and bundling it into a mandatory
+   * set is what made it not freely given. It is still CAPTURED (and recorded either
+   * way, see `handleContinue`); it just no longer gates entry.
+   *
+   * Renamed from `allConsentsTicked`: "all" is now false, and every reader of the
+   * button's `disabled`/`accessibilityState` needs to know this is the required
+   * subset. All three call sites move with the definition — a stale one would leave
+   * a dead-button trap that is functionally still mandatory.
+   */
+  const requiredConsentsTicked =
+    tosAccepted && privacyAccepted && wellnessDisclaimerAcknowledged;
+
+  const requiredRemaining =
+    Number(!tosAccepted) + Number(!privacyAccepted) + Number(!wellnessDisclaimerAcknowledged);
 
   // Generate years for picker (100 years back from current year)
   const currentYear = new Date().getFullYear();
@@ -178,10 +196,20 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
       return;
     }
 
-    // Validate all four consents accepted
-    if (!allConsentsTicked) {
-      setError('Please accept all four consent items to continue');
-      AccessibilityInfo.announceForAccessibility('Error: Please accept all four consent items');
+    // Validate the three required acceptances. The Art. 9 tick is optional (FEAT-470)
+    // and is recorded at whatever value it holds, so it is never validated here.
+    //
+    // NOTE: this branch is unreachable defensive code, and deliberately stays that
+    // way. Continue is `disabled` on the same `!requiredConsentsTicked` condition, so
+    // `handleContinue` cannot be entered with a required item missing. Kept because
+    // the guard is cheap and the two conditions could drift apart in a future edit;
+    // the strings are maintained in step regardless so a reader is never shown a
+    // count that contradicts the screen.
+    if (!requiredConsentsTicked) {
+      setError('Please accept all three required items to continue');
+      AccessibilityInfo.announceForAccessibility(
+        'Error: Please accept all three required items to continue',
+      );
       return;
     }
 
@@ -217,7 +245,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
     }
   }, [
     selectedYear,
-    allConsentsTicked,
+    requiredConsentsTicked,
     tosAccepted,
     privacyAccepted,
     wellnessDisclaimerAcknowledged,
@@ -380,11 +408,28 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
           </Text>
         </View>
 
-        {/* Legal Agreement Section — four separate explicit consents */}
+        {/*
+          Legal Agreement Section — THREE required acceptances, then ONE optional
+          Art. 9 consent under its own heading (FEAT-470).
+
+          The required/optional split is carried on three independent channels,
+          because no one of them is sufficient:
+            1. visible subsection headings, for sighted users;
+            2. an `accessibilityLabel` suffix, which the user cannot switch off;
+            3. an `accessibilityHint`, which they can.
+          Hint alone would not do — iOS lets users disable hint speech and TalkBack
+          truncates it, and whether a box is optional is load-bearing by definition.
+          The headings also carry `accessibilityRole="header"`, so the split is
+          navigable by the headings rotor, which no per-control label can match.
+        */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>2. Your Consent</Text>
+          <Text style={styles.sectionTitle} accessibilityRole="header">2. Your Consent</Text>
           <Text style={styles.sectionDescription}>
             Please review and accept each item separately:
+          </Text>
+
+          <Text style={styles.consentGroupHeading} accessibilityRole="header">
+            Required to continue
           </Text>
 
           {/* 1. Terms of Service */}
@@ -393,7 +438,8 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             onPress={toggleTos}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: tosAccepted }}
-            accessibilityLabel="I agree to the Terms of Service"
+            accessibilityLabel="I agree to the Terms of Service, required"
+            accessibilityHint="Required to continue"
             accessibilityActions={documentActions('Open Terms of Service')}
             onAccessibilityAction={onDocumentAction(TERMS_URL, toggleTos)}
           >
@@ -413,7 +459,8 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             onPress={togglePrivacy}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: privacyAccepted }}
-            accessibilityLabel="I agree to the Privacy Policy"
+            accessibilityLabel="I agree to the Privacy Policy, required"
+            accessibilityHint="Required to continue"
             accessibilityActions={documentActions('Open Privacy Policy')}
             onAccessibilityAction={onDocumentAction(PRIVACY_URL, togglePrivacy)}
           >
@@ -434,7 +481,8 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             }}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: wellnessDisclaimerAcknowledged }}
-            accessibilityLabel="I understand Being provides wellness support, not medical care, and in a crisis I will call 911 or 988"
+            accessibilityLabel="I understand Being provides wellness support, not medical care, and in a crisis I will call 911 or 988, required"
+            accessibilityHint="Required to continue"
           >
             <View testID="legal-consent-wellness" style={styles.checkboxIndicator}>
               {wellnessDisclaimerAcknowledged && <Text style={styles.checkboxCheck}>✓</Text>}
@@ -444,7 +492,17 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             </Text>
           </Pressable>
 
-          {/* 4. GDPR Art. 9(2)(a) explicit consent for mental-health data processing */}
+          <Text style={styles.consentGroupHeading} accessibilityRole="header">
+            Optional
+          </Text>
+
+          {/*
+            4. GDPR Art. 9(2)(a) explicit consent for wellness-data processing.
+            OPTIONAL since FEAT-470 — see `requiredConsentsTicked`. The testID is
+            load-bearing beyond this screen: `_legal-and-onboarding.yaml` taps
+            `legal-consent-mh-processing` unconditionally, and that helper is
+            upstream of 7 of the 8 sim-runnable safety flows. Never rename it.
+          */}
           <Pressable
             style={[styles.checkbox, mentalHealthProcessingConsented && styles.checkboxChecked, styles.checkboxStacked]}
             onPress={() => {
@@ -453,7 +511,8 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             }}
             accessibilityRole="checkbox"
             accessibilityState={{ checked: mentalHealthProcessingConsented }}
-            accessibilityLabel="I explicitly consent to Being processing my personal wellness data including mood check-ins, anxiety and depression self-screenings, and journal entries, to provide wellness support features"
+            accessibilityLabel="I explicitly consent to Being processing my personal wellness data including mood check-ins, anxiety and depression self-screenings, and journal entries, to provide wellness support features, optional"
+            accessibilityHint="Optional — you can continue without accepting this"
           >
             <View testID="legal-consent-mh-processing" style={styles.checkboxIndicator}>
               {mentalHealthProcessingConsented && <Text style={styles.checkboxCheck}>✓</Text>}
@@ -462,6 +521,34 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
               I explicitly consent to Being processing my personal wellness data — including mood check-ins, anxiety and depression self-screenings, and journal entries — to provide wellness support features.
             </Text>
           </Pressable>
+
+          {/*
+            The refusal explanation. Deliberately OUTSIDE the Pressable above:
+            `Pressable` defaults `accessible={true}`, which collapses its whole
+            subtree into one iOS element, so copy placed inside would be invisible
+            to VoiceOver unless transcribed into that hand-maintained
+            `accessibilityLabel`. As its own node it reads in traversal order with
+            no label to keep in sync.
+
+            Also deliberately INSIDE the ScrollView. The 988 footer below earns
+            LegalGate's place in RootCrisisButton.SUPPRESSED_ROUTES by being
+            reachable without scrolling, which it gets from being a flex sibling of
+            this `flex: 1` ScrollView. Copy added as a sibling OUT here would
+            compete for the same fixed vertical budget and clip the footer at large
+            Dynamic Type; copy in here only lengthens the scroll.
+
+            Copy constraints (compliance, FEAT-470): it may state that the item is
+            optional, that entry is unaffected, and where the answer can be changed
+            — Art. 7(3) signposting. It must NOT characterise what declining leads
+            to, and must NOT promise that processing stops, because nothing enforces
+            this consent yet (`canPerformOperation('mental_health_processing')` has
+            no callers; enforcement is FEAT-318). Promising an effect the code does
+            not deliver would be the worse defect.
+          */}
+          <Text style={styles.optionalConsentNote}>
+            This one is optional. You can continue without it, and you can change your
+            answer at any time in Settings → Privacy &amp; Data.
+          </Text>
         </View>
 
         {/* Essential Services Info */}
@@ -476,9 +563,23 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
         </View>
 
         {/* Error Display */}
+        {/*
+          `accessibilityRole="alert"` + `accessibilityLiveRegion` are the Android
+          half. `announceForAccessibility` at the setError sites covers iOS, which
+          has no trait that auto-announces an alert; a live region alone is silent
+          there. Without these props Android users got nothing from this banner.
+          The resulting iOS double-announce is the accepted trade in this repo —
+          same posture as ReConsentScreen.tsx:463-473.
+        */}
         {error && (
           <View style={styles.errorContainer}>
-            <Text style={styles.errorText}>{error}</Text>
+            <Text
+              style={styles.errorText}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="assertive"
+            >
+              {error}
+            </Text>
           </View>
         )}
 
@@ -486,14 +587,27 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
         <Pressable
           style={[
             styles.continueButton,
-            (!selectedYear || !allConsentsTicked || isLoading) && styles.continueButtonDisabled,
+            (!selectedYear || !requiredConsentsTicked || isLoading) && styles.continueButtonDisabled,
           ]}
           onPress={handleContinue}
-          disabled={!selectedYear || !allConsentsTicked || isLoading}
+          disabled={!selectedYear || !requiredConsentsTicked || isLoading}
           testID="legal-gate-continue"
           accessibilityRole="button"
           accessibilityLabel="Continue"
-          accessibilityState={{ disabled: !selectedYear || !allConsentsTicked || isLoading }}
+          /*
+            Dynamic on purpose, ported from ReConsentScreen.tsx:490-497. A disabled
+            button with no hint tells a screen-reader user nothing about why. The
+            count covers the THREE required items only — the Art. 9 tick can never
+            be what is blocking, and naming it here would re-imply it is mandatory.
+          */
+          accessibilityHint={
+            !selectedYear && requiredConsentsTicked
+              ? 'Disabled until you select your birth year.'
+              : requiredConsentsTicked
+                ? undefined
+                : `Disabled until you accept all three required items. ${requiredRemaining} remaining.`
+          }
+          accessibilityState={{ disabled: !selectedYear || !requiredConsentsTicked || isLoading }}
         >
           <Text style={styles.continueButtonText}>
             {isLoading ? 'Verifying...' : 'Continue'}
@@ -592,6 +706,26 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.regular,
     color: semantic.text.secondary,
     marginBottom: spacing[16],
+  },
+  /** FEAT-470 — the visible half of the required/optional split. */
+  consentGroupHeading: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: semantic.text.secondary,
+    marginBottom: spacing[8],
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+  },
+  /**
+   * The refusal explanation. Tokens only — this screen already carries three
+   * hardcoded hexes in violation of the design-system rule and must not gain a
+   * fourth; `semantic.text.secondary` is the same token the group heading uses.
+   */
+  optionalConsentNote: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: semantic.text.secondary,
+    marginTop: spacing[8],
   },
   pickerContainer: {
     backgroundColor: colorSystem.gray[100],

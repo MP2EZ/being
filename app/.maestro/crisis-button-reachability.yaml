@@ -462,6 +462,31 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     timeout: 48000
 - tapOn:
     id: "profile-card-export"
+# ⚠️ CONDITIONAL RE-TAP — not padding. The scroll above terminates and DEBUG-477's
+# predicate applies: UIScrollView consumes the next touch as a zero-distance drag, Maestro
+# reports the tap COMPLETED, and the screen never appears. That is DEBUG-453's symptom on
+# this exact step, and until now this step had no defence against it.
+#
+# `retryTapIfNoChange` cannot cover it — DEBUG-477 measured why: the swallowed tap nudges
+# the list 1-3pt, so Maestro sees a change and declines to retry. So the oracle is the
+# DESTINATION, not "did anything move". One re-tap suffices by the predicate (exactly one
+# touch is eaten), and it is safe because it is conditional: if the first tap landed,
+# export-data-screen is visible, the block does not run, and nothing is double-tapped.
+#
+# This touches NO scroll parameter. DEBUG-473's standing prohibitions — never drop
+# centerElement on delete, never buy budget with scroll speed — are untouched.
+#
+# Surfaced by FEAT-470, which added a section to PrivacyDataScreen. That is a legitimate
+# product change; it lengthened the screen this step scrolls and shifted the dynamics
+# enough to trip a defect the step was always exposed to. Measured: 3/3 green without that
+# section, 3 failures in 8 runs with it, all at this assertion.
+- runFlow:
+    when:
+      notVisible:
+        id: "export-data-screen"
+    commands:
+      - tapOn:
+          id: "profile-card-export"
 - assertVisible:
     id: "export-data-screen"
 - tapOn:
@@ -510,6 +535,25 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     timeout: 48000
 - tapOn:
     id: "profile-card-delete"
+# ⚠️ CONDITIONAL RE-TAP — the same defence as the export step above, and it is needed here
+# MORE, not less: DEBUG-473 measured this scroll at 95% of budget on 16 Pro, the most
+# expensive in the flow, so it is the likeliest to terminate mid-content and have its tap
+# consumed as a zero-distance drag (DEBUG-477).
+#
+# Measured while adding the export retry: with export defended and this step bare, 5 runs
+# went 3 pass / 2 fail and BOTH failures landed here. That is INFRA-476's documented
+# signature — the failing element wanders between profile-card-export and
+# profile-card-delete — arriving because only one of the two taps had cover.
+#
+# Touches no scroll parameter, so DEBUG-473's prohibitions (never drop centerElement here,
+# never buy budget with scroll speed) are untouched.
+- runFlow:
+    when:
+      notVisible:
+        id: "delete-account-screen"
+    commands:
+      - tapOn:
+          id: "profile-card-delete"
 - assertVisible:
     id: "delete-account-screen"
 - tapOn:
