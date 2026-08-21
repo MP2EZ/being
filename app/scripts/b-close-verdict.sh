@@ -122,6 +122,21 @@ b_close_stage_verdict() {
   esac
 }
 
+# b_close_fail_hint <logfile> -> one line naming the failing suite/test, or nothing.
+#
+# A stage name alone is not "naming which": a precommit log runs to six figures of lines,
+# so `PRECOMMIT_RED — exit 1` leaves the operator unable to tell a regression from the
+# documented parallel-load flake without grepping it. Flattened to one line because a
+# newline inside a DONE record would split it into unparseable records. Silent on a clean
+# or missing log — a hint is an aid to the verdict, never a source of one.
+b_close_fail_hint() {
+  local log="${1:-}"
+  [ -f "$log" ] || return 0
+  grep -hoE '^(FAIL [^ ]+|[[:space:]]+✕ .*)' "$log" 2>/dev/null \
+    | tail -2 | tr '\n' ' ' | sed -E 's/[[:space:]]+/ /g; s/^ //; s/ $//'
+  return 0
+}
+
 # The whole merge gate, in one line. Everything else is a named refusal.
 b_close_mergeable() { [ "${1:-}" = "OK" ]; }
 

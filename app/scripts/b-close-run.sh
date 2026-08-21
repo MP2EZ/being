@@ -82,7 +82,12 @@ stage() {
   "$@"
   local rc=$?
   local verdict; verdict="$(b_close_stage_verdict "$name" "$rc")"
-  b_close_mergeable "$verdict" || finish "$verdict" "$name" "exit $rc"
+  b_close_mergeable "$verdict" && return 0
+  # Name the failing TEST, not just the stage. A precommit log runs to six figures of
+  # lines, so a bare "exit 1" is close to the silence AC2 exists to remove: the operator
+  # cannot tell a regression from the documented parallel-load flake without grepping it.
+  local hint; hint="$(b_close_fail_hint "$LOG")"
+  finish "$verdict" "$name" "exit $rc${hint:+ — ${hint}}"
 }
 
 cd "$WORKTREE" || finish UNKNOWN_STAGE setup "worktree $WORKTREE unreadable"

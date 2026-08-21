@@ -223,6 +223,44 @@ describe('INFRA-492 stage verdicts — fail-closed typing of every exit alphabet
   });
 });
 
+describe('INFRA-492 failure hint — a stage name alone is not "naming which" (AC2)', () => {
+  // First real detached run reported `PRECOMMIT_RED — exit 1` against a 200,000-line log.
+  // The cause was the documented parallel-load flake, but nothing in the report could
+  // distinguish that from a genuine crisis-path regression without grepping the log.
+  const write = body => {
+    const f = path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'infra492h-')), 'log');
+    fs.writeFileSync(f, body);
+    return f;
+  };
+
+  it('names the failing suite and test from a jest log', () => {
+    const f = write([
+      'PASS __tests__/safety/other.test.ts',
+      'FAIL __tests__/safety/offline-crisis-management.test.ts (12.914 s)',
+      '      ✕ detects suicidal ideation (Q9 > 0) without any network call (11905 ms)',
+      'Tests:       1 failed, 475 passed, 476 total',
+    ].join('\n'));
+    const hint = sh(`b_close_fail_hint "${f}"`).stdout;
+    expect(hint).toContain('offline-crisis-management');
+    expect(hint).toContain('suicidal ideation');
+  });
+
+  it('is quiet when the log carries no failure, rather than emitting noise', () => {
+    expect(sh(`b_close_fail_hint "${write('Tests: 476 passed, 476 total\n')}"`).stdout).toBe('');
+  });
+
+  it('survives a missing log without failing the caller', () => {
+    const r = sh('b_close_fail_hint /nonexistent/log');
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  it('stays one line, so a DONE record cannot be split into unparseable records', () => {
+    const f = write(Array.from({ length: 40 }, (_, i) => `      ✕ case ${i} failed`).join('\n'));
+    expect(sh(`b_close_fail_hint "${f}"`).stdout.split('\n').length).toBe(1);
+  });
+});
+
 describe('INFRA-492 run directory — the status surface an operator is told to read', () => {
   let root;
   beforeEach(() => {
