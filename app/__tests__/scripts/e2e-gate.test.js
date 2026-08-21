@@ -151,6 +151,16 @@ function runGate({ root, stubs, lockRoot, gate }, args = [], extraEnv = {}) {
       ...process.env,
       PATH: `${stubs}:${process.env.PATH}`,
       E2E_LOCK_ROOT: lockRoot,
+      // INFRA-490: sandbox the telemetry log too. Unset, it appends to the SHARED /tmp
+      // collection INFRA-491 is read off — and these specs plant live holders on 1s
+      // timeouts to prove refusal, so they would write a fabricated contention rate into
+      // the one file that decision depends on.
+      //
+      // Beside lockRoot, NOT inside `root`: `root` is the sandbox WORKTREE, and
+      // e2e-gate.sh refuses a dirty one. A log file there makes every gate run refuse
+      // and build nothing — the same "never write inside a worktree" rule
+      // e2e-telemetry.sh exists to honour, which this harness has to honour too.
+      E2E_TELEMETRY_FILE: path.join(lockRoot, '..', path.basename(lockRoot) + '-telemetry.jsonl'),
       E2E_GATE_WORKTREE: gate,
       E2E_LOCK_TIMEOUT: '1',
       ...extraEnv,
