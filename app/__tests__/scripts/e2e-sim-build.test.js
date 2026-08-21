@@ -1431,7 +1431,17 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
 
     const res = spawnSync('bash', [path.join(root, 'scripts', 'e2e-sim-build.sh')], {
       encoding: 'utf8',
-      env: { ...process.env, PATH: `${stubs}:${process.env.PATH}`, CI: '' },
+      // INFRA-490: this third invocation site does not go through runBuild(), so it
+      // inherited neither isolation. Unset, it takes a real lease in the SHARED lock root
+      // and appends a fabricated row to the SHARED telemetry collection INFRA-491 is read
+      // off — this spec's stubbed UDID is the literal "ABC".
+      env: {
+        ...process.env,
+        PATH: `${stubs}:${process.env.PATH}`,
+        E2E_LOCK_ROOT: path.join(root, '.locks'),
+        E2E_TELEMETRY_FILE: path.join(root, '.telemetry.jsonl'),
+        CI: '',
+      },
     });
 
     const output = `${res.stdout || ''}${res.stderr || ''}`;
