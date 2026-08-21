@@ -370,7 +370,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
                   key={year}
                   label={year.toString()}
                   value={year}
-                  color={colorSystem.base.black}
+                  color={semantic.text.primary}
                 />
               ))}
             </Picker>
@@ -567,7 +567,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
@@ -584,7 +584,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   sectionDescription: {
@@ -786,7 +786,7 @@ const styles = StyleSheet.create({
   crisisSectionTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
@@ -845,7 +845,7 @@ const styles = StyleSheet.create({
   resourcesTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[16],
   },
   reEnterAgeButton: {

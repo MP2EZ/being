@@ -385,7 +385,7 @@ const styles = StyleSheet.create({
   },
   scenarioText: {
     fontSize: typography.bodyLarge.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     lineHeight: typography.bodyLarge.size * (typography.bodyLarge.lineHeight || 1.5),
   },
   selectionContainer: {
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
   choiceButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   choiceButtonTextPressed: {
     opacity: 0.9,
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
   },
   feedbackText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     lineHeight: typography.bodyRegular.size * (typography.bodyRegular.lineHeight || 1.5),
   },
   listsContainer: {
@@ -470,7 +470,7 @@ const styles = StyleSheet.create({
   listTitle: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   listItem: {

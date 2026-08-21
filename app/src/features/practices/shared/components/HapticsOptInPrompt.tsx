@@ -277,7 +277,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[16],
   },
   body: {
