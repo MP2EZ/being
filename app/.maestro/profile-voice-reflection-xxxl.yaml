@@ -84,7 +84,7 @@ name: "Profile -> VoiceReflection at XXXL (DEBUG-507): the save-time crisis scan
 # The default-size row reproduces DEBUG-480's published figures exactly, which is what
 # vouches for the method. At XXXL the button does not merely lose margin — it sits entirely
 # beneath the keyboard, so the tap is swallowed and `journal-saved-state` never arrives.
-# Tracked as its own item per AC 3; this flow will gain the save block when that lands.
+# Tracked as DEBUG-516 per AC 3; this flow gains the save block when that lands.
 #
 # Do NOT "fix" this by asserting `journal-save-button` is visible: the iOS keyboard is a
 # separate window, so XCUITest scores the button fully visible while it is 100% covered.
