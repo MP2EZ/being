@@ -3,20 +3,30 @@ tags:
   - safety-device-only
 name: "Crisis affordance stays reachable while a software keyboard is up (device-only)"
 ---
-# DEVICE-ONLY (DEBUG-450). This flow CANNOT be trusted on the iOS simulator, and the
-# reason is a false-GREEN, not a false-red — which is the dangerous direction.
+# DEVICE-ONLY, AND THE RECORDED REASON FOR IT IS FALSE (DEBUG-506).
 #
-# The simulator boots with "Connect Hardware Keyboard" enabled, so tapping into a
-# TextInput raises NO software keyboard. A naive "type, then assert the crisis control
-# is visible" flow therefore PASSES against a build where the accessory never mounts:
-# nothing was ever occluded, so the root button was visible the whole time and the
-# assertion succeeded for the wrong reason.
+# This header used to say: "The simulator boots with Connect Hardware Keyboard enabled, so
+# tapping into a TextInput raises NO software keyboard", and that a naive flow would
+# therefore false-GREEN. Measured on the gate simulator (iPhone SE 3 / iOS 18.6):
+# `ConnectHardwareKeyboard` is unset both globally and per-device, a software keyboard DOES
+# rise at the default, and `UIKeyboardLayoutStar Preview` lands at [0,451][375,667] — the
+# same bounds DEBUG-506's evidence table records. `journal-crisis-scan.yaml` runs in the
+# default suite and asserts that node three times, which is the standing counter-example.
 #
-# Same family as the canOpenURL caveat that makes crisis-988-dial device-only, and the
-# `safety-device-only` tag excludes this from `npm run e2e:safety` for the same reason.
+# That matters because this tag is why a regression in this affordance is invisible to
+# `npm run e2e:safety` by construction — and DEBUG-450 shipped an accessory that never
+# attached at all, for its entire life, with this flow the only thing pinning it.
 #
-# On a real device (or a simulator with I/O ▸ Keyboard ▸ Connect Hardware Keyboard
-# UNCHECKED), run:
+# The real per-simulator hazard is different and is now handled in the harness: iOS's
+# QuickPath first-run tutorial occupies the keyboard's whole region, is not a keyboard
+# node, and `simctl erase` restores it. `e2e-safety.sh` seeds
+# `DidShowContinuousPathIntroduction` and refuses outright if a hardware keyboard is on.
+#
+# STILL DEVICE-ONLY, pending DEBUG-506 AC5: the reachability half moves into the sim gate
+# and the dial half stays here, but the split is not authored until it has been RUN once.
+# A safety flow that is red on arrival gates nothing and trains a `--skip-e2e` bypass.
+#
+# On a real device, run:
 #   npm run e2e:safety:keyboard-accessory
 #
 # CONTRACT PINNED: while a software keyboard occludes the root crisis button, a crisis
