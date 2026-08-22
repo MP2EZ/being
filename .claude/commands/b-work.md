@@ -773,6 +773,9 @@ Phase 2.5 gate; do not re-author Maestro flows here.
   confirm each fails for the reason you intended — a spec that is green before the
   implementation exists is passing on unrelated behaviour, so re-fixture it until
   only the change under test can satisfy it.
+  A red that fails EVERY case proves nothing either — it is indistinguishable from a
+  harness that never ran. Include cases that must stay GREEN across the change; if
+  none of them pass, debug the harness before reading the red.
   **When the code under test already exists** (a regression pin on landed code —
   there is no implementation to withhold, so the instruction above silently does
   not apply), the red proof is a **mutation run**: break the mechanism the test
