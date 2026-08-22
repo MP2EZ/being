@@ -205,7 +205,13 @@ describe('e2e-safety.sh — the third verdict token', () => {
   it('freezes the exit alphabet at 0/1/2/3', () => {
     const literals = [...runnerCode.matchAll(/^[ \t]*exit[ \t]+([0-9]+)[ \t]*$/gm)].map(m => m[1]);
     expect(literals.length).toBeGreaterThan(0);
-    expect([...new Set(literals)].sort()).toEqual(['1', '2', '3']);
+    // A SUBSET assertion, not an equality one. DEBUG-496 states the invariant at the top of
+    // e2e-safety.sh: "exit 1 has exactly ONE producer in this file, the terminal
+    // `exit "$fail"`" — so the literal set legitimately excludes 1, and demanding it be
+    // present would pin the opposite of the landed contract. Kept as a set-difference so
+    // this fails on a 4th status AND on a reintroduced bare `exit 1`, which are the two
+    // ways the alphabet can stop being frozen.
+    expect([...new Set(literals)].filter(n => n !== '2' && n !== '3')).toEqual([]);
     expect(runnerCode).toMatch(/exit "\$fail"/);
   });
 });
