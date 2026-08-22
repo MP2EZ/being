@@ -142,12 +142,12 @@ describe('DEBUG-469 — the class stays OUT of the default safety suite', () => 
     expect(/^\s*-\s+safety\s*$/m.test(src)).toBe(false);
   });
 
-  test('the exact-tag matcher the suite uses still selects exactly the nine safety flows', () => {
+  test('the exact-tag matcher the suite uses still selects exactly the ten safety flows', () => {
     const files = fs.readdirSync(MAESTRO).filter((f) => f.endsWith('.yaml') && !f.startsWith('_'));
     const tagged = files.filter((f) =>
       /^\s*-\s+safety\s*$/m.test(fs.readFileSync(path.join(MAESTRO, f), 'utf8'))
     );
-    expect(tagged).toHaveLength(9);
+    expect(tagged).toHaveLength(10);
     expect(tagged).not.toContain('daily-loop-ax5-entry.yaml');
   });
 });
