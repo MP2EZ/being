@@ -1213,8 +1213,11 @@ Wait, then verify against the **full rollup**, which is authoritative:
 #     exist yet, and this window is real: CI's `push:` trigger no longer covers
 #     feat/*|fix/*|chore/* branches, so Step 3.2's push creates no run and the
 #     only run is the one `gh pr create` (Step 3.3) just triggered seconds ago.
-for i in $(seq 1 30); do
-  gh pr checks [PR_NUMBER] >/dev/null 2>&1 && break
+#     Poll the ROLLUP, not `gh pr checks`' exit status — they are different sources
+#     and disagree in this window, so (a) can fall through to an EMPTY verdict. Same
+#     class as the `--watch` warning below: never take the verdict from a second command.
+for i in $(seq 1 40); do
+  [ "$(gh pr view [PR_NUMBER] --json statusCheckRollup -q '.statusCheckRollup|length')" -gt 0 ] && break
   sleep 5
 done
 
