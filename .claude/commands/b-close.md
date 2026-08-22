@@ -553,6 +553,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | `.maestro/<flow>.yaml` added or edited | **trigger** that flow | The flow IS the contract; one that has never run is not coverage. Bypasses the inert filter — a deletion-only diff here is assertions being removed. |
 | `.maestro/_<helper>.yaml` edited | **full suite** | Any flow may include a helper subflow. |
 | `.maestro/crisis-988-dial.yaml` edited | **no sim flow** — hardware notice | `safety-device-only`; sim `canOpenURL` is unconditionally false, so it cannot pass here. Run `e2e:safety:988-dial` on a real iPhone. |
+| `.maestro/<flow>.yaml` tagged `safety-dynamic-type` edited | **no sim flow** — instruction | DEBUG-469 / DEBUG-507. The suite selects on an exact `- safety` tag at the DEFAULT content size, so it can neither select nor validly run these. `e2e:safety:ax5` (AX5) and `e2e:safety:xxxl` (largest non-accessibility step) own them. Each needs its own case arm; the `*)` catch-all would fire a pointless full suite. |
 | `src/core/stores/consentStore.ts` | **`deeplink-consent-gate` + `reconsent-stale`** | INFRA-482. File-level, not `src/core/stores/`. Owns the consent-record writes, `canPerformOperation`, the forging seam, and the safety-critical `loadConsent` branch order. Siblings in that dir have no safety surface. |
 | `src/core/config/e2eSeed.ts` | **full suite** | Sets the launch state every flow starts from; no narrower scope is valid. |
 | Mixed comment + code on one line / pure type-only edit | **trigger** | Bash can't safely prove inert → bias safe. |
@@ -748,6 +749,12 @@ while IFS= read -r f; do
       echo "   so it can neither select this flow nor validly run it. NOT added, and"
       echo "   deliberately NOT a full-suite trigger. Validate it directly:"
       echo "   npm run e2e:safety:ax5" ;;
+    profile-voice-reflection-xxxl.yaml)
+      echo "🔠 profile-voice-reflection-xxxl.yaml changed — safety-dynamic-type, same"
+      echo "   carve-out as ax5 above. Note the SIZE differs: this one runs at"
+      echo "   extra-extra-extra-large (largest NON-accessibility step) via"
+      echo "   E2E_DYNAMIC_TYPE_SIZE, not the wrapper's AX5 default. Validate it directly:"
+      echo "   npm run e2e:safety:xxxl" ;;
     q9-single-alert.yaml)            FLOWS+=("q9-single-alert") ;;
     phq9-severe-completion.yaml)     FLOWS+=("phq9-severe-completion") ;;
     gad7-severe.yaml)                FLOWS+=("gad7-severe") ;;
