@@ -936,8 +936,10 @@ most needs to catch.
   the gate — **do not run flows here**: b-close scopes them (MAINT-237 narrowing spares a
   sim build entirely for service-layer-only changes), verifies sim readiness, and fails
   closed. A flow failure there → `queued_red` with the verbatim output, continue to the next
-  item; never weaken a flow, never `--skip-e2e`. A gate that ABORTS without a verdict is
-  neither a pass nor a failure — but do not park it reflexively. Since DEBUG-505 that exit
+  item; never weaken a flow, never `--skip-e2e`. But confirm the target still exists first: a
+  peer replacing the binary mid-flow also exits 1, and reads as a regression in the branch.
+  INFRA-434's watch samples the marker's bytes and can miss it. A gate that ABORTS without a
+  verdict is neither a pass nor a failure — but do not park it reflexively. Since DEBUG-505 that exit
   also carries invocation errors and pre-flight refusals, and most are self-clearing by one
   rebuild, so they belong in `queued_red`. Park only what an attended session genuinely
   cannot clear: a wedged simulator, an unresponsive host, a real gate defect.
