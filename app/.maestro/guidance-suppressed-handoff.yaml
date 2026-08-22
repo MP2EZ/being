@@ -105,10 +105,31 @@ name: "Guidance entry point routes a suppressed reader to crisis resources"
     id: "results-crisis-banner"
 
 # ── Home → the guidance entry point ─────────────────────────────────────────
-- tapOn:
-    id: "tab-home"
-- assertVisible:
-    id: "home-screen"
+# RELAUNCH rather than navigating out of the results modal. `tab-home` is NOT
+# reachable from here — AssessmentFlow is a ROOT-STACK route, so the tab bar is
+# not mounted and the first draft of this flow failed with
+# `Element not found: Id matching regex: tab-home`. The alternative was
+# scrollUntilVisible on `assessment-complete-button` (which goBack()s to Profile),
+# but that reintroduces DEBUG-477: a swipe terminating mid-content is followed by
+# exactly one swallowed touch, and this screen has no element OUTSIDE the
+# ScrollView safe to absorb it with — the only one is the crisis button overlay,
+# and tapping that navigates to CrisisResources.
+#
+# NO clearState HERE. The GAD-7 result must survive; clearing would make the gate
+# answer `gentle` and this flow would assert against the wrong verdict.
+#
+# This is also STRICTER coverage than a tab hop, not a workaround. `useGuidanceGate`
+# gates first paint on `assessmentStore.persist.hasHydrated()` because the store
+# rehydrates asynchronously from ENCRYPTED storage, and before it lands the gate
+# answers `gentle` — which does not block Tier 0/1. A cold relaunch is the only way
+# to exercise that race in a real build; tabbing from results reads an
+# already-hydrated store and can never hit it.
+#
+# If the persist write has not landed before relaunch, the gate sees no assessment,
+# answers `gentle`, and renders tier content — so this flow goes RED. That is the
+# safe direction: a lag surfaces as a failure, never as a false pass.
+- launchApp
+- runFlow: _seeded-home.yaml
 
 # The entry point is visible to a SUPPRESSED reader, deliberately and not
 # incidentally. An affordance that disappeared based on a score would be an
