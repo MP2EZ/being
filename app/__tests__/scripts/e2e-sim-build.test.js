@@ -1204,7 +1204,8 @@ describe('e2e-safety.sh — provenance comparison (AC2, AC3)', () => {
   test('REFUSES every flow when the tree moved after the build', () => {
     const built = runScript({});
     const gate = runSafety(built, { git: { head: '2222222222222222222222222222222222222222' } });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: provenance MISMATCH is artifact LINEAGE, not flow behaviour.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0); // refuses BEFORE the loop, not per-flow
     expect(gate.output).toMatch(/MISMATCH/);
   });
@@ -1222,7 +1223,8 @@ describe('e2e-safety.sh — provenance comparison (AC2, AC3)', () => {
     const built = runScript({});
     fs.unlinkSync(path.join(built.container, MARKER_NAME));
     const gate = runSafety(built);
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: a MISSING marker means the gate cannot vouch for the target.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
     expect(gate.output).toMatch(/MISSING/);
   });
@@ -1276,7 +1278,8 @@ describe('e2e-safety.sh — dirty-tree runs are visibly not evidence (AC3/AC4)',
     // AC3 (banner, still run) and AC4 (gate failure) are opposite policies over ONE
     // implementation; this knob is the whole difference. /b-close sets it.
     const gate = runSafety(builtDirty(), { env: { E2E_REQUIRE_CLEAN_PROVENANCE: '1' } });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: "commit and rebuild" is an evidence instruction; no flow ran.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
     expect(gate.output).toMatch(/DIRTY tree|dirty tree/i);
   });
@@ -1376,7 +1379,8 @@ describe('e2e-safety.sh — flow selection and the no-silent-green rule', () => 
     // "✓ provenance" banners. There is no correct target for a mixed set, so it refuses.
     const built = runScript({});
     const gate = runSafety(built, { flows: ['crisis-988-dial', 'q9-single-alert'] });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: refused during SELECTION, so `ran` is 0 by construction.
+    expect(gate.status).toBe(2);
     expect(gate.output).toMatch(/mixed flow selection/i);
     expect(gate.flowsRun).toBe(0);
     // The refusal must name the offending flow so the operator can split the invocation.
@@ -1394,7 +1398,10 @@ describe('e2e-safety.sh — pre-flight checks BOTH crisis dial schemes', () => {
     const built = runScript({});
     writeStub(built.stubs, 'plutil', `echo '${JSON.stringify(['tel'])}'`);
     const gate = runSafety(built);
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: the most 1-flavoured pre-flight arm, and still 2. The SOURCE
+    // contract has an owner that can say "regression" (INFRA-184's jest pin, in precommit);
+    // the gate knows only that this installed binary is not the attested target.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
     expect(gate.output).toMatch(/sms/);
   });
@@ -1495,14 +1502,17 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
   test('refuses a helper subflow by name', () => {
     const built = runScript({});
     const gate = runSafety(built, { flows: ['_legal-and-onboarding'] });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: invocation error, no flow started.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
   });
 
   test('refuses a flow that does not exist instead of running nothing successfully', () => {
     const built = runScript({});
     const gate = runSafety(built, { flows: ['no-such-flow'] });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: invocation error. The exit-1 message told the operator to debug
+    // a flow file that does not exist.
+    expect(gate.status).toBe(2);
     expect(gate.output).toMatch(/no such flow/i);
   });
 
@@ -1515,7 +1525,8 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
       fs.unlinkSync(path.join(built.root, '.maestro', f));
     }
     const gate = runSafety(built);
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: zero flows ran, which is the definition of "no verdict".
+    expect(gate.status).toBe(2);
     expect(gate.output).not.toMatch(/all safety flows passed/);
     expect(gate.output).toMatch(/refusing to report success/i);
   });
@@ -1523,7 +1534,9 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
   test('a failing flow still fails the gate', () => {
     const built = runScript({});
     const gate = runSafety(built, { maestroExits: 1 });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — tightened to pin what 1 still MEANS after the sweep: an adjudicated red
+    // flow, and nothing else in this file. Loosened, it would pass on any non-zero code.
+    expect(gate.status).toBe(1);
     expect(gate.output).toMatch(/one or more safety flows failed/);
   });
 });
