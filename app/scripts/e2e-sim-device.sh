@@ -335,25 +335,75 @@ e2e_flow_certifies() {
   return 0
 }
 
+# e2e_run_certifies <declared> <ran>   →  `yes` | `no`   (INFRA-493)
+#
+# THE SINGLE AUTHORITY on whether a run certifies a flow. Both the human-readable label
+# below and the verdict token in e2e-safety.sh derive from this one call, because two
+# independent copies of the comparison drift: a summary line reading "certifies 375x667"
+# beside a receipt reading UNCERTIFIED, with both halves looking right in isolation and
+# nothing able to catch it. A jest pin drives the whole matrix through both.
+#
+# An underivable viewport is NON-certifying for a layout-sensitive flow — "we could not
+# derive it" and "it was wrong" are the same quality of evidence. It is still certifying
+# for a viewport-independent one: not knowing the viewport cannot invalidate a contract
+# that never depended on it, and widening the refusal to those flows is what makes a gate
+# unsatisfiable, which is the pressure that produces `--skip-e2e`.
+#
+# A PREDICATE, NOT A GATE — exits 0 on every path including the refusing one. The refusal
+# is `/b-close`'s, over the receipt. A non-zero here would land inside `set -e` territory
+# in three sourcing scripts and refuse the RUN rather than the MERGE.
+e2e_run_certifies() {
+  local declared="${1:-}" ran="${2:-unknown}"
+  [ "$declared" = "any" ] && { printf 'yes\n'; return 0; }
+  [ "$ran" = "unknown" ] && { printf 'no\n'; return 0; }
+  [ "$declared" = "$ran" ] && { printf 'yes\n'; return 0; }
+  printf 'no\n'
+  return 0
+}
+
 # e2e_flow_certification_note <declared> <ran>
 #
-# The label that goes beside a per-flow result. An underivable viewport counts as NON-
-# certifying: "we could not derive it" and "it was wrong" are the same quality of evidence.
+# The label that goes beside a per-flow result. It CONSUMES the predicate above rather
+# than re-deriving it; only the WORDING is decided here.
 e2e_flow_certification_note() {
   local declared="${1:-}" ran="${2:-unknown}"
-  if [ "$declared" = "any" ]; then
-    printf 'viewport-independent\n'
+  if [ "$(e2e_run_certifies "$declared" "$ran")" = "yes" ]; then
+    [ "$declared" = "any" ] && { printf 'viewport-independent\n'; return 0; }
+    printf 'certifies %s\n' "$declared"
     return 0
   fi
   if [ "$ran" = "unknown" ]; then
     printf 'declares %s, viewport underivable — does not certify\n' "$declared"
     return 0
   fi
-  if [ "$declared" = "$ran" ]; then
-    printf 'certifies %s\n' "$declared"
-    return 0
-  fi
   printf 'declares %s, ran %s — does not certify\n' "$declared" "$ran"
+  return 0
+}
+
+# e2e_uncertified_remediation <ran-viewport> <current-udid>   (INFRA-493)
+#
+# What an operator does about an UNCERTIFIED verdict. PRINTS THE COMMAND; NEVER RUNS IT.
+# The gate must not boot or create simulators: the simulator is shared across worktrees and
+# INFRA-423's driver-ownership classifier assumes the operator owns the boot, so booting
+# one here contaminates a peer's run. A jest pin stubs `xcrun` on PATH and asserts it is
+# never invoked, rather than trusting this to look side-effect-free.
+#
+# Remediation must be ONE COMMAND. That is the whole reason this refusal does not train the
+# `--skip-e2e` reflex — an operator who has to interpret a paragraph reaches for the bypass.
+# The current device is named because `e2e_resolve_sim_device` refuses at 2+ booted, so
+# booting the SE 3 alongside it produces exit 3 instead of a fix.
+# STDOUT, not stderr: the only caller is inside e2e-safety.sh's verdict summary, which is
+# all stdout. Splitting one block across two streams scrambles it under any redirect.
+e2e_uncertified_remediation() {
+  local ran="${1:-unknown}" udid="${2:-<udid>}"
+  echo "   This run was on ${ran}. Each line above names what that flow declares."
+  echo "   Boot the declared device (a viewport is not bootable; a model is):"
+  echo "     xcrun simctl shutdown ${udid} && xcrun simctl boot '${E2E_SMALLEST_SUPPORTED_MODEL}'"
+  echo "   Then re-run /b-close, which rebuilds onto it and re-runs the scoped set."
+  echo "   By hand it is two steps, because the app is not installed on the new device:"
+  echo "     npm run e2e:safety:gate && npm run e2e:safety"
+  echo "   The gate does not boot it for you — the simulator is shared across worktrees and"
+  echo "   whoever owns the boot owns the driver (INFRA-423). Check the UDID above is yours."
   return 0
 }
 
