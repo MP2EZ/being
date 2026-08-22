@@ -178,6 +178,11 @@ name: "Voice journal crisis scan surfaces support"
       id: "profile-card-voice-reflection"
     direction: DOWN
     centerElement: true # DEBUG-477 — load-bearing, see header
+    timeout: 40000 # DEBUG-507 — see header
+# DEBUG-477/479 absorbing tap. Every navigation to this card needs it, not just
+# the first: FEAT-287 moved the card mid-list, and the swallow is per-tap.
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-voice-reflection"
 - tapOn:
@@ -261,6 +266,11 @@ name: "Voice journal crisis scan surfaces support"
       id: "profile-card-voice-reflection"
     direction: DOWN
     centerElement: true
+    timeout: 40000 # DEBUG-507 — see header
+# DEBUG-477/479 absorbing tap. Every navigation to this card needs it, not just
+# the first: FEAT-287 moved the card mid-list, and the swallow is per-tap.
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-voice-reflection"
 - tapOn:
