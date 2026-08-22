@@ -461,6 +461,125 @@ describe('App.tsx — the root boundary exists at all', () => {
   });
 });
 
+describe('DailyLoopDepthSelectScreen — DEBUG-469: the depth choices are pinned OUTSIDE the ScrollView', () => {
+  /**
+   * DEBUG-432's defect a third time, on the daily-loop ENTRY point. At AX5 the picker's
+   * intro copy alone spans 880pt, so both depth Pressables — the only way into the loop —
+   * were pushed clean out of the XCUITest hierarchy on a 667pt screen. The screen was
+   * already a ScrollView, so "add a scroll" was not the fix; the choices had to leave it.
+   *
+   * Measured before the fix (`maestro hierarchy`, Release build, provenance ce393ec0,
+   * clean tree, content_size accessibility-extra-extra-extra-large):
+   *   iPhone 16e  390x844  "Daily Practice" y=133..491, subtitle y=499..1013
+   *                        daily-loop-depth-quick / -deep  ABSENT from the hierarchy
+   *
+   * THE CLEARANCE IS NOT COSMETIC. `DailyLoop` is a ROOT-STACK MODAL with no tab bar, but
+   * CollapsibleCrisisButton is positioned `bottom: 100` under a comment reading "Above tab
+   * bar" — true on a tabbed screen, false here — so the FAB's touch band (44pt target plus
+   * 12pt hitSlop, right 0..56) lands squarely in content. While the cards were scroll
+   * children they moved out from under it; pinned, they cannot, and the FAB wins both
+   * z-order (zIndex 9999) and hit-testing. Without the inset a practice-choice tap on a
+   * card's right-hand end silently navigates to CrisisResources.
+   *
+   * Source-level on purpose: this file is the structural safety suite, renders nothing, and
+   * is the copy that runs in precommit.
+   */
+  const rawSource = require('fs').readFileSync(
+    require('path').join(
+      __dirname,
+      '../../src/features/practices/dailyloop/screens/DailyLoopDepthSelectScreen.tsx',
+    ),
+    'utf8',
+  );
+
+  /** DEBUG-390: assert what the file DOES, never what it SAYS. */
+  const stripComments = (s: string): string =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const source = stripComments(rawSource);
+
+  /**
+   * DEBUG-390's second failure mode: stripping plus a narrow matcher can silently match
+   * NOTHING and stay green forever. Proof-of-liveness for everything below.
+   */
+  test('the comment-stripped matcher can still go red', () => {
+    expect(source.length).toBeGreaterThan(800);
+    expect(source).toContain('</ScrollView>');
+    expect(source).toContain('testID={`daily-loop-depth-');
+
+    const knownBad = `
+      <ScrollView>
+        <Pressable testID={\`daily-loop-depth-${'${depth}'}\`} />
+      </ScrollView>
+    `;
+    // Applied to a nested control the comparator must FAIL, or it proves nothing.
+    expect(knownBad.indexOf('testID={`daily-loop-depth-')).toBeLessThan(
+      knownBad.indexOf('</ScrollView>'),
+    );
+  });
+
+  test('the depth choices are declared AFTER the ScrollView closes', () => {
+    const scrollViewCloses = source.indexOf('</ScrollView>');
+    // Match the CHOICE template specifically. A bare `daily-loop-depth-` also matches the
+    // container's own `daily-loop-depth-select-screen`, which legitimately precedes the
+    // ScrollView — a matcher that finds the wrong element reads as a failure on correct code.
+    const choiceDeclared = source.indexOf('testID={`daily-loop-depth-');
+
+    expect(scrollViewCloses).toBeGreaterThan(-1);
+    expect(choiceDeclared).toBeGreaterThan(-1);
+    expect(choiceDeclared).toBeGreaterThan(scrollViewCloses);
+  });
+
+  test('the pinned region declares its own CRISIS_FAB_CLEARANCE', () => {
+    // Its OWN, not imported from features/consent — the two existing sites each declare
+    // one locally, and a shared import would couple a practice screen to consent.
+    expect(source).toMatch(/const\s+CRISIS_FAB_CLEARANCE\s*=/);
+  });
+
+  test('the clearance is applied as paddingRight, AFTER any paddingHorizontal', () => {
+    // RN StyleSheet is last-key-wins, so a paddingHorizontal declared afterwards would
+    // silently overwrite the inset and restore the collision with no visible diff.
+    expect(source).toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+    // Fail CLOSED if the anchor is gone: indexOf(-1) would make the slices below
+    // degenerate and the assertion pass while checking nothing.
+    const choicesAt = source.indexOf('choices:');
+    expect(choicesAt).toBeGreaterThan(-1);
+    const pinnedBlock = source.slice(choicesAt);
+    const horiz = pinnedBlock.indexOf('paddingHorizontal');
+    const right = pinnedBlock.indexOf('paddingRight');
+    expect(right).toBeGreaterThan(-1);
+    if (horiz > -1) expect(right).toBeGreaterThan(horiz);
+  });
+
+  test('the clearance is NOT applied to the scrolling content container', () => {
+    // Insetting the prose buys nothing — it scrolls out from under the FAB — and it would
+    // narrow the framework copy the philosopher pass ruled must stay intact.
+    const contentAt = source.indexOf('content:');
+    const choicesAt = source.indexOf('choices:');
+    expect(contentAt).toBeGreaterThan(-1);
+    expect(choicesAt).toBeGreaterThan(contentAt);
+    const contentBlock = source.slice(contentAt, choicesAt);
+    expect(contentBlock.length).toBeGreaterThan(20);
+    expect(contentBlock).not.toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+  });
+
+  test('both depths render from ONE template, so their treatment is symmetric', () => {
+    // FEAT-301: two EQUAL choices. Two hand-written Pressables could drift apart and
+    // reintroduce ranking; one map over DEPTHS makes symmetry structural.
+    expect(source).toMatch(/DEPTHS\.map\(/);
+    expect((source.match(/testID=\{`daily-loop-depth-/g) ?? []).length).toBe(1);
+  });
+
+  test('the pinned region is a flex sibling, never absolutely positioned', () => {
+    // Absolute positioning re-introduces the RN parent-padding-box trap (DEBUG-403) and
+    // would let the region float over the FAB rather than beside it.
+    const choicesAt = source.indexOf('choices:');
+    expect(choicesAt).toBeGreaterThan(-1);
+    const pinnedBlock = source.slice(choicesAt, choicesAt + 400);
+    expect(pinnedBlock).not.toMatch(/position:\s*'absolute'/);
+  });
+});
+
 describe('DailyLoopStepScreen — DEBUG-465: the support line is pinned OUTSIDE the ScrollView', () => {
   /**
    * DEBUG-432's defect, on the daily-loop practice beat. FEAT-301 re-hosted SUPPORT_LINE

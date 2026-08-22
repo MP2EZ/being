@@ -83,6 +83,7 @@ const TWO_DEVICES = [
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
 const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
 const REAL_HOST_CONTENTION = path.resolve(__dirname, '../../scripts/e2e-host-contention.sh');
+const REAL_CONTENT_SIZE = path.resolve(__dirname, '../../scripts/e2e-content-size.sh');
 const REAL_TELEMETRY = path.resolve(__dirname, '../../scripts/e2e-telemetry.sh');
 const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
@@ -189,6 +190,14 @@ function makeProject(opts = {}) {
   // stage it or every test here dies on the source line before reaching anything under
   // test. Real file: it warns and never exits, so staging it cannot change a verdict.
   fs.copyFileSync(REAL_HOST_CONTENTION, path.join(root, 'scripts', 'e2e-host-contention.sh'));
+  // DEBUG-469: e2e-safety.sh sources the content-size pre-flight. Real file, not a stub —
+  // it REFUSES a non-default size, so a stub that always passed would hide the one thing it
+  // exists to do. Note this is the FOURTH helper to need a line here (INFRA-436, INFRA-476,
+  // INFRA-490 preceded it) and the failure is silent by construction: bash reports a missing
+  // source and carries on, so the helper's functions become `command not found` and every
+  // test in this file fails on an exit code unrelated to what it asserts. The guard below
+  // derives the list instead of trusting this one.
+  fs.copyFileSync(REAL_CONTENT_SIZE, path.join(root, 'scripts', 'e2e-content-size.sh'));
   // INFRA-490: both gate scripts source the telemetry writer. Real file, not a stub — it
   // appends to E2E_TELEMETRY_FILE, which runInSandbox points at the sandbox, so staging it
   // cannot touch the shared /tmp log or change a verdict.
@@ -685,6 +694,25 @@ function runScript(opts = {}) {
  * @param opts.env     extra env (e.g. E2E_REQUIRE_CLEAN_PROVENANCE)
  * @param opts.maestroExits exit code for every `maestro test`
  */
+describe('DEBUG-469 — the sandbox stages every helper the gate scripts source', () => {
+  // FOURTH occurrence of one failure mode (INFRA-436, INFRA-476, INFRA-490, DEBUG-469), and
+  // it is silent by construction: bash prints "No such file or directory" on the source line
+  // and CARRIES ON, so the helper's functions become `command not found` — 127 — and every
+  // test here fails on an exit code that has nothing to do with what it asserts. Derive the
+  // requirement from the scripts instead of maintaining a fifth hand-written list.
+  test.each(['e2e-safety.sh', 'e2e-sim-build.sh'])('%s: every sourced helper is staged', (script) => {
+    const root = makeProject();
+    const staged = path.join(root, 'scripts', script);
+    expect(fs.existsSync(staged)).toBe(true);
+    const sourced = [
+      ...fs.readFileSync(staged, 'utf8').matchAll(/^\s*\.\s+"\$\(dirname "\$0"\)\/([\w.-]+)"/gm),
+    ].map((m) => m[1]);
+    expect(sourced.length).toBeGreaterThan(0);
+    const missing = sourced.filter((f) => !fs.existsSync(path.join(root, 'scripts', f)));
+    expect(missing).toEqual([]);
+  });
+});
+
 function runSafety(built, opts = {}) {
   const {
     flows = [],
@@ -1176,7 +1204,8 @@ describe('e2e-safety.sh — provenance comparison (AC2, AC3)', () => {
   test('REFUSES every flow when the tree moved after the build', () => {
     const built = runScript({});
     const gate = runSafety(built, { git: { head: '2222222222222222222222222222222222222222' } });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: provenance MISMATCH is artifact LINEAGE, not flow behaviour.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0); // refuses BEFORE the loop, not per-flow
     expect(gate.output).toMatch(/MISMATCH/);
   });
@@ -1194,7 +1223,8 @@ describe('e2e-safety.sh — provenance comparison (AC2, AC3)', () => {
     const built = runScript({});
     fs.unlinkSync(path.join(built.container, MARKER_NAME));
     const gate = runSafety(built);
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: a MISSING marker means the gate cannot vouch for the target.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
     expect(gate.output).toMatch(/MISSING/);
   });
@@ -1248,7 +1278,8 @@ describe('e2e-safety.sh — dirty-tree runs are visibly not evidence (AC3/AC4)',
     // AC3 (banner, still run) and AC4 (gate failure) are opposite policies over ONE
     // implementation; this knob is the whole difference. /b-close sets it.
     const gate = runSafety(builtDirty(), { env: { E2E_REQUIRE_CLEAN_PROVENANCE: '1' } });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: "commit and rebuild" is an evidence instruction; no flow ran.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
     expect(gate.output).toMatch(/DIRTY tree|dirty tree/i);
   });
@@ -1348,7 +1379,8 @@ describe('e2e-safety.sh — flow selection and the no-silent-green rule', () => 
     // "✓ provenance" banners. There is no correct target for a mixed set, so it refuses.
     const built = runScript({});
     const gate = runSafety(built, { flows: ['crisis-988-dial', 'q9-single-alert'] });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: refused during SELECTION, so `ran` is 0 by construction.
+    expect(gate.status).toBe(2);
     expect(gate.output).toMatch(/mixed flow selection/i);
     expect(gate.flowsRun).toBe(0);
     // The refusal must name the offending flow so the operator can split the invocation.
@@ -1366,7 +1398,10 @@ describe('e2e-safety.sh — pre-flight checks BOTH crisis dial schemes', () => {
     const built = runScript({});
     writeStub(built.stubs, 'plutil', `echo '${JSON.stringify(['tel'])}'`);
     const gate = runSafety(built);
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: the most 1-flavoured pre-flight arm, and still 2. The SOURCE
+    // contract has an owner that can say "regression" (INFRA-184's jest pin, in precommit);
+    // the gate knows only that this installed binary is not the attested target.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
     expect(gate.output).toMatch(/sms/);
   });
@@ -1467,14 +1502,17 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
   test('refuses a helper subflow by name', () => {
     const built = runScript({});
     const gate = runSafety(built, { flows: ['_legal-and-onboarding'] });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: invocation error, no flow started.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
   });
 
   test('refuses a flow that does not exist instead of running nothing successfully', () => {
     const built = runScript({});
     const gate = runSafety(built, { flows: ['no-such-flow'] });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: invocation error. The exit-1 message told the operator to debug
+    // a flow file that does not exist.
+    expect(gate.status).toBe(2);
     expect(gate.output).toMatch(/no such flow/i);
   });
 
@@ -1487,7 +1525,8 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
       fs.unlinkSync(path.join(built.root, '.maestro', f));
     }
     const gate = runSafety(built);
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: zero flows ran, which is the definition of "no verdict".
+    expect(gate.status).toBe(2);
     expect(gate.output).not.toMatch(/all safety flows passed/);
     expect(gate.output).toMatch(/refusing to report success/i);
   });
@@ -1495,7 +1534,9 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
   test('a failing flow still fails the gate', () => {
     const built = runScript({});
     const gate = runSafety(built, { maestroExits: 1 });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — tightened to pin what 1 still MEANS after the sweep: an adjudicated red
+    // flow, and nothing else in this file. Loosened, it would pass on any non-zero code.
+    expect(gate.status).toBe(1);
     expect(gate.output).toMatch(/one or more safety flows failed/);
   });
 });

@@ -34,9 +34,32 @@
 # `maestro` directly.
 set -u
 
-# DEBUG-496 — exit 2 ("harness could not complete"), not 1. The alphabet is stated in full
-# where the flows run, below; the rule it encodes is that 1 is reserved for a Maestro flow
-# that went red, and nothing that fails before a flow can have produced one.
+# =========================================================================================
+# THE EXIT ALPHABET (DEBUG-505) — normative. /b-close Step 2.5.5 routes the merge decision
+# on these, and /b-batch reaches them one hop further out through the message /b-close
+# prints. This block is where they are defined; every site below points here rather than
+# restating the rule.
+#
+#   0  every selected flow passed
+#   1  a Maestro flow was adjudicated RED — a regression in the branch under test
+#   2  the harness could not complete — NO VERDICT was produced
+#   3  the gate target was replaced mid-suite (INFRA-434); completed flows are VOID
+#   4  NOT OURS — e2e-gate.sh's lease contention (INFRA-472). Never emitted here.
+#
+# THE INVARIANT: exit 1 has exactly ONE producer in this file, the terminal `exit "$fail"`,
+# and `fail` is assigned 1 in exactly one place — the FAIL arm of the per-flow adjudication.
+# Everything else that stops the run is 2 or 3.
+#
+# WHY IT MATTERS ENOUGH TO BE A RULE. Every non-1 fact that exited 1 produced the same
+# /b-close message: "a Maestro safety flow FAILED — fix it, or on hotfix/* re-run with
+# --skip-e2e." That is a false accusation against the branch WITH a pointer at the bypass,
+# which is the reflex the whole safety-e2e design exists to prevent. The commonest case was
+# the mildest fact in the file: the app simply not being installed yet on a fresh worktree.
+#
+# DO NOT propagate a callee's status. Both device resolvers carry private alphabets that
+# collide numerically with this one — the resolver's 3 means "ambiguous selection", not
+# "target replaced" — so a refusal collapses to a bare `exit 2` and never to `$?`.
+# =========================================================================================
 cd "$(dirname "$0")/.." || exit 2 # -> app/ (npm already sets cwd=app; belt + suspenders)
 
 # INFRA-405 — the same device resolution e2e-sim-build.sh uses. Shared rather than
@@ -60,6 +83,12 @@ cd "$(dirname "$0")/.." || exit 2 # -> app/ (npm already sets cwd=app; belt + su
 # e2e-driver-ownership.sh decides which XCUITest drivers may be REAPED once a run is under
 # way; this decides whether a run may START on this device at all. The gap it closes is a
 # peer's e2e-sim-build.sh uninstalling fyi.being.app out from under the flows below.
+# DEBUG-469 — Dynamic Type is a device-global, persistent input that nothing has ever
+# asserted. A size left behind by an earlier run silently poisons every layout assertion
+# here and in a peer worktree sharing this simulator.
+# shellcheck source=scripts/e2e-content-size.sh
+. "$(dirname "$0")/e2e-content-size.sh"
+
 # shellcheck source=scripts/e2e-sim-lock.sh
 . "$(dirname "$0")/e2e-sim-lock.sh"
 
@@ -93,12 +122,19 @@ if [ "$#" -gt 0 ]; then
     case "$base" in
       _*)
         echo "❌ '$base' is a helper subflow, not a runnable flow" >&2
-        exit 1
+        # DEBUG-505: the caller asked for a file that cannot be run. No flow started, so no
+        # verdict exists. Fixing it is a one-word edit to the invocation, never to a flow.
+        exit 2
         ;;
     esac
     if [ ! -f "$MAESTRO_DIR/$base.yaml" ]; then
       echo "❌ no such flow: $MAESTRO_DIR/$base.yaml" >&2
-      exit 1
+      # DEBUG-505: the closest call of the four invocation errors — a branch that renamed or
+      # deleted a flow while /b-close's mapping still names it IS a branch fault. 2 still
+      # wins, because this alphabet is defined by whether a VERDICT EXISTS, not by who is at
+      # fault; and the exit-1 message tells the operator to debug a flow file that is not
+      # there, while the exit-2 message tells them to look at the invocation.
+      exit 2
     fi
     FLOWS+=("$MAESTRO_DIR/$base.yaml")
   done
@@ -116,7 +152,11 @@ fi
 if [ "${#FLOWS[@]}" -eq 0 ]; then
   echo "❌ no flows selected — refusing to report success on an empty run." >&2
   echo "   (No \`safety\`-tagged flow found in $MAESTRO_DIR/, or the named flows resolved to nothing.)" >&2
-  exit 1
+  # DEBUG-505: two reachable causes with different characters — an explicit selection that
+  # resolved to nothing (invocation error), and a bare tagged-suite run whose glob matched no
+  # `safety`-tagged flow (a repo fact). They share the code because they share the fact this
+  # alphabet keys on: zero flows ran, so there is no verdict either way.
+  exit 2
 fi
 
 # --- Device-only detection --------------------------------------------------------------
@@ -177,7 +217,12 @@ if [ "$DEVICE_ONLY" != "1" ] && [ "$DEVICE_ONLY_COUNT" -gt 0 ]; then
       echo "     bash scripts/e2e-safety.sh $(basename "$f" .yaml)      # real iPhone" >&2
     fi
   done
-  exit 1
+  # DEBUG-505: this INVERTS DEBUG-496's recorded decision, which read "the invocation is
+  # wrong, not the harness" and kept it at 1. Under this item's stronger rule the question is
+  # not whose fault it is but whether a verdict exists, and here the refusal fires during
+  # selection — before any flow starts — so `ran` is 0 by construction. Recorded explicitly
+  # because a reader comparing the two commits would otherwise read it as drift.
+  exit 2
 fi
 
 # INFRA-383 — artifact-shape pre-flight, once, before any flow runs (<1s).
@@ -261,6 +306,15 @@ GATE_REPLACED_BY=""
 # to be wrong.
 if [ "$DEVICE_ONLY" != "1" ]; then
   SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 2
+
+  # DEBUG-469 — refuse a non-default content size BEFORE taking the simulator lease, so a
+  # misconfigured device fails fast instead of holding a shared resource. Exit 2, not 1:
+  # content size is device-global host state a peer session or an earlier run can leave
+  # behind, so it flattens a HARNESS fact (no valid verdict is producible — every layout
+  # assertion would measure a text size the app does not ship) and is not a statement about
+  # this branch. Blaming the branch here is exactly the reflexive-`--skip-e2e` pressure
+  # DEBUG-496 removed from the resolver refusal one line above.
+  e2e_assert_default_content_size "$SIM_UDID" || exit 2
 else
   DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 2
 fi
@@ -311,10 +365,37 @@ if [ "$DEVICE_ONLY" = "1" ]; then
   echo "   This run therefore carries NO artifact attestation — the target is named, but the"
   echo "   binary on it is not vouched for. Install a Release build deliberately."
 elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" && [ -d "$APP" ]; then
+  # DEBUG-505 — ONE exit, EIGHT callers, decided individually. Recorded here rather than at
+  # each call site because the decision is per FACT and the exit is shared; a note at each
+  # `preflight_fail` line would restate one rule eight times.
+  #
+  #   caller                                          verdict  reason
+  #   no main.jsbundle (Debug/dev-client build)        2        the installed artifact is not
+  #                                                             the gate target; nothing about
+  #                                                             the branch was measured
+  #   links the Expo dev launcher                      2        same — artifact identity
+  #   LSApplicationQueriesSchemes lost tel/sms         2        the most 1-flavoured arm, and
+  #                                                             still 2: the SOURCE contract
+  #                                                             has an owner that CAN say
+  #                                                             "regression" (INFRA-184's jest
+  #                                                             pin, in precommit). Here the
+  #                                                             gate knows only that this
+  #                                                             binary is not the attested one
+  #   dirty tree under E2E_REQUIRE_CLEAN_PROVENANCE    2        "commit and rebuild" is an
+  #                                                             evidence instruction; no flow
+  #                                                             ran
+  #   provenance MISMATCH / MISSING                    2        lineage, not behaviour
+  #   marker filename unresolvable                     2        cannot watch → refuse to run
+  #   marker verified then reads empty                 2        and explicitly NOT 3: 3 means
+  #                                                             COMPLETED flows are VOID, and
+  #                                                             here zero completed
+  #
+  # Deliberately NOT parameterised with an exit code. No caller wants a different one, and
+  # the parameter would invite a future 1 back into this file.
   preflight_fail() {
     echo "❌ e2e:safety pre-flight — $1" >&2
     echo "   Rebuild the gate target: npm run e2e:safety:build" >&2
-    exit 1
+    exit 2
   }
   [ -f "$APP/main.jsbundle" ] \
     || preflight_fail "the installed app has no main.jsbundle — it is a Debug/dev-client build, not the Release gate target"
@@ -477,7 +558,12 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
   fi
 else
   echo "⚠️  $BUNDLE_ID is not installed on simulator $SIM_UDID — run 'npm run e2e:safety:build' first." >&2
-  exit 1
+  # DEBUG-505: the likeliest of all eleven to fire in practice — a fresh worktree whose gate
+  # target has not been built yet is a routine state, and it was reported as a crisis-flow
+  # regression pointing at --skip-e2e. The arm also covers a FAILED get_app_container (empty
+  # APP), which is unambiguously a lookup failure. Kept distinct from preflight_fail on
+  # purpose: its remedy is the first build, not a rebuild.
+  exit 2
 fi
 
 fail=0
@@ -761,7 +847,9 @@ EOF
       echo "❌ e2e:safety pre-flight — could not read expo.scheme from app.json, so the set of" >&2
       echo "   schemes this gate is allowed to approve cannot be established. Refusing rather" >&2
       echo "   than falling back to a literal: the derivation IS the guard." >&2
-      exit 1
+      # DEBUG-505: the derivation is the guard, so if it cannot be established there is
+      # nothing to approve and no flow has started.
+      exit 2
     fi
 
     for scheme in $FLOW_SCHEMES; do
@@ -771,7 +859,13 @@ EOF
         echo "   This gate approves only the declared scheme, by derivation and never from the" >&2
         echo "   flow text. If '$scheme://' is legitimate, declare it; if it is 'exp+being', the" >&2
         echo "   build launched the app and that is an INFRA-407 regression to fix, not approve." >&2
-        exit 1
+        # DEBUG-505 — the hardest call of the eleven: this arm collapses two facts. A
+        # repo-authored flow naming an undeclared scheme is a branch fault; `exp+being`
+        # means the BUILD launched the app, a harness fault (INFRA-407). Both are "the gate
+        # refuses to approve", never "the crisis path failed". 1 was considered and rejected
+        # — the loud diagnostic above is what fixes this in ten seconds and is unchanged;
+        # 1-vs-2 changes ROUTING, not visibility.
+        exit 2
       fi
 
       KEY="com.apple.CoreSimulator.CoreSimulatorBridge-->$scheme"
@@ -806,7 +900,10 @@ EOF
         echo "   and every later flow fails on its first assertion while the app is fine." >&2
         echo "   This is NOT fixed by rebuilding. Check the simulator is responsive:" >&2
         echo "     xcrun simctl spawn $SIM_UDID defaults read com.apple.launchservices.schemeapproval" >&2
-        exit 1
+        # DEBUG-505: cfprefsd or domain resolution on an unresponsive simulator. The block's
+        # own comment above already says this is NOT fixed by rebuilding — it is a machine
+        # fact, and no flow has run.
+        exit 2
       fi
     done
   fi
@@ -879,8 +976,6 @@ for f in "${FLOWS[@]}"; do
     continue
   fi
 
-  ran=$((ran + 1))
-
   # DEBUG-392 — evidence goes in a directory THIS invocation owns.
   #
   # ~/.maestro/tests/ is global, and this machine drives one booted simulator from
@@ -890,11 +985,22 @@ for f in "${FLOWS[@]}"; do
   # missing report is unambiguous: nothing else could have written there.
   RUN_DIR="$(mktemp -d "${TMPDIR:-/tmp}/e2e-safety-$name-XXXXXX")" || {
     echo "❌ could not create a private run directory — refusing to run on shared evidence." >&2
-    exit 1
+    # DEBUG-505: this is the site that proves reading each exit for its FACT was necessary,
+    # in the opposite direction from DEBUG-496's :600. `ran` used to be incremented ABOVE
+    # this line, so a mechanical "no exit 1 where ran is 0" sweep would have PASSED this
+    # site unchanged and still been wrong — exit 1 would claim a flow was adjudicated red
+    # when this iteration never invoked maestro at all.
+    exit 2
   }
   REPORT="$RUN_DIR/report.xml"
   DEBUG_DIR="$RUN_DIR/debug"
   mkdir -p "$DEBUG_DIR"
+
+  # DEBUG-505 — count flows that actually LAUNCHED maestro. The increment used to sit above
+  # the mktemp, so an iteration that refused before invoking anything still counted as a
+  # flow that ran: the receipt's flows_ran over-reported, and AC 2's proof obligation
+  # (stated in terms of `ran`) was only approximately true.
+  ran=$((ran + 1))
 
   echo "🛡️  [$ran] maestro test $f${SIM_UDID:+ (simulator $SIM_UDID)}${DEVICE_UDID:+ (device $DEVICE_UDID)}  [bound ${FLOW_TIMEOUT_S}s]"
 
@@ -1088,19 +1194,17 @@ SUITE_RECEIPT="${SUITE_RECEIPT_DIR%/}/e2e-safety-receipt-$(date -u +%Y%m%dT%H%M%
 } > "$SUITE_RECEIPT" 2>/dev/null && echo "🧾 Receipt: $SUITE_RECEIPT" \
   || echo "⚠️  could not write the run receipt to ${SUITE_RECEIPT_DIR} — verdict unaffected." >&2
 
-# A zero-flow run must never be laundered into a green. This script previously printed
-# "all safety flows passed" and exited 0 when `ran` was 0 — vacuously true and read by
-# /b-close as a passing gate. The selection guard above should make this unreachable;
-# this is the assertion that keeps it that way if the loop ever gains a `continue`.
-if [ "$ran" -lt 1 ]; then
-  echo "❌ no flows actually ran — refusing to report success." >&2
-  exit 1
-fi
-
 # INFRA-434 — the target moved. Checked BEFORE the pass/fail branches below, because
 # neither of their verdicts is available any more: a PASS would describe someone else's
 # binary and a FAIL might too. This is "the gate could not render a verdict", which is a
 # third outcome and gets a third exit code.
+#
+# DEBUG-505 — this block was BELOW the zero-flow guard, which made exit 3 unreachable in
+# the case it matters most. The flow loop `break`s when e2e_assert_gate_target fails, and
+# that break is above the `ran` increment, so a target replaced before the FIRST flow leaves
+# `ran` at 0 — it fell through the guard below and exited 1. For the 1-of-1 scoped run
+# /b-close Phase 2.5 usually takes, that meant a mid-suite substitution was reported as a
+# crisis-flow regression and INFRA-434's protection never fired. Ordering is the whole fix.
 if [ "$GATE_TARGET_REPLACED" = "1" ]; then
   echo ""
   # INFRA-466 — three kinds, so this is a case rather than an if/else. A third kind added to
@@ -1133,6 +1237,18 @@ if [ "$GATE_TARGET_REPLACED" = "1" ]; then
   echo "   INFRA-436's simulator lock covers a peer's 'npm run e2e:safety:build'. It does"
   echo "   NOT cover the paths above — none of them acquire it."
   exit 3
+fi
+
+# A zero-flow run must never be laundered into a green. This script previously printed
+# "all safety flows passed" and exited 0 when `ran` was 0 — vacuously true and read by
+# /b-close as a passing gate. The selection guard above should make this unreachable;
+# this is the assertion that keeps it that way if the loop ever gains a `continue`.
+#
+# DEBUG-505: now BELOW the target-replaced check (see there for why), and exit 2 rather
+# than 1 — "no flow ran" is the definition of "no verdict", never an adjudicated red.
+if [ "$ran" -lt 1 ]; then
+  echo "❌ no flows actually ran — refusing to report success." >&2
+  exit 2
 fi
 
 if [ "$timeouts" -gt 0 ]; then
