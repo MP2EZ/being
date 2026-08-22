@@ -113,6 +113,25 @@ name: "Voice journal crisis scan surfaces support"
       id: "profile-card-voice-reflection"
     direction: DOWN
     centerElement: true # DEBUG-477 — load-bearing, see header
+    timeout: 40000 # DEBUG-507 — 20000 measured at 95% of budget on an idle host
+# ── FEAT-287: THIS CARD IS NO LONGER THE LAST ONE ──────────────────────────
+# DEBUG-479 established that XCUITest's synthesised first tap after a flick is
+# swallowed on a MID-LIST card, and e2e-maestro.md recorded this card as immune
+# because, as the LAST card, its DOWN scroll terminates at the bottom boundary.
+#
+# FEAT-287 added `profile-card-journal-history` directly beneath it, which ends
+# that immunity — the card is now mid-list. Reproduced 2/2 on an idle host at the
+# DEFAULT text size: scroll COMPLETED, tap COMPLETED at bounds [24,96][351,299]
+# with Visibility Percent 1.0, and no navigation. The Pressable is fine; the app
+# never received the touch.
+#
+# The absorbing tap is the house remedy from DEBUG-477/479 — an element-anchored
+# target OUTSIDE the ScrollView. `tab-profile` is already the active tab, so this
+# re-tap is deliberate, not a copy-paste slip. Do NOT reach for
+# retryTapIfNoChange: gad7-severe and crisis-button-reachability both record that
+# it cannot cover a swallowed tap.
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-voice-reflection"
 - assertVisible:
@@ -305,6 +324,13 @@ name: "Voice journal crisis scan surfaces support"
       id: "profile-card-journal-history"
     direction: DOWN
     centerElement: true
+    timeout: 40000
+# Absorbing tap again. This card is currently LAST and therefore nominally immune,
+# but that immunity is exactly what FEAT-287 just falsified for its neighbour — it
+# holds only until someone adds a card below. Carried on precedent, per the XXXL
+# flow's note: do not remove it on the grounds that the flow is green without it.
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-journal-history"
 - assertVisible:
