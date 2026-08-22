@@ -280,7 +280,9 @@ describe('INFRA-484 — a peer-attributed provenance refusal re-gates once', () 
     const r = runGate(s);
 
     expect(r.builds).toHaveLength(1);
-    expect(r.status).toBe(1);
+    // DEBUG-505 — 1 -> 2: a provenance refusal is a pre-flight fact with `ran` at 0, so
+    // it carries no verdict. Re-pinned, not relaxed; the intent below is unchanged.
+    expect(r.status).toBe(2);
     expect(r.output).toMatch(/pre-flight/i);
   }, 180000);
 
@@ -291,7 +293,9 @@ describe('INFRA-484 — a peer-attributed provenance refusal re-gates once', () 
 
     const r = runGate(s);
     expect(r.builds).toHaveLength(0);
-    expect(r.status).toBe(1);
+    // DEBUG-505 — 1 -> 2: a provenance refusal is a pre-flight fact with `ran` at 0, so
+    // it carries no verdict. Re-pinned, not relaxed; the intent below is unchanged.
+    expect(r.status).toBe(2);
   }, 180000);
 
   test('a MISSING marker never auto-rebuilds — there is nobody to attribute it to', () => {
@@ -300,7 +304,9 @@ describe('INFRA-484 — a peer-attributed provenance refusal re-gates once', () 
 
     const r = runGate(s);
     expect(r.builds).toHaveLength(0);
-    expect(r.status).toBe(1);
+    // DEBUG-505 — 1 -> 2: a provenance refusal is a pre-flight fact with `ran` at 0, so
+    // it carries no verdict. Re-pinned, not relaxed; the intent below is unchanged.
+    expect(r.status).toBe(2);
   }, 180000);
 
   test('the opt-out disables it and restores the plain refusal', () => {
@@ -308,7 +314,9 @@ describe('INFRA-484 — a peer-attributed provenance refusal re-gates once', () 
     const r = runGate(s, { env: { E2E_NO_AUTO_REGATE: '1' } });
 
     expect(r.builds).toHaveLength(0);
-    expect(r.status).toBe(1);
+    // DEBUG-505 — 1 -> 2: a provenance refusal is a pre-flight fact with `ran` at 0, so
+    // it carries no verdict. Re-pinned, not relaxed; the intent below is unchanged.
+    expect(r.status).toBe(2);
   }, 180000);
 
   test('a rebuild that FAILS refuses with the pre-flight message, not a build trace', () => {
@@ -316,9 +324,11 @@ describe('INFRA-484 — a peer-attributed provenance refusal re-gates once', () 
     const r = runGate(s);
 
     expect(r.builds).toHaveLength(1);
-    expect(r.status).toBe(1);
-    // Exit 1 is "this branch cannot be certified"; a failed recovery must not leak the
-    // build's own alphabet into the gate's.
+    // DEBUG-505 — 1 -> 2: a provenance refusal is a pre-flight fact with `ran` at 0, so
+    // it carries no verdict. Re-pinned, not relaxed; the intent below is unchanged.
+    expect(r.status).toBe(2);
+    // Exit 2 is "the gate could not render a verdict"; a failed recovery must not leak the
+    // build's own alphabet into the gate's. That guard is the point and it still holds.
     expect(r.status).not.toBe(7);
   }, 180000);
 });
