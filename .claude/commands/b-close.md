@@ -1137,6 +1137,11 @@ fi
 - The push in Step 3.2 carries both the feature commit(s) and the merge
   commit in a single shot.
 
+**A clean merge can still misplace a prose edit.** If Step 3.1's merge touched a file
+this branch also edits, re-read your section in the merged file before pushing: git
+resolves markdown by line proximity, so an addition anchored to what was the last
+paragraph can land mid-section and orphan what follows. No conflict is reported.
+
 ---
 
 ### Step 3.2: Push Feature Branch
