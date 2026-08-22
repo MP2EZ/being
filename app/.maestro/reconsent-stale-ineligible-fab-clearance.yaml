@@ -1,0 +1,114 @@
+appId: fyi.being.app
+tags:
+  - safety-bottom-inset
+name: "Stale consent, INELIGIBLE cohort (INFRA-510): Acknowledge is not eaten by the crisis FAB"
+
+# e2e-certifies: 393x852
+# INFRA-510 — carved out of reconsent-stale-ineligible.yaml, which declared this viewport
+# for THIS probe alone. It is the only assertion in the repo that a 375x667 run cannot
+# falsify: CRISIS_FAB_CLEARANCE is a collision between the acknowledge button's top-right
+# corner and the FAB's touch band, and on an SE 3 (bottom safe-area inset 0) the button
+# occupies y 595..651 while the band is y 511..579 — disjoint AT EVERY value of the
+# clearance, so a green there would pass with the clearance set to zero.
+#
+# WHY ITS OWN TAG CLASS, AND WHY /b-close DOES NOT REQUEST IT.
+# `safety-bottom-inset` keeps it out of `npm run e2e:safety` by construction: e2e-safety.sh
+# selects on a tag line matching exactly `- safety`, so no runner change is needed and a
+# flow that loses the tag fails closed into the suite rather than out of it. The exclusion
+# is REQUIRED, not a convenience — `e2e_resolve_sim_device` pins exactly one device and
+# CLAUDE.md forbids fanning out, so a suite carrying both this target and 375x667 can never
+# certify on any device, and a refusal over that is unsatisfiable by construction.
+#
+# For the same reason /b-close Phase 2.5 emits a NOTICE for this flow and never scopes it:
+# a consent-path close already requests reconsent-stale (375x667), so requesting this one
+# alongside would make every consent close unmergeable whichever simulator is booted.
+#
+# Run it by hand, on a booted 393x852 device (iPhone 14/15/16 Pro, iPhone 13/14):
+#   npm run e2e:safety:reconsent-ineligible-fab
+---
+# The seed is reproduced rather than shared, because this flow re-runs it in its own
+# process. See reconsent-stale-ineligible.yaml for why the marker needs a COLD start
+# (`Linking.getInitialURL()`), why the link is `being://daily` and not `being://crisis`
+# (CrisisResources is in RECONSENT_DEFERRAL_ROUTES), and why the seed forges
+# `isEligible: true` on an under-18 birth year.
+- stopApp
+- clearState
+- clearKeychain
+- openLink: being://daily?e2eSeed=ineligible
+
+# ── 1. The seed landed on the INELIGIBLE branch ───────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: "stale-consent-ineligible"
+    timeout: 90000
+
+# ── 2. ...and NOT on the renewable one ────────────────────────────────────────────────
+# NON-OPTIONAL, and not redundant with the sibling flow's copy: this process re-runs the
+# seed and re-runs `isBaseEligibleForRenewal`, so it carries the same exposure to a drifted
+# or non-finite birth year. Without it, a seed that landed on ReConsentScreen would tap a
+# different component's corner and report on geometry that was never under test.
+- assertNotVisible:
+    id: "reconsent-screen"
+
+# ── 3. The root overlay is present — this cohort's ONLY 988 affordance ────────────────
+# The probe below is about whether the FAB steals a touch it should not. That question is
+# meaningless if the FAB is not mounted, and an unmounted FAB makes the corner tap reach
+# Acknowledge trivially — green, adjudicating nothing.
+- assertVisible:
+    id: "crisis-button-root"
+
+# ── 4. POSITIVE CONTROL — the FAB really is hit-testable in that band ─────────────────
+# Required by the crisis pass, and it travels with the probe rather than staying behind:
+# without it a green step 7 is indistinguishable from "relativePoint was silently ignored"
+# or "the FAB is not where we computed". SCREEN-relative (right edge, ~85% down), so it
+# proves coordinates resolve where the arithmetic says they do. At 393x852 that point is
+# x 377.3 in band [337, 393] and y 724.2 in band [696, 764].
+# Safe to tap: RootCrisisButton NAVIGATES, it does not dial.
+- tapOn:
+    point: "96%,85%"
+- extendedWaitUntil:
+    visible:
+      id: "crisis-resources-screen"
+    timeout: 30000
+
+# ── 5. It NAVIGATED — it did not fall through to the degraded dial branch ─────────────
+# DEBUG-392 witness. MUST come after the assertVisible above; placed first it passes
+# vacuously at t=0.
+- extendedWaitUntil:
+    notVisible:
+      text: ".*Unable to Call.*"
+    timeout: 3000
+
+# ── 6. Returning lands back on the ineligible screen ──────────────────────────────────
+- tapOn:
+    id: "nav-back-button"
+- assertVisible:
+    id: "stale-consent-ineligible"
+# Re-assert IMMEDIATELY before the probe. This is the vacuity guard: an unmount between
+# steps would make step 7 trivially green, and it would look exactly like a pass.
+- assertVisible:
+    id: "crisis-button-root"
+
+# ── 7. THE LOAD-BEARING ASSERTION — Acknowledge is not eaten by the crisis FAB ────────
+# Element-relative point (Maestro 2.6.0 maps a `point` inside a tapOn selector to
+# `TapOnElementCommand.relativePoint`). TOP-RIGHT CORNER, not the centre and not mid-height:
+# the collision quadrant derived from the FAB's geometry is x >= 91%, y <= 32% of the
+# button, because the band overlaps only the button's upper edge. A centre tap cannot
+# reproduce it, and "95%,50%" is below the band on every device.
+#
+# With the 72pt clearance the button's right edge sits clear of the band and Acknowledge
+# fires. Remove it (paddingRight -> 24) and the edge falls inside the band, the FAB takes
+# the touch, and step 8 lands on CrisisResources instead of Main.
+- tapOn:
+    id: "stale-consent-ineligible-acknowledge"
+    point: "98%,10%"
+
+# ── 8. The falsifier pair for step 7 ──────────────────────────────────────────────────
+# Clearance intact -> handleDecline + onDismiss pops back to Main. Clearance broken -> the
+# FAB won and we are on CrisisResources. Without BOTH assertions step 7 asserts nothing.
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000
+- assertNotVisible:
+    id: "crisis-resources-screen"
