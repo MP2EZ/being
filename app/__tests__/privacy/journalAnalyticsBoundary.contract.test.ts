@@ -305,17 +305,59 @@ describe('crisis telemetry payload stays categorical', () => {
   });
 });
 
+/**
+ * Identifier names that carry journal plaintext.
+ *
+ * `transcript` was the only name Slice A could produce. The history surface
+ * introduces the rest — a stored entry is read into `body`/`entry.text`, a row
+ * label into `preview`, and the decrypted blob into `plaintext`/`decrypted`.
+ * A scan that knows only `transcript` reports clean over every one of them,
+ * which is the shape of a guard that quietly stops guarding.
+ *
+ * Safe to keep broad here specifically because the journal feature performs no
+ * network egress (pinned above), so `body` cannot be a request body.
+ */
+const PLAINTEXT_IDENTIFIERS =
+  'transcript|body|entryText|entry\\.text|plaintext|decrypted|preview';
+
+const LOGS_PLAINTEXT = new RegExp(
+  `(?:log\\w*|console\\.(?:log|warn|error|info|debug))\\([^)]*\\b(?:${PLAINTEXT_IDENTIFIERS})\\b`
+);
+
 describe('no journal source writes entry content to a log', () => {
   it.each(JOURNAL_SOURCES.map((f) => [f.split('/').pop() ?? f, f]))(
-    '%s does not log a transcript variable',
+    '%s does not log a plaintext-carrying variable',
     (_label, file) => {
-      const source = readFileSync(file as string, 'utf8');
-
       // The logging scrubber matches known shapes (scores, ids, paths) and will
-      // not redact arbitrary prose, so passing a transcript to it is a leak and
-      // not a mitigation.
-      expect(source).not.toMatch(/log\w*\([^)]*\btranscript\b/);
-      expect(source).not.toMatch(/console\.(log|warn|error)\([^)]*\btranscript\b/);
+      // not redact arbitrary prose, so passing entry plaintext to it is a leak
+      // and not a mitigation.
+      const stripped = stripComments(readFileSync(file as string, 'utf8'));
+      expect(stripped.trim().length).toBeGreaterThan(0);
+      expect(stripped).not.toMatch(LOGS_PLAINTEXT);
     }
   );
+
+  it('the plaintext-log matcher still fires against known-bad source', () => {
+    // A widened alternation that matches nothing looks exactly like a clean
+    // codebase. Each name is asserted separately so one typo cannot hide behind
+    // another name's match.
+    const cases = [
+      "logSecurity('saved', { transcript });",
+      'logInfo(`read ${body}`);',
+      'console.warn("draft", entryText);',
+      'logError("open failed", entry.text);',
+      'logDebug({ plaintext });',
+      'console.log(decrypted);',
+      'logInfo("row", { preview });',
+    ];
+
+    for (const bad of cases) {
+      expect([bad, LOGS_PLAINTEXT.test(bad)]).toEqual([bad, true]);
+    }
+  });
+
+  it('does not fire on prose that merely names the anti-pattern', () => {
+    const source = stripComments('// never log(transcript) from this feature\nconst x = 1;');
+    expect(source).not.toMatch(LOGS_PLAINTEXT);
+  });
 });
