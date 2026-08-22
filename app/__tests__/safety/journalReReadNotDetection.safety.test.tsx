@@ -1,5 +1,12 @@
 /**
- * JournalEntryDetailScreen — behavioural specs (FEAT-287 Slice B).
+ * Journal re-read is not a detection event — safety pin (FEAT-287 Slice B).
+ *
+ * Lives in `__tests__/safety/` rather than co-located, deliberately. CI runs ten
+ * jest path patterns and a co-located `*.behavioral.test.tsx` under
+ * `src/features/journal/` matches none of them, so it would run on no PR at all —
+ * which is what `check:ci-test-coverage` flagged. Slice A's equivalent is on the
+ * uncovered allowlist for exactly that reason. A pin that is the SOLE mechanical
+ * enforcement of a crisis ruling must not be allowlisted into never running.
  *
  * The first suite is the load-bearing one. Crisis review ruled that re-reading
  * an entry is NOT a detection event: nothing new is disclosed, the app already
@@ -28,7 +35,7 @@ jest.mock('@/core/services/supabase/SupabaseService', () => ({
   default: { trackCrisisDetection: jest.fn() },
 }));
 
-jest.mock('../../services/journalEntryStore', () => ({
+jest.mock('@/features/journal/services/journalEntryStore', () => ({
   getEntry: jest.fn(),
 }));
 
@@ -39,8 +46,8 @@ jest.mock('@react-navigation/native', () => ({
 import { showCrisisAlert } from '@/features/crisis/services/crisisAlert';
 import SupabaseService from '@/core/services/supabase/SupabaseService';
 
-import { getEntry } from '../../services/journalEntryStore';
-import { JournalEntryDetailScreen } from '../JournalEntryDetailScreen';
+import { getEntry } from '@/features/journal/services/journalEntryStore';
+import { JournalEntryDetailScreen } from '@/features/journal/screens/JournalEntryDetailScreen';
 
 const mockGetEntry = getEntry as jest.Mock;
 const mockAlert = showCrisisAlert as jest.Mock;
