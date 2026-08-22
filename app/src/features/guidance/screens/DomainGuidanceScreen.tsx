@@ -1,8 +1,9 @@
 /**
- * Domain-specific guidance (FEAT-433, slice 3a).
+ * Domain-specific guidance (FEAT-433 slice 3a; Tier 2/3 added by FEAT-457).
  *
- * Renders Tier 0 and Tier 1 for a named hardship, or routes out to crisis
- * resources when the gate says philosophy is not the right answer right now.
+ * Renders the guidance ladder for a named hardship — capped at Tier 1 for a
+ * reader in the gentle band — or routes out to crisis resources when the gate
+ * says philosophy is not the right answer right now.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * STATE PRECEDENCE — the order is the safety property, not a style choice:
@@ -13,23 +14,43 @@
  *   3. loading    → gate cleared, content in flight.
  *   4. error      → the loader threw (it does so BY DESIGN for career/grief/pain,
  *                   which have no authored content in P0).
- *   5. ready      → Tier 0 then Tier 1. Nothing else in this slice.
+ *   5. ready      → Tier 0, Tier 1, then Tier 2/3 iff `allowTier2Plus`.
  *
  * 1 and 2 both preceding the load is what makes slice 2's "a suppressed reader is
  * routed BEFORE any of this content is loaded" true. The lazy loader defers the
  * content; this ordering defers the DECISION to load at all.
  * ─────────────────────────────────────────────────────────────────────────────
  *
- * Slice 3a renders Tier 0/1 ONLY, even at access level `full`. `protocol`,
- * `obstacles` and `classicalAnchor` are Tier 2/3 and belong to FEAT-457 — and
- * there is deliberately no teaser, disabled control or "coming soon" row for them
- * either. An affordance visible to one access level and not another converts the
- * gate's currently-inert GAD-7 gap into a visible one before it has been ruled on.
+ * FEAT-457 adds Tier 2/3 behind `decision.allowTier2Plus`. Three constraints on
+ * that gating, all from the crisis planning pass:
  *
- * NO ANALYTICS HERE, DELIBERATELY. `core/utils/sensitiveScreens.ts` has no
- * `guidance` keyword, so an automatic `screen_viewed` would ship the hardship
- * domain to PostHog uncoarsened — and the domain IS the sensitive inference.
- * Instrumentation is FEAT-457's, together with the policy call.
+ *   · Gate POSITIVELY on `allowTier2Plus === true`. Never `level !== 'gentle'` and
+ *     never `level === 'full'` — a future fourth access level must default to NOT
+ *     showing Tier 2/3, and a negative test defaults it to showing them.
+ *   · Derive the tier set from `decision` on EVERY render. Never cache it in state
+ *     or a ref: the hook subscribes so a live full→gentle or full→suppressed flip
+ *     tears content down mid-view, and caching defeats that.
+ *   · Still no teaser, disabled row, "coming soon" or lock icon for a `gentle`
+ *     reader. The reasoning changed but the answer did not — a differential
+ *     affordance is a distress disclosure, since its presence is a direct function
+ *     of a PHQ-9/GAD-7 score and a bystander or a second reader can see it. The
+ *     suppression notice had to work hard to avoid naming a score; a differential
+ *     affordance reintroduces that structurally, where copy cannot fix it.
+ *
+ * SILENT TRUNCATION IS THE RULE. No "there is more when you're ready" line: the
+ * gate declares no staleness window, so readiness is restored only by a new
+ * assessment and never by feeling ready — the same promise `GuidanceSuppressionNotice`
+ * already refused to make one band down. Tier 0 + Tier 1 is a complete experience;
+ * telling a low-mood reader they got the abridged version is an evaluative message
+ * aimed at the cohort least able to absorb it neutrally.
+ *
+ * NO ANALYTICS ON THIS SCREEN, STILL. `guidance` is now in
+ * `core/utils/sensitiveScreens.ts`, so a `screen_viewed` here would coarsen to the
+ * generic `App` bucket — noise with no signal. Reach is measured by
+ * `guidance_opened` at the Home entry point instead, and that event deliberately
+ * carries NO `domain` property: the domain is the wellness inference, and
+ * `analytics-architecture.md` publishes "What We NEVER Collect: … Any mental
+ * health data."
  */
 
 import React, { useCallback, useEffect, useState } from 'react';
@@ -51,6 +72,8 @@ import type { GuidanceContent } from '../types/guidance';
 import GuidanceSuppressionNotice from '../components/GuidanceSuppressionNotice';
 import Tier0 from '../components/Tier0';
 import Tier1 from '../components/Tier1';
+import Tier2 from '../components/Tier2';
+import Tier3 from '../components/Tier3';
 
 type Nav = StackNavigationProp<RootStackParamList, 'DomainGuidance'>;
 type Route = RouteProp<RootStackParamList, 'DomainGuidance'>;
@@ -179,7 +202,30 @@ const DomainGuidanceScreen: React.FC = () => {
           {DOMAIN_BINDINGS[domain].label}
         </Text>
         <Tier0 validation={content.validation} />
+        {/*
+          DORMANT BRANCH — `medicalCaveat` (pain domain, no authored content yet).
+          Sited immediately after Tier 0's callouts and above Tier 1 so it can
+          never push Tier 0 down: Tier 0's `validation[1]` abuse/safety escape
+          clause must stay first and above the fold at every access level.
+        */}
+        {content.medicalCaveat ? (
+          <Tier0 validation={[content.medicalCaveat]} />
+        ) : null}
         <Tier1 practice={content.microPractice} />
+        {/*
+          `=== true`, not truthiness and not a negative test — see the docblock.
+          Read straight off `decision` each render; never memoised into state.
+        */}
+        {decision?.allowTier2Plus === true ? (
+          <>
+            <Tier2
+              protocol={content.protocol}
+              obstacles={content.obstacles}
+              principles={DOMAIN_BINDINGS[domain].principles}
+            />
+            <Tier3 quote={content.classicalAnchor} />
+          </>
+        ) : null}
       </ScrollView>
     );
   };

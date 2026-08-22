@@ -24,7 +24,16 @@ jest.mock('@react-navigation/native', () => ({
 }));
 
 jest.mock('@/core/analytics', () => ({
-  useAnalytics: () => ({ trackScreenView: jest.fn() }),
+  useAnalytics: () => ({ trackScreenView: jest.fn(), trackGuidanceOpened: jest.fn() }),
+}));
+
+// FEAT-457: the guidance entry point is build-time flagged, so the row's presence
+// is a function of this mock rather than of the ambient env blob. Mocked (not read
+// from env) so BOTH states are reachable from a test — an unmocked read would pin
+// whichever value the host `.env` happened to carry, which is not a contract.
+const mockFlags: Record<string, boolean> = { domain_guidance: true };
+jest.mock('@/core/services/featureFlags', () => ({
+  isFeatureEnabled: (name: string) => mockFlags[name] ?? false,
 }));
 
 jest.mock('@/features/practices/stores/stoicPracticeStore', () => {
@@ -143,5 +152,55 @@ describe('DEBUG-469: the daily-loop entry point is reachable at any text size', 
     // And it must have a floor, so a squeeze cannot take it below a usable size.
     expect(typeof card.minHeight).toBe('number');
     expect(card.minHeight as number).toBeGreaterThan(0);
+  });
+});
+
+describe('CleanHomeScreen — the guidance entry point (FEAT-457)', () => {
+  afterEach(() => {
+    mockFlags['domain_guidance'] = true;
+  });
+
+  it('renders the row when `domain_guidance` is enabled', () => {
+    const { getByTestId } = render(<CleanHomeScreen />);
+    expect(getByTestId('home-guidance-entry')).toBeTruthy();
+  });
+
+  it('renders nothing at all when the flag is dark — no placeholder, no disabled row', () => {
+    // Ships dark in `.env.production`. A "coming soon" or disabled affordance would
+    // be worse than absence: it advertises a surface the reader cannot reach.
+    mockFlags['domain_guidance'] = false;
+    const { queryByTestId } = render(<CleanHomeScreen />);
+    expect(queryByTestId('home-guidance-entry')).toBeNull();
+  });
+
+  it('sits BELOW the daily practice card and ABOVE the practices row', () => {
+    // Order is the product decision, not an accident: subordinate to the daily
+    // ritual (never above it), and above the Practices row. DEBUG-469 replaced the
+    // flex:1 chain this originally reasoned about with a scrolling container and a
+    // `minHeight` floor, which changes what a squeeze DOES but not the ordering —
+    // so this pins the order directly rather than the layout mechanism behind it.
+    const { getByTestId, UNSAFE_root } = render(<CleanHomeScreen />);
+    const guidance = getByTestId('home-guidance-entry');
+    const practices = getByTestId('home-practices-entry');
+    const order: string[] = [];
+    const walk = (node: { props?: Record<string, unknown>; children?: unknown[] }) => {
+      const id = node?.props?.['testID'];
+      if (typeof id === 'string') order.push(id);
+      for (const child of (node?.children ?? []) as typeof order) {
+        if (child && typeof child === 'object') walk(child as never);
+      }
+    };
+    walk(UNSAFE_root as never);
+    expect(guidance).toBeTruthy();
+    expect(practices).toBeTruthy();
+    expect(order.indexOf('home-guidance-entry')).toBeLessThan(
+      order.indexOf('home-practices-entry')
+    );
+  });
+
+  it('exposes exactly one h1 still — the row adds no competing heading', () => {
+    // MAINT-257's invariant. The row is a button with a label, never a header.
+    const { getByTestId } = render(<CleanHomeScreen />);
+    expect(getByTestId('home-guidance-entry').props.accessibilityRole).toBe('button');
   });
 });

@@ -17,6 +17,11 @@ import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
+// FEAT-457 — direct path, never a features/guidance barrel (FEAT-376). This
+// component reaches only DOMAIN_BINDINGS (constants over types), so it adds no
+// edge from Home to guidanceGate or the content loader.
+import RightNowAffordance from '@/features/guidance/components/RightNowAffordance';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { IntroOverlay } from '../components/IntroOverlay';
 import { useAnalytics } from '@/core/analytics';
 import { themeKeyFor } from '@/core/types/practice-identity';
@@ -217,6 +222,34 @@ const CleanHomeScreen: React.FC = () => {
             onPress={handleCheckInPress}
           />
         </View>
+
+        {/* FEAT-457: the guidance entry point. Ships behind `domain_guidance`,
+            build-time and dark in production — the surface it reveals routes a
+            suppressed reader to CrisisResources, so its availability must not be
+            a function of analytics consent or a network round-trip (INFRA-199).
+
+            SITED HERE, between checkInSection and the Practices row, and inside
+            the ScrollView DEBUG-469 added. What it displaces: `checkInSection`
+            and `checkInCard` are now `flexGrow: 1` with a `minHeight: 180` floor
+            rather than `flex: 1`, so this row's height comes out of the card's
+            SURPLUS down to that floor, and past it the ScrollView scrolls instead
+            of the card collapsing. (This comment originally said `flex: 1` and
+            "nothing below moves" — true when written, and DEBUG-469 landed the
+            AX5 fix that made it false. The floor is what now bounds the squeeze.)
+
+            It must stay INSIDE the ScrollView. Pinned below one, it would share
+            screen coordinates with content clipped behind it, and XCUITest scores
+            such an element visible — so Maestro would skip `scrollUntilVisible`
+            and tap the wrong thing (DEBUG-465).
+
+            It does NOT compete with AssessmentStatusBadge. The badge is a STATE
+            indicator that renders above checkInSection at its natural height and
+            changes with assessment cadence; this row is a static navigation
+            affordance that renders identically every day and never carries a
+            badge, count or urgency colour. Different region, different register.
+
+            Subordinate to the daily ritual, never above it. */}
+        {isFeatureEnabled('domain_guidance') && <RightNowAffordance />}
 
         {/* FEAT-293: standalone-practice discoverability.
             Deliberately a FIXED-HEIGHT row BELOW checkInSection, not a fifth
