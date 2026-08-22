@@ -769,6 +769,9 @@ rather than assuming they are lucky:
   clipped. That is DEBUG-465's shape, not this one, and `centerElement: true` is its fix.
   **Two different defects can wear the same red on one line of a flow** — check the bounds
   before choosing a remedy, and do not let a handful of green runs stand in for that.
+  **The bottom-boundary immunity is also TYPE-SIZE-DEPENDENT (DEBUG-507).** At
+  `extra-extra-extra-large` the card measures 279pt against 203pt, the DOWN scroll no longer
+  terminates cleanly at the boundary, and the swallow reproduces on this last card too.
 
 **Do not add the workaround to a flow that is green.** In particular do not add
 `waitToSettleTimeoutMs` to `crisis-button-reachability`: it is spent per swipe iteration
@@ -794,7 +797,9 @@ The classification is therefore **harness artefact**, and DEBUG-477's absorbing 
 swallow is fully reproducible on the automation path this suite actually runs on. The blast
 radius is unchanged from "Which flows this can bite" above — `take-gad7-button`, and any target
 that is neither first nor last on a scrolled surface — but it is a blast radius over *flows*,
-not over users.
+not over users. DEBUG-507 widened it at non-default text sizes: at `extra-extra-extra-large`
+the last card loses its immunity, and a Profile entry that navigates correctly by hand still
+fails the harness.
 
 **One residual, named so it is not re-derived as settled.** This ran on the Simulator's
 simulated HID stack, not a physical handset, so it is confirmed down to that stack and not to a
