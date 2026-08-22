@@ -609,11 +609,14 @@ FULL_SUITE=""
 # encryption suites + the CollapsibleCrisisButton render tests) and need not pull a sim
 # build. Two carve-outs, both fail SAFE (a file leaves the sim-relevant
 # set only when unambiguously non-UI).
-# NOTE (INFRA-383): these carve-outs were originally sized against a 10-15 min EAS build,
-# on the reasoning that charging one for a service-layer change trains the `--skip-e2e`
-# reflex. The build is now ~1 min warm, so that cost argument no longer holds and the
-# carve-outs could be re-widened for real coverage. Deliberately NOT done here — widening
-# gate scope is its own change with its own validation. Left as a recorded opportunity:
+# NOTE (INFRA-383, corrected INFRA-508): these carve-outs were originally sized against a
+# 10-15 min EAS build, on the reasoning that charging one for a service-layer change trains
+# the `--skip-e2e` reflex. This used to add that the build is "now ~1 min warm, so that cost
+# argument no longer holds" and the carve-outs could be re-widened. **Do not act on that.**
+# Measured over five instrumented runs: 1-4 min warm but 11-14 min whenever the native
+# project regenerates, and before INFRA-508 any `app/package.json` move fired one. The cost
+# argument still holds; re-widening needs a fresh measurement, not this sentence. Left as a
+# recorded opportunity only:
 #   1. features/crisis/services/**  — crisis BACKEND services (e.g. CrisisSecurityProtocol),
 #      not the overlay / screens / components the crisis-button flow renders.
 #   2. core/services/security/** EXCEPT EncryptionService / SecureStorageService —
@@ -859,7 +862,7 @@ if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ]; then
     echo "    'npm run e2e:safety:build' here = eas build --local: 10-15 min EVERY run,"
     echo "    and it additionally requires eas-cli logged in + fastlane + a clean tree."
     echo ""
-    echo "    To get the ~1 min incremental Release build, back-merge development first:"
+    echo "    To get the 1-4 min incremental Release build, back-merge development first:"
     echo "      git merge origin/development"
     echo "    Then re-read app/scripts/e2e-sim-build.sh's header before building."
     echo ""
@@ -881,8 +884,9 @@ INFRA-383.
 
 The gate requires a **Release** build on the sim, NOT `npm run ios` (Debug).
 `npm run e2e:safety:build` produces and installs it — since INFRA-383 that is
-`expo run:ios --configuration Release`, ~1 min warm instead of 10–15, so there is
-no longer a cost argument for skipping it.
+`expo run:ios --configuration Release`: 1–4 min warm, but 11–14 min whenever the
+native project regenerates (INFRA-508). Skipping it is still not justified; budget
+for the regenerating tier rather than the warm one.
 
 **Prefer `npm run e2e:safety:gate` (INFRA-436), and mind the ordering.** A plain
 `e2e:safety:build` in *this* worktree pays a **cold** build — measured **21m31s**, not the
