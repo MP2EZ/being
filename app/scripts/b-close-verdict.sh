@@ -98,6 +98,19 @@ b_close_stage_verdict() {
         3) printf 'TARGET_REPLACED' ;;
         *) printf 'UNKNOWN_FLOWS' ;;
       esac ;;
+    # INFRA-510 — the SECOND axis of a flow run, and the reason it is a separate stage
+    # rather than a fifth `flows` arm: the exit alphabet is frozen at 0/1/2/3 and a
+    # non-certifying all-green run still exits 0, so this verdict cannot be carried by an
+    # exit code at all. Outcome is the token from `b_close_certification_verdict`, the
+    # same word-outcome shape `ci` uses.
+    certification)
+      case "$outcome" in
+        OK)                   printf 'OK' ;;
+        CERT_UNCERTIFIED)     printf 'UNCERTIFIED_FLOW' ;;
+        CERT_VOID)            printf 'CERT_VOID' ;;
+        CERT_RECEIPT_MISSING) printf 'CERT_NO_RECEIPT' ;;
+        *)                    printf 'CERT_UNKNOWN' ;;
+      esac ;;
     ci)
       case "$outcome" in
         GREEN)   printf 'OK' ;;
@@ -139,6 +152,81 @@ b_close_fail_hint() {
 
 # The whole merge gate, in one line. Everything else is a named refusal.
 b_close_mergeable() { [ "${1:-}" = "OK" ]; }
+
+# =========================================================================================
+# INFRA-510 — THE VIEWPORT REFUSAL, SCOPED TO THE FLOWS THE CLOSE ACTUALLY REQUESTED
+#
+# INFRA-493 wrote the verdict; this reads it. It refuses on the INTERSECTION of the
+# receipt's `uncertified_flows:` with the requested set, NEVER on the run-level
+# `certification:` line. The suite carries more than one certifying target and
+# `e2e_resolve_sim_device` pins ONE device, so no device produces a run-level CERTIFIED
+# over the whole suite — a refusal reading that line would refuse every FULL_SUITE close,
+# and the documented response to an unsatisfiable gate is `--skip-e2e` habit.
+#
+# NOT A SECOND COPY OF THE COMPARISON. `e2e_run_certifies` remains the single authority on
+# whether a run certifies a flow; this never re-derives it. It is set membership over that
+# function's already-published output, which is why the anti-drift pin the technical notes
+# ask for is a WRITER/READER key pin and not a matrix.
+#
+# FAIL CLOSED ON EVERY PATH. No receipt, no `certification:` line, an unrecognised token
+# and an empty requested set all refuse. The last is the one worth stating: an empty set
+# means FULL_SUITE, i.e. every flow was requested, so the intersection is the whole set.
+# Reading "no flows named" as "nothing to check" is the shape that merges everything.
+# =========================================================================================
+
+# b_close_uncertified_intersection <receipt> [requested-flow ...] -> names on stdout
+#
+# The offending set, in the receipt's own order, empty when the close requested none of
+# them. Comparison is WORD-EXACT, never a substring: `reconsent-stale` is a proper prefix
+# of `reconsent-stale-ineligible` and the two declare DIFFERENT targets, so a substring
+# match refuses the wrong close in one direction and merges a red one in the other.
+b_close_uncertified_intersection() {
+  local receipt="${1:-}"
+  [ "$#" -gt 0 ] && shift
+  [ -n "$receipt" ] && [ -r "$receipt" ] || return 0
+  local line
+  line="$(sed -n 's/^uncertified_flows:[[:space:]]*//p' "$receipt" | head -1)"
+  # `none` is the writer's empty rendering, not a flow name.
+  [ -n "$line" ] && [ "$line" != "none" ] || return 0
+  if [ "$#" -eq 0 ]; then printf '%s' "$line"; return 0; fi
+  local out="" u r
+  for u in $line; do
+    for r in "$@"; do
+      if [ "$u" = "$r" ]; then out="${out:+$out }$u"; break; fi
+    done
+  done
+  printf '%s' "$out"
+  return 0
+}
+
+# b_close_certification_verdict <receipt> [requested-flow ...] -> one token, never empty
+#
+# A PREDICATE, NOT A GATE — exits 0 on every path including the refusing ones, so it can be
+# called from `set -e` territory without refusing the RUN rather than the MERGE. The
+# refusal is the caller's, over this token.
+b_close_certification_verdict() {
+  local receipt="${1:-}"
+  [ "$#" -gt 0 ] && shift
+  [ -n "$receipt" ] && [ -r "$receipt" ] || { printf 'CERT_RECEIPT_MISSING'; return 0; }
+  local cert
+  cert="$(sed -n 's/^certification:[[:space:]]*\([A-Za-z_]*\).*/\1/p' "$receipt" | head -1)"
+  case "$cert" in
+    # INFRA-434 already ruled every completed flow inconclusive when the target moved.
+    # VOID must not be salvageable by scoping: scoping narrows WHICH verdicts apply, not
+    # WHETHER one exists.
+    VOID)                    printf 'CERT_VOID'; return 0 ;;
+    CERTIFIED|UNCERTIFIED)   : ;;
+    *)                       printf 'CERT_UNKNOWN'; return 0 ;;
+  esac
+  # Derived from the intersection, not from the token above, so a receipt whose two halves
+  # disagree refuses rather than merging on the friendlier one.
+  if [ -n "$(b_close_uncertified_intersection "$receipt" "$@")" ]; then
+    printf 'CERT_UNCERTIFIED'
+  else
+    printf 'OK'
+  fi
+  return 0
+}
 
 b_close_run_dir() {
   local item="${1:-unknown}" epoch="${2:-0}"

@@ -384,3 +384,87 @@ describe('framing invariants', () => {
     expect(utils.queryByText(/\d+\s*(words?|characters?|min(ute)?s?)\b/i)).toBeNull();
   });
 });
+
+describe('a second disclosure in one screen session (DEBUG-504)', () => {
+  // THE DEFECT THIS PINS
+  //
+  // `draftIdRef` was minted once per mount, and nothing regenerated it — not
+  // `handleDiscard`, which resets the transcript and the phase but not the ref.
+  // `onDraftDiscarded` is an intentional no-op on the intervention, so the id stayed in
+  // the scanner's `active` set, and the scanner skips BOTH the Alert and the telemetry
+  // emission when a draft is already active. So a genuinely separate disclosure raised no
+  // Alert and wrote no `crisis_detected` row.
+  //
+  // It presents as working, which is why manual testing cannot find it: `crisisActive` is
+  // never reset either, so the banner from the FIRST disclosure is still on screen and the
+  // screen looks like it handled the second one.
+  //
+  // WHY THE SEQUENCE GOES THROUGH A FAILED SAVE. A successful save moves the phase to
+  // `saved`, which is terminal and offers no Discard — so the only in-mount route back to
+  // `idle` is Discard from `review`, and the only way to have ALREADY disclosed while still
+  // in `review` is a save that failed. That is a real path (the retry is what the
+  // save-error branch exists for), and it is the shortest reachable one.
+
+  async function discloseViaFailedSave() {
+    mockSave.mockResolvedValueOnce({ saved: false, reason: 'unknown' });
+    const utils = await reachReview(CRISIS_TEXT);
+    fireEvent.press(utils.getByTestId('journal-save-button'));
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(1));
+    return utils;
+  }
+
+  it('raises a second Alert for a second capture that discloses again', async () => {
+    const utils = await discloseViaFailedSave();
+
+    // Discard: the disclosure is NOT retracted, but the capture is over.
+    fireEvent.press(utils.getByTestId('journal-discard-button'));
+    await waitFor(() => utils.getByTestId('journal-record-button'));
+
+    // A NEW capture, disclosing the same thing. Same words are not the same disclosure.
+    fireEvent.press(utils.getByTestId('journal-record-button'));
+    await waitFor(() => utils.getByTestId('journal-stop-button'));
+    fireEvent.press(utils.getByTestId('journal-stop-button'));
+    const input = await waitFor(() => utils.getByTestId('journal-transcript-input'));
+    fireEvent.changeText(input, CRISIS_TEXT);
+    fireEvent.press(utils.getByTestId('journal-save-button'));
+
+    await waitFor(() => expect(mockAlert).toHaveBeenCalledTimes(2));
+  });
+
+  it('keeps the banner and the 988 action mounted throughout — escalation is one-way', async () => {
+    const utils = await discloseViaFailedSave();
+    expect(utils.getByTestId('journal-crisis-banner')).toBeTruthy();
+    expect(utils.getByTestId('journal-crisis-call-988')).toBeTruthy();
+
+    fireEvent.press(utils.getByTestId('journal-discard-button'));
+    await waitFor(() => utils.getByTestId('journal-record-button'));
+
+    // Still there after the discard AND after a new capture begins: a new draft identity
+    // must not read as "the intervention is over". Re-raising the banner would also be
+    // wrong — unmounting a live <3-tap route to 988 is a reduction in support.
+    expect(utils.getByTestId('journal-crisis-banner')).toBeTruthy();
+    fireEvent.press(utils.getByTestId('journal-record-button'));
+    await waitFor(() => utils.getByTestId('journal-stop-button'));
+    expect(utils.getByTestId('journal-crisis-banner')).toBeTruthy();
+    expect(utils.getByTestId('journal-crisis-call-988')).toBeTruthy();
+  });
+
+  it('still raises exactly ONE Alert when one capture is scanned at both points', async () => {
+    // The dedupe that MUST survive: scanOnFinalize + scanOnSave over one capture is one
+    // episode. This is the q9-single-alert family's reasoning and the reason draftId
+    // exists at all — the fix must not buy the second Alert by losing this.
+    const utils = await reachReview(CRISIS_TEXT);
+    fireEvent.press(utils.getByTestId('journal-save-button'));
+    await waitFor(() => utils.getByTestId('journal-saved-state'));
+    expect(mockAlert).toHaveBeenCalledTimes(1);
+  });
+
+  it('does not re-alert when a save fails and is retried on the same capture', async () => {
+    const utils = await discloseViaFailedSave();
+
+    // Same capture, same identity — a retry is not a new disclosure.
+    fireEvent.press(utils.getByTestId('journal-save-button'));
+    await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(2));
+    expect(mockAlert).toHaveBeenCalledTimes(1);
+  });
+});
