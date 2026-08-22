@@ -2,7 +2,7 @@
   "expo": {
     "name": "Being",
     "slug": "being",
-    "version": "1.1.0",
+    "version": "1.2.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "fyi.being.app",
-      "buildNumber": "3",
+      "buildNumber": "4",
       "icon": "./assets/icon.png",
       "deploymentTarget": "16.4",
       "config": {
@@ -26,7 +26,9 @@
           "tel",
           "sms"
         ],
-        "NSFaceIDUsageDescription": "Allow Being to use Face ID to protect your wellness data."
+        "NSFaceIDUsageDescription": "Allow Being to use Face ID to protect your wellness data.",
+        "NSSpeechRecognitionUsageDescription": "Being transcribes spoken reflections entirely on this device. Nothing you say is sent to Apple or to Being.",
+        "NSMicrophoneUsageDescription": "Being uses the microphone only to turn a spoken reflection into text on this device. The recording is discarded once transcribed and never leaves your phone."
       },
       "associatedDomains": [
         "applinks:being.fyi",
@@ -53,11 +55,12 @@
             ]
           }
         ]
-      }
+      },
+      "appleTeamId": "KN6FDLG98K"
     },
     "android": {
       "package": "fyi.being.app",
-      "versionCode": 3,
+      "versionCode": 4,
       "icon": "./assets/icon.png",
       "intentFilters": [
         {
@@ -80,6 +83,9 @@
             "DEFAULT"
           ]
         }
+      ],
+      "permissions": [
+        "android.permission.RECORD_AUDIO"
       ]
     },
     "web": {
@@ -106,7 +112,14 @@
           "backgroundColor": "#ffffff"
         }
       ],
-      "expo-sharing"
+      "expo-sharing",
+      [
+        "expo-speech-recognition",
+        {
+          "microphonePermission": "Being uses the microphone only to turn a spoken reflection into text on this device. The recording is discarded once transcribed and never leaves your phone.",
+          "speechRecognitionPermission": "Being transcribes spoken reflections entirely on this device. Nothing you say is sent to Apple or to Being."
+        }
+      ]
     ],
     "extra": {
       "clinicalVersion": "1.0",

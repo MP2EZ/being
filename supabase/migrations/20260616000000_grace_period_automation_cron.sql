@@ -9,8 +9,17 @@
 --
 -- NOT safety-critical: grace-period automation is subscription lifecycle ops, not crisis
 -- monitoring. It deliberately uses its OWN distinct Vault secret + a separate trust domain
--- from the crisis alerter, and needs no watchdog/dead-man's-switch (that is reserved for
--- the crisis-detection pipeline).
+-- from the crisis alerter.
+--
+-- AMENDED BY INFRA-296. This header previously continued "...and needs no
+-- watchdog/dead-man's-switch (that is reserved for the crisis-detection pipeline)". That
+-- is no longer true and the reasoning behind it did not hold: the argument conflated
+-- SEVERITY (grace-period is not life-safety, correct) with FAILURE DOMAIN (an in-Supabase
+-- watchdog cannot page when the DB hosting it is down — true regardless of severity).
+-- This job now fires a bare GET to its own external healthchecks.io check on each clean
+-- run, so its silence pages the founder. Separate check and separate ping-URL secret from
+-- the crisis pipeline's; the trust-domain separation asserted above is preserved, not
+-- weakened. See docs/development/post-launch-monitoring-runbook.md §3.
 --
 -- SECURITY / SECRETS — NO SECRET VALUE APPEARS IN THIS FILE.
 --   The cron command reads secrets from Supabase Vault BY NAME at run time. Bootstrap these
@@ -19,10 +28,26 @@
 --     grace_period_cron_secret    — fresh >=256-bit random; DISTINCT from the crisis
 --                                   alerter's `crisis_alert_cron_secret` (separate trust
 --                                   domain). Must equal the grace-period-automation edge
---                                   function's CRON_SECRET edge-secret (the two ends of the
---                                   X-Cron-Secret check in index.ts).
+--                                   function's GRACE_PERIOD_CRON_SECRET edge-secret (the
+--                                   two ends of the X-Cron-Secret check in index.ts).
+--
+--                                   AMENDED BY INFRA-379. This line named `CRON_SECRET`,
+--                                   which made the instruction self-contradictory and
+--                                   unexecutable. Edge secrets are PROJECT-WIDE (no
+--                                   per-function scoping), and `crisis-detection-alerting`
+--                                   + `crisis-liveness-probe` already authenticate against
+--                                   `CRON_SECRET` == `crisis_alert_cron_secret`. So this
+--                                   secret could not be both distinct from the crisis
+--                                   bearer and equal to the one name all three functions
+--                                   read. Following it literally would have 401'd every
+--                                   tick of this job — the heartbeat would never land and
+--                                   the INFRA-282 watchdog would then page every 6h,
+--                                   correctly, about a pipeline that was never reachable.
+--                                   INFRA-379 gave this function its own edge-secret name
+--                                   at deploy time; the separation asserted above is now
+--                                   real rather than nominal.
 --     grace_period_function_url   — https://<project-ref>.functions.supabase.co/grace-period-automation
---   The edge function reads CRON_SECRET / SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from
+--   The edge function reads GRACE_PERIOD_CRON_SECRET / SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY from
 --   EDGE secrets (`supabase secrets set`). pg_net request/response hardening + the
 --   `net`-schema-not-exposed boundary were established once by 20260607000000_crisis_alert_cron
 --   and are not repeated here.
@@ -69,7 +94,7 @@ COMMENT ON TABLE public.grace_period_automation_runs IS
 
 -- ---------------------------------------------------------------------------
 -- Schedule (idempotent: unschedule-if-exists, then schedule).
--- Daily 2 AM UTC — the original config.toml intent. Reads CRON_SECRET + function URL from
+-- Daily 2 AM UTC — the original config.toml intent. Reads grace_period_cron_secret + function URL from
 -- Vault BY NAME at run time (no secret literal here). The edge function authenticates the
 -- X-Cron-Secret header (constant-time) then runs the subscription-lifecycle automation.
 -- ---------------------------------------------------------------------------

@@ -12,11 +12,7 @@
  * "wellness screening" (never "clinical assessment").
  */
 
-import type {
-  CardinalVirtue,
-  PracticeDomain,
-  StoicPrinciple,
-} from '@/features/practices/types/stoic';
+import type { StoicPrinciple } from '@/features/practices/types/stoic';
 // CheckInType / PrincipleEngagementType are exported from the store module,
 // not the types barrel.
 import type {
@@ -24,8 +20,40 @@ import type {
   PrincipleEngagementType,
 } from '@/features/practices/stores/stoicPracticeStore';
 
-/** Schema version stamped into every export so downstream readers can adapt. */
-export const EXPORT_SCHEMA_VERSION = 1;
+/**
+ * Schema version stamped into every export so downstream readers can adapt.
+ *
+ * v2 (FEAT-298 slice 2): `CheckInType` gained 'daily' for the single daily ritual, so
+ * `ExportedCheckIn.type` and `ExportedPrincipleEngagement.flowType` can now carry a value
+ * no v1 reader knows. `exportService` passes `type` through without runtime narrowing, so
+ * nothing would otherwise stop a 'daily' row landing in a file labelled v1.
+ *
+ * The version tracks the VALUE SPACE a reader must interpret, not just the JSON shape:
+ * additive widening is compatible for parsing, but not for exhaustive interpretation — a
+ * reader that switches on `type` (a future PDF renderer, or a user's own script) would
+ * silently mis-bucket or drop 'daily' rows. Already-exported v1 files remain valid
+ * archives of a closed value set; only new exports carry v2, so no payload migration.
+ *
+ * v3 (MAINT-371): `ExportedPractices.virtues` — a REQUIRED member of the v2 payload — is
+ * removed, along with the `ExportedVirtue` type. This is a strictly harder compatibility
+ * class than v2. v2 widened a value space: a stale reader still parses every field and at
+ * worst mis-buckets a row. v3 removes a member: a v2-shaped consumer doing
+ * `payload.practices.virtues.map(...)` gets `undefined` and throws. Widening degrades;
+ * removal breaks.
+ *
+ * That said, do not read the paragraph above as describing a real migration risk here —
+ * it describes the CLASS, so the next removal is judged against it correctly. The actual
+ * blast radius of v3 is zero, and honesty about that matters more than the rhetoric:
+ * `buildExportPayload` has NO production callers (FEAT-29 Slice B, the screen that would
+ * call it, is unshipped), so no v2 file carrying `practices.virtues` has ever left a
+ * device. There is no reader of this payload anywhere in the tree, and none outside it.
+ * No back-compat reader is needed, and none could be written against a file that does not
+ * exist. The version is bumped because the contract changed, not because anyone is
+ * migrating. The removed data was empty in every case regardless — see the MAINT-320 /
+ * MAINT-371 header in `stoicPracticeStore.ts` — and its absence is disclosed in
+ * `EXPORT_OMISSIONS` below rather than left silent.
+ */
+export const EXPORT_SCHEMA_VERSION = 3;
 
 /**
  * Verbatim "not medical records" disclaimer (compliance pass, non-negotiable
@@ -39,12 +67,21 @@ export const EXPORT_DISCLAIMER =
   'qualified healthcare professional for any medical concerns.';
 
 /**
- * Disclosed gap: the spec lists "breathing practice sessions" as exportable,
- * but no dedicated breathing-session log exists in this version. Rather than
- * silently omit it, the export discloses the absence (compliance pass).
+ * Disclosed gaps: data a user might reasonably expect to find here and will not.
+ * Rather than silently omit them, the export discloses each absence (compliance pass).
+ *
+ * `breathing_session_log`: the spec lists "breathing practice sessions" as exportable,
+ * but no dedicated breathing-session log exists in this version.
+ *
+ * `virtue_practice_log` (MAINT-371): the store carried `virtueInstances` /
+ * `virtueChallenges` arrays, so a v2 payload had a `practices.virtues` member — but no
+ * writer for them ever reached production, so the arrays were empty in every build that
+ * shipped. The wording is deliberately stronger than the breathing entry: "not recorded
+ * in this version" would imply an earlier version did record it. None did.
  */
 export const EXPORT_OMISSIONS: readonly string[] = [
   'breathing_session_log: not recorded in this version',
+  'virtue_practice_log: never recorded in any shipped version',
 ];
 
 export type ExportDataCategory =
@@ -86,15 +123,6 @@ export interface ExportedCheckIn {
   completedAt: number;
 }
 
-export interface ExportedVirtue {
-  virtue: CardinalVirtue;
-  domain: PracticeDomain;
-  /** Free-text situation note, exported verbatim. */
-  context: string;
-  principleApplied: string | null;
-  timestamp: number;
-}
-
 export interface ExportedPrincipleEngagement {
   principle: StoicPrinciple;
   flowType: CheckInType;
@@ -102,8 +130,11 @@ export interface ExportedPrincipleEngagement {
   timestamp: number;
 }
 
+/**
+ * MAINT-371: `virtues: ExportedVirtue[]` was removed at schema v3. Its absence is
+ * disclosed in `EXPORT_OMISSIONS`, not left silent.
+ */
 export interface ExportedPractices {
-  virtues: ExportedVirtue[];
   principleEngagements: ExportedPrincipleEngagement[];
 }
 

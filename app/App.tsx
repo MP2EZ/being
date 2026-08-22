@@ -10,16 +10,26 @@ import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sentry from '@sentry/react-native';
 import CleanRootNavigator from './src/core/navigation/CleanRootNavigator';
+// DEBUG-341: eager import, never lazy. CLAUDE.md's crisis-path rule — a fallback that
+// has to resolve a chunk before it can render is not a fallback.
+import RootCrisisBoundary from './src/features/crisis/components/RootCrisisBoundary';
+import { logCrisis } from './src/core/services/logging';
 import { IAPService } from './src/core/services/subscription/IAPService';
 import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
 import { useSettingsStore } from './src/core/stores/settingsStore';
 import { initializeExternalReporting, logSystem, logError, LogCategory } from './src/core/services/logging';
+import { sweepStaleAudioArtifacts } from './src/core/services/speech/audioArtifactSweeper';
+import { sweepLegacyPlaintextRecords } from './src/core/services/security/legacyPlaintextRecordSweeper';
 import { initializeCrisisMonitoring } from './src/core/services/monitoring';
 import { DataRetentionService } from './src/core/services/data-retention';
 import { PostHogProvider } from './src/core/analytics';
 import { closeMenu as closeDevMenu } from 'expo-dev-menu';
 import { maybeSeedE2EOnboardedState } from './src/core/config/e2eSeed';
+// DEBUG-409: imported DIRECTLY, not via the `services/supabase` barrel — the barrel's
+// module-scope eager init is the consent-gated path this fix routes around, and pulling
+// it in here would drag CloudBackupService onto the boot graph.
+import supabaseService from './src/core/services/supabase/SupabaseService';
 import { useBugReportShake } from './src/core/hooks/useBugReportShake';
 
 // INFRA-181: hide RN LogBox during Maestro runs. The dev warning toast (e.g.
@@ -54,6 +64,33 @@ function App() {
           logError(LogCategory.SYSTEM, 'Sentry init failed (non-blocking)', err as Error);
         }
 
+        // FEAT-283 AC #3: remove raw audio stranded by a crash, kill, or
+        // backgrounding mid-recording. The app cache is invisible to
+        // `clearAllWellnessData` (which enumerates AsyncStorage keys), so a
+        // stranded recording would otherwise survive even account deletion.
+        // Name-scoped and self-contained; it never throws.
+        try {
+          const sweptAudio = sweepStaleAudioArtifacts();
+          if (sweptAudio > 0) {
+            logSystem(`Swept ${sweptAudio} stranded audio artifact(s) at launch`);
+          }
+        } catch (err) {
+          logError(LogCategory.SYSTEM, 'Audio artifact sweep failed (non-blocking)', err as Error);
+        }
+
+        // DEBUG-305: purge plaintext crisis-intervention records written by
+        // shipped builds. Removing the write helps only new installs — these
+        // records are already on the devices of existing users, unencrypted and
+        // invisible to account erasure. Runs before render; never throws.
+        try {
+          const sweptRecords = await sweepLegacyPlaintextRecords();
+          if (sweptRecords > 0) {
+            logSystem(`Swept ${sweptRecords} legacy plaintext wellness record(s) at launch`);
+          }
+        } catch (err) {
+          logError(LogCategory.SYSTEM, 'Legacy record sweep failed (non-blocking)', err as Error);
+        }
+
         // EncryptionService must initialize before downstream secure-storage
         // services (wellness data) depend on its keys. Sentry span captures
         // launch-time duration against the <2s app-launch budget.
@@ -76,6 +113,19 @@ function App() {
         // consent record persists to SecureStore. Releases the seed gate that
         // CleanRootNavigator awaits before resolving its initial route.
         await maybeSeedE2EOnboardedState();
+
+        // DEBUG-409: provision the crisis-telemetry lane so a queued `crisis_detected`
+        // event can actually reach Supabase. Before this, the only client-construction
+        // path was gated on `cloud_sync` consent evaluated at module-load time — always
+        // false — so the off-device crisis audit trail did not exist for any user who
+        // had not opened Profile → Cloud Backup.
+        //
+        // 🔴 FIRED UNAWAITED AND DELIBERATELY OUTSIDE the allSettled array below. That
+        // array is AWAITED before setIsInitialized(true), so anything added to it delays
+        // first render — and therefore delays crisis-button availability. Telemetry must
+        // never sit in front of the 988 affordance. It no-ops when the durable queue is
+        // empty, so the common boot pays nothing and opens no backend session.
+        void supabaseService.initializeCrisisTelemetry();
 
         // Remaining init tasks are independent. allSettled (not all) so one
         // best-effort failure doesn't abort the others. IAP init only runs
@@ -158,7 +208,52 @@ function App() {
       <PostHogProvider>
         <SafeAreaProvider>
           <StatusBar style="auto" />
-          <CleanRootNavigator />
+          {/*
+            DEBUG-341: the app had NO error boundary above CleanRootNavigator, so any
+            render throw under it unmounted the whole tree to a white screen with no 988
+            affordance. Sentry.wrap is a profiler/touch wrapper, not a boundary —
+            componentDidCatch appears nowhere in its tree.
+
+            Placement is deliberate: INSIDE SafeAreaProvider so the fallback can respect
+            insets, and INSIDE GestureHandlerRootView, which must stay the outermost
+            native host view. A boundary wrapping only the crisis subtree would be
+            useless — a screen crash unmounts the navigator, taking that boundary and the
+            button it protects down together.
+          */}
+          <RootCrisisBoundary
+            onError={(error, componentStack) => {
+              // Runs in componentDidCatch, i.e. AFTER the 988 fallback has committed —
+              // never on the path to first paint.
+              //
+              // NOTE this is an ON-DEVICE record only, and the reason is narrower
+              // than this comment used to claim (corrected DEBUG-338).
+              //
+              // It used to say a stack originating under features/crisis/ "contains
+              // 'crisis' in every frame", so the filter drops it. That was true of
+              // the SOURCE TREE and false of the transmitted event: Sentry's default
+              // `createReactNativeRewriteFrames()` rewrites every frame's `filename`
+              // to `app:///main.jsbundle` under Expo and deletes `abs_path`, before
+              // `beforeSend` ever runs. `containsCrisisContent` never saw those paths,
+              // and since DEBUG-338 it does not scan `stacktrace.frames[]` at all.
+              //
+              // What actually keeps this on-device: `RootCrisisBoundary` is not wired
+              // to the external reporter in the first place (CrisisErrorBoundary's
+              // `reportError` call is commented out), and any event whose MESSAGE or
+              // other content-bearing field carries crisis prose is still dropped
+              // wholesale — which this one's would be. The local log is the
+              // accountability record here.
+              // logCrisis's context is a fixed shape (detectionTime / interventionType
+              // / severity) and deliberately does NOT take free-form fields, so the
+              // detail rides in the message and the structured part stays schema-clean.
+              logCrisis(
+                `Root render error — degraded to static 988 fallback: ${error.message}`,
+                { severity: 'critical', interventionType: 'display' },
+              );
+              void componentStack;
+            }}
+          >
+            <CleanRootNavigator />
+          </RootCrisisBoundary>
         </SafeAreaProvider>
       </PostHogProvider>
     </GestureHandlerRootView>

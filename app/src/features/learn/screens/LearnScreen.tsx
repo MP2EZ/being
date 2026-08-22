@@ -17,8 +17,19 @@ import {
   ScrollView,
   Pressable,
   StyleSheet,
-  SafeAreaView,
 } from 'react-native';
+/**
+ * MAINT-437 — `edges` applies to all 1 SafeAreaView root(s) in this file.
+ *
+ * Tab-hosted (CleanTabNavigator, `headerShown: false`), so the tab bar owns the
+ * bottom inset and this screen claims only the top.
+ *
+ * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
+ * are never listed. NOTE: no test in this repo can observe an `edges` value having
+ * a layout effect — the jest mock pins all insets to zero. The rendered result is
+ * verified by MAINT-437's deferred Android/iOS device pass.
+ */
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { useAnalytics } from '@/core/analytics';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -119,7 +130,7 @@ const LearnScreen: React.FC = () => {
   ];
 
   return (
-    <SafeAreaView style={styles.safeArea} testID="learn-screen">
+    <SafeAreaView edges={['top']} style={styles.safeArea} testID="learn-screen">
       <View style={{ flex: 1 }}>
         <View style={styles.container}>
         {/* Header (MAINT-257: shared BodyHeader idiom — borderless, left headline2) */}
@@ -324,12 +335,12 @@ const styles = StyleSheet.create({
   recommendationTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   recommendationDescription: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
     marginBottom: spacing[16],
   },
@@ -351,7 +362,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   moduleCard: {
@@ -387,7 +398,7 @@ const styles = StyleSheet.create({
   moduleNumberText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
   },
   moduleTag: {
     paddingHorizontal: spacing[8],
@@ -401,7 +412,7 @@ const styles = StyleSheet.create({
   moduleTagText: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     letterSpacing: 0.5,
   },
   moduleTagTextEssential: {
@@ -410,12 +421,12 @@ const styles = StyleSheet.create({
   moduleTitle: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   moduleDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
     marginBottom: spacing[16],
   },
@@ -439,7 +450,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     minWidth: spacing[40],
     textAlign: 'right',
   },
@@ -466,12 +477,12 @@ const styles = StyleSheet.create({
   libraryEntryTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   libraryEntryDescription: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   libraryEntryArrow: {
@@ -481,11 +492,11 @@ const styles = StyleSheet.create({
   },
   moduleTime: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
   modulePractices: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
   },
 });
 

@@ -6,7 +6,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, TouchableOpacity, Text } from 'react-native';
-import { logPerformance, logSystem } from '@/core/services/logging';
+import { logPerformance, logSystem, logError, LogCategory } from '@/core/services/logging';
 import { whenE2ESeedComplete } from '@/core/config/e2eSeed';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
@@ -14,14 +14,21 @@ import { linkingConfig } from './linking';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
-import { spacing, typography } from '@/core/theme';
+import { semantic, spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
-import MorningFlowNavigator from '@/features/practices/morning/MorningFlowNavigator';
-import MiddayFlowNavigator from '@/features/practices/midday/MiddayFlowNavigator';
-import EveningFlowNavigator from '@/features/practices/evening/EveningFlowNavigator';
 import { DailyLoopNavigator } from '@/features/practices/dailyloop';
+import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
+import { JournalHistoryScreen } from '@/features/journal/screens/JournalHistoryScreen';
+import { JournalEntryDetailScreen } from '@/features/journal/screens/JournalEntryDetailScreen';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
+// DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
+import CrisisKeyboardAccessory from '@/features/crisis/components/CrisisKeyboardAccessory';
+import { RootOverlaySlot } from '@/core/navigation/rootOverlaySlot';
+// DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
+// above and by the overlay boundary below.
+import Static988Button from '@/features/crisis/components/Static988Button';
+import RootCrisisBoundary from '@/features/crisis/components/RootCrisisBoundary';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
 import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
@@ -33,29 +40,80 @@ import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen'
 import {
   PracticeTimerScreen,
   ReflectionTimerScreen,
-  SortingPracticeScreen,
   BodyScanScreen,
   GuidedBodyScanScreen
 } from '@/features/learn/practices';
+// FEAT-293: standalone practice discoverability.
+import SortingPracticeRoute from '@/features/practices/catalog/SortingPracticeRoute';
+import PracticeLibraryScreen from '@/features/practices/screens/PracticeLibraryScreen';
+// FEAT-433 — direct paths, never a features/guidance barrel (FEAT-376): a barrel
+// would pull guidanceGate and the content loader into this navigator's eager graph,
+// defeating the lazy load the suppression ordering depends on.
+import DomainGuidanceScreen from '@/features/guidance/screens/DomainGuidanceScreen';
+import type { GuidanceDomain } from '@/features/guidance/types/guidance';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { CombinedLegalGateScreen } from '@/features/consent';
+// FEAT-417: imported by direct path, not through the `@/features/consent`
+// barrel. The barrel is already in this file's eager graph via the line above,
+// so this is not about load cost — it is about not GROWING that barrel's
+// surface. Per FEAT-376's lesson (CLAUDE.md), a barrel re-export enlarges the
+// eager module graph of every importer, including safety paths.
+import ReConsentRoute from '@/features/consent/screens/ReConsentRoute';
+// Deep path, not the feature barrel: a barrel re-export enlarges the eager
+// module graph of every importer, including safety paths (FEAT-376).
+import ConsentBlockedRoute from '@/features/consent/screens/ConsentBlockedRoute';
+import { useReConsentTrigger } from '@/features/consent/hooks/useReConsentTrigger';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
-import type { DailyLoopMode, DailyLoopSessionData } from '@/features/practices/types/flows';
-import type { ModuleId, SortingScenario } from '@/features/learn/types/education';
+import type { DailyLoopMode, DailyLoopDepth, DailyLoopSessionData } from '@/features/practices/types/flows';
+import {
+  ENGAGEMENT_TYPE_BY_MODE,
+  STEP_PRINCIPLE,
+  getStepKeysForDepth,
+} from '@/features/practices/dailyloop/config/tenseMode';
+import type {
+  ModuleId,
+  PracticeVisualMode,
+  SortingScenario,
+} from '@/features/learn/types/education';
 import type { PassageAuthor } from '@/features/library/types/library';
 
 export type RootStackParamList = {
   LegalGate: undefined;
   Onboarding: undefined;
   Main: undefined;
-  MorningFlow: undefined;
-  MiddayFlow: undefined;
-  EveningFlow: undefined;
-  // FEAT-291: single-loop daily-practice prototype (build-time flag `daily_loop`).
-  // `mode` optional — when absent the loop shows its in-flow mode picker.
-  DailyLoop: { mode?: DailyLoopMode } | undefined;
+  /**
+   * FEAT-417 — re-consent after a CONSENT_VERSION bump. Presented OVER Main by
+   * `useReConsentTrigger`, never as an initial route.
+   *
+   * 🔴 `undefined`, and it must stay that way. Handlers are NOT route params:
+   * non-serializable params corrupt React Navigation's state handling, and that
+   * state is read on the crisis path by `getActiveRootRouteName()`. The
+   * container reads the store directly and takes only `onDismiss`, supplied by
+   * the render prop below.
+   */
+  ReConsent: undefined;
+  /**
+   * DEBUG-451 — the explanation for `integrity_error`, `revoked` and
+   * `under_age`. Presented OVER Main by `useReConsentTrigger`, never as an
+   * initial route.
+   *
+   * 🔴 `undefined`, and it must stay that way — for the serializability reason
+   * above, and for a second one: the variant is re-derived from `consentStatus`
+   * inside `ConsentBlockedRoute`. A status param could be constructed by any
+   * caller to show a user copy that contradicts the state the app is in.
+   */
+  ConsentBlocked: undefined;
+  // The single daily ritual (FEAT-298 slice 5: the default practice; no longer flagged).
+  // `mode` is a test/tooling param only — the tense is inferred from the clock, and there
+  // is no mode picker.
+  DailyLoop: { mode?: DailyLoopMode; depth?: DailyLoopDepth } | undefined;
+  // FEAT-283 Slice A: spoken reflection capture, reached from the
+  // `voice_journal`-flag-gated Profile card.
+  VoiceReflection: undefined;
+  JournalHistory: undefined;
+  JournalEntryDetail: { entryId: string };
   ModuleDetail: { moduleId: ModuleId };
   ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
   PassageReader: { passageId: string };
@@ -64,6 +122,11 @@ export type RootStackParamList = {
     moduleId: ModuleId;
     duration: number;
     title: string;
+    // DEBUG-353: optional so the deep-link path (which cannot carry authored
+    // content) still type-checks; resolvePracticeRoute supplies both when the
+    // practice is launched from the module JSON.
+    instructions?: string[];
+    visualMode?: PracticeVisualMode;
   };
   ReflectionTimer: {
     practiceId: string;
@@ -76,8 +139,16 @@ export type RootStackParamList = {
   SortingPractice: {
     practiceId: string;
     moduleId: ModuleId;
-    scenarios: SortingScenario[];
+    // FEAT-293: OPTIONAL. Learn still passes the already-loaded scenarios
+    // (unchanged); the standalone Practice Library omits them and the screen
+    // self-loads from module content. This also repairs the pre-existing
+    // `/sorting` deep link in linking.ts, which could never supply an array.
+    scenarios?: SortingScenario[];
   };
+  // FEAT-293: standalone practice discoverability. A listing surface, so it is
+  // deliberately absent from RootCrisisButton's SUPPRESSED_ROUTES and
+  // IMMERSIVE_ROUTES — it must resolve to the default `standard` crisis overlay.
+  PracticeLibrary: undefined;
   BodyScan: {
     practiceId: string;
     moduleId: ModuleId;
@@ -97,8 +168,23 @@ export type RootStackParamList = {
   };
   CrisisResources: {
     severityLevel?: 'moderate' | 'high' | 'emergency';
-    source?: 'assessment' | 'direct' | 'crisis_button';
+    // How the CrisisResources route was REACHED. Widened by FEAT-433 (`guidance_gate`)
+    // and DEBUG-450 (`keyboard_accessory`).
+    //
+    // Do NOT loosen this to `string` and do NOT cast at the call site. The sole reader is
+    // CrisisResourcesScreen.tsx (`source ?? 'direct'` into a logSecurity metadata bag), so
+    // there is no exhaustive switch to break.
+    //
+    // ⚠️ Related to `CrisisTapSource` (features/crisis/services/crisisTapTrace.ts) but
+    // deliberately NOT equal to it, and nothing enforces either way. That union means "a
+    // human TAP on a crisis control"; this one means "how the route was reached". The
+    // route-only members are `assessment`, `direct` and `guidance_gate` — a gate redirect
+    // is not a tap, which is why guidance never calls beginCrisisTap. `error_boundary` is
+    // tap-only: it dials 988 directly and never navigates. So do not "resync" these lists
+    // by making them identical; adding a member to one is a decision about which it is.
+    source?: 'assessment' | 'direct' | 'crisis_button' | 'guidance_gate' | 'keyboard_accessory';
   } | undefined;
+  DomainGuidance: { domain: GuidanceDomain };
   Subscription: undefined;
   SubscriptionStatus: undefined;
   WellnessTrendsDetail: undefined;
@@ -107,9 +193,32 @@ export type RootStackParamList = {
 const Stack = createStackNavigator<RootStackParamList>();
 
 // Loading screen component
+/**
+ * DEBUG-341 — bound on the pre-route resolution, tied to the <3s 988-access contract
+ * rather than picked freely. On timeout we resolve to a concrete route rather than
+ * leaving `initialRoute` null forever.
+ */
+const INITIAL_ROUTE_TIMEOUT_MS = 3000;
+
+/**
+ * DEBUG-341 — LoadingScreen now carries a 988 control, and this is the single
+ * highest-value change in the item.
+ *
+ * `RootCrisisButton` mounts at the bottom of this file, INSIDE `NavigationContainer`.
+ * The `if (!initialRoute) return <LoadingScreen />` early return sits above it. So on
+ * EVERY cold launch there is a window where the app is on screen and the crisis button
+ * provably is not — no error required, no edge case. `NavigationContainer` also withholds
+ * children while `linkingConfig`'s getInitialURL() resolves, which is a second,
+ * independent render-withholding gate above the same button.
+ *
+ * That is the always-reachable version of the hole this item was filed about, and it is
+ * closed here rather than by the error boundary: a boundary only helps once something
+ * throws, and nothing throws during a normal launch.
+ */
 const LoadingScreen: React.FC = () => (
-  <View style={styles.loadingContainer}>
+  <View style={styles.loadingContainer} testID="loading-screen">
     <ActivityIndicator size="large" color="#FF9F43" />
+    <Static988Button message="Still loading. If you need support right now, you do not have to wait." />
   </View>
 );
 
@@ -123,113 +232,162 @@ const CleanRootNavigator: React.FC = () => {
   const [activeRootRoute, setActiveRootRoute] = useState<string | undefined>(undefined);
 
   useEffect(() => {
+    let cancelled = false;
+
+    /**
+     * DEBUG-341 — FAIL OPEN, NEVER CLOSED.
+     *
+     * This function previously had no try/catch and used Promise.all. Every branch of
+     * its if/else does set a route, so the only way to leave `initialRoute` null was a
+     * rejection or a hang in one of the three awaits — and the app would then sit on
+     * LoadingScreen indefinitely, which (before this change) carried NO 988 affordance
+     * at all, because RootCrisisButton mounts inside NavigationContainer further down.
+     *
+     * Honest note on reachability: the three awaits are, today, hard to make fail.
+     * `whenE2ESeedComplete()` resolves immediately in real builds and self-times-out at
+     * 15s when seeding; `loadSettings` and `loadConsent` both wrap their bodies and
+     * return null on error. So the "stuck forever" state has no demonstrated trigger.
+     * The hardening is kept anyway for two reasons: it costs nothing, and it is not the
+     * load-bearing fix. The load-bearing fix is that LoadingScreen now renders a 988
+     * control (below), which closes the whole class — including the ALWAYS-reachable
+     * case that has nothing to do with errors: the ordinary pre-route window on every
+     * cold launch, plus NavigationContainer withholding children while `linkingConfig`
+     * resolves getInitialURL().
+     */
     async function checkInitialRoute() {
-      // INFRA-217: in the e2e-sim build, wait for the launch-time seed to write
-      // onboarding + consent before reading state, so the FIRST resolved route is
-      // already Main (initialRouteName only applies on first navigator mount).
-      // Resolves immediately in every real build.
-      await whenE2ESeedComplete();
+      try {
+        // INFRA-217: in the e2e-sim build, wait for the launch-time seed to write
+        // onboarding + consent before reading state, so the FIRST resolved route is
+        // already Main (initialRouteName only applies on first navigator mount).
+        // Resolves immediately in every real build.
+        //
+        // Bounded at 3000ms — tied to the <3s 988-access contract, not picked freely.
+        // A hung SecureStore/AsyncStorage read must not be able to pin LoadingScreen.
+        await Promise.race([
+          whenE2ESeedComplete(),
+          new Promise<void>((resolve) => setTimeout(resolve, INITIAL_ROUTE_TIMEOUT_MS)),
+        ]);
 
-      // Both reads are independent AsyncStorage gets — parallelize.
-      const [settings, consent] = await Promise.all([loadSettings(), loadConsent()]);
+        // allSettled, not all: one rejected read must not take the other down with it.
+        // Both loaders already swallow internally, so this is belt-and-braces against a
+        // future refactor that stops doing so.
+        const [settingsResult, consentResult] = await Promise.allSettled([
+          loadSettings(),
+          loadConsent(),
+        ]);
+        const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : null;
+        const consent = consentResult.status === 'fulfilled' ? consentResult.value : null;
 
-      // Determine initial route based on onboarding and consent status
-      if (settings?.onboardingCompleted) {
-        // Already onboarded - go to main
-        setInitialRoute('Main');
-      } else if (!consent || consentStatus === 'missing' || consentStatus === 'under_age') {
-        // No consent or under age - start with legal gate (COPPA compliance)
+        if (cancelled) return;
+
+        // Determine initial route based on onboarding and consent status
+        if (settings?.onboardingCompleted) {
+          // Already onboarded - go to main
+          setInitialRoute('Main');
+        } else if (!consent || consentStatus === 'missing' || consentStatus === 'under_age') {
+          // No consent or under age - start with legal gate (COPPA compliance)
+          setInitialRoute('LegalGate');
+        } else {
+          // Has consent but not onboarded - go to onboarding
+          setInitialRoute('Onboarding');
+        }
+      } catch (error) {
+        if (cancelled) return;
+        // DEBUG-341: default to LegalGate, NOT Main. Routing an unconsented or under-age
+        // user into the full app on a storage error is a COPPA/consent violation — and
+        // for a minor, a safety one. LegalGate is the fail-SAFE destination, and it is
+        // only genuinely safe because this change also makes its crisis section
+        // unconditional (see CombinedLegalGateScreen); it is in SUPPRESSED_ROUTES, so
+        // the root overlay does not cover for it.
+        logError(
+          LogCategory.SYSTEM,
+          'checkInitialRoute failed — defaulting to LegalGate (fail-safe)',
+          error instanceof Error ? error : new Error(String(error)),
+        );
         setInitialRoute('LegalGate');
-      } else {
-        // Has consent but not onboarded - go to onboarding
-        setInitialRoute('Onboarding');
       }
     }
+
     checkInitialRoute();
+    return () => {
+      cancelled = true;
+    };
   }, [loadSettings, loadConsent, consentStatus]);
 
-  const handleMorningFlowComplete = async (sessionData: any) => {
-    logSystem('Morning flow completed');
-    await markCheckInComplete('morning');
-
-    // FEAT-28: Record principle engagement for Insights Dashboard
-    if (sessionData?.principleFocus?.principleKey) {
-      await recordPrincipleEngagement(
-        sessionData.principleFocus.principleKey,
-        'morning',
-        'selected'
-      );
-      logSystem('Recorded principle engagement (morning)');
-    }
-  };
-
-  const handleMiddayFlowComplete = async (sessionData: any) => {
-    logSystem('Midday flow completed');
-    await markCheckInComplete('midday');
-
-    // FEAT-28: Record principle engagement for Insights Dashboard
-    if (sessionData?.reappraisal?.principleApplied) {
-      await recordPrincipleEngagement(
-        sessionData.reappraisal.principleApplied,
-        'midday',
-        'applied'
-      );
-      logSystem('Recorded principle engagement (midday)');
-    }
-  };
-
-  const handleEveningFlowComplete = async (sessionData: any) => {
-    logSystem('Evening flow completed');
-    await markCheckInComplete('evening');
-
-    // FEAT-134: Record principle engagement from VirtueReflection screen (new path)
-    // Note: The EveningFlowNavigator now records principle engagement directly via
-    // recordPrincipleEngagement prop when the user selects a principle on VirtueReflection.
-    // This is the primary engagement tracking path for FEAT-134.
-    // The principle is recorded in real-time when selected, not at flow completion.
-
-    // FEAT-28: Legacy path - Record principle engagements from virtue instances
-    // Kept for backward compatibility with older session data format
-    if (sessionData?.virtueInstances?.length) {
-      const principlesReflected = new Set<string>();
-      for (const instance of sessionData.virtueInstances) {
-        if (instance.principleApplied && !principlesReflected.has(instance.principleApplied)) {
-          principlesReflected.add(instance.principleApplied);
-          await recordPrincipleEngagement(
-            instance.principleApplied,
-            'evening',
-            'reflected'
-          );
-        }
-      }
-      if (principlesReflected.size > 0) {
-        logSystem(
-          `Recorded principle engagements (legacy path): ${Array.from(principlesReflected).join(', ')}`
-        );
-      }
-    }
-  };
-
-  // FEAT-291: daily-loop prototype. Tracked as 'midday' (no new CheckInType — the
-  // FlowType unification is the deferred step-5 migration). Marks midday's card
-  // complete-today; acceptable dark-prototype tradeoff (noted in the PR).
+  // FEAT-298 slice 3: the loop is now a FIRST-CLASS check-in. It records its own 'daily'
+  // type instead of borrowing 'midday' — that borrowing made loop sessions
+  // indistinguishable from real Midday check-ins and faded the wrong Home card.
+  //
+  // Legacy records written by the FEAT-291 prototype as 'midday' COEXIST read-only: they
+  // are deliberately NOT rewritten to 'daily'. Rewriting would fabricate a record of an
+  // action the user did not take (they completed what the app then called a Midday
+  // check-in), which is a data-accuracy violation and would corrupt an export/right-to-know
+  // response. Provenance beats tidiness — see the slice-2 migration note.
   const handleDailyLoopComplete = async (sessionData: DailyLoopSessionData) => {
-    logSystem(`Daily loop completed (mode: ${sessionData.mode})`);
-    await markCheckInComplete('midday');
+    const depth = sessionData.depth ?? 'deep';
+    logSystem(`Daily loop completed (mode: ${sessionData.mode}, depth: ${depth})`);
+    await markCheckInComplete('daily');
+
+    // FEAT-298 slice 3: the loop recorded ZERO principle engagements, so it was invisible
+    // in the Insights principle chart despite being five principles end to end.
+    //
+    // One engagement per beat REACHED, unconditional on whether the user typed anything:
+    // "typing is capture, never a gate" (tenseMode.ts) — every field is optional by design
+    // for a walking, eyes-up practice. Gating the record on text would reintroduce the gate
+    // through the back door and systematically under-record the practitioner the loop was
+    // shaped for. One principle, one engagement, one session — NOT one per captured field,
+    // which would inflate Sphere Sovereignty (2 fields) and Virtuous Response (up to 3)
+    // and manufacture a false dominance signal.
+    //
+    // A quick session therefore records exactly 3, never 5. Under-recording is the
+    // ACCURATE reading: crediting the two omitted beats would fabricate acts the user did
+    // not perform. Quick and deep remain equally complete where completeness actually
+    // lives — the calendar dot — because both write one 'daily' check-in.
+    const engagementType = ENGAGEMENT_TYPE_BY_MODE[sessionData.mode];
+    const stepKeys = getStepKeysForDepth(depth);
+    for (const stepKey of stepKeys) {
+      await recordPrincipleEngagement(STEP_PRINCIPLE[stepKey], 'daily', engagementType);
+    }
+    logSystem(
+      `Recorded ${stepKeys.length} principle engagements (daily loop, ${engagementType})`
+    );
   };
 
-  const handleOnboardingComplete = async (destination?: 'home' | 'morning') => {
+  // FEAT-298 slice 6c: the "start practising now" destination is the daily loop. It was
+  // 'morning' — the retired Morning flow — so leaving it would navigate to a deleted route.
+  const handleOnboardingComplete = async (destination?: 'home' | 'practice') => {
     await markOnboardingComplete();
     setInitialRoute('Main');
 
     // Navigate to destination after state update
-    if (destination === 'morning') {
+    if (destination === 'practice') {
       // Small delay to ensure Main screen is mounted before modal presentation
       setTimeout(() => {
         // Navigation will be handled by the OnboardingScreen's navigation prop
       }, 100);
     }
   };
+
+  /**
+   * FEAT-417 — present ReConsent once per launch when consent has gone stale.
+   *
+   * ⚠️ THIS CALL MUST STAY ABOVE THE `!initialRoute` EARLY RETURN BELOW. Rules of
+   * hooks: moving it down makes it a conditional hook call and React throws. The
+   * consequence is that it DOES run during the pre-route LoadingScreen window on
+   * every cold launch — the hook's `navigationRef.isReady()` condition is the
+   * only thing keeping it inert there, and it is deliberately its last resort
+   * rather than its first.
+   *
+   * `activeRootRoute` is passed in rather than read inside: it is already the
+   * value `onReady`/`onStateChange` maintain for the crisis overlay, so the
+   * trigger needs no second navigation listener, and it is what re-evaluates the
+   * decision when the user leaves a crisis surface.
+   *
+   * The hook cannot throw (its effect body fails closed) — a throw from this
+   * component's body escapes to App.tsx's boundary and replaces the whole app
+   * with the Static988Button fallback.
+   */
+  useReConsentTrigger(activeRootRoute);
 
   if (!initialRoute) {
     return <LoadingScreen />;
@@ -294,11 +452,12 @@ const CleanRootNavigator: React.FC = () => {
               onComplete={async (destination) => {
                 await handleOnboardingComplete(destination);
                 // Navigate based on destination
-                if (destination === 'morning') {
+                if (destination === 'practice') {
                   navigation.replace('Main');
-                  // Navigate to MorningFlow after Main is mounted
+                  // Enter the daily loop once Main is mounted. No mode param — the tense is
+                  // inferred from the clock (slice 5).
                   setTimeout(() => {
-                    navigation.navigate('MorningFlow');
+                    navigation.navigate('DailyLoop');
                   }, 100);
                 } else {
                   navigation.replace('Main');
@@ -311,6 +470,79 @@ const CleanRootNavigator: React.FC = () => {
 
         {/* Main App */}
         <Stack.Screen name="Main" component={CleanTabNavigator} />
+
+        {/* FEAT-417 — re-consent after a CONSENT_VERSION bump.
+            Presented over Main by useReConsentTrigger; never an initial route.
+
+            `transparentModal` is load-bearing, NOT cosmetic. It is the only
+            presentation that sets `detachPreviousScreen: false`
+            (@react-navigation/stack CardStack.js:210), which keeps Main MOUNTED
+            underneath — that is the AC's "presents over Main, never replacing
+            the root route". Do not "simplify" it to `modal` on the grounds that
+            the screen is opaque so the transparency is invisible; the mount
+            semantics are the reason, and the screen renders identically.
+
+            🔴 gestureEnabled: false. Every other modal route here sets `true`,
+            so the copy-paste default is WRONG for this screen. ReConsentScreen's
+            contract is an explicit Decline button, always visible, never a
+            swipe-dismiss — a swipe-dismissable card silently defeats it by
+            letting the user leave with no decision recorded either way.
+
+            🔴 headerShown: false, stated explicitly rather than inherited. A
+            header adds a back affordance, which is the same defeat as the swipe.
+
+            988: ReConsent is deliberately NOT in RootCrisisButton's
+            SUPPRESSED_ROUTES and owns no crisis section of its own (founder
+            decision D1), so the root overlay below is its ONLY affordance. It
+            survives because that overlay is a later sibling of this entire
+            Stack.Navigator, and this is a JS stack — so no presentation mode
+            here can paint over it. Pinned by RootCrisisButton.test.tsx. */}
+        <Stack.Screen
+          name="ReConsent"
+          options={{
+            headerShown: false,
+            presentation: 'transparentModal',
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation }) => <ReConsentRoute onDismiss={() => navigation.goBack()} />}
+        </Stack.Screen>
+
+        {/* DEBUG-451 — the explanation for the three fail-closed consent
+            statuses (integrity_error, revoked, under_age). Presented over Main by
+            useReConsentTrigger; never an initial route.
+
+            🔴 WHY THIS IS NOT AN `initialRoute` CHANGE. checkInitialRoute tests
+            `settings?.onboardingCompleted` first and unconditionally, which is
+            what makes the resolved status irrelevant to routing — but that test
+            is CORRECT under this architecture. Main is the right initial route;
+            the missing piece was a trigger-layer handler, not a routing-table
+            entry. Routing these statuses at initialRoute instead would change
+            the root route for a cohort, which DEBUG-418 rejected as the riskiest
+            available fix on the navigator that owns the crisis overlay.
+
+            Every option below is copied from ReConsent deliberately and for the
+            same reasons — `transparentModal` for its `detachPreviousScreen: false`
+            mount semantics, `gestureEnabled: false` and `headerShown: false` so
+            the notice cannot be dismissed without the user pressing its own
+            control. See the ReConsent block above for the full rationale.
+
+            988: ConsentBlocked is deliberately NOT in RootCrisisButton's
+            SUPPRESSED_ROUTES or IMMERSIVE_ROUTES, and owns no crisis section of
+            its own, so the root overlay below is its ONLY affordance — identical
+            to the Main these users come from. Adding it to either set would
+            silently switch 988 off for a cohort already in a fail-closed app.
+            Pinned by __tests__/safety/consentBlockedCrisisReachability.test.tsx. */}
+        <Stack.Screen
+          name="ConsentBlocked"
+          options={{
+            headerShown: false,
+            presentation: 'transparentModal',
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation }) => <ConsentBlockedRoute onDismiss={() => navigation.goBack()} />}
+        </Stack.Screen>
 
         {/* Educational Module Detail */}
         <Stack.Screen
@@ -365,8 +597,47 @@ const CleanRootNavigator: React.FC = () => {
               moduleId={route.params.moduleId}
               duration={route.params.duration}
               title={route.params.title}
+              instructions={route.params.instructions}
+              visualMode={route.params.visualMode}
               onComplete={() => navigation.goBack()}
               onBack={() => navigation.goBack()}
+            />
+          )}
+        </Stack.Screen>
+
+        {/* FEAT-293: standalone practice discoverability. `card` presentation,
+            NOT modal — it is a browsable listing surface, and it must keep the
+            root crisis overlay in its default `standard` mode (hence its
+            deliberate absence from RootCrisisButton's route sets). */}
+        {/* FEAT-433 slice 3a. Deliberately absent from BOTH of RootCrisisButton's
+            route sets (SUPPRESSED_ROUTES and IMMERSIVE_ROUTES), so the root 988
+            overlay renders here in default `standard` mode — the feature ships zero
+            floating UI of its own, so without the overlay it would have no crisis
+            affordance at all. `MUST_RENDER_STANDARD` in RootCrisisButton.test.tsx
+            pins that rather than leaving it safe-by-accident.
+
+            No entry point until FEAT-457 adds the Home affordance: this route is
+            reachable only by an explicit navigate. That unreachability is also why
+            the slice ships unflagged. */}
+        <Stack.Screen
+          name="DomainGuidance"
+          component={DomainGuidanceScreen}
+          options={{ headerShown: true, title: 'Guidance', headerBackTitle: 'Back' }}
+        />
+
+        <Stack.Screen
+          name="PracticeLibrary"
+          options={{ headerShown: false, presentation: 'card' }}
+        >
+          {({ navigation }) => (
+            <PracticeLibraryScreen
+              onBack={() => navigation.goBack()}
+              onOpenPractice={(screen, params) =>
+                navigation.navigate(screen as never, params as never)
+              }
+              onOpenModule={(moduleId) =>
+                navigation.navigate('ModuleDetail', { moduleId })
+              }
             />
           )}
         </Stack.Screen>
@@ -380,7 +651,9 @@ const CleanRootNavigator: React.FC = () => {
           }}
         >
           {({ navigation, route }) => (
-            <SortingPracticeScreen
+            // FEAT-293: routed through the resolving wrapper so scenarios can be
+            // omitted (Practice Library / deep link) and loaded on demand.
+            <SortingPracticeRoute
               practiceId={route.params.practiceId}
               moduleId={route.params.moduleId}
               scenarios={route.params.scenarios}
@@ -452,73 +725,49 @@ const CleanRootNavigator: React.FC = () => {
 
         {/* Check-in Flow Modals */}
         <Stack.Group screenOptions={{ presentation: 'modal' }}>
+
+
+
+          {/* FEAT-283 Slice A: spoken reflection capture. Reached only from the
+              `voice_journal`-flag-gated Profile card. Deliberately NOT added to
+              RootCrisisButton IMMERSIVE_ROUTES — crisis text may be on screen
+              here, so the root crisis affordance must stay reachable. */}
           <Stack.Screen
-            name="MorningFlow"
-            options={{
-              headerShown: false, // MorningFlowNavigator has its own header with progress
-              gestureEnabled: false, // Prevent swipe to dismiss during session
-              animationTypeForReplace: 'push'
-            }}
+            name="VoiceReflection"
+            options={{ headerShown: true, title: 'Reflections' }}
           >
-            {({ navigation }) => (
-              <MorningFlowNavigator
-                onComplete={(sessionData) => {
-                  handleMorningFlowComplete(sessionData);
-                  navigation.goBack();
-                }}
-                onExit={() => {
-                  navigation.goBack();
-                }}
-              />
-            )}
+            {() => <VoiceReflectionScreen />}
           </Stack.Screen>
 
-          <Stack.Screen
-            name="MiddayFlow"
-            options={{
-              headerShown: false, // MiddayFlowNavigator has its own header with progress
-              gestureEnabled: false, // Prevent swipe to dismiss during session
-              animationTypeForReplace: 'push'
-            }}
-          >
-            {({ navigation }) => (
-              <MiddayFlowNavigator
-                onComplete={(sessionData) => {
-                  handleMiddayFlowComplete(sessionData);
-                  navigation.goBack();
-                }}
-                onExit={() => {
-                  navigation.goBack();
-                }}
-              />
-            )}
-          </Stack.Screen>
+          {/* FEAT-287 Slice B: re-read. Registered in THIS group, beside
+              VoiceReflection, deliberately — the group sets
+              `presentation: 'modal'`, and VoiceReflection is the standing proof
+              that this navigator's modal presentation keeps the root crisis
+              overlay (RootCrisisButton.tsx: "VoiceReflection keeps this
+              button"). It is a JS stack, so a modal-presented screen stays in
+              the same view tree; the hazard is an RN <Modal>, which is a
+              separate window, not this option.
 
+              Both are absent from RootCrisisButton's SUPPRESSED_ROUTES and
+              IMMERSIVE_ROUTES, so the overlay paints at full salience. Neither
+              carries its own 988 control: duplicating it is a reverted mistake
+              (crisis-zero-988-windows.test.tsx), not a missing safeguard. Keep
+              both out of linking.ts, as VoiceReflection is. */}
           <Stack.Screen
-            name="EveningFlow"
-            options={{
-              headerShown: false, // EveningFlowNavigator has its own header with progress
-              gestureEnabled: false, // Prevent swipe to dismiss during session
-              animationTypeForReplace: 'push'
-            }}
+            name="JournalHistory"
+            options={{ headerShown: true, title: 'Past reflections' }}
           >
-            {({ navigation }) => (
-              <EveningFlowNavigator
-                onComplete={(sessionData) => {
-                  handleEveningFlowComplete(sessionData);
-                  navigation.goBack();
-                }}
-                onExit={() => {
-                  navigation.goBack();
-                }}
-                // FEAT-134: Pass recordPrincipleEngagement for Insights dashboard
-                recordPrincipleEngagement={recordPrincipleEngagement}
-              />
-            )}
+            {() => <JournalHistoryScreen />}
+          </Stack.Screen>
+          <Stack.Screen
+            name="JournalEntryDetail"
+            options={{ headerShown: true, title: 'Reflection' }}
+          >
+            {() => <JournalEntryDetailScreen />}
           </Stack.Screen>
 
           {/* FEAT-291: Daily Loop prototype — reached only from the Home
-              `daily_loop`-flag-gated card. One nested navigator → inherits the single
+              Home's single Daily Practice card. One nested navigator → inherits the single
               root crisis overlay (DailyLoop is in RootCrisisButton IMMERSIVE_ROUTES). */}
           <Stack.Screen
             name="DailyLoop"
@@ -531,6 +780,7 @@ const CleanRootNavigator: React.FC = () => {
             {({ navigation, route }) => (
               <DailyLoopNavigator
                 mode={route.params?.mode}
+                depth={route.params?.depth}
                 onComplete={(sessionData) => {
                   handleDailyLoopComplete(sessionData);
                   navigation.goBack();
@@ -642,7 +892,53 @@ const CleanRootNavigator: React.FC = () => {
             Stack.Navigator (JS stack → renders above stack modals too), so 988 access
             is guaranteed on every screen/step and can't regress per-screen. Mode +
             suppression are driven by the active root-stack route. */}
-        <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
+        {/*
+          DEBUG-341: the overlay gets its OWN boundary, nested inside the root one in
+          App.tsx. CollapsibleCrisisButton pulls in reanimated shared values,
+          GestureDetector, AccessibilityInfo and the vector-icon package — a throw in any
+          of them would otherwise propagate to the root boundary and blank the entire app,
+          when the correct degradation is to lose only the animated button and keep
+          everything else. React's nearest-boundary semantics make this one win.
+
+          Its fallback is the same Static988Button, so the user still has a working dial
+          control exactly where the crisis button used to be.
+        */}
+        {/*
+          DEBUG-406 — full-screen overlays render HERE, and the ordering is the
+          whole point.
+
+          This slot is a sibling of the Stack.Navigator, so an overlay's
+          `position: 'absolute'` inset-0 resolves against the screen rather than
+          against whatever card or ScrollView happens to contain the component
+          that owns it. And because siblings paint in JSX order, an overlay in
+          this slot CANNOT paint above the crisis button below it — not by
+          convention, by construction.
+
+          Do NOT move this after <RootCrisisBoundary>. That single reordering
+          would reintroduce, for every overlay at once, the exact
+          zero-988-affordance state DEBUG-403 and DEBUG-406 were filed to remove.
+        */}
+        <RootOverlaySlot />
+
+        <RootCrisisBoundary>
+          <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
+        </RootCrisisBoundary>
+
+        {/* DEBUG-450 — the crisis affordance for when a software keyboard occludes the
+            root button. Mounted ONCE: RN registers InputAccessoryView content by
+            nativeID app-wide, so every TextInput spreading crisisAccessoryProps() reaches
+            this single instance.
+
+            ADDITIVE, and a SIBLING of RootCrisisButton rather than a replacement for it.
+            Neither control suppresses the other — coordinating them would be a fourth
+            instance of the two-list reconciliation failure CLAUDE.md names for
+            features/guidance/ and features/consent/.
+
+            Deliberately OUTSIDE RootCrisisBoundary: that boundary's fallback renders
+            Static988Button, which dials directly and needs no keyboard. Nesting this
+            inside would tie a keyboard-only affordance to a crash-recovery surface that
+            has no TextInput. */}
+        <CrisisKeyboardAccessory />
       </View>
     </NavigationContainer>
   );
@@ -669,7 +965,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.regular,
-    color: '#1C1C1C',
+    color: semantic.text.primary,
   },
 });
 

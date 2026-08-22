@@ -1,6 +1,6 @@
 {
   "cli": {
-    "version": ">= 12.14.1",
+    "version": ">=21.6.0 <22.0.0",
     "appVersionSource": "remote",
     "requireCommit": true
   },
@@ -74,7 +74,8 @@
         "buildConfiguration": "Release"
       },
       "env": {
-        "EXPO_PUBLIC_E2E_SEED_ONBOARDED": "true"
+        "EXPO_PUBLIC_E2E_SEED_ONBOARDED": "true",
+        "EXPO_PUBLIC_FEATURE_FLAGS": "cloud_sync:false,emergency_sync:false,cross_device_sync:false,wellness_trend_notes:false,data_export:false,bug_reporting:true,practice_haptics:false,voice_journal:true,domain_guidance:true"
       }
     },
     "production-emergency": {

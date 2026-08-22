@@ -39,8 +39,8 @@ import {
 } from '@/core/theme/accessibility';
 import { typography, colorSystem } from '@/core/theme';
 
-/** Flow theme type for theme-aware styling */
-type FlowTheme = 'morning' | 'midday' | 'evening';
+/** Flow theme type for theme-aware styling (FEAT-298 slice 1: canonical declaration) */
+import type { FlowType as FlowTheme } from '@/core/types/practice-identity';
 
 export interface AccessibleButtonProps {
   /** Button press handler */

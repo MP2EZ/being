@@ -18,11 +18,23 @@ import {
   Pressable,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
 } from 'react-native';
+/**
+ * MAINT-437 — `edges` applies to all 1 SafeAreaView root(s) in this file.
+ *
+ * Root-stack card with `headerShown: false`: no navigator supplies either
+ * inset, which is what RN core's iOS-only SafeAreaView already did here — so iOS
+ * rendering is unchanged by construction and the whole behavioural delta is Android.
+ *
+ * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
+ * are never listed. NOTE: no test in this repo can observe an `edges` value having
+ * a layout effect — the jest mock pins all insets to zero. The rendered result is
+ * verified by MAINT-437's deferred Android/iOS device pass.
+ */
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { ModuleId } from '@/features/learn/types/education';
 import type { PassageAuthor } from '@/features/library/types/library';
@@ -73,7 +85,7 @@ const ClassicalLibraryScreen: React.FC = () => {
   );
 
   return (
-    <SafeAreaView style={styles.safeArea} testID="classical-library-screen">
+    <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea} testID="classical-library-screen">
       <View style={{ flex: 1 }}>
         <View style={styles.container}>
           {/* Header */}
@@ -230,7 +242,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   scroll: {
@@ -243,7 +255,7 @@ const styles = StyleSheet.create({
   filterLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing[8],
@@ -272,7 +284,7 @@ const styles = StyleSheet.create({
   chipText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
   },
   chipTextSelected: {
     color: colorSystem.base.white,
@@ -283,7 +295,7 @@ const styles = StyleSheet.create({
   },
   empty: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     paddingVertical: spacing[32],
   },
@@ -305,11 +317,11 @@ const styles = StyleSheet.create({
   rowCitation: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
   },
   rowText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     lineHeight: 22,
   },
   rowPrinciple: {

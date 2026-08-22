@@ -30,9 +30,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const CONFIRM_WORD = 'DELETE';
 
@@ -85,7 +86,23 @@ const DeleteAccountScreen: React.FC = () => {
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']} testID="delete-account-screen">
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        testID="delete-account-scroll"
+        // DEBUG-480 companion. Same shape as VoiceReflectionScreen: delete-error
+        // renders between delete-confirm-input and delete-account-button and
+        // pushes the button down, while the keyboard is necessarily up — the user
+        // has just typed the confirmation word.
+        //
+        // This is a DATA-SUBJECT-RIGHT access fix, not polish. This screen's own
+        // header cites CCPA / TDPSA / VCDPA / CPA / GDPR Art. 17; a confirm button
+        // that is occluded or whose first tap is swallowed is a functional
+        // obstruction of the right to erasure.
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <Text style={styles.heading}>Delete account & wellness data</Text>
         <Text style={styles.lead}>
           This permanently erases your account and on-device wellness data. It cannot be undone.
@@ -110,6 +127,7 @@ const DeleteAccountScreen: React.FC = () => {
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Type {CONFIRM_WORD} to confirm</Text>
           <TextInput
+            {...crisisAccessoryProps()} /* DEBUG-450 */
             style={styles.input}
             value={confirmText}
             onChangeText={setConfirmText}
@@ -166,13 +184,13 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   lead: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[24],
   },
@@ -182,7 +200,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[12],
   },
   card: {
@@ -198,14 +216,14 @@ const styles = StyleSheet.create({
   },
   bulletDot: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginRight: spacing[8],
   },
   bulletText: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   infoBox: {
@@ -219,7 +237,7 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   input: {
@@ -230,7 +248,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[12],
     paddingHorizontal: spacing[16],
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   errorText: {
     fontSize: typography.bodySmall.size,

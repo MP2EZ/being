@@ -10,7 +10,7 @@
 
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 
 interface PracticeScreenHeaderProps {
   title: string;
@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.headline3.weight as any,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     flex: 1,
     marginHorizontal: spacing[8],
@@ -98,7 +98,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
 });
 

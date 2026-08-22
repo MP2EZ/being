@@ -1,0 +1,307 @@
+name: Main Branch Health
+
+# Detects that `main` can no longer pass its own audit gate.
+#
+# THE FAILURE BEING GUARDED IS "no release ran".
+#
+# Every audit remediation lands on `development`. `main` only receives them
+# when a release PR merges. Between releases `main`'s dependency posture is
+# frozen while the advisory database keeps moving, so `main` drifts red on its
+# own — with no commit, no PR, and nothing looking. It is then discovered by
+# the first person to cut a `hotfix/*`, which by definition happens under time
+# pressure. That is INFRA-452: verified 2026-08-15 on a hotfix branch whose
+# diff touched only supabase/functions/ and no dependency at all, yet failed
+# `Security + compliance` on three advisories.
+#
+# WHY A SEPARATE WORKFLOW AND NOT A JOB IN ci.yml — same argument as
+# legal-site-freshness.yml, and two mechanical reasons on top:
+#
+#   1. A gate wired into ci.yml's `ci-pass` must appear in FOUR hand-synced
+#      lists (needs / add / echo / the condition), asserted by
+#      app/scripts/check-ci-test-coverage.js. A schedule-gated job would
+#      resolve to `skipped` on every PR run, and ci-pass tests `!= "success"`
+#      — so it would red-gate every PR in the repo.
+#   2. ci.yml sets `concurrency: cancel-in-progress: true` keyed on the ref.
+#      A push to development mid-scheduled-run would cancel this probe, which
+#      is the exact hazard ci.yml documents at length in its own notifier
+#      region.
+#
+# WHY `schedule` CAN WATCH `main` AT ALL. GitHub fires `schedule` only on the
+# DEFAULT branch, and this repo's default is `development` (INFRA-145: `main`
+# is the last-shipped state, `development` is the integration branch). So this
+# file is maintained on `development` and reaches `main` only through the
+# `ref: main` checkout below. That is deliberate and load-bearing: the probe
+# protects `main` WITHOUT itself needing to be released, which is the whole
+# problem it exists to detect.
+#
+# SCOPE — the audit gate ONLY, and this is principled rather than merely cheap.
+# Nine of ci.yml's ten gates are pure functions of the tree: they cannot change
+# verdict without a commit, and a release PR plus its post-merge push run
+# exercises all ten on `main` at every release. `Security + compliance` is the
+# only gate that is a function of tree × a time-varying EXTERNAL advisory
+# database. app/.audit-ci.json's own log records four advisory-side events in
+# three weeks that red-gated an unchanged tree. So the between-release gap is
+# exactly this gate, and this probe covers exactly it.
+#
+# WHAT THIS PROBE DOES NOT COVER — say it here so no future reader assumes
+# coverage that is not present. `main`'s .github/workflows/ is separately stale
+# (retired workflows still active there, an older NODE_VERSION, and a
+# job-list that differs from development's). A pull_request into `main` runs
+# MAIN's ci.yml, not this repo's current one, so a green probe does NOT by
+# itself prove a hotfix PR will pass. Those gaps are tracked as INFRA-458 and
+# INFRA-459.
+#
+# THIS PROBE STILL CANNOT OBSERVE ITS OWN SILENCE, but something else now does:
+# INFRA-460 added a liveness cross-check as a step in ci.yml's `ci-pass` job,
+# which alarms if this workflow is disabled, deleted, or produces no scheduled
+# run for over 48h. It files under this workflow's own `main-branch-health`
+# label but a DISTINCT `<!-- main-branch-health-liveness-tracker -->` marker —
+# the recovery step below closes any open issue matching label + marker with no
+# control discriminator, so a shared marker would have each control closing the
+# other's alarm. Do not align the two markers.
+#
+# That chain terminates there. The cross-check rides ci.yml's own schedule, and
+# GitHub's 60-day-inactivity auto-disable is repo-wide, so it is independent of
+# this probe only for a probe-scoped disable, delete, or cron hiccup. Covering
+# non-execution of the outermost control needs an external dead-man's switch
+# (INFRA-296).
+
+on:
+  schedule:
+    # Daily at 11:00 UTC. Offset from ci.yml + supabase-keepalive (09:00) and
+    # legal-site-freshness (13:00) so a failure here is not buried in a batch
+    # of unrelated scheduled runs.
+    - cron: '0 11 * * *'
+  workflow_dispatch:
+  # DELIBERATELY NO `pull_request` TRIGGER, unlike legal-site-freshness.yml.
+  # `main` is red RIGHT NOW, so a self-test run would hang a permanently
+  # failing check row on the very PR that introduces this file — and /b-close
+  # reads statusCheckRollup to decide merge readiness, so that row would be
+  # indistinguishable from a real regression. Verification is a post-merge
+  # `gh workflow run main-branch-health.yml` instead (see the PR body).
+
+concurrency:
+  group: main-branch-health
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  issues: write
+
+env:
+  # Keep in sync with ci.yml. GitHub Actions has no cross-workflow env sharing,
+  # so this is a manual mirror. Note this is the Node that RUNS the probe; it is
+  # deliberately not main's own NODE_VERSION (still '20'), because the probe
+  # executes development's logic against main's lockfile, not main's workflow.
+  NODE_VERSION: '24'
+
+jobs:
+  audit:
+    name: main passes its own audit gate
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout main
+        uses: actions/checkout@v5
+        with:
+          # THE POINT OF THIS FILE. A scheduled run's checkout defaults to the
+          # triggering ref, which is always `development` — an unqualified
+          # checkout here would silently re-audit the branch that already
+          # passes and report green forever.
+          ref: main
+          # fetch-depth 1 is sufficient: the main↔development distance is read
+          # from the compare API in the notifier, never from local git history.
+          fetch-depth: 1
+
+      - name: Set up Node
+        uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          # No `cache:` — nothing is installed. See the next step.
+
+      - name: Audit main's lockfile against its own allowlist
+        id: audit
+        # continue-on-error so BOTH the notifier and the recovery step can be
+        # evaluated in one job. ci.yml needs two jobs and an `exit 1` to get
+        # the same effect; a single-job workflow can do it with this flag plus
+        # the explicit exit at the end.
+        continue-on-error: true
+        working-directory: app
+        shell: bash
+        run: |
+          set -uo pipefail
+          # NO `npm ci`, NO node_modules, NO private-registry auth.
+          #
+          # `npm audit` builds its dependency tree from package-lock.json, and
+          # for a `npm ci` install that tree is identical BY CONSTRUCTION — ci
+          # installs exactly the lockfile and cannot rewrite it. So auditing
+          # the lockfile alone is faithful to what CI would find, while
+          # skipping the ~2min install and the app/.npmrc GITHUB_TOKEN dance
+          # that the private @mp2ez/being-design-system package would
+          # otherwise require. Measured: ~30s.
+          #
+          # Pin to the version MAIN declares, not `latest`. main's own security
+          # job runs `npx audit-ci` with node_modules present, which resolves
+          # its local devDependency; without node_modules a bare `npx audit-ci`
+          # would fetch the newest release and could differ in verdict. Reading
+          # the spec from main's package.json keeps this byte-faithful and
+          # fails loudly if audit-ci ever leaves main's devDependencies.
+          SPEC="$(node -p "require('./package.json').devDependencies['audit-ci'] || ''")"
+          if [ -z "$SPEC" ]; then
+            echo "::error::audit-ci is not in main's devDependencies — this probe no longer mirrors main's security job."
+            exit 1
+          fi
+          echo "Auditing main with audit-ci@${SPEC}"
+          npx --yes "audit-ci@${SPEC}" --config .audit-ci.json 2>&1 | tee "$RUNNER_TEMP/audit.txt"
+          # tee always exits 0; the audit's own status is what matters.
+          exit "${PIPESTATUS[0]}"
+
+      # Notifier runs BEFORE the exiting step below — the ordering lesson
+      # ci.yml spells out in its own notifier region. Errors are swallowed to a
+      # warning: a notifier hiccup must never be the reason this run is red,
+      # because that would misattribute the failure.
+      - name: Open or update main-branch-health issue
+        if: steps.audit.outcome == 'failure'
+        uses: actions/github-script@v8
+        continue-on-error: true
+        with:
+          script: |
+            const fs = require('fs');
+            // OWN marker and OWN label. NEVER INFRA-362's '<!-- ci-health-tracker -->'
+            // or its 'ci-health' label. That notifier is a repo-wide SINGLETON:
+            // both its open-on-fail and close-on-recovery steps select purely by
+            // `labels:'ci-health'` plus one hardcoded marker, with no branch or
+            // control discriminator. Sharing identity would mean development's
+            // recovery step closing THIS control's issue while main is still red,
+            // and symmetrically this control's recovery clearing development's
+            // live alarm. Each would silently dismiss the other's.
+            const MARKER = '<!-- main-branch-health-tracker -->';
+            const LABEL = 'main-branch-health';
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const today = new Date().toISOString().slice(0, 10);
+
+            let advisories = '(audit output unavailable)';
+            try {
+              advisories = fs.readFileSync(`${process.env.RUNNER_TEMP}/audit.txt`, 'utf8').trim();
+              if (advisories.length > 3000) advisories = `…\n${advisories.slice(-3000)}`;
+            } catch (e) {
+              core.warning(`could not read audit output: ${e.message}`);
+            }
+
+            // How far main has fallen behind. This is the line that turns the
+            // alert into an action, so it is worth the one extra API call.
+            // basehead 'main...development' => base=main, head=development, so
+            // `ahead_by` is the count of commits development has that main does
+            // not — i.e. how far main is behind. (behind_by would be the
+            // opposite direction; do not swap these.)
+            let lag = '';
+            try {
+              const cmp = await github.rest.repos.compareCommitsWithBasehead({
+                owner, repo, basehead: 'main...development',
+              });
+              lag = `- \`main\` is **${cmp.data.ahead_by} commits behind** \`development\`.\n`;
+            } catch (e) {
+              core.warning(`compareCommitsWithBasehead: ${e.message}`);
+            }
+
+            // Ensure the label exists first. issues.create with an unknown
+            // label 422s, which would make this notifier fail silently on its
+            // very first real firing — the lesson INFRA-362 recorded.
+            try {
+              await github.rest.issues.createLabel({
+                owner, repo, name: LABEL, color: 'D93F0B',
+                description: 'main cannot pass its own audit gate (INFRA-452)',
+              });
+            } catch (e) {
+              if (e.status !== 422) core.warning(`createLabel: ${e.message}`);
+            }
+
+            // listForRepo is strongly consistent. Deliberately NOT the search
+            // API, whose index lags ~1min — a day-2 run could miss day-1's
+            // issue and open a duplicate.
+            const existing = (await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL, per_page: 100,
+            })).data.find(i => (i.body || '').includes(MARKER));
+
+            const body = [
+              MARKER,
+              '**`main` cannot pass its own `Security + compliance` gate.**',
+              '',
+              'Any PR into `main` — including a `hotfix/*` — will fail regardless of its diff.',
+              'The documented emergency path is unusable until this clears.',
+              '',
+              lag + `- Commit audited: \`${context.sha.slice(0, 8)}\``,
+              `- Run: ${runUrl}`,
+              `- Detected: ${today}`,
+              '',
+              '**Carrier: a release.** Audit remediations land on `development` and reach',
+              '`main` only through a release PR (`/b-release`). Allowlist-only changes to',
+              '`app/.audit-ci.json` are separately hotfix-eligible — they touch no dependency',
+              'resolution and leave the lockfile byte-identical. Changes to `overrides` are',
+              'NOT: they require regenerating `main`\'s own lockfile. See',
+              '`docs/emergency-deployment-triggers.md`.',
+              '',
+              '⚠️ Never `npm audit fix` — it bumps past the `expo-modules-jsi@56.0.7` patch',
+              'pin and breaks `npm ci` repo-wide.',
+              '',
+              '<details><summary>audit-ci output</summary>',
+              '',
+              '```',
+              advisories,
+              '```',
+              '',
+              '</details>',
+            ].join('\n');
+
+            if (existing) {
+              await github.rest.issues.createComment({
+                owner, repo, issue_number: existing.number, body,
+              });
+              core.notice(`Updated main-branch-health issue #${existing.number}`);
+            } else {
+              const created = await github.rest.issues.create({
+                owner, repo,
+                title: `main branch CI health failing (${today}) — audit gate`,
+                labels: [LABEL],
+                body,
+              });
+              core.notice(`Opened main-branch-health issue #${created.data.number}`);
+            }
+
+      - name: Close main-branch-health issue on recovery
+        if: steps.audit.outcome == 'success'
+        uses: actions/github-script@v8
+        continue-on-error: true
+        with:
+          script: |
+            const MARKER = '<!-- main-branch-health-tracker -->';
+            const LABEL = 'main-branch-health';
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+
+            const existing = (await github.rest.issues.listForRepo({
+              owner, repo, state: 'open', labels: LABEL, per_page: 100,
+            })).data.find(i => (i.body || '').includes(MARKER));
+
+            if (!existing) return;
+
+            await github.rest.issues.createComment({
+              owner, repo, issue_number: existing.number,
+              body: `✅ \`main\` passes its audit gate again as of \`${context.sha.slice(0, 8)}\`. ${runUrl}`,
+            });
+            await github.rest.issues.update({
+              owner, repo, issue_number: existing.number, state: 'closed',
+            });
+            core.notice(`Closed main-branch-health issue #${existing.number}`);
+
+      # Make the run row red too. The issue is the routed signal, but a run row
+      # is what a human scanning the Actions tab actually sees, and it is
+      # git-visible history. Expect this to stand red between releases — that
+      # is the control working, not noise.
+      - name: Fail the run if main is red
+        if: steps.audit.outcome == 'failure'
+        run: |
+          echo "::error::main cannot pass its own audit gate — see the main-branch-health issue."
+          exit 1

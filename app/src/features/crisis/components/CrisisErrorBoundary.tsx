@@ -32,6 +32,8 @@ import {
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+// DEBUG-341: one-tap 988 on the branch that actually renders.
+import Static988Button from './Static988Button';
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 
 interface CrisisErrorBoundaryProps {
@@ -321,9 +323,32 @@ export class CrisisErrorBoundary extends Component<
             {/* Crisis support - always first priority */}
             <View style={styles.actionGroup}>
               <Text style={styles.actionGroupTitle}>🚨 Crisis Support (24/7)</Text>
+              {/*
+                CORRECTED (INFRA-297). This previously read "Use the crisis button
+                at the top of your screen for immediate support," which was false
+                twice over in this branch:
+                  1. No crisis button was on screen. This boundary replaced its
+                     children, and RootCrisisButton suppresses the root overlay on
+                     'AssessmentFlow' — the only route this boundary wraps. So the
+                     copy pointed at a control that did not exist.
+                  2. The button is bottom-right, not "at the top".
+                RootCrisisButton's own header claims this boundary "keeps its OWN
+                CollapsibleCrisisButton … the last-resort 988 access when a render
+                crash removes this root-mounted overlay". That claim was only true
+                of the fallbackComponent branch, which no caller uses. The button
+                below makes it true for the branch that actually renders.
+              */}
               <Text style={styles.crisisNotice}>
-                Use the crisis button at the top of your screen for immediate support.
+                Tap the support button below to call or text a crisis line now.
               </Text>
+              {/*
+                DEBUG-341: INFRA-297 made this branch's 988 access real, but it is an
+                Alert — two taps, and transient. A person in acute distress on a crash
+                screen should reach 988 in ONE tap, and should still see the digits after
+                dismissing anything. Static988Button is added ABOVE the Alert route (which
+                is kept: it also offers 911 and Text, which this does not replace).
+              */}
+              <Static988Button />
               <Pressable
                 style={styles.emergencyButton}
                 onPress={this.handleEmergencyIntervention}

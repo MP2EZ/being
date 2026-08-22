@@ -16,11 +16,23 @@ import {
   Pressable,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
 } from 'react-native';
+/**
+ * MAINT-437 — `edges` applies to all 2 SafeAreaView root(s) in this file.
+ *
+ * Root-stack card with `headerShown: false`: no navigator supplies either
+ * inset, which is what RN core's iOS-only SafeAreaView already did here — so iOS
+ * rendering is unchanged by construction and the whole behavioural delta is Android.
+ *
+ * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
+ * are never listed. NOTE: no test in this repo can observe an `edges` value having
+ * a layout effect — the jest mock pins all insets to zero. The rendered result is
+ * verified by MAINT-437's deferred Android/iOS device pass.
+ */
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { PRINCIPLE_LABELS } from '@/features/library/types/library';
 import { getPassageById } from '@/core/services/passagesContent';
@@ -47,7 +59,7 @@ const PassageReaderScreen: React.FC = () => {
   const renderBody = () => {
     if (!passage) return null;
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={{ flex: 1 }}>
           <View style={styles.container}>
             <View style={styles.header}>
@@ -131,7 +143,7 @@ const PassageReaderScreen: React.FC = () => {
 
   if (!passage) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Passage not found.</Text>
           <TouchableOpacity style={styles.errorButton} onPress={() => navigation.goBack()}>
@@ -177,12 +189,12 @@ const styles = StyleSheet.create({
   author: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   citation: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   divider: {
     height: 1,
@@ -222,14 +234,14 @@ const styles = StyleSheet.create({
   contextLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing[8],
   },
   contextText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   groundsSection: {
@@ -238,7 +250,7 @@ const styles = StyleSheet.create({
   groundsLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing[8],
@@ -275,7 +287,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
   },
   errorButton: {

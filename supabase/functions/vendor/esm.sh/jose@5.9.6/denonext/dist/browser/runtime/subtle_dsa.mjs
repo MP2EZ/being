@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/dist/browser/runtime/subtle_dsa */
+import{JOSENotSupported as s}from"../../../errors.mjs";function r(e,S){let a=`SHA-${e.slice(-3)}`;switch(e){case"HS256":case"HS384":case"HS512":return{hash:a,name:"HMAC"};case"PS256":case"PS384":case"PS512":return{hash:a,name:"RSA-PSS",saltLength:e.slice(-3)>>3};case"RS256":case"RS384":case"RS512":return{hash:a,name:"RSASSA-PKCS1-v1_5"};case"ES256":case"ES384":case"ES512":return{hash:a,name:"ECDSA",namedCurve:S.namedCurve};case"EdDSA":return{name:S.name};default:throw new s(`alg ${e} is not supported either by JOSE or your javascript runtime`)}}export{r as default};
+//# sourceMappingURL=subtle_dsa.mjs.map

@@ -395,9 +395,10 @@ describe('DeepLinkValidationService', () => {
     it('should map paths to correct screens', () => {
       const pathMappings = [
         { path: 'being://main', expectedScreen: 'Main' },
-        { path: 'being://morning', expectedScreen: 'MorningFlow' },
-        { path: 'being://midday', expectedScreen: 'MiddayFlow' },
-        { path: 'being://evening', expectedScreen: 'EveningFlow' },
+        // FEAT-298 slice 6c: the three time-of-day routes are retired. Their PATHS stay
+        // allow-listed (see below) so links in the wild validate and land softly on Main
+        // rather than being logged as security-blocked — but they map to no screen.
+        { path: 'being://daily', expectedScreen: 'DailyLoop' },
         { path: 'being://crisis', expectedScreen: 'CrisisResources' },
         { path: 'being://subscription', expectedScreen: 'Subscription' },
       ];

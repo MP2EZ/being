@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/dist/browser/lib/is_object */
+function o(t){return typeof t=="object"&&t!==null}function r(t){if(!o(t)||Object.prototype.toString.call(t)!=="[object Object]")return!1;if(Object.getPrototypeOf(t)===null)return!0;let e=t;for(;Object.getPrototypeOf(e)!==null;)e=Object.getPrototypeOf(e);return Object.getPrototypeOf(t)===e}export{r as default};
+//# sourceMappingURL=is_object.mjs.map

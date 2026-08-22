@@ -23,7 +23,7 @@
  * - Screen reader announcements via Timer
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import {
   View,
   Text,
@@ -34,12 +34,18 @@ import {
   useTimerPractice,
   sharedPracticeStyles,
   colorSystem,
+  semantic,
   spacing,
   typography,
   borderRadius,
   type ModuleId,
 } from '@/features/learn/practices/shared/practiceCommon';
 import Timer from '@/features/practices/shared/components/Timer';
+import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
+import { useHapticsOptIn } from '@/features/practices/shared/haptics/useHapticsOptIn';
+import { HapticsOptInPrompt } from '@/features/practices/shared/components/HapticsOptInPrompt';
+import { intervalSchedule } from '@/features/practices/shared/haptics/cueScheduler';
+import { usePracticeSettings } from '@/core/stores/settingsStore';
 
 interface ReflectionTimerScreenProps {
   practiceId: string;
@@ -81,8 +87,52 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
     handleTimerComplete,
   } = useTimerPractice({
     duration,
-    onComplete: markComplete,
+    // FEAT-311: reached only by the timer running out, so an abandoned
+    // reflection stays silent.
+    onComplete: () => {
+      emitSessionEnd();
+      markComplete();
+    },
   });
+
+  /**
+   * Interval haptic cues (FEAT-285).
+   *
+   * OFF unless the practitioner has separately opted into interval cadence —
+   * turning the master haptics toggle on must not, by itself, start pulsing at
+   * someone mid-contemplation. Every pulse is identical: no halfway marker, no
+   * near-end escalation. An escalating cue turns resting into counting down,
+   * which is the opposite of what a reflection timer is for.
+   */
+  const practiceSettings = usePracticeSettings();
+  const intervalCues = useMemo(
+    () =>
+      practiceSettings?.practiceHapticsInterval === 'minute'
+        ? intervalSchedule(duration * 1000, 60_000)
+        : [],
+    [practiceSettings?.practiceHapticsInterval, duration]
+  );
+
+  /**
+   * FEAT-311: the session anchors ride the MASTER toggle, NOT the interval
+   * opt-in above. Two markers bounding the practice are a different thing from
+   * a cadence inside it — the separate interval consent exists so that enabling
+   * haptics does not start pulsing at someone mid-contemplation, and that
+   * reasoning does not extend to "begun" and "complete".
+   *
+   * This is also why the anchors cannot ride the scheduler: `intervalCues` is
+   * an EMPTY array by default, and the scheduler effect early-returns on it.
+   */
+  const { emitSessionEnd } = usePracticeHaptics({
+    schedule: intervalCues,
+    isActive: isTimerActive,
+    sessionAnchors: true,
+  });
+
+  // FEAT-385: the once-ever haptics opt-in. `useHapticsOptIn` owns the claim
+  // across all three practice screens, so this renders on at most one of them,
+  // at most once ever — see its module note for the async-write window.
+  const { shouldPrompt: shouldPromptHaptics, onChoose: onChooseHaptics } = useHapticsOptIn();
 
   // Stable pause/resume handlers so the memoized Timer is not re-rendered
   // by new inline closures on every parent render.
@@ -100,6 +150,9 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
       title={title}
       onBack={onBack || (() => {})}
       scrollable={true}
+      overlay={
+        shouldPromptHaptics ? <HapticsOptInPrompt onChoose={onChooseHaptics} /> : undefined
+      }
       testID={testID}
     >
       {/* Always-Visible Full Instructions */}
@@ -208,7 +261,7 @@ const styles = StyleSheet.create({
   },
   contemplationText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: spacing[24],
     paddingHorizontal: spacing[16],

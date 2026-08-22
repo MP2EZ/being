@@ -49,6 +49,62 @@ const SUPABASE_KEY = env.EXPO_PUBLIC_SUPABASE_KEY;
 // INFRA-260: USER_ID / DEVICE_ID identity keys removed — identity is now the
 // Supabase anonymous session (persisted in expo-secure-store via the chunking
 // adapter), not a device-hash row id cached in AsyncStorage.
+/**
+ * DEBUG-413 — the instant the backlog-suppression fix shipped, in epoch ms (UTC).
+ *
+ * Crisis events queued STRICTLY BEFORE this are dropped at load rather than flushed.
+ *
+ * WHY AN ABSOLUTE INSTANT AND NOT A RELATIVE AGE. The semantic wanted is precisely
+ * "enqueued by a build that predates this fix", which is a fixed point in time. A
+ * relative rule ("drop anything older than N days") reads as the safer, more general
+ * choice and is the opposite: it would keep discarding legitimately-late vital-interest
+ * events forever, contradicting the never-drop invariant the whole enqueue design rests
+ * on. This constant fires once per device and then never matches again.
+ *
+ * WHY DROPPING IS THE RIGHT CALL HERE (founder decision, /b-batch 2026-08-14). Until
+ * DEBUG-409 landed, `flushCrisisAnalytics` early-returned on `!this.client` for every
+ * device that had not opened Profile → Cloud Backup, so essentially every crisis event
+ * ever emitted is still sitting queued — `public.analytics_events` held exactly ONE row,
+ * of any type, ever. But `enqueued_at` is captured and then DROPPED by the flush
+ * projection, and `created_at` defaults to `NOW()`, so flushing that backlog stamps
+ * months-old events with today's date. At this volume (pre-launch: founder devices plus a
+ * small TestFlight cohort, and a mix dominated by synthetic QA triggering rather than
+ * real distress) the backlog has no evidentiary value and actively poisons what it would
+ * inform — it seeds the INFRA-219 alerter's 7-day trailing baseline with dev-generated
+ * events and puts a false spike in `crisis_detection_daily`.
+ *
+ * The alternative — carrying `enqueued_at` through as a real event time — is the better
+ * long-term shape and is deliberately NOT done here: it is a schema change against the
+ * single shared live project with no down-migration, in the same risk class INFRA-379 is
+ * currently parked over.
+ *
+ * KNOWN RESIDUAL, filed rather than silently absorbed: this fixes the one-time backlog
+ * and leaves the underlying `NOW()` behaviour intact, so a post-fix device that is
+ * offline for three weeks still stamps three-week-old crises with today's date.
+ */
+export const PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS = Date.UTC(2026, 7, 14);
+
+/**
+ * DEBUG-413 — is a persisted crisis row from a build that carries the fix?
+ *
+ * A row exactly AT the cutoff is KEPT: the boundary belongs to the fix, and dropping it
+ * would discard an event a fixed build could have enqueued in that same millisecond.
+ *
+ * An UNDATABLE row (missing / null / non-numeric / NaN `enqueued_at`) is treated as
+ * pre-fix and dropped. This is unreachable in practice — `git log -S enqueued_at` bottoms
+ * out at the same commit that introduced `trackCrisisDetection` (INFRA-214), so no build
+ * ever wrote a crisis row without it — but the fallback direction matters: a row that
+ * cannot be shown to be post-fix cannot be shown to be safe to stamp with `NOW()`, which
+ * is the entire failure this suppression exists to prevent. Note `NaN >= x` is false, so
+ * NaN would fall the right way regardless; the explicit test is there so the intent
+ * survives a future refactor rather than resting on an IEEE-754 accident.
+ */
+function isPostFixCrisisEvent(e: any): boolean {
+  const t = e?.enqueued_at;
+  if (typeof t !== 'number' || !Number.isFinite(t)) return false;
+  return t >= PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS;
+}
+
 const STORAGE_KEYS = {
   LAST_SYNC: '@being/supabase/last_sync',
   OFFLINE_QUEUE: '@being/supabase/offline_queue',
@@ -117,6 +173,37 @@ class SupabaseService {
     session_id: string;
     enqueued_at: number;
   }> = [];
+  /**
+   * DEBUG-335: serializes EVERY write to CRISIS_ANALYTICS_QUEUE — the enqueue write,
+   * the post-flush truncation write, and the startup-load merge. `null` means idle.
+   * Without one chain, two writers can serialize different snapshots concurrently and
+   * the older one can land last, erasing an event from the sole crisis audit sink.
+   */
+  private crisisPersistTail: Promise<void> | null = null;
+  /** DEBUG-335: a durable write failed; retry it on the next flush rather than lose it. */
+  private crisisPersistDirty = false;
+  /**
+   * DEBUG-409: single-flight guard for client construction. `null` means idle.
+   *
+   * Load-bearing, not defensive polish. Once a client can be created off the crisis
+   * path, the boot bootstrap and a concurrently-firing detection would otherwise BOTH
+   * call `createClient`. Two SupabaseClients sharing `createSecureStoreSessionAdapter()`
+   * both run `autoRefreshToken` against one rotating refresh-token chain and revoke each
+   * other's session — auth.uid() goes null mid-session, the exact failure the INFRA-260
+   * comment below warns about. Exactly one construction, ever.
+   */
+  private clientInitPromise: Promise<void> | null = null;
+  /**
+   * DEBUG-409: re-entrancy guard for flushCrisisAnalytics.
+   *
+   * There was none, and until this item there did not need to be: `!this.client`
+   * returned early for essentially every user, so concurrency was unreachable. With a
+   * client on the default path THREE flush sites overlap routinely — initialize()'s,
+   * the per-detection one, and the AppState-active one. Each snapshots `pending` and
+   * then truncates with `slice(pending.length)`, which both duplicates rows server-side
+   * AND discards events enqueued during a concurrent flight.
+   */
+  private crisisFlushInFlight: Promise<void> | null = null;
   private sessionId: string;
   private analyticsFlushTimer: NodeJS.Timeout | null = null;
   private isInitialized = false;
@@ -150,18 +237,50 @@ class SupabaseService {
   }
 
   /**
-   * Initialize Supabase service
+   * DEBUG-409 — construct the Supabase client, at most once, reading NO consent state.
+   *
+   * The bug this exists to fix: `flushCrisisAnalytics` early-returned on `!this.client`,
+   * `this.client` was assigned only inside `initialize()`, and `initialize()`'s only
+   * callers sat inside `initializeCloudServices()` — whose module-scope eager call is
+   * gated on `canPerformOperation('cloud_sync')`, evaluated at module-load time when
+   * `consentStatus` is still `'loading'`. The predicate is therefore necessarily false
+   * and never re-runs, so the eager init was dead code in every build and a client
+   * existed only for a user who had opened Profile → Cloud Backup. The crisis audit
+   * trail — CLAUDE.md's "audit-logged" Safety Fact — did not exist for anyone else.
+   *
+   * NOT a consent read, deliberately (AC2). The vital-interest basis in
+   * `docs/legal/lia-crisis-telemetry.md` (GDPR Art. 6(1)(d)/9(2)(c)) is consent-
+   * independent by design; MAINT-173's gate governs backups and sync, which are a
+   * different processing purpose and stay exactly as strict — see index.ts.
+   *
+   * REJECTED ALTERNATIVES, recorded so they are not re-derived:
+   *  - Subscribe to consent hydration and re-run the MAINT-173 gate. Fails outright:
+   *    the default device has `cloudSyncEnabled: false`, so the gate is false AFTER
+   *    hydration too and no client is ever created.
+   *  - A separate crisis-only client. Two clients sharing the secure-store session
+   *    adapter both auto-refresh against one rotating refresh-token chain and revoke
+   *    each other; auth.uid() goes null mid-session.
+   *  - Removing the index.ts gate. That also eagerly starts cloudBackupService and the
+   *    AppState background auto-backup handler for non-consenting users — a far wider
+   *    egress reversal than the compliance ruling covers.
+   *
+   * The `await Promise.resolve()` is a hard requirement, not a stylistic yield:
+   * `handleCrisisDetection` is awaited by answerQuestion/completeAssessment under a
+   * STRICT <200ms CI gate, so construction must never execute inside the synchronous
+   * `trackCrisisDetection` frame.
    */
-  async initialize(): Promise<void> {
-    if (this.isInitialized) return;
+  private async ensureClient(): Promise<void> {
+    if (this.client) return;
+    if (this.clientInitPromise) return this.clientInitPromise;
 
-    try {
-      // Validate environment
+    this.clientInitPromise = (async () => {
+      await Promise.resolve(); // never construct on the caller's synchronous tick
+      if (this.client) return;
+
       if (!SUPABASE_URL || !SUPABASE_KEY) {
         throw new Error('Supabase configuration missing. Check environment variables.');
       }
 
-      // Validate SSL pinning configuration
       const pinningValidation = validatePinningConfiguration();
       if (!pinningValidation.valid) {
         logSecurity(
@@ -201,6 +320,56 @@ class SupabaseService {
       // crisis telemetry flushes into analytics_events under auth.uid() RLS and
       // needs a non-null principal to satisfy WITH CHECK.
       await this.ensureAnonymousSession();
+    })();
+
+    try {
+      await this.clientInitPromise;
+    } finally {
+      // Cleared so a failed construction can be retried on a later flush; the
+      // durable queue means nothing is lost in the meantime.
+      this.clientInitPromise = null;
+    }
+  }
+
+  /**
+   * DEBUG-409 — provision the crisis-telemetry lane at boot, and NOTHING else.
+   *
+   * Deliberately does NOT set `isInitialized`. That is what keeps AC2 structurally
+   * true rather than merely asserted: `processOfflineQueue` stays gated, backups stay
+   * gated in CloudBackupService, `trackEvent` keeps its own `cloud_sync` check, and
+   * `forceSync` keeps its defence-in-depth gate in index.ts. The vital-interest lane
+   * provisions a client to deliver `crisis_detected` and touches no other egress.
+   *
+   * The empty-queue precondition is the whole compliance argument for lazy-over-eager:
+   * an install whose user never crosses a crisis threshold never opens a backend
+   * session at all, so the marginal privacy cost is bounded to devices that actually
+   * recorded a vital-interest event. AC6's recovery of shipped-device backlogs is the
+   * same code path — no separate flush-on-upgrade mechanism is needed.
+   *
+   * Fully wrapped: this runs on the boot path and must never throw into it.
+   */
+  async initializeCrisisTelemetry(): Promise<void> {
+    try {
+      await this.loadCrisisAnalyticsQueue();
+      if (this.crisisAnalyticsQueue.length === 0) return;
+      await this.ensureClient();
+      void this.flushCrisisAnalytics();
+    } catch (error) {
+      logSecurity('[SupabaseService] crisis telemetry bootstrap failed', 'medium', { error });
+    }
+  }
+
+  /**
+   * Initialize Supabase service
+   */
+  async initialize(): Promise<void> {
+    if (this.isInitialized) return;
+
+    try {
+      // DEBUG-409: client construction + anonymous session now live in ensureClient(),
+      // so there is still exactly ONE createClient site and the cloud-sync path here is
+      // behaviourally identical — but the crisis flush can reach it too.
+      await this.ensureClient();
 
       // Setup analytics flushing
       this.setupAnalyticsTimer();
@@ -324,9 +493,16 @@ class SupabaseService {
    */
   private async executeWithResilience<T>(
     operation: () => Promise<T>,
-    operationName: string
+    operationName: string,
+    // DEBUG-409: opt out of the SHARED circuit breaker. Used only by the vital-interest
+    // crisis flush, so an unrelated run of cloud-backup failures cannot open the breaker
+    // and silence the crisis audit sink. Bypassing means neither consulting the breaker
+    // nor recording into it, so crisis failures also stay out of the backup budget.
+    opts?: { bypassCircuitBreaker?: boolean }
   ): Promise<{ success: boolean; data?: T; error?: Error }> {
-    if (!this.canAttemptOperation()) {
+    const useBreaker = !opts?.bypassCircuitBreaker;
+
+    if (useBreaker && !this.canAttemptOperation()) {
       return {
         success: false,
         error: new Error(`Circuit breaker open for ${operationName}`)
@@ -338,7 +514,7 @@ class SupabaseService {
     for (let attempt = 1; attempt <= this.config.retryAttempts; attempt++) {
       try {
         const result = await operation();
-        this.recordOperationResult(true);
+        if (useBreaker) this.recordOperationResult(true);
         return { success: true, data: result };
 
       } catch (error) {
@@ -351,7 +527,7 @@ class SupabaseService {
       }
     }
 
-    this.recordOperationResult(false);
+    if (useBreaker) this.recordOperationResult(false);
     return { success: false, error: lastError || new Error('Unknown error') };
   }
 
@@ -610,10 +786,9 @@ class SupabaseService {
         enqueued_at: Date.now(),
       });
       // Durable persist immediately (own key — never evicted by the ops queue).
-      void AsyncStorage.setItem(
-        STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE,
-        JSON.stringify(this.crisisAnalyticsQueue)
-      );
+      // DEBUG-335: goes through the serialized chain so a concurrent truncation write
+      // cannot clobber it, and a failed write is retried instead of silently swallowed.
+      void this.persistCrisisQueue();
       // Best-effort flush now; never awaited, never throws out of here.
       void this.flushCrisisAnalytics();
     } catch (error) {
@@ -624,55 +799,175 @@ class SupabaseService {
   }
 
   /**
+   * DEBUG-335 — the single serialization point for CRISIS_ANALYTICS_QUEUE writes.
+   *
+   * Two properties matter and they pull in opposite directions:
+   *
+   *  - The write must be ISSUED in the same synchronous step as the enqueue, because
+   *    `handleCrisisDetection` is awaited by `answerQuestion`/`completeAssessment` and
+   *    that span is measured by the strict <200ms `Performance regression` gate. Hence
+   *    the idle fast path below: when nothing is in flight, `run()` is invoked directly
+   *    and its `AsyncStorage.setItem(...)` call is evaluated before this method returns.
+   *  - Writes must be TOTALLY ORDERED, because the flush truncation write and an
+   *    enqueue write both serialize the whole queue. Hence the chain when one is
+   *    already in flight.
+   *
+   * `run()` re-serializes the LIVE queue at write time rather than capturing a snapshot,
+   * so a queued write always persists current truth and self-heals a previous failure.
+   * The returned promise NEVER rejects — `trackCrisisDetection` is fire-and-forget and a
+   * rejection would surface as an unhandled rejection on the crisis path.
+   */
+  private persistCrisisQueue(): Promise<void> {
+    const run = async (): Promise<void> => {
+      try {
+        await AsyncStorage.setItem(
+          STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE,
+          JSON.stringify(this.crisisAnalyticsQueue)
+        );
+        this.crisisPersistDirty = false;
+      } catch (error) {
+        // Do NOT rethrow: mark dirty so the next flush retries. Losing the event is
+        // worse than writing it twice — this is the only crisis audit sink.
+        this.crisisPersistDirty = true;
+        logSecurity(
+          '[SupabaseService] crisis telemetry persist failed — retained for retry',
+          'high',
+          { error }
+        );
+      }
+    };
+
+    const tail = this.crisisPersistTail === null ? run() : this.crisisPersistTail.then(run);
+    this.crisisPersistTail = tail;
+    // Identity-guard the reset so a settling link cannot clear a newer tail.
+    void tail.then(() => {
+      if (this.crisisPersistTail === tail) this.crisisPersistTail = null;
+    });
+    return tail;
+  }
+
+  /**
    * Reconcile + flush durably-queued crisis-detection telemetry to analytics_events.
    * user_id is resolved at flush time; if not yet provisioned (first-run/offline) or
    * the client is unavailable, the events stay durably queued for a later attempt.
    */
   private async flushCrisisAnalytics(): Promise<void> {
-    if (this.crisisAnalyticsQueue.length === 0) return;
-    if (!this.client) return; // reconcile on a later flush
+    // DEBUG-335: retry a previously-failed durable write BEFORE the early returns
+    // below. An offline or unprovisioned device returns early every time, so a retry
+    // placed after these guards would never run — the first-run case DEBUG-305 made
+    // critical by removing the local duplicate record.
+    if (this.crisisPersistDirty) void this.persistCrisisQueue();
 
-    // INFRA-260: crisis telemetry inserts into analytics_events under auth.uid()
-    // RLS (WITH CHECK user_id = auth.uid()). If the session wasn't established at
-    // boot (offline first run), try once more now — this runs off the crisis path
-    // (fire-and-forget), never blocking detection. Still no session → retain &
-    // retry later (AppState-active / next flush); the durable queue means the
-    // event is never dropped.
-    if (!this.userId) {
-      await this.ensureAnonymousSession();
-      if (!this.userId) return;
+    if (this.crisisAnalyticsQueue.length === 0) return;
+
+    // INFRA-411: the Maestro safety gate runs a Release binary carrying REAL Supabase
+    // config (INFRA-383) and boots with cloudSyncEnabled: true from the e2e seed, so
+    // once a client exists on the default path the four detection-triggering flows
+    // would write real crisis_detected rows into production analytics_events — the
+    // table the FEAT-129 operator views read and the INFRA-219 alerter keys on.
+    // Suppress at the egress boundary rather than filtering downstream: filtering
+    // would need a migration against the single shared live project.
+    //
+    // Costs no coverage. Every flow launches with clearState/clearKeychain, so the
+    // gate can never verify delivery or reconciliation anyway; end-to-end proof is
+    // INFRA-412's attended measurement against a normal Release build.
+    //
+    // Read at call time, NOT hoisted to a module-scope const like e2eSeed.ts's
+    // SEED_ACTIVE — this must stay togglable per test. Exact-string compare, never
+    // a truthiness check: only the inlined build constant may take this path.
+    if (env.EXPO_PUBLIC_E2E_SEED_ONBOARDED === 'true') return; // events retained, never sent
+
+    // DEBUG-409: COALESCE, don't drop. Three flush sites now overlap routinely —
+    // initialize()'s, the per-detection one, and the AppState-active one. Running two
+    // concurrently corrupts the queue: each snapshots `pending` and then truncates with
+    // slice(pending.length), duplicating rows server-side AND discarding whatever was
+    // enqueued mid-flight.
+    //
+    // But a late caller must not simply return. The in-flight flush may have been doomed
+    // when it started (no client, no session yet) while the caller now has what it needs,
+    // so dropping the request strands the queue until some later trigger. Instead: await
+    // the flight, then take ONE more pass if work remains. Each caller adds at most one
+    // pass, so this cannot spin.
+    //
+    // Placed AFTER the dirty-retry so the DEBUG-335 durable-write retry still runs on
+    // every call, including ones that coalesce or are suppressed.
+    const inFlight = this.crisisFlushInFlight;
+    if (inFlight) {
+      await inFlight;
+      if (this.crisisAnalyticsQueue.length === 0) return; // the flight drained it
+      // Re-read the field rather than testing the narrowed one: after the await the
+      // compiler still believes the original is non-null, which would make this check
+      // dead code (TS2801). A DIFFERENT promise here means another caller already took
+      // the follow-up pass, so this one has nothing left to do.
+      const next = this.crisisFlushInFlight;
+      if (next && next !== inFlight) return;
     }
 
-    const pending = [...this.crisisAnalyticsQueue];
-    const rows: AnalyticsEvent[] = pending.map((e) => ({
-      user_id: this.userId!,
-      event_type: e.event_type,
-      properties: e.properties,
-      session_id: e.session_id,
-    }));
+    const flight = (async () => {
+      // DEBUG-409: provision the client if this is the first crisis on this install.
+      // Reads no consent state; see ensureClient(). Placed AFTER the empty-queue return
+      // above, so an install that never records a crisis never opens a backend session.
+      await this.ensureClient();
 
-    const result = await this.executeWithResilience(async () => {
-      const resp: any = await this.client!.from('analytics_events').insert(rows);
-      // executeWithResilience keys success off throwing, so surface a Supabase
-      // error response as a retryable failure rather than a false success.
-      if (resp?.error) throw resp.error;
-      return resp;
-    }, 'flushCrisisAnalytics');
+      if (!this.client) return; // reconcile on a later flush
 
-    if (result.success) {
-      // Drop the flushed prefix; keep anything enqueued during the flight.
-      this.crisisAnalyticsQueue = this.crisisAnalyticsQueue.slice(pending.length);
-      await AsyncStorage.setItem(
-        STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE,
-        JSON.stringify(this.crisisAnalyticsQueue)
+      // INFRA-260: crisis telemetry inserts into analytics_events under auth.uid()
+      // RLS (WITH CHECK user_id = auth.uid()). If the session wasn't established at
+      // boot (offline first run), try once more now — this runs off the crisis path
+      // (fire-and-forget), never blocking detection. Still no session → retain &
+      // retry later (AppState-active / next flush); the durable queue means the
+      // event is never dropped.
+      if (!this.userId) {
+        await this.ensureAnonymousSession();
+        if (!this.userId) return;
+      }
+
+      const pending = [...this.crisisAnalyticsQueue];
+      const rows: AnalyticsEvent[] = pending.map((e) => ({
+        user_id: this.userId!,
+        event_type: e.event_type,
+        properties: e.properties,
+        session_id: e.session_id,
+      }));
+
+      const result = await this.executeWithResilience(
+        async () => {
+          const resp: any = await this.client!.from('analytics_events').insert(rows);
+          // executeWithResilience keys success off throwing, so surface a Supabase
+          // error response as a retryable failure rather than a false success.
+          if (resp?.error) throw resp.error;
+          return resp;
+        },
+        'flushCrisisAnalytics',
+        // DEBUG-409: the crisis sink does NOT share the cloud-backup failure budget.
+        // One circuitBreaker instance serves saveBackup/getBackup/flushAnalytics too,
+        // and 5 failures in 5 minutes opens it — so without this, a run of backup
+        // failures would silence the vital-interest audit trail for repeated 60s
+        // windows. Retries still apply; only the shared breaker is bypassed.
+        { bypassCircuitBreaker: true }
       );
-    } else {
-      // Retained for retry. Escalate to the local audit/security log so the gap is visible.
-      logSecurity(
-        '[SupabaseService] crisis telemetry flush failed — retained for retry',
-        'medium',
-        { pending: pending.length }
-      );
+
+      if (result.success) {
+        // Drop the flushed prefix; keep anything enqueued during the flight.
+        this.crisisAnalyticsQueue = this.crisisAnalyticsQueue.slice(pending.length);
+        // DEBUG-335: through the same chain as the enqueue write. A raw setItem here
+        // races an in-flight enqueue write and can resurrect an already-flushed event.
+        await this.persistCrisisQueue();
+      } else {
+        // Retained for retry. Escalate to the local audit/security log so the gap is visible.
+        logSecurity(
+          '[SupabaseService] crisis telemetry flush failed — retained for retry',
+          'medium',
+          { pending: pending.length }
+        );
+      }
+    })();
+
+    this.crisisFlushInFlight = flight;
+    try {
+      await flight;
+    } finally {
+      this.crisisFlushInFlight = null;
     }
   }
 
@@ -682,9 +977,64 @@ class SupabaseService {
   private async loadCrisisAnalyticsQueue(): Promise<void> {
     try {
       const data = await AsyncStorage.getItem(STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE);
-      if (data) {
-        this.crisisAnalyticsQueue = JSON.parse(data);
+      if (!data) return;
+      const persisted = JSON.parse(data);
+      if (!Array.isArray(persisted)) return;
+
+      // DEBUG-413 — drop the pre-fix backlog HERE, at adoption, before either branch
+      // below. Doing it at adoption rather than at flush time is deliberate: a suppressed
+      // row never enters the in-memory queue at all, so no later flush path, retry or
+      // merge can resurrect it. Filtering at flush would leave the rows on disk, re-read
+      // on every boot, one code path away from being sent.
+      const kept = persisted.filter(isPostFixCrisisEvent);
+      const suppressed = persisted.length - kept.length;
+      if (suppressed > 0) {
+        const ages = persisted
+          .filter((e: any) => !isPostFixCrisisEvent(e))
+          .map((e: any) => (typeof e?.enqueued_at === 'number' ? e.enqueued_at : null))
+          .filter((n: number | null): n is number => n !== null);
+        logSecurity('[SupabaseService] pre-fix crisis backlog suppressed', 'high', {
+          suppressed,
+          kept: kept.length,
+          oldestEnqueuedAt: ages.length ? Math.min(...ages) : null,
+          newestEnqueuedAt: ages.length ? Math.max(...ages) : null,
+          undatable: suppressed - ages.length,
+        });
       }
+
+      // Normal boot: nothing in memory yet, so adopt what is on disk.
+      if (this.crisisAnalyticsQueue.length === 0) {
+        this.crisisAnalyticsQueue = kept;
+        // DEBUG-413: persist the drop even though this branch otherwise returns without
+        // writing. Without it the suppression is not one-shot — the same backlog is
+        // re-read and re-suppressed on every boot forever, and a single future code path
+        // that adopts before filtering would send it.
+        if (suppressed > 0) void this.persistCrisisQueue();
+        return;
+      }
+
+      // DEBUG-335: `initialize()` is lazy (it runs on Cloud Backup, not at boot), so a
+      // detection can fire BEFORE this load. A blind assign would drop that live event
+      // from the sole crisis audit sink. Merge instead, de-duplicating on a composite
+      // identity so a repeated load cannot double-count, and keeping disk entries first
+      // to preserve chronology.
+      //
+      // DEBUG-413: merges `kept`, never `persisted`. The in-memory event is post-fix by
+      // construction (it was enqueued by the running build), so suppression can only ever
+      // remove disk rows — it must not reach the live event this branch exists to protect.
+      const identity = (e: any): string =>
+        `${e?.session_id}|${e?.enqueued_at}|${e?.event_type}|${JSON.stringify(e?.properties)}`;
+      const inMemory = new Set(this.crisisAnalyticsQueue.map(identity));
+      const recovered = kept.filter((e: any) => !inMemory.has(identity(e)));
+      if (recovered.length === 0) {
+        // Same reasoning as the early return above: nothing to recover, but if we dropped
+        // rows the disk copy is now stale and must be rewritten.
+        if (suppressed > 0) void this.persistCrisisQueue();
+        return;
+      }
+
+      this.crisisAnalyticsQueue = [...recovered, ...this.crisisAnalyticsQueue];
+      void this.persistCrisisQueue();
     } catch (error) {
       logSecurity('[SupabaseService] Failed to load crisis telemetry queue', 'medium', { error });
     }
@@ -789,6 +1139,12 @@ class SupabaseService {
         // App came to foreground, process offline queue + retry crisis telemetry
         this.processOfflineQueue();
         void this.flushCrisisAnalytics();
+      } else if (nextAppState === 'background' || nextAppState === 'inactive') {
+        // DEBUG-335: the ONLY point where the real-device kill window actually narrows.
+        // iOS grants time on `background`, so re-issue the durable write before the OS
+        // can reclaim the process. Everything else in this fix is JS-side bookkeeping —
+        // no JS change can make a native AsyncStorage write commit sooner.
+        void this.persistCrisisQueue();
       }
     });
   }

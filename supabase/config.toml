@@ -43,7 +43,7 @@ verify_jwt = true
 
 # Subscription Webhook Handler
 # Apple/Google call this directly; they don't carry a Supabase JWT. The
-# function verifies their own signatures (Apple JWS via verifyAppleJWS.ts,
+# function verifies their own signatures (Apple JWS via _shared/verifyAppleJWS.ts,
 # Google Pub/Sub OIDC via verifyGoogleOIDC.ts) before mutating state.
 [functions.subscription-webhook]
 verify_jwt = false
@@ -127,6 +127,15 @@ enabled = false  # Not needed for this app
 # Optional for crisis-detection-alerting external dead-man's-switch (INFRA-264):
 # - CRISIS_HEALTHCHECK_PING_URL  (capability URL, e.g. https://hc-ping.com/<uuid> — secret;
 #   set by name only, never committed. Unset = external switch not provisioned.)
+#
+# Optional for grace-period-automation external dead-man's-switch (INFRA-296):
+# - SUBSCRIPTION_HEALTHCHECK_PING_URL  (capability URL — secret; set by name only, never
+#   committed. Unset = external switch not provisioned.)
+#   MUST be a DIFFERENT healthchecks.io check from CRISIS_HEALTHCHECK_PING_URL above. The
+#   two trust domains page and rotate independently; pointing both names at one check
+#   would let an ops-side rotation silently break crisis paging. Nothing mechanical can
+#   verify this — the static pin forbids both URLs identically — so it is console
+#   discipline. See docs/development/post-launch-monitoring-runbook.md §3.
 #
 # Required for all functions:
 # - SUPABASE_URL

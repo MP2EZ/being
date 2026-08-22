@@ -27,7 +27,8 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { verifyAppleJWS } from './verifyAppleJWS.ts';
+import { verifyAppleJWS, assertAppleAppScope } from '../_shared/verifyAppleJWS.ts';
+import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
 import { verifyGoogleOIDC } from './verifyGoogleOIDC.ts';
 import { wasProcessed, markProcessed } from './replayCache.ts';
 
@@ -76,7 +77,7 @@ interface GoogleWebhookPayload {
 /**
  * Verify Apple webhook signature (JWS).
  *
- * Delegates to `verifyAppleJWS` in ./verifyAppleJWS.ts which:
+ * Delegates to `verifyAppleJWS` in ../_shared/verifyAppleJWS.ts which:
  * - Parses the JWS header for the x5c cert chain
  * - Anchors the chain to a pinned Apple Root CA - G3 SPKI (rejects forged
  *   chains not terminating in Apple's root)
@@ -100,6 +101,19 @@ async function handleAppleWebhook(
   payload: any
 ): Promise<void> {
   const { notificationType, data } = payload;
+
+  // INFRA-449 — SCOPE THE NOTIFICATION TO THIS APP BEFORE ACTING ON IT.
+  //
+  // Everything above proves Apple signed this. It does not prove Apple signed it
+  // for US: every developer's payload chains to the same pinned Apple Root CA - G3,
+  // so a genuine notification from another developer's app reaches this line fully
+  // verified. Until now nothing rejected it, and the implicit scoping that used to
+  // come from APPLE_SHARED_SECRET is being dropped by the Server API migration.
+  //
+  // Throws rather than returning: `serve` already maps a thrown error to a non-2xx,
+  // and a silent `return` would ACK a forged notification to Apple as handled.
+  const outerScope = assertAppleAppScope(data ?? {}, 'ASSNv2 notification body');
+
   const transactionInfo = data?.signedTransactionInfo;
 
   if (!transactionInfo) {
@@ -109,6 +123,20 @@ async function handleAppleWebhook(
 
   // Decode transaction info (also JWS)
   const transaction = await verifyAppleSignature(transactionInfo);
+
+  // The inner transaction is a SEPARATELY signed JWS and carries its own claims, so
+  // scoping the envelope says nothing about it. Validate it in its own right, then
+  // require the two to agree — an envelope and a transaction disagreeing on app or
+  // environment is incoherent, and treating either as authoritative would be a choice
+  // an attacker gets to make.
+  const innerScope = assertAppleAppScope(transaction ?? {}, 'inner signed transaction');
+
+  if (innerScope.environment !== outerScope.environment) {
+    throw new Error(
+      `Apple payload environment mismatch: notification says ` +
+        `"${outerScope.environment}", inner transaction says "${innerScope.environment}" — refusing.`,
+    );
+  }
 
   const userId = transaction.appAccountToken; // Set by client during purchase
   const originalTransactionId = transaction.originalTransactionId;
@@ -174,11 +202,11 @@ async function handleAppleWebhook(
   }
 
   // Log event
-  await supabase.rpc('log_subscription_event', {
-    p_user_id: userId,
-    p_subscription_id: originalTransactionId,
-    p_event_type: eventType,
-    p_metadata: {
+  await logSubscriptionEvent(supabase, {
+    userId: userId,
+    subscriptionId: originalTransactionId,
+    eventType: eventType,
+    metadata: {
       platform: 'apple',
       notification_type: notificationType,
       timestamp: new Date().toISOString(),
@@ -270,11 +298,11 @@ async function handleGoogleWebhook(
   }
 
   // Log event
-  await supabase.rpc('log_subscription_event', {
-    p_user_id: subscription.user_id,
-    p_subscription_id: subscription.id,
-    p_event_type: eventType,
-    p_metadata: {
+  await logSubscriptionEvent(supabase, {
+    userId: subscription.user_id,
+    subscriptionId: subscription.id,
+    eventType: eventType,
+    metadata: {
       platform: 'google',
       notification_type: notificationType,
       timestamp: new Date().toISOString(),

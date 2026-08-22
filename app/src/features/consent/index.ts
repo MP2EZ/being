@@ -13,7 +13,17 @@
 
 // Screens
 export { default as CombinedLegalGateScreen } from './screens/CombinedLegalGateScreen';
+export { default as ReConsentScreen } from './screens/ReConsentScreen';
+export type { ReConsentScreenProps } from './screens/ReConsentScreen';
 
 // Components
 export { default as ConsentToggleCard } from './components/ConsentToggleCard';
 export type { ConsentToggleCardProps } from './components/ConsentToggleCard';
+
+// Constants
+export { CONSENT_DETAILS } from './constants/consentDetails';
+export type { ConsentCategoryKey } from './constants/consentDetails';
+
+// Services
+export { submitReConsent } from './services/submitReConsent';
+export type { ReConsentSubmission, ReConsentSubmitResult } from './services/submitReConsent';

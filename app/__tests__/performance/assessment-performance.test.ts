@@ -20,6 +20,7 @@
 
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { AssessmentType, AssessmentResponse } from '@/features/assessment/types';
+import { detectCrisisInText } from '@/features/crisis/services/textCrisisDetection';
 
 // `performance` is available globally in the Jest runtime (Node perf_hooks).
 // react-native-performance was never installed; removed the dead import
@@ -246,6 +247,78 @@ describe('ASSESSMENT PERFORMANCE TESTING SUITE', () => {
 
       const avgTime = timings.reduce((sum, time) => sum + time, 0) / timings.length;
       expect(avgTime).toBeLessThan(200); // Test env; production ~50ms
+    });
+  });
+
+  describe('FREE-TEXT CRISIS DETECTION PERFORMANCE (<200ms requirement)', () => {
+    /**
+     * FEAT-283. The PHQ-9/GAD-7 paths above reason over nine integers and are
+     * effectively O(1) — their budget is not really at risk. Free-text scanning
+     * is O(n) in entry length and voice-journal entries are unbounded, so this
+     * is the crisis budget most likely to regress silently: a pattern rewritten
+     * with a nested quantifier, or a normalisation pass that becomes quadratic,
+     * would not fail any correctness test.
+     *
+     * It lives here rather than only in the unit suite because per the
+     * Validation Matrix, the unit suite is not the job that gates — the
+     * `Performance regression` CI job runs this file.
+     *
+     * The scan must never truncate long input to meet the budget: an unscanned
+     * tail is a false negative by construction. If these ever fail, make the
+     * scan faster; do not make it read less.
+     */
+
+    // ~9,000 chars ≈ 10 minutes of speech (≈1,500 words), a realistic long entry.
+    const REALISTIC_LONG_ENTRY = 'today was an ordinary day and i did the work. '.repeat(200);
+    // 50k chars — the adversarial ceiling the unit suite also pins.
+    const EXTREME_ENTRY = 'today was an ordinary day and i did the work. '.repeat(1150);
+
+    it('Realistic long entry scans well inside budget', () => {
+      perf.start();
+      detectCrisisInText(REALISTIC_LONG_ENTRY);
+      const elapsed = perf.measure('freetext_crisis_realistic');
+
+      expect(elapsed).toBeLessThan(200);
+      console.log(
+        `Free-text scan (${REALISTIC_LONG_ENTRY.length} chars): ${elapsed.toFixed(2)}ms`
+      );
+    });
+
+    it('Extreme 50k-char entry stays inside budget', () => {
+      expect(EXTREME_ENTRY.length).toBeGreaterThan(50000);
+
+      perf.start();
+      detectCrisisInText(EXTREME_ENTRY);
+      const elapsed = perf.measure('freetext_crisis_extreme');
+
+      expect(elapsed).toBeLessThan(200);
+      console.log(
+        `Free-text scan (${EXTREME_ENTRY.length} chars): ${elapsed.toFixed(2)}ms`
+      );
+    });
+
+    it('Detection at the very end of a long entry is not slower than a miss', () => {
+      // Guards against a future early-exit optimisation that would make the
+      // worst case (disclosure in the final characters) the slow path — and
+      // against any temptation to cap how much of the entry is scanned.
+      const withDisclosure = `${EXTREME_ENTRY} i want to die`;
+
+      perf.start();
+      const result = detectCrisisInText(withDisclosure);
+      const elapsed = perf.measure('freetext_crisis_tail_match');
+
+      expect(result?.isTriggered).toBe(true);
+      expect(elapsed).toBeLessThan(200);
+    });
+
+    it('Adversarial repetition does not backtrack catastrophically', () => {
+      const adversarial = 'kill '.repeat(20000);
+
+      perf.start();
+      detectCrisisInText(adversarial);
+      const elapsed = perf.measure('freetext_crisis_adversarial');
+
+      expect(elapsed).toBeLessThan(200);
     });
   });
 

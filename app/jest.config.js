@@ -13,7 +13,7 @@ const isQuickMode = process.env.JEST_QUICK === 'true';
 const isDevMode = process.env.NODE_ENV === 'development' || !process.env.CI;
 
 module.exports = {
-  preset: 'react-native',
+  preset: '@react-native/jest-preset',
 
   // Setup files for different test types
   setupFiles: [
@@ -193,7 +193,7 @@ module.exports = {
     // We have to enumerate each `expo-*` ESM package explicitly. (Or use
     // a regex like `expo[a-z-]*` — but the explicit list is more grep-able
     // when a new module starts failing to parse.)
-    'node_modules/(?!(react-native|@react-native|react-native-vector-icons|react-native-aes-crypto|@react-navigation|react-navigation|expo|@expo|expo-font|expo-asset|expo-constants|react-native-iap|react-native-nitro-modules|expo-local-authentication|expo-modules-core|zustand|react-native-gesture-handler|react-native-reanimated|react-native-worklets|uuid|@sentry)/)'
+    'node_modules/(?!(react-native|@react-native|react-native-vector-icons|react-native-aes-crypto|@react-navigation|react-navigation|expo|@expo|expo-font|expo-asset|expo-constants|react-native-iap|react-native-nitro-modules|expo-local-authentication|expo-modules-core|expo-device|zustand|react-native-gesture-handler|react-native-reanimated|react-native-worklets|uuid|@sentry)/)'
   ],
 
   // Enhanced module mapping

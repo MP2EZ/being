@@ -18,7 +18,7 @@ import { Text, StyleSheet, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, RouteProp } from '@react-navigation/native';
 import Markdown from 'react-native-markdown-display';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { getLegalDocument } from '../content/legalDocuments';
 import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
@@ -58,7 +58,7 @@ const styles = StyleSheet.create({
   },
   notFoundText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     padding: spacing[24],
   },
@@ -76,20 +76,20 @@ const markdownStyles = StyleSheet.create({
   body: {
     fontSize: typography.bodyRegular.size,
     lineHeight: 24,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
   },
   heading1: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.bold as '700',
     lineHeight: 36,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginTop: 0,
     marginBottom: spacing[16],
   },
   heading2: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold as '600',
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginTop: spacing[24],
     marginBottom: spacing[12],
     borderBottomWidth: 1,
@@ -99,7 +99,7 @@ const markdownStyles = StyleSheet.create({
   heading3: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold as '600',
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     marginTop: spacing[16],
     marginBottom: spacing[8],
   },
@@ -129,7 +129,7 @@ const markdownStyles = StyleSheet.create({
   },
   strong: {
     fontWeight: typography.fontWeight.semibold as '600',
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   em: {
     fontStyle: 'italic',

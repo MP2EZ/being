@@ -20,7 +20,7 @@ on:
         default: false
 
 env:
-  NODE_VERSION: '20'
+  NODE_VERSION: '24'
   GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
 permissions:
@@ -41,9 +41,9 @@ jobs:
     timeout-minutes: 15
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v5
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: 'npm'
@@ -64,10 +64,41 @@ jobs:
             exit 1
           fi
 
+      # eas-version is PINNED, not `latest` (INFRA-345). The eas-cli flag surface
+      # is consumed at exactly one place — the `eas build` step below — and that
+      # step is gated `if: ${{ !inputs.dry_run }}`, so a dry run cannot exercise
+      # it. An unpinned CLI therefore makes the one command we cannot test a
+      # moving target. The `--submit-profile` incident documented on that step is
+      # what this costs when it goes wrong: broken on every real release from
+      # INFRA-146 until DEBUG-336, invisible to every dry run in between.
+      #
+      # BUMP PROTOCOL: change this deliberately, in its own commit, and expect
+      # validation only from the NEXT REAL RELEASE reaching TestFlight — never
+      # from a dry run. Do not bundle a bump with any other release-path change,
+      # or a failure is unattributable between them.
+      #
+      # LOCKSTEP (INFRA-351): this pin and `app/eas.json`'s `cli.version` FLOOR are
+      # one value in two files. Bumping this alone fails
+      # `app/__tests__/scripts/eas-cli-version-lockstep.test.js` (CI, "Script guard
+      # tests"), which asserts floor == pin exactly — not merely "pin satisfies
+      # range", because `>=21.0.0 <22.0.0` would permit a 21.0.0-local vs
+      # 21.6.0-CI skew, the divergence INFRA-351 existed to close. So a bump is:
+      #   1. `npm i -g eas-cli@<new>` locally, `eas --version` to confirm — FIRST.
+      #      The bound is ENFORCEABLE, not advisory: eas-cli THROWS when its own
+      #      version misses `cli.version`, so a floor ahead of your global CLI
+      #      breaks `npm run e2e:safety:build:eas` and any ad-hoc local `eas`.
+      #      (`EAS_SKIP_CLI_VERSION_CHECK=1` is the deliberate escape hatch.)
+      #   2. this pin + eas.json's floor + its `<major+1>` ceiling, together.
+      # That pairing is NOT the "other release-path change" the paragraph above
+      # forbids bundling — it is one logical change that happens to span two files.
+      # The rationale cannot live in eas.json itself: it is strict-JSON-parsed at
+      # module scope by `__tests__/safety/e2eSeedGate.config.test.ts` (in
+      # `precommit`) and validated by `@expo/eas-json` with `allowUnknown: false`,
+      # so neither a `//` line nor a `"//"` key survives.
       - name: Setup EAS CLI
-        uses: expo/expo-github-action@v8
+        uses: expo/expo-github-action@v9
         with:
-          eas-version: latest
+          eas-version: 21.6.0
           token: ${{ secrets.EXPO_TOKEN }}
 
       # Proves EXPO_TOKEN resolves to the expected account before any build.
@@ -77,7 +108,13 @@ jobs:
         run: cd app && eas whoami
 
       # --auto-submit chains submission server-side on EAS once the build
-      # finishes. --no-wait lets this workflow exit quickly while EAS does
+      # finishes. It picks the submit profile whose name matches the *build*
+      # profile, so --profile production selects submit.production in
+      # eas.json. There is deliberately no submit-profile flag here: eas build
+      # accepts only --auto-submit / --auto-submit-with-profile, and the
+      # invented --submit-profile failed every real release from INFRA-146
+      # until DEBUG-336 (dry runs skip this step, so it went unnoticed).
+      # --no-wait lets this workflow exit quickly while EAS does
       # the 20-30 min build + submit asynchronously. Failures surface in
       # the EAS dashboard, in App Store Connect, and (for EAS-side errors)
       # in this job's logs.
@@ -90,6 +127,5 @@ jobs:
             --platform ios \
             --profile production \
             --auto-submit \
-            --submit-profile production \
             --non-interactive \
             --no-wait

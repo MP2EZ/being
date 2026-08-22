@@ -52,16 +52,6 @@ export type FeatureFlag =
   | 'emergency_sync'
   | 'cross_device_sync'
   | 'wellness_trend_notes'
-  // FEAT-291: single-loop daily-practice prototype. Build-time (safety/structural —
-  // gates a whole navigator + Home entry, not a per-user rollout), read via
-  // isFeatureEnabled('daily_loop'). Ships dark (false in production; on in dev so the
-  // prototype is exercisable). NOT in PRODUCT_FLAGS — no PostHog/runtime control.
-  | 'daily_loop'
-  // FEAT-291 preview: when on (AND daily_loop on), Home hides the 3 time-of-day flows
-  // and shows ONLY the daily loop — a dark preview of the eventual single-ritual Home.
-  // NOT the FlowType-unification migration (that's the deferred step-5 work); this only
-  // gates Home card visibility. Ships dark in production.
-  | 'daily_loop_only'
   // FEAT-284: gates the internal-only "Report a bug / Send feedback" surface
   // (shake-to-report + Sentry feedback widget with screenshot). Build-time (not
   // runtime/PostHog) by design: availability must be deterministic, offline, and
@@ -70,7 +60,71 @@ export type FeatureFlag =
   // App Store — no build-time way to distinguish). ⚠️ LAUNCH GATE: flip OFF in
   // `.env.production` before the public v1.0.0 release. Pinned in
   // __tests__/privacy/feedbackScrub.contract.test.ts.
-  | 'bug_reporting';
+  | 'bug_reporting'
+  // FEAT-285: haptic phase cues during timed practices. Build-time (not
+  // runtime/PostHog) by design — this is a non-visual guidance channel for
+  // low-vision and eyes-closed practitioners, so its availability must not be
+  // coupled to analytics consent (INFRA-199 carve-out, same reasoning as
+  // `bug_reporting`). A user who declined analytics must not thereby lose their
+  // only non-visual cue channel. Ships dark: the item's 60fps / cue-latency /
+  // degradation checks are on-device manual validation that CI cannot run
+  // (100% ubuntu, and the iOS simulator emits no haptics at all), so the flag
+  // stays false in production until that checklist is signed off.
+  | 'practice_haptics'
+  // INFRA-395 briefly added a `haptic_trace` diagnostic flag here and REMOVED it
+  // again. Recorded so nobody re-derives it: the goal was a cue-latency trace
+  // reachable in a Release build, since `practice_haptics` ships dark pending an
+  // on-device sign-off and the existing traces are `__DEV__`-only. It cannot
+  // work. A production bundle strips `console.*` twice — `babel.config.js` runs
+  // `transform-remove-console`, and `metro.config.js` sets `drop_console: true`,
+  // which removes `error` and `warn` too despite babel excluding them. No flag
+  // can reach a sink that the bundler has deleted. A Release-observable
+  // diagnostic would need a different channel entirely (Sentry, or an in-app
+  // surface), which is a real design decision and not a flag.
+  // FEAT-283: gates the voice journal / spoken reflection surface (capture,
+  // on-device transcription, encrypted store, crisis scan). Build-time, NOT
+  // runtime/PostHog, for three reasons: it gates a whole screen + entry point
+  // rather than a per-user rollout (same shape as `daily_loop`); a zero-egress
+  // feature must not have network-dependent availability; and INFRA-199 forbids
+  // coupling availability to analytics consent, which the crisis-scan path on
+  // this surface must never inherit. Ships dark (false in production).
+  // NOTE: the e2e-sim EAS profile must enable this or the Maestro safety flow
+  // runs against a dark flag and fails.
+  | 'voice_journal'
+  // FEAT-270 (FEAT-29 Slice B): gates the "See what's included" scoping +
+  // count-preview section on ExportDataScreen. Build-time, NOT runtime/PostHog,
+  // and the reasoning is stronger here than for the flags above: a runtime flag
+  // resolves only under granted analytics consent, so a PostHog gate would make
+  // a DATA-SUBJECT-RIGHTS surface (GDPR Art. 20 / CCPA §1798.110) unavailable to
+  // exactly the users who declined analytics. Availability of a privacy right
+  // must never be a function of a privacy choice. Same INFRA-199 carve-out shape
+  // as `bug_reporting` / `practice_haptics` / `voice_journal`: it gates a whole
+  // surface, not a per-user rollout.
+  //
+  // SCOPE LIMIT (compliance, non-negotiable): this flag gates UI VISIBILITY
+  // ONLY. It is not — and must never become — a consent gate for a data
+  // operation. The always-on JSON export below it is unaffected by this flag and
+  // stays reachable when it is false.
+  //
+  // Ships dark (`data_export:false` in both env files and the e2e-sim profile).
+  | 'data_export'
+  // FEAT-457: gates the Home entry point into domain-specific guidance. Build-time,
+  // NOT runtime/PostHog, and the INFRA-199 carve-out applies at its strongest here:
+  // the surface this reveals routes a suppressed reader to CrisisResources, so its
+  // availability must never be a function of analytics consent or a network
+  // round-trip. Same shape as `voice_journal` — it gates a whole entry point, not a
+  // per-user rollout.
+  //
+  // Note this flag buys NO incident response: flipping a build-time flag needs a
+  // new build, exactly like a revert. Its value is ship-dark-then-enable — merge
+  // the code, run the safety gate and validate on device, then expose with a
+  // one-line env change rather than another code change.
+  //
+  // Ships dark (`domain_guidance:false` in `.env.production`). ⚠️ The e2e-sim EAS
+  // profile MUST set it true: `/b-close` Phase 2.5 runs a safety-tagged Maestro
+  // flow through this entry point, and a dark flag makes that flow unrunnable
+  // rather than failing loudly.
+  | 'domain_guidance';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.

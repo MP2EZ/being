@@ -1,20 +1,19 @@
 {
   "compilerOptions": {
     "strict": true,
-    "lib": ["deno.ns", "deno.unstable", "esnext"],
-    "jsx": "react-jsx",
-    "jsxImportSource": "https://esm.sh/react@18.2.0"
+    "lib": ["deno.ns", "deno.unstable", "esnext"]
   },
   "imports": {
     "supabase": "https://esm.sh/@supabase/supabase-js@2.39.3",
     "std/": "https://deno.land/std@0.177.0/"
   },
+  "vendor": true,
   "tasks": {
     "serve:verify-apple": "deno run --allow-net --allow-env --allow-read verify-apple-receipt/index.ts",
     "serve:verify-google": "deno run --allow-net --allow-env --allow-read verify-google-receipt/index.ts",
     "serve:webhook": "deno run --allow-net --allow-env --allow-read subscription-webhook/index.ts",
     "serve:automation": "deno run --allow-net --allow-env --allow-read grace-period-automation/index.ts",
-    "test": "deno test --allow-net --allow-env --allow-read --no-check _tests/"
+    "test": "deno test --allow-net --allow-env --allow-read --no-check --cached-only _tests/"
   },
   "fmt": {
     "options": {

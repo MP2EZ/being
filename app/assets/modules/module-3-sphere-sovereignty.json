@@ -6,16 +6,16 @@
   "description": "Distinguish what you control from what you don't—and focus your energy accordingly.",
   "estimatedMinutes": 25,
   "classicalQuote": {
-    "text": "Some things are up to us and some things are not up to us. Our opinions are up to us, and our impulses, desires, aversions—in short, whatever is our own doing. Our bodies are not up to us, nor are our possessions, our reputations, or our public offices—in short, whatever is not our own doing.",
+    "text": "Some things are in our control and others not. Things in our control are opinion, pursuit, desire, aversion, and, in a word, whatever are our own actions. Things not in our control are body, property, reputation, command, and, in one word, whatever are not our own actions.",
     "author": "Epictetus",
-    "source": "Enchiridion 1"
+    "source": "Enchiridion 1 (trans. Elizabeth Carter)"
   },
   "whatItIs": {
     "summary": "Distinguish what you control (your intentions, judgments, character, responses) from what you don't (outcomes, others' actions, externals). Focus energy only within your sphere. Commit to process, release attachment to results.",
     "concepts": [
       {
         "title": "The Core of Stoic Psychology",
-        "content": "The dichotomy of control stands as the cornerstone of Stoic philosophy. Epictetus began his Handbook with this teaching: some things are up to us, and some things are not up to us. What is up to us includes our judgments, intentions, desires, aversions, and actions—the movements of our own will. What is not up to us includes our body, reputation, career, property, and essentially everything external to our volition.\n\nThis might seem like a harsh limitation—surely your body and career are connected to you? But the Stoics' point is subtle and crucial: while you can influence these externals, you cannot guarantee outcomes regarding them. You can exercise and eat well, but you cannot guarantee perfect health. You can work excellently, but you cannot guarantee promotion. You can treat people with kindness, but you cannot guarantee they'll like you.",
+        "content": "The dichotomy of control stands as the cornerstone of Stoic philosophy. Epictetus began his Handbook with this teaching: some things are in our control and others are not. What is in our control includes our judgments, intentions, desires, aversions, and actions—the movements of our own will. What is not in our control includes our body, reputation, career, property, and essentially everything external to our volition.\n\nThis might seem like a harsh limitation—surely your body and career are connected to you? But the Stoics' point is subtle and crucial: while you can influence these externals, you cannot guarantee outcomes regarding them. You can exercise and eat well, but you cannot guarantee perfect health. You can work excellently, but you cannot guarantee promotion. You can treat people with kindness, but you cannot guarantee they'll like you.",
         "learnMore": "The cognitive science of control beliefs illuminates why this principle matters. Research on locus of control shows that people who believe they have agency generally experience better mental health and achievement than those who feel helpless. However—critically—this benefit only holds when perceived control matches actual control.\n\nWhen people believe they control things actually outside their control, they experience anxiety, frustration, and chronic disappointment. When people fail to recognize control over things they can actually influence, they experience learned helplessness.\n\nThe principle trains you to calibrate your sense of control accurately. You develop sphere sovereignty—governing only the domain that truly belongs to you while releasing the illusion of control over everything else."
       },
       {
@@ -25,7 +25,7 @@
       },
       {
         "title": "Intention Over Outcome",
-        "content": "The Stoics taught that we should act with what they called a reserve clause: 'I will sail to Corinth, if nothing prevents me' or 'I will give a great speech, fate permitting.' This grammatical construction expresses the proper relationship between intention and outcome.\n\nContemporary psychology has discovered that this orientation produces better performance and wellbeing than either outcome-obsession (defining success entirely by results) or effort-dismissal (caring only about trying without concern for outcomes). The Stoic approach charts a middle path: you care deeply about outcomes in the sense that you choose goals aligned with your values and apply yourself fully. However, you evaluate yourself based on factors within your control: the quality of your preparation, the courage you showed in attempting something difficult, whether you maintained integrity under pressure, and how you handled setbacks.",
+        "content": "The Stoics taught that we should act with what they called a reserve clause. Seneca gives its form in his own examples: 'I will set sail unless anything happens to prevent me, I shall be praetor, if nothing hinders me, my financial operations will succeed, unless anything goes wrong with them' (On Tranquility of Mind 13, trans. Aubrey Stewart). This grammatical construction expresses the proper relationship between intention and outcome.\n\nContemporary psychology has discovered that this orientation produces better performance and wellbeing than either outcome-obsession (defining success entirely by results) or effort-dismissal (caring only about trying without concern for outcomes). The Stoic approach charts a middle path: you care deeply about outcomes in the sense that you choose goals aligned with your values and apply yourself fully. However, you evaluate yourself based on factors within your control: the quality of your preparation, the courage you showed in attempting something difficult, whether you maintained integrity under pressure, and how you handled setbacks.",
         "learnMore": "Research on motivation theory supports this through the distinction between approach and avoidance goals. Approach goals focus on attaining positive outcomes ('I want to deliver an excellent presentation') while avoidance goals focus on preventing negative outcomes ('I don't want to embarrass myself'). Approach goals consistently predict better performance, more positive emotions, and greater persistence.\n\nThe intention-over-outcome principle naturally generates approach motivation—you're moving toward expressing virtue and excellence rather than running away from failure.\n\nPractical Application:\nBefore important events: Set clear intention about how you want to show up: 'I will present this material clearly and respond to questions honestly.' Notice this intention focuses entirely on factors within your control—your clarity, your honesty. It doesn't include 'I will make everyone agree with me' or 'I will receive a standing ovation,' which depend on others' responses.\n\nAfter events: Evaluate honestly: 'Did I present clearly? Did I respond honestly?' If yes, you succeeded regardless of the audience reaction. If no, you have clear information about what to practice for next time."
       }
     ]
@@ -70,7 +70,7 @@
           "correctAnswer": "not-in-control",
           "explanation": "Other drivers' actions and the traffic situation are not in your control.",
           "inControl": [
-            "Your emotional response (staying calm vs. getting angry)",
+            "How you handle the anger once it flares (steadying vs. escalating)",
             "How you drive in response (safely vs. recklessly)",
             "Your judgment about the situation",
             "Calling ahead to inform you'll be late",
@@ -78,30 +78,11 @@
             "Your breathing and stress management"
           ],
           "notInControl": [
+            "The first flash of anger (it appears automatically)",
             "The other driver's behavior",
             "The traffic conditions",
             "Being late (it's already happening)",
             "Other drivers on the road"
-          ]
-        },
-        {
-          "id": "medical-test-anxiety",
-          "text": "Your anxiety about an upcoming medical test result.",
-          "correctAnswer": "in-control",
-          "explanation": "Your anxiety itself (your judgment/response) is in your control, though the test result is not.",
-          "inControl": [
-            "Your anxiety (it's your judgment/mental response)",
-            "How you work with the anxiety (breathing, grounding)",
-            "Your self-talk and interpretations",
-            "Whether you seek support while waiting",
-            "Activities you choose to distract or soothe yourself",
-            "Your preparation for different possible outcomes"
-          ],
-          "notInControl": [
-            "The medical test result itself",
-            "When you receive the results",
-            "The medical facts of your condition",
-            "Others' reactions to your news"
           ]
         },
         {
@@ -155,7 +136,7 @@
             "Your attitude about the situation",
             "Whether you bring rain gear",
             "How you make the best of circumstances",
-            "Finding enjoyment despite the rain"
+            "Where you put your attention despite the rain"
           ],
           "notInControl": [
             "The actual weather",
@@ -188,16 +169,17 @@
           "id": "event-interpretation",
           "text": "Your interpretation of a difficult event that happened.",
           "correctAnswer": "in-control",
-          "explanation": "Your interpretations and judgments are in your control—this is a core Stoic teaching.",
+          "explanation": "Your interpretations and judgments are in your control — this is a core Stoic teaching. The feeling that arrives before you've interpreted anything is not.",
           "inControl": [
             "The meaning you assign to the event",
             "Your perspective and framing",
-            "Your emotional response (based on interpretation)",
+            "How the feeling shifts once you revisit the interpretation",
             "The story you tell yourself about it",
             "Whether you reframe or reinterpret",
             "How you choose to think about it"
           ],
           "notInControl": [
+            "The feeling that arrives before you've interpreted anything",
             "The event itself (it already happened)",
             "Others' interpretations of the event",
             "The objective facts of what occurred",
@@ -224,6 +206,26 @@
             "Budget constraints",
             "Company politics",
             "Timing and external factors"
+          ]
+        },
+        {
+          "id": "medical-test-anxiety",
+          "text": "How you respond to anxiety while waiting for a medical test result.",
+          "correctAnswer": "in-control",
+          "explanation": "How you respond to the anxiety is in your control. The first wave of fear is not — it arrives before you can choose. Neither is the result itself; it was never yours to decide.",
+          "inControl": [
+            "How you work with the anxiety once you notice it (breathing, grounding)",
+            "Your self-talk and interpretations",
+            "Whether you seek support while waiting",
+            "Activities you choose while you wait (steadying yourself, not avoiding)",
+            "Thinking through what you'd do next, whichever way it goes"
+          ],
+          "notInControl": [
+            "The first wave of fear (it appears automatically)",
+            "The medical test result itself",
+            "When you receive the results",
+            "The medical facts of your condition",
+            "Others' reactions to your news"
           ]
         },
         {
@@ -269,9 +271,9 @@
         },
         {
           "id": "political-response",
-          "text": "Your emotional response when hearing those political beliefs.",
+          "text": "How you respond when you hear those political beliefs.",
           "correctAnswer": "in-control",
-          "explanation": "Your responses—emotional and behavioral—are within your control, though they may require practice.",
+          "explanation": "How you respond is in your control — the tone you take, whether you engage, what you make it mean. The first flash of feeling is not; it arrives before you can choose.",
           "inControl": [
             "How you regulate your emotional reaction",
             "Your interpretation of their words",
@@ -281,7 +283,7 @@
             "How you choose to think about the situation"
           ],
           "notInControl": [
-            "Your initial emotional flash (appears automatically)",
+            "The first flash of feeling (it appears automatically)",
             "Their words and delivery",
             "The content of their beliefs",
             "The political climate creating tension"

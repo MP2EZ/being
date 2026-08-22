@@ -19,15 +19,22 @@
  * - Timestamp-based timer (deterministic)
  *
  * PHILOSOPHER VALIDATION:
- * - Marcus Aurelius quote on completion (Meditations 5.9)
+ * - Marcus Aurelius quote on completion (Meditations 5.26, trans. George Long)
  * - Educational tone (no gamification)
  *
  * ACCESSIBILITY:
  * - WCAG AA compliant
- * - Screen reader announcements via ProgressiveBodyScanList
+ * - Region-boundary announcements come from the `announce` callback passed to
+ *   `usePracticeHaptics` below — NOT from ProgressiveBodyScanList, which only
+ *   rewrites its item labels and declares no live region (corrected in
+ *   DEBUG-425; the previous claim here contradicted the note at the callback
+ *   itself and would have told the next reader the boundary was already
+ *   covered). Since DEBUG-425 that announcement no longer rides the tactile
+ *   preference, so declining vibration does not silence it.
  */
 
-import React from 'react';
+import React, { useCallback, useMemo } from 'react';
+import { AccessibilityInfo } from 'react-native';
 import {
   View,
   Text,
@@ -47,6 +54,10 @@ import {
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import Timer from '@/features/practices/shared/components/Timer';
+import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePracticeHaptics';
+import { useHapticsOptIn } from '@/features/practices/shared/haptics/useHapticsOptIn';
+import { HapticsOptInPrompt } from '@/features/practices/shared/components/HapticsOptInPrompt';
+import { regionSchedule } from '@/features/practices/shared/haptics/cueScheduler';
 
 interface BodyScanScreenProps {
   practiceId: string;
@@ -103,7 +114,12 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
     handleTimerComplete,
   } = useTimerPractice({
     duration,
-    onComplete: markComplete,
+    // FEAT-311: reached only by the timer running out, so an abandoned scan
+    // stays silent.
+    onComplete: () => {
+      emitSessionEnd();
+      markComplete();
+    },
     onTick: (elapsedMs) => {
       // Calculate which area we should be on based on elapsed time
       const elapsedSeconds = elapsedMs / 1000;
@@ -118,6 +134,44 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
       }
     },
   });
+
+  /**
+   * Haptic region cues (FEAT-285).
+   *
+   * Built as an ABSOLUTE timeline rather than fired from the `onTick` branch
+   * above. That branch runs on Timer's whole-second-gated tick, so a cue fired
+   * from it would inherit up to a second of quantisation error — fine for
+   * swapping the on-screen region, far too coarse for something the
+   * practitioner is meant to follow by feel.
+   */
+  const hapticSchedule = useMemo(
+    () => regionSchedule(duration * 1000, areaCount),
+    [duration, areaCount]
+  );
+
+  const { emitSessionEnd } = usePracticeHaptics({
+    schedule: hapticSchedule,
+    isActive: isTimerActive,
+    sessionAnchors: true,
+    // The screen has no existing announcement on this boundary — the region
+    // list only updates its labels — so the hook supplies the paired speech.
+    //
+    // NOTE (FEAT-311): this callback ignores its cue argument and speaks "Next
+    // area" unconditionally, which is correct ONLY because it is reached solely
+    // from the SCHEDULED path, where regionTransition is the only cue on the
+    // timeline. The session anchors deliberately bypass it — routing them here
+    // would tell a blind practitioner to move body region at the start and
+    // again at completion. If this callback ever gains a second scheduled cue,
+    // it must switch on the argument.
+    announce: useCallback(() => {
+      AccessibilityInfo.announceForAccessibility('Next area');
+    }, []),
+  });
+
+  // FEAT-385: the once-ever haptics opt-in. `useHapticsOptIn` owns the claim
+  // across all three practice screens, so this renders on at most one of them,
+  // at most once ever — see its module note for the async-write window.
+  const { shouldPrompt: shouldPromptHaptics, onChoose: onChooseHaptics } = useHapticsOptIn();
 
   // Current area context
   const currentArea = BODY_AREAS[currentAreaIndex] ?? 'Head & Neck';
@@ -134,6 +188,9 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
       title="Body Scan Practice"
       onBack={onBack || (() => {})}
       scrollable={true}
+      overlay={
+        shouldPromptHaptics ? <HapticsOptInPrompt onChoose={onChooseHaptics} /> : undefined
+      }
       testID={testID}
     >
       {/* Practice Instructions - Fade out after starting */}

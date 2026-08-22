@@ -25,7 +25,7 @@
       },
       {
         "title": "Character Cultivation Over Time",
-        "content": "The Stoics understood that virtue isn't achieved through single moments of heroism. Character develops through thousands of small choices, accumulated over years of practice. Epictetus compared it to athletic training: you don't become strong by occasionally lifting heavy weights, but through consistent daily practice.\n\nThis perspective removes the pressure of perfection while maintaining high standards. You won't respond virtuously in every situation—especially early in practice. What matters is the trajectory: are you gradually becoming wiser, more courageous, more just, more temperate? Are you catching yourself more quickly when you've responded poorly? Are you learning from failures?\n\nSeneca practiced daily self-examination: 'The whole of my day I shall examine' (On Anger 3.36). Not for self-punishment, but as a craftsperson examining their work. Which responses reflected virtue? Where did I fall short? What can I learn? What will I do differently tomorrow?\n\nThe developmental stages matter here (Fragmented → Effortful → Fluid → Integrated). Early stage: you remember to apply virtue after you've already reacted. Middle stages: you catch yourself mid-reaction and course-correct. Advanced stage: virtuous responses arise spontaneously, almost effortlessly. This takes years, not weeks—and that's not only acceptable but necessary for genuine character development.",
+        "content": "The Stoics understood that virtue isn't achieved through single moments of heroism. Character develops through thousands of small choices, accumulated over years of practice. Epictetus compared it to athletic training: you don't become strong by occasionally lifting heavy weights, but through consistent daily practice.\n\nThis perspective removes the pressure of perfection while maintaining high standards. You won't respond virtuously in every situation—especially early in practice. What matters is the trajectory: are you gradually becoming wiser, more courageous, more just, more temperate? Are you catching yourself more quickly when you've responded poorly? Are you learning from failures?\n\nSeneca practiced daily self-examination, a habit he credits to his teacher Sextius: 'I pass the whole day in review before myself, and repeat all that I have said and done' (On Anger 3.36, trans. Aubrey Stewart). Not for self-punishment, but as a craftsperson examining their work. Which responses reflected virtue? Where did I fall short? What can I learn? What will I do differently tomorrow?\n\nThe developmental stages matter here (Fragmented → Effortful → Fluid → Integrated). Early stage: you remember to apply virtue after you've already reacted. Middle stages: you catch yourself mid-reaction and course-correct. Advanced stage: virtuous responses arise spontaneously, almost effortlessly. This takes years, not weeks—and that's not only acceptable but necessary for genuine character development.",
         "learnMore": "The neuroscience of habit formation supports this gradual approach. Character traits are, neurologically speaking, deeply ingrained patterns of perception, interpretation, and response. Changing these patterns requires:\n\n1. **Awareness**: Noticing your automatic patterns\n2. **Intention**: Choosing different responses\n3. **Repetition**: Thousands of iterations to build new pathways\n4. **Reflection**: Learning from both successes and failures\n5. **Time**: Allowing neuroplasticity to work (months to years)\n\nThe Stoic practices you're engaging with—morning intention-setting, midday check-ins, evening review—create the structure for this gradual cultivation. Each practice is one repetition, one opportunity to strengthen virtue.\n\nRemember: You're not trying to become perfect. You're trying to become progressively more aligned with wisdom, courage, justice, and temperance. Progress, not perfection."
       }
     ]
@@ -74,25 +74,25 @@
     },
     {
       "id": "gratitude-reflection",
-      "title": "Gratitude Reflection",
-      "description": "Reflect on what you're grateful for in your life right now.",
+      "title": "What You Already Have",
+      "description": "Take one thing you already have, picture it briefly absent and let it return, then see it as it is.",
       "type": "reflection",
-      "duration": 240,
-      "icon": "🙏",
+      "duration": 300,
+      "icon": "🔍",
       "instructions": [
-        "Consider three things you're genuinely grateful for",
-        "Notice the people who have contributed to your wellbeing",
-        "Acknowledge the opportunities you've been given",
-        "Reflect on moments of kindness you've received",
-        "Notice any ordinary blessings you usually overlook",
-        "Allow the feeling of gratitude to settle in your body"
+        "Choose one specific thing you have today — this cup, that doorway, the use of your right hand. One thing, not a class of things.",
+        "Look at it plainly first, before any story about it. What is actually there?",
+        "Now, briefly, picture it simply absent — then let it come back. Not lost dramatically, just not there; one breath is long enough for both.",
+        "It is still here. Notice what changed in how it looks to you now, and stay with that longer than you stayed with its absence.",
+        "Take care that being pleased with it does not become overvaluing it, so that its absence one day would overturn you. The aim is to see it clearly, not to clutch it.",
+        "Ask who this came through — who made it, kept it, or handed it on. What gratitude asks is a return you make, not a feeling you hold."
       ]
     }
   ],
   "commonObstacles": [
     {
       "question": "Isn't this just rigid moral perfectionism?",
-      "response": "Not at all—that's actually antithetical to Stoic practice. Perfectionism says 'I must never fail' and creates crushing self-judgment. Virtue cultivation says 'I'm learning to respond more wisely over time' and creates growth orientation. The Stoics explicitly taught that progress matters more than perfection. Epictetus: 'Don't be ashamed to need help. Your job is to live well; you can't do that alone or without learning.'",
+      "response": "Not at all—that's actually antithetical to Stoic practice. Perfectionism says 'I must never fail' and creates crushing self-judgment. Virtue cultivation says 'I'm learning to respond more wisely over time' and creates growth orientation. The Stoics explicitly taught that progress matters more than perfection. Marcus Aurelius: 'Be not ashamed to be helped; for it is thy business to do thy duty like a soldier in the assault on a town.' (Meditations 7.7, trans. George Long)",
       "tip": "Try: When you notice yourself responding poorly to a situation, practice self-compassion first ('I'm human and learning'), then virtuous reflection ('What would I do differently next time?')"
     },
     {

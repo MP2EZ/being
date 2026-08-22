@@ -7,8 +7,14 @@
  * (Interconnected Living). The breath is SKIPPABLE and short (crisis review:
  * non-trapping; the root crisis overlay stays tappable throughout). Then a neutral
  * completion with an optional integration note. This is NOT a principle beat.
+ *
+ * FEAT-328 removed the "✓ Loop complete" pill that used to open the post-breath block.
+ * Do not reinstate a completion marker here. Completion is STATED by the title; marking it
+ * as well made the coda congratulate twice in its two most prominent positions. The
+ * governing rule lives with the closing copy in `tenseMode.ts` (INVARIANTS) — read it there
+ * before adding anything to the top of this block.
  */
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -17,29 +23,62 @@ import {
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  AccessibilityInfo,
+  findNodeHandle,
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } from '@/core/theme';
 import { AccessibleButton } from '@/core/components/accessibility/AccessibleButton';
 import { BreathingCircle, Timer, SkipLink } from '@/features/practices/shared/components';
-import type { DailyLoopCompleteData } from '@/features/practices/types/flows';
-import { CLOSING } from '../config/tenseMode';
+// Module-scope constant, not an inline literal: `pattern` sits in BreathingCircle's
+// animation-effect dep array, so a fresh object identity each parent render both
+// defeats its React.memo and can restart the breath cycle mid-practice (DEBUG-394).
+import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
+import type { DailyLoopMode, DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
+import { CLOSING, STEP_TITLES, getStepKeysForDepth, getCompleteTitle } from '../config/tenseMode';
+import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
 const CLOSING_BREATH_MS = 15 * 1000;
 
 export interface DailyLoopCompleteScreenProps {
+  /** Per-session depth (FEAT-301) — drives the depth-accurate completion copy. */
+  depth: DailyLoopDepth;
+  /**
+   * Session tense (FEAT-298 slice 6b). The ONLY structural cost of the re-homed gratitude
+   * line: unlike postureLine, gratitude varies by tense, so the coda needs the mode the
+   * navigator already holds. Not user-facing — since slice 5 the tense is inferred from
+   * the clock and never displayed.
+   */
+  mode: DailyLoopMode;
   onComplete: (data: DailyLoopCompleteData) => void;
 }
 
-const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ onComplete }) => {
+const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth, mode, onComplete }) => {
   const themeColors = getTheme('midday');
   const [breathDone, setBreathDone] = useState(false);
   const [isBreathActive, setIsBreathActive] = useState(true);
   const [integrationNote, setIntegrationNote] = useState('');
 
+  const insets = useSafeAreaInsets();
+  const titleRef = useRef<Text>(null);
+
   const finishBreath = useCallback(() => {
     setBreathDone(true);
     setIsBreathActive(false);
   }, []);
+
+  // WCAG 4.1.3 — when the breath section unmounts, VoiceOver focus is left on a destroyed
+  // element and iOS gives no announcement. A user who let the 15s timer run out (so had no
+  // tap to anchor focus) would sit in silence, unaware the screen changed. Move focus to
+  // the title, which since FEAT-328 is also the first post-breath element — so the
+  // announcement and the visual top of the block are the same substantive line.
+  useEffect(() => {
+    if (!breathDone) return;
+    const handle = findNodeHandle(titleRef.current);
+    if (!handle) return;
+    const frame = requestAnimationFrame(() => AccessibilityInfo.setAccessibilityFocus(handle));
+    return () => cancelAnimationFrame(frame);
+  }, [breathDone]);
 
   const handleDone = useCallback(() => {
     onComplete({
@@ -67,7 +106,7 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ onCom
             <View style={styles.breathCircleContainer}>
               <BreathingCircle
                 isActive={isBreathActive}
-                pattern={{ inhale: 4000, exhale: 4000 }}
+                pattern={DEFAULT_PATTERN}
                 testID="daily-loop-closing-breathing-circle"
               />
             </View>
@@ -94,18 +133,46 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ onCom
         {/* Completion */}
         {breathDone && (
           <>
-            <View style={[styles.badge, { backgroundColor: themeColors.background }]}>
-              <Text style={[styles.badgeText, { color: themeColors.primary }]}>✓ Loop complete</Text>
-            </View>
-
-            <Text style={styles.title}>{CLOSING.completeTitle}</Text>
-            <Text style={styles.subtitle}>
-              Aware Presence · Radical Acceptance · Sphere Sovereignty · Virtuous Response ·
-              Interconnected Living
+            {/* Depth-accurate: quick moved through 3 canonical beats, not five —
+                naming all five (or "all five principles") would be false + re-rank quick. */}
+            <Text ref={titleRef} style={styles.title} accessibilityRole="header">
+              {getCompleteTitle(depth)}
             </Text>
+            {/* The visible '·' separator is silent at default VoiceOver punctuation
+                verbosity, collapsing five names into one run-on. Same words, comma-joined,
+                so every TTS engine gets a prosodic pause. STEP_TITLES stays the source. */}
+            <Text
+              style={styles.subtitle}
+              accessibilityLabel={getStepKeysForDepth(depth).map((k) => STEP_TITLES[k]).join(', ')}
+            >
+              {getStepKeysForDepth(depth).map((k) => STEP_TITLES[k]).join(' · ')}
+            </Text>
+
+            {/* FEAT-298 slice 6b — gratitude, re-homed from the retired morning/evening
+                flows. Tense-varied (unlike the posture below), static (nothing to submit or
+                skip), and placed BEFORE the posture because De Ira 3.36 runs review →
+                clemency and the pardon is terminal. */}
+            {/* One passage, two movements. De Ira 3.36 is a single act — review → clemency
+                — and the pardon being terminal is expressed by the posture being LAST in the
+                box. Two containers would present them as independent affordances of equal
+                standing and lose the sequence.
+                Deliberately NOT accessible={true}: combined these are ~250 chars, one
+                utterance a screen-reader user cannot pause inside or re-read half of. Two
+                distinct stops is correct. Do not "match the visual grouping" here. */}
+            <View style={styles.passage}>
+              <Text style={styles.gratitudeLine}>{CLOSING.gratitudeLine[mode]}</Text>
+
+            {/* FEAT-298 slice 6a — self-compassion posture, re-homed from the retired
+                Midday CompassionateCloseScreen. Placement is load-bearing: this sits in the
+                POST-BREATH block, never in the breath section above, because the breath is
+                skippable (SkipLink) and anything attached to it is invisible to a skipper —
+                the exact failure that stranded the evening step-4 compassion hint. */}
+              <Text style={styles.postureLine}>{CLOSING.postureLine}</Text>
+            </View>
 
             <Text style={styles.inputLabel}>{CLOSING.noteLabel}</Text>
             <TextInput
+              {...crisisAccessoryProps()} /* DEBUG-450 */
               style={[
                 styles.textInput,
                 { borderColor: integrationNote ? themeColors.primary : colorSystem.gray[300] },
@@ -113,7 +180,7 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ onCom
               value={integrationNote}
               onChangeText={setIntegrationNote}
               placeholder={CLOSING.notePlaceholder}
-              placeholderTextColor={colorSystem.gray[500]}
+              placeholderTextColor={semantic.text.secondary}
               multiline
               numberOfLines={3}
               textAlignVertical="top"
@@ -122,19 +189,38 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ onCom
               testID="daily-loop-integration-input"
             />
 
-            <AccessibleButton
-              onPress={handleDone}
-              label="Return to Home"
-              variant="primary"
-              size="large"
-              theme="midday"
-              testID="daily-loop-done-button"
-              accessibilityHint="Finish and return to the home screen"
-              style={{ marginTop: spacing[24] }}
-            />
+            {/* MAINT-140's "return anytime", re-homed and made Stoic: beginning again IS
+                the practice (Marcus 5.9), not a concession. Quiet static line — no toast. */}
+            <View style={styles.codaRule} />
+            <Text style={styles.returnLine}>{CLOSING.returnLine}</Text>
+
           </>
         )}
       </ScrollView>
+
+      {/* FEAT-298 slice 6b — the primary action is PINNED, outside the ScrollView.
+          It was previously the last child in-scroll, which put it below the fold on every
+          current iPhone once 6a/6b added the posture and gratitude lines (~745pt of content
+          against a ~547pt viewport on SE). That was not merely awkward: the header still
+          renders a ✕ whose onExit is a bare goBack(), so the only VISIBLE exit from a
+          completed practice discarded the session — no 'daily' check-in, no principle
+          engagements, and a stale resumable session left on disk. The ✕ is now suppressed
+          on this route (see DailyLoopNavigator) and the recording exit is always reachable.
+          No border and no shadow on the footer: a divider here would read as a form action
+          bar, which is the one register the coda must not have. */}
+      {breathDone && (
+        <View style={[styles.footer, { paddingBottom: spacing[16] + insets.bottom }]}>
+          <AccessibleButton
+            onPress={handleDone}
+            label="Return to Home"
+            variant="primary"
+            size="large"
+            theme="midday"
+            testID="daily-loop-done-button"
+            accessibilityHint="Finish and return to the home screen"
+          />
+        </View>
+      )}
     </KeyboardAvoidingView>
   );
 };
@@ -142,50 +228,139 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ onCom
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colorSystem.base.white },
   scrollView: { flex: 1 },
-  scrollContent: { padding: spacing[20], paddingBottom: spacing[40] },
+  // The pinned footer owns the bottom gap now, so the scroll content no longer reserves it.
+  scrollContent: { padding: spacing[20], paddingBottom: spacing[24] },
 
   breathSection: { alignItems: 'center', paddingTop: spacing[24] },
   breathTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     marginBottom: spacing[8],
   },
   breathSubtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     marginBottom: spacing[32],
   },
   breathCircleContainer: { marginBottom: spacing[24] },
 
-  badge: {
-    padding: spacing[12],
-    borderRadius: borderRadius.medium,
-    marginBottom: spacing[24],
-    alignItems: 'center',
-  },
-  badgeText: {
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-  },
   title: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
-    marginBottom: spacing[8],
+    color: semantic.text.primary,
+    // FEAT-328 removed a badge that sat above this line and contributed its own leading
+    // margin. Without a little top space the title butts against the header and reads as
+    // a rendering fault rather than as the top of the block. This is deliberately less
+    // than the badge's old footprint — the point of the removal was to reclaim the space,
+    // not to respend it.
+    marginTop: spacing[8],
+    // 4pt, so the beat-name subtitle below reads as belonging TO this title.
+    marginBottom: spacing[4],
   },
+  /**
+   * Metadata, not practice content — and in DEEP mode it is strictly redundant
+   * (completeTitle already says "all five principles", this then lists them). In QUICK it
+   * does carry new information, so it stays. Demoted by RE-PARENTING to the title (4pt
+   * above, 32pt below reads as unambiguous ownership), not by shrinking: these are the five
+   * canonical principle names, and 12pt would bury the framework's spine to solve a local
+   * layout problem. gray[500] is not an option either — 1.98:1, an outright AA failure.
+   */
   subtitle: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
-    marginBottom: spacing[24],
+    color: semantic.text.secondary,
+    letterSpacing: typography.caption.spacing,
+    marginBottom: spacing[32],
+    lineHeight: typography.bodySmall.size * typography.bodySmall.lineHeight,
+  },
+  /**
+   * FEAT-298 slice 6b — gratitude + posture share ONE quiet box.
+   *
+   * MAINT-487 DELETED A KINSHIP CLAIM THAT WAS FALSE. This block used to say the box
+   * reuses "the same `spacing[4]` left rule + `gray[50]` fill + `gray[700]` text as
+   * PassageReaderScreen", so the lines read "as the same KIND of thing as a Marcus
+   * passage in the Library — which is what they are". Both halves fail on reading that
+   * file. The Marcus passage there is `passageText`: `gray[800]`, `bodyLarge`, UNBOXED
+   * on the white screen body. The `gray[50]` + `spacing[4]`-rule box is `contextBox`,
+   * and it holds the editorial apparatus ABOUT the passage — its rule is
+   * `navigation.learn`, not `gray[400]`. So the vocabulary copied here was the
+   * Library's COMMENTARY vocabulary, and the box was telling the reader these lines
+   * are supporting matter while this comment insisted they are the practice.
+   *
+   * WHAT THE BOX ACTUALLY DOES, and all it claims: it groups two lines into one act.
+   * De Ira 3.36 is a single movement (review → clemency), and the pardon being
+   * terminal is expressed by the posture being last INSIDE the box. It asserts no
+   * passage-hood. The content is app-authored second-person paraphrase — warrants at
+   * `config/tenseMode.ts` (Enchiridion 11, Meditations 7.27, De Ira 3.36.3) — and
+   * quotes nothing: no quotation marks, no author, no citation, unlike
+   * `PRACTICE_QUOTES` entries, which carry all three.
+   *
+   * TIER: `semantic.text.primary`, not `secondary`. These are the coda's terminal
+   * instruction, and instruction is at primary everywhere else in this screen family
+   * (`DailyLoopStepScreen.virtuePrompt`, `HapticsOptInPrompt.heading`,
+   * `ResumeSessionModal.message`). `styles.subtitle` above is `secondary` and its own
+   * note says why — metadata, redundant in DEEP mode. If the passage also read
+   * `secondary` the screen would render its terminal Stoic act at the same tier as a
+   * redundant list of principle names.
+   *
+   * ⚠️ THE AA RULE IS ABOUT THE FILL, NOT ABOUT THESE TWO LINES. It survives the
+   * re-point because the fill outlives them: any SUBORDINATE text added to this box
+   * must clear 4.5:1 on `gray[50]`. `gray[600]` is 4.4143 and FAILS — do not "simplify"
+   * anything here onto it. `semantic.text.secondary` is 5.3387 and is the correct
+   * subordinate token. The contrast matrix cannot catch a violation for you:
+   * `SUBORDINATE_TEXT` governs the two tokens, and `gray[600]` is a raw ramp step.
+   *
+   * Nothing here is hued — reward in this app is carried by the accent teal, and this
+   * box has none — so a darker value reads as "body content", not "you did well".
+   */
+  passage: {
+    backgroundColor: colorSystem.gray[50],
+    borderLeftWidth: spacing[4],
+    borderLeftColor: colorSystem.gray[400],
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    marginBottom: spacing[32],
+  },
+  gratitudeLine: {
+    fontSize: typography.bodySmall.size,
+    color: semantic.text.primary,
+    marginBottom: spacing[16],
+    // Most air on the screen — this is the line the copy asks you to dwell on.
+    lineHeight: typography.bodySmall.size * 1.6,
+  },
+  postureLine: {
+    fontSize: typography.bodySmall.size,
+    color: semantic.text.primary,
+    lineHeight: typography.bodySmall.size * 1.6,
+  },
+  /**
+   * Separates the ENDMATTER register (about next time) from the practice itself.
+   * A zero-height View, not a Text border — RN renders borders on Text inconsistently on
+   * Android, and hairlineWidth on a Text border is unreliable there.
+   */
+  codaRule: {
+    height: StyleSheet.hairlineWidth,
+    backgroundColor: colorSystem.gray[300],
+    marginTop: spacing[24],
+    marginBottom: spacing[20],
+  },
+  /** Pinned primary action. No border and no shadow — see the JSX comment. */
+  footer: {
+    paddingHorizontal: spacing[20],
+    paddingTop: spacing[16],
+    backgroundColor: colorSystem.base.white,
+  },
+  returnLine: {
+    fontSize: typography.bodySmall.size,
+    color: semantic.text.secondary,
     lineHeight: typography.bodySmall.size * 1.5,
   },
   inputLabel: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   textInput: {
@@ -193,9 +368,11 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     padding: spacing[16],
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     backgroundColor: colorSystem.base.white,
-    minHeight: 90,
+    minHeight: spacing[96],
+    // numberOfLines is Android-only for multiline; without this iOS grows unbounded.
+    maxHeight: spacing[128],
   },
 });
 

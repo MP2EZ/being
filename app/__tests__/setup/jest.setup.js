@@ -293,7 +293,27 @@ jest.mock('react-native', () => {
     // `Element type is invalid: ... got: undefined` on first render of
     // any screen that uses it.
     KeyboardAvoidingView: RN.KeyboardAvoidingView,
-    SafeAreaView: RN.SafeAreaView,
+
+    // DEBUG-450: same omission class as KeyboardAvoidingView above. The crisis keyboard
+    // accessory mounts inside CleanRootNavigator, so its absence from this curated list
+    // broke not just its own suite but every test that renders the navigator, with the
+    // same misleading `Element type is invalid: ... got: undefined`. Safe + non-deprecated.
+    InputAccessoryView: RN.InputAccessoryView,
+
+    // MAINT-437: `SafeAreaView: RN.SafeAreaView` removed. Reading that property off the
+    // core export invokes the deprecating getter (react-native/index.js:96-107), and
+    // because this file runs before any app module in every test registry, it was the
+    // SOLE emitter of the deprecation warning — verified, not assumed: with this line
+    // gone, a full `npm test` (245 suites, 3861 tests) emits zero deprecation lines, as
+    // do `test:accessibility` and `validate:accessibility`. Migrating the 8 app files
+    // silenced nothing on its own; this line was the whole of it. Note several suites
+    // spread `jest.requireActual('react-native')`, which looks like it should re-emit and
+    // does not — do not "fix" them on the theory that it should.
+    //
+    // Removing it is also a third enforcement layer, after the ESLint rule and the
+    // check script: any future core import now fails at RENDER with
+    // `Element type is invalid`, rather than rendering fine and warning once.
+    // Use `react-native-safe-area-context`, which is mocked below with prop forwarding.
 
     // Layout & Styling (SAFE)
     StyleSheet: RN.StyleSheet,
@@ -305,11 +325,17 @@ jest.mock('react-native', () => {
       Version: 15
     },
     Dimensions: {
-      get: jest.fn(() => ({ width: 375, height: 812 })),
+      get: jest.fn(() => ({ width: 375, height: 812, scale: 2, fontScale: 1 })),
       set: jest.fn(),
       addEventListener: jest.fn(),
       removeEventListener: jest.fn()
     },
+    // DEBUG-469: this allow-list mock never exported `useWindowDimensions`, so any screen
+    // reading it threw `is not a function` at render. Additive — nothing could have
+    // depended on its absence. `fontScale: 1` is DEFAULT Dynamic Type; a suite exercising
+    // a scaled-type branch overrides it with
+    // `jest.spyOn(RN, 'useWindowDimensions').mockReturnValue({ ...,  fontScale: 3.1 })`.
+    useWindowDimensions: jest.fn(() => ({ width: 375, height: 812, scale: 2, fontScale: 1 })),
 
     // Interaction APIs (SAFE)
     Alert: {
@@ -335,6 +361,14 @@ jest.mock('react-native', () => {
       removeEventListener: jest.fn(),
       setAccessibilityFocus: jest.fn(),
     },
+
+    // findNodeHandle — required by any screen that programmatically moves VoiceOver
+    // focus (WCAG 4.1.3), e.g. DailyLoopCompleteScreen when the breath section unmounts,
+    // or the FEAT-285 haptics opt-in prompt. This mock is a wholesale allow-list, so an
+    // export omitted here is `undefined` at call time and the component throws "is not a
+    // function" on render rather than degrading. Returns a truthy tag so the focus effect
+    // runs its real code path into the mocked AccessibilityInfo.setAccessibilityFocus above.
+    findNodeHandle: jest.fn(() => 1),
 
     // UIManager — minimal mock so getViewManagerConfig() returns an object
     // instead of undefined (needed by @react-navigation/elements MaskedView).
@@ -398,10 +432,54 @@ jest.mock('react-native', () => {
 });
 
 // Mock Expo modules
+// FEAT-285 widened this from `impactAsync` + `ImpactFeedbackStyle.Heavy` to the
+// full semantic surface. The old partial mock left `selectionAsync`,
+// `notificationAsync` and every enum member except Heavy as `undefined`, so any
+// suite touching a real cue would have failed with a confusing "not a function"
+// rather than a meaningful assertion.
+// DEBUG-426: expo-device has no jest mock of its own and its build entry calls
+// `requireNativeModule('ExpoDevice')` at module top level, so importing it here
+// throws before any test body runs. It is also absent from
+// transformIgnorePatterns, so its ESM build would not transform either.
+// `hapticActuator.ts` is the only module that imports it, but the three practice
+// screens and useHapticsOptIn all reach that module transitively, so without
+// this mock four suites fail at import.
+//
+// THE DEFAULT MATTERS AS MUCH AS THE MOCK. jest.setup pins Platform.OS to 'ios'
+// below, so a default of anything other than a capable physical iPhone would
+// silently invert every existing eligibility assertion in
+// useHapticsOptIn.test.ts — they would still pass or fail, but for the wrong
+// reason. Suites that need incapable hardware override these per-case.
+// `__esModule: true` is REQUIRED, not decoration. hapticActuator.ts does
+// `import * as Device from 'expo-device'`, and without the marker babel's
+// `_interopRequireWildcard` COPIES the factory's properties into a fresh
+// namespace object — so a test that mutates the mock to simulate an iPad
+// changes nothing the predicate can see, and the suppression specs fail while
+// the production code is correct. With the marker the object is returned
+// as-is and per-case overrides land. (The real expo-device build is ESM, so
+// this is also simply accurate.)
+jest.mock('expo-device', () => ({
+  __esModule: true,
+  isDevice: true,
+  modelId: 'iPhone14,2',
+  deviceType: 1, // DeviceType.PHONE
+  DeviceType: { UNKNOWN: 0, PHONE: 1, TABLET: 2, DESKTOP: 3, TV: 4 },
+}));
+
 jest.mock('expo-haptics', () => ({
   impactAsync: jest.fn(() => Promise.resolve()),
+  selectionAsync: jest.fn(() => Promise.resolve()),
+  notificationAsync: jest.fn(() => Promise.resolve()),
+  performAndroidHapticsAsync: jest.fn(() => Promise.resolve()),
   ImpactFeedbackStyle: {
+    Light: 'light',
+    Medium: 'medium',
     Heavy: 'heavy'
+  },
+  NotificationFeedbackType: {
+    Success: 'success',
+    Warning: 'warning',
+    Error: 'error'
   }
 }));
 
@@ -534,10 +612,36 @@ jest.mock('react-native-safe-area-context', () => {
   const inset = { top: 0, right: 0, bottom: 0, left: 0 };
   const frame = { x: 0, y: 0, width: 390, height: 844 };
   const passthrough = ({ children }) => children;
+
+  // MAINT-437 — SafeAreaView renders a real host element and FORWARDS its props.
+  //
+  // It was `passthrough`, which renders no host node and silently drops `style`,
+  // `testID` and every accessibility prop. Screens rooted on it were therefore
+  // unqueryable: `getByTestId('practice-screen')` resolved only because
+  // PracticeScreenLayout used the DEPRECATED core import, which the curated RN mock
+  // backs with a real host component. Migrating the import without fixing this would
+  // have deleted that testID — which is why this lands first and is verified green
+  // with the old imports still in place.
+  //
+  // `edges` is forwarded deliberately: it is the ONLY thing in ACs 1-4 that can
+  // observe an edges decision at all. Insets are pinned at zero here, so no test can
+  // see an edges value having a layout EFFECT — a per-site `props.edges` assertion
+  // pins the value, never the pixels. The rendered result is AC5/AC6 device work.
+  //
+  // `mode` is consumed, not forwarded — it is not a View prop and leaking it would
+  // pollute prop assertions.
+  //
+  // SafeAreaProvider deliberately stays `passthrough`: promoting it to a host View
+  // would insert a second node at the root of every rendered tree app-wide, which is
+  // a far larger blast radius than this item's.
+  const { View: RNView } = require('react-native');
+  const SafeAreaViewMock = ({ children, edges, mode: _mode, ...props }) =>
+    require('react').createElement(RNView, { ...props, edges }, children);
+
   return {
     SafeAreaProvider: passthrough,
     SafeAreaConsumer: ({ children }) => children(inset),
-    SafeAreaView: passthrough,
+    SafeAreaView: SafeAreaViewMock,
     useSafeAreaInsets: () => inset,
     useSafeAreaFrame: () => frame,
     SafeAreaInsetsContext: { Consumer: ({ children }) => children(inset), Provider: passthrough },

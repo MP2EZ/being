@@ -1,0 +1,76 @@
+name: Legal Site Freshness
+
+# Verifies that being.fyi is serving the CURRENT legal documents.
+#
+# The website does not read docs/legal/ at request time. Its deploy workflow
+# (being-website/.github/workflows/deploy.yml) sparse-checkouts this repo at
+# build time and the Next.js pages import that markdown as a raw module, so the
+# text is baked into the deployed bundle — only a rebuild can change it. That
+# workflow triggers on pushes to being-website's own branches and on manual
+# dispatch; nothing in THIS repo triggers it.
+#
+# On 2026-08-07 the live privacy policy was found 68 days and four versions
+# stale, publicly serving a crisis-data claim DEBUG-333 had removed as false.
+# Nothing detected it for ten weeks. (INFRA-348.)
+#
+# WHY A CRON AND NOT A STEP IN ci.yml — this is the whole design point.
+# The failure being guarded is "no deploy ran". A check that lives in a build
+# only executes when a build executes, so it would have stayed green by never
+# running for the entire ten weeks it was meant to catch. Only an out-of-band
+# probe can observe that a pipeline did not fire. It is also deliberately kept
+# out of ci.yml because it makes a live network call to a third party: a
+# transient being.fyi blip must not block every unrelated PR, and a PR whose
+# docs/legal change has not deployed yet SHOULD NOT be red — that drift is
+# expected until the website rebuilds.
+
+on:
+  schedule:
+    # Daily at 13:00 UTC. Offset from ci.yml and supabase-keepalive (both 09:00)
+    # so a failure here is not buried in a batch of unrelated scheduled runs.
+    - cron: '0 13 * * *'
+  workflow_dispatch:
+  # Also on changes to the checker itself, so a broken edit surfaces on the PR
+  # that made it rather than at 13:00 the next day.
+  pull_request:
+    paths:
+      - 'scripts/legal-site-freshness.js'
+      - '.github/workflows/legal-site-freshness.yml'
+
+concurrency:
+  group: legal-site-freshness
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    name: being.fyi legal content is current
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          # The checker reads sources via `git show origin/development:...`,
+          # which needs the remote-tracking ref rather than the working tree —
+          # on a pull_request run the working tree is the PR's merge commit,
+          # not the ref the website deploys from.
+          fetch-depth: 0
+
+      - name: Ensure the deployed ref is available locally
+        # Explicit rather than relying on checkout's ref bookkeeping. If this
+        # is missing the checker fails loudly ("could not read ... at
+        # origin/development") instead of comparing against the wrong tree.
+        run: git fetch --no-tags origin development:refs/remotes/origin/development --force
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Check being.fyi legal content against origin/development
+        # No dependencies: the script uses only node built-ins, so this needs
+        # no npm install and cannot be broken by a lockfile change.
+        run: node scripts/legal-site-freshness.js --verbose

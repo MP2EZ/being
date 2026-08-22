@@ -21,7 +21,15 @@ import { colors as dsColors } from '@mp2ez/being-design-system/native';
  * WCAG 2.1 AA Compliant Color Palette
  *
  * Color contrast tested with WebAIM Contrast Checker.
- * All ratios verified against white (#FFFFFF) background.
+ *
+ * ⚠️ "All ratios verified against white (#FFFFFF) background" USED TO STAND HERE AS A
+ * COMPLIANCE CLAIM. MAINT-487 removed it: a single-surface verification is exactly the
+ * defect DEBUG-357 corrected one file over, where a token legal only on white failed on
+ * every tinted ground in the app. Any ratio quoted below is a white-only figure unless
+ * it names its ground, and none of them do. This palette is NOT covered by
+ * theme-contrast.accessibility.test.ts, which asserts over `semantic.*` and the
+ * `colorSystem` ramp and cannot see these hand-minted values at all — which is how a
+ * sub-bar entry survived here unnoticed until MAINT-487 went looking.
  *
  * UX-03 audit note (2026-05-17): the original audit flagged this file as a
  * "duplicate of colors.accessibility from the DS package." On inspection
@@ -32,14 +40,32 @@ import { colors as dsColors } from '@mp2ez/being-design-system/native';
  *     directly via `dsColors.themes.*`. They are intentional semantic
  *     aliases over the canonical palette, not drifting copies.
  *
- *   - The remaining 17 entries are project-specific WCAG-tuned values
- *     (e.g., textHelper '#6B6B6B' replaces the original '#999' which
- *     failed at 2.85:1; borderDefault '#B0B0B0' replaces '#DDD' which
- *     failed at 1.36:1; error '#C92A2A' replaces '#D64545' which failed
- *     at 3.88:1). The DS package's `colors.accessibility` does not expose
- *     equivalents — it covers `highContrast`, `focus`, `text`, and
- *     `notification` shapes only. Replacing these locals with DS tokens
- *     would regress documented contrast compliance.
+ *   - The remaining entries are project-specific WCAG-tuned values. The DS
+ *     package's `colors.accessibility` does not expose equivalents — it covers
+ *     `highContrast`, `focus`, `text`, and `notification` shapes only.
+ *
+ * MAINT-487 UPHELD UX-03'S VERDICT AND OVERTURNED ITS REASONING. The verdict stands:
+ * this file extends the DS rather than duplicating it, and it is NOT dead —
+ * `TOUCH_TARGETS` alone has seven live importers, and `A11Y_ROLES` / `FOCUS_STYLES` /
+ * `TYPOGRAPHY` are load-bearing. Do not delete the file.
+ *
+ * But "replacing these locals with DS tokens would regress documented contrast
+ * compliance" is no longer a defence, because two of the three values UX-03 cited to
+ * support it do not survive audit. `textHelper` '#6B6B6B' was 4.3494 on gray[300] —
+ * BELOW the 4.5:1 bar on the darkest enumerated ground, while its own comment claimed
+ * "5.5:1 - PASS", a figure true on white alone; MAINT-487 deleted the key with its sole
+ * consumer, `AccessibleInput.tsx`, which had zero importers across both test roots.
+ * `borderDefault` '#B0B0B0' is 2.1687 on white and fails even the 3:1 non-text bar,
+ * against a comment below claiming "3.3:1 - PASS". Only `error` '#C92A2A' holds up.
+ *
+ * FOLLOW-UP, DELIBERATELY NOT DONE HERE: after that deletion `ACCESSIBLE_COLORS` has
+ * ONE consumer — `AccessibleButton` — reading 8 of its remaining keys, leaving ~15
+ * dead. Consolidating them onto the `colorSystem` ramp is a separate item, because
+ * `AccessibleButton`'s only two render sites are in `features/practices/dailyloop/`,
+ * a Protected Path needing `crisis` + `philosopher` passes and a Phase 2.5 gate — a
+ * different validation matrix row than a colour-coherence sweep. That item should also
+ * correct the false ratio comments and rule on the `disabled` branch, where
+ * `textWhite` on `textDisabled` is 2.8490.
  *
  *   - Touch targets, A11y roles, live-region patterns, focus styles, and
  *     spacing/border-radius scales below are likewise project-specific
@@ -110,13 +136,6 @@ export const ACCESSIBLE_COLORS = {
    */
   textSecondary: '#666666',
   
-  /**
-   * Helper Text Color (Fixed from #999)
-   * - Original: #999999 (2.85:1 - FAIL)
-   * - Fixed: #6B6B6B (5.5:1 - PASS)
-   * - Use for: Placeholder text, helper text, hints
-   */
-  textHelper: '#6B6B6B',
   
   /**
    * Disabled Text Color
@@ -282,8 +301,15 @@ export const TOUCH_TARGETS = {
   
   /**
    * Minimum Spacing Between Touch Targets
-   * - WCAG 2.5.8 (Level AAA): 8px minimum
    * - Prevents accidental taps on adjacent elements
+   *
+   * DEBUG-390 correction: this previously read "WCAG 2.5.8 (Level AAA): 8px minimum",
+   * which is wrong on both counts. 2.5.8 Target Size (Minimum) is a WCAG 2.2 **Level
+   * AA** criterion and it is a **24x24 target-size** requirement, not a spacing
+   * requirement — spacing appears only in its undersized-target exception. The 44x44
+   * figure is 2.5.5 (Level AAA), which is `minimum` above. This value is a house
+   * spacing convention with no SC behind it; it has no consumers today, and it is
+   * corrected rather than deleted so nobody re-derives the mislabelling.
    */
   spacing: 8,
   
@@ -309,31 +335,60 @@ export const TYPOGRAPHY = {
   /**
    * Large Text Thresholds (3:1 contrast allowed)
    */
+  /**
+   * DEBUG-364 corrected all three of these. They were UNSOUND IN TWO WAYS at once,
+   * and both errors pushed in the same direction — toward calling failing text
+   * "large" and so blessing it at the 3:1 bar.
+   *
+   * 1. POINTS vs DP. WCAG states its thresholds in POINTS (18pt regular, 14pt
+   *    bold). React Native `fontSize` is density-independent pixels, and 1pt =
+   *    4/3 DP. The constants held the raw point numbers (18 / 14) while every
+   *    caller would compare them against a DP `fontSize`. Correct DP values are
+   *    24 and 18.66.
+   * 2. "BOLD" IS 700, NOT 600. WCAG's normative text says only "bold" without a
+   *    numeric weight; CSS bold is 700, and axe-core — the reference
+   *    implementation — enforces >= 700. A semibold 600 is not bold.
+   *
+   * Concretely: `Timer`'s time readout is typography.headline3, 22 DP at weight
+   * 600. Under the old constants it cleared BOTH paths (22 >= 18, and 600 >=
+   * '600'), so a real 3.44:1 failure would have been documented as a pass. Under
+   * the corrected ones it clears neither (22 < 24, and 600 < 700) and is
+   * correctly classified as normal text needing 4.5:1 — which is why it is one
+   * of the sites this work item fixes.
+   *
+   * These constants had ZERO consumers in src when corrected (verified by grep;
+   * `meetsWCAGAA` takes an `isLargeText` boolean the caller computes and never
+   * reads them). So this is not a behaviour change — it is disarming a trap
+   * before something starts trusting it, which is exactly the laundering
+   * MAINT-358 removed elsewhere.
+   */
   largeText: {
     /**
-     * Regular weight large text minimum size
+     * Regular-weight large-text minimum, in DP (WCAG 18pt).
      */
-    minSize: 18,
-    
+    minSize: 24,
+
     /**
-     * Bold weight large text minimum size
+     * Bold-weight large-text minimum, in DP (WCAG 14pt).
      */
-    minSizeBold: 14,
-    
+    minSizeBold: 18.66,
+
     /**
-     * Minimum font weight for "bold" classification
+     * Minimum font weight for "bold" classification. CSS bold is 700; axe-core
+     * requires >= 700. 600 (semibold) does NOT qualify.
      */
-    minBoldWeight: '600' as const,
+    minBoldWeight: '700' as const,
   },
-  
+
   /**
    * Normal Text (4.5:1 contrast required)
    */
   normalText: {
     /**
-     * Maximum size before considered "large text"
+     * Exclusive upper bound in DP: anything BELOW this is normal text at
+     * regular weight. Mirrors largeText.minSize (WCAG 18pt = 24 DP).
      */
-    maxSize: 17,
+    maxSize: 24,
   },
   
   /**

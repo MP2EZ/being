@@ -27,7 +27,10 @@ export {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
+  // MAINT-437: SafeAreaView removed. It was a DEAD re-export -- no consumer of this
+  // barrel destructured it -- but `export { SafeAreaView } from 'react-native'` still
+  // touches the deprecating getter at module load, which is the only reason it was in
+  // scope. Import from 'react-native-safe-area-context' directly if ever needed.
   StatusBar,
   ScrollView,
   Animated,
@@ -40,6 +43,7 @@ export {
 // ============================================================================
 export {
   colorSystem,
+  semantic,
   spacing,
   typography,
   borderRadius,

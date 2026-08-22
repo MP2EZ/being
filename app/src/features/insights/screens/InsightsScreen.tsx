@@ -39,6 +39,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
 import { BodyHeader } from '@/core/components/BodyHeader';
+import { getDailyQuote } from '../constants/marcusQuotes';
 
 // Import components
 import {
@@ -49,44 +50,6 @@ import {
 } from '../components';
 
 type NavigationProp = StackNavigationProp<RootStackParamList>;
-
-// ──────────────────────────────────────────────────────────────────────────────
-// MARCUS AURELIUS QUOTES (Contemplative Rotation)
-// ──────────────────────────────────────────────────────────────────────────────
-
-const MARCUS_QUOTES = [
-  {
-    text: "Waste no more time arguing about what a good man should be. Be one.",
-    source: "Meditations 10:16",
-  },
-  {
-    text: "Look well into thyself; there is a source of strength which will always spring up if thou wilt always look.",
-    source: "Meditations 7:59",
-  },
-  {
-    text: "Very little is needed to make a happy life; it is all within yourself, in your way of thinking.",
-    source: "Meditations 7:67",
-  },
-  {
-    text: "The object of life is not to be on the side of the majority, but to escape finding oneself in the ranks of the insane.",
-    source: "Meditations 4:32",
-  },
-  {
-    text: "When you arise in the morning, think of what a precious privilege it is to be alive.",
-    source: "Meditations 2:1",
-  },
-];
-
-/**
- * Get a quote based on the day of the year (changes daily)
- */
-const getDailyQuote = () => {
-  const dayOfYear = Math.floor(
-    (Date.now() - new Date(new Date().getFullYear(), 0, 0).getTime()) /
-      (1000 * 60 * 60 * 24)
-  );
-  return MARCUS_QUOTES[dayOfYear % MARCUS_QUOTES.length];
-};
 
 // ──────────────────────────────────────────────────────────────────────────────
 // MAIN COMPONENT
@@ -149,7 +112,9 @@ const InsightsScreen: React.FC = () => {
         {dailyQuote && (
           <View style={styles.quoteContainer}>
             <Text style={styles.quoteText}>"{dailyQuote.text}"</Text>
-            <Text style={styles.quoteSource}>- Marcus Aurelius, {dailyQuote.source}</Text>
+            <Text style={styles.quoteSource}>
+              - Marcus Aurelius, {dailyQuote.source} (trans. {dailyQuote.translation})
+            </Text>
           </View>
         )}
 
@@ -225,14 +190,14 @@ const styles = StyleSheet.create({
   },
   quoteText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     fontStyle: 'italic',
     lineHeight: 24,
     marginBottom: spacing[8],
   },
   quoteSource: {
     fontSize: typography.caption.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     textAlign: 'right',
   },
   bottomPadding: {

@@ -17,6 +17,7 @@ import PracticeCompletionScreen, {
 import { useEducationStore } from '../../stores/educationStore';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { getPrincipleForModuleId } from '@/features/learn/utils/principleMapping';
+import { logError, LogCategory } from '@/core/services/logging';
 import type { ModuleId } from '@/features/learn/types/education';
 
 interface UsePracticeCompletionOptions {
@@ -70,20 +71,41 @@ export function usePracticeCompletion({
       return null;
     }
 
-    // Lookup quote with fallback chain
-    const quote = PRACTICE_QUOTES[practiceId] || PRACTICE_QUOTES['breathing-space'];
+    // DEBUG-344: no fallback chain. This used to be
+    //   PRACTICE_QUOTES[practiceId] || PRACTICE_QUOTES['breathing-space']
+    // which silently served the Aware-Presence quote to any practice without an
+    // entry — three module-5 practices, for as long as they have shipped. The
+    // `if (!quote) throw` below it was therefore unreachable, and its message
+    // advertised a failure mode that could not occur, which is precisely why the
+    // gap stayed invisible. Missing entries are now caught statically by the
+    // key-set guard in practiceQuotes.test.ts instead.
+    const quote = PRACTICE_QUOTES[practiceId];
 
+    // Degrade, never throw. An unknown practiceId is reachable from OUTSIDE the
+    // app: linking.ts accepts `practice/:practiceId` from an arbitrary URL and
+    // only strips non-alphanumerics — it does not validate against the authored
+    // set. And there is no error boundary anywhere above these screens
+    // (src/core/components/ErrorBoundary.tsx has zero importers; App.tsx wraps
+    // CleanRootNavigator in only GestureHandlerRootView / PostHogProvider /
+    // SafeAreaProvider), while RootCrisisButton renders as a sibling in the same
+    // tree. So a throw here white-screens the app and takes the 988 affordance
+    // with it — remotely triggerable, on a `gestureEnabled: false` screen, at
+    // the moment a user has just finished a practice. Rendering without a
+    // citation is strictly better than that, and better than the old behaviour
+    // of asserting someone else's quote.
     if (!quote) {
-      throw new Error(
-        `Missing quote for practiceId: ${practiceId}. ` +
-        `Available quotes: ${Object.keys(PRACTICE_QUOTES).join(', ')}`
+      logError(
+        LogCategory.SYSTEM,
+        `No PRACTICE_QUOTES entry for practiceId "${practiceId}"; rendering completion without a citation`
       );
     }
 
     return (
       <PracticeCompletionScreen
         practiceTitle={title}
-        quote={quote}
+        // exactOptionalPropertyTypes is on, so the prop must be OMITTED rather
+        // than passed as undefined.
+        {...(quote ? { quote } : {})}
         moduleId={moduleId}
         onContinue={onComplete || (() => {})}
         testID={`${testID}-completion`}

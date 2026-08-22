@@ -2,7 +2,6 @@
  * STOIC PRACTICE STORE — BEHAVIOR UNIT TESTS (MAINT-242)
  *
  * Correctness-asserting tests for the Zustand Stoic practice store:
- *   - STAGE_THRESHOLDS boundaries (asserted against the literal source constants)
  *   - longest-streak Math.max tracking
  *   - 90-day retention pruning for check-in completions & principle engagements
  *   - weekly-reflection upsert-by-ISO-week
@@ -61,14 +60,6 @@ jest.mock('@/core/utils/isoWeek', () => ({
 }));
 import { getIsoWeekStart } from '@/core/utils/isoWeek';
 
-// STAGE_THRESHOLDS is module-private; mirror the literal source values so
-// boundary assertions break loudly if the source constants change.
-const STAGE_THRESHOLDS = {
-  effortful: { minDays: 180, minStreak: 7, minPrinciples: 2, minDomains: 2 },
-  fluid: { minDays: 730, minStreak: 14, minPrinciples: 4, minDomains: 3 },
-  integrated: { minDays: 1825, minStreak: 30, minPrinciples: 5, minDomains: 3 },
-} as const;
-
 const mockStore = SecureStore as jest.Mocked<typeof SecureStore>;
 
 describe('StoicPracticeStore — behavior (MAINT-242)', () => {
@@ -81,91 +72,6 @@ describe('StoicPracticeStore — behavior (MAINT-242)', () => {
 
   afterEach(() => {
     jest.useRealTimers();
-  });
-
-  // ──────────────────────────────────────────────────────────────────
-  // STAGE THRESHOLDS
-  // ──────────────────────────────────────────────────────────────────
-  describe('developmental stage thresholds', () => {
-    /**
-     * Seed the store so the auto-stage calculation (run on
-     * incrementPracticeDays) has the principle repertoire + domain
-     * coverage to evaluate. We set totalPracticeDays to one BELOW the
-     * target, then incrementPracticeDays() to land exactly on the target.
-     */
-    const seedForStage = (opts: {
-      totalDaysBeforeIncrement: number;
-      streak: number;
-      principles: string[];
-      domains: number;
-    }) => {
-      const domainNames = ['work', 'relationships', 'adversity'] as const;
-      const domainProgress = {
-        work: { domain: 'work' as const, practiceInstances: 0, principlesApplied: [] as string[], lastPracticeDate: null },
-        relationships: { domain: 'relationships' as const, practiceInstances: 0, principlesApplied: [] as string[], lastPracticeDate: null },
-        adversity: { domain: 'adversity' as const, practiceInstances: 0, principlesApplied: [] as string[], lastPracticeDate: null },
-      };
-      // Distribute unique principles into the active domains so the Set
-      // union counts `principles.length` unique entries.
-      for (let i = 0; i < opts.domains; i++) {
-        domainProgress[domainNames[i]].practiceInstances = 1;
-      }
-      // Put all principles into the first active domain (Set de-dupes anyway).
-      domainProgress[domainNames[0]].principlesApplied = [...opts.principles];
-
-      useStoicPracticeStore.setState({
-        totalPracticeDays: opts.totalDaysBeforeIncrement,
-        currentStreak: opts.streak,
-        domainProgress,
-        developmentalStage: 'fragmented',
-      });
-    };
-
-    it('stays fragmented just below the effortful threshold', async () => {
-      seedForStage({
-        totalDaysBeforeIncrement: STAGE_THRESHOLDS.effortful.minDays - 2,
-        streak: STAGE_THRESHOLDS.effortful.minStreak,
-        principles: ['p1', 'p2'],
-        domains: 2,
-      });
-      await useStoicPracticeStore.getState().incrementPracticeDays();
-      // totalPracticeDays now = minDays - 1 (still below)
-      expect(useStoicPracticeStore.getState().developmentalStage).toBe('fragmented');
-    });
-
-    it('reaches effortful exactly at the effortful threshold', async () => {
-      seedForStage({
-        totalDaysBeforeIncrement: STAGE_THRESHOLDS.effortful.minDays - 1,
-        streak: STAGE_THRESHOLDS.effortful.minStreak,
-        principles: ['p1', 'p2'],
-        domains: STAGE_THRESHOLDS.effortful.minDomains,
-      });
-      await useStoicPracticeStore.getState().incrementPracticeDays();
-      expect(useStoicPracticeStore.getState().developmentalStage).toBe('effortful');
-    });
-
-    it('does not reach fluid with too few unique principles', async () => {
-      seedForStage({
-        totalDaysBeforeIncrement: STAGE_THRESHOLDS.fluid.minDays - 1,
-        streak: STAGE_THRESHOLDS.fluid.minStreak,
-        principles: ['p1', 'p2', 'p3'], // 3 < required 4
-        domains: STAGE_THRESHOLDS.fluid.minDomains,
-      });
-      await useStoicPracticeStore.getState().incrementPracticeDays();
-      // Falls back to effortful (all effortful criteria still met).
-      expect(useStoicPracticeStore.getState().developmentalStage).toBe('effortful');
-    });
-
-    it('reaches integrated when all integrated criteria are met', async () => {
-      seedForStage({
-        totalDaysBeforeIncrement: STAGE_THRESHOLDS.integrated.minDays - 1,
-        streak: STAGE_THRESHOLDS.integrated.minStreak,
-        principles: ['p1', 'p2', 'p3', 'p4', 'p5'],
-        domains: STAGE_THRESHOLDS.integrated.minDomains,
-      });
-      await useStoicPracticeStore.getState().incrementPracticeDays();
-      expect(useStoicPracticeStore.getState().developmentalStage).toBe('integrated');
-    });
   });
 
   // ──────────────────────────────────────────────────────────────────
@@ -572,19 +478,18 @@ describe('StoicPracticeStore — behavior (MAINT-242)', () => {
     it('collapses a burst of mutations into a single trailing-edge write', async () => {
       jest.useFakeTimers();
 
-      // Three rapid mutations within the 500ms debounce window.
-      await useStoicPracticeStore.getState().addVirtueChallenge({
-        domain: 'work',
-        virtue: 'wisdom',
-        description: 'a',
-        selfCompassion: 'kind to self',
-      } as any);
-      await useStoicPracticeStore.getState().addVirtueChallenge({
-        domain: 'work',
-        virtue: 'wisdom',
-        description: 'b',
-        selfCompassion: 'kind to self',
-      } as any);
+      // Three rapid mutations within the 500ms debounce window. MAINT-320 swapped
+      // the first two off addVirtueChallenge (removed — it had no production
+      // callers and never did) onto surviving mutations. The count stays three
+      // deliberately: collapsing a BURST is the property under test, so reducing
+      // it to a single mutation would leave the assertion passing while testing
+      // nothing.
+      await useStoicPracticeStore
+        .getState()
+        .recordPrincipleEngagement('aware_presence', 'daily', 'selected');
+      await useStoicPracticeStore
+        .getState()
+        .recordPrincipleEngagement('radical_acceptance', 'daily', 'applied');
       await useStoicPracticeStore.getState().incrementPracticeDays();
 
       // No write yet — still inside the quiet window.

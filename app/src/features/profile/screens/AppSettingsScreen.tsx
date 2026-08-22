@@ -29,7 +29,35 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect } from '@react-navigation/native';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useAnalytics } from '@/core/analytics';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
+import { hasHapticActuator } from '@/features/practices/shared/haptics/hapticActuator';
+
+/**
+ * The Haptic Cues row's copy (DEBUG-426).
+ *
+ * Derived in ONE place and used for BOTH the visible description and the
+ * Switch's accessibilityHint, which were previously verbatim duplicates
+ * maintained by hand. That duplication is not redundancy — it is what makes
+ * the control self-describing — but keeping it in sync manually is how a note
+ * ends up in one and not the other.
+ *
+ * The note is required on BOTH channels. Description-only is insufficient: the
+ * description is a separate accessibility node with no
+ * accessibilityLabelledBy/DescribedBy relationship to the Switch, so anyone
+ * navigating by VoiceOver's form-controls rotor, Switch Control, or full
+ * keyboard access lands on the Switch and hears label + role + state + hint,
+ * never reaching it. Hint-only is equally wrong: iOS lets users disable hint
+ * speech outright and TalkBack truncates it, so a hint must never be the sole
+ * carrier of load-bearing information.
+ *
+ * It states a hardware fact in plain present tense — not an error, not
+ * something the practitioner can fix or retry, and not a comment on the choice
+ * they made.
+ */
+const HAPTIC_CUES_DESCRIPTION =
+  'Vibration marks phase changes during breathing, body scan, and timed practices';
+const NO_ACTUATOR_NOTE = 'This device has no vibration motor, so these cues are silent here.';
 
 // FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
 // supplies the back chevron (SubMenuHeader's ✕ removed).
@@ -37,6 +65,19 @@ const AppSettingsScreen: React.FC = () => {
   const settingsStore = useSettingsStore();
   const { trackScreenView, trackSettingsOpened } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
+
+  // DEBUG-426. Note what this does NOT do: it never gates whether the Practices
+  // section renders, and never feeds either Switch's `disabled`. The rows stay
+  // present and operable on hardware that cannot vibrate — the control is not
+  // inert (it persists a real preference, and a settings surface may outlive
+  // the device), and `disabled` in this very card already means a RECOVERABLE
+  // precondition ("Available when haptic cues are on"), so reusing it for a
+  // permanent hardware fact would tell the practitioner to go find a switch
+  // that will restore it.
+  const hapticsAvailable = hasHapticActuator();
+  const hapticCuesDescription = hapticsAvailable
+    ? HAPTIC_CUES_DESCRIPTION
+    : `${HAPTIC_CUES_DESCRIPTION}. ${NO_ACTUATOR_NOTE}`;
 
   // Track screen view and settings opened for analytics
   useFocusEffect(
@@ -52,7 +93,7 @@ const AppSettingsScreen: React.FC = () => {
   }, []);
 
   const handleToggleSetting = async (
-    category: 'notifications' | 'accessibility',
+    category: 'notifications' | 'accessibility' | 'practices',
     key: string,
     value: boolean | string
   ) => {
@@ -62,6 +103,8 @@ const AppSettingsScreen: React.FC = () => {
         await settingsStore.updateNotificationSettings({ [key]: value });
       } else if (category === 'accessibility') {
         await settingsStore.updateAccessibilitySettings({ [key]: value });
+      } else if (category === 'practices') {
+        await settingsStore.updatePracticeSettings({ [key]: value });
       }
     } catch (error) {
       Alert.alert(
@@ -157,6 +200,12 @@ const AppSettingsScreen: React.FC = () => {
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="Check-in reminders"
+                accessibilityHint="Daily reminders for morning, midday, and evening check-ins"
+                accessibilityState={{ checked: settings.notifications.checkInReminders, disabled: isSaving }}
+                testID="check-in-reminders-toggle"
               />
             </View>
           </View>
@@ -175,6 +224,12 @@ const AppSettingsScreen: React.FC = () => {
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="Breathing reminders"
+                accessibilityHint="Gentle prompts to practice mindful breathing throughout the day"
+                accessibilityState={{ checked: settings.notifications.breathingReminders, disabled: isSaving }}
+                testID="breathing-reminders-toggle"
               />
             </View>
           </View>
@@ -193,6 +248,12 @@ const AppSettingsScreen: React.FC = () => {
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="Values reflection prompts"
+                accessibilityHint="Periodic invitations to reflect on your therapeutic values"
+                accessibilityState={{ checked: settings.notifications.valuesReflectionPrompts, disabled: isSaving }}
+                testID="values-reflection-toggle"
               />
             </View>
           </View>
@@ -263,6 +324,12 @@ const AppSettingsScreen: React.FC = () => {
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="Reduce motion"
+                accessibilityHint="Minimize animations and transitions"
+                accessibilityState={{ checked: settings.accessibility.reducedMotion, disabled: isSaving }}
+                testID="reduced-motion-toggle"
               />
             </View>
           </View>
@@ -282,10 +349,106 @@ const AppSettingsScreen: React.FC = () => {
                 trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
                 thumbColor={colorSystem.base.white}
                 disabled={isSaving}
+                accessible={true}
+                accessibilityRole="switch"
+                accessibilityLabel="High contrast"
+                accessibilityHint="Increase color contrast for better visibility"
+                accessibilityState={{ checked: settings.accessibility.highContrast, disabled: isSaving }}
+                testID="high-contrast-toggle"
               />
             </View>
           </View>
         </View>
+
+        {/* Practices Section — FEAT-285 */}
+        {isFeatureEnabled('practice_haptics') && (
+          <View style={styles.section}>
+            <Text style={styles.sectionTitle}>Practices</Text>
+            <Text style={styles.sectionDescription}>
+              How timed practices guide you
+            </Text>
+
+            {/* Master haptics toggle */}
+            <View style={styles.settingCard}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Haptic Cues</Text>
+                  <Text style={styles.settingDescription} testID="haptics-master-description">
+                    {hapticCuesDescription}
+                  </Text>
+                </View>
+                <Switch
+                  value={settings.practices.practiceHaptics}
+                  onValueChange={(value) => handleToggleSetting('practices', 'practiceHaptics', value)}
+                  trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                  thumbColor={colorSystem.base.white}
+                  disabled={isSaving}
+                  accessible={true}
+                  accessibilityRole="switch"
+                  // The LABEL stays byte-identical whatever the hardware —
+                  // mutating it would break find-by-name and rotor search.
+                  accessibilityLabel="Haptic cues in practices"
+                  accessibilityHint={hapticCuesDescription}
+                  accessibilityState={{ checked: settings.practices.practiceHaptics, disabled: isSaving }}
+                  testID="haptics-master-toggle"
+                />
+              </View>
+            </View>
+
+            {/*
+              Interval cues. Always rendered, disabled when the master is off —
+              never hidden. Removing a row from the swipe order on toggle is a
+              context change on input (WCAG 3.2.2), and worse, it makes the
+              sub-setting undiscoverable to a blind user, who cannot know a row
+              exists to be revealed.
+            */}
+            <View style={styles.settingCard}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text
+                    style={[
+                      styles.settingLabel,
+                      !settings.practices.practiceHaptics && styles.settingLabelDisabled,
+                    ]}
+                  >
+                    Interval Cues
+                  </Text>
+                  <Text style={styles.settingDescription}>
+                    A single pulse each minute during reflection and meditation timers
+                  </Text>
+                </View>
+                <Switch
+                  value={settings.practices.practiceHapticsInterval === 'minute'}
+                  onValueChange={(value) =>
+                    handleToggleSetting(
+                      'practices',
+                      'practiceHapticsInterval',
+                      value ? 'minute' : 'none'
+                    )
+                  }
+                  trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                  thumbColor={colorSystem.base.white}
+                  disabled={!settings.practices.practiceHaptics || isSaving}
+                  accessible={true}
+                  accessibilityRole="switch"
+                  // The LABEL never changes — mutating it would break find-by-name
+                  // and rotor search. The HINT carries the reason it is dimmed.
+                  accessibilityLabel="Interval cues during timed practices"
+                  accessibilityHint={
+                    settings.practices.practiceHaptics
+                      ? 'Vibration marks each minute during reflection and meditation timers'
+                      : 'Available when haptic cues are on'
+                  }
+                  accessibilityState={{
+                    checked: settings.practices.practiceHapticsInterval === 'minute',
+                    disabled: !settings.practices.practiceHaptics || isSaving,
+                  }}
+                  testID="haptics-interval-toggle"
+                />
+              </View>
+            </View>
+          </View>
+        )}
 
         {/* App Information */}
         <View style={styles.section}>
@@ -344,7 +507,7 @@ const styles = StyleSheet.create({
   loadingText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginTop: spacing[16],
   },
   errorContainer: {
@@ -377,13 +540,13 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   sectionDescription: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
   },
@@ -408,13 +571,29 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
+  },
+  /**
+   * Disabled label treatment (FEAT-285).
+   *
+   * Deliberately a colour swap, NOT `opacity`. Opacity on a container
+   * multiplies through to its text, which is exactly how contrast gets silently
+   * broken. This is the same token `settingDescription` below uses and holds AA
+   * against the card background; the disabled affordance itself is carried by
+   * the Switch's own track colour and the announced state.
+   *
+   * Read the token, not the raw ramp value: DEBUG-370 pins raw
+   * `colorSystem.gray[600]` out of every text position (it clears 3:1 for
+   * non-text but not the 4.5:1 text bar on every surface).
+   */
+  settingLabelDisabled: {
+    color: semantic.text.secondary,
   },
   settingDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   textSizeContainer: {
@@ -440,7 +619,7 @@ const styles = StyleSheet.create({
   textSizeButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   textSizeButtonTextActive: {
     color: colorSystem.base.white,
@@ -456,7 +635,7 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   infoCard: {
@@ -472,12 +651,12 @@ const styles = StyleSheet.create({
   infoCardLabel: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   infoCardValue: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   actionContainer: {
     marginTop: spacing[24],

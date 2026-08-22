@@ -26,9 +26,22 @@
  *    "it doesn't matter" / suppression; keep the "influence" middle-ground.
  *  - Premeditatio (step 4, MORNING only) is optional, skippable, brief, coping-paired.
  *  - The closing breath is practice-architecture — a coda (CLOSING), NOT step-5 content.
+ *  - COMPLETION MAY BE STATED, NEVER MARKED (FEAT-328). The coda may say once, in the
+ *    title, in body register, that the practice is finished. It may not MARK that fact:
+ *    no checkmark, no accent-coloured surface, no toast, no count, no streak, no badge.
+ *    Accent teal is this app's reward vocabulary and the coda carries none of it.
+ *    Rationale: completing a loop is an outcome, and the framework's spine is intention
+ *    over outcome — the practice is not a completable item, so a "done" verdict on a
+ *    day's practice contradicts the two lines directly beneath it (returnLine, which
+ *    says beginning again IS the practice, and postureLine, whose examen ends in
+ *    clemency and therefore presupposes shortfall). This invariant replaces an earlier
+ *    formulation that COUNTED congratulatory beats; counting invited the reading that
+ *    two were acceptable, and a badge duly survived in the same file that banned a
+ *    third. State the register, not the tally.
  */
-import type { DailyLoopMode } from '@/features/practices/types/flows';
-import type { CardinalVirtue } from '@/features/practices/types/stoic';
+import type { DailyLoopMode, DailyLoopDepth } from '@/features/practices/types/flows';
+import type { CardinalVirtue, StoicPrinciple } from '@/features/practices/types/stoic';
+import type { PrincipleEngagementType } from '@/features/practices/stores/stoicPracticeStore';
 
 export const DAILY_LOOP_STEP_KEYS = [
   'AwarePresence',
@@ -39,6 +52,101 @@ export const DAILY_LOOP_STEP_KEYS = [
 ] as const;
 
 export type DailyLoopStepKey = (typeof DAILY_LOOP_STEP_KEYS)[number];
+
+/**
+ * Loop step → the canonical Stoic principle that beat IS (FEAT-298 slice 3).
+ *
+ * Not a lookup of convenience: each beat is one principle, which is why the loop can
+ * record principle engagements at all. Total `Record`, so a new beat cannot be added
+ * without deciding its principle.
+ */
+export const STEP_PRINCIPLE: Record<DailyLoopStepKey, StoicPrinciple> = {
+  AwarePresence: 'aware_presence',
+  RadicalAcceptance: 'radical_acceptance',
+  SphereSovereignty: 'sphere_sovereignty',
+  VirtuousResponse: 'virtuous_response',
+  InterconnectedLiving: 'interconnected_living',
+};
+
+/**
+ * Tense mode → the engagement type a loop session records (FEAT-298 slice 3,
+ * philosopher pass).
+ *
+ * The type is derived from MODE and is uniform across the beats of a session, because
+ * within a mode every beat shares the same tense and act-shape. The three modes map 1:1
+ * onto what the legacy flows recorded, which is what keeps the 90-day Insights chart and
+ * the JSON export interpretable ACROSS the slice-6 flow retirement: a 'selected' written
+ * by a morning-mode loop means what one written by the retired morning flow meant.
+ *
+ * `'selected'` is read here as PROSPECTIVE FOCUS (the tense), not "picked one principle
+ * from a menu" — the loop brings all five to focus rather than choosing among them. See
+ * the docstring on `PrincipleEngagementType`, updated to match.
+ *
+ * NOT per-beat: varying the type across beats within a mode would encode a ranking of
+ * kinds-of-engagement across the five principles, which the Insights chart explicitly
+ * rejects, and it is never displayed anyway — only stored and exported.
+ *
+ * `'practiced'` is deliberately absent: it is FEAT-133's Learn-module marker, and reusing
+ * it would leave the exported vocabulary unable to tell in-app education from lived
+ * practice.
+ */
+export const ENGAGEMENT_TYPE_BY_MODE: Record<DailyLoopMode, PrincipleEngagementType> = {
+  morning: 'selected',
+  flat: 'applied',
+  evening: 'reflected',
+};
+
+/**
+ * FEAT-301 — the QUICK depth variant: canonical steps 1→3→4 (arrive → discern
+ * what's yours → act). A short, self-contained micro-arc, NOT a truncated fragment:
+ * the dichotomy-of-control discernment (Sphere Sovereignty) sits between arriving and
+ * acting, so the synthesized Virtuous Response issues from clarity rather than
+ * reactivity (discipline of action presupposes discipline of desire). It reuses the
+ * SAME canonical StepConfig for each included step, so the philosopher NAMES+ORDER
+ * invariant above holds — quick runs a SUBSET in canonical order, never a rename or
+ * reorder. Radical Acceptance (2) and Interconnected Living (5) are omitted from quick.
+ */
+export const QUICK_STEP_KEYS = [
+  'AwarePresence',
+  'SphereSovereignty',
+  'VirtuousResponse',
+] as const satisfies readonly DailyLoopStepKey[];
+
+/** Resolve the ordered step keys for a depth. Deep = the full five; quick = 1→3→4. */
+export function getStepKeysForDepth(depth: DailyLoopDepth): readonly DailyLoopStepKey[] {
+  return depth === 'quick' ? QUICK_STEP_KEYS : DAILY_LOOP_STEP_KEYS;
+}
+
+/**
+ * FEAT-301 — re-host of the crisis SUPPORT_LINE for the QUICK variant. Quick omits
+ * Radical Acceptance (deep's support-line carrier), so the quiet static support
+ * affordance is re-hosted onto SPHERE SOVEREIGNTY — quick's second beat and, crucially,
+ * a NO-breath-gate beat: it renders the instant the user lands (unlike Aware Presence,
+ * whose reflection phase sits behind a 30s breath, which would make quick's crisis
+ * affordance strictly less available than deep's — crisis-review rejected). Sphere
+ * Sovereignty is also distress-adjacent ("when it's heavy, start with what you can set
+ * down"). Deep is unchanged (support line stays on Radical Acceptance via
+ * StepConfig.supportLine). The immersive root crisis overlay (MAINT-290) still covers
+ * every step of both variants regardless (route name 'DailyLoop' unchanged).
+ */
+export const QUICK_SUPPORT_STEP: DailyLoopStepKey = 'SphereSovereignty';
+
+/**
+ * Whether the quiet crisis support line shows for a given (depth, mode, step). Kept at
+ * the DATA level (not a screen ternary) so tenseMode.test.ts can assert the crisis
+ * "exactly once, per depth" invariant (crisis review):
+ *  - deep  : exactly Radical Acceptance (delegated to its StepConfig.supportLine — deep
+ *            behavior is byte-for-byte unchanged)
+ *  - quick : exactly QUICK_SUPPORT_STEP (Sphere Sovereignty)
+ */
+export function showsSupportLine(
+  depth: DailyLoopDepth,
+  mode: DailyLoopMode,
+  step: DailyLoopStepKey,
+): boolean {
+  if (depth === 'quick') return step === QUICK_SUPPORT_STEP;
+  return getStepConfig(mode, step).supportLine === true;
+}
 
 /** Canonical principle names — INVARIANT across every mode (on-screen step labels). */
 export const STEP_TITLES: Record<DailyLoopStepKey, string> = {
@@ -341,13 +449,162 @@ export const CLOSING = {
   breathTitle: 'Breathe and release',
   breathSubtitle: 'One slow breath. Loosen your grip, and let this be complete.',
   completeTitle: 'You moved through all five principles.',
+  /**
+   * FEAT-298 slice 6b — gratitude, re-homed from the retired morning/evening flows
+   * (FEAT-313 decision, philosopher pass).
+   *
+   * The warrant is NOT "deleting the flows removes gratitude from the app" — that premise
+   * is false (a weak, generic `gratitude-reflection` survives in module-4). It is a defect
+   * in ALREADY-SHIPPED code: the loop ships PREMEDITATIO (beat 4, morning-only), and
+   * principles/04-virtuous-response.md:52 makes present-moment gratitude its REQUIRED
+   * complement — "after briefly contemplating potential loss, turn attention to what you
+   * actually have right now." The loop has been shipping the aversive half of a two-half
+   * practice with no complement.
+   *
+   * Placed BEFORE postureLine: De Ira 3.36 runs review → clemency, and the pardon is
+   * terminal. Gratitude precedes the self-pardon, never follows it.
+   *
+   * VARIES BY TENSE — deliberately unlike postureLine. Morning and evening are genuinely
+   * different practices in the framework (impermanence-framed vs. specific-retrospective)
+   * and collapsing them would lose a distinction the doc is explicit about. `flat` is
+   * authored too: neither retired screen ever covered the midday band.
+   *
+   * A STATIC LINE, not a second input. The coda already has one input and a second would
+   * turn a closing into a form. Marcus 7.27 is a perceptual act, and the framework's own
+   * justification is that specificity engages memory and emotion — not text entry. Nothing
+   * to submit, nothing to skip: optional in the strongest sense.
+   *
+   * Depth-invariant, so it reaches quick AND deep in all three tenses — avoiding the exact
+   * bug 6a's docstring names, "a posture reachable in only one tense."
+   *
+   * Warrants — morning: Epictetus, Enchiridion 11. flat: Marcus, Meditations 7.27.
+   * evening: Marcus, Meditations Bk 1 + daily-architecture.md, Evening Examen §5
+   * "Three Gratitudes" (the specificity standard: "a moment, not a category").
+   * NOTE: this cited "daily-architecture.md:127-131" until MAINT-322 — a line range that
+   * pointed at §4 Mental Rehearsal, not §5, and was already off at HEAD. Cite the section,
+   * never a line range: the doc is edited far more often than this file.
+   */
+  gratitudeLine: {
+    morning:
+      "This day isn't promised. Notice one thing in it you'd miss if it were gone — not owed to you, which is what makes it worth seeing.",
+    flat:
+      "Look at what's already here. Take one thing you have and ask how hard you'd have chased it if you didn't — then let yourself actually see it.",
+    evening:
+      "Before this day closes, find one specific thing in it you're glad of — a moment, not a category. 'That ten minutes on the porch,' not 'my life.'",
+  } satisfies Record<DailyLoopMode, string>,
+  /**
+   * FEAT-298 slice 6a — the self-compassion posture, re-homed from the retired Midday
+   * CompassionateCloseScreen (philosopher pass).
+   *
+   * It lives HERE, in the coda, not in step 5. Step 5 is oikeiōsis / belonging and its
+   * copy is other-directed by construction. The classical warrant for the coda position is
+   * Seneca, De Ira 3.36.3, where the nightly examination ENDS in self-pardon — "vide ne
+   * istud amplius facias; nunc tibi ignosco" ("see that you never do that again; this time
+   * I pardon you"). Seneca puts the clemency after the honest review, not inside it.
+   * (Narrowed from "3.36.3-4" at MAINT-322: the pardon is at 3.36.3; 3.36.4 is the
+   * unrelated "in illa disputatione" examples. 3.36.2 has "speculator sui censorque".)
+   *
+   * The substance is Stoic (prokopē — you are a progressor in training, never a sage, so
+   * falling short is the expected condition of the practice). The WORD "compassion" is the
+   * therapeutic import and is deliberately absent: resources.md itself flags Neff as "not
+   * explicitly Stoic". Ship the substance, not the label.
+   *
+   * ONE string for all three tenses — the posture is tense-invariant (you are a progressor
+   * prospectively and retrospectively alike), and splitting it by tense would recreate the
+   * exact bug this fixes: a posture reachable in only one tense.
+   *
+   * Keeps the standard and removes only the surplus: "be honest" stays, "no harsher than
+   * honest" is what is added. Never praise, never absolution, never indulgence.
+   */
+  postureLine:
+    'Be honest with yourself, and no harsher than honest. The honesty is what corrects; harshness only adds weight.',
   noteLabel: 'Anything to carry back with you? (optional)',
-  notePlaceholder: "E.g., 'Focus on what's mine; act with courage.'",
+  // Amended (slice 6a): carries the self-directed example the retired screen had.
+  notePlaceholder:
+    "E.g., 'Focus on what's mine; act with courage.' Or 'Steady, and patient with myself.' Or simply what you were glad of.",
+  /**
+   * Re-homes MAINT-140's "return anytime" reinforcement, which had no equivalent in the
+   * loop (the only re-entry signal was a navigation button label). Upgraded from "the pause
+   * is always available" to the Stoic reading — re-entry after shortfall IS the practice
+   * (Marcus, Meditations 5.9) — which also inoculates against the streak anxiety
+   * stageNotes.ts bans elsewhere. MAINT-140's CelebrationToast delivery is deliberately
+   * NOT reproduced — see the "completion may be stated, never marked" INVARIANT at the top
+   * of this file, which is the governing rule and supersedes the beat-counting phrasing
+   * that used to sit here.
+   *
+   * DEBUG-339 — DO NOT STRIP THIS CITATION. It has now been challenged twice and is
+   * correct both times, so here is the warrant in full. George Long, Meditations 5.9:
+   * "Be not disgusted, nor discouraged, nor dissatisfied, if thou dost not succeed in
+   * doing everything according to right principles, but when thou hast failed, return
+   * back again, and be content if the greater part of what thou doest is consistent with
+   * man's nature, and love this to which thou returnest."
+   *
+   * What DEBUG-330 removed was a SPURIOUS QUOTATION ("You have power over your mind — not
+   * outside events...") that had been falsely hung on 5.9 inside PRACTICE_QUOTES. The
+   * LOCUS itself is genuine and is precisely the passage about failing and beginning
+   * again, which is what `returnLine` below paraphrases. DEBUG-339 was filed asserting
+   * this was a "phantom" citation; three independent reviews confirmed it is not, and the
+   * acceptance criterion was withdrawn. Note also that nothing here QUOTES 5.9 — the
+   * shipped copy carries no citation at all; this is a developer-facing warrant for a
+   * paraphrase, which is a weaker claim than a quotation and correctly made.
+   */
+  returnLine:
+    'Falling short and beginning again is the practice, not a break from it. Come back to this as often as that takes.',
 } as const;
 
-/** Human-readable mode labels for the mode picker. */
-export const MODE_LABELS: Record<DailyLoopMode, { label: string; blurb: string }> = {
-  flat: { label: 'Flat', blurb: 'Time-agnostic — the five principles, plainly.' },
-  morning: { label: 'Morning', blurb: 'Prospective — intention for the day ahead.' },
-  evening: { label: 'Evening', blurb: 'Retrospective — reflection on the day behind.' },
+// FEAT-298 slice 5: MODE_LABELS removed with DailyLoopModeSelectScreen. The tense is now
+// inferred from the clock and is never surfaced to the user, so there is nothing to label.
+// DailyLoopMode itself survives as an internal, time-derived value.
+
+/**
+ * FEAT-301 — depth-picker copy. Two EQUAL, always-available choices. Symmetric,
+ * non-ranking voice (philosopher requirement): quick is never framed as lesser /
+ * lite / partial, and deep is never framed as the "real" / "full" / "proper" practice
+ * by contrast — the axis is how much time this moment allows, not quality.
+ */
+export const DEPTH_PICKER_COPY = {
+  title: 'Daily Practice',
+  subtitle: 'Choose what fits this moment.',
+  /**
+   * DEBUG-469 — FEAT-301's non-ranking guarantee, split out of `subtitle` so it can be
+   * PINNED alongside the two choices rather than left in the scrolling region above them.
+   *
+   * The em-dash clause used to end the subtitle. Once the choices were pinned, the moment
+   * of choosing moved into the pinned region, and at large text sizes a user could tap
+   * `Quick` having never scrolled to this sentence — leaving `Quick` bare against
+   * `Unhurried`, which is exactly the "quick is the lite version" inference FEAT-301 exists
+   * to block and which the two frozen labels alone do not rebut.
+   *
+   * Verbatim and unconditional: never abbreviated, never merged into a card, never
+   * rendered only as an accessibilityHint/Label, never given numberOfLines, and never
+   * hidden at any font scale. It is the LAST element that may be dropped from the pinned
+   * region, never the first.
+   */
+  guarantee: 'Both are complete practices.',
+} as const;
+
+export const DEPTH_LABELS: Record<DailyLoopDepth, { label: string; blurb: string }> = {
+  quick: {
+    label: 'Quick',
+    blurb: "A short, self-contained practice — arrive, see what's yours, and act. Whole in a few minutes.",
+  },
+  // 'Unhurried' (not 'Deeper' / 'Deep') pairs symmetrically with 'Quick' on the only
+  // non-ranking axis the two variants genuinely differ on — pace/space, NOT
+  // depth/completeness (philosopher: 'Deeper' silently codes Quick as less-deep). The
+  // blurb differentiates on spaciousness, never on a count of principles (which would
+  // cluster 'complete/all' onto deep and undercut "both are complete practices").
+  deep: {
+    label: 'Unhurried',
+    blurb: 'The unhurried loop — more room to pause, reflect, and let each step land.',
+  },
 };
+
+/**
+ * FEAT-301 — the completion-title copy is depth-aware. Deep keeps CLOSING.completeTitle
+ * ("You moved through all five principles"); quick MUST NOT reuse it — that count is
+ * factually wrong for the 3-beat arc and re-ranks quick as the deficient version
+ * (philosopher blocker). Quick closes with a non-counting line.
+ */
+export function getCompleteTitle(depth: DailyLoopDepth): string {
+  return depth === 'quick' ? 'You moved through the practice.' : CLOSING.completeTitle;
+}

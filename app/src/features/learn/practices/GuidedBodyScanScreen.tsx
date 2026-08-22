@@ -16,7 +16,12 @@
  *
  * ACCESSIBILITY:
  * - WCAG AA compliant
- * - Clear visual and audio feedback for area changes
+ * - Clear visual feedback for area changes. The current area is also carried in
+ *   the accessibility tree — ProgressiveBodyScanList labels each row with its
+ *   status ("currently focusing" / "completed" / "upcoming") — so a screen
+ *   reader user can find it on traversal. There is no audio: the app ships no
+ *   audio playback (no expo-av / expo-audio / expo-speech dependency), and this
+ *   screen does not push announcements, since the user drives the pace by tap.
  */
 
 import React, { useState } from 'react';
@@ -24,13 +29,25 @@ import {
   View,
   Text,
   StyleSheet,
-  SafeAreaView,
   TouchableOpacity,
   StatusBar,
   ScrollView,
   Animated,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+/**
+ * MAINT-437 — `edges` applies to all 1 SafeAreaView root(s) in this file.
+ *
+ * Root-stack card with `headerShown: false`: no navigator supplies either
+ * inset, which is what RN core's iOS-only SafeAreaView already did here — so iOS
+ * rendering is unchanged by construction and the whole behavioural delta is Android.
+ *
+ * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
+ * are never listed. NOTE: no test in this repo can observe an `edges` value having
+ * a layout effect — the jest mock pins all insets to zero. The rendered result is
+ * verified by MAINT-437's deferred Android/iOS device pass.
+ */
+import { SafeAreaView } from 'react-native-safe-area-context';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
@@ -112,7 +129,7 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
   }
 
   return (
-    <SafeAreaView style={styles.container} testID={testID}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container} testID={testID}>
       <StatusBar barStyle="dark-content" backgroundColor={colorSystem.base.white} />
 
       {/* Header */}
@@ -198,7 +215,7 @@ const styles = StyleSheet.create({
   },
   instructionsText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: spacing[24],
   },
@@ -208,7 +225,7 @@ const styles = StyleSheet.create({
   sectionLabel: {
     fontSize: typography.caption.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
     marginBottom: spacing[16],
@@ -247,7 +264,7 @@ const styles = StyleSheet.create({
   noteText: {
     flex: 1,
     fontSize: typography.caption.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: spacing[20],
     fontStyle: 'italic',
   },

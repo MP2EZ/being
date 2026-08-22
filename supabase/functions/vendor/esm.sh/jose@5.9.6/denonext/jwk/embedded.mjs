@@ -1,0 +1,3 @@
+/* esm.sh - jose@5.9.6/jwk/embedded */
+import{importJWK as i}from"../key/import.mjs";import m from"../dist/browser/lib/is_object.mjs";import{JWSInvalid as t}from"../errors.mjs";async function w(a,o){let e={...a,...o?.header};if(!m(e.jwk))throw new t('"jwk" (JSON Web Key) Header Parameter must be a JSON object');let r=await i({...e.jwk,ext:!0},e.alg);if(r instanceof Uint8Array||r.type!=="public")throw new t('"jwk" (JSON Web Key) Header Parameter must be a public key');return r}export{w as EmbeddedJWK};
+//# sourceMappingURL=embedded.mjs.map

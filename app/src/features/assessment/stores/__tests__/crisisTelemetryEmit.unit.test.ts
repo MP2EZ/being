@@ -96,4 +96,17 @@ describe('handleCrisisDetection → crisis telemetry emit (INFRA-214 T3)', () =>
       useAssessmentStore.getState().handleCrisisDetection({ ...baseDetection })
     ).resolves.not.toThrow();
   });
+
+  it('DEBUG-335: never awaits telemetry — a persist that never settles cannot stall the crisis flow', async () => {
+    // DEBUG-335 gave the durable persist a serialized chain. If anyone ever adds an
+    // `await` at the call site (assessmentStore.ts:811), or makes trackCrisisDetection
+    // async and awaits its write, this test HANGS instead of silently shipping a crisis
+    // flow that blocks on disk I/O. handleCrisisDetection is awaited by answerQuestion
+    // and completeAssessment, both inside the strict <200ms measured span.
+    mockTrackCrisisDetection.mockImplementationOnce(() => new Promise(() => {})); // never settles
+
+    await expect(
+      useAssessmentStore.getState().handleCrisisDetection({ ...baseDetection })
+    ).resolves.toBeUndefined();
+  });
 });

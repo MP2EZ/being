@@ -344,8 +344,49 @@ describe('Assessment Store - Clinical Validation', () => {
       const buttons = alertCall[2] as any[];
       const call988Button = buttons.find(b => b.text.includes('988'));
 
-      call988Button.onPress();
+      // The dial is now guarded (DEBUG-314), so it resolves across a
+      // `canOpenURL` round trip rather than firing synchronously.
+      await act(async () => {
+        call988Button.onPress();
+      });
+
+      // Asserting the guard ran, not just the dial: without it, an openURL
+      // rejection on this exact path — the PHQ-9 Q9 intervention — produced no
+      // dial, no alert and no log.
+      expect(mockLinking.canOpenURL).toHaveBeenCalledWith('tel:988');
       expect(mockLinking.openURL).toHaveBeenCalledWith('tel:988');
+    });
+
+    it('shows a manual-dial instruction instead of failing silently when the device cannot dial', async () => {
+      // The regression test for DEBUG-314 on the highest-stakes path. Most
+      // suites mock `canOpenURL` to true, which is exactly why this bug class
+      // was invisible: on an iPad, a data-only device, or with a missing
+      // LSApplicationQueriesSchemes entry, the old bare `Linking.openURL`
+      // rejected into nothing.
+      mockLinking.canOpenURL.mockResolvedValueOnce(false);
+
+      const { result } = renderHook(() => useAssessmentStore());
+
+      await act(async () => {
+        await result.current.startAssessment('phq9');
+      });
+      await act(async () => {
+        await result.current.answerQuestion('phq9_9', 1);
+      });
+
+      const buttons = mockAlert.alert.mock.calls[0][2] as any[];
+      const call988Button = buttons.find(b => b.text.includes('988'));
+
+      await act(async () => {
+        call988Button.onPress();
+      });
+
+      expect(mockLinking.openURL).not.toHaveBeenCalled();
+      expect(mockAlert.alert).toHaveBeenCalledWith(
+        'Unable to Call',
+        'Please manually dial 988 for support.',
+        expect.any(Array)
+      );
     });
   });
 
@@ -374,8 +415,12 @@ describe('Assessment Store - Clinical Validation', () => {
         await result.current.saveProgress();
       });
 
+      // DEBUG-305: the key moved under the swept `assessment_async_` prefix.
+      // Under its old bare name it matched no erasure prefix and survived
+      // account deletion. Asserting the prefixed name here keeps this test
+      // honest about where the record actually lands.
       expect(mockAsyncStorage.setItem).toHaveBeenCalledWith(
-        'assessment_audit_trail',
+        'assessment_async_audit_trail',
         expect.stringContaining('SAVE')
       );
     });

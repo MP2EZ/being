@@ -16,7 +16,7 @@ import React, { useMemo, useState } from 'react';
 import { View, Text, TouchableOpacity, Pressable, StyleSheet } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { ModuleId } from '@/features/learn/types/education';
 import { loadPassagesForPrinciple } from '@/core/services/passagesContent';
@@ -127,12 +127,12 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   intro: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
     marginBottom: spacing[24],
   },
@@ -157,7 +157,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     flex: 1,
     paddingRight: spacing[8],
   },
@@ -177,7 +177,7 @@ const styles = StyleSheet.create({
   },
   attribution: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'right',
   },
   contextBox: {
@@ -187,7 +187,7 @@ const styles = StyleSheet.create({
   },
   contextText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 21,
     fontStyle: 'italic',
   },

@@ -9,14 +9,23 @@
  * thresholds, lifecycle, and the public surface.
  *
  * What this tests:
- *   - storeCrisisData / retrieveCrisisData round-trip
  *   - storeAssessmentData / retrieveAssessmentData round-trip
- *   - Crisis vs assessment go to separate SecureStore keys (prefix routing)
+ *   - storeWellnessBlob / retrieveWellnessBlob round-trip
+ *   - Assessment vs wellness-blob go to separate prefixes (prefix routing)
  *   - Audit log captures store/retrieve operations
  *   - Pre-init guard: operations before initialize() return failure
  *   - deleteSecureData removes data
  *   - getStorageMetrics returns structured shape
- *   - Non-existent key retrieval returns null
+ *   - No public writer produces a key under CRISIS_ASYNC_PREFIX
+ *
+ * MAINT-378 removed the crisis storage tier (storeCrisisData /
+ * retrieveCrisisData / 'crisis_tier'). The tier-agnostic machinery these tests
+ * exercised — hybrid routing, legacy SecureStore fallback + migration,
+ * migration-marker idempotence, audit logging, size caps, lazy init,
+ * concurrency, the erasure sweep — is unchanged, so those cases were REPOINTED
+ * to the assessment tier rather than deleted: assessment_tier walks the same
+ * code paths the crisis tier did. Only the genuinely crisis-shaped cases (the
+ * crisis round-trip and crisis-vs-assessment isolation) were dropped.
  *
  * Phase A also added a NODE_ENV=test guard in the constructor so the
  * setInterval cleanup scheduler doesn't keep Jest alive. Verified
@@ -116,63 +125,12 @@ jest.mock('react-native', () => ({
 // (`SecureStorageService.getInstance()`), not the class itself — call
 // methods directly on it.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const service = require('../SecureStorageService').default;
+const { default: service, SECURE_STORAGE_CONFIG } = require('../SecureStorageService');
 
 beforeEach(() => {
   mockSecureStoreMap.clear();
   mockAsyncStorageMap.clear();
   jest.clearAllMocks();
-});
-
-describe('SecureStorageService — crisis data tier', () => {
-  it('storeCrisisData → retrieveCrisisData round-trips the payload', async () => {
-    await service.initialize();
-
-    const crisisData = {
-      phq9Q9: 2,
-      detectedAt: 1716000000000,
-      interventionShown: '988',
-    };
-    const storeResult = await service.storeCrisisData(
-      'episode-42',
-      crisisData,
-      'episode-42'
-    );
-
-    expect(storeResult.success).toBe(true);
-    // INFRA-144: hybrid storage routes crisis ciphertext to AsyncStorage
-    // under the crisis_async_ prefix; legacy crisis_secure_ remains as the
-    // migration fallback only.
-    expect(storeResult.storageKey).toMatch(/crisis_async_episode-42/);
-
-    const retrieved = await service.retrieveCrisisData('episode-42');
-    expect(retrieved).not.toBeNull();
-    expect(retrieved?.data).toEqual(crisisData);
-    expect(retrieved?.metadata.storageTier).toBe('crisis_tier');
-    expect(retrieved?.metadata.encrypted).toBe(true);
-  });
-
-  it('retrieveCrisisData returns null for non-existent key', async () => {
-    await service.initialize();
-
-    const retrieved = await service.retrieveCrisisData('does-not-exist');
-    expect(retrieved).toBeNull();
-  });
-
-  it('storeCrisisData writes ciphertext to AsyncStorage under crisis_async_ prefix (tier isolation, INFRA-144)', async () => {
-    await service.initialize();
-
-    await service.storeCrisisData('iso-key', { a: 1 }, 'iso-key');
-
-    // Hybrid: ciphertext lives in AsyncStorage; the legacy SecureStore key
-    // would only be populated by an unmigrated install.
-    const asyncKeys = Array.from(mockAsyncStorageMap.keys());
-    expect(asyncKeys.some((k) => k.startsWith('crisis_async_iso-key'))).toBe(true);
-    expect(asyncKeys.some((k) => k.startsWith('assessment_async_'))).toBe(false);
-
-    const secureKeys = Array.from(mockSecureStoreMap.keys());
-    expect(secureKeys.some((k) => k.startsWith('crisis_secure_iso-key'))).toBe(false);
-  });
 });
 
 describe('SecureStorageService — assessment data tier', () => {
@@ -189,16 +147,26 @@ describe('SecureStorageService — assessment data tier', () => {
 
     const storeResult = await service.storeAssessmentData('assess-1', phq9);
     expect(storeResult.success).toBe(true);
+    // INFRA-144: hybrid storage routes assessment ciphertext to AsyncStorage
+    // under the assessment_async_ prefix; legacy assessment_secure_ remains as
+    // the migration fallback only.
+    expect(storeResult.storageKey).toMatch(/assessment_async_assess-1/);
 
     const retrieved = await service.retrieveAssessmentData('assess-1');
+    expect(retrieved).not.toBeNull();
     expect(retrieved?.data).toEqual(phq9);
     expect(retrieved?.metadata.storageTier).toBe('assessment_tier');
+    expect(retrieved?.metadata.encrypted).toBe(true);
   });
 
-  it('assessment tier is isolated from crisis tier (separate SecureStore keys)', async () => {
+  // Repointed from 'assessment tier is isolated from crisis tier' (MAINT-378).
+  // The property under test is prefix routing — the same logical key stored via
+  // two different writers must not collide — which assessment-vs-wellness-blob
+  // exercises identically now that the crisis tier is gone.
+  it('assessment tier is isolated from the wellness-blob namespace (separate prefixes)', async () => {
     await service.initialize();
 
-    await service.storeCrisisData('overlap', { source: 'crisis' }, 'overlap');
+    await service.storeWellnessBlob('overlap', { source: 'blob' }, 'level_2_assessment_data');
     await service.storeAssessmentData('overlap', {
       type: 'GAD-7',
       responses: [1, 0, 1, 0, 1, 0, 1],
@@ -207,12 +175,14 @@ describe('SecureStorageService — assessment data tier', () => {
       userId: 'u',
     });
 
-    const crisis = await service.retrieveCrisisData('overlap');
+    const blob = await service.retrieveWellnessBlob('overlap');
     const assess = await service.retrieveAssessmentData('overlap');
 
-    // Same logical key, different tiers → both round-trip independently
-    expect(crisis?.data).toEqual({ source: 'crisis' });
+    // Same logical key, different namespaces → both round-trip independently
+    expect(blob).toEqual({ source: 'blob' });
     expect((assess?.data as any).type).toBe('GAD-7');
+    expect(mockAsyncStorageMap.has('assessment_async_overlap')).toBe(true);
+    expect(mockAsyncStorageMap.has('wellness_async_overlap')).toBe(true);
   });
 });
 
@@ -220,8 +190,14 @@ describe('SecureStorageService — audit log', () => {
   it('logs successful store and retrieve operations', async () => {
     await service.initialize();
 
-    await service.storeCrisisData('audit-1', { x: 1 }, 'audit-1');
-    await service.retrieveCrisisData('audit-1');
+    await service.storeAssessmentData('audit-1', {
+      type: 'PHQ-9',
+      responses: [0, 0, 0, 0, 0, 0, 0, 0, 1],
+      totalScore: 1,
+      timestamp: 0,
+      userId: 'u',
+    });
+    await service.retrieveAssessmentData('audit-1');
 
     const accessLog = await service.getAccessLog();
     expect(Array.isArray(accessLog)).toBe(true);
@@ -236,45 +212,65 @@ describe('SecureStorageService — audit log', () => {
     expect(storeOps.length).toBeGreaterThanOrEqual(1);
     expect(retrieveOps.length).toBeGreaterThanOrEqual(1);
     expect(storeOps[0].success).toBe(true);
-    expect(storeOps[0].storageTier).toBe('crisis_tier');
+    expect(storeOps[0].storageTier).toBe('assessment_tier');
   });
 });
 
 describe('SecureStorageService — lifecycle and metrics', () => {
-  it('storeCrisisData lazily auto-initializes if called before initialize() (INFRA-144 boot-order fix)', async () => {
+  it('storeAssessmentData lazily auto-initializes if called before initialize() (INFRA-144 boot-order fix)', async () => {
     await service.destroy();
 
     // Pre-INFRA-144 this returned a failure result. Post-fix, store/retrieve
     // methods await encryptionService.initialize() (idempotent) so that
     // Zustand-persist rehydration paths that fire at module load can
     // succeed without depending on App.tsx ordering.
-    const result = await service.storeCrisisData('lazy-init', { a: 1 }, 'lazy-init');
+    const result = await service.storeAssessmentData('lazy-init', {
+      type: 'PHQ-9',
+      responses: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      totalScore: 0,
+      timestamp: 0,
+      userId: 'u',
+    });
     expect(result.success).toBe(true);
   });
 
   it('getStorageMetrics returns structured shape', async () => {
     await service.initialize();
 
-    await service.storeCrisisData('metric-1', { a: 1 }, 'metric-1');
+    await service.storeAssessmentData('metric-1', {
+      type: 'GAD-7',
+      responses: [1, 1, 1, 1, 1, 1, 1],
+      totalScore: 7,
+      timestamp: 0,
+      userId: 'u',
+    });
 
     const metrics = await service.getStorageMetrics();
     expect(metrics).toBeDefined();
-    // The exact shape may vary; assert it's an object with at least
-    // some non-null fields.
     expect(typeof metrics).toBe('object');
     expect(metrics).not.toBeNull();
+    // MAINT-378 removed the `crisisEntries` field; `assessmentEntries` is the
+    // surviving per-tier counter and must actually count the write above.
+    expect(metrics.assessmentEntries).toBeGreaterThanOrEqual(1);
+    expect(metrics).not.toHaveProperty('crisisEntries');
   });
 
-  it('deleteSecureData removes stored crisis data', async () => {
+  it('deleteSecureData removes stored assessment data', async () => {
     await service.initialize();
 
-    await service.storeCrisisData('to-delete', { gone: false }, 'to-delete');
-    expect(await service.retrieveCrisisData('to-delete')).not.toBeNull();
+    await service.storeAssessmentData('to-delete', {
+      type: 'PHQ-9',
+      responses: [0, 1, 0, 1, 0, 1, 0, 1, 0],
+      totalScore: 4,
+      timestamp: 0,
+      userId: 'u',
+    });
+    expect(await service.retrieveAssessmentData('to-delete')).not.toBeNull();
 
     // deleteSecureData takes the logical key (it tries every tier prefix internally).
     await service.deleteSecureData('to-delete');
 
-    const after = await service.retrieveCrisisData('to-delete');
+    const after = await service.retrieveAssessmentData('to-delete');
     expect(after).toBeNull();
   });
 });
@@ -283,37 +279,50 @@ describe('SecureStorageService — concurrent writes', () => {
   it('two concurrent stores both succeed (no last-writer corruption)', async () => {
     await service.initialize();
 
+    const mk = (userId: string, totalScore: number) => ({
+      type: 'PHQ-9' as const,
+      responses: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      totalScore,
+      timestamp: 0,
+      userId,
+    });
+
     const [r1, r2] = await Promise.all([
-      service.storeCrisisData('concur-a', { v: 'a' }, 'concur-a'),
-      service.storeCrisisData('concur-b', { v: 'b' }, 'concur-b'),
+      service.storeAssessmentData('concur-a', mk('a', 1)),
+      service.storeAssessmentData('concur-b', mk('b', 2)),
     ]);
 
     expect(r1.success).toBe(true);
     expect(r2.success).toBe(true);
 
     const [a, b] = await Promise.all([
-      service.retrieveCrisisData('concur-a'),
-      service.retrieveCrisisData('concur-b'),
+      service.retrieveAssessmentData('concur-a'),
+      service.retrieveAssessmentData('concur-b'),
     ]);
-    expect(a?.data).toEqual({ v: 'a' });
-    expect(b?.data).toEqual({ v: 'b' });
+    expect(a?.data).toEqual(mk('a', 1));
+    expect(b?.data).toEqual(mk('b', 2));
   });
 });
 
 describe('SecureStorageService — INFRA-144 hybrid storage', () => {
-  it('crisis ciphertext writes to AsyncStorage, not SecureStore (post-INFRA-144)', async () => {
+  // Repointed from the crisis equivalent (MAINT-378). Aimed at the wellness-blob
+  // writer rather than the assessment one so it is not a duplicate of
+  // 'assessment ciphertext writes to AsyncStorage, not SecureStore' below —
+  // storeWellnessBlob is a third public writer and this is its only
+  // no-SecureStore-write assertion.
+  it('wellness-blob ciphertext writes to AsyncStorage, not SecureStore (post-INFRA-144)', async () => {
     await service.initialize();
-    await service.storeCrisisData('hybrid-1', { signal: 'x' }, 'hybrid-1');
+    await service.storeWellnessBlob('hybrid-1', { signal: 'x' }, 'level_2_assessment_data');
 
-    expect(mockAsyncStorageMap.has('crisis_async_hybrid-1')).toBe(true);
-    expect(mockSecureStoreMap.has('crisis_secure_hybrid-1')).toBe(false);
+    expect(mockAsyncStorageMap.has('wellness_async_hybrid-1')).toBe(true);
+    expect(mockSecureStoreMap.size).toBe(0);
   });
 
   it('reads from legacy SecureStore key and migrates to AsyncStorage on first read', async () => {
     await service.initialize();
 
     // Seed a legacy SecureStore record (simulates a pre-INFRA-144 install).
-    const legacyKey = 'crisis_secure_legacy-1';
+    const legacyKey = 'assessment_secure_legacy-1';
     const legacyPayload = JSON.stringify({
       encryptedData: Buffer.from(JSON.stringify({ from: 'legacy' }), 'utf-8').toString('base64'),
       iv: 'mock-iv',
@@ -325,19 +334,19 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
         ivLength: 12,
         tagLength: 16,
         encryptedAt: 0,
-        sensitivityLevel: 'level_1_crisis_responses',
+        sensitivityLevel: 'level_2_assessment_data',
         performanceMetrics: { encryptionTimeMs: 0, dataSize: 0, encryptedSize: 0 },
       },
       checksum: 'mock-checksum',
     });
     mockSecureStoreMap.set(legacyKey, legacyPayload);
 
-    const retrieved = await service.retrieveCrisisData('legacy-1');
+    const retrieved = await service.retrieveAssessmentData('legacy-1');
     expect(retrieved?.data).toEqual({ from: 'legacy' });
 
     // After migration: ciphertext now in AsyncStorage, legacy SecureStore key
     // deleted, migration marker set.
-    expect(mockAsyncStorageMap.get('crisis_async_legacy-1')).toBe(legacyPayload);
+    expect(mockAsyncStorageMap.get('assessment_async_legacy-1')).toBe(legacyPayload);
     expect(mockSecureStoreMap.has(legacyKey)).toBe(false);
     expect(mockAsyncStorageMap.get(`wellness_migrated:${legacyKey}`)).toBe('v1');
   });
@@ -346,34 +355,41 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
     await service.initialize();
 
     // Pre-mark migrated so the legacy fallback is skipped even if data exists.
-    const legacyKey = 'crisis_secure_idemp-1';
+    const legacyKey = 'assessment_secure_idemp-1';
     mockSecureStoreMap.set(legacyKey, 'should-never-be-read');
     mockAsyncStorageMap.set(`wellness_migrated:${legacyKey}`, 'v1');
 
     // No AsyncStorage value at the hybrid key, so retrieve should return null
     // without falling back to the legacy SecureStore copy.
-    const retrieved = await service.retrieveCrisisData('idemp-1');
+    const retrieved = await service.retrieveAssessmentData('idemp-1');
     expect(retrieved).toBeNull();
     expect(mockSecureStoreMap.get(legacyKey)).toBe('should-never-be-read');
   });
 
-  it('storeCrisisData marks legacy key migrated so stale SecureStore copies are ignored', async () => {
+  it('storeAssessmentData marks legacy key migrated so stale SecureStore copies are ignored', async () => {
     await service.initialize();
 
     // Pretend there's a stale legacy copy left behind.
-    const legacyKey = 'crisis_secure_fresh-1';
+    const legacyKey = 'assessment_secure_fresh-1';
     mockSecureStoreMap.set(legacyKey, 'stale-data');
 
     // A fresh write under the hybrid path should set the migration marker so
     // subsequent reads ignore the stale SecureStore entry.
-    await service.storeCrisisData('fresh-1', { fresh: true }, 'fresh-1');
+    const fresh = {
+      type: 'PHQ-9' as const,
+      responses: [3, 3, 3, 3, 3, 3, 3, 3, 3],
+      totalScore: 27,
+      timestamp: 0,
+      userId: 'u',
+    };
+    await service.storeAssessmentData('fresh-1', fresh);
     expect(mockAsyncStorageMap.get(`wellness_migrated:${legacyKey}`)).toBe('v1');
 
-    const retrieved = await service.retrieveCrisisData('fresh-1');
-    expect(retrieved?.data).toEqual({ fresh: true });
+    const retrieved = await service.retrieveAssessmentData('fresh-1');
+    expect(retrieved?.data).toEqual(fresh);
   });
 
-  it('assessment hybrid path mirrors crisis behavior', async () => {
+  it('assessment ciphertext writes to AsyncStorage, not SecureStore (post-INFRA-144)', async () => {
     await service.initialize();
     await service.storeAssessmentData('assess-hybrid', {
       type: 'PHQ-9',
@@ -407,25 +423,37 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
     // Build a payload that would have failed validateStorageSize under the
     // legacy SecureStore-only path (which capped at 2KB).
     const big = {
-      entries: Array.from({ length: 200 }, (_, i) => ({
+      type: 'PHQ-9' as const,
+      responses: [1, 2, 3, 0, 2, 1, 3, 2, 0],
+      totalScore: 14,
+      timestamp: 0,
+      userId: 'u',
+      history: Array.from({ length: 200 }, (_, i) => ({
         idx: i,
         text: 'x'.repeat(50),
       })),
     };
-    const result = await service.storeCrisisData('big-payload', big, 'big-payload');
+    const result = await service.storeAssessmentData('big-payload', big);
     expect(result.success).toBe(true);
     expect(result.dataSize).toBeGreaterThan(2048);
 
-    const back = await service.retrieveCrisisData('big-payload');
-    expect((back?.data as any).entries.length).toBe(200);
+    const back = await service.retrieveAssessmentData('big-payload');
+    expect((back?.data as any).history.length).toBe(200);
   });
 
   it('wellness payload size cap (256KB) is enforced', async () => {
     await service.initialize();
 
-    // ~300KB of payload after wrap — should trip the cap.
-    const oversize = { blob: 'x'.repeat(300 * 1024) };
-    const result = await service.storeCrisisData('oversize', oversize, 'oversize');
+    // ~300KB of payload after wrap — should trip the cap. The oversize field
+    // sits inside an otherwise well-formed assessment record so the rejection
+    // provably comes from validateStorageSize, not from a malformed payload.
+    const result = await service.storeAssessmentData('oversize', {
+      type: 'PHQ-9',
+      responses: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      totalScore: 0,
+      timestamp: 0,
+      userId: 'x'.repeat(300 * 1024),
+    });
     expect(result.success).toBe(false);
     expect(result.error).toMatch(/payload size limit exceeded/i);
   });
@@ -455,7 +483,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   it('clearAllWellnessData sweeps both AsyncStorage prefixes and migration markers', async () => {
     await service.initialize();
 
-    await service.storeCrisisData('wipe-1', { a: 1 }, 'wipe-1');
     await service.storeAssessmentData('wipe-2', {
       type: 'GAD-7',
       responses: [0, 0, 0, 0, 0, 0, 0],
@@ -464,15 +491,68 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
       userId: 'u',
     });
     await service.storeWellnessBlob('wipe-3', { b: 2 }, 'level_2_assessment_data');
-    mockAsyncStorageMap.set('wellness_migrated:crisis_secure_old', 'v1');
+    mockAsyncStorageMap.set('wellness_migrated:assessment_secure_old', 'v1');
+
+    // DEBUG-355: `logStorageAccess` persists an `audit_log_${Date.now()}` entry
+    // on every FAILED operation — since MAINT-378 removed the crisis tier, that
+    // is the only remaining writer, so the audit_log_ assertion below needs a
+    // real failure to be non-vacuous. A >256KB payload trips validateStorageSize
+    // and lands in storeAssessmentData's catch, which logs the failure. That
+    // prefix was outside the sweep, so the record survived account erasure.
+    const failed = await service.storeAssessmentData('wipe-4', {
+      type: 'PHQ-9',
+      responses: [0, 0, 0, 0, 0, 0, 0, 0, 0],
+      totalScore: 0,
+      timestamp: 0,
+      userId: 'x'.repeat(300 * 1024),
+    });
+    expect(failed.success).toBe(false);
+    expect(
+      Array.from(mockAsyncStorageMap.keys()).some((k) => k.startsWith('audit_log_'))
+    ).toBe(true);
 
     await service.clearAllWellnessData();
 
     const keysAfter = Array.from(mockAsyncStorageMap.keys());
-    expect(keysAfter.some((k) => k.startsWith('crisis_async_'))).toBe(false);
     expect(keysAfter.some((k) => k.startsWith('assessment_async_'))).toBe(false);
     expect(keysAfter.some((k) => k.startsWith('wellness_async_'))).toBe(false);
     expect(keysAfter.some((k) => k.startsWith('wellness_migrated:'))).toBe(false);
+    // Asserted here rather than left as an unobserved line in the filter.
+    expect(keysAfter.some((k) => k.startsWith('audit_log_'))).toBe(false);
+  });
+
+  // MAINT-378 behavioural no-writer proof. The crisis storage tier is gone, but
+  // CRISIS_ASYNC_PREFIX is deliberately RETAINED in SWEPT_ASYNC_PREFIXES and in
+  // deleteSecureData as a defensive erasure floor for already-shipped installs.
+  // That retention is only defensible while the namespace is genuinely
+  // write-free, so prove it behaviourally: exercise every public writer and
+  // assert none of them lands a key there. Asserts against the exported constant
+  // so a rename cannot make this pass by drifting away from production.
+  it('no public writer produces a key under CRISIS_ASYNC_PREFIX', async () => {
+    await service.initialize();
+
+    await service.storeAssessmentData('no-crisis-1', {
+      type: 'PHQ-9',
+      responses: [3, 3, 3, 3, 3, 3, 3, 3, 3],
+      totalScore: 27,
+      timestamp: 0,
+      userId: 'u',
+    });
+    await service.storeWellnessBlob(
+      'no-crisis-2',
+      { safetyPlan: 'not persisted through this service' },
+      'level_1_crisis_responses'
+    );
+    await service.storeGeneralData('no-crisis-3', { a: 1 }, 'general_tier');
+    await service.storeGeneralData('no-crisis-4', { a: 2 }, 'performance_tier');
+
+    const crisisPrefixed = Array.from(mockAsyncStorageMap.keys()).filter((k) =>
+      k.startsWith(SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX)
+    );
+    expect(crisisPrefixed).toEqual([]);
+    // Guards the guard: the writers above really did write something, so the
+    // emptiness above is a property of the namespace, not of an inert store.
+    expect(mockAsyncStorageMap.size).toBeGreaterThan(0);
   });
 
   // MAINT-241 right-to-erasure key sweep: SecureStore has no enumerate API, so

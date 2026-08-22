@@ -7,6 +7,47 @@
  * - 12h/24h format based on user's system settings
  * - Clear visual feedback and cancel/confirm actions
  *
+ * ── WHY THIS IS STILL AN RN <Modal> WHEN THE OTHER THREE ARE NOT (DEBUG-406) ──
+ *
+ * RN's <Modal> renders in a SEPARATE NATIVE WINDOW above the JS view hierarchy,
+ * so while one is open the root crisis button is not on screen at all. DEBUG-406
+ * audited the four sites that still did this and converted three of them. This
+ * is the one that survived, and the reason is narrow and specific:
+ *
+ *   • The surface carries ZERO wellness or distress semantics. It is a
+ *     `mode="time"` spinner and a Cancel/Done header. Nothing here can induce,
+ *     reference, or receive a disclosure. That was true of none of the other
+ *     three.
+ *   • Its exits are FIXED and non-scrolling — Cancel and Done sit in a pinned
+ *     header, both one tap, neither able to be pushed below a fold.
+ *   • It is the only one of the four where the <Modal> is iOS-only. The Android
+ *     branch renders a native `DateTimePicker` dialog in its own OS window, which
+ *     no RN change can paint the crisis button above. Converting iOS alone would
+ *     leave the two platforms with divergent modality semantics, against
+ *     CLAUDE.md's "iOS and Android behavior must match", for a reminder-time
+ *     setting.
+ *
+ * ⚠️ THE RULING IS CONDITIONAL, AND THIS IS THE CONDITION.
+ *
+ * It stands BECAUSE THE CONTENT IS BENIGN — not because the route is standard,
+ * and not because the user tapped to open it. Both of those were true of the
+ * three that converted. If this picker ever gains wellness framing — a
+ * mood-check-in reminder, an assessment-due nudge, any copy referencing the
+ * user's state — the ruling is VOID and it converts to the full-bleed absolute
+ * overlay pattern the other three now use.
+ *
+ * Recorded here rather than only in the work item because a ruling that lives
+ * where the code cannot see it is how DEBUG-403's four-site analogy survived
+ * review for as long as it did. The allowlist entry in
+ * `scripts/check-modal-occlusion-guard.js` carries the same text, and a test
+ * pins that it keeps saying "CONDITIONAL" and "benign".
+ *
+ * NOTE (do not "fix" in isolation): this component lacks
+ * `accessibilityViewIsModal`, so iOS VoiceOver can already escape it into the
+ * content behind. That is an accessibility defect, but it cuts TOWARD
+ * reachability, so adding the trap without re-opening this ruling would make
+ * the surface strictly worse for the case that matters here.
+ *
  * Usage:
  * ```tsx
  * <NotificationTimePicker
@@ -38,8 +79,9 @@ interface NotificationTimePickerProps {
   /** Current time value as Date object */
   value: Date;
 
-  /** Notification period for contextual labeling */
-  period: 'morning' | 'midday' | 'evening';
+  /** Notification period for contextual labeling. FEAT-298 slice 5 added 'daily' — the
+   *  single ritual — alongside the legacy periods, which retire with the flows in slice 6. */
+  period: 'morning' | 'midday' | 'evening' | 'daily';
 
   /** Callback when user confirms time selection */
   onConfirm: (time: Date) => void;

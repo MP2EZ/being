@@ -15,6 +15,7 @@
  */
 
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import { gatherJournalEntriesForExport } from '@/features/journal/services/journalEntryStore';
 import * as SecureStore from 'expo-secure-store';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { logError, LogCategory } from '@/core/services/logging';
@@ -33,6 +34,13 @@ export interface ExportEnvelope {
     assessments: unknown | null;
     practices: unknown | null;
     subscription: unknown | null;
+    /**
+     * FEAT-283: voice journal entries, decrypted. Named "journalEntries" rather
+     * than "reflections" so the export matches the privacy policy's own
+     * terminology — the surface is called Reflections in the UI, but the legal
+     * and portability vocabulary stays "journal entries".
+     */
+    journalEntries: unknown | null;
   };
   consent: {
     currentConsent: unknown | null;
@@ -80,6 +88,22 @@ export async function gatherExportData(): Promise<ExportEnvelope> {
     );
   }
 
+  // FEAT-283: voice journal entries. Each entry is its own AES-256-GCM blob
+  // under the `wellness_async_` prefix, with a metadata-only index listing
+  // them, so the export walks the index and decrypts each entry in turn.
+  // Independently null-safe like every other section: an unreadable journal
+  // must not fail the whole disclosure.
+  let journalEntries: unknown | null = null;
+  try {
+    journalEntries = await gatherJournalEntriesForExport();
+  } catch (error) {
+    logError(
+      LogCategory.SYSTEM,
+      '[DataExport] failed to read voice journal (omitting from export)',
+      error instanceof Error ? error : new Error(String(error)),
+    );
+  }
+
   const practices = await readPlainJson(PRACTICE_STATE_KEY);
   const subscription = await readPlainJson(SUBSCRIPTION_KEY);
   const consent = await useConsentStore.getState().exportConsentRecords();
@@ -95,7 +119,7 @@ export async function gatherExportData(): Promise<ExportEnvelope> {
     regulatoryBasis:
       'Exported pursuant to your data-portability and right-to-know rights under CCPA, ' +
       'TDPSA, VCDPA, CPA, CTDPA, and GDPR Art. 20.',
-    wellness: { assessments: assessments ?? null, practices, subscription },
+    wellness: { assessments: assessments ?? null, practices, subscription, journalEntries },
     consent,
   };
 }

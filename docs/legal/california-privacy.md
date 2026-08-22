@@ -1,8 +1,8 @@
 # California Privacy Rights
 
-**Version:** 1.0
+**Version:** 1.1
 **Effective Date:** December 12, 2025
-**Last Updated:** December 12, 2025
+**Last Updated:** August 6, 2026
 
 ---
 
@@ -151,7 +151,8 @@ We retain your personal information only as long as necessary for the purposes d
 |-----------|-----------|
 | Wellness data (local, on your device) | Until you delete it via in-app settings, or uninstall the app |
 | Settings backup (cloud, optional) | Until you disable backup or request deletion via in-app *Privacy & Data* settings |
-| Usage analytics (opt-in only) | 12 months, anonymized after 30 days |
+| Usage analytics (opt-in only) | 90 days on our servers |
+| Crisis detection events (aggregate, PII-free — not opt-in; see Privacy Policy §7.2) | 3 years on our servers |
 
 ---
 

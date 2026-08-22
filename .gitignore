@@ -47,6 +47,17 @@ build/
 web-build/
 *.pyc
 
+# INFRA-354: supabase/functions/vendor/ is committed on purpose so the
+# `Edge Functions (Deno)` gate resolves without touching the network. esm.sh mirrors
+# each package's own layout, so the `dist/` and `build/` rules above — meant for OUR
+# build output — also match vendored paths like
+# vendor/esm.sh/jose@5.9.6/denonext/dist/... and silently drop 72 of the tree's 108
+# files. A clean checkout then fails closed with "Specifier not found in cache".
+# Re-include the directories here; do NOT narrow the rules above, which are correct
+# for everything else.
+!supabase/functions/vendor/**/dist/
+!supabase/functions/vendor/**/build/
+
 # Expo/React Native
 .expo/
 expo-env.d.ts
@@ -137,38 +148,41 @@ PHASE_*.json
 *crisis-performance*
 comprehensive-performance-baseline-report.md
 
-# Cleanup and Migration Scripts
-cleanup-*.js
-cleanup-*.py
-cleanup-*.sh
-cleanup_*.js
-cleanup_*.py
-cleanup_*.sh
-migrate-*.js
-migrate-*.py
-migrate-*.sh
-migration-*.js
-migration-*.py
-migration-*.sh
-validate-*.js
-validate-*.py
-validate_*.js
-validate_*.py
-verify-*.js
-verify-*.py
-check-*.js
-check-*.py
-# Whitelist the crisis-hotline pre-push guard (MAINT-154) — it's a permanent
-# safety check, not an ad-hoc developer scratch script.
-!app/scripts/check-crisis-hotline.js
-!app/__tests__/scripts/check-crisis-hotline.test.js
-# Whitelist the service-singleton setInterval guard check (INFRA-177) —
-# CI-enforced convention guard, not an ad-hoc developer scratch script.
-!scripts/check-service-interval-guards.js
-execute-*.js
-execute-*.py
-batch_*.py
-final_*.py
+# Ad-hoc developer scratch scripts — REPOSITORY ROOT ONLY (INFRA-499).
+#
+# The leading `/` is load-bearing. Unanchored, these globs match at every
+# depth and swallow the permanent guard scripts in app/scripts/ and scripts/
+# — silently, because `git add .` simply does not stage an ignored file and
+# reports nothing, so the miss first surfaces as a red CI step invoking a
+# file that is not in the repository. Anchoring keeps the original
+# scratch-file intent and makes app/scripts/ and scripts/ tracked by default,
+# which retired the 13 hand-written negation entries this block used to carry.
+# Adding a guard script now needs no .gitignore change at all; if one is ever
+# re-ignored, `npm run check:workflow-scripts` fails on the PR that does it.
+/cleanup-*.js
+/cleanup-*.py
+/cleanup-*.sh
+/cleanup_*.js
+/cleanup_*.py
+/cleanup_*.sh
+/migrate-*.js
+/migrate-*.py
+/migrate-*.sh
+/migration-*.js
+/migration-*.py
+/migration-*.sh
+/validate-*.js
+/validate-*.py
+/validate_*.js
+/validate_*.py
+/verify-*.js
+/verify-*.py
+/check-*.js
+/check-*.py
+/execute-*.js
+/execute-*.py
+/batch_*.py
+/final_*.py
 
 # Temporary Scripts and Executables
 *.cleanup

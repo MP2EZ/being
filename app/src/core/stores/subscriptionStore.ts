@@ -114,6 +114,10 @@ function createTrialSubscription(userId: string): SubscriptionMetadata {
  * domain into a single LogCategory.
  */
 import { logSystem, logPerformance, logError, LogCategory } from '@/core/services/logging';
+// Static, and NOT from IAPService: this is pure logic with no IAP SDK dependency, so it
+// needs no lazy import — and taking it off the mocked module keeps suites that stub
+// IAPService from having to mirror every export the store destructures.
+import { appleTransactionIdentityFrom } from '@/core/services/subscription/appleTransactionIdentity';
 const logger = {
   info: (message: string, meta?: Record<string, unknown>) => {
     logSystem(`[Subscription] ${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`);
@@ -321,7 +325,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       const verification = await IAPService.verifyReceipt(
         receiptData,
         platform,
-        purchaseToken
+        purchaseToken,
+        appleTransactionIdentityFrom(purchase)
       );
 
       if (!verification.valid) {

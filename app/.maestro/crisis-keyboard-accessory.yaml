@@ -1,0 +1,82 @@
+appId: fyi.being.app
+tags:
+  - safety-device-only
+name: "Crisis affordance stays reachable while a software keyboard is up (device-only)"
+---
+# DEVICE-ONLY, AND THE RECORDED REASON FOR IT IS FALSE (DEBUG-506).
+#
+# This header used to say: "The simulator boots with Connect Hardware Keyboard enabled, so
+# tapping into a TextInput raises NO software keyboard", and that a naive flow would
+# therefore false-GREEN. Measured on the gate simulator (iPhone SE 3 / iOS 18.6):
+# `ConnectHardwareKeyboard` is unset both globally and per-device, a software keyboard DOES
+# rise at the default, and `UIKeyboardLayoutStar Preview` lands at [0,451][375,667] — the
+# same bounds DEBUG-506's evidence table records. `journal-crisis-scan.yaml` runs in the
+# default suite and asserts that node three times, which is the standing counter-example.
+#
+# That matters because this tag is why a regression in this affordance is invisible to
+# `npm run e2e:safety` by construction — and DEBUG-450 shipped an accessory that never
+# attached at all, for its entire life, with this flow the only thing pinning it.
+#
+# The real per-simulator hazard is different and is now handled in the harness: iOS's
+# QuickPath first-run tutorial occupies the keyboard's whole region, is not a keyboard
+# node, and `simctl erase` restores it. `e2e-safety.sh` seeds
+# `DidShowContinuousPathIntroduction` and refuses outright if a hardware keyboard is on.
+#
+# STILL DEVICE-ONLY, pending DEBUG-506 AC5: the reachability half moves into the sim gate
+# and the dial half stays here, but the split is not authored until it has been RUN once.
+# A safety flow that is red on arrival gates nothing and trains a `--skip-e2e` bypass.
+#
+# On a real device, run:
+#   npm run e2e:safety:keyboard-accessory
+#
+# CONTRACT PINNED: while a software keyboard occludes the root crisis button, a crisis
+# affordance is reachable in ONE tap from the keyboard accessory, and tapping it reaches
+# CrisisResourcesScreen. DEBUG-431 ruled the occluded state a defect against CLAUDE.md's
+# "988 access: <3 taps from any screen"; this is the flow that proves the fix holds.
+#
+# THE KEYBOARD-UP ASSERTION IS LOAD-BEARING. `crisis-keyboard-accessory` is rendered
+# always but COLLAPSED (height 0, a11y-hidden) when nothing occludes — so asserting the
+# accessory *bar* exists proves nothing. What proves the keyboard is genuinely up is that
+# the accessory's own BUTTON is visible, which only happens when the occlusion predicate
+# fired. Assert that before asserting reachability, or this flow degrades to the
+# false-green above.
+
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
+- runFlow: _legal-and-onboarding.yaml
+- runFlow: _seeded-home.yaml
+
+# Reach a free-text surface. The journal composer is the canonical distress-bearing
+# multiline input — the surface DEBUG-431's tap arithmetic showed had no bounded exit.
+- tapOn:
+    id: "tab-insights"
+- scrollUntilVisible:
+    element:
+      id: "weekly-reflection-card"
+    direction: DOWN
+# `weekly-reflection-prompt` is the trigger on a seeded state (no reflection yet);
+# `weekly-reflection-edit` replaces it once one exists. Seeded state means the prompt.
+- tapOn:
+    id: "weekly-reflection-prompt"
+
+- assertVisible:
+    id: "weekly-reflection-input"
+- tapOn:
+    id: "weekly-reflection-input"
+
+# THE GUARD AGAINST FALSE GREEN. The accessory button is only visible when the occlusion
+# predicate returned true — i.e. a bottom-anchored software keyboard taller than the
+# button's 156pt top edge is actually up. With a hardware keyboard connected this fails
+# here, loudly, instead of silently passing the reachability assertion below.
+- assertVisible:
+    id: "crisis-keyboard-accessory-button"
+
+# ONE TAP. Not "dismiss the keyboard, then find the root button" — DEBUG-431 measured
+# that path at 3 taps minimum and unbounded on DailyLoop, which is why keyboard-dismiss
+# hygiene was explicitly ruled insufficient to close this item.
+- tapOn:
+    id: "crisis-keyboard-accessory-button"
+
+- assertVisible:
+    id: "crisis-resources-screen"

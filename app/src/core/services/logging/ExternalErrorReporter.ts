@@ -53,6 +53,9 @@ const ALLOWED_ERROR_FIELDS = [
   'message',         // Sanitized message only
   'name',
   'errorCode',
+  'level',           // INFRA-295: fatal vs error — no user content, and dropping
+                     // it flattens every crash to the same severity in Sentry.
+                     // Validated against ALLOWED_LEVELS in applyAllowlist.
 
   // Context (no sensitive data)
   'platform',
@@ -73,10 +76,44 @@ const ALLOWED_ERROR_FIELDS = [
 
   // App state (no sensitive data)
   'screenName',       // Generic screen names only
-  'flowType',         // morning/midday/evening only
+  'flowType',         // closed PracticeIdentity set only — clamped at runtime, see ALLOWED_FLOW_TYPES
   'networkStatus',
   'memoryUsage',
 ] as const;
+
+import type { PracticeIdentity } from '@/core/types/practice-identity';
+
+/**
+ * INFRA-295: Sentry's `level` is a closed enum. Anything outside it is dropped
+ * rather than forwarded, so the field can never become a free-text channel.
+ */
+const ALLOWED_LEVELS = ['fatal', 'error', 'warning', 'log', 'info', 'debug'] as const;
+
+/**
+ * FEAT-298 slice 4: same reasoning as ALLOWED_LEVELS, applied to `flowType`.
+ *
+ * `flowType` is on ALLOWED_ERROR_FIELDS and was copied through verbatim into a field typed
+ * `string | undefined` — so it was a FREE-TEXT CHANNEL into Sentry guarded only by
+ * TypeScript. Widening the compile-time union does nothing about that; a runtime clamp
+ * does. Anything outside the closed PracticeIdentity set is dropped, not forwarded.
+ *
+ * Carries the PRESENTATION identity ('daily-loop'), never the persisted record token
+ * ('daily'): the breadcrumb answers "which surface did this error occur on". Mixing in the
+ * CheckInType vocabulary would make a future record-schema change ripple into telemetry.
+ *
+ * CAUTION when adding a token (MAINT-401 — the hazard changed shape, it did not go away):
+ * `flowType` is copied into the sanitized `extra`, which `collectContentText` DOES walk, so
+ * a surface token containing a CRISIS_CONTENT_PATTERNS term ('crisis', 'emergency',
+ * 'intervention', 'phq-9', 'gad-7', ...) would drop every event from that surface wholesale.
+ * The old over-broad pre-filter this note used to warn about is gone; the narrower content
+ * scan remains, and it is the one to check a new token against. 'daily-loop' hits none.
+ */
+const ALLOWED_FLOW_TYPES: readonly PracticeIdentity[] = [
+  'morning',
+  'midday',
+  'evening',
+  'daily-loop',
+];
 
 /**
  * BLOCKLIST: Fields that must NEVER be sent externally
@@ -138,15 +175,47 @@ export const SENSITIVE_DATA_PATTERNS = [
  * CRISIS / WELLNESS CONTENT SUBSTRINGS
  *
  * Content that must never reach an external processor (Sentry) — assessment
- * identifiers, crisis terms, the 988 hotline. Single-sourced so the error path
- * (`containsCrisisContent`) and the FEAT-284 feedback path
- * (`feedbackContainsCrisisContent`) enforce the identical set.
+ * identifiers, crisis terms, the 988 hotline.
+ *
+ * DEBUG-338: `'988'` is a REGEX with word boundaries, not a bare substring.
+ * As a substring it matched hex digit-runs in the structural identifiers
+ * `_prepareEvent` stamps on every event — `event_id`, `contexts.trace.trace_id`
+ * and `.span_id`, `sdkProcessingMetadata.dynamicSamplingContext` — plus the
+ * 9-10 digit `contexts.device.*` memory figures. P('988' in a 32-char hex run)
+ * is ~0.7%, and there are several such fields per event, so roughly 2-4% of ALL
+ * error events app-wide were being dropped at random with zero crisis content in
+ * them. Nothing in privacy-policy.md or the DPIA promises identifier-entropy
+ * drops, so that was a bug, not a contract.
+ *
+ * Use `\b`, NOT a lookbehind — lookbehind is unreliable on Hermes. The
+ * alphabetic patterns stay plain substrings deliberately: hex and decimal noise
+ * cannot produce them, and substring matching is what catches `suicidal`,
+ * `suicide` and `self-harmed` from one entry.
  */
-const CRISIS_CONTENT_PATTERNS = [
+const CRISIS_CONTENT_PATTERNS: readonly (string | RegExp)[] = [
   'phq-9', 'phq9', 'gad-7', 'gad7',
   'crisis', 'suicid', 'self-harm',
-  'emergency', 'intervention', '988',
-] as const;
+  'emergency', 'intervention', /\b988\b/,
+];
+
+/**
+ * MAINT-401 — replacement token for a wellness-sensitive stack-frame segment.
+ *
+ * DEBUG-338 ruled that `stacktrace` is structural metadata and exempted it from
+ * the content scan. That exemption is correct — a frame is a path, not prose,
+ * and dropping the event over one would destroy the crash triage that is the
+ * whole reason for transmitting it. But an exemption is not a control: a raw
+ * `features/crisis/...` path recreates, through a slot nothing coarsens, the
+ * exact signal `sanitizeScreenName` / `isSensitiveRoute` exist to close.
+ *
+ * So the segment is coarsened rather than the event dropped. The keyword set is
+ * the SHARED `isSensitiveRoute` constant, so it provably cannot drift from the
+ * screen-name path.
+ *
+ * A distinct token, not `GENERIC_SCREEN_BUCKET` ('App'), because this lands
+ * inside a path where 'App' reads as a real directory name.
+ */
+const SENSITIVE_PATH_SEGMENT = '[sensitive]';
 
 /* ------------------------------------------------------------------------- *
  * FEAT-284 — in-app bug/feedback reporting (Sentry feedback widget)
@@ -332,8 +401,30 @@ export class ExternalErrorReporter {
               }),
             ],
 
-            // Disable features that could leak sensitive data
-            autoSessionTracking: false,
+            // INFRA-295 — release-health session tracking.
+            //
+            // MIND THE OPTION NAME. The SDK reads `enableAutoSessionTracking`.
+            // The `autoSessionTracking` key this file used to pass does not
+            // exist in @sentry/react-native: unrecognized keys are forwarded
+            // verbatim to the native layer, which ignores it and applies its own
+            // default of ON. So the "sessions are disabled" posture the previous
+            // comment claimed was never real — sessions have been transmitting
+            // from every non-__DEV__ build. This makes the actual behaviour
+            // explicit and intentional rather than accidental. Dev/sim still
+            // no-ops because the DSN is empty there, so no env gate is needed.
+            //
+            // A session envelope is NOT an event: it never passes through
+            // beforeSend, normalizeDepth, or the FEAT-284 event processor. Its
+            // schema is fixed (sid/did/started/duration/status/errors + release
+            // and environment attrs) and has no field for user content, so there
+            // is no wellness-data path — but `did` is a per-install identifier.
+            // See docs/legal/dpia-sensitive-wellness-data.md and privacy-policy §5.1.
+            enableAutoSessionTracking: true,
+
+            // Performance tracing stays OFF — enabling it is INFRA-297's scope
+            // and is deliberately deferred. Transactions bypass beforeSend the
+            // same way sessions do, so that work needs its own
+            // beforeSendTransaction before any sample rate is raised above zero.
             enableAutoPerformanceTracing: false,
             attachStacktrace: true,
             normalizeDepth: 3, // Limit depth to prevent deep object exposure
@@ -387,7 +478,7 @@ export class ExternalErrorReporter {
     error: Error,
     context?: {
       screenName?: string;
-      flowType?: 'morning' | 'midday' | 'evening';
+      flowType?: PracticeIdentity;
       operationType?: string;
     }
   ): Promise<void> {
@@ -396,12 +487,15 @@ export class ExternalErrorReporter {
       return;
     }
 
-    // CRITICAL: Never report crisis-related errors externally
-    if (this.isCrisisRelated(error, context)) {
-      logger.warn(LogCategory.SECURITY, 'Blocked external report of crisis-related error');
-      return;
-    }
-
+    // MAINT-401: the crisis guarantee is NOT enforced here. It lives at the
+    // chokepoint every capture path traverses — `beforeSendHook` ->
+    // `containsCrisisContent` -> wholesale drop. A pre-filter on this one method
+    // was strictly weaker (it guarded a single entry point) and strictly
+    // broader (its keyword list added 'assessment', 'score', 'safety', 'gad',
+    // 'phq'), so it advertised a control it did not provide while risking
+    // silent suppression of every report from those surfaces. Removed rather
+    // than aligned: aligning would have preserved a dead duplicate of a live
+    // guarantee in a citable, control-looking form.
     try {
       const sanitizedEvent = this.sanitizeError(error, context);
 
@@ -503,29 +597,96 @@ export class ExternalErrorReporter {
   }
 
   /**
-   * Check if error is crisis-related
+   * Concatenate the CONTENT-BEARING surfaces of a Sentry event (DEBUG-338).
+   *
+   * This used to be `JSON.stringify(event)` — the whole event, structural
+   * metadata included. Two problems with that, and one fix for both.
+   *
+   * SCOPING IS WHAT MAKES PATH-VS-CONTENT EXPRESSIBLE. Once the event is
+   * flattened into a single string, a stack frame's `filename` and a free-text
+   * `message` are indistinguishable, so "let a crisis-path stack trace through
+   * but never crisis prose" cannot be written at all. Walking named surfaces
+   * makes `stacktrace.frames[]` structural metadata by construction.
+   *
+   * WHAT IS DELIBERATELY EXCLUDED, and why each is safe: `event_id`,
+   * `contexts.trace`, `sdkProcessingMetadata`, `debug_meta`, `sdk`, `modules`,
+   * `release`, `timestamp`, and every `stacktrace.frames[]` entry. All are
+   * SDK-generated or build-derived — no code path writes user content into them.
+   *
+   * WHAT IS DELIBERATELY INCLUDED: `extra`, `tags`, `user`, `breadcrumbs` and
+   * `contexts` (minus `trace`). These carry author-supplied data, so anything
+   * inside them is content. Scoping down to only `message` + `exception.value`
+   * would WEAKEN the privacy contract — do not "simplify" this list.
+   *
+   * Objects are serialised wholesale rather than walked, so a nested string is
+   * still caught. Failure to serialise (a cycle) contributes nothing here, but
+   * cannot cause a leak: `beforeSendHook` fails closed on any throw, and
+   * `applyAllowlist` runs afterwards and drops these fields anyway.
    */
-  private isCrisisRelated(error: Error, context?: any): boolean {
-    const errorText = `${error.name} ${error.message} ${error.stack || ''}`.toLowerCase();
-    const contextText = JSON.stringify(context || {}).toLowerCase();
+  private collectContentText(event: any): string {
+    const parts: string[] = [];
+    const push = (value: unknown): void => {
+      if (value === null || value === undefined) return;
+      if (typeof value === 'object') {
+        try {
+          parts.push(JSON.stringify(value));
+        } catch {
+          // Unserialisable (cyclic) — skip; see the fail-closed note above.
+        }
+        return;
+      }
+      parts.push(String(value));
+    };
 
-    const crisisKeywords = [
-      'crisis', 'phq', 'gad', 'assessment', 'score', 'suicidal',
-      'suicide', 'self-harm', 'emergency', '988', 'intervention',
-      'safety', 'safetyplan', 'emergencycontact'
-    ];
+    push(event?.message);
+    push(event?.logentry?.message);
+    push(event?.logentry?.formatted);
+    push(event?.logentry?.params);
+    push(event?.transaction);
+    push(event?.fingerprint);
+    push(event?.request?.url);
+    push(event?.extra);
+    push(event?.tags);
+    push(event?.user);
 
-    return crisisKeywords.some(keyword =>
-      errorText.includes(keyword) || contextText.includes(keyword)
-    );
+    // Exception type/value are prose. `stacktrace` is NOT walked — that is the
+    // path-vs-content line.
+    for (const value of event?.exception?.values ?? []) {
+      push(value?.type);
+      push(value?.value);
+    }
+
+    for (const crumb of event?.breadcrumbs ?? []) {
+      push(crumb?.category);
+      push(crumb?.message);
+      push(crumb?.data);
+    }
+
+    // `contexts` minus `trace` — trace holds only SDK-generated hex ids.
+    if (event?.contexts && typeof event.contexts === 'object') {
+      for (const [key, value] of Object.entries(event.contexts)) {
+        if (key === 'trace') continue;
+        push(value);
+      }
+    }
+
+    return parts.join(' ').toLowerCase();
   }
 
   /**
-   * Check if event contains crisis content
+   * Check if event contains crisis content.
+   *
+   * A match drops the event WHOLESALE — never a partial scrub. That guarantee
+   * predates DEBUG-338 and is pinned by the privacy contract tests; do not
+   * soften it into a redaction.
    */
   private containsCrisisContent(event: any): boolean {
-    const eventStr = JSON.stringify(event).toLowerCase();
-    return CRISIS_CONTENT_PATTERNS.some(pattern => eventStr.includes(pattern));
+    const contentText = this.collectContentText(event);
+    return CRISIS_CONTENT_PATTERNS.some(pattern =>
+      typeof pattern === 'string'
+        ? contentText.includes(pattern)
+        : pattern.test(contentText)
+    );
   }
 
   /**
@@ -547,16 +708,52 @@ export class ExternalErrorReporter {
         values: event.exception.values.map((ex: any) => ({
           type: ex.type,
           value: this.sanitizeString(ex.value),
+          // INFRA-295: `mechanism` is what the SDK reads to decide whether a JS
+          // error is a HARD CRASH (isHardCrash() requires handled === false &&
+          // type === 'onerror'), and beforeSend runs BEFORE envelope creation.
+          // Dropping it here meant no JS fatal ever marked its session crashed,
+          // so crash-free-session-rate silently counted native crashes only.
+          // Copy the three named scalars explicitly — never spread — so a richer
+          // `mechanism.data` from a future SDK cannot ride along as a smuggling
+          // channel. Pinned by __tests__/privacy/releaseHealthSession.contract.test.ts.
+          ...(ex.mechanism
+            ? {
+                mechanism: {
+                  // Type-guard each scalar. `mechanism.data` / `.source` /
+                  // `.exception_id` / `.parent_id` are deliberately NOT copied —
+                  // `data` in particular is an open `{[key: string]: string |
+                  // boolean}` bag the SDK documents as "arbitrary data, e.g. the
+                  // handler name and the event target", which is not
+                  // privacy-neutral.
+                  type:
+                    typeof ex.mechanism.type === 'string' ? ex.mechanism.type : 'generic',
+                  ...(typeof ex.mechanism.handled === 'boolean' && {
+                    handled: ex.mechanism.handled,
+                  }),
+                  ...(typeof ex.mechanism.synthetic === 'boolean' && {
+                    synthetic: ex.mechanism.synthetic,
+                  }),
+                },
+              }
+            : {}),
           stacktrace: ex.stacktrace ? {
             frames: ex.stacktrace.frames?.map((frame: any) => ({
               filename: this.sanitizeFilename(frame.filename),
-              function: frame.function,
+              function: this.sanitizeFrameFunction(frame.function),
               lineno: frame.lineno,
               colno: frame.colno,
             })).slice(0, 10) // Limit stack depth
           } : undefined,
         })),
       };
+    }
+
+    // INFRA-295: `level` is on the allowlist above, but the bare copy would pass
+    // through whatever it was handed. Sentry's level is a closed six-value enum,
+    // so validate against it — a future `captureMessage(msg, someVariable)`
+    // must not be able to smuggle a free-text string out through this field.
+    if (filtered.level !== undefined && !ALLOWED_LEVELS.includes(filtered.level)) {
+      delete filtered.level;
     }
 
     // Add safe metadata
@@ -603,7 +800,12 @@ export class ExternalErrorReporter {
       sanitizedContext.screenName = screenName;
     }
 
-    if (context?.flowType !== undefined) {
+    // Runtime clamp — see ALLOWED_FLOW_TYPES. A value outside the closed set is dropped
+    // rather than forwarded, so this field can never become a free-text channel.
+    if (
+      context?.flowType !== undefined &&
+      ALLOWED_FLOW_TYPES.includes(context.flowType as PracticeIdentity)
+    ) {
       sanitizedContext.flowType = context.flowType;
     }
 
@@ -638,16 +840,53 @@ export class ExternalErrorReporter {
   }
 
   /**
-   * Sanitize filename to remove potentially sensitive paths
+   * Sanitize filename to remove potentially sensitive paths.
+   *
+   * MAINT-401: THIS METHOD IS THE STRUCTURAL SCOPE OF THE FRAMES EXEMPTION.
+   * Its only two callers are the `frames[].filename` slot — `applyAllowlist`'s
+   * frame map and `sanitizeStack` — so it never sees prose, and the coarsening
+   * below therefore cannot reach content. That is deliberate and load-bearing:
+   * the same coarsening implemented as a "strip path-shaped substrings before
+   * scanning" pre-pass over `collectContentText` would exempt path-SHAPED
+   * content wholesale. `crisis_alerts/insert score=21` is the worked example,
+   * and `scrubSensitiveData` cannot recover it — `/score[:\s]*[0-9]+/gi`
+   * requires `:` or whitespace, and `=` defeats it. Pinned by
+   * __tests__/privacy/stackFrameExemption.contract.test.ts.
    */
   private sanitizeFilename(filename: string): string {
     if (!filename) return '';
 
     // Remove user-specific paths
-    return filename
-      .replace(/\/Users\/[^/]+\//gi, '/~/')
-      .replace(/C:\\Users\\[^\\]+\\/gi, 'C:\\~\\')
-      .replace(/node_modules/gi, 'nm');
+    return (
+      filename
+        .replace(/\/Users\/[^/]+\//gi, '/~/')
+        .replace(/C:\\Users\\[^\\]+\\/gi, 'C:\\~\\')
+        .replace(/node_modules/gi, 'nm')
+        // Coarsen SEGMENT-WISE, never the whole path: separators are preserved
+        // and non-sensitive segments survive verbatim, so the frame stays
+        // triageable. Handles both separators without a split/join.
+        .replace(/[^/\\]+/g, (segment) =>
+          isSensitiveRoute(segment) ? SENSITIVE_PATH_SEGMENT : segment
+        )
+    );
+  }
+
+  /**
+   * MAINT-401: coarsen a stack-frame function name.
+   *
+   * `frames[].function` is the same side channel in a sibling slot — a
+   * symbolicated frame yields `renderCrisisResources` just as readily as the
+   * path yields `CrisisResourcesScreen.tsx`, and `createReactNativeRewriteFrames`
+   * rewrites only `filename`/`abs_path`/`colno`/`in_app`, never `function`.
+   * Coarsening the path alone would be cosmetic.
+   *
+   * Whole-token test, not segment-wise: a function name is an identifier, not a
+   * path. Returns the input unchanged when absent so an anonymous frame keeps
+   * its shape.
+   */
+  private sanitizeFrameFunction(fn?: string): string | undefined {
+    if (!fn) return fn;
+    return isSensitiveRoute(fn) ? SENSITIVE_PATH_SEGMENT : fn;
   }
 
   /**
@@ -663,7 +902,9 @@ export class ExternalErrorReporter {
       const match = line.match(/at\s+(\S+)\s+\(([^:]+):(\d+):(\d+)\)/);
       if (match && match[1] && match[2] && match[3] && match[4]) {
         frames.push({
-          function: match[1],
+          // MAINT-401: same coarsening as the applyAllowlist frame map — the two
+          // frame paths must not disagree about what a sensitive slot looks like.
+          function: this.sanitizeFrameFunction(match[1]) ?? match[1],
           filename: this.sanitizeFilename(match[2]),
           lineno: parseInt(match[3], 10),
           colno: parseInt(match[4], 10),

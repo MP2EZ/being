@@ -68,6 +68,20 @@ export interface WhatItIs {
 }
 
 /**
+ * How a timed practice should be presented visually (DEBUG-353).
+ *
+ * `breathing` renders the breath-paced BreathingCircle — correct for
+ * breathing-space, where entraining respiration IS the practice.
+ * `contemplative` suppresses it: loving-kindness is a directed-intention
+ * practice whose object of attention is a person, so a breath-paced animation
+ * would re-anchor attention on the breath and contradict the instructions.
+ *
+ * The field was already authored in the module JSONs and read by nothing, so
+ * the authored intent was silently dropped. Omitting it means `breathing`.
+ */
+export type PracticeVisualMode = 'breathing' | 'contemplative';
+
+/**
  * Practice exercise definition
  */
 export interface Practice {
@@ -78,6 +92,7 @@ export interface Practice {
   duration?: number; // Seconds (for timers)
   icon?: string; // Emoji or icon identifier
   instructions?: string[]; // Step-by-step for guided practices
+  visualMode?: PracticeVisualMode; // Presentation for timed practices (DEBUG-353)
   scenarios?: SortingScenario[]; // For sorting practice (Module 3)
 }
 

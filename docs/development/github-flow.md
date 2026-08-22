@@ -143,7 +143,13 @@ The repo has four pre-existing tags from earlier development phases:
 
 ## Hotfix process
 
-For bugs in production (or TestFlight) that need to ship without waiting on in-progress dev work:
+For bugs in production (or TestFlight) that need to ship without waiting on in-progress dev work.
+
+**This is the only expedited path there is.** Being has no emergency fast-path deploy
+workflow — DEBUG-374 deleted the two that existed, because App Store review dominates
+end-to-end time-to-user and no CI change can shorten it. For the severity triage that
+decides whether something is urgent enough to jump the queue at all, see
+[`docs/emergency-deployment-triggers.md`](../emergency-deployment-triggers.md).
 
 ```bash
 cd ~/dev/being/main

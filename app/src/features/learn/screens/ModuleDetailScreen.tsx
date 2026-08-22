@@ -19,14 +19,26 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  SafeAreaView,
   ActivityIndicator,
 } from 'react-native';
+/**
+ * MAINT-437 — `edges` applies to all 3 SafeAreaView root(s) in this file.
+ *
+ * Root-stack card with `headerShown: false`: no navigator supplies either
+ * inset, which is what RN core's iOS-only SafeAreaView already did here — so iOS
+ * rendering is unchanged by construction and the whole behavioural delta is Android.
+ *
+ * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
+ * are never listed. NOTE: no test in this repo can observe an `edges` value having
+ * a layout effect — the jest mock pins all insets to zero. The rendered result is
+ * verified by MAINT-437's deferred Android/iOS device pass.
+ */
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRoute, useNavigation, useFocusEffect, RouteProp } from '@react-navigation/native';
 import { useAnalytics } from '@/core/analytics';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { loadModuleContent } from '@/core/services/moduleContent';
 import type { ModuleId, ModuleContent } from '@/features/learn/types/education';
@@ -105,7 +117,7 @@ const ModuleDetailScreen: React.FC = () => {
 
   if (loading) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colorSystem.navigation.learn} />
           <Text style={styles.loadingText}>Loading module...</Text>
@@ -116,7 +128,7 @@ const ModuleDetailScreen: React.FC = () => {
 
   if (!moduleContent) {
     return (
-      <SafeAreaView style={styles.safeArea}>
+      <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Failed to load module content.</Text>
           <TouchableOpacity style={styles.errorButton} onPress={handleBack}>
@@ -130,7 +142,7 @@ const ModuleDetailScreen: React.FC = () => {
   const isMostEssential = moduleId === 'sphere-sovereignty';
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
       <View style={{ flex: 1 }}>
         <View style={styles.container}>
         {/* Header */}
@@ -232,7 +244,7 @@ const styles = StyleSheet.create({
   },
   loadingText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   errorContainer: {
     flex: 1,
@@ -243,7 +255,7 @@ const styles = StyleSheet.create({
   },
   errorText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     textAlign: 'center',
   },
   errorButton: {
@@ -287,7 +299,7 @@ const styles = StyleSheet.create({
   headerNumber: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textTransform: 'uppercase',
     letterSpacing: 0.5,
   },
@@ -303,7 +315,7 @@ const styles = StyleSheet.create({
   headerTagText: {
     fontSize: typography.micro.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     letterSpacing: 0.5,
   },
   headerTagTextEssential: {
@@ -312,11 +324,11 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   headerDescription: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   tabBar: {
@@ -338,7 +350,7 @@ const styles = StyleSheet.create({
   tabText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
   },
   tabTextActive: {
     fontSize: typography.bodyRegular.size,

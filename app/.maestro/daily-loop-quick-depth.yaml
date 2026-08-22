@@ -1,0 +1,514 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter arc"
+# e2e-certifies: 375x667
+# INFRA-486 — Asserts daily-loop-support-line visible with no scroll; DEBUG-465 pinned it outside the
+# ScrollView precisely because its position relative to the fold is the contract.
+---
+# FEAT-301 safety flow — pins the crisis-affordance contract for the per-session
+# QUICK depth variant (canonical steps 1→3→4: Aware Presence → Sphere Sovereignty →
+# Virtuous Response). Quick OMITS Radical Acceptance (deep's inline crisis-support-line
+# carrier), so crisis review (see this PR's crisis sign-off) required the SUPPORT_LINE be
+# re-hosted onto a retained, NO-breath-gate beat — Sphere Sovereignty — so it is visible
+# the instant the user lands, not hidden behind Aware Presence's 30s breath.
+#
+# This flow asserts:
+#   (1) the root crisis overlay (crisis-button-root, MAINT-290) is reachable from the
+#       quick beats (the route name 'DailyLoop' is unchanged, so the overlay coverage
+#       holds — quick adds a route PARAM, not a new root route);
+#   (2) the re-hosted support line is VISIBLE + tappable → CrisisResources on quick's
+#       Sphere Sovereignty beat, NOT behind the breath;
+#   (3) (deep sub-check) deep still shows the support line on Radical Acceptance.
+#
+# ✅ SIM-VALIDATED 2026-08-04 (FEAT-298 slice 6c close-out) — attended run on the
+#     no-dev-client e2e-sim build, iPhone 16 Plus / iOS 18.6, green as part of a full
+#     6-flow `npm run e2e:safety` pass. What the validation changed:
+#       • Removed the mode-picker steps — FEAT-298 slice 5 retired
+#         DailyLoopModeSelectScreen, so the tense is inferred from the clock and depth is
+#         the only entry choice. NOTHING below may assert tense-specific copy: everything
+#         it does assert is tense-invariant, so the flow stays deterministic all day.
+#       • The re-entry pass now goes through the resume modal (FEAT-298 slice 3b) via
+#         `begin-fresh-button`. Targeting that button BY ID is required, not stylistic:
+#         the modal's body copy also contains the phrase "begin fresh", and a text
+#         selector matches that paragraph first and silently no-ops.
+#       • The `daily_loop` flag no longer exists — the Daily Practice card is the
+#         unconditional default on Home, so there is no flag to enable in the e2e env.
+#
+# ✅ RE-VALIDATED 2026-08-12 (DEBUG-408) — build aeb525ac, clean-tree provenance.
+#
+#     ⛔ DEBUG-465 CORRECTION (2026-08-16): THE ROOT CAUSE BELOW IS WRONG. The block
+#     from "READ THIS BEFORE INVESTIGATING" to the erase-and-re-run advice is retained
+#     verbatim, struck through in prose rather than deleted, because the next reader
+#     needs to see WHICH diagnosis was disproved and by what — deleting it invites the
+#     driver hypothesis to be re-derived from scratch. What actually holds:
+#
+#       • `tapOn continue-button` on Sphere Sovereignty failed BECAUSE THE BUTTON WAS
+#         BELOW THE FOLD, exactly as DEBUG-408 was originally filed. Measured with
+#         `maestro hierarchy` on a Release build (provenance c1c01157, clean tree,
+#         freshly created simulators, quick depth, flat tense, default Dynamic Type):
+#
+#           device / runtime                 viewport   fold        support line   continue
+#           ───────────────────────────────  ─────────  ──────────  ─────────────  ────────
+#           iPhone SE 3   / iOS 18.6         375x667    y=130..667  ABSENT         ABSENT
+#           iPhone 16e    / iOS 18.6         390x844    y=157..844  y=785..843     ABSENT
+#           iPhone 16 Pro / iOS 18.6         402x874    y=172..874  y=800..858     ABSENT
+#
+#         The fold is the ScrollView's clipped bounds, not the screen height — a nav
+#         header plus safe-area top costs 130..172pt before any content.
+#
+#       • DEBUG-408's stated tell does not apply. Its criterion was that a MOVING
+#         failing step means a dead driver and a deterministic one means layout. This
+#         failure is deterministic: same step, same element, three consecutive runs.
+#
+#       • The driver was demonstrably alive. In the reproducing run every
+#         `ConnectException` in maestro.log is timestamped 14:29:20–14:29:54, all from
+#         `LocalXCTestInstaller.xcTestDriverStatusCheck` polling while the driver BOOTS;
+#         the failure is at 14:31:24, 90s later, 17s after the driver successfully
+#         executed `assertVisible daily-loop-SphereSovereignty-screen`.
+#
+#       • So DO NOT grep maestro.log for `ConnectException` as DEBUG-408 advises below.
+#         A perfectly healthy run contains ~70 of them by construction. The tell is the
+#         TIMESTAMP relative to the failure, never the presence of the string.
+#
+#       • Separately measured, and NOT indistinguishable from a fold miss on Maestro
+#         2.6.0: a driver that never starts reports `IOSDriverTimeoutException` with
+#         `report: NO_REPORT`, and one that dies mid-flow reports `CommandFailed: Failed
+#         to connect to /127.0.0.1:<port>` naming the step it died on. Neither reads as
+#         `Element not found`.
+#
+#       • The 390x844 PASS recorded below DOES NOT REPRODUCE. At the same tense it now
+#         fails, and it cannot have passed while 402x874 failed on geometry alone: the
+#         content height is identical on both (same wrapped line counts) and 390x844 has
+#         the SMALLER fold, 687pt against 702pt. Build drift is excluded too —
+#         `git diff aeb525ac..c1c01157` over the daily-loop tree is a DEBUG-403 overlay
+#         restructure and a comment correction, with no layout change. Recorded as
+#         unreproducible rather than explained; the residual free variable is the beat's
+#         tense-dependent copy length, which is not enough to close a ~96pt gap.
+#
+#     ── DEBUG-408's original text follows, PRESERVED AND DISPROVED ──────────────────
+#     READ THIS BEFORE INVESTIGATING A RED RESULT HERE. DEBUG-408 was filed reporting
+#     that `tapOn continue-button` on Sphere Sovereignty failed because the button was
+#     below the fold. IT WAS NOT. That flow step, and this flow entire, passed on every
+#     device tested once the simulator was healthy:
+#
+#       device / runtime                      viewport   unmodified flow
+#       ────────────────────────────────────  ─────────  ───────────────
+#       iPhone 16 Pro Max  / iOS 18.6         430x932    PASS
+#       iPhone 16e         / iOS 18.6         390x844    PASS   ← does not reproduce
+#       iPhone 16e         / iOS 26.0         390x844    PASS   ← does not reproduce
+#       iPhone 17 Pro      / iOS 26.0         402x874    FAIL, then PASS after erase
+#       iPhone 16 Plus     / iOS 26.0         430x932    PASS  (INFRA-429, 2026-08-16)
+#       iPhone SE 3        / iOS 18.6         375x667    PASS  (DEBUG-468, 2026-08-16)
+#                                                        ↑ FIRST run of this flow on the
+#                                                        smallest supported viewport. It
+#                                                        was RED here before DEBUG-468 —
+#                                                        not at continue-button, but at
+#                                                        `assertVisible daily-loop-input-
+#                                                        response`, because the breath
+#                                                        SkipLink was below the fold, the
+#                                                        `when:` guard was structurally
+#                                                        false, and the 30s breath then
+#                                                        outran Maestro's default wait.
+#
+#     ✅ SUITE-VALIDATED 2026-08-16 (INFRA-429) — iPhone 16 Plus / iOS 26.0, a freshly
+#     created simulator with no approval or driver history. All 8 safety-tagged flows green
+#     in one uninterrupted `npm run e2e:safety`, clean-tree provenance, no reboot between
+#     flows. This matrix is the suite's only record of what was proven on what, so extend it
+#     rather than replacing rows. Suite-level detail: docs/testing/e2e-maestro.md.
+#
+#     ✅ SUITE-VALIDATED 2026-08-19 (INFRA-486) — iPhone SE 3 / iOS 18.6 / 375x667.
+#     All 9 safety-tagged flows green in one uninterrupted `npm run e2e:safety`,
+#     development @ 93efef69, Release, clean-tree provenance, default Dynamic Type.
+#     THE FIRST full-suite green at the smallest supported viewport for the current
+#     suite: DEBUG-477's two remaining reds (gad7-severe, journal-crisis-scan) are
+#     fixed, and reconsent-stale — merged after the row above, which is why that row
+#     legitimately says 8 — ran here for the first time.
+#
+#     ✅ AX5 MEASURED 2026-08-21 (DEBUG-469) — iPhone SE 3 / iOS 18.6, 375x667, provenance
+#     7e484b61, clean tree, content_size accessibility-extra-extra-extra-large. Every row
+#     above is at the DEFAULT content size; this is the first scaled-type measurement of
+#     this beat, and it discharges the AX5 obligation DEBUG-465's crisis pass left open
+#     (it could not be measured then, because the loop could not be ENTERED at AX5).
+#
+#       daily-loop-support-line   [20,344][355,667]   335x323 tap target   untruncated
+#
+#     Keyboard DOWN: fully visible, untruncated, taps through to CrisisResources. HOLDS.
+#
+#     ⚠️  Keyboard UP: RED, and tracked separately rather than asserted. Focusing the beat's
+#     input collapses the scroll viewport to 83pt — below the >=88pt residual floor that
+#     same crisis pass set — and the support line TRUNCATES: "...support is here" renders,
+#     "anytime." does not. It still TAPS and still routes, so this is a legibility and floor
+#     defect, NOT a crisis false negative. The defect is in the beat screen, which DEBUG-469
+#     did not change; asserting it here would make this flow red on arrival, which gates
+#     nothing and trains a bypass.
+#
+#     This flow itself stays at the DEFAULT content size. The AX5 assertions live in
+#     `daily-loop-ax5-entry.yaml`, tagged `safety-dynamic-type` so the exact `- safety` tag
+#     match keeps it out of `npm run e2e:safety` — the nine-flow suite must keep measuring
+#     the shipped default, or a red in it cannot be read without first asking which text
+#     size produced it. Run it with `npm run e2e:safety:ax5`, never a bare `maestro test`:
+#     content size is device-global and persistent, and the wrapper's trap is what restores
+#     it for the next worktree.
+#
+#     ✅ 402x874 RESOLVED, AND IT WAS NEVER THE VIEWPORT (DEBUG-473, 2026-08-17).
+#     DEBUG-473 recorded this flow as "marginal at the boundary" at 402x874 — FAIL on
+#     feat/FEAT-433 @ d1ab9f37, PASS on development @ aef27ebc, relevant files verified
+#     byte-identical — and read that as DEBUG-465 having moved continue-button into the
+#     hierarchy without reliably clearing the fold. That reading is wrong.
+#
+#       iPhone 16 Pro / iOS 18.6   402x874   PASS (1m09s), in a full 8/8 `npm run
+#                                            e2e:safety`, clean provenance bc6f83fa,
+#                                            quiet host (0 peer processes, load ~3)
+#
+#     The inconsistency was MACHINE CONTENTION, not geometry. Measured on the sibling flow
+#     crisis-button-reachability on one unchanged tree: 1m57s and PASS x5 on an idle host,
+#     versus 2m21s / 15m12s / 45m20s and FAIL with two peer Maestro drivers plus an Xcode
+#     build running (load 300-480). A single scrollUntilVisible iteration cost ~1.5s idle
+#     and up to 13.7s contended, and under load the failing element WANDERED between
+#     targets across runs of a byte-identical tree — which is the tell, because geometry is
+#     deterministic about which element it hides and a budget is not.
+#
+#     So: before reading a red here as a layout regression, check the host is quiet
+#     (`ps -axo comm= | awk '$0 ~ /(^|\/)(xcodebuild|java)$/'` — empty). See
+#     docs/testing/e2e-maestro.md "Run the gate on an UNCONTENDED machine" and INFRA-476.
+#
+#     ROOT CAUSE: corrupted simulator state on one iPhone 17 Pro instance. Its Maestro
+#     XCUITest driver died mid-flow — `java.net.ConnectException: Connection refused` on
+#     the driver port, inside `Maestro.waitForAppToSettle` — and Maestro reports the
+#     aftermath as `Element not found`, which is indistinguishable from a below-the-fold
+#     miss. `xcrun simctl erase <udid>` fixed it, after which the ORIGINAL unmodified
+#     flow passed on that same device. Reproduced on a quiet machine, so it was not
+#     contention. The tell was that the failing STEP MOVED between runs
+#     (continue-button → skip-breath → nav-back-button): a layout defect is deterministic
+#     about which element it hides; a crashing driver fails wherever the crash lands.
+#
+#     So if this flow goes red: erase the simulator and re-run BEFORE reading the failing
+#     step as a real regression. Then check `~/.maestro/tests/<latest>/maestro.log` for
+#     `ConnectException` / `EOFException` — the console output does not surface them.
+#
+#     THE DEVICE IS DECLARED, AND THIS FLOW DECLARES 375x667 (INFRA-486). The mechanism
+#     DEBUG-465 deferred now exists: the `# e2e-certifies:` key at the top of this file is
+#     read by `e2e_flow_certifies`, and every run labels the result with whether the device
+#     it ran on matches. DEBUG-465's ruling — layout-sensitive safety flows belong on the
+#     smallest supported viewport — is CARRIED, not overturned; what changed is that it is
+#     now machine-readable per flow rather than prose, and scoped to the flows that are
+#     actually layout-sensitive rather than to the whole suite.
+#
+#     IT IS STILL A LABEL, NOT A REFUSAL, AND THAT IS DELIBERATE. Arming a refusal is
+#     INFRA-493, sequenced after the measurement above so it is never armed over unmeasured
+#     or known-red flows — a gate that refuses for a reason the operator judges irrelevant
+#     is what trains the `--skip-e2e` reflex. Until then a run on another device still
+#     executes and still reports; it simply does not claim to certify this viewport.
+#
+#     What DEBUG-408 changed below is hardening and coverage, NOT a fix for the above:
+#     a re-anchor assertion after every crisis round-trip (which pins the previously
+#     unasserted property that the round-trip is non-destructive to the practice
+#     session), and a conditional breath-skip. Deliberately NOT added: any
+#     `scrollUntilVisible`. There was no fold to harden against, and a scroll here would
+#     have written a false causal story into a safety flow for the next reader.
+#
+#     ⛔ DEBUG-465: that last sentence is now half wrong, and the correction is precise.
+#     A scroll in front of `daily-loop-support-line` remains BANNED FOREVER — see the
+#     comment at that assertion. A scroll in front of `continue-button` is now REQUIRED
+#     and is not the same act: crisis review confirmed continue-button carries no
+#     reachability contract, and the fold in front of it is measured, not assumed. The
+#     principle DEBUG-408 was protecting is intact — do not scroll to reach a crisis
+#     affordance — it simply does not reach a Continue button.
+
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent survives clearState (INFRA-179)
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
+
+# ── Enter the daily practice (flag-gated card) ───────────────────
+- tapOn:
+    text: ".*Daily Practice.*"
+
+# ── Depth picker (FEAT-301): two equal choices, pick Quick ───────
+- assertVisible:
+    id: "daily-loop-depth-select-screen"
+- assertVisible:
+    id: "daily-loop-depth-quick"
+- assertVisible:
+    id: "daily-loop-depth-deep"
+- tapOn:
+    id: "daily-loop-depth-quick"
+
+# ── NO mode picker. FEAT-298 slice 5 retired DailyLoopModeSelectScreen: the tense is
+#    inferred from the clock and is never user-picked, so depth is the only choice on
+#    entry and the loop goes straight to beat 1. The flow previously tapped
+#    `daily-loop-mode-flat` here, which no longer exists.
+#
+#    Consequence for this flow: the TENSE now varies with wall-clock time, so nothing
+#    below may assert tense-specific copy. Everything it does assert — step screen ids,
+#    the crisis overlay, the support line, continue/exit controls — is tense-invariant
+#    by design, so the flow stays deterministic across all three tenses.
+
+# ── Quick beat 1 — Aware Presence (breath-gated). Root overlay must
+#    still be reachable here even during/after the breath. ────────
+- assertVisible:
+    id: "daily-loop-AwarePresence-screen"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+# RE-ANCHOR after the crisis round-trip (DEBUG-408). Required after EVERY
+# `nav-back-button` in this flow, and it is coverage, not ceremony: it pins that the
+# crisis round-trip is NON-DESTRUCTIVE to the practice session — you return to the beat
+# you left, not to a dead screen, a re-entered loop, or the depth picker. Nothing
+# asserted that before. It also gives Maestro a retried settle point against a
+# hierarchy that is still mid-transition, which is what both DEBUG-408 failures needed.
+- assertVisible:
+    id: "daily-loop-AwarePresence-screen"
+# Advance past the 30s breath to the reflection phase.
+#
+# CONDITIONAL, and the asymmetry with the deep sub-check below is deliberate. The breath
+# runs on a wall clock that does NOT pause during the crisis round-trip above, so if that
+# round-trip stalls, the breath can auto-complete and take the SkipLink with it. This is
+# not hypothetical — it was observed during DEBUG-408, with a Maestro failure screenshot
+# showing the reflection phase fully rendered and no breath UI at all. But it is
+# HARDENING, NOT THE DEBUG-408 FIX: it was only ever reachable because Maestro's retries
+# stretched past 30s on a sick simulator (see the header). On a healthy device the
+# round-trip costs a few seconds against 30s of margin, and the tap branch is taken.
+# Either path reaches the same state; the breath gate is scaffolding here, not the
+# contract.
+#
+# The two assertions below exist because a `when:` block that silently no-ops is exactly
+# the "passing step that proved nothing" shape docs/testing/e2e-maestro.md warns about:
+#   • assertNotVisible pins that the gate is actually GONE — if the conditional skipped
+#     while the breath was still running, the SkipLink would still be mounted and this
+#     goes red.
+#   • assertVisible pins that the reflection phase actually RENDERED. It is deliberately
+#     NOT `continue-button`: that element is the one under suspicion in this defect, so
+#     it must not double as the thing that proves the step. `daily-loop-input-response`
+#     is tense-invariant — AwarePresence declares exactly one field, key `response`, in
+#     all three ModeConfigs — so it keeps the flow deterministic across all tenses.
+#
+# ⛔ DEBUG-468: BOTH of those assertions were passing VACUOUSLY on a 375x667 device, and
+#    the reasoning above says why without noticing it. The `when:` predicate was keyed on
+#    `daily-loop-skip-breath` — the element under suspicion — which sat ~107pt below the
+#    fold and was therefore ABSENT from the hierarchy. So the guard was STRUCTURALLY
+#    FALSE, the block SKIPPED (observed: `Run flow when id: daily-loop-skip-breath is
+#    visible... SKIPPED`), and `assertNotVisible` then passed because the link was
+#    off-screen, not because the breath had completed. Read the bullet above again: it
+#    claims a skipped conditional means "the SkipLink would still be mounted and this goes
+#    red." Mounted is not what Maestro measures. It measures ON SCREEN, and the two part
+#    company exactly when a layout defect is present — which is the only time the
+#    assertion was needed.
+#
+#    THE FIX IS TO KEY THE GUARD ON THE BREATH, NOT ON THE ESCAPE HATCH.
+#    `daily-loop-breathing-circle` is the discriminator: it is what actually distinguishes
+#    "breath still running" from "breath auto-completed during a stalled crisis
+#    round-trip", it is tense-invariant, and it is measured at y=252..568 inside a
+#    y=130..667 fold — 99pt of clearance at the smallest supported viewport, where the
+#    SkipLink had none. The nested assertVisible is then a REAL assertion: if the breath is
+#    up, its escape hatch must be on screen at scroll offset 0. That is the DEBUG-408
+#    principle applied correctly — the element under suspicion must not double as the
+#    thing that proves the step — and it is the assertion this flow was missing.
+#
+#    NO `scrollUntilVisible` HERE, EVER. Reachable-after-scrolling satisfies nothing: the
+#    breath is a GATE, and a gate whose exit the user cannot see is not one they chose to
+#    enter. Scrolling to find it would restore a green flow over the identical defect.
+- runFlow:
+    when:
+      visible:
+        id: "daily-loop-breathing-circle"
+    commands:
+      - assertVisible:
+          id: "daily-loop-skip-breath"
+      - tapOn:
+          id: "daily-loop-skip-breath"
+- assertNotVisible:
+    id: "daily-loop-skip-breath"
+- assertVisible:
+    id: "daily-loop-input-response"
+- tapOn:
+    id: "continue-button"
+
+# ── Quick beat 2 — Sphere Sovereignty: the RE-HOSTED support line must
+#    be VISIBLE immediately (no breath gate) and tap through to crisis. ─
+- assertVisible:
+    id: "daily-loop-SphereSovereignty-screen"
+# NEVER PUT A SCROLL IN FRONT OF THIS ASSERTION — not here, not on any beat, not at any
+# depth. Maestro resolves against what is on screen, so this assertion at scroll offset 0
+# IS the above-the-fold pin on the crisis affordance, and it is the only thing pinning it.
+# FEAT-301 re-hosted the support line onto Sphere Sovereignty precisely so a distressed
+# user meets it the instant they land. If this ever goes red, FIX THE LAYOUT. A
+# `scrollUntilVisible` here would turn it green while deleting the property it exists to
+# protect. (The step below is a different matter: `continue-button` is not a crisis
+# affordance and carries no reachability contract.)
+#
+# DEBUG-465 measured this assertion failing for real. At 375x667 the line was ABSENT from
+# the hierarchy — not clipped, absent, 0% of the tap target on screen — while the same
+# build cleared it by 16pt at 402x874. It is now pinned OUTSIDE the ScrollView, inside the
+# KeyboardAvoidingView, so the deficit is zero by construction at every viewport and every
+# Dynamic Type step.
+- assertVisible:
+    id: "daily-loop-support-line"
+- tapOn:
+    id: "daily-loop-support-line"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+
+# RE-ANCHOR after the crisis round-trip — see the Aware Presence site above. This is the
+# exact seam DEBUG-408 was filed against: the ticket's `tapOn continue-button` failure
+# landed here, on the first tap after this `nav-back-button`.
+#
+# ⛔ DEBUG-465 CORRECTION. This comment used to end: "It was not. `continue-button` has
+# never been below the fold on this beat on ANY device tested — see the header matrix."
+# That was false. It is below the fold on all three devices in the corrected matrix, and
+# it was below the fold when DEBUG-408 said otherwise.
+- assertVisible:
+    id: "daily-loop-SphereSovereignty-screen"
+
+# THE CALIBRATION CONTROL, and it is not optional — the reason it takes THIS shape rather
+# than DEBUG-432's `assertNotVisible` on a below-fold element is worth the four lines.
+#
+# An `assertNotVisible: continue-button` here would re-prove that the driver can still see
+# clipping, but only on devices where continue-button happens to be clipped. It is 74pt
+# below the fold at 402x874 and would come back ON screen on a 440x956 — so the control
+# would go RED on a large simulator for a reason the operator would rightly judge
+# irrelevant, which is the shape that trains the `--skip-e2e` reflex.
+#
+# Asserting the support line again AFTER scrolling is device-independent and pins the
+# stronger property: not "it was above the fold at offset 0" but "it does not scroll away".
+# That is the actual contract of pinning it outside the ScrollView, and it is the one
+# assertion that still discriminates on a phone large enough to show the whole beat — where
+# an offset-0 assertion alone would pass even if someone re-nested it into the ScrollView.
+#
+# `centerElement: true` IS LOAD-BEARING — do not drop it as noise. XCUITest drops elements
+# that fall outside the SCREEN but retains ones merely clipped by a ScrollView, and with
+# the support line now pinned below that ScrollView the two occupy the same screen
+# coordinates. Measured on 390x844 after the fix: fold y=157..751, continue-button
+# y=759..815 (clipped, still in the hierarchy), support line y=752..810. Maestro therefore
+# scores continue-button 100% visible, performs NO scroll, and taps its centre — which
+# lands on the support line and navigates to CrisisResources. That is what a bare
+# `scrollUntilVisible` did here, and the VirtuousResponse assertion below is what caught
+# it. Centering forces a real scroll, so the tap lands on the button.
+#
+# DEBUG-518 — `timeout: 10000` was Maestro's generic default and was NEVER DERIVED for this
+# step. It is not a "the element cannot be found" budget; it is the budget for the FUTILE
+# CENTRING above to exhaust. Continue is the LAST child of this ScrollView
+# (DailyLoopStepScreen.tsx:382-390) and `centerElement` is structurally unsatisfiable for
+# any element within half a viewport of the content end — centring it needs ~185pt of
+# scroll that does not exist. So the centring phase always runs to exhaustion here, reports
+# COMPLETED, and the tap lands. Same shape, same ruling, as
+# crisis-button-reachability.yaml:400-418.
+#
+#   MEASURED on a quiet SE 3 (375x667), 2026-08-22: this step COMPLETED in 10688ms.
+#   The old 10000 budget was short by 688ms — that, and nothing else, is why this flow
+#   went red. It failed by two thirds of a second.
+#
+#   timeout: 25000 = 2.34x the measurement. Note cost is BUDGET-DEPENDENT
+#   (crisis-button-reachability.yaml:416-419): 10688ms was measured under a deliberately
+#   generous 48000 probe, and the centring phase makes fewer attempts when given less room,
+#   so the real margin under 25000 is wider than 2.34x. Re-measure rather than extrapolate
+#   if this is ever changed.
+#
+# DO NOT "fix" a future red here by dropping `centerElement` — see the paragraph above it.
+# Removing it makes this flow pass (verified 2026-08-22) by deleting the guarantee that a
+# real scroll happened, which is what keeps the tap off the support line.
+- scrollUntilVisible:
+    element:
+      id: "continue-button"
+    direction: DOWN
+    centerElement: true
+    timeout: 25000
+- assertVisible:
+    id: "daily-loop-support-line"
+- tapOn:
+    id: "continue-button"
+
+# ── Quick beat 3 — Virtuous Response is the last beat (no Interconnected
+#    Living in quick). Support line must NOT appear here (exactly-once). ─
+- assertVisible:
+    id: "daily-loop-VirtuousResponse-screen"
+# This was a KNOWN-WEAK NEGATIVE and DEBUG-465 strengthened it for free. It used to pass
+# equally whether the line was absent or merely below the fold, because Maestro resolves
+# against what is on screen. Now that the line is pinned outside the ScrollView, a present
+# line is a VISIBLE line at every offset — so this assertion discriminates absence from
+# occlusion, which it could not before.
+# Still do not try to strengthen it further here: the "exactly once per depth" invariant is
+# owned at the DATA level by `showsSupportLine()` and asserted in tenseMode.test.ts, which
+# is where it belongs and where it cannot be fooled by a viewport at all.
+- assertNotVisible:
+    id: "daily-loop-support-line"
+
+# ── Deep sub-check: re-enter, pick Deeper, confirm the support line is
+#    still on Radical Acceptance (deep unchanged). ─────────────────────
+- tapOn:
+    id: "daily-loop-exit"
+
+# ── Re-entry after an interrupted session (FEAT-298 slice 3b) ────
+#    Exiting mid-loop SAVES a resumable session, so re-entering now offers the resume
+#    modal rather than the depth picker. Taking "Begin Fresh" here is deliberate: it is
+#    the only device coverage of slice 3b's resumption, and it pins the FEAT-301
+#    non-sticky rule — a fresh start must RE-PRESENT the neutral depth choice rather
+#    than silently inheriting the abandoned session's depth.
+- tapOn:
+    text: ".*Daily Practice.*"
+# Target the button by ID, never by text: the modal's BODY COPY also contains the phrase
+# "begin fresh" ("...or begin fresh with full presence now?"), and that <Text> precedes the
+# button in the hierarchy — so a text selector taps the paragraph and silently no-ops,
+# leaving the modal open.
+- extendedWaitUntil:
+    visible:
+      id: "begin-fresh-button"
+    timeout: 15000
+
+# ── DEBUG-403: the resume prompt must NOT occlude the root crisis button ─────────
+#    ResumeSessionModal used to be an RN <Modal>, which renders in a separate native
+#    window ABOVE the JS tree — so while it was up, crisis-button-root was not merely
+#    faded, it was not on screen at all. DailyLoop is an IMMERSIVE_ROUTE and this prompt
+#    AUTO-triggers on stale-session detection, so a user could reach zero 988 affordance
+#    without having tapped anything. It is now a full-bleed absolute overlay instead.
+#
+#    assertVisible on the overlay FIRST is load-bearing: it proves the resume state was
+#    actually reached, so the crisis assertions below cannot pass vacuously on a screen
+#    where no prompt ever appeared.
+#
+#    The tap-and-land assertion is the one that matters. assertVisible alone is not proof
+#    of reachability under a NATIVE-LAYER occlusion bug class — the hierarchy dump can
+#    list a view that a separate native window is covering. Only actually tapping it and
+#    landing on crisis-resources-screen would have caught the original defect.
+- assertVisible:
+    id: "resume-session-overlay"
+- assertVisible:
+    id: "crisis-button-root"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- tapOn:
+    id: "nav-back-button"
+# Back on the prompt, which must have survived the round trip intact.
+- assertVisible:
+    id: "resume-session-overlay"
+- assertVisible:
+    id: "begin-fresh-button"
+# ── end DEBUG-403 ───────────────────────────────────────────────────────────────
+
+- tapOn:
+    id: "begin-fresh-button"
+- assertVisible:
+    id: "daily-loop-depth-select-screen"
+- tapOn:
+    id: "daily-loop-depth-deep"
+# NOT conditional, unlike the Aware Presence site above, and the asymmetry is the point:
+# no crisis round-trip precedes this tap, so nothing here can burn 30 seconds of wall
+# clock before we reach the SkipLink. Leaving it unconditional keeps this a real
+# assertion — a `when:` block here could only ever hide a genuine regression.
+- tapOn:
+    id: "daily-loop-skip-breath"
+- tapOn:
+    id: "continue-button"
+# Deep beat 2 = Radical Acceptance → support line present here.
+- assertVisible:
+    id: "daily-loop-RadicalAcceptance-screen"
+- assertVisible:
+    id: "daily-loop-support-line"

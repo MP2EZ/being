@@ -14,12 +14,24 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  SafeAreaView,
   Alert,
   AccessibilityInfo,
   Platform,
   Image,
 } from 'react-native';
+/**
+ * MAINT-437 — `edges` applies to all 5 SafeAreaView root(s) in this file.
+ *
+ * Root-stack card with `headerShown: false`: no navigator supplies either
+ * inset, which is what RN core's iOS-only SafeAreaView already did here — so iOS
+ * rendering is unchanged by construction and the whole behavioural delta is Android.
+ *
+ * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
+ * are never listed. NOTE: no test in this repo can observe an `edges` value having
+ * a layout effect — the jest mock pins all insets to zero. The rendered result is
+ * verified by MAINT-437's deferred Android/iOS device pass.
+ */
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -27,22 +39,24 @@ import { useAnalytics } from '@/core/analytics';
 import NotificationTimePicker from '@/core/components/NotificationTimePicker';
 import BrainIcon from '@/core/components/shared/BrainIcon';
 import { useConsentStore, ConsentPreferences, getLegalGateConsents } from '@/core/stores/consentStore';
-import { ConsentToggleCard } from '@/features/consent';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { ConsentToggleCard, CONSENT_DETAILS } from '@/features/consent';
+import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 
 // Local colors for onboarding (flat access for convenience in this large file)
 const localColors = {
   // Base colors
   white: colorSystem.base.white,
-  black: colorSystem.base.black,
+  // DEBUG-387: this single alias fed 14 downstream `color: localColors.black`
+  // text sites, all of them invisible to a grep for the raw token. Re-pointing
+  // the declaration moves all 14 at once.
+  black: semantic.text.primary,
   midnightBlue: colorSystem.base.midnightBlue,
   // Gray scale
   gray100: colorSystem.gray[100],
   gray200: colorSystem.gray[200],
   gray300: colorSystem.gray[300],
   gray400: colorSystem.gray[400],
-  gray600: colorSystem.gray[600],
   gray700: colorSystem.gray[700],
   // Theme colors
   morningPrimary: colorSystem.themes.morning.primary,
@@ -83,8 +97,12 @@ type Screen = 'welcome' | 'stoicIntro' | 'notifications' | 'privacy' | 'celebrat
 type RetentionPeriod = '30_days' | '90_days' | '1_year' | '7_years' | 'indefinite';
 type DataMinimizationStatus = 'necessary' | 'optional' | 'excessive' | 'prohibited';
 
+// FEAT-298 slice 5: ONE reminder for ONE daily ritual. The three time-of-day periods are
+// retired with the three flows. (These values are still component-local and are neither
+// persisted nor scheduled — there is no reminder scheduling in the app; see AppSettings.
+// Collapsing them is about not PROMISING three reminders for one practice.)
 interface NotificationTime {
-  period: 'morning' | 'midday' | 'evening';
+  period: 'daily';
   time: string;
   enabled: boolean;
   dataMinimization: DataMinimizationStatus;
@@ -96,7 +114,7 @@ interface NotificationTime {
 
 // Component props interface for embedded mode support
 interface OnboardingScreenProps {
-  onComplete?: (destination?: 'home' | 'morning') => void;
+  onComplete?: (destination?: 'home' | 'practice') => void;
   isEmbedded?: boolean;
 }
 
@@ -110,80 +128,9 @@ interface CrisisDetectionResult {
   auditRequired: boolean;
 }
 
-// Consent category details (plain language, reused from ConsentManagementScreen)
-const CONSENT_DETAILS = {
-  analytics: {
-    title: 'Analytics',
-    description: 'Help us improve the app by understanding how it\'s used',
-    details: {
-      whatWeCollect: [
-        'Which features you use (e.g., "Daily Check-in completed")',
-        'How long you spend in the app',
-        'Device type (iPhone, Android, etc.)',
-      ],
-      whatWeDontCollect: [
-        'Your journal entries, mood ratings, or assessment scores',
-        'Any personally identifiable information',
-        'Location data',
-      ],
-      whyItHelps: 'Understanding usage patterns helps us improve features you care about and fix confusing flows.',
-      privacyNote: 'Data retention: 90 days, then automatically deleted. Anonymized before storage.',
-    },
-  },
-  crashReports: {
-    title: 'Crash Reports',
-    description: 'Automatically report errors to fix bugs faster',
-    details: {
-      whatWeCollect: [
-        'Technical error logs (which code failed)',
-        'Device info (OS version, app version)',
-        'What screen you were on when the crash occurred',
-      ],
-      whatWeDontCollect: [
-        'Your personal data (mood, journal, assessments)',
-        'Identifiable information',
-      ],
-      whyItHelps: 'Crashes disrupt your practice. Automatic reports help us detect and fix issues before they affect more people.',
-      privacyNote: 'All crash reports are encrypted and anonymized.',
-    },
-  },
-  cloudSync: {
-    title: 'Cloud Backup',
-    description: 'Securely sync your data across devices',
-    details: {
-      whatWeCollect: [
-        'App preferences and settings',
-        'Journal entries (encrypted)',
-        'Mood tracking history',
-        'Custom reminders',
-      ],
-      whatWeDontCollect: [
-        'PHQ-9/GAD-7 assessment raw scores (local only for privacy)',
-        'Crisis contact information (device-specific)',
-      ],
-      whyItHelps: 'Restore data if you get a new phone. Access your journal on tablet and phone. Automatic backup protection.',
-      privacyNote: 'End-to-end encryption. We cannot decrypt or access your synced content.',
-    },
-  },
-  research: {
-    title: 'Research Participation',
-    description: 'Help improve mental health care (fully anonymous)',
-    details: {
-      whatWeCollect: [
-        'Aggregated mood trends (e.g., "60% of users report improvement")',
-        'Feature effectiveness data (which practices help most)',
-        'Anonymized usage patterns',
-      ],
-      whatWeDontCollect: [
-        'Individual responses or identifiable data',
-        'Data shared with third parties for advertising',
-        'Anything that could identify you',
-      ],
-      whyItHelps: 'Research helps us validate that Stoic practices are effective, publish findings to help more people, and secure funding to keep the app accessible.',
-      privacyNote: 'Fully anonymized. Aggregated with 1,000+ other users. You can opt out anytime.',
-    },
-  },
-};
+// Consent category copy moved to `@/features/consent` in FEAT-376 — the
+// re-consent screen must re-ask these four with the SAME descriptions the user
+// agreed to here, and two divergent copies would drift invisibly.
 
 const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
@@ -197,11 +144,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Primary state (following ExercisesScreen pattern)
   const [currentScreen, setCurrentScreen] = useState<Screen>('welcome');
   const [notificationTimes, setNotificationTimes] = useState<NotificationTime[]>([
-    { period: 'morning', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
-    { period: 'midday', time: '13:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
-    { period: 'evening', time: '19:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
+    { period: 'daily', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
   ]);
-  const [completionDestination, setCompletionDestination] = useState<'home' | 'morning'>('home');
+  const [completionDestination, setCompletionDestination] = useState<'home' | 'practice'>('home');
 
   // Granular consent preferences (FEAT-90: all default to false for privacy)
   const [consentPreferences, setConsentPreferences] = useState<ConsentPreferences>({
@@ -216,7 +161,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const { grantConsent, getStoredAgeVerification } = useConsentStore();
 
   // Time picker state management
-  const [showTimePicker, setShowTimePicker] = useState<'morning' | 'midday' | 'evening' | null>(null);
+  const [showTimePicker, setShowTimePicker] = useState<'daily' | null>(null);
   const [tempTimePickerValue, setTempTimePickerValue] = useState<Date>(new Date());
 
   // ACCESSIBILITY STATE MANAGEMENT
@@ -348,8 +293,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Assessments now presented via AssessmentFlow modal (see navigateNext welcome case)
 
   const validateNotificationTimes = (times: NotificationTime[]): boolean => {
-    return times.length === 3 &&
-           times.every(t => ['morning', 'midday', 'evening'].includes(t.period));
+    // FEAT-298 slice 5: was `times.length === 3`, which blocked Continue the moment the
+    // three time-of-day reminders collapsed to one daily reminder.
+    return times.length > 0 && times.every(t => t.period === 'daily');
   };
 
   // State reset/cleanup functions (following ExercisesScreen pattern)
@@ -357,9 +303,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const resetOnboardingState = (): void => {
     setCurrentScreen('welcome');
     setNotificationTimes([
-      { period: 'morning', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
-      { period: 'midday', time: '13:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
-      { period: 'evening', time: '19:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
+      { period: 'daily', time: '09:00', enabled: true, dataMinimization: 'necessary', retentionPeriod: '90_days' },
     ]);
   };
 
@@ -563,7 +507,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   };
 
   // Time picker handlers
-  const handleOpenTimePicker = (period: 'morning' | 'midday' | 'evening'): void => {
+  const handleOpenTimePicker = (period: 'daily'): void => {
     const notification = notificationTimes.find(n => n.period === period);
     if (!notification) return;
 
@@ -616,7 +560,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   // Celebration screen button handlers for destination-aware navigation
   const handleStartMorningPractice = (): void => {
     logStateChange('handleStartMorningPractice', { currentScreen });
-    setCompletionDestination('morning');
+    setCompletionDestination('practice');
     navigateNext();
   };
 
@@ -656,7 +600,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     // it collapsed the entire screen into one a11y element and hid the inner
     // "Begin Your Practice" Pressable from VoiceOver AND Maestro. The header
     // Text below provides the screen-level announcement.
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollContainer}
@@ -784,7 +728,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   const renderStoicIntro = (): React.ReactElement => (
     // INFRA-181: same fix as renderWelcome — collapsing the screen as one
     // a11y element hides interior buttons from VoiceOver and Maestro.
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <ScrollView
         ref={scrollViewRef}
         style={styles.scrollContainer}
@@ -871,7 +815,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   );
 
   const renderNotifications = (): React.ReactElement => (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Crisis button removed from Notifications screen - only on assessment screens for safety */}
 
@@ -988,6 +932,22 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
     logStateChange('handleConsentPreferenceToggle', { key, value });
   };
 
+  /**
+   * Read the legal-gate consents, retrying once (DEBUG-382).
+   *
+   * Transient SecureStore failures dominate this call's failure modes, and
+   * reconstructing on the first miss would discard a value a second read would
+   * have returned truthfully. The `.catch` is defensive: `getLegalGateConsents`
+   * swallows internally today, but it is not this call site's job to depend on
+   * that — a future change there must not silently reintroduce an unhandled
+   * rejection here.
+   */
+  const readLegalGateConsentsWithRetry = async () => {
+    const first = await getLegalGateConsents().catch(() => null);
+    if (first) return first;
+    return await getLegalGateConsents().catch(() => null);
+  };
+
   // Save consent preferences when leaving privacy screen
   const handlePrivacyContinue = async () => {
     try {
@@ -995,12 +955,70 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       const ageVerification = await getStoredAgeVerification();
 
       // Read back the four legal-gate consents (recorded on CombinedLegalGateScreen)
-      // so the GDPR Art. 9 explicit-consent flag lands in the granted ConsentRecord.
-      const legalGate = await getLegalGateConsents();
+      // so the wellness-data processing consent lands in the granted ConsentRecord.
+      // The read is retried once (DEBUG-382) because transient SecureStore failures
+      // dominate this call's failure modes.
+      const legalGate = await readLegalGateConsentsWithRetry();
+
+      // DEBUG-419: an unreadable record is RE-ASKED, never reconstructed.
+      //
+      // This reverses DEBUG-382, which reconstructed `true` here from the enforced
+      // gate invariant ("you could not have reached this screen without ticking
+      // it"). DEBUG-382's finding was right — the `?? false` it replaced silently
+      // recorded a granted consent as a refusal — but both values are wrong for the
+      // same reason: each writes a DERIVED value into a field whose sole evidentiary
+      // purpose is to record a USER ACT. One fabricates a grant, the other a
+      // refusal; neither is what happened.
+      //
+      // Sensitive-data consent must be DEMONSTRABLE, and demonstrability means the
+      // record IS the evidence. A value computed at read time evidences the shape of
+      // this code, not the user's decision. `renewConsent` in consentStore already
+      // adjudicated this exact question for this exact field the same way (FEAT-399)
+      // and re-asks; two live paths cannot hold opposite postures on one field's
+      // provenance.
+      //
+      // The gate invariant is in fact STRONGER than DEBUG-382 claimed, and it cuts
+      // against reconstruction. CombinedLegalGateScreen awaits recordLegalGateConsents
+      // inside a try whose catch does NOT call onComplete(), so advancing proves the
+      // WRITE SUCCEEDED — not merely that a box was ticked. An unreadable record here
+      // therefore means it was destroyed or corrupted AFTER a successful write: a
+      // data-integrity failure of unknown scope, in which we cannot know that only
+      // this one field was lost.
+      //
+      // Which law binds: STATE-LAW sensitive-data opt-in consent — TDPSA (Tex. Bus. &
+      // Com. Code 541.105(a)), CPA (C.R.S. 6-1-1309), VCDPA (Va. Code 59.1-580),
+      // CTDPA (Conn. Pub. Act 22-15 s6) — plus FTC Act s5, since this record is the
+      // DSR-export artifact and the DPIA's lawful-basis evidence. GDPR Art. 9(2)(a)
+      // is the contingent equivalent where applicable; docs/legal/regulatory-
+      // applicability.md makes GDPR conditional on serving EU users. All four state
+      // laws require a clear affirmative act, so the standard does not relax.
+      //
+      // Fail-closed here means RE-ASK, not "brick the user" and not "block crisis
+      // access". LegalGate's 988 footer is unconditional and is the only crisis
+      // affordance at that point (LegalGate is in RootCrisisButton's
+      // SUPPRESSED_ROUTES), which is what makes returning there safe in the sense
+      // DEBUG-341 relies on. Pinned by legalGateConsentReconstruction.privacy.test.tsx.
+      if (!legalGate) {
+        logSecurity(
+          'legal-gate consents unreadable at onboarding — returning the user to the legal gate to re-capture',
+          'high',
+          {
+            component: 'OnboardingScreen',
+            action: 'handlePrivacyContinue',
+            result: 'failure',
+            outcome: 'returned-to-legal-gate',
+          },
+        );
+        // MUST be `return`, not `throw`: the catch below ends in navigateNext()
+        // ("Still proceed - consent is optional"), which would silently convert this
+        // guard back into the fail-open behaviour it exists to close.
+        navigation.replace('LegalGate');
+        return;
+      }
 
       const mergedPreferences: ConsentPreferences = {
         ...consentPreferences,
-        mentalHealthProcessingConsent: legalGate?.mentalHealthProcessingConsent ?? false,
+        mentalHealthProcessingConsent: legalGate.mentalHealthProcessingConsent,
       };
 
       if (ageVerification) {
@@ -1020,7 +1038,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   };
 
   const renderPrivacy = (): React.ReactElement => (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Crisis button removed from Privacy screen - only on assessment screens for safety */}
 
@@ -1114,7 +1132,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
   );
 
   const renderCelebration = (): React.ReactElement => (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView edges={['top', 'bottom']} style={styles.container}>
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Crisis button removed from Celebration screen - only on assessment screens for safety */}
 
@@ -1134,7 +1152,9 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           <View style={styles.summarySection}>
             <Text style={styles.summaryLabel}>Reminders</Text>
             <Text style={styles.summaryValue}>
-              ✓ {notificationTimes.filter(n => n.enabled).length} daily check-in reminders
+              ✓ {notificationTimes.filter(n => n.enabled).length > 0
+                ? 'Daily practice reminder'
+                : 'No reminder set'}
             </Text>
           </View>
 
@@ -1239,7 +1259,7 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     textAlign: 'center',
     lineHeight: 24,
   },
@@ -1260,7 +1280,7 @@ const styles = StyleSheet.create({
   bodyText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
   },
@@ -1287,13 +1307,13 @@ const styles = StyleSheet.create({
   principleDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   bulletText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[8],
   },
@@ -1303,7 +1323,7 @@ const styles = StyleSheet.create({
   featureText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[8],
   },
@@ -1315,7 +1335,7 @@ const styles = StyleSheet.create({
   progressText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.medium,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     marginBottom: spacing[8],
   },
   progressBar: {
@@ -1336,7 +1356,7 @@ const styles = StyleSheet.create({
   questionIntro: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
     marginBottom: spacing[16],
     textAlign: 'center',
@@ -1405,7 +1425,7 @@ const styles = StyleSheet.create({
   valueDescription: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 18,
   },
   valueDescriptionSelected: {
@@ -1465,7 +1485,7 @@ const styles = StyleSheet.create({
   notificationTime: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
   },
   timeButton: {
     // Pressable wrapper for time display
@@ -1490,7 +1510,7 @@ const styles = StyleSheet.create({
   toggleButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
   },
   toggleButtonTextEnabled: {
     color: localColors.white,
@@ -1511,7 +1531,7 @@ const styles = StyleSheet.create({
   consentText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   consentCheckbox: {
@@ -1559,7 +1579,7 @@ const styles = StyleSheet.create({
   summaryValue: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.regular,
-    color: localColors.gray600,
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   // Navigation Buttons

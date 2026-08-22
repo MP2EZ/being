@@ -15,7 +15,7 @@ import Animated, {
   runOnJS,
 } from 'react-native-reanimated';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { colorSystem, spacing, typography } from '@/core/theme';
+import { colorSystem, spacing, typography, semantic } from '@/core/theme';
 import BrainIcon from '@/core/components/shared/BrainIcon';
 
 const { height: SCREEN_HEIGHT } = Dimensions.get('window');
@@ -142,12 +142,12 @@ const styles = StyleSheet.create({
   greeting: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   subtitle: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
   },
 });

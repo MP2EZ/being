@@ -1,0 +1,74 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "DailyLoop deep link (FEAT-298): crisis overlay + escape from a cold-start link"
+# e2e-certifies: any
+# INFRA-486 — Asserts navigation state and the structural presence of crisis-button-root, a
+# bottom-right-anchored root overlay whose presence is a JSX fact, not a layout one.
+---
+# FEAT-298 slice 4 safety flow — pins the contract for the NEW deep-link entry point
+# `being://daily`, which opens the single daily ritual directly, bypassing Home.
+#
+# Why this flow exists (crisis pass, FEAT-298 slice 4): a cold-start deep link is the one
+# path that mounts an IMMERSIVE practice screen as the app's very first surface. Two
+# distinct risks, both asserted below:
+#
+#   (1) CRISIS OVERLAY COVERAGE. `RootCrisisButton` is a SIBLING of Stack.Navigator, not a
+#       child, so it mounts in the same commit as the navigator regardless of which route
+#       the link resolves to — there is no ordering where a deep-linked route is mounted
+#       and the overlay is not. This flow pins that structurally rather than trusting it.
+#
+#   (2) ESCAPE FROM THE PRACTICE. This is the assertion that earns the flow. Without
+#       `initialRouteName: 'Main'` in linkingConfig.config, a cold-start deep link produces
+#       a root state of exactly [DailyLoop] — so `navigation.goBack()` in DailyLoop's
+#       onExit is a NO-OP on an empty stack, and with gestureEnabled:false the user is
+#       stranded in an immersive practice with no way out but force-quit. 988 still works
+#       (the overlay is mounted), so it is not a zero-988 screen — but "cannot leave the
+#       default daily practice" is not shippable. The final step catches that regression.
+#
+# NOTE: FEAT-298 slice 5 retired the `daily_loop` flag, so both the Home card and this
+# deep link are unconditional. `being://daily` is deliberately BARE — `mode`/`depth` are
+# not allow-listed, because depth is non-sticky by design (FEAT-301) and the tense is
+# inferred from the clock. An external caller must not get to choose either. The loop
+# therefore shows its own depth picker on entry, which is the expected landing surface.
+
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- runFlow: _seeded-home.yaml
+
+# Cold-start the loop via the deep link, bypassing Home entirely.
+- openLink: being://daily
+
+# (1) The root crisis overlay is present on the deep-linked immersive surface, and reaches
+#     CrisisResources. This is the MAINT-290 single-overlay contract holding under an entry
+#     path that never touches Home.
+- extendedWaitUntil:
+    visible:
+      id: "crisis-button-root"
+    timeout: 30000
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+# In-app back, NOT `- back`: the system/gesture back is a no-op on this modal stack, so
+# the flow stayed on CrisisResources — where the overlay is correctly SUPPRESSED — and the
+# next assertion failed for the right reason on the wrong screen. Every other safety flow
+# uses this control; match them.
+- tapOn:
+    id: "nav-back-button"
+
+# Back on the loop's own entry surface (the depth picker — params are stripped, so the
+# picker is always shown on a deep-link entry).
+- assertVisible:
+    id: "crisis-button-root"
+
+# (2) The escape hatch works. On a cold-start deep link this only passes when the linking
+#     config declares initialRouteName — otherwise goBack() is a no-op and Home never
+#     appears.
+- tapOn:
+    id: "daily-loop-exit"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000

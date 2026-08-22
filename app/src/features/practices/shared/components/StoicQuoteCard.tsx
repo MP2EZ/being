@@ -25,9 +25,13 @@
 
 import React from 'react';
 import { View, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { colorSystem, semantic, spacing, borderRadius, typography, getTheme } from '@/core/theme';
+import { themeKeyFor } from '@/core/types/practice-identity';
 
-export type FlowTheme = 'morning' | 'midday' | 'evening';
+// FEAT-298 slice 1: `FlowTheme` is an alias of the canonical `FlowType`, kept so existing
+// `theme={...}` call sites and barrel imports are untouched by this refactor.
+export type { FlowType as FlowTheme } from '@/core/types/practice-identity';
+import type { FlowType as FlowTheme } from '@/core/types/practice-identity';
 
 interface StoicQuoteCardProps {
   /** The quote text */
@@ -52,7 +56,7 @@ export const StoicQuoteCard: React.FC<StoicQuoteCardProps> = ({
   theme = 'morning',
   testID = 'stoic-quote-card',
 }) => {
-  const themeColors = getTheme(theme);
+  const themeColors = getTheme(themeKeyFor(theme));
 
   return (
     <View
@@ -81,13 +85,13 @@ const styles = StyleSheet.create({
   quoteText: {
     fontSize: typography.bodyLarge.size,
     fontStyle: 'italic',
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     lineHeight: 28,
     marginBottom: spacing[12],
   },
   attribution: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'right',
   },
   source: {

@@ -2,6 +2,9 @@ appId: fyi.being.app
 tags:
   - safety
 name: "Crisis button (single root mount) reaches CrisisResources from every surface"
+# e2e-certifies: 375x667
+# INFRA-486 — Asserts crisis-call-988-button visible against the fold on the one screen where the
+# root overlay is SUPPRESSED, so this control is the only 988 affordance there.
 ---
 # Pins the safety fact: 988 access <3 taps from any screen. Asserts that the
 # SINGLE persistent root-level crisis button (MAINT-290, testID
@@ -23,7 +26,12 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 #   • AssessmentFlow — keeps its own per-screen `prominent` buttons; the root
 #     overlay is SUPPRESSED there (MAINT-290 must not touch the assessment flow).
 #   • CrisisResources — the destination itself; overlay suppressed.
-#   • LegalGate — under-age gate with its own inline Call-988 / Text UI; suppressed.
+#   • LegalGate — owns a persistent inline Call-988 / Text footer, pinned OUTSIDE its
+#     ScrollView (DEBUG-390) so it is reachable without scrolling; suppressed on that
+#     condition, not merely because the controls exist. Not walked here: this flow boots
+#     via _seeded-home.yaml, which seeds consent and onboarding, so it structurally cannot
+#     reach LegalGate. That contract lives in deeplink-consent-gate.yaml, which already
+#     stands on LegalGate in the post-dismiss state DEBUG-372 created.
 #   • Practice flows/timers (Morning/Midday/Evening, PracticeTimer, BodyScan, …)
 #     now DO carry the root overlay in `immersive` mode — previously the exact
 #     "steps with no 988 access" gap this refactor closes. Their on-device walk
@@ -33,6 +41,27 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # Maestro's default assertVisible timeout (~10s) covers the <3s SLA from CLAUDE.md.
 # On-device timing budgets live in CLAUDE.md's "Performance Budgets" section and
 # are validated by hand until a real perf harness exists.
+#
+# DEBUG-392 — every `crisis-resources-screen` assertion below is followed by
+#   - extendedWaitUntil: { notVisible: "Unable to Call", timeout: 3000 }
+#
+# Why. DEBUG-341 gave RootCrisisButton a fallback: if `navigationRef.isReady()` is
+# still false 400ms after the tap (NAV_READY_DEADLINE_MS), it stops waiting and calls
+# `openCrisisUrl('tel:988')` instead of navigating. On the SIMULATOR that dial cannot
+# complete — `canOpenURL('tel:')` is unconditionally false there, independent of
+# LSApplicationQueriesSchemes — so openCrisisUrl.ts renders its manual-dial alert,
+# titled "Unable to Call". That string is app-owned and nothing else on this path
+# produces it, which makes it a precise witness that the degraded branch fired.
+#
+# This flow otherwise cannot tell "navigated" from "dialled, then recovered": it only
+# ever asserts the destination is present. Distinguishing them matters because the two
+# outcomes are not equivalent — dialling skips the resource list, the safety plan and
+# the text-line option that CrisisResources carries.
+#
+# Placed AFTER the assertVisible, never before. `extendedWaitUntil: notVisible` returns
+# the instant its condition holds, so at t=0 — before an alert ~500ms out could render —
+# it would pass vacuously and mask the very thing it is here to catch. After the
+# assertion it can only ever add a check.
 
 - launchApp:
     clearState: true
@@ -43,6 +72,42 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # Maestro's text: selector doesn't match the bottom-tab accessibilityText
 # "X, tab, N of 4" patterns because the text field itself is empty.
 
+# ── DEBUG-299: drag-then-tap ─────────────────────────────────────
+# The rest of this flow only ever TAPS the button, which is why it passed for
+# two releases while the shipped build had a crisis button that could vanish.
+#
+# The reported failure needed a drag: the button carried a Gesture.Pan whose
+# worklets captured `collapsedWidth` before it was initialised, so panning
+# wrote NaN into the transform. A NaN transform on iOS/Fabric is neither drawn
+# nor hit-testable, and the single root mount (MAINT-290) never unmounts — so
+# one drag removed 988 access from EVERY screen for the rest of the session.
+# The pan has since been removed entirely; this segment pins that no future
+# gesture can reintroduce the failure.
+#
+# Runs FIRST and on Home, matching the verbatim user report ("on the main
+# screen"). If this regresses, every segment below it fails too — which is the
+# correct blast radius for a button that is gone app-wide.
+- tapOn:
+    id: "tab-home"
+- swipe:
+    from:
+      id: "crisis-button-root"
+    direction: LEFT
+# Still present after the drag. Before the fix the layer was not drawn here.
+- assertVisible:
+    id: "crisis-button-root"
+# Still INTERACTIVE after the drag — the load-bearing half. A drag used to leave
+# the button mounted-but-inert, so assertVisible alone would not have caught it.
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
+- tapOn:
+    id: "nav-back-button"
+
 # ── Home tab ─────────────────────────────────────────────────────
 - tapOn:
     id: "tab-home"
@@ -50,6 +115,62 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
+
+# ── DEBUG-432: the DESTINATION's own 988 control is above the fold ──────────────
+#
+# Every other assertion in this flow stops at "the destination is present". That
+# left the destination itself unverified, and it was broken: crisis-call-988-button
+# was the last child of the 988 card, inside this screen's only ScrollView.
+# Measured with `maestro hierarchy` (Release build, provenance 505fc417).
+#
+# PRE-DEBUG-432 — SUPERSEDED, the OLD position; do not read as current:
+#
+#   iPhone SE 3  375x667  DEFAULT type  fold y=86..667   button y=746..797
+#   iPhone SE 3  375x667  AX5           fold y=86..667   button y=3926..4095
+#   16 Pro Max   440x956  default type  fold y=128..956  button y=776..827  (ok)
+#   16 Pro Max   440x956  AX5           fold y=128..956  button y=3612..3781
+#
+# POST-FIX — DEBUG-488, 2026-08-20 (Release, provenance MATCH_CLEAN at tree b7260565).
+# Bar is 100% of the control inside the fold, not 44pt.
+#
+#   iPhone SE 3  375x667  DEFAULT type  fold y=86..667   button y=595..651  PASS (h=56)
+#   iPhone SE 3  375x667  AX5           fold y=86..667   button y=465..651  PASS (h=186)
+#   16 Pro       402x874  default type  fold y=128..874  button y=768..824  PASS (h=56)
+#   16 Pro       402x874  AX5           fold y=128..874  button y=638..824  PASS (h=186)
+#
+# Four of four inside the fold; bounds unchanged across a full scroll. At AX5 the
+# footer grows to 186pt and no resource card is in the hierarchy at offset 0 — the
+# list stays reachable by SCROLLING, which this flow does not exercise. Any future
+# assertion on a card here needs centerElement: mid-scroll a card's text reports at
+# y=559..866 while the footer holds y=465..651, i.e. clipped behind it yet scored
+# visible (DEBUG-465).
+#
+# CrisisResources is in RootCrisisButton.SUPPRESSED_ROUTES, so this is the ONLY
+# 988 affordance on the screen every other crisis affordance routes TO.
+#
+# ASSERTED AS A PAIR, AND THE SECOND HALF IS NOT OPTIONAL. A bare assertVisible
+# here would be indistinguishable from a predicate that had stopped discriminating
+# — which is exactly how this defect survived: deeplink-consent-gate.yaml has
+# asserted this same id visible on this same screen, green, for its whole life.
+# It was green because it only ever ran on whatever simulator happened to be
+# booted, and scripts/e2e-sim-device.sh pins no MODEL. The assertion was correct;
+# its configuration was uninformative.
+#
+# crisis-resources-footer-disclaimer is the ScrollView's last unconditional child,
+# so it is structurally below the fold on every device. Asserting it NOT visible
+# in the same breath re-proves the driver can still see clipping, on every run.
+#
+# DEVICE MATTERS HERE AND THE RUNNER DOES NOT PIN IT. A green result on a 6.9"
+# simulator does NOT certify a 4.7" one — the pre-fix build passed this assertion
+# on a 16 Pro Max and failed it on an SE 3. Run the gate on the SMALLEST supported
+# viewport (iPhone SE 3, 375x667) or the result understates coverage.
+- assertVisible:
+    id: "crisis-call-988-button"
+- assertNotVisible:
+    id: "crisis-resources-footer-disclaimer"
 # INFRA-185: pop the CrisisResources modal via the explicit nav-back-button
 # testID added to CleanRootNavigator's HeaderBackButton override. Maestro's
 # `- back` action on iOS 18.6 sim reports COMPLETED but doesn't actually
@@ -66,6 +187,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -81,6 +205,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -118,8 +245,59 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
+
+# ── DEBUG-406: the education sheet must not occlude the button ───
+# The sheet at ProfileScreen's ⓘ was a real RN <Modal> until DEBUG-406. An RN
+# <Modal> renders in a separate native window ABOVE the JS view hierarchy, so
+# while it was open `crisis-button-root` was not dimmed — it was not on screen,
+# a zero-988-affordance state. It is now a full-bleed absolute overlay published
+# into the root overlay slot, which paints immediately BELOW this button.
+#
+# This TAPS THROUGH rather than merely asserting visibility, and that is the
+# whole point of doing it here instead of in jest. Under a native-layer
+# occlusion bug the hierarchy dump can still LIST a view that another native
+# window is covering, so `assertVisible` alone would have passed against the
+# original defect. Only tap-and-land is evidence.
+#
+# Placed in the Profile block because the trigger lives on the Profile menu; it
+# re-taps `tab-profile` first like every other segment here, so it is immune to
+# wherever the previous nav-back-button landed.
+- tapOn:
+    id: "tab-profile"
+- tapOn:
+    id: "profile-assessment-info"
+# The sheet is up. Under the old <Modal> this next assertion was impossible —
+# the button did not exist in the hierarchy at all.
+- assertVisible:
+    id: "threshold-education-overlay"
+- assertVisible:
+    id: "crisis-button-root"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
+- tapOn:
+    id: "nav-back-button"
+# The sheet survives the round trip — the user returns to where they were, not
+# to a dismissed sheet. Post-condition, not a tap: DEBUG-403's failure was a tap
+# that reported COMPLETED while the app never received it.
+- assertVisible:
+    id: "threshold-education-overlay"
+# And its own dismissal still works after the excursion. This also pins that the
+# dismiss control is reachable — it was moved OUT of the sheet's ScrollView in
+# DEBUG-406, where it could be pushed below the fold.
+- tapOn:
+    id: "threshold-education-dismiss"
+- assertNotVisible:
+    id: "threshold-education-overlay"
 
 # depth-1: Notifications & Display
 - tapOn:
@@ -134,6 +312,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -150,6 +331,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -175,19 +359,146 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     centerElement: true
 - tapOn:
     id: "profile-card-privacy"
+# ── DEBUG-473: BUDGET, NOT GEOMETRY — and not device-specific ────────────────────
+# This flow was reported RED at 402x874. It is not: it passes 5/5 there on an idle
+# machine, unmodified. What it was, was one second away from failing.
+#
+# Measured on iPhone 16 Pro / iOS 18.6 (402x874), Release build, clean provenance
+# e85abc3a, `maestro hierarchy` taken in the live failing state:
+#
+#   ScrollView clip (the fold)  [0,162][402,756]     594pt
+#   scroll content view         [0,-1446][402,756]   2202pt -> 1608pt overflow (2.7x fold)
+#   profile-card-export         [24,425][378,542]    100% inside the fold at max scroll
+#   profile-card-delete         [24,558][378,676]    100% inside the fold, ~198pt trailing
+#
+# Neither card is ever clipped, so there is NO fold defect on this screen and
+# PrivacyDataScreen is not implicated — both data-rights affordances, export and
+# erasure, are reachable at this viewport. The two scrolls were simply sitting at the
+# edge of their default 20000ms budget: export 10.5s (52%), delete 19.0s (95%), across
+# five runs with <1% variance. Ambient machine load is then enough to flip either one.
+#
+# DELETE'S COST IS NOT TRAVEL. It is FOUND after 3 swipes; the following 5 (~8.7s) are
+# Maestro trying to CENTRE it and failing. At maximum scroll its centre sits 158pt below
+# the fold's with only ~198pt of trailing content, so centring is unsatisfiable by
+# construction and those attempts are a fixed tax no scroll-speed change removes.
+#
+# Measured quiet-machine cost against the default 20000ms budget, both viewports:
+#
+#   device / runtime            viewport   export        delete
+#   ──────────────────────────  ─────────  ────────────  ─────────────────────
+#   iPhone 16 Pro / iOS 18.6    402x874    10.5s  (52%)  19.0s  (95%)  8 swipes
+#   iPhone SE 3   / iOS 18.6    375x667    12.3s  (62%)  12.3s  (62%)  5 swipes
+#
+# SE pays LESS on delete despite the smaller viewport: its card centres to within 111pt
+# against the 16 Pro's 158pt, so it abandons the centring attempt sooner. That inversion is
+# the third independent disconfirmation of a device-specific cause, after the geometry and
+# the wandering failure element.
+#
+# BOTH VIEWPORTS SAT OVER HALF THEIR BUDGET WHILE GREEN (52%/95% and 62%/62%). That is the
+# actual defect and the whole justification for hardening: the flow was under-budgeted on
+# every device, silently, and only surfaced when contention consumed the margin.
+#
+# DO NOT "FIX" THE 95% BY DROPPING centerElement ON DELETE. The futile centring IS the
+# price of DEBUG-453's fix, and DEBUG-453 measured what removing it costs: the scroll stops
+# short of maximum, reports COMPLETED anyway, and the tap misses. The waste is load-bearing.
+#
+#   timeout: 48000 = a 2.5x safety factor over the worst measured quiet-machine cost across
+#                    BOTH viewports (16 Pro delete, 19009ms). Post-fix worst is 46.9%.
+#
+# SIZE IT AGAINST THE MEASUREMENT, NOT AGAINST THE DEFAULT. 20000 is Maestro's generic
+# number and was never derived for a 1608pt traverse, so "2.4x the default" is the wrong
+# framing and invites a trim. The denominator that matters is the measured cost. The one
+# ceiling this must respect: it must NOT be large enough to absorb a host on which this
+# flow's own crisis assertions are untrustworthy — the 3000ms `Unable to Call` windows and
+# the ~10s assertVisible standing in for the <3s 988 SLA. At the measured contention cost
+# (13.7s per iteration x 8) delete needs ~110s, so 48000 still fails loudly there.
+#
+# COST IS PARTLY BUDGET-DEPENDENT, so % of budget is not a fixed property: delete measured
+# 19.0s under the 20000 budget and 22.4s under 48000, at the SAME 8 swipes — the centring
+# phase makes a few more attempts when given room. Cost rose 3.4s for 28s of budget, so the
+# headroom is real, but re-measure rather than extrapolating if this number is ever changed.
+#
+# WALL-CLOCK CEILING GROWS. Worst case adds ~56s across the two scrolls before a red is
+# reported. Phase 2.5 operators should expect the longer failure path; a slow honest red
+# beats a fast dishonest green.
+#
+# NEVER BUY SCROLL BUDGET WITH SCROLL SPEED ON THIS FLOW. Standing prohibition, not a
+# one-off: leave the scroll rate at Maestro's default on every scroll here.
+#
+# It was tried. Raising the rate did compress the traverse (16 Pro: delete 95% -> 65%,
+# export 52% -> 31%) and it REGRESSED iPhone SE 3, where the unmodified flow passes — the
+# scroll reported COMPLETED, the tap on profile-card-export fired and reported COMPLETED,
+# and export-data-screen never appeared. That is DEBUG-453's exact symptom, re-created.
+#
+# MECHANISM: find-then-tap is not atomic. Maestro locates the element, then taps captured
+# coordinates; a faster fling leaves the ScrollView still decelerating in between, so the
+# element is found and then moves out from under the tap. The argument that overshoot is
+# harmless here — both targets are 100% inside the fold at max scroll, so a fling that
+# clamps at the bottom still lands somewhere findable — is about FINDABILITY and says
+# nothing about TAP TIMING.
+#
+# WHY IT GENERALISES: this flow's whole value over ProfileStackNavigator.test.tsx is that
+# it taps and LANDS (see the DEBUG-406 block: "Only tap-and-land is evidence"). Any
+# parameter that raises kinetic energy at tap time trades away the property under test.
+# Timeout buys budget without touching the gesture; scroll rate buys it by making every
+# gesture more hazardous. Note also the viewport asymmetry, which is the part that
+# generalises: it bit at 375x667 while 402x874 stayed green, so validating a scroll change
+# on one viewport proves nothing about the other.
+#
+# The timeout is deliberately NOT sized to survive a contended machine. At the load this
+# was first reported under (load avg 483; two peer Maestro drivers plus an Xcode build)
+# one scroll iteration cost 13.7s and this flow took 45m20s — a machine on which the
+# thirteen crisis assertions in this file are not trustworthy either, so it must still
+# fail loudly rather than be tuned green.
+#
+# THE ORIGINAL RED WAS CONTENTION, NOT THE DEVICE. Under load the failing element
+# WANDERED between profile-card-export and profile-card-delete across runs of a
+# byte-identical tree. Geometry is deterministic about which element it hides; a budget
+# is not. Do not read this block as a device-specific failure and do not go looking for
+# one at 402x874.
 - scrollUntilVisible:
     element:
       id: "profile-card-export"
     direction: DOWN
+    visibilityPercentage: 100
     centerElement: true
+    timeout: 48000
 - tapOn:
     id: "profile-card-export"
+# ⚠️ CONDITIONAL RE-TAP — not padding. The scroll above terminates and DEBUG-477's
+# predicate applies: UIScrollView consumes the next touch as a zero-distance drag, Maestro
+# reports the tap COMPLETED, and the screen never appears. That is DEBUG-453's symptom on
+# this exact step, and until now this step had no defence against it.
+#
+# `retryTapIfNoChange` cannot cover it — DEBUG-477 measured why: the swallowed tap nudges
+# the list 1-3pt, so Maestro sees a change and declines to retry. So the oracle is the
+# DESTINATION, not "did anything move". One re-tap suffices by the predicate (exactly one
+# touch is eaten), and it is safe because it is conditional: if the first tap landed,
+# export-data-screen is visible, the block does not run, and nothing is double-tapped.
+#
+# This touches NO scroll parameter. DEBUG-473's standing prohibitions — never drop
+# centerElement on delete, never buy budget with scroll speed — are untouched.
+#
+# Surfaced by FEAT-470, which added a section to PrivacyDataScreen. That is a legitimate
+# product change; it lengthened the screen this step scrolls and shifted the dynamics
+# enough to trip a defect the step was always exposed to. Measured: 3/3 green without that
+# section, 3 failures in 8 runs with it, all at this assertion.
+- runFlow:
+    when:
+      notVisible:
+        id: "export-data-screen"
+    commands:
+      - tapOn:
+          id: "profile-card-export"
 - assertVisible:
     id: "export-data-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -206,26 +517,55 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     centerElement: true
 - tapOn:
     id: "profile-card-privacy"
-# profile-card-delete is the BOTTOM-MOST element on the Privacy screen, so its
-# right edge sits under the always-on-top crisis button (bottom-right overlay).
-# centerElement can't center a last element (no content below to scroll past it),
-# so it never reaches 100% visibility — drop the threshold to 60% (the card is
-# substantially visible; only the chevron corner is occluded). That the
-# destructive control is partly under the crisis button while 988 stays
-# reachable is itself the contract this segment pins.
+# profile-card-delete is the BOTTOM-MOST element on the Privacy screen. It needs
+# centerElement:true for the same reason every other card scroll here does —
+# without it scrollUntilVisible stops short of maximum scroll and reports
+# COMPLETED anyway. Measured on iPhone SE 3 (DEBUG-453): it stopped at 87% with
+# the card at [24,623][351,740], entirely below the ScrollView's clip bottom of
+# 583, then tapped its centre at y=681.5 and hit nothing. At true maximum the
+# card sits at [24,385][351,503] — fully visible, 80pt of trailing padding below.
+# visibilityPercentage stays 60: the threshold was never the problem, so lowering
+# OR raising it would both miss the defect (DEBUG-432 rejected lowering it).
+# speed/timeout here are DEBUG-473's, sized above; DEBUG-453's account is unchanged —
+# its symptom was scrollUntilVisible reporting COMPLETED at 87% and a tap that hit
+# nothing, a geometric stop-short. DEBUG-473's is CommandFailed, target never reached.
 - scrollUntilVisible:
     element:
       id: "profile-card-delete"
     direction: DOWN
     visibilityPercentage: 60
+    centerElement: true
+    timeout: 48000
 - tapOn:
     id: "profile-card-delete"
+# ⚠️ CONDITIONAL RE-TAP — the same defence as the export step above, and it is needed here
+# MORE, not less: DEBUG-473 measured this scroll at 95% of budget on 16 Pro, the most
+# expensive in the flow, so it is the likeliest to terminate mid-content and have its tap
+# consumed as a zero-distance drag (DEBUG-477).
+#
+# Measured while adding the export retry: with export defended and this step bare, 5 runs
+# went 3 pass / 2 fail and BOTH failures landed here. That is INFRA-476's documented
+# signature — the failing element wanders between profile-card-export and
+# profile-card-delete — arriving because only one of the two taps had cover.
+#
+# Touches no scroll parameter, so DEBUG-473's prohibitions (never drop centerElement here,
+# never buy budget with scroll speed) are untouched.
+- runFlow:
+    when:
+      notVisible:
+        id: "delete-account-screen"
+    commands:
+      - tapOn:
+          id: "profile-card-delete"
 - assertVisible:
     id: "delete-account-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -242,6 +582,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -258,6 +601,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -274,6 +620,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"
 
@@ -294,5 +643,8 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - assertVisible:
     id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
 - tapOn:
     id: "nav-back-button"

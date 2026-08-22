@@ -1,3 +1,6 @@
+import fs from 'fs';
+import path from 'path';
+
 import { CRISIS_THRESHOLDS } from '@/features/assessment/types';
 import {
   CRISIS_SAFETY_THRESHOLDS,
@@ -9,6 +12,7 @@ import type {
   GAD7Result,
   AssessmentAnswer,
 } from '@/features/assessment/types';
+import { GAD7_SCORING_CONFIG, PHQ9_SCORING_CONFIG } from '@/features/assessment/types/scoring';
 
 // Minimal PHQ-9 / GAD-7 result factories (mirrors AssessmentResults.test.tsx).
 const phqAnswers = (totalScore: number, q9Response = 0): AssessmentAnswer[] => {
@@ -86,6 +90,65 @@ describe('CRISIS thresholds — dual-threshold contract', () => {
   });
 });
 
+/**
+ * FEAT-457 — the GAD-7 gentle floor consumed by the domain-guidance gate.
+ *
+ * THE DERIVATION RULE, which is what these assertions actually pin: each axis's
+ * gentle floor is the floor of the standard severity band IMMEDIATELY BELOW that
+ * axis's suppression floor. PHQ-9 suppresses at 20 (`severe`) → gentle at 15
+ * (`moderately_severe` floor). GAD-7 suppresses at 15 (`severe`) → gentle at 10
+ * (`moderate` floor). One rule, two axes, no free parameters.
+ *
+ * So 10 is NOT a new clinical number: it is the Spitzer (2006) moderate cut-point
+ * already encoded in `GAD7_SCORING_CONFIG`, reached by the same derivation that
+ * produced the shipped PHQ-9 floor. The tests below assert the RELATIONSHIP rather
+ * than restating the literal, so a future re-band of either instrument surfaces here
+ * instead of silently moving a safety floor.
+ *
+ * `GAD7_MODERATE_THRESHOLD` is named for the BAND, never for a tier or a trigger.
+ * `CRISIS_THRESHOLDS` is re-exported wholesale, so a `*_SUPPORT_*` or `*_CRISIS_*`
+ * name here would read to the next author as a ratified intervention floor at
+ * GAD-7 10 and invite a crisis banner or a `crisis_detected` emit. No detection
+ * path may read this constant.
+ */
+describe('FEAT-457 — GAD-7 moderate floor (guidance gentle band)', () => {
+  it('pins the constant at 10', () => {
+    expect(CRISIS_THRESHOLDS.GAD7_MODERATE_THRESHOLD).toBe(10);
+  });
+
+  it('equals the floor of the standard GAD-7 moderate band, not an independent number', () => {
+    expect(CRISIS_THRESHOLDS.GAD7_MODERATE_THRESHOLD).toBe(
+      GAD7_SCORING_CONFIG.severityThresholds.moderate[0],
+    );
+  });
+
+  it('sits strictly below the GAD-7 severe (suppression) floor', () => {
+    expect(CRISIS_THRESHOLDS.GAD7_MODERATE_THRESHOLD).toBeLessThan(
+      CRISIS_SAFETY_THRESHOLDS.GAD7_SEVERE_THRESHOLD,
+    );
+  });
+
+  it('leaves NO score gap between the gentle band and suppression, on either axis', () => {
+    // A gap is how a score falls through a ladder: every integer from the gentle
+    // floor up to the suppression floor must be claimed by exactly one band.
+    expect(GAD7_SCORING_CONFIG.severityThresholds.moderate[1] + 1).toBe(
+      CRISIS_SAFETY_THRESHOLDS.GAD7_SEVERE_THRESHOLD,
+    );
+    expect(PHQ9_SCORING_CONFIG.severityThresholds.moderately_severe[1] + 1).toBe(
+      CRISIS_SAFETY_THRESHOLDS.PHQ9_SEVERE_THRESHOLD,
+    );
+  });
+
+  it('applies ONE derivation rule to both axes', () => {
+    expect(CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE).toBe(
+      PHQ9_SCORING_CONFIG.severityThresholds.moderately_severe[0],
+    );
+    expect(CRISIS_THRESHOLDS.GAD7_MODERATE_THRESHOLD).toBe(
+      GAD7_SCORING_CONFIG.severityThresholds.moderate[0],
+    );
+  });
+});
+
 describe('detectCrisis intervention-tier classification (MAINT-251)', () => {
   // The assessment-results crisis banner fires for the active-intervention tier
   // (PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15) and NOT for the PHQ-9 15–19 support tier
@@ -134,5 +197,200 @@ describe('detectCrisis intervention-tier classification (MAINT-251)', () => {
       expect(d).not.toBeNull();
       expect(isInterventionTier(d!)).toBe(true);
     }
+  });
+});
+
+// ---------------------------------------------------------------------------
+// MAINT-398 — durable pins replacing the deleted two-path parity test.
+//
+// `CrisisPerformanceOptimizer.detectCrisisOptimized` was a second PHQ-9/GAD-7
+// scorer. A parity harness run against both before deletion found 5 divergences
+// in 29 cases, every one of them toward UNDER-detection (full table in the
+// MAINT-398 PR body). Once the second path is gone no parity test can exist, so
+// these pin the canonical behaviour at each point where the two disagreed —
+// plus a structural guard that fails if a second scorer ever reappears.
+//
+// MAINT-252 addendum. Three of the four divergences are pinned below with
+// their rationale attached. The fourth is pinned ELSEWHERE and was, until now,
+// pinned anonymously — recorded here because MAINT-252 deleted
+// `CrisisPerformanceOptimizer.ts`, which was the only place the reasoning
+// survived:
+//
+//   Fourth divergence — malformed input (wrong answer count). Canonical
+//   `ClinicalScoringService.calculatePHQ9Score` THROWS and the caller sees it;
+//   the optimizer's catch swallowed everything into `return null`, making a
+//   scoring FAILURE indistinguishable from "no crisis". On a zero-false-negative
+//   path that is a fail-OPEN. Pinned by
+//   `features/assessment/__tests__/scoring.quick.test.ts`
+//   ("throws on invalid PHQ-9/GAD-7 answer count"). Note the throw lives in
+//   `ClinicalScoringService` (assessment/stores/assessmentStore.ts), NOT in
+//   `detectCrisis` — canonical `detectCrisis` never inspects answer count, so
+//   do not go looking for it in safety.ts.
+// ---------------------------------------------------------------------------
+
+const phqResultWithQ9 = (totalScore: number, q9Response: number): PHQ9Result => {
+  const answers = phqAnswers(totalScore, q9Response);
+  const actualTotal = answers.reduce((sum, a) => sum + a.response, 0);
+  return {
+    totalScore: actualTotal,
+    severity:
+      actualTotal >= 20 ? 'severe' :
+      actualTotal >= 15 ? 'moderately_severe' :
+      actualTotal >= 10 ? 'moderate' :
+      actualTotal >= 5 ? 'mild' : 'minimal',
+    isCrisis: actualTotal >= 15 || q9Response > 0,
+    suicidalIdeation: q9Response > 0,
+    completedAt: Date.now(),
+    answers,
+  };
+};
+
+describe('MAINT-398 — Q9 severity sweep (suicidal-ideation precedence at every total)', () => {
+  // The deleted optimizer hardcoded `triggerValue = 1` for any Q9 > 0, discarding
+  // the real total. Canonical carries totalScore, and Q9 takes precedence as
+  // primaryTrigger at every score — including totals far below any tier floor.
+  const cases: Array<[number, number]> = [];
+  for (const q9 of [1, 2, 3]) {
+    for (const total of [3, 14, 15, 19, 20]) {
+      cases.push([total, q9]);
+    }
+  }
+
+  it.each(cases)(
+    'PHQ-9 total=%i with Q9=%i → suicidal-ideation trigger, intervention tier, real triggerValue',
+    (total, q9) => {
+      const detection = detectCrisis(phqResultWithQ9(total, q9), 'test-user');
+
+      expect(detection).not.toBeNull();
+      expect(detection!.primaryTrigger).toBe('phq9_suicidal_ideation');
+      expect(isInterventionTier(detection!)).toBe(true);
+      // Not the optimizer's hardcoded 1.
+      expect(detection!.triggerValue).toBe(total);
+    },
+  );
+});
+
+describe('MAINT-398 — the exact band the deleted optimizer got wrong', () => {
+  // Its PHQ9_CRISIS_LOOKUP was {20..27}, so 15–19 with Q9=0 returned null: a
+  // straight false negative against "≥15 = support resources offered". It never
+  // received the DEBUG-229 / MAINT-226 Decision E support-tier fix.
+  it.each([[15], [16], [17], [18], [19]])(
+    'PHQ-9 total=%i with Q9=0 MUST detect as phq9_moderate_severe_score / high',
+    total => {
+      const detection = detectCrisis(phqResultWithQ9(total, 0), 'test-user');
+
+      expect(detection).not.toBeNull();
+      expect(detection!.primaryTrigger).toBe('phq9_moderate_severe_score');
+      expect(detection!.severityLevel).toBe('high');
+      // Support tier, so NOT intervention — but detected, which is the point.
+      expect(isInterventionTier(detection!)).toBe(false);
+    },
+  );
+
+  // At ≥20 the optimizer emitted 'phq9_moderate_severe_score' where canonical
+  // emits 'phq9_severe_score'. That value is excluded by isInterventionTier, so
+  // the optimizer routed an active-intervention case to the support tier.
+  it.each([[20], [23], [27]])(
+    'PHQ-9 total=%i with Q9=0 MUST be phq9_severe_score / critical / intervention tier',
+    total => {
+      const detection = detectCrisis(phqResultWithQ9(total, 0), 'test-user');
+
+      expect(detection).not.toBeNull();
+      expect(detection!.primaryTrigger).toBe('phq9_severe_score');
+      expect(detection!.severityLevel).toBe('critical');
+      expect(isInterventionTier(detection!)).toBe(true);
+    },
+  );
+
+  it('the 19 → 20 boundary changes tier, and neither side is ever undetected', () => {
+    const support = detectCrisis(phqResultWithQ9(19, 0), 'u');
+    const intervention = detectCrisis(phqResultWithQ9(20, 0), 'u');
+
+    expect(support).not.toBeNull();
+    expect(intervention).not.toBeNull();
+    expect(isInterventionTier(support!)).toBe(false);
+    expect(isInterventionTier(intervention!)).toBe(true);
+  });
+});
+
+describe('MAINT-398 — structural guard: exactly one PHQ-9 crisis scorer in the tree', () => {
+  // A file that PRODUCES a PHQ-9 crisis trigger is a scorer. A file that merely
+  // COMPARES one (validation), declares the union type, or names one in a
+  // comment is not — so the guard keys on production, not on mention. It is
+  // written to catch the deleted optimizer's exact shape, which assigned the
+  // literal to a local (`triggerType = 'phq9_moderate_severe_score'`) and would
+  // slip past any regex anchored on the word `primaryTrigger`.
+  const SRC_ROOT = path.resolve(__dirname, '../../../..');
+
+  const TRIGGER_LITERALS = [
+    'phq9_suicidal_ideation',
+    'phq9_severe_score',
+    'phq9_moderate_severe_score',
+  ];
+
+  // Every file permitted to produce a PHQ-9 crisis trigger, and why.
+  const ALLOWED_PRODUCERS: Record<string, string> = {
+    'features/crisis/types/safety.ts':
+      'canonical detectCrisis — the single source of truth for PHQ-9 tiering',
+    'features/assessment/stores/assessmentStore.ts':
+      'deliberate second TRIGGER site for real-time Q9 (delegates severity to ClinicalScoringService); not a second scorer',
+  };
+
+  const walk = (dir: string): string[] =>
+    fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {
+      const full = path.join(dir, entry.name);
+      if (entry.isDirectory()) {
+        return entry.name === '__tests__' || entry.name === 'node_modules' ? [] : walk(full);
+      }
+      return /\.tsx?$/.test(entry.name) && !/\.(test|spec)\.tsx?$/.test(entry.name) ? [full] : [];
+    });
+
+  const producesTrigger = (line: string): boolean => {
+    const code = line.trim();
+    // Comments name triggers legitimately (tombstones, doc blocks, the union's
+    // trailing annotations). They render nothing and decide nothing.
+    if (code.startsWith('//') || code.startsWith('*') || code.startsWith('/*')) return false;
+
+    return TRIGGER_LITERALS.some(literal => {
+      const quoted = `'${literal}'`;
+      if (!code.includes(quoted)) return false;
+      // Comparisons read a trigger, they don't mint one.
+      if (new RegExp(`[=!]==\\s*${quoted}`).test(code)) return false;
+      // Union members in the CrisisTriggerType declaration.
+      if (new RegExp(`\\|\\s*${quoted}`).test(code)) return false;
+      // Assignment, object-property value, array literal, or .push(...).
+      return new RegExp(`(=|:|\\(|\\[|,)\\s*${quoted}`).test(code);
+    });
+  };
+
+  it('no source file outside the allowlist produces a PHQ-9 crisis trigger', () => {
+    const producers = walk(SRC_ROOT)
+      .filter(file =>
+        fs.readFileSync(file, 'utf8').split('\n').some(producesTrigger),
+      )
+      .map(file => path.relative(SRC_ROOT, file).split(path.sep).join('/'))
+      .sort();
+
+    expect(producers).toEqual(Object.keys(ALLOWED_PRODUCERS).sort());
+  });
+
+  it('the guard is not vacuous — it detects the canonical scorer it is meant to allow', () => {
+    // If this fails, the matcher stopped recognising trigger production and the
+    // test above would pass by finding nothing at all.
+    const canonical = fs.readFileSync(
+      path.join(SRC_ROOT, 'features/crisis/types/safety.ts'),
+      'utf8',
+    );
+    expect(canonical.split('\n').filter(producesTrigger).length).toBeGreaterThan(0);
+  });
+
+  it('the guard rejects the deleted optimizer shape and accepts validation/comment mentions', () => {
+    expect(producesTrigger("        triggerType = 'phq9_moderate_severe_score';")).toBe(true);
+    expect(producesTrigger("      triggers.push('phq9_severe_score');")).toBe(true);
+    expect(producesTrigger("        primaryTrigger: 'phq9_suicidal_ideation' as const,")).toBe(true);
+
+    expect(producesTrigger("    if (detection.primaryTrigger === 'phq9_severe_score' &&")).toBe(false);
+    expect(producesTrigger("  | 'phq9_severe_score'          // PHQ-9 score >=20")).toBe(false);
+    expect(producesTrigger("  //   - PHQ-9 total >=20: the optimizer emitted 'phq9_moderate_severe_score'.")).toBe(false);
   });
 });

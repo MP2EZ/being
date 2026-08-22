@@ -20,18 +20,23 @@
  * - No gamification or completion metrics
  */
 
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
+  AccessibilityInfo,
+  BackHandler,
   View,
   Text,
   StyleSheet,
-  Modal,
   Pressable,
   Vibration,
   ScrollView,
+  findNodeHandle,
 } from 'react-native';
-import { colorSystem, spacing, borderRadius, typography } from '@/core/theme';
-import { FlowType, SessionMetadata } from '@/core/types/session';
+import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { TOUCH_TARGETS } from '@/core/theme/accessibility';
+import { SessionMetadata } from '@/core/types/session';
+import { themeKeyFor } from '@/core/types/practice-identity';
+import type { PracticeIdentity } from '@/core/types/practice-identity';
 
 interface ResumeSessionModalProps {
   visible: boolean;
@@ -45,15 +50,24 @@ interface ResumeSessionModalProps {
  * Philosopher validation: Use "Earlier today" instead of "2 hours ago"
  */
 const formatTimeElapsed = (startedAt: number): string => {
-  const elapsed = Date.now() - startedAt;
-  const hours = Math.floor(elapsed / (1000 * 60 * 60));
-  const days = Math.floor(hours / 24);
+  const now = new Date();
+  const started = new Date(startedAt);
+  const hours = Math.floor((now.getTime() - startedAt) / (1000 * 60 * 60));
 
-  if (days > 0) {
+  // FEAT-298 slice 3b: compare CALENDAR DAYS, not elapsed hours. The old version returned
+  // 'earlier today' for anything under 12h, so a 22:00 -> 08:00 resume claimed "today" for
+  // work done yesterday. Cosmetic for the legacy flows; materially false for a day-keyed
+  // daily ritual, whose records are stamped with the local calendar date.
+  const startedOnADifferentDay =
+    started.getFullYear() !== now.getFullYear() ||
+    started.getMonth() !== now.getMonth() ||
+    started.getDate() !== now.getDate();
+
+  if (hours >= 24) {
     return 'earlier this week';
   }
-  if (hours > 12) {
-    return 'earlier today';
+  if (startedOnADifferentDay) {
+    return 'yesterday';
   }
   if (hours > 4) {
     return 'a few hours ago';
@@ -66,6 +80,18 @@ const formatTimeElapsed = (startedAt: number): string => {
  */
 const getFriendlyScreenName = (screenName: string): string => {
   const screenNames: Record<string, string> = {
+    // Daily loop (FEAT-291 / FEAT-298). Canonical principle names verbatim — these are a
+    // philosopher invariant fixed across every mode. Without them the badge would render
+    // the raw camelCase route key ("AwarePresence") to the user.
+    AwarePresence: 'Aware Presence',
+    RadicalAcceptance: 'Radical Acceptance',
+    SphereSovereignty: 'Sphere Sovereignty',
+    VirtuousResponse: 'Virtuous Response',
+    InterconnectedLiving: 'Interconnected Living',
+    // Completed sessions are not resumable, so this should be unreachable — mapped so a
+    // bug can never surface a route key to the user.
+    DailyLoopComplete: 'Closing',
+
     // Morning
     Gratitude: 'Morning Gratitude',
     Intention: 'Intention Setting',
@@ -98,7 +124,7 @@ const getFriendlyScreenName = (screenName: string): string => {
 /**
  * Get flow-specific theme and display text
  */
-const getFlowInfo = (flowType: FlowType) => {
+const getFlowInfo = (flowType: PracticeIdentity) => {
   const flowInfo = {
     morning: {
       title: 'Morning Practice',
@@ -118,6 +144,18 @@ const getFlowInfo = (flowType: FlowType) => {
       emoji: '🌙',
       theme: colorSystem.themes.evening,
     },
+    // FEAT-298 slice 3b. `practice` must be an act-noun that is NOT mode-specific: this
+    // function has no access to DailyLoopMode, so "preparation"/"examination" would be
+    // wrong two-thirds of the time. 🌿 keeps the calm register of 🌅 ☀️ 🌙 while carrying
+    // no time of day (the loop is time-agnostic in flat mode); 🔄/⏳/🎯 were rejected as
+    // redo / time-pressure / outcome cues. Theme goes through the slice-1 seam rather than
+    // hardcoding midday, so PracticeIdentity can widen without a design-system release.
+    'daily-loop': {
+      title: 'Daily Practice',
+      practice: 'daily practice',
+      emoji: '🌿',
+      theme: colorSystem.themes[themeKeyFor('daily-loop')],
+    },
   };
 
   return flowInfo[flowType];
@@ -130,8 +168,48 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
   onBeginFresh,
 }) => {
   const [showTooltip, setShowTooltip] = useState(false);
+  const titleRef = useRef<Text>(null);
 
-  if (!session) return null;
+  // DEBUG-403: <Modal> gave us an OS focus trap for free; a plain overlay does not.
+  // Move VoiceOver/TalkBack focus to the question, not to a choice — landing on a
+  // button would skip what is being asked.
+  useEffect(() => {
+    if (!visible || !session) return;
+
+    const focusTitle = (): void => {
+      const tag = findNodeHandle(titleRef.current);
+      if (tag) AccessibilityInfo.setAccessibilityFocus(tag);
+    };
+
+    const raf = requestAnimationFrame(focusTitle);
+    // TalkBack silently no-ops setAccessibilityFocus if it has not finished
+    // processing the layout change, so retry once (mirrors HapticsOptInPrompt).
+    const retry = setTimeout(focusTitle, 350);
+
+    return () => {
+      cancelAnimationFrame(raf);
+      clearTimeout(retry);
+    };
+  }, [visible, session]);
+
+  // DEBUG-403: replaces <Modal onRequestClose={onBeginFresh}>. Android hardware back
+  // must still mean "Begin Fresh" — NOT a no-op consume. That distinction is the whole
+  // behaviour contract of this prompt: both options are framed as equally virtuous, and
+  // silently swallowing back would strand the user in a prompt with no keyboardless exit.
+  useEffect(() => {
+    if (!visible || !session) return;
+
+    const subscription = BackHandler.addEventListener('hardwareBackPress', () => {
+      onBeginFresh();
+      return true;
+    });
+    return () => subscription.remove();
+  }, [visible, session, onBeginFresh]);
+
+  // Guarded INSIDE the component rather than by the caller, so `showTooltip` survives a
+  // hide/show cycle exactly as it did under <Modal visible={...}>. Hoisting this to the
+  // parent would reset it on every dismiss — a silent behaviour change.
+  if (!visible || !session) return null;
 
   const flowInfo = getFlowInfo(session.flowType);
   const timeElapsed = formatTimeElapsed(session.startedAt);
@@ -148,19 +226,22 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
   };
 
   return (
-    <Modal
-      visible={visible}
-      transparent
-      animationType="fade"
-      onRequestClose={onBeginFresh} // Android back button = begin fresh
+    <View
+      style={styles.overlay}
+      // iOS: trap VoiceOver inside the prompt. Android has no equivalent, so
+      // DailyLoopNavigator hides the navigator subtree with
+      // importantForAccessibility="no-hide-descendants" while this is up.
+      accessibilityViewIsModal={true}
+      testID="resume-session-overlay"
     >
-      <View style={styles.overlay}>
-        <ScrollView contentContainerStyle={styles.scrollContainer}>
-          <View style={styles.modalContainer}>
-            {/* Header with flow emoji and title */}
-            <View style={styles.header}>
-              <Text style={styles.emoji}>{flowInfo.emoji}</Text>
-              <Text style={styles.title}>Return to Your Practice?</Text>
+      <View style={styles.modalContainer}>
+        <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContainer}>
+          {/* Header with flow emoji and title */}
+          <View style={styles.header}>
+            <Text style={styles.emoji}>{flowInfo.emoji}</Text>
+            <Text style={styles.title} ref={titleRef}>
+              Return to Your Practice?
+            </Text>
             </View>
 
             {/* Session info */}
@@ -191,7 +272,7 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
             {/* Stoic-validated message */}
             <View style={styles.messageSection}>
               <Text style={styles.message}>
-                Earlier today, you began your {flowInfo.practice}. Would you like to return to this practice, or begin fresh with full presence now?
+                You began your {flowInfo.practice}. Would you like to return to it, or begin fresh with full presence now?
               </Text>
               <Text style={styles.submessage}>
                 Either choice is an opportunity to practice virtue. What matters is not completing the session, but the quality of your intention and presence in this moment.
@@ -231,8 +312,15 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
                 </View>
               )}
             </View>
+        </ScrollView>
 
-            {/* Action buttons */}
+            {/* Action buttons — PINNED, deliberately OUTSIDE the ScrollView above.
+                The prose scrolls; these never move. On a short viewport the card is
+                height-capped and the prose gives up space first, so both choices stay on
+                screen and clear of the crisis button's reserved band at any content
+                height. Putting them back inside the scroll would reintroduce DEBUG-403's
+                on-device failure: `begin-fresh-button` resolved in the hierarchy with its
+                centre 1.5pt inside the clipped band, so the tap silently missed. */}
             <View style={styles.buttonSection}>
               <Pressable
                 style={({ pressed }) => [
@@ -246,6 +334,7 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel={`Resume ${flowInfo.title} from ${friendlyScreenName}`}
                 accessibilityHint="Continue your practice where you left off"
+                testID="resume-session-button"
               >
                 <Text style={styles.primaryButtonText}>
                   Return to Practice
@@ -264,34 +353,92 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
                 accessibilityRole="button"
                 accessibilityLabel={`Begin fresh ${flowInfo.title}`}
                 accessibilityHint="Start a new practice from the beginning"
+                // FEAT-298: stable ids on both actions. A text selector is ambiguous here —
+                // the modal's BODY COPY also contains "begin fresh", and that <Text> precedes
+                // the button, so a text match taps the paragraph and silently no-ops.
+                testID="begin-fresh-button"
               >
                 <Text style={styles.secondaryButtonText}>Begin Fresh</Text>
               </Pressable>
             </View>
-          </View>
-        </ScrollView>
       </View>
-    </Modal>
+    </View>
   );
 };
 
+/**
+ * DEBUG-403 — vertical band at the bottom of the screen that the root crisis button
+ * occupies, kept clear so this prompt's choices row can never overlap it.
+ *
+ * Derived from CollapsibleCrisisButton's geometry: it sits at `bottom` 100 (iOS) / 104
+ * (Android), is TOUCH_TARGETS.minimum tall, and carries a 12pt hitSlop, so its hit area
+ * reaches ~156pt up from the bottom edge. The larger platform value plus one spacing
+ * step is used for both rather than branching — being generous costs nothing and an
+ * overlap is unrecoverable: the crisis button renders at zIndex 9999 above this layer
+ * and would win the tap, BOTH firing a false crisis entry AND biasing the mis-tap
+ * toward one specific choice.
+ *
+ * This constraint did not exist while this component was an RN <Modal>, because the
+ * crisis button was not on screen at all. Mirrors HapticsOptInPrompt's band.
+ */
+const CRISIS_BUTTON_RESERVED_BAND = 104 + TOUCH_TARGETS.minimum + 12 + spacing[16];
+
 const styles = StyleSheet.create({
   overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
+    // DEBUG-403: absolute inset-0, not `flex: 1`. This layer is now a sibling of
+    // DailyLoopNavigator's <Stack.Navigator> rather than the root of a separate native
+    // window, so it must position itself over that content explicitly.
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    // ⚠️ WHITE, NOT THE PREVIOUS rgba(0, 0, 0, 0.6) SCRIM — do not revert.
+    //
+    // The root crisis button now renders ON TOP of this layer (that is the entire point
+    // of DEBUG-403), at FADED_OPACITY because DailyLoop is an IMMERSIVE_ROUTE. The old
+    // dark scrim was harmless only while the button was invisible; making the button
+    // visible turns this backgroundColor into a contrast surface for the first time.
+    // HapticsOptInPrompt's header records the measurements: against #171717 the faded
+    // button is 1.34:1, against white 2.71:1 — and DEBUG-396's FADED_OPACITY of 0.6
+    // clears 3:1 on white. Darkening moves the wrong way; white is the ceiling.
+    backgroundColor: colorSystem.base.white,
+    // Safe to centre because the card is height-CAPPED below (maxHeight: '100%'), so it
+    // can never be taller than this box. That was not true of the first two attempts at
+    // this fix: an uncapped card overflowed and centring split the overflow across both
+    // edges, slicing the leaf off the top and "Begin Fresh" off the bottom.
     justifyContent: 'center',
     alignItems: 'center',
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[24],
+    // Keeps the card clear of the crisis button's hit area.
+    paddingBottom: CRISIS_BUTTON_RESERVED_BAND,
+  },
+  /**
+   * The scrollable PROSE region — header, session info, message, tooltip. `flexShrink: 1`
+   * is what lets it give up space first: when the card hits its maxHeight, the prose
+   * shrinks and scrolls while buttonSection (a fixed-height sibling) keeps its full
+   * height. No flexGrow, so a short prompt still sizes to its content.
+   */
+  scroll: {
+    flexShrink: 1,
   },
   scrollContainer: {
-    flexGrow: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: spacing[24],
+    padding: spacing[32],
   },
   modalContainer: {
+    /**
+     * HEIGHT CAP — the load-bearing line. The overlay gives the card ~687pt (viewport
+     * minus the 176pt reserved band); the full prompt wants ~700pt. Without this cap the
+     * card overflowed by ~13pt, which put `begin-fresh-button`'s CENTRE 1.5pt inside the
+     * clipped band: it still resolved in the view hierarchy, so Maestro reported the tap
+     * COMPLETED and the app never received it, and a real user saw the primary action
+     * sliced in half. Capping makes the prose absorb the shortfall instead.
+     */
+    maxHeight: '100%',
     backgroundColor: colorSystem.base.white,
     borderRadius: borderRadius.large,
-    padding: spacing[32],
+    overflow: 'hidden',
     width: '100%',
     maxWidth: 400,
     shadowColor: '#000',
@@ -314,7 +461,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
   },
   infoSection: {
@@ -326,13 +473,13 @@ const styles = StyleSheet.create({
   },
   infoLabel: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   infoValue: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[16],
   },
   progressSection: {
@@ -340,7 +487,7 @@ const styles = StyleSheet.create({
   },
   progressLabel: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   screenBadge: {
@@ -358,14 +505,14 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: spacing[8],
   },
   submessage: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[600],
+    color: semantic.text.secondary,
     textAlign: 'center',
     lineHeight: typography.title.size,
     fontStyle: 'italic',
@@ -374,10 +521,16 @@ const styles = StyleSheet.create({
   tooltipButton: {
     paddingVertical: spacing[8],
     alignItems: 'center',
+    // DEBUG-365 sweep finding, not named in the ticket — which listed this file
+    // as already compliant. That is true of primaryButton / secondaryButton (48)
+    // but not of this third control, which was ~33pt on the same padding-only
+    // shape as Timer.controlButton.
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
   },
   tooltipButtonText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     fontWeight: typography.fontWeight.semibold,
   },
   tooltip: {
@@ -391,27 +544,33 @@ const styles = StyleSheet.create({
   tooltipTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   tooltipText: {
     fontSize: 13,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     lineHeight: typography.bodyLarge.size,
     marginBottom: spacing[4],
   },
   tooltipBold: {
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   tooltipCitation: {
     fontSize: typography.micro.size,
-    color: colorSystem.gray[500],
+    color: semantic.text.muted,
     fontStyle: 'italic',
     marginTop: spacing[4],
   },
   buttonSection: {
     gap: spacing[16],
+    // Carries its own padding: the card no longer pads its children, because the prose
+    // region needs the padding INSIDE its scrollable area (otherwise the last line clips
+    // against the card edge) while this pinned row needs it outside.
+    paddingHorizontal: spacing[32],
+    paddingBottom: spacing[32],
+    paddingTop: spacing[8],
   },
   primaryButton: {
     paddingVertical: spacing[16],
@@ -439,6 +598,6 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
   },
 });
