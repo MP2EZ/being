@@ -28,7 +28,7 @@ import { showCrisisAlert } from '@/features/crisis/services/crisisAlert';
 import SupabaseService from '@/core/services/supabase/SupabaseService';
 import { logSecurity } from '@/core/services/logging';
 
-import { JournalCrisisScanner } from '../journalCrisisScan';
+import { JournalCrisisScanner, newJournalDraftId } from '../journalCrisisScan';
 
 const mockAlert = showCrisisAlert as jest.Mock;
 const mockTrack = (SupabaseService as unknown as { trackCrisisDetection: jest.Mock })
@@ -97,20 +97,71 @@ describe('one-way escalation', () => {
 });
 
 describe('deduplication', () => {
-  it('surfaces exactly ONE alert per draft when both scans hit', () => {
+  it('surfaces exactly ONE alert per draft when both scans hit', async () => {
     scanner.scanOnFinalize('draft-1', CRISIS_TEXT);
     scanner.scanOnSave('draft-1', CRISIS_TEXT);
+    await Promise.resolve();
 
     // The double-alert family of bug that MAINT-166 fixed and
     // q9-single-alert.yaml pins.
     expect(mockAlert).toHaveBeenCalledTimes(1);
+    // DEBUG-504: the emission is gated by the same `alreadyActive` branch as the Alert, so
+    // the suppressed half nobody was asserting is the one that matters most — a skipped
+    // Alert is a degraded response, a skipped emission is an absent `crisis_detected` row.
+    expect(mockTrack).toHaveBeenCalledTimes(1);
   });
 
-  it('treats a different draft as a separate episode', () => {
+  it('treats a different draft as a separate episode', async () => {
     scanner.scanOnFinalize('draft-1', CRISIS_TEXT);
     scanner.scanOnFinalize('draft-2', CRISIS_TEXT);
+    await Promise.resolve();
 
     expect(mockAlert).toHaveBeenCalledTimes(2);
+    expect(mockTrack).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe('a second capture in one session (DEBUG-504)', () => {
+  it('alerts and emits again for a new draft after the previous one was discarded', async () => {
+    // The exact sequence the screen produces: disclose, discard, re-record, disclose. Same
+    // words are not the same disclosure.
+    scanner.scanOnFinalize('draft-1', CRISIS_TEXT);
+    scanner.onDraftDiscarded('draft-1');
+    scanner.scanOnFinalize('draft-2', CRISIS_TEXT);
+    scanner.scanOnSave('draft-2', CRISIS_TEXT);
+    await Promise.resolve();
+
+    // Two disclosures, two responses — and the second capture's two scan points are still
+    // ONE episode between them.
+    expect(mockAlert).toHaveBeenCalledTimes(2);
+    expect(mockTrack).toHaveBeenCalledTimes(2);
+
+    // AC 3 is untouched: discarding the text still does not retract the disclosure.
+    expect(scanner.isInterventionActive('draft-1')).toBe(true);
+  });
+});
+
+describe('newJournalDraftId', () => {
+  it('never repeats, even with the clock frozen', () => {
+    // The guarantee is a process-monotonic counter, not the clock and not the RNG.
+    // `__tests__/setup/quick-setup.js` mocks expo-crypto's getRandomBytes to a CONSTANT, so
+    // a purely random id is deterministic under JEST_QUICK — a same-millisecond pair would
+    // then collide in exactly the test written to prove it cannot.
+    const now = jest.spyOn(Date, 'now').mockReturnValue(1);
+    try {
+      const ids = new Set(Array.from({ length: 1000 }, () => newJournalDraftId()));
+      expect(ids.size).toBe(1000);
+    } finally {
+      now.mockRestore();
+    }
+  });
+
+  it('is pure — minting an id does not touch scanner state', () => {
+    // What keeps AC 3 true by construction: a new identity cannot clear an old one.
+    scanner.scanOnFinalize('draft-1', CRISIS_TEXT);
+    newJournalDraftId();
+
+    expect(scanner.isInterventionActive('draft-1')).toBe(true);
   });
 });
 

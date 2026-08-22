@@ -152,10 +152,8 @@ npm run validate:clinical
 
 ```json
 {
-  "react-native-keychain": "^10.0.0",     // Device keychain access
   "expo-crypto": "^14.1.5",               // Cryptographic functions  
   "expo-secure-store": "^14.2.3",         // Secure key storage
-  "ts-node": "^10.9.2",                   // Validation scripts
   "@types/node": "^24.3.1"                // TypeScript support
 }
 ```

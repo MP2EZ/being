@@ -169,6 +169,14 @@ async function updateSubscription(
       subscription_end_date: verification.expiresDate,
       last_receipt_verified: now,
       receipt_data_encrypted,
+      // DEBUG-474 — the VERIFIED environment claim, persisted so the nightly cron has a
+      // trusted host source. This traces to `assertAppleAppScope(payload).environment`
+      // (see `scope.environment` below), NOT to `body.environment`: the client's hint is
+      // advisory and routes the request, and storing it here would make it load-bearing
+      // one write later. `subscriptions_apple_environment_present` requires this column on
+      // every apple row, so dropping this line fails the upsert rather than writing a row
+      // the cron could never re-verify.
+      environment: verification.environment,
       updated_at: now,
     }, {
       onConflict: 'user_id'

@@ -139,6 +139,13 @@ if [ "$RUN_FLOWS" -eq 1 ]; then
   # can install over the target. One invocation also restores INFRA-434's mid-suite
   # substitution watch, which needs more than one flow to have anything to watch.
   export E2E_REQUIRE_CLEAN_PROVENANCE=1
+  # INFRA-510 — name the receipt so the certification verdict below reads THIS run's file.
+  # Left to the default it is timestamped and PID-suffixed, so a reader would have to glob
+  # for it and would race every peer gate on the machine. It lives in the RUN DIR and never
+  # under $WORKTREE: the provenance fingerprint hashes untracked file contents repo-wide,
+  # so a receipt written there reads as MISMATCH on the next verify and costs a rebuild.
+  E2E_RECEIPT_PATH="$RUN_DIR/e2e-safety-receipt.txt"
+  export E2E_RECEIPT_PATH
   run_flows() {
     if [ -n "$FULL_SUITE" ]; then
       bash "$WORKTREE/app/scripts/e2e-safety.sh"
@@ -148,6 +155,33 @@ if [ "$RUN_FLOWS" -eq 1 ]; then
     fi
   }
   stage flows run_flows
+
+  # --- INFRA-510: the SECOND axis of the same run ---------------------------------------
+  # A green run on a viewport a requested flow does not declare is not merge evidence for
+  # that flow's contract — and the frozen exit alphabet cannot carry that, because
+  # e2e-safety.sh exits 0 on a non-certifying all-green run by design. So the flows stage
+  # above cannot see it and this reads the receipt instead.
+  #
+  # SCOPED TO WHAT THIS CLOSE REQUESTED, never the run-level `certification:` line. The
+  # suite carries more than one certifying target and `e2e_resolve_sim_device` pins ONE
+  # device, so no device yields a run-level CERTIFIED over the whole suite; refusing on it
+  # would refuse every FULL_SUITE close, and the documented response to an unsatisfiable
+  # gate is `--skip-e2e` habit. $FLOWS is UNQUOTED on purpose: it is a space-separated word
+  # list, and quoting it passes one argument containing spaces, which matches no flow name
+  # and silently answers OK. Empty (FULL_SUITE) means every flow was requested.
+  b_close_status_write "$RUN_DIR" certification
+  say "certification"
+  # shellcheck disable=SC2086
+  CERT_WORD="$(b_close_certification_verdict "$E2E_RECEIPT_PATH" $FLOWS)"
+  CERT_VERDICT="$(b_close_stage_verdict certification "$CERT_WORD")"
+  if ! b_close_mergeable "$CERT_VERDICT"; then
+    # shellcheck disable=SC2086
+    CERT_FLOWS="$(b_close_uncertified_intersection "$E2E_RECEIPT_PATH" $FLOWS)"
+    CERT_RAN="$(sed -n 's/^device_viewport:[[:space:]]*//p' "$E2E_RECEIPT_PATH" 2>/dev/null \
+                | head -1)"
+    finish "$CERT_VERDICT" certification \
+      "${CERT_FLOWS:-$CERT_WORD} did not certify on ${CERT_RAN:-an underivable viewport}; receipt: $E2E_RECEIPT_PATH"
+  fi
 else
   say "no sim flows required (service-layer-only safety change)"
 fi

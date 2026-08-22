@@ -3,15 +3,22 @@ tags:
   - safety
 name: "Stale consent, INELIGIBLE cohort (INFRA-481): 988 stays reachable and Acknowledge is not eaten by the FAB"
 
-# e2e-certifies: 393x852
-# INFRA-486 — deliberately NOT 375x667, and this is the one flow in the suite where the
-# smallest viewport is the WRONG certifying target. The assertion at step 10 adjudicates
-# CRISIS_FAB_CLEARANCE, which is a collision between the acknowledge button's top-right
-# corner and the FAB's touch band. On an SE 3 (bottom safe-area inset 0) the button occupies
-# y 595..651 while the band is y 511..579 — they do not intersect AT ANY value of the
-# clearance, so the flow would pass there with the clearance set to zero. Falsifying it
-# needs a device with a non-zero bottom inset. An SE 3 run still exercises everything else
-# and is worth having; it simply does not certify THIS contract.
+# e2e-certifies: 375x667
+# INFRA-510 — this WAS 393x852, for one step that no longer lives here. The
+# CRISIS_FAB_CLEARANCE probe moved to reconsent-stale-ineligible-fab-clearance.yaml, which
+# is where the non-zero bottom inset is required; everything remaining falsifies on the
+# SMALLEST viewport and two steps are worst-case there. Step 4's assertVisible defaults to
+# 100% visibility, and step 6 pins the single control reachable WITHOUT scrolling — both
+# are clipping assertions, which `any` would under-declare and let a large-device run
+# certify.
+#
+# WHY THE SPLIT RATHER THAN A RETAG. The whole file was moved out of the tagged suite once,
+# and that traded a false green for a real one at too coarse a granularity: on an SE 3 the
+# clearance probe passed with the clearance set to ZERO (acknowledge y 595..651, FAB band
+# y 511..579 — disjoint at every clearance value), but steps 4/7/8 falsify there perfectly
+# well and they are this cohort's ONLY 988 witness in the default gate. Retagging removed
+# both. This flow keeps the falsifiable half in `safety`; the vacuous-here half moved to a
+# class that runs where it can be falsified.
 ---
 # INFRA-481 — the ineligible half of the stale-consent cohort. Carved out of INFRA-377,
 # which shipped the RENEWABLE half; the crisis pass rated this branch the higher-severity
@@ -115,23 +122,26 @@ name: "Stale consent, INELIGIBLE cohort (INFRA-481): 988 stays reachable and Ack
 - assertVisible:
     id: "crisis-button-root"
 
-# ── 10. THE LOAD-BEARING ASSERTION — Acknowledge is not eaten by the crisis FAB ───────
-# Element-relative point (Maestro 2.6.0 maps a `point` inside a tapOn selector to
-# `TapOnElementCommand.relativePoint`). TOP-RIGHT CORNER, not the centre and not mid-height:
-# the collision quadrant derived from the FAB's geometry is x >= 91%, y <= 32% of the
-# button, because the band overlaps only the button's upper edge. A centre tap cannot
-# reproduce it, and "95%,50%" is below the band on every device.
+# ── 10. THE SINGLE EXIT WORKS ─────────────────────────────────────────────────────────
+# INFRA-510 — a CENTRE tap, deliberately: no `point:`. At 375x667 the centre is x 163.5 /
+# y 623, which is 44pt clear of the FAB band in y and 155pt in x, so the outcome cannot be
+# contaminated by CRISIS_FAB_CLEARANCE and reads purely as "the one control dismisses the
+# screen". That is a first-class crisis contract here rather than filler: the route sets
+# `gestureEnabled: false` and `headerShown: false`, ReConsentRoute.tsx says outright that
+# the screen has no other exit, and the cohort is minors — so an Acknowledge whose handler
+# was dropped strands them with no gesture dismiss, no header, and no in-app 988
+# destination but the overlay above.
 #
-# With the 72pt clearance the button's right edge sits clear of the band and Acknowledge
-# fires. Remove it (paddingRight -> 24) and the edge falls inside the band, the FAB takes
-# the touch, and step 11 lands on CrisisResources instead of Main.
+# The corner-tap probe that used to be here is the clearance adjudication and needs a
+# non-zero bottom inset to be falsifiable at all; it lives in
+# reconsent-stale-ineligible-fab-clearance.yaml now.
 - tapOn:
     id: "stale-consent-ineligible-acknowledge"
-    point: "98%,10%"
 
 # ── 11. The falsifier pair for step 10 ────────────────────────────────────────────────
-# Clearance intact -> handleDecline + onDismiss pops back to Main. Clearance broken -> the
-# FAB won and we are on CrisisResources. Without BOTH assertions step 10 asserts nothing.
+# handleDecline + onDismiss pops back to Main. The CrisisResources negative is kept even
+# though the centre tap cannot reach the FAB: it stays meaningful as a footer-shifted-
+# wholesale invariant, and it costs nothing.
 - extendedWaitUntil:
     visible:
       id: "home-screen"

@@ -390,12 +390,35 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 # lands on the support line and navigates to CrisisResources. That is what a bare
 # `scrollUntilVisible` did here, and the VirtuousResponse assertion below is what caught
 # it. Centering forces a real scroll, so the tap lands on the button.
+#
+# DEBUG-518 — `timeout: 10000` was Maestro's generic default and was NEVER DERIVED for this
+# step. It is not a "the element cannot be found" budget; it is the budget for the FUTILE
+# CENTRING above to exhaust. Continue is the LAST child of this ScrollView
+# (DailyLoopStepScreen.tsx:382-390) and `centerElement` is structurally unsatisfiable for
+# any element within half a viewport of the content end — centring it needs ~185pt of
+# scroll that does not exist. So the centring phase always runs to exhaustion here, reports
+# COMPLETED, and the tap lands. Same shape, same ruling, as
+# crisis-button-reachability.yaml:400-418.
+#
+#   MEASURED on a quiet SE 3 (375x667), 2026-08-22: this step COMPLETED in 10688ms.
+#   The old 10000 budget was short by 688ms — that, and nothing else, is why this flow
+#   went red. It failed by two thirds of a second.
+#
+#   timeout: 25000 = 2.34x the measurement. Note cost is BUDGET-DEPENDENT
+#   (crisis-button-reachability.yaml:416-419): 10688ms was measured under a deliberately
+#   generous 48000 probe, and the centring phase makes fewer attempts when given less room,
+#   so the real margin under 25000 is wider than 2.34x. Re-measure rather than extrapolate
+#   if this is ever changed.
+#
+# DO NOT "fix" a future red here by dropping `centerElement` — see the paragraph above it.
+# Removing it makes this flow pass (verified 2026-08-22) by deleting the guarantee that a
+# real scroll happened, which is what keeps the tap off the support line.
 - scrollUntilVisible:
     element:
       id: "continue-button"
     direction: DOWN
     centerElement: true
-    timeout: 10000
+    timeout: 25000
 - assertVisible:
     id: "daily-loop-support-line"
 - tapOn:
