@@ -548,7 +548,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | `CollapsibleCrisisButton` re-host in ANY dir | **trigger** crisis-button | Content detection (`CRISIS_HOST_CHANGED`), exempt from inert filter. |
 | Comment merely NAMING the overlay, in any file | **skip** | Not a re-host; changes no rendered output, so no flow can see it. Citing its 44pt decision as a precedent is normal. |
 | `core/services/security` (non-encryption) / `core/navigation` change | **full suite** | Cross-cutting; existing override in Step 2.5.3. |
-| `features/consent/` change | **`deeplink-consent-gate` + `reconsent-stale`** | INFRA-416. Hosts the pre-consent 988 footer (`LegalGate` is in `SUPPRESSED_ROUTES`). The dir hosts TWO gated screens: `reconsent-stale` is the only flow rendering `ReConsentScreen`, and mapping it under `consentStore.ts` alone left screen-level edits gated by a flow that never renders them. |
+| `features/consent/` change | **`deeplink-consent-gate` + `reconsent-stale` + `reconsent-stale-ineligible`** | INFRA-416. Hosts the pre-consent 988 footer (`LegalGate` is in `SUPPRESSED_ROUTES`). The dir hosts TWO gated screens: `reconsent-stale` is the only flow rendering `ReConsentScreen`, and mapping it under `consentStore.ts` alone left screen-level edits gated by a flow that never renders them. |
 | Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
 | `features/journal/` change | **`journal-crisis-scan`** | DEBUG-480. Hosts `scanOnSave`, the only crisis scan of typed/corrected text, plus the in-page banner and 988 action. |
 | `features/guidance/` change | **`guidance-suppressed-handoff`** | FEAT-457. Drives Home entry → suppressed → notice → CrisisResources → 988, and asserts all four tier testIDs ABSENT. Supersedes the INFRA-416 crisis-button fail-safe, which stood only while no flow pinned guidance's threshold routing. |
@@ -559,8 +559,9 @@ alone and the documented gate and the running gate disagree, with the running on
 | `.maestro/<flow>.yaml` added or edited | **trigger** that flow | The flow IS the contract; one that has never run is not coverage. Bypasses the inert filter — a deletion-only diff here is assertions being removed. |
 | `.maestro/_<helper>.yaml` edited | **full suite** | Any flow may include a helper subflow. |
 | `.maestro/crisis-988-dial.yaml` edited | **no sim flow** — hardware notice | `safety-device-only`; sim `canOpenURL` is unconditionally false, so it cannot pass here. Run `e2e:safety:988-dial` on a real iPhone. |
+| A screen carrying `CRISIS_FAB_CLEARANCE` changed, or `CollapsibleCrisisButton` | **notice only** — never scoped | INFRA-510. `reconsent-stale-ineligible-fab-clearance` is `safety-bottom-inset` and declares 393x852; 375x667 has a zero bottom inset, so the collision cannot occur there at any clearance value. Scoping it beside a 375x667 flow is unsatisfiable on one device — the shape that trains `--skip-e2e`. |
 | `.maestro/<flow>.yaml` tagged `safety-dynamic-type` edited | **no sim flow** — instruction | DEBUG-469 / DEBUG-507. The suite selects on an exact `- safety` tag at the DEFAULT content size, so it can neither select nor validly run these. `e2e:safety:ax5` (AX5) and `e2e:safety:xxxl` (largest non-accessibility step) own them. Each needs its own case arm; the `*)` catch-all would fire a pointless full suite. |
-| `src/core/stores/consentStore.ts` | **`deeplink-consent-gate` + `reconsent-stale`** | INFRA-482. File-level, not `src/core/stores/`. Owns the consent-record writes, `canPerformOperation`, the forging seam, and the safety-critical `loadConsent` branch order. Siblings in that dir have no safety surface. |
+| `src/core/stores/consentStore.ts` | **`deeplink-consent-gate` + `reconsent-stale` + `reconsent-stale-ineligible`** | INFRA-482. File-level, not `src/core/stores/`. Owns the consent-record writes, `canPerformOperation`, the forging seam, and the safety-critical `loadConsent` branch order. Siblings in that dir have no safety surface. |
 | `src/core/config/e2eSeed.ts` | **full suite** | Sets the launch state every flow starts from; no narrower scope is valid. |
 | Mixed comment + code on one line / pure type-only edit | **trigger** | Bash can't safely prove inert → bias safe. |
 
@@ -657,8 +658,13 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/' && \
 # and LegalGate is in SUPPRESSED_ROUTES so the root overlay does not cover for it.
 # deeplink-consent-gate.yaml is the flow that lands on that screen and asserts the
 # affordance, so it is the correct scoped target — NOT the fail-safe crisis-button.
+# INFRA-510 added reconsent-stale-ineligible: the dir hosts THREE gated screens and the
+# ineligible one was mapped by nothing, so an edit to it was gated by flows that never
+# render it. Its cohort is minors, on a screen whose route sets gestureEnabled: false and
+# headerShown: false with ONE control and no in-screen crisis section — the root overlay is
+# its only 988 affordance, and this flow is the only witness to it.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/consent/' && \
-  FLOWS+=("deeplink-consent-gate" "reconsent-stale")
+  FLOWS+=("deeplink-consent-gate" "reconsent-stale" "reconsent-stale-ineligible")
 # DEBUG-480: features/journal hosts scanOnSave — the app's only crisis scan of text a
 # user typed or corrected — plus journal-crisis-banner and journal-crisis-call-988.
 # journal-crisis-scan.yaml is the flow that drives that surface, so it is the scoped
@@ -677,7 +683,7 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/journal/' && \
 # than the full suite: unlike e2eSeed.ts it does not author the launch state, it classifies a
 # record that already exists.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/stores/consentStore\.ts' && \
-  FLOWS+=("deeplink-consent-gate" "reconsent-stale")
+  FLOWS+=("deeplink-consent-gate" "reconsent-stale" "reconsent-stale-ineligible")
 # FEAT-457: features/guidance now HAS a flow, closing the INFRA-416 coverage gap this
 # clause used to log. guidanceGate.ts consumes the PHQ-9/GAD-7 thresholds to route a
 # distressed reader to Stoic content vs crisis resources; guidance-suppressed-handoff
@@ -712,6 +718,24 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'dailyloop/screens/DailyLoopDepthSelectSc
   echo "   runs at default content size, so it cannot see either. Validate directly:"
   echo "   npm run e2e:safety:ax5"
 }
+# INFRA-510: the FAB-clearance collision has no sim-suite owner and must not acquire one.
+# Detected by CONTENT, not a path list, so a fifth screen adopting the constant inherits
+# the notice instead of silently escaping it. NOTICE ONLY — see the decision table row.
+CLEARANCE_TOUCHED=""
+while IFS= read -r f; do
+  [ -z "$f" ] && continue
+  case "$f" in
+    *CollapsibleCrisisButton.tsx) CLEARANCE_TOUCHED=1 ;;
+    *) [ -f "$f" ] && grep -q 'CRISIS_FAB_CLEARANCE' "$f" 2>/dev/null && CLEARANCE_TOUCHED=1 ;;
+  esac
+done <<< "$RENDER_BOOT_RELEVANT"
+if [ -n "$CLEARANCE_TOUCHED" ]; then
+  echo "📐 A CRISIS_FAB_CLEARANCE surface changed — the acknowledge/decline control's"
+  echo "   corner shares screen space with the crisis FAB's touch band. The tagged suite"
+  echo "   runs at 375x667, where the bottom safe-area inset is 0 and the two are disjoint"
+  echo "   at EVERY clearance value, so it cannot falsify this. NOT added. Validate on a"
+  echo "   booted 393x852 device: npm run e2e:safety:reconsent-ineligible-fab"
+fi
 # INFRA-184: app.json / Info.plist changes are caught by the precommit jest static-config
 # test (lsApplicationQueriesSchemes.config.test.ts); no Maestro flow runs here. The device-
 # only crisis-988-dial.yaml is tagged safety-device-only and not part of the sim suite.
@@ -749,6 +773,12 @@ while IFS= read -r f; do
       echo "   returns false unconditionally, so this flow cannot pass here and is NOT"
       echo "   added to the run set. Validate on real hardware before merging:"
       echo "   npm run e2e:safety:988-dial (with an iPhone connected)." ;;
+    reconsent-stale-ineligible-fab-clearance.yaml)
+      echo "📐 reconsent-stale-ineligible-fab-clearance.yaml changed — safety-bottom-inset."
+      echo "   It declares 393x852 and the suite's target is 375x667, where the collision"
+      echo "   it adjudicates cannot occur at any clearance value. NOT added, and NOT a"
+      echo "   full-suite trigger. Validate it directly on a booted 393x852 device:"
+      echo "   npm run e2e:safety:reconsent-ineligible-fab" ;;
     daily-loop-ax5-entry.yaml)
       echo "🔠 daily-loop-ax5-entry.yaml changed — safety-dynamic-type. The tagged suite"
       echo "   selects on an exact \`- safety\` tag and runs at the DEFAULT content size,"
@@ -769,6 +799,7 @@ while IFS= read -r f; do
     daily-loop-quick-depth.yaml)     FLOWS+=("daily-loop-quick-depth") ;;
     daily-loop-deeplink.yaml)        FLOWS+=("daily-loop-deeplink") ;;
     deeplink-consent-gate.yaml)      FLOWS+=("deeplink-consent-gate") ;;
+    reconsent-stale-ineligible.yaml) FLOWS+=("reconsent-stale-ineligible") ;;
     guidance-suppressed-handoff.yaml) FLOWS+=("guidance-suppressed-handoff") ;;
     *) FULL_SUITE=1 ;;
   esac
@@ -1075,6 +1106,13 @@ else
   # check and the flow.
   export E2E_REQUIRE_CLEAN_PROVENANCE=1
 
+  # INFRA-510 — name the receipt so the certification verdict below reads THIS run's file.
+  # The default is timestamped and PID-suffixed, so a reader would have to glob for it and
+  # would race every peer gate on the machine. NEVER under the worktree: the provenance
+  # fingerprint hashes untracked file contents repo-wide, so a receipt written there reads
+  # as MISMATCH on the next verify and costs a rebuild.
+  export E2E_RECEIPT_PATH="${TMPDIR:-/tmp}/being-close-receipt-$$.txt"
+
   # INFRA-483 — ONE invocation for the whole scoped set. This used to loop `npm run` per
   # flow; the simulator lease is acquired and released per PROCESS (e2e-safety.sh:266-267),
   # so N flows meant N-1 windows in which a peer's gate build could install over the target
@@ -1113,6 +1151,62 @@ else
     *) echo "❌ e2e-safety.sh exited $E2E_RC — unrecognised. Treat as no verdict."
        exit 1 ;;
   esac
+
+  # --- The SECOND axis of the same run (INFRA-493 AC 7, scoped by INFRA-510) -----------
+  # Exit 0 above means every requested flow was GREEN. It does not mean the run is merge
+  # evidence: a flow declaring 375x667 that ran on 402x874 reports UNCERTIFIED and still
+  # exits 0, because the exit alphabet is frozen at 0/1/2/3 and expressing this as a new
+  # status is the category error INFRA-478's AC 2(a) forbade. The verdict is in the receipt.
+  #
+  # SCOPED TO THE FLOWS THIS CLOSE REQUESTED, never the run-level `certification:` line.
+  # The suite carries more than one certifying target and `e2e_resolve_sim_device` pins ONE
+  # device, so no device yields a run-level CERTIFIED over everything; refusing on that line
+  # would refuse every FULL_SUITE close, and the documented response to an unsatisfiable
+  # gate is `--skip-e2e` habit. FULL_SUITE requests everything, so it passes no names and
+  # the predicate intersects against the whole set.
+  #
+  # Resolved from the REPO ROOT, never $PWD: this block runs with the shell already inside
+  # `app/`, and a capability guard written relative to $PWD fails OPEN there.
+  CERT_HELPER="$(git rev-parse --show-toplevel)/app/scripts/b-close-verdict.sh"
+  if [ ! -r "$CERT_HELPER" ]; then
+    echo "ℹ️  This branch predates INFRA-510 — no certification verdict to read."
+  else
+    # shellcheck source=/dev/null
+    . "$CERT_HELPER"
+    if [ -n "$FULL_SUITE" ]; then
+      CERT_WORD="$(b_close_certification_verdict "$E2E_RECEIPT_PATH")"
+      CERT_FLOWS="$(b_close_uncertified_intersection "$E2E_RECEIPT_PATH")"
+    else
+      CERT_WORD="$(b_close_certification_verdict "$E2E_RECEIPT_PATH" "${FLOWS[@]}")"
+      CERT_FLOWS="$(b_close_uncertified_intersection "$E2E_RECEIPT_PATH" "${FLOWS[@]}")"
+    fi
+    CERT_VERDICT="$(b_close_stage_verdict certification "$CERT_WORD")"
+    CERT_RAN="$(sed -n 's/^device_viewport:[[:space:]]*//p' "$E2E_RECEIPT_PATH" 2>/dev/null | head -1)"
+    CERT_UDID="$(sed -n 's/^device_udid:[[:space:]]*//p' "$E2E_RECEIPT_PATH" 2>/dev/null | head -1)"
+    if b_close_mergeable "$CERT_VERDICT"; then
+      echo "✅ Certification: every requested flow certified its declared viewport (ran ${CERT_RAN:-?})"
+    else
+      echo "❌ $CERT_VERDICT — this run is green but does NOT certify what it ran."
+      case "$CERT_VERDICT" in
+        UNCERTIFIED_FLOW)
+          echo "   Did not certify on ${CERT_RAN:-an underivable viewport}: $CERT_FLOWS"
+          echo "   Each flow's declared target is in the receipt's results: lines."
+          echo "   Boot the declared device (a viewport is not bootable; a model is), then"
+          echo "   shut this one down — the gate refuses at 2+ booted:"
+          echo "     xcrun simctl shutdown ${CERT_UDID:-<current-udid>}"
+          echo "     xcrun simctl boot 'iPhone SE (3rd generation)'   # 375x667" ;;
+        CERT_VOID)
+          echo "   The gate target moved mid-suite (INFRA-434), so no flow is vouched for." ;;
+        CERT_NO_RECEIPT)
+          echo "   No receipt at $E2E_RECEIPT_PATH. Absence of evidence is a refusal here." ;;
+        *)
+          echo "   Unrecognised certification token '$CERT_WORD' — treat as no verdict." ;;
+      esac
+      echo "   Do NOT add a bypass flag; --skip-e2e stays hotfix-only."
+      echo "   Receipt: $E2E_RECEIPT_PATH"
+      exit 1
+    fi
+  fi
 fi
 ```
 
