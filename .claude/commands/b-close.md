@@ -1067,7 +1067,10 @@ else
        exit 1 ;;
     2) echo "❌ The gate harness could not complete (exit 2) — NOT a flow regression."
        echo "   No verdict was produced, so this is neither a pass nor a failure."
-       echo "   Diagnose the harness before re-running; do not re-run blind."
+       echo "   READ THE MESSAGE before re-running: since DEBUG-505 this code also carries"
+       echo "   invocation errors and pre-flight refusals, most of which are self-clearing"
+       echo "   (an unbuilt target needs one build; a stale marker needs a rebuild). Only a"
+       echo "   wedged simulator or an unresponsive machine needs diagnosis first."
        exit 1 ;;
     3) echo "❌ The gate TARGET WAS REPLACED mid-suite (exit 3, INFRA-434) — NOT a regression."
        echo "   A peer replaced the installed app, so completed flows are VOID, not PASS."

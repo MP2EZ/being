@@ -937,8 +937,10 @@ most needs to catch.
   sim build entirely for service-layer-only changes), verifies sim readiness, and fails
   closed. A flow failure there → `queued_red` with the verbatim output, continue to the next
   item; never weaken a flow, never `--skip-e2e`. A gate that ABORTS without a verdict is
-  neither a pass nor a failure: park it with `blocked_by` set to the gate defect, since no
-  attended session can clear it.
+  neither a pass nor a failure — but do not park it reflexively. Since DEBUG-505 that exit
+  also carries invocation errors and pre-flight refusals, and most are self-clearing by one
+  rebuild, so they belong in `queued_red`. Park only what an attended session genuinely
+  cannot clear: a wedged simulator, an unresponsive host, a real gate defect.
 - **GREEN** (re-check clean) → proceed to Step 3.3.
 
 ### Step 3.3: Close via /b-close (pre-answer its human prompts)
