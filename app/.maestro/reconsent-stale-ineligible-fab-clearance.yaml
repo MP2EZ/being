@@ -23,8 +23,15 @@ name: "Stale consent, INELIGIBLE cohort (INFRA-510): Acknowledge is not eaten by
 # a consent-path close already requests reconsent-stale (375x667), so requesting this one
 # alongside would make every consent close unmergeable whichever simulator is booted.
 #
-# Run it by hand, on a booted 393x852 device (iPhone 14/15/16 Pro, iPhone 13/14):
+# Run it by hand, on a booted 393x852 device (iPhone 16 derives exactly 393x852; iPhone 16
+# Pro is 402x874 and does NOT certify this flow):
 #   npm run e2e:safety:reconsent-ineligible-fab
+#
+# FALSIFICATION-PROVEN on iPhone 16 / iOS 18.6 (INFRA-510): green as authored, and with
+# CRISIS_FAB_CLEARANCE dropped from spacing[72] to spacing[24] it goes RED on step 8 with
+# "Assertion is false: id: home-screen is visible" — the FAB takes the touch and the app
+# lands on CrisisResources. Re-verify that way if you ever doubt this flow adjudicates
+# anything; a probe that cannot go red is the false green this class exists to avoid.
 ---
 # The seed is reproduced rather than shared, because this flow re-runs it in its own
 # process. See reconsent-stale-ineligible.yaml for why the marker needs a COLD start

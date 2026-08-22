@@ -34,7 +34,7 @@ flow cannot be validly run on the suite's target:
 |---|---|---|
 | `safety` | — (this is the suite) | `npm run e2e:safety` |
 | `safety-device-only` | sim `canOpenURL` is unconditionally false; sim raises no software keyboard | `e2e:safety:988-dial`, `e2e:safety:keyboard-accessory` — real iPhone |
-| `safety-dynamic-type` | content size is device-global; a bare run poisons the shared sim | `npm run e2e:safety:ax5` |
+| `safety-dynamic-type` | content size is device-global; a bare run poisons the shared sim | `e2e:safety:ax5`, `e2e:safety:xxxl` |
 | `safety-bottom-inset` | needs a non-zero bottom safe-area inset; the collision it adjudicates cannot occur at 375x667 at any clearance value | `npm run e2e:safety:reconsent-ineligible-fab` — booted 393x852 |
 
 Every class but the first two must declare `# e2e-certifies:` — pinned by
