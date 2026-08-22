@@ -914,6 +914,97 @@ EOF
   fi
 fi
 
+# DEBUG-506 — the software keyboard must actually be able to rise, and be a KEYBOARD.
+#
+# Two distinct pieces of per-simulator state gate this, and only one of them was ever
+# suspected. `crisis-keyboard-accessory.yaml` is `safety-device-only` on the recorded
+# grounds that "the simulator boots with Connect Hardware Keyboard enabled, so tapping into
+# a TextInput raises NO software keyboard". Measured on the gate simulator (iPhone SE 3 /
+# iOS 18.6): that is FALSE. `ConnectHardwareKeyboard` is unset both globally and per-device,
+# and a software keyboard rises at the default — `UIKeyboardLayoutStar Preview` at
+# [0,451][375,667], the same bounds DEBUG-506's own evidence table records.
+#
+# What actually blocks it is iOS's QuickPath first-run tutorial ("Speed up your typing by
+# sliding your finger…"). It occupies the keyboard's whole region, it is NOT a keyboard
+# node, and it is per-simulator state that `simctl erase` restores — so the first flow to
+# raise a keyboard on a fresh simulator fails its keyboard assertion against a healthy app.
+# Exactly DEBUG-422's shape: system state that outlives the flow which raised it, invisible
+# on a long-green machine because someone dismissed it by hand once.
+#
+# `journal-crisis-scan.yaml` is IN the default suite and asserts `UIKeyboardLayoutStar
+# Preview` three times, so this is a live false-red on the gate, not a hypothetical.
+#
+# SCOPED to runs that can actually put a keyboard on screen, for the same reason the scheme
+# approval is scoped to flows that actually `openLink`: this simulator is shared across
+# worktrees, and device-wide state a run has no use for is not that run's to write.
+#
+# The predicate deliberately is NOT just `inputText`. `crisis-keyboard-accessory.yaml` taps
+# into a field and asserts WITHOUT typing, so an inputText-only scan would skip seeding for
+# the one flow this exists to serve — a false-red aimed precisely at the crisis affordance.
+KEYBOARD_MARKERS='inputText|UIKeyboardLayoutStar|SystemInputAssistantView|keyboard-accessory|[A-Za-z0-9-]+-input'
+
+if [ -n "$SIM_UDID" ]; then
+  # Reuse the scheme block's scan set — selected flows plus one level of `runFlow:` helpers,
+  # since a helper can raise a keyboard just as it can open a link. Falls back to the flow
+  # list itself if that block did not populate it.
+  KBD_SCAN_FILES=()
+  if [ "${#SCHEME_SCAN_FILES[@]}" -gt 0 ] 2>/dev/null; then
+    KBD_SCAN_FILES=("${SCHEME_SCAN_FILES[@]}")
+  else
+    KBD_SCAN_FILES=("${FLOWS[@]}")
+  fi
+
+  if ! grep -hqE "$KEYBOARD_MARKERS" "${KBD_SCAN_FILES[@]}" 2>/dev/null; then
+    echo "✓ no selected flow raises a software keyboard — keyboard pre-flight skipped"
+  else
+
+  KBD_DOMAIN="com.apple.keyboard.preferences"
+
+  # 1. Refuse a hardware keyboard rather than silently seeding one. This is HOST-side state
+  #    (com.apple.iphonesimulator), it needs Simulator.app to reload to take effect, and a
+  #    write we cannot prove landed is the defect this gate already refuses elsewhere. The
+  #    default is correct, so assert it and say what to do when it is not.
+  CHK_GLOBAL="$(defaults read com.apple.iphonesimulator ConnectHardwareKeyboard 2>/dev/null | tr -d '[:space:]')"
+  CHK_DEVICE="$(/usr/libexec/PlistBuddy -c "Print :DevicePreferences:$SIM_UDID:ConnectHardwareKeyboard" \
+    ~/Library/Preferences/com.apple.iphonesimulator.plist 2>/dev/null | tr -d '[:space:]')"
+  if [ "$CHK_GLOBAL" = "1" ] || [ "$CHK_DEVICE" = "true" ] || [ "$CHK_DEVICE" = "1" ]; then
+    echo "❌ e2e:safety pre-flight — Connect Hardware Keyboard is ON for $SIM_UDID." >&2
+    echo "   No software keyboard will rise, so any keyboard-up assertion fails against a" >&2
+    echo "   healthy app — and any flow that merely assumes occlusion passes for the wrong" >&2
+    echo "   reason. Turn it off in Simulator ▸ I/O ▸ Keyboard ▸ Connect Hardware Keyboard," >&2
+    echo "   or clear the pref and restart Simulator.app:" >&2
+    echo "     defaults delete com.apple.iphonesimulator ConnectHardwareKeyboard" >&2
+    # Not fixed by rebuilding, and no flow has run. Same arm as the scheme-approval failure.
+    exit 2
+  fi
+
+  # 2. Seed the QuickPath tutorial as already-seen. Idempotent and additive, per the shared
+  #    simulator rule above: read first, write only what is missing, never reset the domain.
+  CPI="$(xcrun simctl spawn "$SIM_UDID" defaults read "$KBD_DOMAIN" DidShowContinuousPathIntroduction 2>/dev/null | tr -d '[:space:]')"
+  if [ "$CPI" = "1" ]; then
+    echo "✓ QuickPath intro already dismissed on $SIM_UDID"
+  else
+    xcrun simctl spawn "$SIM_UDID" defaults write "$KBD_DOMAIN" \
+      DidShowContinuousPathIntroduction -bool true 2>/dev/null || true
+
+    # READ BACK, for the same reason the scheme approval does: `defaults write` can exit 0
+    # without the value landing where the keyboard will look for it.
+    CPI_VERIFY="$(xcrun simctl spawn "$SIM_UDID" defaults read "$KBD_DOMAIN" DidShowContinuousPathIntroduction 2>/dev/null | tr -d '[:space:]')"
+    if [ "$CPI_VERIFY" = "1" ]; then
+      echo "✓ QuickPath intro seeded as dismissed: $KBD_DOMAIN DidShowContinuousPathIntroduction = 1 (DEBUG-506)"
+    else
+      echo "❌ e2e:safety pre-flight — could not seed the QuickPath intro flag on $SIM_UDID." >&2
+      echo "   Wrote DidShowContinuousPathIntroduction but read back '${CPI_VERIFY:-<nothing>}'." >&2
+      echo "   Without it the first flow to focus a text field gets the typing tutorial where" >&2
+      echo "   the keyboard should be, and fails its keyboard assertion against a healthy app." >&2
+      echo "   This is NOT fixed by rebuilding. Check the simulator is responsive:" >&2
+      echo "     xcrun simctl spawn $SIM_UDID defaults read $KBD_DOMAIN" >&2
+      exit 2
+    fi
+  fi
+  fi
+fi
+
 # INFRA-423 — PRE-FLIGHT reset, before flow 1.
 #
 # The reset used to exist only INSIDE the per-flow loop, so a driver left wedged by this
