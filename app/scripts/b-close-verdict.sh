@@ -5,7 +5,7 @@
 #
 # WHY THIS FILE EXISTS
 # --------------------
-# `/b-close` Phase 2.5 blocks the calling session for the gate build (~90 s warm, ~7 min
+# `/b-close` Phase 2.5 blocks the calling session for the gate build (1-4 min warm, 11-14 min
 # post-regen, 21m31s cold) plus the scoped flows (1-12 min). Serialising closes on the
 # INFRA-436/463/472 leases is correct, but each blocked session is a blocked operator, and
 # a silent terminal is indistinguishable from a hang. Detaching that block is cheap.

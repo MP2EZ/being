@@ -169,7 +169,7 @@ Wraps the app and provides PostHog context. Key behaviors:
 
 Whitelist-based validation ensuring only safe events are transmitted.
 
-**Whitelisted Events (27 total):**
+**Whitelisted Events (25 total):**
 - App lifecycle: `app_opened`, `app_backgrounded`, `session_started`, `session_ended`
 - Navigation: `screen_viewed`
 - Features: `check_in_started/completed`, `assessment_started/completed`, `practice_started/completed`, `breathing_exercise_started/completed`
@@ -178,9 +178,30 @@ Whitelist-based validation ensuring only safe events are transmitted.
 - Errors: `error_occurred`
 - Onboarding: `onboarding_started/completed/step_completed`
 - Learn: `learn_content_viewed`, `learn_module_started/completed`
+- Guidance: `guidance_opened` (FEAT-457) — **no properties, ever**
+
+> The count above was stated as 27 before FEAT-457 and the whitelist held 24; it is
+> derived by hand and had drifted. Read it from `PHIFilter.SAFE_EVENT_TYPES`, not
+> from here, if the exact number matters.
+
+**`guidance_opened` carries no `domain` — this is a ruling, not an omission.**
+Domain-specific guidance is summoned for a named hardship (`conflict`, `career`,
+`grief`, `pain`). That domain is a self-disclosed wellness inference — "this user
+opened grief" — and shipping it would contradict the **What We NEVER Collect**
+commitment below ("Any mental health data"), which is a published promise and so an
+FTC Act §5 exposure rather than a disclosure gap that could be closed by editing
+this document. It would also trip the DPIA's material-change trigger for a new
+category of sensitive wellness data, and require new App Store mental-health privacy
+labels. The event therefore measures REACH only, consistent with the house pattern:
+`assessment_started` carries no score, `crisis_resources_viewed` carries no contact
+details.
+
+The four domain tokens are additionally in the blocklist below, so a future
+reintroduction of a `domain` property fails closed instead of shipping. Pinned by
+`app/__tests__/privacy/guidanceAnalyticsBoundary.contract.test.ts`.
 
 **Blocked PHI Keywords:**
-`score`, `phq`, `gad`, `severity`, `result`, `mood`, `feeling`, `emotion`, `anxious`, `depressed`, `crisis_contact`, `emergency_contact`, `hotline_number`, `suicid`, `harm`, `journal`, `note`, `entry`, `reflection`, `thought`, `email`, `phone`, `name`, `address`
+`score`, `phq`, `gad`, `severity`, `result`, `mood`, `feeling`, `emotion`, `anxious`, `depressed`, `crisis_contact`, `emergency_contact`, `hotline_number`, `suicid`, `harm`, `journal`, `note`, `entry`, `reflection`, `thought`, `email`, `phone`, `name`, `address`, `conflict`, `career`, `grief`, `pain`
 
 **Safe Numeric Keys** (allowed in event data):
 `duration`, `duration_ms`, `duration_seconds`, `count`, `timestamp`, `step`, `index`, `page`, `version`

@@ -63,6 +63,26 @@ e2e_booted_devices() {
   ' 2>/dev/null || return 1
 }
 
+# e2e_match_booted_udid <pin> <listing>
+#
+# Echoes the booted UDID exactly equal to <pin>, or nothing. Never a partial match.
+#
+# The predecessor was `grep -F "$pin"` against the whole `<udid>\t<name>` line, piped to
+# `cut -f1`. Two ways that accepts a pin it should refuse, and both RESOLVE A DEVICE rather
+# than erroring: a truncated or half-pasted UDID matches as a substring, and a pin that
+# happens to appear in the NAME column matches that line and hands back its UDID — so
+# E2E_SIM_UDID=iPhone resolved an arbitrary simulator and reported success. That is the same
+# accept-when-it-should-refuse failure this function's reordering exists to close, so the
+# match has to tighten with it; the reorder alone would put the loose matcher on the hot
+# path for every single-booted run.
+#
+# Field 1 only, string equality. Case-sensitive, matching simctl's own uppercase output.
+e2e_match_booted_udid() {
+  local pin="${1:-}" listing="${2:-}"
+  [ -n "$pin" ] || return 1
+  printf '%s\n' "$listing" | awk -F'\t' -v p="$pin" '$1 == p { print $1; exit }'
+}
+
 # e2e_resolve_sim_device <context-label>
 #
 # Echoes the resolved UDID on stdout. Diagnostics go to stderr so the caller can wrap the
@@ -71,7 +91,14 @@ e2e_booted_devices() {
 # Exit 0  resolved; UDID on stdout
 # Exit 1  could not ENUMERATE devices
 # Exit 2  zero devices booted
-# Exit 3  ambiguous: 2+ booted and no usable E2E_SIM_UDID override
+# Exit 3  REFUSED, for either of two distinguishable reasons (DEBUG-497):
+#           - E2E_SIM_UDID names a device that is not booted, at any count; or
+#           - 2+ booted and no override to disambiguate them.
+#         One code, two messages. No caller reads this function's status — every one
+#         collapses it (`|| exit 1`, `|| exit 2`, or fail()) — so a fourth code would be
+#         unobservable while risking collision with e2e-safety.sh's own 3. The MESSAGE is
+#         what has to differ: telling someone to shut a simulator down when the device
+#         they pinned simply is not running sends them the wrong way.
 #
 # FAILS CLOSED on every non-zero path — it never falls back to the literal `booted`. The
 # obvious shorthand `DEV="${UDID:-booted}"` is deliberately NOT used anywhere: it restores
@@ -308,25 +335,75 @@ e2e_flow_certifies() {
   return 0
 }
 
+# e2e_run_certifies <declared> <ran>   →  `yes` | `no`   (INFRA-493)
+#
+# THE SINGLE AUTHORITY on whether a run certifies a flow. Both the human-readable label
+# below and the verdict token in e2e-safety.sh derive from this one call, because two
+# independent copies of the comparison drift: a summary line reading "certifies 375x667"
+# beside a receipt reading UNCERTIFIED, with both halves looking right in isolation and
+# nothing able to catch it. A jest pin drives the whole matrix through both.
+#
+# An underivable viewport is NON-certifying for a layout-sensitive flow — "we could not
+# derive it" and "it was wrong" are the same quality of evidence. It is still certifying
+# for a viewport-independent one: not knowing the viewport cannot invalidate a contract
+# that never depended on it, and widening the refusal to those flows is what makes a gate
+# unsatisfiable, which is the pressure that produces `--skip-e2e`.
+#
+# A PREDICATE, NOT A GATE — exits 0 on every path including the refusing one. The refusal
+# is `/b-close`'s, over the receipt. A non-zero here would land inside `set -e` territory
+# in three sourcing scripts and refuse the RUN rather than the MERGE.
+e2e_run_certifies() {
+  local declared="${1:-}" ran="${2:-unknown}"
+  [ "$declared" = "any" ] && { printf 'yes\n'; return 0; }
+  [ "$ran" = "unknown" ] && { printf 'no\n'; return 0; }
+  [ "$declared" = "$ran" ] && { printf 'yes\n'; return 0; }
+  printf 'no\n'
+  return 0
+}
+
 # e2e_flow_certification_note <declared> <ran>
 #
-# The label that goes beside a per-flow result. An underivable viewport counts as NON-
-# certifying: "we could not derive it" and "it was wrong" are the same quality of evidence.
+# The label that goes beside a per-flow result. It CONSUMES the predicate above rather
+# than re-deriving it; only the WORDING is decided here.
 e2e_flow_certification_note() {
   local declared="${1:-}" ran="${2:-unknown}"
-  if [ "$declared" = "any" ]; then
-    printf 'viewport-independent\n'
+  if [ "$(e2e_run_certifies "$declared" "$ran")" = "yes" ]; then
+    [ "$declared" = "any" ] && { printf 'viewport-independent\n'; return 0; }
+    printf 'certifies %s\n' "$declared"
     return 0
   fi
   if [ "$ran" = "unknown" ]; then
     printf 'declares %s, viewport underivable — does not certify\n' "$declared"
     return 0
   fi
-  if [ "$declared" = "$ran" ]; then
-    printf 'certifies %s\n' "$declared"
-    return 0
-  fi
   printf 'declares %s, ran %s — does not certify\n' "$declared" "$ran"
+  return 0
+}
+
+# e2e_uncertified_remediation <ran-viewport> <current-udid>   (INFRA-493)
+#
+# What an operator does about an UNCERTIFIED verdict. PRINTS THE COMMAND; NEVER RUNS IT.
+# The gate must not boot or create simulators: the simulator is shared across worktrees and
+# INFRA-423's driver-ownership classifier assumes the operator owns the boot, so booting
+# one here contaminates a peer's run. A jest pin stubs `xcrun` on PATH and asserts it is
+# never invoked, rather than trusting this to look side-effect-free.
+#
+# Remediation must be ONE COMMAND. That is the whole reason this refusal does not train the
+# `--skip-e2e` reflex — an operator who has to interpret a paragraph reaches for the bypass.
+# The current device is named because `e2e_resolve_sim_device` refuses at 2+ booted, so
+# booting the SE 3 alongside it produces exit 3 instead of a fix.
+# STDOUT, not stderr: the only caller is inside e2e-safety.sh's verdict summary, which is
+# all stdout. Splitting one block across two streams scrambles it under any redirect.
+e2e_uncertified_remediation() {
+  local ran="${1:-unknown}" udid="${2:-<udid>}"
+  echo "   This run was on ${ran}. Each line above names what that flow declares."
+  echo "   Boot the declared device (a viewport is not bootable; a model is):"
+  echo "     xcrun simctl shutdown ${udid} && xcrun simctl boot '${E2E_SMALLEST_SUPPORTED_MODEL}'"
+  echo "   Then re-run /b-close, which rebuilds onto it and re-runs the scoped set."
+  echo "   By hand it is two steps, because the app is not installed on the new device:"
+  echo "     npm run e2e:safety:gate && npm run e2e:safety"
+  echo "   The gate does not boot it for you — the simulator is shared across worktrees and"
+  echo "   whoever owns the boot owns the driver (INFRA-423). Check the UDID above is yours."
   return 0
 }
 
@@ -348,23 +425,39 @@ e2e_resolve_sim_device() {
 
   count="$(printf '%s\n' "$listing" | grep -c .)"
 
-  if [ "$count" -eq 1 ]; then
-    udid="$(printf '%s' "$listing" | cut -f1)"
-    e2e_warn_if_not_smallest_viewport "$udid" "$listing"
-    printf '%s' "$udid"
-    return 0
-  fi
-
-  # 2+ booted. Honour an explicit override when it names one of them; otherwise refuse.
+  # DEBUG-497 — the pin is read BEFORE the count branches, and applies at ANY count.
+  #
+  # It used to live only in the 2+ arm, below the single-booted short-circuit, so with one
+  # simulator booted the override was ignored entirely: a build pinned to an iPhone 16 Pro
+  # rebuilt onto the booted SE 3 and reported "installed and verified". Nothing caught it
+  # until a post-hoc provenance verify came back MISSING on the intended device. A
+  # measurement attributed to the wrong device is worse than no measurement, and the
+  # override was already documented — in this file's own refusal text — as the remedy.
+  #
+  # Ordering it first also subsumes the old 2+ override path, so there is ONE pin arm with
+  # one message rather than a rule that changes shape with the device count.
   if [ -n "${E2E_SIM_UDID:-}" ]; then
-    if udid="$(printf '%s\n' "$listing" | grep -F "$E2E_SIM_UDID" | cut -f1 | head -1)" && [ -n "$udid" ]; then
+    if udid="$(e2e_match_booted_udid "$E2E_SIM_UDID" "$listing")" && [ -n "$udid" ]; then
       e2e_warn_if_not_smallest_viewport "$udid" "$listing"
       printf '%s' "$udid"
       return 0
     fi
     echo "❌ E2E_SIM_UDID=$E2E_SIM_UDID is not among the booted simulators." >&2
+    echo "   This is a PIN MISMATCH, not a multi-device collision: nothing booted is the" >&2
+    echo "   device you named, so substituting one would attribute the $context to the" >&2
+    echo "   wrong hardware. Booted now:" >&2
     printf '%s\n' "$listing" | sed 's/^/     /' >&2
+    echo "   Boot the device you pinned, then re-run:" >&2
+    echo "     xcrun simctl boot $E2E_SIM_UDID" >&2
+    echo "   Clear E2E_SIM_UDID only if you actually meant a device listed above." >&2
     return 3
+  fi
+
+  if [ "$count" -eq 1 ]; then
+    udid="$(printf '%s' "$listing" | cut -f1)"
+    e2e_warn_if_not_smallest_viewport "$udid" "$listing"
+    printf '%s' "$udid"
+    return 0
   fi
 
   echo "❌ $count simulators booted; 'booted' is ambiguous — simctl picks one of them and" >&2

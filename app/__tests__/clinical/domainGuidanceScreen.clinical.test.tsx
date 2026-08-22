@@ -114,6 +114,9 @@ describe('DomainGuidanceScreen — suppressed readers see no philosophy', () => 
     ['PHQ-9 Q9 > 0 at a low total', () => { mockStore.phq9 = phq9(3, true); mockStore.gad7 = gad7(1); }],
     ['PHQ-9 at the severe floor', () => { mockStore.phq9 = phq9(20); mockStore.gad7 = gad7(1); }],
     ['GAD-7 at the severe floor', () => { mockStore.phq9 = phq9(1); mockStore.gad7 = gad7(15); }],
+    // FEAT-457: a calm PHQ-9 must not rescue a severe GAD-7 now that the GAD-7
+    // arm carries a gentle band directly beneath its suppression floor.
+    ['GAD-7 severe with a benign PHQ-9', () => { mockStore.phq9 = phq9(2); mockStore.gad7 = gad7(15); }],
   ] as const;
 
   for (const [label, seed] of SUPPRESSING) {
@@ -123,10 +126,15 @@ describe('DomainGuidanceScreen — suppressed readers see no philosophy', () => 
 
       await waitFor(() => expect(getByTestId('guidance-suppression-notice')).toBeTruthy());
 
-      // The invariant, stated three ways so a partial regression cannot slip past.
+      // The invariant, stated five ways so a partial regression cannot slip past.
+      // FEAT-457 added tier2/tier3 to this list: a suppression check that names
+      // only the tiers that existed when it was written silently stops covering
+      // the ones added later.
       expect(queryByTestId('guidance-content')).toBeNull();
       expect(queryByTestId('guidance-tier0')).toBeNull();
       expect(queryByTestId('guidance-tier1')).toBeNull();
+      expect(queryByTestId('guidance-tier2')).toBeNull();
+      expect(queryByTestId('guidance-tier3')).toBeNull();
 
       // The route out is OFFERED, not taken for them.
       expect(getByTestId('guidance-open-crisis-resources')).toBeTruthy();
@@ -275,23 +283,27 @@ describe('DomainGuidanceScreen — the gentle band', () => {
 });
 
 /**
- * 🔴 A DELIBERATE TRIPWIRE FOR FEAT-457 — this test is DESIGNED to go red there.
+ * FEAT-457 — what slice 3a's tripwire became.
  *
- * `guidanceGate.ts` has no GAD-7 gentle band: GAD-7 is used only for suppression at
- * ≥15, while PHQ-9 gets a 15-19 band. So GAD-7 10-14 resolves to `full`.
+ * Slice 3a left a block here asserting `full` and `gentle` render an IDENTICAL
+ * tier set, designed to go RED in this item. It did not go red, and that is the
+ * correct outcome rather than a missed signal — but it is also the trap, so read
+ * this before touching either case below.
  *
- * That is INERT in slice 3a, because `full` and `gentle` both render Tier 0/1 and
- * nothing else — no reader sees anything the gate would have withheld. It stops being
- * inert the moment Tier 2/3 render, at which point a GAD-7 12 reader gets the complete
- * ladder while a PHQ-9 17 reader does not.
+ * The tripwire anticipated that FEAT-457 would resolve the GAD-7 gap by ACCEPTING
+ * the divergence: GAD-7 12 keeps `full`, gets the four-tier ladder, equality
+ * breaks. The `crisis` pass ruled the other way — GAD-7 10-14 JOINS the gentle
+ * band — so the equality still holds, for an entirely new reason. What was an
+ * accident of both levels rendering two tiers is now a decision.
  *
- * Asserting the two levels are IDENTICAL is therefore not a tautology to be deleted:
- * it is what makes that gap surface as a failing build in FEAT-457 rather than
- * shipping silently. FEAT-457 must replace it with a real divergence assertion, and
- * resolve the GAD-7 floor (a NEW safety threshold, needing crisis + philosopher
- * sign-off) before it does.
+ * 🔴 SO A GREEN TRIPWIRE NO LONGER DISTINGUISHES "the gap was closed" FROM
+ * "Tier 2/3 never render at all". `renders the complete ladder` below is what
+ * separates them, and it is MANDATORY: without it the equality case is pinning
+ * nothing, because two empty tier sets are also equal. Same discipline as
+ * DEBUG-390's comment-stripping regex and `check:breathing-worklets` — a
+ * structural pin is only worth its cost if it can still go red.
  */
-describe('FEAT-457 tripwire — full and gentle render an identical tier set', () => {
+describe('FEAT-457 — the gentle band caps the ladder identically on both axes', () => {
   const tierSet = async () => {
     const { getByTestId, queryByTestId } = render(<DomainGuidanceScreen />);
     await waitFor(() => expect(getByTestId('guidance-content')).toBeTruthy());
@@ -303,17 +315,106 @@ describe('FEAT-457 tripwire — full and gentle render an identical tier set', (
     };
   };
 
-  it('GAD-7 in the unbanded 10-14 range sees exactly what the PHQ-9 gentle band sees', async () => {
+  it('GAD-7 10-14 sees exactly what the PHQ-9 gentle band sees', async () => {
     mockStore.phq9 = phq9(2);
-    mockStore.gad7 = gad7(12); // resolves to `full` — no GAD-7 gentle band exists
-    const full = await tierSet();
+    mockStore.gad7 = gad7(12); // gentle since FEAT-457; was `full` in slice 3a
+    const viaGad7 = await tierSet();
 
-    mockStore.phq9 = phq9(17); // resolves to `gentle`
+    mockStore.phq9 = phq9(17); // gentle via the PHQ-9 support floor
     mockStore.gad7 = gad7(2);
     clearGuidanceContentCache();
-    const gentle = await tierSet();
+    const viaPhq9 = await tierSet();
 
-    expect(full).toEqual(gentle);
-    expect(full).toEqual({ tier0: true, tier1: true, tier2: false, tier3: false });
+    expect(viaGad7).toEqual(viaPhq9);
+    expect(viaGad7).toEqual({ tier0: true, tier1: true, tier2: false, tier3: false });
+  });
+
+  it('renders the complete ladder when BOTH axes are below every floor', async () => {
+    // The control. If this ever goes red, the case above is vacuous and any
+    // conclusion drawn from its green is void.
+    mockStore.phq9 = phq9(2);
+    mockStore.gad7 = gad7(2);
+    expect(await tierSet()).toEqual({ tier0: true, tier1: true, tier2: true, tier3: true });
+  });
+
+  it('caps at Tier 1 across the whole GAD-7 gentle band, not merely at its floor', async () => {
+    for (const total of [10, 11, 12, 13, 14]) {
+      mockStore.phq9 = phq9(2);
+      mockStore.gad7 = gad7(total);
+      clearGuidanceContentCache();
+      expect(await tierSet()).toEqual({
+        tier0: true,
+        tier1: true,
+        tier2: false,
+        tier3: false,
+      });
+    }
+  });
+});
+
+/**
+ * FEAT-457 — Tier 2/3 content integrity at `full`.
+ *
+ * These are `philosopher`-ruled presentation contracts, not styling preferences.
+ * Each one names the specific harm it prevents, because every one of them is the
+ * kind of thing a later "tidy-up" removes on aesthetic grounds.
+ */
+describe('FEAT-457 — Tier 2/3 render their content in full', () => {
+  const renderFull = async () => {
+    mockStore.phq9 = phq9(2);
+    mockStore.gad7 = gad7(2);
+    const utils = render(<DomainGuidanceScreen />);
+    await waitFor(() => expect(utils.getByTestId('guidance-tier2')).toBeTruthy());
+    return utils;
+  };
+
+  it('renders every protocol concept with its learnMore INLINE — no disclosure control', async () => {
+    // `protocol[1].learnMore` is the anti-quietism corrective: the concept body
+    // supplies "you cannot control what another person thinks" and "the suffering
+    // comes from trying anyway" with no counterweight. Tap-gating it ships the
+    // misreading as the default reading and the correction as opt-in.
+    const { getByTestId } = await renderFull();
+    for (const index of [0, 1, 2]) {
+      expect(getByTestId(`guidance-tier2-concept-${index}`)).toBeTruthy();
+      expect(getByTestId(`guidance-tier2-concept-${index}-more`)).toBeTruthy();
+    }
+  });
+
+  it('renders all three obstacles WITH their tips, none collapsed', async () => {
+    // The response diagnoses; the tip prescribes. `obstacles[0].tip` is the exit
+    // from the "should I just put up with this?" guard — a validated reframe with
+    // no exit is quietism reached by omission.
+    const { getByTestId } = await renderFull();
+    for (const index of [0, 1, 2]) {
+      expect(getByTestId(`guidance-tier2-obstacle-${index}`)).toBeTruthy();
+      expect(getByTestId(`guidance-tier2-obstacle-${index}-tip`)).toBeTruthy();
+    }
+  });
+
+  it('names both bound principles as a trailing label, never leading with them', async () => {
+    // `domainBindings.ts` clause 2: principles are revealed AFTER the guidance,
+    // never as the way in. The pair is read from the binding table, so a content
+    // file that forgets to name them in prose still attributes correctly.
+    const { getByTestId } = await renderFull();
+    expect(getByTestId('guidance-tier2-principles')).toBeTruthy();
+    const value = getByTestId('guidance-tier2-principles-value');
+    expect(value.props.children).toBe('Interconnected Living · Aware Presence');
+    // Parity between the spoken and the visible label (compliance ruling): a
+    // screen-reader user must not get a reduced version of a cleared surface.
+    expect(value.props.accessibilityLabel).toBe(
+      'Principles: Interconnected Living, Aware Presence'
+    );
+    // Sphere Sovereignty is drawn on by protocol[1] but deliberately NOT named —
+    // it is career's and pain's primary, and naming it here blunts the
+    // cross-domain differentiation the binding table exists to preserve.
+    expect(value.props.children).not.toContain('Sphere Sovereignty');
+  });
+
+  it('carries the translator credit on the classical anchor', async () => {
+    // Mandatory, not stylistic: DEBUG-343 exists because a module shipped without
+    // it, and the credit is what makes the string auditable as public domain.
+    const { getByTestId } = await renderFull();
+    const attribution = getByTestId('guidance-tier3-attribution');
+    expect(JSON.stringify(attribution.props.children ?? '')).toContain('trans. George Long');
   });
 });

@@ -33,6 +33,10 @@ import { decideGuidanceAccess } from '@/features/guidance/services/guidanceGate'
 const PHQ9_SEVERE = CRISIS_SAFETY_THRESHOLDS.PHQ9_SEVERE_THRESHOLD; // 20
 const GAD7_SEVERE = CRISIS_SAFETY_THRESHOLDS.GAD7_SEVERE_THRESHOLD; // 15
 const PHQ9_SUPPORT = CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE; // 15
+// FEAT-457: the GAD-7 gentle floor. Same derivation as PHQ9_SUPPORT — the floor of
+// the band immediately below that axis's suppression floor — so it is read from the
+// constant here for the same reason the others are.
+const GAD7_MODERATE = CRISIS_THRESHOLDS.GAD7_MODERATE_THRESHOLD; // 10
 
 function phq9(totalScore: number, suicidalIdeation = false): PHQ9Result {
   return {
@@ -79,7 +83,16 @@ describe('FEAT-55 · the constants this gate binds to', () => {
 });
 
 describe('FEAT-55 · PHQ-9 total drives the ladder at every boundary', () => {
+  // 9/10/14 are FEAT-457 rows: they pin that PHQ-9's own `moderate` band (10-14)
+  // stays `full`. The derivation rule gives 15 on this axis because PHQ-9 has FIVE
+  // bands and GAD-7 has four, so "one band below suppression" is `moderately_severe`
+  // here and `moderate` there. That the two land on differently-named bands is a
+  // property of the instruments, not a drift between the axes — and lowering this
+  // floor to 10 to "match" GAD-7 would be a new clinical decision over a large
+  // shipped cohort, with no derivation warrant.
   it.each([
+    [9, 'full'],
+    [10, 'full'],
     [14, 'full'],
     [15, 'gentle'],
     [19, 'gentle'],
@@ -90,13 +103,63 @@ describe('FEAT-55 · PHQ-9 total drives the ladder at every boundary', () => {
   });
 });
 
-describe('FEAT-55 · GAD-7 total drives the ladder at every boundary', () => {
+/**
+ * FEAT-457 — the GAD-7 arm gains a gentle band, and `[14, 'full']` becomes
+ * `[14, 'gentle']`.
+ *
+ * Slice 1 shipped GAD-7 as suppression-only, so 10-14 fell through to `full`. That
+ * was INERT while `full` and `gentle` both rendered Tier 0/1 and nothing else. It
+ * stops being inert the moment Tier 2/3 render, at which point a GAD-7 12 reader
+ * receives the complete four-tier ladder while a PHQ-9 17 reader does not — two
+ * comparably distressed cohorts, opposite answers, for no clinical reason. The
+ * asymmetry was never a policy; it was an artifact of `CRISIS_THRESHOLDS` having a
+ * PHQ-9 support floor and no GAD-7 counterpart.
+ */
+describe('FEAT-457 · GAD-7 total drives the ladder at every boundary', () => {
   it.each([
-    [14, 'full'],
+    [9, 'full'],
+    [10, 'gentle'],
+    [12, 'gentle'],
+    [14, 'gentle'],
     [15, 'suppressed'],
     [21, 'suppressed'],
   ] as const)('GAD-7 %i → %s', (total, expected) => {
     expect(decideGuidanceAccess(CALM_PHQ9(), gad7(total), null).level).toBe(expected);
+  });
+
+  it('caps the ladder across the whole gentle band, not merely at its floor', () => {
+    for (let total = GAD7_MODERATE; total < GAD7_SEVERE; total++) {
+      const result = decideGuidanceAccess(CALM_PHQ9(), gad7(total), null);
+      expect(result.level).toBe('gentle');
+      expect(result.allowTier2Plus).toBe(false);
+      expect(result.crisisRoute).toBeUndefined();
+    }
+  });
+
+  it('reads the floor from the constant, so a literal 10 cannot drift from it', () => {
+    expect(decideGuidanceAccess(CALM_PHQ9(), gad7(GAD7_MODERATE - 1), null).level).toBe('full');
+    expect(decideGuidanceAccess(CALM_PHQ9(), gad7(GAD7_MODERATE), null).level).toBe('gentle');
+  });
+});
+
+/**
+ * FEAT-457 — cross-axis precedence, now that BOTH axes have three bands.
+ *
+ * The gate must resolve to the MORE PROTECTIVE axis, and must not double-count: two
+ * gentle readings are still gentle, never suppression.
+ */
+describe('FEAT-457 · cross-axis precedence with two banded axes', () => {
+  it.each([
+    ['PHQ-9 full-band + GAD-7 gentle-band → gentle', 12, false, 12, 'gentle', false],
+    ['PHQ-9 full-band + GAD-7 below floor → full', 12, false, 9, 'full', true],
+    ['both in their gentle bands → gentle, not suppressed', 17, false, 12, 'gentle', false],
+    ['GAD-7 severe beats a calm PHQ-9', 2, false, 15, 'suppressed', false],
+    ['PHQ-9 severe beats a gentle GAD-7', 20, false, 12, 'suppressed', false],
+    ['Q9 beats BOTH gentle bands', 19, true, 12, 'suppressed', false],
+  ] as const)('%s', (_label, p, q9, g, level, tier2) => {
+    const result = decideGuidanceAccess(phq9(p, q9), gad7(g), null);
+    expect(result.level).toBe(level);
+    expect(result.allowTier2Plus).toBe(tier2);
   });
 });
 
@@ -154,6 +217,9 @@ describe('FEAT-55 · missing assessment data is never treated as safe', () => {
 
   it.each([
     ['PHQ-9 missing', null, gad7(2)],
+    ['PHQ-9 missing, GAD-7 below the moderate floor', null, gad7(9)],
+    ['PHQ-9 missing, GAD-7 at the moderate floor', null, gad7(10)],
+    ['PHQ-9 missing, GAD-7 inside the moderate band', null, gad7(12)],
     ['GAD-7 missing', phq9(2), null],
   ] as const)('%s → gentle, because a missing axis is not a zero score', (_label, p, g) => {
     expect(decideGuidanceAccess(p, g, null).level).toBe('gentle');
@@ -171,6 +237,10 @@ describe('FEAT-55 · tier permissions follow the level, and premeditatio fails c
     expect(decideGuidanceAccess(CALM_PHQ9(), CALM_GAD7(), null).allowTier2Plus).toBe(true);
     expect(decideGuidanceAccess(phq9(PHQ9_SUPPORT), CALM_GAD7(), null).allowTier2Plus).toBe(false);
     expect(decideGuidanceAccess(phq9(PHQ9_SEVERE), CALM_GAD7(), null).allowTier2Plus).toBe(false);
+    // FEAT-457: the GAD-7 arm must cap it too, or Tier 2/3 reach the one cohort the
+    // gentle band was extended to cover.
+    expect(decideGuidanceAccess(CALM_PHQ9(), gad7(GAD7_MODERATE), null).allowTier2Plus).toBe(false);
+    expect(decideGuidanceAccess(CALM_PHQ9(), gad7(GAD7_SEVERE), null).allowTier2Plus).toBe(false);
   });
 
   it.each([

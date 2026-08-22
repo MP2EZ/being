@@ -142,6 +142,29 @@ export const E2E_SEED_STALE_CONSENT_MARKER = 'e2eSeed=stale';
 const STALE_SEED_VERSION = '1.0.0';
 
 /**
+ * INFRA-481 — the INELIGIBLE stale-consent cohort (13–17, or an age that cannot be read).
+ *
+ * WHY THE TOKEN IS `ineligible` AND NOT `stale-ineligible`. Every predicate here is
+ * `url.includes(MARKER)`, and `'e2eSeed=stale-ineligible'.includes('e2eSeed=stale')` is
+ * TRUE. The descriptive name would have been swallowed by the renewable branch above,
+ * silently seeding the wrong cohort and landing on ReConsentScreen — a failure that
+ * surfaces ~90 s of cold boot later and reads as a screen regression, not a marker bug.
+ * A collision pin in e2eSeedGate.config.test.ts keeps it that way.
+ *
+ * Read ONLY inside the `SEED_ACTIVE` branch, exactly like the two markers above, so with
+ * the build var at its 'false' default this is unreachable in any shippable artifact.
+ */
+export const E2E_SEED_STALE_INELIGIBLE_MARKER = 'e2eSeed=ineligible';
+
+/**
+ * RELATIVE, never a literal birth year. A hardcoded 2012 turns 18 in 2030 and the fixture
+ * silently flips to the RENEWABLE screen — the same class of dated-constant rot the seed
+ * version above is insulated from.
+ */
+const INELIGIBLE_SEED_AGE = 14;
+const INELIGIBLE_SEED_BIRTH_YEAR = new Date().getFullYear() - INELIGIBLE_SEED_AGE;
+
+/**
  * How long to wait on `getInitialURL()` before falling back to the normal seed.
  * A hung or slow resolution must degrade to today's behaviour, not to a boot that
  * silently skips the seed and strands every other safety flow on LegalGate.
@@ -176,6 +199,10 @@ function isUngrantedBootRequested(url: string | null): boolean {
 /** True when this launch carries the INFRA-377 stale-consent marker. */
 function isStaleConsentBootRequested(url: string | null): boolean {
   return typeof url === 'string' && url.includes(E2E_SEED_STALE_CONSENT_MARKER);
+}
+
+function isStaleIneligibleBootRequested(url: string | null): boolean {
+  return typeof url === 'string' && url.includes(E2E_SEED_STALE_INELIGIBLE_MARKER);
 }
 
 // Module-level "seed gate" promise. CleanRootNavigator awaits it BEFORE reading
@@ -269,6 +296,50 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
       });
 
       logSystem('[E2ESeed] Stale consent seeded; navigator will present ReConsent over Main');
+      return;
+    }
+
+    // INFRA-481: stale-consent INELIGIBLE variant. Same version_mismatch entry point as the
+    // branch above — `loadConsent` resolves version BEFORE age, retaining the whole record
+    // as `staleConsent` — so the knob that selects StaleConsentIneligibleScreen over
+    // ReConsentScreen is `isBaseEligibleForRenewal`, downstream.
+    //
+    // `isEligible: true` ON AN INELIGIBLE RECORD IS THE POINT, NOT A TYPO. That function has
+    // three arms: `isEligible !== true`, an unreadable birthYear, and
+    // `calculateAge(birthYear) >= MINIMUM_CONSENT_AGE`. The production hazard FEAT-399
+    // exists for is the THIRD — every v1.0.0 record was written under the pre-DEBUG-150 13+
+    // gate, so a real 14-year-old's record legitimately carries `isEligible: true`, and only
+    // the age re-derivation catches it. Seeding `false` would bail at the first arm and
+    // exercise none of that.
+    //
+    // And DELIBERATELY NOT via `verifyAge`, which the branch above uses: it recomputes
+    // eligibility against TODAY's MINIMUM_CONSENT_AGE (returning false here) and side-writes
+    // AGE_VERIFICATION_KEY with that false — leaving a contradictory pair no real prior-policy
+    // install can hold. Hand-construct the literal instead.
+    //
+    // `recordLegalGateConsents` is omitted for the same reason as the branch above: it stamps
+    // `version: CONSENT_VERSION`, which no real user could hold beside a v1.0.0 record.
+    if (isStaleIneligibleBootRequested(launchUrl)) {
+      logSystem(
+        '[E2ESeed] Stale-consent INELIGIBLE boot requested (INFRA-481) — forging a v1.0.0 minor record',
+      );
+
+      const settings = useSettingsStore.getState();
+      await settings.loadSettings();
+      await settings.markOnboardingComplete();
+
+      await __seedStaleConsentRecordForE2E({
+        version: STALE_SEED_VERSION,
+        ageVerification: {
+          verified: true,
+          birthYear: INELIGIBLE_SEED_BIRTH_YEAR,
+          ageAtVerification: INELIGIBLE_SEED_AGE,
+          verifiedAt: Date.now(),
+          isEligible: true,
+        },
+      });
+
+      logSystem('[E2ESeed] Ineligible cohort seeded; navigator will present the no-exit screen');
       return;
     }
 

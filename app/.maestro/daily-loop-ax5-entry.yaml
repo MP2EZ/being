@@ -1,0 +1,111 @@
+appId: fyi.being.app
+tags:
+  - safety-dynamic-type
+name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility text sizes"
+---
+# DEBUG-469 — the FIRST flow in this repo that runs at a non-default Dynamic Type size.
+#
+# Run it with `npm run e2e:safety:ax5`, NEVER with a bare `maestro test`. The wrapper
+# (scripts/e2e-dynamic-type.sh) sets the device to AX5 and restores it in a trap; content
+# size is device-global and persistent, so a bare run leaves this machine's shared simulator
+# poisoned and silently invalidates the next worktree's layout assertions.
+#
+# It is tagged `safety-dynamic-type`, not `safety`. e2e-safety.sh matches the suite on an
+# EXACT `- safety` tag, so this is excluded from `npm run e2e:safety` by construction. That
+# is deliberate: the nine-flow suite must keep measuring the SHIPPED default, or a red in it
+# could no longer be read without first asking which text size produced it.
+#
+# WHAT THIS PINS, and why each assertion is the one that would have caught the defect:
+#
+#   AC1 — Home. `checkin-card-daily-loop` was at y=970..1010 on a 583pt screen and NO scroll
+#         could reach it, because Home had no scroll container at all: `flex: 1` sets
+#         flexBasis 0, so the card grew only into leftover space and there was none at AX5.
+#         `scrollUntilVisible` is therefore the exact assertion — before the fix it failed,
+#         and three plain `- scroll` commands failed with it.
+#
+#   AC2 — Depth picker. `daily-loop-depth-quick` and `daily-loop-depth-deep` were ABSENT
+#         from the hierarchy entirely: the intro copy alone spans 880pt at AX5 and pushed
+#         both choices out of a screen that was already a ScrollView. assertVisible on both
+#         is the pin; they are now pinned outside the scroll region.
+#
+#   AC3 — The support line. DEBUG-465's crisis pass raised AX5 from record-only to MUST-HOLD
+#         for `daily-loop-support-line`, and could not measure it because the beat was
+#         unreachable. This is the assertion that discharges that obligation: visible,
+#         tappable, and routing to CrisisResources at AX5.
+#
+# MEASURED 2026-08-21, provenance 7e484b61, clean tree, iPhone SE (3rd gen) 375x667 / iOS
+# 18.6, content_size accessibility-extra-extra-extra-large:
+#   checkin-card-daily-loop   [24,207][351,686]  reachable by scroll (was: unreachable)
+#   daily-loop-depth-quick    [20,303][303,428]  present            (was: absent)
+#   daily-loop-depth-deep     [20,444][303,645]  present            (was: absent)
+#   daily-loop-support-line   [20,344][355,667]  335x323 tap target, untruncated
+#   crisis-button-root        [331,523][375,567] 16pt clear of the cards' x-extent (303)
+#
+# ⚠️  WHAT THIS FLOW DELIBERATELY DOES NOT ASSERT — the KEYBOARD-UP case, which is RED.
+#     With the beat's text input focused at AX5 the scroll viewport collapses to 83pt
+#     (< the >=88pt residual floor DEBUG-465's crisis pass set) and the support line is
+#     TRUNCATED — "...support is here" renders, "anytime." does not. The affordance still
+#     TAPS and still routes to CrisisResources, so this is a legibility and floor defect,
+#     NOT a crisis false negative. It is a defect in the beat screen this item did not
+#     change, so it is tracked separately rather than asserted here — a flow that is red on
+#     arrival gates nothing and trains a bypass. Do not "fix" this flow by adding the
+#     assertion; fix the screen, then add it.
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- runFlow: _seeded-home.yaml
+# AC1 — reachable by a scroll that Maestro and a user can both perform.
+- scrollUntilVisible:
+    element:
+      id: "checkin-card-daily-loop"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- assertVisible:
+    id: "checkin-card-daily-loop"
+- tapOn:
+    id: "checkin-card-daily-loop"
+# AC2 — both depth choices present AND tappable, not merely in the tree.
+- assertVisible:
+    id: "daily-loop-depth-select-screen"
+- assertVisible:
+    id: "daily-loop-depth-quick"
+- assertVisible:
+    id: "daily-loop-depth-deep"
+- tapOn:
+    id: "daily-loop-depth-quick"
+- assertVisible:
+    id: "daily-loop-AwarePresence-screen"
+# AC3 — reach Sphere Sovereignty. At AX5 `continue-button` is below the fold on the beat,
+# so it must be scrolled to; `centerElement` forces a REAL scroll rather than a tap on a
+# control that merely shares screen coordinates with clipped content (DEBUG-465).
+- runFlow:
+    when:
+      visible:
+        id: "daily-loop-breathing-circle"
+    commands:
+      - scrollUntilVisible:
+          element:
+            id: "daily-loop-skip-breath"
+          direction: DOWN
+          centerElement: true
+          timeout: 25000
+      - tapOn:
+          id: "daily-loop-skip-breath"
+- scrollUntilVisible:
+    element:
+      id: "continue-button"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- tapOn:
+    id: "continue-button"
+- assertVisible:
+    id: "daily-loop-SphereSovereignty-screen"
+# The obligation DEBUG-465 left open: visible, tappable, routing — at AX5.
+- assertVisible:
+    id: "daily-loop-support-line"
+- tapOn:
+    id: "daily-loop-support-line"
+- assertVisible:
+    id: "crisis-resources-screen"
