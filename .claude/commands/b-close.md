@@ -668,19 +668,14 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/journal/' && \
 # record that already exists.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/stores/consentStore\.ts' && \
   FLOWS+=("deeplink-consent-gate" "reconsent-stale")
-# INFRA-416: features/guidance has NO flow. guidanceGate.ts consumes the PHQ-9/GAD-7
-# thresholds to route a distressed user to Stoic content vs crisis resources — a live
-# safety decision with ZERO e2e coverage (no flow references guidance or tier content;
-# the dir is 3 files, all service/type/constants, so nothing renders for a flow to drive
-# today). It is gated here so the change cannot pass silently, and falls through to the
-# render/boot fail-safe below. Filed as its own coverage gap; when a flow exists, map it
-# here and delete this note.
-if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/guidance/'; then
-  echo "⚠️  features/guidance/ changed — NO Maestro flow pins its threshold routing."
-  echo "    guidanceGate.ts decides Stoic-content vs crisis-resources on PHQ-9/GAD-7."
-  echo "    Falling through to the crisis-button fail-safe; jest owns the threshold"
-  echo "    logic (npm run test:clinical). Coverage gap tracked separately."
-fi
+# FEAT-457: features/guidance now HAS a flow, closing the INFRA-416 coverage gap this
+# clause used to log. guidanceGate.ts consumes the PHQ-9/GAD-7 thresholds to route a
+# distressed reader to Stoic content vs crisis resources; guidance-suppressed-handoff
+# drives Home entry → suppressed → notice → CrisisResources → 988 and asserts all four
+# tier testIDs ABSENT. It replaces the crisis-button fail-safe, which pinned reachability
+# of a different affordance and never exercised this routing at all.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/guidance/' && \
+  FLOWS+=("guidance-suppressed-handoff")
 # DEBUG-465: practices/dailyloop hosts SUPPORT_LINE (a crisis affordance) on a beat
 # chosen by showsSupportLine(), and it is pinned OUTSIDE the ScrollView. Both daily-loop
 # flows — daily-loop-quick-depth, daily-loop-deeplink — lack a scoped npm script, so the
@@ -734,6 +729,7 @@ while IFS= read -r f; do
     crisis-button-reachability.yaml) FLOWS+=("crisis-button-reachability") ;;
     journal-crisis-scan.yaml)        FLOWS+=("journal-crisis-scan") ;;
     deeplink-consent-gate.yaml)      FLOWS+=("deeplink-consent-gate") ;;
+    guidance-suppressed-handoff.yaml) FLOWS+=("guidance-suppressed-handoff") ;;
     *) FULL_SUITE=1 ;;
   esac
 done <<< "$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
