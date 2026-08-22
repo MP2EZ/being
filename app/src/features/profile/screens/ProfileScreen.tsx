@@ -466,6 +466,29 @@ const ProfileScreen: React.FC = () => {
               <Text style={styles.cardAction} importantForAccessibility="no">Speak →</Text>
             </Pressable>
           )}
+
+          {/* FEAT-287 Slice B: re-read. Same build-time `voice_journal` gate as
+              the capture card above — one flag for the feature, so history can
+              never be reachable on a build where capture is dark.
+
+              Copy stays inside the zero-egress promise the card above makes:
+              re-reading decrypts locally and sends nothing. */}
+          {isFeatureEnabled('voice_journal') && (
+            <Pressable
+              style={styles.profileCard}
+              onPress={() => navigation.navigate('JournalHistory')}
+              testID="profile-card-journal-history"
+              accessibilityRole="button"
+              accessibilityLabel="Past reflections"
+              accessibilityHint="Open and re-read reflections you have saved on this device."
+            >
+              <Text style={styles.cardTitle}>Past reflections</Text>
+              <Text style={styles.cardDescription}>
+                Look back over reflections you have saved. They are decrypted on this device to be read, and stay on it.
+              </Text>
+              <Text style={styles.cardAction} importantForAccessibility="no">Read →</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* FEAT-209 H3: Onboarding Setup demoted from a top card to a footer link. */}

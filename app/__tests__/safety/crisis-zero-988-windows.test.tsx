@@ -760,3 +760,58 @@ describe('DailyLoopStepScreen — DEBUG-465: the support line is pinned OUTSIDE 
   });
 });
 
+
+describe('FEAT-287 journal re-read screens — no self-made zero-988 window', () => {
+  /**
+   * This suite names files rather than walking a directory, so a new screen is
+   * covered only when someone adds it here. These two are added with the screens
+   * themselves, per the FEAT-287 crisis planning pass.
+   *
+   * The hazard is precisely an RN `<Modal>`, which is a separate window and
+   * therefore does not contain `RootCrisisButton`. It is NOT the navigator's
+   * `presentation: 'modal'` option: both screens are registered in the same
+   * `Stack.Group` as `VoiceReflection`, which already carries that option and
+   * keeps the root button — this is a JS stack, so a modal-presented screen
+   * stays in the same view tree.
+   *
+   * Comment-stripped and prop-shaped per DEBUG-390: this file's own convention
+   * is to name anti-patterns in prose, and these docblocks say "Modal" out loud.
+   */
+  const strip = (s: string) =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const read = (rel: string) =>
+    strip(
+      require('fs').readFileSync(
+        require('path').join(__dirname, '../../src/features/journal/screens/', rel),
+        'utf8',
+      ),
+    );
+
+  const SCREENS = ['JournalHistoryScreen.tsx', 'JournalEntryDetailScreen.tsx'];
+
+  test.each(SCREENS)('%s imports no RN Modal', (file) => {
+    const source = read(file);
+    expect(source.length).toBeGreaterThan(200);
+    expect(source).not.toMatch(/^\s*import\s+\{[^}]*\bModal\b[^}]*\}\s+from\s+'react-native'/m);
+  });
+
+  test.each(SCREENS)('%s renders no <Modal> element', (file) => {
+    expect(read(file)).not.toMatch(/<Modal[\s/>]/);
+  });
+
+  test.each(SCREENS)('%s declares no second 988 control of its own', (file) => {
+    // Duplicating the root control is a REVERTED mistake, not a missing
+    // safeguard — two differently-labelled Call-988 buttons on one screen are
+    // worse for a screen reader user than the gap they were meant to close.
+    const source = read(file);
+    expect(source).not.toMatch(/988/);
+    expect(source).not.toMatch(/openCrisisUrl/);
+  });
+
+  test('the Modal matchers still fire against known-bad source', () => {
+    const bad = "import { View, Modal } from 'react-native';\nconst x = <Modal visible />;";
+    expect(bad).toMatch(/^\s*import\s+\{[^}]*\bModal\b[^}]*\}\s+from\s+'react-native'/m);
+    expect(bad).toMatch(/<Modal[\s/>]/);
+  });
+});

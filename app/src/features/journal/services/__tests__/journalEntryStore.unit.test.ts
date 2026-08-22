@@ -208,3 +208,84 @@ describe('deleteEntry / deleteAllEntries', () => {
     expect(mockStore.deleteWellnessBlob).toHaveBeenCalledWith('voice_journal_index');
   });
 });
+
+/**
+ * FEAT-287 Slice B — persisted-shape pins.
+ *
+ * These enforce a crisis ruling rather than a behaviour: the crisis verdict for
+ * an entry is NOT persisted and must not become persisted. Today that holds by
+ * construction — `journalEntryStore` imports only `SecureStorageService` and
+ * `journalCrisisScan` never imports the store, so no path exists by which a
+ * verdict could reach disk. These pins are what make that survive someone
+ * deciding the history screen "just needs a flag."
+ *
+ * Why an exact key-set and not `not.toHaveProperty('crisis')`: the hazard is
+ * any verdict-shaped field under any name, and a denylist only catches names
+ * somebody already thought of.
+ *
+ * Three existing suites all stay GREEN if a field is added, which is why this
+ * pin is not redundant with them:
+ *   - erasure — a new field sits inside the swept blob, so it is erased fine
+ *   - export  — `gatherJournalEntriesForExport` returns whole JournalEntry
+ *               objects, so a new field is exported SILENTLY, by a type change
+ *               alone, into a file the user may email themselves
+ *   - the analytics boundary — it scans for sinks, not for stored shape
+ *
+ * Regression pin, not a TDD driver: green on arrival, red the day someone adds
+ * the field. Mutation-proven rather than red-proven, per the house rule for
+ * pins on already-landed code.
+ */
+describe('FEAT-287 — persisted entry shape carries no crisis verdict', () => {
+  const payloadsFrom = (mock: jest.Mock) => mock.mock.calls.map((c) => c[1]);
+
+  it('the stored entry blob has exactly id, text, createdAt, updatedAt', async () => {
+    await saveEntry({ text: 'i kept coming back to the same argument today' });
+
+    const entryPayload = payloadsFrom(mockStore.storeWellnessBlob).find(
+      (p) => p && !Array.isArray(p)
+    ) as Record<string, unknown>;
+
+    expect(entryPayload).toBeDefined();
+    expect(Object.keys(entryPayload).sort()).toEqual([
+      'createdAt',
+      'id',
+      'text',
+      'updatedAt',
+    ]);
+  });
+
+  it('the index row has exactly id, createdAt, updatedAt — never entry text', async () => {
+    await saveEntry({ text: 'something private about my day' });
+
+    const indexPayload = payloadsFrom(mockStore.storeWellnessBlob).find((p) =>
+      Array.isArray(p)
+    ) as Record<string, unknown>[];
+
+    expect(indexPayload).toBeDefined();
+    expect(indexPayload).toHaveLength(1);
+    expect(Object.keys(indexPayload[0]).sort()).toEqual([
+      'createdAt',
+      'id',
+      'updatedAt',
+    ]);
+  });
+
+  it('no persisted payload contains a verdict-shaped field under any name', async () => {
+    await saveEntry({ text: 'want to die' });
+
+    // The text itself is expected in the entry blob; what must never appear is
+    // a field ABOUT the text. Serialise and look for the shapes a verdict takes.
+    for (const payload of payloadsFrom(mockStore.storeWellnessBlob)) {
+      const keys = JSON.stringify(payload)
+        .match(/"(\w+)":/g)
+        ?.map((k) => k.slice(1, -2).toLowerCase()) ?? [];
+
+      for (const key of keys) {
+        expect([key, /crisis|triggered|severity|flagged|risk|detect/.test(key)]).toEqual([
+          key,
+          false,
+        ]);
+      }
+    }
+  });
+});
