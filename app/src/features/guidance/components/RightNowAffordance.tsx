@@ -125,9 +125,13 @@ const RightNowAffordance: React.FC = () => {
 const styles = StyleSheet.create({
   // A quiet ROW, never a card. A card would make this a peer of Daily Practice and
   // therefore a thing to do today; it is an always-available door, not a ritual.
-  // Fixed height for the same reason FEAT-293 gave the Practices row one:
-  // `checkInSection` is flex:1 with a flex:1 card inside and no ScrollView, so
-  // anything that is not fixed-height squeezes the card.
+  //
+  // Intrinsic height (no flexGrow), for the same reason FEAT-293 gave the Practices
+  // row one: a growing sibling competes with the daily card for vertical budget.
+  // The mechanism moved in DEBUG-469 — Home now scrolls, and the card is
+  // `flexGrow: 1` with a `minHeight` floor rather than `flex: 1` — so this row no
+  // longer squeezes the card without bound; past the floor the ScrollView scrolls.
+  // The rule survives the rewrite even though its original justification did not.
   row: {
     flexDirection: 'row',
     alignItems: 'center',

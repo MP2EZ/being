@@ -1,0 +1,150 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Stale consent, INELIGIBLE cohort (INFRA-481): 988 stays reachable and Acknowledge is not eaten by the FAB"
+
+# e2e-certifies: 393x852
+# INFRA-486 — deliberately NOT 375x667, and this is the one flow in the suite where the
+# smallest viewport is the WRONG certifying target. The assertion at step 10 adjudicates
+# CRISIS_FAB_CLEARANCE, which is a collision between the acknowledge button's top-right
+# corner and the FAB's touch band. On an SE 3 (bottom safe-area inset 0) the button occupies
+# y 595..651 while the band is y 511..579 — they do not intersect AT ANY value of the
+# clearance, so the flow would pass there with the clearance set to zero. Falsifying it
+# needs a device with a non-zero bottom inset. An SE 3 run still exercises everything else
+# and is worth having; it simply does not certify THIS contract.
+---
+# INFRA-481 — the ineligible half of the stale-consent cohort. Carved out of INFRA-377,
+# which shipped the RENEWABLE half; the crisis pass rated this branch the higher-severity
+# of the two and asked for the split.
+#
+# WHY THIS BRANCH IS MORE DANGEROUS THAN ReConsentScreen
+# =====================================================
+# ReConsentScreen degrades gracefully if the FAB eats a touch: Decline is merely hard to
+# hit and Submit is still there. This screen has exactly ONE control
+# (`stale-consent-ineligible-acknowledge`), its route sets `gestureEnabled: false` and
+# `headerShown: false`, and `ReConsentRoute.tsx` says outright that "the screen has no other
+# exit". The cohort is minors, and the screen exists precisely to stop them being stranded.
+#
+# WHAT THE SEED FORGES, AND WHY `isEligible: true` IS CORRECT ON AN INELIGIBLE RECORD
+# ==================================================================================
+# `loadConsent` resolves version_mismatch BEFORE the age check and retains the whole record
+# as `staleConsent`, so the knob selecting THIS screen over ReConsentScreen is
+# `isBaseEligibleForRenewal`, downstream. That function has three arms, and the production
+# hazard FEAT-399 exists for is the third: every v1.0.0 record was written under the
+# pre-DEBUG-150 13+ gate, so a real 14-year-old's record legitimately carries
+# `isEligible: true` and only the age re-derivation catches it. The seed therefore forges
+# `true` with an under-18 birth year — seeding `false` would bail at the first arm and
+# exercise none of it. Pinned in consentStaleSeed.privacy.test.ts.
+#
+# `stopApp` + `clearState` + `clearKeychain` + `openLink`, never `launchApp`: the marker
+# must reach `Linking.getInitialURL()`, which only carries a URL on a COLD start. And
+# `being://daily`, never `being://crisis` — CrisisResources is in RECONSENT_DEFERRAL_ROUTES,
+# so a crisis launch resolves the trigger to 'none' and the modal never presents at all.
+- stopApp
+- clearState
+- clearKeychain
+- openLink: being://daily?e2eSeed=ineligible
+
+# ── 1. The seed landed on the INELIGIBLE branch ───────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: "stale-consent-ineligible"
+    timeout: 90000
+
+# ── 2. ...and NOT on the renewable one ────────────────────────────────────────────────
+# The mirror of reconsent-stale.yaml step 2, and non-optional. It is the only thing that
+# catches a drifted birth year or a marker collision: without it, a seed that landed on
+# ReConsentScreen would pass every remaining assertion about the wrong component.
+- assertNotVisible:
+    id: "reconsent-screen"
+
+# ── 3. We are on Main underneath, because the gated link was DROPPED ──────────────────
+- assertNotVisible:
+    id: "daily-loop-exit"
+
+# ── 4. The root overlay is present — this cohort's ONLY 988 affordance ────────────────
+# `ReConsent` is absent from `RootCrisisButton.SUPPRESSED_ROUTES` by design. It matters
+# more here than on the renewable screen: this screen has no in-screen crisis section, and
+# its only outbound links are external-browser youth resources, not 988.
+# `assertVisible` defaults to 100% visibility, so this also catches clipping.
+- assertVisible:
+    id: "crisis-button-root"
+
+# ── 5. The right changelog rendered (seed-version canary) ─────────────────────────────
+# Guards a typo'd seed version silently rendering the generic summary on a PASSING screen.
+# Regex form is required: RN merges accessibility nodes, so a bare full-match `text:` fails.
+- assertVisible:
+    id: "stale-consent-ineligible-delta"
+- assertVisible:
+    text: ".*raised the minimum age to use Being to 18.*"
+
+# ── 6. The single control is reachable WITHOUT scrolling ──────────────────────────────
+# The footer is a flex sibling of the ScrollView; asserting it un-scrolled is what pins
+# that it is not clipped. There is no second control to fall back to.
+- assertVisible:
+    id: "stale-consent-ineligible-acknowledge"
+
+# ── 7. POSITIVE CONTROL — the FAB really is hit-testable in that band ─────────────────
+# Required by the crisis pass. Without it, a green step 10 is indistinguishable from
+# "relativePoint was silently ignored" or "the FAB is not where we computed". This taps a
+# SCREEN-relative point inside the FAB's band (right edge, ~85% down) rather than by id, so
+# it proves coordinates resolve where the arithmetic says they do.
+# Safe to tap: RootCrisisButton NAVIGATES, it does not dial.
+- tapOn:
+    point: "96%,85%"
+- extendedWaitUntil:
+    visible:
+      id: "crisis-resources-screen"
+    timeout: 30000
+
+# ── 8. It NAVIGATED — it did not fall through to the degraded dial branch ─────────────
+# DEBUG-392 witness. MUST come after the assertVisible above; placed first it passes
+# vacuously at t=0.
+- extendedWaitUntil:
+    notVisible:
+      text: ".*Unable to Call.*"
+    timeout: 3000
+
+# ── 9. Returning lands back on the ineligible screen ──────────────────────────────────
+- tapOn:
+    id: "nav-back-button"
+- assertVisible:
+    id: "stale-consent-ineligible"
+# Re-assert immediately BEFORE the probe: an unmount between steps would make step 10
+# vacuous, and it would look exactly like a pass.
+- assertVisible:
+    id: "crisis-button-root"
+
+# ── 10. THE LOAD-BEARING ASSERTION — Acknowledge is not eaten by the crisis FAB ───────
+# Element-relative point (Maestro 2.6.0 maps a `point` inside a tapOn selector to
+# `TapOnElementCommand.relativePoint`). TOP-RIGHT CORNER, not the centre and not mid-height:
+# the collision quadrant derived from the FAB's geometry is x >= 91%, y <= 32% of the
+# button, because the band overlaps only the button's upper edge. A centre tap cannot
+# reproduce it, and "95%,50%" is below the band on every device.
+#
+# With the 72pt clearance the button's right edge sits clear of the band and Acknowledge
+# fires. Remove it (paddingRight -> 24) and the edge falls inside the band, the FAB takes
+# the touch, and step 11 lands on CrisisResources instead of Main.
+- tapOn:
+    id: "stale-consent-ineligible-acknowledge"
+    point: "98%,10%"
+
+# ── 11. The falsifier pair for step 10 ────────────────────────────────────────────────
+# Clearance intact -> handleDecline + onDismiss pops back to Main. Clearance broken -> the
+# FAB won and we are on CrisisResources. Without BOTH assertions step 10 asserts nothing.
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 30000
+- assertNotVisible:
+    id: "crisis-resources-screen"
+
+# ── Deliberately NOT asserted ─────────────────────────────────────────────────────────
+# The two youth-resource links (`-childmind`, `-teenmh`) are never tapped: they are
+# `Linking.openURL` on https, which leaves the app for Safari on the simulator with no way
+# back, stranding the run. Their presence is pinned by
+# StaleConsentIneligibleScreen.accessibility.test.tsx.
+#
+# `assertNotVisible: id: "home-screen"` while the modal is up. `transparentModal` is chosen
+# precisely so Main stays MOUNTED underneath, so the node is in the hierarchy and the
+# assertion would be flaky at best and false at worst.

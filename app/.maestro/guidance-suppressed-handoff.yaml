@@ -6,11 +6,15 @@ name: "Guidance entry point routes a suppressed reader to crisis resources"
 # FEAT-457 — LAYOUT-SENSITIVE, so it declares the smallest supported viewport rather
 # than `any`. The sibling threshold flows (gad7-severe, q9-single-alert) declare `any`
 # because they assert a score verdict that no viewport can change. This one does too,
-# BUT it also asserts `home-guidance-entry` is visible — and that row is new furniture
-# on a screen with no ScrollView, where `checkInSection` is flex:1 and the row's fixed
-# height is absorbed from the Daily Practice card. The smallest viewport is precisely
-# where that card runs out of room, so `any` would let this flow certify on a large
-# device and never exercise the case most likely to break it.
+# BUT it also asserts `home-guidance-entry` is visible WITHOUT scrolling, and that row
+# is new furniture competing for Home's vertical budget. DEBUG-469 made that budget the
+# fragile thing on this screen: Home now scrolls, and the daily card is `flexGrow: 1`
+# with a `minHeight` floor, so surplus runs out soonest on the smallest viewport and
+# this row is the last element above the Practices row. `any` would let the flow certify
+# on a large device and never exercise the case most likely to break it.
+# The assertion is deliberately NOT `scrollUntilVisible`: reachable-without-scrolling at
+# DEFAULT text size is the contract. Large text is a separate axis with its own runner
+# (`npm run e2e:safety:ax5`, DEBUG-469); do not fold it in here by relaxing this.
 # It also runs the DEBUG-477 scroll-then-absorbing-tap sequence, which only occurs at
 # 375x667 — at 402x874 both Profile cards fit without a swipe and no touch is swallowed.
 ---

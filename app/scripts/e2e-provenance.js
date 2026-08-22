@@ -384,6 +384,58 @@ function explain(containerPath) {
   return 0;
 }
 
+/**
+ * INFRA-484 — WHOSE build is installed, as one word a script can branch on.
+ *
+ * `verify` says the binary does not match this tree; it cannot say why, and the two causes
+ * want opposite handling. A PEER's build landing on our target is nobody's decision and its
+ * only recovery is a rebuild, so automating that costs a build and saves a human round-trip.
+ * OUR OWN tree having moved is the operator's own edit — the rebuild is still the fix, but
+ * making it automatic would spend up to 21m31s reacting to a keystroke and would train them
+ * past the one message saying their tree and their binary have diverged.
+ *
+ * NONE is not a third kind of peer. A missing, unreadable or repoRoot-less marker carries no
+ * attribution, and INFRA-434 already settled that inventing one is worse than refusing
+ * without it. So a markerless container never triggers an automatic rebuild.
+ *
+ * Diagnostic, like `explain`: it always exits 0 and only ever prints. `verify` keeps the
+ * refusal, so nothing here can turn a MISMATCH into a pass.
+ */
+function attribute(containerPath) {
+  let marker;
+  try {
+    marker = JSON.parse(fs.readFileSync(markerPath(containerPath), 'utf8'));
+  } catch {
+    console.log('NONE');
+    return 0;
+  }
+
+  const recorded = marker && typeof marker.repoRoot === 'string' ? marker.repoRoot.trim() : '';
+  if (!recorded) {
+    console.log('NONE');
+    return 0;
+  }
+
+  // Fingerprinting only to learn OUR repo root. A tree we cannot fingerprint cannot be
+  // compared against, and "cannot tell" must read as NONE rather than as a peer.
+  const fp = fingerprint(process.cwd());
+  if (!fp || !fp.repoRoot) {
+    console.log('NONE');
+    return 0;
+  }
+
+  // Resolved before comparing: worktree paths reach here through symlinks (/tmp vs
+  // /private/tmp on macOS is the everyday case), and a textual compare would report a
+  // session as a peer of itself — which is the one direction that auto-rebuilds wrongly.
+  if (path.resolve(recorded) === path.resolve(fp.repoRoot)) {
+    console.log('SELF');
+    return 0;
+  }
+
+  console.log(`PEER ${recorded}`);
+  return 0;
+}
+
 function main(argv) {
   const [cmd, containerPath, ...rest] = argv;
   switch (cmd) {
@@ -412,8 +464,17 @@ function main(argv) {
         return 0;
       }
       return explain(containerPath);
+    // No container path is "nothing to attribute", which is NONE and exit 0 — not the
+    // usage error `verify` returns, because a caller branching on this must never have to
+    // tell an empty argument apart from an unattributable marker.
+    case 'attribute':
+      if (!containerPath) {
+        console.log('NONE');
+        return 0;
+      }
+      return attribute(containerPath);
     default:
-      console.error('usage: e2e-provenance.js <write|verify> <containerPath>');
+      console.error('usage: e2e-provenance.js <write|verify|explain|attribute> <containerPath>');
       return 2;
   }
 }
