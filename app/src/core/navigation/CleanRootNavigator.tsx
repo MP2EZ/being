@@ -18,6 +18,8 @@ import { semantic, spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
 import { DailyLoopNavigator } from '@/features/practices/dailyloop';
 import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
+import { JournalHistoryScreen } from '@/features/journal/screens/JournalHistoryScreen';
+import { JournalEntryDetailScreen } from '@/features/journal/screens/JournalEntryDetailScreen';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 // DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
@@ -110,6 +112,8 @@ export type RootStackParamList = {
   // FEAT-283 Slice A: spoken reflection capture, reached from the
   // `voice_journal`-flag-gated Profile card.
   VoiceReflection: undefined;
+  JournalHistory: undefined;
+  JournalEntryDetail: { entryId: string };
   ModuleDetail: { moduleId: ModuleId };
   ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
   PassageReader: { passageId: string };
@@ -733,6 +737,33 @@ const CleanRootNavigator: React.FC = () => {
             options={{ headerShown: true, title: 'Reflections' }}
           >
             {() => <VoiceReflectionScreen />}
+          </Stack.Screen>
+
+          {/* FEAT-287 Slice B: re-read. Registered in THIS group, beside
+              VoiceReflection, deliberately — the group sets
+              `presentation: 'modal'`, and VoiceReflection is the standing proof
+              that this navigator's modal presentation keeps the root crisis
+              overlay (RootCrisisButton.tsx: "VoiceReflection keeps this
+              button"). It is a JS stack, so a modal-presented screen stays in
+              the same view tree; the hazard is an RN <Modal>, which is a
+              separate window, not this option.
+
+              Both are absent from RootCrisisButton's SUPPRESSED_ROUTES and
+              IMMERSIVE_ROUTES, so the overlay paints at full salience. Neither
+              carries its own 988 control: duplicating it is a reverted mistake
+              (crisis-zero-988-windows.test.tsx), not a missing safeguard. Keep
+              both out of linking.ts, as VoiceReflection is. */}
+          <Stack.Screen
+            name="JournalHistory"
+            options={{ headerShown: true, title: 'Past reflections' }}
+          >
+            {() => <JournalHistoryScreen />}
+          </Stack.Screen>
+          <Stack.Screen
+            name="JournalEntryDetail"
+            options={{ headerShown: true, title: 'Reflection' }}
+          >
+            {() => <JournalEntryDetailScreen />}
           </Stack.Screen>
 
           {/* FEAT-291: Daily Loop prototype — reached only from the Home

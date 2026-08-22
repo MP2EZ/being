@@ -283,3 +283,66 @@ name: "Voice journal crisis scan surfaces support"
     timeout: 10000
 - assertVisible:
     id: "journal-crisis-call-988"
+
+# ── FEAT-287 SLICE B: RE-READ ─────────────────────────────────────────────
+# Fourth block. Relaunches WITHOUT clearState, deliberately: the positive case
+# above just saved a crisis-positive entry, and clearing state would destroy the
+# one fixture this block needs. Relaunching rather than navigating back is also
+# what avoids depending on the dismiss affordance of a modal-presented screen,
+# which is the fragile part of that path.
+- launchApp
+
+# ── Reach the history surface ─────────────────────────────────────────────
+- tapOn:
+    id: "tab-profile"
+# Same INFRA-186 / DEBUG-477 reasoning as the card above, and MORE so: the
+# "Past reflections" card renders directly beneath "Reflections", so it sits
+# even further below the fold. centerElement is load-bearing — a pinned tab bar
+# shares screen coordinates with content clipped behind it, so an uncentred
+# element scores visible and the tap lands in the tab bar instead.
+- scrollUntilVisible:
+    element:
+      id: "profile-card-journal-history"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "profile-card-journal-history"
+- assertVisible:
+    id: "journal-history-screen"
+
+# NO scrollUntilVisible in front of this assertion, and its absence is
+# load-bearing. Same ruling as the keyboard-occlusion block above: the <3-tap
+# 988 contract is only pinned if the affordance is reachable WITHOUT scrolling.
+# A scroll step here would convert a real failure into a green run.
+- assertVisible:
+    id: "crisis-button-root"
+
+# ── Open the crisis-positive entry ────────────────────────────────────────
+# Row ids carry the generated entry id, so this matches by pattern. The list
+# holds exactly two entries at this point (the clean one and the crisis one),
+# both saved by the blocks above.
+- tapOn:
+    id: "journal-history-row-.*"
+- assertVisible:
+    id: "journal-entry-detail-screen"
+- assertVisible:
+    id: "journal-entry-text"
+
+# Unscrolled again, for the same reason.
+- assertVisible:
+    id: "crisis-button-root"
+
+# THE RULING THIS BLOCK EXISTS FOR: re-reading is not a detection event. The
+# capture-flow intervention must NOT re-fire on a screen the user opened to read
+# something they already worked through.
+#
+# COVERAGE LIMIT, stated rather than implied: this asserts the BANNER does not
+# return. It does NOT and cannot assert that no iOS Alert fired — Maestro's
+# `text:` selector does not match UIAlertController accessibility text, as this
+# file's header explains. The alert half is pinned in jest, in
+# JournalEntryDetailScreen.behavioral.test.tsx, and that spec is mutation-proven
+# against a scanner call reintroduced on open.
+- assertNotVisible:
+    id: "journal-crisis-banner"
+- assertNotVisible:
+    id: "journal-crisis-call-988"
