@@ -156,6 +156,22 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > — CI is 100% `ubuntu-latest`, so nothing there proves Xcode actually rebuilt the
 > bundle, only that the script refuses to proceed when the evidence says it did not.
 
+> **A peer can still replace your target between the gate build and the flows (INFRA-484).**
+> `e2e-gate.sh` releases its leases on exit and `e2e-safety.sh` acquires the simulator lease
+> when it starts, so inside `/b-close` nothing owns the device between the two steps. Measured
+> at 4 of 28 flow-run attempts over 19h.
+>
+> The pre-flight now **rebuilds once, automatically**, when the installed marker names a
+> *different* worktree, and says whose build it found. `E2E_NO_AUTO_REGATE=1` restores the
+> plain refusal. Two cases deliberately never auto-rebuild: a marker naming **your own**
+> worktree (your tree moved — that is your edit and your call) and **no marker at all**
+> (nothing to attribute, so nothing to act on).
+>
+> Holding one lease across gate → flows would close the window outright and was rejected on
+> measurement: 17 of 18 spans already overlap another session, median 14.5 min and worst 58.3,
+> so spanning would serialise every close on the machine to remove a failure that already
+> fails closed.
+
 > ⚠️ **The gate target is a Release build — `npm run ios` (Debug) will not do.**
 > The **configuration**, not the EAS profile, is what removes the dev launcher.
 >
@@ -204,9 +220,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   E2E_SIM_UDID=<udid> npm run e2e:safety:build   # …or name the target explicitly
   ```
 
-  `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike. Set it for
-  both halves of a session, or the gate will resolve a different device than the build did
-  and refuse the artifact.
+  `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike, **and at any
+  device count** (DEBUG-497). Set it for both halves of a session, or the gate will resolve
+  a different device than the build did and refuse the artifact.
+
+  It is matched as an exact UDID, never a prefix and never against the device name. A pin
+  naming a simulator that is not booted **refuses** rather than falling back to whatever is
+  running — including when only one device is up, which used to resolve the booted one and
+  report success. So a stale exported pin now stops a session instead of silently
+  mis-attributing it; boot the device you named, or clear the variable.
 
   It names a **simulator** only. The device-only flow (`e2e:safety:988-dial`) uses a
   separate `E2E_DEVICE_UDID`, deliberately — because you are told right here to export

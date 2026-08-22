@@ -344,10 +344,19 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
   # failed `node` invocation yields an empty VERDICT, and empty must refuse rather than
   # fall through. Never rewrite this as `if [ -f "$MARKER" ]; then compare; fi`: the
   # marker being absent is exactly the reinstall case worth catching.
+  #
+  # INFRA-484 — the loop exists so a PEER's install can be recovered from ONCE, in place,
+  # rather than sent back to a human. Everything else about the arms below is unchanged: a
+  # refusal is still a refusal, and the recovery is reachable only from the `*)` arm. The
+  # body keeps its original indentation on purpose, so the diff that added this loop shows
+  # the loop rather than a re-indent of forty lines of load-bearing commentary.
+  PROVENANCE_REGATED=0
+  while :; do
   VERDICT="$(node scripts/e2e-provenance.js verify "$APP" 2>/dev/null)" || true
   case "$VERDICT" in
     MATCH_CLEAN)
       echo "✓ provenance: built from this exact tree, clean at build time"
+      break
       ;;
     MATCH_DIRTY)
       # AC3/AC4 are opposite policies over one implementation, selected by this knob.
@@ -365,6 +374,7 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
       echo "  ║  before treating a pass as a gate result.                             ║"
       echo "  ╚══════════════════════════════════════════════════════════════════════╝"
       echo ""
+      break
       ;;
     *)
       # INFRA-436 — print WHAT moved before refusing. "Rebuild" alone costs up to 21m31s
@@ -372,9 +382,72 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
       # unrelated causes (different commits vs. stray local files) whose fixes differ.
       # Diagnostic only: it always exits 0, so it can never soften the refusal below.
       node scripts/e2e-provenance.js explain "$APP" 2>/dev/null || true
+
+      # INFRA-484 — AUTOMATIC SINGLE RE-GATE, on a peer-attributed mismatch only.
+      #
+      # `e2e-gate.sh` releases its leases on EXIT and this script acquires the simulator
+      # lease when it starts, so inside /b-close nothing owns the device between the two
+      # steps. A peer acquiring there builds and installs, and this pre-flight then refuses
+      # against a binary the operator never chose. Measured at 4 of 28 flow-run attempts
+      # over 19h (INFRA-490 telemetry, 2026-08-21): every contended flow-lease acquisition
+      # ran zero flows, and every one of them had a peer's `gate build` as the prior holder.
+      #
+      # Why recovery and not one lease spanning gate -> flows: the same window shows 17 of
+      # 18 spans already overlapping another session, median 14.5 min and worst 58.3. A
+      # spanning lease would serialise every close on the machine, always, to remove a
+      # failure that already fails closed. This is that span, paid only when a collision
+      # actually happened.
+      #
+      # PEER only, and once. SELF is the operator's own edit and stays their call; NONE has
+      # no attribution and must never be guessed at (INFRA-434's ruling, same reasoning).
+      REGATE_ATTRIB="$(node scripts/e2e-provenance.js attribute "$APP" 2>/dev/null || true)"
+      case "$REGATE_ATTRIB" in
+        PEER\ *)
+          if [ "$PROVENANCE_REGATED" = "1" ]; then
+            preflight_fail "the gate target STILL does not match this tree after an automatic rebuild. Something is replacing it faster than the gate can rebuild it, or the rebuild is not producing this tree. Refusing to loop."
+          fi
+          case "${E2E_NO_AUTO_REGATE:-0}" in
+            ''|0|false|no) ;;
+            *) preflight_fail "provenance check returned '${VERDICT:-<no verdict>}' — a peer replaced the gate target, and E2E_NO_AUTO_REGATE is set. Rebuild: npm run e2e:safety:build" ;;
+          esac
+
+          PROVENANCE_REGATED=1
+          echo ""
+          echo "🔁 the gate target was replaced by ${REGATE_ATTRIB#PEER }"
+          echo "   Nothing in this worktree moved — a peer built into the window between"
+          echo "   this close's gate build and its flows. Rebuilding once, then continuing."
+          echo "   ~90s warm; a cold DerivedData cache can reach 21m31s. Set"
+          echo "   E2E_NO_AUTO_REGATE=1 to refuse instead."
+          echo ""
+
+          # The simulator lease is ALREADY ours and is held across the rebuild — that is
+          # what makes this safe to automate. The child's own `e2e_lock_acquire "gate build"`
+          # must inherit it rather than contend, or it would wait out E2E_LOCK_TIMEOUT
+          # against its own parent. APPEND rather than assign: under an enclosing e2e-gate.sh
+          # we are not the recorded owner, and dropping its token would strand the child.
+          E2E_LOCK_INHERITED="${E2E_LOCK_INHERITED:-} sim:${SIM_UDID}:$$"
+          export E2E_LOCK_INHERITED
+
+          if ! bash scripts/e2e-sim-build.sh; then
+            preflight_fail "the automatic rebuild FAILED after a peer replaced the gate target. Its output is above. Rebuild by hand: npm run e2e:safety:build"
+          fi
+
+          # Re-resolve, never reuse. A fresh install mints a NEW container UUID, so the
+          # path captured before the rebuild names the directory the peer's binary was in.
+          # Verifying that again would refuse forever, and — worse — a stale path that still
+          # happens to exist would attest the wrong container.
+          APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" \
+            || preflight_fail "the rebuild reported success but the app container can no longer be resolved on $SIM_UDID."
+          [ -d "$APP" ] \
+            || preflight_fail "the rebuild reported success but the resolved container does not exist: $APP"
+          continue
+          ;;
+      esac
+
       preflight_fail "provenance check returned '${VERDICT:-<no verdict>}' — the installed binary was not built from the current tree (or carries no marker). Rebuild: npm run e2e:safety:build"
       ;;
   esac
+  done
 
   # INFRA-434 — snapshot the marker BYTES for the mid-suite watch below.
   #

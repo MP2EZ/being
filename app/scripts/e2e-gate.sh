@@ -138,13 +138,17 @@ GATE="${E2E_GATE_WORKTREE:-$BARE_ROOT/e2e-gate}"
 # Deliberately here rather than just before the provenance verify, where it used to sit as an
 # inline `simctl` reader. It is the second half of the leased pair, so it has to be known
 # before the lease is taken — and `e2e_resolve_sim_device` is a refusal in its own right
-# (0 booted, 2+ booted), which is far better spent now than after a 21-minute build.
+# (0 booted, 2+ booted, or a pin naming a device that is not booted), which is far better
+# spent now than after a 21-minute build.
 #
 # Threading this UDID down to the child build via E2E_SIM_UDID would look like INFRA-405's
-# "resolve once, thread it through", but exported it SUPPRESSES the 2+ refusal inside
-# `e2e-sim-build.sh`, so a simulator booted mid-run would be silently tolerated by the check
-# that exists to catch it. The child re-resolves; the shared lease is what stops it
-# deadlocking, not a pre-answered device.
+# "resolve once, thread it through", but exported it still SUPPRESSES the 2+ refusal inside
+# `e2e-sim-build.sh` whenever it names a booted device, so a simulator booted mid-run would
+# be silently tolerated by the check that exists to catch it. DEBUG-497 narrowed what an
+# export can hide — a pin naming a NON-booted device now refuses at any count instead of
+# falling back — but it did not make threading safe, because the case at issue here is
+# precisely a pin that does match something booted. The child re-resolves; the shared lease
+# is what stops it deadlocking, not a pre-answered device.
 SIM_UDID="$(e2e_resolve_sim_device "gate build")" || exit 1
 
 # --- Who is asking? ---------------------------------------------------------------------
