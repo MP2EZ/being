@@ -142,12 +142,19 @@ describe('DEBUG-469 — the class stays OUT of the default safety suite', () => 
     expect(/^\s*-\s+safety\s*$/m.test(src)).toBe(false);
   });
 
-  test('the exact-tag matcher the suite uses still selects exactly the ten safety flows', () => {
+  // The COUNT is a deliberate tripwire, not bookkeeping: `npm run e2e:safety` globs by
+  // tag, so a flow silently acquiring `- safety` changes what the gate runs with nothing
+  // else to catch it. Adding a safety flow is therefore SUPPOSED to red-line this test —
+  // bump the number in the same commit that adds the flow, and only after confirming the
+  // new flow belongs in the default suite (not `safety-device-only`, not
+  // `safety-dynamic-type`, both of which the suite can neither select nor validly run).
+  // 10 → 11: FEAT-457 added guidance-suppressed-handoff.
+  test('the exact-tag matcher the suite uses still selects exactly the eleven safety flows', () => {
     const files = fs.readdirSync(MAESTRO).filter((f) => f.endsWith('.yaml') && !f.startsWith('_'));
     const tagged = files.filter((f) =>
       /^\s*-\s+safety\s*$/m.test(fs.readFileSync(path.join(MAESTRO, f), 'utf8'))
     );
-    expect(tagged).toHaveLength(10);
+    expect(tagged).toHaveLength(11);
     expect(tagged).not.toContain('daily-loop-ax5-entry.yaml');
   });
 });
