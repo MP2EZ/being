@@ -528,7 +528,10 @@ else
 fi
 ```
 
-**INFRA-256 decision table** — which safety-path change classes skip the gate vs. trigger it (the implementer/maintainer's quick reference; the bash above is the source of truth):
+**INFRA-256 decision table** — which safety-path change classes skip the gate vs. trigger it (the implementer/maintainer's quick reference; the bash above is the source of truth).
+**Adding or changing a row here changes NOTHING on its own.** The mapping executes in Step
+2.5.3 — a feature-path clause, plus a `.maestro` case arm for a new flow file. Edit the table
+alone and the documented gate and the running gate disagree, with the running one winning.
 
 | Change class under a safety path | Gate? | Why |
 |---|---|---|
