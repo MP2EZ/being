@@ -12,6 +12,7 @@
   "src/core/components/subscription/SubscriptionStatusCard.tsx": 4,
   "src/core/config/__tests__/env.quick.test.ts": 1,
   "src/core/config/env.test.ts": 1,
+  "src/core/hooks/__tests__/useKeyboardOccludesCrisisButton.test.tsx": 1,
   "src/core/navigation/CleanRootNavigator.tsx": 3,
   "src/core/navigation/CleanTabNavigator.tsx": 5,
   "src/core/navigation/__tests__/CleanTabNavigator.accessibility.test.tsx": 1,
@@ -86,6 +87,7 @@
   "src/core/stores/__tests__/subscriptionStore.test.ts": 1,
   "src/core/stores/consentStore.ts": 5,
   "src/core/stores/subscriptionStore.ts": 2,
+  "src/core/theme/__tests__/black-call-sites.accessibility.test.ts": 1,
   "src/core/theme/__tests__/gray600-call-sites.accessibility.test.ts": 1,
   "src/core/theme/__tests__/gray700-call-sites.accessibility.test.ts": 1,
   "src/core/theme/__tests__/theme-contrast.accessibility.test.ts": 1,
@@ -134,6 +136,7 @@
   "src/features/crisis/components/__tests__/CollapsibleCrisisButton.behavioral.test.tsx": 1,
   "src/features/crisis/components/__tests__/CrisisErrorBoundary.test.tsx": 1,
   "src/features/crisis/components/__tests__/CrisisKeyboardAccessory.test.tsx": 1,
+  "src/features/crisis/components/__tests__/CrisisTextInput.test.tsx": 1,
   "src/features/crisis/components/__tests__/RootCrisisButton.test.tsx": 1,
   "src/features/crisis/constants/__tests__/crisisButtonGeometry.test.ts": 1,
   "src/features/crisis/screens/CrisisResourcesScreen.tsx": 2,
@@ -189,8 +192,8 @@
   "src/features/practices/dailyloop/__tests__/DailyLoopCompleteScreen.completionRegister.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/DailyLoopDepthSelectScreen.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.breathReachability.test.tsx": 1,
-  "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.stageNote.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.crisisSupportLineReachability.test.tsx": 1,
+  "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.stageNote.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/dailyLoopEngagement.test.ts": 1,
   "src/features/practices/dailyloop/__tests__/stageNotes.test.ts": 1,
   "src/features/practices/dailyloop/__tests__/tenseMode.test.ts": 1,
@@ -215,6 +218,5 @@
   "src/features/profile/screens/__tests__/DeleteAccountScreen.accessibility.test.tsx": 1,
   "src/features/profile/screens/__tests__/ExportDataScreen.accessibility.test.tsx": 1,
   "src/features/profile/screens/__tests__/PrivacyDataScreen.accessibility.test.tsx": 1,
-  "src/features/profile/screens/__tests__/ProfileScreen.accessibility.test.tsx": 1,
-  "src/core/theme/__tests__/black-call-sites.accessibility.test.ts": 1
+  "src/features/profile/screens/__tests__/ProfileScreen.accessibility.test.tsx": 1
 }

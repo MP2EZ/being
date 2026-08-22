@@ -47,7 +47,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
   ScrollView,
 } from 'react-native';
 // Static import — the crisis path's no-lazy-import rule (CLAUDE.md).
@@ -70,7 +69,7 @@ import {
   startGuardedRecognition,
 } from '@/core/services/speech/onDeviceSpeechGuard';
 import { sweepAllAudioArtifacts } from '@/core/services/speech/audioArtifactSweeper';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
 
 type Phase = 'idle' | 'recording' | 'review' | 'saved' | 'unavailable';
@@ -374,8 +373,7 @@ export function VoiceReflectionScreen(): React.ReactElement {
             <Text style={styles.hint}>Fix anything the transcription got wrong.</Text>
           </View>
 
-          <TextInput
-            {...crisisAccessoryProps()} /* DEBUG-450 */
+          <CrisisTextInput
             style={styles.input}
             testID="journal-transcript-input"
             accessibilityLabel="Your reflection transcript"

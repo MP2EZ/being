@@ -24,6 +24,10 @@ import {
   CRISIS_KEYBOARD_ACCESSORY_TEST_ID,
 } from '@/features/crisis/constants/crisisInputAccessory';
 
+// DEBUG-506: the accessory is no longer self-mounting — it takes the id of the ONE input
+// it serves, supplied by CrisisTextInput. These specs still exercise the control itself
+// (tap ordering, shared navigation path, collapse-in-place), which the change preserves.
+
 const calls: string[] = [];
 
 jest.mock('@/features/crisis/services/crisisTapTrace', () => ({
@@ -54,7 +58,7 @@ beforeEach(() => {
 
 describe('CrisisKeyboardAccessory (DEBUG-450)', () => {
   it('opens the trace BEFORE navigating — order, not just occurrence', () => {
-    const { getByTestId } = render(<CrisisKeyboardAccessory />);
+    const { getByTestId } = render(<CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />);
     fireEvent.press(getByTestId(CRISIS_KEYBOARD_ACCESSORY_TEST_ID));
 
     // Occurrence alone would pass a handler that navigates first and traces after,
@@ -66,7 +70,7 @@ describe('CrisisKeyboardAccessory (DEBUG-450)', () => {
   });
 
   it('reuses the SHARED navigation path, not a re-typed copy', () => {
-    const { getByTestId } = render(<CrisisKeyboardAccessory />);
+    const { getByTestId } = render(<CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />);
     fireEvent.press(getByTestId(CRISIS_KEYBOARD_ACCESSORY_TEST_ID));
 
     // The shared module is what carries DEBUG-341's retry-then-fallback, its
@@ -80,7 +84,7 @@ describe('CrisisKeyboardAccessory (DEBUG-450)', () => {
   });
 
   it('reports its own tap source, distinguishable from the root button', () => {
-    const { getByTestId } = render(<CrisisKeyboardAccessory />);
+    const { getByTestId } = render(<CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />);
     fireEvent.press(getByTestId(CRISIS_KEYBOARD_ACCESSORY_TEST_ID));
     expect(beginCrisisTap).toHaveBeenCalledWith('keyboard_accessory');
   });
@@ -88,7 +92,7 @@ describe('CrisisKeyboardAccessory (DEBUG-450)', () => {
   it('announces itself identically to the root button', () => {
     // The same affordance in a different place must not read as a different control
     // to a screen-reader user.
-    const { getByTestId } = render(<CrisisKeyboardAccessory />);
+    const { getByTestId } = render(<CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />);
     const btn = getByTestId(CRISIS_KEYBOARD_ACCESSORY_TEST_ID);
     expect(btn.props.accessibilityLabel).toBe('I need support');
     expect(btn.props.accessibilityRole).toBe('button');
@@ -103,7 +107,7 @@ describe('CrisisKeyboardAccessory (DEBUG-450)', () => {
       // includeHiddenElements is required precisely BECAUSE the collapsed bar is
       // a11y-hidden; the default query would not see it. That is the next assertion.
       useKeyboardOccludesCrisisButton.mockReturnValue(false);
-      const { getByTestId } = render(<CrisisKeyboardAccessory />);
+      const { getByTestId } = render(<CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />);
       expect(
         getByTestId(CRISIS_KEYBOARD_ACCESSORY_TEST_ID, { includeHiddenElements: true }),
       ).toBeTruthy();
@@ -111,7 +115,7 @@ describe('CrisisKeyboardAccessory (DEBUG-450)', () => {
 
     it('is hidden from assistive tech while collapsed', () => {
       useKeyboardOccludesCrisisButton.mockReturnValue(false);
-      const { getByTestId, queryByTestId } = render(<CrisisKeyboardAccessory />);
+      const { getByTestId, queryByTestId } = render(<CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />);
 
       // The library's own accessibility model is the assertion: a default query
       // excludes a11y-hidden elements, so not finding it IS the proof it is hidden.
@@ -127,7 +131,7 @@ describe('CrisisKeyboardAccessory (DEBUG-450)', () => {
     });
 
     it('is exposed and interactive while occluding', () => {
-      const { getByTestId } = render(<CrisisKeyboardAccessory />);
+      const { getByTestId } = render(<CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />);
       const bar = getByTestId(CRISIS_KEYBOARD_ACCESSORY_CONTAINER_TEST_ID);
       expect(bar.props.accessibilityElementsHidden).toBe(false);
       expect(bar.props.pointerEvents).toBe('auto');
@@ -142,7 +146,7 @@ describe('CrisisKeyboardAccessory (DEBUG-450)', () => {
    * controls — and what is therefore contracted — is the tap path above.
    */
   it('contracts the TAP path only; appearance latency is OS-paced and uncontracted', () => {
-    const { getByTestId } = render(<CrisisKeyboardAccessory />);
+    const { getByTestId } = render(<CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />);
     const t0 = performance.now();
     fireEvent.press(getByTestId(CRISIS_KEYBOARD_ACCESSORY_TEST_ID));
     const dispatchMs = performance.now() - t0;

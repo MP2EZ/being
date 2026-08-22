@@ -23,7 +23,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   Pressable,
   ActivityIndicator,
 } from 'react-native';
@@ -33,7 +32,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 
 const CONFIRM_WORD = 'DELETE';
 
@@ -126,8 +125,7 @@ const DeleteAccountScreen: React.FC = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Type {CONFIRM_WORD} to confirm</Text>
-          <TextInput
-            {...crisisAccessoryProps()} /* DEBUG-450 */
+          <CrisisTextInput
             style={styles.input}
             value={confirmText}
             onChangeText={setConfirmText}
