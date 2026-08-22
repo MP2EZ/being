@@ -68,9 +68,9 @@ import { beginCrisisTap } from '@/features/crisis/services/crisisTapTrace';
 import { navigateToCrisisResources } from '@/features/crisis/utils/navigateToCrisisResources';
 import { useKeyboardOccludesCrisisButton } from '@/core/hooks/useKeyboardOccludesCrisisButton';
 import {
-  AX_FONT_SCALE,
   CRISIS_KEYBOARD_ACCESSORY_CONTAINER_TEST_ID,
   CRISIS_KEYBOARD_ACCESSORY_TEST_ID,
+  shouldShedAccessoryChrome,
 } from '@/features/crisis/constants/crisisInputAccessory';
 import { colorSystem, semantic, spacing, borderRadius, TOUCH_TARGETS } from '@/core/theme';
 
@@ -94,7 +94,7 @@ export const CrisisKeyboardAccessory: React.FC<CrisisKeyboardAccessoryProps> = (
   // full growth. This is the opposite of `maxFontSizeMultiplier`, which the house ruled
   // against on crisis labels (CrisisResourcesScreen.tsx:778-781) and which stays refused.
   const { fontScale } = useWindowDimensions();
-  const axRange = fontScale >= AX_FONT_SCALE;
+  const axRange = shouldShedAccessoryChrome(fontScale);
 
   // InputAccessoryView is iOS-only in RN. Android needs no equivalent: adjustResize
   // repositions the root button above the IME by itself.

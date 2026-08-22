@@ -22,7 +22,10 @@ import { CrisisKeyboardAccessory } from '../CrisisKeyboardAccessory';
 import {
   CRISIS_KEYBOARD_ACCESSORY_CONTAINER_TEST_ID,
   CRISIS_KEYBOARD_ACCESSORY_TEST_ID,
+  AX_FONT_SCALE,
+  shouldShedAccessoryChrome,
 } from '@/features/crisis/constants/crisisInputAccessory';
+import { TOUCH_TARGETS } from '@/core/theme';
 
 // DEBUG-506: the accessory is no longer self-mounting — it takes the id of the ONE input
 // it serves, supplied by CrisisTextInput. These specs still exercise the control itself
@@ -145,6 +148,59 @@ describe('CrisisKeyboardAccessory (DEBUG-450)', () => {
    * is deliberate: the appearance is driven by the OS keyboard animation. What the app
    * controls — and what is therefore contracted — is the tap path above.
    */
+  describe('sizing contracts (DEBUG-506)', () => {
+    const flat = (style: unknown) =>
+      Object.assign({}, ...[].concat(style as never).filter(Boolean).map((s) => s ?? {}));
+
+    it('uses the CRISIS touch target, not the WCAG floor', () => {
+      // accessibility.ts:296-300 names `large` (56) for "Crisis buttons"; this control
+      // shipped on `minimum` (44). CrisisResourcesScreen.tsx:793-795 already records the
+      // same ruling for its own footer, so this is the house position, not a preference.
+      const { getByTestId } = render(
+        <CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />,
+      );
+      expect(flat(getByTestId(CRISIS_KEYBOARD_ACCESSORY_TEST_ID).props.style).minHeight).toBe(
+        TOUCH_TARGETS.large,
+      );
+    });
+
+    it('lets the button shrink and the label wrap rather than clip', () => {
+      // The bar sets overflow:'hidden' — load-bearing for the height-0 collapse — so an
+      // auto-sized child that outgrows the row is CLIPPED. That is the DEBUG-390 shape
+      // and it is reachable from ordinary iOS Settings, well below AX5.
+      const { getByTestId } = render(
+        <CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />,
+      );
+      const button = flat(getByTestId(CRISIS_KEYBOARD_ACCESSORY_TEST_ID).props.style);
+      expect(button.maxWidth).toBe('100%');
+      expect(button.flexShrink).toBe(1);
+    });
+
+    it('sheds chrome only at AX content sizes, and never the label', () => {
+      // Constraint 21. iOS accessibility sizes begin around 1.35x; below that the bar
+      // keeps its normal padding. A NaN/absent scale must not read as AX — that would
+      // strip the bar's clearance on every device.
+      expect(shouldShedAccessoryChrome(1)).toBe(false);
+      expect(shouldShedAccessoryChrome(1.34)).toBe(false);
+      expect(shouldShedAccessoryChrome(AX_FONT_SCALE)).toBe(true);
+      expect(shouldShedAccessoryChrome(3.1)).toBe(true);
+      expect(shouldShedAccessoryChrome(Number.NaN)).toBe(false);
+    });
+
+    it('never caps the label — no maxFontSizeMultiplier, numberOfLines or ellipsize', () => {
+      // CrisisResourcesScreen.tsx:778-781: capping text growth on a crisis affordance
+      // inverts the priority. The bar gives up padding instead (see the AX case below).
+      const { getByText } = render(
+        <CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />,
+      );
+      const label = getByText('I need support');
+      expect(label.props.maxFontSizeMultiplier).toBeUndefined();
+      expect(label.props.numberOfLines).toBeUndefined();
+      expect(label.props.ellipsizeMode).toBeUndefined();
+      expect(label.props.allowFontScaling).not.toBe(false);
+    });
+  });
+
   it('contracts the TAP path only; appearance latency is OS-paced and uncontracted', () => {
     const { getByTestId } = render(<CrisisKeyboardAccessory nativeID="crisis-keyboard-accessory-probe" />);
     const t0 = performance.now();

@@ -30,6 +30,18 @@ export const CRISIS_KEYBOARD_ACCESSORY_ID_PREFIX = 'crisis-keyboard-accessory';
  */
 export const AX_FONT_SCALE = 1.35;
 
+/**
+ * Should the accessory bar shed its own chrome to protect the label?
+ *
+ * The bar's height at large text sizes is label PLUS padding. Dropping padding removes
+ * decoration so the label keeps its full growth — the opposite of capping the label, which
+ * `CrisisResourcesScreen.tsx:778-781` refuses on a crisis affordance and which stays
+ * refused here. Extracted so the trade is testable without driving `useWindowDimensions`.
+ */
+export function shouldShedAccessoryChrome(fontScale: number): boolean {
+  return Number.isFinite(fontScale) && fontScale >= AX_FONT_SCALE;
+}
+
 /** testID for the accessory's own 988 control. */
 export const CRISIS_KEYBOARD_ACCESSORY_TEST_ID = 'crisis-keyboard-accessory-button';
 
