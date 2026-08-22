@@ -63,6 +63,26 @@ e2e_booted_devices() {
   ' 2>/dev/null || return 1
 }
 
+# e2e_match_booted_udid <pin> <listing>
+#
+# Echoes the booted UDID exactly equal to <pin>, or nothing. Never a partial match.
+#
+# The predecessor was `grep -F "$pin"` against the whole `<udid>\t<name>` line, piped to
+# `cut -f1`. Two ways that accepts a pin it should refuse, and both RESOLVE A DEVICE rather
+# than erroring: a truncated or half-pasted UDID matches as a substring, and a pin that
+# happens to appear in the NAME column matches that line and hands back its UDID — so
+# E2E_SIM_UDID=iPhone resolved an arbitrary simulator and reported success. That is the same
+# accept-when-it-should-refuse failure this function's reordering exists to close, so the
+# match has to tighten with it; the reorder alone would put the loose matcher on the hot
+# path for every single-booted run.
+#
+# Field 1 only, string equality. Case-sensitive, matching simctl's own uppercase output.
+e2e_match_booted_udid() {
+  local pin="${1:-}" listing="${2:-}"
+  [ -n "$pin" ] || return 1
+  printf '%s\n' "$listing" | awk -F'\t' -v p="$pin" '$1 == p { print $1; exit }'
+}
+
 # e2e_resolve_sim_device <context-label>
 #
 # Echoes the resolved UDID on stdout. Diagnostics go to stderr so the caller can wrap the
@@ -71,7 +91,14 @@ e2e_booted_devices() {
 # Exit 0  resolved; UDID on stdout
 # Exit 1  could not ENUMERATE devices
 # Exit 2  zero devices booted
-# Exit 3  ambiguous: 2+ booted and no usable E2E_SIM_UDID override
+# Exit 3  REFUSED, for either of two distinguishable reasons (DEBUG-497):
+#           - E2E_SIM_UDID names a device that is not booted, at any count; or
+#           - 2+ booted and no override to disambiguate them.
+#         One code, two messages. No caller reads this function's status — every one
+#         collapses it (`|| exit 1`, `|| exit 2`, or fail()) — so a fourth code would be
+#         unobservable while risking collision with e2e-safety.sh's own 3. The MESSAGE is
+#         what has to differ: telling someone to shut a simulator down when the device
+#         they pinned simply is not running sends them the wrong way.
 #
 # FAILS CLOSED on every non-zero path — it never falls back to the literal `booted`. The
 # obvious shorthand `DEV="${UDID:-booted}"` is deliberately NOT used anywhere: it restores
@@ -398,23 +425,39 @@ e2e_resolve_sim_device() {
 
   count="$(printf '%s\n' "$listing" | grep -c .)"
 
-  if [ "$count" -eq 1 ]; then
-    udid="$(printf '%s' "$listing" | cut -f1)"
-    e2e_warn_if_not_smallest_viewport "$udid" "$listing"
-    printf '%s' "$udid"
-    return 0
-  fi
-
-  # 2+ booted. Honour an explicit override when it names one of them; otherwise refuse.
+  # DEBUG-497 — the pin is read BEFORE the count branches, and applies at ANY count.
+  #
+  # It used to live only in the 2+ arm, below the single-booted short-circuit, so with one
+  # simulator booted the override was ignored entirely: a build pinned to an iPhone 16 Pro
+  # rebuilt onto the booted SE 3 and reported "installed and verified". Nothing caught it
+  # until a post-hoc provenance verify came back MISSING on the intended device. A
+  # measurement attributed to the wrong device is worse than no measurement, and the
+  # override was already documented — in this file's own refusal text — as the remedy.
+  #
+  # Ordering it first also subsumes the old 2+ override path, so there is ONE pin arm with
+  # one message rather than a rule that changes shape with the device count.
   if [ -n "${E2E_SIM_UDID:-}" ]; then
-    if udid="$(printf '%s\n' "$listing" | grep -F "$E2E_SIM_UDID" | cut -f1 | head -1)" && [ -n "$udid" ]; then
+    if udid="$(e2e_match_booted_udid "$E2E_SIM_UDID" "$listing")" && [ -n "$udid" ]; then
       e2e_warn_if_not_smallest_viewport "$udid" "$listing"
       printf '%s' "$udid"
       return 0
     fi
     echo "❌ E2E_SIM_UDID=$E2E_SIM_UDID is not among the booted simulators." >&2
+    echo "   This is a PIN MISMATCH, not a multi-device collision: nothing booted is the" >&2
+    echo "   device you named, so substituting one would attribute the $context to the" >&2
+    echo "   wrong hardware. Booted now:" >&2
     printf '%s\n' "$listing" | sed 's/^/     /' >&2
+    echo "   Boot the device you pinned, then re-run:" >&2
+    echo "     xcrun simctl boot $E2E_SIM_UDID" >&2
+    echo "   Clear E2E_SIM_UDID only if you actually meant a device listed above." >&2
     return 3
+  fi
+
+  if [ "$count" -eq 1 ]; then
+    udid="$(printf '%s' "$listing" | cut -f1)"
+    e2e_warn_if_not_smallest_viewport "$udid" "$listing"
+    printf '%s' "$udid"
+    return 0
   fi
 
   echo "❌ $count simulators booted; 'booted' is ambiguous — simctl picks one of them and" >&2

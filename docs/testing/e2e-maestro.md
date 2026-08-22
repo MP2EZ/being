@@ -156,6 +156,22 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > — CI is 100% `ubuntu-latest`, so nothing there proves Xcode actually rebuilt the
 > bundle, only that the script refuses to proceed when the evidence says it did not.
 
+> **A peer can still replace your target between the gate build and the flows (INFRA-484).**
+> `e2e-gate.sh` releases its leases on exit and `e2e-safety.sh` acquires the simulator lease
+> when it starts, so inside `/b-close` nothing owns the device between the two steps. Measured
+> at 4 of 28 flow-run attempts over 19h.
+>
+> The pre-flight now **rebuilds once, automatically**, when the installed marker names a
+> *different* worktree, and says whose build it found. `E2E_NO_AUTO_REGATE=1` restores the
+> plain refusal. Two cases deliberately never auto-rebuild: a marker naming **your own**
+> worktree (your tree moved — that is your edit and your call) and **no marker at all**
+> (nothing to attribute, so nothing to act on).
+>
+> Holding one lease across gate → flows would close the window outright and was rejected on
+> measurement: 17 of 18 spans already overlap another session, median 14.5 min and worst 58.3,
+> so spanning would serialise every close on the machine to remove a failure that already
+> fails closed.
+
 > ⚠️ **The gate target is a Release build — `npm run ios` (Debug) will not do.**
 > The **configuration**, not the EAS profile, is what removes the dev launcher.
 >
@@ -204,9 +220,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   E2E_SIM_UDID=<udid> npm run e2e:safety:build   # …or name the target explicitly
   ```
 
-  `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike. Set it for
-  both halves of a session, or the gate will resolve a different device than the build did
-  and refuse the artifact.
+  `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike, **and at any
+  device count** (DEBUG-497). Set it for both halves of a session, or the gate will resolve
+  a different device than the build did and refuse the artifact.
+
+  It is matched as an exact UDID, never a prefix and never against the device name. A pin
+  naming a simulator that is not booted **refuses** rather than falling back to whatever is
+  running — including when only one device is up, which used to resolve the booted one and
+  report success. So a stale exported pin now stops a session instead of silently
+  mis-attributing it; boot the device you named, or clear the variable.
 
   It names a **simulator** only. The device-only flow (`e2e:safety:988-dial`) uses a
   separate `E2E_DEVICE_UDID`, deliberately — because you are told right here to export
@@ -759,24 +781,27 @@ most important flow red on a busy host is a net loss.
 `tab-profile`, which is already the active tab. Comment it, because a bare extra tap on the
 active tab reads as a copy-paste slip and will be tidied away otherwise.
 
-**Open, and it is a close condition on DEBUG-477, not a curiosity — and probe P narrowed it
-the wrong way.** Everything above shows the app never receives the touch. It does not show
-that a *human's* first tap after a flick is delivered, and the obvious reassuring explanation
-has now been tested and failed: **touch duration is not the variable.** A stationary touch
-held for 120 ms — a normal human tap — is swallowed, and so are 300 ms, 600 ms and 1200 ms,
-against a control proving the primitive activates the control when the swallow is
-pre-absorbed. Position, gesture shape, card identity and elapsed time are all excluded too.
+**Resolved — the producer is the variable (DEBUG-479, 2026-08-21).** Every probe above shows
+the app never receiving the touch, and probe P had narrowed the field the wrong way: it
+excluded touch duration only *within* the XCUITest producer, so that exclusion never
+transferred. Tested by hand on the Simulator — iPhone SE 3 / iOS 18.6 (375x667), Release
+`e2e-sim` build at `3eb94691`, Profile -> flick the GAD-7 card to mid-screen -> tap **once**,
+five reps — **5/5 first taps navigated.** Same device, geometry, build and gesture as the probe
+table; only the input path differs. XCUITest's synthesised touch is swallowed; the Simulator's
+HID path is not.
 
-The only difference left between every probe here and a real finger is the **input producer**:
-XCUITest synthesises on the automation path, while the Simulator's own trackpad input goes
-through the simulated HID stack. That is a thinner reed than it looked, so treat "harness
-artefact" as the *leading hypothesis with an untested premise*, not as established.
+The classification is therefore **harness artefact**, and DEBUG-477's absorbing tap stays: the
+swallow is fully reproducible on the automation path this suite actually runs on. The blast
+radius is unchanged from "Which flows this can bite" above — `take-gad7-button`, and any target
+that is neither first nor last on a scrolled surface — but it is a blast radius over *flows*,
+not over users.
 
-Verify by hand — it takes a minute and needs no tooling: open the Simulator on an iPhone SE 3,
-go to Profile, flick the list so the GAD-7 card is mid-screen, and tap it **once**. Repeat five
-times. If a human's first tap is also swallowed, that is an **app-side** defect reaching every
-mid-list card in the app, it is P1, and it is tracked separately — the flow remedy above is
-correct either way, which is why DEBUG-477 does not block on it.
+**One residual, named so it is not re-derived as settled.** This ran on the Simulator's
+simulated HID stack, not a physical handset, so it is confirmed down to that stack and not to a
+real finger. DEBUG-479's AC 2 was conditional on a device being available, and no iPhone SE 3
+exists on this machine. The gap is narrow — UIScrollView touch delivery is UIKit code common to
+both — but it is a residual, not a proof, and this defect has already burned one reassuring
+explanation that held right up until it was measured.
 
 ## How a flow works
 
