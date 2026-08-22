@@ -158,3 +158,31 @@ describe('DEBUG-469 — the class stays OUT of the default safety suite', () => 
     expect(tagged).not.toContain('daily-loop-ax5-entry.yaml');
   });
 });
+
+describe('DEBUG-507 — the XXXL profile-entry flow joins the class, not the default suite', () => {
+  const FLOW = 'profile-voice-reflection-xxxl.yaml';
+
+  // Same carve-out as daily-loop-ax5-entry above, and for the same reason: `npm run
+  // e2e:safety` selects on an EXACT `- safety` tag, and this flow asserts a NON-default
+  // text size. If it ever acquires that tag the default suite starts mixing two text
+  // sizes in one run and a red stops being readable.
+  test('is tagged safety-dynamic-type and NOT safety', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    expect(/^\s*-\s+safety-dynamic-type\s*$/m.test(src)).toBe(true);
+    expect(/^\s*-\s+safety\s*$/m.test(src)).toBe(false);
+  });
+
+  // MEASURED, not guessed. At extra-extra-extra-large the Profile list is ~1.35x taller
+  // and Maestro's default 20000 ms scroll budget does not reach the last card: 7 of 7 runs
+  // failed at 20000 ms, 15 of 18 passed at >= 30000 ms. DEBUG-473 had already measured this
+  // flow class at 95% of its scroll budget on an IDLE machine at the default text size, so
+  // the larger size simply spends what was left. Dropping this back to the default is the
+  // one edit that silently restores the defect, which is why it is pinned rather than
+  // left as a number in a file.
+  test('gives the scroll a budget that actually reaches the last card at XXXL', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    const m = src.match(/timeout:\s*(\d+)/);
+    expect(m).not.toBeNull();
+    expect(Number(m[1])).toBeGreaterThanOrEqual(30000);
+  });
+});
