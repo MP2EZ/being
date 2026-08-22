@@ -790,6 +790,11 @@ Phase 2.5 gate; do not re-author Maestro flows here.
 - **Quality bar (both lanes):** assert behavior and edge cases, not implementation
   detail. End with the relevant `npm run test:*` command(s) passing — paste the
   actual result line into the Step 5.2 Notion comment.
+- **Before blaming your diff for a red test, measure the baseline FAILURE RATE, not
+  the baseline outcome.** One green run on the base commit does not exonerate it, and
+  a bisect with one sample per arm returns noise. Run the suspect test ~10x on both
+  trees. Verify the control's `node_modules` matches its lockfile first — a stale
+  worktree is not a control.
 
 ---
 
