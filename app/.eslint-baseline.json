@@ -148,6 +148,7 @@
   "src/features/crisis/types/safety.ts": 1,
   "src/features/crisis/utils/__tests__/openCrisisUrl.test.ts": 1,
   "src/features/data-export/services/__tests__/exportService.test.ts": 1,
+  "src/features/guidance/components/__tests__/RightNowAffordance.accessibility.test.tsx": 1,
   "src/features/home/screens/__tests__/CleanHomeScreen.accessibility.test.tsx": 1,
   "src/features/home/screens/__tests__/CleanHomeScreen.dailyLoop.test.tsx": 1,
   "src/features/insights/components/__tests__/DotCalendar.eraAware.test.ts": 1,
@@ -215,12 +216,5 @@
   "src/features/profile/screens/__tests__/ExportDataScreen.accessibility.test.tsx": 1,
   "src/features/profile/screens/__tests__/PrivacyDataScreen.accessibility.test.tsx": 1,
   "src/features/profile/screens/__tests__/ProfileScreen.accessibility.test.tsx": 1,
-  "src/features/learn/practices/__tests__/practiceQuotes.test.ts": 1,
-  "src/core/theme/__tests__/theme-contrast.accessibility.test.ts": 1,
-  "src/core/theme/__tests__/black-call-sites.accessibility.test.ts": 1,
-  "src/core/theme/__tests__/gray600-call-sites.accessibility.test.ts": 1,
-  "src/core/services/supabase/__tests__/crisisTelemetryKillWindow.unit.test.ts": 1,
-  "src/features/practices/__tests__/accessibility/practices-surface-contrast.accessibility.test.tsx": 1,
-  "src/core/navigation/__tests__/CleanTabNavigator.accessibility.test.tsx": 1,
-  "src/core/services/security/__tests__/storageMetadataIndexErasure.privacy.test.ts": 1
+  "src/core/theme/__tests__/black-call-sites.accessibility.test.ts": 1
 }

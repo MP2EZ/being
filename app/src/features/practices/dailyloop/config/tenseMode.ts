@@ -564,7 +564,23 @@ export const CLOSING = {
  */
 export const DEPTH_PICKER_COPY = {
   title: 'Daily Practice',
-  subtitle: 'Choose what fits this moment — both are complete practices.',
+  subtitle: 'Choose what fits this moment.',
+  /**
+   * DEBUG-469 — FEAT-301's non-ranking guarantee, split out of `subtitle` so it can be
+   * PINNED alongside the two choices rather than left in the scrolling region above them.
+   *
+   * The em-dash clause used to end the subtitle. Once the choices were pinned, the moment
+   * of choosing moved into the pinned region, and at large text sizes a user could tap
+   * `Quick` having never scrolled to this sentence — leaving `Quick` bare against
+   * `Unhurried`, which is exactly the "quick is the lite version" inference FEAT-301 exists
+   * to block and which the two frozen labels alone do not rebut.
+   *
+   * Verbatim and unconditional: never abbreviated, never merged into a card, never
+   * rendered only as an accessibilityHint/Label, never given numberOfLines, and never
+   * hidden at any font scale. It is the LAST element that may be dropped from the pinned
+   * region, never the first.
+   */
+  guarantee: 'Both are complete practices.',
 } as const;
 
 export const DEPTH_LABELS: Record<DailyLoopDepth, { label: string; blurb: string }> = {
