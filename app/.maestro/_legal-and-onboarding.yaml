@@ -147,40 +147,37 @@ name: "Helper: traverse LegalGate + Onboarding"
 # HARDWARE and is not exercised by any simulator run — including INFRA-494's own
 # five-run validation, which cannot cover these lines.
 #
-# THE FIX, same technique INFRA-494 proves on `legal-gate-art9-optional.yaml`: scroll
-# to the CONTENT BOUNDARY instead of to an element. A UIScrollView clamps at its
-# boundary, so extra swipes are no-ops and the count only has to be "enough", never
-# "exact" — no visibility measurement is involved, which is the whole point, since
-# visibility is the broken signal here. `scrollContent` carries
-# `paddingBottom: spacing[32]` (CombinedLegalGateScreen.tsx:674), so at the clamp
-# Continue sits ~32pt above the ScrollView's bottom edge — which is the footer's top
-# edge — and is therefore clear of the footer by construction.
+# MECHANICAL FIX DEFERRED (INFRA-494), DELIBERATELY. The replacement technique —
+# element-anchored swipes to the ScrollView's CONTENT BOUNDARY rather than to an
+# element — is NOT yet proven. Its only on-device trial never reached the first
+# checkbox ("Element not found: legal-consent-tos"), so shipping it here would swap a
+# KNOWN defect for an UNKNOWN one in a helper that only ever runs on real hardware,
+# where no simulator run can tell the difference. The hazard above stays recorded; the
+# gesture below stays unchanged until INFRA-494 lands a technique proven on-device.
 #
-# Anchored on `legal-consent-mh-processing` (the last checkbox, just tapped above, so
-# it is on screen) rather than on screen coordinates: an element anchor cannot resolve
-# onto the footer and ERRORS loudly if it scrolls away, where a percentage corridor
-# would silently become a no-op as the footer grows with Dynamic Type.
-- swipe:
-    from:
-      id: "legal-consent-mh-processing"
-    direction: UP
-- swipe:
-    from:
-      id: "legal-consent-mh-processing"
-    direction: UP
-- swipe:
-    from:
-      id: "legal-consent-mh-processing"
-    direction: UP
-# Attribution guard: if a tap above missed and landed in the footer, the manual-dial
-# Alert is now modal and would swallow the Continue tap, surfacing ~90s later as
-# "Home never appeared". Naming it here says "you tapped 988" instead.
+# What IS added is attribution, which costs nothing and changes no gesture. If any tap
+# lands on the footer instead of its target, `canOpenURL('tel:')` is unconditionally
+# false on the simulator (INFRA-184) so the manual-dial Alert appears — and it is MODAL,
+# swallowing every later tap. Unguarded, that surfaces ~90s later as "Home never
+# appeared", pointing at onboarding instead of at the stray tap. These two lines say
+# "you tapped 988" instead: the first catches a miss from the four consent taps above,
+# the second a miss by the Continue tap itself.
+#
+# HONEST LIMIT: these two lines are UNVERIFIED against a live Alert — proving they can
+# fire would mean deliberately tapping a 988 control, which no flow may do. They are an
+# attribution aid, not coverage, and must not be read as evidence that a mis-tap would
+# be caught. If a future run ever does surface the fallback Alert, confirm the regex
+# actually matched it before trusting these.
 - assertNotVisible:
     text: ".*Unable to (Call|Text).*"
-- assertVisible:
-    id: "legal-gate-continue"
+- scrollUntilVisible:
+    element:
+      id: "legal-gate-continue"
+    direction: DOWN
 - tapOn:
     id: "legal-gate-continue"
+- assertNotVisible:
+    text: ".*Unable to (Call|Text).*"
 
 # ── Step 2: Onboarding ────────────────────────────────────────────
 # Onboarding sequence (per OnboardingScreen.navigateNext + CleanRootNavigator

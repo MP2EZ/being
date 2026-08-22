@@ -100,7 +100,6 @@
     "e2e:safety:phq9": "bash scripts/e2e-safety.sh phq9-severe-completion",
     "e2e:safety:gad7": "bash scripts/e2e-safety.sh gad7-severe",
     "e2e:safety:crisis-button": "bash scripts/e2e-safety.sh crisis-button-reachability",
-    "e2e:safety:art9-optional": "bash scripts/e2e-safety.sh legal-gate-art9-optional",
     "e2e:safety:988-dial": "bash scripts/e2e-safety.sh crisis-988-dial",
     "e2e:safety:keyboard-accessory": "bash scripts/e2e-safety.sh crisis-keyboard-accessory",
     "e2e:safety:journal": "bash scripts/e2e-safety.sh journal-crisis-scan",

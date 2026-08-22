@@ -403,17 +403,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
               ))}
             </Picker>
           </View>
-          {/*
-            INFRA-494: testID is a MAESTRO SWIPE ANCHOR, not a display concern. The
-            legal gate can only be driven by fixed-delta swipes anchored on an element
-            INSIDE the ScrollView (screen-percentage coords are forbidden here: the
-            pinned 988 footer grows from ~102pt to ~162pt at xxxLarge Dynamic Type, so a
-            hardcoded corridor silently starts ON the footer and the swipe becomes a
-            no-op). This node is the only stable anchor that is below the picker — which
-            claims any gesture starting inside it — and above the footer at the landing
-            offset. Renaming it breaks `legal-gate-art9-optional.yaml`.
-          */}
-          <Text testID="legal-gate-age-help" style={styles.helperText}>
+          <Text style={styles.helperText}>
             We use your age only to confirm eligibility. Being is for adults 18 and older.
           </Text>
         </View>

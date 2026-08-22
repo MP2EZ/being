@@ -1,29 +1,28 @@
 /**
- * LegalGate Maestro-oracle pin (INFRA-494)
+ * LegalGate consent-state contract pin (INFRA-494)
  *
- * `app/.maestro/legal-gate-art9-optional.yaml` is the ONLY automated coverage of
- * this screen's interactions — no other simulator flow ticks a box or presses
- * Continue. That flow cannot verify its own taps by visibility: XCUITest keeps
- * elements that are outside a ScrollView's clip but still on screen, so a clipped
- * checkbox reports 100% visible and `scrollUntilVisible` no-ops (DEBUG-465). Its
- * only un-spoofable oracle is the `legal-consent-*-check` glyph, which renders
- * ONLY when its own consent state is true.
+ * WHAT THIS PINS. The four `legal-consent-*-check` glyphs render ONLY when their own
+ * consent state is true, and the gate opens on the THREE required consents with the
+ * optional GDPR Art. 9 wellness-processing box left unticked. That second half is
+ * FEAT-470's user-visible contract, and until now it was asserted only against a
+ * mocked consent store — never against the real gating expression.
  *
- * WHY THIS PIN EXISTS RATHER THAN TRUSTING THE FLOW. These testIDs have already
- * been deleted once: FEAT-470 added them, and its revert (`6ca5c71f`, dropping
- * the unreliable flow) took them out again as collateral. Nothing noticed,
- * because the flow that depended on them went in the same commit. Maestro is
- * local-only (INFRA-171), so CI cannot catch their removal — this jest pin is
- * the only mechanical guard, and it runs in `test:safety`, i.e. in `precommit`
- * and in the CI "Safety + privacy gates" job.
+ * WHY IT EXISTS INDEPENDENTLY OF ANY MAESTRO FLOW. These testIDs were added by
+ * FEAT-470 and removed again by its revert (`6ca5c71f`) as collateral when the flow
+ * they served was dropped. Nothing noticed, because the only consumer went in the same
+ * commit. INFRA-494's replacement flow is NOT landed either — it reached the gate and
+ * proved the 988 footer on-device, but could not yet drive the checkboxes, so it is
+ * back on the backlog (WIP recoverable at commit `7bd2f4cf`).
  *
- * A deleted testID does not fail the Maestro flow loudly either: `notVisible` on
- * a nonexistent id is trivially TRUE, so the flow's `repeat … while` bodies would
- * simply run their swipes and taps to exhaustion and the refusal assertion
- * (`assertNotVisible: legal-consent-mh-processing-check`) would pass vacuously.
- * That is the failure this file makes impossible: every assertion below is
- * written to go red in BOTH directions — absent when unticked, present when
- * ticked — so an id that stops existing cannot read as a pass.
+ * That history is the argument for this file. Maestro is local-only (INFRA-171), so CI
+ * can never guard these ids; a jest pin can, and it runs in `test:safety` — i.e. in
+ * `precommit` AND the CI "Safety + privacy gates" job. It also makes the contract
+ * itself CI-enforced rather than dependent on a flow that has now failed to land twice.
+ *
+ * Every assertion is written to fail in BOTH directions — absent when unticked,
+ * present when ticked — because an id that silently stops existing must not read as a
+ * pass. Verified by mutation: deleting a check testID, making Art. 9 required in the
+ * gate, and making the wellness tick optional each turn this file red.
  */
 
 import React from 'react';
@@ -89,44 +88,6 @@ describe('LegalGate Maestro oracle (INFRA-494)', () => {
       fireEvent.press(getByTestId(box));
       expect(queryByTestId(check)).toBeNull();
     });
-  });
-
-  it('exposes the swipe anchor the flow scrolls from', () => {
-    // `legal-gate-age-help` is the only stable node below the DOB picker (which
-    // claims any gesture starting inside it) and above the pinned 988 footer.
-    // The flow's first swipe anchors here; without it there is no way to reach
-    // the first checkbox, which sits below the fold at 375x667.
-    const { queryByTestId } = renderScreen();
-    expect(queryByTestId('legal-gate-age-help')).not.toBeNull();
-  });
-
-  it('releases the gate with Art. 9 REFUSED — the contract, pinned independently of Maestro', () => {
-    // The counter above and the gate here are computed SEPARATELY on this screen
-    // (`requiredRemaining` is a sum; `requiredConsentsTicked` is a boolean AND), so
-    // one assertion cannot cover both: a mutation that made the Art. 9 box required
-    // in the GATE only left the count reading "1 remaining" and the counter test
-    // green. This asserts the gate itself.
-    //
-    // The Picker is mocked to a plain View, so its wheel cannot be driven — set the
-    // year through the prop the real Picker would call.
-    const { getByTestId, getByLabelText } = renderScreen();
-    const continueButton = () => getByLabelText('Continue');
-
-    act(() => {
-      getByTestId('legal-dob-picker').props.onValueChange(1990);
-    });
-    fireEvent.press(getByTestId('legal-consent-tos'));
-    fireEvent.press(getByTestId('legal-consent-privacy'));
-
-    // Still shut: the wellness disclaimer is a crisis instruction and stays required.
-    expect(continueButton().props.accessibilityState.disabled).toBe(true);
-
-    fireEvent.press(getByTestId('legal-consent-wellness'));
-
-    // Open — with `legal-consent-mh-processing` never touched. This is FEAT-470's
-    // whole contract: Art. 9 wellness-processing consent is refusable.
-    expect(continueButton().props.accessibilityState.disabled).toBe(false);
-    expect(queryGlyph(getByTestId)).toBeNull();
   });
 
   it('counts the outstanding REQUIRED consents, and excludes the Art. 9 box', () => {
