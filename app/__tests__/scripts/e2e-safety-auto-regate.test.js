@@ -43,6 +43,7 @@ const SOURCED = [
   'e2e-sim-device.sh',
   'e2e-real-device.sh',
   'e2e-driver-ownership.sh',
+  'e2e-content-size.sh',
   'e2e-sim-lock.sh',
   'e2e-host-contention.sh',
   'e2e-telemetry.sh',
@@ -131,6 +132,10 @@ function makeSandbox({ buildBehaviour = 'repair', extraBuild = '' } = {}) {
 
   for (const f of SOURCED) {
     const src = path.join(SCRIPTS, f);
+    // The existsSync guard is deliberate FORWARD-compat: SOURCED may name a helper that has
+    // not landed yet. It must stay tolerant — but see the drift guard at the end of this
+    // file, which makes the dangerous direction (a helper e2e-safety.sh really sources
+    // going unstaged) loud without breaking the tolerant direction.
     if (fs.existsSync(src)) fs.copyFileSync(src, path.join(root, 'scripts', f));
   }
 
@@ -331,4 +336,22 @@ describe('INFRA-484 — a peer-attributed provenance refusal re-gates once', () 
     // build's own alphabet into the gate's. That guard is the point and it still holds.
     expect(r.status).not.toBe(7);
   }, 180000);
+});
+
+describe('DEBUG-469 — the sandbox stages every helper e2e-safety.sh sources', () => {
+  // THIRD occurrence of one failure mode (INFRA-436, INFRA-476, INFRA-490 preceded it here,
+  // and two sibling sandboxes carry the same guard). It is silent by construction: bash
+  // reports a missing source and CARRIES ON, so the helper's functions become
+  // `command not found` and every test in this file fails on an exit code that has nothing
+  // to do with what it asserts — which is exactly how it presented.
+  //
+  // Deliberately NOT asserted as "every SOURCED name exists": that list may name a helper
+  // that has not landed yet, and the staging loop tolerates it on purpose. The dangerous
+  // direction is the other one, so derive the requirement from the script itself.
+  test('no `. "$(dirname "$0")/x.sh"` in e2e-safety.sh is missing from SOURCED', () => {
+    const src = fs.readFileSync(path.join(SCRIPTS, 'e2e-safety.sh'), 'utf8');
+    const sourced = [...src.matchAll(/^\s*\.\s+"\$\(dirname "\$0"\)\/([\w.-]+)"/gm)].map((m) => m[1]);
+    expect(sourced.length).toBeGreaterThan(0);
+    expect(sourced.filter((f) => !SOURCED.includes(f))).toEqual([]);
+  });
 });

@@ -8,7 +8,7 @@
  */
 
 import React, { useState, useMemo, useCallback } from 'react';
-import { View, Text, StyleSheet, Pressable } from 'react-native';
+import { View, Text, StyleSheet, Pressable, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -17,6 +17,11 @@ import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
+// FEAT-457 — direct path, never a features/guidance barrel (FEAT-376). This
+// component reaches only DOMAIN_BINDINGS (constants over types), so it adds no
+// edge from Home to guidanceGate or the content loader.
+import RightNowAffordance from '@/features/guidance/components/RightNowAffordance';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { IntroOverlay } from '../components/IntroOverlay';
 import { useAnalytics } from '@/core/analytics';
 import { themeKeyFor } from '@/core/types/practice-identity';
@@ -58,6 +63,7 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
 
   return (
     <Pressable
+      testID={`checkin-card-${type}`}
       style={({ pressed }) => [
         styles.checkInCard,
         {
@@ -163,7 +169,17 @@ const CleanHomeScreen: React.FC = () => {
   // `['top']`; MAINT-437 recorded the divergence and left it for this pass.
   return (
     <SafeAreaView edges={['top']} style={styles.container} testID="home-screen">
-      <View style={styles.content}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.content}
+        // DEBUG-469: at AX5 the intrinsic-height siblings below consume the whole screen
+        // and the card overflows past the fold. Home had NO scroll container, so a swipe
+        // had nothing to move and the daily loop could not be entered by any route.
+        // `flexGrow: 1` on the content container keeps the default-size layout byte-identical
+        // — the content still fills the screen and the card still grows — and engages the
+        // scroll only when the content genuinely exceeds the viewport.
+        showsVerticalScrollIndicator={false}
+      >
         {/* Header — MAINT-257: Home is the SOLE intentional exception to the
             shared BodyHeader idiom. The centered display2 "Being" wordmark is the
             brand/landing treatment; Learn/Insights/Profile use the left-aligned
@@ -207,12 +223,41 @@ const CleanHomeScreen: React.FC = () => {
           />
         </View>
 
+        {/* FEAT-457: the guidance entry point. Ships behind `domain_guidance`,
+            build-time and dark in production — the surface it reveals routes a
+            suppressed reader to CrisisResources, so its availability must not be
+            a function of analytics consent or a network round-trip (INFRA-199).
+
+            SITED HERE, between checkInSection and the Practices row, and inside
+            the ScrollView DEBUG-469 added. What it displaces: `checkInSection`
+            and `checkInCard` are now `flexGrow: 1` with a `minHeight: 180` floor
+            rather than `flex: 1`, so this row's height comes out of the card's
+            SURPLUS down to that floor, and past it the ScrollView scrolls instead
+            of the card collapsing. (This comment originally said `flex: 1` and
+            "nothing below moves" — true when written, and DEBUG-469 landed the
+            AX5 fix that made it false. The floor is what now bounds the squeeze.)
+
+            It must stay INSIDE the ScrollView. Pinned below one, it would share
+            screen coordinates with content clipped behind it, and XCUITest scores
+            such an element visible — so Maestro would skip `scrollUntilVisible`
+            and tap the wrong thing (DEBUG-465).
+
+            It does NOT compete with AssessmentStatusBadge. The badge is a STATE
+            indicator that renders above checkInSection at its natural height and
+            changes with assessment cadence; this row is a static navigation
+            affordance that renders identically every day and never carries a
+            badge, count or urgency colour. Different region, different register.
+
+            Subordinate to the daily ritual, never above it. */}
+        {isFeatureEnabled('domain_guidance') && <RightNowAffordance />}
+
         {/* FEAT-293: standalone-practice discoverability.
             Deliberately a FIXED-HEIGHT row BELOW checkInSection, not a fifth
-            CheckInCard: checkInSection is flex:1 and every card inside it is
-            also flex:1 with no ScrollView, so an extra card would squeeze all
-            of them. A fixed row keeps the cards equal to each other and reflows
-            cleanly if the three time-of-day cards are later retired. */}
+            CheckInCard: an extra growing card would compete with the check-in
+            card for surplus space. A fixed row keeps the cards equal to each
+            other and reflows cleanly.
+            DEBUG-469 corrected this note: it used to justify itself with "no
+            ScrollView", which is no longer true and was the defect. */}
         <Pressable
           style={styles.practicesEntry}
           onPress={() => navigation.navigate('PracticeLibrary')}
@@ -224,7 +269,7 @@ const CleanHomeScreen: React.FC = () => {
           <Text style={styles.practicesEntryLabel}>Practices</Text>
           <Text style={styles.practicesEntryAction}>Explore ›</Text>
         </Pressable>
-      </View>
+      </ScrollView>
 
       {/* Intro Animation Overlay */}
       {showIntro && (
@@ -243,8 +288,14 @@ const styles = StyleSheet.create({
     // MAINT-263: shared tab-screen surface token (value unchanged: white).
     backgroundColor: semantic.background.screen,
   },
-  content: {
+  scroll: {
     flex: 1,
+  },
+  content: {
+    // DEBUG-469: `flexGrow` on a contentContainer, never `flex`. A ScrollView's content
+    // container must be free to exceed the viewport; `flex: 1` would clamp it to the
+    // viewport height and reinstate exactly the overflow this fixes.
+    flexGrow: 1,
     paddingHorizontal: spacing[24],
   },
   header: {
@@ -270,7 +321,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing[12],
   },
   checkInSection: {
-    flex: 1,
+    // DEBUG-469: `flexGrow: 1`, NOT `flex: 1`. `flex: 1` sets flexBasis to 0, so this
+    // section's base size is nothing and it grows only into leftover space — of which
+    // there is none at AX5 once the header, badge and practices row have taken their
+    // intrinsic heights. That is what collapsed the card to 40pt and pushed it off
+    // screen. flexBasis stays `auto` here, so the section is sized by its content first.
+    flexGrow: 1,
     marginTop: spacing[12],
   },
   // FEAT-293: fixed height, so it never competes with the flex:1 check-in cards.
@@ -293,7 +349,11 @@ const styles = StyleSheet.create({
     color: semantic.text.secondary,
   },
   checkInCard: {
-    flex: 1,
+    // DEBUG-469: same reasoning as checkInSection — flexGrow, not flex. The minHeight is
+    // the floor that stops a squeeze taking the card below a usable size; it binds only
+    // when space is scarce, since at AX5 the card's own content is far taller than this.
+    flexGrow: 1,
+    minHeight: 180,
     justifyContent: 'space-between',
     paddingTop: spacing[16],
     paddingHorizontal: spacing[16],

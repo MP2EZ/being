@@ -1,13 +1,22 @@
 /**
  * App Store Server API client (INFRA-467 slice 1).
  *
- * Apple's `verifyReceipt` endpoint is deprecated. Its replacement is
- * `GET /inApps/v1/transactions/{transactionId}`, which returns a freshly-signed
- * `signedTransactionInfo` JWS, authenticated by an ES256 JWT signed with an App Store
- * Connect API key. This module mints that token and makes that one call. It performs NO
- * verification of the returned artifact — see "What this module does not do" below.
+ * Apple's `verifyReceipt` endpoint is deprecated. This module mints an ES256 App Store
+ * Connect token and makes ONE outbound call against one of TWO endpoints. It performs NO
+ * verification of the returned artifacts — see "What this module does not do" below.
  *
- * Slice 1 is wired to nothing. `verify-apple-receipt/index.ts` still runs the legacy path.
+ *   - `fetchSignedTransactionInfo` -> `GET /inApps/v1/transactions/{transactionId}`.
+ *     A point-in-time transaction. Answers "was this purchase real?".
+ *     Caller: `verify-apple-receipt` (user-initiated).
+ *   - `fetchSubscriptionStatuses` -> `GET /inApps/v1/subscriptions/{originalTransactionId}`.
+ *     Current renewal state. Answers "is this STILL renewing?" (DEBUG-474).
+ *     Caller: `grace-period-automation` (nightly cron, no principal).
+ *
+ * EVERY HARDENING PROPERTY BELOW IS PER-FUNCTION, NOT PER-MODULE. Identifier validation
+ * before key use, host selection with no default, the `new URL` + origin/protocol
+ * re-assertion, `redirect: 'error'`, the request timeout, reading only Apple's numeric
+ * `errorCode`, and the 200-carrying-garbage shape check are each written out in both
+ * functions on purpose. A third endpoint does not inherit them by being added beside these.
  *
  * ---------------------------------------------------------------------------
  * WHY THE ENVIRONMENT IS A REQUIRED PARAMETER WITH NO DEFAULT
@@ -41,10 +50,20 @@
  * anything, or log. It never reads `APPLE_SHARED_SECRET` and has no path back to
  * `verifyReceipt`.
  *
- * It also does not rate-limit. One authenticated request drives one outbound call with a
- * caller-supplied identifier, and App Store Connect quotas are per-key — so unbounded
- * enumeration by one caller exhausts the quota for every other. Throttling belongs at the
- * call site, which knows the authenticated principal.
+ * It also does not rate-limit, and since DEBUG-474 that sentence needs its second half
+ * restated. App Store Connect quotas are PER-KEY, and both callers draw on the same key —
+ * so an unbounded caller exhausts the quota for the other one, and one of them is the
+ * user-facing verification path. Throttling therefore still belongs at the call site, but
+ * "the call site knows the authenticated principal" is now true of only ONE caller:
+ *
+ *   - `verify-apple-receipt` is per-request and principal-scoped; its budget is per-user.
+ *   - `grace-period-automation` is a cron with NO principal. It cannot throttle per-user,
+ *     so it owes a RUN-SCOPED budget instead: serial calls only, a floor on the interval
+ *     between them, a bounded batch, a wall-clock deadline, and an immediate abort of the
+ *     whole step on 401/403 or 429 rather than continuing through the batch.
+ *
+ * That budget lives in `grace-period-automation/`, deliberately not here: a sleep inside
+ * this module would silently add latency to the user-facing path as well.
  *
  * ---------------------------------------------------------------------------
  * CONFIGURATION IS A PARAMETER, NOT AN ENV READ
@@ -109,6 +128,12 @@ export const REQUEST_TIMEOUT_MS = 10_000;
 
 const TRANSACTION_PATH_PREFIX = '/inApps/v1/transactions/';
 
+/** Apple's subscription-status endpoint (DEBUG-474). A DIFFERENT question from the
+ * transactions endpoint above: renewal state, not a point-in-time transaction. Kept a
+ * module-scope constant for the same reason as its neighbour — the URL is built from a
+ * constant base so an identifier can never rewrite the path. */
+const SUBSCRIPTION_PATH_PREFIX = '/inApps/v1/subscriptions/';
+
 /** App Store Connect API credentials, read from function secrets by the caller. */
 export interface AppStoreConnectCredentials {
   /** APPLE_ISSUER_ID */
@@ -125,6 +150,43 @@ export interface SignedTransactionResult {
   /** Apple's signed transaction JWS, UNVERIFIED. The caller owes verifyAppleJWS +
    * assertAppleAppScope before trusting anything in it. */
   signedTransactionInfo: string;
+}
+
+/** One `lastTransactions` entry, reduced to the only two things a caller may trust.
+ *
+ * Apple's `LastTransactionsItem` also carries an UNSIGNED `status` enum (1-5) and an
+ * UNSIGNED `originalTransactionId`, and the enclosing `StatusResponse` carries an unsigned
+ * `bundleId` and `environment`. NONE of them are surfaced here, and that is a deliberate
+ * structural refusal rather than an oversight:
+ *
+ *   - the unsigned `status` would be an unauthenticated path to a subscription DOWNGRADE,
+ *     and everything it encodes is available from the two signed payloads anyway
+ *     (`expiresDate`, `revocationDate`, `isInBillingRetryPeriod`, `gracePeriodExpiresDate`);
+ *   - selecting WHICH item is ours is an authorization decision, so it must be made on the
+ *     id decoded from the VERIFIED transaction payload, never on the unsigned one beside it;
+ *   - an unsigned field that is merely "checked as a fast pre-flight" is exactly the shape a
+ *     later edit keeps while deleting the signed check it was supposed to be cheaper than.
+ *
+ * Not returning them means no caller can regress into trusting them.
+ */
+export interface SignedSubscriptionStatusItem {
+  /** Apple's signed transaction JWS, UNVERIFIED. Carries `bundleId`, so this is the half
+   * that can establish app scope. */
+  signedTransactionInfo: string;
+  /** Apple's signed renewal JWS, UNVERIFIED. Carries NO `bundleId` (confirmed against
+   * Apple's `JWSRenewalInfoDecodedPayload` spec), so it can NEVER be app-scoped on its own —
+   * the caller must bind it to the transaction half above by requiring their
+   * `originalTransactionId` and `environment` claims to match. */
+  signedRenewalInfo: string;
+}
+
+export interface SignedSubscriptionStatusResult {
+  /** The validated identifier that was requested. */
+  originalTransactionId: string;
+  /** Every signed pair Apple returned, flattened across subscription groups. The caller
+   * selects its own by decoding, never by position — Apple does not promise an order and
+   * the array can span several groups. */
+  items: SignedSubscriptionStatusItem[];
 }
 
 export interface FetchOptions {
@@ -204,6 +266,17 @@ export function assertValidTransactionId(value: unknown): string {
     throw new InvalidTransactionIdError();
   }
   return value;
+}
+
+/**
+ * Three non-empty dot-separated segments. A shape check, not a verification — it only
+ * distinguishes "Apple sent us a JWS-looking string" from "Apple sent us garbage or null".
+ * Proving Apple actually signed it is `verifyAppleJWS`'s job, at the call site.
+ */
+function isJwsShaped(value: unknown): boolean {
+  if (typeof value !== 'string') return false;
+  const segments = value.split('.');
+  return segments.length === 3 && segments.every((segment) => segment.length > 0);
 }
 
 /**
@@ -418,13 +491,124 @@ export async function fetchSignedTransactionInfo(
   // A 200 carrying garbage must fail HERE rather than propagating as success. This is a
   // shape check only — the payload is deliberately not decoded or inspected.
   const signedTransactionInfo = payload?.signedTransactionInfo;
-  if (
-    typeof signedTransactionInfo !== 'string' ||
-    signedTransactionInfo.split('.').length !== 3 ||
-    signedTransactionInfo.split('.').some((segment) => segment.length === 0)
-  ) {
+  if (!isJwsShaped(signedTransactionInfo)) {
     throw new AppleUnavailableError(response.status);
   }
 
-  return { transactionId: id, signedTransactionInfo };
+  return { transactionId: id, signedTransactionInfo: signedTransactionInfo as string };
+}
+
+/**
+ * Fetch Apple's signed subscription statuses for one subscription. Exactly one outbound
+ * call (DEBUG-474).
+ *
+ * Re-verification asks "is this STILL renewing?", which is renewal state — not the
+ * point-in-time transaction `/inApps/v1/transactions/{id}` returns. Apple keys this endpoint
+ * on any transaction id in the subscription's history, and
+ * `subscriptions.original_transaction_id` is plaintext, so no receipt is ever decrypted to
+ * make this call.
+ *
+ * NO `?status=` FILTER IS SENT, deliberately. Filtering server-side on Apple's unsigned
+ * status enum would make an unsigned field decide which rows get processed at all — the same
+ * misuse the return type refuses, relocated into the query string where it is harder to see.
+ *
+ * The returned JWS strings are UNVERIFIED — see the module header. The caller owes
+ * `verifyAppleJWS` on BOTH halves, `assertAppleAppScope` on the transaction half, and the
+ * environment cross-check.
+ */
+export async function fetchSubscriptionStatuses(
+  originalTransactionId: unknown,
+  environment: unknown,
+  credentials: AppStoreConnectCredentials,
+  options: FetchOptions = {},
+): Promise<SignedSubscriptionStatusResult> {
+  // Order matters: a malformed identifier must cost no key import and no network call.
+  const id = assertValidTransactionId(originalTransactionId);
+  const origin = resolveApiOrigin(environment);
+
+  const doFetch = options.fetchImpl ?? globalThis.fetch;
+  const nowMs = (options.now ?? Date.now)();
+  const token = await getBearerToken(credentials, nowMs);
+
+  const url = new URL(`${SUBSCRIPTION_PATH_PREFIX}${encodeURIComponent(id)}`, origin);
+  if (url.origin !== origin || url.protocol !== 'https:') {
+    throw new InvalidTransactionIdError();
+  }
+
+  let response: Response;
+  try {
+    response = await doFetch(url.toString(), {
+      method: 'GET',
+      headers: { Authorization: `Bearer ${token}`, Accept: 'application/json' },
+      // A 3xx would forward the Authorization header off-origin.
+      redirect: 'error',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+  } catch {
+    throw new AppleUnavailableError(0);
+  }
+
+  if (!response.ok) {
+    const errorCode = await readErrorCode(response);
+    if (response.status === 401 || response.status === 403) {
+      // Drop the token before throwing — one Apple just rejected must not be reused.
+      cachedToken = null;
+      throw new AppleAuthError(response.status, errorCode);
+    }
+    if (response.status === 404) {
+      throw new TransactionNotFoundError(errorCode);
+    }
+    // NEVER retry against the other host here. A 404 from Production does not mean "try
+    // Sandbox" — that is the deleted 21007 fallback, and a nightly cron nobody watches is
+    // the easiest place for it to grow back.
+    throw new AppleUnavailableError(response.status, errorCode);
+  }
+
+  let payload: { data?: unknown };
+  try {
+    payload = await response.json();
+  } catch {
+    throw new AppleUnavailableError(response.status);
+  }
+
+  // A 200 carrying garbage fails HERE rather than propagating as success, matching
+  // `fetchSignedTransactionInfo`. Shape only — nothing is decoded or inspected.
+  //
+  // A caller distinguishes this from a genuine upstream outage by the status: an
+  // AppleUnavailableError carrying 200 is a malformed payload, not an unavailable Apple.
+  const groups = payload?.data;
+  if (!Array.isArray(groups)) {
+    throw new AppleUnavailableError(response.status);
+  }
+
+  const items: SignedSubscriptionStatusItem[] = [];
+  for (const group of groups) {
+    const lastTransactions = (group as { lastTransactions?: unknown })?.lastTransactions;
+    // An absent array is malformed; a present-but-empty one is legitimate (Apple can return
+    // a group with nothing in it) and is left for the caller to interpret.
+    if (!Array.isArray(lastTransactions)) {
+      throw new AppleUnavailableError(response.status);
+    }
+    for (const item of lastTransactions) {
+      const signedTransactionInfo = (item as { signedTransactionInfo?: unknown })
+        ?.signedTransactionInfo;
+      const signedRenewalInfo = (item as { signedRenewalInfo?: unknown })?.signedRenewalInfo;
+      // BOTH halves are required. The renewal half cannot be app-scoped on its own, so an
+      // item missing its transaction half is unusable, and an item missing its renewal half
+      // cannot answer the question this endpoint was called to answer. Fail closed rather
+      // than returning a partially-usable item a caller might act on.
+      if (!isJwsShaped(signedTransactionInfo) || !isJwsShaped(signedRenewalInfo)) {
+        throw new AppleUnavailableError(response.status);
+      }
+      items.push({
+        signedTransactionInfo: signedTransactionInfo as string,
+        signedRenewalInfo: signedRenewalInfo as string,
+      });
+    }
+  }
+
+  // An empty `items` is returned as-is, NOT thrown. Apple answering "I have no subscription
+  // records for this id" is a real answer; the caller must decide what it means, and the
+  // ruling in grace-period-automation is that it never means "expired".
+  return { originalTransactionId: id, items };
 }
