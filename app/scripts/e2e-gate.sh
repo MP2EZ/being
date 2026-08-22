@@ -178,7 +178,7 @@ if ! e2e_lock_acquire_pair gatetree "$GATE_KEY" sim "$SIM_UDID" \
   echo "   simulator: $SIM_UDID" >&2
   echo "   The holder is named above. Nothing has been changed by this run." >&2
   echo "" >&2
-  echo "   Waiting is usually right — a gate build is ~90 s warm. If you would rather not:" >&2
+  echo "   Waiting is usually right — a gate build is 1-4 min warm. If you would rather not:" >&2
   echo "     cd $CALLER_ROOT/app && npm run e2e:safety:build" >&2
   echo "   builds in your own worktree instead. That is correct and gates the same tree;" >&2
   echo "   it is only cold (~21 min the first time in a fresh worktree). Note it still" >&2
@@ -275,10 +275,15 @@ assert_gate_at "before compiling"
 # NEVER piped: a pipeline reports the LAST command's status, so a failed build would read
 # as exit 0. The build takes the simulator lock itself (INFRA-436), so a peer's run cannot
 # interleave with the uninstall/install below.
-echo "🏗  Building in $GATE (warm ≈90 s, cold ≈21 min)…"
+# Measured INFRA-508, five instrumented runs: warm 1m02s/3m51s, native regeneration
+# 11m05s/12m43s/14m26s, cold ~21m31s. A peer re-pointing this shared worktree no longer
+# forces the regeneration tier by itself (that was the mtime trigger), but it does still
+# re-run RN bundling, which is why warm has a 4-minute upper end rather than a flat 90 s.
+echo "🏗  Building in $GATE (warm ≈1-4 min, after a regen ≈11-14 min, cold ≈21 min)…"
 ( cd "$GATE/app" && npm run e2e:safety:build ) || die "gate build failed"
 
-# The expensive window — 90 s warm, 21 min cold. Checked BEFORE the provenance verify so a
+# The expensive window — 1-4 min warm, 11-14 min after a regen, 21 min cold (INFRA-508).
+# Checked BEFORE the provenance verify so a
 # moved worktree is reported as what it is, rather than as a bare MISMATCH.
 assert_gate_at "after the build"
 
