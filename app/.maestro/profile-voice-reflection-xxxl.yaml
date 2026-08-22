@@ -1,0 +1,106 @@
+appId: fyi.being.app
+tags:
+  - safety-dynamic-type
+name: "Profile -> VoiceReflection at XXXL (DEBUG-507): the save-time crisis scan stays reachable at the largest non-accessibility text size"
+---
+# DEBUG-507 — the SECOND flow in the `safety-dynamic-type` class (DEBUG-469 built the first).
+#
+# Run it with `npm run e2e:safety:xxxl`, NEVER with a bare `maestro test`. The wrapper
+# (scripts/e2e-dynamic-type.sh) sets the size and restores it in a trap; content size is
+# device-global and persistent, so a bare run leaves this machine's shared simulator
+# poisoned and silently invalidates the next worktree's layout assertions.
+#
+# NOTE THE SIZE. DEBUG-469's flow runs at `accessibility-extra-extra-extra-large`, which is
+# the wrapper's default. This one runs at `extra-extra-extra-large` — the largest
+# NON-accessibility step, i.e. the largest size reachable from the ordinary iOS text-size
+# slider without turning on Larger Accessibility Sizes. The npm script supplies it via
+# E2E_DYNAMIC_TYPE_SIZE; running this flow at the wrapper's default asserts a different
+# size than it was measured at.
+#
+# WHY THIS SURFACE. VoiceReflectionScreen hosts `scanOnSave`, the app's only crisis scan of
+# text a user typed or corrected, plus journal-crisis-banner and journal-crisis-call-988.
+# `features/journal/` is a Protected Path for exactly that reason. This flow pins the ENTRY
+# to it; journal-crisis-scan.yaml pins the scan itself, at the default text size.
+#
+# ── WHY THE SCROLL TIMEOUT IS 40000 AND NOT THE DEFAULT ────────────────────────
+# Load-bearing, and the single edit that silently restores the defect DEBUG-507 filed.
+# At this size the Profile list is ~1.35x taller (the voice-reflection card measures 279pt
+# against 203pt at default) and Maestro's default 20000 ms budget does not reach the last
+# card: the step fails with `No visible element found` and the tap is never issued.
+# MEASURED on iPhone SE (3rd gen) / iOS 18.6 / 375x667: 7 of 7 runs failed at 20000 ms;
+# 15 of 18 passed at >= 30000 ms. DEBUG-473 had already measured this class at 95% of its
+# scroll budget on an IDLE machine at the DEFAULT size — the larger size just spends the
+# remainder. 40000 leaves headroom for a contended host, where DEBUG-473 measured a single
+# scroll iteration at up to 13.7s against ~1.5s idle.
+#
+# ── THE ABSORBING TAP, AND WHAT IS NOT KNOWN ABOUT IT ──────────────────────────
+# DEBUG-479 established that XCUITest's synthesised first tap after a flick is swallowed on
+# a mid-list card, and e2e-maestro.md records that THIS card is normally immune because, as
+# the LAST card, its DOWN scroll terminates at the bottom boundary. That immunity is
+# TYPE-SIZE-DEPENDENT and does not hold here: at this size the swallow reproduced 3 times
+# (scroll COMPLETED, tap COMPLETED, no navigation) during a high-load burst.
+#
+# The absorbing tap below is the house remedy from DEBUG-477/479. It is carried on that
+# PRECEDENT, not on local evidence: a 5-vs-5 comparison on an idle host could not
+# discriminate, because the control also passed 5/5 — the defect did not reproduce in
+# either arm, so the run had no power. Do not cite it as validation, and do not remove this
+# line on the grounds that the flow is green without it.
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent survives clearState (INFRA-179)
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
+
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-voice-reflection"
+    direction: DOWN
+    centerElement: true # DEBUG-477 — load-bearing, see journal-crisis-scan.yaml
+    timeout: 40000 # DEBUG-507 — load-bearing, see header
+# DEBUG-477/479 absorbing tap: an element-anchored target OUTSIDE the ScrollView.
+# tab-profile is already the active tab; this re-tap is deliberate, not a copy-paste slip.
+- tapOn:
+    id: "tab-profile"
+- tapOn:
+    id: "profile-card-voice-reflection"
+
+# AC 1 — the entry completes at this text size. This is the whole point of the flow.
+- extendedWaitUntil:
+    visible:
+      id: "voice-reflection-screen"
+    timeout: 8000
+
+# ── AC 3 — WHY THIS FLOW STOPS AT THE KEYBOARD AND DOES NOT TAP SAVE ─────────
+# It stops here because the next step is BROKEN, and pinning a broken contract green is
+# worse than not pinning it. DEBUG-507 AC 3 re-measured DEBUG-480's clearance at this text
+# size, against the full keyboard window ([0,407][375,667] — NOT `UIKeyboardLayoutStar
+# Preview`, which is [0,451][375,667] and reports only the key layout, omitting the ~44pt
+# predictive bar that occludes just as much):
+#
+#   content_size large  journal-save-button [24,377][279,429] centre y=403 -> clears by  4pt,  42% covered
+#   content_size XXXL   journal-save-button [24,415][279,473] centre y=444 -> UNDER by  37pt, 100% covered
+#
+# The default-size row reproduces DEBUG-480's published figures exactly, which is what
+# vouches for the method. At XXXL the button does not merely lose margin — it sits entirely
+# beneath the keyboard, so the tap is swallowed and `journal-saved-state` never arrives.
+# Tracked as DEBUG-516 per AC 3; this flow gains the save block when that lands.
+#
+# Do NOT "fix" this by asserting `journal-save-button` is visible: the iOS keyboard is a
+# separate window, so XCUITest scores the button fully visible while it is 100% covered.
+# That assertion is the exact false green DEBUG-480 exists to warn about.
+- tapOn:
+    id: "journal-record-button"
+- tapOn:
+    id: "journal-stop-button"
+- extendedWaitUntil:
+    visible:
+      id: "journal-transcript-input"
+    timeout: 8000
+- tapOn:
+    id: "journal-transcript-input"
+- inputText: "today was hard but i made it through and i slept well"
+# Two-sided oracle (DEBUG-477): the keyboard itself is the only honest one, and asserting it
+# visible proves the matcher still fires if iOS renames the identifier.
+- assertVisible:
+    id: "UIKeyboardLayoutStar Preview"

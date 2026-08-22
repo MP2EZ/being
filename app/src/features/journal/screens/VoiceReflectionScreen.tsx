@@ -63,7 +63,7 @@ import {
 
 import { useSpeechRecognitionEvent, ExpoSpeechRecognitionModule } from 'expo-speech-recognition';
 
-import { journalCrisisScanner } from '../services/journalCrisisScan';
+import { journalCrisisScanner, newJournalDraftId } from '../services/journalCrisisScan';
 import { MAX_ENTRY_CHARS, saveEntry } from '../services/journalEntryStore';
 import {
   checkOnDeviceAvailability,
@@ -105,8 +105,14 @@ export function VoiceReflectionScreen(): React.ReactElement {
   const [crisisActive, setCrisisActive] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
 
-  // Stable per-capture id so the scanner can dedupe across its two scan points.
-  const draftIdRef = useRef(`draft-${Date.now()}`);
+  // Identity for ONE capture, so the scanner can dedupe across its two scan points.
+  //
+  // DEBUG-504: re-minted at handleStart, NOT once per mount. Minted once, a second capture
+  // in the same sitting inherited the first one's identity and was skipped at BOTH the
+  // Alert and the `crisis_detected` emission — silent, and disguised by the banner from the
+  // first disclosure still being on screen. Seeded here for the first capture; every later
+  // one re-mints below.
+  const draftIdRef = useRef(newJournalDraftId());
 
   // DEBUG-480: scrolled programmatically when journal-save-error renders, which
   // pushes Save further under the keyboard at exactly the moment the text is at
@@ -135,6 +141,20 @@ export function VoiceReflectionScreen(): React.ReactElement {
       setPhase('unavailable');
       return;
     }
+
+    // DEBUG-504 — a capture BEGINS here, and this is the only place it can. Deliberately
+    // AFTER both guards, so a failed availability check or a refused start does not consume
+    // an identity: "has an identity" stays coextensive with "a capture is in progress".
+    //
+    // Deliberately NOT in handleDiscard. Discard is today's only route back to `idle`, so
+    // the two are equivalent right now — but the invariant belongs to the capture, not to
+    // the way the previous one ended. ANY future affordance that starts a capture (a retry
+    // from `unavailable`, a "write another" from `saved`, a re-record from `review`) MUST
+    // route through here, or the second disclosure goes silent again.
+    //
+    // Never between a capture's two scan points: scanOnFinalize and scanOnSave over one
+    // capture must observe the SAME id, or one disclosure splits into two Alerts.
+    draftIdRef.current = newJournalDraftId();
     setPhase('recording');
   }, []);
 
@@ -437,6 +457,10 @@ export function VoiceReflectionScreen(): React.ReactElement {
         </View>
       )}
 
+      {/* `saved` is terminal by design — no affordance back to `idle`. DEBUG-504: if a
+          "write another" ever lands below, it MUST go through handleStart, which is where a
+          capture's identity is minted. Anything reaching `recording` another way inherits
+          the previous capture's id and silences its disclosure. */}
       {phase === 'saved' && (
         <View testID="journal-saved-state">
           <Text style={styles.title}>Said, and set down.</Text>

@@ -686,6 +686,78 @@ describe('DailyLoopStepScreen — DEBUG-465: the support line is pinned OUTSIDE 
     // is claimed. This screen previously reserved nothing there at all.
     expect(source).toMatch(/edges=\{\[\s*'bottom'\s*\]\}/);
   });
+
+  /**
+   * DEBUG-518 — the Continue button clears the floating crisis button's touch band.
+   *
+   * MEASURED, from the hierarchy of a failing daily-loop-quick-depth run at 375x667:
+   *   continue-button     [20,512][355,568]
+   *   crisis-button-root  [331,523][375,567]
+   * The FAB overlapped the CTA by 24pt of its 335pt width, so a tap on Continue's right
+   * end navigated to CrisisResources mid-practice — a crisis FALSE POSITIVE, the same
+   * harm DEBUG-469 fixed on the sibling depth-select screen.
+   *
+   * It is at-rest geometry, not a scroll artefact: the support bar measures 58pt, so the
+   * scroll viewport ends at 609; scrollContent's paddingBottom (40) puts the CTA's bottom
+   * at 569 and its 56pt height puts its top at 513 — a 1pt reconstruction of the capture.
+   * It therefore reproduces on EVERY beat where showsSupportLine() is true, in both
+   * depths and all tense modes. Aggravating: DailyLoop is in IMMERSIVE_ROUTES, so the FAB
+   * paints at 0.6 opacity while hit-testing at full strength — the occluder is
+   * deliberately less visible than the control it eats.
+   */
+  test('the Continue button declares its OWN CRISIS_FAB_CLEARANCE', () => {
+    // Its own, not imported from features/consent: every existing site declares one
+    // locally, and sharing would couple a practice screen to the consent module.
+    expect(source).toMatch(/const\s+CRISIS_FAB_CLEARANCE\s*=\s*spacing\[72\]/);
+    expect(source).not.toMatch(/import[^\n]*CRISIS_FAB_CLEARANCE/);
+  });
+
+  test('the clearance is applied as paddingRight, AFTER any paddingHorizontal', () => {
+    // RN StyleSheet is last-key-wins, so a paddingHorizontal declared afterwards would
+    // silently overwrite the inset and restore the collision with no visible diff.
+    expect(source).toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+    const wrapAt = source.indexOf('continueWrap:');
+    expect(wrapAt).toBeGreaterThan(-1);
+    const block = source.slice(wrapAt, wrapAt + 300);
+    const horiz = block.indexOf('paddingHorizontal');
+    const right = block.indexOf('paddingRight');
+    expect(right).toBeGreaterThan(-1);
+    if (horiz > -1) expect(right).toBeGreaterThan(horiz);
+  });
+
+  test('the clearance is NOT applied to scrollContent', () => {
+    // Deliberately asserted against scrollContent SPECIFICALLY, not against "any scroll
+    // child" — Continue IS a scroll child, and the blanket form would forbid the correct
+    // fix. Insetting scrollContent would narrow every TextInput, the PreviousAnswerCard
+    // and the centred breath section, undoing the layout DEBUG-468 measured on an SE 3.
+    const contentAt = source.indexOf('scrollContent:');
+    expect(contentAt).toBeGreaterThan(-1);
+    // Bound the slice to scrollContent's OWN entry, not a fixed character window: the
+    // continueWrap entry that carries the inset sits immediately beneath it, and a greedy
+    // window swallows it and fails on correct code. Ends at the entry's closing brace, so
+    // this still holds if the entry becomes multi-line.
+    const contentEnd = source.indexOf('},', contentAt);
+    expect(contentEnd).toBeGreaterThan(contentAt);
+    const contentBlock = source.slice(contentAt, contentEnd);
+    expect(contentBlock.length).toBeGreaterThan(20);
+    expect(contentBlock).not.toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+  });
+
+  test('the clearance matchers can still go red', () => {
+    // A comment-stripped source plus a narrow regex is exactly the pairing that can
+    // silently match nothing (CLAUDE.md, DEBUG-390). Prove the matchers fire against a
+    // known-good literal and reject a known-bad one, and that the stripped source is not
+    // degenerate.
+    expect(source.length).toBeGreaterThan(2000);
+    expect('paddingRight: CRISIS_FAB_CLEARANCE,').toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+    expect('paddingRight: spacing[56],').not.toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+    expect('const CRISIS_FAB_CLEARANCE = spacing[72];').toMatch(
+      /const\s+CRISIS_FAB_CLEARANCE\s*=\s*spacing\[72\]/
+    );
+    expect('const CRISIS_FAB_CLEARANCE = spacing[56];').not.toMatch(
+      /const\s+CRISIS_FAB_CLEARANCE\s*=\s*spacing\[72\]/
+    );
+  });
 });
 
 

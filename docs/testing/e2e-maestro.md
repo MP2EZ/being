@@ -23,6 +23,31 @@ grep -lE '^[[:space:]]*-[[:space:]]+safety[[:space:]]*$' app/.maestro/*.yaml | w
 
 Contract 5 is the tenth flow and is tagged `safety-device-only`, so it is excluded from that count and from `npm run e2e:safety`.
 
+### Tag classes
+
+`e2e-safety.sh` selects the suite on a tag line matching **exactly** `- safety`, so every
+other `safety-*` class is excluded by construction — no runner change, and a flow that
+loses its class falls back INTO the suite rather than out of it. A class exists only when a
+flow cannot be validly run on the suite's target:
+
+| Tag | Excluded because | Run it with |
+|---|---|---|
+| `safety` | — (this is the suite) | `npm run e2e:safety` |
+| `safety-device-only` | sim `canOpenURL` is unconditionally false; sim raises no software keyboard | `e2e:safety:988-dial`, `e2e:safety:keyboard-accessory` — real iPhone |
+| `safety-dynamic-type` | content size is device-global; a bare run poisons the shared sim | `e2e:safety:ax5`, `e2e:safety:xxxl` |
+| `safety-bottom-inset` | needs a non-zero bottom safe-area inset; the collision it adjudicates cannot occur at 375x667 at any clearance value | `npm run e2e:safety:reconsent-ineligible-fab` — booted 393x852 |
+
+Every class but the first two must declare `# e2e-certifies:` — pinned by
+`__tests__/scripts/e2e-flow-certification.test.js`, which carries the two exemptions by
+name so a fourth class fails closed into the requirement. The two are exempt because their
+certifying target is *unexpressible* by that key, not unstated: device-only runs on
+whatever iPhone is plugged in, and dynamic-type's axis is text size.
+
+**`/b-close` never SCOPES an out-of-suite flow — it emits a notice.** Scoping one alongside
+a suite flow makes the close unsatisfiable: `e2e_resolve_sim_device` pins exactly one
+device, so two different certifying targets in one request cannot both be met, and an
+unsatisfiable gate is what trains the `--skip-e2e` reflex (INFRA-510).
+
 Every Jest test in the suite mocks `Alert.alert` and `Linking.canOpenURL`. That's correct for Jest's job (fast logic verification), but it means these user-visible contracts are invisible to the rest of the test stack. The MAINT-166 PR 1 double-Alert regression existed because nothing mechanically pinned them — the bug only surfaced because a code-review docstring (`⚠️`) flagged it.
 
 Maestro fills that gap. It runs against a real iOS sim, where `LSApplicationQueriesSchemes` actually matters, real alerts actually appear, and the safety surface is observable end-to-end. YAML flows are cheap to author, `maestro studio` is a usable debugging tool, and the local-only execution model keeps macOS CI runner costs out of scope for a solo-founder project.
@@ -769,6 +794,9 @@ rather than assuming they are lucky:
   clipped. That is DEBUG-465's shape, not this one, and `centerElement: true` is its fix.
   **Two different defects can wear the same red on one line of a flow** — check the bounds
   before choosing a remedy, and do not let a handful of green runs stand in for that.
+  **The bottom-boundary immunity is also TYPE-SIZE-DEPENDENT (DEBUG-507).** At
+  `extra-extra-extra-large` the card measures 279pt against 203pt, the DOWN scroll no longer
+  terminates cleanly at the boundary, and the swallow reproduces on this last card too.
 
 **Do not add the workaround to a flow that is green.** In particular do not add
 `waitToSettleTimeoutMs` to `crisis-button-reachability`: it is spent per swipe iteration
@@ -794,7 +822,9 @@ The classification is therefore **harness artefact**, and DEBUG-477's absorbing 
 swallow is fully reproducible on the automation path this suite actually runs on. The blast
 radius is unchanged from "Which flows this can bite" above — `take-gad7-button`, and any target
 that is neither first nor last on a scrolled surface — but it is a blast radius over *flows*,
-not over users.
+not over users. DEBUG-507 widened it at non-default text sizes: at `extra-extra-extra-large`
+the last card loses its immunity, and a Profile entry that navigates correctly by hand still
+fails the harness.
 
 **One residual, named so it is not re-derived as settled.** This ran on the Simulator's
 simulated HID stack, not a physical handset, so it is confirmed down to that stack and not to a
