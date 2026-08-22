@@ -73,6 +73,34 @@ import {
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
+/**
+ * DEBUG-518 — horizontal inset reserving the floating crisis button's touch band.
+ *
+ * Declared HERE rather than imported from features/consent: every existing site declares
+ * its own, and sharing one would couple a practice screen to the consent module. Same
+ * reasoning as DailyLoopDepthSelectScreen.tsx:25-37, and the two screens deliberately
+ * carry the SAME value so their right rails align as the user moves between them.
+ *
+ * MEASURED at 375x667 from a failing daily-loop-quick-depth run:
+ *   continue-button     [20,512][355,568]
+ *   crisis-button-root  [331,523][375,567]
+ * The FAB overlapped the CTA by 24pt, so a tap on Continue's right-hand end navigated to
+ * CrisisResources mid-practice — a crisis FALSE POSITIVE. It is at-rest geometry, not a
+ * scroll artefact: the support bar measures 58pt, so the viewport ends at 609,
+ * scrollContent's paddingBottom(40) puts the CTA bottom at 569 and its 56pt height puts
+ * the top at 513. It therefore reproduces on EVERY beat where showsSupportLine() is true.
+ *
+ * 72 rather than the 56 floor (44pt target + 12pt hitSlop): 56 lands the CTA's edge
+ * exactly on the hit boundary with no allowance for the FAB's shadow bleed
+ * (shadowOffset.width -2, shadowRadius 6) or press-state growth. At 72 the CTA ends at
+ * x=283 — 36pt clear of the hitSlop edge and 48pt clear of the painted edge.
+ *
+ * The CTA yields and the FAB does not move: 44pt is already the WCAG 2.5.5 floor, and
+ * making its offset route-conditional would put a branch inside the one component whose
+ * failure mode is app-wide. Insetting the CTA costs 988 reachability nothing.
+ */
+const CRISIS_FAB_CLEARANCE = spacing[72];
+
 const BREATH_DURATION_MS = 30 * 1000;
 
 /**
@@ -379,15 +407,20 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
 
             <Text style={styles.reflectNote}>Reflect as long as you like — writing is optional.</Text>
 
-            <AccessibleButton
-              onPress={handleContinue}
-              label="Continue"
-              variant="primary"
-              size="large"
-              theme="midday"
-              testID="continue-button"
-              accessibilityHint="Continue to the next step"
-            />
+            {/* DEBUG-518: wrapper, NOT scrollContent — insetting the content container
+                would narrow every TextInput, the PreviousAnswerCard and the centred breath
+                section, undoing the layout DEBUG-468 measured on an SE 3. */}
+            <View style={styles.continueWrap}>
+              <AccessibleButton
+                onPress={handleContinue}
+                label="Continue"
+                variant="primary"
+                size="large"
+                theme="midday"
+                testID="continue-button"
+                accessibilityHint="Continue to the next step"
+              />
+            </View>
           </>
         )}
       </ScrollView>
@@ -456,6 +489,9 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: colorSystem.base.white },
   scrollView: { flex: 1 },
   scrollContent: { padding: spacing[20], paddingBottom: spacing[40] },
+  // DEBUG-518: see CRISIS_FAB_CLEARANCE. Deliberately the ONLY inset on this screen —
+  // no paddingHorizontal here, so there is no last-key-wins hazard to order around.
+  continueWrap: { paddingRight: CRISIS_FAB_CLEARANCE },
 
   // DEBUG-468: paddingTop 16 -> 8 and the circle's marginBottom 24 -> 8. Pure
   // spacing, spent last and worth ~24pt of the fix; the structural changes above
