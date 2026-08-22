@@ -546,7 +546,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
 | `features/journal/` change | **`journal-crisis-scan`** | DEBUG-480. Hosts `scanOnSave`, the only crisis scan of typed/corrected text, plus the in-page banner and 988 action. |
 | `features/guidance/` change | **`guidance-suppressed-handoff`** | FEAT-457. Drives Home entry → suppressed → notice → CrisisResources → 988, and asserts all four tier testIDs ABSENT. Supersedes the INFRA-416 crisis-button fail-safe, which stood only while no flow pinned guidance's threshold routing. |
-| `features/practices/dailyloop/` change | **full suite** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. Both daily-loop flows lack a scoped script. |
+| `features/practices/dailyloop/` change | **`daily-loop-quick-depth` + `daily-loop-deeplink`** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. INFRA-509 narrowed this from the full suite: these two are the only tagged flows carrying a daily-loop testID, so they ARE that coverage. A `DailyLoopDepthSelectScreen` edit additionally prints the `e2e:safety:ax5` instruction (DEBUG-469's `CRISIS_FAB_CLEARANCE` is invisible to centre-tapping flows). |
 | `features/practices/` change (outside `dailyloop/`) | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
 | `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
@@ -631,7 +631,7 @@ FULL_SUITE=""
 RENDER_BOOT_RELEVANT=$(echo "$SAFETY_CHANGED" | awk '
   /src\/features\/crisis\/services\// { next }
   /src\/core\/services\/security\// {
-    # Bare regex, NOT `$0 ~ …`: the harness substitutes $0 with the run's arguments when
+    # Bare regex, NOT `$0 ~ …`: the harness substitutes $0 with the run’s arguments when
     # rendering this file, so a copied `$0` matches nothing and drops every security file
     # from the render-boot set — failing toward not gating. Bare regex matches $0 implicitly.
     if (/EncryptionService|SecureStorageService/) { print }
@@ -680,11 +680,31 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/stores/consentStore\.ts' && \
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/guidance/' && \
   FLOWS+=("guidance-suppressed-handoff")
 # DEBUG-465: practices/dailyloop hosts SUPPORT_LINE (a crisis affordance) on a beat
-# chosen by showsSupportLine(), and it is pinned OUTSIDE the ScrollView. Both daily-loop
-# flows — daily-loop-quick-depth, daily-loop-deeplink — lack a scoped npm script, so the
-# full suite is the only reachable mapping today. Adding scoped scripts would narrow this
-# to ~1 flow; that is package.json (app code), not a `.claude` edit.
-echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/practices/dailyloop' && FULL_SUITE=1
+# chosen by showsSupportLine(), pinned OUTSIDE the ScrollView. INFRA-509 narrowed this
+# from the full suite: daily-loop-quick-depth IS the DEBUG-465 pin — above-the-fold at
+# offset 0, tap-through to CrisisResources, does-not-scroll-away, the exactly-once
+# negative, plus the DEBUG-403 resume-overlay occlusion test; daily-loop-deeplink adds
+# the cold-start entry. No other tagged flow contains a daily-loop testID, so these two
+# ARE the coverage the full suite was providing. Not a file-level split: config/tenseMode.ts
+# is eager in CleanRootNavigator's graph (FEAT-376), but both flows launchApp, so a
+# module-load break is red here too — and its three exported symbols are consumed only
+# inside handleDailyLoopComplete, a DailyLoop-only callback. Route suppression is
+# unreachable from here (SUPPRESSED_ROUTES/IMMERSIVE_ROUTES live in RootCrisisButton.tsx;
+# the root route name lives in core/navigation) — both already mapped by their own clauses.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/practices/dailyloop' && \
+  FLOWS+=("daily-loop-quick-depth" "daily-loop-deeplink")
+# DEBUG-469: DailyLoopDepthSelectScreen carries CRISIS_FAB_CLEARANCE — without it a
+# practice-choice tap on a card's right-hand end silently navigates to CrisisResources
+# (a crisis FALSE POSITIVE) — and the AX5 blurb relocation. The tagged suite taps element
+# CENTRES at the default content size, so neither flow above can see either; its owner is
+# daily-loop-ax5-entry.yaml, which is safety-dynamic-type and structurally outside the
+# suite. Surfaced as an instruction, exactly like the flow-file arm below.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'dailyloop/screens/DailyLoopDepthSelectScreen' && {
+  echo "🔠 DailyLoopDepthSelectScreen changed — it carries DEBUG-469's CRISIS_FAB_CLEARANCE"
+  echo "   inset and the AX5 blurb relocation. The tagged suite taps element CENTRES and"
+  echo "   runs at default content size, so it cannot see either. Validate directly:"
+  echo "   npm run e2e:safety:ax5"
+}
 # INFRA-184: app.json / Info.plist changes are caught by the precommit jest static-config
 # test (lsApplicationQueriesSchemes.config.test.ts); no Maestro flow runs here. The device-
 # only crisis-988-dial.yaml is tagged safety-device-only and not part of the sim suite.
@@ -703,10 +723,12 @@ echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/services/security' && \
 # gets wrong, which is why this is a case statement and not a name transform:
 #   • `_`-prefixed files are helper subflows, not flows — any flow may include one,
 #     so the blast radius is the whole suite.
-#   • daily-loop-*.yaml have NO scoped npm script (verify against package.json before
-#     assuming one exists) — they can only be reached via the full suite. ONE exception:
-#     daily-loop-ax5-entry.yaml (DEBUG-469) has `e2e:safety:ax5` and is safety-dynamic-type,
-#     so the suite can neither select nor validly run it — its own arm below, like 988's.
+#   • daily-loop-*.yaml have their own arms (INFRA-509). A scoped npm script is NOT what
+#     makes a flow reachable — INFRA-483 made FLOWS hold FLOW NAMES, and e2e-safety.sh
+#     accepts a bare basename, rejecting only `_*` and files that do not exist. ONE
+#     exception: daily-loop-ax5-entry.yaml (DEBUG-469) is excluded for a DIFFERENT reason —
+#     it is safety-dynamic-type, so the suite can neither select nor validly run it — and
+#     it gets an instruction arm below, like 988's.
 #   • crisis-988-dial.yaml is tagged safety-device-only and CANNOT pass in the sim:
 #     canOpenURL returns false unconditionally there regardless of the array's
 #     contents. Adding it would make every 988-flow edit an unfixable red gate, so it
@@ -731,6 +753,8 @@ while IFS= read -r f; do
     gad7-severe.yaml)                FLOWS+=("gad7-severe") ;;
     crisis-button-reachability.yaml) FLOWS+=("crisis-button-reachability") ;;
     journal-crisis-scan.yaml)        FLOWS+=("journal-crisis-scan") ;;
+    daily-loop-quick-depth.yaml)     FLOWS+=("daily-loop-quick-depth") ;;
+    daily-loop-deeplink.yaml)        FLOWS+=("daily-loop-deeplink") ;;
     deeplink-consent-gate.yaml)      FLOWS+=("deeplink-consent-gate") ;;
     guidance-suppressed-handoff.yaml) FLOWS+=("guidance-suppressed-handoff") ;;
     *) FULL_SUITE=1 ;;
