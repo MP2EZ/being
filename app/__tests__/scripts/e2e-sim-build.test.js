@@ -83,6 +83,7 @@ const TWO_DEVICES = [
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
 const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
 const REAL_HOST_CONTENTION = path.resolve(__dirname, '../../scripts/e2e-host-contention.sh');
+const REAL_CONTENT_SIZE = path.resolve(__dirname, '../../scripts/e2e-content-size.sh');
 const REAL_TELEMETRY = path.resolve(__dirname, '../../scripts/e2e-telemetry.sh');
 const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
@@ -189,6 +190,14 @@ function makeProject(opts = {}) {
   // stage it or every test here dies on the source line before reaching anything under
   // test. Real file: it warns and never exits, so staging it cannot change a verdict.
   fs.copyFileSync(REAL_HOST_CONTENTION, path.join(root, 'scripts', 'e2e-host-contention.sh'));
+  // DEBUG-469: e2e-safety.sh sources the content-size pre-flight. Real file, not a stub —
+  // it REFUSES a non-default size, so a stub that always passed would hide the one thing it
+  // exists to do. Note this is the FOURTH helper to need a line here (INFRA-436, INFRA-476,
+  // INFRA-490 preceded it) and the failure is silent by construction: bash reports a missing
+  // source and carries on, so the helper's functions become `command not found` and every
+  // test in this file fails on an exit code unrelated to what it asserts. The guard below
+  // derives the list instead of trusting this one.
+  fs.copyFileSync(REAL_CONTENT_SIZE, path.join(root, 'scripts', 'e2e-content-size.sh'));
   // INFRA-490: both gate scripts source the telemetry writer. Real file, not a stub — it
   // appends to E2E_TELEMETRY_FILE, which runInSandbox points at the sandbox, so staging it
   // cannot touch the shared /tmp log or change a verdict.
@@ -685,6 +694,25 @@ function runScript(opts = {}) {
  * @param opts.env     extra env (e.g. E2E_REQUIRE_CLEAN_PROVENANCE)
  * @param opts.maestroExits exit code for every `maestro test`
  */
+describe('DEBUG-469 — the sandbox stages every helper the gate scripts source', () => {
+  // FOURTH occurrence of one failure mode (INFRA-436, INFRA-476, INFRA-490, DEBUG-469), and
+  // it is silent by construction: bash prints "No such file or directory" on the source line
+  // and CARRIES ON, so the helper's functions become `command not found` — 127 — and every
+  // test here fails on an exit code that has nothing to do with what it asserts. Derive the
+  // requirement from the scripts instead of maintaining a fifth hand-written list.
+  test.each(['e2e-safety.sh', 'e2e-sim-build.sh'])('%s: every sourced helper is staged', (script) => {
+    const root = makeProject();
+    const staged = path.join(root, 'scripts', script);
+    expect(fs.existsSync(staged)).toBe(true);
+    const sourced = [
+      ...fs.readFileSync(staged, 'utf8').matchAll(/^\s*\.\s+"\$\(dirname "\$0"\)\/([\w.-]+)"/gm),
+    ].map((m) => m[1]);
+    expect(sourced.length).toBeGreaterThan(0);
+    const missing = sourced.filter((f) => !fs.existsSync(path.join(root, 'scripts', f)));
+    expect(missing).toEqual([]);
+  });
+});
+
 function runSafety(built, opts = {}) {
   const {
     flows = [],

@@ -57,6 +57,7 @@ const SOURCED = [
   'e2e-sim-device.sh',
   'e2e-real-device.sh',
   'e2e-driver-ownership.sh',
+  'e2e-content-size.sh',
   'e2e-sim-lock.sh',
   'e2e-host-contention.sh',
   'e2e-telemetry.sh',
@@ -189,6 +190,20 @@ function runGate(sandbox, { flows = [], env = {} } = {}) {
 }
 
 // --- AC1: every device-resolution refusal is 2 -------------------------------------------
+
+describe('DEBUG-469 — the sandbox stages every helper the script sources', () => {
+  // SOURCED is a hand-maintained mirror of a real dependency graph. When it drifts, bash
+  // reports "No such file or directory" on the source line and CARRIES ON, so the missing
+  // helper's functions are merely `command not found` — every arm below still runs, still
+  // exits non-zero, and six of the seven still exit 2 for the WRONG reason. The suite stays
+  // green while testing a script that could not load. Derive the list instead of trusting it.
+  test('no `. "$(dirname "$0")/x.sh"` in e2e-safety.sh is missing from SOURCED', () => {
+    const src = fs.readFileSync(path.join(SCRIPTS, 'e2e-safety.sh'), 'utf8');
+    const sourced = [...src.matchAll(/^\s*\.\s+"\$\(dirname "\$0"\)\/([\w.-]+)"/gm)].map((m) => m[1]);
+    expect(sourced.length).toBeGreaterThan(0);
+    expect(sourced.filter((f) => !SOURCED.includes(f))).toEqual([]);
+  });
+});
 
 describe('DEBUG-496 — a device-resolution refusal is exit 2, never 1', () => {
   test('2+ simulators booted: the ambiguity refusal is a harness fact, not a regression', () => {

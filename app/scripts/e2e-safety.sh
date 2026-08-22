@@ -83,6 +83,12 @@ cd "$(dirname "$0")/.." || exit 2 # -> app/ (npm already sets cwd=app; belt + su
 # e2e-driver-ownership.sh decides which XCUITest drivers may be REAPED once a run is under
 # way; this decides whether a run may START on this device at all. The gap it closes is a
 # peer's e2e-sim-build.sh uninstalling fyi.being.app out from under the flows below.
+# DEBUG-469 — Dynamic Type is a device-global, persistent input that nothing has ever
+# asserted. A size left behind by an earlier run silently poisons every layout assertion
+# here and in a peer worktree sharing this simulator.
+# shellcheck source=scripts/e2e-content-size.sh
+. "$(dirname "$0")/e2e-content-size.sh"
+
 # shellcheck source=scripts/e2e-sim-lock.sh
 . "$(dirname "$0")/e2e-sim-lock.sh"
 
@@ -300,6 +306,15 @@ GATE_REPLACED_BY=""
 # to be wrong.
 if [ "$DEVICE_ONLY" != "1" ]; then
   SIM_UDID="$(e2e_resolve_sim_device "safety gate")" || exit 2
+
+  # DEBUG-469 — refuse a non-default content size BEFORE taking the simulator lease, so a
+  # misconfigured device fails fast instead of holding a shared resource. Exit 2, not 1:
+  # content size is device-global host state a peer session or an earlier run can leave
+  # behind, so it flattens a HARNESS fact (no valid verdict is producible — every layout
+  # assertion would measure a text size the app does not ship) and is not a statement about
+  # this branch. Blaming the branch here is exactly the reflexive-`--skip-e2e` pressure
+  # DEBUG-496 removed from the resolver refusal one line above.
+  e2e_assert_default_content_size "$SIM_UDID" || exit 2
 else
   DEVICE_UDID="$(e2e_resolve_real_device "safety gate (device-only flow)")" || exit 2
 fi
