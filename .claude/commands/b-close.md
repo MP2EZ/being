@@ -349,6 +349,12 @@ never reaches Phase 2.5. The `crisis-988-dial.yaml` flow is now tagged
 `safety-device-only` and excluded from `npm run e2e:safety` — it's runnable
 only against a real device for supplementary runtime verification.
 
+### Step 2.5.0: Sync with origin/development FIRST
+
+Run Step 3.1's merge now, before classifying. Classification and the gate must both see
+the diff that will actually merge — otherwise you classify twice and may build twice.
+Step 3.1 stays as the idempotent re-check for work that lands while the gate runs.
+
 ### Step 2.5.1: Detect safety-surface changes
 
 ```bash
@@ -860,16 +866,10 @@ Staying attached is always valid and is the default when anything above is uncle
 
 ### Step 2.5.4: Verify simulator readiness
 
-**FIRST — sync with `origin/development` (Step 3.1) BEFORE building.** This phase runs
-before Step 3.1 in file order, but gating a tree you are about to change tests an artifact
-that never merges. If `git rev-list --count HEAD..origin/development` is non-zero, perform
-Step 3.1's merge **now**, then build and gate the merged tree. Otherwise the flows validate
-the pre-merge tree while the merged result — the thing that actually lands on `development`
-— is exercised by no runtime check at all; CI's jest suites do run on the merged PR, but the
-Maestro flows are the only runtime UI validation there is. Doing it here also gets you
-INFRA-383's fast build, since `e2e-sim-build.sh` is app code that arrives with the
-back-merge. `git merge` does not fire the pre-commit hook, so run `npm run precommit`
-against the merged tree before spending a build on it.
+**The sync happened in Step 2.5.0.** Two consequences land here: it gets you INFRA-383's
+fast build, since `e2e-sim-build.sh` is app code that arrives with the back-merge; and
+`git merge` does not fire the pre-commit hook, so run `npm run precommit` against the
+merged tree before spending a build on it.
 
 If `development` advances again WHILE you gate, re-classify rather than re-gate
 reflexively: re-run the flows only when the newly merged work touches a Step 2.5.1
