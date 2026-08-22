@@ -137,19 +137,56 @@ describe('WARN-ONLY is structural — neither function can refuse', () => {
   });
 });
 
-describe('coverage — every sim-runnable safety flow declares a viewport', () => {
-  /** The same selection e2e-safety.sh globs: non-underscore files tagged exactly `safety`. */
-  const safetyFlows = fs
+describe('coverage — every safety flow declares a viewport, in EVERY tag class', () => {
+  /**
+   * INFRA-510 — deliberately WIDER than e2e-safety.sh's suite glob. That selects a tag line
+   * matching exactly `- safety`; this selects every `safety*` class, minus a DECLARED
+   * exemption list. The out-of-suite classes are the ones whose declaration nothing else
+   * would notice going missing, and `e2e_flow_certifies` fails closed to 375x667 on an
+   * absent one — the safe default for a suite flow, and a MISLABEL for a class that exists
+   * precisely because it certifies something else. A silently-375x667 bottom-inset flow
+   * would report UNCERTIFIED on the only device that can falsify it.
+   *
+   * WHY AN EXEMPTION LIST RATHER THAN A NARROWER REGEX. The two exempt classes do not have
+   * an unstated target, they have an UNEXPRESSIBLE one: `safety-device-only` runs on
+   * whatever iPhone is plugged in, and `safety-dynamic-type`'s axis is text size, which
+   * this key cannot carry — INFRA-493 flagged shaping the key for it and did not resolve
+   * it. Both are tracked; neither is guessable from the repo, and inventing a declaration
+   * for a crisis flow is worse than recording that it has none. Listing them by name means
+   * a THIRD class fails closed into the requirement instead of escaping it silently.
+   */
+  const DECLARATION_EXEMPT = ['safety-device-only', 'safety-dynamic-type'];
+
+  const tagged = fs
     .readdirSync(MAESTRO_DIR)
     .filter(n => n.endsWith('.yaml') && !n.startsWith('_'))
-    .filter(n => /^[ \t]*-[ \t]+safety[ \t]*$/m.test(fs.readFileSync(path.join(MAESTRO_DIR, n), 'utf8')));
+    .map(n => ({
+      name: n,
+      tag: (fs
+        .readFileSync(path.join(MAESTRO_DIR, n), 'utf8')
+        .match(/^[ \t]*-[ \t]+(safety(?:-[a-z0-9-]+)?)[ \t]*$/m) || [])[1],
+    }))
+    .filter(f => f.tag);
 
-  it('finds the sim-runnable safety flows (guards against the matcher silently matching nothing)', () => {
+  const safetyFlows = tagged.filter(f => !DECLARATION_EXEMPT.includes(f.tag)).map(f => f.name);
+
+  it('finds the safety flows in every non-exempt class (guards against matching nothing)', () => {
     // Not pinned to a count — the runner globs by tag, so a count here would rot on every
-    // added flow. Pinned to non-empty plus a known member, which is what makes the
-    // per-flow assertion below meaningful rather than vacuously true over an empty list.
+    // added flow. Pinned to non-empty plus one known member of each class it must cover,
+    // which is what makes the per-flow assertion below meaningful rather than vacuously
+    // true over a list that quietly stopped including the out-of-suite classes.
     expect(safetyFlows.length).toBeGreaterThan(0);
-    expect(safetyFlows).toContain('crisis-button-reachability.yaml');
+    expect(safetyFlows).toContain('crisis-button-reachability.yaml');                // safety
+    expect(safetyFlows).toContain('reconsent-stale-ineligible-fab-clearance.yaml');  // safety-bottom-inset
+  });
+
+  it('exempts only the two classes whose certifying target this key cannot express', () => {
+    // A new `safety-*` class arriving without a decision here shows up as a red in the
+    // per-flow assertion below, not as a silent exemption.
+    const exemptSeen = [...new Set(tagged.map(f => f.tag))].filter(t =>
+      DECLARATION_EXEMPT.includes(t)
+    );
+    expect(exemptSeen.sort()).toEqual(['safety-device-only', 'safety-dynamic-type']);
   });
 
   test.each(safetyFlows)('%s declares e2e-certifies', name => {
