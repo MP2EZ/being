@@ -295,6 +295,10 @@ Build/run from the existing `development` worktree instead: a fresh worktree sta
 COLD DerivedData cache (21m31s for a first Release build), paid for a branch that will
 never carry a commit. Skip to Phase 3, and note in Step 5.2 that `/b-close` has no PR to
 open.
+**Verify that worktree before using it** — `git -C development status --porcelain` and
+`branch --show-current`. Shared worktrees routinely sit on another session's branch with a
+staged index, so a run there reads the wrong tree or gets swept into someone's commit. Not
+clean and on `development` → cut your own scratch worktree instead.
 
 ### Step 2.1: Determine Branch Naming
 
