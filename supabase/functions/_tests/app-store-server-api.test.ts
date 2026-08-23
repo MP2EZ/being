@@ -22,6 +22,7 @@
 
 import {
   assertEquals,
+  assertNotEquals,
   assertRejects,
   assertThrows,
   assertStringIncludes,
@@ -175,8 +176,11 @@ Deno.test('a malformed id throws before the key is read or any call is made', as
 // ---------------------------------------------------------------------------
 
 Deno.test('the two Apple hosts are the documented ones and are distinct', () => {
-  assertEquals(APP_STORE_SERVER_API_ORIGINS.Production, 'https://api.storekit.itunes.apple.com');
-  assertEquals(APP_STORE_SERVER_API_ORIGINS.Sandbox, 'https://api.storekit-sandbox.itunes.apple.com');
+  assertEquals(APP_STORE_SERVER_API_ORIGINS.Production, 'https://api.storekit.apple.com');
+  assertEquals(APP_STORE_SERVER_API_ORIGINS.Sandbox, 'https://api.storekit-sandbox.apple.com');
+  // The name promises distinctness; assert it rather than leaving it implied by the
+  // two literals above, which a future edit could collapse without failing anything.
+  assertNotEquals(APP_STORE_SERVER_API_ORIGINS.Production, APP_STORE_SERVER_API_ORIGINS.Sandbox);
   assertEquals(resolveApiOrigin('Production'), APP_STORE_SERVER_API_ORIGINS.Production);
   assertEquals(resolveApiOrigin('Sandbox'), APP_STORE_SERVER_API_ORIGINS.Sandbox);
 });
