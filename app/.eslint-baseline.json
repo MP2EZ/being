@@ -12,6 +12,7 @@
   "src/core/components/subscription/SubscriptionStatusCard.tsx": 4,
   "src/core/config/__tests__/env.quick.test.ts": 1,
   "src/core/config/env.test.ts": 1,
+  "src/core/hooks/__tests__/useKeyboardFrameHeight.test.tsx": 1,
   "src/core/navigation/CleanRootNavigator.tsx": 3,
   "src/core/navigation/CleanTabNavigator.tsx": 5,
   "src/core/navigation/__tests__/CleanTabNavigator.accessibility.test.tsx": 1,

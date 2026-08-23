@@ -8,8 +8,8 @@
  */
 
 import React from 'react';
-import { render, fireEvent, waitFor } from '@testing-library/react-native';
-import { Alert, Linking } from 'react-native';
+import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
+import { Alert, Keyboard, Linking, useWindowDimensions } from 'react-native';
 
 jest.mock('@/core/services/speech/onDeviceSpeechGuard', () => ({
   checkOnDeviceAvailability: jest.fn().mockResolvedValue({ available: true }),
@@ -59,6 +59,42 @@ function flatten(style: unknown): Record<string, number> {
 const CRISIS_TEXT = 'i want to die';
 const CLEAN_TEXT = 'today was hard but i made it through';
 
+/** iPhone SE 3, the device every DEBUG-480/507/516 measurement was taken on. */
+const SE3 = { width: 375, height: 667, scale: 2 };
+
+/**
+ * The keyboard window measured on that device — the FULL window `[0,407][375,667]`,
+ * not `UIKeyboardLayoutStar Preview` `[0,451][375,667]`, which reports the key layout
+ * only and under-reports the occluding edge by the ~44pt predictive bar
+ * (profile-voice-reflection-xxxl.yaml).
+ */
+const SE3_KEYBOARD_HEIGHT = 260;
+
+/** Render at a given Dynamic Type scale. 1 = default; 1.353 = XXXL; 3.571 = AX5. */
+function setFontScale(fontScale: number): void {
+  (useWindowDimensions as unknown as jest.Mock).mockReturnValue({ ...SE3, fontScale });
+}
+
+/**
+ * Drive the module-level keyboard store the way iOS does.
+ *
+ * Captured from the `Keyboard.addListener` mock rather than emitted, because the store
+ * subscribes lazily — a handler captured before the first consumer mounts does not exist.
+ */
+function emitKeyboard(height: number): void {
+  const calls = (Keyboard.addListener as jest.Mock).mock.calls;
+  act(() => {
+    for (const [event, handler] of calls) {
+      if (height > 0 && (event === 'keyboardWillChangeFrame' || event === 'keyboardDidShow')) {
+        handler({ endCoordinates: { height, screenY: SE3.height - height } });
+      }
+      if (height === 0 && (event === 'keyboardWillHide' || event === 'keyboardDidHide')) {
+        handler({});
+      }
+    }
+  });
+}
+
 /** Drive the screen to the transcript-review phase. */
 async function reachReview(text: string) {
   const utils = render(<VoiceReflectionScreen />);
@@ -70,11 +106,44 @@ async function reachReview(text: string) {
   return utils;
 }
 
+/** Component/host names of every ancestor of `node`, innermost first. */
+function ancestorTypeNames(node: { parent: unknown } | null): string[] {
+  const names: string[] = [];
+  let cur = (node as { parent: unknown } | null)?.parent as
+    | { parent: unknown; type?: unknown }
+    | null
+    | undefined;
+  while (cur) {
+    const t = cur.type as string | { displayName?: string; name?: string } | undefined;
+    names.push(typeof t === 'string' ? t : (t?.displayName ?? t?.name ?? ''));
+    cur = cur.parent as typeof cur;
+  }
+  return names;
+}
+
+const hasScrollAncestor = (node: { parent: unknown } | null): boolean =>
+  ancestorTypeNames(node).some((n) => /scrollview/i.test(n));
+
+/** testIDs of every ancestor of `node`, innermost first. */
+function ancestorTestIds(node: { parent: unknown } | null): string[] {
+  const ids: string[] = [];
+  let cur = node as { parent: unknown; props?: Record<string, unknown> } | null;
+  while (cur) {
+    const id = cur.props?.testID;
+    if (typeof id === 'string') ids.push(id);
+    cur = cur.parent as typeof cur;
+  }
+  return ids;
+}
+
 beforeEach(() => {
   jest.clearAllMocks();
   mockSave.mockResolvedValue({ saved: true, entry: { id: 'x' } });
   mockAvailability.mockResolvedValue({ available: true });
   mockSweep.mockReturnValue(0);
+  // clearAllMocks wipes the return value the shared setup installed, and the screen
+  // destructures it — without this every spec in the file throws on render.
+  setFontScale(1);
 });
 
 describe('transcript editing', () => {
@@ -200,29 +269,43 @@ describe('keyboard reachability of the save control (DEBUG-480)', () => {
   // jest has no keyboard and no layout: these are shape pins. The behavioural
   // evidence is the keyboard-up block in .maestro/journal-crisis-scan.yaml.
 
+  // DEBUG-516 re-anchored these three. `voice-reflection-screen` is now the OUTER
+  // container — it has to be, because both Maestro flows assert it as the screen-identity
+  // oracle and it must exist in all five phases. Read scroll props off the node that
+  // actually scrolls; a scroll-prop assertion on a non-scrolling View is green and inert.
+
   it('does not let the ScrollView swallow the first keyboard-up tap', async () => {
     const utils = await reachReview(CLEAN_TEXT);
-    const scroll = utils.getByTestId('voice-reflection-screen');
+    const scroll = utils.getByTestId('voice-reflection-scroll');
     // 'handled' — NOT true/'always', which would stop inert content from
     // blurring the input and break journal-review-header's dismissal.
     expect(scroll.props.keyboardShouldPersistTaps).toBe('handled');
   });
 
-  it('insets the scroll view for the keyboard natively, not from a JS height', async () => {
+  it('keeps the native keyboard inset on the scroll region, no longer load-bearing', async () => {
     const utils = await reachReview(CLEAN_TEXT);
-    const scroll = utils.getByTestId('voice-reflection-screen');
-    // UIKit intersects the keyboard frame with this view's frame in window
-    // coordinates, so it is immune to the header/modal-card offset that rules
-    // out KeyboardAvoidingView here, and already includes DEBUG-450's accessory.
+    const scroll = utils.getByTestId('voice-reflection-scroll');
+    // DEBUG-516 CORRECTION. Until DEBUG-516 this prop WAS the reachability mechanism,
+    // and this spec said so. It is not any more: the outer container's paddingBottom
+    // owns the bottom edge, and once the subtree ends at the keyboard top the native
+    // intersection is zero. Retained for scroll CONTENT and for the animation
+    // transient only. Save's reachability is pinned below, against the container.
     expect(scroll.props.automaticallyAdjustKeyboardInsets).toBe(true);
   });
 
   it('offers a dismissal that does not depend on tapping a specific element', async () => {
     const utils = await reachReview(CLEAN_TEXT);
-    const scroll = utils.getByTestId('voice-reflection-screen');
-    // The transcript field is multiline, so Return inserts a newline and there is
-    // no Done key. on-drag makes the scroll toward Save dismiss the keyboard.
-    expect(scroll.props.keyboardDismissMode).toBe('on-drag');
+    const scroll = utils.getByTestId('voice-reflection-scroll');
+    // The transcript field is multiline, so Return inserts a newline and there is no
+    // Done key, so a gestural dismissal is the only one.
+    //
+    // An ACCEPTED SET, not a free-form invariant: an assertion loose enough to pass on
+    // 'none' is worse than the literal it replaced. 'interactive' is deliberately
+    // EXCLUDED while DEBUG-506 is open — it dismisses only on a drag that pulls the
+    // keyboard down, so a scroll to re-read the transcript keeps the keyboard and keeps
+    // this surface's zero-988 window. It becomes a legitimate UX call once DEBUG-506
+    // lands and keyboard-up 988 no longer depends on dismissal at all.
+    expect(['on-drag']).toContain(scroll.props.keyboardDismissMode);
   });
 
   it('keeps Save and Discard out of the crisis button contested column', async () => {
@@ -251,18 +334,35 @@ describe('keyboard reachability of the save control (DEBUG-480)', () => {
     expect(flat.marginTop).toBeGreaterThan(0);
   });
 
-  it('scrolls the save error into view, since it pushes Save further down', async () => {
+  it('renders the save error inside the pinned footer, not in the scroll region', async () => {
     mockSave.mockResolvedValue({ saved: false, reason: 'unknown' });
     const utils = await reachReview(CLEAN_TEXT);
     fireEvent.press(utils.getByTestId('journal-save-button'));
 
     const err = await waitFor(() => utils.getByTestId('journal-save-error'));
-    // The error renders BETWEEN the input and Save on the retry path, where the
-    // text has already survived one failed write and there is no autosave.
-    expect(typeof err.props.onLayout).toBe('function');
-    expect(() => fireEvent(err, 'layout', {
-      nativeEvent: { layout: { x: 0, y: 0, width: 300, height: 20 } },
-    })).not.toThrow();
+    // DEBUG-516 supersedes DEBUG-480's scrollToEnd. That call existed because the error
+    // pushed Save down; with Save pinned it no longer can. Left in place it would fight
+    // the scroll-to-top that reveals a banner disclosed on this same failure path — two
+    // programmatic scrolls in one commit wanting opposite offsets. Moving the error into
+    // the footer retires the fragile behaviour instead of retargeting it, and puts the
+    // message adjacent to the control it refers to, visible with no scroll at all.
+    const ancestors = ancestorTestIds(err);
+    expect(ancestors).toContain('journal-action-block');
+    expect(ancestors).not.toContain('voice-reflection-scroll');
+    expect(err.props.onLayout).toBeUndefined();
+  });
+
+  it('announces the save error to assistive tech', async () => {
+    mockSave.mockResolvedValue({ saved: false, reason: 'unknown' });
+    const utils = await reachReview(CLEAN_TEXT);
+    fireEvent.press(utils.getByTestId('journal-save-button'));
+
+    const err = await waitFor(() => utils.getByTestId('journal-save-error'));
+    // WCAG 4.1.3. The only prior handling was the scrollToEnd, which is visual; removing
+    // it without replacement would leave a VoiceOver user with no signal that the save
+    // failed, on the one path where the text has already survived one failed write and
+    // there is no autosave or draft persistence.
+    expect(err.props.accessibilityLiveRegion).toBe('assertive');
   });
 
   it('writes one entry when Save is double-tapped', async () => {
@@ -466,5 +566,162 @@ describe('a second disclosure in one screen session (DEBUG-504)', () => {
     fireEvent.press(utils.getByTestId('journal-save-button'));
     await waitFor(() => expect(mockSave).toHaveBeenCalledTimes(2));
     expect(mockAlert).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * DEBUG-516 — the save control is pinned, and its bottom inset is read from the LIVE
+ * keyboard frame.
+ *
+ * THE DEFECT. At `extra-extra-extra-large` on iPhone SE 3, `journal-save-button` measured
+ * [24,415][279,473] against a full keyboard window of [0,407][375,667] — 100% covered,
+ * 37pt under the edge. The keyboard band is identical at every text size; what moves is
+ * Save, pushed down by the heading and transcript box growing above it. DEBUG-480 fixed
+ * the default size only and left 4pt of clearance, which is one Dynamic Type step from
+ * failing. It failed.
+ *
+ * WHY THE INSET IS FRAME-DERIVED AND NOT CLEARANCE-DERIVED. An `inputAccessoryView` is
+ * installed into `UIRemoteKeyboardWindow` as part of the first responder's input-view set,
+ * so `UIKeyboardFrameEndUserInfoKey` — and therefore RN's `endCoordinates.height` — reports
+ * key layout + predictive bar + accessory as ONE union. DEBUG-506 makes this app's crisis
+ * accessory attach for the first time, which raises the occluding edge on this surface by
+ * ~60pt. Any fix calibrated against a measured clearance is correct under exactly one of
+ * those two states; a fix that reads the frame is correct under both, because the inset and
+ * the edge are the same number read once.
+ *
+ * jest has no keyboard and no layout. These are shape pins over a store driven by real
+ * `Keyboard` events; the behavioural evidence is the keyboard-up block in
+ * .maestro/journal-crisis-scan.yaml and .maestro/profile-voice-reflection-xxxl.yaml.
+ */
+describe('the save control is pinned above the keyboard (DEBUG-516)', () => {
+  it('puts the action block OUTSIDE the scrolling region', async () => {
+    const utils = await reachReview(CLEAN_TEXT);
+    const save = utils.getByTestId('journal-save-button');
+
+    expect(ancestorTestIds(save)).toContain('journal-action-block');
+    expect(ancestorTestIds(save)).toContain('voice-reflection-screen');
+
+    // Asserted on ANCESTOR TYPES, not on a testID. Phrased against a testID this spec
+    // passes vacuously today — `not.toContain('voice-reflection-scroll')` is trivially
+    // true while that testID does not exist, so it would go green before a line of the
+    // fix was written and stay green if the fix were reverted.
+    //
+    // The whole fix: inside a scroller Save's y is a function of everything above it,
+    // which is exactly what Dynamic Type changes. Outside one there is also no
+    // capture-phase claimant, so the Pressable wins the first keyboard-up tap
+    // unconditionally rather than by the negotiated 'handled' outcome DEBUG-480 relied on.
+    expect(hasScrollAncestor(save)).toBe(false);
+
+    // Control, proving the matcher still fires (DEBUG-390's rule: a narrow matcher that
+    // silently matches nothing looks exactly like a passing assertion). The transcript
+    // field must REMAIN inside the scroll region, so this half must stay true.
+    expect(hasScrollAncestor(utils.getByTestId('journal-transcript-input'))).toBe(true);
+  });
+
+  it('insets the container by the live keyboard height', async () => {
+    const utils = await reachReview(CLEAN_TEXT);
+    emitKeyboard(SE3_KEYBOARD_HEIGHT);
+
+    const flat = flatten(utils.getByTestId('voice-reflection-screen').props.style);
+    expect(flat.paddingBottom).toBe(SE3_KEYBOARD_HEIGHT);
+  });
+
+  it('reserves NOTHING when no keyboard is up', async () => {
+    const utils = await reachReview(CLEAN_TEXT);
+    emitKeyboard(SE3_KEYBOARD_HEIGHT);
+    emitKeyboard(0);
+
+    const flat = flatten(utils.getByTestId('voice-reflection-screen').props.style);
+    // Deliberately NOT useOverlayBottomInset(), whose Math.max floor would return the
+    // 176pt CRISIS_BUTTON_RESERVED_BAND here — a quarter of a 667pt viewport surrendered
+    // in every phase, spending the exact resource this fix is short of. That band is the
+    // shape for a centred card; a bottom-anchored row dodges the crisis button
+    // HORIZONTALLY, which journal-action-block already does.
+    expect(flat.paddingBottom).toBe(0);
+  });
+
+  it('tracks the keyboard identically at every Dynamic Type step', async () => {
+    for (const fontScale of [1, 1.353, 1.786, 3.571]) {
+      setFontScale(fontScale);
+      const utils = await reachReview(CLEAN_TEXT);
+      emitKeyboard(SE3_KEYBOARD_HEIGHT);
+
+      const flat = flatten(utils.getByTestId('voice-reflection-screen').props.style);
+      // The inset is a property of the keyboard, never of the content above Save. This
+      // is what makes clearance non-negative BY CONSTRUCTION instead of by arithmetic.
+      expect(flat.paddingBottom).toBe(SE3_KEYBOARD_HEIGHT);
+      utils.unmount();
+    }
+  });
+
+  it('grows the transcript floor with the type size', async () => {
+    setFontScale(1);
+    const atDefault = await reachReview(CLEAN_TEXT);
+    const defaultMin = flatten(atDefault.getByTestId('journal-transcript-input').props.style)
+      .minHeight;
+    atDefault.unmount();
+
+    setFontScale(3.571);
+    const atAx5 = await reachReview(CLEAN_TEXT);
+    const ax5Min = flatten(atAx5.getByTestId('journal-transcript-input').props.style).minHeight;
+
+    // minHeight: 180 is a fixed pt value against a font that scales, so it held ~7 lines
+    // at default and ~2 at AX5 — the person correcting a lossy transcript loses the very
+    // context correction depends on. Floor is three scaled lines; the default is unchanged.
+    expect(defaultMin).toBe(180);
+    expect(ax5Min).toBeGreaterThan(defaultMin);
+  });
+
+  it('relocates Discard out of the pinned footer at accessibility sizes, never deletes it', async () => {
+    setFontScale(3.571);
+    const utils = await reachReview(CLEAN_TEXT);
+
+    // RELOCATION, NEVER DELETION (the DEBUG-469 rule). Discard is destructive and
+    // secondary, so it is the release valve when the footer would otherwise crowd Save
+    // toward the keyboard — but it keeps its label, its 44pt target, and its place in
+    // the traversal order. Save never moves.
+    const discard = utils.getByTestId('journal-discard-button');
+    expect(ancestorTestIds(discard)).not.toContain('journal-action-block');
+    expect(ancestorTestIds(discard)).toContain('voice-reflection-scroll');
+    expect(flatten(discard.props.style).minHeight).toBeGreaterThanOrEqual(44);
+    expect(ancestorTestIds(utils.getByTestId('journal-save-button')))
+      .toContain('journal-action-block');
+  });
+
+  it('brings the banner back into view when a disclosure lands during review', async () => {
+    const scrollTo = jest.spyOn(
+      (jest.requireActual('react-native') as { ScrollView: { prototype: Record<string, unknown> } })
+        .ScrollView.prototype,
+      'scrollTo' as never,
+    );
+    mockSave.mockResolvedValue({ saved: false, reason: 'unknown' });
+    const utils = await reachReview(CRISIS_TEXT);
+    fireEvent.press(utils.getByTestId('journal-save-button'));
+    await waitFor(() => utils.getByTestId('journal-crisis-banner'));
+
+    // The restructure OWES this. Today the banner is the first child of a full-screen
+    // ScrollView, so "first child" and "top of the viewport" coincide; after the split the
+    // scroll region is a fraction of the screen and a modest offset carries the banner out
+    // of view. The rising edge can only land in a scrolled position on one path — a save
+    // that FAILS and discloses, leaving phase 'review' — which is this one.
+    expect(scrollTo).toHaveBeenCalledWith(expect.objectContaining({ y: 0 }));
+    scrollTo.mockRestore();
+  });
+
+  it('adds no second 988 control to this surface', async () => {
+    const utils = await reachReview(CRISIS_TEXT);
+    // The banner is raised by scanOnSave, not by reaching review: the recognizer never
+    // runs here, so scanOnFinalize scanned '' — the same reason the Maestro flow types
+    // into the field rather than speaking.
+    fireEvent.press(utils.getByTestId('journal-save-button'));
+    await waitFor(() => utils.getByTestId('journal-crisis-banner'));
+    // Crisis constraint: the keyboard-up 988 obligation is DEBUG-506's and is app-wide
+    // across seven surfaces. A per-surface control here becomes a duplicate the day it
+    // lands, giving one screen two differently-labelled Call-988 buttons — worse for a
+    // screen-reader user than the gap it was meant to close. journal-crisis-call-988 is
+    // the disclosure banner's action and is the ONLY 988 affordance this screen owns.
+    expect(utils.getAllByTestId('journal-crisis-call-988')).toHaveLength(1);
+    expect(ancestorTestIds(utils.getByTestId('journal-crisis-call-988')))
+      .not.toContain('journal-action-block');
   });
 });
