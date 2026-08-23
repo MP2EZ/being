@@ -195,6 +195,13 @@ Short-lived branches:
 
 **When CI runs**: `ci.yml` fires on `pull_request` (into `main` or `development`) and on `push` to **`main` and `development` only**. Short-lived branches are deliberately absent from the `push:` trigger — they used to be there, and every commit on one with an open PR produced *two* complete runs on the same SHA (22 check rows per PR), which is how INFRA-329 happened: `gh pr checks --watch` read only one of the two and reported all-green on a red commit. Since every short-lived branch PRs into a protected branch, the `pull_request` trigger already covers 100% of what can merge. Consequences worth knowing: a feature branch gets **no CI until its PR is opened**, and a `push` run on `main`/`development` is the post-merge integration signal — the only check that runs after `gh pr merge --admin`. Never take a merge verdict from `--watch`'s exit status; use `statusCheckRollup` (wired into `/b-close` Step 3.4 and `/b-release` 6.5).
 
+**`main` runs whatever workflows the last release shipped (INFRA-459).** A workflow added,
+changed or retired on `development` does not take effect on `main` until a release carries it,
+and a branch cut from `main` inherits `main`'s set — so a `hotfix/*` can execute a workflow
+already retired on `development`. Read `git show origin/main:.github/workflows/`, never this
+worktree. Retiring one also needs an API disable (`gh api -X PUT .../workflows/<id>/disable`):
+`state` is API state, invisible to git, and deleting the file does not clear it.
+
 **Multi-agent rule**: each Claude agent runs in its own worktree on its own feature branch. All agents converge on `development` via PRs. This is why `development` exists — it's the convergence point for parallel work streams.
 
 ## Release Process (INFRA-145)
