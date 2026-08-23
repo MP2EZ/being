@@ -130,11 +130,90 @@ gh run list --branch development --limit 1 --json status,conclusion,headSha,work
 
 ```bash
 cd /Users/max/dev/being/development/app
-node -e "require('./src/core/config/env')" 2>&1
+for ENV_FILE in .env.production .env.development; do
+  OUT=$(node --env-file="$ENV_FILE" \
+        -e "require('./src/core/config/env.ts'); console.log('ENV_OK ' + process.env.EXPO_PUBLIC_ENV)" 2>&1)
+  RC=$?
+  if [ $RC -ne 0 ] || ! printf '%s' "$OUT" | grep -q '^ENV_OK '; then
+    echo "❌ $ENV_FILE failed INFRA-141 schema validation (exit $RC):"
+    printf '%s\n' "$OUT"
+    exit 1
+  fi
+  echo "✅ $ENV_FILE — $OUT"
+done
 ```
 
-- Exit 0 means the Zod schema parsed successfully.
-- Non-zero exit means a required env var is missing or out of range. ABORT and surface the Zod error verbatim (the schema's issue-formatter at `env.ts:284-290` already redacts values for compliance, so it's safe to display).
+Three parts are load-bearing; the version without them could never pass:
+
+- **`.ts` is required.** Node's CJS resolver never appends it, so the bare
+  `require('./src/core/config/env')` this used to run exits `MODULE_NOT_FOUND`
+  whatever the env contains.
+- **`--env-file` is required.** `EXPO_PUBLIC_*` reach the app through Metro at
+  bundle time, never `process.env`. Without it every var reads `undefined` and a
+  correct config fails. Worktree `.env.*` are symlinks to `.config/.env.*`.
+- **`ENV_OK` is the positive assertion.** A silent exit 0 from the wrong
+  directory is not a pass — same family as the "empty result from a filtered
+  test run is not a pass" rule. Positive `grep -q` is safe here; `grep -qv` is
+  not (the shell snapshot's ugrep wrapper inverts it).
+
+Validate BOTH: Phase 5.2 edits both files, so a `sed` that mangles only the
+development one would otherwise ship unseen.
+
+Non-zero exit means a var is missing or out of range. ABORT and surface the Zod
+error verbatim — the issue-formatter at `env.ts:310-317` redacts received values
+for compliance, so it is safe to display.
+
+### 2.7 No standing red on a scheduled workflow
+
+```bash
+gh run list --branch development --event schedule --limit 30 \
+  --json workflowName,conclusion,createdAt \
+  -q 'group_by(.workflowName)[] | max_by(.createdAt) | select(.conclusion != "success") | "\(.workflowName)\t\(.conclusion)\t\(.createdAt)"'
+```
+
+Must print nothing. A scheduled workflow is the only thing watching state this
+repo does not own — the live site, main's health, Supabase liveness — and a red
+one means a claim the release is about to make is already false.
+
+`Legal Site Freshness` was red for 13 consecutive days before a release PR
+happened to run it and blocked the release mid-flight. Nothing surfaces these
+except looking.
+
+If a row prints, fix or consciously accept it BEFORE bumping. Re-run the failing
+workflow to confirm green rather than trusting a stale conclusion.
+
+### 2.8 Native dependency drift since the last tag
+
+```bash
+cd /Users/max/dev/being
+LAST_TAG=$(git -C development describe --tags --abbrev=0 origin/main \
+             --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-*')
+diff <(git -C development show "$LAST_TAG:app/package-lock.json" \
+        | jq -r '.packages | to_entries[] | select(.key|startswith("node_modules/")) | "\(.key) \(.value.version)"' | sort) \
+     <(jq -r '.packages | to_entries[] | select(.key|startswith("node_modules/")) | "\(.key) \(.value.version)"' \
+        development/app/package-lock.json | sort) \
+  | grep -E '^[<>].*(expo|react-native)' || echo "no native dependency movement"
+```
+
+Informational, not an abort. Read it for **resolved** versions that moved while
+`package.json` stayed put — a `~`/`^` range lets a patch bump add a native API
+with no reviewable diff. That is exactly how `expo-file-system` 56.0.7 → 56.0.9
+introduced a `PHPhotoLibrary` call and got v1.2.0 rejected with ITMS-90683.
+
+`app/__tests__/safety/nativePurposeStrings.config.test.ts` now fails closed on
+the permission half of this in precommit and CI. This step is for the rest —
+anything else a native bump can change that no gate models yet.
+
+### 2.9 main's worktree is usable
+
+```bash
+git -C /Users/max/dev/being/main status --porcelain | head
+```
+
+Should be empty. `/b-release` itself never touches that worktree, but anything
+building or inspecting `main` afterwards does, and `eas.json` sets
+`requireCommit: true`, so a dirty index there fails a build with a message that
+does not mention the worktree. Warn, do not abort.
 
 ---
 
@@ -289,14 +368,12 @@ sed -i '' "s/^EXPO_PUBLIC_BUILD_NUMBER=.*/EXPO_PUBLIC_BUILD_NUMBER=$NEXT_BUILD/"
 
 ### 5.3 Re-validate env schema
 
-After editing env files, re-run the Phase 2.6 check to confirm the schema still parses:
+Re-run the **Phase 2.6 block verbatim** — both files, same positive assertion.
+Do not restate the command here; a second copy is how the two drift apart.
 
-```bash
-cd /Users/max/dev/being/development/app
-node -e "require('./src/core/config/env')" 2>&1
-```
-
-Abort if it fails — this catches a malformed sed substitution.
+Abort if it fails. This is the step that catches a malformed `sed` substitution:
+`EXPO_PUBLIC_APP_VERSION` is `z.string().min(1)`, so a substitution that blanks
+the value fails here rather than shipping.
 
 ---
 
@@ -574,12 +651,66 @@ git -C /Users/max/dev/being update-ref refs/heads/main $MAIN_SHA
 ### 7.5 Display
 
 ```
-🎉 Release v[PKG_VERSION] complete!
+🏷️  Release v[PKG_VERSION] tagged — NOT yet shipped.
    Tag pushed: v[PKG_VERSION] → [MAIN_SHA]
    Bare-repo main ref synced
 
-Next: (Future) TestFlight build trigger via EAS / GitHub Action
+Continuing to Phase 8: watching the TestFlight build.
 ```
+
+Do not print "complete" here. The tag is not the deliverable — the binary is,
+and every failure between the two is invisible from this point.
+
+---
+
+## Phase 8: Watch the release build to a real verdict
+
+Pushing the tag does not ship anything. `release.yml` fires on push to `main`
+and runs the EAS build; the deliverable is a binary in TestFlight, and ~3.5
+hours of the v1.2.0 release lived entirely after the point this skill used to
+declare success.
+
+### 8.1 Wait for the release workflow
+
+```bash
+cd /Users/max/dev/being/development
+sleep 20
+RID=$(gh run list --branch main --workflow "Release - iOS TestFlight" --limit 1 --json databaseId -q '.[0].databaseId')
+gh run watch "$RID" --exit-status; echo "release.yml exit=$?"
+```
+
+Since the `--no-wait` removal, this job carries the build's verdict rather than
+the scheduling's. A red run here means no binary was produced — read the failing
+step. It does **not** invalidate the tag: a build-environment failure (an
+expired EAS `GITHUB_TOKEN` is the one with precedent) is fixed and the workflow
+re-run against the same tag. Do NOT cut a new version for it.
+
+### 8.2 Confirm the artifact independently
+
+```bash
+cd /Users/max/dev/being/development/app
+npx eas build:list --platform ios --limit 1 --json --non-interactive \
+  | jq -r '.[] | "\(.status)  v\(.appVersion)  \(.gitCommitHash[0:8])  \(.artifacts.applicationArchiveUrl // "no artifact")"'
+```
+
+Status must be `FINISHED` with a real archive URL. Check this even on a green
+run — it is the record of what was actually built.
+
+### 8.3 State the gap that remains
+
+Apple processes the uploaded binary asynchronously and reports **only** by email
+/ App Store Connect. A successful upload is not an accepted build: ITMS-90683
+rejected v1.2.0 minutes after a fully green submit. Nothing here can gate that.
+
+```
+✅ Release v[PKG_VERSION] built and uploaded.
+   Apple processing is pending and is reported only by email.
+   Verify: https://appstoreconnect.apple.com/apps/6777579207/testflight/ios
+```
+
+If Apple rejects: the fix is a code/config change, so it needs a new patch
+version — the tagged tree cannot produce a valid binary and must not be the
+shipped one.
 
 ---
 
