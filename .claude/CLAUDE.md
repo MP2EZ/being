@@ -6,7 +6,7 @@ Stoic Mindfulness mental wellness app. Consumer wellness — not a healthcare pr
 
 ## Repo Layout
 
-Bare git repo at `~/dev/being/` with worktrees at `~/dev/being/{main,development,phase-2b}/` plus feature worktrees created by `/b-work`. Always launch `claude` from `~/dev/being/` (the bare-repo root). The app code lives under each worktree's `app/` directory.
+Bare git repo at `~/dev/being/` with a long-lived worktree at `~/dev/being/development/` plus feature worktrees created by `/b-work`. **There is deliberately no `main` worktree.** `main` is only ever a ref here — the release moves it, nothing checks it out — and while one existed it silently desynced on every release (`update-ref` advances the pointer without touching a checked-out worktree). Need to inspect or branch from shipped state? Create one on demand: `git -C ~/dev/being worktree add ~/dev/being/<slug> -b <branch> origin/main`. Always launch `claude` from `~/dev/being/` (the bare-repo root). The app code lives under each worktree's `app/` directory.
 
 ## Tech Stack
 

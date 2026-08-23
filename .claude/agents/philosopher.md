@@ -39,7 +39,12 @@ Validates Stoic Mindfulness framework integrity, philosophical accuracy of class
 
 ## Primary Documentation
 
-**Source of Truth:** `/Users/max/dev/being/main/docs/product/stoic-mindfulness/INDEX.md`
+**Source of Truth:** `/Users/max/dev/being/development/docs/product/stoic-mindfulness/INDEX.md`
+
+This is `development`, not `main`, deliberately: you review in-flight work, so you
+must validate against the current framework rather than the last-shipped one. While
+this pointed at a `main` worktree, `main` went six weeks without a release and the
+doc read here was that stale.
 
 When validating Stoic Mindfulness accuracy:
 1. **Read INDEX.md first** for the Quick Reference Map showing which file contains what content

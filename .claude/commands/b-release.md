@@ -209,17 +209,6 @@ introduced a `PHPhotoLibrary` call and got v1.2.0 rejected with ITMS-90683.
 the permission half of this in precommit and CI. This step is for the rest —
 anything else a native bump can change that no gate models yet.
 
-### 2.9 main's worktree is usable
-
-```bash
-git -C /Users/max/dev/being/main status --porcelain | head
-```
-
-Should be empty. `/b-release` itself never touches that worktree, but anything
-building or inspecting `main` afterwards does, and `eas.json` sets
-`requireCommit: true`, so a dirty index there fails a build with a message that
-does not mention the worktree. Warn, do not abort.
-
 ---
 
 ## Phase 3: Bump prompt
@@ -646,33 +635,26 @@ git tag "v$PKG_VERSION" origin/main
 git push origin "v$PKG_VERSION"
 ```
 
-### 7.4 Sync `main` — through its worktree, not with `update-ref`
+### 7.4 Sync the bare repo's `main` ref
 
 ```bash
-git -C /Users/max/dev/being/main fetch origin main
-git -C /Users/max/dev/being/main merge --ff-only origin/main
-git -C /Users/max/dev/being/main status --porcelain | head   # must be empty
+MAIN_SHA=$(git rev-parse origin/main)
+git -C /Users/max/dev/being update-ref refs/heads/main $MAIN_SHA
 ```
 
-**`update-ref` is wrong here and this step used to use it.** `main` is checked
-out at `~/dev/being/main`, and `update-ref` moves the branch pointer WITHOUT
-touching that worktree — HEAD jumps to the release while the index and files
-stay at the previous one. Every commit between them then reads as a staged
-change. Measured after v1.2.1: six weeks of history rendered as one changeset of
-~130 staged adds, deletes and modifications, indistinguishable from someone's
-abandoned work, and `eas.json`'s `requireCommit: true` fails any build from that
-worktree with a message that never mentions the worktree.
+**This is only correct because nothing has `main` checked out.** `update-ref`
+advances the pointer without touching a worktree, so if a `main` worktree ever
+exists again this silently desyncs it: HEAD jumps to the release while the index
+and files stay at the previous one, and every commit in between reads as a
+staged change. That happened for as long as a `main` worktree existed — six
+weeks of history surfaced as ~130 staged adds, deletes and modifications after
+v1.2.1, and `eas.json`'s `requireCommit: true` fails any build from such a
+worktree with a message that never names the worktree.
 
-Syncing through the worktree moves the ref and the files together, and
-`--ff-only` refuses rather than inventing a merge. It also fails loudly if that
-worktree is genuinely dirty, which Phase 2.9 should already have warned about.
-
-If the merge is refused, do NOT fall back to `update-ref`. Inspect the worktree:
-real uncommitted work needs landing, and stale desync from a previous release
-clears with `git -C /Users/max/dev/being/main reset --hard HEAD` — but read the
-diff first, since a genuine local edit hides in that noise (a stray
-`promptToConfigurePushNotifications` line, written by an interactive `eas build`,
-was the one found in the v1.2.1 cleanup).
+If someone adds a `main` worktree, this step must become
+`git -C <worktree> fetch origin main && git -C <worktree> merge --ff-only origin/main`.
+Do not leave it as `update-ref`. Inspecting shipped state does not need a
+standing worktree — create one on demand and remove it after.
 
 ### 7.5 Display
 
