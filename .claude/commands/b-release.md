@@ -646,12 +646,33 @@ git tag "v$PKG_VERSION" origin/main
 git push origin "v$PKG_VERSION"
 ```
 
-### 7.4 Sync bare-repo local refs
+### 7.4 Sync `main` — through its worktree, not with `update-ref`
 
 ```bash
-MAIN_SHA=$(git rev-parse origin/main)
-git -C /Users/max/dev/being update-ref refs/heads/main $MAIN_SHA
+git -C /Users/max/dev/being/main fetch origin main
+git -C /Users/max/dev/being/main merge --ff-only origin/main
+git -C /Users/max/dev/being/main status --porcelain | head   # must be empty
 ```
+
+**`update-ref` is wrong here and this step used to use it.** `main` is checked
+out at `~/dev/being/main`, and `update-ref` moves the branch pointer WITHOUT
+touching that worktree — HEAD jumps to the release while the index and files
+stay at the previous one. Every commit between them then reads as a staged
+change. Measured after v1.2.1: six weeks of history rendered as one changeset of
+~130 staged adds, deletes and modifications, indistinguishable from someone's
+abandoned work, and `eas.json`'s `requireCommit: true` fails any build from that
+worktree with a message that never mentions the worktree.
+
+Syncing through the worktree moves the ref and the files together, and
+`--ff-only` refuses rather than inventing a merge. It also fails loudly if that
+worktree is genuinely dirty, which Phase 2.9 should already have warned about.
+
+If the merge is refused, do NOT fall back to `update-ref`. Inspect the worktree:
+real uncommitted work needs landing, and stale desync from a previous release
+clears with `git -C /Users/max/dev/being/main reset --hard HEAD` — but read the
+diff first, since a genuine local edit hides in that noise (a stray
+`promptToConfigurePushNotifications` line, written by an interactive `eas build`,
+was the one found in the v1.2.1 cleanup).
 
 ### 7.5 Display
 
