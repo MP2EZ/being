@@ -115,46 +115,29 @@ name: "Profile -> VoiceReflection at XXXL (DEBUG-507): the save-time crisis scan
 - assertVisible:
     id: "UIKeyboardLayoutStar Preview"
 
-# ── THE DRAG DISMISSAL, FIRST — AND IT CANNOT BE A SECOND CAPTURE ────────────
-# `keyboardDismissMode='on-drag'` is this surface's ONLY keyboard dismissal: the transcript
-# field is multiline, so Return inserts a newline and there is no Done key. While DEBUG-506
-# is open there is no working keyboard-up 988 affordance here either, so dismissal is also
-# the only route back to a state where the root crisis button is reachable. DEBUG-516 shrank
-# the scroll region — prose and transcript now yield space to the pinned footer — so "the
-# content still scrolls, therefore the drag still dismisses" stopped being free. If the
-# region ever stops being draggable the mitigation dies silently.
+# ── WHY THERE IS NO DRAG-DISMISSAL BLOCK HERE, AND WHAT IS THEREFORE UNPINNED ──
+# One was written and REMOVED, because it could not be made to pass for a reason that has
+# nothing to do with what it asserts. MEASURED on the gate sim, 3 runs of 3:
+# `ExpoSpeechRecognizer.start -> prepareMicrophoneRecognition -> AVAudioEngine.inputNode ->
+# AURemoteIO::Cleanup -> _ReportRPCTimeout -> abort()` — a BLOCKING RPC to the simulator's
+# audio daemon, entered on the journal-record-button tap, which SIGABRTs the app roughly 15
+# SECONDS LATER wherever the flow has got to by then. Crash reports with this exact stack
+# predate this branch (2026-08-21 02:14 onward), so it is not a DEBUG-516 regression — but
+# it does bound how long a flow may linger on this surface after tapping record.
 #
-# WHY IT RUNS BEFORE THE SAVE AND INSIDE THE SAME CAPTURE. A first draft put this AFTER
-# `journal-saved-state` as a fresh capture, because `swipe` destroys the keyboard-up
-# condition the save block tests. That flow FAILED with `Element not found:
-# journal-record-button` — the `saved` phase is TERMINAL BY DESIGN and offers no affordance
-# back to `idle`, which VoiceReflectionScreen's own DEBUG-504 comment states outright. Do
-# not "fix" a future failure here by adding one: any route back to `recording` that does not
-# go through handleStart inherits the previous capture's draftId and silences its
-# disclosure. That is the defect DEBUG-504 fixed.
+# Everything below therefore runs INSIDE that window, and nothing may be added between the
+# record tap and `journal-saved-state` without re-measuring it. If this flow starts failing
+# with "App crashed or stopped while executing flow", check ~/Library/Logs/DiagnosticReports
+# for that stack BEFORE suspecting the app's layout: the failure lands on whichever step was
+# executing, so it impersonates a defect in an unrelated assertion.
 #
-# Dragging DOWN from the header rather than UP: at the top of the region this is an
-# overscroll bounce, which still begins a drag (so `on-drag` fires) without carrying the
-# transcript field off screen and stranding the steps below it.
-- swipe:
-    from:
-      id: "journal-review-header"
-    direction: DOWN
-- extendedWaitUntil:
-    notVisible:
-      id: "UIKeyboardLayoutStar Preview"
-    timeout: 8000
-
-# Re-raise, so the save below is measured against a freshly-presented keyboard AND a scroll
-# region the drag has already moved. That is strictly stronger than the pristine state the
-# first draft would have tested: it is the pinned footer, not a lucky content offset, that
-# has to keep Save reachable.
-- tapOn:
-    id: "journal-transcript-input"
-- extendedWaitUntil:
-    visible:
-      id: "UIKeyboardLayoutStar Preview"
-    timeout: 8000
+# STILL UNPINNED as a result: that `keyboardDismissMode='on-drag'` actually dismisses. That
+# matters because it is this surface's only keyboard dismissal (multiline field, so Return
+# inserts a newline and there is no Done key), and while DEBUG-506 is open it is also the
+# only route back to a state where the root crisis button is reachable. DEBUG-516 shrank the
+# scroll region, so "the content still scrolls, therefore the drag still dismisses" stopped
+# being free. Recorded as a stated coverage gap rather than pinned green by a shorter
+# assertion that would not have tested it.
 
 # AC 1 + AC 4 — SAVE AT ITS RESTING POSITION, KEYBOARD UP, AT THE LARGEST NON-ACCESSIBILITY
 # TEXT SIZE. No scroll, no dismissal, no visibility assertion on the button itself. The
