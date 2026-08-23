@@ -71,24 +71,34 @@ name: "Profile -> VoiceReflection at XXXL (DEBUG-507): the save-time crisis scan
       id: "voice-reflection-screen"
     timeout: 8000
 
-# ── AC 3 — WHY THIS FLOW STOPS AT THE KEYBOARD AND DOES NOT TAP SAVE ─────────
-# It stops here because the next step is BROKEN, and pinning a broken contract green is
-# worse than not pinning it. DEBUG-507 AC 3 re-measured DEBUG-480's clearance at this text
-# size, against the full keyboard window ([0,407][375,667] — NOT `UIKeyboardLayoutStar
-# Preview`, which is [0,451][375,667] and reports only the key layout, omitting the ~44pt
-# predictive bar that occludes just as much):
+# ── AC 3 / DEBUG-516 — THIS FLOW NOW TAPS SAVE, AND THAT IS THE POINT ────────
+# It used to stop at the keyboard, because the next step was BROKEN and pinning a broken
+# contract green is worse than not pinning it. DEBUG-507 AC 3 re-measured DEBUG-480's
+# clearance at this text size, against the full keyboard window ([0,407][375,667] — NOT
+# `UIKeyboardLayoutStar Preview`, which is [0,451][375,667] and reports only the key layout,
+# omitting the ~44pt predictive bar that occludes just as much):
 #
 #   content_size large  journal-save-button [24,377][279,429] centre y=403 -> clears by  4pt,  42% covered
 #   content_size XXXL   journal-save-button [24,415][279,473] centre y=444 -> UNDER by  37pt, 100% covered
 #
 # The default-size row reproduces DEBUG-480's published figures exactly, which is what
-# vouches for the method. At XXXL the button does not merely lose margin — it sits entirely
-# beneath the keyboard, so the tap is swallowed and `journal-saved-state` never arrives.
-# Tracked as DEBUG-516 per AC 3; this flow gains the save block when that lands.
+# vouches for the method. At XXXL the button did not merely lose margin — it sat entirely
+# beneath the keyboard, so the tap was swallowed and `journal-saved-state` never arrived.
 #
-# Do NOT "fix" this by asserting `journal-save-button` is visible: the iOS keyboard is a
-# separate window, so XCUITest scores the button fully visible while it is 100% covered.
-# That assertion is the exact false green DEBUG-480 exists to warn about.
+# BOTH ROWS ARE PRE-DEBUG-516 AND PRE-DEBUG-506 EVIDENCE. They record where an
+# in-ScrollView Save happened to land on one build; they are not thresholds. DEBUG-516
+# moved Save out of the ScrollView and inset its container from the LIVE keyboard frame,
+# which is the union UIKit reports (key layout + predictive bar + any inputAccessoryView).
+# Clearance is therefore non-negative by construction and survives DEBUG-506 attaching the
+# crisis accessory, which raises the occluding edge ~72pt on this surface. Do not re-derive
+# anything from the coordinates above.
+#
+# Do NOT "fix" a failure here by asserting `journal-save-button` is visible: the iOS
+# keyboard is a separate window, so XCUITest scores the button fully visible while it is
+# 100% covered. That assertion is the exact false green DEBUG-480 exists to warn about.
+# Do NOT add a scroll before the Save tap either — DEBUG-480 measured `scrollUntilVisible`
+# reporting COMPLETED without scrolling here, and a scroll would weaken the contract from
+# "reachable with the keyboard up" to "reachable after scrolling".
 - tapOn:
     id: "journal-record-button"
 - tapOn:
@@ -104,3 +114,51 @@ name: "Profile -> VoiceReflection at XXXL (DEBUG-507): the save-time crisis scan
 # visible proves the matcher still fires if iOS renames the identifier.
 - assertVisible:
     id: "UIKeyboardLayoutStar Preview"
+
+# AC 1 + AC 4 — SAVE AT ITS RESTING POSITION, KEYBOARD UP, AT THE LARGEST NON-ACCESSIBILITY
+# TEXT SIZE. No scroll, no dismissal, no visibility assertion on the button itself. The
+# oracle is the state change: `journal-saved-state` is produced ONLY by handleSave's success
+# branch, so it cannot be reached without the tap having landed — and handleSave is the only
+# caller of scanOnSave, the app's sole crisis scan of text a user typed or corrected.
+- tapOn:
+    id: "journal-save-button"
+- extendedWaitUntil:
+    visible:
+      id: "journal-saved-state"
+    timeout: 8000
+
+# ── THE DRAG DISMISSAL, PINNED SEPARATELY AND DELIBERATELY LAST ──────────────
+# `keyboardDismissMode='on-drag'` is this surface's ONLY keyboard dismissal: the transcript
+# field is multiline, so Return inserts a newline and there is no Done key. While DEBUG-506
+# is open there is no working keyboard-up 988 affordance here either, so dismissal is also
+# the only route back to a state where the root crisis button is reachable.
+#
+# DEBUG-516 shrank the scroll region — the prose and transcript now yield space to the
+# pinned footer — so "the content still scrolls, therefore the drag still dismisses" stopped
+# being free. If the region ever stops being draggable, the dismissal dies silently and
+# takes the mitigation with it.
+#
+# A SEPARATE CAPTURE, because `swipe` destroys the condition the block above tests. It runs
+# after `journal-saved-state`, where the transcript input has been unmounted, so it has to
+# start a fresh one.
+- tapOn:
+    id: "journal-record-button"
+- tapOn:
+    id: "journal-stop-button"
+- extendedWaitUntil:
+    visible:
+      id: "journal-transcript-input"
+    timeout: 8000
+- tapOn:
+    id: "journal-transcript-input"
+- inputText: "a second short reflection"
+- assertVisible:
+    id: "UIKeyboardLayoutStar Preview"
+- swipe:
+    from:
+      id: "journal-review-header"
+    direction: UP
+- extendedWaitUntil:
+    notVisible:
+      id: "UIKeyboardLayoutStar Preview"
+    timeout: 8000
