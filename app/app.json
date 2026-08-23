@@ -2,7 +2,7 @@
   "expo": {
     "name": "Being",
     "slug": "being",
-    "version": "1.2.0",
+    "version": "1.2.1",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "fyi.being.app",
-      "buildNumber": "4",
+      "buildNumber": "5",
       "icon": "./assets/icon.png",
       "deploymentTarget": "16.4",
       "config": {
@@ -28,7 +28,8 @@
         ],
         "NSFaceIDUsageDescription": "Allow Being to use Face ID to protect your wellness data.",
         "NSSpeechRecognitionUsageDescription": "Being transcribes spoken reflections entirely on this device. Nothing you say is sent to Apple or to Being.",
-        "NSMicrophoneUsageDescription": "Being uses the microphone only to turn a spoken reflection into text on this device. The recording is discarded once transcribed and never leaves your phone."
+        "NSMicrophoneUsageDescription": "Being uses the microphone only to turn a spoken reflection into text on this device. The recording is discarded once transcribed and never leaves your phone.",
+        "NSPhotoLibraryUsageDescription": "Being does not access your photo library. This notice is required because a bundled file-storage component references the system photo library API."
       },
       "associatedDomains": [
         "applinks:being.fyi",
@@ -60,7 +61,7 @@
     },
     "android": {
       "package": "fyi.being.app",
-      "versionCode": 4,
+      "versionCode": 5,
       "icon": "./assets/icon.png",
       "intentFilters": [
         {
