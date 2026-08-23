@@ -333,7 +333,10 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
 - **A jest test that drives `e2e-safety.sh` end-to-end must set `E2E_HOST_SETTLE_MAX_S=0`.**
   The host-contention settle waits up to 120s for a busy machine to go quiet, so the suite's
   runtime becomes a function of peer load and blows its own `spawnSync` timeout — a kill, not
-  a failure, so it reads as a defect in the code under test.
+  a failure, so it reads as a defect in the code under test. It does NOT make
+  `npm run test:scripts` runnable: sibling suites there spawn `e2e-sim-build.sh` per case
+  (~4-5s each), so the full run can exceed 10 min with peers active. Run the affected suites
+  by name and let CI's `Unit + integration tests` gate cover the rest.
 - **A new `app/scripts/*` file needs `git add` before the npm script naming it will pass
   (DEBUG-389).** `check-workflow-scripts.js` resolves every `npm run` target against the git
   INDEX, not the working tree, so an unstaged new script fails `test:scripts` as an
