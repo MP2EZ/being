@@ -115,6 +115,47 @@ name: "Profile -> VoiceReflection at XXXL (DEBUG-507): the save-time crisis scan
 - assertVisible:
     id: "UIKeyboardLayoutStar Preview"
 
+# ── THE DRAG DISMISSAL, FIRST — AND IT CANNOT BE A SECOND CAPTURE ────────────
+# `keyboardDismissMode='on-drag'` is this surface's ONLY keyboard dismissal: the transcript
+# field is multiline, so Return inserts a newline and there is no Done key. While DEBUG-506
+# is open there is no working keyboard-up 988 affordance here either, so dismissal is also
+# the only route back to a state where the root crisis button is reachable. DEBUG-516 shrank
+# the scroll region — prose and transcript now yield space to the pinned footer — so "the
+# content still scrolls, therefore the drag still dismisses" stopped being free. If the
+# region ever stops being draggable the mitigation dies silently.
+#
+# WHY IT RUNS BEFORE THE SAVE AND INSIDE THE SAME CAPTURE. A first draft put this AFTER
+# `journal-saved-state` as a fresh capture, because `swipe` destroys the keyboard-up
+# condition the save block tests. That flow FAILED with `Element not found:
+# journal-record-button` — the `saved` phase is TERMINAL BY DESIGN and offers no affordance
+# back to `idle`, which VoiceReflectionScreen's own DEBUG-504 comment states outright. Do
+# not "fix" a future failure here by adding one: any route back to `recording` that does not
+# go through handleStart inherits the previous capture's draftId and silences its
+# disclosure. That is the defect DEBUG-504 fixed.
+#
+# Dragging DOWN from the header rather than UP: at the top of the region this is an
+# overscroll bounce, which still begins a drag (so `on-drag` fires) without carrying the
+# transcript field off screen and stranding the steps below it.
+- swipe:
+    from:
+      id: "journal-review-header"
+    direction: DOWN
+- extendedWaitUntil:
+    notVisible:
+      id: "UIKeyboardLayoutStar Preview"
+    timeout: 8000
+
+# Re-raise, so the save below is measured against a freshly-presented keyboard AND a scroll
+# region the drag has already moved. That is strictly stronger than the pristine state the
+# first draft would have tested: it is the pinned footer, not a lucky content offset, that
+# has to keep Save reachable.
+- tapOn:
+    id: "journal-transcript-input"
+- extendedWaitUntil:
+    visible:
+      id: "UIKeyboardLayoutStar Preview"
+    timeout: 8000
+
 # AC 1 + AC 4 — SAVE AT ITS RESTING POSITION, KEYBOARD UP, AT THE LARGEST NON-ACCESSIBILITY
 # TEXT SIZE. No scroll, no dismissal, no visibility assertion on the button itself. The
 # oracle is the state change: `journal-saved-state` is produced ONLY by handleSave's success
@@ -125,40 +166,4 @@ name: "Profile -> VoiceReflection at XXXL (DEBUG-507): the save-time crisis scan
 - extendedWaitUntil:
     visible:
       id: "journal-saved-state"
-    timeout: 8000
-
-# ── THE DRAG DISMISSAL, PINNED SEPARATELY AND DELIBERATELY LAST ──────────────
-# `keyboardDismissMode='on-drag'` is this surface's ONLY keyboard dismissal: the transcript
-# field is multiline, so Return inserts a newline and there is no Done key. While DEBUG-506
-# is open there is no working keyboard-up 988 affordance here either, so dismissal is also
-# the only route back to a state where the root crisis button is reachable.
-#
-# DEBUG-516 shrank the scroll region — the prose and transcript now yield space to the
-# pinned footer — so "the content still scrolls, therefore the drag still dismisses" stopped
-# being free. If the region ever stops being draggable, the dismissal dies silently and
-# takes the mitigation with it.
-#
-# A SEPARATE CAPTURE, because `swipe` destroys the condition the block above tests. It runs
-# after `journal-saved-state`, where the transcript input has been unmounted, so it has to
-# start a fresh one.
-- tapOn:
-    id: "journal-record-button"
-- tapOn:
-    id: "journal-stop-button"
-- extendedWaitUntil:
-    visible:
-      id: "journal-transcript-input"
-    timeout: 8000
-- tapOn:
-    id: "journal-transcript-input"
-- inputText: "a second short reflection"
-- assertVisible:
-    id: "UIKeyboardLayoutStar Preview"
-- swipe:
-    from:
-      id: "journal-review-header"
-    direction: UP
-- extendedWaitUntil:
-    notVisible:
-      id: "UIKeyboardLayoutStar Preview"
     timeout: 8000
