@@ -23,7 +23,6 @@
       },
       "infoPlist": {
         "LSApplicationQueriesSchemes": [
-          "tel",
           "sms"
         ],
         "NSFaceIDUsageDescription": "Allow Being to use Face ID to protect your wellness data.",
