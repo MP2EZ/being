@@ -249,6 +249,12 @@ assert that a constant, count or file state does not exist, and those claims age
 authoring and execution. Re-derive each one you are about to act on — a stale premise
 usually widens scope or reopens a decision the tree has already settled.
 
+**Then ask whether any AC still needs doing.** An item deferred as release-gated or
+release-only is satisfied by the next release shipping, so re-derive its ACs against
+`origin/main` — not `development` — before Step 1.6 marks it `In progress`. Where they
+all hold, close it with the evidence instead, and re-file any constraint its comments
+carry that the merge has since made due.
+
 ---
 
 ### Step 1.6: Mark Work Item as In Progress
