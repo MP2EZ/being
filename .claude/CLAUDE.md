@@ -226,11 +226,22 @@ Tag scheme: `vX.Y.Z` semver. Pre-launch: `v0.x.y`. App Store launch: `v1.0.0`. L
 
 For bugs found in production (or TestFlight) that need to ship without waiting on in-progress dev work:
 
-1. `git checkout main && git pull`
-2. `git checkout -b hotfix/<short-description>`
-3. Fix + commit
-4. **Open the PR `hotfix/* → main` immediately** (NOT to development) — draft is fine, don't batch commits first. `hotfix/*` is **not** in `ci.yml`'s `push:` trigger, so a hotfix branch gets no CI until its PR exists; combined with the `--no-verify` allowance below, the PR run can be the only gate a hotfix ever passes. The `opened` event fires it.
-5. After merge:
+1. Cut a worktree off `origin/main` — there is no standing `main` checkout, and
+   `git checkout main` inside the `development` worktree would move it off
+   `development`, which the rest of the tooling assumes:
+   ```bash
+   git -C ~/dev/being fetch origin main
+   git -C ~/dev/being worktree add ~/dev/being/hotfix-<slug> -b hotfix/<slug> origin/main
+   cd ~/dev/being/hotfix-<slug>
+   ```
+   Branching off `origin/main` (not a local ref) also satisfies `strict: true`
+   by construction. If the fix needs a build or the test suite, create the env
+   symlinks by hand — `worktree add` does not, only `/b-work` does:
+   `ln -s ../../.config/.env.production app/.env.production` and the same for
+   `.env.development`.
+2. Fix + commit
+3. **Open the PR `hotfix/* → main` immediately** (NOT to development) — draft is fine, don't batch commits first. `hotfix/*` is **not** in `ci.yml`'s `push:` trigger, so a hotfix branch gets no CI until its PR exists; combined with the `--no-verify` allowance below, the PR run can be the only gate a hotfix ever passes. The `opened` event fires it.
+4. After merge:
    - Tag main with patch bump (e.g., `v1.0.1`).
    - **Cherry-pick** the hotfix commit onto development — **via a PR, not a direct push**:
      ```bash
@@ -246,6 +257,9 @@ For bugs found in production (or TestFlight) that need to ship without waiting o
      # verify per /b-close Step 3.4 — statusCheckRollup, never `gh pr checks --watch` alone
      gh pr merge <PR> --merge --delete-branch --admin
      ```
+
+5. Remove the hotfix worktree once the backport PR has merged:
+   `git -C ~/dev/being worktree remove hotfix-<slug>`
 
 **Why a PR and not `git push origin development`.** This step used to end with a direct push. That cannot work and never could: `development` protection is `required_pull_request_reviews` present (0 approvals, but present) **+** `enforce_admins: true`, so a direct push is rejected with `GH006: Protected branch update failed — Changes must be made through a pull request`, admin or not. Requiring a PR *at all* blocks direct pushes; the 0-approval count is irrelevant. It went unnoticed because no `hotfix/*` branch has ever been cut — every commit on `development` has arrived via a PR merge — so the procedure was written but never executed, and it would have failed mid-incident with the fix already live on `main` and `development` silently missing it.
 
