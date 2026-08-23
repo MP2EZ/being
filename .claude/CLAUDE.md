@@ -248,6 +248,13 @@ Two details that matter in the same step:
 
 Cherry-pick is preferred over rebase to keep dev's "prevent force-push" protection on. The duplicate commit content is fine — git handles identical content gracefully on the next release PR.
 
+**Workflow-only corrections are hotfix-eligible (INFRA-458).** A diff touching ONLY
+`.github/workflows/**` may go `hotfix/* → main` without waiting for a release — it moves no
+lockfile so it cherry-picks cleanly, and the PR's own run on `main`'s `ci.yml` validates it.
+It may only RESTORE a gate already proven on `development`, never author new CI there, and it
+still backports via the cherry-pick PR above. Otherwise a gate added on `development` does not
+protect `main` until the next release.
+
 ## Workflow Commands
 
 | Command | Purpose |
