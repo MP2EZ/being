@@ -265,11 +265,16 @@ b_close_done() {
 # b_close_status — the operator surface. Exits non-zero when something needs a human, so a
 # caller can gate on it; `/b-close` and `/b-work` read it before starting new work, which
 # is what makes "not silently absorbed" structural rather than a matter of remembering to
-# look. An acknowledged run (ACK) goes quiet; a merged-but-unacknowledged one is still
-# listed, because the Notion record is deliberately NOT the runner's job.
+# look. An acknowledged run (ACK) goes quiet whether or not it reached a verdict: a run
+# that is killed or loses its host never writes DONE, so an ACK the STALE arm cannot honour
+# would hold rc=1 forever and stop every later session with an already-handled line
+# (DEBUG-511). ACK is IGNORED on a run still making progress — hiding a live run is the
+# worse bug and the in-flight arm adds nothing to rc, so there is no noise to remove. A
+# merged-but-unacknowledged run is still listed, because the Notion record is deliberately
+# NOT the runner's job.
 # ---------------------------------------------------------------------------------------
 b_close_status() {
-  local rc=0 dir meta item branch verdict stage detail phase now age
+  local rc=0 dir meta item branch verdict stage detail phase now age acked
   [ -d "$B_CLOSE_RUN_ROOT" ] || { printf 'No detached closes recorded.\n'; return 0; }
   now=$(date +%s)
 
@@ -284,8 +289,14 @@ b_close_status() {
     fi
     [ -n "$item" ] || item='(unknown)'
 
+    # Read ACK here, not inside the DONE branch: a run that died without a verdict is
+    # terminal too, and it is the ONLY state whose entry an operator cannot otherwise
+    # clear. Applied by the DONE and STALE arms below — never by the in-flight one.
+    acked=0
+    [ -f "$dir/ACK" ] && acked=1
+
     if [ -f "$dir/DONE" ]; then
-      [ -f "$dir/ACK" ] && continue
+      [ "$acked" = 1 ] && continue
       verdict=$(sed -n 's/^verdict=//p' "$dir/DONE")
       stage=$(sed -n 's/^stage=//p' "$dir/DONE")
       detail=$(sed -n 's/^detail=//p' "$dir/DONE")
@@ -310,9 +321,10 @@ b_close_status() {
     case "$mtime" in (*[!0-9]*|'') mtime="$now" ;; esac
     age=$(( now - mtime ))
     if [ "$age" -gt "$B_CLOSE_STALE_S" ]; then
+      [ "$acked" = 1 ] && continue
       printf '⚠️  %s  %s  STALE at %s (%ss without progress) — presumed dead, no verdict\n' \
         "$item" "$branch" "$phase" "$age"
-      printf '   log: %s/log\n' "$dir"
+      printf '   log: %s/log   ack: touch %s/ACK\n' "$dir" "$dir"
       rc=1
     else
       printf '⏳ %s  %s  in flight: %s (%ss)\n' "$item" "$branch" "$phase" "$age"
