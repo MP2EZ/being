@@ -188,12 +188,17 @@ workflow to confirm green rather than trusting a stale conclusion.
 cd /Users/max/dev/being
 LAST_TAG=$(git -C development describe --tags --abbrev=0 origin/main \
              --match 'v[0-9]*.[0-9]*.[0-9]*' --exclude '*-*')
-diff <(git -C development show "$LAST_TAG:app/package-lock.json" \
+diff <(git -C development show "${LAST_TAG}:app/package-lock.json" \
         | jq -r '.packages | to_entries[] | select(.key|startswith("node_modules/")) | "\(.key) \(.value.version)"' | sort) \
      <(jq -r '.packages | to_entries[] | select(.key|startswith("node_modules/")) | "\(.key) \(.value.version)"' \
         development/app/package-lock.json | sort) \
   | grep -E '^[<>].*(expo|react-native)' || echo "no native dependency movement"
 ```
+
+The braces in `${LAST_TAG}` are load-bearing. In zsh, `"$LAST_TAG:app/..."`
+parses `:a` as a parameter modifier, so the ref silently becomes
+`v1.2.1pp/package-lock.json`, `git show` fails, and the diff reports every
+package as added — a wall of output that looks like a finding and is noise.
 
 Informational, not an abort. Read it for **resolved** versions that moved while
 `package.json` stayed put — a `~`/`^` range lets a patch bump add a native API
