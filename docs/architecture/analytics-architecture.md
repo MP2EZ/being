@@ -370,8 +370,8 @@ Required disclosure for privacy policy:
 >
 > **Your Control:**
 > - Analytics is OFF by default
-> - Opt-in via Settings > Privacy > Analytics
-> - Request deletion via Settings > Privacy > Delete Analytics Data
+> - Opt-in via **Privacy & Data > Anonymous Usage Analytics**; turning it off stops collection immediately
+> - Analytics events on our servers are automatically deleted after 90 days. To request deletion sooner, email privacy@being.fyi
 >
 > **Data Residency:** EU (Frankfurt, Germany)
 >

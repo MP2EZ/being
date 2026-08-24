@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.9
+**Version:** 1.10
 **Effective Date:** December 12, 2025
-**Last Updated:** August 6, 2026
+**Last Updated:** August 24, 2026
 
 ---
 
@@ -174,8 +174,8 @@ What we **NEVER** collect in-app:
 Your control:
 
 - Analytics is **OFF by default**
-- Opt-in via Settings > Privacy > Analytics
-- Request deletion via Settings > Privacy > Delete Analytics Data
+- Opt-in via **Privacy & Data > Anonymous Usage Analytics**; turning it off stops collection immediately
+- Analytics events on our servers are automatically deleted after 90 days (see §7.2). To request deletion sooner, email privacy@being.fyi — requests are honored within 30 days (see §7.3)
 
 **Note on crisis-safety recording:** The analytics opt-in above controls what is sent to PostHog. It does **not** control the separate crisis-detection event described in §3 (Safety Features), which is recorded to Being's own first-party storage under a vital-interests basis and is not suppressible by analytics opt-out or universal opt-out. That event contains no raw scores and no identifying information — only aggregate category labels.
 
