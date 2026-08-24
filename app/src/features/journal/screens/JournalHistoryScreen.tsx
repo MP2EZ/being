@@ -32,9 +32,20 @@
  * Plaintext lives in component state only. Never a module cache, never a
  * Zustand slice — a slice invites `persist`, and persisted plaintext is the
  * unencrypted-and-unswept failure the store header warns about.
+ *
+ * DATE RANGE (FEAT-288 Slice C)
+ *
+ * The filter is a navigational control over `JournalEntryMeta` only — no extra
+ * decrypt, no new storage, and the selection lives in component state for the
+ * same reason plaintext does: a persisted filter is a record of which spans the
+ * reader returns to, which is the app noticing something about them.
+ *
+ * It narrows what the FlatList mounts, so it can only REDUCE the number of live
+ * plaintexts, never raise it. Rows stay identical under every preset — the row
+ * contract above is not relaxed by filtering.
  */
 
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, Pressable, FlatList, ActivityIndicator } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
@@ -51,6 +62,8 @@ import {
 import { getEntry, listEntryMetadata } from '../services/journalEntryStore';
 import type { JournalEntryMeta } from '../services/journalEntryStore';
 import { previewOf } from '../services/journalPreview';
+import { filterByRange, JOURNAL_RANGE_PRESETS } from '../services/journalDateRange';
+import type { JournalRangePreset } from '../services/journalDateRange';
 
 type Nav = StackNavigationProp<
   { JournalEntryDetail: { entryId: string } },
@@ -104,9 +117,54 @@ function EntryRow({ meta, onOpen }: { meta: JournalEntryMeta; onOpen: (id: strin
   );
 }
 
+/**
+ * The range control. Buttons only — no `TextInput`, deliberately: this screen
+ * has none today, so the keyboard never rises here, and introducing one would
+ * pull `CrisisKeyboardAccessory` occlusion handling onto a surface that has
+ * never needed it. No RN `<Modal>` either; `crisis-zero-988-windows.test.tsx`
+ * forbids one on this screen mechanically.
+ */
+function RangeFilter({
+  preset,
+  onSelect,
+}: {
+  preset: JournalRangePreset;
+  onSelect: (next: JournalRangePreset) => void;
+}) {
+  return (
+    <View
+      testID="journal-history-range-filter"
+      accessibilityRole="radiogroup"
+      accessibilityLabel="Filter reflections by date range"
+      style={styles.filterRow}
+    >
+      {JOURNAL_RANGE_PRESETS.map(({ preset: option, label }) => {
+        const selected = option === preset;
+        return (
+          <Pressable
+            key={option}
+            testID={`journal-range-${option}`}
+            accessibilityRole="radio"
+            accessibilityState={{ selected }}
+            // The label is the range and only the range. No result count: a
+            // count is a fact about the reader's practice, and attaching one to
+            // a control turns choosing a span into being told about a span.
+            accessibilityLabel={label}
+            style={[styles.chip, selected && styles.chipSelected]}
+            onPress={() => onSelect(option)}
+          >
+            <Text style={[styles.chipLabel, selected && styles.chipLabelSelected]}>{label}</Text>
+          </Pressable>
+        );
+      })}
+    </View>
+  );
+}
+
 export function JournalHistoryScreen() {
   const navigation = useNavigation<Nav>();
   const [entries, setEntries] = useState<JournalEntryMeta[] | null>(null);
+  const [preset, setPreset] = useState<JournalRangePreset>('all');
 
   useEffect(() => {
     let cancelled = false;
@@ -122,6 +180,14 @@ export function JournalHistoryScreen() {
   const openEntry = useCallback(
     (entryId: string) => navigation.navigate('JournalEntryDetail', { entryId }),
     [navigation]
+  );
+
+  // Order is INHERITED from the store's newest-first index, never recomputed
+  // here — see journalDateRange.ts. `Date.now()` is read at selection time
+  // rather than per render so the window cannot shift under a re-render.
+  const visible = useMemo(
+    () => (entries === null ? [] : filterByRange(entries, preset, Date.now())),
+    [entries, preset]
   );
 
   if (entries === null) {
@@ -144,12 +210,28 @@ export function JournalHistoryScreen() {
 
   return (
     <View testID="journal-history-screen" style={styles.container}>
-      <FlatList
-        data={entries}
-        keyExtractor={(item) => item.id}
-        contentContainerStyle={styles.listContent}
-        renderItem={({ item }) => <EntryRow meta={item} onOpen={openEntry} />}
-      />
+      <RangeFilter preset={preset} onSelect={setPreset} />
+      {visible.length === 0 ? (
+        // NOT the `journal-history-empty` copy above. That one says reflections
+        // "will appear here", which is false for a reader who has written some
+        // and narrowed past them — and being told your record is empty when it
+        // is not is the kind of claim this screen must never make. This one
+        // reports the CONTROL's effect and nothing about the reader. The filter
+        // stays mounted above it, or the only way out of an empty result would
+        // be to leave the screen.
+        <View style={styles.centered}>
+          <Text testID="journal-history-range-empty" style={styles.emptyText}>
+            No reflections in this range.
+          </Text>
+        </View>
+      ) : (
+        <FlatList
+          data={visible}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.listContent}
+          renderItem={({ item }) => <EntryRow meta={item} onOpen={openEntry} />}
+        />
+      )}
     </View>
   );
 }
@@ -158,6 +240,33 @@ const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: semantic.background.screen },
   centered: { alignItems: 'center', justifyContent: 'center', padding: spacing[24] },
   listContent: { padding: spacing[24], gap: spacing[8] },
+  filterRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing[8],
+    paddingHorizontal: spacing[24],
+    paddingTop: spacing[16],
+  },
+  chip: {
+    minHeight: TOUCH_TARGETS.minimum,
+    justifyContent: 'center',
+    paddingHorizontal: spacing[16],
+    borderRadius: borderRadius.medium,
+    borderWidth: 1,
+    borderColor: semantic.border.default,
+    backgroundColor: colorSystem.base.white,
+  },
+  chipSelected: {
+    borderColor: semantic.border.strong,
+    backgroundColor: colorSystem.gray[100],
+  },
+  chipLabel: {
+    fontSize: typography.bodySmall.size,
+    color: semantic.text.secondary,
+  },
+  chipLabelSelected: {
+    color: semantic.text.primary,
+  },
   row: {
     minHeight: TOUCH_TARGETS.minimum,
     justifyContent: 'center',
