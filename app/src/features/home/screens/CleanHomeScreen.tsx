@@ -71,7 +71,14 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
           // WCAG AA: gray[400] for 3:1 contrast ratio on borders
           borderColor: isCurrent ? themeColors.primary : colorSystem.gray[400],
           borderWidth: isCurrent ? 2 : 1,
-          opacity: pressed ? 0.9 : isCompleted ? 0.5 : 1,
+          // DEBUG-527: press feedback ONLY. The `isCompleted ? 0.5` arm that used to
+          // sit here composited the whole subtree, halving the contrast of the
+          // description (`semantic.text.secondary`) and of the `gray[400]` border
+          // chosen three lines above precisely to clear 3:1 — a WCAG AA failure in
+          // the state a daily user sees every day after practising. Opacity is not a
+          // colour token and cannot be contrast-audited, so completion is expressed
+          // structurally instead (see the affordance below).
+          opacity: pressed ? 0.9 : 1,
         }
       ]}
       onPress={handlePress}
@@ -99,9 +106,21 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
         <Text style={styles.cardDescription} numberOfLines={2}>{description}</Text>
       </View>
 
-      <View style={[styles.startButton, { backgroundColor: themeColors.primary }]}>
-        <Text style={styles.startButtonText}>{isCompleted ? 'Complete' : 'Start'}</Text>
-      </View>
+      {/* DEBUG-527: completion is a STATE, not an action. A filled, high-contrast,
+          full-width bar reading "Complete" parses as an imperative — a call to action
+          telling the reader to complete what they have already completed. The done
+          state solicits nothing, so it is a quiet status line rather than a button.
+          The card itself remains the tap target (accessibilityHint above still offers
+          the restart), so no touch target is lost by dropping the bar. */}
+      {isCompleted ? (
+        <Text style={[styles.completedStatus, { color: themeColors.primary }]}>
+          ✓ Done today
+        </Text>
+      ) : (
+        <View style={[styles.startButton, { backgroundColor: themeColors.primary }]}>
+          <Text style={styles.startButtonText}>Start</Text>
+        </View>
+      )}
     </Pressable>
   );
 };
@@ -401,6 +420,15 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
+  },
+  // DEBUG-527: the done state's affordance. Colour comes from `themeColors.primary`
+  // at the call site (the same token the Start bar fills with), so it inherits the
+  // palette rather than minting a second one. No bottom padding — the card already
+  // carries `paddingBottom: spacing[20]`.
+  completedStatus: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    paddingTop: spacing[12],
   },
 });
 

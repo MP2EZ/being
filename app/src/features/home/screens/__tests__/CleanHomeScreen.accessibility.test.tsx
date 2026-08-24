@@ -36,8 +36,13 @@ jest.mock('@/core/services/featureFlags', () => ({
   isFeatureEnabled: (name: string) => mockFlags[name] ?? false,
 }));
 
+// DEBUG-527: the COMPLETED card is a distinct render path carrying its own
+// contrast obligations, and it was unreachable from any test while this mock
+// hardcoded `false`. Mutable for the same reason `mockFlags` above is — pinning
+// one branch of a two-branch decision is not a contract.
+const mockPractice = { completedToday: false };
 jest.mock('@/features/practices/stores/stoicPracticeStore', () => {
-  const state = { isCheckInCompletedToday: () => false };
+  const state = { isCheckInCompletedToday: () => mockPractice.completedToday };
   return {
     useStoicPracticeStore: (selector?: (s: typeof state) => unknown) =>
       selector ? selector(state) : state,
@@ -152,6 +157,66 @@ describe('DEBUG-469: the daily-loop entry point is reachable at any text size', 
     // And it must have a floor, so a squeeze cannot take it below a usable size.
     expect(typeof card.minHeight).toBe('number');
     expect(card.minHeight as number).toBeGreaterThan(0);
+  });
+});
+
+describe('DEBUG-527: the completed card keeps its authored contrast', () => {
+  afterEach(() => {
+    mockPractice.completedToday = false;
+  });
+
+  it('applies no container-level opacity once today is done', () => {
+    // `opacity` on the Pressable composites the ENTIRE subtree, so it scales every
+    // descendant's contrast at once — cardDescription (semantic.text.secondary) and
+    // the gray[400] border chosen a few lines above precisely to clear 3:1. Opacity
+    // is not a colour token and cannot be contrast-audited, so the only safe value
+    // on a container holding text is none. This is the state a daily user sees
+    // every day after they practise.
+    mockPractice.completedToday = true;
+    const { getByTestId } = render(<CleanHomeScreen />);
+    const card = flat(getByTestId('checkin-card-daily-loop').props.style) as Record<string, unknown>;
+    expect(card.opacity ?? 1).toBe(1);
+  });
+
+  it('does not label the completed state with the imperative "Complete"', () => {
+    // In a filled, high-contrast, full-width bar, "Complete" parses as a verb — a
+    // call to action telling you to complete something you have already completed.
+    mockPractice.completedToday = true;
+    const { queryByText } = render(<CleanHomeScreen />);
+    expect(queryByText('Complete')).toBeNull();
+  });
+
+  it('states completion as a quiet status line rather than a button', () => {
+    mockPractice.completedToday = true;
+    const { getByText } = render(<CleanHomeScreen />);
+    expect(getByText(/Done today/)).toBeTruthy();
+  });
+
+  it('keeps the screen-reader announcement of completion and of restart', () => {
+    // The visual affordance stops being a button; the CARD is still tappable and
+    // must still say so, or the state becomes invisible to VoiceOver.
+    mockPractice.completedToday = true;
+    const { getByTestId } = render(<CleanHomeScreen />);
+    const card = getByTestId('checkin-card-daily-loop');
+    expect(card.props.accessibilityLabel).toMatch(/completed today/);
+    expect(card.props.accessibilityHint).toMatch(/again/);
+  });
+
+  // CONTROLS — these must stay GREEN across the change. A red that fails every
+  // case is indistinguishable from a harness that never ran.
+  it('control — the NOT-completed card is untouched by this fix', () => {
+    const { getByTestId, getByText } = render(<CleanHomeScreen />);
+    const card = flat(getByTestId('checkin-card-daily-loop').props.style) as Record<string, unknown>;
+    expect(card.opacity ?? 1).toBe(1);
+    expect(getByText('Start')).toBeTruthy();
+  });
+
+  it('control — the completed card still renders and is still tappable', () => {
+    mockPractice.completedToday = true;
+    const { getByTestId } = render(<CleanHomeScreen />);
+    const card = getByTestId('checkin-card-daily-loop');
+    expect(card).toBeTruthy();
+    expect(card.props.accessibilityRole).toBe('button');
   });
 });
 
