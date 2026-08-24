@@ -52,6 +52,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/core/components/ThresholdEducationModal.tsx` | `crisis` + `philosopher` |
 | `app/src/features/insights/components/SessionNoteComposer.tsx` | `crisis` + `philosopher` |
 | `app/src/features/insights/components/WeeklyReflectionComposer.tsx` | `crisis` + `philosopher` |
+| `app/plugins/` | `crisis` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -100,6 +101,12 @@ are 1-of-10 and 2-of-12. **Standing rule for the next instance:** gate the direc
 every non-crisis member can be named in the justification prose and each has been reviewed;
 otherwise name the files. A directory clause that over-fires costs a build that announces
 itself; a file list that under-fires is silent, which is how five instances accumulated.
+
+`plugins/` is the sixth instance (added FEAT-522), and the first that is not app code:
+`withPrivacyShield.js` injects a native view that covers every 988 affordance while the
+app is inactive, and iOS is CNG so no AppDelegate diff is ever reviewed. No Maestro flow
+can observe it — the suite drives an ACTIVE app — so the gate arms the surrounding crisis
+paths and the real verification is an attended device session.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
