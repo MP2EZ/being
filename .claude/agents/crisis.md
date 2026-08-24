@@ -135,6 +135,14 @@ Examples:
 - **Implementation**: Specific crisis intervention setup and safety protocol guidance
 - **Assessment**: Evaluation of crisis risk and safety protocol coverage
 
+## Rulings that find an ungated safety surface (DEBUG-525)
+
+A planning pass that rules a file safety-bearing MUST emit its Protected-Paths row
+(`.claude/CLAUDE.md`) and its Phase 2.5 clause + Step 2.5.3 arm (`.claude/commands/b-close.md`)
+as part of the ruling. Do not defer it to a registry or a follow-up: five instances of
+"consumes a crisis constant but matches no path pattern" were each found by hand, and the
+gate is the only artifact that stops the sixth.
+
 ## Success Criteria
 
 ### Excellent Output Includes

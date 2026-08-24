@@ -424,7 +424,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/core/services/security|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -551,6 +551,10 @@ alone and the documented gate and the running gate disagree, with the running on
 | `features/consent/` change | **`deeplink-consent-gate` + `reconsent-stale` + `reconsent-stale-ineligible`** | INFRA-416. Hosts the pre-consent 988 footer (`LegalGate` is in `SUPPRESSED_ROUTES`). The dir hosts TWO gated screens: `reconsent-stale` is the only flow rendering `ReConsentScreen`, and mapping it under `consentStore.ts` alone left screen-level edits gated by a flow that never renders them. |
 | Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
 | `features/journal/` change | **`journal-crisis-scan`** | DEBUG-480. Hosts `scanOnSave`, the only crisis scan of typed/corrected text, plus the in-page banner and 988 action. |
+| `src/core/hooks/` change | **`journal-crisis-scan`** + 2 printed notices | DEBUG-525. Gated as a DIRECTORY: 3 of 4 files decide crisis-affordance placement/visibility; the 4th has one lifetime commit. `journal-crisis-scan` is the only keyboard-up flow in the suite. `useKeyboardOccludesCrisisButton` (device-only) and the dynamic-type inset get instructions — neither is sim-runnable. |
+| `core/components/ThresholdEducationModal.tsx` change | **`crisis-button-reachability`** | DEBUG-525. A DEBUG-406 conversion site: an RN `<Modal>` whose content tells the reader to seek help while occluding the route to it. The flow already taps through it, so the arm is free. |
+| `insights/components/WeeklyReflectionComposer.tsx` change | **notice only** — no sim flow | DEBUG-525. Only coverage is `crisis-keyboard-accessory` (`safety-device-only`). Jest pin: `modalOcclusionConversions.test.tsx`. |
+| `insights/components/SessionNoteComposer.tsx` change | **notice only** — unreachable in gate build | DEBUG-525. `eas.json`'s `e2e-sim` profile sets `wellness_trend_notes:false`, so no sim flow can reach it at any scope. Jest pin: `modalOcclusionConversions.test.tsx`. |
 | `features/guidance/` change | **`guidance-suppressed-handoff`** | FEAT-457. Drives Home entry → suppressed → notice → CrisisResources → 988, and asserts all four tier testIDs ABSENT. Supersedes the INFRA-416 crisis-button fail-safe, which stood only while no flow pinned guidance's threshold routing. |
 | `features/practices/dailyloop/` change | **`daily-loop-quick-depth` + `daily-loop-deeplink`** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. INFRA-509 narrowed this from the full suite: these two are the only tagged flows carrying a daily-loop testID, so they ARE that coverage. A `DailyLoopDepthSelectScreen` edit additionally prints the `e2e:safety:ax5` instruction (DEBUG-469's `CRISIS_FAB_CLEARANCE` is invisible to centre-tapping flows). |
 | `features/practices/` change (outside `dailyloop/`) | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
@@ -684,6 +688,45 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/journal/' && \
 # record that already exists.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/stores/consentStore\.ts' && \
   FLOWS+=("deeplink-consent-gate" "reconsent-stale" "reconsent-stale-ineligible")
+# DEBUG-525: four entries that CONSUME crisisButtonGeometry rather than owning crisis code.
+# ThresholdEducationModal is an RN <Modal> DEBUG-406 conversion site — a zero-988-affordance
+# render state whose own content tells the reader to seek help. crisis-button-reachability
+# already TAPS THROUGH it (lines ~269-300: profile-assessment-info -> threshold-education-
+# overlay -> crisis-button-root -> crisis-resources-screen), so this arm costs nothing new.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/components/ThresholdEducationModal\.tsx' && \
+  FLOWS+=("crisis-button-reachability")
+# core/hooks/ is gated as a DIRECTORY (3 of 4 files are crisis-critical; see CLAUDE.md).
+# journal-crisis-scan is the only keyboard-up flow in the tagged suite and reaches
+# useKeyboardFrameHeight through VoiceReflectionScreen, so it is the scoped target. The two
+# hooks it CANNOT witness get instructions, not a full suite — same precedent as 988 below.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/hooks/'; then
+  FLOWS+=("journal-crisis-scan")
+  echo "⌨️  A core/hooks/ file changed — these decide crisis-affordance placement and"
+  echo "   visibility. journal-crisis-scan covers the keyboard-up inset path. Two surfaces"
+  echo "   it cannot witness, both outside the tagged suite:"
+  echo "     npm run e2e:safety:keyboard-accessory   (hardware — the only flow pinning"
+  echo "       useKeyboardOccludesCrisisButton via CrisisKeyboardAccessory)"
+  echo "     npm run e2e:safety:xxxl                 (dynamic-type — DEBUG-507/516's pin"
+  echo "       on the journal save inset)"
+fi
+# The two insights composers are DEBUG-406 conversion sites rendering into the root overlay
+# slot. NOTICE ONLY, deliberately: WeeklyReflectionComposer's only Maestro coverage is
+# crisis-keyboard-accessory (safety-device-only), and SessionNoteComposer is unreachable in
+# the gate build at all — eas.json's e2e-sim profile sets wellness_trend_notes:false. An arm
+# that cannot be satisfied is the shape that trains --skip-e2e; jest pins it instead.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'insights/components/WeeklyReflectionComposer\.tsx' && {
+  echo "🪟 WeeklyReflectionComposer changed — a DEBUG-406 conversion site. Its only flow"
+  echo "   coverage is crisis-keyboard-accessory (safety-device-only), so no sim flow is"
+  echo "   added. CI-side pin: __tests__/safety/modalOcclusionConversions.test.tsx"
+  echo "   Validate on hardware: npm run e2e:safety:keyboard-accessory"
+}
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'insights/components/SessionNoteComposer\.tsx' && {
+  echo "🪟 SessionNoteComposer changed — the only site that occluded TWO 988 affordances,"
+  echo "   entered by tapping a point on the reader's own PHQ-9/GAD-7 chart. NO sim flow"
+  echo "   can reach it: eas.json's e2e-sim profile sets wellness_trend_notes:false, so it"
+  echo "   is dark in the gate build. CI-side pin:"
+  echo "   __tests__/safety/modalOcclusionConversions.test.tsx"
+}
 # FEAT-457: features/guidance now HAS a flow, closing the INFRA-416 coverage gap this
 # clause used to log. guidanceGate.ts consumes the PHQ-9/GAD-7 thresholds to route a
 # distressed reader to Stoic content vs crisis resources; guidance-suppressed-handoff

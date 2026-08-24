@@ -48,6 +48,10 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/journal/` | `crisis` |
 | `app/src/core/services/security/` | `compliance` |
 | `app/src/core/stores/consentStore.ts` | `compliance` |
+| `app/src/core/hooks/` | `crisis` |
+| `app/src/core/components/ThresholdEducationModal.tsx` | `crisis` + `philosopher` |
+| `app/src/features/insights/components/SessionNoteComposer.tsx` | `crisis` + `philosopher` |
+| `app/src/features/insights/components/WeeklyReflectionComposer.tsx` | `crisis` + `philosopher` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -86,6 +90,16 @@ app's only save-time crisis scan — `scanOnSave`, reachable solely through `jou
 — plus `journal-crisis-banner` and `journal-crisis-call-988`. It is the sole scan point for text
 a user typed or corrected, so a reachability defect there is a crisis false negative, not a
 usability bug. `crisis` owns the scan and the affordances.
+
+The last four entries (DEBUG-525) are the fifth instance, and they consume
+`features/crisis/constants/crisisButtonGeometry.ts` rather than owning crisis code — the
+same shape as `guidance/`. `core/hooks/` is gated as a DIRECTORY: three of its four files
+decide crisis-affordance placement or visibility, and the fourth (`useBugReportShake.ts`)
+has one commit in its life. The other three are gated as FILES because their directories
+are 1-of-10 and 2-of-12. **Standing rule for the next instance:** gate the directory when
+every non-crisis member can be named in the justification prose and each has been reviewed;
+otherwise name the files. A directory clause that over-fires costs a build that announces
+itself; a file list that under-fires is silent, which is how five instances accumulated.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
