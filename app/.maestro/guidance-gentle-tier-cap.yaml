@@ -1,0 +1,92 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Guidance caps the ladder at Tier 1 for a gentle-band reader"
+# e2e-certifies: 375x667
+# INFRA-420 — the CONTRACT here is viewport-independent (a gate verdict no layout can
+# change), but the REACH is not: this flow gets to the screen by tapping
+# `home-guidance-entry`, and the only viewport on which that reach is proven is the one
+# `guidance-suppressed-handoff.yaml` certifies. Declaring `any` would claim this flow
+# certifies on a large device where the Home reach was never validated. Fail closed, the
+# same way `e2e_flow_certifies` defaults an undeclared flow to the smallest viewport.
+# Not `scrollUntilVisible` on the entry row: that is the sibling's contract to own, and a
+# scroll here would let this flow stay green through a Home regression the sibling exists
+# to catch, while also putting a mid-content swipe in front of a tap (DEBUG-477).
+---
+# WHAT THIS PINS, AND WHY IT IS NOT COVERED BY guidance-suppressed-handoff.yaml.
+#
+# `decideGuidanceAccess` has three verdicts. The sibling flow pins SUPPRESSED — the
+# protective one, where a distressed reader must receive zero philosophy. Nothing pins the
+# POSITIVE side at all: that a reader the gate does NOT suppress actually receives Tier 0
+# and Tier 1, and that Tier 2/3 stay capped unless `allowTier2Plus` is true.
+#
+# The failure this catches is over-disclosure, NOT crisis silence — a mis-wired
+# `allowTier2Plus` handing the full ladder to a gentle-band reader. Scope it as the
+# secondary gap it is; the branch where a defect means philosophy instead of crisis
+# resources is the sibling's, and it is already covered.
+#
+# ── WHY THIS FLOW COSTS NO ASSESSMENT TAPS ──────────────────────────────────
+# `gentle` is the verdict for MISSING data, not only for mid-band scores.
+# guidanceGate.ts states it: "absence is never evidence of safety, so it cannot yield
+# full. It is equally never evidence of crisis, so it must not yield suppressed either
+# ... gentle is the only defensible answer." So a clean launch with no assessment on
+# record IS the canonical gentle case, and needs zero seeding beyond onboarding.
+# The sibling records the same fact from the other side, at its own re-launch:
+# "NO clearState HERE. The GAD-7 result must survive; clearing would make the gate
+# answer `gentle`." This flow is that sentence, run deliberately.
+#
+# ── THE POSITIVE ASSERTIONS COME FIRST, AND THAT ORDERING IS LOAD-BEARING ───
+# `useGuidanceGate` reports `pending` while the encrypted store hydrates, and the screen
+# then renders `guidance-pending` — no tiers, no notice. Every `assertNotVisible` below
+# would pass VACUOUSLY in that state, and equally on `guidance-error`. A flow that can
+# only go green is worth nothing. So `guidance-content` and `guidance-tier0` are asserted
+# FIRST: they are false on pending, on error, and on suppressed, which is what makes the
+# absences that follow mean something.
+#
+# ── NO SCROLLING, DELIBERATELY ──────────────────────────────────────────────
+# Tier 2/3 render INSIDE the `guidance-content` ScrollView. Per DEBUG-465, XCUITest drops
+# elements outside the SCREEN but RETAINS ones merely outside a ScrollView's clip, so
+# Maestro scores a clipped tier visible. `assertNotVisible: guidance-tier2` at offset 0 is
+# therefore a real assertion about whether the tier RENDERED, not about where it sits —
+# and it stays real at every viewport and Dynamic Type step. Adding a scroll would buy
+# nothing and would weaken it: after scrolling, absence proves only absence at that offset.
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
+
+# The entry row, reached exactly as the sibling reaches it. If this ever goes red, the
+# regression is Home's vertical budget (DEBUG-469) and the fix is the layout — never
+# hiding the row, and never a scroll bolted on here.
+- assertVisible:
+    id: "home-guidance-entry"
+- tapOn:
+    id: "home-guidance-entry"
+
+- assertVisible:
+    id: "domain-guidance-screen"
+
+# ── POSITIVE FIRST — these are what stop everything below being vacuous. ────
+# `guidance-content` is the ready-state ScrollView: absent on pending, on error, and on
+# suppressed. `guidance-tier0` carries the validation whose abuse/safety escape clause the
+# screen's docblock requires to stay first at every access level.
+- assertVisible:
+    id: "guidance-content"
+- assertVisible:
+    id: "guidance-tier0"
+- assertVisible:
+    id: "guidance-tier1"
+
+# ── THE CAP ────────────────────────────────────────────────────────────────
+# Tier 2/3 are gated on `decision.allowTier2Plus === true`. With no assessment on record
+# the verdict is `gentle`, so both must be ABSENT FROM THE HIERARCHY, not merely off-screen.
+- assertNotVisible:
+    id: "guidance-tier2"
+- assertNotVisible:
+    id: "guidance-tier3"
+
+# Not the suppressed branch either — this reader gets philosophy, and the notice that
+# replaces it must not be on screen. Without this a suppression regression could satisfy
+# every absence above while the positives failed for the wrong reason.
+- assertNotVisible:
+    id: "guidance-suppression-notice"
