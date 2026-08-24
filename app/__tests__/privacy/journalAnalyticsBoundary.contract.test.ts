@@ -183,6 +183,101 @@ describe('no journal source performs outbound network egress', () => {
   });
 });
 
+/**
+ * Sentry — the sink this file claimed to cover and did not (FEAT-288).
+ *
+ * The scans above pin PostHog, Supabase and raw network egress. Sentry is none
+ * of those: it is a first-party-configured monitoring SDK with a live production
+ * DSN, imported elsewhere in the app as `import * as Sentry from
+ * '@sentry/react-native'`. So until now this passed every check in this file,
+ * from inside `features/journal`:
+ *
+ *     Sentry.addBreadcrumb({ message: `filter applied, ${results.length} results` })
+ *
+ * That is entry-derived data leaving the device on a feature whose defining
+ * constraint is that none does. Breadcrumbs and tags are the dangerous shape
+ * rather than an obvious one: they read as diagnostics, they are attached far
+ * from the sink, and they ship with every subsequent error report.
+ *
+ * `captureException` is forbidden too, not just the deliberate-context calls. An
+ * exception thrown while handling entry text can carry that text in its message,
+ * and this feature has no error path important enough to buy that risk. The
+ * allow-list stays EMPTY for the same reason the egress one does: adding a
+ * permitted module should be a reviewable diff line here, not an invisible new
+ * file over there.
+ */
+const SENTRY_PATTERNS: ReadonlyArray<readonly [string, RegExp]> = [
+  ['@sentry/ import', /@sentry\//],
+  ['Sentry.addBreadcrumb', /\bSentry\.addBreadcrumb\s*\(/],
+  ['Sentry.setContext', /\bSentry\.setContext\s*\(/],
+  ['Sentry.setTag(s)', /\bSentry\.setTags?\s*\(/],
+  ['Sentry.setUser', /\bSentry\.setUser\s*\(/],
+  ['Sentry.setExtra(s)', /\bSentry\.setExtras?\s*\(/],
+  ['Sentry.captureMessage', /\bSentry\.captureMessage\s*\(/],
+  ['Sentry.captureException', /\bSentry\.captureException\s*\(/],
+  ['Sentry.startSpan', /\bSentry\.startSpan\s*\(/],
+  ['Sentry.withScope', /\bSentry\.withScope\s*\(/],
+];
+
+/** Journal modules permitted to reach Sentry. EMPTY BY DESIGN — see above. */
+const SENTRY_ALLOWED_FILES: readonly string[] = [];
+
+describe('no journal source reaches Sentry', () => {
+  it.each(JOURNAL_SOURCES.map((f) => [f.split('/').pop() ?? f, f]))(
+    '%s sends nothing to Sentry',
+    (_label, file) => {
+      const path = file as string;
+      if (SENTRY_ALLOWED_FILES.some((allowed) => path.endsWith(allowed))) return;
+
+      const stripped = stripComments(readFileSync(path, 'utf8'));
+      expect(stripped.trim().length).toBeGreaterThan(0);
+
+      const hits = SENTRY_PATTERNS.filter(([, pattern]) => pattern.test(stripped)).map(
+        ([label]) => label
+      );
+
+      expect(hits).toEqual([]);
+    }
+  );
+
+  it('the Sentry matchers still fire against known-bad source', () => {
+    const knownBad = [
+      "import * as Sentry from '@sentry/react-native';",
+      "Sentry.addBreadcrumb({ message: 'filter applied, 12 results' });",
+      "Sentry.setContext('journal', { entries: 12 });",
+      "Sentry.setTag('range', 'last30');",
+      "Sentry.setTags({ range: 'last30' });",
+      "Sentry.setUser({ id: 'anon' });",
+      "Sentry.setExtra('preview', entry.text);",
+      "Sentry.setExtras({ preview: entry.text });",
+      "Sentry.captureMessage('journal filter used');",
+      'Sentry.captureException(err);',
+      "Sentry.startSpan({ name: 'journal.filter' }, run);",
+      'Sentry.withScope((scope) => scope.setTag(\'a\', \'b\'));',
+    ].join('\n');
+
+    for (const [label, pattern] of SENTRY_PATTERNS) {
+      expect([label, pattern.test(knownBad)]).toEqual([label, true]);
+    }
+  });
+
+  it('prose naming Sentry does not trip the scan', () => {
+    // This feature's modules warn readers off these calls by name, so the
+    // stripper has to be doing real work here (DEBUG-390).
+    const source = [
+      '// Never call Sentry.addBreadcrumb from this feature.',
+      '/* @sentry/react-native is forbidden here. */',
+      'const local = 1;',
+    ].join('\n');
+
+    const stripped = stripComments(source);
+    for (const [, pattern] of SENTRY_PATTERNS) {
+      expect(pattern.test(stripped)).toBe(false);
+    }
+    expect(/\bSentry\.addBreadcrumb\s*\(/.test(`${stripped}\nSentry.addBreadcrumb({});`)).toBe(true);
+  });
+});
+
 describe('no LLM client ships inside the app package', () => {
   /**
    * The directory scans above are rooted at the journal and speech trees, so
