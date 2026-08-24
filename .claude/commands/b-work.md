@@ -545,6 +545,11 @@ was a line that moved. Where the incumbent code already solves the concern by ot
 keep the incumbent and note why; reverting a just-landed change during a merge resolution
 is how a fix becomes a regression.
 
+**A ruling about a third-party package is scoped to what the specialist actually read.**
+Docs state intent; the shipped tarball is the artifact. `npm pack <pkg>@<version>` and read
+the native source before accepting a recommendation to add or reject a dependency — an API
+can exist, be first-party, be on the right pin, and still not do what its own docs imply.
+
 **A finding is not automatically a blocker.** Before making one a prerequisite, ask
 whether the change under review *creates* the harm or merely makes an existing gap
 visible to a new cohort. Gate on regressions; track activations as follow-ups. Getting
