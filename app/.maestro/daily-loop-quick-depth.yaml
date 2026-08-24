@@ -346,6 +346,19 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 # predicate. `centerElement` would re-position mid-content and reintroduce it (probe F).
 # No explicit timeout: with no futile centring to fund, this file's plain-boundary-scroll
 # convention applies. If one is ever needed, MEASURE it — do not copy the 25000 below.
+#
+# MEASURED on iPhone SE 3 / iOS 18.6 / 375x667, `maestro hierarchy`, clearState run,
+# IDENTICAL at quick beat 1 and deep beat 1:
+#     continue-button          [20,433][283,489]
+#     crisis-button-root       [331,523][375,567]     34pt below the CTA, 48pt right of it
+#     daily-loop-support-line  ABSENT FROM HIERARCHY
+# So neither mechanism this ticket cited can fire here, and the second was refuted for a
+# reason worth keeping: the CTA sits ABOVE the FAB band, not below it, because
+# AwarePresence content does not fill the viewport. Its y-position is CONTENT-DEPENDENT —
+# a longer beat pushes it down THROUGH 523..567 — which is exactly why DEBUG-518's fix is
+# a HORIZONTAL inset and unconditional. x=283 is CRISIS_FAB_CLEARANCE landing where
+# DailyLoopStepScreen.tsx:97 predicted. Do not re-derive this from viewport arithmetic;
+# that is what produced the wrong answer before it was measured.
 - scrollUntilVisible:
     element:
       id: "continue-button"
