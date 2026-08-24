@@ -53,7 +53,7 @@ Refunds are handled by Apple or Google according to their policies. Visit your a
 
 **How do I delete my account?**
 
-Go to Settings > Privacy > Delete Account in the app. Your local data will be removed immediately. Cloud data (if enabled) will be deleted within 30 days.
+Go to **Privacy & Data > Delete account** in the app. Your local data will be removed immediately. Cloud data (if enabled) will be deleted within 30 days.
 
 ### Data & Privacy
 
@@ -63,7 +63,7 @@ By default, all your wellness data is stored locally on your device. If you enab
 
 **How do I export my data?**
 
-Go to Settings > Privacy > Export Data in the app. You'll receive a JSON file containing all your check-ins, assessments, and journal entries.
+Go to **Privacy & Data > Export my data** in the app. You'll receive a JSON file containing all your check-ins, assessments, and journal entries.
 
 **Do you sell my data?**
 
