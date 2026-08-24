@@ -880,6 +880,8 @@ git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2
 # run. `/b-close` Step 2.5.1 carries the same exclusion — keep the two in step; this
 # re-check exists to TIER the item, and it is not the authority on whether the gate
 # runs. `/b-close` is.
+# `check-safety-paths.sh` reconciles CLAUDE.md against `/b-close`'s grep ONLY, so this
+# copy drifts undetected — re-diff it against Step 2.5.1 whenever either list moves.
 # Two entries in the path set are NOT feature paths and are easy to omit on sight,
 # but both reach the gate's own subject matter:
 #   - `.maestro/` — a diff that adds or edits a safety flow IS a safety-surface
@@ -892,7 +894,7 @@ git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2
 # safety change merges unattended, whereas an unnecessary sim run is only friction.
 SAFETY=$(git -C /Users/max/dev/being/<worktree-dir> diff --name-only origin/development...HEAD \
   | grep -vE '(__tests__/|\.test\.|\.spec\.)' \
-  | grep -E 'app/(src/features/(assessment|consent|crisis|guidance|practices/dailyloop)|src/core/services/security|src/core/navigation/|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  | grep -E 'app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/core/services/security|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 # Two exclusions apply to the crisis content detector. The overlay can be re-hosted
 # in any SOURCE dir, which is why this check greps content rather than paths — but
 # neither excluded class can change what a flow sees, because Maestro drives the
