@@ -145,18 +145,47 @@ describe('DEBUG-469: the daily-loop entry point is reachable at any text size', 
     expect(getByTestId('home-screen')).toBeTruthy();
   });
 
-  it('does not give the growth chain flexBasis 0 — the collapse mechanism', () => {
+  // MAINT-528 REWROTE this test rather than deleting it. The INVARIANT is unchanged and
+  // still DEBUG-469's: the card must be reachable at AX5, which requires that nothing in
+  // the tree competes for vertical space. Only the MECHANISM changed. DEBUG-469 satisfied
+  // it with `flexGrow: 1` + a `minHeight` floor — a card that grows into surplus and is
+  // stopped from collapsing below 180. MAINT-528 removes the growth entirely: with no
+  // grower, there is no flexBasis-0 collapse to guard against, and the surplus lands
+  // BELOW the last element instead of inside the card.
+  //
+  // Deleting it would have silently dropped the regression coverage for a defect that
+  // made the daily loop completely unenterable at accessibility text sizes.
+  it('lets nothing inside the content container grow — the collapse cannot recur', () => {
+    const { getByTestId, UNSAFE_getAllByType } = render(<CleanHomeScreen />);
+
+    // The container itself MUST still grow: it is what makes the content fill the
+    // viewport at default size, and `flexGrow` (never `flex: 1`) is what keeps it free
+    // to exceed the viewport at AX5 so the ScrollView engages.
+    const scroll = UNSAFE_getAllByType(ScrollView)[0];
+    const content = flat(scroll.props.contentContainerStyle) as Record<string, unknown>;
+    expect(content.flexGrow).toBe(1);
+    expect(content.flex).toBeUndefined();
+    expect(content.flexBasis).not.toBe(0);
+
+    // ...and nothing INSIDE it may grow. A single grower re-creates the competition
+    // DEBUG-469 diagnosed; at AX5 it is handed nothing and collapses.
+    const card = flat(getByTestId('checkin-card-daily-loop').props.style) as Record<string, unknown>;
+    expect(card.flexGrow).toBeUndefined();
+    expect(card.flex).toBeUndefined();
+    expect(card.flexBasis).not.toBe(0);
+    // The floor existed only to bound a squeeze. With no squeeze, a floor would just be
+    // a magic number forcing the card past its own content.
+    expect(card.minHeight).toBeUndefined();
+  });
+
+  it('adds no spacer or wrapper node — the surplus falls out of flex-start', () => {
+    // A `<View style={{flexGrow:1}}/>` spacer would also work, but it is a new node in
+    // the XCUITest hierarchy and therefore a new DEBUG-465 surface. The surplus should
+    // come from `justifyContent` defaulting to flex-start, costing zero nodes.
     const { getByTestId } = render(<CleanHomeScreen />);
     const card = flat(getByTestId('checkin-card-daily-loop').props.style) as Record<string, unknown>;
-    // `flex: 1` would surface as flexBasis 0 once flattened by RN's style resolver.
-    expect(card.flexBasis).not.toBe(0);
-    expect(card.flex).not.toBe(1);
-    // It must still fill a surplus at default text size, or the card shrinks to its
-    // content and Home looks broken for the 99% case.
-    expect(card.flexGrow).toBe(1);
-    // And it must have a floor, so a squeeze cannot take it below a usable size.
-    expect(typeof card.minHeight).toBe('number');
-    expect(card.minHeight as number).toBeGreaterThan(0);
+    // `space-between` on the card is what stranded the button 300pt below its own text.
+    expect(card.justifyContent).toBeUndefined();
   });
 });
 

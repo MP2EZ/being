@@ -234,7 +234,16 @@ const CleanHomeScreen: React.FC = () => {
           <CheckInCard
             type="daily-loop"
             title="Daily Practice"
-            description="One loop through the Five Principles: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living."
+            // MAINT-528 (philosopher constraint C1): the card must state NO principle
+            // COUNT. Quick depth runs THREE beats (QUICK_STEP_KEYS), and FEAT-301 already
+            // ruled — as a philosopher blocker — that the count must not be stated for
+            // quick, because it re-ranks quick as the deficient version against
+            // DepthSelect's pinned "Both are complete practices." A card promising five
+            // immediately before that picker pre-attaches "all five" to the practice,
+            // which is exactly the inference FEAT-301 blocks at the coda. The old string
+            // also named by name the two beats quick omits, and truncated mid-word at
+            // 375pt so two of the five never rendered at all.
+            description="One loop through the principles."
             duration="5-6 min"
             isCurrent
             isCompleted={isCheckInCompletedToday('daily')}
@@ -249,12 +258,13 @@ const CleanHomeScreen: React.FC = () => {
 
             SITED HERE, between checkInSection and the Practices row, and inside
             the ScrollView DEBUG-469 added. What it displaces: `checkInSection`
-            and `checkInCard` are now `flexGrow: 1` with a `minHeight: 180` floor
-            rather than `flex: 1`, so this row's height comes out of the card's
-            SURPLUS down to that floor, and past it the ScrollView scrolls instead
-            of the card collapsing. (This comment originally said `flex: 1` and
-            "nothing below moves" — true when written, and DEBUG-469 landed the
-            AX5 fix that made it false. The floor is what now bounds the squeeze.)
+            and `checkInCard` no longer grow at all (MAINT-528), so this row
+            displaces NOTHING: every element takes its intrinsic height and this
+            row's arrival simply shortens the terminal margin below the Practices
+            row. Past the point where that margin reaches zero, the ScrollView
+            engages. (This comment has been wrong twice — it first claimed
+            `flex: 1` and "nothing below moves", then described a `minHeight: 180`
+            floor bounding a squeeze. There is no squeeze now to bound.)
 
             It must stay INSIDE the ScrollView. Pinned below one, it would share
             screen coordinates with content clipped behind it, and XCUITest scores
@@ -321,17 +331,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[8],
     alignItems: 'center',
   },
+  // MAINT-528: the header's intervals were 4pt and 2pt, which made the top of the screen
+  // dense while the bottom held a void — the visual signature of an unfinished layout
+  // rather than of restraint. Spaciousness is a rhythm property, not a quantity one: it
+  // reads as deliberate only when every interval is generous and roughly proportional.
   appTitle: {
     fontSize: typography.display2.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.midnightBlue,
-    marginBottom: spacing[4],
+    marginBottom: spacing[8],
   },
   greeting: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
     color: semantic.text.primary,
-    marginBottom: borderRadius.xs,
+    // Was `borderRadius.xs` — a RADIUS token used as spacing, and only 2pt of it.
+    marginBottom: spacing[8],
   },
   subtitle: {
     fontSize: typography.bodySmall.size,
@@ -340,13 +355,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing[12],
   },
   checkInSection: {
-    // DEBUG-469: `flexGrow: 1`, NOT `flex: 1`. `flex: 1` sets flexBasis to 0, so this
-    // section's base size is nothing and it grows only into leftover space — of which
-    // there is none at AX5 once the header, badge and practices row have taken their
-    // intrinsic heights. That is what collapsed the card to 40pt and pushed it off
-    // screen. flexBasis stays `auto` here, so the section is sized by its content first.
-    flexGrow: 1,
-    marginTop: spacing[12],
+    // MAINT-528: no `flexGrow`. DEBUG-469 kept the card reachable at AX5 by making this
+    // chain grow into surplus with a `minHeight` floor; this removes the growth instead.
+    // With nothing in the tree competing for vertical space, the flexBasis-0 collapse
+    // cannot recur by construction — every child takes its intrinsic height and the
+    // ScrollView engages when they exceed the viewport. The surplus now falls BELOW the
+    // last element, out of `justifyContent` defaulting to flex-start, rather than being
+    // absorbed into the card.
+    marginTop: spacing[48],
   },
   // FEAT-293: fixed height, so it never competes with the flex:1 check-in cards.
   practicesEntry: {
@@ -368,17 +384,17 @@ const styles = StyleSheet.create({
     color: semantic.text.secondary,
   },
   checkInCard: {
-    // DEBUG-469: same reasoning as checkInSection — flexGrow, not flex. The minHeight is
-    // the floor that stops a squeeze taking the card below a usable size; it binds only
-    // when space is scarce, since at AX5 the card's own content is far taller than this.
-    flexGrow: 1,
-    minHeight: 180,
-    justifyContent: 'space-between',
+    // MAINT-528: the card HUGS its content. It previously carried `flexGrow: 1` plus
+    // `justifyContent: 'space-between'`, so it swelled to eat every spare pixel and then
+    // pinned its own title block to its top and its button to its bottom — putting ~300pt
+    // of dead space INSIDE a bordered container, where it reads as a hole rather than as
+    // air. `minHeight: 180` went with them: it existed only to bound a squeeze, and with
+    // nothing squeezing it would now just force the card past its own content.
     paddingTop: spacing[16],
     paddingHorizontal: spacing[16],
     paddingBottom: spacing[20], // Extra to optically balance with title line-height
     borderRadius: borderRadius.xl,
-    marginBottom: spacing[16],
+    marginBottom: spacing[40],
     // MAINT-222: border-preferred elevation (DS guidance), replacing the
     // hand-rolled black-shadow recipe. Matches the unified card system.
     borderWidth: 1,
