@@ -529,10 +529,9 @@ the `Blocked by` relation yet. Also capture user-stated ordering from `$ARGUMENT
 Apply per item — this is a mechanical rule, not a judgment call (judgment in-context is
 exactly where drift creeps in):
 
-- **RED** if any agent's `files_touched` hits a safety path (`features/assessment`,
-  `features/consent`, `features/crisis`, `features/guidance`,
-  `core/services/security`, `core/navigation/`, `app.json`,
-  `Info.plist`, `.maestro/`) or mentions `CollapsibleCrisisButton`. Decided first,
+- **RED** if any agent's `files_touched` hits a safety path — the same set as
+  Step 3.2's grep, which is the authority; do not maintain a second list here —
+  or mentions `CollapsibleCrisisButton`. Decided first,
   overrides confidence. Step 3.2 re-decides the tier against the real diff:
   - **RED-ATTENDED** — non-test diff under `features/crisis/` or `features/assessment/`,
     or an added/edited `.maestro/` flow. A human approves the merge: the 988 path is
