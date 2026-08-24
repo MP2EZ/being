@@ -556,7 +556,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | `app/plugins/` change | **`crisis-button-reachability`** + printed notice | FEAT-522. A config plugin injects native code that can occlude every 988 affordance, and iOS is CNG so no AppDelegate diff is ever reviewed. No sim flow can observe it — Maestro drives an ACTIVE app and the shield exists only while inactive — so the arm proves the surrounding crisis paths still render and the notice points at the attended device script. |
 | `insights/components/WeeklyReflectionComposer.tsx` change | **notice only** — no sim flow | DEBUG-525. Only coverage is `crisis-keyboard-accessory` (`safety-device-only`). Jest pin: `modalOcclusionConversions.test.tsx`. |
 | `insights/components/SessionNoteComposer.tsx` change | **notice only** — unreachable in gate build | DEBUG-525. `eas.json`'s `e2e-sim` profile sets `wellness_trend_notes:false`, so no sim flow can reach it at any scope. Jest pin: `modalOcclusionConversions.test.tsx`. |
-| `features/guidance/` change | **`guidance-suppressed-handoff`** | FEAT-457. Drives Home entry → suppressed → notice → CrisisResources → 988, and asserts all four tier testIDs ABSENT. Supersedes the INFRA-416 crisis-button fail-safe, which stood only while no flow pinned guidance's threshold routing. |
+| `features/guidance/` change | **`guidance-suppressed-handoff` + `guidance-gentle-tier-cap`** | FEAT-457 + INFRA-420. The first drives Home entry → suppressed → notice → CrisisResources → 988 with all four tier testIDs ABSENT; the second pins the positive branch (Tier 0/1 shown, Tier 2/3 capped). Both arms are required — suppression alone stays green if the gate suppresses everyone. Supersedes the INFRA-416 crisis-button fail-safe. |
 | `features/practices/dailyloop/` change | **`daily-loop-quick-depth` + `daily-loop-deeplink`** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. INFRA-509 narrowed this from the full suite: these two are the only tagged flows carrying a daily-loop testID, so they ARE that coverage. A `DailyLoopDepthSelectScreen` edit additionally prints the `e2e:safety:ax5` instruction (DEBUG-469's `CRISIS_FAB_CLEARANCE` is invisible to centre-tapping flows). |
 | `features/practices/` change (outside `dailyloop/`) | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
@@ -734,8 +734,11 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'insights/components/SessionNoteComposer\
 # drives Home entry → suppressed → notice → CrisisResources → 988 and asserts all four
 # tier testIDs ABSENT. It replaces the crisis-button fail-safe, which pinned reachability
 # of a different affordance and never exercised this routing at all.
+# INFRA-420 adds the POSITIVE branch: guidance-gentle-tier-cap asserts a non-suppressed
+# reader receives Tier 0/1 and that Tier 2/3 stay capped. Both arms are needed — the
+# sibling alone stays green if the gate suppresses EVERYONE.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/guidance/' && \
-  FLOWS+=("guidance-suppressed-handoff")
+  FLOWS+=("guidance-suppressed-handoff" "guidance-gentle-tier-cap")
 # DEBUG-465: practices/dailyloop hosts SUPPORT_LINE (a crisis affordance) on a beat
 # chosen by showsSupportLine(), pinned OUTSIDE the ScrollView. INFRA-509 narrowed this
 # from the full suite: daily-loop-quick-depth IS the DEBUG-465 pin — above-the-fold at
@@ -845,6 +848,7 @@ while IFS= read -r f; do
     deeplink-consent-gate.yaml)      FLOWS+=("deeplink-consent-gate") ;;
     reconsent-stale-ineligible.yaml) FLOWS+=("reconsent-stale-ineligible") ;;
     guidance-suppressed-handoff.yaml) FLOWS+=("guidance-suppressed-handoff") ;;
+    guidance-gentle-tier-cap.yaml) FLOWS+=("guidance-gentle-tier-cap") ;;
     *) FULL_SUITE=1 ;;
   esac
 done <<< "$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
