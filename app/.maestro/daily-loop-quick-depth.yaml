@@ -325,6 +325,31 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
     id: "daily-loop-skip-breath"
 - assertVisible:
     id: "daily-loop-input-response"
+# ── DEBUG-519 — one of the two `continue-button` taps DEBUG-465's ruling never reached.
+# That ruling is stated above `launchApp` at the top of this file: "A scroll in front of
+# `continue-button` is now REQUIRED and is not the same act" as the permanently-banned
+# scroll in front of `daily-loop-support-line`. Only the Sphere Sovereignty site ever got
+# one. This tap and the deep beat-1 tap stayed bare, so a Continue below the fold surfaces
+# as a plain `element not found` — indistinguishable from layout drift, on a flow whose reds
+# are usually layout. This makes such a failure attributable. IT IS A DETECTOR, NOT A FIX:
+# nothing here is red today, and `continueWrap`'s CRISIS_FAB_CLEARANCE is already unconditional.
+#
+# NO `centerElement` — not the Sphere Sovereignty shape copied carelessly, the opposite call
+# for a different beat. THERE, centring is what proves a real scroll happened, which is what
+# keeps the tap off the co-located support line; do not remove it there. HERE
+# `showsSupportLine()` is false (tenseMode.ts:147 — quick is true only on QUICK_SUPPORT_STEP),
+# so there is no co-located affordance to be kept off and centring buys nothing.
+# Both DEBUG-477 arms are clear as written: already-visible ⇒ Maestro swipes ZERO times and
+# swallows nothing; below the fold ⇒ `continue-button` is the LAST ScrollView child
+# (DailyLoopStepScreen.tsx, `continueWrap` immediately before `</ScrollView>`), so a DOWN
+# scroll terminates at the CONTENT BOUNDARY, which clears the swallow by the documented
+# predicate. `centerElement` would re-position mid-content and reintroduce it (probe F).
+# No explicit timeout: with no futile centring to fund, this file's plain-boundary-scroll
+# convention applies. If one is ever needed, MEASURE it — do not copy the 25000 below.
+- scrollUntilVisible:
+    element:
+      id: "continue-button"
+    direction: DOWN
 - tapOn:
     id: "continue-button"
 
@@ -505,6 +530,14 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 # assertion — a `when:` block here could only ever hide a genuine regression.
 - tapOn:
     id: "daily-loop-skip-breath"
+# DEBUG-519 — the second bare tap. Same guard and same reasoning as the quick beat-1 site
+# above; see that block for the DEBUG-465 ruling and the DEBUG-477 boundary derivation.
+# Deep beat 1 is Aware Presence, so `showsSupportLine()` is false here too: the support line
+# belongs to beat 2 (Radical Acceptance), which is where it is asserted immediately below.
+- scrollUntilVisible:
+    element:
+      id: "continue-button"
+    direction: DOWN
 - tapOn:
     id: "continue-button"
 # Deep beat 2 = Radical Acceptance → support line present here.
