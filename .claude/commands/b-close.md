@@ -1803,16 +1803,13 @@ data: {
 **Create comment**:
 ```
 mcp__notion__notion-create-comment
-parent: { "page_id": "[page_id from Phase 1]" }
-rich_text: [
-  {
-    "type": "text",
-    "text": {
-      "content": "[comment content above]"
-    }
-  }
-]
+page_id: "[page_id from Phase 1]"
+markdown: "[comment content above]"
 ```
+
+`page_id` is a TOP-LEVEL parameter and the content field is `markdown`, a single string.
+Do not use `parent:` + `rich_text[]` — that shape is rejected, and `rich_text`'s per-object
+2000-char cap cannot hold a normal completion comment anyway.
 
 ---
 

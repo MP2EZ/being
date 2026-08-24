@@ -243,6 +243,11 @@ concurrent batches converge; a lost entry costs one re-derive, never correctness
 (measured, not assumed), so the key is blind to exactly the channel that carries rescopes and
 reversals — caching through it would serve a body whose premise was retired.
 
+**A digest verdict about ANOTHER item's state is never reusable.** The key is this
+item's `Last edited time`, which cannot see a sibling branch merge — so a cached
+"blocker cleared" rots silently and re-slates blocked work. Re-verify with
+`git merge-base --is-ancestor`; two commits can carry one item ID on different branches.
+
 **Then apply the two exclusions only a body can decide** — for any item `Batch Route` did not
 already drop at 0.1a.4. `Priority` says what is worth doing, `Effort` says how big it is;
 neither says whether `/b-work` can reach the work at all.

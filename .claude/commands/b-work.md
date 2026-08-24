@@ -923,16 +923,13 @@ data: {
 
 ```
 mcp__notion__notion-create-comment
-parent: { "page_id": "[page_id from Phase 1]" }
-rich_text: [
-  {
-    "type": "text",
-    "text": {
-      "content": "Ready for testing via /b-work\n\nAgents invoked: [List or 'none']\nFeature flag: [No flag | Runtime: <name> | Build-time: <name>] — [rationale]; [Runtime lane: PostHog flag created at 0% via MCP | already existed | deferred to manual]\nAnalytics: [No event | Existing: <name> | New: <name>] — [rationale]\nTest lane: [Test-first | Test-after | Skip] — [rationale]\nTests written: [files/commands, or 'none — skip rationale']\nTest result: [paste passing npm run test:* line]\n\nImplementation: [Brief summary]\nDeliverables: [List]\n\nNext: Test and run /b-close [WORK_ITEM_ID] when complete"
-    }
-  }
-]
+page_id: "[page_id from Phase 1]"
+markdown: "Ready for testing via /b-work\n\nAgents invoked: [List or 'none']\nFeature flag: [No flag | Runtime: <name> | Build-time: <name>] — [rationale]; [Runtime lane: PostHog flag created at 0% via MCP | already existed | deferred to manual]\nAnalytics: [No event | Existing: <name> | New: <name>] — [rationale]\nTest lane: [Test-first | Test-after | Skip] — [rationale]\nTests written: [files/commands, or 'none — skip rationale']\nTest result: [paste passing npm run test:* line]\n\nImplementation: [Brief summary]\nDeliverables: [List]\n\nNext: Test and run /b-close [WORK_ITEM_ID] when complete"
 ```
+
+`page_id` is a TOP-LEVEL parameter and the content field is `markdown`, a single string.
+Do not use `parent:` + `rich_text[]` — that shape is rejected, and `rich_text`'s per-object
+2000-char cap cannot hold a normal testing comment anyway.
 
 ### Step 5.3: Report Testing Status
 
