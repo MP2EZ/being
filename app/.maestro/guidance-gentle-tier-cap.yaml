@@ -43,13 +43,25 @@ name: "Guidance caps the ladder at Tier 1 for a gentle-band reader"
 # FIRST: they are false on pending, on error, and on suppressed, which is what makes the
 # absences that follow mean something.
 #
-# ── NO SCROLLING, DELIBERATELY ──────────────────────────────────────────────
-# Tier 2/3 render INSIDE the `guidance-content` ScrollView. Per DEBUG-465, XCUITest drops
-# elements outside the SCREEN but RETAINS ones merely outside a ScrollView's clip, so
-# Maestro scores a clipped tier visible. `assertNotVisible: guidance-tier2` at offset 0 is
-# therefore a real assertion about whether the tier RENDERED, not about where it sits —
-# and it stays real at every viewport and Dynamic Type step. Adding a scroll would buy
-# nothing and would weaken it: after scrolling, absence proves only absence at that offset.
+# ── THE ABSENCE ASSERTIONS MUST BE MADE AFTER SCROLLING, AND THAT IS MEASURED ──
+# This block first said the opposite, citing DEBUG-465: that XCUITest retains elements
+# outside a ScrollView's clip, so `assertNotVisible: guidance-tier2` at offset 0 would be
+# a real claim about whether the tier RENDERED. That dropped the qualifier the rest of
+# this suite states correctly — `_legal-and-onboarding.yaml:106` says "outside a
+# ScrollView's clip BUT STILL ON SCREEN". The retention is bounded by the SCREEN, not by
+# the clip, and Tier 2/3 sit far below it.
+#
+# MEASURED on the gate sim with the tier gate forced open, so Tier 2/3 really did render:
+#     at scroll offset 0   guidance-tier2: ABSENT   guidance-tier0/1: present
+#     after three scrolls  guidance-tier2: PRESENT  guidance-tier0/1: absent
+# The hierarchy is a viewport-relative window. Asserting absence at offset 0 is therefore
+# VACUOUS for anything below the fold — it passes whether or not the tier rendered.
+#
+# Proven by mutation, both arms, which is the only reason to trust it:
+#     gate forced open  → `assertNotVisible: guidance-tier2` FAILED   (goes red)
+#     gate as shipped   → flow passes
+# Without the scrolls the mutated arm PASSED, i.e. the cap — this flow's whole point —
+# could not fail. Do not remove them, and do not assert a tier's absence at offset 0.
 - launchApp:
     clearState: true
     clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
@@ -77,16 +89,22 @@ name: "Guidance caps the ladder at Tier 1 for a gentle-band reader"
 - assertVisible:
     id: "guidance-tier1"
 
+# Not the suppressed branch either — this reader gets philosophy, and the notice that
+# replaces it must not be on screen. Asserted HERE, at offset 0, because the notice
+# replaces the whole ScrollView and would render exactly where we are standing.
+- assertNotVisible:
+    id: "guidance-suppression-notice"
+
 # ── THE CAP ────────────────────────────────────────────────────────────────
-# Tier 2/3 are gated on `decision.allowTier2Plus === true`. With no assessment on record
-# the verdict is `gentle`, so both must be ABSENT FROM THE HIERARCHY, not merely off-screen.
+# Tier 2/3 are gated on `decision.allowTier2Plus === true`; with no assessment on record
+# the verdict is `gentle`, so neither may render. Scroll to the end of the ladder FIRST —
+# see the block above. For a gentle reader the content ends at Tier 1, so these scrolls
+# are a near no-op; if Tier 2/3 ever render, this is what brings them into the window and
+# turns the two assertions below from vacuous into load-bearing.
+- scroll
+- scroll
+- scroll
 - assertNotVisible:
     id: "guidance-tier2"
 - assertNotVisible:
     id: "guidance-tier3"
-
-# Not the suppressed branch either — this reader gets philosophy, and the notice that
-# replaces it must not be on screen. Without this a suppression regression could satisfy
-# every absence above while the positives failed for the wrong reason.
-- assertNotVisible:
-    id: "guidance-suppression-notice"
