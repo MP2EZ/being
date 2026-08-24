@@ -562,7 +562,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
 | `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
 | `.maestro/<flow>.yaml` added or edited | **trigger** that flow | The flow IS the contract; one that has never run is not coverage. Bypasses the inert filter — a deletion-only diff here is assertions being removed. |
-| `.maestro/_<helper>.yaml` edited | **full suite** | Any flow may include a helper subflow. |
+| `.maestro/_<helper>.yaml` edited | **its transitive `runFlow:` callers** | INFRA-517. `runFlow:` is a static per-file include, so a helper reaches exactly its callers — measured on INFRA-494, where a `_legal-and-onboarding.yaml` diff ran 12 sim flows and its only two callers are both `safety-device-only`. Callers that cannot run in the sim get a NOT-VERIFIED notice; the Step 2.5.3 net then still runs `crisis-button-reachability`, so this is one flow, never zero. Falls back to the full suite on any of: a `config.yaml`, matcher self-test failure, unreconciled residue, a depth-capped closure, or zero callers. |
 | `.maestro/crisis-988-dial.yaml` edited | **no sim flow** — hardware notice | `safety-device-only`; sim `canOpenURL` is unconditionally false, so it cannot pass here. Run `e2e:safety:988-dial` on a real iPhone. |
 | A screen carrying `CRISIS_FAB_CLEARANCE` changed, or `CollapsibleCrisisButton` | **notice only** — never scoped | INFRA-510. `reconsent-stale-ineligible-fab-clearance` is `safety-bottom-inset` and declares 393x852; 375x667 has a zero bottom inset, so the collision cannot occur there at any clearance value. Scoping it beside a 375x667 flow is unsatisfiable on one device — the shape that trains `--skip-e2e`. |
 | `.maestro/<flow>.yaml` tagged `safety-dynamic-type` edited | **no sim flow** — instruction | DEBUG-469 / DEBUG-507. The suite selects on an exact `- safety` tag at the DEFAULT content size, so it can neither select nor validly run these. `e2e:safety:ax5` (AX5) and `e2e:safety:xxxl` (largest non-accessibility step) own them. Each needs its own case arm; the `*)` catch-all would fire a pointless full suite. |
@@ -799,8 +799,8 @@ echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/services/security' && \
 # --- `.maestro/` flow edits + e2eSeed.ts: this gate's OWN contract surface ---
 # An edited flow is validated by running that flow. Three cases the obvious mapping
 # gets wrong, which is why this is a case statement and not a name transform:
-#   • `_`-prefixed files are helper subflows, not flows — any flow may include one,
-#     so the blast radius is the whole suite.
+#   • `_`-prefixed files are helper subflows, not flows. Their blast radius is their
+#     transitive `runFlow:` caller set, computed below (INFRA-517) — NOT the whole suite.
 #   • daily-loop-*.yaml have their own arms (INFRA-509). A scoped npm script is NOT what
 #     makes a flow reachable — INFRA-483 made FLOWS hold FLOW NAMES, and e2e-safety.sh
 #     accepts a bare basename, rejecting only `_*` and files that do not exist. ONE
@@ -811,10 +811,163 @@ echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/services/security' && \
 #     canOpenURL returns false unconditionally there regardless of the array's
 #     contents. Adding it would make every 988-flow edit an unfixable red gate, so it
 #     is deliberately excluded and surfaced as a hardware instruction instead.
+# --- INFRA-517: a helper subflow gates its CALLERS, not the whole suite ---
+# Measured on the INFRA-494 close: a `_legal-and-onboarding.yaml` diff ran all 12 sim
+# flows, and that helper is included by exactly two — both `safety-device-only` — so not
+# one of the 12 could observe it. `runFlow:` is a static per-file include, not an ambient
+# graph, so a helper's blast radius IS its transitive caller set. FEAT-376's barrel caveat
+# does NOT transfer: a barrel enlarges every importer's graph implicitly, an include needs
+# a line in the including flow. `crisis` cleared this on three preconditions, each of
+# which fails to FULL_SUITE rather than to a narrow scope:
+#   • no `app/.maestro/config.yaml` — its onFlowStart/onFlowComplete/flows: hooks reach
+#     EVERY flow with no `runFlow:` line anywhere, which voids caller-derivation outright;
+#   • the matcher provably still fires (DEBUG-390: a narrowed matcher that silently
+#     matches nothing is indistinguishable from a clean answer);
+#   • the anchored set reconciles against a loose substring set, so PARTIAL matcher death
+#     — 3 callers found where 11 exist — cannot pass as a legitimately narrow scope. That
+#     is the fail-safe that matters; a zero-callers floor only catches TOTAL death.
+E2E_DIR="app/.maestro"
+# Its onFlowStart/onFlowComplete/flows: hooks apply to every flow with no `runFlow:` line,
+# so caller-derivation is invalid the moment this file exists. None exists today.
+if [ -f "$E2E_DIR/config.yaml" ] || [ -f "$E2E_DIR/config.yml" ]; then
+  echo "🛡️  $E2E_DIR/config.yaml exists — workspace hooks reach every flow without a"
+  echo "    runFlow: line, so helper caller-scoping is not valid. Gating full suite."
+  FULL_SUITE=1
+fi
+# Both `runFlow:` forms: scalar (`- runFlow: x.yaml`, optional ./, quotes, trailing
+# comment) and the block form's `file:` key. Zero block-form `file:` keys exist in the
+# suite today — every block-form runFlow uses inline `commands:` — so the `file:` half
+# matches nothing YET. It is here because a flow written that way tomorrow is a new shape
+# matching no existing pattern, the mechanism behind all six Protected-Path instances.
+# Do NOT drop it for looking dead.
+mflow_anchor() {
+  printf '^[[:space:]]*(-[[:space:]]*runFlow:|file:)[[:space:]]*["'"'"']?(\./)?%s["'"'"']?[[:space:]]*(#.*)?$' \
+    "$(printf '%s' "$1" | sed 's/[.[\*^$]/\\&/g')"
+}
+# DEBUG-390 pin: prove the matcher fires BEFORE it narrows anything. Two positives (the
+# live crisis-button-reachability.yaml:69 trailing-comment shape, and the block form) and
+# the live negative at reconsent-stale.yaml:60, which a bare substring grep miscounts.
+mflow_matcher_ok() {
+  local re; re="$(mflow_anchor "_seeded-home.yaml")"
+  printf '%s\n' '- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home' | grep -qE "$re" || return 1
+  printf '%s\n' '    file: _seeded-home.yaml' | grep -qE "$re" || return 1
+  printf '%s\n' '# build. Deliberately NOT `runFlow: _seeded-home.yaml` — that helper waits on' | grep -qE "$re" && return 1
+  return 0
+}
+# Unioned over MERGE_BASE and the working tree: head alone drops a flow on the very close
+# that DELETES its last `runFlow:` line — the close most likely to have broken something.
+mflow_callers() {
+  local re; re="$(mflow_anchor "$1")"
+  { grep -lE "$re" "$E2E_DIR"/*.yaml 2>/dev/null | sed 's|.*/||'
+    [ -n "${MERGE_BASE:-}" ] && git grep -lE "$re" "$MERGE_BASE" -- "$E2E_DIR/*.yaml" 2>/dev/null | sed 's|.*/||'
+  } | sort -u
+}
+# Superset reconciliation. A line naming the helper that is neither an anchored include
+# nor inside a comment is residue the matcher could not classify — fail closed on it.
+# Deliberately awk-FREE. awk cannot reference a whole record without `$0`, and the harness
+# substitutes `$0` with this run's arguments when rendering the file — so an awk form here
+# evaluates `INFRA-nnn` as arithmetic, returns 0 for every line, and this fail-safe silently
+# never fires. Same trap as the RENDER_BOOT_RELEVANT note above; there it drops files from
+# the gated set, here it disables the reconciliation. Both fail toward NOT gating.
+mflow_residue() {
+  local base="$1" re f n line stripped
+  re="$(mflow_anchor "$base")"
+  for f in "$E2E_DIR"/*.yaml; do
+    [ -e "$f" ] || continue
+    n=0
+    while IFS= read -r line; do
+      n=$((n + 1))
+      case "$line" in *"$base"*) ;; *) continue ;; esac
+      printf '%s\n' "$line" | grep -qE "$re" && continue
+      stripped="${line%%#*}"
+      case "$stripped" in *"$base"*) printf '%s:%d\n' "$f" "$n" ;; esac
+    done < "$f"
+  done
+}
+# Visited set + bounded depth. crisis-keyboard-accessory includes BOTH helpers today, and
+# nothing prevents a helper including a helper. A blown cap prints __DEPTH__ and gates the
+# suite; it never terminates silently.
+mflow_closure() {
+  local frontier="$1" visited="" depth=0 next item cal
+  while [ -n "$frontier" ] && [ "$depth" -lt 10 ]; do
+    next=""
+    for item in $frontier; do
+      case " $visited " in *" $item "*) continue ;; esac
+      visited="$visited $item"
+      for cal in $(mflow_callers "$item"); do
+        case " $visited $next " in *" $cal "*) continue ;; esac
+        next="$next $cal"
+      done
+    done
+    frontier="$next"; depth=$((depth + 1))
+  done
+  [ -n "$frontier" ] && { echo "__DEPTH__"; return; }
+  printf '%s\n' $visited
+}
+mflow_tag() { awk '/^tags:/{f=1;next} /^[^ -]/{f=0} f{gsub(/[ -]/,"");print;exit}' "$E2E_DIR/$1" 2>/dev/null; }
+# Every flow name carrying a case arm below. Kept beside the case deliberately: BOTH drift
+# directions are loud — a name here with no arm falls to the named catch-all, an arm with
+# no name here is reported as unmapped by the drift printer after the loop.
+MAPPED_FLOWS="crisis-988-dial reconsent-stale-ineligible-fab-clearance daily-loop-ax5-entry
+profile-voice-reflection-xxxl q9-single-alert phq9-severe-completion gad7-severe
+crisis-button-reachability journal-crisis-scan daily-loop-quick-depth daily-loop-deeplink
+deeplink-consent-gate reconsent-stale-ineligible reconsent-stale crisis-keyboard-accessory
+guidance-suppressed-handoff guidance-gentle-tier-cap"
+MAESTRO_CHANGED="$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
 while IFS= read -r f; do
   [ -z "$f" ] && continue
   case "$(basename "$f")" in
-    _*.yaml) FULL_SUITE=1 ;;
+    _*.yaml)
+      HELPER="$(basename "$f")"
+      if ! mflow_matcher_ok; then
+        echo "🛡️  $HELPER: the include matcher failed its own self-test — gating full suite."
+        echo "    (DEBUG-390: a matcher that stops firing looks exactly like a clean scope.)"
+        FULL_SUITE=1
+      elif [ -n "$(mflow_residue "$HELPER")" ]; then
+        echo "🛡️  $HELPER is named on non-comment lines the matcher did not classify:"
+        mflow_residue "$HELPER" | sed 's/^/       /'
+        echo "    The caller set cannot be proven complete — gating full suite."
+        FULL_SUITE=1
+      else
+        HELPER_CLOSURE="$(mflow_closure "$HELPER")"
+        case "$HELPER_CLOSURE" in
+          *__DEPTH__*)
+            echo "🛡️  $HELPER: include closure exceeded depth 10 (cycle?) — gating full suite."
+            FULL_SUITE=1 ;;
+          *)
+            HELPER_SIM=""; HELPER_OTHER=""
+            for c in $HELPER_CLOSURE; do
+              case "$c" in _*) continue ;; esac
+              if [ "$(mflow_tag "$c")" = "safety" ]; then HELPER_SIM="$HELPER_SIM ${c%.yaml}"
+              else HELPER_OTHER="$HELPER_OTHER $c"; fi
+            done
+            if [ -z "$HELPER_SIM$HELPER_OTHER" ]; then
+              echo "🛡️  $HELPER has no runFlow: caller in either tree — gating full suite."
+              echo "    (A renamed or newly-added helper lands here by construction.)"
+              FULL_SUITE=1
+            else
+              for s in $HELPER_SIM; do FLOWS+=("$s"); done
+              if [ -n "$HELPER_OTHER" ]; then
+                echo "📱 $HELPER is included by callers this gate CANNOT run:"
+                for c in $HELPER_OTHER; do printf '      • %s (%s)\n' "$c" "$(mflow_tag "$c")"; done
+                echo "   This close does NOT verify them. That is a recorded gap, not a pass."
+              fi
+              if [ -z "$HELPER_SIM" ]; then
+                echo "   No sim flow includes $HELPER, so nothing here can observe this edit."
+                case "$HELPER" in
+                  _legal-and-onboarding.yaml)
+                    echo "   ⚠️  This helper carries a RECORDED, NOT FIXED crisis mis-tap"
+                    echo "       (INFRA-494, its lines 133-180): legal-gate-continue sits INSIDE"
+                    echo "       the ScrollView while the 988 footer is pinned outside it, so the"
+                    echo "       tap can land on legal-gate-crisis-988. It runs ONLY on hardware."
+                    echo "       Attend a device session before merging:"
+                    echo "         npm run e2e:safety:988-dial   (with an iPhone connected)" ;;
+                esac
+                echo "   The Step 2.5.3 net below still runs crisis-button-reachability."
+              fi
+            fi ;;
+        esac
+      fi ;;
     crisis-988-dial.yaml)
       echo "📱 crisis-988-dial.yaml changed — safety-device-only. The sim's canOpenURL"
       echo "   returns false unconditionally, so this flow cannot pass here and is NOT"
@@ -847,11 +1000,39 @@ while IFS= read -r f; do
     daily-loop-deeplink.yaml)        FLOWS+=("daily-loop-deeplink") ;;
     deeplink-consent-gate.yaml)      FLOWS+=("deeplink-consent-gate") ;;
     reconsent-stale-ineligible.yaml) FLOWS+=("reconsent-stale-ineligible") ;;
+    reconsent-stale.yaml)            FLOWS+=("reconsent-stale") ;;
+    crisis-keyboard-accessory.yaml)
+      echo "⌨️  crisis-keyboard-accessory.yaml changed — safety-device-only. Its keyboard"
+      echo "   accessory assertions need real hardware; NOT added to the run set."
+      echo "   Validate directly with a device connected." ;;
     guidance-suppressed-handoff.yaml) FLOWS+=("guidance-suppressed-handoff") ;;
     guidance-gentle-tier-cap.yaml) FLOWS+=("guidance-gentle-tier-cap") ;;
-    *) FULL_SUITE=1 ;;
+    # INFRA-517: still the full suite — an unmapped flow is a shape nobody has reasoned
+    # about, and the INFRA-428 asymmetry says bias safe. But NAME it: a silent cap reads
+    # exactly like a deliberate scope, and this arm was quietly absorbing real drift.
+    *)
+      echo "🛡️  unmapped flow $(basename "$f") — no case arm, gating full suite."
+      echo "    Give it an arm (and add it to MAPPED_FLOWS) to scope it properly."
+      FULL_SUITE=1 ;;
   esac
-done <<< "$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
+done <<< "$MAESTRO_CHANGED"
+# INFRA-517 drift printer. Runs whenever the loop ran at all, not only on a catch-all hit:
+# an arm set that only reports drift for files someone happens to edit is not a check.
+if [ -n "$MAESTRO_CHANGED" ]; then
+  # Collapse the newlines out of MAPPED_FLOWS first: the membership test is
+  # space-delimited, so a name sitting at a line break would never match itself.
+  MAPPED_NORM=" $(echo $MAPPED_FLOWS) "
+  for ff in "$E2E_DIR"/[!_]*.yaml; do
+    [ -e "$ff" ] || continue
+    nn="$(basename "$ff" .yaml)"
+    case "$MAPPED_NORM" in *" $nn "*) ;; *)
+      echo "⚠️  arm-set drift: $nn.yaml is present with no case arm (falls to full suite)." ;;
+    esac
+  done
+  for nn in $MAPPED_FLOWS; do
+    [ -e "$E2E_DIR/$nn.yaml" ] || echo "⚠️  arm-set drift: case arm \`$nn\` names no file in $E2E_DIR."
+  done
+fi
 # e2eSeed sets the launch state EVERY flow starts from, so no narrower scope is valid.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/config/e2eSeed\.ts' && FULL_SUITE=1
 
