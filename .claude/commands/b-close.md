@@ -647,6 +647,8 @@ RENDER_BOOT_RELEVANT=$(echo "$SAFETY_CHANGED" | awk '
     # Bare regex, NOT `$0 ~ …`: the harness substitutes $0 with the run’s arguments when
     # rendering this file, so a copied `$0` matches nothing and drops every security file
     # from the render-boot set — failing toward not gating. Bare regex matches $0 implicitly.
+    # This has recurred twice. An extract-based harness CANNOT catch it: it reads this file on
+    # disk, where $0 is still $0. Re-run any new check against a $0-substituted copy of the block.
     if (/EncryptionService|SecureStorageService/) { print }
     next
   }
