@@ -249,6 +249,11 @@ assert that a constant, count or file state does not exist, and those claims age
 authoring and execution. Re-derive each one you are about to act on — a stale premise
 usually widens scope or reopens a decision the tree has already settled.
 
+**A claim about what a GATE will do is a claim about the gate's code, not the item's.**
+Items and packets assert that touching some path forces an expensive tier — an attended
+close, a device run, a rebuild. Read the gate's own filter before accepting it: an
+over-stated tier spends a human session on work that closes headless.
+
 **Then ask whether any AC still needs doing.** An item deferred as release-gated or
 release-only is satisfied by the next release shipping, so re-derive its ACs against
 `origin/main` — not `development` — before Step 1.6 marks it `In progress`. Where they
