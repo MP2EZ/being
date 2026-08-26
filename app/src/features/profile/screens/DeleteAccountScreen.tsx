@@ -14,10 +14,13 @@
  *
  * ORDERING: AccountDeletionService.deleteAccountAndWipe() erases the server
  * account FIRST; a failed server delete surfaces a retryable error and leaves
- * local data intact (no wipe). See AccountDeletionService for the invariant.
+ * local data intact (no wipe). DEBUG-539 inserted the analytics-identity reset
+ * between that erasure and the local wipe. See AccountDeletionService for the
+ * invariant.
  */
 
 import React, { useState, useCallback } from 'react';
+import { usePostHog } from 'posthog-react-native';
 import {
   View,
   Text,
@@ -32,6 +35,7 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import type { AnalyticsIdentityResetTarget } from '@/core/analytics/analyticsIdentityReset';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
 import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
 
@@ -57,12 +61,20 @@ const DeleteAccountScreen: React.FC = () => {
 
   const canDelete = confirmText === CONFIRM_WORD && !isDeleting;
 
+  // DEBUG-539: the package types LIE here — `usePostHog` is declared
+  // `() => PostHog`, but PostHogContext's default value is `{client: undefined}`
+  // and the hook only warns before returning it. So this is genuinely
+  // `PostHog | undefined` on the very path that matters (analytics is opt-in and
+  // default OFF, so no provider is mounted for most users), and `undefined` is
+  // not `null`. Normalise once, here.
+  const posthog = usePostHog() as AnalyticsIdentityResetTarget | undefined;
+
   const handleDelete = useCallback(async () => {
     if (confirmText !== CONFIRM_WORD) return;
     setIsDeleting(true);
     setErrorMessage(null);
     try {
-      const result = await deleteAccountAndWipe();
+      const result = await deleteAccountAndWipe({ posthog: posthog ?? null });
       if (result.ok) {
         // Reset to the clean onboarding state in the same tick the wipe
         // completes — Onboarding mounts its own crisis button + 988 line.
@@ -82,7 +94,7 @@ const DeleteAccountScreen: React.FC = () => {
     } finally {
       setIsDeleting(false);
     }
-  }, [confirmText, rootNavigation]);
+  }, [confirmText, rootNavigation, posthog]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']} testID="delete-account-screen">

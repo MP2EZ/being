@@ -12,6 +12,7 @@
 
 import React from 'react';
 import { PostHogProvider as PHProvider, usePostHog } from 'posthog-react-native';
+import { registerAnalyticsClient } from './analyticsIdentityReset';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { env } from '@/core/config/env';
 
@@ -38,6 +39,15 @@ function RegisterSurfaceProperty(): null {
   React.useEffect(() => {
     if (posthog) {
       posthog.register({ surface: 'app' });
+      // DEBUG-539: hand the instance to module scope so account erasure can reset
+      // it even after this provider stops rendering. Revoking consent unmounts
+      // <PHProvider> but does NOT destroy the client — it keeps AppState
+      // listeners and an in-memory cache that re-persists the pre-erasure
+      // distinct_id on the next write. Erasing by deleting the storage files
+      // under a live instance is therefore a fake control; the reset has to go
+      // THROUGH the instance, which means holding a reference that outlives the
+      // render tree.
+      registerAnalyticsClient(posthog);
     }
   }, [posthog]);
   return null;

@@ -214,13 +214,35 @@ Use `AnalyticsEvents.EVENT_NAME` instead of raw strings for compile-time safety.
 - Events containing PHI keywords in data
 - Numeric values in non-safe keys (potential assessment scores)
 
-### AnalyticsDeletion
-**Location:** `src/core/analytics/AnalyticsDeletion.ts`
+### analyticsIdentityReset
+**Location:** `src/core/analytics/analyticsIdentityReset.ts`
 
-GDPR/CCPA compliant deletion workflow:
-- Logs deletion requests with audit trail (CCPA 45-day requirement)
-- Resets PostHog identity (immediate unlinking)
+Destroys the analytics identity as part of account erasure:
+- Resets the PostHog identity and nulls BOTH persisted queues (`Queue` and
+  `LogsQueue` route to different files, so nulling one leaves the other intact)
+- Where no instance was ever built, removes `.posthog-rn.json` /
+  `.posthog-rn-logs.json` from the document directory
 - Provides regulatory-appropriate user messaging
+
+**No local deletion-request audit trail (DEBUG-539).** This module previously
+persisted a record keyed by `previousDistinctId` to
+`@being/analytics_deletion_requests` — a key no erasure sweep reaches, so it
+RETAINED the identifier the erasure exists to destroy. It had zero production
+callers, so nothing was ever written; wiring it up as documented would have
+introduced the leak. The record and its readers are gone.
+
+**The reset is invoked automatically inside full-account erasure**
+(`AccountDeletionService.deleteAccountAndWipe`), between the terminal attestation
+and the local wipe. It is NOT a standalone user-facing analytics control:
+DEBUG-534 ruled the privacy policy's "Delete Analytics Data" wording is corrected
+in copy rather than built.
+
+**It resets THROUGH a live instance, never around one.** Revoking consent
+unmounts `<PHProvider>` but does not destroy the client, which keeps an in-memory
+cache that re-persists on its next write — so deleting the storage files under a
+live instance restores the pre-erasure id and reads as a fix. The client is
+registered at module scope so the reset can reach an instance that exists but is
+no longer rendered.
 
 ---
 
@@ -236,14 +258,15 @@ export { PostHogProvider, usePostHogConfigured } from './PostHogProvider';
 export { PHIFilter, AnalyticsEvents } from './PHIFilter';
 export type { PHIValidationResult, AnalyticsEventType } from './PHIFilter';
 
-// Deletion Workflow
+// Analytics identity reset (account erasure)
 export {
+  resetAnalyticsIdentity,
+  registerAnalyticsClient,
   handleAnalyticsDeletion,
   showDeletionConfirmation,
-  getDeletionRequestHistory,
-  hasPendingDeletionRequests,
-} from './AnalyticsDeletion';
-export type { DeletionRequestType } from './AnalyticsDeletion';
+  POSTHOG_RN_STORAGE_FILES,
+} from './analyticsIdentityReset';
+export type { DeletionRequestType, AnalyticsIdentityResetTarget } from './analyticsIdentityReset';
 ```
 
 ---
@@ -302,14 +325,21 @@ if (PHIFilter.isWhitelisted(AnalyticsEvents.CHECK_IN_COMPLETED)) {
 3. Ensure no PHI is included in event properties
 4. Update this documentation
 
-### Deletion Requests
+### Analytics identity reset
+
+Normally you do not call this: `deleteAccountAndWipe` invokes it as part of
+erasure. Pass the client explicitly — the parameter is required and explicitly
+nullable so a new caller must decide rather than silently inheriting the defect
+DEBUG-539 fixed.
 
 ```typescript
-import { handleAnalyticsDeletion, showDeletionConfirmation } from '@/core/analytics';
+import { resetAnalyticsIdentity } from '@/core/analytics';
+import { usePostHog } from 'posthog-react-native';
 
-// User requests deletion
-await handleAnalyticsDeletion('user_request');
-showDeletionConfirmation('user_request');
+// `usePostHog()` is typed non-nullable but is undefined when no provider is
+// mounted — which is the common case, since analytics is opt-in and default OFF.
+const posthog = usePostHog() ?? null;
+resetAnalyticsIdentity({ posthog });
 ```
 
 ---
@@ -326,8 +356,11 @@ No BAA required because no PHI is transmitted. The PHIFilter enforces this at th
 - **Data minimization**: Only feature usage tracked
 
 ### CCPA
-- **Deletion requests**: Logged with audit trail
-- **45-day response**: Audit log supports compliance verification
+- **Deletion requests**: handled through full-account erasure, which resets the
+  analytics identity and drops anything queued under it
+- **45-day response**: evidenced by the terminal attestation in
+  `consent_history_v1`, which carries NO identifier — deliberately not by a local
+  log keyed to the erased `distinct_id` (DEBUG-539)
 
 ### App Store Privacy Labels
 
