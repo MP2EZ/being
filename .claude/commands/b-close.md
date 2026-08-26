@@ -424,7 +424,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/core/services/security|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/features/home/screens/CleanHomeScreen\.tsx|src/core/services/security|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -553,6 +553,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | `features/journal/` change | **`journal-crisis-scan`** | DEBUG-480. Hosts `scanOnSave`, the only crisis scan of typed/corrected text, plus the in-page banner and 988 action. |
 | `src/core/hooks/` change | **`journal-crisis-scan`** + 2 printed notices | DEBUG-525. Gated as a DIRECTORY: 3 of 4 files decide crisis-affordance placement/visibility; the 4th has one lifetime commit. `journal-crisis-scan` is the only keyboard-up flow in the suite. `useKeyboardOccludesCrisisButton` (device-only) and the dynamic-type inset get instructions — neither is sim-runnable. |
 | `core/components/ThresholdEducationModal.tsx` change | **`crisis-button-reachability`** | DEBUG-525. A DEBUG-406 conversion site: an RN `<Modal>` whose content tells the reader to seek help while occluding the route to it. The flow already taps through it, so the arm is free. |
+| `features/home/screens/CleanHomeScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-547. Consumes `crisisButtonGeometry` rather than owning crisis code. The FAB's `zIndex: 9999` makes any overlap a wrong-DESTINATION tap into `CrisisResources` — a crisis false POSITIVE. The flow already starts on Home and renders both rows, so the arm is free. **The flow is necessary and NOT sufficient**: Maestro taps element CENTRES, which never enter the contested column, so a point tap is required to falsify this. |
 | `app/plugins/` change | **`crisis-button-reachability`** + printed notice | FEAT-522. A config plugin injects native code that can occlude every 988 affordance, and iOS is CNG so no AppDelegate diff is ever reviewed. No sim flow can observe it — Maestro drives an ACTIVE app and the shield exists only while inactive — so the arm proves the surrounding crisis paths still render and the notice points at the attended device script. |
 | `insights/components/WeeklyReflectionComposer.tsx` change | **notice only** — no sim flow | DEBUG-525. Only coverage is `crisis-keyboard-accessory` (`safety-device-only`). Jest pin: `modalOcclusionConversions.test.tsx`. |
 | `insights/components/SessionNoteComposer.tsx` change | **notice only** — unreachable in gate build | DEBUG-525. `eas.json`'s `e2e-sim` profile sets `wellness_trend_notes:false`, so no sim flow can reach it at any scope. Jest pin: `modalOcclusionConversions.test.tsx`. |
@@ -697,6 +698,13 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/stores/consentStore\.ts' && \
 # already TAPS THROUGH it (lines ~269-300: profile-assessment-info -> threshold-education-
 # overlay -> crisis-button-root -> crisis-resources-screen), so this arm costs nothing new.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/components/ThresholdEducationModal\.tsx' && \
+  FLOWS+=("crisis-button-reachability")
+# DEBUG-547: CleanHomeScreen carries a CRISIS_BUTTON_EXCLUSION_RECT inset. The FAB's
+# zIndex:9999 makes any overlap a wrong-DESTINATION tap into CrisisResources — a crisis
+# false POSITIVE, not an unreachable affordance. crisis-button-reachability already starts
+# on Home and renders both rows, so the arm costs no new flow. File-level, not
+# features/home/: the rest of that directory carries no crisis surface.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/home/screens/CleanHomeScreen\.tsx' && \
   FLOWS+=("crisis-button-reachability")
 # core/hooks/ is gated as a DIRECTORY (3 of 4 files are crisis-critical; see CLAUDE.md).
 # journal-crisis-scan is the only keyboard-up flow in the tagged suite and reaches

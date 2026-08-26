@@ -52,6 +52,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/core/components/ThresholdEducationModal.tsx` | `crisis` + `philosopher` |
 | `app/src/features/insights/components/SessionNoteComposer.tsx` | `crisis` + `philosopher` |
 | `app/src/features/insights/components/WeeklyReflectionComposer.tsx` | `crisis` + `philosopher` |
+| `app/src/features/home/screens/CleanHomeScreen.tsx` | `crisis` |
 | `app/plugins/` | `crisis` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
@@ -101,6 +102,17 @@ are 1-of-10 and 2-of-12. **Standing rule for the next instance:** gate the direc
 every non-crisis member can be named in the justification prose and each has been reviewed;
 otherwise name the files. A directory clause that over-fires costs a build that announces
 itself; a file list that under-fires is silent, which is how five instances accumulated.
+
+`features/home/screens/CleanHomeScreen.tsx` is the seventh instance (added DEBUG-547) and
+the first where the consumer is a plain layout screen. It carries a
+`CRISIS_BUTTON_EXCLUSION_RECT` inset because the FAB's `zIndex: 9999` means any overlap is a
+wrong-destination tap into `CrisisResources` — a crisis FALSE POSITIVE rather than an
+unreachable affordance. Registered as a FILE, not as `features/home/`: the standing rule
+above says gate the directory only when every non-crisis member can be named and reviewed,
+and this directory's other members carry no crisis surface, so a directory clause would
+charge a sim build to every future Home edit. Note the fix also had to touch
+`features/guidance/` — already gated — and DEBUG-390's lesson applies: the home registration
+must stand on its own rather than letting the co-edited guidance file be what arms the gate.
 
 `plugins/` is the sixth instance (added FEAT-522), and the first that is not app code:
 `withPrivacyShield.js` injects a native view that covers every 988 affordance while the
