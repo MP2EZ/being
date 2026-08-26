@@ -91,9 +91,12 @@ find /Users/max/dev/being/.config -name '.b-batch-state.*.json' -mmin +60
 Both halves of the test are required. mtime alone would reap a batch that is mid-execution
 (its manifest is untouched between item closes); `claiming` alone would reap a sibling
 that is legitimately still planning right now — the exact race Step 0.2's stub exists to
-close. Mis-reaping is benign in the safe direction (the sibling's manifest still wins Step
-0.1c, and `/b-work` Step 2.7 rewrites the status anyway), which is why the threshold is
-generous rather than tight.
+close.
+
+**Re-stat the manifest immediately before reverting each claim it owns, and skip it if the
+mtime moved.** The check above reads mtime once; a batch that stalls and then resumes in the
+seconds after that read looks exactly like a dead one. Mis-reaping is NOT self-correcting: a
+peer whose Phase 1 has already passed its claim step never rewrites those statuses.
 
 ### Step 0.1: Resume vs. fresh
 - If `$ARGUMENTS` contains `--resume` → go to **Phase 5 (Resume)** (it handles both
