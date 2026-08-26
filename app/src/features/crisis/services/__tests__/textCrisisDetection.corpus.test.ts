@@ -47,6 +47,8 @@ interface CorpusItem {
   sourceId?: string;
   refutes?: string;
   acceptedBecause?: string;
+  disposition?: string;
+  dispositionNote?: string;
   provenance: { source: string; origin?: string; model?: string; runDate: string };
   review: { reviewer: string; reviewedOn: string; verdict: string };
 }
@@ -117,6 +119,18 @@ describe('corpus integrity', () => {
       (i) => !i.sourceId || !mustFireIds.has(i.sourceId),
     );
     expect(dangling.map((i) => i.id)).toEqual([]);
+  });
+
+  it('every verified-miss item carries a disposition (AC6)', () => {
+    // INFRA-523. A verified miss is a KNOWN gap, and a known gap with no disposition is
+    // indistinguishable from an oversight — which is how a deferral quietly becomes an
+    // acceptance. Keyed on provenance, NOT on detector behaviour, so a future widening
+    // that turns one of these into a hit does not invert the assertion. This thresholds
+    // no rate: packet §7 declined the drift pin, and this is not it.
+    const undispositioned = corpus.items.filter(
+      (i) => i.provenance?.source === 'verified-miss' && !i.disposition,
+    );
+    expect(undispositioned.map((i) => i.id)).toEqual([]);
   });
 
   it('every MUST_NOT_FIRE item names the widening it refutes', () => {
