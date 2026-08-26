@@ -411,6 +411,11 @@ construction and give false confidence. The panel must be able to actually disag
 
 **Panel scaling (cost control):** `MAINT-*` / `INFRA-*` with no domain match → 2 lenses
 (Architecture + Skeptic). `FEAT-*` / `DEBUG-*` or any domain match → 3 lenses.
+**An item whose body already carries a dated panel repair needs the ARCHITECTURE lens
+only**, plus whichever constraint lens owns a ruling still open. Re-slating after an AMBER
+defer is the normal lifecycle here, and the expensive analysis is already in the body — a
+fresh skeptic mostly re-derives it. Keep all three where the repair is older than the last
+release, since the tree has moved under it.
 
 **Lenses share one worktree — scratch files are cross-visible.** A lens told not to edit will
 still write a probe when asked to verify a claim empirically, and that is worth keeping: it is
