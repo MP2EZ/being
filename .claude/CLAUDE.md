@@ -115,7 +115,8 @@ Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` an
 - **PHQ-9 thresholds**: ≥15 = support resources offered; ≥20 = active intervention. Q9 (self-harm) >0 = immediate intervention regardless of total.
 - **GAD-7 threshold**: ≥15 = support resources offered.
 - **988 access**: <3 taps from any screen, <3 seconds load.
-- **Crisis detection**: <200ms, zero false negatives, audit-logged.
+- **Crisis detection (score path)**: <200ms, audit-logged, **zero false negatives** — `detectCrisis()` over PHQ-9/GAD-7 integers, which is total and deterministic. This is where the zero-FN contract lives.
+- **Crisis detection (free text)**: `textCrisisDetection` is a fixed keyword set — high precision, **recall unmeasured with verified misses** (INFRA-512 §3). Never cite it as zero-false-negative; a null scan is not evidence of no crisis.
 - **Wellness data encryption**: AES-256 at rest via `expo-secure-store` / `react-native-aes-crypto`. (Terminology: "wellness data," not "PHI" — Being is not a HIPAA entity.)
 
 ## Performance Budgets
