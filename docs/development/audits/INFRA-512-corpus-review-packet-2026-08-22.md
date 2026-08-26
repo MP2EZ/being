@@ -72,6 +72,11 @@ is not true as written. **Correcting it was deliberately excluded from this run*
 founder chose the test-only option, and editing `textCrisisDetection.ts` (a non-test file
 under `features/crisis/`) would re-tier the item to a human-attended simulator close.
 
+> **Corrected INFRA-523 (2026-08-25):** the re-tiering half of that sentence is **wrong**.
+> `/b-close` Phase 2.5's INFRA-256 inert filter skips comment/whitespace-only diffs, so the
+> header rewrite closed headlessly. The scope decision itself still stands as recorded — but
+> read a "this would force an attended close" claim against the gate's own filter, not as given.
+
 **This is the single most important item to carry forward.** A repo that ships a
 measurement contradicting an adjacent guarantee is worse than one that ships neither. The
 follow-up should rewrite the header to a claim that is true — most of the misses are
@@ -85,8 +90,12 @@ reads as covering this path.
 Every miss triaged into the corpus takes exactly one:
 
 - `detected` — no longer a miss.
-- `accepted-miss-mitigated-elsewhere` — names the compensating control it rests on (the
-  always-reachable root crisis affordance; the low-confidence-transcript support line).
+- `accepted-miss-mitigated-elsewhere` — names the compensating control it rests on.
+  **Corrected INFRA-523:** this bullet used to offer "the low-confidence-transcript support
+  line" as one. **That control does not exist and never did** — there is no confidence signal
+  in `features/journal` at all. The only real control is the root crisis button, and
+  DEBUG-506 leaves it unreachable keyboard-up, which is the `scanOnSave` state. Do not accept
+  a miss against a control you have not opened the file and found.
 - `pattern-candidate-deferred-to-crisis-pass` — a widening is plausible but needs its own
   item and a `crisis` ruling.
 - `out-of-scope-stt-layer` — recognizer error, outside this module's stated contract.
