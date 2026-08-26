@@ -30,7 +30,9 @@ unified: they enforce opposite contracts (reject-gate vs. accept-and-bucket).
 ### Current-state audit (what INFRA-214 found, verified 2026-06-01/02)
 
 1. **PostHog-direct — LIVE, the only working path.** Crisis events limited to
-   `crisis_resources_viewed` / `crisis_hotline_tapped` (no properties). No crisis-detection
+   `crisis_resources_viewed` / `crisis_hotline_tapped` (no properties — still true of
+   `crisis_resources_viewed`; `crisis_hotline_tapped` gained `primary_988` in FEAT-543,
+   see the ruling below). No crisis-detection
    event existed. PostHog project "Being" (111221) had zero product events (pre-launch + dev
    no-ops PostHog).
 2. **Supabase `analytics_events` — table live, crisis emitters orphaned.** Only backup/sync
@@ -173,7 +175,7 @@ Whitelist-based validation ensuring only safe events are transmitted.
 - App lifecycle: `app_opened`, `app_backgrounded`, `session_started`, `session_ended`
 - Navigation: `screen_viewed`
 - Features: `check_in_started/completed`, `assessment_started/completed`, `practice_started/completed`, `breathing_exercise_started/completed`
-- Crisis: `crisis_resources_viewed`, `crisis_hotline_tapped`
+- Crisis: `crisis_resources_viewed` (no properties), `crisis_hotline_tapped` — `{primary_988: boolean}` only (FEAT-543)
 - Settings: `settings_opened`, `consent_changed`
 - Errors: `error_occurred`
 - Onboarding: `onboarding_started/completed/step_completed`
@@ -199,6 +201,28 @@ details.
 The four domain tokens are additionally in the blocklist below, so a future
 reintroduction of a `domain` property fails closed instead of shipping. Pinned by
 `app/__tests__/privacy/guidanceAnalyticsBoundary.contract.test.ts`.
+
+**`crisis_hotline_tapped` carries `primary_988` and nothing else — also a ruling.**
+The boolean is `true` only for the pinned footer 988 button and `false` for a phone tap
+on any other listed resource. It exists to validate the "988 in under three taps" safety
+commitment from behaviour rather than assume it from layout.
+
+*Not an engagement metric.* A rising count of crisis-hotline taps is **not** a success
+signal and must never be presented as one — more people reaching crisis resources is not
+a product win. The only supported reading is the primary-vs-secondary SPLIT: whether the
+affordance the safety design depends on is the one people actually use.
+
+*Never a resource identifier.* `trevor_project` / `veterans_crisis_line` and the like are
+special-category inferences about the user (LGBTQ+ youth, veteran status) on exactly the
+footing as `guidance_opened`'s `domain` above, and a numeric rank proxies the identifier
+once section order is known. Unlike the domain tokens, this one is **not** mechanically
+blocked — the resource-id strings are not in the keyword list — so it is a review-time
+constraint. Pinned by `app/__tests__/privacy/phiFilterScanSurface.privacy.test.ts`
+(the event validates WITH the boolean, and still rejects a resource name).
+
+*Scope.* Phone taps only. The Crisis Text Line SMS path injects no `onTap` and has
+emitted nothing since FEAT-137, so `false` means "a phone tap on a non-988 resource",
+not "every non-988 crisis contact". Do not read a `false` count as covering text.
 
 **Blocked PHI Keywords:**
 `score`, `phq`, `gad`, `severity`, `result`, `mood`, `feeling`, `emotion`, `anxious`, `depressed`, `crisis_contact`, `emergency_contact`, `hotline_number`, `suicid`, `harm`, `journal`, `note`, `entry`, `reflection`, `thought`, `email`, `phone`, `name`, `address`, `conflict`, `career`, `grief`, `pain`

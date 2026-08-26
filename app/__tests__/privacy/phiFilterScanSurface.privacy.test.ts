@@ -101,6 +101,31 @@ describe('PHIFilter scan surface (INFRA-535)', () => {
       expect(PHIFilter.validate('crisis_hotline_tapped', {})).toEqual({ valid: true });
     });
 
+    it('CRISIS PIN: crisis_hotline_tapped carries primary_988 without self-blocking', () => {
+      // FEAT-543. `primary_988` segments to ['primary','988']; nothing in
+      // PHI_KEYWORDS equals or prefixes either, and booleans fall through
+      // scanValue untouched. This pin is what stops a future keyword addition
+      // -- or shortening `hotline_number` to `hotline` -- from silently zeroing
+      // the app's only signal for whether the primary 988 affordance is used.
+      // A whole-event drop here is invisible in PostHog: it reads as "nobody
+      // tapped 988", not as a filter fault.
+      expect(PHIFilter.validate('crisis_hotline_tapped', { primary_988: true })).toEqual({
+        valid: true,
+      });
+      expect(PHIFilter.validate('crisis_hotline_tapped', { primary_988: false })).toEqual({
+        valid: true,
+      });
+    });
+
+    it('CRISIS PIN: a resource identifier on that event is still rejected', () => {
+      // The boolean is a ruling, not a convenience. Proves the filter still
+      // catches the shape FEAT-543 forbids, so the pin above cannot be read as
+      // "any property is fine on this event".
+      expect(
+        PHIFilter.validate('crisis_hotline_tapped', { resource_name: 'Trevor Project' })
+      ).toEqual(expect.objectContaining({ valid: false }));
+    });
+
     it('CRISIS PIN: crisis_resources_viewed validates', () => {
       expect(PHIFilter.validate('crisis_resources_viewed', {})).toEqual({ valid: true });
     });
