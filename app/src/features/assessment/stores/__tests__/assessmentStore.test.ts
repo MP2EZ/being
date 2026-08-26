@@ -72,6 +72,12 @@ describe('Assessment Store - Clinical Validation', () => {
     jest.clearAllMocks();
     for (const k of Object.keys(mockWellnessBlobs)) delete mockWellnessBlobs[k];
     useAssessmentStore.getState().resetAssessment();
+    // DEBUG-515: `resetAssessment()` does NOT clear `autoSaveEnabled`, and it
+    // defaults to true — so without this line every describe outside Auto-Save runs
+    // with the subscription armed under REAL timers. Safe because every storage
+    // assertion outside that describe is driven by an EXPLICIT `saveProgress()`
+    // call, never by autosave firing.
+    useAssessmentStore.setState({ autoSaveEnabled: false });
 
     // Mock SecureStore for testing
     mockSecureStore.setItemAsync.mockResolvedValue();
@@ -84,8 +90,21 @@ describe('Assessment Store - Clinical Validation', () => {
   });
 
   afterEach(() => {
-    // Clean up after each test - no timer management needed
-    // Timer cleanup only needed when jest.useFakeTimers() is used
+    // DEBUG-515: no test may leave the autosave subscription ARMED.
+    //
+    // The module-level subscription schedules a real 1000ms `setTimeout` per answer
+    // whenever `autoSaveEnabled` is true, and the file contains zero `clearTimeout`,
+    // so N answers leak N uncancelled timers. `jest.useFakeTimers()` is installed
+    // only inside the Auto-Save describe, so every OTHER describe schedules REAL
+    // timers that mature ~1s later — inside whatever test is running by then — and
+    // call `saveProgress()` against CURRENT state.
+    //
+    // This assertion is the root cause stated as an invariant. It is deliberately
+    // NOT a timer-count assertion: the leaked handles are `unref`'d, which makes
+    // them invisible to --detectOpenHandles, process.getActiveResourcesInfo() and
+    // process._getActiveHandles() alike, and jest.getTimerCount() counts only FAKE
+    // timers. The flag is the only observable proxy for the leak.
+    expect(useAssessmentStore.getState().autoSaveEnabled).toBe(false);
   });
 
   describe('PHQ-9 Clinical Accuracy', () => {
@@ -474,9 +493,15 @@ describe('Assessment Store - Clinical Validation', () => {
     });
 
     afterEach(() => {
-      // Clean up fake timers when used in this describe block
-      jest.runOnlyPendingTimers();
+      // DEBUG-515: CLEAR, do not RUN. `jest.runOnlyPendingTimers()` FIRES the
+      // enabled test's leftover autosave callback, whose async tail
+      // (saveProgress -> set({lastSavedAt}) -> persist write) then resolves inside
+      // the NEXT test. Clearing drops nothing any assertion here depends on.
+      jest.clearAllTimers();
       jest.useRealTimers();
+      // This describe is the only one that deliberately ARMS the subscription, so
+      // it is the only one that has to disarm it — see the outer afterEach.
+      useAssessmentStore.setState({ autoSaveEnabled: false });
     });
 
     it('auto-saves progress after each answer when enabled', async () => {
