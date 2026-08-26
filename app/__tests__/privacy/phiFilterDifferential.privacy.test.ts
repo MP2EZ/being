@@ -93,15 +93,26 @@ const CORPUS: ReadonlyArray<Case> = [
   { label: 'nested keyword value', eventType: 'app_opened', data: { meta: { detail: 'grief' } } },
   { label: 'nested numeric', eventType: 'app_opened', data: { meta: { total: 21 } } },
 
-  // ---- V1 ACCEPTS these. They are inert under the one-sided relation by design —
-  //      it asserts nothing where the baseline passed — and they are here so the
-  //      corpus already covers the gaps the scan-surface tightening closes.
+  // ---- V1 ACCEPTS these; INFRA-535 rejects them. The one-sided assertion says
+  //      nothing about them, which is the point — but the `TIGHTENED` group below
+  //      asserts the live filter does in fact catch them, so the tightening cannot
+  //      silently disappear.
   { label: 'array of keyword strings', eventType: 'app_opened', data: { tags: ['grief'] } },
   { label: 'array nested deeper', eventType: 'app_opened', data: { tags: [['career']] } },
   { label: 'array inside object', eventType: 'app_opened', data: { meta: { tags: ['suicidal'] } } },
   { label: 'PHI keyword as KEY', eventType: 'check_in_completed', data: { mood: 'ok' } },
   { label: 'PHI keyword as key segment', eventType: 'assessment_completed', data: { phq_score: 'x' } },
   { label: 'journal key', eventType: 'app_opened', data: { journal_id: 'abc' } },
+];
+
+/** Payloads V1 accepts but the tightened filter must now reject. */
+const TIGHTENED: ReadonlyArray<string> = [
+  'array of keyword strings',
+  'array nested deeper',
+  'array inside object',
+  'PHI keyword as KEY',
+  'PHI keyword as key segment',
+  'journal key',
 ];
 
 /**
@@ -156,6 +167,18 @@ describe('PHIFilter differential vs frozen d14d6178 baseline (INFRA-535)', () =>
         }
         // Deliberately no assertion when `before.valid` is true: the live filter
         // is permitted to be stricter. See the TIGHTENED group.
+      }
+    );
+  });
+
+  describe('the tightening is real and did not silently disappear', () => {
+    it.each(TIGHTENED.map((label) => [label] as const))(
+      '%s: baseline accepts, live filter rejects',
+      (label) => {
+        const c = CORPUS.find((x) => x.label === label);
+        expect(c).toBeDefined();
+        expect(validateV1(c!.eventType, c!.data).valid).toBe(true);
+        expect(PHIFilter.validate(c!.eventType, c!.data).valid).toBe(false);
       }
     );
   });
