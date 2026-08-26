@@ -9,9 +9,9 @@
  * RECORDED, not silently enforced. A threshold set before the number is known either
  * passes vacuously or blocks every PR.
  *
- * WHY THE THREE FIGURES ARE NEVER BLENDED. The module scopes its guarantee to
- * correctly-transcribed text and delegates recognizer error to mitigations outside
- * itself. A single blended number would understate the in-contract failure and
+ * WHY THE THREE FIGURES ARE NEVER BLENDED. The module's contract is precision over
+ * a fixed vocabulary; in-contract recall and recognizer error are different
+ * failures. A single blended number would understate the in-contract failure and
  * overstate the out-of-contract one.
  *
  * THIS FILE IS SELECTED BY CI. Every path under `features/crisis/` matches
