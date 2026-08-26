@@ -37,10 +37,28 @@
  *      unbounded, unlike a nine-item questionnaire, so the <200ms crisis budget
  *      is only defensible if cost stays linear in input length.
  *
- * THE GUARANTEE IS SCOPED. Zero-false-negative holds over correctly-transcribed
- * text. A recognizer that mishears a disclosure defeats any text scanner; the
- * mitigations for that live outside this module (an always-reachable crisis
- * affordance, and a support line surfaced on low-confidence transcripts).
+ * THE GUARANTEE IS PRECISION, NOT RECALL. What this module guarantees is that a
+ * small, fixed, hand-approved vocabulary matches deterministically, in linear
+ * time, without leaking content. It does NOT guarantee that every disclosure
+ * matches. Recall is UNMEASURED, and three miss classes are verified
+ * (INFRA-512 §3): morphological variants of approved phrases ("killing myself"
+ * against `kill\s*my\s*self`), contractions the normalizer does not expand
+ * ("cant" against `can\s*not`), and phrasings no pattern covers at all ("i wish
+ * i was dead"). A null result is not evidence of no crisis.
+ *
+ * Recognizer error is a SEPARATE axis stacked on top of that: a mishearing
+ * defeats any text scanner, and nothing in this module or its specs can see it.
+ *
+ * The residual risk rests on the root crisis button, which stays mounted here —
+ * `VoiceReflection` is not in `RootCrisisButton.SUPPRESSED_ROUTES`. That is a
+ * user-initiated affordance, not a detector, and DEBUG-506 leaves it
+ * unreachable while the keyboard is up, which is the state a user is in while
+ * correcting a transcript. The in-screen crisis banner compensates for nothing:
+ * it renders only once this scan has already fired.
+ *
+ * Recall is RECORDED, not thresholded, by `__tests__/textCrisisDetection.corpus.test.ts`
+ * against `docs/development/audits/INFRA-512-corpus-review-packet-2026-08-22.md`.
+ * Widening the pattern set is NOT the remedy — see `CRISIS_TEXT_PATTERN_SOURCES`.
  */
 
 /**
@@ -134,8 +152,9 @@ export function normalizeForCrisisScan(text: string): string {
  * object, so a caller cannot accidentally treat a falsy result as a positive.
  *
  * The scan is never truncated for long input. Exceeding the budget is a logged
- * degradation the caller reports; an unscanned tail would be a false negative
- * by construction, which is the one outcome this module must never produce.
+ * degradation the caller reports; an unscanned tail would add a miss on text the
+ * pattern set would otherwise have caught, which is the one miss class this
+ * module can eliminate outright.
  */
 export function detectCrisisInText(text: string): TextCrisisDetection | null {
   const startedAt = performance.now();
