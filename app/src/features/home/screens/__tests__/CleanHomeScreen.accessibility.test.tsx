@@ -16,6 +16,10 @@
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import { ScrollView, StyleSheet } from 'react-native';
+import fs from 'fs';
+import path from 'path';
+import { spacing } from '@/core/theme';
+import { intersectsCrisisButtonExclusion } from '@/features/crisis/constants/crisisButtonGeometry';
 
 const mockNavigate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
@@ -392,5 +396,126 @@ describe('DEBUG-548: the card announces what the practice is', () => {
     const described = getByTestId('checkin-card-description').props.children as string;
     expect(getByTestId('checkin-card-daily-loop').props.accessibilityHint)
       .not.toContain(described);
+  });
+});
+
+/**
+ * DEBUG-547: the Practices row's FRAME clears the crisis FAB's exclusion region.
+ *
+ * The crisis FAB carries `zIndex: 9999`, so in any overlap it takes the tap — a
+ * user reaching for "Explore ›" at the row's right end reached CrisisResources
+ * instead of PracticeLibrary. Measured on device (iPhone SE 3, 375x667):
+ *
+ *   crisis-button-root    [331,523][375,567]
+ *   home-practices-entry  [24,516][351,561]      overlapping on BOTH axes
+ *
+ * WHY marginRight AND NOT paddingRight
+ *
+ * The filed fix was `paddingRight`. It cannot work, and the tests below are
+ * shaped to make that unmissable: `testID="home-practices-entry"` and
+ * `styles.practicesEntry` are on the SAME Pressable, so padding sits INSIDE its
+ * border box. The frame stays [24..351], the FAB keeps winning the tap, and only
+ * the glyph moves. Every cited precedent pads a non-interactive WRAPPER around
+ * the control — the inverted topology.
+ *
+ * WHAT THESE TESTS CANNOT DO
+ *
+ * jsdom has no layout engine, so the frame is COMPUTED from tokens rather than
+ * measured. Falsifying the value 72 on a real device is Maestro's job, and the
+ * flow must use a POINT tap in the contested column — `tapOn: id:` hits the
+ * element centre (x~151 after the fix) and passes on the UNFIXED build.
+ */
+describe('DEBUG-547: the Practices row clears the crisis FAB exclusion region', () => {
+  const SCREEN_SRC = fs.readFileSync(
+    path.join(__dirname, '../CleanHomeScreen.tsx'),
+    'utf-8'
+  );
+
+  /**
+   * The stylesheet block for one named style, COMMENT-STRIPPED.
+   *
+   * The stripping is load-bearing, not tidiness (DEBUG-390). This codebase
+   * deliberately names anti-patterns in prose to warn the next reader off them —
+   * the block below says "Must NOT be `paddingRight`" and warns about a
+   * `marginHorizontal` override — so a bare `not.toContain('paddingRight')`
+   * matches the WARNING and fails on correct code. The assertions are about what
+   * the file DOES, so they must read only executable text.
+   */
+  const styleBlock = (name: string): string => {
+    const start = SCREEN_SRC.indexOf(`  ${name}: {`);
+    if (start === -1) throw new Error(`style "${name}" not found in CleanHomeScreen`);
+    return SCREEN_SRC.slice(start, SCREEN_SRC.indexOf('\n  },', start))
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+  };
+
+  it('sets the inset on the SAME element that carries the testID', () => {
+    // THE ASSERTION THE FILED FIX WOULD FAIL. `paddingRight` here would leave the
+    // frame — and therefore the tap target — exactly where it was.
+    const { getByTestId } = render(<CleanHomeScreen />);
+    const style = flat(getByTestId('home-practices-entry').props.style) as Record<string, unknown>;
+    expect(style.marginRight).toBe(72);
+    expect(style.paddingRight).toBeUndefined();
+  });
+
+  it('uses the DERIVED constant, not a fourth hand-copied literal', () => {
+    // crisisButtonGeometry already derives 72 as size(44) + hitSlop(12) +
+    // clearance(16). A local `spacing[72]` would silently stop tracking the FAB
+    // if any of those three ever moved.
+    expect(styleBlock('practicesEntry')).toContain('marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left');
+    expect(SCREEN_SRC).toMatch(/from '@\/features\/crisis\/constants\/crisisButtonGeometry'/);
+  });
+
+  it('declares the inset LAST — RN StyleSheet is last-key-wins', () => {
+    const block = styleBlock('practicesEntry');
+    // `marginHorizontal` is the one key that could silently override the right
+    // inset, so its ABSENCE is the contract, not merely today's shape.
+    expect(block).not.toMatch(/marginHorizontal\s*:/);
+    expect(block.indexOf('marginRight:')).toBeGreaterThan(block.indexOf('marginTop:'));
+  });
+
+  it('ANTI-REGRESSION: reverting to paddingRight red-lines here', () => {
+    expect(styleBlock('practicesEntry')).not.toMatch(/paddingRight\s*:/);
+  });
+
+  it('the computed frame is disjoint from the exclusion region, flag DARK and LIT', () => {
+    const { getByTestId } = render(<CleanHomeScreen />);
+    const inset = (flat(getByTestId('home-practices-entry').props.style) as Record<string, number>)
+      .marginRight;
+    const width = 375 - spacing[24] - inset - spacing[24];
+    // y=516 is the measured resting position with domain_guidance DARK; y=591 is
+    // where the row lands once the guidance row above it renders. The FAB's band
+    // covers the second, which is why both are asserted.
+    for (const y of [516, 591]) {
+      expect(
+        intersectsCrisisButtonExclusion(
+          { x: spacing[24], y, width, height: 45 },
+          { width: 375, height: 667 }
+        )
+      ).toBe(false);
+    }
+  });
+
+  it('PROOF OF LIVENESS — these matchers can still go red (DEBUG-390)', () => {
+    // A source-shape assertion plus a narrow matcher is exactly the combination
+    // that can silently match nothing at all. Prove each instrument fires.
+    expect(() => styleBlock('noSuchStyleBlock')).toThrow(/not found/);
+    expect(SCREEN_SRC.length).toBeGreaterThan(1000);
+    // Comment-stripping plus a narrow regex is the combination that can silently
+    // match NOTHING. Prove the stripped block still has executable content, and
+    // that it really did lose the prose naming the anti-patterns.
+    const stripped = styleBlock('practicesEntry');
+    expect(stripped).toMatch(/marginRight\s*:/);
+    expect(stripped).not.toContain('Must NOT be');
+    // and the prop-shaped matchers fire against known-bad literals
+    expect('  paddingRight: 72,').toMatch(/paddingRight\s*:/);
+    expect('  marginHorizontal: spacing[24],').toMatch(/marginHorizontal\s*:/);
+    // the arithmetic assertion above is not vacuous: at inset 0 it must be TRUE
+    expect(
+      intersectsCrisisButtonExclusion(
+        { x: spacing[24], y: 516, width: 375 - spacing[24] * 2, height: 45 },
+        { width: 375, height: 667 }
+      )
+    ).toBe(true);
   });
 });
