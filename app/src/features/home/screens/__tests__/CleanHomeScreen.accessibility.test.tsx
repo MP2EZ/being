@@ -298,3 +298,99 @@ describe('CleanHomeScreen — the guidance entry point (FEAT-457)', () => {
     expect(getByTestId('home-guidance-entry').props.accessibilityRole).toBe('button');
   });
 });
+
+/**
+ * DEBUG-548: the card announces what the practice IS, not only its name and length.
+ *
+ * `Pressable` defaults `accessible` to true, which collapses the subtree into one
+ * element, so the explicit `accessibilityLabel` WINS and the visible
+ * `cardDescription` child is never read. The description reached sighted users only.
+ *
+ * The accessibility ruling (recorded on the work item) is that this is a PARITY
+ * defect, not a WCAG conformance failure — 4.1.2 is met as authored, 1.3.1 is
+ * credible but not airtight, 2.5.3 is met, and 3.1.4 is AAA and outside the AA
+ * target. What decides it is that the description is the ONLY text on the card
+ * saying what the practice consists of, and FEAT-298 collapsed the section to a
+ * SINGLE card, so the usual list-scanning objection to a longer name does not apply.
+ *
+ * The duration badge is ruled the OTHER way and stays unexposed: the label already
+ * carries "5-6 min" in prose, so announcing the badge too would double-speak it.
+ */
+describe('DEBUG-548: the card announces what the practice is', () => {
+  afterEach(() => {
+    mockPractice.completedToday = false;
+  });
+
+  const CEILING = 120;
+
+  it('carries the visible description in the announcement, derived not hardcoded', () => {
+    const { getByTestId } = render(<CleanHomeScreen />);
+    const described = getByTestId('checkin-card-description').props.children as string;
+
+    // MATCHER-FIRES CONTROL (DEBUG-390): a derived string that silently resolved to
+    // '' would make the assertion below true of ANY label, forever. Prove the
+    // matcher has something real to match before trusting it.
+    expect(typeof described).toBe('string');
+    expect(described.length).toBeGreaterThan(10);
+
+    expect(getByTestId('checkin-card-daily-loop').props.accessibilityLabel)
+      .toContain(described);
+  });
+
+  it('keeps the duration in prose, so the muted badge loses nothing', () => {
+    // The badge is deliberately unexposed. That is only safe while the LABEL
+    // carries the duration — this pair is the ruling, in executable form.
+    const { getByTestId, getByText } = render(<CleanHomeScreen />);
+    expect(getByTestId('checkin-card-daily-loop').props.accessibilityLabel)
+      .toMatch(/5-6 min/);
+    expect(getByText('5-6 min').props.importantForAccessibility).toBe('no');
+  });
+
+  it('keeps BOTH the completion clause and the description when completed', () => {
+    // Catches a half-applied fix that only ever touched the pending template.
+    mockPractice.completedToday = true;
+    const { getByTestId } = render(<CleanHomeScreen />);
+    const described = getByTestId('checkin-card-description').props.children as string;
+    const label = getByTestId('checkin-card-daily-loop').props.accessibilityLabel as string;
+
+    expect(label).toMatch(/completed today/);
+    expect(label).toContain(described);
+  });
+
+  it('announces status before the static description', () => {
+    // A returning daily user is listening for the status; a new user needs the
+    // prose. Status first serves the former at no cost to the latter, because on
+    // the pending path the status clause is empty and the orders coincide.
+    mockPractice.completedToday = true;
+    const { getByTestId } = render(<CleanHomeScreen />);
+    const described = getByTestId('checkin-card-description').props.children as string;
+    const label = getByTestId('checkin-card-daily-loop').props.accessibilityLabel as string;
+
+    expect(label.indexOf('completed today')).toBeLessThan(label.indexOf(described));
+  });
+
+  it.each([
+    ['pending', false],
+    ['completed', true],
+  ])('keeps the %s announcement under the length ceiling', (_name, completed) => {
+    // THE CONDITION UNDER WHICH THE RULING HOLDS. Including the description is
+    // correct only while it stays short; the pre-MAINT-528 copy was a 134-char
+    // enumeration that would have made the announcement unusable. The visible text
+    // has `numberOfLines={2}` to clamp it — the announcement has no such clamp, so
+    // this assertion is it.
+    mockPractice.completedToday = completed as boolean;
+    const { getByTestId } = render(<CleanHomeScreen />);
+    const label = getByTestId('checkin-card-daily-loop').props.accessibilityLabel as string;
+    expect(label.length).toBeLessThanOrEqual(CEILING);
+  });
+
+  it('does not duplicate the description into the hint', () => {
+    // The description belongs in the NAME, where it cannot be switched off —
+    // hints are user-disableable. Doubling it produces the long-name-plus-long-hint
+    // failure mode the ruling exists to avoid.
+    const { getByTestId } = render(<CleanHomeScreen />);
+    const described = getByTestId('checkin-card-description').props.children as string;
+    expect(getByTestId('checkin-card-daily-loop').props.accessibilityHint)
+      .not.toContain(described);
+  });
+});
