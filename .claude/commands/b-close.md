@@ -1768,6 +1768,11 @@ preserved on remote.
 
 ### Step 4.1: Update Status to "Done"
 
+**Do not set `Done` when an AC is unserved and externally blocked.** Distinct from the
+header's slice case: the branch is final, but part of the item cannot ship. Ask whether to
+close-and-file-a-successor or hold `In progress` — `Done` tells every later reader that the
+blocked work exists.
+
 ```
 mcp__notion__notion-update-page
 data: {
