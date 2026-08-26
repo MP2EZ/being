@@ -114,6 +114,18 @@ export const SECURE_STORAGE_CONFIG = {
    * Note the two entries fail differently, which is why one comment cannot serve
    * both: `crisis_analytics_queue` is a passive buffer that nothing rewrites
    * after erasure, so for IT the list membership genuinely is the whole control.
+   *
+   * DEBUG-539 — do NOT add PostHog's residuals here. `.posthog-rn.json` and
+   * `.posthog-rn-logs.json` are storage KEYS that resolve to FILENAMES in the
+   * document directory under the `expo-file-system` backend, not AsyncStorage
+   * keys, so listing them deletes nothing and a test asserting "no AsyncStorage
+   * key matches /posthog/i" passes before any fix and would pass forever. They
+   * are handled in `core/analytics/analyticsIdentityReset.ts`, which resets
+   * THROUGH the live instance where one exists — deleting the files under a live
+   * client is the same write-back fake control described above for
+   * `storeMetadata`. A tripwire pins the backend branch, because if a future
+   * dependency resolution loses `Paths`/`File` the adapter silently becomes
+   * AsyncStorage-backed and THIS list becomes the correct fix.
    */
   SWEPT_EXACT_KEYS: [
     '@being/supabase/crisis_analytics_queue',
