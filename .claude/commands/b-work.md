@@ -197,6 +197,11 @@ message named the correct replacement scope. Resolve with
 `git log --oneline --all --grep="<BLOCKER-ID>"` then `git show --stat <sha>`, and treat any
 conflict with the body the same way you treat a comment: the landed code wins.
 
+**Read a Done blocker's comments, not just its commit.** A blocker can close against a
+deliberately NARROWED scope with the remainder refiled as new items, and that narrowing is
+recorded in its comments, never in its diff. If the mechanism your item was waiting on was
+the deferred half, your premise is unsettled and the item that inherited it is the real blocker.
+
 **A blocker with no `Blocked by` relation needs the same check — keyed on files, not items.**
 The rule above fires on the item graph, so it misses the commoner shape: a blocker recorded
 only as prose, asserting that some file *does* something. Nothing links that file back to the
