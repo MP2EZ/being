@@ -504,7 +504,12 @@ unplanned. Treat a dead lens as MISSING, never as silent assent: relaunch it onc
 it dies again mark the item AMBER naming the dead lens. EXCEPT for INFRASTRUCTURE deaths
 (429/529, session limit, transport) — those say nothing about the item; retry up to three
 times, pacing between waves. Two MALFORMED returns is still AMBER: that is the item
-resisting analysis. Never classify an item whose Architecture lens did not return.
+resisting analysis. **Relaunch a dead lens with its ORIGINAL prompt, verbatim** — never
+enriched with what the returned lenses found. A panel is worth aggregating only because
+its lenses looked independently, and the interrupted one is usually the one whose task
+was hardest: exactly the verdict you least want anchored. Carry a premise that actually
+MOVED (a founder ruling, a landed prerequisite); never a peer's conclusion.
+Never classify an item whose Architecture lens did not return.
 
 **Lenses contradict each other on CHECKABLE facts — verify, never adjudicate.** A
 disagreement about a count, a call site, or whether some capability exists is settled by
