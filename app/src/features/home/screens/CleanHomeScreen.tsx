@@ -83,7 +83,27 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
       ]}
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={`${title} check-in, ${duration}${isCompleted ? ', completed today' : ''}`}
+      // DEBUG-548: the description is APPENDED to the name, as its own sentence.
+      // `Pressable` defaults `accessible` to true, collapsing the subtree, so this
+      // label wins and the visible `cardDescription` below was never announced —
+      // and it is the only text on the card saying what the practice consists of.
+      // Ruled a PARITY defect, not a WCAG failure (4.1.2 is met as authored; 1.3.1
+      // is credible but not airtight). It is includable now only because MAINT-528
+      // cut the description to one short sentence; the previous 134-char version
+      // would have made the announcement unusable, which is why the accessibility
+      // suite pins a length ceiling rather than trusting the copy to stay short.
+      //
+      // Two properties are load-bearing and must survive any edit here:
+      //   1. It interpolates the SAME `description` prop the visible Text renders,
+      //      so parity holds by construction rather than by a second string kept
+      //      in sync by hand.
+      //   2. ', completed today' stays lowercase and comma-preceded. Promoting it
+      //      to its own 'Completed today.' sentence reads fine and silently breaks
+      //      the case-sensitive DEBUG-527 pin.
+      // The duration badge is ruled the OTHER way and stays `importantForAccessibility="no"`
+      // — the duration is already here in prose (MAINT-71), so exposing the badge
+      // would double-speak it.
+      accessibilityLabel={`${title} check-in, ${duration}${isCompleted ? ', completed today' : ''}. ${description}`}
       accessibilityHint={
         isCompleted
           ? 'Tap to start this check-in again'
@@ -103,7 +123,17 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
             {duration}
           </Text>
         </View>
-        <Text style={styles.cardDescription} numberOfLines={2}>{description}</Text>
+        {/* DEBUG-548: testID exists so the accessibility suite can DERIVE the
+            announced description from the rendered tree rather than snapshotting
+            today's copy. A hardcoded literal would pass while the label and the
+            visible text silently diverged, which is the defect this pins. */}
+        <Text
+          style={styles.cardDescription}
+          numberOfLines={2}
+          testID="checkin-card-description"
+        >
+          {description}
+        </Text>
       </View>
 
       {/* DEBUG-527: completion is a STATE, not an action. A filled, high-contrast,
