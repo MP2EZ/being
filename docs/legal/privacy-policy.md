@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.10
+**Version:** 1.11
 **Effective Date:** December 12, 2025
 **Last Updated:** August 24, 2026
 
@@ -262,10 +262,13 @@ This extended retention supports safety-monitoring continuity and protects both 
 - **Data Deletion Requests:** Honored within 30 days of request
 - **Audit Logs:** 3 years (for security and compliance)
 - **Consent Records:** Retained indefinitely as proof of lawful data processing
+- **Account-Deletion Record:** 3 years, on your device only. When you delete your account we keep a small confirmation that the deletion happened — the date, and the privacy choices that were in effect at that moment. It contains **no identifier of any kind**: nothing that names you, your device, or your account, and nothing that could be used to re-link you to anything you did before. We keep it because we have to be able to show that a deletion request was honored, and it survives the wipe for that reason alone.
 
 ### 7.4 Your Right to Delete
 
 You can delete your data at any time in Settings, including crisis-related data. Deletion removes your data both on your device and on our servers: it erases your anonymous account identifier (§4.1), which automatically and permanently deletes every record tied to it (any settings backup, subscription records, and crisis-detection events). We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
+
+Deletion also resets the analytics identity on your device and discards anything queued but not yet sent, so nothing captured before the deletion is transmitted afterward. The one thing deliberately kept is the non-identifying account-deletion record described in §7.3.
 
 ---
 
@@ -288,6 +291,8 @@ Being is based in the United States. If you access our Services from outside the
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 **Recent revisions**
+
+- **v1.11 (August 25, 2026):** §7.3 now names the account-deletion record and states its retention (3 years, on-device, no identifier). Nothing about what is kept has changed — the record already existed and already survived erasure — but it was not disclosed, and an undisclosed retention with no stated bound is not a defensible one. §7.4 additionally states that deletion resets the analytics identity and discards anything queued but unsent.
 
 - **v1.9 (August 6, 2026):** Clarified §7.1 and §7.2 to state where each category of retained data lives and what enforces its time limit. The stated retention periods are unchanged — 90 days for general wellness and analytics data, 3 years for crisis-related data. §7.1 now explicitly names server-side product analytics, which the 90-day period already covered but did not list.
 
