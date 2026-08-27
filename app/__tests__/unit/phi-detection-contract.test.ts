@@ -1,7 +1,15 @@
 /**
  * PHI detection contract (MAINT-202).
  *
- * Guards the `containsPHI(data)` predicate that gates every analytics event.
+ * Pins the PATTERN COVERAGE of the `containsPHI(data)` predicate. It does not pin
+ * the wiring, and the predicate does not gate every analytics event — this
+ * docblock used to say it did (DEBUG-553). What actually happens: `PHIFilter`
+ * calls `containsPHI` from `scanValue`, on string property VALUES only, and skips
+ * it entirely when the key is in `SAFE_PROPERTY_KEYS`. Numeric values and property
+ * keys are checked by other branches. That wiring is pinned by
+ * `__tests__/privacy/phiFilterScanSurface.privacy.test.ts`; the one assertion here
+ * that touches it is the wiring guard at the bottom of this file.
+ *
  * Two obligations:
  *   1. The fix: PHI scanning is scoped to the user-supplied `data` payload, so a
  *      service-injected 13-digit timestamp in the ENVELOPE no longer false-flags
@@ -14,7 +22,13 @@
  * native-module setup.
  */
 
+jest.mock('@/core/services/logging', () => ({
+  logSecurity: jest.fn(),
+  logAnalytics: jest.fn(),
+}));
+
 import { containsPHI } from '@/core/analytics/phiDetection';
+import { PHIFilter } from '@/core/analytics/PHIFilter';
 
 describe('containsPHI — analytics PHI detection (MAINT-202)', () => {
   describe('blocks PHI inside the data payload (no weakening)', () => {
@@ -79,6 +93,36 @@ describe('containsPHI — analytics PHI detection (MAINT-202)', () => {
         expect(containsPHI({ email: 'a@b.com' })).toBe(true);
         expect(containsPHI({ status: 'clean' })).toBe(false);
       }
+    });
+  });
+
+  describe('wiring guard: PHIFilter actually calls containsPHI (DEBUG-553)', () => {
+    // Everything above this block tests the predicate in isolation, and would stay
+    // green if nothing called it — which was true of this whole suite until
+    // INFRA-535. This block is the part that reds if the wire is cut.
+    //
+    // The payload is chosen so ONLY containsPHI can reject it: `field` is not a
+    // PHI_KEYWORDS segment, and the value 'a@b.com' contains no keyword substring
+    // either, so neither the key scan nor the value keyword scan fires. The email
+    // regex in PHI_DETECTION_PATTERNS is the only thing that can catch it.
+    const WIRED_PAYLOAD = { field: 'a@b.com' };
+
+    it('rejects a payload only the pattern set can catch', () => {
+      const result = PHIFilter.validate('settings_opened', WIRED_PAYLOAD);
+      expect(result.valid).toBe(false);
+      // Assert the containsPHI BRANCH specifically. `scanValue` reports keyword
+      // hits as "PHI keyword detected" and containsPHI hits as "PHI pattern
+      // detected", so matching the reason is what distinguishes a live wire from
+      // an unrelated rejection. Deleting the containsPHI call at the value branch
+      // flips this to valid:true.
+      expect(result.reason).toMatch(/PHI pattern detected/);
+    });
+
+    it('admits the same shape when the value is clean', () => {
+      // The negative half. Without it the assertion above would still pass if
+      // validate() rejected everything, which is the vacuous-green shape this
+      // item exists to correct.
+      expect(PHIFilter.validate('settings_opened', { field: 'clean' }).valid).toBe(true);
     });
   });
 });
