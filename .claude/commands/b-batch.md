@@ -1213,10 +1213,14 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
      - **>1 file** → there are multiple live batches (expected under concurrent use).
        First SPLIT them: a batch whose only non-`done`/`deferred` items are `queued_red`
        has no unattended work left — it belongs in the Phase 4.1 sim queue, not the
-       resume picker. List those separately as a reminder and do not offer them as
-       resume targets. Withhold a batch whose manifest was written in the last ~15
-       minutes too: a recent write means a live session is mid-run and owns its items
-       however their `state` reads. Step 2's per-item handoff check comes too late —
+       resume picker. But `queued_red` records a STOP, not a reason: an item halted
+       only for want of a booted simulator is RED-GATED and closes mechanically once
+       one exists. Split on the item's Notion `Status` — `Testing` is resumable,
+       anything else is not — never on the state name alone. List those separately as
+       a reminder and do not offer them as resume targets. Withhold a batch whose
+       manifest was written in the last ~15 minutes too: a recent write means a live
+       session is mid-run and owns its items however their `state` reads. Step 2's
+       per-item handoff check comes too late —
        the pick has already been made. Name it as live rather than offering it.
        Present the remainder (slug, `created`, pending/done counts) via
        `AskUserQuestion` and resume the one the user picks; never silently pick one. If
