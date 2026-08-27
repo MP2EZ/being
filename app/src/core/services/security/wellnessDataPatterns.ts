@@ -6,9 +6,23 @@
  * the analytics layer (which would create a security → analytics → security cycle).
  *
  * Terminology: "wellness data" — Being is a consumer-wellness app, not a HIPAA entity.
- * The patterns intentionally overlap with AnalyticsService's pre-existing
- * `PHI_DETECTION_PATTERNS`; that older identifier is left untouched (it is pinned by
- * passing tests) and slated for a separate terminology-cleanup ticket.
+ *
+ * The patterns intentionally overlap with the analytics layer's
+ * `PHI_DETECTION_PATTERNS`, which is left untouched. The reason recorded here used to
+ * be "it is pinned by passing tests" — true only vacuously when written, because
+ * nothing then called the function those tests exercised. It is now genuinely pinned,
+ * for a different reason: INFRA-535 wired `containsPHI` into `PHIFilter.scanValue`, so
+ * it is a live production identifier on the analytics egress path. The terminology
+ * rename remains slated for a separate cleanup ticket (DEBUG-553).
+ *
+ * DIVERGENCE, DELIBERATE (DEBUG-553, AC4). This set is an exact 7-of-10 subset of the
+ * analytics one, byte-identical where present and missing international phone, IPv4
+ * and UUID. `PHI_DETECTION_PATTERNS` is authoritative; this copy exists because a
+ * security leaf must not import from analytics (see the cycle note above). The gap has
+ * no live effect: `sanitizeWellnessData`'s only consumer is `SecurityMonitoringService`,
+ * which has zero runtime importers. Reconcile if that ever changes — and note that
+ * widening this set collapses more log payloads to `{sanitized:true}`, an observability
+ * change rather than a free tightening.
  */
 
 /** Sensitive structured keys stripped from any event-data object before logging. */
