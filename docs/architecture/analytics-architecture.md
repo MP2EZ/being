@@ -180,9 +180,12 @@ Whitelist-based validation ensuring only safe events are transmitted.
 - Learn: `learn_content_viewed`, `learn_module_started/completed`
 - Guidance: `guidance_opened` (FEAT-457) — **no properties, ever**
 
-> The count above was stated as 27 before FEAT-457 and the whitelist held 24; it is
-> derived by hand and had drifted. Read it from `PHIFilter.SAFE_EVENT_TYPES`, not
-> from here, if the exact number matters.
+> This list is derived by hand and has drifted before (stated as 27 while the whitelist
+> held 24, pre-FEAT-457). Read `PHIFilter.SAFE_EVENT_TYPES` if the exact set matters.
+> Since INFRA-558 the drift is bounded rather than merely warned about: the differential
+> suite asserts the live whitelist equals the frozen `d14d6178` baseline plus its
+> `WIDENED` ledger, so a name can no longer be added here or there without the other
+> noticing. Refreshing this list is step 4 of **Adding New Events** below.
 
 **`guidance_opened` carries no `domain` — this is a ruling, not an omission.**
 Domain-specific guidance is summoned for a named hardship (`conflict`, `career`,
@@ -320,10 +323,32 @@ if (PHIFilter.isWhitelisted(AnalyticsEvents.CHECK_IN_COMPLETED)) {
 
 ### Adding New Events
 
-1. Add event to `SAFE_EVENT_TYPES` in `PHIFilter.ts`
-2. Add constant to `AnalyticsEvents` object (same file)
-3. Ensure no PHI is included in event properties
-4. Update this documentation
+Adding an event type is a **widening of the app's only third-party egress filter**, so it
+carries obligations beyond registering the name. All of these land in ONE pull request:
+
+1. Add the string to `SAFE_EVENT_TYPES` **and** the constant to `AnalyticsEvents` — both in
+   `PHIFilter.ts`. A name in one but not the other cannot transmit, and fails silently.
+2. Record a `WIDENED` ledger entry in `app/__tests__/privacy/phiFilterDifferential.privacy.test.ts`
+   naming the event, the work item and the rationale. Omit it and that suite red-lines.
+3. Add a per-event boundary suite in the FEAT-457 shape — see
+   `guidanceAnalyticsBoundary.contract.test.ts`: whitelist/constant parity, the exact
+   emitted payload, and an explicit non-vacuity case.
+4. Refresh the enumerated list above (it is hand-derived and has drifted before).
+5. Get a `compliance` pass. The durable artifact is the ledger entry plus the boundary
+   suite — a review with no checkable output is indistinguishable afterwards from one that
+   never happened.
+
+**The frozen baseline is never amended.** `app/__tests__/helpers/phiFilterBaselineV1.ts` is
+a fixed reference to `d14d6178`; editing it to track live makes the differential compare the
+implementation to itself. Its `size` pin is an anti-tamper guard, not a headcount — never
+bump it. The registered delta is the ledger.
+
+**What the harness does and does not prove.** It verifies a widening was DECLARED. It
+cannot verify one was WARRANTED, and its behavioural relation runs over a hand-authored
+corpus, so it does not by itself notice a new name. Do not read green as review.
+
+Authoritative procedure, with the traps: the header of
+`app/__tests__/privacy/phiFilterDifferential.privacy.test.ts`.
 
 ### Analytics identity reset
 
