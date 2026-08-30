@@ -54,6 +54,8 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/insights/components/WeeklyReflectionComposer.tsx` | `crisis` + `philosopher` |
 | `app/src/features/home/screens/CleanHomeScreen.tsx` | `crisis` |
 | `app/src/features/profile/screens/DeleteAccountScreen.tsx` | `crisis` |
+| `app/src/core/services/logging/ExternalErrorReporter.ts` | `crisis` |
+| `app/src/features/profile/screens/ProfileScreen.tsx` | `crisis` |
 | `app/plugins/` | `crisis` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
@@ -98,7 +100,12 @@ The last four entries (DEBUG-525) are the fifth instance, and they consume
 `features/crisis/constants/crisisButtonGeometry.ts` rather than owning crisis code — the
 same shape as `guidance/`. `core/hooks/` is gated as a DIRECTORY: three of its four files
 decide crisis-affordance placement or visibility, and the fourth (`useBugReportShake.ts`)
-has one commit in its life. The other three are gated as FILES because their directories
+has one commit in its life. **That fourth file is not the benign member this once called it
+(corrected DEBUG-533):** it arms a shake gesture from the app root that opens a
+zero-988-affordance window on any screen. The directory clause was right and its stated
+reason was wrong, which is the failure the standing rule below is meant to prevent — the
+commit-frequency half held, the "reviewed non-crisis member" half was never reviewed. The
+other three are gated as FILES because their directories
 are 1-of-10 and 2-of-12. **Standing rule for the next instance:** gate the directory when
 every non-crisis member can be named in the justification prose and each has been reviewed;
 otherwise name the files. A directory clause that over-fires costs a build that announces
@@ -133,6 +140,19 @@ or a recorded exemption. It is a **supplement**, not a replacement: it is a diff
 rather than a set, it produces no agent mapping, and it inverts on extracted primitives
 (`useOverlayBottomInset.ts` is caught, `useKeyboardFrameHeight.ts` is missed). The standing
 directory-vs-file rule above is still what covers that gap.
+
+`core/services/logging/ExternalErrorReporter.ts` and `features/profile/screens/ProfileScreen.tsx`
+are the ninth instance (added DEBUG-533), and the first where the occluder is code we do not
+render. `showFeedbackForm()` opens Sentry's feedback widget, which paints a 90%-opaque
+inset-0 backdrop as a later sibling of our whole app — ruled a DEBUG-406 conversion site that
+cannot be converted in place. Both are FILES: the logging directory and the rest of Profile
+carry no crisis surface. **This is a new shape for the family and no detector reaches it** —
+INFRA-531's import rule matches nothing here because nothing on the path imports from
+`features/crisis/`, and `check-modal-occlusion-guard.js` scans `app/src`, so a `<Modal>` in
+`node_modules` is invisible to it. Not "consumes a crisis constant while matching no path
+pattern", but "mounts a third-party component that occludes the affordance while importing
+nothing of ours at all". The hand-maintained table is the only control. Full ruling is
+recorded at `showFeedbackForm()`.
 
 `plugins/` is the sixth instance (added FEAT-522), and the first that is not app code:
 `withPrivacyShield.js` injects a native view that covers every 988 affordance while the

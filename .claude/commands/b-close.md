@@ -424,7 +424,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/DeleteAccountScreen\.tsx|src/core/services/security|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/core/services/security|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -641,10 +641,12 @@ alone and the documented gate and the running gate disagree, with the running on
 | `features/consent/` change | **`deeplink-consent-gate` + `reconsent-stale` + `reconsent-stale-ineligible`** | INFRA-416. Hosts the pre-consent 988 footer (`LegalGate` is in `SUPPRESSED_ROUTES`). The dir hosts TWO gated screens: `reconsent-stale` is the only flow rendering `ReConsentScreen`, and mapping it under `consentStore.ts` alone left screen-level edits gated by a flow that never renders them. |
 | Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
 | `features/journal/` change | **`journal-crisis-scan`** | DEBUG-480. Hosts `scanOnSave`, the only crisis scan of typed/corrected text, plus the in-page banner and 988 action. |
-| `src/core/hooks/` change | **`journal-crisis-scan`** + 2 printed notices | DEBUG-525. Gated as a DIRECTORY: 3 of 4 files decide crisis-affordance placement/visibility; the 4th has one lifetime commit. `journal-crisis-scan` is the only keyboard-up flow in the suite. `useKeyboardOccludesCrisisButton` (device-only) and the dynamic-type inset get instructions — neither is sim-runnable. |
+| `src/core/hooks/` change | **`journal-crisis-scan`** + 2 printed notices | DEBUG-525. Gated as a DIRECTORY: 3 of 4 files decide crisis-affordance placement/visibility; the 4th has one lifetime commit — and is NOT benign (corrected DEBUG-533: `useBugReportShake.ts` arms a root-mounted gesture opening a zero-988 window). `journal-crisis-scan` is the only keyboard-up flow in the suite. `useKeyboardOccludesCrisisButton` (device-only) and the dynamic-type inset get instructions — neither is sim-runnable. |
 | `core/components/ThresholdEducationModal.tsx` change | **`crisis-button-reachability`** | DEBUG-525. A DEBUG-406 conversion site: an RN `<Modal>` whose content tells the reader to seek help while occluding the route to it. The flow already taps through it, so the arm is free. |
 | `features/home/screens/CleanHomeScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-547. Consumes `crisisButtonGeometry` rather than owning crisis code. The FAB's `zIndex: 9999` makes any overlap a wrong-DESTINATION tap into `CrisisResources` — a crisis false POSITIVE. The flow already starts on Home and renders both rows, so the arm is free. **The flow is necessary and NOT sufficient**: Maestro taps element CENTRES, which never enter the contested column, so a point tap is required to falsify this. |
 | `features/profile/screens/DeleteAccountScreen.tsx` change | **`crisis-button-reachability`** + device-only notice | INFRA-531 (crisis ruling). Consumes `crisisInputAccessory`; the keyboard is necessarily up (the user types the confirmation word), so on iOS the accessory is the SOLE 988 affordance. FILE-level — the dir's other members carry no crisis surface and `ProfileStackNavigator` is already covered by `CRISIS_HOST_CHANGED`. **Necessary, not sufficient**: the flow never types into `delete-confirm-input`, so the keyboard-up half is `crisis-keyboard-accessory` (`safety-device-only`). |
+| `features/profile/screens/ProfileScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-533 (crisis ruling). Hosts the second entry to `showFeedbackForm()`, which opens a zero-988 window. The flow already walks the Profile tab and every subscreen depth, so the arm is free. **Necessary, not sufficient**: no flow opens the widget, so this proves only that Profile still renders the overlay. |
+| `core/services/logging/ExternalErrorReporter.ts` change | **printed notice** — no flow | DEBUG-533 (crisis ruling). `showFeedbackForm()` is the presenter and `feedbackIntegration` is what mounts the provider at all. NOTICE ONLY: no sim flow opens the widget, and authoring one would emit a real Sentry feedback event — the gate build resolves a live DSN from `.env.production` (the `e2e-sim` profile sets only the two E2E keys). Same shape as `plugins/`: the real verification is an attended device session. |
 | An UNGATED file imports a crisis constant | **hard close FAILURE** — no flow | INFRA-531. `I531_IMPORT_RE` over the diff, anchored on the import specifier. An ALARM demanding a ruling (Protected Paths row + arm, or a recorded `i531_exempt_reason()` entry), never a silent flow pick. Exempt from the inert filter: class (a) *inverts* here — a removed crisis import is the extraction case it exists to catch — and class (b) is already discharged by its own comment exclusion. Membership is tested against `SAFETY_CANDIDATES` (pre-inert), or an already-ruled file with a deletion-only diff raises a failure nobody can discharge. Exits before Step 2.5.2, so `--skip-e2e` cannot reach it. |
 | An ungated file imports the broad `@/features/assessment/types` barrel | **not detected** (recorded blind spot) | INFRA-531. The barrel re-exports the thresholds, but its ungated importers pull `AssessmentType`/`PHQ9Result` for chart axes and export plumbing — arming it would hard-fail four closes on day one. A binding-qualified arm is rejected: multi-line imports are invisible to a line-grep, and that misses silently. Bounded: `assessment/types/index.ts` is itself gated, so only a NEW ungated consumer of an existing re-export escapes. |
 | `app/plugins/` change | **`crisis-button-reachability`** + printed notice | FEAT-522. A config plugin injects native code that can occlude every 988 affordance, and iOS is CNG so no AppDelegate diff is ever reviewed. No sim flow can observe it — Maestro drives an ACTIVE app and the shield exists only while inactive — so the arm proves the surrounding crisis paths still render and the notice points at the attended device script. |
@@ -815,6 +817,25 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/profile/screens/DeleteAc
   echo "   taps through to CrisisResources, but never types into delete-confirm-input, so it"
   echo "   exercises the UNOCCLUDED overlay and cannot observe the accessory contract."
   echo "   The keyboard-up half is device-only: npm run e2e:safety:keyboard-accessory"
+fi
+# DEBUG-533: the two entries to showFeedbackForm(), which opens a zero-988 window that
+# cannot be converted in place (the occluder is Sentry's, not ours). ProfileScreen gets a
+# real arm because crisis-button-reachability already walks the Profile tab and every
+# subscreen depth, so it costs nothing and proves the overlay still renders there.
+# ExternalErrorReporter gets a NOTICE, not an arm: no flow opens the widget, and one that
+# did would emit a real Sentry feedback event — the gate build resolves a live DSN from
+# .env.production. An arm nobody can satisfy is the shape that trains --skip-e2e.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'features/profile/screens/ProfileScreen\.tsx'; then
+  FLOWS+=("crisis-button-reachability")
+  echo "🪟 ProfileScreen changed — it hosts the second entry to showFeedbackForm(). The arm"
+  echo "   is NECESSARY BUT NOT SUFFICIENT: the flow proves Profile still renders the root"
+  echo "   overlay, but never opens the widget, so it cannot observe the occlusion itself."
+fi
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'core/services/logging/ExternalErrorReporter\.ts'; then
+  echo "🪟 ExternalErrorReporter changed — showFeedbackForm() opens a zero-988-affordance"
+  echo "   window (ruling recorded at that method) and feedbackIntegration is what mounts"
+  echo "   the provider at all. NO sim flow can observe this. If the diff touches either,"
+  echo "   the verification is an attended device session — see DEBUG-533."
 fi
 # core/hooks/ is gated as a DIRECTORY (3 of 4 files are crisis-critical; see CLAUDE.md).
 # journal-crisis-scan is the only keyboard-up flow in the tagged suite and reaches
