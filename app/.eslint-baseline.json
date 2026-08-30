@@ -224,5 +224,6 @@
   "src/core/theme/__tests__/black-call-sites.accessibility.test.ts": 1,
   "src/features/journal/services/__tests__/journalPreview.unit.test.ts": 1,
   "src/core/analytics/__tests__/analyticsIdentityReset.privacy.test.ts": 1,
-  "src/core/services/security/__tests__/accountDeletionAttestationDurability.privacy.test.ts": 1
+  "src/core/services/security/__tests__/accountDeletionAttestationDurability.privacy.test.ts": 1,
+  "src/core/analytics/__tests__/PostHogProvider.consentRemount.privacy.test.tsx": 1
 }
