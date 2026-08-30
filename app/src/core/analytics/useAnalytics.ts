@@ -101,48 +101,6 @@ export function useAnalytics() {
     [trackEvent]
   );
 
-  /**
-   * Track feature usage
-   */
-  const trackCheckInStarted = useCallback(() => {
-    trackEvent(AnalyticsEvents.CHECK_IN_STARTED);
-  }, [trackEvent]);
-
-  const trackCheckInCompleted = useCallback(
-    (durationMs?: number) => {
-      trackEvent(AnalyticsEvents.CHECK_IN_COMPLETED, {
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
-
-  const trackAssessmentStarted = useCallback(() => {
-    trackEvent(AnalyticsEvents.ASSESSMENT_STARTED);
-  }, [trackEvent]);
-
-  const trackAssessmentCompleted = useCallback(
-    (durationMs?: number) => {
-      trackEvent(AnalyticsEvents.ASSESSMENT_COMPLETED, {
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
-
-  const trackPracticeStarted = useCallback(() => {
-    trackEvent(AnalyticsEvents.PRACTICE_STARTED);
-  }, [trackEvent]);
-
-  const trackPracticeCompleted = useCallback(
-    (durationMs?: number) => {
-      trackEvent(AnalyticsEvents.PRACTICE_COMPLETED, {
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
-
   const trackCrisisResourcesViewed = useCallback(() => {
     trackEvent(AnalyticsEvents.CRISIS_RESOURCES_VIEWED);
   }, [trackEvent]);
@@ -200,31 +158,6 @@ export function useAnalytics() {
     [trackEvent]
   );
 
-  const trackLearnModuleCompleted = useCallback(
-    (moduleId?: string, durationMs?: number) => {
-      trackEvent(AnalyticsEvents.LEARN_MODULE_COMPLETED, {
-        ...(moduleId !== undefined && { module_id: moduleId }),
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
-
-  /**
-   * Track breathing exercise lifecycle
-   */
-  const trackBreathingExerciseStarted = useCallback(() => {
-    trackEvent(AnalyticsEvents.BREATHING_EXERCISE_STARTED);
-  }, [trackEvent]);
-
-  const trackBreathingExerciseCompleted = useCallback(
-    (durationMs?: number) => {
-      trackEvent(AnalyticsEvents.BREATHING_EXERCISE_COMPLETED, {
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
 
   /**
    * Track onboarding flow
@@ -244,15 +177,6 @@ export function useAnalytics() {
     trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED);
   }, [trackEvent]);
 
-  /**
-   * Track errors (sanitized - no PHI in error messages)
-   */
-  const trackErrorOccurred = useCallback(
-    (errorType: string) => {
-      trackEvent(AnalyticsEvents.ERROR_OCCURRED, { error_type: errorType });
-    },
-    [trackEvent]
-  );
 
   return {
     // Core methods
@@ -264,12 +188,6 @@ export function useAnalytics() {
     trackAppBackgrounded,
 
     // Features
-    trackCheckInStarted,
-    trackCheckInCompleted,
-    trackAssessmentStarted,
-    trackAssessmentCompleted,
-    trackPracticeStarted,
-    trackPracticeCompleted,
     trackCrisisResourcesViewed,
     trackCrisisHotlineTapped,
     trackGuidanceOpened,
@@ -279,11 +197,8 @@ export function useAnalytics() {
     // Learn
     trackLearnContentViewed,
     trackLearnModuleStarted,
-    trackLearnModuleCompleted,
 
     // Breathing
-    trackBreathingExerciseStarted,
-    trackBreathingExerciseCompleted,
 
     // Onboarding
     trackOnboardingStarted,
@@ -291,7 +206,6 @@ export function useAnalytics() {
     trackOnboardingCompleted,
 
     // Errors
-    trackErrorOccurred,
   };
 }
 
