@@ -327,6 +327,46 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
           setResult(storeState.currentResult);
           setFlowState('results');
         }
+      } else {
+        // DEBUG-550 — the branch that was missing.
+        //
+        // `completeAssessment` swallows a scoring failure into store `error` and
+        // RESOLVES, so this function never entered its own catch. With no `else`
+        // here, nothing rendered: no navigation, no alert, `flowState` stuck at
+        // 'questions'. The reader was left on the last question of a wellness
+        // check-in with no feedback at all. That strand is live today,
+        // independent of the completeness guard.
+        const blocked = storeState.completionBlocked;
+        if (blocked && blocked.missingQuestionIds.length > 0) {
+          // Route back to the first unanswered question rather than dead-ending.
+          const firstMissing = questions.findIndex(
+            (q) => q.id === blocked.missingQuestionIds[0]
+          );
+          if (firstMissing >= 0) {
+            setCurrentQuestionIndex(firstMissing);
+          }
+          setFlowState('questions');
+          // Copy is deliberately instrument-agnostic and does NOT name the
+          // question: on the PHQ-9 path the missing item is most often Q9, and
+          // naming it would spotlight self-harm to someone who never answered it.
+          Alert.alert(
+            'Not quite finished',
+            "One answer didn't come through, so this check-in isn't complete. You're back at that question; your other answers are saved.",
+            [{ text: 'OK' }]
+          );
+        } else {
+          // Any other reason scoring produced no result. Previously also silent.
+          logError(
+            LogCategory.SYSTEM,
+            'Assessment completion produced no result:',
+            new Error(storeState.error || 'unknown')
+          );
+          Alert.alert(
+            'Completion Error',
+            'There was an issue completing your check-in. Your responses are safely stored.',
+            [{ text: 'OK' }]
+          );
+        }
       }
 
     } catch (error) {
@@ -339,7 +379,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [completeAssessment, crisisDetected, questions.length, answers.size, context, onComplete]);
+  }, [completeAssessment, crisisDetected, questions, answers.size, context, onComplete]);
 
   // Begin assessment flow
   const handleBeginAssessment = useCallback(() => {
