@@ -44,6 +44,31 @@
  * so elisions stay visible. Long's bracketed glosses are omitted per this
  * corpus's existing convention (see 7.29, which drops Long's "[formal]").
  *
+ * CANONICAL DIGITIZATION — Epictetus (FEAT-567). Wikisource's transcription of
+ * "All the Works of Epictetus, Which Are Now Extant", trans. Elizabeth Carter,
+ * 1759, from Internet Archive scan `allworksofepicte00epic`. Pinned for exactly
+ * the reason Long was: the digitizations DISAGREE, and not only on orthography.
+ * MIT's Internet Classics Archive text is credited to Carter but is a silently
+ * MODERNISED revision by an unattributed hand — it reads "may be carried" at
+ * Ench. 43 where the 1759 print reads "may be borne", and uses contractions
+ * ("Don't") that cannot occur in a 1758/59 setting. FEAT-567 found all four
+ * shipped Epictetus passages had been drawn from that modernised text while
+ * declaring "Elizabeth Carter", which is the DEBUG-352 defect class exactly —
+ * a real translator's name over another text — and it survived DEBUG-352
+ * because that sweep pinned only the loci it had already repaired.
+ *
+ * TWO NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, both recorded so they are
+ * auditable rather than invisible:
+ *   1. Long-s: the 1759 print sets `ſ`; the corpus uses `s`.
+ *   2. The transcription emits a space before punctuation where the print
+ *      italicises a proper noun ("Socrates ." -> "Socrates.").
+ *
+ * ONE LOCUS CORRECTION, likewise recorded rather than silently applied:
+ * Ench. 8 in the pinned transcription reads "as you with; but with them" — a
+ * long-s OCR error for "wiſh". The corpus carries the corrected reading and the
+ * assertion below pins it, so the correction is falsifiable rather than folklore.
+ * Do NOT "fix" the corpus back to the transcription's literal text.
+ *
  * LOCATION: `app/__tests__/unit/` on purpose — the sibling provenance suites
  * under `app/src/features/<feature>/__tests__/` match none of CI's
  * `--testPathPattern` values, so they never run in CI or precommit.
@@ -126,6 +151,167 @@ describe('classical corpus provenance (DEBUG-352)', () => {
    * allowlisted translator, they just weren't that translator's words. Pinning
    * the opening clause is what makes a silent re-rewrite fail.
    */
+  /**
+   * AUTHOR BALANCE (FEAT-567, philosopher ruling).
+   *
+   * Marcus Aurelius is by far the easiest of the three to mine, so left to
+   * convenience he dominates every principle — which is precisely what the parent
+   * item's AC4 forbids. Measured before this change: Marcus 9/16 overall, and
+   * `interconnected-living` 100% Marcus with zero Epictetus and zero Seneca.
+   *
+   * Shipped as a RATCHET, not a flat rule, and deliberately so: enforcing it
+   * outright fails four of five principles today, and a gate that cannot go green
+   * is the shape that trains people to bypass gates. So the existing violations are
+   * DECLARED below and may not worsen; anything not declared must comply. The debt
+   * is discharged by FEAT-569, which owns the content.
+   *
+   * Rules (a) and (c) apply only at 4+ passages: below that the ratios are too
+   * coarse to be meaningful — a 3-passage principle cannot have a work supply
+   * "half" of it in any useful sense.
+   */
+  describe('per-principle author balance (FEAT-567)', () => {
+    const PRINCIPLE_FILES = [
+      'passages-1-aware-presence.json',
+      'passages-2-radical-acceptance.json',
+      'passages-3-sphere-sovereignty.json',
+      'passages-4-virtuous-response.json',
+      'passages-5-interconnected-living.json',
+    ];
+
+    /** Declared, dischargeable debt — each entry is owed by FEAT-569. */
+    const BALANCE_DEBT: Readonly<Record<string, readonly string[]>> = {
+      'passages-1-aware-presence.json': ['Seneca'],
+      'passages-2-radical-acceptance.json': ['Seneca'],
+      'passages-4-virtuous-response.json': ['Epictetus'],
+      'passages-5-interconnected-living.json': ['Epictetus', 'Seneca'],
+    };
+
+    const REQUIRED = ['Epictetus', 'Seneca'] as const;
+
+    const counts = (file: string) => {
+      const ps = loadPassages(file);
+      const byAuthor: Record<string, number> = {};
+      const byWork: Record<string, number> = {};
+      for (const x of ps) {
+        byAuthor[x.author] = (byAuthor[x.author] ?? 0) + 1;
+        byWork[x.work] = (byWork[x.work] ?? 0) + 1;
+      }
+      return { total: ps.length, byAuthor, byWork };
+    };
+
+    it.each(PRINCIPLE_FILES)('%s satisfies the rule, or its gap is declared', (file) => {
+      const { total, byAuthor, byWork } = counts(file);
+      const declared = BALANCE_DEBT[file] ?? [];
+
+      // (b) every principle carries at least one Epictetus and one Seneca —
+      //     unless that author is a declared, still-outstanding debt.
+      for (const author of REQUIRED) {
+        if (declared.includes(author)) continue;
+        expect({ file, author, have: byAuthor[author] ?? 0 }).toEqual({
+          file,
+          author,
+          have: expect.any(Number),
+        });
+        expect(byAuthor[author] ?? 0).toBeGreaterThan(0);
+      }
+
+      if (total >= 4) {
+        // (a) Marcus may not exceed half.
+        expect(byAuthor['Marcus Aurelius'] ?? 0).toBeLessThanOrEqual(Math.floor(total / 2));
+        // (c) no single work supplies more than half.
+        for (const [work, n] of Object.entries(byWork)) {
+          expect({ work, n }).toEqual({ work, n: expect.any(Number) });
+          expect(n).toBeLessThanOrEqual(Math.floor(total / 2));
+        }
+      }
+    });
+
+    it('the declared debt is real and not stale', () => {
+      // A principle that has since been balanced must be REMOVED from the debt
+      // list. A stale entry silently exempts a principle that no longer needs it,
+      // which is how a ratchet quietly stops ratcheting.
+      for (const [file, authors] of Object.entries(BALANCE_DEBT)) {
+        const { byAuthor } = counts(file);
+        for (const author of authors) {
+          expect({ file, author, present: (byAuthor[author] ?? 0) > 0 }).toEqual({
+            file,
+            author,
+            present: false,
+          });
+        }
+      }
+    });
+
+    it('the debt may not grow — no undeclared principle is unbalanced', () => {
+      const undeclared = PRINCIPLE_FILES.filter((f) => !(f in BALANCE_DEBT));
+      // Non-vacuity: if every principle were declared, the it.each above would
+      // assert nothing at all and this suite would be theatre.
+      expect(undeclared.length).toBeGreaterThan(0);
+      for (const f of undeclared) {
+        const { byAuthor } = counts(f);
+        for (const author of REQUIRED) expect(byAuthor[author] ?? 0).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('Epictetus is 1759 Carter, not the modernised revision (FEAT-567)', () => {
+    const findById = (file: string, id: string): Passage => {
+      const p = loadPassages(file).find((x) => x.id === id);
+      if (!p) throw new Error(`${id} missing from ${file}`);
+      return p;
+    };
+
+    // Positive pins: an opening clause that ONLY the 1759 setting produces.
+    it.each([
+      ['passages-3-sphere-sovereignty.json', 'epictetus-enchiridion-1', 'Of Things, some are in our Power, and others not.'],
+      ['passages-3-sphere-sovereignty.json', 'epictetus-enchiridion-2', 'Remember that Desire promises the Attainment'],
+      ['passages-1-aware-presence.json', 'epictetus-enchiridion-5', 'Men are disturbed, not by Things, but by the Principles and Notions'],
+      ['passages-2-radical-acceptance.json', 'epictetus-enchiridion-8', 'Require not Things to happen as you wish'],
+    ])('%s / %s opens with the 1759 Carter wording', (file, id, opening) => {
+      expect(findById(file, id).text).toContain(opening);
+    });
+
+    // Negative pins: the modernised readings that WERE shipped. A name check
+    // alone cannot catch this class — those entries did declare an allowlisted
+    // translator, they simply were not that translator's words.
+    it('the modernised revision does not come back', () => {
+      const all = [
+        ...loadPassages('passages-1-aware-presence.json'),
+        ...loadPassages('passages-2-radical-acceptance.json'),
+        ...loadPassages('passages-3-sphere-sovereignty.json'),
+      ].filter((x) => x.author === 'Epictetus');
+
+      for (const p of all) {
+        // Contractions are impossible in a 1758/59 setting and are the cheapest
+        // single tell that a modernised text has been substituted.
+        expect(p.text).not.toMatch(/\b(don't|can't|won't|isn't|doesn't)\b/i);
+      }
+
+      const byId = Object.fromEntries(all.map((x) => [x.id, x.text]));
+      expect(byId['epictetus-enchiridion-1']).not.toContain('Some things are in our control');
+      expect(byId['epictetus-enchiridion-5']).not.toContain('Someone just starting instruction');
+      expect(byId['epictetus-enchiridion-8']).not.toContain('demand that things happen');
+    });
+
+    it('Ench. 8 carries the RECORDED locus correction, not the OCR defect', () => {
+      // The pinned transcription reads "as you with; but with them" — a long-s
+      // misread of "wiſh". The corpus carries the corrected reading. Pinned in
+      // both directions so neither the defect nor a silent re-edit can land.
+      const t = findById('passages-2-radical-acceptance.json', 'epictetus-enchiridion-8').text;
+      expect(t).toContain('as you wish; but wish them to happen as they do happen');
+      expect(t).not.toContain('as you with');
+    });
+
+    it('the matcher still fires (DEBUG-390)', () => {
+      // Prove these assertions can go red: run the same predicate over a literal
+      // known-bad string rather than over corpus state, which would make the
+      // control a second symptom of the same failure.
+      const modernised = "Don't demand that things happen as you wish";
+      expect(modernised).toMatch(/\b(don't|can't|won't|isn't|doesn't)\b/i);
+      expect(modernised).toContain('demand that things happen');
+    });
+  });
+
   describe('repaired loci stay verbatim (PG #15877 Long / Stewart)', () => {
     const findPassage = (file: string, citation: string): Passage => {
       const p = loadPassages(file).find((x) => x.citation === citation);
