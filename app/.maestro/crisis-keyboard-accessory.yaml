@@ -22,9 +22,12 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 # node, and `simctl erase` restores it. `e2e-safety.sh` seeds
 # `DidShowContinuousPathIntroduction` and refuses outright if a hardware keyboard is on.
 #
-# STILL DEVICE-ONLY, pending DEBUG-506 AC5: the reachability half moves into the sim gate
-# and the dial half stays here, but the split is not authored until it has been RUN once.
-# A safety flow that is red on arrival gates nothing and trains a `--skip-e2e` bypass.
+# THE SPLIT IS DONE (DEBUG-506 AC5). `crisis-keyboard-reachability.yaml` carries the
+# reachability contract in the default sim suite, measured green before it was committed.
+# This flow stays device-only, and the reason is now the PREAMBLE rather than the keyboard:
+# it walks `_legal-and-onboarding.yaml`, which is correct for a non-seeded real-device build
+# and fails on the gate build, where `EXPO_PUBLIC_E2E_SEED_ONBOARDED=true` routes straight
+# past the LegalGate. It is what AC 6 runs on hardware.
 #
 # On a real device, run:
 #   npm run e2e:safety:keyboard-accessory
