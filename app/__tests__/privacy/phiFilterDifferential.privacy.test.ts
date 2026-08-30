@@ -20,6 +20,56 @@
  * is vacuously green and stays green forever. Three guards below — corpus size,
  * a pinned minimum rejection count, and a live matcher check — exist so this suite
  * can still go red.
+ *
+ * ===========================================================================
+ * AMENDING THE WHITELIST — the procedure (INFRA-558)
+ * ===========================================================================
+ *
+ * WHAT THIS SUITE CAN AND CANNOT DETECT. Read this before relying on it.
+ * The relation above is one-sided over a HAND-AUTHORED corpus, so it catches a
+ * LOOSENING of the filter's scanning behaviour against payloads the corpus
+ * happens to contain. It does NOT, on its own, notice a new event type being
+ * added to the live whitelist: nothing in the corpus mentions that name, so
+ * every assertion stays true and the suite stays green. The `WIDENED` ledger
+ * below is what closes that gap, and it is the ONLY thing that does.
+ *
+ * The harness verifies that a widening was DECLARED. It cannot verify that a
+ * widening was WARRANTED — no test can. Do not read a green run as review.
+ *
+ * THE FROZEN BASELINE IS NEVER AMENDED. `phiFilterBaselineV1.ts` is a fixed
+ * reference to `d14d6178`; editing it to track live makes the suite compare the
+ * implementation to itself. `BASELINE_SAFE_EVENT_TYPES.size` is an anti-tamper
+ * pin on that file, not a count of the live whitelist — never bump it. What
+ * gets amended is the DELTA, recorded here.
+ *
+ * TO ADD AN EVENT TYPE, in ONE pull request:
+ *   1. Add the string to `SAFE_EVENT_TYPES` and the constant to
+ *      `AnalyticsEvents` (both in `PHIFilter.ts`) — a name in one but not the
+ *      other cannot transmit and fails silently.
+ *   2. Add a `WIDENED` entry below naming the event, the work item, and why.
+ *      Omit it and the enforcement test red-lines; that is the control.
+ *   3. Add a per-event boundary suite in the FEAT-457 shape — see
+ *      `guidanceAnalyticsBoundary.contract.test.ts`: whitelist/constant parity,
+ *      the exact emitted payload, and an explicit non-vacuity case.
+ *   4. Refresh the enumerated event list in
+ *      `docs/architecture/analytics-architecture.md`.
+ *   5. Get a `compliance` pass. On a solo-founder repo "approval" cannot mean a
+ *      human gate that does not exist, so the durable artifact is the ledger
+ *      entry plus the boundary suite — a review with no checkable output is
+ *      indistinguishable afterwards from a review that never happened.
+ *
+ * DO NOT add a benign CORPUS case for a newly-whitelisted event type. It turns
+ * this suite RED by construction: `validateV1` rejects the unknown name, live
+ * accepts it, and the one-sided relation fires. The ledger is the exempted
+ * channel for exactly that reason.
+ *
+ * KNOWN, UNRATIFIED: the corpus names four event types that are NOT in the
+ * baseline whitelist — `voice_journal_started`, `journal_entry_saved`,
+ * `reflection_transcribed`, `totally_new_event`. Whitelisting any of them WOULD
+ * red-line the relation, so the corpus is a de-facto permanent negative list for
+ * those four names. That is an unrecorded side effect, not a designed control.
+ * A future item wanting to ship journal analytics must ratify or retire it
+ * deliberately rather than discovering it as a mysterious red.
  */
 
 import { PHIFilter } from '@/core/analytics/PHIFilter';
@@ -123,6 +173,29 @@ const TIGHTENED: ReadonlyArray<string> = [
  */
 const MIN_BASELINE_REJECTIONS = 19;
 
+/**
+ * The registered delta between the frozen baseline and the live whitelist
+ * (INFRA-558). Every event type live-whitelisted after `d14d6178` must appear
+ * here, in the same PR that adds it.
+ *
+ * SHIPPED EMPTY, and correctly so: live and baseline are both exactly the 25
+ * names of `d14d6178`. `guidance_opened` is NOT a widening — FEAT-457 landed
+ * `bb70cb87` on 2026-08-21, three days BEFORE the freeze, so it is inside the
+ * snapshot. There is no post-freeze precedent; this ledger records the first.
+ *
+ * `sample` is a payload the event would really send, used to prove the widening
+ * is name-scoped — i.e. the baseline rejects it for the NAME and not because it
+ * smuggles wellness data past the keyword scan.
+ */
+interface Widening {
+  readonly eventType: string;
+  readonly workItem: string;
+  readonly rationale: string;
+  readonly sample: Record<string, unknown>;
+}
+
+const WIDENED: ReadonlyArray<Widening> = [];
+
 describe('PHIFilter differential vs frozen d14d6178 baseline (INFRA-535)', () => {
   const baselineRejections = CORPUS.filter((c) => !validateV1(c.eventType, c.data).valid);
 
@@ -152,6 +225,68 @@ describe('PHIFilter differential vs frozen d14d6178 baseline (INFRA-535)', () =>
       expect(containsPHI({ v: 'reach me at a@b.com' })).toBe(true);
       expect(containsPHI({ v: 'PHQ-9: 21' })).toBe(true);
       expect(containsPHI({ v: 'nothing sensitive here' })).toBe(false);
+    });
+  });
+
+  /**
+   * The live-side control (INFRA-558). Everything above compares BEHAVIOUR over a
+   * fixed corpus; nothing above reads the live whitelist's MEMBERSHIP, so before
+   * this group a new event type could be added with no test anywhere noticing.
+   */
+  describe('whitelist amendments are declared (INFRA-558)', () => {
+    const live = new Set(PHIFilter.getWhitelistedEvents());
+    const declared = new Set<string>([
+      ...BASELINE_SAFE_EVENT_TYPES,
+      ...WIDENED.map((w) => w.eventType),
+    ]);
+
+    it('every live event type is either in the frozen baseline or in the WIDENED ledger', () => {
+      const undeclared = [...live].filter((e) => !declared.has(e)).sort();
+      // Failing here means someone widened SAFE_EVENT_TYPES without recording it.
+      // The fix is a WIDENED entry in that same PR — never an edit to the baseline.
+      expect(undeclared).toEqual([]);
+    });
+
+    it('nothing declared has since been removed from the live whitelist', () => {
+      // The other direction: a stale ledger entry, or a baseline name deleted live.
+      // A removal is a legitimate NARROWING, but it must be reflected here rather
+      // than left as a claim the code no longer supports.
+      const missing = [...declared].filter((e) => !live.has(e)).sort();
+      expect(missing).toEqual([]);
+    });
+
+    it('each ledger entry is a NAME-scoped widening, not smuggled wellness data', () => {
+      // Vacuous while WIDENED is empty — the guard below is what keeps that honest.
+      for (const w of WIDENED) {
+        const before = validateV1(w.eventType, w.sample);
+        expect(before.valid).toBe(false);
+        expect(before.reason).toMatch(/not in whitelist/i);
+        expect(PHIFilter.validate(w.eventType, w.sample).valid).toBe(true);
+        expect(containsPHI(w.sample)).toBe(false);
+        expect(w.workItem).toMatch(/^(FEAT|DEBUG|INFRA|MAINT|AGENT)-\d+$/);
+        expect(w.rationale.length).toBeGreaterThan(20);
+      }
+    });
+
+    it('the membership matcher still fires (DEBUG-390)', () => {
+      // An empty ledger plus an unchanged whitelist makes the two tests above pass
+      // over nothing. Prove the comparison can still detect an undeclared name, so
+      // "green" means "checked" rather than "found nothing to check".
+      //
+      // Deliberately over SYNTHETIC sets, not over `live`: a control derived from
+      // live state fails whenever the test it is controlling fails, which makes it
+      // a second symptom rather than an independent check.
+      const fakeDeclared = new Set(['a', 'b']);
+      const fakeLive = new Set(['a', 'b', 'phantom_undeclared_event']);
+      expect([...fakeLive].filter((e) => !fakeDeclared.has(e))).toEqual([
+        'phantom_undeclared_event',
+      ]);
+      expect([...fakeDeclared].filter((e) => !fakeLive.has(e))).toEqual([]);
+
+      // And that the real sets being compared are non-trivial, so the assertions
+      // above are running against something.
+      expect(live.size).toBeGreaterThanOrEqual(25);
+      expect(declared.size).toBe(BASELINE_SAFE_EVENT_TYPES.size + WIDENED.length);
     });
   });
 
