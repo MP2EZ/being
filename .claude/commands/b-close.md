@@ -424,7 +424,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/features/home/screens/CleanHomeScreen\.tsx|src/core/services/security|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/DeleteAccountScreen\.tsx|src/core/services/security|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -532,6 +532,96 @@ if [ -n "${MERGE_BASE:-}" ]; then
 else
   CRISIS_HOST_CHANGED=""
 fi
+
+# INFRA-531 — Layer 1 import-graph detector. An ALARM, never a scope: when a file
+# OUTSIDE the Protected Paths set imports a crisis constant, this FAILS the close and
+# demands a ruling on that file. It is what makes the "consumes but matches no path
+# pattern" class self-closing — five instances were each found by someone happening to
+# notice. It SUPPLEMENTS the hand-maintained list and cannot replace it (DEBUG-525,
+# settled — do not re-argue): it inverts on the pair that motivated it, produces no
+# agent mapping, and is a diff signal rather than a set.
+#
+# ANCHOR SET — exactly three specifiers (crisis ruling, INFRA-531). The broad
+# `@/features/assessment/types` barrel is EXCLUDED although it does re-export the
+# thresholds: its ungated importers pull `AssessmentType`/`PHQ9Result` for chart axes
+# and export plumbing, so arming it would hard-fail four closes on day one and spend
+# the detector's base rate before it caught anything. A binding-qualified barrel arm is
+# rejected too — in-tree importers write multi-line imports a line-grep cannot see, and
+# that misses SILENTLY, the high-severity direction. Recorded blind spot, bounded:
+# `assessment/types/index.ts` is itself inside a gated dir, so what it re-exports cannot
+# change ungated; only a NEW ungated consumer of an existing re-export escapes.
+#
+# Matches BOTH `+` and `-` lines on purpose. A REMOVED crisis import is the
+# `useKeyboardFrameHeight.ts` extraction that DEBUG-525 recorded as this detector's own
+# miss, and the ruling it demands is "does the new home need a row".
+I531_IMPORT_RE="^[+-].*from '(@/features/crisis/constants/|@/features/crisis/types/safety|@/features/assessment/types/scoring)"
+i531_hit() { printf '%s\n' "$1" | grep -E "$I531_IMPORT_RE" | grep -vE '^[+-][[:space:]]*(//|\*|/\*)'; }
+# Self-test, per DEBUG-390 and check-safety-paths.sh: a source-shape matcher that can no
+# longer go red reads as a pass. Each case isolates ONE mechanism — a negative that is
+# also a comment would let the comment exclusion mask a broken anchor, and a control that
+# conflates two mechanisms stays green while either survives.
+i531_matcher_ok() {
+  i531_hit "+import { CRISIS_BUTTON_SIZE } from '@/features/crisis/constants/crisisButtonGeometry';" >/dev/null || return 1
+  i531_hit "-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';" >/dev/null || return 1
+  i531_hit "+import { detectCrisis } from '@/features/crisis/types/safety';" >/dev/null || return 1
+  i531_hit "+import type { PHQ9ScoringResult } from '@/features/assessment/types/scoring';" >/dev/null || return 1
+  i531_hit "+import { spread } from '@/features/tarot/constants/spread';" >/dev/null && return 1
+  i531_hit "+import type { AssessmentType } from '@/features/assessment/types';" >/dev/null && return 1
+  i531_hit "+  // ported from '@/features/crisis/constants/crisisButtonGeometry' in DEBUG-525" >/dev/null && return 1
+  i531_hit "+ * see crisisButtonGeometry for the 44pt visible-target decision" >/dev/null && return 1
+  i531_hit "+const crisisButtonGeometryFixture = { bottom: 100 };" >/dev/null && return 1
+  i531_hit " import { CRISIS_BUTTON_SIZE } from '@/features/crisis/constants/crisisButtonGeometry';" >/dev/null && return 1
+  return 0
+}
+# A ruled-and-recorded exemption. Empty today. Same contract as check-safety-paths.sh's
+# EXEMPT_PATHS: an entry is how you say "ruled: not a crisis surface", and it needs a
+# reason. Silence is not a ruling.
+i531_exempt_reason() {
+  case "$1" in
+    *) return 1 ;;
+  esac
+}
+I531_ALARM=""
+if [ -n "${MERGE_BASE:-}" ]; then
+  if ! i531_matcher_ok; then
+    echo "🛡️  INFRA-531: the crisis-import matcher failed its own self-test — refusing to close." >&2
+    echo "    A matcher that has stopped firing is indistinguishable from a clean tree" >&2
+    echo "    (DEBUG-390). Fix the matcher; do not proceed on an unproven detector." >&2
+    exit 1
+  fi
+  while IFS= read -r f; do
+    [ -z "$f" ] && continue
+    case "$f" in *__tests__/*|*.test.*|*.spec.*) continue ;; esac
+    case "$f" in app/src/*.ts|app/src/*.tsx) ;; *) continue ;; esac
+    # Membership is tested against SAFETY_CANDIDATES (PRE-inert), never SAFETY_CHANGED,
+    # and as an EXACT whole-path match. The two filters answer different questions: this
+    # one asks "is the path KNOWN to the Protected Paths list", which no property of this
+    # branch's diff can change. Against the post-inert set, an already-ruled file with a
+    # deletion-only diff that drops its crisis import reads as ungated and raises a hard
+    # failure the developer cannot discharge — the row is already there — so the only exit
+    # is --skip-e2e. Verified: swapping in the post-inert set fires on CleanHomeScreen.tsx.
+    printf '%s\n' "$SAFETY_CANDIDATES" | grep -qxF "$f" && continue
+    i531_exempt_reason "$f" >/dev/null && continue
+    I531_HIT=$(git diff "$MERGE_BASE" HEAD -- "$f" \
+      | grep -E "$I531_IMPORT_RE" | grep -vE '^[+-][[:space:]]*(//|\*|/\*)' || true)
+    [ -n "$I531_HIT" ] && I531_ALARM="${I531_ALARM}      ${f}"$'\n'"$(printf '%s\n' "$I531_HIT" | sed 's/^/          /')"$'\n'
+  done <<< "$(git diff --name-only "$MERGE_BASE" HEAD)"
+fi
+# Prints the path AND the verbatim matched line, and names BOTH legal resolutions. The
+# false-fire cost here is a human ruling, not a self-clearing flow run, so a message that
+# states only the expensive resolution is the one people learn to bypass. It exits before
+# Step 2.5.2, so --skip-e2e cannot reach it: this is a ruling, not a gate run.
+if [ -n "$I531_ALARM" ]; then
+  echo "❌ INFRA-531: a file OUTSIDE the Protected Paths set imports a crisis constant." >&2
+  printf '%s' "$I531_ALARM" >&2
+  echo "    Rule on each file above before this close proceeds. Two legal resolutions:" >&2
+  echo "      (1) EXEMPT — add the path to i531_exempt_reason() with a recorded reason," >&2
+  echo "          if the import carries no 988 affordance or placement decision." >&2
+  echo "      (2) GATE — add a Protected Paths row to .claude/CLAUDE.md, add the path to" >&2
+  echo "          Step 2.5.1's SAFETY_CANDIDATES grep AND b-batch Step 3.2's copy, and give" >&2
+  echo "          it a Step 2.5.3 flow arm plus a decision-table row." >&2
+  exit 1
+fi
 ```
 
 **INFRA-256 decision table** — which safety-path change classes skip the gate vs. trigger it (the implementer/maintainer's quick reference; the bash above is the source of truth).
@@ -554,6 +644,9 @@ alone and the documented gate and the running gate disagree, with the running on
 | `src/core/hooks/` change | **`journal-crisis-scan`** + 2 printed notices | DEBUG-525. Gated as a DIRECTORY: 3 of 4 files decide crisis-affordance placement/visibility; the 4th has one lifetime commit. `journal-crisis-scan` is the only keyboard-up flow in the suite. `useKeyboardOccludesCrisisButton` (device-only) and the dynamic-type inset get instructions — neither is sim-runnable. |
 | `core/components/ThresholdEducationModal.tsx` change | **`crisis-button-reachability`** | DEBUG-525. A DEBUG-406 conversion site: an RN `<Modal>` whose content tells the reader to seek help while occluding the route to it. The flow already taps through it, so the arm is free. |
 | `features/home/screens/CleanHomeScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-547. Consumes `crisisButtonGeometry` rather than owning crisis code. The FAB's `zIndex: 9999` makes any overlap a wrong-DESTINATION tap into `CrisisResources` — a crisis false POSITIVE. The flow already starts on Home and renders both rows, so the arm is free. **The flow is necessary and NOT sufficient**: Maestro taps element CENTRES, which never enter the contested column, so a point tap is required to falsify this. |
+| `features/profile/screens/DeleteAccountScreen.tsx` change | **`crisis-button-reachability`** + device-only notice | INFRA-531 (crisis ruling). Consumes `crisisInputAccessory`; the keyboard is necessarily up (the user types the confirmation word), so on iOS the accessory is the SOLE 988 affordance. FILE-level — the dir's other members carry no crisis surface and `ProfileStackNavigator` is already covered by `CRISIS_HOST_CHANGED`. **Necessary, not sufficient**: the flow never types into `delete-confirm-input`, so the keyboard-up half is `crisis-keyboard-accessory` (`safety-device-only`). |
+| An UNGATED file imports a crisis constant | **hard close FAILURE** — no flow | INFRA-531. `I531_IMPORT_RE` over the diff, anchored on the import specifier. An ALARM demanding a ruling (Protected Paths row + arm, or a recorded `i531_exempt_reason()` entry), never a silent flow pick. Exempt from the inert filter: class (a) *inverts* here — a removed crisis import is the extraction case it exists to catch — and class (b) is already discharged by its own comment exclusion. Membership is tested against `SAFETY_CANDIDATES` (pre-inert), or an already-ruled file with a deletion-only diff raises a failure nobody can discharge. Exits before Step 2.5.2, so `--skip-e2e` cannot reach it. |
+| An ungated file imports the broad `@/features/assessment/types` barrel | **not detected** (recorded blind spot) | INFRA-531. The barrel re-exports the thresholds, but its ungated importers pull `AssessmentType`/`PHQ9Result` for chart axes and export plumbing — arming it would hard-fail four closes on day one. A binding-qualified arm is rejected: multi-line imports are invisible to a line-grep, and that misses silently. Bounded: `assessment/types/index.ts` is itself gated, so only a NEW ungated consumer of an existing re-export escapes. |
 | `app/plugins/` change | **`crisis-button-reachability`** + printed notice | FEAT-522. A config plugin injects native code that can occlude every 988 affordance, and iOS is CNG so no AppDelegate diff is ever reviewed. No sim flow can observe it — Maestro drives an ACTIVE app and the shield exists only while inactive — so the arm proves the surrounding crisis paths still render and the notice points at the attended device script. |
 | `insights/components/WeeklyReflectionComposer.tsx` change | **notice only** — no sim flow | DEBUG-525. Only coverage is `crisis-keyboard-accessory` (`safety-device-only`). Jest pin: `modalOcclusionConversions.test.tsx`. |
 | `insights/components/SessionNoteComposer.tsx` change | **notice only** — unreachable in gate build | DEBUG-525. `eas.json`'s `e2e-sim` profile sets `wellness_trend_notes:false`, so no sim flow can reach it at any scope. Jest pin: `modalOcclusionConversions.test.tsx`. |
@@ -706,6 +799,23 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/components/ThresholdEducationMo
 # features/home/: the rest of that directory carries no crisis surface.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/home/screens/CleanHomeScreen\.tsx' && \
   FLOWS+=("crisis-button-reachability")
+# INFRA-531 (crisis ruling D): DeleteAccountScreen spreads crisisAccessoryProps() onto its
+# confirmation TextInput. The keyboard is NECESSARILY up here — the user must type the
+# confirmation word — and on iOS the input accessory is then the SOLE 988 affordance
+# (DEBUG-431 ruled the occluded state a defect against <3 taps from any screen). Dropping
+# that one prop spread is a silent keyboard-up 988 blackout on the surface where someone is
+# irreversibly ending their relationship with the app. FILE-level, not features/profile/:
+# the dir's 15 other non-test files carry no crisis surface, and ProfileStackNavigator — the
+# one that does — is already covered by CRISIS_HOST_CHANGED, so a directory clause would buy
+# nothing and charge a sim build to every Profile edit.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/profile/screens/DeleteAccountScreen\.tsx'; then
+  FLOWS+=("crisis-button-reachability")
+  echo "⌨️  DeleteAccountScreen changed — it consumes crisisInputAccessory. The flow arm is"
+  echo "   NECESSARY BUT NOT SUFFICIENT: crisis-button-reachability reaches this screen and"
+  echo "   taps through to CrisisResources, but never types into delete-confirm-input, so it"
+  echo "   exercises the UNOCCLUDED overlay and cannot observe the accessory contract."
+  echo "   The keyboard-up half is device-only: npm run e2e:safety:keyboard-accessory"
+fi
 # core/hooks/ is gated as a DIRECTORY (3 of 4 files are crisis-critical; see CLAUDE.md).
 # journal-crisis-scan is the only keyboard-up flow in the tagged suite and reaches
 # useKeyboardFrameHeight through VoiceReflectionScreen, so it is the scoped target. The two

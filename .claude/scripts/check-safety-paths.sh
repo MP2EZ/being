@@ -206,6 +206,7 @@ PROBE_PATHS=(
   "app/ios/Being/Info.plist"
   "app/src/features/practices/morning/MorningFlowNavigator.tsx"
   "app/src/features/home/screens/CleanHomeScreen.tsx"
+  "app/src/features/profile/screens/DeleteAccountScreen.tsx"
   "app/src/core/stores/settingsStore.ts"
   "app/src/core/components/AccessibleButton.tsx"
 )

@@ -53,6 +53,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/insights/components/SessionNoteComposer.tsx` | `crisis` + `philosopher` |
 | `app/src/features/insights/components/WeeklyReflectionComposer.tsx` | `crisis` + `philosopher` |
 | `app/src/features/home/screens/CleanHomeScreen.tsx` | `crisis` |
+| `app/src/features/profile/screens/DeleteAccountScreen.tsx` | `crisis` |
 | `app/plugins/` | `crisis` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
@@ -113,6 +114,25 @@ and this directory's other members carry no crisis surface, so a directory claus
 charge a sim build to every future Home edit. Note the fix also had to touch
 `features/guidance/` — already gated — and DEBUG-390's lesson applies: the home registration
 must stand on its own rather than letting the co-edited guidance file be what arms the gate.
+
+`features/profile/screens/DeleteAccountScreen.tsx` is the eighth instance (added
+INFRA-531), and the first found by a mechanism rather than by someone noticing. It consumes
+`crisisInputAccessory` — `crisisAccessoryProps()` on the confirmation `TextInput` — and the
+keyboard is *necessarily* up there, because the user must type the confirmation word, so on
+iOS the accessory is the sole 988 affordance for the duration. Registered as a FILE: the
+directory's other members are legal, settings and backup screens with no crisis surface, and
+`ProfileStackNavigator.tsx` — the one member that does host `CollapsibleCrisisButton` — is
+already covered by the `CRISIS_HOST_CHANGED` content detector, so a directory clause would
+buy nothing and charge a sim build to every Profile edit. Per DEBUG-390, the row stands on
+its own rather than leaning on that detector to arm the gate.
+
+INFRA-531 also shipped the detector that surfaced it: `/b-close` Step 2.5.1 now fails the
+close when a file outside this table's gated set imports a crisis constant, printing the
+path and the matched line and demanding a ruling — a Protected Paths row plus a gate clause,
+or a recorded exemption. It is a **supplement**, not a replacement: it is a diff signal
+rather than a set, it produces no agent mapping, and it inverts on extracted primitives
+(`useOverlayBottomInset.ts` is caught, `useKeyboardFrameHeight.ts` is missed). The standing
+directory-vs-file rule above is still what covers that gap.
 
 `plugins/` is the sixth instance (added FEAT-522), and the first that is not app code:
 `withPrivacyShield.js` injects a native view that covers every 988 affordance while the
