@@ -13,6 +13,7 @@
 import React from 'react';
 import { PostHogProvider as PHProvider, usePostHog } from 'posthog-react-native';
 import { registerAnalyticsClient } from './analyticsIdentityReset';
+import { AppLifecycleTracker } from './AppLifecycleTracker';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { env } from '@/core/config/env';
 
@@ -76,8 +77,18 @@ export function PostHogProvider({ children }: PostHogProviderProps): React.React
     !analyticsEnabled ||
     universalOptOut
   ) {
-    // Development mode, no consent, or honoring universal opt-out — render children without PostHog
-    return <>{children}</>;
+    // Development mode, no consent, or honoring universal opt-out — render children without PostHog.
+    // AppLifecycleTracker still mounts here: it owns the always-on
+    // setLastActiveTimestamp write that feeds the Home intro animation, which
+    // is not analytics and must keep working without consent. Its emits
+    // self-disable — usePostHog() is undefined outside <PHProvider>, so
+    // trackEvent early-returns (INFRA-542).
+    return (
+      <>
+        <AppLifecycleTracker />
+        {children}
+      </>
+    );
   }
 
   return (
@@ -95,11 +106,17 @@ export function PostHogProvider({ children }: PostHogProviderProps): React.React
         flushAt: 10, // Batch 10 events before sending
         flushInterval: 30000, // Or flush every 30 seconds
 
-        // Don't capture device identifiers automatically
-        captureAppLifecycleEvents: false, // We handle this ourselves
+        // Don't capture device identifiers automatically.
+        // Stays false, and since INFRA-542 the claim below is true:
+        // AppLifecycleTracker (mounted just under this provider) emits our own
+        // app_opened / app_backgrounded with a first-open marker and a coarse
+        // time-away bucket that pass PHIFilter. Enabling PostHog's own
+        // Application Installed/Opened/Backgrounded would double-count them.
+        captureAppLifecycleEvents: false, // We handle this ourselves — see AppLifecycleTracker
       }}
     >
       <RegisterSurfaceProperty />
+      <AppLifecycleTracker />
       {children}
     </PHProvider>
   );
