@@ -424,6 +424,9 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
   `npm run test:scripts` runnable: sibling suites there spawn `e2e-sim-build.sh` per case
   (~4-5s each), so the full run can exceed 10 min with peers active. Run the affected suites
   by name and let CI's `Unit + integration tests` gate cover the rest.
+  But NOT for the whole `__tests__/scripts` run: `e2e-host-contention.test.js` *tests* the
+  settle, so the override reds 3 of its cases against healthy code. Exclude that file, or
+  run it separately — it is 44/44 green without the variable.
 - **A new `app/scripts/*` file needs `git add` before the npm script naming it will pass
   (DEBUG-389).** `check-workflow-scripts.js` resolves every `npm run` target against the git
   INDEX, not the working tree, so an unstaged new script fails `test:scripts` as an
