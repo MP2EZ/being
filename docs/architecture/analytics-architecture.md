@@ -170,7 +170,9 @@ Wraps the app and provides PostHog context. Key behaviors:
 Whitelist-based validation ensuring only safe events are transmitted.
 
 **Whitelisted Events (25 total):**
-- App lifecycle: `app_opened`, `app_backgrounded`, `session_started`, `session_ended`
+- App lifecycle: `app_opened` (`is_cold_start`, `since_last_active` — a coarse bucket,
+  never a raw elapsed value), `app_backgrounded` (`duration_seconds` — FOREGROUND DWELL
+  only, never time away), `session_started`, `session_ended`
 - Navigation: `screen_viewed`
 - Features: `check_in_started/completed`, `assessment_started/completed`, `practice_started/completed`, `breathing_exercise_started/completed`
 - Crisis: `crisis_resources_viewed`, `crisis_hotline_tapped`
@@ -417,6 +419,7 @@ Required disclosure for privacy policy:
 > - Feature usage counts (e.g., "check-in completed")
 > - App performance metrics
 > - Session duration
+> - App open patterns (first open vs. return; time since last open, in coarse ranges)
 > - Device type and OS version
 >
 > **What We NEVER Collect:**

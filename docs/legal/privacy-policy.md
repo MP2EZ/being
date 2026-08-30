@@ -161,6 +161,7 @@ What we collect (when opted in):
 - Feature usage counts (e.g., "check-in completed")
 - App performance metrics
 - Session duration
+- App open patterns (first open vs. return; time since last open, in coarse ranges)
 - Device type and OS version
 
 What we **NEVER** collect in-app:
