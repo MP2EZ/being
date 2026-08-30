@@ -3,8 +3,8 @@
  * Evidence-based mindfulness and cognitive therapy for mental wellness
  */
 
-import React, { useEffect, useState, useRef } from 'react';
-import { AppState, AppStateStatus, LogBox } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { LogBox } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
@@ -17,7 +17,6 @@ import { logCrisis } from './src/core/services/logging';
 import { IAPService } from './src/core/services/subscription/IAPService';
 import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
-import { useSettingsStore } from './src/core/stores/settingsStore';
 import { initializeExternalReporting, logSystem, logError, LogCategory } from './src/core/services/logging';
 import { sweepStaleAudioArtifacts } from './src/core/services/speech/audioArtifactSweeper';
 import { sweepLegacyPlaintextRecords } from './src/core/services/security/legacyPlaintextRecordSweeper';
@@ -44,7 +43,6 @@ if (__DEV__ && process.env['EXPO_PUBLIC_E2E_SUPPRESS_DEV_MENU'] === '1') {
 
 function App() {
   const [isInitialized, setIsInitialized] = useState(false);
-  const appState = useRef(AppState.currentState);
 
   // FEAT-284: shake-to-report (internal builds only; no-ops when the
   // bug_reporting flag is off or Sentry has no DSN).
@@ -175,26 +173,12 @@ function App() {
     return () => clearTimeout(t);
   }, []);
 
-  // Track app state changes to update lastActiveTimestamp for intro animation
-  useEffect(() => {
-    const handleAppStateChange = (nextAppState: AppStateStatus) => {
-      // When app goes to background or becomes inactive, record timestamp
-      if (
-        appState.current === 'active' &&
-        (nextAppState === 'background' || nextAppState === 'inactive')
-      ) {
-        logSystem('App backgrounded, recording lastActive timestamp');
-        useSettingsStore.getState().setLastActiveTimestamp(Date.now());
-      }
-      appState.current = nextAppState;
-    };
-
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-
-    return () => {
-      subscription?.remove();
-    };
-  }, []);
+  // INFRA-542: the AppState listener that recorded lastActiveTimestamp used to
+  // live here. It MOVED — it did not gain a sibling — to AppLifecycleTracker,
+  // rendered under <PostHogProvider> below. This component renders that
+  // provider, so a listener here sits ABOVE it, where usePostHog() is
+  // undefined and any analytics emit would silently early-return forever.
+  // The timestamp write itself is unchanged and still unconditional.
 
   // Render app immediately - migration runs in background
   return (

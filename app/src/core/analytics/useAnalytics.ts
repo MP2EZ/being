@@ -12,6 +12,7 @@ import { usePostHog } from 'posthog-react-native';
 import { PHIFilter, AnalyticsEvents } from './PHIFilter';
 import { logAnalytics } from '@/core/services/logging';
 import { coarsenScreenNameForAnalytics } from '@/core/utils/sensitiveScreens';
+import type { SinceLastActiveBucket } from './appLifecycleTelemetry';
 
 /**
  * Hook for safe analytics tracking
@@ -74,15 +75,31 @@ export function useAnalytics() {
   );
 
   /**
-   * Track app lifecycle events
+   * Track app lifecycle events (INFRA-542).
+   *
+   * `since_last_active` is a coarse bucket, never a raw elapsed value —
+   * `seconds_since_last_active` is absent from `SAFE_NUMERIC_KEYS`, so an
+   * unlisted numeric key would make PHIFilter discard the whole event.
+   * `duration_seconds` is whitelisted and means FOREGROUND DWELL on
+   * `app_backgrounded` only; emitting one key that meant dwell here and time
+   * away on `app_opened` would make any aggregate over it meaningless.
    */
-  const trackAppOpened = useCallback(() => {
-    trackEvent(AnalyticsEvents.APP_OPENED);
-  }, [trackEvent]);
+  const trackAppOpened = useCallback(
+    (isColdStart: boolean, sinceLastActive: SinceLastActiveBucket) => {
+      trackEvent(AnalyticsEvents.APP_OPENED, {
+        is_cold_start: isColdStart,
+        since_last_active: sinceLastActive,
+      });
+    },
+    [trackEvent]
+  );
 
-  const trackAppBackgrounded = useCallback(() => {
-    trackEvent(AnalyticsEvents.APP_BACKGROUNDED);
-  }, [trackEvent]);
+  const trackAppBackgrounded = useCallback(
+    (durationSeconds: number) => {
+      trackEvent(AnalyticsEvents.APP_BACKGROUNDED, { duration_seconds: durationSeconds });
+    },
+    [trackEvent]
+  );
 
   /**
    * Track feature usage

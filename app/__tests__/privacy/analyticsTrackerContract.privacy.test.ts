@@ -45,8 +45,10 @@ import { PHIFilter, AnalyticsEvents } from '@/core/analytics/PHIFilter';
  */
 const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
   trackScreenView: ['HomeScreen'],
-  trackAppOpened: [],
-  trackAppBackgrounded: [],
+  // INFRA-542: real call shapes — these two gained emitters and
+  // properties. A bucketed string, never a raw elapsed number.
+  trackAppOpened: [true, 'cold_start'],
+  trackAppBackgrounded: [42],
   trackCheckInStarted: [],
   trackCheckInCompleted: [5000],
   trackAssessmentStarted: [],
