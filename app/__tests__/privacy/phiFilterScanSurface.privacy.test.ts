@@ -37,12 +37,12 @@ beforeEach(() => {
 describe('PHIFilter scan surface (INFRA-535)', () => {
   describe('KEY scanning — new, and the allowlist that makes it survivable', () => {
     it('blocks a PHI keyword appearing as a whole key', () => {
-      expect(PHIFilter.validate('check_in_completed', { mood: 'ok' }).valid).toBe(false);
+      expect(PHIFilter.validate('app_backgrounded', { mood: 'ok' }).valid).toBe(false);
       expect(PHIFilter.validate('app_opened', { journal: 'x' }).valid).toBe(false);
     });
 
     it('blocks a PHI keyword appearing as one segment of a key', () => {
-      expect(PHIFilter.validate('assessment_completed', { phq_score: 'x' }).valid).toBe(false);
+      expect(PHIFilter.validate('screen_viewed', { phq_score: 'x' }).valid).toBe(false);
       expect(PHIFilter.validate('app_opened', { journal_id: 'abc' }).valid).toBe(false);
       expect(PHIFilter.validate('app_opened', { userEmail: 'x' }).valid).toBe(false);
     });
@@ -78,16 +78,21 @@ describe('PHIFilter scan surface (INFRA-535)', () => {
     });
 
     it('every real tracker key survives the key scan', () => {
-      // Derived from the literal keys in useAnalytics.ts.
+      // Derived from the literal keys in useAnalytics.ts. INFRA-552 replaced
+      // check_in_completed / learn_module_completed / error_occurred here: all three
+      // were pruned, and a deleted event would pass this assertion for the WRONG
+      // reason — rejected at the whitelist check, never reaching the key scan this
+      // block exists to exercise. Every entry below must be a LIVE whitelisted event.
       const real: Array<[string, Record<string, unknown>]> = [
         ['screen_viewed', { screen_name: 'App' }],
-        ['check_in_completed', { duration_ms: 5000 }],
+        ['app_opened', { is_cold_start: true, since_last_active: 'lt_5m' }],
+        ['app_backgrounded', { duration_seconds: 42 }],
         ['learn_content_viewed', { module_id: 'm1' }],
-        ['learn_module_completed', { module_id: 'm1', duration_ms: 900 }],
+        ['learn_module_started', { module_id: 'm1' }],
         ['onboarding_step_completed', { step: 3 }],
-        ['error_occurred', { error_type: 'network' }],
       ];
       for (const [evt, data] of real) {
+        expect(PHIFilter.isWhitelisted(evt)).toBe(true);
         expect(PHIFilter.validate(evt, data)).toEqual({ valid: true });
       }
     });
