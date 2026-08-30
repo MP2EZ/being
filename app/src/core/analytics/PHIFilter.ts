@@ -37,24 +37,14 @@ interface PHIViolation {
  * Use these constants instead of raw strings
  */
 export const AnalyticsEvents = {
-  // App lifecycle
+  // App lifecycle (INFRA-542 wired these two; session_started/session_ended were
+  // deleted by INFRA-552 — they never had a tracker function at all, so the
+  // contract test's key enumeration could not see them and no producer existed.)
   APP_OPENED: 'app_opened',
   APP_BACKGROUNDED: 'app_backgrounded',
-  SESSION_STARTED: 'session_started',
-  SESSION_ENDED: 'session_ended',
 
   // Navigation
   SCREEN_VIEWED: 'screen_viewed',
-
-  // Feature usage
-  CHECK_IN_STARTED: 'check_in_started',
-  CHECK_IN_COMPLETED: 'check_in_completed',
-  ASSESSMENT_STARTED: 'assessment_started',
-  ASSESSMENT_COMPLETED: 'assessment_completed',
-  PRACTICE_STARTED: 'practice_started',
-  PRACTICE_COMPLETED: 'practice_completed',
-  BREATHING_EXERCISE_STARTED: 'breathing_exercise_started',
-  BREATHING_EXERCISE_COMPLETED: 'breathing_exercise_completed',
 
   // Crisis
   CRISIS_RESOURCES_VIEWED: 'crisis_resources_viewed',
@@ -64,9 +54,6 @@ export const AnalyticsEvents = {
   SETTINGS_OPENED: 'settings_opened',
   CONSENT_CHANGED: 'consent_changed',
 
-  // Errors
-  ERROR_OCCURRED: 'error_occurred',
-
   // Onboarding
   ONBOARDING_STARTED: 'onboarding_started',
   ONBOARDING_COMPLETED: 'onboarding_completed',
@@ -75,9 +62,8 @@ export const AnalyticsEvents = {
   // Learn
   LEARN_CONTENT_VIEWED: 'learn_content_viewed',
   LEARN_MODULE_STARTED: 'learn_module_started',
-  LEARN_MODULE_COMPLETED: 'learn_module_completed',
 
-  // Domain guidance (FEAT-457) — no properties, ever. See SAFE_EVENT_TYPES.
+  // Domain guidance (FEAT-457) — no properties, ever.
   GUIDANCE_OPENED: 'guidance_opened',
 } as const;
 
