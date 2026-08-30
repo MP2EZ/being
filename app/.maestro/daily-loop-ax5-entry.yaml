@@ -109,3 +109,16 @@ name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility t
     id: "daily-loop-support-line"
 - assertVisible:
     id: "crisis-resources-screen"
+# DEBUG-560 — the destination's own 988 control, still in the fold at AX5.
+#
+# Added here rather than in a new flow because this flow already lands on
+# `crisis-resources-screen` at AX5, so the assertion is free, and because a flow written
+# for DEBUG-560's actual defect could not fail: Maestro asserts presence, not wrapping,
+# and the Languages text is findable on the broken build and the fixed one alike.
+#
+# What it DOES guard is DEBUG-432/488's invariant surviving any change to card height.
+# The 988 control is a sibling of the ScrollView inside `crisisFooter`, so content height
+# is not an input to its frame — but that is a structural argument, and this is the one
+# cheap place the structure is observed at AX5 on a 375x667 device rather than argued.
+- assertVisible:
+    id: "crisis-call-988-button"
