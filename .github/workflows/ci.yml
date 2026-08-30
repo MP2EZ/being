@@ -353,6 +353,20 @@ jobs:
         # dragging a flaky suite in here would intermittently block every PR in the repo.
         run: cd app && npm run test:practices -- --ci --testTimeout=20000
 
+      - name: Analytics boundary tests
+        # INFRA-542. Co-located under src/core/analytics/, which no existing pattern
+        # reaches: the two files here carrying `privacy` in their NAME are gated by
+        # test:privacy, and the rest of the directory by nothing — coverage by
+        # filename, the defect scripts/ci-uncovered-tests.json exists to remove.
+        #
+        # This directory is the app's ONLY third-party egress path. Its failure mode
+        # is silent in both directions: trackEvent early-returns without a client, and
+        # PHIFilter drops a violating payload with a log rather than a throw. A pin
+        # here that runs on nobody's PR is worth approximately nothing.
+        #
+        # Wired by PATTERN, never by renaming files toward one (DEBUG-468 precedent).
+        run: cd app && npm run test:analytics -- --ci --testTimeout=20000
+
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v6
