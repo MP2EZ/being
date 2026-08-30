@@ -180,9 +180,12 @@ Whitelist-based validation ensuring only safe events are transmitted.
 - Learn: `learn_content_viewed`, `learn_module_started/completed`
 - Guidance: `guidance_opened` (FEAT-457) — **no properties, ever**
 
-> The count above was stated as 27 before FEAT-457 and the whitelist held 24; it is
-> derived by hand and had drifted. Read it from `PHIFilter.SAFE_EVENT_TYPES`, not
-> from here, if the exact number matters.
+> This list is derived by hand and has drifted before (stated as 27 while the whitelist
+> held 24, pre-FEAT-457). Read `PHIFilter.SAFE_EVENT_TYPES` if the exact set matters.
+> Since INFRA-558 the drift is bounded rather than merely warned about: the differential
+> suite asserts the live whitelist equals the frozen `d14d6178` baseline plus its
+> `WIDENED` ledger, so a name can no longer be added here or there without the other
+> noticing. Refreshing this list is step 4 of **Adding New Events** below.
 
 **`guidance_opened` carries no `domain` — this is a ruling, not an omission.**
 Domain-specific guidance is summoned for a named hardship (`conflict`, `career`,
@@ -214,13 +217,35 @@ Use `AnalyticsEvents.EVENT_NAME` instead of raw strings for compile-time safety.
 - Events containing PHI keywords in data
 - Numeric values in non-safe keys (potential assessment scores)
 
-### AnalyticsDeletion
-**Location:** `src/core/analytics/AnalyticsDeletion.ts`
+### analyticsIdentityReset
+**Location:** `src/core/analytics/analyticsIdentityReset.ts`
 
-GDPR/CCPA compliant deletion workflow:
-- Logs deletion requests with audit trail (CCPA 45-day requirement)
-- Resets PostHog identity (immediate unlinking)
+Destroys the analytics identity as part of account erasure:
+- Resets the PostHog identity and nulls BOTH persisted queues (`Queue` and
+  `LogsQueue` route to different files, so nulling one leaves the other intact)
+- Where no instance was ever built, removes `.posthog-rn.json` /
+  `.posthog-rn-logs.json` from the document directory
 - Provides regulatory-appropriate user messaging
+
+**No local deletion-request audit trail (DEBUG-539).** This module previously
+persisted a record keyed by `previousDistinctId` to
+`@being/analytics_deletion_requests` — a key no erasure sweep reaches, so it
+RETAINED the identifier the erasure exists to destroy. It had zero production
+callers, so nothing was ever written; wiring it up as documented would have
+introduced the leak. The record and its readers are gone.
+
+**The reset is invoked automatically inside full-account erasure**
+(`AccountDeletionService.deleteAccountAndWipe`), between the terminal attestation
+and the local wipe. It is NOT a standalone user-facing analytics control:
+DEBUG-534 ruled the privacy policy's "Delete Analytics Data" wording is corrected
+in copy rather than built.
+
+**It resets THROUGH a live instance, never around one.** Revoking consent
+unmounts `<PHProvider>` but does not destroy the client, which keeps an in-memory
+cache that re-persists on its next write — so deleting the storage files under a
+live instance restores the pre-erasure id and reads as a fix. The client is
+registered at module scope so the reset can reach an instance that exists but is
+no longer rendered.
 
 ---
 
@@ -236,14 +261,15 @@ export { PostHogProvider, usePostHogConfigured } from './PostHogProvider';
 export { PHIFilter, AnalyticsEvents } from './PHIFilter';
 export type { PHIValidationResult, AnalyticsEventType } from './PHIFilter';
 
-// Deletion Workflow
+// Analytics identity reset (account erasure)
 export {
+  resetAnalyticsIdentity,
+  registerAnalyticsClient,
   handleAnalyticsDeletion,
   showDeletionConfirmation,
-  getDeletionRequestHistory,
-  hasPendingDeletionRequests,
-} from './AnalyticsDeletion';
-export type { DeletionRequestType } from './AnalyticsDeletion';
+  POSTHOG_RN_STORAGE_FILES,
+} from './analyticsIdentityReset';
+export type { DeletionRequestType, AnalyticsIdentityResetTarget } from './analyticsIdentityReset';
 ```
 
 ---
@@ -297,19 +323,48 @@ if (PHIFilter.isWhitelisted(AnalyticsEvents.CHECK_IN_COMPLETED)) {
 
 ### Adding New Events
 
-1. Add event to `SAFE_EVENT_TYPES` in `PHIFilter.ts`
-2. Add constant to `AnalyticsEvents` object (same file)
-3. Ensure no PHI is included in event properties
-4. Update this documentation
+Adding an event type is a **widening of the app's only third-party egress filter**, so it
+carries obligations beyond registering the name. All of these land in ONE pull request:
 
-### Deletion Requests
+1. Add the string to `SAFE_EVENT_TYPES` **and** the constant to `AnalyticsEvents` — both in
+   `PHIFilter.ts`. A name in one but not the other cannot transmit, and fails silently.
+2. Record a `WIDENED` ledger entry in `app/__tests__/privacy/phiFilterDifferential.privacy.test.ts`
+   naming the event, the work item and the rationale. Omit it and that suite red-lines.
+3. Add a per-event boundary suite in the FEAT-457 shape — see
+   `guidanceAnalyticsBoundary.contract.test.ts`: whitelist/constant parity, the exact
+   emitted payload, and an explicit non-vacuity case.
+4. Refresh the enumerated list above (it is hand-derived and has drifted before).
+5. Get a `compliance` pass. The durable artifact is the ledger entry plus the boundary
+   suite — a review with no checkable output is indistinguishable afterwards from one that
+   never happened.
+
+**The frozen baseline is never amended.** `app/__tests__/helpers/phiFilterBaselineV1.ts` is
+a fixed reference to `d14d6178`; editing it to track live makes the differential compare the
+implementation to itself. Its `size` pin is an anti-tamper guard, not a headcount — never
+bump it. The registered delta is the ledger.
+
+**What the harness does and does not prove.** It verifies a widening was DECLARED. It
+cannot verify one was WARRANTED, and its behavioural relation runs over a hand-authored
+corpus, so it does not by itself notice a new name. Do not read green as review.
+
+Authoritative procedure, with the traps: the header of
+`app/__tests__/privacy/phiFilterDifferential.privacy.test.ts`.
+
+### Analytics identity reset
+
+Normally you do not call this: `deleteAccountAndWipe` invokes it as part of
+erasure. Pass the client explicitly — the parameter is required and explicitly
+nullable so a new caller must decide rather than silently inheriting the defect
+DEBUG-539 fixed.
 
 ```typescript
-import { handleAnalyticsDeletion, showDeletionConfirmation } from '@/core/analytics';
+import { resetAnalyticsIdentity } from '@/core/analytics';
+import { usePostHog } from 'posthog-react-native';
 
-// User requests deletion
-await handleAnalyticsDeletion('user_request');
-showDeletionConfirmation('user_request');
+// `usePostHog()` is typed non-nullable but is undefined when no provider is
+// mounted — which is the common case, since analytics is opt-in and default OFF.
+const posthog = usePostHog() ?? null;
+resetAnalyticsIdentity({ posthog });
 ```
 
 ---
@@ -326,8 +381,11 @@ No BAA required because no PHI is transmitted. The PHIFilter enforces this at th
 - **Data minimization**: Only feature usage tracked
 
 ### CCPA
-- **Deletion requests**: Logged with audit trail
-- **45-day response**: Audit log supports compliance verification
+- **Deletion requests**: handled through full-account erasure, which resets the
+  analytics identity and drops anything queued under it
+- **45-day response**: evidenced by the terminal attestation in
+  `consent_history_v1`, which carries NO identifier — deliberately not by a local
+  log keyed to the erased `distinct_id` (DEBUG-539)
 
 ### App Store Privacy Labels
 
@@ -370,8 +428,8 @@ Required disclosure for privacy policy:
 >
 > **Your Control:**
 > - Analytics is OFF by default
-> - Opt-in via Settings > Privacy > Analytics
-> - Request deletion via Settings > Privacy > Delete Analytics Data
+> - Opt-in via **Privacy & Data > Anonymous Usage Analytics**; turning it off stops collection immediately
+> - Analytics events on our servers are automatically deleted after 90 days. To request deletion sooner, email privacy@being.fyi
 >
 > **Data Residency:** EU (Frankfurt, Germany)
 >

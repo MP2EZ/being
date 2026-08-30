@@ -598,7 +598,9 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
 
   /**
    * Check if a specific check-in type was completed today
-   * Used by Home screen to determine faded appearance
+   * Used by the Home screen to choose the card's done-state affordance.
+   * (It drove a faded appearance until DEBUG-527: a container opacity
+   * composited the whole subtree and failed WCAG AA.)
    */
   isCheckInCompletedToday: (type: CheckInType): boolean => {
     const today = getTodayString();

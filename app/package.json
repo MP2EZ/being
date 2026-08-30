@@ -104,6 +104,7 @@
     "e2e:safety:keyboard-accessory": "bash scripts/e2e-safety.sh crisis-keyboard-accessory",
     "e2e:safety:journal": "bash scripts/e2e-safety.sh journal-crisis-scan",
     "e2e:safety:guidance": "bash scripts/e2e-safety.sh guidance-suppressed-handoff",
+    "e2e:safety:guidance-gentle": "bash scripts/e2e-safety.sh guidance-gentle-tier-cap",
     "e2e:safety:consent-gate": "bash scripts/e2e-safety.sh deeplink-consent-gate",
     "e2e:safety:reconsent": "bash scripts/e2e-safety.sh reconsent-stale",
     "e2e:safety:reconsent-ineligible": "bash scripts/e2e-safety.sh reconsent-stale-ineligible",

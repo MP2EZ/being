@@ -7,7 +7,7 @@ catch detection drift, and produce an aggregate, PII-free record for the DPIA pa
 
 > [!IMPORTANT]
 > **This dashboard is monitoring-only. It is NOT the safety mechanism.** The crisis
-> safety guarantees (988 < 3 taps / < 3 s, detection < 200 ms, zero false negatives) are
+> safety guarantees (988 < 3 taps / < 3 s, detection < 200 ms, zero false negatives on the score path) are
 > enforced in-app and recorded by the **on-device crisis audit log**, which is independent
 > of this telemetry. These views observe an *aggregate copy* of detection events for
 > operational assurance. Never treat the dashboard as the accountability record, and never

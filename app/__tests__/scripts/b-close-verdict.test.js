@@ -412,3 +412,111 @@ describe('INFRA-492 runner — structural guarantees that cannot be asserted by 
     expect(Number(dflt)).toBeLessThan(10);
   });
 });
+
+/**
+ * DEBUG-511 — ACK must clear a run that died WITHOUT a verdict.
+ *
+ * The `ACK` check lived inside the `DONE` branch, so it was only ever reachable for a run
+ * that finished. A run that is killed, crashes, or loses its host never writes `DONE`: it
+ * ages past `B_CLOSE_STALE_S` into the STALE arm, which consulted nothing. That entry
+ * reports forever and holds `rc=1` forever, and `touch <dir>/ACK` — the remedy the STALE
+ * line itself does not offer, and the DONE line does — cannot clear it.
+ *
+ * Why that is worse than a stray line: `/b-work` Step 0.3 and `/b-close` both gate on this
+ * exit code and tell the operator to stop and handle a non-zero result. One unclearable
+ * entry therefore stops every future session with an already-handled line, until the check
+ * becomes noise the operator skips — and the next genuine failed close lands in a channel
+ * nobody reads. That is the failure the mailbox exists to prevent, inverted.
+ *
+ * THE IN-FLIGHT ARM IS DELIBERATELY EXEMPT (AC3). `ACK` is honoured by the DONE and STALE
+ * arms only; on a run still making progress it is IGNORED, not refused.
+ *   - Ignored rather than honoured: the in-flight arm contributes nothing to `rc`, so there
+ *     is no noise for an ACK to remove — it could only hide a live run from an operator
+ *     about to start work on the same tree, which is the harm AC3 names.
+ *   - Ignored rather than refused: making a premature `touch ACK` an error clearable only
+ *     by DELETING the file rebuilds this very bug mirror-imaged — an entry the documented
+ *     remedy cannot clear.
+ * Accepted consequence, stated so the next reader knows it is a decision and not an
+ * oversight: an ACK written while a run is live pre-arms the mute, so if that run later
+ * dies its STALE line never appears. This already held for the DONE arm before this fix;
+ * ACK is a claim by a human that the run is handled, and nothing here outranks that.
+ */
+describe('DEBUG-511 ACK — the four terminal states, plus the in-flight carve-out', () => {
+  let root;
+  beforeEach(() => {
+    root = fs.mkdtempSync(path.join(os.tmpdir(), 'debug511-'));
+  });
+
+  const withRoot = expr => sh(expr, { B_CLOSE_RUN_ROOT: root });
+  const STALE = 'B_CLOSE_STALE_S=1800 b_close_status';
+
+  /** A run dir frozen far enough in the past to land in the STALE arm. */
+  const deadRun = name => {
+    const d = path.join(root, name);
+    withRoot(`b_close_run_init "${d}" DEBUG-511 fix/x && b_close_status_write "${d}" flows`);
+    const old = Math.floor(Date.now() / 1000) - 7200;
+    fs.utimesSync(path.join(d, 'status'), old, old);
+    return d;
+  };
+
+  // ---- {no DONE} x {no ACK} — the control AC2 protects. Must stay RED across the fix.
+  it('still reports a stale run with no ACK, and still returns non-zero (AC2)', () => {
+    deadRun('s1');
+    const r = withRoot(STALE);
+    expect(r.stdout).toContain('STALE');
+    expect(r.status).not.toBe(0);
+  });
+
+  // ---- {no DONE} x {ACK} — THE FIX. Red before it, green after.
+  it('goes quiet on a stale run once ACK is present, without a DONE file (AC1)', () => {
+    const d = deadRun('s2');
+    expect(withRoot(STALE).status).not.toBe(0); // liveness: it was reporting a moment ago
+    fs.writeFileSync(path.join(d, 'ACK'), 'seen\n');
+    const r = withRoot(STALE);
+    expect(r.stdout).not.toContain('STALE');
+    expect(r.stdout).not.toContain('DEBUG-511');
+    expect(r.status).toBe(0);
+  });
+
+  // ---- {DONE} x {ACK} and {DONE} x {no ACK} — controls. Must stay green across the fix.
+  it('stays quiet on an ACKed failed run that DID write DONE', () => {
+    const d = path.join(root, 'd1');
+    withRoot(`b_close_run_init "${d}" DEBUG-511 fix/x && b_close_done "${d}" CI_RED ci detail`);
+    expect(withRoot('b_close_status').status).not.toBe(0);
+    fs.writeFileSync(path.join(d, 'ACK'), 'seen\n');
+    expect(withRoot('b_close_status').status).toBe(0);
+  });
+
+  it('still reports a failed run with DONE and no ACK', () => {
+    const d = path.join(root, 'd2');
+    withRoot(`b_close_run_init "${d}" DEBUG-511 fix/x && b_close_done "${d}" CI_RED ci detail`);
+    const r = withRoot('b_close_status');
+    expect(r.stdout).toContain('CI_RED');
+    expect(r.status).not.toBe(0);
+  });
+
+  // ---- AC3: an ACK on a run that is still making progress changes nothing.
+  it('keeps listing an in-flight run even when ACK is present, and stays rc 0 (AC3)', () => {
+    const d = path.join(root, 'f1');
+    withRoot(`b_close_run_init "${d}" DEBUG-511 fix/x && b_close_status_write "${d}" flows`);
+    fs.writeFileSync(path.join(d, 'ACK'), 'premature\n');
+    const r = withRoot('b_close_status');
+    expect(r.stdout).toContain('in flight');
+    expect(r.stdout).toContain('DEBUG-511');
+    expect(r.status).toBe(0);
+  });
+
+  // ---- The mute is per-directory. Silencing the sweep would satisfy AC1 and break AC2.
+  it('mutes only the ACKed dead run, leaving an un-ACKed peer reporting and rc non-zero', () => {
+    const acked = deadRun('m1');
+    fs.writeFileSync(path.join(acked, 'ACK'), 'seen\n');
+    fs.writeFileSync(path.join(acked, 'meta'), 'item=DEBUG-511-ACKED\nbranch=fix/a\n');
+    const open = deadRun('m2');
+    fs.writeFileSync(path.join(open, 'meta'), 'item=DEBUG-511-OPEN\nbranch=fix/b\n');
+
+    const r = withRoot(STALE);
+    expect(r.stdout).toContain('DEBUG-511-OPEN');
+    expect(r.stdout).not.toContain('DEBUG-511-ACKED');
+    expect(r.status).not.toBe(0);
+  });
+});

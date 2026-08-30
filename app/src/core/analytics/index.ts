@@ -21,7 +21,7 @@
  * - PHIFilter: Validates events before transmission
  * - AnalyticsEvents: Type-safe event constants
  * - useAnalytics: Hook for tracking events through PHIFilter → PostHog
- * - handleAnalyticsDeletion: GDPR/CCPA deletion workflow
+ * - resetAnalyticsIdentity: destroys the analytics identity on account erasure
  *
  * @see docs/architecture/analytics-architecture.md
  */
@@ -33,10 +33,16 @@ export { useAnalytics } from './useAnalytics';
 // Runtime (PostHog-backed) feature-flag tier (INFRA-199)
 export { useFeatureFlag, PRODUCT_FLAGS } from './useFeatureFlag';
 export type { PHIValidationResult, AnalyticsEventType } from './PHIFilter';
+// DEBUG-539: `getDeletionRequestHistory` / `hasPendingDeletionRequests` are GONE,
+// along with the `previousDistinctId` audit record they read. That record was
+// persisted to a key no erasure sweep reaches, so it RETAINED the identifier the
+// erasure destroys. Both had zero production callers; exporting them left a
+// loaded gun one wire-up away from reintroducing the leak.
 export {
+  resetAnalyticsIdentity,
+  registerAnalyticsClient,
   handleAnalyticsDeletion,
   showDeletionConfirmation,
-  getDeletionRequestHistory,
-  hasPendingDeletionRequests,
-} from './AnalyticsDeletion';
-export type { DeletionRequestType } from './AnalyticsDeletion';
+  POSTHOG_RN_STORAGE_FILES,
+} from './analyticsIdentityReset';
+export type { DeletionRequestType, AnalyticsIdentityResetTarget } from './analyticsIdentityReset';

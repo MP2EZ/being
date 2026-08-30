@@ -11,6 +11,12 @@
  */
 
 import { logSecurity } from '@/core/services/logging';
+// STATIC import, deliberately. `core/analytics`'s barrel is eager on
+// `CrisisResourcesScreen.tsx`, so a lazy require() here would resolve a module
+// during a crisis tap. The cost is ten module-scope regexes, which is acceptable
+// eagerly and is not acceptable lazily (same rule as the MaterialDesignIcons
+// eager-import requirement).
+import { containsPHI } from './phiDetection';
 
 /**
  * Result of PHI validation
@@ -18,6 +24,12 @@ import { logSecurity } from '@/core/services/logging';
 export interface PHIValidationResult {
   valid: boolean;
   reason?: string;
+}
+
+/** Internal: a single scan finding, carried up so `validate` can log once. */
+interface PHIViolation {
+  reason: string;
+  severity: 'medium' | 'high';
 }
 
 /**
@@ -155,6 +167,164 @@ export class PHIFilter {
   ]);
 
   /**
+   * Property keys exempt from the KEY scan and from `containsPHI` (INFRA-535).
+   *
+   * IT EXEMPTS THE NEW CHECKS ONLY. The pre-existing VALUE keyword scan and the
+   * numeric check still apply to every key here — otherwise this set would be a
+   * loosening rather than a false-positive fix, and `{screen_name:'grief'}` would
+   * start shipping.
+   *
+   * Two entries are load-bearing and must not be removed:
+   *
+   *  - `screen_name` segments to ['screen','name'] and `name` is an exact
+   *    PHI_KEYWORDS hit. Without it, `screen_viewed` becomes a whole-event reject
+   *    — and it fires in the same `useFocusEffect` as `trackCrisisResourcesViewed`,
+   *    so crisis-screen reach would silently become unmeasurable.
+   *
+   *  - the SAFE_NUMERIC_KEYS members, because a 13-digit `Date.now()` matches
+   *    `containsPHI`'s `\b\d{10,}\b` identifier pattern. Arming the predicate
+   *    without this exemption reintroduces the MAINT-202 defect, which silently
+   *    dropped every consent-passing event.
+   *
+   * Every entry is a hole in the key scan. Additions are hand-reviewed, never
+   * derived at runtime.
+   */
+  private static readonly SAFE_PROPERTY_KEYS: ReadonlySet<string> = new Set([
+    'screen_name',
+    'duration',
+    'duration_ms',
+    'duration_seconds',
+    'count',
+    'timestamp',
+    'step',
+    'index',
+    'page',
+    'version',
+  ]);
+
+  /**
+   * Split a property key into lowercase segments, across `_`, `-`, `.` and
+   * camelCase boundaries. `screen_name` -> ['screen','name'];
+   * `userEmail` -> ['user','email'].
+   */
+  private static keySegments(key: string): string[] {
+    return key
+      .replace(/([a-z0-9])([A-Z])/g, '$1 $2')
+      .split(/[^a-zA-Z0-9]+/)
+      .filter(Boolean)
+      .map((s) => s.toLowerCase());
+  }
+
+  /**
+   * Match PHI keywords against a property KEY by segment, not by substring.
+   *
+   * Segment matching is what makes key scanning survivable: substring matching
+   * blocks `campaign_id` (contains "pain") and `notation` (contains "note"), and a
+   * filter that blocks ordinary keys is one the next person weakens.
+   *
+   * A single-segment keyword matches a segment that EQUALS it or STARTS WITH it —
+   * the prefix arm is required because `suicid` and `harm` are deliberately stems
+   * rather than whole words. A multi-segment keyword (`crisis_contact`) must match
+   * consecutive segments.
+   *
+   * Applies to KEYS ONLY. Word-boundary logic must never be applied to VALUES: it
+   * would loosen the `suicid` stem, which is exactly what it is a stem to catch.
+   */
+  private static keywordInKey(key: string): string | null {
+    const segments = this.keySegments(key);
+    for (const keyword of this.PHI_KEYWORDS) {
+      const parts = keyword.split('_');
+      if (parts.length > 1) {
+        for (let i = 0; i + parts.length <= segments.length; i++) {
+          if (parts.every((part, j) => segments[i + j] === part)) return keyword;
+        }
+      } else if (segments.some((seg) => seg === keyword || seg.startsWith(keyword))) {
+        return keyword;
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Scan a single property value. Recurses into objects AND arrays — the array arm
+   * closes a live hole: before INFRA-535 the value branch tested
+   * `typeof value === 'string'` and the nested branch excluded arrays, so
+   * `{tags:['grief']}` shipped intact.
+   *
+   * Returns the first violation found, or null. It does NOT log — see `validate`.
+   */
+  private static scanValue(
+    key: string,
+    value: unknown,
+    keyIsExempt: boolean
+  ): PHIViolation | null {
+    if (typeof value === 'string') {
+      const lowerValue = value.toLowerCase();
+      for (const keyword of this.PHI_KEYWORDS) {
+        if (lowerValue.includes(keyword)) {
+          return {
+            reason: `PHI keyword detected: "${keyword}" in key "${key}"`,
+            severity: 'high',
+          };
+        }
+      }
+      if (!keyIsExempt && containsPHI(value)) {
+        return { reason: `PHI pattern detected in key "${key}"`, severity: 'high' };
+      }
+      return null;
+    }
+
+    if (typeof value === 'number') {
+      return this.SAFE_NUMERIC_KEYS.has(key)
+        ? null
+        : { reason: `Suspicious numeric value in key: "${key}"`, severity: 'medium' };
+    }
+
+    if (Array.isArray(value)) {
+      for (const element of value) {
+        const violation = this.scanValue(key, element, keyIsExempt);
+        if (violation) return violation;
+      }
+      return null;
+    }
+
+    if (value !== null && typeof value === 'object') {
+      return this.scanPayload(value as Record<string, unknown>);
+    }
+
+    return null;
+  }
+
+  /**
+   * Scan a whole payload, returning the first violation or null.
+   *
+   * Deliberately does no logging: the old implementation recursed through
+   * `validate()` itself, so a nested violation logged from the inner frame.
+   * `logSecurity` reaches `LogLevel.ERROR`, a 1000-entry FIFO audit ring and a
+   * production `console.error` synchronously, so the number of calls per event is
+   * a crisis-path concern, not a cosmetic one.
+   */
+  private static scanPayload(eventData: Record<string, unknown>): PHIViolation | null {
+    for (const [key, value] of Object.entries(eventData)) {
+      const keyIsExempt = this.SAFE_PROPERTY_KEYS.has(key);
+
+      if (!keyIsExempt) {
+        const keyword = this.keywordInKey(key);
+        if (keyword) {
+          return {
+            reason: `PHI keyword detected in property key: "${keyword}" in key "${key}"`,
+            severity: 'high',
+          };
+        }
+      }
+
+      const violation = this.scanValue(key, value, keyIsExempt);
+      if (violation) return violation;
+    }
+    return null;
+  }
+
+  /**
    * Validate an analytics event before transmission
    *
    * @param eventType - The event name
@@ -165,7 +335,11 @@ export class PHIFilter {
     eventType: string,
     eventData: Record<string, unknown>
   ): PHIValidationResult {
-    // 1. WHITELIST CHECK: Event type must be explicitly allowed
+    // 1. WHITELIST CHECK: Event type must be explicitly allowed.
+    //    The event NAME is never keyword-scanned — `crisis_hotline_tapped`
+    //    contains the keyword `hotline_number`'s first segment, and scanning the
+    //    name (or shortening that keyword to `hotline`) would silently and
+    //    permanently self-block the app's 988-reach signal.
     if (!this.SAFE_EVENT_TYPES.has(eventType)) {
       logSecurity(
         `PHI Filter: Blocked non-whitelisted event type: ${eventType}`,
@@ -177,49 +351,12 @@ export class PHIFilter {
       };
     }
 
-    // 2. PHI KEYWORD CHECK: Scan VALUES only for PHI indicators
-    // (Keys are controlled by us, so we only check the actual data values)
-    for (const [key, value] of Object.entries(eventData)) {
-      if (typeof value === 'string') {
-        const lowerValue = value.toLowerCase();
-        for (const keyword of this.PHI_KEYWORDS) {
-          if (lowerValue.includes(keyword)) {
-            logSecurity(
-              `PHI Filter: Blocked event with PHI keyword: ${keyword}`,
-              'high'
-            );
-            return {
-              valid: false,
-              reason: `PHI keyword detected: "${keyword}" in key "${key}"`,
-            };
-          }
-        }
-      }
-    }
-
-    // 3. NUMERIC VALUE CHECK: Block suspicious numeric values
-    // (potential assessment scores, mood values, etc.)
-    for (const [key, value] of Object.entries(eventData)) {
-      if (typeof value === 'number' && !this.SAFE_NUMERIC_KEYS.has(key)) {
-        logSecurity(
-          `PHI Filter: Blocked suspicious numeric in key: ${key}`,
-          'medium'
-        );
-        return {
-          valid: false,
-          reason: `Suspicious numeric value in key: "${key}"`,
-        };
-      }
-    }
-
-    // 4. NESTED OBJECT CHECK: Recursively validate nested data
-    for (const [key, value] of Object.entries(eventData)) {
-      if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
-        const nestedResult = this.validate(eventType, value as Record<string, unknown>);
-        if (!nestedResult.valid) {
-          return nestedResult;
-        }
-      }
+    // 2. PAYLOAD SCAN: keys, values, numerics, nested objects and arrays.
+    //    One aggregated log for the whole invocation, never one per property.
+    const violation = this.scanPayload(eventData);
+    if (violation) {
+      logSecurity(`PHI Filter: Blocked event "${eventType}" — ${violation.reason}`, violation.severity);
+      return { valid: false, reason: violation.reason };
     }
 
     return { valid: true };

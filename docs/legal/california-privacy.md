@@ -90,7 +90,7 @@ We will not discriminate against you for exercising your privacy rights. You wil
 
 ### In-App
 
-Go to **Settings > Privacy** to:
+Go to **Privacy & Data** to:
 - View your data
 - Export your data
 - Delete your data
