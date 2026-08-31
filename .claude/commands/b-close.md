@@ -424,7 +424,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/core/services/security|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -641,6 +641,8 @@ alone and the documented gate and the running gate disagree, with the running on
 | `features/consent/` change | **`deeplink-consent-gate` + `reconsent-stale` + `reconsent-stale-ineligible`** | INFRA-416. Hosts the pre-consent 988 footer (`LegalGate` is in `SUPPRESSED_ROUTES`). The dir hosts TWO gated screens: `reconsent-stale` is the only flow rendering `ReConsentScreen`, and mapping it under `consentStore.ts` alone left screen-level edits gated by a flow that never renders them. |
 | Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
 | `features/journal/` change | **`journal-crisis-scan`** | DEBUG-480. Hosts `scanOnSave`, the only crisis scan of typed/corrected text, plus the in-page banner and 988 action. |
+| `src/core/services/speech/` change | **`journal-crisis-scan`** + printed notice | DEBUG-524 (crisis ruling). DIRECTORY-level: 2 files, both named. `onDeviceSpeechGuard.ts` admits the capture feeding `scanOnSave` and builds the options driving native audio setup; `audioArtifactSweeper.ts` is the reviewed non-crisis member (raw-audio erasure, not 988 reachability). **Necessary, not sufficient**: the flow finishes inside the ~15s abort window, so it cannot witness a native crash — `npm run e2e:safety:audio-liveness` is the oracle that can. |
+| `app/patches/` change | **`crisis-button-reachability`** + printed notice | DEBUG-524 (crisis ruling). Same shape as `plugins/`: a patch alters native behaviour on a crisis path and the generated result is never reviewed. DEBUG-524 established a patch is the only remaining lever on the recognizer's audio teardown, so this path is live, not hypothetical. |
 | `src/core/hooks/` change | **`journal-crisis-scan`** + 2 printed notices | DEBUG-525. Gated as a DIRECTORY: 3 of 4 files decide crisis-affordance placement/visibility; the 4th has one lifetime commit — and is NOT benign (corrected DEBUG-533: `useBugReportShake.ts` arms a root-mounted gesture opening a zero-988 window). `journal-crisis-scan` is the only keyboard-up flow in the suite. `useKeyboardOccludesCrisisButton` (device-only) and the dynamic-type inset get instructions — neither is sim-runnable. |
 | `core/components/ThresholdEducationModal.tsx` change | **`crisis-button-reachability`** | DEBUG-525. A DEBUG-406 conversion site: an RN `<Modal>` whose content tells the reader to seek help while occluding the route to it. The flow already taps through it, so the arm is free. |
 | `features/home/screens/CleanHomeScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-547. Consumes `crisisButtonGeometry` rather than owning crisis code. The FAB's `zIndex: 9999` makes any overlap a wrong-DESTINATION tap into `CrisisResources` — a crisis false POSITIVE. The flow already starts on Home and renders both rows, so the arm is free. **The flow is necessary and NOT sufficient**: Maestro taps element CENTRES, which never enter the contested column, so a point tap is required to falsify this. |
@@ -775,6 +777,17 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/consent/' && \
 # crisis-button fail-safe, which gates the wrong contract.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/journal/' && \
   FLOWS+=("journal-crisis-scan")
+# DEBUG-524: onDeviceSpeechGuard.ts admits the capture feeding scanOnSave and builds the
+# options driving native audio setup. NECESSARY, NOT SUFFICIENT — journal-crisis-scan finishes
+# inside the ~15s abort window, so it cannot witness the native crash; that verdict is
+# `npm run e2e:safety:audio-liveness`, which dwells past the deadline and reads the app's pid.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/services/speech/' && \
+  FLOWS+=("journal-crisis-scan")
+# DEBUG-524: a patch alters native behaviour on a crisis path and the generated result is never
+# reviewed in a diff. No sim flow can bound an arbitrary patched module, so the arm proves the
+# surrounding crisis paths still render and the notice points at an attended device session.
+echo "$RENDER_BOOT_RELEVANT" | grep -q '^app/patches/' && \
+  FLOWS+=("crisis-button-reachability")
 # INFRA-482: consentStore.ts is FILE-level, not the whole of src/core/stores/. It owns every
 # consent-record write, `canPerformOperation`, the INFRA-377 forging seam, and the loadConsent
 # branch order whose own comment says "THE ORDER OF THESE THREE CHECKS IS SAFETY-CRITICAL" —

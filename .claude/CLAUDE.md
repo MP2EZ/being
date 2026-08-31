@@ -57,6 +57,8 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/core/services/logging/ExternalErrorReporter.ts` | `crisis` |
 | `app/src/features/profile/screens/ProfileScreen.tsx` | `crisis` |
 | `app/plugins/` | `crisis` |
+| `app/src/core/services/speech/` | `crisis` |
+| `app/patches/` | `crisis` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -159,6 +161,16 @@ recorded at `showFeedbackForm()`.
 app is inactive, and iOS is CNG so no AppDelegate diff is ever reviewed. No Maestro flow
 can observe it — the suite drives an ACTIVE app — so the gate arms the surrounding crisis
 paths and the real verification is an attended device session.
+
+`core/services/speech/` and `patches/` are the tenth instance (added DEBUG-524), and the
+first where the harm is the process DYING rather than an affordance being hidden.
+`onDeviceSpeechGuard.ts` admits the capture whose text is the only save-time crisis scan and
+builds the options driving native audio setup, so a wrong edit SIGABRTs the app mid-reflection.
+DIRECTORY-level: two source files, both reviewed — `audioArtifactSweeper.ts` is the non-crisis
+member (raw-audio erasure, data-at-rest, not 988 reachability). `patches/` mirrors `plugins/`:
+it alters native behaviour on a crisis path with no reviewed generated diff, and DEBUG-524
+established a patch is the ONLY remaining lever there. INFRA-531's import rule catches neither —
+nothing on either path imports from `features/crisis/`.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
