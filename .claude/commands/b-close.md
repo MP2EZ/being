@@ -632,7 +632,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | Change class under a safety path | Gate? | Why |
 |---|---|---|
 | Dead-code deletion (≥1 removed, 0 added) | **skip** | Removing unreachable code can't change a running flow (MAINT-254 case). |
-| Comment / JSDoc / whitespace-only | **skip** | No executable line changed. |
+| Comment / JSDoc / whitespace-only | **skip** | No executable line changed. A JSX comment does NOT qualify — it closes `*/}`, which the filter's `*/` pattern misses, so a comment-only `.tsx` edit stays gated. Bias-safe; budget the build. |
 | Real threshold / scoring edit (assessment) | **trigger** q9/phq9/gad7 | Added executable line → live. |
 | Crisis-dir UI / screen / component change | **trigger** crisis-button | Added executable line under `features/crisis/`. |
 | `CollapsibleCrisisButton` re-host in ANY dir | **trigger** crisis-button | Content detection (`CRISIS_HOST_CHANGED`), exempt from inert filter. |
