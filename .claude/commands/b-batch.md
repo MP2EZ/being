@@ -946,7 +946,12 @@ most needs to catch.
 **Routing after the re-check:**
 - **RED-ATTENDED** — set `state: queued_red`, leave the worktree intact and the work
   committed, and **do NOT run `/b-close`**. Continue to the next item; Phase 4.1 surfaces it.
-- **RED-GATED** — **back-merge `origin/development` first.** It is Step 3.1's sync anyway,
+- **RED-GATED** — **back-merge `origin/development` first.**
+  Before spending the build, check for a live peer suite
+  (`ps -axo pid=,args=` for `e2e-safety.sh`, never `pgrep -f`). A peer's install
+  clobbers the target between build and run, and the lease does not cover it —
+  so a gate started against one is discarded work, not a verdict.
+  It is Step 3.1's sync anyway,
   and `app/scripts/e2e-sim-build.sh` is *app code*: without INFRA-383 on the branch the gate
   builds via `eas build --local` — 10-15 min every run, plus eas-cli login + fastlane —
   instead of ~35-75 s warm. If `app/ios/Podfile.lock` checksums shift, do the
