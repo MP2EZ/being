@@ -1063,7 +1063,7 @@ mflow_tag() { awk '/^tags:/{f=1;next} /^[^ -]/{f=0} f{gsub(/[ -]/,"");print;exit
 # directions are loud — a name here with no arm falls to the named catch-all, an arm with
 # no name here is reported as unmapped by the drift printer after the loop.
 MAPPED_FLOWS="crisis-988-dial reconsent-stale-ineligible-fab-clearance daily-loop-ax5-entry
-profile-voice-reflection-xxxl q9-single-alert phq9-severe-completion gad7-severe
+journal-record-liveness profile-voice-reflection-xxxl q9-single-alert phq9-severe-completion gad7-severe
 crisis-button-reachability journal-crisis-scan daily-loop-quick-depth daily-loop-deeplink
 deeplink-consent-gate reconsent-stale-ineligible reconsent-stale crisis-keyboard-accessory
 guidance-suppressed-handoff guidance-gentle-tier-cap"
@@ -1139,6 +1139,13 @@ while IFS= read -r f; do
       echo "   so it can neither select this flow nor validly run it. NOT added, and"
       echo "   deliberately NOT a full-suite trigger. Validate it directly:"
       echo "   npm run e2e:safety:ax5" ;;
+    journal-record-liveness.yaml)
+      echo "🎙️  journal-record-liveness.yaml changed — safety-host-probe. It drives to"
+      echo "   phase:'recording' and STOPS; the verdict is the host-side pid sample either"
+      echo "   side of a MEASURED dwell, which no Maestro assertion can express. Running"
+      echo "   this flow bare proves only that the record tap landed. NOT added to the run"
+      echo "   set, and NOT a full-suite trigger. Validate it directly:"
+      echo "   npm run e2e:safety:audio-liveness" ;;
     profile-voice-reflection-xxxl.yaml)
       echo "🔠 profile-voice-reflection-xxxl.yaml changed — safety-dynamic-type, same"
       echo "   carve-out as ax5 above. Note the SIZE differs: this one runs at"
