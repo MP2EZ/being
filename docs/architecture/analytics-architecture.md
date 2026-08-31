@@ -169,21 +169,30 @@ Wraps the app and provides PostHog context. Key behaviors:
 
 Whitelist-based validation ensuring only safe events are transmitted.
 
-**Whitelisted Events (25 total):**
+**Whitelisted Events (13 total).** Every one has a production emitter — that is now
+the entry condition, not an aspiration. INFRA-552 deleted the twelve that had none.
+
 - App lifecycle: `app_opened` (`is_cold_start`, `since_last_active` — a coarse bucket,
   never a raw elapsed value), `app_backgrounded` (`duration_seconds` — FOREGROUND DWELL
-  only, never time away), `session_started`, `session_ended`
+  only, never time away)
 - Navigation: `screen_viewed`
-- Features: `check_in_started/completed`, `assessment_started/completed`, `practice_started/completed`, `breathing_exercise_started/completed`
 - Crisis: `crisis_resources_viewed`, `crisis_hotline_tapped`
 - Settings: `settings_opened`, `consent_changed`
-- Errors: `error_occurred`
 - Onboarding: `onboarding_started/completed/step_completed`
-- Learn: `learn_content_viewed`, `learn_module_started/completed`
+- Learn: `learn_content_viewed`, `learn_module_started`
 - Guidance: `guidance_opened` (FEAT-457) — **no properties, ever**
 
-> This list is derived by hand and has drifted before (stated as 27 while the whitelist
-> held 24, pre-FEAT-457). Read `PHIFilter.SAFE_EVENT_TYPES` if the exact set matters.
+Removed by INFRA-552, all with zero production emitters: `check_in_started/completed`,
+`assessment_started/completed`, `practice_started/completed`, `learn_module_completed`,
+`breathing_exercise_started/completed`, `error_occurred` (errors go to Sentry, not
+PostHog), and `session_started`/`session_ended`, which never had a tracker function at
+all. Each is recorded with its reason in the `NARROWED` ledger in
+`app/__tests__/privacy/phiFilterDifferential.privacy.test.ts`.
+
+> This list is still maintained by hand and has drifted before (stated as 27 while the
+> whitelist held 24, pre-FEAT-457). Since INFRA-552 the whitelist is DERIVED from
+> `AnalyticsEvents`, so catalog/whitelist parity can no longer drift — but this prose
+> can. Read `AnalyticsEvents` in `PHIFilter.ts` if the exact set matters.
 > Since INFRA-558 the drift is bounded rather than merely warned about: the differential
 > suite asserts the live whitelist equals the frozen `d14d6178` baseline plus its
 > `WIDENED` ledger, so a name can no longer be added here or there without the other

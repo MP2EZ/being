@@ -33,6 +33,43 @@ interface PHIViolation {
 }
 
 /**
+ * Type-safe event names for analytics
+ * Use these constants instead of raw strings
+ */
+export const AnalyticsEvents = {
+  // App lifecycle (INFRA-542 wired these two; session_started/session_ended were
+  // deleted by INFRA-552 — they never had a tracker function at all, so the
+  // contract test's key enumeration could not see them and no producer existed.)
+  APP_OPENED: 'app_opened',
+  APP_BACKGROUNDED: 'app_backgrounded',
+
+  // Navigation
+  SCREEN_VIEWED: 'screen_viewed',
+
+  // Crisis
+  CRISIS_RESOURCES_VIEWED: 'crisis_resources_viewed',
+  CRISIS_HOTLINE_TAPPED: 'crisis_hotline_tapped',
+
+  // Settings
+  SETTINGS_OPENED: 'settings_opened',
+  CONSENT_CHANGED: 'consent_changed',
+
+  // Onboarding
+  ONBOARDING_STARTED: 'onboarding_started',
+  ONBOARDING_COMPLETED: 'onboarding_completed',
+  ONBOARDING_STEP_COMPLETED: 'onboarding_step_completed',
+
+  // Learn
+  LEARN_CONTENT_VIEWED: 'learn_content_viewed',
+  LEARN_MODULE_STARTED: 'learn_module_started',
+
+  // Domain guidance (FEAT-457) — no properties, ever.
+  GUIDANCE_OPENED: 'guidance_opened',
+} as const;
+
+export type AnalyticsEventType = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];
+
+/**
  * PHI Filter - Whitelist-based analytics event validation
  *
  * CRITICAL: This class is the last line of defense before analytics
@@ -44,53 +81,23 @@ export class PHIFilter {
    * WHITELIST: Only these event types can be transmitted
    * If it's not here, it doesn't get sent.
    */
-  private static readonly SAFE_EVENT_TYPES: ReadonlySet<string> = new Set([
-    // App lifecycle
-    'app_opened',
-    'app_backgrounded',
-    'session_started',
-    'session_ended',
-
-    // Navigation (screen names only, no content)
-    'screen_viewed',
-
-    // Feature usage (counts only, no content/values)
-    'check_in_started',
-    'check_in_completed',
-    'assessment_started',
-    'assessment_completed',
-    'practice_started',
-    'practice_completed',
-    'breathing_exercise_started',
-    'breathing_exercise_completed',
-
-    // Crisis (access tracking only, no contact details)
-    'crisis_resources_viewed',
-    'crisis_hotline_tapped',
-
-    // Settings
-    'settings_opened',
-    'consent_changed',
-
-    // Errors (sanitized - no PHI in error messages)
-    'error_occurred',
-
-    // Onboarding
-    'onboarding_started',
-    'onboarding_completed',
-    'onboarding_step_completed',
-
-    // Learn tab
-    'learn_content_viewed',
-    'learn_module_started',
-    'learn_module_completed',
-
-    // Domain guidance (FEAT-457) — REACH ONLY, and deliberately carries no
-    // `domain` property. See the PHI_KEYWORDS note below: the hardship domain is
-    // itself the wellness inference, so this event measures that the surface was
-    // opened and nothing about what for.
-    'guidance_opened',
-  ]);
+  /**
+   * WHITELIST: only these event types can be transmitted.
+   *
+   * DERIVED from `AnalyticsEvents`, not hand-maintained (INFRA-552 AC5). A name in
+   * one but not the other cannot transmit and fails SILENTLY — `trackEvent` logs the
+   * block and returns — so parity is enforced by construction rather than by a check
+   * that has to be remembered. Both had 25 entries and zero drift when this was
+   * derived; the point is that the next divergence is now unrepresentable.
+   *
+   * Know what this does NOT do: it cannot tell whether a whitelisted event has a
+   * PRODUCTION EMITTER. That is the `no production emitter` condition, which a
+   * parity check structurally cannot see — `analyticsTrackerContract.privacy.test.ts`
+   * is what detects it.
+   */
+  private static readonly SAFE_EVENT_TYPES: ReadonlySet<string> = new Set<string>(
+    Object.values(AnalyticsEvents)
+  );
 
   /**
    * BLOCKLIST: Keywords that indicate PHI - block if detected in data
@@ -379,53 +386,3 @@ export class PHIFilter {
   }
 }
 
-/**
- * Type-safe event names for analytics
- * Use these constants instead of raw strings
- */
-export const AnalyticsEvents = {
-  // App lifecycle
-  APP_OPENED: 'app_opened',
-  APP_BACKGROUNDED: 'app_backgrounded',
-  SESSION_STARTED: 'session_started',
-  SESSION_ENDED: 'session_ended',
-
-  // Navigation
-  SCREEN_VIEWED: 'screen_viewed',
-
-  // Feature usage
-  CHECK_IN_STARTED: 'check_in_started',
-  CHECK_IN_COMPLETED: 'check_in_completed',
-  ASSESSMENT_STARTED: 'assessment_started',
-  ASSESSMENT_COMPLETED: 'assessment_completed',
-  PRACTICE_STARTED: 'practice_started',
-  PRACTICE_COMPLETED: 'practice_completed',
-  BREATHING_EXERCISE_STARTED: 'breathing_exercise_started',
-  BREATHING_EXERCISE_COMPLETED: 'breathing_exercise_completed',
-
-  // Crisis
-  CRISIS_RESOURCES_VIEWED: 'crisis_resources_viewed',
-  CRISIS_HOTLINE_TAPPED: 'crisis_hotline_tapped',
-
-  // Settings
-  SETTINGS_OPENED: 'settings_opened',
-  CONSENT_CHANGED: 'consent_changed',
-
-  // Errors
-  ERROR_OCCURRED: 'error_occurred',
-
-  // Onboarding
-  ONBOARDING_STARTED: 'onboarding_started',
-  ONBOARDING_COMPLETED: 'onboarding_completed',
-  ONBOARDING_STEP_COMPLETED: 'onboarding_step_completed',
-
-  // Learn
-  LEARN_CONTENT_VIEWED: 'learn_content_viewed',
-  LEARN_MODULE_STARTED: 'learn_module_started',
-  LEARN_MODULE_COMPLETED: 'learn_module_completed',
-
-  // Domain guidance (FEAT-457) — no properties, ever. See SAFE_EVENT_TYPES.
-  GUIDANCE_OPENED: 'guidance_opened',
-} as const;
-
-export type AnalyticsEventType = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];

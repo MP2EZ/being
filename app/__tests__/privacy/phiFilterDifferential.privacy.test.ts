@@ -196,6 +196,61 @@ interface Widening {
 
 const WIDENED: ReadonlyArray<Widening> = [];
 
+/**
+ * The other direction (INFRA-552). A name REMOVED from the live whitelist after
+ * `d14d6178` must appear here, in the same PR that removes it.
+ *
+ * This ledger exists because the amendment procedure above had an add-path only:
+ * `declared` was `baseline ∪ WIDENED`, the frozen baseline is never amended, and
+ * `WIDENED` only grows — so a legitimate narrowing had no way to be recorded and
+ * red-lined the removal assertion with no sanctioned resolution. The assertion's
+ * own comment already said a removal "must be reflected here"; nothing implemented
+ * that. This does.
+ *
+ * A narrowing is SAFER than the baseline (the filter transmits strictly less), so
+ * unlike `WIDENED` there is no payload to vet — the check is that the removal was
+ * declared, attributed, and reasoned, not that it is harmless.
+ *
+ * TO REMOVE AN EVENT TYPE, in ONE pull request:
+ *   1. Delete the constant from `AnalyticsEvents` in `PHIFilter.ts`. Since
+ *      INFRA-552 the whitelist is DERIVED from it, so there is no second list to
+ *      edit — and no way to remove from one and not the other.
+ *   2. Delete its tracker function and hook-return entry in `useAnalytics.ts`, and
+ *      its `FIXTURES` entry in `analyticsTrackerContract.privacy.test.ts`. Deleting
+ *      the constant alone breaks typecheck; deleting the tracker alone leaves a
+ *      dead fixture that suite rejects.
+ *   3. Add a `NARROWED` entry below naming the event, the work item, and why.
+ *   4. Refresh the enumerated event list in
+ *      `docs/architecture/analytics-architecture.md`.
+ *
+ * Do NOT remove a name because nothing emits it YET. "No production emitter" and
+ * "no longer wanted" are different claims, and a sibling item mid-flight looks
+ * exactly like the former — INFRA-542 wired `app_opened`/`app_backgrounded` while
+ * this prune was being planned, which is why both are absent from this list.
+ */
+interface Narrowing {
+  readonly eventType: string;
+  readonly workItem: string;
+  readonly rationale: string;
+}
+
+const NARROWED: ReadonlyArray<Narrowing> = [
+  // All twelve: no production emitter anywhere in app/src, supabase/, scripts/ or
+  // .maestro/, re-derived mechanically against `development` rather than inherited.
+  { eventType: 'check_in_started', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
+  { eventType: 'check_in_completed', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
+  { eventType: 'assessment_started', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
+  { eventType: 'assessment_completed', workItem: 'INFRA-552', rationale: 'No production emitter. The one string match in src is SyncCoordinator.ts:917 scheduleSync("high","assessment_completed"), a sync-reason tag unrelated to the PostHog catalog.' },
+  { eventType: 'practice_started', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
+  { eventType: 'practice_completed', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
+  { eventType: 'learn_module_completed', workItem: 'INFRA-552', rationale: 'No production emitter; its siblings learn_module_started and learn_content_viewed do fire and are retained.' },
+  { eventType: 'breathing_exercise_started', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
+  { eventType: 'breathing_exercise_completed', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
+  { eventType: 'error_occurred', workItem: 'INFRA-552', rationale: 'No production emitter. Error reporting goes to Sentry, not to PostHog product analytics.' },
+  { eventType: 'session_started', workItem: 'INFRA-552', rationale: 'Catalog fiction: no tracker function ever existed, so the contract test could not see it. No session-lifecycle concept exists in app/src.' },
+  { eventType: 'session_ended', workItem: 'INFRA-552', rationale: 'Catalog fiction: no tracker function ever existed, so the contract test could not see it. No session-lifecycle concept exists in app/src.' },
+];
+
 describe('PHIFilter differential vs frozen d14d6178 baseline (INFRA-535)', () => {
   const baselineRejections = CORPUS.filter((c) => !validateV1(c.eventType, c.data).valid);
 
@@ -235,10 +290,12 @@ describe('PHIFilter differential vs frozen d14d6178 baseline (INFRA-535)', () =>
    */
   describe('whitelist amendments are declared (INFRA-558)', () => {
     const live = new Set(PHIFilter.getWhitelistedEvents());
-    const declared = new Set<string>([
-      ...BASELINE_SAFE_EVENT_TYPES,
-      ...WIDENED.map((w) => w.eventType),
-    ]);
+    const narrowed = new Set(NARROWED.map((n) => n.eventType));
+    const declared = new Set<string>(
+      [...BASELINE_SAFE_EVENT_TYPES, ...WIDENED.map((w) => w.eventType)].filter(
+        (e) => !narrowed.has(e)
+      )
+    );
 
     it('every live event type is either in the frozen baseline or in the WIDENED ledger', () => {
       const undeclared = [...live].filter((e) => !declared.has(e)).sort();
@@ -268,6 +325,25 @@ describe('PHIFilter differential vs frozen d14d6178 baseline (INFRA-535)', () =>
       }
     });
 
+    it('each NARROWED entry names a baseline event that really is gone (INFRA-552)', () => {
+      // The symmetric control to the widening check above. Two ways this ledger
+      // could rot, both silent without this:
+      //   - an entry naming something that was never in the baseline (a typo, or a
+      //     name invented to satisfy the arithmetic), which would shrink `declared`
+      //     without any real removal having happened;
+      //   - a stale entry left behind after the event was RE-ADDED, which would
+      //     hide it from the "every live event type is declared" check above.
+      for (const n of NARROWED) {
+        expect(BASELINE_SAFE_EVENT_TYPES.has(n.eventType)).toBe(true);
+        expect(live.has(n.eventType)).toBe(false);
+        expect(n.workItem).toMatch(/^(FEAT|DEBUG|INFRA|MAINT|AGENT)-\d+$/);
+        expect(n.rationale.length).toBeGreaterThan(20);
+      }
+      // Non-vacuity: this suite shipped with WIDENED empty, and an empty NARROWED
+      // would make the loop above pass over nothing in exactly the same way.
+      expect(NARROWED.length).toBeGreaterThan(0);
+    });
+
     it('the membership matcher still fires (DEBUG-390)', () => {
       // An empty ledger plus an unchanged whitelist makes the two tests above pass
       // over nothing. Prove the comparison can still detect an undeclared name, so
@@ -285,8 +361,10 @@ describe('PHIFilter differential vs frozen d14d6178 baseline (INFRA-535)', () =>
 
       // And that the real sets being compared are non-trivial, so the assertions
       // above are running against something.
-      expect(live.size).toBeGreaterThanOrEqual(25);
-      expect(declared.size).toBe(BASELINE_SAFE_EVENT_TYPES.size + WIDENED.length);
+      expect(live.size).toBeGreaterThanOrEqual(13);
+      expect(declared.size).toBe(
+        BASELINE_SAFE_EVENT_TYPES.size + WIDENED.length - NARROWED.length
+      );
     });
   });
 

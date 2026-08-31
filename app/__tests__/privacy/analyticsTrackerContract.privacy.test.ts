@@ -49,12 +49,6 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
   // properties. A bucketed string, never a raw elapsed number.
   trackAppOpened: [true, 'cold_start'],
   trackAppBackgrounded: [42],
-  trackCheckInStarted: [],
-  trackCheckInCompleted: [5000],
-  trackAssessmentStarted: [],
-  trackAssessmentCompleted: [42000],
-  trackPracticeStarted: [],
-  trackPracticeCompleted: [300000],
   trackCrisisResourcesViewed: [],
   trackCrisisHotlineTapped: [],
   trackGuidanceOpened: [],
@@ -62,13 +56,9 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
   trackConsentChanged: [],
   trackLearnContentViewed: ['module-1'],
   trackLearnModuleStarted: ['module-1'],
-  trackLearnModuleCompleted: ['module-1', 900],
-  trackBreathingExerciseStarted: [],
-  trackBreathingExerciseCompleted: [180000],
   trackOnboardingStarted: [],
   trackOnboardingStepCompleted: [3],
   trackOnboardingCompleted: [],
-  trackErrorOccurred: ['network_error'],
 };
 
 /**
@@ -79,8 +69,8 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
  */
 const EXCLUDED = new Set(['trackEvent']);
 
-/** Pinned floor: 23 named trackers today. Growth fine, shrinkage red. */
-const MIN_TRACKERS = 23;
+/** Pinned floor: 13 named trackers today (INFRA-552 pruned 10). Growth fine, shrinkage red. */
+const MIN_TRACKERS = 13;
 
 describe('every useAnalytics tracker transmits (INFRA-535)', () => {
   const { result } = renderHook(() => useAnalytics());
@@ -145,13 +135,16 @@ describe('every useAnalytics tracker transmits (INFRA-535)', () => {
     });
   });
 
-  describe('catalog constants with no tracker at all (recorded for INFRA-552)', () => {
-    it('session_started and session_ended are whitelisted but unreachable from the hook', () => {
-      // Neither has a tracker function, so the derived enumeration above cannot
-      // see them and this suite cannot protect them. The catalog prune must handle
-      // them by hand rather than assuming the contract test covers the catalog.
-      expect(PHIFilter.isWhitelisted('session_started')).toBe(true);
-      expect(PHIFilter.isWhitelisted('session_ended')).toBe(true);
+  describe('catalog constants with no tracker at all (DISCHARGED by INFRA-552)', () => {
+    it('session_started and session_ended are gone from the catalog entirely', () => {
+      // Previously these were whitelisted with no tracker function, so the derived
+      // enumeration above could not see them and this suite could not protect them.
+      // INFRA-552 deleted both: no session-lifecycle concept exists anywhere in
+      // app/src, so they were catalog fiction rather than pending work. Kept as an
+      // assertion rather than deleted with them — re-adding a name the hook cannot
+      // reach is the exact defect this block was recording.
+      expect(PHIFilter.isWhitelisted('session_started')).toBe(false);
+      expect(PHIFilter.isWhitelisted('session_ended')).toBe(false);
 
       const emitters = trackerKeys.filter((k) => /session/i.test(k));
       expect(emitters).toEqual([]);
