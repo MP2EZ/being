@@ -820,6 +820,10 @@ Phase 2.5 gate; do not re-author Maestro flows here.
   a bisect with one sample per arm returns noise. Run the suspect test ~10x on both
   trees. Verify the control's `node_modules` matches its lockfile first — a stale
   worktree is not a control.
+- **For an INTERMITTENT defect, a consecutive-pass count is not an acceptance test.**
+  At rate p, N passes occur (1-p)^N of the time on unfixed code — at p=0.05, three
+  passes ~85%. Measure the mechanism the bug runs through, or a rate against a matched
+  control; an AC specifying "N consecutive" needs respecifying before it is judged.
 
 ---
 
