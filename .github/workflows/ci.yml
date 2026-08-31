@@ -367,6 +367,16 @@ jobs:
         # Wired by PATTERN, never by renaming files toward one (DEBUG-468 precedent).
         run: cd app && npm run test:analytics -- --ci --testTimeout=20000
 
+      - name: Classical library tests
+        # FEAT-567. passagesContent.test.ts holds the passage SCHEMA checks —
+        # author/work enum membership, principle match, duplicate ids, required
+        # fields — and matched no CI pattern, so a malformed passage could land
+        # unnoticed. The provenance suite that checks TRANSLATORS already runs
+        # (it lives under app/__tests__/unit/); this is the other half.
+        #
+        # Wired by PATTERN, never by renaming files toward one (DEBUG-468 precedent).
+        run: cd app && npm run test:library -- --ci --testTimeout=20000
+
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v6

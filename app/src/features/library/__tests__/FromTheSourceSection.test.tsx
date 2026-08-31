@@ -35,9 +35,9 @@ describe('FromTheSourceSection', () => {
   it('expands the first passage by default and collapses the rest', () => {
     const { queryByText } = render(<FromTheSourceSection principle="sphere-sovereignty" />);
     // First passage (Enchiridion 1) text is visible.
-    expect(queryByText(/Some things are in our control/)).toBeTruthy();
+    expect(queryByText(/Of Things, some are in our Power/)).toBeTruthy();
     // Second passage (Enchiridion 2) text is hidden until expanded.
-    expect(queryByText(/following desire promises/)).toBeNull();
+    expect(queryByText(/Desire promises the Attainment/)).toBeNull();
   });
 
   it('reveals a passage when its header is tapped', () => {
@@ -45,7 +45,7 @@ describe('FromTheSourceSection', () => {
       <FromTheSourceSection principle="sphere-sovereignty" />
     );
     fireEvent.press(getByLabelText('Expand passage: Epictetus, Enchiridion 2'));
-    expect(queryByText(/following desire promises/)).toBeTruthy();
+    expect(queryByText(/Desire promises the Attainment/)).toBeTruthy();
     // Translator attribution surfaces on expand (passages 1 & 2 are both Carter,
     // so both are now visible — assert at least one).
     expect(queryAllByText(/trans\. Elizabeth Carter/).length).toBeGreaterThan(0);

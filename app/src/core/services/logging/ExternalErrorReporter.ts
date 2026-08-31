@@ -522,6 +522,96 @@ export class ExternalErrorReporter {
    * entry are harmless in dev. The widget itself requires `Sentry.wrap(App)` —
    * see App.tsx. Feedback events are sanitized by the scrubFeedbackEvent
    * processor registered in initialize().
+   *
+   * ── ⚠️ THIS OPENS A ZERO-988-AFFORDANCE WINDOW (DEBUG-533 RULING) ──
+   *
+   * Ruled by `crisis`: this IS a DEBUG-406 conversion site. It fails all three
+   * legs of the `NotificationTimePicker` exception, which is the only RN-modal
+   * occlusion DEBUG-406 let stand. Recorded here rather than only in the work
+   * item, for the reason NotificationTimePicker gives: a ruling that lives where
+   * the code cannot see it is how DEBUG-403's four-site analogy survived review.
+   *
+   * WHAT RENDERS. Not, as first reported, a native window outside our tree.
+   * `Sentry.wrap(App)` mounts `FeedbackWidgetProvider` ABOVE
+   * `GestureHandlerRootView`, and its render emits our whole app as `children`
+   * and THEN, as a later sibling, an `Animated.View` at inset-0 animating to
+   * `rgba(0,0,0,0.9)`, and inside that an RN `<Modal transparent>` whose sheet is
+   * `flex: 1` below a 64pt spacer. So the occlusion is doubled, and the
+   * important half is the FIRST one: a 90%-opaque full-screen backdrop inside
+   * our own JS hierarchy. `RootCrisisButton`'s `zIndex: 9999` cannot reach past
+   * it — zIndex orders siblings, and that backdrop is a later sibling of the
+   * button's ANCESTOR. An RN change that put the crisis button above `<Modal>`
+   * would not recover this surface.
+   *
+   * WHY THE NotificationTimePicker EXCEPTION DOES NOT EXTEND HERE:
+   *   • Benign content — FAILS. That ruling's premise is that the picker is
+   *     reachable only from Settings by deliberate tap, so it can neither occlude
+   *     nor receive a disclosure. This is armed at the app root, so it opens over
+   *     `CrisisResources`, over a mid-PHQ-9 `AssessmentFlow`, and over
+   *     `VoiceReflectionScreen` right after `scanOnSave`. The wellness-bearing
+   *     content is what it OCCLUDES. And the form is a free-text box whose own
+   *     placeholder says "avoid typing personal wellness details here", which
+   *     concedes it receives them.
+   *   • Fixed, non-scrolling, one-tap exits — FAILS, and this is decisive.
+   *     Cancel is the LAST CHILD of the widget's `ScrollView`, below the required
+   *     textarea and the screenshot controls, with `automaticallyAdjustKeyboard-
+   *     Insets` on iOS and `showName`/`showEmail` false so the keyboard is up
+   *     whenever the user has engaged at all. There is no backdrop tap (the 64pt
+   *     spacer is a bare `View`), `onRequestClose` is Android-back only, and the
+   *     pull-down dismiss needs `isScrollAtTop && dy > 200` — dead once scrolled.
+   *     Dwell is unbounded.
+   *   • iOS-only Modal, Android a native OS dialog — FAILS AND INVERTS. One
+   *     `<Modal>` on both platforms, so converting splits nothing; and iOS is the
+   *     strictly worse platform here, having no hardware back.
+   *
+   * ── MEASURED, NOT INFERRED (DEBUG-533 AC 1) ──
+   *
+   * On a Release build, iPhone SE 3rd gen / iOS 18.6, opened from the Profile
+   * card. `crisis-button-root` appears ZERO times in the accessibility
+   * hierarchy while the widget is up, having asserted VISIBLE on Profile three
+   * steps earlier in the same run — present before, gone after, same selector.
+   * No Profile markers survive either: the whole app hierarchy is replaced.
+   * After 75s untouched, still open and still absent — dwell is unbounded.
+   *
+   * The keyboard finding is WORSE than the source reading above implies. With
+   * three lines typed, `Cancel` is not on screen AT ALL — the keyboard covers
+   * it, leaving only a sliver of `Send report`. There is no visible exit.
+   *
+   * Two traps for whoever verifies this next. (1) Do NOT assert on the
+   * `feedback-form-modal` testID: Sentry sets it on the `<Modal>` and it does
+   * not propagate to the native modal host, so it is absent even when the
+   * widget is plainly open — assert on content ("Report a bug"). (2) Do NOT
+   * read `Cancel` out of a hierarchy dump and call it reachable: XCUITest
+   * retains ScrollView-clipped elements (DEBUG-465), so it is listed while
+   * invisible. The screenshot is the authority for on-screen; the hierarchy is
+   * the authority for the crisis button's ABSENCE.
+   *
+   * WHY IT IS NOT FIXED IN PLACE. The occluder is third-party code we do not
+   * render, so we cannot host it in `rootOverlaySlot`, cannot add a backdrop
+   * handler, cannot bound the dwell, and cannot inject a 988 control into
+   * Sentry's sheet. There is no compensating control available. The structural
+   * remedy is our OWN form rendered into `rootOverlaySlot` submitting via
+   * `Sentry.captureFeedback()` — a top-level export of @sentry/react-native
+   * (`index.d.ts:2`) and exactly what `FeedbackWidget.js:70` itself calls, so the
+   * SDK stays the transport and we own the presentation. Tracked separately;
+   * doing it must ALSO drop `feedbackIntegration` above, or
+   * `FeedbackWidgetProvider` stays mounted and a stray call re-opens this path.
+   *
+   * MEANWHILE the exposure is bounded by reachability, not by a fix:
+   * `bug_reporting` is off in the public App Store build, DEBUG-533 made the
+   * shake trigger hard to fire by accident, and the Profile card is a deliberate
+   * tap. None of that satisfies the invariant. Do not read the mitigations as
+   * closing the ruling.
+   *
+   * ⚠️ NOTE WHAT NO DETECTOR CAN SEE HERE. `check-modal-occlusion-guard.js`
+   * scans `app/src`, so a `<Modal>` in node_modules is invisible to it, and
+   * INFRA-531's crisis-constant-import detector matches nothing on this path
+   * because nothing here imports from `features/crisis/`. This is a new shape for
+   * that family — not "consumes a crisis constant while matching no path
+   * pattern", but "mounts a third-party component that occludes the crisis
+   * affordance while importing nothing of ours at all". The Protected Paths rows
+   * for this file and `ProfileScreen.tsx` are what gate it; a call-site rule in
+   * the occlusion guard is tracked separately.
    */
   showFeedbackForm(): void {
     if (!this.isActive() || !this.sentryModule) return;
