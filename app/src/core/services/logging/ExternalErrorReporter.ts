@@ -564,6 +564,28 @@ export class ExternalErrorReporter {
    *     `<Modal>` on both platforms, so converting splits nothing; and iOS is the
    *     strictly worse platform here, having no hardware back.
    *
+   * ── MEASURED, NOT INFERRED (DEBUG-533 AC 1) ──
+   *
+   * On a Release build, iPhone SE 3rd gen / iOS 18.6, opened from the Profile
+   * card. `crisis-button-root` appears ZERO times in the accessibility
+   * hierarchy while the widget is up, having asserted VISIBLE on Profile three
+   * steps earlier in the same run — present before, gone after, same selector.
+   * No Profile markers survive either: the whole app hierarchy is replaced.
+   * After 75s untouched, still open and still absent — dwell is unbounded.
+   *
+   * The keyboard finding is WORSE than the source reading above implies. With
+   * three lines typed, `Cancel` is not on screen AT ALL — the keyboard covers
+   * it, leaving only a sliver of `Send report`. There is no visible exit.
+   *
+   * Two traps for whoever verifies this next. (1) Do NOT assert on the
+   * `feedback-form-modal` testID: Sentry sets it on the `<Modal>` and it does
+   * not propagate to the native modal host, so it is absent even when the
+   * widget is plainly open — assert on content ("Report a bug"). (2) Do NOT
+   * read `Cancel` out of a hierarchy dump and call it reachable: XCUITest
+   * retains ScrollView-clipped elements (DEBUG-465), so it is listed while
+   * invisible. The screenshot is the authority for on-screen; the hierarchy is
+   * the authority for the crisis button's ABSENCE.
+   *
    * WHY IT IS NOT FIXED IN PLACE. The occluder is third-party code we do not
    * render, so we cannot host it in `rootOverlaySlot`, cannot add a backdrop
    * handler, cannot bound the dwell, and cannot inject a 988 control into
