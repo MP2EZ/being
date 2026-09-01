@@ -50,6 +50,10 @@ import {
   type AgeVerification,
 } from '../stores/consentStore';
 import { logSystem, logError, LogCategory } from '../services/logging';
+import {
+  useStoicPracticeStore,
+  type CheckInType,
+} from '@/features/practices/stores/stoicPracticeStore';
 
 /**
  * Deterministic eligible birth year for the seeded age verification. Any year
@@ -57,6 +61,24 @@ import { logSystem, logError, LogCategory } from '../services/logging';
  * resolve to 'valid'; 1990 is comfortably clear of the 18+ boundary.
  */
 const SEED_BIRTH_YEAR = 1990;
+
+/**
+ * The check-in types seeded to satisfy `WeeklyReflectionCard`'s
+ * MIN_CHECK_INS_TO_SHOW = 4 gate (INFRA-532).
+ *
+ * EXACTLY FOUR, AND DELIBERATELY WITHOUT 'daily'. `markCheckInComplete` de-dupes
+ * on (type, date), so reaching four in one launch requires four distinct types.
+ * 'daily' is the one type a production surface reads back
+ * (`CleanHomeScreen` → `isCheckInCompletedToday('daily')`); the four here have no
+ * reader outside `getCheckInHistory`, so the seed is inert to every other flow.
+ * Pinned by `__tests__/safety/e2eSeedGate.config.test.ts`.
+ */
+const E2E_SEEDED_CHECK_IN_TYPES: readonly CheckInType[] = [
+  'morning',
+  'midday',
+  'evening',
+  'learn',
+];
 
 /** Whether the e2e-sim onboarding seed is enabled for this build. */
 export const isE2EOnboardingSeedEnabled = (): boolean =>
@@ -387,6 +409,44 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
       mentalHealthProcessingConsent: true,
     };
     await grantConsent(preferences, ageVerification);
+
+    // 4. Weekly-reflection precondition (INFRA-532).
+    //
+    //    WHY THIS EXISTS. `WeeklyReflectionCard` returns null below
+    //    MIN_CHECK_INS_TO_SHOW = 4 check-ins in the trailing 7 days, so on a
+    //    `clearState` + `clearKeychain` launch the card — and therefore
+    //    `WeeklyReflectionComposer`, a DEBUG-406 conversion site and a Protected
+    //    Path — is absent from the hierarchy entirely. Without this the composer
+    //    is unreachable in the gate build and its Phase 2.5 entry can only ever
+    //    be a printed notice. `crisis-button-reachability` taps through it.
+    //
+    //    WHY THE REAL API AND NOT A SEAM. INFRA-377's `__seedStale…ForE2E` seam
+    //    exists because no real mutator can stamp an old consent version. That
+    //    precondition is absent here: `markCheckInComplete` writes a complete,
+    //    well-formed record through the normal path. Nothing is forged, so no
+    //    new seam is justified.
+    //
+    //    WHY NOT 'daily'. It de-dupes on (type, date), so four records means four
+    //    distinct types. 'daily' is excluded deliberately — it is the ONLY type
+    //    any consumer reads outside this card (`CleanHomeScreen` →
+    //    `isCheckInCompletedToday('daily')`), and seeding it would flip the Home
+    //    check-in card's completed state for every flow in the suite, including
+    //    `daily-loop-ax5-entry`, which taps that card. The four seeded here have
+    //    no production writer and no reader but `getCheckInHistory`.
+    //
+    //    PLACEMENT IS LOAD-BEARING. This sits after `grantConsent`, below all
+    //    three marker early-returns, so the ungranted / stale / ineligible boot
+    //    states keep byte-identical state and their flows are unaffected.
+    //
+    //    COMPLIANCE: these are fabricated wellness records written to the
+    //    encrypted store. They exist only under SEED_ACTIVE, which is scoped to
+    //    the non-shippable `e2e-sim` EAS profile, so no boundary moves — but the
+    //    gate build does contain check-in records no user created.
+    const practice = useStoicPracticeStore.getState();
+    await practice.loadPersistedState();
+    for (const type of E2E_SEEDED_CHECK_IN_TYPES) {
+      await practice.markCheckInComplete(type);
+    }
 
     logSystem('[E2ESeed] Post-onboarding state seeded; navigator will route to Main');
   } catch (error) {

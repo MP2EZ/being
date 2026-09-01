@@ -38,6 +38,19 @@ const FRAMING = 'For deepening, not catching up. Daily practice remains the work
 
 const WeeklyReflectionCard: React.FC = () => {
   const [composerOpen, setComposerOpen] = useState(false);
+
+  // DEBUG-575 finding 2 — the in-memory draft.
+  //
+  // A crisis tap now RELEASES the slot, so the sheet closes without the user
+  // asking. Discarding up to 5000 characters about a hard week at the moment
+  // someone reaches for 988 is a harm on its own, and the second-order cost is
+  // worse: a user who learns it happens weighs the cost before tapping 988 next
+  // time. A crisis affordance must never be something you hesitate over.
+  //
+  // In-memory ONLY, deliberately: no SecureStore, no persistence layer on a
+  // crisis path. It does not outlive the session. Cancel still discards, so
+  // DEBUG-406's Cancel contract is unchanged — only the revoke path preserves.
+  const [draft, setDraft] = useState<string | null>(null);
   // Focus returns here when the composer closes — the overlay is no longer an
   // RN <Modal>, so nothing restores it for free.
   const triggerRef = useRef<React.ComponentRef<typeof Pressable> | null>(null);
@@ -68,6 +81,7 @@ const WeeklyReflectionCard: React.FC = () => {
   const handleSave = useCallback(
     async (text: string) => {
       await addWeeklyReflection(text);
+      setDraft(null); // saved — the preserved draft is spent
       setComposerOpen(false);
     },
     [addWeeklyReflection]
@@ -75,15 +89,28 @@ const WeeklyReflectionCard: React.FC = () => {
 
   // DEBUG-406: publish the composer into the root overlay slot. Declared before
   // the early return below so the hook order is stable across renders.
-  useRootOverlay('weekly-reflection-composer', composerOpen, () => (
-    <WeeklyReflectionComposer
-      visible
-      initialText={reflection?.text ?? ''}
-      onSave={handleSave}
-      onCancel={() => setComposerOpen(false)}
-      returnFocusRef={triggerRef}
-    />
-  ));
+  useRootOverlay(
+    'weekly-reflection-composer',
+    composerOpen,
+    () => (
+      <WeeklyReflectionComposer
+        visible
+        initialText={draft ?? reflection?.text ?? ''}
+        onSave={handleSave}
+        onCancel={() => {
+          setDraft(null);
+          setComposerOpen(false);
+        }}
+        onDraftChange={setDraft}
+        returnFocusRef={triggerRef}
+      />
+    ),
+    // Revoked by a crisis route. Close, but KEEP the draft — it is fed back via
+    // initialText above. Deliberately NOT auto-reopened on return: someone
+    // coming back from crisis resources should not be handed a reflection sheet.
+    // Their re-entry point is the card's own control, unchanged.
+    () => setComposerOpen(false),
+  );
 
   if (checkInsThisWeek < MIN_CHECK_INS_TO_SHOW) {
     return null;
