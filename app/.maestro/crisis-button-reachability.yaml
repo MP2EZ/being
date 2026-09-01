@@ -211,6 +211,87 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 - tapOn:
     id: "nav-back-button"
 
+# ── INFRA-532: the weekly-reflection composer must not occlude the button ───────
+# WeeklyReflectionComposer is a DEBUG-406 conversion site (it was an RN <Modal>,
+# which renders in a separate native window ABOVE the JS hierarchy — a
+# zero-988-affordance state while open). It publishes into the root overlay slot,
+# which paints immediately BELOW the crisis button.
+#
+# REACHABLE ONLY BECAUSE OF THE SEED. WeeklyReflectionCard returns null below
+# MIN_CHECK_INS_TO_SHOW = 4, and clearState+clearKeychain zeroes the store, so
+# before INFRA-532 this card did not exist in the gate build at all. e2eSeed.ts
+# seeds four non-'daily' check-ins. If that seed is removed or the constant is
+# raised, this segment reds — which is the intended coupling, not a fragility.
+#
+# THE KEYBOARD STAYS DOWN. autoFocus was removed from the composer deliberately
+# (DEBUG-406: it stole VoiceOver focus from the title and raised the keyboard into
+# UIRemoteKeyboardWindow, above the app window where zIndex is meaningless). Do
+# not tap the input here — the keyboard-up contract is device-only and is NOT
+# covered by this flow.
+- tapOn:
+    id: "tab-insights"
+- scrollUntilVisible:
+    element:
+      id: "weekly-reflection-card"
+    direction: DOWN
+    centerElement: true # DEBUG-465: the card is inside InsightsScreen's ScrollView
+                        # while the crisis FAB is pinned outside it, so a card left
+                        # at the bottom edge shares coordinates with the FAB.
+- tapOn:
+    id: "weekly-reflection-prompt"
+- assertVisible:
+    id: "weekly-reflection-overlay"
+
+# OCCLUSION ARM — tap-through, not assertVisible. Under a native-layer occlusion
+# bug the hierarchy dump can still LIST a view another native window is covering,
+# so assertVisible alone would have passed against the original <Modal> defect.
+# Only tap-and-land is evidence.
+- assertVisible:
+    id: "crisis-button-root"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
+- tapOn:
+    id: "nav-back-button"
+# Post-condition, not a tap (DEBUG-403 shape: a tap that reported COMPLETED while
+# the app never received it). The sheet survives the excursion.
+- assertVisible:
+    id: "weekly-reflection-overlay"
+
+# MIS-TAP ARM — the INVERSE hazard, and the reason this segment is not just a
+# copy of the ThresholdEducationModal block. At zIndex 9999 the crisis FAB WINS an
+# overlapping tap, so an action-row geometry regression fires an audit-logged
+# crisis navigation the user did not ask for AND swallows the action they did.
+# Save is the RIGHTMOST control (the row is justifyContent: 'flex-end'), so it is
+# nearest the contested column and is what a regression reaches first; it is
+# disabled at empty text, making this a side-effect-free probe.
+#
+# NECESSARY, NOT SUFFICIENT: Maestro taps element CENTRES, which never enter the
+# contested column, so this catches a GROSS regression (padding dropped, row
+# re-justified, FAB moved or grown) and cannot catch a marginal one. The marginal
+# case is pinned CI-side by __tests__/safety/modalOcclusionConversions.test.tsx,
+# which asserts the row's paddingRight === OVERLAY_ACTION_ROW_PADDING_RIGHT.
+- tapOn:
+    id: "weekly-reflection-save"
+- tapOn:
+    id: "weekly-reflection-cancel"
+# Settle on the POSITIVE post-condition first: a stolen tap leaves the sheet up
+# and reds here, rather than racing a bare assertNotVisible against a transition.
+- extendedWaitUntil:
+    notVisible:
+      id: "weekly-reflection-overlay"
+    timeout: 5000
+# All three are required. The first two alone would pass a state where the taps
+# did nothing at all.
+- assertNotVisible:
+    id: "crisis-resources-screen" # neither tap reached the FAB
+- assertVisible:
+    id: "weekly-reflection-prompt" # the user's own action landed, not swallowed
+
 # ── Profile tab ──────────────────────────────────────────────────
 # FEAT-212: Profile migrated to a nested React Navigation stack
 # (ProfileStackNavigator). MAINT-290 removed the per-navigator crisis overlay
