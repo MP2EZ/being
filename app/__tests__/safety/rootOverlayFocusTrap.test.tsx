@@ -30,11 +30,14 @@ import path from 'path';
 import { Text } from 'react-native';
 import { render, act } from '@testing-library/react-native';
 
-import NavigatorA11yHost from '../NavigatorA11yHost';
-import { useRootOverlayStore, useIsRootOverlayOccupied } from '../rootOverlaySlot';
+import NavigatorA11yHost from '@/core/navigation/NavigatorA11yHost';
+import {
+  useRootOverlayStore,
+  useIsRootOverlayOccupied,
+} from '@/core/navigation/rootOverlaySlot';
 
 const navigatorSource = fs.readFileSync(
-  path.join(__dirname, '..', 'CleanRootNavigator.tsx'),
+  path.join(__dirname, '..', '..', 'src', 'core', 'navigation', 'CleanRootNavigator.tsx'),
   'utf8',
 );
 

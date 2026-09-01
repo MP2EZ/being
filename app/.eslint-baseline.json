@@ -229,6 +229,5 @@
   "src/core/analytics/__tests__/PostHogProvider.consentRemount.privacy.test.tsx": 1,
   "src/core/analytics/__tests__/AppLifecycleTracker.test.tsx": 1,
   "src/core/analytics/__tests__/PostHogProvider.lifecycleTracker.test.tsx": 1,
-  "src/core/analytics/__tests__/appLifecycleTelemetry.test.ts": 1,
-  "src/core/navigation/__tests__/rootOverlayFocusTrap.test.tsx": 1
+  "src/core/analytics/__tests__/appLifecycleTelemetry.test.ts": 1
 }

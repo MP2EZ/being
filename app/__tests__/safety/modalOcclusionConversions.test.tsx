@@ -111,7 +111,7 @@ describe.each(CASES)('DEBUG-406 · $name occlusion guards', ({ overlayTestId, el
       expect(isModal).toBe(true);
     } else {
       // Root-slot: the trap is CleanRootNavigator's host instead, pinned by
-      // core/navigation/__tests__/rootOverlayFocusTrap.test.tsx.
+      // __tests__/safety/rootOverlayFocusTrap.test.tsx.
       expect(isModal).not.toBe(true);
     }
   });
