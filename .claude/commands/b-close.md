@@ -880,7 +880,7 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'insights/components/WeeklyReflectionComp
   echo "     crisis-keyboard-accessory is safety-device-only AND currently red on arrival —"
   echo "     it scrolls to weekly-reflection-card with no check-in preamble, and the e2eSeed"
   echo "     fix cannot reach it (the device build resolves no e2e-sim profile). Do not cite"
-  echo "     it as coverage until that is repaired."
+  echo "     it as coverage until that is repaired (DEBUG-574)."
 }
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'insights/components/SessionNoteComposer\.tsx' && {
   echo "🪟 SessionNoteComposer changed — the only site that occluded TWO 988 affordances,"
