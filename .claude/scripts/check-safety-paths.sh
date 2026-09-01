@@ -66,6 +66,26 @@ exempt_reason() {
   esac
 }
 
+# ---------------------------------------------------------------------------
+# Declared GATE-ONLY triggers: entries in Phase 2.5's grep that are deliberately
+# NOT Protected Paths. These are build/config inputs and test assets, not source
+# directories owned by a specialist agent, so a table row would be meaningless.
+# Anything NOT listed here must have a row — see the reverse loop below.
+# ---------------------------------------------------------------------------
+GATE_ONLY=(
+  "app/.maestro/"
+  "app/app.json"
+  "app/ios/"
+)
+gate_only_reason() {
+  case "$1" in
+    "app/.maestro/") echo "The flows themselves. Editing one trips the gate to run it (INFRA-517); it is not a source path with an owning agent." ;;
+    "app/app.json")  echo "CNG input. Its crisis-relevant content (LSApplicationQueriesSchemes) is pinned by a jest static-config test in precommit AND the Safety + privacy gates CI job (INFRA-184/368)." ;;
+    "app/ios/")      echo "Generated native project (Info.plist). iOS is CNG since INFRA-280, so this is an output of app.json, never hand-edited." ;;
+    *) echo "NO REASON RECORDED" ;;
+  esac
+}
+
 fail() { echo "❌ $*" >&2; }
 abort() { echo "🛑 check-safety-paths: $*" >&2; exit 2; }
 
@@ -147,6 +167,109 @@ for p in "${PROTECTED[@]}"; do
       echo "      to EXEMPT_PATHS here with a recorded reason." >&2
       DRIFT=1
     fi
+  fi
+done
+
+# --- REVERSE: gate entries with no Protected Path row (DEBUG-575) -----------
+# The loop above only walks CLAUDE.md, so it catches "listed but ungated" and is
+# blind to the opposite: a path GATED in the grep with no table row. That state
+# reconciles clean while arming a sim build for a path that maps to NO specialist
+# agent — so the build gets charged and nobody is told who must review it. Two
+# paths were in exactly that state when this was written (`src/core/navigation/`
+# and `src/core/config/e2eSeed.ts`), and one of them owns the accessibility
+# invariant for every root-slot overlay.
+#
+# Expansion is textual, so it is self-tested below like every other matcher here.
+expand_gate() {
+  printf '%s\n' "$1" \
+    | sed -E 's/^\^?app\/\(//; s/\)$//' \
+    | awk '{
+        n = split("", toks); depth = 0; cur = ""; t = 0
+        for (i = 1; i <= length($0); i++) {
+          c = substr($0, i, 1)
+          if (c == "(") depth++
+          if (c == ")") depth--
+          if (c == "|" && depth == 0) { toks[++t] = cur; cur = "" } else { cur = cur c }
+        }
+        toks[++t] = cur
+        for (j = 1; j <= t; j++) {
+          tok = toks[j]
+          o = index(tok, "(")
+          if (o > 0) {
+            pre = substr(tok, 1, o - 1)
+            rest = substr(tok, o + 1)
+            cl = index(rest, ")")
+            inner = substr(rest, 1, cl - 1)
+            post = substr(rest, cl + 1)
+            m = split(inner, alts, "|")
+            for (k = 1; k <= m; k++) print pre alts[k] post
+          } else print tok
+        }
+      }' \
+    | sed -E 's/\\\././g' \
+    | sed -E 's/^/app\//'
+}
+
+GATE_ENTRIES=()
+while IFS= read -r _g; do
+  [ -n "$_g" ] && GATE_ENTRIES+=("$_g")
+done < <(expand_gate "$GATE_RE")
+
+[ "${#GATE_ENTRIES[@]}" -ge 5 ] || abort "expanded only ${#GATE_ENTRIES[@]} entries from the gate regex (expected >=5).
+   The alternation structure probably changed. Failing closed — an expander that
+   silently yields nothing would report a clean reverse reconciliation."
+
+# Self-test the expander, same discipline as the probes above: prove it produces a
+# known member and does not invent one.
+_expand_selftest=$(expand_gate "$GATE_RE")
+# NOTE the absent trailing slash: the grep nests crisis inside
+# `src/features/(assessment|consent|crisis|...)`, so expansion yields the bare
+# member. The coverage test below is prefix-based in both directions for exactly
+# this reason — do not "fix" this by appending a slash.
+printf '%s\n' "$_expand_selftest" | grep -qx "app/src/features/crisis" \
+  || abort "self-test failed: the gate expander did not yield app/src/features/crisis. Expansion is broken."
+printf '%s\n' "$_expand_selftest" | grep -qx "app/src/features/tarot/" \
+  && abort "self-test failed: the gate expander invented a path. Expansion is broken."
+
+for g in "${GATE_ENTRIES[@]}"; do
+  # Regex-shaped entries (wildcards) are matched by prefix, not compared literally.
+  g_base="${g%%[*}"; g_base="${g_base%%.\**}"
+
+  is_gate_only=0
+  for o in "${GATE_ONLY[@]}"; do
+    case "$g_base" in "$o"*) is_gate_only=1 ;; esac
+  done
+  [ "$is_gate_only" -eq 1 ] && continue
+
+  covered=0
+  for p in "${PROTECTED[@]}"; do
+    # Either direction counts: a dir row covering a gated file, or a file row
+    # under a gated dir.
+    case "$g_base" in "$p"*) covered=1 ;; esac
+    case "$p" in "$g_base"*) covered=1 ;; esac
+  done
+
+  if [ "$covered" -eq 0 ]; then
+    fail "GATED BUT UNLISTED: $g_base"
+    echo "      Phase 2.5's grep matches it, so a change there arms a sim build —" >&2
+    echo "      but it has no Protected Paths row, so it maps to NO specialist" >&2
+    echo "      agent and no reviewer is named. Fix by EITHER adding a row to" >&2
+    echo "      CLAUDE.md's Protected Paths table, OR adding it to GATE_ONLY here" >&2
+    echo "      with a recorded reason." >&2
+    DRIFT=1
+  fi
+done
+
+# --- Gate-only entries the grep no longer contains --------------------------
+for o in "${GATE_ONLY[@]}"; do
+  found=0
+  for g in "${GATE_ENTRIES[@]}"; do
+    case "$g" in "$o"*) found=1 ;; esac
+  done
+  if [ "$found" -eq 0 ]; then
+    fail "ORPHAN GATE-ONLY: $o is declared gate-only but the grep no longer matches it."
+    echo "      The grep entry was renamed or removed; drop it from GATE_ONLY." >&2
+    DRIFT=1
   fi
 done
 

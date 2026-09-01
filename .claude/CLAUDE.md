@@ -58,6 +58,8 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/plugins/` | `crisis` |
 | `app/src/core/services/speech/` | `crisis` |
 | `app/patches/` | `crisis` |
+| `app/src/core/navigation/` | `crisis` |
+| `app/src/core/config/e2eSeed.ts` | `crisis` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -170,6 +172,21 @@ member (raw-audio erasure, data-at-rest, not 988 reachability). `patches/` mirro
 it alters native behaviour on a crisis path with no reviewed generated diff, and DEBUG-524
 established a patch is the ONLY remaining lever there. INFRA-531's import rule catches neither —
 nothing on either path imports from `features/crisis/`.
+
+`core/navigation/` and `core/config/e2eSeed.ts` are the eleventh instance (added DEBUG-575),
+and the first found by the reconciliation script rather than by a human or a diff: both were
+already in Phase 2.5's grep with **no table row**, so they armed a sim build while mapping to
+no agent. `check-safety-paths.sh` only walked CLAUDE.md, so "gated but unlisted" reconciled
+clean; DEBUG-575 added the reverse loop, and it named these two on its first run.
+`core/navigation/` is DIRECTORY-level and clears the naming bar: `rootOverlaySlot.tsx` +
+`CleanRootNavigator.tsx` + `NavigatorA11yHost.tsx` jointly own whether a root-slot overlay
+hides the 988 affordances (DEBUG-575: `accessibilityViewIsModal` on a slot overlay pruned
+both crisis affordances out of the accessibility tree), `navigationRef.ts` is the handle the
+crisis button navigates through, `linking.ts` resolves deeplinks against `SUPPRESSED_ROUTES`,
+and `CleanTabNavigator.tsx` hosts the tabs the reachability flow walks. `ActiveTabIndicator.tsx`
+is the single reviewed non-crisis member. `e2eSeed.ts` decides what the safety flows can
+REACH — before DEBUG-575's seed, `WeeklyReflectionCard` returned null and the composer did not
+exist in the gate build at all — so a seed narrowing is coverage loss with nothing going red.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
