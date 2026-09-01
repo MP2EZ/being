@@ -24,7 +24,11 @@ import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScre
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 // DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
 import CrisisKeyboardAccessory from '@/features/crisis/components/CrisisKeyboardAccessory';
-import { RootOverlaySlot, useIsRootOverlayOccupied } from '@/core/navigation/rootOverlaySlot';
+import {
+  RootOverlaySlot,
+  useIsRootOverlayOccupied,
+  useRootOverlayStore,
+} from '@/core/navigation/rootOverlaySlot';
 import NavigatorA11yHost from '@/core/navigation/NavigatorA11yHost';
 // DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
 // above and by the overlay boundary below.
@@ -404,8 +408,26 @@ const CleanRootNavigator: React.FC = () => {
     <NavigationContainer
       ref={navigationRef}
       linking={linkingConfig}
-      onReady={() => setActiveRootRoute(getActiveRootRouteName() ?? initialRoute)}
-      onStateChange={() => setActiveRootRoute(getActiveRootRouteName())}
+      /* DEBUG-575 finding 2 — `syncActiveRoute` enforces the slot's crisis-route
+         invariant: no overlay may hold the slot while CrisisResources is active,
+         because the slot paints ABOVE every navigator route and these backdrops
+         are opaque, so the crisis screen would be both invisible and inert.
+         Driven from navigation state rather than from any control, so the FAB,
+         CrisisKeyboardAccessory, `being://crisis` deep links and the 400ms retry
+         inside navigateToCrisisResources are all covered without enumerating
+         them. It runs AFTER the state commit, which is also why it cannot live
+         in a tap handler — that util requires its first attempt stay first and
+         stay synchronous. */
+      onReady={() => {
+        const r = getActiveRootRouteName() ?? initialRoute;
+        useRootOverlayStore.getState().syncActiveRoute(r);
+        setActiveRootRoute(r);
+      }}
+      onStateChange={() => {
+        const r = getActiveRootRouteName();
+        useRootOverlayStore.getState().syncActiveRoute(r);
+        setActiveRootRoute(r);
+      }}
     >
       <View style={styles.root}>
         {/* DEBUG-575 — THE FOCUS TRAP FOR EVERY ROOT-SLOT OVERLAY LIVES HERE.

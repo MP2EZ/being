@@ -584,7 +584,12 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
       }}
       onCancel={() => setEditing(null)}
     />
-  ));
+  ),
+  // DEBUG-575 finding 2 — the slot is revoked when a crisis route becomes
+  // active, so close rather than re-publishing over CrisisResources on return.
+  // No draft preservation here: unlike the weekly reflection, this composer
+  // edits an EXISTING stored note and its text is already persisted.
+  () => setEditing(null));
 
   // Don't show the section until there's at least one completed screening.
   if (!hasPhq9 && !hasGad7) return null;

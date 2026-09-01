@@ -47,6 +47,37 @@
  * overlays whose BackHandlers would fire LIFO and whose dismissals would leave
  * the other orphaned.
  *
+ * ── AND NO OVERLAY MAY HOLD THE SLOT ON A CRISIS ROUTE (DEBUG-575 finding 2) ──
+ *
+ * The slot paints above EVERY navigator route, `CrisisResources` included — it is
+ * a `Stack.Screen` with `presentation: 'modal'`, a JS stack modal with no separate
+ * native window to escape into. So an overlay left holding the slot when the user
+ * taps the crisis button covers the destination it just sent them to. Not dimmed:
+ * DEBUG-406 made these backdrops OPAQUE to satisfy WCAG 1.4.11, and the overlay
+ * root claims the touch responder, so the crisis screen is invisible AND inert.
+ * `RootCrisisButton` then suppresses itself on that route, so the affordance the
+ * user just pressed vanishes and nothing replaces it.
+ *
+ * That is the invariant `crisis-zero-988-windows.test.tsx` already states — "a
+ * route may suppress the root crisis overlay ONLY IF every reachable render state
+ * of that route mounts its own crisis affordance" — violated by a render state
+ * DEBUG-406 created and nobody re-checked.
+ *
+ * Enforced HERE rather than in `RootCrisisButton`'s handler, for three reasons:
+ * the button knows nothing about overlays and must not start (MAINT-290's whole
+ * point); it is not the only entrant, so a handler-side release covers one of N
+ * (`CrisisKeyboardAccessory`, `being://crisis` deep links, and the 400ms retry
+ * inside `navigateToCrisisResources` all reach the same route); and the release
+ * must come AFTER the navigate, which a tap handler cannot express — that util
+ * requires its first attempt stay first and stay synchronous.
+ *
+ * Driven by navigation state, so every entrant is covered by construction rather
+ * than by enumeration. Keyed on an explicit crisis-route set, NOT on
+ * `RootCrisisButton.SUPPRESSED_ROUTES`: that set means "the FAB steps aside here"
+ * and also holds `AssessmentFlow` and `LegalGate`, which are not crisis
+ * destinations. Reusing a set whose meaning is adjacent-but-different is how the
+ * `guidance/` and `consent/` two-list failures started.
+ *
  * ── THE FOCUS TRAP IS THE SLOT'S JOB, NOT THE OVERLAY'S (DEBUG-575) ──
  *
  * This section used to say the focus trap "remains the overlay's own
@@ -85,21 +116,49 @@ import React, { useEffect } from 'react';
 import { create } from 'zustand';
 import { logSystem } from '@/core/services/logging';
 
+/**
+ * Routes on which no overlay may hold the slot (DEBUG-575).
+ *
+ * Deliberately its own named constant rather than a reuse of
+ * `RootCrisisButton.SUPPRESSED_ROUTES` — see the docblock above.
+ */
+export const CRISIS_DESTINATION_ROUTES: readonly string[] = ['CrisisResources'];
+
+const isCrisisRoute = (routeName?: string | null): boolean =>
+  typeof routeName === 'string' && CRISIS_DESTINATION_ROUTES.includes(routeName);
+
 interface RootOverlayState {
   /** Identity of the overlay currently holding the slot, or null. */
   ownerId: string | null;
   /** The element to render. */
   node: React.ReactNode | null;
+  /** True while a crisis destination is the active root route. */
+  crisisRouteActive: boolean;
   claim: (id: string, node: React.ReactNode) => void;
   release: (id: string) => void;
+  /** Called from CleanRootNavigator's onStateChange / onReady. */
+  syncActiveRoute: (routeName?: string | null) => void;
 }
 
 export const useRootOverlayStore = create<RootOverlayState>((set, get) => ({
   ownerId: null,
   node: null,
+  crisisRouteActive: false,
 
   claim: (id, node) => {
-    const { ownerId } = get();
+    const { ownerId, crisisRouteActive } = get();
+
+    // DEBUG-575 finding 2, the symmetric half: refuse rather than paint over the
+    // crisis destination. Nothing publishes from CrisisResources today — both
+    // claimants live in features/insights/components/ — but this closes the
+    // direction a future overlay would otherwise walk into, and it is two lines.
+    if (crisisRouteActive) {
+      logSystem(
+        `Root overlay slot claim by "${id}" REFUSED — a crisis route is active`,
+      );
+      return;
+    }
+
     if (ownerId !== null && ownerId !== id) {
       // Not a crash — a stacked overlay is a UI bug, not a safety one, and
       // throwing here would take down a screen. But it must be loud: the
@@ -118,6 +177,23 @@ export const useRootOverlayStore = create<RootOverlayState>((set, get) => ({
     if (get().ownerId !== id) return;
     set({ ownerId: null, node: null });
   },
+
+  syncActiveRoute: (routeName) => {
+    const active = isCrisisRoute(routeName);
+    const { ownerId } = get();
+
+    // Unconditional release, NOT the guarded `release(id)` above: the owner did
+    // not ask for this and must not be able to veto it. 988 reachability wins
+    // over whatever is on screen.
+    if (active && ownerId !== null) {
+      logSystem(
+        `Root overlay slot released — "${ownerId}" cannot hold it on crisis route "${routeName}"`,
+      );
+      set({ ownerId: null, node: null, crisisRouteActive: true });
+      return;
+    }
+    set({ crisisRouteActive: active });
+  },
 }));
 
 /**
@@ -134,9 +210,36 @@ export function useRootOverlay(
   id: string,
   visible: boolean,
   render: () => React.ReactNode,
+  onRevoked?: () => void,
 ): void {
   const claim = useRootOverlayStore((s) => s.claim);
   const release = useRootOverlayStore((s) => s.release);
+  const currentOwner = useRootOverlayStore((s) => s.ownerId);
+
+  // DEBUG-575 finding 2. The slot can now be taken away without the owner
+  // asking — `syncActiveRoute` releases it unconditionally when a crisis route
+  // becomes active. Centralised here rather than left to each consumer: both
+  // callers would otherwise have to remember the invariant, which is how the
+  // two-list failures start.
+  //
+  // Without this the owner's `visible` stays true, so the claim effect below
+  // re-runs and re-publishes the moment the user navigates BACK — throwing a
+  // reflection sheet at someone returning from crisis resources. Telling the
+  // owner to close is what makes the release stick.
+  const onRevokedRef = React.useRef(onRevoked);
+  onRevokedRef.current = onRevoked;
+  const heldRef = React.useRef(false);
+
+  useEffect(() => {
+    if (currentOwner === id) {
+      heldRef.current = true;
+      return;
+    }
+    if (heldRef.current) {
+      heldRef.current = false;
+      if (visible) onRevokedRef.current?.();
+    }
+  }, [currentOwner, id, visible]);
 
   // Effect, not render-phase: mutating a store during render is unsafe under
   // concurrent rendering, and the slot is a side effect on shared state.

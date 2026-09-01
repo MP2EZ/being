@@ -98,6 +98,12 @@ interface WeeklyReflectionComposerProps {
   initialText: string;
   onSave: (text: string) => void | Promise<void>;
   onCancel: () => void;
+  /**
+   * Reports the in-progress text so the host can preserve it if the slot is
+   * revoked by a crisis route (DEBUG-575 finding 2). Not a controlled-input
+   * conversion: `text` stays local, this only mirrors it upward.
+   */
+  onDraftChange?: (text: string) => void;
   /** Control that opened the sheet; focus returns here on close. */
   returnFocusRef?: React.RefObject<React.ComponentRef<typeof Pressable> | null>;
 }
@@ -107,6 +113,7 @@ const WeeklyReflectionComposer: React.FC<WeeklyReflectionComposerProps> = ({
   initialText,
   onSave,
   onCancel,
+  onDraftChange,
   returnFocusRef,
 }) => {
   const [text, setText] = useState(initialText);
@@ -198,9 +205,11 @@ const WeeklyReflectionComposer: React.FC<WeeklyReflectionComposerProps> = ({
             {...crisisAccessoryProps()} /* DEBUG-450 */
             style={styles.input}
             value={text}
-            onChangeText={(next) =>
-              setText(next.length > MAX_LEN ? next.slice(0, MAX_LEN) : next)
-            }
+            onChangeText={(next) => {
+              const clamped = next.length > MAX_LEN ? next.slice(0, MAX_LEN) : next;
+              setText(clamped);
+              onDraftChange?.(clamped);
+            }}
             placeholder="Write what you noticed this week…"
             placeholderTextColor={colorSystem.gray[400]}
             multiline

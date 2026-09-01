@@ -250,6 +250,17 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     id: "crisis-button-root"
 - tapOn:
     id: "crisis-button-root"
+# DEBUG-575 finding 2 — BOTH of the next two are required and neither substitutes
+# for the other. Before the fix the SHEET-GONE assertion was what failed: the route
+# committed to CrisisResources while this composer's OPAQUE inset-0 backdrop covered
+# it and its responder swallowed every touch, so the crisis screen was mounted,
+# listed in the hierarchy, and completely useless. Asserting only that the screen
+# exists would have passed against that. Asserting the sheet is gone is what proves
+# the destination is actually on screen and reachable.
+- extendedWaitUntil:
+    notVisible:
+      id: "weekly-reflection-overlay"
+    timeout: 3000
 - assertVisible:
     id: "crisis-resources-screen"
 - extendedWaitUntil:
@@ -257,8 +268,19 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     timeout: 3000
 - tapOn:
     id: "nav-back-button"
-# Post-condition, not a tap (DEBUG-403 shape: a tap that reported COMPLETED while
-# the app never received it). The sheet survives the excursion.
+# INVERTED BY DEBUG-575 finding 2. This used to assert the sheet SURVIVES the
+# excursion — that was the defect written down as a contract. The slot is released
+# on entry to the crisis route, so the user returns to Insights with the card's own
+# control restored and no sheet. The draft is preserved in memory and fed back on
+# re-open; that is unobservable to Maestro and is pinned in jest instead.
+- assertNotVisible:
+    id: "weekly-reflection-overlay"
+- assertVisible:
+    id: "weekly-reflection-prompt"
+
+# The mis-tap arm below needs the sheet up again — the release above closed it.
+- tapOn:
+    id: "weekly-reflection-prompt"
 - assertVisible:
     id: "weekly-reflection-overlay"
 
