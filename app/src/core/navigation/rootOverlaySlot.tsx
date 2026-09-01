@@ -47,13 +47,38 @@
  * overlays whose BackHandlers would fire LIFO and whose dismissals would leave
  * the other orphaned.
  *
- * ── WHAT THIS SLOT DOES NOT DO ──
+ * ── THE FOCUS TRAP IS THE SLOT'S JOB, NOT THE OVERLAY'S (DEBUG-575) ──
  *
- * It does not supply the focus trap, the BackHandler, the reserved geometry or
- * the backdrop. Those remain the overlay's own responsibility, because they are
- * per-overlay decisions — see `crisisButtonGeometry.ts` and any DEBUG-406
- * conversion for the pattern. The slot's single guarantee is WHERE the overlay
- * renders, which is the part no individual component can get right on its own.
+ * This section used to say the focus trap "remains the overlay's own
+ * responsibility". That was wrong, and it was wrong in the one direction that
+ * costs 988 access.
+ *
+ * An overlay published here is a DIRECT NATIVE SIBLING of `RootCrisisButton`
+ * and `CrisisKeyboardAccessory` — `RootOverlaySlot` renders a bare fragment, so
+ * it adds no view of its own. `accessibilityViewIsModal` prunes the RECEIVER'S
+ * SIBLINGS from the accessibility tree. So an overlay that sets it here does not
+ * trap focus within itself; it deletes both root crisis affordances from the
+ * tree. Measured on the gate sim: with the weekly-reflection composer open,
+ * `crisis-button-root` had ZERO occurrences in the hierarchy while being plainly
+ * painted on screen, and one occurrence again the moment the sheet closed.
+ *
+ * That is DEBUG-406's own defect displaced one layer down — converted from
+ * visual occlusion, which a screenshot catches, to tree-level occlusion for
+ * assistive-technology users, which it does not.
+ *
+ * NEVER set `accessibilityViewIsModal` on an overlay published into this slot.
+ * The trap is supplied instead by `CleanRootNavigator`, which hides the
+ * `Stack.Navigator` subtree (and nothing else) while `isRootOverlayOccupied()`
+ * holds — see `useIsRootOverlayOccupied` below. That confines assistive tech to
+ * the overlay PLUS the crisis affordances, which is the trap actually wanted,
+ * and it works on Android too, where `accessibilityViewIsModal` is a no-op.
+ *
+ * ── WHAT THIS SLOT STILL DOES NOT DO ──
+ *
+ * It does not supply the BackHandler, the reserved geometry or the backdrop.
+ * Those remain the overlay's own responsibility, because they are per-overlay
+ * decisions — see `crisisButtonGeometry.ts` and any DEBUG-406 conversion for
+ * the pattern.
  */
 
 import React, { useEffect } from 'react';
@@ -140,5 +165,20 @@ export const RootOverlaySlot: React.FC = () => {
   const node = useRootOverlayStore((s) => s.node);
   return <>{node}</>;
 };
+
+/**
+ * Whether any overlay currently holds the slot (DEBUG-575).
+ *
+ * `CleanRootNavigator` subscribes to this to hide the `Stack.Navigator` subtree
+ * from assistive technology while an overlay is up. A boolean is sufficient
+ * because mutual exclusion is already an invariant of this store: at most one
+ * overlay holds the slot at a time.
+ *
+ * Keyed on `ownerId` rather than `node` deliberately — `node` is a fresh element
+ * on every render of the publishing component, so a selector on it would return
+ * a new reference each time and re-render the whole navigator.
+ */
+export const useIsRootOverlayOccupied = (): boolean =>
+  useRootOverlayStore((s) => s.ownerId !== null);
 
 export default RootOverlaySlot;

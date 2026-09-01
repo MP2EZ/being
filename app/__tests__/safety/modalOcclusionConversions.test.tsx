@@ -42,6 +42,7 @@ const noop = (): void => undefined;
 const CASES = [
   {
     name: 'ThresholdEducationModal',
+    mount: 'inline' as const,
     overlayTestId: 'threshold-education-overlay',
     element: (visible: boolean) => (
       <ThresholdEducationModal visible={visible} onDismiss={noop} />
@@ -49,6 +50,7 @@ const CASES = [
   },
   {
     name: 'SessionNoteComposer',
+    mount: 'root-slot' as const,
     overlayTestId: 'session-note-overlay',
     element: (visible: boolean) => (
       <SessionNoteComposer
@@ -62,6 +64,7 @@ const CASES = [
   },
   {
     name: 'WeeklyReflectionComposer',
+    mount: 'root-slot' as const,
     overlayTestId: 'weekly-reflection-overlay',
     element: (visible: boolean) => (
       <WeeklyReflectionComposer
@@ -74,7 +77,7 @@ const CASES = [
   },
 ] as const;
 
-describe.each(CASES)('DEBUG-406 · $name occlusion guards', ({ overlayTestId, element }) => {
+describe.each(CASES)('DEBUG-406 · $name occlusion guards', ({ overlayTestId, element, mount }) => {
   it('renders no RN <Modal> — the occlusion shape must not return', () => {
     const { UNSAFE_queryAllByType } = render(element(true));
     expect(UNSAFE_queryAllByType(Modal)).toHaveLength(0);
@@ -87,9 +90,30 @@ describe.each(CASES)('DEBUG-406 · $name occlusion guards', ({ overlayTestId, el
     expect(queryByTestId(overlayTestId)).toBeNull();
   });
 
-  it('traps iOS accessibility focus via accessibilityViewIsModal', () => {
+  // DEBUG-575 — SPLIT BY MOUNT SITE. This used to assert `toBe(true)` for all
+  // three, which PINNED A DEFECT: `accessibilityViewIsModal` prunes the
+  // RECEIVER'S SIBLINGS, and the two root-slot overlays are direct native
+  // siblings of RootCrisisButton and CrisisKeyboardAccessory (RootOverlaySlot
+  // renders a bare fragment). So on those two the prop deleted both crisis
+  // affordances from the accessibility tree — measured on device as zero
+  // `crisis-button-root` nodes with the sheet open, the button still painted.
+  // ThresholdEducationModal mounts INLINE in ProfileScreen, where the crisis
+  // button is an ancestor's sibling and out of prune scope, so it keeps the prop.
+  //
+  // Asserted on the RENDERED TREE, never on source text: both composers now
+  // carry prose naming this anti-pattern, which is exactly the DEBUG-390
+  // collision a source-string matcher would trip over.
+  it('supplies its focus trap in the way its mount site allows', () => {
     const { getByTestId } = render(element(true));
-    expect(getByTestId(overlayTestId).props.accessibilityViewIsModal).toBe(true);
+    const isModal = getByTestId(overlayTestId).props.accessibilityViewIsModal;
+
+    if (mount === 'inline') {
+      expect(isModal).toBe(true);
+    } else {
+      // Root-slot: the trap is CleanRootNavigator's host instead, pinned by
+      // core/navigation/__tests__/rootOverlayFocusTrap.test.tsx.
+      expect(isModal).not.toBe(true);
+    }
   });
 
   it('is a full-bleed absolute layer, so its box is its host', () => {

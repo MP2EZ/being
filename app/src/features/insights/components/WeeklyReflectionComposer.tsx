@@ -47,7 +47,8 @@
  * button so it structurally cannot cover it.
  *
  * ── WHAT <Modal> SUPPLIED FOR FREE AND IS NOW HAND-ROLLED ──
- *   • iOS focus trap             → `accessibilityViewIsModal`
+ *   • the focus trap           → CleanRootNavigator's host (DEBUG-575; it is
+ *                                  NOT `accessibilityViewIsModal` — see below)
  *   • Android back-to-dismiss    → BackHandler, live only while visible
  *   • touch isolation            → the overlay root claims the responder
  *   • the surface-change announcement → focus moves to the title
@@ -161,7 +162,15 @@ const WeeklyReflectionComposer: React.FC<WeeklyReflectionComposerProps> = ({
   return (
     <View
       style={styles.overlay}
-      accessibilityViewIsModal
+      /* DEBUG-575: NO `accessibilityViewIsModal` HERE, deliberately.
+         This overlay is published into the root slot, which renders a bare
+         fragment — so it is a direct native SIBLING of RootCrisisButton and
+         CrisisKeyboardAccessory, and that prop prunes the receiver's SIBLINGS.
+         Setting it deleted both crisis affordances from the accessibility tree
+         while this sheet was open: a zero-988 state for assistive tech, with the
+         button still painted on screen so no screenshot could catch it. The trap
+         now lives on CleanRootNavigator's host, which hides the Stack.Navigator
+         subtree and nothing else. Pinned by modalOcclusionConversions.test.tsx. */
       testID="weekly-reflection-overlay"
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
