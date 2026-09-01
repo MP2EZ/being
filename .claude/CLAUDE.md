@@ -50,8 +50,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/core/stores/consentStore.ts` | `compliance` |
 | `app/src/core/hooks/` | `crisis` |
 | `app/src/core/components/ThresholdEducationModal.tsx` | `crisis` + `philosopher` |
-| `app/src/features/insights/components/SessionNoteComposer.tsx` | `crisis` + `philosopher` |
-| `app/src/features/insights/components/WeeklyReflectionComposer.tsx` | `crisis` + `philosopher` |
+| `app/src/features/insights/components/` | `crisis` + `philosopher` |
 | `app/src/features/home/screens/CleanHomeScreen.tsx` | `crisis` |
 | `app/src/features/profile/screens/DeleteAccountScreen.tsx` | `crisis` |
 | `app/src/core/services/logging/ExternalErrorReporter.ts` | `crisis` |

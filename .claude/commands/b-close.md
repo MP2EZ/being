@@ -424,7 +424,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/(SessionNoteComposer|WeeklyReflectionComposer)\.tsx|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -652,8 +652,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | An UNGATED file imports a crisis constant | **hard close FAILURE** — no flow | INFRA-531. `I531_IMPORT_RE` over the diff, anchored on the import specifier. An ALARM demanding a ruling (Protected Paths row + arm, or a recorded `i531_exempt_reason()` entry), never a silent flow pick. Exempt from the inert filter: class (a) *inverts* here — a removed crisis import is the extraction case it exists to catch — and class (b) is already discharged by its own comment exclusion. Membership is tested against `SAFETY_CANDIDATES` (pre-inert), or an already-ruled file with a deletion-only diff raises a failure nobody can discharge. Exits before Step 2.5.2, so `--skip-e2e` cannot reach it. |
 | An ungated file imports the broad `@/features/assessment/types` barrel | **not detected** (recorded blind spot) | INFRA-531. The barrel re-exports the thresholds, but its ungated importers pull `AssessmentType`/`PHQ9Result` for chart axes and export plumbing — arming it would hard-fail four closes on day one. A binding-qualified arm is rejected: multi-line imports are invisible to a line-grep, and that misses silently. Bounded: `assessment/types/index.ts` is itself gated, so only a NEW ungated consumer of an existing re-export escapes. |
 | `app/plugins/` change | **`crisis-button-reachability`** + printed notice | FEAT-522. A config plugin injects native code that can occlude every 988 affordance, and iOS is CNG so no AppDelegate diff is ever reviewed. No sim flow can observe it — Maestro drives an ACTIVE app and the shield exists only while inactive — so the arm proves the surrounding crisis paths still render and the notice points at the attended device script. |
-| `insights/components/WeeklyReflectionComposer.tsx` change | **notice only** — no sim flow | DEBUG-525. Only coverage is `crisis-keyboard-accessory` (`safety-device-only`). Jest pin: `modalOcclusionConversions.test.tsx`. |
-| `insights/components/SessionNoteComposer.tsx` change | **notice only** — unreachable in gate build | DEBUG-525. `eas.json`'s `e2e-sim` profile sets `wellness_trend_notes:false`, so no sim flow can reach it at any scope. Jest pin: `modalOcclusionConversions.test.tsx`. |
+| `features/insights/components/` change | **`crisis-button-reachability`** | INFRA-532. Gated as a DIRECTORY: 4 of 6 members are safety-bearing — two DEBUG-406 conversion sites plus the two files that publish them into the root overlay slot and decide whether either ever renders (`WeeklyReflectionCard`'s `MIN_CHECK_INS_TO_SHOW`, `WellnessScreeningTrends`' `notesEnabled`). The other three are `DotCalendar.tsx`, `PrincipleEngagementChart.tsx` and the barrel. The flow taps through `WeeklyReflectionComposer`, reachable only because `e2eSeed.ts` seeds four non-`daily` check-ins. **Necessary, not sufficient**: Maestro taps element CENTRES, so a marginal action-row geometry regression is invisible here — that is `modalOcclusionConversions.test.tsx`. `SessionNoteComposer` stays notice-only (flag-dark in the gate build); keyboard-up stays uncovered pending the `crisis-keyboard-accessory` repair. |
 | `features/guidance/` change | **`guidance-suppressed-handoff` + `guidance-gentle-tier-cap`** | FEAT-457 + INFRA-420. The first drives Home entry → suppressed → notice → CrisisResources → 988 with all four tier testIDs ABSENT; the second pins the positive branch (Tier 0/1 shown, Tier 2/3 capped). Both arms are required — suppression alone stays green if the gate suppresses everyone. Supersedes the INFRA-416 crisis-button fail-safe. |
 | `features/practices/dailyloop/` change | **`daily-loop-quick-depth` + `daily-loop-deeplink`** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. INFRA-509 narrowed this from the full suite: these two are the only tagged flows carrying a daily-loop testID, so they ARE that coverage. A `DailyLoopDepthSelectScreen` edit additionally prints the `e2e:safety:ax5` instruction (DEBUG-469's `CRISIS_FAB_CLEARANCE` is invisible to centre-tapping flows). |
 | `features/practices/` change (outside `dailyloop/`) | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
@@ -865,15 +864,23 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/hooks/'; then
   echo "       on the journal save inset)"
 fi
 # The two insights composers are DEBUG-406 conversion sites rendering into the root overlay
-# slot. NOTICE ONLY, deliberately: WeeklyReflectionComposer's only Maestro coverage is
-# crisis-keyboard-accessory (safety-device-only), and SessionNoteComposer is unreachable in
-# the gate build at all — eas.json's e2e-sim profile sets wellness_trend_notes:false. An arm
-# that cannot be satisfied is the shape that trains --skip-e2e; jest pins it instead.
+# slot. WeeklyReflectionComposer now has a real sim flow (INFRA-532): crisis-button-reachability
+# taps through it, reachable because e2eSeed.ts seeds four non-'daily' check-ins past
+# WeeklyReflectionCard's MIN_CHECK_INS_TO_SHOW gate. SessionNoteComposer stays notice-only —
+# it is flag-dark in the gate build, and an arm that cannot be satisfied is the shape that
+# trains --skip-e2e.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'insights/components/WeeklyReflectionComposer\.tsx' && {
-  echo "🪟 WeeklyReflectionComposer changed — a DEBUG-406 conversion site. Its only flow"
-  echo "   coverage is crisis-keyboard-accessory (safety-device-only), so no sim flow is"
-  echo "   added. CI-side pin: __tests__/safety/modalOcclusionConversions.test.tsx"
-  echo "   Validate on hardware: npm run e2e:safety:keyboard-accessory"
+  FLOWS+=("crisis-button-reachability")
+  echo "🪟 WeeklyReflectionComposer changed — a DEBUG-406 conversion site. The Insights block"
+  echo "   of crisis-button-reachability taps through it (occlusion arm + mis-tap arm)."
+  echo "   NECESSARY, NOT SUFFICIENT: Maestro taps element CENTRES, which never enter the"
+  echo "   crisis button's contested column, so a marginal action-row geometry regression is"
+  echo "   invisible to it. CI-side pin: __tests__/safety/modalOcclusionConversions.test.tsx"
+  echo "   NOT covered by any runnable flow: the keyboard-up path."
+  echo "     crisis-keyboard-accessory is safety-device-only AND currently red on arrival —"
+  echo "     it scrolls to weekly-reflection-card with no check-in preamble, and the e2eSeed"
+  echo "     fix cannot reach it (the device build resolves no e2e-sim profile). Do not cite"
+  echo "     it as coverage until that is repaired."
 }
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'insights/components/SessionNoteComposer\.tsx' && {
   echo "🪟 SessionNoteComposer changed — the only site that occluded TWO 988 affordances,"
