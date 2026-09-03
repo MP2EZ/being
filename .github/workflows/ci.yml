@@ -386,9 +386,11 @@ jobs:
           retention-days: 14
 
   # Security + compliance — encryption, HIPAA-adjacent checks, dependency
-  # audit. npm audit threshold is `high` (not `moderate`) until the
-  # 5-month-old lockfile is refreshed — see audit-roadmap.md Phase 0/3 for
-  # the planned dependency refresh.
+  # audit. npm audit threshold is `moderate`, tightened from `high` by
+  # MAINT-182 once the explicit allowlist landed (this header claimed `high`
+  # until INFRA-576; .audit-ci.json has said `"moderate": true` since
+  # MAINT-182). The 5-month-old lockfile refresh is still outstanding — see
+  # audit-roadmap.md Phase 0/3.
   security:
     name: Security + compliance
     runs-on: ubuntu-latest
@@ -544,14 +546,13 @@ jobs:
       - name: npm audit
         # MAINT-182: switched from raw `npm audit --audit-level=high` to
         # `audit-ci` with an explicit allowlist at app/.audit-ci.json.
-        # Three transitive CVEs in @expo/config-plugins@56.0.8 are
-        # allowlisted (GHSA-ph9p-34f9-6g65 tmp path traversal,
-        # GHSA-6vfc-qv3f-vr6c markdown-it ReDoS, GHSA-w5hq-g745-h8pq
-        # uuid bounds check) — all build-time only, no patched stable
-        # version available. Threshold is `moderate` (tightened from the
-        # prior `high`) since the allowlist gives precise control.
-        # Drop the GHSAs from .audit-ci.json when @expo/config-plugins
-        # >=56.0.9 ships as stable.
+        # Threshold is `moderate` (tightened from the prior `high`) since
+        # the allowlist gives precise control. Every allowlisted GHSA
+        # carries its own review note and drop-condition in that file's
+        # `$comment` — read there, not here; this list rotted twice.
+        # INFRA-576 retired GHSA-ph9p-34f9-6g65 (tmp), which this comment
+        # had attributed to @expo/config-plugins: the tree's only tmp
+        # arrives via patch-package and is already patched.
         #
         # Historical context (kept for archaeology): the W3 paydown's
         # `npm audit fix` cleared 11 high+critical vulns (xmldom,
