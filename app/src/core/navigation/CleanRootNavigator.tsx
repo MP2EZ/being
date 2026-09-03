@@ -24,7 +24,12 @@ import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScre
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 // DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
 import CrisisKeyboardAccessory from '@/features/crisis/components/CrisisKeyboardAccessory';
-import { RootOverlaySlot } from '@/core/navigation/rootOverlaySlot';
+import {
+  RootOverlaySlot,
+  useIsRootOverlayOccupied,
+  useRootOverlayStore,
+} from '@/core/navigation/rootOverlaySlot';
+import NavigatorA11yHost from '@/core/navigation/NavigatorA11yHost';
 // DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
 // above and by the overlay boundary below.
 import Static988Button from '@/features/crisis/components/Static988Button';
@@ -231,6 +236,12 @@ const CleanRootNavigator: React.FC = () => {
   // (suppression + immersive/standard mode). Tracked via NavigationContainer below.
   const [activeRootRoute, setActiveRootRoute] = useState<string | undefined>(undefined);
 
+  // DEBUG-575: drives the accessibility focus trap on the navigator host below.
+  // Read here rather than inside the host so the subscription is part of this
+  // component's normal render, and keyed on ownerId so a re-render of the
+  // publishing component does not re-render the whole navigator.
+  const rootOverlayOccupied = useIsRootOverlayOccupied();
+
   useEffect(() => {
     let cancelled = false;
 
@@ -397,10 +408,49 @@ const CleanRootNavigator: React.FC = () => {
     <NavigationContainer
       ref={navigationRef}
       linking={linkingConfig}
-      onReady={() => setActiveRootRoute(getActiveRootRouteName() ?? initialRoute)}
-      onStateChange={() => setActiveRootRoute(getActiveRootRouteName())}
+      /* DEBUG-575 finding 2 — `syncActiveRoute` enforces the slot's crisis-route
+         invariant: no overlay may hold the slot while CrisisResources is active,
+         because the slot paints ABOVE every navigator route and these backdrops
+         are opaque, so the crisis screen would be both invisible and inert.
+         Driven from navigation state rather than from any control, so the FAB,
+         CrisisKeyboardAccessory, `being://crisis` deep links and the 400ms retry
+         inside navigateToCrisisResources are all covered without enumerating
+         them. It runs AFTER the state commit, which is also why it cannot live
+         in a tap handler — that util requires its first attempt stay first and
+         stay synchronous. */
+      onReady={() => {
+        const r = getActiveRootRouteName() ?? initialRoute;
+        useRootOverlayStore.getState().syncActiveRoute(r);
+        setActiveRootRoute(r);
+      }}
+      onStateChange={() => {
+        const r = getActiveRootRouteName();
+        useRootOverlayStore.getState().syncActiveRoute(r);
+        setActiveRootRoute(r);
+      }}
     >
       <View style={styles.root}>
+        {/* DEBUG-575 — THE FOCUS TRAP FOR EVERY ROOT-SLOT OVERLAY LIVES HERE.
+            Not on the overlay. An overlay published into RootOverlaySlot is a
+            direct native SIBLING of RootCrisisButton and CrisisKeyboardAccessory
+            (the slot renders a bare fragment and adds no view), so
+            `accessibilityViewIsModal` on the overlay prunes BOTH crisis
+            affordances out of the accessibility tree — measured: zero
+            `crisis-button-root` nodes with the weekly-reflection composer open,
+            while the button was plainly painted on screen.
+
+            Hiding the navigator subtree instead confines assistive technology to
+            the overlay PLUS the crisis affordances, which is the trap actually
+            wanted. Scope is load-bearing and mirrors PracticeScreenLayout's rule:
+            this host wraps ONLY Stack.Navigator. RootOverlaySlot,
+            RootCrisisBoundary and CrisisKeyboardAccessory are deliberately
+            OUTSIDE it — wrapping them would hide the overlay along with
+            everything else, and hide 988 along with it.
+
+            `importantForAccessibility` carries Android, where
+            `accessibilityViewIsModal` is a no-op and nothing trapped focus at
+            all before this. Pinned by rootOverlayFocusTrap.test.tsx. */}
+        <NavigatorA11yHost hidden={rootOverlayOccupied} style={styles.root}>
         <Stack.Navigator
           initialRouteName={initialRoute}
         screenOptions={{
@@ -887,6 +937,7 @@ const CleanRootNavigator: React.FC = () => {
           />
         </Stack.Group>
         </Stack.Navigator>
+        </NavigatorA11yHost>
 
         {/* MAINT-290: single persistent crisis-button overlay. Sibling of the root
             Stack.Navigator (JS stack → renders above stack modals too), so 988 access

@@ -66,10 +66,14 @@ export type FeatureFlag =
   // low-vision and eyes-closed practitioners, so its availability must not be
   // coupled to analytics consent (INFRA-199 carve-out, same reasoning as
   // `bug_reporting`). A user who declined analytics must not thereby lose their
-  // only non-visual cue channel. Ships dark: the item's 60fps / cue-latency /
+  // only non-visual cue channel. It SHIPPED dark: the item's 60fps / cue-latency /
   // degradation checks are on-device manual validation that CI cannot run
   // (100% ubuntu, and the iOS simulator emits no haptics at all), so the flag
-  // stays false in production until that checklist is signed off.
+  // stayed false in production until that checklist was signed off. INFRA-395
+  // carried that sign-off and it is now `practice_haptics:true` in BOTH prod
+  // sources — `.config/.env.production` and the EAS `production` env, which is
+  // what a shipped build actually reads. Note the e2e-sim profile keeps it
+  // FALSE, so the gate build does not exercise it.
   | 'practice_haptics'
   // INFRA-395 briefly added a `haptic_trace` diagnostic flag here and REMOVED it
   // again. Recorded so nobody re-derives it: the goal was a cue-latency trace
