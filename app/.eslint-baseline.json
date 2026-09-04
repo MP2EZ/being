@@ -17,6 +17,7 @@
   "src/core/navigation/CleanTabNavigator.tsx": 5,
   "src/core/navigation/__tests__/CleanTabNavigator.accessibility.test.tsx": 1,
   "src/core/navigation/__tests__/dailyLoopDeepLink.test.ts": 1,
+  "src/core/navigation/__tests__/tabBarLayout.test.ts": 1,
   "src/core/services/data-retention/DataRetentionService.ts": 1,
   "src/core/services/data-retention/__tests__/DataRetentionService.test.ts": 1,
   "src/core/services/logging/__tests__/RateLimiter.test.ts": 1,
