@@ -20,7 +20,7 @@ there is **no dual-write**. (Verdict from the crisis + compliance + architect pl
 | Sink | Carries | Legal basis / gate | Sanitizer | Identity |
 |---|---|---|---|---|
 | **PostHog (EU)** | Consent-gated **product** analytics only (screen views, feature counts, lifecycle, errors). **Never** crisis or wellness-derived signal. | User opt-in (`analyticsEnabled` && !universalOptOut); SDK not even initialized without consent. | `PHIFilter` — whitelist **reject-gate** (drops anything score-shaped or PHI-keyworded). | device-persistent `distinct_id`; deletable on request. |
-| **Supabase `analytics_events`** | **Vital-interest** safety telemetry (the crisis-detection event) **+ operational** telemetry (backup/sync ops). | Crisis: GDPR Art. 6(1)(d) vital interests — fires regardless of analytics consent **and** universal opt-out. Ops: legitimate-interest + `canPerformOperation` (T4). | `sanitizeAnalyticsProperties` — **bucket-transform** (accepts severity, down-converts; never raw scores). | schema-enforced daily-rotated anonymous `session_id`. |
+| **Supabase `analytics_events`** | **Vital-interest** safety telemetry (the crisis-detection event) **+ operational** telemetry (backup/sync ops). | Crisis: GDPR Art. 6(1)(d) vital interests — fires regardless of analytics consent **and** universal opt-out. Ops: legitimate-interest + `canPerformOperation` (T4). | `sanitizeAnalyticsProperties` — **bucket-transform** (accepts severity, down-converts; never raw scores). | persistent anonymous `user_id` (`auth.uid()`) + a bounded-lifetime `session_id` rotating at the UTC day boundary and after 30 min idle (INFRA-568). |
 | **Custom REST API (`api.being.fyi`)** | **REMOVED** (INFRA-214 T2). Was never deployed. | — | — | — |
 
 **Shared invariant (both sinks):** no raw PHQ-9/GAD-7 integer ever leaves the device — PostHog
@@ -79,8 +79,9 @@ future forward stays a no-migration add; that forward requires its own DPIA befo
 - **PostHog path:** PHIFilter allow-list (`SAFE_EVENT_TYPES`) + numeric-key block
   (`SAFE_NUMERIC_KEYS`); consent-gated; EU residency (Frankfurt). Never receives crisis/wellness signal.
 - **Supabase crisis path:** severity-bucketing (`sanitizeAnalyticsProperties` — raw PHQ-9/GAD-7
-  scores never transmitted; only `low`/`medium`/`high`/`critical`); schema-enforced daily-rotated
-  anonymous `session_id`; PII-free JSONB (`CHECK` constraints). Vital-interests basis (GDPR Art.
+  scores never transmitted; only `low`/`medium`/`high`/`critical`); a bounded-lifetime anonymous `session_id`
+  rotating at the UTC day boundary and after 30 min idle (INFRA-568) — note each row also
+  carries the persistent `user_id`, so the token is not an anonymity control on its own; PII-free JSONB (`CHECK` constraints). Vital-interests basis (GDPR Art.
   6(1)(d) / 9(2)(c)) — fires without analytics consent.
 - **Crisis event must be durably enqueued at fire-time** (survives restart, independent of
   network / `userId` provisioning) — otherwise a first-run/offline crisis silently drops,
