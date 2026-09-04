@@ -610,8 +610,12 @@ export class ExternalErrorReporter {
    * that family — not "consumes a crisis constant while matching no path
    * pattern", but "mounts a third-party component that occludes the crisis
    * affordance while importing nothing of ours at all". The Protected Paths rows
-   * for this file and `ProfileScreen.tsx` are what gate it; a call-site rule in
-   * the occlusion guard is tracked separately.
+   * for this file and `ProfileScreen.tsx` gate it, and INFRA-571 added the
+   * call-site rule (rule 4) to `check-modal-occlusion-guard.js`: the
+   * `showFeedbackWidget()` below is registered in PRESENTER_ALLOWLIST keyed
+   * `<file>::<name>`. THAT ENTRY IS A DEBT REGISTER, NOT AN EXCEPTION — if the
+   * call is removed, delete the entry in the same commit or the guard reds on a
+   * stale ruling.
    */
   showFeedbackForm(): void {
     if (!this.isActive() || !this.sentryModule) return;

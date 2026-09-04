@@ -26,7 +26,17 @@
  *
  * CRISIS-PATH SAFETY: pushed route INSIDE ProfileStackNavigator — inherits the
  * sibling CollapsibleCrisisButton overlay. The gather/serialize work runs async
- * so it never blocks the overlay's touch handler. `buildExportPayload` is
+ * so it never blocks the overlay's touch handler.
+ *
+ * ⚠️ THAT INHERITANCE DOES NOT HOLD WHILE THE SHARE SHEET IS UP (INFRA-571).
+ * `Sharing.shareAsync` presents a native UIActivityViewController above the RN
+ * root view, by the same mechanism the occlusion guard documents for RN
+ * `<Modal>` — so for the sheet's duration the 988 affordance is off screen, not
+ * merely covered. `ExportData` is NOT in `RootCrisisButton.SUPPRESSED_ROUTES`,
+ * and the JSON export path above is always on, so this is the most reachable
+ * instance of the shape. It is registered in the guard's PRESENTER_ALLOWLIST as
+ * REASONED FROM THE MECHANISM, NOT MEASURED; measuring it is DEBUG-577, and the
+ * ruling must be revised rather than re-approved once that lands. `buildExportPayload` is
  * synchronous but bounded by on-device record counts, and runs in a `useMemo`
  * keyed on the selection, so it re-runs only on an explicit user toggle.
  */
