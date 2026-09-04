@@ -967,6 +967,11 @@ Re-resolve any `file:line` the item or its comments cite before emitting it. Lin
 including inside a comment that corrected an earlier one, and a handoff spends a human's session
 on them unverified.
 
+**Drive the capture half first.** On a visual item, `Attended-only` usually means the
+RULING is human, not the evidence: screenshots script from an ad-hoc Maestro flow outside
+the worktree, and Dynamic Type from `simctl ui <udid> content_size`. Capture, then hand over
+images to judge — a clipped label is a finding no eye is needed to detect.
+
 ```
 🖐️  [WORK_ITEM_ID] staged for an attended session — Status stays In progress
     Worktree: [dir]
