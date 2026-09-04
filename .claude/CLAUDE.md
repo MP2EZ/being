@@ -60,6 +60,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/patches/` | `crisis` |
 | `app/src/core/navigation/` | `crisis` |
 | `app/src/core/config/e2eSeed.ts` | `crisis` |
+| `app/src/core/services/supabase/SupabaseService.ts` | `crisis` + `compliance` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -187,6 +188,19 @@ and `CleanTabNavigator.tsx` hosts the tabs the reachability flow walks. `ActiveT
 is the single reviewed non-crisis member. `e2eSeed.ts` decides what the safety flows can
 REACH — before DEBUG-575's seed, `WeeklyReflectionCard` returned null and the composer did not
 exist in the gate build at all — so a seed narrowing is coverage loss with nothing going red.
+
+`core/services/supabase/SupabaseService.ts` is the twelfth instance (added INFRA-568), and
+the first where the file OWNS the crisis audit sink rather than an affordance. It holds the
+only writer of `crisis_detected` to `analytics_events`, and `trackCrisisDetection` runs
+INSIDE the synchronous frame `handleCrisisDetection` awaits — yet it matches no path pattern
+and imports nothing from `features/crisis/`, so INFRA-531's import detector cannot see it
+and DEBUG-575's reconciliation had nothing to reconcile. FILE-level, not
+`core/services/supabase/`: the directory also holds `CloudBackupService`,
+`SyncCoordinator`, `secureStoreSessionAdapter`, `hooks/` and `index.ts`, and the standing
+rule above says name the file whenever the non-crisis members cannot all be named and
+reviewed. Note what the gate does NOT prove here: INFRA-411 suppresses egress in the gate
+build, so the four armed flows cover the frame not throwing or blocking, never delivery.
+Delivery is INFRA-412's attended `.env.production` measurement.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 

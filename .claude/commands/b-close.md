@@ -424,7 +424,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|src/core/services/supabase/SupabaseService\.ts|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -665,6 +665,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | `.maestro/<flow>.yaml` tagged `safety-dynamic-type` edited | **no sim flow** — instruction | DEBUG-469 / DEBUG-507. The suite selects on an exact `- safety` tag at the DEFAULT content size, so it can neither select nor validly run these. `e2e:safety:ax5` (AX5) and `e2e:safety:xxxl` (largest non-accessibility step) own them. Each needs its own case arm; the `*)` catch-all would fire a pointless full suite. |
 | `src/core/stores/consentStore.ts` | **`deeplink-consent-gate` + `reconsent-stale` + `reconsent-stale-ineligible`** | INFRA-482. File-level, not `src/core/stores/`. Owns the consent-record writes, `canPerformOperation`, the forging seam, and the safety-critical `loadConsent` branch order. Siblings in that dir have no safety surface. |
 | `src/core/config/e2eSeed.ts` | **full suite** | Sets the launch state every flow starts from; no narrower scope is valid. |
+| `src/core/services/supabase/SupabaseService.ts` | **`q9-single-alert` + `phq9-severe-completion` + `gad7-severe` + `journal-crisis-scan`** + printed notice | INFRA-568 (crisis ruling). FILE-level: owns the sole `crisis_detected` writer and runs inside the frame `handleCrisisDetection` awaits, but the directory's other members (CloudBackupService, SyncCoordinator, secureStoreSessionAdapter, hooks/, index.ts) carry no crisis surface. INFRA-531's import rule cannot see it — nothing here imports from `features/crisis/`. **Necessary, not sufficient**: the gate build suppresses egress (INFRA-411), so these cover the awaited frame not throwing or blocking, never delivery. |
 | Mixed comment + code on one line / pure type-only edit | **trigger** | Bash can't safely prove inert → bias safe. |
 
 If BOTH `SAFETY_CHANGED` and `CRISIS_HOST_CHANGED` are empty → skip the gate:
@@ -799,6 +800,20 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q '^app/patches/' && \
 # record that already exists.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/stores/consentStore\.ts' && \
   FLOWS+=("deeplink-consent-gate" "reconsent-stale" "reconsent-stale-ineligible")
+# INFRA-568 (crisis ruling): SupabaseService.ts owns the ONLY writer of `crisis_detected`
+# to analytics_events, and trackCrisisDetection runs inside the synchronous frame
+# handleCrisisDetection awaits. These four are exactly INFRA-411's own enumeration of the
+# flows that reach crisis DETECTION rather than merely the crisis button.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/services/supabase/SupabaseService\.ts'; then
+  FLOWS+=("q9-single-alert" "phq9-severe-completion" "gad7-severe" "journal-crisis-scan")
+  echo "📊 SupabaseService changed — it owns the crisis audit sink. NECESSARY, NOT SUFFICIENT:"
+  echo "   the gate build SUPPRESSES egress (INFRA-411 returns before the insert when"
+  echo "   EXPO_PUBLIC_E2E_SEED_ONBOARDED=true), and every flow launches with clearState, so"
+  echo "   NO flow can observe delivery, rotation, or any cross-midnight/idle boundary. What"
+  echo "   these four DO cover is the one gate-visible failure mode: new synchronous work in"
+  echo "   the awaited frame shows up as the intervention failing to surface or a timeout."
+  echo "   Delivery is INFRA-412's attended .env.production measurement."
+fi
 # DEBUG-525: four entries that CONSUME crisisButtonGeometry rather than owning crisis code.
 # ThresholdEducationModal is an RN <Modal> DEBUG-406 conversion site — a zero-988-affordance
 # render state whose own content tells the reader to seek help. crisis-button-reachability
