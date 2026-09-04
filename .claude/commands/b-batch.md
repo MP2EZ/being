@@ -944,6 +944,10 @@ still fires the gate. Two carve-outs to the carve-out, matching `/b-close`: `app
 deletion-only diff to a flow is assertions being removed, which is the change class this gate
 most needs to catch.
 **Routing after the re-check:**
+- **A re-tier can breach the Step 2.4 RED ceiling after it was checked.** An item that
+  registers a new Protected Path re-tiers itself and any later item touching that path,
+  but the ceiling was counted in Phase 2 from predictions. Re-count REDs here; if the
+  batch now exceeds it, say so rather than discovering it at the third attended close.
 - **RED-ATTENDED** — set `state: queued_red`, leave the worktree intact and the work
   committed, and **do NOT run `/b-close`**. Continue to the next item; Phase 4.1 surfaces it.
 - **RED-GATED** — **back-merge `origin/development` first.**
