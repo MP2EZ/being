@@ -353,6 +353,24 @@ jobs:
         # dragging a flaky suite in here would intermittently block every PR in the repo.
         run: cd app && npm run test:practices -- --ci --testTimeout=20000
 
+      - name: Navigation layout tests
+        # DEBUG-562. Co-located under src/core/navigation/, which no existing pattern
+        # reaches: `test:unit` is --testPathPattern=unit and `test:integration` is
+        # =integration, and neither matches this directory. Two suites ran on NOBODY'S
+        # pull request until this step existed — including the one that pins the tab
+        # bar's top edge clear of the crisis FAB's touch band, which is the mechanical
+        # form of DEBUG-562's AC2 ruling and the only thing that catches drift on
+        # EITHER side of that collision.
+        #
+        # Wired by PATTERN, never by renaming files toward one — scripts/
+        # ci-uncovered-tests.json records coverage-by-filename as the defect it exists
+        # to remove. Scoped to the directory rather than the file for the same reason.
+        #
+        # `CleanTabNavigator.accessibility.test.tsx` in the same directory is already
+        # reached by the Accessibility job (its name carries `accessibility`); running
+        # it twice is cheap and beats keying this step on a filename.
+        run: cd app && npm run test:navigation -- --ci --testTimeout=20000
+
       - name: Analytics boundary tests
         # INFRA-542. Co-located under src/core/analytics/, which no existing pattern
         # reaches: the two files here carrying `privacy` in their NAME are gated by
