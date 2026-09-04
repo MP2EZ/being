@@ -99,7 +99,9 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   properties JSONB DEFAULT '{}',
 
   -- Privacy-preserving session tracking
-  session_id TEXT NOT NULL, -- Daily-rotated session ID
+  -- Rotates at the UTC day boundary AND after 30 min idle (INFRA-568). Before
+  -- that it was minted once per process, so the date could disagree with created_at.
+  session_id TEXT NOT NULL, -- Bounded-lifetime session token
 
   -- Timestamp (rounded to hour for privacy)
   created_at TIMESTAMPTZ DEFAULT NOW(),
@@ -265,7 +267,11 @@ ORDER BY event_date DESC, event_count DESC;
 -- PRIVACY (PII-free by construction; reviewed by crisis + compliance, FEAT-129):
 --   Re-identification is managed by (1) severity-bucketing — no raw PHQ-9/GAD-7 scores
 --   or Q9 values; (2) absence of quasi-identifiers — no device id, name, IP, geo;
---   (3) daily session rotation — session_id cannot be joined to a user identity; and
+--   (3) bounded-lifetime session token — session_id rotates at the UTC day
+--       boundary and after 30 minutes idle (INFRA-568), so it links only events within
+--       one engagement. It is NOT an anonymity control at the table level: each row also
+--       carries the persistent user_id. Identity protection is (4) below plus RLS
+--       isolation and the non-enumerability of auth.uid(); and
 --   (4) operator-only access — these views are NOT granted to `authenticated`/`anon`
 --   (service-role only, via the Supabase SQL editor / MCP), matching analytics_summary
 --   and subscription_metrics. k-anonymity / differential privacy are NOT claimed; at
@@ -275,8 +281,11 @@ ORDER BY event_date DESC, event_count DESC;
 -- SAFETY INVARIANTS (do not "optimize" these away):
 --   * NO `HAVING COUNT(*) >= N` / k-anon suppression — it would hide a single/rare crisis.
 --   * `COUNT(*)` is the AUTHORITATIVE crisis count. `COUNT(DISTINCT session_id)` is a
---     secondary same-day episode proxy and UNDER-counts (daily-rotated session_id
---     collapses repeat same-day detections on one device); never treat it as the floor.
+--     secondary EPISODE proxy — never treat it as the floor OR as a device count.
+--     INFRA-568 reversed its bias: it used to UNDER-count (one id per device per day
+--     collapsed repeat same-day detections); with idle rotation one device can now
+--     produce several ids in a day, so it OVER-counts devices while counting episodes
+--     more honestly. That is the intended trade.
 --   * Rows whose severity_bucket / assessment_type are the literal text 'undefined' are
 --     NOT filtered. The inline PHQ-9 Q9 (suicidal-ideation) path currently emits
 --     String(undefined) for those fields; dropping them would launder away the
@@ -340,6 +349,9 @@ WHERE event_type = 'crisis_detected';
 -- Intentionally NO GRANT to authenticated/anon — operator/service-role access only.
 COMMENT ON VIEW crisis_detection_daily IS
   'FEAT-129 operator-only aggregate: crisis_detected counts per day x assessment_type x trigger_type x severity_bucket. PII-free (bucketed counts; no user_id/session_id). No k-anon suppression — safety monitor must not hide the first crisis. severity_bucket=''undefined'' rows are surfaced, not filtered (inline-Q9 emit bug).';
+-- ⚠️ SUPERSEDED by 20260904000000_session_id_rotation_comments.sql (INFRA-568). This
+-- string was already applied, so editing it here would change the repo and not the live
+-- database; the forward migration is what corrects the deployed catalog comment.
 COMMENT ON VIEW crisis_detection_volume_daily IS
   'FEAT-129 operator-only aggregate: per-day crisis_detected volume. COUNT(*) is authoritative; distinct_sessions under-counts (daily-rotated session_id).';
 COMMENT ON VIEW crisis_detection_liveness IS

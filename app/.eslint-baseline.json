@@ -75,6 +75,7 @@
   "src/core/services/supabase/__tests__/crisisTelemetryGuard.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryKillWindow.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/secureStoreSessionAdapter.unit.test.ts": 1,
+  "src/core/services/supabase/__tests__/sessionIdRotation.unit.test.ts": 1,
   "src/core/services/supabase/hooks/useCloudSync.ts": 3,
   "src/core/services/supabase/index.ts": 3,
   "src/core/stores/__tests__/consentChangelog.privacy.test.ts": 1,

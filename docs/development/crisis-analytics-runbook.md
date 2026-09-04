@@ -34,8 +34,10 @@ The `crisis_detected` payload is bucketed and PII-free:
 | `intervention_surfaced` | boolean — currently always `true` |
 | `assessment_type` | `phq9` / `gad7` |
 
-No raw scores, no Q9 value, no device id. `session_id` is a daily-rotated anonymous token
-that cannot be joined to an identity.
+No raw scores, no Q9 value, no device id. `session_id` is a bounded-lifetime anonymous
+token — it rotates at the UTC day boundary and after 30 minutes idle (INFRA-568). It is
+**not** an anonymity control on its own: every row also carries the persistent `user_id`
+(the INFRA-260 `auth.uid()` principal). See `docs/legal/lia-crisis-telemetry.md` §2/§4.
 
 ### Views (defined in `app/src/core/services/supabase/schema.sql` §6b + migration `20260605000000_crisis_analytics_views.sql`)
 
@@ -141,8 +143,10 @@ SELECT * FROM crisis_detection_volume_daily LIMIT 14;
 Compare `detection_count` against the trailing baseline. A sudden spike or a drop to zero
 across days where you'd expect activity both warrant investigation. `detection_count`
 (`COUNT(*)`) is the **authoritative** number; `distinct_sessions` is a secondary
-same-day-episode proxy that **under-counts** (the daily-rotated `session_id` collapses
-repeat same-day detections on one device) — never treat it as the floor.
+**episode** proxy — never treat it as the floor, nor as a device count. INFRA-568 reversed
+its bias: it used to under-count (one id per device per day collapsed repeat same-day
+detections); with idle rotation one device can produce several ids in a day, so it now
+over-counts devices while counting episodes more honestly.
 
 ---
 
@@ -203,8 +207,11 @@ never include `session_id` or `user_id` in any exported artifact.
 > Re-identification is managed by five controls: (1) **severity-bucketing** — no raw
 > PHQ-9/GAD-7 scores or Q9 values are stored or queried; (2) **absence of
 > quasi-identifiers** — no device id, name, IP, or geolocation is associated with any
-> crisis event; (3) **daily session rotation** — the anonymous `session_id` does not
-> persist across calendar days and cannot be joined to a user identity; (4) **operator-only
+> crisis event; (3) **bounded-lifetime session token** — the anonymous `session_id` rotates
+> at the UTC day boundary and after 30 minutes idle, so it links only events within one
+> engagement; it is **not** an anonymity control at the table level, since each row also
+> carries the persistent `user_id`, and the identity protection is (4) plus RLS isolation
+> and the non-enumerability of `auth.uid()`; (4) **operator-only
 > views** — aggregate data is reachable only via service-role credentials, never the
 > `authenticated` role or a client-facing path; (5) **synthetic-probe isolation** (INFRA-265)
 > — the liveness probe writes only to the dedicated `crisis_liveness_probe` table, never to
