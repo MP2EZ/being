@@ -975,38 +975,35 @@ export const useAssessmentStore = create<AssessmentStore>()(
   )
 );
 
-// Helper: call .unref() on a setTimeout handle when running in Node
-// (Jest). In browser/RN, setTimeout returns a number that has no unref.
-function unrefTimeout(handle: ReturnType<typeof setTimeout>): void {
-  const h = handle as unknown as { unref?: () => void };
-  if (typeof h.unref === 'function') h.unref();
-}
-
-// Auto-save subscription for real-time persistence
-useAssessmentStore.subscribe(
-  (state) => ({
-    answers: state.answers,
-    currentSession: state.currentSession,
-    autoSaveEnabled: state.autoSaveEnabled
-  }),
-  async (current, previous) => {
-    if (
-      current.autoSaveEnabled &&
-      current.currentSession &&
-      (current.answers.length !== previous.answers.length ||
-       current.currentSession?.id !== previous.currentSession?.id)
-    ) {
-      // Debounced auto-save; unref the timer in Node so it doesn't keep
-      // Jest alive past test completion. Safe in RN production.
-      unrefTimeout(setTimeout(async () => {
-        try {
-          await useAssessmentStore.getState().saveProgress();
-        } catch (error) {
-          logError(LogCategory.SYSTEM, 'Auto-save failed:', error instanceof Error ? error : new Error(String(error)));
-        }
-      }, 1000));
-    }
-  }
-);
+// DEBUG-549 — the module-level autosave subscription was REMOVED, not repaired.
+//
+// It read `autoSaveEnabled` at SCHEDULE time and never re-read it in the fired
+// callback, and it discarded the `setTimeout` handle, so nothing could ever
+// cancel one. A PHQ-9 run scheduled nine uncancelled 1000ms timers, each of
+// which re-persisted whatever state existed a second later.
+//
+// The repair is a deletion because the subscription was REDUNDANT, not merely
+// un-debounced. Every mutation that could trigger it has already persisted
+// synchronously on the same call chain:
+//   • `startAssessment`   — awaits `saveProgress()` under the same flag
+//   • `answerQuestion`    — awaits `saveProgress()` under the same flag
+//   • `completeAssessment`— always saves
+//   • `setSessionNote`    — always saves
+//   • `resetAssessment`   — nulls `currentSession`, which the guard excluded
+// The one mutation it uniquely covered is `recoverSession`, which has NO
+// production callers and in any case only writes back the blob it just read.
+// So every timer it ever scheduled was a duplicate encrypted write.
+//
+// `autoSaveEnabled` and both setters DELIBERATELY REMAIN. The flag is persisted
+// via `partialize` AND is one of exactly two fields in CloudBackupService's
+// restore allowlist (`EXPECTED_SAFE_FIELDS = 2`, pinned in both directions by
+// CloudBackupService.privacy.test.ts), so removing it would break a cross-feature
+// contract and its privacy suite. It still gates the inline saves above; only the
+// deferred duplicate is gone.
+//
+// Not a retention control, and must never be described as one: the zustand
+// `persist` middleware writes `answers` on every `set()` with no
+// `autoSaveEnabled` gate, so disabling autosave has never stopped answers
+// reaching encrypted storage.
 
 export default useAssessmentStore;
