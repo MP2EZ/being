@@ -989,7 +989,10 @@ converts "here is what I did not do" into a closed item. Read the item's `Status
 Step 3.1 returns:
 
 - `Testing` → proceed to close.
-- anything else → **do not close.** Manifest `state: parked`, Notion `Status: Blocked`, and
+- anything else → **do not close.** Split on WHY: if the unserved ACs need an attended
+  session (device/sim observation), that is `queued_red` + leave Notion `In progress` —
+  Phase 4.1 already schedules it, and `Blocked` would misreport a queued item as stuck.
+  Otherwise `state: parked`, Notion `Status: Blocked`, and
   quote `/b-work`'s own comment verbatim in the park note rather than summarizing it — the
   unserved-AC list is the whole value. Continue to the next item.
 
