@@ -815,6 +815,11 @@ Phase 2.5 gate; do not re-author Maestro flows here.
 - **Quality bar (both lanes):** assert behavior and edge cases, not implementation
   detail. End with the relevant `npm run test:*` command(s) passing — paste the
   actual result line into the Step 5.2 Notion comment.
+- **"It can't be pinned because X is mocked" must be checked before it is recorded.**
+  Only a mock in `jest.config.js` `setupFiles`/`setupFilesAfterEnv` is global; a
+  `jest.mock` in other suites does not stop a NEW suite driving the real module.
+  Recording the limitation without checking writes a false "unprovable" into the
+  close-out, on exactly the ACs that demanded proof.
 - **Before blaming your diff for a red test, measure the baseline FAILURE RATE, not
   the baseline outcome.** One green run on the base commit does not exonerate it, and
   a bisect with one sample per arm returns noise. Run the suspect test ~10x on both
