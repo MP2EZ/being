@@ -61,6 +61,8 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/core/navigation/` | `crisis` |
 | `app/src/core/config/e2eSeed.ts` | `crisis` |
 | `app/src/core/services/supabase/SupabaseService.ts` | `crisis` + `compliance` |
+| `app/App.tsx` | `crisis` |
+| `app/src/core/analytics/PostHogProvider.tsx` | `crisis` + `compliance` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -201,6 +203,21 @@ rule above says name the file whenever the non-crisis members cannot all be name
 reviewed. Note what the gate does NOT prove here: INFRA-411 suppresses egress in the gate
 build, so the four armed flows cover the frame not throwing or blocking, never delivery.
 Delivery is INFRA-412's attended `.env.production` measurement.
+
+`App.tsx` and `core/analytics/PostHogProvider.tsx` are the thirteenth instance (added
+DEBUG-559), and the first where the file is an ANCESTOR of every 988 affordance rather than
+an owner or consumer of one. The provider returned a bare fragment without analytics consent
+and `<PHProvider>` with it — an element-TYPE swap at a fixed position above
+`SafeAreaProvider → RootCrisisBoundary → CleanRootNavigator` — so a consent grant destroyed
+and recreated the whole crisis subtree. `App.tsx` mounts `SafeAreaProvider` with no
+`initialMetrics`, and that provider renders NOTHING until its native insets land, so the
+remount was a blank screen with every 988 affordance inside the curtain, not a FAB gap
+LoadingScreen's `Static988Button` covers. The general class is **a render-withholding
+ancestor**, and `SafeAreaProvider`'s is library-owned, so it generalises to ancestors that
+never appear in a diff. Both FILE-level; `compliance` also owns the provider because the
+pre-consent network-suppression options live there. **No detector reaches this shape** —
+neither file imports from `features/crisis/`, so INFRA-531's import rule matches nothing, and
+`check-modal-occlusion-guard.js` sees no `<Modal>`.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 

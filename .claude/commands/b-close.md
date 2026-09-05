@@ -424,7 +424,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|src/core/services/supabase/SupabaseService\.ts|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/ThresholdEducationModal\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/consentStore\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -770,6 +770,19 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/' && \
 # its only 988 affordance, and this flow is the only witness to it.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/consent/' && \
   FLOWS+=("deeplink-consent-gate" "reconsent-stale" "reconsent-stale-ineligible")
+# DEBUG-559: App.tsx and PostHogProvider.tsx are ANCESTORS of every 988 affordance. A
+# consent-driven element-type swap there destroyed the whole crisis subtree, and
+# SafeAreaProvider (no initialMetrics) renders nothing until its native insets land — so the
+# remount was a BLANK screen, not a FAB gap. These are the flows that drive the
+# consent-granting surfaces, plus the reachability fail-safe.
+if echo "$RENDER_BOOT_RELEVANT" | grep -qE '^app/(App\.tsx|src/core/analytics/PostHogProvider\.tsx)$'; then
+  FLOWS+=("deeplink-consent-gate" "reconsent-stale" "reconsent-stale-ineligible" "crisis-button-reachability")
+  echo "🌳 Crisis-subtree ancestor changed. NECESSARY, NOT SUFFICIENT: the gate build seeds"
+  echo "   past onboarding (EXPO_PUBLIC_E2E_SEED_ONBOARDED=true), so NO sim flow reaches the"
+  echo "   onboarding privacy-step grant; and Maestro polls the hierarchy, so it can sample"
+  echo "   the remount window but never bound it. A zero-frame window is jest's to pin and an"
+  echo "   attended Release session's to measure (DEBUG-559)."
+fi
 # DEBUG-480: features/journal hosts scanOnSave — the app's only crisis scan of text a
 # user typed or corrected — plus journal-crisis-banner and journal-crisis-call-988.
 # journal-crisis-scan.yaml is the flow that drives that surface, so it is the scoped
