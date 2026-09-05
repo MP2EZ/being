@@ -65,6 +65,10 @@ APP_DIR=app; [ -d app ] || APP_DIR=/Users/max/dev/being/development/app
 # (~30s). It is NOT in precommit, so a design-token violation passes all six local chains
 # and fails CI. On a safety-path branch the fix commit then invalidates the provenance
 # marker, so it costs a gate rebuild plus a full suite re-run, not just a CI round-trip.
+# Fourth, same shape and same cost: if the diff touches app/src/**, run
+# `npm run test:integration` (~1min). Also absent from precommit, and a changed hook
+# return or component prop leaves the wholesale mocks under __tests__/integration/
+# stale — a break invisible to every local chain.
 ```
 
 The second is the same class of cheap local check: a test file added under `src/**`
