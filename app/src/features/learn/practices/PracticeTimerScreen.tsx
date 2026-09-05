@@ -109,7 +109,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   });
 
   // Shared hooks
-  const { renderCompletion, markComplete } = usePracticeCompletion({
+  const { renderCompletion, markStarted, markComplete } = usePracticeCompletion({
     practiceId,
     moduleId,
     title,
@@ -179,6 +179,17 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
 
   const showBreathingCircle = !isContemplative;
   const noteText = isContemplative ? CONTEMPLATIVE_NOTE : BREATHING_NOTE;
+
+  // DEBUG-536: `practice_started` fires on the first activation, not on mount —
+  // opening the screen is not beginning the practice. `markStarted` is latched, so
+  // a resume (and a return from background) does not re-emit.
+  const handleToggle = React.useCallback(
+    (active: boolean) => {
+      if (active) markStarted();
+      setIsTimerActive(active);
+    },
+    [markStarted, setIsTimerActive]
+  );
 
   // Show completion screen after timer finishes
   const completionScreen = renderCompletion();
@@ -251,7 +262,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
       <PracticeToggleButton
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
-        onToggle={setIsTimerActive}
+        onToggle={handleToggle}
         style={{ marginBottom: spacing[32] }}
         testID={`${testID}-toggle-button`}
       />

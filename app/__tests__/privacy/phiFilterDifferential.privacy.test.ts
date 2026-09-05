@@ -235,17 +235,27 @@ interface Narrowing {
 }
 
 const NARROWED: ReadonlyArray<Narrowing> = [
-  // All twelve: no production emitter anywhere in app/src, supabase/, scripts/ or
-  // .maestro/, re-derived mechanically against `development` rather than inherited.
-  { eventType: 'check_in_started', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
-  { eventType: 'check_in_completed', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
-  { eventType: 'assessment_started', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
-  { eventType: 'assessment_completed', workItem: 'INFRA-552', rationale: 'No production emitter. The one string match in src is SyncCoordinator.ts:917 scheduleSync("high","assessment_completed"), a sync-reason tag unrelated to the PostHog catalog.' },
-  { eventType: 'practice_started', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
-  { eventType: 'practice_completed', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
-  { eventType: 'learn_module_completed', workItem: 'INFRA-552', rationale: 'No production emitter; its siblings learn_module_started and learn_content_viewed do fire and are retained.' },
+  // Six remain of INFRA-552's original twelve. DEBUG-536 removed the other six
+  // entries when it RESTORED those events with real call sites — a restoration of
+  // frozen-baseline members, not a new grant, which is why no `WIDENED` entry was
+  // added: deleting the entry returns the name to `declared` via the baseline it
+  // never left. That is the re-add path the docblock above does not spell out.
+  //
+  // Each of the nine reversed the rationale "no production emitter", which was true
+  // when written and is now false. The rule stated above — "'No production emitter'
+  // and 'no longer wanted' are different claims, and a sibling item mid-flight looks
+  // exactly like the former" — is exactly the case those nine were: DEBUG-536 was
+  // filed and blocked when the prune ran, with no repo footprint to see.
+  //
+  // These six stay. error_occurred / session_started / session_ended are the genuine
+  // "no longer wanted" cases. The breathing and learn_module_completed entries are a
+  // different kind: DEBUG-536 could have restored them on the same evidence, and
+  // deliberately did not — they answer no question anyone is asking, and restoring a
+  // tracker whose only consumer is a dashboard nobody reads is how this set became
+  // twelve orphans the first time. They come back with a Job, or not at all.
   { eventType: 'breathing_exercise_started', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
   { eventType: 'breathing_exercise_completed', workItem: 'INFRA-552', rationale: 'No production emitter; tracker existed with zero call sites.' },
+  { eventType: 'learn_module_completed', workItem: 'INFRA-552', rationale: 'No production emitter; its siblings learn_module_started and learn_content_viewed do fire and are retained.' },
   { eventType: 'error_occurred', workItem: 'INFRA-552', rationale: 'No production emitter. Error reporting goes to Sentry, not to PostHog product analytics.' },
   { eventType: 'session_started', workItem: 'INFRA-552', rationale: 'Catalog fiction: no tracker function ever existed, so the contract test could not see it. No session-lifecycle concept exists in app/src.' },
   { eventType: 'session_ended', workItem: 'INFRA-552', rationale: 'Catalog fiction: no tracker function ever existed, so the contract test could not see it. No session-lifecycle concept exists in app/src.' },
