@@ -1,10 +1,20 @@
 /**
  * DEBUG-536 — the consent gate on the six restored feature-usage trackers.
  *
- * `trackEvent`'s `if (!posthog) return;` (useAnalytics.ts) IS the consent gate:
- * declining analytics consent means no `<PHProvider>` is mounted, so `usePostHog()`
- * returns null and every tracker no-ops. Nothing asserted that before this item, and
- * this item adds emit points across five feature areas.
+ * `trackEvent` (useAnalytics.ts) is the consent gate every tracker funnels through.
+ * Nothing asserted that before this item, and this item adds emit points across five
+ * feature areas.
+ *
+ * MECHANISM CORRECTED BY DEBUG-559. This file was authored when the gate was
+ * `if (!posthog) return;` alone, on the reasoning that declining consent meant no
+ * `<PHProvider>` was mounted so `usePostHog()` returned null. That equivalence was a
+ * side effect of a defect: withholding the provider swapped the element type above
+ * `SafeAreaProvider` and remounted every 988 affordance in the app on a consent tap.
+ * With that fixed the provider is always mounted, a client exists from launch, and
+ * client presence is no longer a consent signal — so the halves below set the CONSENT
+ * STORE, which is what `trackEvent` now reads. The suite's shape and intent are
+ * unchanged. The "client present but consent denied" axis this correction opens is
+ * pinned separately in `src/core/analytics/__tests__/useAnalytics.consentGate.privacy.test.tsx`.
  *
  * The negative half alone would be worthless. A tracker that is broken, misnamed, or
  * never reached produces the identical "zero captures" reading as a tracker correctly
@@ -20,6 +30,14 @@
 
 import { renderHook } from '@testing-library/react-native';
 import { useAnalytics } from '@/core/analytics';
+import { useConsentStore } from '@/core/stores/consentStore';
+
+/** DEBUG-559: trackEvent reads the consent store, not the client's presence. */
+const setAnalyticsConsent = (analyticsEnabled: boolean): void => {
+  useConsentStore.setState({
+    currentConsent: { preferences: { analyticsEnabled }, universalOptOut: false },
+  } as unknown as Parameters<typeof useConsentStore.setState>[0]);
+};
 
 const mockCapture = jest.fn();
 let mockClient: { capture: jest.Mock } | null = null;
@@ -63,9 +81,10 @@ describe('DEBUG-536 feature-usage trackers respect the analytics consent gate', 
     expect(RESTORED).toHaveLength(6);
   });
 
-  describe('consent WITHHELD — usePostHog() returns null', () => {
+  describe('consent WITHHELD — declined in the consent store', () => {
     beforeEach(() => {
       mockClient = null;
+      setAnalyticsConsent(false);
     });
 
     it('none of the six reaches PostHog', () => {
@@ -74,9 +93,10 @@ describe('DEBUG-536 feature-usage trackers respect the analytics consent gate', 
     });
   });
 
-  describe('consent GRANTED — a live client is mounted', () => {
+  describe('consent GRANTED — granted in the store, live client mounted', () => {
     beforeEach(() => {
       mockClient = { capture: mockCapture };
+      setAnalyticsConsent(true);
     });
 
     it('all six reach PostHog, which is what makes the suppression above meaningful', () => {

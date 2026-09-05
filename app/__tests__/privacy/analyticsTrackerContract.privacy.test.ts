@@ -35,6 +35,25 @@ jest.mock('posthog-react-native', () => ({
 import { renderHook } from '@testing-library/react-native';
 import { useAnalytics } from '@/core/analytics/useAnalytics';
 import { PHIFilter, AnalyticsEvents } from '@/core/analytics/PHIFilter';
+import { useConsentStore } from '@/core/stores/consentStore';
+
+/**
+ * DEBUG-559: granting consent is now a PRECONDITION of this suite, and that is a
+ * real change in what it proves rather than boilerplate.
+ *
+ * `trackEvent` used to gate on `!posthog` alone, which stood in for consent only
+ * because `PostHogProvider` withheld the client without it. That withholding was
+ * an element-type swap that remounted every 988 affordance in the app, so it had
+ * to go — and the emit path now reads the consent store directly. Without this
+ * the mocked client is present, the consent store is empty, and every tracker
+ * below correctly emits nothing, which would read as 13 broken trackers.
+ */
+function grantAnalyticsConsent(): void {
+  useConsentStore.setState({
+    currentConsent: { preferences: { analyticsEnabled: true }, universalOptOut: false },
+  } as unknown as Parameters<typeof useConsentStore.setState>[0]);
+}
+grantAnalyticsConsent();
 
 /**
  * HAND-AUTHORED fixtures: tracker name -> the arguments a real call site passes.
@@ -90,6 +109,7 @@ const EXCLUDED = new Set(['trackEvent']);
 const MIN_TRACKERS = 19;
 
 describe('every useAnalytics tracker transmits (INFRA-535)', () => {
+  grantAnalyticsConsent();
   const { result } = renderHook(() => useAnalytics());
   const allKeys = Object.keys(result.current).filter(
     (k) => typeof (result.current as Record<string, unknown>)[k] === 'function'

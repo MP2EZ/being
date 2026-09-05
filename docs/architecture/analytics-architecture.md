@@ -19,7 +19,7 @@ there is **no dual-write**. (Verdict from the crisis + compliance + architect pl
 
 | Sink | Carries | Legal basis / gate | Sanitizer | Identity |
 |---|---|---|---|---|
-| **PostHog (EU)** | Consent-gated **product** analytics only (screen views, feature counts, lifecycle, errors). **Never** crisis or wellness-derived signal. | User opt-in (`analyticsEnabled` && !universalOptOut); SDK not even initialized without consent. | `PHIFilter` — whitelist **reject-gate** (drops anything score-shaped or PHI-keyworded). | device-persistent `distinct_id`; deletable on request. |
+| **PostHog (EU)** | Consent-gated **product** analytics only (screen views, feature counts, lifecycle, errors). **Never** crisis or wellness-derived signal. | User opt-in (`analyticsEnabled` && !universalOptOut), read from the consent store at every emit via `useAnalyticsConsent()`. The SDK **is** initialized before consent (DEBUG-559) but is constructed opted-out and network-suppressed — see PostHogProvider below. | `PHIFilter` — whitelist **reject-gate** (drops anything score-shaped or PHI-keyworded). | device-persistent `distinct_id`; deletable on request. |
 | **Supabase `analytics_events`** | **Vital-interest** safety telemetry (the crisis-detection event) **+ operational** telemetry (backup/sync ops). | Crisis: GDPR Art. 6(1)(d) vital interests — fires regardless of analytics consent **and** universal opt-out. Ops: legitimate-interest + `canPerformOperation` (T4). | `sanitizeAnalyticsProperties` — **bucket-transform** (accepts severity, down-converts; never raw scores). | persistent anonymous `user_id` (`auth.uid()`) + a bounded-lifetime `session_id` rotating at the UTC day boundary and after 30 min idle (INFRA-568). |
 | **Custom REST API (`api.being.fyi`)** | **REMOVED** (INFRA-214 T2). Was never deployed. | — | — | — |
 
@@ -51,9 +51,12 @@ under the vital-interests basis** — NOT PostHog. PostHog stays the consent-gat
 product-analytics sink only.
 
 **Why Supabase, not PostHog, for the crisis event** (crisis + compliance + architect agents,
-unanimous): (1) PostHog's SDK does not initialize without analytics consent, so a crisis user
-who never opted into analytics — the common case — would emit nothing → a false "all-clear"
-safety-monitoring gap. (2) The privacy policy makes an unconditional promise that analytics is
+unanimous): (1) PostHog emits nothing without analytics consent, so a crisis user who never
+opted into analytics — the common case — would emit nothing → a false "all-clear"
+safety-monitoring gap. (Corrected DEBUG-559: this used to say the SDK "does not initialize
+without analytics consent". Since DEBUG-559 it does initialize, opted-out; the emit is still
+withheld, so the conclusion is untouched — but do not re-derive anything else from the old
+claim.) (2) The privacy policy makes an unconditional promise that analytics is
 opt-in and that Being **never collects** PHQ-9/GAD-7 or mental-health data in-app; a
 crisis-detection event is a PHQ/GAD-derived signal, so routing it to PostHog (a third-party
 processor) without consent is an FTC §5 deceptive-practice exposure — and `PHIFilter` would
@@ -129,10 +132,12 @@ User Action (e.g., completes check-in)
     ▼
 ┌─────────────────────────────────┐
 │  PostHogProvider                │
-│  - Checks consent via store     │
-│  - If no consent → not rendered │
+│  - ALWAYS mounted (DEBUG-559)   │
+│  - Consent drives optIn/optOut, │
+│    never the element type       │
 └────────────┬────────────────────┘
-             │ (consent granted)
+             │ (emit withheld unless
+             │  useAnalyticsConsent())
              ▼
 ┌─────────────────────────────────┐
 │  PHI Filter                     │
@@ -158,7 +163,23 @@ User Action (e.g., completes check-in)
 **Wired in:** `App.tsx` (wraps entire app)
 
 Wraps the app and provides PostHog context. Key behaviors:
-- **Consent-gated**: Only renders PostHog when analytics consent granted
+- **Always mounted (DEBUG-559)**: the element type at this position must never depend on
+  consent. It used to — a bare fragment without consent, `<PHProvider>` with it — and React
+  reconciliation therefore destroyed and recreated the whole subtree below `App.tsx`'s
+  `<PostHogProvider>` on a consent grant. That subtree contains `SafeAreaProvider`, which
+  renders nothing until its native insets arrive, and every 988 affordance in the app sits
+  inside it. The remount was a blank, zero-988 screen on an ordinary consent tap.
+- **Consent-gated, by opt state rather than by mounting**: `ConsentSync` calls
+  `optIn()`/`optOut()` on the existing client as consent changes, and every emit independently
+  checks `useAnalyticsConsent()` in `useAnalytics.trackEvent`. Client presence is **not** a
+  consent signal and must never be treated as one.
+- **Silent before consent**: the client is constructed with `defaultOptIn: false` **plus**
+  `disableRemoteConfig: true`, `preloadFeatureFlags: false` and `disableSurveys: true`.
+  Those three are load-bearing, not belt-and-braces: the SDK's init sequence gates on
+  `disabled`, never on `optedOut`, so at their defaults the constructor fires `/flags`
+  requests carrying the anonymous device id before consent. With them set, no SDK path
+  reaches the network while opted out. An anonymous `distinct_id` is minted to on-device
+  storage at launch and is never transmitted.
 - **EU data residency**: Configured for Frankfurt (GDPR compliance)
 - **Privacy settings**: No autocapture, no session replay
 - **Batching**: 10 events or 30 seconds before transmission
