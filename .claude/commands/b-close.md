@@ -1702,6 +1702,10 @@ this branch also edits, re-read your section in the merged file before pushing: 
 resolves markdown by line proximity, so an addition anchored to what was the last
 paragraph can land mid-section and orphan what follows. No conflict is reported.
 
+**It can also merge two correct changes into a red suite.** When an incoming test
+encodes a premise this branch removes, fix the incoming FIXTURE — never loosen this
+branch's change to satisfy it, which silently reverts whatever ruling motivated it.
+
 ---
 
 ### Step 3.2: Push Feature Branch
