@@ -9,6 +9,7 @@
 
 import { useCallback } from 'react';
 import { usePostHog } from 'posthog-react-native';
+import { useAnalyticsConsent } from './useAnalyticsConsent';
 import { PHIFilter, AnalyticsEvents } from './PHIFilter';
 import { logAnalytics } from '@/core/services/logging';
 import { coarsenScreenNameForAnalytics } from '@/core/utils/sensitiveScreens';
@@ -28,6 +29,7 @@ import type { SinceLastActiveBucket } from './appLifecycleTelemetry';
  */
 export function useAnalytics() {
   const posthog = usePostHog();
+  const mayEmit = useAnalyticsConsent();
 
   /**
    * Track an event with PHI validation
@@ -35,8 +37,21 @@ export function useAnalytics() {
    */
   const trackEvent = useCallback(
     (eventName: string, properties?: Record<string, string | number | boolean>) => {
-      // Skip if PostHog not available (no consent or not configured)
-      if (!posthog) {
+      // Two independent gates, and the ORDER OF IMPORTANCE is the second one.
+      //
+      // `!posthog` used to be the whole gate, and it worked only as a side effect
+      // of a bug: PostHogProvider withheld <PHProvider> without consent, so
+      // usePostHog() was undefined and this returned early. DEBUG-559 fixed that
+      // shape (the conditional was remounting every 988 affordance in the app), so
+      // a client now exists from launch and this check is no longer a consent
+      // signal — it only means "no key in this build".
+      //
+      // `mayEmit` is the consent gate. Without it, enforcement would rest entirely
+      // on the vendored SDK's internal `optedOut` check inside `capture`. That does
+      // hold today, but it makes our privacy posture a property of a third party's
+      // internals and it is silent when it changes. Ruled non-negotiable by the
+      // DEBUG-559 compliance pass: usePostHog() truthiness is never a consent signal.
+      if (!posthog || !mayEmit) {
         return;
       }
 
@@ -53,7 +68,7 @@ export function useAnalytics() {
         });
       }
     },
-    [posthog]
+    [posthog, mayEmit]
   );
 
   /**
