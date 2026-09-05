@@ -51,6 +51,22 @@ describe('FromTheSourceSection', () => {
     expect(queryAllByText(/trans\. Elizabeth Carter/).length).toBeGreaterThan(0);
   });
 
+  /**
+   * FEAT-569 AC5. This surface renders the note directly beneath
+   * "— trans. {translator}", so an unlabelled note reads as the translator's own
+   * commentary — silent attribution, and it gets worse the longer the note is.
+   * A visual rule cannot carry the distinction: a screen reader hears the two
+   * Text nodes consecutively with nothing between them. The label is the fix,
+   * so it is pinned rather than left to a style someone may tidy away.
+   */
+  it('labels the context note so it is not read as the translator\'s words', () => {
+    const { queryByText } = render(<FromTheSourceSection principle="radical-acceptance" />);
+    // First passage expands by default, so its note is on screen.
+    expect(queryByText(/trans\. George Long/)).toBeTruthy();
+    expect(queryByText('Context')).toBeTruthy();
+    expect(queryByText(/from inside the order/)).toBeTruthy();
+  });
+
   it('deep-links into the library with the current principle', () => {
     const { getByLabelText } = render(<FromTheSourceSection principle="aware-presence" />);
     fireEvent.press(getByLabelText('Browse the full Classical Library'));
