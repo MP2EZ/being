@@ -20,6 +20,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '@/core/services/logging';
+import { useAnalytics } from '@/core/analytics';
 import React, { useState, useCallback, useEffect, useRef, useMemo } from 'react';
 import {
   View,
@@ -117,6 +118,8 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
   // Performance monitoring
   const flowStartTime = useRef<number>(Date.now());
   const questionStartTime = useRef<number>(Date.now());
+  // DEBUG-536: individual trackers, not the hook object — see useAnalytics' comment.
+  const { trackAssessmentStarted, trackAssessmentCompleted } = useAnalytics();
 
   // Assessment store integration. `crisisDetection` is the single canonical
   // source of crisis state — the store's `answerQuestion` (inline Q9) and
@@ -329,6 +332,30 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
         }
       }
 
+      // DEBUG-536: LAST statement of the try, and in its OWN swallowing catch.
+      //
+      // Placement is a zero-false-negative constraint, not a style choice. Anything
+      // before `await completeAssessment()` that throws is caught by the outer catch
+      // below, which means completeAssessment() — and therefore detectCrisis() and
+      // handleCrisisDetection() — NEVER RUNS, and a PHQ-9 >=20 / GAD-7 >=15 crisis is
+      // silently never detected. Emitting here also keeps it off the path that sets
+      // flowState/result, so an analytics fault cannot block the crisis-aware results UI.
+      //
+      // The private catch is required for the same reason: leaning on the outer catch
+      // would convert an analytics fault into a user-visible "Completion Error" alert
+      // falsely claiming the assessment failed — in the exact frame where a crisis
+      // intervention may already be on screen.
+      //
+      // Reuses the existing flowStartTime ref; no second timer. NO instrument identity,
+      // no score, no severity, no crisis flag — see the tracker's own comment. A
+      // crisis flag here would move crisis telemetry out of the Supabase vital-interest
+      // sink into consent-gated PostHog, reversing INFRA-214's legal-basis partition.
+      try {
+        trackAssessmentCompleted(totalFlowTime);
+      } catch {
+        /* Telemetry must never affect the crisis intervention flow. */
+      }
+
     } catch (error) {
       logError(LogCategory.SYSTEM, 'Assessment completion failed:', error instanceof Error ? error : new Error(String(error)));
       Alert.alert(
@@ -339,13 +366,20 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [completeAssessment, crisisDetected, questions.length, answers.size, context, onComplete]);
+  }, [completeAssessment, crisisDetected, questions.length, answers.size, context, onComplete, trackAssessmentCompleted]);
 
   // Begin assessment flow
   const handleBeginAssessment = useCallback(() => {
     setFlowState('questions');
     questionStartTime.current = Date.now();
-  }, []);
+    // DEBUG-536: outside any crisis-bearing frame. Never from a render body and never
+    // from startAssessment, either of which would double-fire on re-render.
+    try {
+      trackAssessmentStarted();
+    } catch {
+      /* Telemetry must never affect the assessment flow. */
+    }
+  }, [trackAssessmentStarted]);
 
   // Handle flow completion
   const handleFlowComplete = useCallback(() => {

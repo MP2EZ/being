@@ -65,7 +65,7 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
   const [cardAnimation] = useState(new Animated.Value(1));
 
   // Shared hook
-  const { renderCompletion, markComplete } = usePracticeCompletion({
+  const { renderCompletion, markStarted, markComplete } = usePracticeCompletion({
     practiceId,
     moduleId,
     title: 'Control Sorting Practice',
@@ -87,6 +87,10 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
    */
   const handleSelection = useCallback(
     (answer: 'in-control' | 'not-in-control') => {
+      // DEBUG-536: this practice has no clock and no start control, so the first
+      // sorted scenario IS its beginning. `markStarted` is latched, so the
+      // subsequent scenarios do not re-emit.
+      markStarted();
       setUserAnswer(answer);
       setShowFeedback(true);
 
@@ -98,7 +102,7 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
           : 'Not quite. ' + currentScenario.explanation
       );
     },
-    [currentScenario]
+    [currentScenario, markStarted]
   );
 
   /**

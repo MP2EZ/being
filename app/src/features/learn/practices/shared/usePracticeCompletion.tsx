@@ -9,7 +9,7 @@
  * - Completion screen rendering
  */
 
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useRef } from 'react';
 import type { ReactElement } from 'react';
 import PracticeCompletionScreen, {
   PRACTICE_QUOTES,
@@ -19,6 +19,7 @@ import { useStoicPracticeStore } from '@/features/practices/stores/stoicPractice
 import { getPrincipleForModuleId } from '@/features/learn/utils/principleMapping';
 import { logError, LogCategory } from '@/core/services/logging';
 import type { ModuleId } from '@/features/learn/types/education';
+import { useAnalytics } from '@/core/analytics';
 
 interface UsePracticeCompletionOptions {
   practiceId: string;
@@ -31,6 +32,7 @@ interface UsePracticeCompletionOptions {
 interface UsePracticeCompletionReturn {
   isComplete: boolean;
   setIsComplete: (complete: boolean) => void;
+  markStarted: () => void; // DEBUG-536: idempotent; call at the practice's own start
   markComplete: () => void; // Convenience function
   renderCompletion: () => ReactElement | null;
 }
@@ -50,6 +52,31 @@ export function usePracticeCompletion({
     (state) => state.recordPrincipleEngagement
   );
 
+  // DEBUG-536: the single start/complete pair for all six practice screens. Latched
+  // in a ref rather than state so neither emit can repeat and neither causes a render.
+  const startedAtRef = useRef<number | null>(null);
+  const completedRef = useRef(false);
+  const { trackPracticeStarted, trackPracticeCompleted } = useAnalytics();
+
+  /**
+   * DEBUG-536: the practice BEGAN. Idempotent — a resume is not a beginning, and the
+   * same latch covers returning from background, mirroring the `sessionStart` rule at
+   * `usePracticeHaptics.ts:203`. Each screen calls this at its own honest start: the
+   * first timer activation, `isPracticeStarted`, or the first sorted scenario. Never
+   * on mount — opening a practice screen is not starting the practice, and counting it
+   * as one inflates the denominator of every completion rate with people who never
+   * began.
+   */
+  const markStarted = useCallback(() => {
+    if (startedAtRef.current !== null) return;
+    startedAtRef.current = Date.now();
+    try {
+      trackPracticeStarted();
+    } catch {
+      /* Telemetry must never affect the practice flow. */
+    }
+  }, [trackPracticeStarted]);
+
   /**
    * Mark practice as complete, increment count, and record principle engagement
    * FEAT-133: Learn module practices now count toward Principle Embodiment chart
@@ -61,7 +88,32 @@ export function usePracticeCompletion({
     // Record engagement for Insights dashboard (FEAT-133)
     const principle = getPrincipleForModuleId(moduleId);
     recordPrincipleEngagement(principle, 'learn', 'practiced');
-  }, [moduleId, incrementPracticeCount, recordPrincipleEngagement]);
+
+    // DEBUG-536: emit LAST, after the store writes above, and swallow. There is no
+    // outer catch on the screens that call this, so this is the only thing between a
+    // PostHog fault and a lost practice record.
+    //
+    // The duration is derived from `markStarted`'s latch, never minted here: if the
+    // screen never recorded an honest start, the property is OMITTED. `duration_ms`
+    // is in SAFE_NUMERIC_KEYS, so a fabricated one would transmit unchallenged.
+    //
+    // Latched separately from `startedAtRef` because SortingPracticeScreen can reach
+    // its completion branch on a re-render.
+    if (completedRef.current) return;
+    completedRef.current = true;
+    const startedAt = startedAtRef.current;
+    const durationMs = startedAt === null ? undefined : Date.now() - startedAt;
+    try {
+      trackPracticeCompleted(durationMs);
+    } catch {
+      /* Telemetry must never affect the practice flow. */
+    }
+  }, [
+    moduleId,
+    incrementPracticeCount,
+    recordPrincipleEngagement,
+    trackPracticeCompleted,
+  ]);
 
   /**
    * Render completion screen with philosopher-validated quote
@@ -116,6 +168,7 @@ export function usePracticeCompletion({
   return {
     isComplete,
     setIsComplete,
+    markStarted,
     markComplete,
     renderCompletion,
   };
