@@ -170,8 +170,9 @@ Wraps the app and provides PostHog context. Key behaviors:
 
 Whitelist-based validation ensuring only safe events are transmitted.
 
-**Whitelisted Events (13 total).** Every one has a production emitter — that is now
-the entry condition, not an aspiration. INFRA-552 deleted the twelve that had none.
+**Whitelisted Events (19 total).** Every one has a production emitter — that is now
+the entry condition, not an aspiration. INFRA-552 deleted the twelve that had none;
+DEBUG-536 restored six of those twelve *with* emitters, which is the only way back in.
 
 - App lifecycle: `app_opened` (`is_cold_start`, `since_last_active` — a coarse bucket,
   never a raw elapsed value), `app_backgrounded` (`duration_seconds` — FOREGROUND DWELL
@@ -181,14 +182,42 @@ the entry condition, not an aspiration. INFRA-552 deleted the twelve that had no
 - Settings: `settings_opened`, `consent_changed`
 - Onboarding: `onboarding_started/completed/step_completed`
 - Learn: `learn_content_viewed`, `learn_module_started`
+- Feature usage (DEBUG-536): `check_in_started`, `check_in_completed`,
+  `assessment_started`, `assessment_completed`, `practice_started`,
+  `practice_completed` — **`duration_ms` only**, on the `_completed` half
 - Guidance: `guidance_opened` (FEAT-457) — **no properties, ever**
 
-Removed by INFRA-552, all with zero production emitters: `check_in_started/completed`,
-`assessment_started/completed`, `practice_started/completed`, `learn_module_completed`,
-`breathing_exercise_started/completed`, `error_occurred` (errors go to Sentry, not
-PostHog), and `session_started`/`session_ended`, which never had a tracker function at
-all. Each is recorded with its reason in the `NARROWED` ledger in
-`app/__tests__/privacy/phiFilterDifferential.privacy.test.ts`.
+**The feature-usage set is ACCESS, never CONTENT.** Each says which affordance was
+reached and how long it took. None carries a score, an instrument identity, a severity,
+a practice id, or free text. That is the FEAT-457 boundary, and it is why these coexist
+with the published "we never collect any mental health data" promise — the same boundary
+under which `crisis_resources_viewed` / `crisis_hotline_tapped`, bare access signals for
+a strictly more sensitive affordance, already ship. Access is not the finding.
+
+Two specific extensions are closed by deliberate ruling, not oversight: no instrument
+identity on the assessment pair (neutral tokens like `wellness_9` were rejected as
+laundering — they defeat the keyword filter while preserving the inference), and no
+`practice_id` (`gratitude-reflection` and `social-impact-reflection` contain the PHI
+keyword `reflection` and would be dropped while the other ten pass — partial blindness
+that reads as real data). Both are pinned by
+`app/__tests__/privacy/assessmentAnalyticsBoundary.contract.test.ts`.
+
+**No completion figure derived from these may be shown to the practitioner.** They are
+founder-facing only. FEAT-328's invariant is that completion may be stated, never
+marked; a completion rate surfaced in Insights, on Home or in the coda is an outcome
+verdict on someone's practice.
+
+Still removed: `error_occurred` (errors go to Sentry, not PostHog) and
+`session_started`/`session_ended`, which never had a tracker function at all — the
+genuine "no longer wanted" cases. Plus `breathing_exercise_started/completed` and
+`learn_module_completed`, which DEBUG-536 could have restored on the same evidence and
+deliberately did not: they answer no question anyone is asking, and restoring a tracker
+whose only consumer is a dashboard nobody reads is how this set became twelve orphans
+the first time. They come back with a Job, or not at all. Each is recorded with its
+reason in the `NARROWED` ledger in
+`app/__tests__/privacy/phiFilterDifferential.privacy.test.ts` — which is also where a
+restoration is recorded, by DELETING the entry: these nine are frozen-baseline members
+returning, not new grants, so no `WIDENED` entry applies.
 
 > This list is still maintained by hand and has drifted before (stated as 27 while the
 > whitelist held 24, pre-FEAT-457). Since INFRA-552 the whitelist is DERIVED from

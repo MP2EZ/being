@@ -97,7 +97,7 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
   const durationPerArea = duration / areaCount; // Seconds per area
 
   // Shared hooks
-  const { renderCompletion, markComplete } = usePracticeCompletion({
+  const { renderCompletion, markStarted, markComplete } = usePracticeCompletion({
     practiceId,
     moduleId,
     title: 'Body Scan Practice',
@@ -178,6 +178,17 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
   const currentGuidance = AREA_GUIDANCE[currentArea] || 'Bring gentle awareness to this area.';
 
   // Show completion screen after all areas scanned
+  // DEBUG-536: `practice_started` fires on the first activation, not on mount —
+  // opening the screen is not beginning the practice. `markStarted` is latched, so
+  // a resume (and a return from background) does not re-emit.
+  const handleToggle = React.useCallback(
+    (active: boolean) => {
+      if (active) markStarted();
+      setIsTimerActive(active);
+    },
+    [markStarted, setIsTimerActive]
+  );
+
   const completionScreen = renderCompletion();
   if (completionScreen) {
     return completionScreen;
@@ -232,7 +243,7 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
       <PracticeToggleButton
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
-        onToggle={setIsTimerActive}
+        onToggle={handleToggle}
         style={{ marginBottom: spacing[32] }}
         testID={`${testID}-toggle-button`}
       />

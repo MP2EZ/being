@@ -70,6 +70,7 @@ import ReConsentRoute from '@/features/consent/screens/ReConsentRoute';
 // module graph of every importer, including safety paths (FEAT-376).
 import ConsentBlockedRoute from '@/features/consent/screens/ConsentBlockedRoute';
 import { useReConsentTrigger } from '@/features/consent/hooks/useReConsentTrigger';
+import { useAnalytics } from '@/core/analytics';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { DailyLoopMode, DailyLoopDepth, DailyLoopSessionData } from '@/features/practices/types/flows';
 import {
@@ -229,6 +230,10 @@ const LoadingScreen: React.FC = () => (
 
 const CleanRootNavigator: React.FC = () => {
   const { markCheckInComplete, recordPrincipleEngagement } = useStoicPracticeStore();
+  // DEBUG-536: destructure the individual tracker, never the hook object — the object
+  // is new every render, and this component hosts the RootCrisisButton overlay, so it
+  // must not gain a new render trigger. The tracker itself is useCallback-stable.
+  const { trackCheckInCompleted } = useAnalytics();
   const { loadSettings, markOnboardingComplete } = useSettingsStore();
   const { loadConsent, consentStatus } = useConsentStore();
   const [initialRoute, setInitialRoute] = useState<'LegalGate' | 'Onboarding' | 'Main' | null>(null);
@@ -362,6 +367,25 @@ const CleanRootNavigator: React.FC = () => {
     logSystem(
       `Recorded ${stepKeys.length} principle engagements (daily loop, ${engagementType})`
     );
+
+    // DEBUG-536: LAST statement, and in its own swallowing catch. This function has no
+    // try/catch of its own, so without this an analytics throw rejects an unhandled
+    // promise and loses the check-in record CleanHomeScreen's isCheckInCompletedToday
+    // reads, plus every principle engagement above it.
+    //
+    // The duration is NOT minted here. It is the figure DailyLoopNavigator already
+    // derived from the same mount-scoped `startTime` that emitted `check_in_started`,
+    // so the pair agrees by construction. Omitted when absent or non-finite —
+    // `duration_ms` is in SAFE_NUMERIC_KEYS, so a fabricated value would transmit
+    // unchallenged and read as real data.
+    try {
+      const seconds = sessionData.timeSpentSeconds;
+      const durationMs =
+        typeof seconds === 'number' && Number.isFinite(seconds) ? seconds * 1000 : undefined;
+      trackCheckInCompleted(durationMs);
+    } catch {
+      /* Telemetry must never affect the check-in record. */
+    }
   };
 
   // FEAT-298 slice 6c: the "start practising now" destination is the daily loop. It was
