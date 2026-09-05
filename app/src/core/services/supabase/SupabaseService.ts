@@ -154,6 +154,93 @@ interface SupabaseServiceConfig {
   analyticsFlushIntervalMs: number;
 }
 
+/**
+ * INFRA-568 — session_id rotation.
+ *
+ * The shape the DATABASE enforces, mirrored here so the client and the schema agree
+ * by construction. `CONSTRAINT session_id_format CHECK (session_id ~
+ * '^session_[0-9]{4}-[0-9]{2}-[0-9]{2}_[a-z0-9]+$')` is live on `analytics_events`
+ * (`supabase/migrations/20260523000000_base_schema.sql:109`, verified byte-identical
+ * against the running project).
+ *
+ * WHY THE FORMAT IS THE HIGH-SEVERITY SURFACE, NOT THE DATE. `flushCrisisAnalytics`
+ * inserts the batch as ONE multi-row `insert(rows)`. A single malformed `session_id`
+ * aborts the entire statement with 23514, `result.success` is false, the whole queue is
+ * RETAINED, and every later flush re-sends the same poisoned batch — and that call
+ * passes `bypassCircuitBreaker: true`, so nothing ever opens to stop the loop. The
+ * vital-interest crisis sink would stall permanently and silently. Hence: validate
+ * before assigning, and never return a non-conforming string.
+ *
+ * Note the `+` quantifier — a zero-length suffix is a REJECTION, not a truncation.
+ *
+ * These live here rather than in `core/utils/id.ts` on the `crisis` ruling for
+ * INFRA-568: that module also exports `generateComponentId` / `generateUUID` /
+ * `generateTimestampedId`, so hosting a crisis-path predicate there would drag shared
+ * UI primitives onto a Protected Path and charge a sim build to every UI-id edit.
+ * `generateSessionId()` is left byte-identical, which preserves its already-verified
+ * conformance to the constraint above.
+ */
+const SESSION_ID_FORMAT = /^session_(\d{4}-\d{2}-\d{2})_([a-z0-9]+)$/;
+
+/**
+ * Idle gap after which a new engagement is considered to have begun.
+ *
+ * NOT inherited from analytics folklore: INFRA-542's `SINCE_LAST_ACTIVE_BUCKETS` splits
+ * at exactly `5m_30m` / `30m_24h`, so this product already treats a gap longer than 30
+ * minutes as a different visit. Aligning keeps a Supabase `session_id` and a PostHog
+ * `since_last_active` bucket telling the same story. It is a stated convention, not an
+ * empirical fit — there is no session-length distribution to fit against.
+ */
+export const SESSION_ID_IDLE_MS = 30 * 60 * 1000;
+
+/**
+ * `YYYY-MM-DD` for an instant, in **UTC**.
+ *
+ * UTC is load-bearing. `analytics_events.created_at` is `TIMESTAMPTZ DEFAULT NOW()` and
+ * both operator views group by `DATE_TRUNC('day', created_at)`, which is UTC. A
+ * device-local prefix would recreate the exact `session_id` vs `created_at` disagreement
+ * this rotation exists to remove, for every user west of UTC — and would pass on UTC CI
+ * while failing on a developer's machine.
+ */
+export function utcDateString(nowMs: number = Date.now()): string {
+  return new Date(nowMs).toISOString().slice(0, 10);
+}
+
+/**
+ * The date component of a session id, or `null` if it does not match the shape the
+ * database enforces. Returns `null` rather than salvaging a near-miss: coercing a
+ * malformed id into something date-shaped would let it survive to the insert.
+ */
+export function sessionIdDate(sessionId: string): string | null {
+  const match = SESSION_ID_FORMAT.exec(sessionId ?? '');
+  return match ? match[1]! : null;
+}
+
+/**
+ * Whether a session id must be replaced before it is written again.
+ *
+ * TWO INDEPENDENT CLAUSES — neither subsumes the other:
+ *   1. UTC DATE BOUNDARY — a row's session date must agree with its own `created_at`.
+ *      Without this, a process alive across midnight stamps rows with yesterday's prefix.
+ *   2. IDLE GAP — without this, a "session" is an artifact of how long the process
+ *      happened to stay alive, and a backgrounded-for-a-week app still emits one session
+ *      per calendar day it wakes in.
+ *
+ * A malformed id is stale (it cannot be written at all) and so is a future-dated one
+ * (the clock moved backwards under us). Strictly greater-than on the idle comparison, so
+ * a gap of exactly the threshold does not rotate.
+ */
+export function isSessionIdStale(
+  sessionId: string,
+  lastUseAtMs: number,
+  nowMs: number = Date.now(),
+): boolean {
+  const embedded = sessionIdDate(sessionId);
+  if (embedded === null) return true;
+  if (embedded !== utcDateString(nowMs)) return true;
+  return nowMs - lastUseAtMs > SESSION_ID_IDLE_MS;
+}
+
 class SupabaseService {
   private client: SupabaseClient | null = null;
   // INFRA-260: the Supabase anonymous session user id (== auth.uid() server-side).
@@ -205,6 +292,8 @@ class SupabaseService {
    */
   private crisisFlushInFlight: Promise<void> | null = null;
   private sessionId: string;
+  /** INFRA-568 — last instant `session_id` was WRITTEN, driving the idle clause. */
+  private lastSessionUseMs: number = Date.now();
   private analyticsFlushTimer: NodeJS.Timeout | null = null;
   private isInitialized = false;
 
@@ -232,7 +321,13 @@ class SupabaseService {
       lastFailureTime: 0,
       state: 'closed',
     };
-    this.sessionId = this.generateSessionId();
+    // Guarded: this class is instantiated at MODULE SCOPE
+    // (`export const supabaseService = new SupabaseService()`), so an unguarded throw
+    // here takes the whole module — and with it the crisis telemetry path — down at
+    // import time. Routed through the same validated-with-fallback mint as every
+    // rotation rather than being a second, differently-guarded call site.
+    this.lastSessionUseMs = Date.now();
+    this.sessionId = this.mintSessionId('');
     this.setupAppStateListener();
   }
 
@@ -433,10 +528,79 @@ class SupabaseService {
   }
 
   /**
-   * Generate session ID (rotated daily for privacy)
+   * Mint a session id that is GUARANTEED to satisfy `SESSION_ID_FORMAT`. Total: never
+   * throws, never returns a non-conforming string.
+   *
+   * The guard is about THROWING, not about latency. `generateRandomString` calls into
+   * expo-crypto, and this runs inside `trackCrisisDetection`'s synchronous frame whose
+   * `catch` is a DROP — its body is only `logSecurity`, and the queue `push` is the first
+   * statement in the try — so an unguarded throw here means the crisis event is never
+   * enqueued, never persisted and never flushed. That is total silent loss on the sole
+   * vital-interest crisis audit sink: a failure mode strictly more severe than the stale
+   * date this change exists to fix.
+   *
+   * DEGRADATION LADDER:
+   *   1. A fresh crypto mint, validated.
+   *   2. Re-date the PRIOR id's crypto suffix, so the date claim becomes correct while
+   *      the suffix keeps its crypto provenance.
+   *   3. A conforming sentinel. Deliberately NOT `Math.random()` — `core/utils/id.ts`
+   *      exists to replace Math.random ID generation — and deliberately not an empty or
+   *      trimmed suffix, which would be rejected by the CHECK and poison the batch.
+   *      A shared constant reduces distinctness rather than increasing it, and it is
+   *      greppable in the table as "the crypto-failure path fired".
    */
-  private generateSessionId(): string {
-    return generateSessionId();
+  private mintSessionId(previous: string): string {
+    try {
+      const candidate = generateSessionId();
+      if (SESSION_ID_FORMAT.test(candidate)) return candidate;
+    } catch {
+      // fall through to the degradation ladder
+    }
+    try {
+      const prior = SESSION_ID_FORMAT.exec(previous ?? '');
+      if (prior) {
+        const redated = `session_${utcDateString()}_${prior[2]!}`;
+        if (SESSION_ID_FORMAT.test(redated)) return redated;
+      }
+      const sentinel = `session_${utcDateString()}_cryptofallback`;
+      if (SESSION_ID_FORMAT.test(sentinel)) return sentinel;
+    } catch {
+      // fall through
+    }
+    return SESSION_ID_FORMAT.test(previous ?? '') ? previous : 'session_1970-01-01_cryptofallback';
+  }
+
+  /**
+   * The session id to WRITE, rotating first if it has gone stale (INFRA-568).
+   *
+   * Called from exactly two places — the `session_id:` expression in `trackEvent` and in
+   * `trackCrisisDetection`. Nothing else reads `this.sessionId`.
+   *
+   * ROTATION HAPPENS AT ENQUEUE, NEVER AT FLUSH. `flushCrisisAnalytics` keeps
+   * `session_id: e.session_id` from the persisted row. Re-stamping there would break the
+   * durable queue's composite identity (`${session_id}|${enqueued_at}|${event_type}|…`),
+   * so an in-memory copy would no longer match its own disk copy, the DEBUG-335 merge
+   * would classify one event as two, and the crisis row would be inserted TWICE. It would
+   * also relabel an offline backlog with the drain-day's session.
+   *
+   * The idle clock advances on BOTH paths deliberately. A "session" here means one
+   * contiguous engagement with the app by one install, and an ops write is evidence of
+   * engagement just as a crisis write is. In practice `trackEvent` returns early on
+   * `!this.userId` and on `canPerformOperation('cloud_sync') === false` — the default —
+   * so on nearly every install this clock is driven by the crisis path alone.
+   */
+  private currentSessionId(): string {
+    const now = Date.now();
+    try {
+      if (isSessionIdStale(this.sessionId, this.lastSessionUseMs, now)) {
+        this.sessionId = this.mintSessionId(this.sessionId);
+      }
+    } catch {
+      // Keep the last-known-good value. Never let telemetry bookkeeping throw into
+      // the crisis frame.
+    }
+    this.lastSessionUseMs = now;
+    return this.sessionId;
   }
 
   /**
@@ -645,7 +809,7 @@ class SupabaseService {
       user_id: this.userId,
       event_type: eventType,
       properties: sanitizedProperties,
-      session_id: this.sessionId,
+      session_id: this.currentSessionId(),
     };
 
     this.analyticsQueue.push(event);
@@ -782,7 +946,7 @@ class SupabaseService {
           intervention_surfaced: Boolean(telemetry.intervention_surfaced),
           assessment_type: this.requireCrisisField(telemetry.assessment_type, 'assessment_type'),
         },
-        session_id: this.sessionId,
+        session_id: this.currentSessionId(),
         enqueued_at: Date.now(),
       });
       // Durable persist immediately (own key — never evicted by the ops queue).

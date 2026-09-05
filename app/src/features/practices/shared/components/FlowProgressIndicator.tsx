@@ -69,7 +69,13 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   progressBar: {
-    width: 120,
+    // MAINT-564 (AC2): was a hardcoded 120. Both ancestors already declare width '100%'
+    // — progressContainer here and headerContainer in DailyLoopNavigator — so the bar
+    // was the one link in the chain refusing the width it was being offered, and
+    // widening the title slot alone would not have reached it.
+    // Sole consumer is DailyLoopNavigator (the three time-of-day navigators this was
+    // extracted from were retired in FEAT-298 slice 6c), so this is daily-loop-scoped.
+    width: '100%',
     height: spacing[4],
     backgroundColor: colorSystem.gray[200],
     borderRadius: borderRadius.xs,

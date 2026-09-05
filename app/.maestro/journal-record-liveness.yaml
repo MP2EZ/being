@@ -1,0 +1,74 @@
+appId: fyi.being.app
+tags:
+  - safety-host-probe
+name: "Voice journal record tap does not abort the process (DEBUG-524)"
+# e2e-certifies: any
+# DEBUG-524 — drives the app to `phase: 'recording'` and STOPS. The verdict is the
+# host-side PID sample in scripts/e2e-audio-liveness-probe.sh, not this file.
+---
+# WHY THE ASSERTION IS NOT IN THIS FILE
+# The oracle is the app's PID sampled either side of a MEASURED interval, which is
+# host-side by nature. Every in-flow way to burn the ~15s abort window is a shape
+# DEBUG-524's crisis ruling rejects outright:
+#
+#   - `extendedWaitUntil: visible:` on an element that is ALREADY visible returns in
+#     milliseconds. Zero dwell, green — the exact "green because fast" failure the
+#     work item forbids closing on.
+#   - `extendedWaitUntil: notVisible:` on a live element times out whether the app is
+#     healthy or dead, so it discriminates nothing.
+#   - a `repeat:` block is host-speed dependent, so a FASTER machine produces a
+#     SHORTER dwell and a weaker test.
+#
+# WHY THE TAG IS `safety-host-probe` AND NOT `safety`
+# `npm run e2e:safety` globs flows tagged exactly `- safety`; this one is excluded on
+# purpose, on the `safety-device-only` / `safety-dynamic-type` precedent. Running it
+# bare proves nothing — without the probe's dwell there is no window and no verdict.
+# It is still routed through e2e-safety.sh (never `maestro test` directly) so it keeps
+# provenance verification, device resolution, the sim lock and the driver reset. It is
+# deliberately NOT `_`-prefixed: e2e-safety.sh refuses helper subflows outright
+# (DEBUG-505, exit 2), so a `_` name could not be routed through the pre-flight at all.
+#
+# NOTHING MAY BE APPENDED AFTER THE RECORD TAP, except the precondition assert that
+# closes this file. The abort lands ~15s later wherever the flow has got to and
+# attributes itself to whatever step is executing — see the measured note at
+# profile-voice-reflection-xxxl.yaml:118-140. This flow ending at the tap is what
+# leaves the window clean for the probe to own.
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent survives clearState (INFRA-179)
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-voice-reflection"
+    direction: DOWN
+    centerElement: true # DEBUG-465/477 — a pinned tab bar shares coordinates with clipped content
+    timeout: 40000 # DEBUG-507 — 20000 measured at 95% of budget on an idle host
+# DEBUG-477/479 absorbing tap. XCUITest swallows the synthesised first tap after a flick
+# on a MID-LIST card, and FEAT-287 added a card beneath this one, ending its immunity.
+- tapOn:
+    id: "tab-profile"
+- tapOn:
+    id: "profile-card-voice-reflection"
+- assertVisible:
+    id: "voice-reflection-screen"
+
+# ── THE ABORT WINDOW OPENS HERE ──────────────────────────────────────────────
+- tapOn:
+    id: "journal-record-button"
+
+# PRECONDITION, NOT DECORATION — the probe is UNSOUND without it.
+# journal-stop-button renders ONLY under `phase === 'recording'`
+# (VoiceReflectionScreen.tsx:512). If the record tap were swallowed — the DEBUG-479
+# class, live on this very card — the recognizer would never start, no AVAudioEngine
+# would be constructed, no RPC would be entered, and the probe would observe a
+# perfectly stable PID and report PASS. That false green is indistinguishable from a
+# fix. Asserting the phase is what makes a stable PID mean "survived the window"
+# rather than "never entered it".
+#
+# It is also the probe's liveness baseline: this assert passing is the evidence the
+# process was ALIVE when the window opened, which is what lets the probe read a
+# missing PID as an abort rather than as a blind oracle.
+- assertVisible:
+    id: "journal-stop-button"

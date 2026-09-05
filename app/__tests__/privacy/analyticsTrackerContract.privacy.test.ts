@@ -35,6 +35,25 @@ jest.mock('posthog-react-native', () => ({
 import { renderHook } from '@testing-library/react-native';
 import { useAnalytics } from '@/core/analytics/useAnalytics';
 import { PHIFilter, AnalyticsEvents } from '@/core/analytics/PHIFilter';
+import { useConsentStore } from '@/core/stores/consentStore';
+
+/**
+ * DEBUG-559: granting consent is now a PRECONDITION of this suite, and that is a
+ * real change in what it proves rather than boilerplate.
+ *
+ * `trackEvent` used to gate on `!posthog` alone, which stood in for consent only
+ * because `PostHogProvider` withheld the client without it. That withholding was
+ * an element-type swap that remounted every 988 affordance in the app, so it had
+ * to go — and the emit path now reads the consent store directly. Without this
+ * the mocked client is present, the consent store is empty, and every tracker
+ * below correctly emits nothing, which would read as 13 broken trackers.
+ */
+function grantAnalyticsConsent(): void {
+  useConsentStore.setState({
+    currentConsent: { preferences: { analyticsEnabled: true }, universalOptOut: false },
+  } as unknown as Parameters<typeof useConsentStore.setState>[0]);
+}
+grantAnalyticsConsent();
 
 /**
  * HAND-AUTHORED fixtures: tracker name -> the arguments a real call site passes.
@@ -45,14 +64,10 @@ import { PHIFilter, AnalyticsEvents } from '@/core/analytics/PHIFilter';
  */
 const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
   trackScreenView: ['HomeScreen'],
-  trackAppOpened: [],
-  trackAppBackgrounded: [],
-  trackCheckInStarted: [],
-  trackCheckInCompleted: [5000],
-  trackAssessmentStarted: [],
-  trackAssessmentCompleted: [42000],
-  trackPracticeStarted: [],
-  trackPracticeCompleted: [300000],
+  // INFRA-542: real call shapes — these two gained emitters and
+  // properties. A bucketed string, never a raw elapsed number.
+  trackAppOpened: [true, 'cold_start'],
+  trackAppBackgrounded: [42],
   trackCrisisResourcesViewed: [],
   trackCrisisHotlineTapped: [],
   trackGuidanceOpened: [],
@@ -60,13 +75,26 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
   trackConsentChanged: [],
   trackLearnContentViewed: ['module-1'],
   trackLearnModuleStarted: ['module-1'],
-  trackLearnModuleCompleted: ['module-1', 900],
-  trackBreathingExerciseStarted: [],
-  trackBreathingExerciseCompleted: [180000],
   trackOnboardingStarted: [],
   trackOnboardingStepCompleted: [3],
   trackOnboardingCompleted: [],
-  trackErrorOccurred: ['network_error'],
+  // DEBUG-536: the six feature-usage lifecycle trackers INFRA-552 removed for
+  // having zero call sites, restored WITH call sites. Payload shapes are the
+  // frozen-baseline ones, recovered verbatim from 673bf360^ — duration-only.
+  //
+  // Each fixture is the shape the REAL call site passes, not the widest shape the
+  // signature allows. `trackCheckInCompleted`'s duration is NOT minted at the emit
+  // site: it is `sessionData.timeSpentSeconds * 1000`, the figure DailyLoopNavigator
+  // already derived from the same mount-scoped `startTime` that `check_in_started`
+  // fires from — so the pair agrees by construction. The tracker still omits the
+  // property when that figure is absent, because `duration_ms` is in
+  // SAFE_NUMERIC_KEYS and a fabricated one would transmit unchallenged.
+  trackCheckInStarted: [],
+  trackCheckInCompleted: [420000],
+  trackAssessmentStarted: [],
+  trackAssessmentCompleted: [180000],
+  trackPracticeStarted: [],
+  trackPracticeCompleted: [300000],
 };
 
 /**
@@ -77,10 +105,11 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
  */
 const EXCLUDED = new Set(['trackEvent']);
 
-/** Pinned floor: 23 named trackers today. Growth fine, shrinkage red. */
-const MIN_TRACKERS = 23;
+/** Pinned floor: 19 named trackers today (DEBUG-536 restored 6). Growth fine, shrinkage red. */
+const MIN_TRACKERS = 19;
 
 describe('every useAnalytics tracker transmits (INFRA-535)', () => {
+  grantAnalyticsConsent();
   const { result } = renderHook(() => useAnalytics());
   const allKeys = Object.keys(result.current).filter(
     (k) => typeof (result.current as Record<string, unknown>)[k] === 'function'
@@ -143,13 +172,16 @@ describe('every useAnalytics tracker transmits (INFRA-535)', () => {
     });
   });
 
-  describe('catalog constants with no tracker at all (recorded for INFRA-552)', () => {
-    it('session_started and session_ended are whitelisted but unreachable from the hook', () => {
-      // Neither has a tracker function, so the derived enumeration above cannot
-      // see them and this suite cannot protect them. The catalog prune must handle
-      // them by hand rather than assuming the contract test covers the catalog.
-      expect(PHIFilter.isWhitelisted('session_started')).toBe(true);
-      expect(PHIFilter.isWhitelisted('session_ended')).toBe(true);
+  describe('catalog constants with no tracker at all (DISCHARGED by INFRA-552)', () => {
+    it('session_started and session_ended are gone from the catalog entirely', () => {
+      // Previously these were whitelisted with no tracker function, so the derived
+      // enumeration above could not see them and this suite could not protect them.
+      // INFRA-552 deleted both: no session-lifecycle concept exists anywhere in
+      // app/src, so they were catalog fiction rather than pending work. Kept as an
+      // assertion rather than deleted with them — re-adding a name the hook cannot
+      // reach is the exact defect this block was recording.
+      expect(PHIFilter.isWhitelisted('session_started')).toBe(false);
+      expect(PHIFilter.isWhitelisted('session_ended')).toBe(false);
 
       const emitters = trackerKeys.filter((k) => /session/i.test(k));
       expect(emitters).toEqual([]);
