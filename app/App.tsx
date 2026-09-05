@@ -6,7 +6,7 @@
 import React, { useEffect, useState } from 'react';
 import { LogBox } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
-import { SafeAreaProvider } from 'react-native-safe-area-context';
+import { SafeAreaProvider, initialWindowMetrics } from 'react-native-safe-area-context';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import * as Sentry from '@sentry/react-native';
 import CleanRootNavigator from './src/core/navigation/CleanRootNavigator';
@@ -190,7 +190,25 @@ function App() {
     // release). Do not remove — the crisis button's swipe affordance depends on it.
     <GestureHandlerRootView style={{ flex: 1 }}>
       <PostHogProvider>
-        <SafeAreaProvider>
+        {/*
+          DEBUG-559: initialMetrics is a CRISIS fix, not a polish item.
+
+          SafeAreaProvider renders NOTHING — literally `null` — until its native
+          insets round-trip lands (SafeAreaContext.tsx: `{insets != null ? … : null}`,
+          seeded from `initialMetrics?.insets ?? initialSafeAreaInsets ?? parentInsets`).
+          This is the outermost such provider, so without initialMetrics that seed is
+          null on every mount. And EVERY 988 affordance in the app is a descendant:
+          RootCrisisButton, CrisisKeyboardAccessory, RootCrisisBoundary's
+          Static988Button fallback, and LoadingScreen's. So any remount of this
+          subtree is not a FAB gap that LoadingScreen's static button covers — the
+          static button is inside the curtain too. It is a blank, zero-988 screen.
+
+          `initialWindowMetrics` is read synchronously at bridge init, so children
+          paint in the SAME commit as the mount. DEBUG-559 removed the consent-grant
+          trigger for that remount; this removes the CONSEQUENCE for every other
+          cause, including cold launch. Keep both — they are independent.
+        */}
+        <SafeAreaProvider initialMetrics={initialWindowMetrics}>
           <StatusBar style="auto" />
           {/*
             DEBUG-341: the app had NO error boundary above CleanRootNavigator, so any

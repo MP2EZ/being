@@ -1,24 +1,36 @@
 /**
- * INFRA-542 — AppLifecycleTracker mounts in BOTH PostHogProvider branches.
+ * INFRA-542 — AppLifecycleTracker mounts regardless of analytics consent.
  *
  * WHY THIS PIN EXISTS. The tracker owns two unrelated jobs: the always-on
  * `setLastActiveTimestamp` write that feeds the Home intro animation, and the
- * consent-gated `app_opened` / `app_backgrounded` emits. Mounting it only
- * inside the gated `<PHProvider>` branch reads as the tidier arrangement and
- * is silently wrong — it stops the intro-animation timestamp for every user
- * who has not consented to analytics, with no failing test and nothing
- * user-visible until someone notices Home animating differently.
+ * consent-gated `app_opened` / `app_backgrounded` emits. Mounting it only on a
+ * consented path reads as the tidier arrangement and is silently wrong — it
+ * stops the intro-animation timestamp for every user who has not consented to
+ * analytics, with no failing test and nothing user-visible until someone
+ * notices Home animating differently.
  *
  * The tracker's own suite proves the write survives a missing PostHog client.
- * It cannot prove the component is RENDERED on the path where the client is
- * missing. That is this file's only job.
+ * It cannot prove the component is RENDERED without consent. That is this
+ * file's job.
  *
- * The env override below is load-bearing, for the reason DEBUG-557's
- * consent-remount suite documents at length: `__tests__/setup/env.mock.js`
- * blanks EXPO_PUBLIC_POSTHOG_API_KEY for every jest run and PostHogProvider
- * reads it at MODULE SCOPE, so without the override BOTH consent states render
- * the fragment branch — and this file would pass while testing one branch
- * twice. The branch-entered control asserts the override actually took.
+ * DEBUG-559 RESTATED THIS, AND RAISED THE STAKES. This file used to be titled
+ * "mounts in BOTH branches", because the provider returned a bare fragment
+ * without consent and <PHProvider> with it. That element-TYPE swap was the
+ * DEBUG-559 defect — it destroyed and recreated every 988 affordance in the app
+ * on an ordinary consent tap — so the consent branch is gone and there is only
+ * one branch left. Unconditional mounting is therefore no longer merely the
+ * tidy-vs-correct question above: React reconciles unkeyed children by
+ * position, so a tracker rendered only under consent would shift `children`'s
+ * index and remount the crisis subtree by a second route. The assertions below
+ * are unchanged in spirit and stronger in consequence.
+ *
+ * The env override below is load-bearing, and more so than when it was written:
+ * `__tests__/setup/env.mock.js` blanks EXPO_PUBLIC_POSTHOG_API_KEY for every
+ * jest run and PostHogProvider reads it at MODULE SCOPE. Since the API-key
+ * guard is now the file's ONLY conditional, without the override every case
+ * here renders the fragment branch and the suite passes having never exercised
+ * the shape a Release build takes. The branch-entered control asserts the
+ * override actually took.
  */
 
 jest.mock('@/core/config/env', () => {
@@ -80,38 +92,37 @@ function renderProvider() {
   );
 }
 
-describe('PostHogProvider mounts AppLifecycleTracker in both branches (INFRA-542)', () => {
+describe('PostHogProvider mounts AppLifecycleTracker regardless of consent (INFRA-542)', () => {
   beforeEach(() => {
     useConsentStore.setState({ currentConsent: null } as unknown as Parameters<
       typeof useConsentStore.setState
     >[0]);
   });
 
-  it('mounts the tracker on the UNGATED branch (analytics consent off)', () => {
+  it('mounts the tracker WITHOUT analytics consent', () => {
     setAnalyticsConsent(false);
-    const { getByTestId, queryByTestId } = renderProvider();
+    const { getByTestId } = renderProvider();
 
-    // Control: we really are on the fragment branch, not the provider one.
-    expect(queryByTestId(PH_BRANCH_TEST_ID)).toBeNull();
+    // Control (DEBUG-559): the element type no longer depends on consent, so we
+    // are inside <PHProvider> even here. Before the fix this asserted the
+    // opposite — that inversion IS the fix, and it also proves the env override
+    // took, since a blanked API key would land on the fragment branch instead.
+    expect(getByTestId(PH_BRANCH_TEST_ID)).toBeTruthy();
     expect(getByTestId('infra542-child')).toBeTruthy();
 
     // The assertion this file exists for.
     expect(getByTestId(TRACKER_TEST_ID)).toBeTruthy();
   });
 
-  it('mounts the tracker on the GATED branch (analytics consent on)', () => {
+  it('mounts the tracker WITH analytics consent', () => {
     setAnalyticsConsent(true);
     const { getByTestId } = renderProvider();
 
-    // Control: the env override took and we crossed into <PHProvider>. Without
-    // this, a blanked API key would put both cases on the fragment branch and
-    // this suite would pass having never tested the gated path.
     expect(getByTestId(PH_BRANCH_TEST_ID)).toBeTruthy();
-
     expect(getByTestId(TRACKER_TEST_ID)).toBeTruthy();
   });
 
-  it('mounts exactly one tracker per branch', () => {
+  it('mounts exactly one tracker in either consent state', () => {
     // A second listener is what the item's AC forbids: the fix RELOCATES the
     // App.tsx listener, it does not add a sibling. Two mounted trackers would
     // double every emit and double-write lastActiveTimestamp.

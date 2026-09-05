@@ -32,10 +32,16 @@
  * describes the PROMPT CADENCE, which is observable and true; saying anything
  * about restricted processing would not be.
  *
- * 🚫 NO TELEMETRY on any branch. `PostHogProvider` gates mounting on
- * `currentConsent?.preferences?.analyticsEnabled`, and `currentConsent` is null
- * for the whole `version_mismatch` window, so no client exists — and any event
- * would describe an interaction that happened before consent existed.
+ * 🚫 NO TELEMETRY on any branch. `currentConsent` is null for the whole
+ * `version_mismatch` window, so `useAnalyticsConsent()` is false and
+ * `trackEvent` withholds every event — and any event would describe an
+ * interaction that happened before consent existed.
+ *
+ * Corrected in DEBUG-559: this used to say no client EXISTS. `PostHogProvider`
+ * withheld `<PHProvider>` without consent, which swapped the element type above
+ * every 988 affordance in the app and remounted them on a consent tap. The
+ * provider is now always mounted, so the guarantee rests on the explicit consent
+ * read in `useAnalytics.trackEvent` — not on the absence of a client.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';

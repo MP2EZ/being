@@ -26,13 +26,21 @@
  * This is the whole correctness argument, so it is written down rather than
  * inferred.
  *
- * Analytics is opt-in and default OFF, and `PostHogProvider` only renders
- * `<PHProvider>` while consent is granted. A user who consented, later revoked,
- * then deleted their account therefore has NO provider in the tree — `usePostHog()`
- * returns undefined — while a PostHog INSTANCE constructed during the consented
- * period is still alive: the library registers `AppState` listeners in its
- * constructor and never removes them, and its provider builds the client in a bare
- * `useMemo` with no `shutdown()` on unmount.
+ * Analytics is opt-in and default OFF. Until DEBUG-559, `PostHogProvider` only
+ * rendered `<PHProvider>` while consent was granted, so a user who consented,
+ * later revoked, then deleted their account had NO provider in the tree —
+ * `usePostHog()` returned undefined — while a PostHog INSTANCE constructed during
+ * the consented period was still alive: the library registers `AppState`
+ * listeners in its constructor and never removes them, and its provider builds
+ * the client in a bare `useMemo` with no `shutdown()` on unmount.
+ *
+ * DEBUG-559 made the provider unconditional (the consent-driven branch was
+ * remounting every 988 affordance in the app), so in a build with a configured
+ * key an instance now exists from launch and is registered here at launch. That
+ * STRENGTHENS this path — the reference is always current rather than only if the
+ * user ever consented — and it makes the `never existed` branch below effectively
+ * unreachable outside an unconfigured build. It is kept as the defensive case,
+ * not as a live one. The reasoning below is unchanged and still load-bearing:
  *
  * That instance holds a `memoryCache`, and `persist()` re-serialises the WHOLE
  * cache on every write. So deleting the files under a live instance is a FAKE
