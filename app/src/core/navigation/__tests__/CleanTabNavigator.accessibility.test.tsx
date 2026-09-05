@@ -148,3 +148,70 @@ describe('DEBUG-356: the underlying tints are still illegal on white (regression
     );
   });
 });
+
+/**
+ * DEBUG-579 — the label's font-scale cap is WIRED, not merely computed.
+ *
+ * tabBarLayout.test.ts proves the cap is arithmetically right. It cannot prove
+ * the navigator uses it: delete the two props and every one of those cases stays
+ * green while the defect is fully restored. The navigator cannot be rendered here
+ * (see the note at the top of this file), so the only available evidence is the
+ * source text — the same move CombinedLegalGateScreen.accessibility.test.tsx makes.
+ *
+ * COMMENTS ARE STRIPPED FIRST, and that is not defensive tidying (DEBUG-390).
+ * The navigator deliberately names `allowFontScaling={false}` in prose to warn
+ * the next reader off it, so a bare `not.toContain` on that string fails against
+ * CORRECT code. Match prop-shaped patterns on comment-free source, and prove the
+ * matcher still fires — a stripped-source regex is exactly the combination that
+ * can silently match nothing at all.
+ */
+describe('DEBUG-579: the tab label cap reaches the component', () => {
+  const NAVIGATOR_PATH = require('path').join(__dirname, '..', 'CleanTabNavigator.tsx');
+  const raw = require('fs').readFileSync(NAVIGATOR_PATH, 'utf8');
+  const source = raw
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+  it('strips comments without gutting the file', () => {
+    // If this ever collapses, every assertion below passes or fails for the
+    // wrong reason.
+    expect(source.length).toBeGreaterThan(1000);
+    expect(source).toContain('tabBarLabel');
+  });
+
+  it('applies the derived cap by name, never a literal', () => {
+    expect(source).toMatch(/maxFontSizeMultiplier\s*=\s*\{\s*TAB_LABEL_MAX_FONT_SCALE\s*\}/);
+    expect(source).toMatch(/TAB_LABEL_MAX_FONT_SCALE/);
+    // A hardcoded 1.4 / 1.43 / 1.4286 would drift from tabBarLayout.ts silently.
+    expect(source).not.toMatch(/maxFontSizeMultiplier\s*=\s*\{\s*[\d.]+\s*\}/);
+  });
+
+  it('clamps the label to one line', () => {
+    // Load-bearing, not polish: the cap bounds the line BOX, so an unclamped
+    // wrap is 2 x lineHeight x scale and defeats it.
+    expect(source).toMatch(/numberOfLines\s*=\s*\{\s*1\s*\}/);
+  });
+
+  it('does not freeze Dynamic Type', () => {
+    // The prose above this assertion's target names allowFontScaling={false} as
+    // the REJECTED option; only comment-stripping makes this assertion honest.
+    expect(source).not.toMatch(/allowFontScaling\s*=\s*\{\s*false\s*\}/);
+    expect(source).not.toMatch(/adjustsFontSizeToFit/);
+  });
+
+  it('the matchers still fire (DEBUG-390)', () => {
+    // Run each predicate over literal known-bad strings, so a regex that has
+    // stopped matching anything cannot pass as a clean file.
+    expect('maxFontSizeMultiplier={TAB_LABEL_MAX_FONT_SCALE}').toMatch(
+      /maxFontSizeMultiplier\s*=\s*\{\s*TAB_LABEL_MAX_FONT_SCALE\s*\}/,
+    );
+    expect('maxFontSizeMultiplier={1.43}').toMatch(/maxFontSizeMultiplier\s*=\s*\{\s*[\d.]+\s*\}/);
+    expect('numberOfLines={1}').toMatch(/numberOfLines\s*=\s*\{\s*1\s*\}/);
+    expect('allowFontScaling={false}').toMatch(/allowFontScaling\s*=\s*\{\s*false\s*\}/);
+    // And prove the stripper removes a comment mentioning the banned prop,
+    // which is the specific false-failure this block is built to avoid.
+    const withComment = 'const a = 1;\n// NOT allowFontScaling={false} — rejected\nconst b = 2;';
+    const stripped = withComment.replace(/^\s*\/\/.*$/gm, '');
+    expect(stripped).not.toMatch(/allowFontScaling\s*=\s*\{\s*false\s*\}/);
+  });
+});
