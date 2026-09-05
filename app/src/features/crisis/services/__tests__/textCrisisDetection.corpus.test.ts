@@ -49,6 +49,7 @@ interface CorpusItem {
   acceptedBecause?: string;
   disposition?: string;
   dispositionNote?: string;
+  reachability?: string;
   provenance: { source: string; origin?: string; model?: string; runDate: string };
   review: { reviewer: string; reviewedOn: string; verdict: string };
 }
@@ -133,6 +134,40 @@ describe('corpus integrity', () => {
     expect(undispositioned.map((i) => i.id)).toEqual([]);
   });
 
+  it('every MUST_FIRE item carries a reachability rating (INFRA-554)', () => {
+    const VALID = new Set([
+      'in-vocabulary',
+      'morphological',
+      'new-vocabulary',
+      'out-of-reach-of-substring-matching',
+    ]);
+    const bad = itemsOfClass('MUST_FIRE').filter(
+      (i) => !i.reachability || !VALID.has(i.reachability),
+    );
+    expect(bad.map((i) => i.id)).toEqual([]);
+  });
+
+  it('every MUST_FIRE item the detector misses carries a disposition (INFRA-554)', () => {
+    // ARRIVAL guard. The assertion above keys on PROVENANCE, which protects a recorded
+    // disposition from removal but never required one to ARRIVE: an item landing with any
+    // provenance.source other than 'verified-miss' could miss silently and undispositioned,
+    // which is exactly what the 30 model-drafted items would have done. This one keys on
+    // DETECTOR BEHAVIOUR, so no provenance string can dodge it. The pair is monotone —
+    // required on arrival by behaviour, never droppable once recorded. Neither thresholds
+    // a rate; packet §7's declined drift pin stays declined.
+    const undispositionedMisses = itemsOfClass('MUST_FIRE').filter(
+      (i) => !fires(i.text) && !i.disposition,
+    );
+    expect(undispositionedMisses.map((i) => i.id)).toEqual([]);
+  });
+
+  it('every disposition carries a per-item note', () => {
+    // With thirty dispositions arriving at once, a bulk copy-pasted string is the realistic
+    // failure mode. A required per-item note is what makes that visible in review.
+    const unnoted = corpus.items.filter((i) => i.disposition && !i.dispositionNote);
+    expect(unnoted.map((i) => i.id)).toEqual([]);
+  });
+
   it('every MUST_NOT_FIRE item names the widening it refutes', () => {
     // Without this, the class fills with generic clean prose that refutes nothing and
     // the false-positive rate stops being adversarial.
@@ -160,30 +195,57 @@ describe('anti-narrowing anchor set', () => {
 });
 
 describe('measurement — reported, never thresholded (AC5)', () => {
-  it('reports MUST-FIRE recall, MUST-NOT-FIRE false-positive rate, and STT-MANGLED recall separately', () => {
+  it('reports MUST-FIRE recall per reachability stratum, never blended', () => {
     const mustFire = itemsOfClass('MUST_FIRE');
     const mustNotFire = itemsOfClass('MUST_NOT_FIRE');
     const sttMangled = itemsOfClass('STT_MANGLED');
     const knownOverFire = itemsOfClass('KNOWN_OVER_FIRE');
 
-    const mustFireHits = mustFire.filter((i) => fires(i.text));
     const mustNotFireHits = mustNotFire.filter((i) => fires(i.text));
     const sttHits = sttMangled.filter((i) => fires(i.text));
 
     const pct = (n: number, d: number) => (d === 0 ? 'n/a' : `${((n / d) * 100).toFixed(1)}%`);
+    const rate = (items: CorpusItem[]) => {
+      const hits = items.filter((i) => fires(i.text)).length;
+      return `${hits}/${items.length}  ${pct(hits, items.length)}`;
+    };
+    const stratum = (r: string) => mustFire.filter((i) => i.reachability === r);
+    const addressable = mustFire.filter(
+      (i) => i.reachability === 'morphological' || i.reachability === 'new-vocabulary',
+    );
 
-    // KNOWN_OVER_FIRE is excluded from the false-positive denominator on purpose: it is
-    // accepted behaviour, and folding it in would let a narrowing "improve" the rate by
-    // reversing a crisis decision.
+    // INFRA-554. There is deliberately NO blended MUST-FIRE figure, and re-adding one
+    // would undo this item. The strata are not commensurable: the seed cannot fail and the
+    // out-of-reach stratum cannot pass, so an average describes neither and moves only with
+    // which items happen to be present. A single number also presents a single deficit, and
+    // a single deficit admits exactly one remedy — widening CRISIS_TEXT_PATTERN_SOURCES,
+    // which feeds journalCrisisScanner.scan -> showCrisisAlert() on a journaling surface.
+    // The strata are what answer "widen what?" honestly.
+    //
+    // KNOWN_OVER_FIRE stays out of the false-positive denominator on purpose: it is accepted
+    // behaviour, and folding it in would let a narrowing "improve" the rate by reversing a
+    // crisis decision.
     // eslint-disable-next-line no-console
     console.log(
       [
         `\n  INFRA-512 corpus ${corpus.corpusVersion}`,
-        `    MUST-FIRE recall:            ${mustFireHits.length}/${mustFire.length}  ${pct(mustFireHits.length, mustFire.length)}`,
-        `    MUST-NOT-FIRE false-positive: ${mustNotFireHits.length}/${mustNotFire.length}  ${pct(mustNotFireHits.length, mustNotFire.length)}`,
-        `    STT-MANGLED recall:          ${sttHits.length}/${sttMangled.length}  ${pct(sttHits.length, sttMangled.length)}`,
-        `    KNOWN_OVER_FIRE (accepted):  ${knownOverFire.filter((i) => fires(i.text)).length}/${knownOverFire.length}`,
-        `    MUST-FIRE misses:            ${mustFire.filter((i) => !fires(i.text)).map((i) => i.id).join(', ') || 'none'}`,
+        '',
+        '  MUST-FIRE recall — per reachability stratum. NOT blended; the strata are not commensurable.',
+        `    in-vocabulary                        ${rate(stratum('in-vocabulary'))}`,
+        `    morphological                        ${rate(stratum('morphological'))}`,
+        `    new-vocabulary                       ${rate(stratum('new-vocabulary'))}`,
+        `    out-of-reach-of-substring-matching   ${rate(stratum('out-of-reach-of-substring-matching'))}`,
+        '        ^ not addressable by CRISIS_TEXT_PATTERN_SOURCES.',
+        '          A change to that constant cannot move this figure.',
+        '',
+        `    addressable (morphological + new-vocabulary)  ${rate(addressable)}`,
+        `        ^ the only figure a widening can move. ${addressable.length} items, each with a named FP class.`,
+        '',
+        `  MUST-NOT-FIRE false-positive:  ${mustNotFireHits.length}/${mustNotFire.length}  ${pct(mustNotFireHits.length, mustNotFire.length)}`,
+        `  STT-MANGLED recall:            ${sttHits.length}/${sttMangled.length}  ${pct(sttHits.length, sttMangled.length)}`,
+        `  KNOWN_OVER_FIRE (accepted):    ${knownOverFire.filter((i) => fires(i.text)).length}/${knownOverFire.length}`,
+        '',
+        `  MUST-FIRE misses: ${mustFire.filter((i) => !fires(i.text)).map((i) => i.id).join(', ') || 'none'}`,
       ].join('\n'),
     );
 

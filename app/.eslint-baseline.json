@@ -17,6 +17,7 @@
   "src/core/navigation/CleanTabNavigator.tsx": 5,
   "src/core/navigation/__tests__/CleanTabNavigator.accessibility.test.tsx": 1,
   "src/core/navigation/__tests__/dailyLoopDeepLink.test.ts": 1,
+  "src/core/navigation/__tests__/tabBarLayout.test.ts": 1,
   "src/core/services/data-retention/DataRetentionService.ts": 1,
   "src/core/services/data-retention/__tests__/DataRetentionService.test.ts": 1,
   "src/core/services/logging/__tests__/RateLimiter.test.ts": 1,
@@ -75,6 +76,7 @@
   "src/core/services/supabase/__tests__/crisisTelemetryGuard.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryKillWindow.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/secureStoreSessionAdapter.unit.test.ts": 1,
+  "src/core/services/supabase/__tests__/sessionIdRotation.unit.test.ts": 1,
   "src/core/services/supabase/hooks/useCloudSync.ts": 3,
   "src/core/services/supabase/index.ts": 3,
   "src/core/stores/__tests__/consentChangelog.privacy.test.ts": 1,
@@ -138,6 +140,7 @@
   "src/features/crisis/components/__tests__/RootCrisisButton.test.tsx": 1,
   "src/features/crisis/constants/__tests__/crisisButtonGeometry.test.ts": 1,
   "src/features/crisis/screens/CrisisResourcesScreen.tsx": 2,
+  "src/features/crisis/screens/__tests__/CrisisResourcesScreen.accessibility.test.tsx": 1,
   "src/features/crisis/screens/__tests__/CrisisResourcesScreen.reachability.test.tsx": 1,
   "src/features/crisis/screens/__tests__/CrisisResourcesScreen.test.tsx": 1,
   "src/features/crisis/services/__tests__/CrisisSecurityProtocol.test.ts": 1,
@@ -196,6 +199,7 @@
   "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.breathReachability.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.stageNote.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.crisisSupportLineReachability.test.tsx": 1,
+  "src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.virtueChipLayout.test.tsx": 1,
   "src/features/practices/dailyloop/__tests__/dailyLoopEngagement.test.ts": 1,
   "src/features/practices/dailyloop/__tests__/stageNotes.test.ts": 1,
   "src/features/practices/dailyloop/__tests__/tenseMode.test.ts": 1,
@@ -225,5 +229,10 @@
   "src/features/journal/services/__tests__/journalPreview.unit.test.ts": 1,
   "src/core/analytics/__tests__/analyticsIdentityReset.privacy.test.ts": 1,
   "src/core/services/security/__tests__/accountDeletionAttestationDurability.privacy.test.ts": 1,
-  "src/core/analytics/__tests__/PostHogProvider.consentRemount.privacy.test.tsx": 1
+  "src/core/analytics/__tests__/PostHogProvider.consentRemount.privacy.test.tsx": 1,
+  "src/core/analytics/__tests__/PostHogProvider.networkSilence.privacy.test.ts": 1,
+  "src/core/analytics/__tests__/useAnalytics.consentGate.privacy.test.tsx": 1,
+  "src/core/analytics/__tests__/AppLifecycleTracker.test.tsx": 1,
+  "src/core/analytics/__tests__/PostHogProvider.lifecycleTracker.test.tsx": 1,
+  "src/core/analytics/__tests__/appLifecycleTelemetry.test.ts": 1
 }

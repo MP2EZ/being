@@ -19,8 +19,8 @@ there is **no dual-write**. (Verdict from the crisis + compliance + architect pl
 
 | Sink | Carries | Legal basis / gate | Sanitizer | Identity |
 |---|---|---|---|---|
-| **PostHog (EU)** | Consent-gated **product** analytics only (screen views, feature counts, lifecycle, errors). **Never** crisis or wellness-derived signal. | User opt-in (`analyticsEnabled` && !universalOptOut); SDK not even initialized without consent. | `PHIFilter` — whitelist **reject-gate** (drops anything score-shaped or PHI-keyworded). | device-persistent `distinct_id`; deletable on request. |
-| **Supabase `analytics_events`** | **Vital-interest** safety telemetry (the crisis-detection event) **+ operational** telemetry (backup/sync ops). | Crisis: GDPR Art. 6(1)(d) vital interests — fires regardless of analytics consent **and** universal opt-out. Ops: legitimate-interest + `canPerformOperation` (T4). | `sanitizeAnalyticsProperties` — **bucket-transform** (accepts severity, down-converts; never raw scores). | schema-enforced daily-rotated anonymous `session_id`. |
+| **PostHog (EU)** | Consent-gated **product** analytics only (screen views, feature counts, lifecycle, errors). **Never** crisis or wellness-derived signal. | User opt-in (`analyticsEnabled` && !universalOptOut), read from the consent store at every emit via `useAnalyticsConsent()`. The SDK **is** initialized before consent (DEBUG-559) but is constructed opted-out and network-suppressed — see PostHogProvider below. | `PHIFilter` — whitelist **reject-gate** (drops anything score-shaped or PHI-keyworded). | device-persistent `distinct_id`; deletable on request. |
+| **Supabase `analytics_events`** | **Vital-interest** safety telemetry (the crisis-detection event) **+ operational** telemetry (backup/sync ops). | Crisis: GDPR Art. 6(1)(d) vital interests — fires regardless of analytics consent **and** universal opt-out. Ops: legitimate-interest + `canPerformOperation` (T4). | `sanitizeAnalyticsProperties` — **bucket-transform** (accepts severity, down-converts; never raw scores). | persistent anonymous `user_id` (`auth.uid()`) + a bounded-lifetime `session_id` rotating at the UTC day boundary and after 30 min idle (INFRA-568). |
 | **Custom REST API (`api.being.fyi`)** | **REMOVED** (INFRA-214 T2). Was never deployed. | — | — | — |
 
 **Shared invariant (both sinks):** no raw PHQ-9/GAD-7 integer ever leaves the device — PostHog
@@ -51,9 +51,12 @@ under the vital-interests basis** — NOT PostHog. PostHog stays the consent-gat
 product-analytics sink only.
 
 **Why Supabase, not PostHog, for the crisis event** (crisis + compliance + architect agents,
-unanimous): (1) PostHog's SDK does not initialize without analytics consent, so a crisis user
-who never opted into analytics — the common case — would emit nothing → a false "all-clear"
-safety-monitoring gap. (2) The privacy policy makes an unconditional promise that analytics is
+unanimous): (1) PostHog emits nothing without analytics consent, so a crisis user who never
+opted into analytics — the common case — would emit nothing → a false "all-clear"
+safety-monitoring gap. (Corrected DEBUG-559: this used to say the SDK "does not initialize
+without analytics consent". Since DEBUG-559 it does initialize, opted-out; the emit is still
+withheld, so the conclusion is untouched — but do not re-derive anything else from the old
+claim.) (2) The privacy policy makes an unconditional promise that analytics is
 opt-in and that Being **never collects** PHQ-9/GAD-7 or mental-health data in-app; a
 crisis-detection event is a PHQ/GAD-derived signal, so routing it to PostHog (a third-party
 processor) without consent is an FTC §5 deceptive-practice exposure — and `PHIFilter` would
@@ -79,8 +82,9 @@ future forward stays a no-migration add; that forward requires its own DPIA befo
 - **PostHog path:** PHIFilter allow-list (`SAFE_EVENT_TYPES`) + numeric-key block
   (`SAFE_NUMERIC_KEYS`); consent-gated; EU residency (Frankfurt). Never receives crisis/wellness signal.
 - **Supabase crisis path:** severity-bucketing (`sanitizeAnalyticsProperties` — raw PHQ-9/GAD-7
-  scores never transmitted; only `low`/`medium`/`high`/`critical`); schema-enforced daily-rotated
-  anonymous `session_id`; PII-free JSONB (`CHECK` constraints). Vital-interests basis (GDPR Art.
+  scores never transmitted; only `low`/`medium`/`high`/`critical`); a bounded-lifetime anonymous `session_id`
+  rotating at the UTC day boundary and after 30 min idle (INFRA-568) — note each row also
+  carries the persistent `user_id`, so the token is not an anonymity control on its own; PII-free JSONB (`CHECK` constraints). Vital-interests basis (GDPR Art.
   6(1)(d) / 9(2)(c)) — fires without analytics consent.
 - **Crisis event must be durably enqueued at fire-time** (survives restart, independent of
   network / `userId` provisioning) — otherwise a first-run/offline crisis silently drops,
@@ -128,10 +132,12 @@ User Action (e.g., completes check-in)
     ▼
 ┌─────────────────────────────────┐
 │  PostHogProvider                │
-│  - Checks consent via store     │
-│  - If no consent → not rendered │
+│  - ALWAYS mounted (DEBUG-559)   │
+│  - Consent drives optIn/optOut, │
+│    never the element type       │
 └────────────┬────────────────────┘
-             │ (consent granted)
+             │ (emit withheld unless
+             │  useAnalyticsConsent())
              ▼
 ┌─────────────────────────────────┐
 │  PHI Filter                     │
@@ -157,7 +163,23 @@ User Action (e.g., completes check-in)
 **Wired in:** `App.tsx` (wraps entire app)
 
 Wraps the app and provides PostHog context. Key behaviors:
-- **Consent-gated**: Only renders PostHog when analytics consent granted
+- **Always mounted (DEBUG-559)**: the element type at this position must never depend on
+  consent. It used to — a bare fragment without consent, `<PHProvider>` with it — and React
+  reconciliation therefore destroyed and recreated the whole subtree below `App.tsx`'s
+  `<PostHogProvider>` on a consent grant. That subtree contains `SafeAreaProvider`, which
+  renders nothing until its native insets arrive, and every 988 affordance in the app sits
+  inside it. The remount was a blank, zero-988 screen on an ordinary consent tap.
+- **Consent-gated, by opt state rather than by mounting**: `ConsentSync` calls
+  `optIn()`/`optOut()` on the existing client as consent changes, and every emit independently
+  checks `useAnalyticsConsent()` in `useAnalytics.trackEvent`. Client presence is **not** a
+  consent signal and must never be treated as one.
+- **Silent before consent**: the client is constructed with `defaultOptIn: false` **plus**
+  `disableRemoteConfig: true`, `preloadFeatureFlags: false` and `disableSurveys: true`.
+  Those three are load-bearing, not belt-and-braces: the SDK's init sequence gates on
+  `disabled`, never on `optedOut`, so at their defaults the constructor fires `/flags`
+  requests carrying the anonymous device id before consent. With them set, no SDK path
+  reaches the network while opted out. An anonymous `distinct_id` is minted to on-device
+  storage at launch and is never transmitted.
 - **EU data residency**: Configured for Frankfurt (GDPR compliance)
 - **Privacy settings**: No autocapture, no session replay
 - **Batching**: 10 events or 30 seconds before transmission
@@ -169,19 +191,59 @@ Wraps the app and provides PostHog context. Key behaviors:
 
 Whitelist-based validation ensuring only safe events are transmitted.
 
-**Whitelisted Events (25 total):**
-- App lifecycle: `app_opened`, `app_backgrounded`, `session_started`, `session_ended`
+**Whitelisted Events (19 total).** Every one has a production emitter — that is now
+the entry condition, not an aspiration. INFRA-552 deleted the twelve that had none;
+DEBUG-536 restored six of those twelve *with* emitters, which is the only way back in.
+
+- App lifecycle: `app_opened` (`is_cold_start`, `since_last_active` — a coarse bucket,
+  never a raw elapsed value), `app_backgrounded` (`duration_seconds` — FOREGROUND DWELL
+  only, never time away)
 - Navigation: `screen_viewed`
-- Features: `check_in_started/completed`, `assessment_started/completed`, `practice_started/completed`, `breathing_exercise_started/completed`
 - Crisis: `crisis_resources_viewed`, `crisis_hotline_tapped`
 - Settings: `settings_opened`, `consent_changed`
-- Errors: `error_occurred`
 - Onboarding: `onboarding_started/completed/step_completed`
-- Learn: `learn_content_viewed`, `learn_module_started/completed`
+- Learn: `learn_content_viewed`, `learn_module_started`
+- Feature usage (DEBUG-536): `check_in_started`, `check_in_completed`,
+  `assessment_started`, `assessment_completed`, `practice_started`,
+  `practice_completed` — **`duration_ms` only**, on the `_completed` half
 - Guidance: `guidance_opened` (FEAT-457) — **no properties, ever**
 
-> This list is derived by hand and has drifted before (stated as 27 while the whitelist
-> held 24, pre-FEAT-457). Read `PHIFilter.SAFE_EVENT_TYPES` if the exact set matters.
+**The feature-usage set is ACCESS, never CONTENT.** Each says which affordance was
+reached and how long it took. None carries a score, an instrument identity, a severity,
+a practice id, or free text. That is the FEAT-457 boundary, and it is why these coexist
+with the published "we never collect any mental health data" promise — the same boundary
+under which `crisis_resources_viewed` / `crisis_hotline_tapped`, bare access signals for
+a strictly more sensitive affordance, already ship. Access is not the finding.
+
+Two specific extensions are closed by deliberate ruling, not oversight: no instrument
+identity on the assessment pair (neutral tokens like `wellness_9` were rejected as
+laundering — they defeat the keyword filter while preserving the inference), and no
+`practice_id` (`gratitude-reflection` and `social-impact-reflection` contain the PHI
+keyword `reflection` and would be dropped while the other ten pass — partial blindness
+that reads as real data). Both are pinned by
+`app/__tests__/privacy/assessmentAnalyticsBoundary.contract.test.ts`.
+
+**No completion figure derived from these may be shown to the practitioner.** They are
+founder-facing only. FEAT-328's invariant is that completion may be stated, never
+marked; a completion rate surfaced in Insights, on Home or in the coda is an outcome
+verdict on someone's practice.
+
+Still removed: `error_occurred` (errors go to Sentry, not PostHog) and
+`session_started`/`session_ended`, which never had a tracker function at all — the
+genuine "no longer wanted" cases. Plus `breathing_exercise_started/completed` and
+`learn_module_completed`, which DEBUG-536 could have restored on the same evidence and
+deliberately did not: they answer no question anyone is asking, and restoring a tracker
+whose only consumer is a dashboard nobody reads is how this set became twelve orphans
+the first time. They come back with a Job, or not at all. Each is recorded with its
+reason in the `NARROWED` ledger in
+`app/__tests__/privacy/phiFilterDifferential.privacy.test.ts` — which is also where a
+restoration is recorded, by DELETING the entry: these nine are frozen-baseline members
+returning, not new grants, so no `WIDENED` entry applies.
+
+> This list is still maintained by hand and has drifted before (stated as 27 while the
+> whitelist held 24, pre-FEAT-457). Since INFRA-552 the whitelist is DERIVED from
+> `AnalyticsEvents`, so catalog/whitelist parity can no longer drift — but this prose
+> can. Read `AnalyticsEvents` in `PHIFilter.ts` if the exact set matters.
 > Since INFRA-558 the drift is bounded rather than merely warned about: the differential
 > suite asserts the live whitelist equals the frozen `d14d6178` baseline plus its
 > `WIDENED` ledger, so a name can no longer be added here or there without the other
@@ -417,6 +479,7 @@ Required disclosure for privacy policy:
 > - Feature usage counts (e.g., "check-in completed")
 > - App performance metrics
 > - Session duration
+> - App open patterns (first open vs. return; time since last open, in coarse ranges)
 > - Device type and OS version
 >
 > **What We NEVER Collect:**

@@ -427,7 +427,14 @@ const ProfileScreen: React.FC = () => {
           {/* FEAT-284: internal-only bug/feedback entry. Gated on the build-time
               `bug_reporting` flag. Opens Sentry's feedback widget (screenshot +
               form); you can also shake the device from anywhere. Discoverable
-              fallback for the shake gesture. */}
+              fallback for the shake gesture.
+
+              ⚠️ DEBUG-533: what this opens is a zero-988-affordance window — a
+              DEBUG-406 conversion site that cannot be converted in place because
+              the occluder is third-party. The full ruling is recorded at
+              `ExternalErrorReporter.showFeedbackForm()`; read it before adding a
+              second entry point or moving this one onto a non-settings route.
+              This file is a Protected Path for that reason and no other. */}
           {isFeatureEnabled('bug_reporting') && (
             <Pressable
               style={styles.profileCard}

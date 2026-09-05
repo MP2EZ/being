@@ -1,111 +1,1027 @@
 {
-  "corpusVersion": "v2-seed-plus-verified-misses",
+  "corpusVersion": "v3-seed-verified-misses-adversarial-batch-1",
   "generatedOn": "2026-08-22",
   "workItem": "INFRA-512, amended INFRA-523",
-  "lastAmendedOn": "2026-08-25",
-  "note": "MIXED CORPUS — NOT A BASELINE, IN EITHER DIRECTION. This corpus has two strata and the blended MUST-FIRE figure describes neither. Twelve MUST_FIRE items are the original repo-reviewed seed, drawn verbatim from strings already committed in textCrisisDetection.unit.test.ts — phrases the detector was already known to HANDLE, so they cannot fail. Six are the misses derived by hand in the INFRA-512 planning pass (packet §3), re-verified and landed under INFRA-523 — phrases the detector was already known to MISS, so they cannot pass. The rate is therefore an arithmetic consequence of which known items are present, not a measurement: it moves whenever an item is added, in the direction of whichever stratum grew. Do not quote it as measured recall, do not compare it across corpus versions, and do not read a change in it as detector drift. Real recall needs the adversarial corpus that scripts/generate-crisis-corpus.js produces under the human-review merge protocol in docs/development/audits/INFRA-512-corpus-review-packet-2026-08-22.md; until that lands recall is UNMEASURED, and textCrisisDetection.ts's header says so. The six misses are each dispositioned pattern-candidate-deferred-to-crisis-pass — recorded here as a known gap, NOT as a mandate to widen CRISIS_TEXT_PATTERN_SOURCES, which feeds showCrisisAlert() on a journaling surface. Note the filename's \"v1\" is this FILE's identity; corpusVersion is the CONTENT's. They are meant to differ — do not \"fix\" that.",
+  "lastAmendedOn": "2026-08-28",
+  "note": "MIXED CORPUS, THREE STRATA — NOT A BASELINE, AND THE BLENDED MUST-FIRE FIGURE HAS BEEN REMOVED BECAUSE IT DESCRIBES NONE OF THEM. (1) Twelve MUST_FIRE items are the repo-reviewed seed, drawn verbatim from strings committed in textCrisisDetection.unit.test.ts — phrases the detector was already known to HANDLE, so they cannot fail. (2) Six are the misses hand-derived in the INFRA-512 planning pass and re-verified under INFRA-523 — known to MISS, so they cannot pass. (3) Thirty are model-drafted, human-reviewed adversarial items landed under INFRA-554; the generator had no access to the pattern list, and the batch is deliberately weighted toward the indirect and euphemistic tail, so it is NOT representative of the distribution of real journal entries. All thirty missed. Report and read recall PER `reachability` STRATUM only. Do not compute a blended MUST-FIRE rate, do not quote any figure as measured recall, do not compare across corpus versions, and do not read a change in any figure as detector drift — every figure still moves with which items are present. The out-of-reach stratum's 0% is a stated ceiling on what a substring matcher can do on this surface, NOT a regression and NOT a number to improve; widening CRISIS_TEXT_PATTERN_SOURCES cannot move it. The fifteen addressable items each carry a named false-positive class on the item itself; that is a requirement for a ruling, NOT a mandate to widen, and some will be ruled against. That constant feeds journalCrisisScanner.scan → showCrisisAlert() on a journaling surface, where a false alarm degrades the response to true positives. Real recall against a representative distribution remains UNMEASURED, and textCrisisDetection.ts's header says so. Note the filename's \"v1\" is this FILE's identity; corpusVersion is the CONTENT's. They are meant to differ — do not \"fix\" that.",
   "classes": {
-    "MUST_FIRE": "A disclosure of self-harm intent that detectCrisisInText must match.",
+    "MUST_FIRE": "Ground truth about the TEXT: a disclosure of suicidal ideation, self-harm intent, or active preparation, as judged by a human reviewer reading it as a private journal entry. A null result on a MUST_FIRE item is a false negative BY DEFINITION, whether or not a substring matcher could plausibly have caught it. Whether the detector should change in response is never answered by this label — it is answered per item in `disposition`, and what kind of change could even apply is recorded in `reachability`.",
     "MUST_NOT_FIRE": "Ordinary language that must stay clean. Each item names the specific widening it refutes, so the class cannot be satisfied by generic mood text.",
     "KNOWN_OVER_FIRE": "Phrasings that DO match and are accepted as deliberate over-triggers. Reported separately and excluded from the false-positive denominator, so a narrowing cannot game the rate by reclassifying them.",
     "STT_MANGLED": "Realistic speech-to-text corruptions of a MUST_FIRE item, linked by sourceId. Reported as its own recall figure because the module scopes its guarantee to correctly-transcribed text."
   },
   "items": [
-    { "id": "mf-suicidal", "class": "MUST_FIRE", "text": "suicidal",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "textCrisisDetection.unit.test.ts PHRASES", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-kill-myself", "class": "MUST_FIRE", "text": "kill myself",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "textCrisisDetection.unit.test.ts PHRASES", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-end-it-all", "class": "MUST_FIRE", "text": "end it all",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "textCrisisDetection.unit.test.ts PHRASES", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-cannot-go-on", "class": "MUST_FIRE", "text": "cannot go on",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "textCrisisDetection.unit.test.ts PHRASES", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-want-to-die", "class": "MUST_FIRE", "text": "want to die",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "textCrisisDetection.unit.test.ts PHRASES", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-no-point-living", "class": "MUST_FIRE", "text": "no point living",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "textCrisisDetection.unit.test.ts PHRASES", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-case-variation", "class": "MUST_FIRE", "text": "Kill My Self",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts 'detects across case variation'", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-trailing-punctuation", "class": "MUST_FIRE", "text": "i want to die.",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts 'detects with trailing punctuation'", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-string-start", "class": "MUST_FIRE", "text": "suicidal thoughts again",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts 'detects at string start and string end'", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-string-end", "class": "MUST_FIRE", "text": "honestly i feel suicidal",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts 'detects at string start and string end'", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-smart-apostrophe", "class": "MUST_FIRE", "text": "i can’t stop thinking i want to die",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts 'detects with smart apostrophes in surrounding text'", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mf-embedded-midsentence", "class": "MUST_FIRE", "text": "today was hard and end it all honestly",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts 'detects %p embedded mid-sentence'", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-
-    { "id": "stt-no-word-boundary", "class": "STT_MANGLED", "text": "killmyself", "sourceId": "mf-kill-myself",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts 'detects when STT drops the word boundary entirely'", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "stt-split-word-boundary", "class": "STT_MANGLED", "text": "kill my self", "sourceId": "mf-kill-myself",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts 'detects when STT drops the word boundary entirely'", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-
-    { "id": "mnf-made-it-through", "class": "MUST_NOT_FIRE", "text": "today was hard but i made it through",
+    {
+      "id": "mf-suicidal",
+      "class": "MUST_FIRE",
+      "text": "suicidal",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "textCrisisDetection.unit.test.ts PHRASES",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-kill-myself",
+      "class": "MUST_FIRE",
+      "text": "kill myself",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "textCrisisDetection.unit.test.ts PHRASES",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-end-it-all",
+      "class": "MUST_FIRE",
+      "text": "end it all",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "textCrisisDetection.unit.test.ts PHRASES",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-cannot-go-on",
+      "class": "MUST_FIRE",
+      "text": "cannot go on",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "textCrisisDetection.unit.test.ts PHRASES",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-want-to-die",
+      "class": "MUST_FIRE",
+      "text": "want to die",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "textCrisisDetection.unit.test.ts PHRASES",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-no-point-living",
+      "class": "MUST_FIRE",
+      "text": "no point living",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "textCrisisDetection.unit.test.ts PHRASES",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-case-variation",
+      "class": "MUST_FIRE",
+      "text": "Kill My Self",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts 'detects across case variation'",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-trailing-punctuation",
+      "class": "MUST_FIRE",
+      "text": "i want to die.",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts 'detects with trailing punctuation'",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-string-start",
+      "class": "MUST_FIRE",
+      "text": "suicidal thoughts again",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts 'detects at string start and string end'",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-string-end",
+      "class": "MUST_FIRE",
+      "text": "honestly i feel suicidal",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts 'detects at string start and string end'",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-smart-apostrophe",
+      "class": "MUST_FIRE",
+      "text": "i can’t stop thinking i want to die",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts 'detects with smart apostrophes in surrounding text'",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "mf-embedded-midsentence",
+      "class": "MUST_FIRE",
+      "text": "today was hard and end it all honestly",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts 'detects %p embedded mid-sentence'",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      },
+      "reachability": "in-vocabulary"
+    },
+    {
+      "id": "stt-no-word-boundary",
+      "class": "STT_MANGLED",
+      "text": "killmyself",
+      "sourceId": "mf-kill-myself",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts 'detects when STT drops the word boundary entirely'",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      }
+    },
+    {
+      "id": "stt-split-word-boundary",
+      "class": "STT_MANGLED",
+      "text": "kill my self",
+      "sourceId": "mf-kill-myself",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts 'detects when STT drops the word boundary entirely'",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      }
+    },
+    {
+      "id": "mnf-made-it-through",
+      "class": "MUST_NOT_FIRE",
+      "text": "today was hard but i made it through",
       "refutes": "Treating a hard-day / despair sentiment as a crisis signal. Ordinary difficulty is the modal journal entry; matching it would make the alert meaningless.",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts true negatives", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mnf-dye-my-hair", "class": "MUST_NOT_FIRE", "text": "i want to dye my hair tomorrow",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts true negatives",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      }
+    },
+    {
+      "id": "mnf-dye-my-hair",
+      "class": "MUST_NOT_FIRE",
+      "text": "i want to dye my hair tomorrow",
       "refutes": "A bare /die/ substring, and any phonetic or fuzzy matcher folding 'dye' to 'die'. The module rejects phonetic matching by name for exactly this case.",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts true negatives", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mnf-meeting-ran-long", "class": "MUST_NOT_FIRE", "text": "the meeting ran long and i was tired",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts true negatives",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      }
+    },
+    {
+      "id": "mnf-meeting-ran-long",
+      "class": "MUST_NOT_FIRE",
+      "text": "the meeting ran long and i was tired",
       "refutes": "Exhaustion or fatigue vocabulary as a proxy for hopelessness.",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts true negatives", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-    { "id": "mnf-resisted-the-urge", "class": "MUST_NOT_FIRE", "text": "i resisted the urge to snap at him",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts true negatives",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      }
+    },
+    {
+      "id": "mnf-resisted-the-urge",
+      "class": "MUST_NOT_FIRE",
+      "text": "i resisted the urge to snap at him",
       "refutes": "Treating 'urge' as a self-harm signal. This is a virtue-practice sentence and is exactly what the app asks users to write.",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts true negatives", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-
-    { "id": "kof-negated-want-to-die", "class": "KNOWN_OVER_FIRE", "text": "I don’t want to die",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts true negatives",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      }
+    },
+    {
+      "id": "kof-negated-want-to-die",
+      "class": "KNOWN_OVER_FIRE",
+      "text": "I don’t want to die",
       "acceptedBecause": "Deliberate Slice A decision, pinned at textCrisisDetection.unit.test.ts 'MATCHES negated phrasing, intentionally'. Negation detection on lossy STT fails in the direction that matters: a recognizer dropping the negation turns a negated sentence into a disclosure. An extra support offer costs a dismissal; a missed disclosure is unrecoverable. Do NOT reclassify this as MUST_NOT_FIRE to improve the false-positive rate — that would reverse a crisis decision to move a number.",
-      "provenance": { "source": "repo-reviewed-seed", "origin": "unit.test.ts documented over-trigger", "runDate": "2026-08-22" },
-      "review": { "reviewer": "committed-in-repo", "reviewedOn": "2026-08-22", "verdict": "accepted" } },
-
-    { "id": "mf-miss-killing-myself", "class": "MUST_FIRE", "text": "i keep thinking about killing myself",
+      "provenance": {
+        "source": "repo-reviewed-seed",
+        "origin": "unit.test.ts documented over-trigger",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "committed-in-repo",
+        "reviewedOn": "2026-08-22",
+        "verdict": "accepted"
+      }
+    },
+    {
+      "id": "mf-miss-killing-myself",
+      "class": "MUST_FIRE",
+      "text": "i keep thinking about killing myself",
       "disposition": "pattern-candidate-deferred-to-crisis-pass",
       "dispositionNote": "Gerund of the approved phrase `kill my self`, so the vocabulary decision is already made. But a widening (`kill\\w*\\s*my\\s*self`) newly matches the idiom “killing myself” (at work / laughing / at the gym) — a real false-positive class the current pattern does not carry. Needs its own crisis ruling AND a paired MUST_NOT_FIRE item before anyone ships it.",
-      "provenance": { "source": "verified-miss", "origin": "INFRA-512 packet §3, re-verified INFRA-523", "runDate": "2026-08-22" },
-      "review": { "reviewer": "MP2EZ", "reviewedOn": "2026-08-25", "verdict": "accepted" } },
-    { "id": "mf-miss-ending-it-all", "class": "MUST_FIRE", "text": "i have been thinking about ending it all",
+      "provenance": {
+        "source": "verified-miss",
+        "origin": "INFRA-512 packet §3, re-verified INFRA-523",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-25",
+        "verdict": "accepted"
+      },
+      "reachability": "morphological"
+    },
+    {
+      "id": "mf-miss-ending-it-all",
+      "class": "MUST_FIRE",
+      "text": "i have been thinking about ending it all",
       "disposition": "pattern-candidate-deferred-to-crisis-pass",
       "dispositionNote": "Same morphology break on the approved phrase `end it all`. “Ending it all” is near-exclusively the suicidal idiom, so the false-positive delta is low — but it is still a widening, and packet §4 admits no automatic remedy.",
-      "provenance": { "source": "verified-miss", "origin": "INFRA-512 packet §3, re-verified INFRA-523", "runDate": "2026-08-22" },
-      "review": { "reviewer": "MP2EZ", "reviewedOn": "2026-08-25", "verdict": "accepted" } },
-    { "id": "mf-miss-cant-go-on", "class": "MUST_FIRE", "text": "i cant go on anymore",
+      "provenance": {
+        "source": "verified-miss",
+        "origin": "INFRA-512 packet §3, re-verified INFRA-523",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-25",
+        "verdict": "accepted"
+      },
+      "reachability": "morphological"
+    },
+    {
+      "id": "mf-miss-cant-go-on",
+      "class": "MUST_FIRE",
+      "text": "i cant go on anymore",
       "disposition": "pattern-candidate-deferred-to-crisis-pass",
       "dispositionNote": "Highest-value, lowest-FP-delta of the six, and the odd one out: a NORMALIZER gap, not a vocabulary gap. The expanded form already fires, so the FP profile is unchanged by construction. Deferred anyway because normalizeForCrisisScan feeds EVERY pattern, so its blast radius is wider than any single pattern's — the opposite of what “low risk” usually implies.",
-      "provenance": { "source": "verified-miss", "origin": "INFRA-512 packet §3, re-verified INFRA-523", "runDate": "2026-08-22" },
-      "review": { "reviewer": "MP2EZ", "reviewedOn": "2026-08-25", "verdict": "accepted" } },
-    { "id": "mf-miss-suicide", "class": "MUST_FIRE", "text": "suicide",
+      "provenance": {
+        "source": "verified-miss",
+        "origin": "INFRA-512 packet §3, re-verified INFRA-523",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-25",
+        "verdict": "accepted"
+      },
+      "reachability": "morphological"
+    },
+    {
+      "id": "mf-miss-suicide",
+      "class": "MUST_FIRE",
+      "text": "suicide",
       "disposition": "pattern-candidate-deferred-to-crisis-pass",
       "dispositionNote": "Most contested of the six. A `suicid` prefix is trivial, but on THIS surface the FP class is live: an app that shows 988 invites journal entries about the 988 line, about suicide prevention, and about articles read. Needs the ruling most and the widening least obviously.",
-      "provenance": { "source": "verified-miss", "origin": "INFRA-512 packet §3, re-verified INFRA-523", "runDate": "2026-08-22" },
-      "review": { "reviewer": "MP2EZ", "reviewedOn": "2026-08-25", "verdict": "accepted" } },
-    { "id": "mf-miss-end-my-life", "class": "MUST_FIRE", "text": "i want to end my life",
+      "provenance": {
+        "source": "verified-miss",
+        "origin": "INFRA-512 packet §3, re-verified INFRA-523",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-25",
+        "verdict": "accepted"
+      },
+      "reachability": "morphological"
+    },
+    {
+      "id": "mf-miss-end-my-life",
+      "class": "MUST_FIRE",
+      "text": "i want to end my life",
       "disposition": "pattern-candidate-deferred-to-crisis-pass",
       "dispositionNote": "Genuinely new vocabulary. `end my life` is close to unambiguous, so this is the cleanest candidate — which is precisely why it must not be slipped in without the ruling that establishes the bar for adding vocabulary at all.",
-      "provenance": { "source": "verified-miss", "origin": "INFRA-512 packet §3, re-verified INFRA-523", "runDate": "2026-08-22" },
-      "review": { "reviewer": "MP2EZ", "reviewedOn": "2026-08-25", "verdict": "accepted" } },
-    { "id": "mf-miss-wish-i-was-dead", "class": "MUST_FIRE", "text": "i wish i was dead",
+      "provenance": {
+        "source": "verified-miss",
+        "origin": "INFRA-512 packet §3, re-verified INFRA-523",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-25",
+        "verdict": "accepted"
+      },
+      "reachability": "new-vocabulary"
+    },
+    {
+      "id": "mf-miss-wish-i-was-dead",
+      "class": "MUST_FIRE",
+      "text": "i wish i was dead",
       "disposition": "pattern-candidate-deferred-to-crisis-pass",
       "dispositionNote": "New vocabulary, carrying a hyperbole FP class (“I wish I was dead, that was so embarrassing”) that the module's own KNOWN_OVER_FIRE reasoning would likely accept — but “likely accept” is a ruling, not an assumption.",
-      "provenance": { "source": "verified-miss", "origin": "INFRA-512 packet §3, re-verified INFRA-523", "runDate": "2026-08-22" },
-      "review": { "reviewer": "MP2EZ", "reviewedOn": "2026-08-25", "verdict": "accepted" } }
+      "provenance": {
+        "source": "verified-miss",
+        "origin": "INFRA-512 packet §3, re-verified INFRA-523",
+        "runDate": "2026-08-22"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-25",
+        "verdict": "accepted"
+      },
+      "reachability": "new-vocabulary"
+    },
+    {
+      "id": "mf-adv-hoping-wont-wake",
+      "class": "MUST_FIRE",
+      "text": "I keep hoping I just won't wake up tomorrow.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "new-vocabulary",
+      "disposition": "pattern-candidate-deferred-to-crisis-pass",
+      "dispositionNote": "Fixed literal family `won't/never wake up`. FP class: sleep and alarm talk (\"hoping I won't wake up at 3am again\"), ordinary journal content. Needs a paired MUST_NOT_FIRE before shipping."
+    },
+    {
+      "id": "mf-adv-everyone-life-honestly",
+      "class": "MUST_FIRE",
+      "text": "Everyone in my life would honestly have an easier time if I weren't in it.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "Burdensomeness carried by the whole construction; the only candidate literal, \"if I weren't in it\", resolves \"it\" by anaphora to \"my life\" in the prior clause, which a substring matcher cannot do."
+    },
+    {
+      "id": "mf-adv-thinking-lot-being",
+      "class": "MUST_FIRE",
+      "text": "Been thinking a lot about not being here anymore.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "new-vocabulary",
+      "disposition": "pattern-candidate-deferred-to-crisis-pass",
+      "dispositionNote": "`not being here anymore` is a near-fixed death euphemism. FP class is live and identically shaped: the same phrase describes leaving a job, a city or a relationship."
+    },
+    {
+      "id": "mf-adv-wanna-around-whatever",
+      "class": "MUST_FIRE",
+      "text": "I don't wanna be around for whatever comes next.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"Be around\" exists as a literal but does not carry the signal — \"I won't be around this weekend\" is a scheduling note. The disclosure lives in the whole frame."
+    },
+    {
+      "id": "mf-adv-nights-sit-here",
+      "class": "MUST_FIRE",
+      "text": "Some nights I sit here and seriously consider just ending it.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "morphological",
+      "disposition": "pattern-candidate-deferred-to-crisis-pass",
+      "dispositionNote": "Gerund plus truncation of the approved `end\\s*it\\s*all`. Distinct from mf-miss-ending-it-all, which keeps \"all\": dropping \"all\" removes the disambiguating token, so `end\\w*\\s*it` newly matches ending a call, a relationship or a game. Materially harder — do not bundle the two."
+    },
+    {
+      "id": "mf-adv-idea-existing-started",
+      "class": "MUST_FIRE",
+      "text": "The idea of not existing has started to feel like a relief instead of a fear.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "new-vocabulary",
+      "disposition": "pattern-candidate-deferred-to-crisis-pass",
+      "dispositionNote": "`not existing` is bounded, but the FP class is elevated by this product specifically: Stoic mortality reflection invites exactly this phrasing in a practice journal. Needs a philosopher pass alongside the crisis ruling."
+    },
+    {
+      "id": "mf-adv-quietly-making-peace",
+      "class": "MUST_FIRE",
+      "text": "I've been quietly making peace with the idea of leaving for good.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "Signal requires conjoining \"leaving for good\" with \"making peace with\"; the detector is a disjunction of single patterns and cannot express conjunction. \"Leaving for good\" alone is relocation or resignation."
+    },
+    {
+      "id": "mf-adv-caught-myself-wishing",
+      "class": "MUST_FIRE",
+      "text": "I caught myself wishing a car would just take me out on the way home.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"Take me out\" is dinner, a date, or a sports idiom. The disclosure is the wish plus an imagined external agent, which no literal carries."
+    },
+    {
+      "id": "mf-adv-honestly-terminal-diagnosis",
+      "class": "MUST_FIRE",
+      "text": "Honestly, if I got a terminal diagnosis tomorrow I think I'd feel lucky.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "Entirely counterfactual — a hypothetical diagnosis plus an affect report. No literal in the sentence is death-intent vocabulary."
+    },
+    {
+      "id": "mf-adv-sure-longer-want",
+      "class": "MUST_FIRE",
+      "text": "Not sure how much longer I want to keep doing this.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"Keep doing this\" has an unbound referent; nothing in the sentence names life, death or harm. Weakest item in this stratum — see the contentious-label note in the audit doc."
+    },
+    {
+      "id": "mf-adv-tired-being-alive",
+      "class": "MUST_FIRE",
+      "text": "I'm so tired of being alive.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "new-vocabulary",
+      "disposition": "pattern-candidate-deferred-to-crisis-pass",
+      "dispositionNote": "Cleanest candidate in the batch: `tired of being alive` is close to unambiguous. Do NOT generalise to bare `tired of living`, which matches \"tired of living in this apartment\". Compatible with mnf-meeting-ran-long, which refutes `tired` alone, not this."
+    },
+    {
+      "id": "mf-adv-kept-picturing-own",
+      "class": "MUST_FIRE",
+      "text": "Kept picturing my own funeral again tonight, and it was weirdly comforting.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "new-vocabulary",
+      "disposition": "pattern-candidate-deferred-to-crisis-pass",
+      "dispositionNote": "`my own funeral` is marked in journal prose, but the disclosure is really the affect clause (\"weirdly comforting\"). FP class: bereavement, estate planning, and again this app's own mortality reflection. Philosopher pass needed with the crisis ruling."
+    },
+    {
+      "id": "mf-adv-coming-back-thought",
+      "class": "MUST_FIRE",
+      "text": "I keep coming back to the thought that I could just stop.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"Just stop\" has no object. The euphemism is recoverable by a human from the intrusiveness framing and by no literal."
+    },
+    {
+      "id": "mf-adv-urge-hurt-myself",
+      "class": "MUST_FIRE",
+      "text": "The urge to hurt myself came back tonight and I'm not fighting it as hard as I used to.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "new-vocabulary",
+      "disposition": "pattern-candidate-deferred-to-crisis-pass",
+      "dispositionNote": "Structurally the `kill\\s*my\\s*self` template with a different verb, so the STT `\\s*` rationale carries over unchanged. FP class is common and physical: \"I hurt myself at the gym\". Requires a paired MUST_NOT_FIRE for accidental injury. mnf-resisted-the-urge does not conflict — the pattern would be on `hurt my self`, not `urge`."
+    },
+    {
+      "id": "mf-adv-wanting-disappear-entirely",
+      "class": "MUST_FIRE",
+      "text": "Wanting to disappear entirely isn't a new feeling for me, but it's louder now.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "`want to disappear` is ordinary shame and overwhelm language; the disclosure rests on \"entirely\" and the escalation clause. The label was contentious for the same reason the literal is weak."
+    },
+    {
+      "id": "mf-adv-started-thinking-life",
+      "class": "MUST_FIRE",
+      "text": "I've started thinking of my life as something with an expiration date I get to choose.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "A compositional metaphor (\"expiration date I get to choose\"). No death or harm token appears."
+    },
+    {
+      "id": "mf-adv-nothing-changes-spring",
+      "class": "MUST_FIRE",
+      "text": "If nothing changes by spring I don't think I'll still be here.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"Still be here\" is polysemous (this job, this city); the conditional frame and the named timeframe carry the disclosure."
+    },
+    {
+      "id": "mf-adv-only-thats-kept",
+      "class": "MUST_FIRE",
+      "text": "The only thing that's kept me here is not wanting to wreck my family.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"Kept me here\" is polysemous. The disclosure is the protective-factor structure — one named deterrent as the sole thing preventing death. Structure, not vocabulary."
+    },
+    {
+      "id": "mf-adv-giving-away-care",
+      "class": "MUST_FIRE",
+      "text": "I've been giving away things I care about and I know why I'm doing it.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "No death, harm or intent token appears anywhere. A recognised behavioural warning sign plus an asserted undisclosed reason — the clean demonstration that this stratum is not a vocabulary gap."
+    },
+    {
+      "id": "mf-adv-waiting-permission-done",
+      "class": "MUST_FIRE",
+      "text": "I feel like I'm just waiting for permission to be done.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"To be done\" is unbound and the sentence is otherwise ordinary. Nothing to match."
+    },
+    {
+      "id": "mf-adv-morning-first-thought",
+      "class": "MUST_FIRE",
+      "text": "Every morning the first thought is that I have to get through another one of these, and I'm tired enough to stop trying.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "Hopelessness expressed across a whole construction; \"stop trying\" is effort language and would match ordinary discouragement."
+    },
+    {
+      "id": "mf-adv-going-make-end",
+      "class": "MUST_FIRE",
+      "text": "I don't think I'm going to make it to the end of the year, and that's my own doing.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "Requires conjoining a survival prediction with an agency attribution (\"my own doing\") across clauses. Neither literal is death vocabulary alone."
+    },
+    {
+      "id": "mf-adv-being-dead-sounds",
+      "class": "MUST_FIRE",
+      "text": "Being dead sounds restful in a way nothing else does right now.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "new-vocabulary",
+      "disposition": "pattern-candidate-deferred-to-crisis-pass",
+      "dispositionNote": "`being dead` avoids most of what a bare `dead` would catch (\"dead tired\", \"dead to me\", \"my phone died\"). Same vocabulary family as the deferred mf-miss-wish-i-was-dead — rule the `dead` family ONCE covering both, not twice."
+    },
+    {
+      "id": "mf-adv-rehearsing-goodbye-conversations",
+      "class": "MUST_FIRE",
+      "text": "I keep rehearsing goodbye conversations in my head.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"Goodbye\" is ordinary farewell vocabulary; the disclosure is the rehearsal framing. The label was contentious on the same ground."
+    },
+    {
+      "id": "mf-adv-hurting-myself-only",
+      "class": "MUST_FIRE",
+      "text": "Hurting myself is the only thing that makes the noise stop, and I want the noise to stop.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "new-vocabulary",
+      "disposition": "pattern-candidate-deferred-to-crisis-pass",
+      "dispositionNote": "Gerund of the mf-adv-urge-hurt-myself literal, and the exact failure mf-miss-killing-myself already recorded: author `hurt\\w*\\s*my\\s*self`, not `hurt\\s*my\\s*self`, or this item misses again. One pattern serves both; the gerund widens the gym-injury FP class further."
+    },
+    {
+      "id": "mf-adv-theres-plan-forming",
+      "class": "MUST_FIRE",
+      "text": "There's a plan forming and I'm not scared of it the way I should be.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"A plan\" is among the most common nouns in a journal. The highest-acuity item in the corpus — plan-level, with reduced fear — and it carries no matchable literal at all."
+    },
+    {
+      "id": "mf-adv-biggest-fear-used",
+      "class": "MUST_FIRE",
+      "text": "My biggest fear used to be dying. Now it's waking up.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "Inversion split across two sentences with an anaphoric \"it\". The only death token, \"dying\", sits in the NON-disclosing clause, so a bare `dying` pattern would match the wrong half."
+    },
+    {
+      "id": "mf-adv-started-drafting-letter",
+      "class": "MUST_FIRE",
+      "text": "Started drafting a letter to my sister that I hope she never has to read.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "Note-writing inferred from \"hope she never has to read\". No literal names death, harm, or a note."
+    },
+    {
+      "id": "mf-adv-going-problem-longer",
+      "class": "MUST_FIRE",
+      "text": "I'm not going to be a problem for much longer.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"Be a problem\" is polysemous and the time horizon is generic; the disclosure is the two together."
+    },
+    {
+      "id": "mf-adv-thought-never-feeling",
+      "class": "MUST_FIRE",
+      "text": "The thought of never feeling anything again is the most attractive thing in my head right now.",
+      "provenance": {
+        "source": "model-drafted",
+        "model": "claude-opus-5",
+        "promptVersion": "infra-512-v1",
+        "origin": "buildPrompt(MUST_FIRE,40) rendered verbatim; clean-room chat session with no repo access. Prompt byte-identical to scripts/generate-crisis-corpus.js; transport differs (INFRA-554).",
+        "runDate": "2026-08-28"
+      },
+      "review": {
+        "reviewer": "MP2EZ",
+        "reviewedOn": "2026-08-28",
+        "verdict": "accepted"
+      },
+      "reachability": "out-of-reach-of-substring-matching",
+      "disposition": "out-of-reach-of-current-architecture",
+      "dispositionNote": "\"Never feeling anything again\" is also ordinary numbness and anhedonia journaling, which this surface invites. The superlative attraction clause converts it, and that is compositional."
+    }
   ]
 }

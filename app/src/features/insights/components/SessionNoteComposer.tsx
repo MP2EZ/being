@@ -157,7 +157,15 @@ const SessionNoteComposer: React.FC<SessionNoteComposerProps> = ({
   return (
     <View
       style={styles.overlay}
-      accessibilityViewIsModal
+      /* DEBUG-575: NO `accessibilityViewIsModal` HERE, deliberately.
+         This overlay is published into the root slot, which renders a bare
+         fragment — so it is a direct native SIBLING of RootCrisisButton and
+         CrisisKeyboardAccessory, and that prop prunes the receiver's SIBLINGS.
+         Setting it deleted both crisis affordances from the accessibility tree
+         while this sheet was open: a zero-988 state for assistive tech, with the
+         button still painted on screen so no screenshot could catch it. The trap
+         now lives on CleanRootNavigator's host, which hides the Stack.Navigator
+         subtree and nothing else. Pinned by modalOcclusionConversions.test.tsx. */
       testID="session-note-overlay"
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}

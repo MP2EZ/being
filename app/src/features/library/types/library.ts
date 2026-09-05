@@ -49,7 +49,13 @@ export interface Passage {
   text: string;
   /** Optional longer excerpt for long passages (Seneca letters): text = teaser, fullText = full. */
   fullText?: string;
-  /** Short literary frame (1–2 sentences), kept minimal. */
+  /**
+   * Editorial frame in OUR voice — never the translator's, and never longer than
+   * the passage it frames. Beyond a literary note it carries the doctrinal
+   * corrective where a passage invites a misreading its principle must not ship
+   * (FEAT-569 AC5). Excluded by design from every verbatim and in-copyright scan,
+   * so anything quoted here is verified by hand or not at all.
+   */
   context?: string;
   /** Display order within a principle. */
   order?: number;
