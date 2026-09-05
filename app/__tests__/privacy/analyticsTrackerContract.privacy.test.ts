@@ -59,6 +59,23 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
   trackOnboardingStarted: [],
   trackOnboardingStepCompleted: [3],
   trackOnboardingCompleted: [],
+  // DEBUG-536: the six feature-usage lifecycle trackers INFRA-552 removed for
+  // having zero call sites, restored WITH call sites. Payload shapes are the
+  // frozen-baseline ones, recovered verbatim from 673bf360^ — duration-only.
+  //
+  // Each fixture is the shape the REAL call site passes, not the widest shape the
+  // signature allows. `trackCheckInCompleted`'s duration is NOT minted at the emit
+  // site: it is `sessionData.timeSpentSeconds * 1000`, the figure DailyLoopNavigator
+  // already derived from the same mount-scoped `startTime` that `check_in_started`
+  // fires from — so the pair agrees by construction. The tracker still omits the
+  // property when that figure is absent, because `duration_ms` is in
+  // SAFE_NUMERIC_KEYS and a fabricated one would transmit unchallenged.
+  trackCheckInStarted: [],
+  trackCheckInCompleted: [420000],
+  trackAssessmentStarted: [],
+  trackAssessmentCompleted: [180000],
+  trackPracticeStarted: [],
+  trackPracticeCompleted: [300000],
 };
 
 /**
@@ -69,8 +86,8 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
  */
 const EXCLUDED = new Set(['trackEvent']);
 
-/** Pinned floor: 13 named trackers today (INFRA-552 pruned 10). Growth fine, shrinkage red. */
-const MIN_TRACKERS = 13;
+/** Pinned floor: 19 named trackers today (DEBUG-536 restored 6). Growth fine, shrinkage red. */
+const MIN_TRACKERS = 19;
 
 describe('every useAnalytics tracker transmits (INFRA-535)', () => {
   const { result } = renderHook(() => useAnalytics());

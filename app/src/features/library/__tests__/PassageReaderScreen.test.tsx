@@ -49,6 +49,23 @@ describe('PassageReaderScreen', () => {
     expect(getByText('Show excerpt')).toBeTruthy();
   });
 
+  /**
+   * FEAT-569 AC5. The doctrinal correctives live in `context`, and the provenance
+   * suite pins their WORDING — but a field can be correct in the asset and never
+   * reach a reader. This is the render half: without it the corrective could be
+   * authored, pinned, and dropped on the way to the screen, with every content
+   * assertion still green.
+   */
+  it('renders the labelled Context box carrying the doctrinal corrective', () => {
+    mockRouteParams = { passageId: 'marcus-meditations-10-6' };
+    const { queryByText } = render(<PassageReaderScreen />);
+    // The label is what marks the note as ours rather than the translator's.
+    expect(queryByText('Context')).toBeTruthy();
+    // The clause doing the doctrinal work, not the whole note — same short
+    // anchor the provenance pin uses, so rewording moves both together.
+    expect(queryByText(/one of those causes/)).toBeTruthy();
+  });
+
   it('does not show a disclosure for passages without fullText', () => {
     mockRouteParams = { passageId: 'epictetus-enchiridion-1' };
     const { queryByText } = render(<PassageReaderScreen />);

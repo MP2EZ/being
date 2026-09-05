@@ -46,6 +46,23 @@ export const AnalyticsEvents = {
   // Navigation
   SCREEN_VIEWED: 'screen_viewed',
 
+  // Feature usage (DEBUG-536 restored these six; INFRA-552 had removed them for
+  // having zero call sites, which was true then and is not now — every one below
+  // is wired to a real emitter in the same PR that restored it.)
+  //
+  // 🔴 ACCESS, NEVER CONTENT. These say which affordance was reached and how long
+  // it took. They must never say what was found, scored, said or selected there.
+  // That is the FEAT-457 boundary, and it is the reason these coexist with the
+  // published "we never collect any mental health data" promise — the same reason
+  // crisis_resources_viewed / crisis_hotline_tapped, bare access signals for a
+  // strictly more sensitive affordance, already ship to PostHog today.
+  CHECK_IN_STARTED: 'check_in_started',
+  CHECK_IN_COMPLETED: 'check_in_completed',
+  ASSESSMENT_STARTED: 'assessment_started',
+  ASSESSMENT_COMPLETED: 'assessment_completed',
+  PRACTICE_STARTED: 'practice_started',
+  PRACTICE_COMPLETED: 'practice_completed',
+
   // Crisis
   CRISIS_RESOURCES_VIEWED: 'crisis_resources_viewed',
   CRISIS_HOTLINE_TAPPED: 'crisis_hotline_tapped',

@@ -162,6 +162,72 @@ export function useAnalytics() {
   /**
    * Track onboarding flow
    */
+  /**
+   * Feature-usage lifecycle (DEBUG-536).
+   *
+   * 🔴 DO NOT ADD AN INSTRUMENT PARAMETER TO THE ASSESSMENT TRACKERS.
+   * `assessment_started`/`assessment_completed` deliberately take no instrument
+   * argument. Neutral tokens (`wellness_9`/`wellness_7`) were REJECTED on review as
+   * laundering rather than sanitization: they defeat the keyword filter while
+   * preserving the inference. `sensitiveScreens.ts` (DEBUG-239) already coarsens
+   * `assessment`/`phq`/`gad` screen names to the bucket `App` so telemetry cannot
+   * disclose which instrument was taken, and FEAT-457 made the identical ruling for
+   * `guidance_opened`'s domain. Completion RATE is computable from the started/
+   * completed pair without any instrument property.
+   *
+   * Note the FILTER IS NOT THE CONTROL here. `phq`/`gad` are PHI_KEYWORDS so those
+   * values block, but a key like `instrument: 'depression'` would pass validation
+   * untouched. This comment is the control.
+   *
+   * 🔴 DO NOT ADD `practice_id` TO THE PRACTICE TRACKERS. An exhaustive
+   * practice→token map is required first: `gratitude-reflection` and
+   * `social-impact-reflection` both contain the PHI keyword `reflection` and would
+   * be dropped while the other ten pass — partial blindness that reads as real data.
+   *
+   * 🔴 NO COMPLETION FIGURE DERIVED FROM THESE MAY BE SHOWN TO THE PRACTITIONER.
+   * Founder-facing only, perpetually. FEAT-328's invariant is that completion may be
+   * stated, never marked; a completion rate surfaced in Insights, on Home or in the
+   * coda is an outcome verdict on someone's practice, which the framework forbids.
+   */
+  const trackCheckInStarted = useCallback(() => {
+    trackEvent(AnalyticsEvents.CHECK_IN_STARTED);
+  }, [trackEvent]);
+
+  const trackCheckInCompleted = useCallback(
+    (durationMs?: number) => {
+      trackEvent(AnalyticsEvents.CHECK_IN_COMPLETED, {
+        ...(durationMs !== undefined && { duration_ms: durationMs }),
+      });
+    },
+    [trackEvent]
+  );
+
+  const trackAssessmentStarted = useCallback(() => {
+    trackEvent(AnalyticsEvents.ASSESSMENT_STARTED);
+  }, [trackEvent]);
+
+  const trackAssessmentCompleted = useCallback(
+    (durationMs?: number) => {
+      trackEvent(AnalyticsEvents.ASSESSMENT_COMPLETED, {
+        ...(durationMs !== undefined && { duration_ms: durationMs }),
+      });
+    },
+    [trackEvent]
+  );
+
+  const trackPracticeStarted = useCallback(() => {
+    trackEvent(AnalyticsEvents.PRACTICE_STARTED);
+  }, [trackEvent]);
+
+  const trackPracticeCompleted = useCallback(
+    (durationMs?: number) => {
+      trackEvent(AnalyticsEvents.PRACTICE_COMPLETED, {
+        ...(durationMs !== undefined && { duration_ms: durationMs }),
+      });
+    },
+    [trackEvent]
+  );
+
   const trackOnboardingStarted = useCallback(() => {
     trackEvent(AnalyticsEvents.ONBOARDING_STARTED);
   }, [trackEvent]);
@@ -197,6 +263,12 @@ export function useAnalytics() {
     // Learn
     trackLearnContentViewed,
     trackLearnModuleStarted,
+    trackCheckInStarted,
+    trackCheckInCompleted,
+    trackAssessmentStarted,
+    trackAssessmentCompleted,
+    trackPracticeStarted,
+    trackPracticeCompleted,
 
     // Breathing
 

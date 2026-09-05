@@ -356,6 +356,109 @@ describe('classical corpus provenance (DEBUG-352)', () => {
   });
 
   /**
+   * A passage can be verbatim, correctly attributed, public domain — and still
+   * ship a reading its own principle is defined against. The provenance pins
+   * above cannot see that class: they assert on `text`, and the defect lives in
+   * `context`, our editorial frame. `radical-acceptance` carried it three times
+   * over, every note assenting and none pivoting, so the file taught the Lazy
+   * Argument by omission: if it was settled, deliberation is theatre.
+   *
+   * Prose alone does not close that — the next editor reverts it and nothing
+   * goes red. These are the ratchet. Anchors are deliberately SHORT so ordinary
+   * rewording survives while a semantic reversion does not, and each trap is
+   * pinned in BOTH directions: the corrective must be present AND the reading it
+   * replaced must stay gone.
+   */
+  describe('doctrinal traps stay closed (FEAT-569 AC5)', () => {
+    const contextOf = (file: string, id: string): string => {
+      const p = loadPassages(file).find((x) => x.id === id);
+      if (!p) throw new Error(`${id} missing from ${file}`);
+      // An absent note is the defect's original form, not a neutral state.
+      if (!p.context) throw new Error(`${id} has no context note`);
+      return p.context;
+    };
+
+    const RADICAL = 'passages-2-radical-acceptance.json';
+
+    it('every radical-acceptance passage carries a note at all', () => {
+      const missing = loadPassages(RADICAL)
+        .filter((p) => !p.context?.trim())
+        .map((p) => p.id);
+      expect(missing).toEqual([]);
+    });
+
+    // Positive pins: the clause carrying the doctrinal work, not the whole note.
+    it.each([
+      // Assent is from inside the causal order, not from its sidelines.
+      [RADICAL, 'marcus-meditations-4-23', 'from inside the order'],
+      // The maxim governs desire and aversion — not action.
+      [RADICAL, 'epictetus-enchiridion-8', 'desire and aversion'],
+      // A choice is one of the causes, so fixity is not a reason for inaction.
+      [RADICAL, 'marcus-meditations-10-6', 'one of those causes'],
+    ])('%s / %s keeps its action pivot', (file, id, anchor) => {
+      expect(contextOf(file, id)).toContain(anchor);
+    });
+
+    // Negative pins: the exact framings that were live before FEAT-569. A
+    // presence check alone cannot catch this class — all three DID have notes;
+    // they simply restated the trap instead of pivoting away from it.
+    it('the assent-only framings do not come back', () => {
+      expect(contextOf(RADICAL, 'marcus-meditations-4-23')).not.toContain(
+        'the classic expression of the Stoic acceptance of fate',
+      );
+      expect(contextOf(RADICAL, 'epictetus-enchiridion-8')).not.toContain(
+        'stating non-resistance to events directly',
+      );
+      expect(contextOf(RADICAL, 'marcus-meditations-10-6')).not.toContain(
+        'a ground for welcoming what comes',
+      );
+    });
+
+    // The corrective may not overcorrect into denying what the passage says.
+    // Meditations 10.6 DOES assert causal fixity; a note implying outcomes are
+    // ours breaks sphere-sovereignty while purporting to fix this principle.
+    it('no note claims outcomes are within our control', () => {
+      for (const p of loadPassages(RADICAL)) {
+        expect(p.context ?? '').not.toMatch(/\b(you can control|within your control|up to you to decide what happens)\b/i);
+      }
+    });
+
+    it('the matchers still fire (DEBUG-390)', () => {
+      // Run each predicate over literal known-bad strings rather than over
+      // corpus state — a control drawn from the corpus is a second symptom of
+      // the same failure, not an independent check.
+      const assentOnly = 'One of the Handbook\'s shortest maxims, stating non-resistance to events directly.';
+      expect(assentOnly).toContain('stating non-resistance to events directly');
+      expect(assentOnly).not.toContain('desire and aversion');
+
+      const overcorrected = 'Marcus reminds us that outcomes are within your control.';
+      expect(overcorrected).toMatch(/\b(you can control|within your control|up to you to decide what happens)\b/i);
+
+      // And prove the notes being read are real prose, not empty strings that
+      // would satisfy every not.toContain above vacuously.
+      for (const id of ['marcus-meditations-4-23', 'epictetus-enchiridion-8', 'marcus-meditations-10-6']) {
+        expect(contextOf(RADICAL, id).length).toBeGreaterThan(40);
+      }
+    });
+
+    // The frame is ours; the passage is the source. A note that outgrows what it
+    // frames has stopped framing and started competing.
+    //
+    // Scoped to this principle rather than the corpus, and the exception is
+    // instructive: corpus-wide, the sole violator is seneca-letters-13, whose
+    // note exceeds its text only because that `text` is a truncated paraphrase
+    // rather than the Gummere it declares. The real Gummere is longer and clears
+    // the rule, so DEBUG-582 fixes this by fixing the provenance defect — widen
+    // this to allPassages() there rather than exempting the id here.
+    it('no radical-acceptance note runs longer than the passage it frames', () => {
+      for (const p of loadPassages(RADICAL)) {
+        if (!p.context) continue;
+        expect(p.context.length).toBeLessThanOrEqual(p.text.length);
+      }
+    });
+  });
+
+  /**
    * The Margaret Mead line ("Never doubt that a small group of thoughtful,
    * committed citizens...") is famously unverified — Mead's own Institute for
    * Intercultural Studies stated it could not be located in her published work.
