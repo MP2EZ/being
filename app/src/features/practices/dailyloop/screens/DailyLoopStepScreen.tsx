@@ -32,6 +32,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 // MAINT-437: never the `react-native` core export — it is iOS-only and applies zero
 // insets on Android, where Expo SDK 56 makes edge-to-edge mandatory.
@@ -100,6 +101,38 @@ import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAcc
  * failure mode is app-wide. Insetting the CTA costs 988 reachability nothing.
  */
 const CRISIS_FAB_CLEARANCE = spacing[72];
+
+/**
+ * MAINT-564 (AC1) — the virtue chips lay out on a DECIDED grid, not on whatever
+ * `flexWrap` happened to produce. Four chips of unequal intrinsic width wrapped
+ * three-up with an orphan, which is the "arbitrarily wrapped" reading the item was
+ * filed against.
+ *
+ * Two-up at default type, one-up past this scale. The split resolves a real conflict
+ * between two constraints that are each correct in their own range:
+ *   - A fixed 2x2 breaks at accessibility sizes. The content box is ~350pt at 390x844
+ *     (scrollContent padding spacing[20] a side), so a half-column is ~171pt, and
+ *     "Temperance" (10 chars against 6-7 for the other three) does not fit on one line
+ *     there. RN's fallback is per-glyph wrapping — the exact "fits at default, breaks
+ *     at AX5" trap AC3 names.
+ *   - Full-width rows at DEFAULT type read more like a checklist, not less: a vertical
+ *     stack of toggles is the canonical checklist shape, and AC4 exists to stop this
+ *     beat becoming one. So the single column is confined to the sizes that need it.
+ *
+ * 1.6 sits in the gap between iOS's xxxLarge (1.353) and AX1 (1.786), so the grid holds
+ * for every non-accessibility size and the column takes over from AX1 up. Read from
+ * useWindowDimensions().fontScale — the house convention (DailyLoopDepthSelectScreen.tsx
+ * and VoiceReflectionScreen both do) and reactive, where PixelRatio.getFontScale() is a
+ * static read that would hold a stale layout until the next remount.
+ *
+ * `minHeight: 44` stays a FLOOR and never becomes a fixed height (AC3): a two-line
+ * label at large type grows the row, so the touch target only ever grows.
+ */
+export const VIRTUE_CHIP_SINGLE_COLUMN_FONT_SCALE = 1.6;
+
+/** Pure so AC1's breakpoint is testable without rendering at an accessibility size. */
+export const virtueChipsAreSingleColumn = (fontScale: number): boolean =>
+  fontScale >= VIRTUE_CHIP_SINGLE_COLUMN_FONT_SCALE;
 
 const BREATH_DURATION_MS = 30 * 1000;
 
@@ -178,6 +211,11 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
 
   const [values, setValues] = useState<Record<LoopFieldKey, string>>({ response: '', notMine: '', mine: '' });
   const [selectedVirtues, setSelectedVirtues] = useState<CardinalVirtue[]>([]);
+
+  // MAINT-564 (AC1/AC3). The hook re-renders on a Dynamic Type change, so the grid
+  // reflows with it rather than holding the layout it booted with.
+  const { fontScale } = useWindowDimensions();
+  const singleColumnVirtueChips = virtueChipsAreSingleColumn(fontScale);
   const [adversityRehearsal, setAdversityRehearsal] = useState('');
   const [breathCompleted, setBreathCompleted] = useState(!showBreath);
   const [isBreathActive, setIsBreathActive] = useState(showBreath);
@@ -351,6 +389,9 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
                         onPress={() => toggleVirtue(v.key)}
                         style={[
                           styles.virtueChip,
+                          singleColumnVirtueChips
+                            ? styles.virtueChipFullWidth
+                            : styles.virtueChipHalfWidth,
                           {
                             borderColor: active ? themeColors.primary : colorSystem.gray[300],
                             backgroundColor: active ? themeColors.background : colorSystem.base.white,
@@ -561,7 +602,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[8],
     minHeight: 44,
     justifyContent: 'center',
+    // The chips now carry a width, so their label no longer sizes the box and has to
+    // be centred explicitly. Content-sized chips got this for free.
+    alignItems: 'center',
   },
+  // MAINT-564: flexBasis below half forces exactly two per row (three would need 135%);
+  // flexGrow then spends the remainder so the pair meets the gap exactly, leaving no
+  // dead strip. A percentage width such as 48% would leave the row 4pt short.
+  virtueChipHalfWidth: { flexBasis: '45%', flexGrow: 1 },
+  virtueChipFullWidth: { flexBasis: '100%' },
   virtueChipText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
