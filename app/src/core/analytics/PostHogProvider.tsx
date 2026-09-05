@@ -64,8 +64,13 @@ const POSTHOG_CONFIGURED =
  * `errorTracking` is deliberately ABSENT: with the option undefined the SDK
  * installs no global handlers. Populating it would add a transmission vector and
  * needs a fresh compliance pass.
+ *
+ * EXPORTED so `PostHogProvider.networkSilence.privacy.test.tsx` can construct a REAL
+ * client from this exact object. A test asserting against its own copy of these
+ * values would prove only that two literals match; binding to the real one is what
+ * makes the pin a statement about the shipped SDK's behaviour.
  */
-const POSTHOG_OPTIONS = {
+export const POSTHOG_OPTIONS = {
   // EU data residency for GDPR compliance
   host: POSTHOG_HOST,
 
