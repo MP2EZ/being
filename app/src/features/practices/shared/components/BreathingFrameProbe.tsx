@@ -26,6 +26,18 @@
  * the HOOK's line and would suppress this whole callback, so listing the file
  * before the companion rule exists would guard nothing while appearing to.
  *
+ * NEVER CLOCK THE WINDOW OFF `timeSinceFirstFrame` (measured, INFRA-373).
+ * That field is `timestamp - startTime` where `startTime` is per-REGISTRATION,
+ * and Reanimated re-registers whenever the callback's identity changes. This
+ * screen re-renders 1x/sec — `useTimerPractice` calls `setElapsedTime` on each
+ * whole-second `onTick` — so an unmemoized probe had its `startTime` reset every
+ * second and a 10 s window never closed, while the shared values (which survive
+ * re-registration) went on accumulating. Measured: 708 frames counted, window
+ * never closed. Elapsed is therefore summed from `timeSincePreviousFrame` into a
+ * shared value, and the component is memoized so the parent's cascade cannot
+ * re-register it. The memo is not merely an optimisation: without it the probe is
+ * reset by the very JS-thread work it exists to observe.
+ *
  * SPIKE SCOPE. This file answers one question: does `useFrameCallback` tick
  * reliably on a Reanimated 4 Release build under the mandatory New Architecture?
  * The accumulator here is deliberately inline and untested. Slice B extracts it
@@ -36,7 +48,7 @@
  * must be quantified by the two control runs first.
  */
 
-import React, { useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { runOnJS, useFrameCallback, useSharedValue } from 'react-native-reanimated';
 
@@ -64,6 +76,19 @@ export interface FrameWindowResult {
  */
 const WINDOW_MS = 10_000;
 
+/**
+ * JS-side backstop, deliberately later than WINDOW_MS.
+ *
+ * Without it a stalled probe is unattributable: `closed` latches, so "the
+ * callback never fired", "it fired but the window never closed" and "it closed
+ * and the single runOnJS hop failed" all render identically as a status stuck on
+ * `sampling`. A probe that cannot tell no-data from broken-reporting is the same
+ * silently-green shape this item exists to eliminate, so the readout says which
+ * path produced it. This timer is per-mount, not per-frame — it is not a JS hop
+ * on the animation path.
+ */
+const FORCED_READOUT_MS = 12_000;
+
 interface BreathingFrameProbeProps {
   testID?: string;
 }
@@ -71,14 +96,44 @@ interface BreathingFrameProbeProps {
 const BreathingFrameProbe: React.FC<BreathingFrameProbeProps> = ({
   testID = 'breathing-frame-probe',
 }) => {
-  const [result, setResult] = useState<FrameWindowResult | null>(null);
+  const [readout, setReadout] = useState<{
+    via: 'window' | 'forced';
+    result: FrameWindowResult;
+  } | null>(null);
 
   const frames = useSharedValue(0);
   const sumMs = useSharedValue(0);
   const minMs = useSharedValue(Number.POSITIVE_INFINITY);
   const maxMs = useSharedValue(0);
   const sawNullFirst = useSharedValue(false);
+  const elapsedMs = useSharedValue(0);
   const closed = useSharedValue(false);
+
+  // First writer wins, so a working window close beats the backstop and the
+  // `via` label stays honest about which path actually produced the numbers.
+  const report = useCallback(
+    (via: 'window' | 'forced') => {
+      setReadout((prev) =>
+        prev ?? {
+          via,
+          result: {
+            frames: frames.value,
+            windowMs: elapsedMs.value,
+            meanMs: frames.value > 0 ? sumMs.value / frames.value : 0,
+            minMs: Number.isFinite(minMs.value) ? minMs.value : 0,
+            maxMs: maxMs.value,
+            nullFirstFrame: sawNullFirst.value,
+          },
+        }
+      );
+    },
+    [frames, sumMs, elapsedMs, minMs, maxMs, sawNullFirst]
+  );
+
+  useEffect(() => {
+    const handle = setTimeout((): void => report('forced'), FORCED_READOUT_MS);
+    return (): void => clearTimeout(handle);
+  }, [report]);
 
   useFrameCallback((frame) => {
     'worklet';
@@ -95,6 +150,7 @@ const BreathingFrameProbe: React.FC<BreathingFrameProbeProps> = ({
     } else {
       frames.value += 1;
       sumMs.value += dt;
+      elapsedMs.value += dt;
       if (dt < minMs.value) {
         minMs.value = dt;
       }
@@ -103,16 +159,9 @@ const BreathingFrameProbe: React.FC<BreathingFrameProbeProps> = ({
       }
     }
 
-    if (frame.timeSinceFirstFrame >= WINDOW_MS) {
+    if (elapsedMs.value >= WINDOW_MS) {
       closed.value = true;
-      runOnJS(setResult)({
-        frames: frames.value,
-        windowMs: frame.timeSinceFirstFrame,
-        meanMs: frames.value > 0 ? sumMs.value / frames.value : 0,
-        minMs: Number.isFinite(minMs.value) ? minMs.value : 0,
-        maxMs: maxMs.value,
-        nullFirstFrame: sawNullFirst.value,
-      });
+      runOnJS(report)('window');
     }
   });
 
@@ -122,24 +171,24 @@ const BreathingFrameProbe: React.FC<BreathingFrameProbeProps> = ({
   return (
     <View style={styles.container} testID={testID}>
       <Text style={styles.label} testID={`${testID}-status`}>
-        {result === null ? 'probe: sampling' : 'probe: done'}
+        {readout === null ? 'probe: sampling' : `probe: ${readout.via}`}
       </Text>
-      {result !== null && (
+      {readout !== null && (
         <>
           <Text style={styles.value} testID={`${testID}-frames`}>
-            {String(result.frames)}
+            {`frames ${readout.result.frames}`}
           </Text>
           <Text style={styles.value} testID={`${testID}-min-ms`}>
-            {result.minMs.toFixed(2)}
+            {`min ${readout.result.minMs.toFixed(2)}`}
           </Text>
           <Text style={styles.value} testID={`${testID}-mean-ms`}>
-            {result.meanMs.toFixed(2)}
+            {`mean ${readout.result.meanMs.toFixed(2)}`}
           </Text>
           <Text style={styles.value} testID={`${testID}-max-ms`}>
-            {result.maxMs.toFixed(2)}
+            {`max ${readout.result.maxMs.toFixed(2)}`}
           </Text>
           <Text style={styles.value} testID={`${testID}-null-first`}>
-            {String(result.nullFirstFrame)}
+            {`nullFirst ${String(readout.result.nullFirstFrame)}`}
           </Text>
         </>
       )}
@@ -162,4 +211,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default BreathingFrameProbe;
+export default React.memo(BreathingFrameProbe);
