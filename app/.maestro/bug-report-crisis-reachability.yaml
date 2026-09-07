@@ -2,6 +2,10 @@ appId: fyi.being.app
 tags:
   - safety
 name: "Bug-report form leaves the 988 affordance reachable and has a fixed exit"
+# e2e-certifies: 375x667
+# The smallest supported viewport is the constraining one here: the form is a bottom
+# sheet, so the room left for the crisis FAB above it is tightest at 667pt tall. A pass
+# on a larger device would not certify this.
 ---
 # FEAT-570 — the on-device inverse of DEBUG-533's measurement.
 #

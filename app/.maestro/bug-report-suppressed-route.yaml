@@ -2,6 +2,9 @@ appId: fyi.being.app
 tags:
   - safety
 name: "Bug-report form is refused on the pre-consent gate, which keeps its own 988 footer"
+# e2e-certifies: 375x667
+# Same viewport and the same reason as deeplink-consent-gate, which asserts this screen's
+# pinned 988 footer: whether that footer is on screen is a function of height.
 ---
 # FEAT-570 — the half of the contract the Profile entry point CANNOT reach.
 #
