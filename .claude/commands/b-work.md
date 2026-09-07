@@ -548,6 +548,10 @@ Scan the work item's **Name**, **User Story**, **Acceptance Criteria**, **AGENTS
 
 Multiple signals → invoke multiple specialists in parallel.
 
+**When one specialist owns a GATE AC — whether the change should exist at all —
+get that ruling FIRST, alone.** The others answer *how*, and their passes are
+discarded if the gate says no. Parallel stays the default; sequence only on a gate.
+
 **When specialists conflict**, send the conflict back to the specialist whose domain owns
 the decision, quoting the other's reasoning and any facts it lacked — do not adjudicate
 between them yourself, and do not average the two rulings. A specialist that ruled without
