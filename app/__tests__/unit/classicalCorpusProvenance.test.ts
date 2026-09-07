@@ -483,6 +483,9 @@ describe('classical corpus provenance (DEBUG-352)', () => {
     };
 
     const RADICAL = 'passages-2-radical-acceptance.json';
+    // FEAT-580 brought a SECOND principle into this block. Everything above the
+    // virtuous-response section below is still radical-acceptance's.
+    const VIRTUOUS = 'passages-4-virtuous-response.json';
 
     it('every radical-acceptance passage carries a note at all', () => {
       const missing = loadPassages(RADICAL)
@@ -521,10 +524,85 @@ describe('classical corpus provenance (DEBUG-352)', () => {
     // The corrective may not overcorrect into denying what the passage says.
     // Meditations 10.6 DOES assert causal fixity; a note implying outcomes are
     // ours breaks sphere-sovereignty while purporting to fix this principle.
+    // Corpus-wide since FEAT-580: its own note turns on "consent changes the man,
+    // not the outcome", which is one careless rewording away from the very claim
+    // this guard forbids. Verified zero violators corpus-wide when widened.
     it('no note claims outcomes are within our control', () => {
-      for (const p of loadPassages(RADICAL)) {
+      for (const p of allPassages()) {
         expect(p.context ?? '').not.toMatch(/\b(you can control|within your control|up to you to decide what happens)\b/i);
       }
+    });
+
+    /**
+     * VIRTUOUS RESPONSE — Letters 107.11 (FEAT-580).
+     *
+     * Two live defects, one of them in no AC. The note credited "a hymn of the
+     * Stoic Cleanthes", which is wrong twice: it scoped the whole quoted block —
+     * including the closing line that has no counterpart in the Greek Epictetus
+     * preserves at Ench. 53 — to Cleanthes; and von Arnim Frag. 527 is a standalone
+     * prayer fragment, NOT the Hymn to Zeus (Frag. 537), so "hymn" is itself the
+     * pop conflation.
+     *
+     * What the note may assert is bounded by what Gummere's own apparatus supports:
+     * the textual fact that the closing line is absent from that Greek. It may NOT
+     * say who composed it — the apparatus records division over the WHOLE passage
+     * (Augustine and Wilamowitz give all of it to Seneca), not a four-plus-one split.
+     *
+     * The trap this pins against is a PREMEDITATIO framing. Ep. 107.3-9 genuinely is
+     * expectation-shaped, so anyone reading the whole letter lands there — but we
+     * cite 107.11, and seneca-letters-13 sits at order 3 in the same file already
+     * owning that move.
+     */
+    it.each([
+      // Both are led and both arrive: consent is not causally efficacious, so the
+      // submission reading collapses from inside rather than being denied.
+      [VIRTUOUS, 'seneca-letters-107', 'both arrive'],
+      // What consent DOES change — the man. This is the file's own principle, and
+      // it is why the passage sits under virtuous-response, not radical-acceptance.
+      [VIRTUOUS, 'seneca-letters-107', 'changes the man, not the outcome'],
+      // The affective refusal, marked as EXTERNAL to these lines. In the verse the
+      // groaning belongs to the UNWILLING man; the passage does not itself make
+      // room for tears, and a note implying it does has falsified the text.
+      [VIRTUOUS, 'seneca-letters-107', 'not at feeling'],
+    ])('%s / %s keeps its corrective', (file, id, anchor) => {
+      expect(contextOf(file, id)).toContain(anchor);
+    });
+
+    it('the Cleanthes mis-attribution and the inert gloss do not come back', () => {
+      const note = contextOf(VIRTUOUS, 'seneca-letters-107');
+      // Scoped the whole verse — closing line included — to Cleanthes.
+      expect(note).not.toContain('a hymn of the Stoic Cleanthes');
+      // Bibliographically adequate, doctrinally inert: it framed the passage as
+      // acceptance and stopped, which is the reading the corrective must defuse.
+      expect(note).not.toContain('closing a letter on accepting what is not in our control');
+      // "Hymn" is the Frag. 527 / Frag. 537 conflation. Independent of the phrase above.
+      expect(note).not.toMatch(/\bhymn\b/i);
+      // The premeditatio mis-aim AC1 names as the likeliest drift. Ep. 107.11 is
+      // fatum/prohairesis; the anticipation passage in this file is seneca-letters-13.
+      expect(note).not.toMatch(/\b(premeditatio|rehears\w*|anticipat\w*|foresee|expect the worst)\b/i);
+    });
+
+    it('the virtuous-response matchers still fire (DEBUG-390)', () => {
+      // Literal known-bad strings, never corpus state. The shipped note FEAT-580
+      // replaced is the natural negative fixture: every predicate above must fire
+      // on it, or the pins would pass vacuously against correct-looking prose.
+      const shipped =
+        "Seneca's Latin rendering of a hymn of the Stoic Cleanthes, closing a letter on accepting what is not in our control.";
+      expect(shipped).toContain('a hymn of the Stoic Cleanthes');
+      expect(shipped).toContain('closing a letter on accepting what is not in our control');
+      expect(shipped).toMatch(/\bhymn\b/i);
+      expect(shipped).not.toContain('both arrive');
+      expect(shipped).not.toContain('changes the man, not the outcome');
+      expect(shipped).not.toContain('not at feeling');
+
+      // The premeditatio matcher needs its own fixture — the shipped note does not
+      // contain that drift, so asserting against it would prove nothing.
+      const premeditatio = 'A passage on rehearsing misfortune before it arrives.';
+      expect(premeditatio).toMatch(/\b(premeditatio|rehears\w*|anticipat\w*|foresee|expect the worst)\b/i);
+
+      // And prove the note being read is real prose, not an empty string that would
+      // satisfy every not.toContain above vacuously.
+      expect(contextOf(VIRTUOUS, 'seneca-letters-107').length).toBeGreaterThan(40);
     });
 
     it('the matchers still fire (DEBUG-390)', () => {
