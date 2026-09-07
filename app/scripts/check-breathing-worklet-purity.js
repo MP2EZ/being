@@ -77,6 +77,17 @@ const APP_ROOT = path.resolve(__dirname, '..');
  */
 const ANIMATION_PATH_FILES = [
   'src/features/practices/shared/components/BreathingCircle.tsx',
+  // INFRA-373 note — BreathingFrameProbe.tsx is deliberately NOT here yet.
+  // It must be, but only in the same change that adds the companion rule: the
+  // probe crosses to JS once at window close, which Rule 1 reads as a per-frame
+  // hop, and the only escape hatch today (`hasSkipDirective`) keys off the HOOK's
+  // line and so suppresses the entire callback body. Listing the file with a
+  // blanket skip would put it in the guarded set while guarding nothing — the
+  // shape that looks exactly like a working pin. The rule needs to permit exactly
+  // one close-latched runOnJS and fail on two.
+  //
+  // Note also that WORKLET_HOOKS only applies to files named in THIS list, so
+  // INFRA-309's addition of `useFrameCallback` to it buys nothing until then.
 ];
 
 /**
