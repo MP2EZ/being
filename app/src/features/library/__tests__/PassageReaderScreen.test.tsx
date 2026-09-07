@@ -70,6 +70,21 @@ describe('PassageReaderScreen', () => {
     expect(queryByText(/one of those causes/)).toBeTruthy();
   });
 
+  /**
+   * FEAT-580, the virtuous-response half of the same contract. Letters 107.11 is
+   * the sternest passage in the corpus and the one likeliest to read as punitive
+   * submission, so its corrective reaching the screen matters more here than
+   * anywhere — and this record carries no `fullText`, so there is no disclosure:
+   * whatever the note says is on screen the moment the passage opens.
+   */
+  it('renders the Context box on the corpus\'s sternest passage', () => {
+    mockRouteParams = { passageId: 'seneca-letters-107' };
+    const { queryByText } = render(<PassageReaderScreen />);
+    expect(queryByText('Context')).toBeTruthy();
+    // Same short anchor as the provenance pin, so rewording moves both together.
+    expect(queryByText(/changes the man, not the outcome/)).toBeTruthy();
+  });
+
   it('does not show a disclosure for passages without fullText', () => {
     mockRouteParams = { passageId: 'epictetus-enchiridion-1' };
     const { queryByText } = render(<PassageReaderScreen />);
