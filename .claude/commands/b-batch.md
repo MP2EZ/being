@@ -279,6 +279,9 @@ re-deriving it here.
   than skipping it: a plausible fix lands, the item closes, and the question it existed to
   answer stays open. Stamp `Attended-only`; Step 4.1 surfaces it beside the sim queue, since
   both want the same human at the same machine. Never use one to fill the budget.
+- **Falsified or undecided ACs** — a panel disproved an AC, or one is a decision nobody has
+  made. No `Batch Route` value fits, so record it as a page COMMENT and let the digest carry
+  the verdict; the next run re-reads comments regardless and drops it without a body fetch.
 
     🔀 Routed elsewhere: INFRA-363 (being-website) · MAINT-388 (design-system release)
                          DEBUG-360 (ships via /b-release)
