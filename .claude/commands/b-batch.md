@@ -246,6 +246,14 @@ concurrent batches converge; a lost entry costs one re-derive, never correctness
 (measured, not assumed), so the key is blind to exactly the channel that carries rescopes and
 reversals — caching through it would serve a body whose premise was retired.
 
+**A comment over ~4,000 RENDERED characters is truncated mid-sentence with no marker.**
+Measured, per comment (a single-`discussion_id` fetch cuts identically), against the rendered
+form — `**`, backticks and `<br><br>` all count, so ~3,500 plain characters is the real
+ceiling. Nothing in the payload says it happened; the cut ends in an ellipsis and reads as
+prose, so a finding can be silently half-read. Treat any comment ending mid-clause as
+truncated and ask for the rest. Bodies are NOT capped — which is why Step 2.3 writes long
+findings there.
+
 **A digest verdict about ANOTHER item's state is never reusable.** The key is this
 item's `Last edited time`, which cannot see a sibling branch merge — so a cached
 "blocker cleared" rots silently and re-slates blocked work. Re-verify with
@@ -659,6 +667,12 @@ wrapper against the surface that actually won: an approach right about *what* an
 *where* reads as already-verified, so it gets implemented literally.
 
 An amber you don't resolve → leave for a later manual run (record in manifest as `deferred`).
+
+**A defer that carries a re-scope finding writes it into the BODY, not a comment.** Add a
+dated `## RE-SCOPE REQUIRED` section, then leave a SHORT comment (< 500 characters) pointing
+at it. Two reasons, both measured: comments truncate at ~4,000 rendered characters (Step
+0.1a.5) and a long finding loses its tail silently; and a comment does not move
+`Last edited time`, so a body-cached reader never sees it. The body is what `/b-work` reads.
 
 **Scoped upgrade (partial green).** Often an amber can only be *partially* upgraded:
 part is auto-runnable, part is blocked / cross-repo / out-of-scope (a design-system

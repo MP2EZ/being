@@ -175,6 +175,11 @@ page_id: [page id from Step 1.2]
 include_all_blocks: true
 ```
 
+**A comment over ~4,000 RENDERED characters is truncated mid-sentence with no marker**
+(measured; per comment, and `**`/backticks/`<br><br>` all count toward it). The cut ends in an
+ellipsis and reads as prose, so a re-scope can be silently half-read. Treat any comment ending
+mid-clause as truncated and ask for the rest rather than planning on what arrived.
+
 Read newest-last and let comments **override** the body on any conflict. Specifically:
 - **A long comment can arrive truncated, silently** — it just stops mid-sentence. Retrying
   with `discussion_id` or the comment's `?d=` URL returns the same cut, so don't burn calls.
