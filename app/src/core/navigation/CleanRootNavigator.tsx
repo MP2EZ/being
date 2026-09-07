@@ -30,6 +30,9 @@ import {
   useRootOverlayStore,
 } from '@/core/navigation/rootOverlaySlot';
 import NavigatorA11yHost from '@/core/navigation/NavigatorA11yHost';
+// FEAT-570 — publishes the first-party bug-report form into the slot below.
+// Eager, never lazy: it is a DEBUG-406 conversion on the crisis path.
+import BugReportOverlay from '@/core/components/BugReportOverlay';
 // DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
 // above and by the overlay boundary below.
 import Static988Button from '@/features/crisis/components/Static988Button';
@@ -993,6 +996,16 @@ const CleanRootNavigator: React.FC = () => {
           would reintroduce, for every overlay at once, the exact
           zero-988-affordance state DEBUG-403 and DEBUG-406 were filed to remove.
         */}
+        {/* FEAT-570 — a PUBLISHER, not a rendered overlay: it returns null and
+            pushes the form into the slot below when `bugReportStore.visible`.
+            Mounted here, inside NavigationContainer, so the slot's route-driven
+            refusal applies to it. It is the first slot claimant armed at the app
+            ROOT (useBugReportShake, in App.tsx above this navigator), which is
+            why the slot had to gain SCREEN_OWNED_988_ROUTES: a shake can raise
+            it on AssessmentFlow or the pre-consent LegalGate, where the FAB
+            steps aside and the screen owns the only route to 988. */}
+        <BugReportOverlay />
+
         <RootOverlaySlot />
 
         <RootCrisisBoundary>

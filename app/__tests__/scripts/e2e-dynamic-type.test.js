@@ -150,12 +150,18 @@ describe('DEBUG-469 — the class stays OUT of the default safety suite', () => 
   // `safety-dynamic-type`, both of which the suite can neither select nor validly run).
   // 10 → 11: FEAT-457 added guidance-suppressed-handoff.
   // 11 → 12: INFRA-420 added guidance-gentle-tier-cap.
-  test('the exact-tag matcher the suite uses still selects exactly the twelve safety flows', () => {
+  // 12 → 14: FEAT-570 added bug-report-crisis-reachability and
+  //          bug-report-suppressed-route. TWO, not one, and not the "flow edits"
+  //          the work item originally specified: Maestro 2.6.0 has no shake
+  //          command, so the root-armed entry point cannot be driven by editing
+  //          an existing flow. The second flow covers what the Profile entry
+  //          structurally cannot — the form arriving on a FAB-suppressed route.
+  test('the exact-tag matcher the suite uses still selects exactly the fourteen safety flows', () => {
     const files = fs.readdirSync(MAESTRO).filter((f) => f.endsWith('.yaml') && !f.startsWith('_'));
     const tagged = files.filter((f) =>
       /^\s*-\s+safety\s*$/m.test(fs.readFileSync(path.join(MAESTRO, f), 'utf8'))
     );
-    expect(tagged).toHaveLength(12);
+    expect(tagged).toHaveLength(14);
     expect(tagged).not.toContain('daily-loop-ax5-entry.yaml');
   });
 });
