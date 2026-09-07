@@ -295,6 +295,25 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
           and 3, so with the triad delivered properly it was the redundancy. The
           title stays: it names the act, and is the cheapest instruction layer.
         */}
+        {/*
+          FEAT-565 — haptic breath cues were DECLINED on this beat (philosopher
+          ruling). An absence by decision, not an omission: do not wire
+          `usePracticeHaptics` here without reopening it.
+
+          The cues' warrant is the opt-in's own promise — "follow a practice with
+          your eyes closed" — and this beat is eyes-open by construction, because
+          DEBUG-468 paces the grounding anchors through the circle's guidance slot.
+          Pacing is already triple-served (animation, `announcePhase` on both legs,
+          the reduce-motion label), so `announce` would double-speak rather than add
+          a channel. Both session anchors would assert falsehoods: `sessionStart`
+          says "you can close your eyes now", `sessionEnd` says "the practice is
+          complete" on beat 1 of 5 — and `handleBreathComplete` is shared with
+          `SkipLink` below, so the latter would fire on a skip.
+
+          Reopens on an arrival that is genuinely eyes-closed, or on a cue authored
+          for a GATE transition with its own catalog meaning — never by reusing the
+          practice-boundary anchors, whose meanings three shipped screens rely on.
+        */}
         {!breathCompleted && (
           <View style={styles.breathSection}>
             <Text style={styles.breathTitle}>Take a moment to arrive</Text>
