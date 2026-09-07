@@ -1754,6 +1754,10 @@ EOF
 - DEBUG → `fix:`
 - INFRA/MAINT/AGENT → `chore:`
 
+**When the item closes with a RULING rather than the feature, title the PR for what
+merged.** The Notion Name describes the work that was declined, so the mapped title
+misdescribes the history release notes are generated from. Keep the ID, replace the name.
+
 **Capture PR number** from the output URL (e.g., `https://github.com/MP2EZ/being/pull/42` → PR #42).
 
 **Display**:
