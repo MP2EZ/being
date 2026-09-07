@@ -47,7 +47,8 @@
  * overlays whose BackHandlers would fire LIFO and whose dismissals would leave
  * the other orphaned.
  *
- * ── AND NO OVERLAY MAY HOLD THE SLOT ON A CRISIS ROUTE (DEBUG-575 finding 2) ──
+ * ── AND NO OVERLAY MAY HOLD THE SLOT WHERE 988 IS ALREADY SCARCE ──
+ * ── (DEBUG-575 finding 2, widened by FEAT-570) ──
  *
  * The slot paints above EVERY navigator route, `CrisisResources` included — it is
  * a `Stack.Screen` with `presentation: 'modal'`, a JS stack modal with no separate
@@ -72,11 +73,26 @@
  * requires its first attempt stay first and stay synchronous.
  *
  * Driven by navigation state, so every entrant is covered by construction rather
- * than by enumeration. Keyed on an explicit crisis-route set, NOT on
- * `RootCrisisButton.SUPPRESSED_ROUTES`: that set means "the FAB steps aside here"
- * and also holds `AssessmentFlow` and `LegalGate`, which are not crisis
- * destinations. Reusing a set whose meaning is adjacent-but-different is how the
- * `guidance/` and `consent/` two-list failures started.
+ * than by enumeration.
+ *
+ * FEAT-570 WIDENED THE RULE FROM CRISIS DESTINATIONS TO A UNION. The paragraph
+ * above covers `CrisisResources`. It does not cover `AssessmentFlow` or
+ * `LegalGate`, where the FAB also steps aside but the SCREEN owns the 988 route
+ * — so an overlay there covers the only affordance present. That was latent
+ * while both claimants lived in `features/insights/components/` and were
+ * reachable only by a deliberate tap on Insights; it goes live with the first
+ * claimant armed at the app root. Both halves matter, and REFUSING THE CLAIM
+ * ALONE IS NOT ENOUGH: `useBugReportShake()` is called inside `App()` above
+ * `NavigationContainer`, so a claim can be standing before any route exists to
+ * check, and a fresh install's first route is `LegalGate`. See
+ * `SCREEN_OWNED_988_ROUTES` below.
+ *
+ * Kept as TWO named constants behind ONE predicate, and still NOT an import of
+ * `RootCrisisButton.SUPPRESSED_ROUTES`: that set means "the FAB steps aside
+ * here", which is adjacent-but-different, and reusing such a set is how the
+ * `guidance/` and `consent/` two-list failures started. The relation is enforced
+ * by a test that may import both — SUPPRESSED_ROUTES ⊆ the union — so the two
+ * lists cannot drift apart silently.
  *
  * ── THE FOCUS TRAP IS THE SLOT'S JOB, NOT THE OVERLAY'S (DEBUG-575) ──
  *
@@ -124,8 +140,45 @@ import { logSystem } from '@/core/services/logging';
  */
 export const CRISIS_DESTINATION_ROUTES: readonly string[] = ['CrisisResources'];
 
-const isCrisisRoute = (routeName?: string | null): boolean =>
-  typeof routeName === 'string' && CRISIS_DESTINATION_ROUTES.includes(routeName);
+/**
+ * Routes on which no overlay may hold the slot because the SCREEN owns the 988
+ * affordance (FEAT-570).
+ *
+ * `RootCrisisButton` deliberately suppresses itself on both: `AssessmentFlow`
+ * renders `EnhancedAssessmentFlow`'s own prominent control, and
+ * `CombinedLegalGateScreen` hosts the pinned pre-consent 988 footer — the only
+ * crisis affordance a user has before accepting anything. An overlay published
+ * here paints an OPAQUE backdrop (DEBUG-406 made them opaque for WCAG 1.4.11)
+ * over exactly that control, and `NavigatorA11yHost` prunes the navigator
+ * subtree from the accessibility tree for the duration. Zero 988 affordances,
+ * for sighted and assistive-technology users alike.
+ *
+ * DELIBERATELY SEPARATE FROM `CRISIS_DESTINATION_ROUTES`, not a widening of it.
+ * The two sets encode different REASONS, which is what makes their maintenance
+ * rules different: that one means "the user was sent here FOR 988 and an overlay
+ * covers the destination"; this one means "the FAB stepped aside because the
+ * screen owns the affordance, and an overlay covers THAT". Merging them would
+ * make `CrisisResources` and `LegalGate` look like the same kind of thing, and
+ * the next editor would reasonably delete one.
+ *
+ * ALSO deliberately not an import of `RootCrisisButton.SUPPRESSED_ROUTES` — see
+ * the docblock above on why reusing an adjacent-but-different set is how the
+ * `guidance/` and `consent/` failures started. The relation between them is
+ * enforced mechanically instead, in `rootOverlayCrisisRoute.test.tsx`:
+ * SUPPRESSED_ROUTES must be a SUBSET of these two unioned, so adding a route
+ * there cannot silently open a new window here.
+ */
+export const SCREEN_OWNED_988_ROUTES: readonly string[] = ['AssessmentFlow', 'LegalGate'];
+
+/**
+ * The single predicate. ONE boolean over the union, never one flag per set —
+ * two booleans with adjacent meanings would rebuild, inside this store, the
+ * two-list drift failure the sets above are kept apart to avoid.
+ */
+const isOverlayForbiddenRoute = (routeName?: string | null): boolean =>
+  typeof routeName === 'string' &&
+  (CRISIS_DESTINATION_ROUTES.includes(routeName) ||
+    SCREEN_OWNED_988_ROUTES.includes(routeName));
 
 interface RootOverlayState {
   /** Identity of the overlay currently holding the slot, or null. */
@@ -133,8 +186,9 @@ interface RootOverlayState {
   /** The element to render. */
   node: React.ReactNode | null;
   /** True while a crisis destination is the active root route. */
-  crisisRouteActive: boolean;
-  claim: (id: string, node: React.ReactNode) => void;
+  overlayForbiddenRouteActive: boolean;
+  /** @returns true if the slot was taken; false if the active route forbids it. */
+  claim: (id: string, node: React.ReactNode) => boolean;
   release: (id: string) => void;
   /** Called from CleanRootNavigator's onStateChange / onReady. */
   syncActiveRoute: (routeName?: string | null) => void;
@@ -143,20 +197,28 @@ interface RootOverlayState {
 export const useRootOverlayStore = create<RootOverlayState>((set, get) => ({
   ownerId: null,
   node: null,
-  crisisRouteActive: false,
+  overlayForbiddenRouteActive: false,
 
   claim: (id, node) => {
-    const { ownerId, crisisRouteActive } = get();
+    const { ownerId, overlayForbiddenRouteActive } = get();
 
     // DEBUG-575 finding 2, the symmetric half: refuse rather than paint over the
-    // crisis destination. Nothing publishes from CrisisResources today — both
-    // claimants live in features/insights/components/ — but this closes the
-    // direction a future overlay would otherwise walk into, and it is two lines.
-    if (crisisRouteActive) {
+    // affordance. FEAT-570 widened the set from crisis DESTINATIONS to the union
+    // that also holds the routes where the SCREEN owns the 988 route.
+    //
+    // FEAT-570 also made the refusal VISIBLE TO THE CALLER. It used to log and
+    // return, telling nobody. `useRootOverlay`'s revoke effect only fires for an
+    // owner that WAS holding, so a claimant refused at the door was never told —
+    // and because the claim effect has no dependency array it re-claims on every
+    // render, then pops at the user the moment they leave the route. Harmless
+    // while both claimants lived in features/insights/components/ and could not
+    // be rendered on a forbidden route at all; live the moment one is armed at
+    // the app root.
+    if (overlayForbiddenRouteActive) {
       logSystem(
-        `Root overlay slot claim by "${id}" REFUSED — a crisis route is active`,
+        `Root overlay slot claim by "${id}" REFUSED — the active route owns its own 988 affordance`,
       );
-      return;
+      return false;
     }
 
     if (ownerId !== null && ownerId !== id) {
@@ -169,6 +231,7 @@ export const useRootOverlayStore = create<RootOverlayState>((set, get) => ({
       );
     }
     set({ ownerId: id, node });
+    return true;
   },
 
   release: (id) => {
@@ -179,7 +242,7 @@ export const useRootOverlayStore = create<RootOverlayState>((set, get) => ({
   },
 
   syncActiveRoute: (routeName) => {
-    const active = isCrisisRoute(routeName);
+    const active = isOverlayForbiddenRoute(routeName);
     const { ownerId } = get();
 
     // Unconditional release, NOT the guarded `release(id)` above: the owner did
@@ -187,12 +250,12 @@ export const useRootOverlayStore = create<RootOverlayState>((set, get) => ({
     // over whatever is on screen.
     if (active && ownerId !== null) {
       logSystem(
-        `Root overlay slot released — "${ownerId}" cannot hold it on crisis route "${routeName}"`,
+        `Root overlay slot released — "${ownerId}" cannot hold it on route "${routeName}"`,
       );
-      set({ ownerId: null, node: null, crisisRouteActive: true });
+      set({ ownerId: null, node: null, overlayForbiddenRouteActive: true });
       return;
     }
-    set({ crisisRouteActive: active });
+    set({ overlayForbiddenRouteActive: active });
   },
 }));
 
@@ -245,7 +308,13 @@ export function useRootOverlay(
   // concurrent rendering, and the slot is a side effect on shared state.
   useEffect(() => {
     if (visible) {
-      claim(id, render());
+      // FEAT-570: act on the verdict. A refusal means a forbidden route is
+      // active, and the owner must be TOLD — otherwise its `visible` stays true,
+      // this effect (deliberately without a dependency array, so the element
+      // closes over fresh props) re-claims on every render, and the overlay pops
+      // at the user the instant they navigate away. Telling the owner to close
+      // is what makes the refusal stick, exactly as it is for a revocation.
+      if (!claim(id, render())) onRevokedRef.current?.();
     } else {
       release(id);
     }
