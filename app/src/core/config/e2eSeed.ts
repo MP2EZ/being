@@ -42,6 +42,7 @@
 import * as Linking from 'expo-linking';
 import { env } from './env';
 import { useSettingsStore } from '../stores/settingsStore';
+import { openBugReport } from '../stores/bugReportStore';
 import {
   useConsentStore,
   recordLegalGateConsents,
@@ -179,6 +180,40 @@ const STALE_SEED_VERSION = '1.0.0';
 export const E2E_SEED_STALE_INELIGIBLE_MARKER = 'e2eSeed=ineligible';
 
 /**
+ * FEAT-570 — open the bug-report form at boot, before the navigator mounts.
+ *
+ * WHY THIS EXISTS. `BugReportOverlay` has two entry points and only one of them
+ * is drivable: Maestro 2.6.0 has NO shake or device-motion command (every
+ * command class in `maestro-orchestra-models.jar` was enumerated). The Profile
+ * card can only fire on a non-suppressed tab, which is the one route where
+ * nothing interesting can happen. What differs between the two entries is the
+ * only safety-relevant variable — WHICH ROUTE IS ACTIVE when the form opens —
+ * so without this arm the entire suppressed-route case is verified nowhere on
+ * device.
+ *
+ * WHY IT OPENS AT BOOT RATHER THAN ON DEMAND. This is not a convenience: it
+ * reproduces the actual hazard. `useBugReportShake()` is called inside `App()`,
+ * ABOVE `NavigationContainer`, so a real shake can set `visible` while
+ * `CleanRootNavigator` is still rendering `LoadingScreen` — a claim standing
+ * before any route exists to check, on a build whose first route is `LegalGate`.
+ * Setting it here puts the app in exactly that state. What the flow then asserts
+ * is that the slot REFUSES it and the pre-consent 988 footer survives.
+ *
+ * A DISTINCT KEY, NOT AN `e2eSeed=` VALUE, DELIBERATELY. Every predicate here is
+ * `url.includes(MARKER)`, which is why `E2E_SEED_STALE_INELIGIBLE_MARKER` had to
+ * avoid the `stale-` prefix. Combining this with the ungranted marker in one URL
+ * needs both to be readable at once, so it uses its own key and cannot be a
+ * substring of — or swallowed by — any seed marker. Pinned in
+ * `e2eSeedGate.config.test.ts` alongside the existing collision pin.
+ *
+ * Read ONLY inside the `SEED_ACTIVE` branch, exactly like the markers above, so
+ * with the build var at its 'false' default this is unreachable dead code in any
+ * shippable artifact. It is strictly weaker than the seed itself: it can only
+ * raise a UI overlay, and writes nothing.
+ */
+export const E2E_OPEN_BUG_REPORT_MARKER = 'e2eOpen=bugreport';
+
+/**
  * RELATIVE, never a literal birth year. A hardcoded 2012 turns 18 in 2030 and the fixture
  * silently flips to the RENEWABLE screen — the same class of dated-constant rot the seed
  * version above is insulated from.
@@ -225,6 +260,11 @@ function isStaleConsentBootRequested(url: string | null): boolean {
 
 function isStaleIneligibleBootRequested(url: string | null): boolean {
   return typeof url === 'string' && url.includes(E2E_SEED_STALE_INELIGIBLE_MARKER);
+}
+
+/** True when this launch carries the FEAT-570 bug-report-open marker. */
+function isBugReportOpenRequested(url: string | null): boolean {
+  return typeof url === 'string' && url.includes(E2E_OPEN_BUG_REPORT_MARKER);
 }
 
 // Module-level "seed gate" promise. CleanRootNavigator awaits it BEFORE reading
@@ -274,8 +314,18 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
     // Read the launch URL ONCE; every marker predicate below shares it.
     const launchUrl = await readInitialLaunchUrl();
 
-    // INFRA-317: ungranted-boot variant. Deliberately the FIRST branch inside
-    // the try, and a bare `return` — every write below is skipped, nothing is
+    // FEAT-570: raise the bug-report form BEFORE any route resolves. Deliberately
+    // above the ungranted branch's `return`, so it composes with it — the pair
+    // `?e2eSeed=ungranted&e2eOpen=bugreport` boots to LegalGate with a claim
+    // already standing, which is the state a root-armed shake produces for real.
+    // Writes nothing; only sets a visibility flag.
+    if (isBugReportOpenRequested(launchUrl)) {
+      logSystem('[E2ESeed] Bug-report form open requested at boot (FEAT-570)');
+      openBugReport();
+    }
+
+    // INFRA-317: ungranted-boot variant. Deliberately the FIRST WRITE-AFFECTING
+    // branch inside the try, and a bare `return` — every write below is skipped, nothing is
     // written, cleared, or revoked. `finally` still releases the seed gate, so
     // CleanRootNavigator proceeds and resolves its route from real (empty) state:
     // onboardingCompleted false + consentStatus 'missing' → LegalGate.

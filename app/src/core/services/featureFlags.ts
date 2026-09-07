@@ -138,8 +138,16 @@ export type FeatureFlag =
  * single bad pair must not crash the app at module load (this module is
  * imported by UI screens).
  */
-function parseFlags(blob: string): Record<string, boolean> {
+function parseFlags(blob: string | undefined): Record<string, boolean> {
   const flags: Record<string, boolean> = {};
+  // An ABSENT blob answers "no flags", never a throw. The paragraph above says
+  // this module must not crash at module load, but leaned on env.ts guaranteeing
+  // a non-empty string — a guarantee that does not survive a suite mocking
+  // `@/core/config/env` with a partial object, which several do. The failure was
+  // a TypeError thrown during import of anything transitively reaching here, so
+  // it surfaced as an unrelated suite collapsing rather than as a flag bug.
+  // Absent → every flag false is also exactly the documented fail-safe.
+  if (!blob) return flags;
   for (const pair of blob.split(',')) {
     const idx = pair.indexOf(':');
     if (idx === -1) continue;
