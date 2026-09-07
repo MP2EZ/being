@@ -57,11 +57,50 @@
  * a real translator's name over another text — and it survived DEBUG-352
  * because that sweep pinned only the loci it had already repaired.
  *
- * TWO NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, both recorded so they are
+ * CANONICAL DIGITIZATION — Seneca, *Letters* (DEBUG-582). Wikisource's
+ * transcription of "Moral letters to Lucilius", trans. Richard Mott Gummere,
+ * Loeb Classical Library, backed by Internet Archive scans
+ * `adluciliumepistu01seneuoft` (Vol. I, 1917, Epistles 1-65) and
+ * `adluciliumepistu03seneuoft` (Vol. III, 1925, Epistles 93-124). TWO
+ * identifiers, not one, and that is load-bearing: the corpus's two Seneca
+ * *Letters* loci fall in DIFFERENT Loeb volumes (13.4 in Vol. I, 107.11 in
+ * Vol. III), so a single-volume pin would leave 107.11 unpinned while appearing
+ * to cover it. Public domain by PRE-1929 US PUBLICATION — state it that way and
+ * not as life+70, which for Gummere (d. 1955) only matured in January 2026 and
+ * is the weaker footing.
+ *
+ * Pinned because Seneca was entirely unpinned until DEBUG-582: the allowlist
+ * below carried Gummere's NAME, which is why a paraphrase shipping under it
+ * sailed through. `seneca-letters-13` declared Gummere while its `text` was a
+ * popular condensation ("We are more often frightened than hurt...") — and its
+ * own `fullText` carried the genuine Gummere alongside, so the record held the
+ * real translation and the paraphrase side by side, with the paraphrase in the
+ * field that is displayed and attributed. Same defect class as DEBUG-352 and
+ * FEAT-567, surviving for the same reason: those sweeps pinned only the loci
+ * they had already repaired, so an unrepaired locus stayed invisible.
+ *
+ * A THIRD Gummere locus lives outside this corpus and was swept in the same pass:
+ * `app/assets/modules/module-1-aware-presence.json`'s classicalQuote, "Letters
+ * from a Stoic, 2.1". Collated against the same pinned digitization and CONFIRMED
+ * verbatim — no repair needed. It is not pinned here because this suite reads
+ * `PASSAGES_DIR` only, and the suite that does read the module JSONs
+ * (`src/features/learn/__tests__/moduleClassicalQuotes.test.ts`) matches none of
+ * CI's `--testPathPattern` values, so a pin there would never run. Recorded here
+ * instead so the confirmation is at least auditable.
+ *
+ * THREE NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
  * auditable rather than invisible:
  *   1. Long-s: the 1759 print sets `ſ`; the corpus uses `s`.
  *   2. The transcription emits a space before punctuation where the print
  *      italicises a proper noun ("Socrates ." -> "Socrates.").
+ *   3. Verse lineation (DEBUG-582): Gummere sets the Cleanthes prayer at
+ *      `Letters 107.11` as seven verse lines; the corpus flattens it to prose,
+ *      which lowercases two line-initial capitals ("In sin" -> "in sin",
+ *      "In noble" -> "in noble") while "Fate" keeps its capital as a
+ *      personification rather than a line-initial. Every word and mark is
+ *      otherwise Gummere's. AC4's sweep CONFIRMED that locus rather than
+ *      repairing it — it is pinned below anyway, because an unpinned
+ *      confirmation is exactly the condition that let seneca-letters-13 survive.
  *
  * ONE LOCUS CORRECTION, likewise recorded rather than silently applied:
  * Ench. 8 in the pinned transcription reads "as you with; but with them" — a
@@ -106,6 +145,10 @@ interface Passage {
   author: string;
   translation: string;
   text: string;
+  /** Optional full quotation; `text` is the excerpt shown before the disclosure. */
+  fullText?: string;
+  /** Our editorial frame. Never the translator's words. */
+  context?: string;
 }
 
 const loadPassages = (file: string): Passage[] => {
@@ -143,6 +186,36 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       .map(({ file, id }) => `${file}:${id}`);
 
     expect(incomplete).toEqual([]);
+  });
+
+  /**
+   * THE STRUCTURAL TELL (DEBUG-582). Where a record carries both fields, `text`
+   * is the excerpt and `fullText` the whole quotation — so `text` must be a
+   * verbatim SPAN of `fullText`. An excerpt that is not a substring of its own
+   * full text is by construction not verbatim in at least one of the two, and
+   * that is exactly the shape DEBUG-582 found: `seneca-letters-13` shipped a
+   * popular condensation in `text` while its own `fullText` carried the real
+   * Gummere, side by side under one attributed translator.
+   *
+   * This is the general form, and it is why the repair is not just one more
+   * locus pin: a pin covers the locus it names, whereas this closes the class
+   * for every teaser the corpus ever grows. `library.ts`'s doc contract carries
+   * the same rule in prose for authors; this is the mechanical half.
+   */
+  it('an excerpt is a verbatim span of its own full text', () => {
+    const drifted = allPassages()
+      .filter((p) => p.fullText && !p.fullText.includes(p.text))
+      .map(({ file, id }) => `${file}:${id}`);
+
+    expect(drifted).toEqual([]);
+  });
+
+  it('the excerpt-span rule is not vacuous — some passage carries a fullText', () => {
+    // The rule above is satisfied by an empty set, so it would pass unchanged if
+    // `fullText` were renamed or dropped corpus-wide. Assert the population it
+    // guards is non-empty, or the guard silently stops guarding.
+    const withFullText = allPassages().filter((p) => p.fullText);
+    expect(withFullText.length).toBeGreaterThan(0);
   });
 
   /**
@@ -312,7 +385,7 @@ describe('classical corpus provenance (DEBUG-352)', () => {
     });
   });
 
-  describe('repaired loci stay verbatim (PG #15877 Long / Stewart)', () => {
+  describe('repaired loci stay verbatim (PG #15877 Long / Stewart / Gummere Loeb)', () => {
     const findPassage = (file: string, citation: string): Passage => {
       const p = loadPassages(file).find((x) => x.citation === citation);
       if (!p) throw new Error(`${citation} missing from ${file}`);
@@ -352,6 +425,37 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       // The non-Stewart text this item replaced.
       expect(p.text).not.toContain('gives a mind so much trouble');
       expect(p.text).not.toContain('interrupted by fortune');
+    });
+
+    it('Letters 13.4 is Gummere, not the popular condensation', () => {
+      const p = findPassage('passages-4-virtuous-response.json', 'Letters 13.4');
+      expect(p.translation).toBe('Richard Mott Gummere');
+      // Gummere's own wording. "likely to frighten us than there are to crush us"
+      // is idiosyncratic enough that no paraphraser reproduces it independently.
+      expect(p.text).toContain('There are more things, Lucilius, likely to frighten us');
+      expect(p.text).toContain('we suffer more often in imagination than in reality');
+      // Seneca disavowing the hard-Stoic register in his own voice. This clause is
+      // on the EXCERPT surface deliberately (DEBUG-582): `FromTheSourceSection`
+      // renders `text` and never `fullText`, so behind the disclosure it reaches
+      // no reader on that surface at all.
+      expect(p.text).toContain('not speaking with you in the Stoic strain');
+      // The unattributed condensation this item removed must not come back.
+      expect(p.text).not.toContain('We are more often frightened than hurt');
+      expect(p.text).not.toContain('suffer more from imagination');
+    });
+
+    it('Letters 107.11 is Gummere, confirmed not repaired', () => {
+      // AC4's sweep found this locus already verbatim — every word, comma and
+      // semicolon is Gummere's, with only the verse lineation flattened (see the
+      // normalisation recorded in this file's header). It is pinned ANYWAY:
+      // an unpinned confirmation is precisely the condition that let the
+      // seneca-letters-13 defect survive FEAT-567's sweep, which pinned only the
+      // loci it had already repaired.
+      const p = findPassage('passages-4-virtuous-response.json', 'Letters 107.11');
+      expect(p.translation).toBe('Richard Mott Gummere');
+      expect(p.text).toContain('Lead me, O Master of the lofty heavens');
+      expect(p.text).toContain('I shall not falter, but obey with speed');
+      expect(p.text).toContain('the willing soul Fate leads, but the unwilling drags along');
     });
   });
 
@@ -444,17 +548,17 @@ describe('classical corpus provenance (DEBUG-352)', () => {
     // The frame is ours; the passage is the source. A note that outgrows what it
     // frames has stopped framing and started competing.
     //
-    // Scoped to this principle rather than the corpus, and the exception is
-    // instructive: corpus-wide, the sole violator is seneca-letters-13, whose
-    // note exceeds its text only because that `text` is a truncated paraphrase
-    // rather than the Gummere it declares. The real Gummere is longer and clears
-    // the rule, so DEBUG-582 fixes this by fixing the provenance defect — widen
-    // this to allPassages() there rather than exempting the id here.
-    it('no radical-acceptance note runs longer than the passage it frames', () => {
-      for (const p of loadPassages(RADICAL)) {
-        if (!p.context) continue;
-        expect(p.context.length).toBeLessThanOrEqual(p.text.length);
-      }
+    // Corpus-wide since DEBUG-582. It was scoped to this principle only because
+    // seneca-letters-13 was the sole corpus-wide violator, and it was a violator
+    // only because its `text` was a truncated paraphrase rather than the Gummere
+    // it declared. Repairing that provenance defect cleared the exception, so the
+    // rule was widened here rather than the id being exempted there.
+    it('no note runs longer than the passage it frames', () => {
+      const overlong = allPassages()
+        .filter((p) => p.context && p.context.length > p.text.length)
+        .map(({ file, id, context, text }) => `${file}:${id} — ${context!.length} > ${text.length}`);
+
+      expect(overlong).toEqual([]);
     });
   });
 
