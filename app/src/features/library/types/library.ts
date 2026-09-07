@@ -47,7 +47,18 @@ export interface Passage {
   translation: string;
   /** Exact translation text — no paraphrase. For long passages this is the excerpt. */
   text: string;
-  /** Optional longer excerpt for long passages (Seneca letters): text = teaser, fullText = full. */
+  /**
+   * Optional full quotation for long passages (Seneca letters), with `text` as the
+   * excerpt shown before the disclosure.
+   *
+   * `text` must be a VERBATIM SPAN of this string — a contiguous truncation, never
+   * a condensation, and never reworded to fit. "Teaser" describes its length and
+   * its role on the browse surface, never a licence to paraphrase: `text` ships
+   * under the `translation` byline exactly as `fullText` does, so a rewritten
+   * excerpt attributes words to a translator who did not write them. That reading
+   * of "teaser" is what shipped the DEBUG-582 defect, and the excerpt-span
+   * assertion in `classicalCorpusProvenance.test.ts` is now the mechanical half.
+   */
   fullText?: string;
   /**
    * Editorial frame in OUR voice — never the translator's, and never longer than
