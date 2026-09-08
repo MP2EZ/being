@@ -65,9 +65,19 @@
  * identifiers, not one, and that is load-bearing: the corpus's two Seneca
  * *Letters* loci fall in DIFFERENT Loeb volumes (13.4 in Vol. I, 107.11 in
  * Vol. III), so a single-volume pin would leave 107.11 unpinned while appearing
- * to cover it. Public domain by PRE-1929 US PUBLICATION — state it that way and
- * not as life+70, which for Gummere (d. 1955) only matured in January 2026 and
- * is the weaker footing.
+ * to cover it. Public domain by PRE-1929 US PUBLICATION — and that is the SOLE
+ * basis, not the safer of two. Life+70 is the wrong legal theory outright for
+ * a pre-1978 published work: the US term for works published 1923-1977 runs
+ * from publication (+ renewal, 95 years max), never from the author's life,
+ * so Gummere's 1955 death is simply irrelevant here and must not reappear as
+ * a backup rationale (corrected DEBUG-585; DEBUG-582 called it merely the
+ * weaker footing).
+ *
+ * The work KEY that carries this pin is `Moral Letters to Lucilius` — the title
+ * the pinned Wikisource transcription itself runs under. Title-cased in the
+ * union because it names the work; sentence-case here because this docblock
+ * quotes the source page verbatim. DEBUG-585 renamed it from `Letters from a
+ * Stoic`, which is Robin Campbell's in-copyright 1969 Penguin selection.
  *
  * Pinned because Seneca was entirely unpinned until DEBUG-582: the allowlist
  * below carried Gummere's NAME, which is why a paraphrase shipping under it
@@ -117,6 +127,7 @@ import { readFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 const PASSAGES_DIR = resolve(__dirname, '../../assets/passages');
+const MODULES_DIR = resolve(__dirname, '../../assets/modules');
 
 const PASSAGE_FILES = [
   'passages-1-aware-presence.json',
@@ -143,6 +154,8 @@ interface Passage {
   id: string;
   citation: string;
   author: string;
+  /** Closed-union work key. Metadata only — no surface renders it (DEBUG-585). */
+  work: string;
   translation: string;
   text: string;
   /** Optional full quotation; `text` is the excerpt shown before the disclosure. */
@@ -160,6 +173,30 @@ const allPassages = (): Array<Passage & { file: string }> =>
   PASSAGE_FILES.flatMap((file) =>
     loadPassages(file).map((p) => ({ ...p, file }))
   );
+
+/**
+ * Module `classicalQuote` citations (DEBUG-585). Read HERE, not in
+ * `moduleClassicalQuotes.test.ts` where the module guards otherwise live:
+ * that suite sits under `app/src/features/learn/__tests__/`, matches none of
+ * CI's `--testPathPattern` values, and is listed in
+ * `scripts/ci-uncovered-tests.json` as deliberately ungated — so a pin placed
+ * there runs on nobody's PR. Same reasoning that put this whole file under
+ * `app/__tests__/unit/`.
+ */
+const MODULE_FILES = [
+  'module-1-aware-presence.json',
+  'module-2-radical-acceptance.json',
+  'module-3-sphere-sovereignty.json',
+  'module-4-virtuous-response.json',
+  'module-5-interconnected-living.json',
+];
+
+const moduleQuoteSources = (): Array<{ file: string; source: string }> =>
+  MODULE_FILES.flatMap((file) => {
+    const raw = JSON.parse(readFileSync(join(MODULES_DIR, file), 'utf8'));
+    const source = raw?.classicalQuote?.source;
+    return typeof source === 'string' ? [{ file, source }] : [];
+  });
 
 describe('classical corpus provenance (DEBUG-352)', () => {
   it('every passage file is readable and non-empty', () => {
@@ -456,6 +493,91 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       expect(p.text).toContain('Lead me, O Master of the lofty heavens');
       expect(p.text).toContain('I shall not falter, but obey with speed');
       expect(p.text).toContain('the willing soul Fate leads, but the unwilling drags along');
+    });
+  });
+
+  /**
+   * THE SAME DEFECT ONE LAYER UP (DEBUG-585). DEBUG-352, FEAT-567 and DEBUG-582
+   * each found an edition's identity attached to text that edition did not
+   * produce, and each found it in `text`. This is that class in the METADATA:
+   * both Seneca *Letters* records declared `work: "Letters from a Stoic"` — Robin
+   * Campbell's 1969 Penguin Classics SELECTION title, in copyright — over
+   * Gummere's public-domain Loeb text. A reader following our own metadata to
+   * find the source landed on the wrong book.
+   *
+   * Nothing is infringed by a title alone (titles are not copyrightable subject
+   * matter), so the exposure is not a copyright claim. It is the verifiability
+   * of the repo's OWN public-domain warranty: `README.md`'s Acknowledgments
+   * asserts "public-domain translations, the only renderings shipped in the app"
+   * and, until this item, named a copyrighted commercial edition inside that
+   * very sentence.
+   *
+   * The key names the WORK, never the volume — which is why nothing else in the
+   * corpus shares the defect. `Meditations` is not Long's *Thoughts of the
+   * Emperor M. Aurelius Antoninus*, `Enchiridion` is not Carter's *All the Works
+   * of Epictetus*, and `On Tranquility` is not Stewart's *Minor Dialogues*. In
+   * each case volume identity is confined to the digitization pin, which is the
+   * correct architecture and is what this rename restores for Seneca.
+   *
+   * Asserted on the `work` FIELD, never on raw file text. `passages-4`'s
+   * `marcus-meditations-5-20` note deliberately quotes the banned Hays phrasing
+   * in order to warn against it, and a blind whole-file scan for a title string
+   * would collide with the same convention the moment a note legitimately names
+   * the Campbell edition to disambiguate it.
+   */
+  describe('the Loeb Gummere is not shelved under Penguin (DEBUG-585)', () => {
+    const PENGUIN_SELECTION_TITLE = 'Letters from a Stoic';
+    const LOEB_WORK = 'Moral Letters to Lucilius';
+
+    it('no passage declares the in-copyright Penguin selection title', () => {
+      const offending = allPassages()
+        .filter((p) => p.work === PENGUIN_SELECTION_TITLE)
+        .map(({ file, id, work }) => `${file}:${id} — ${work}`);
+
+      expect(offending).toEqual([]);
+    });
+
+    it('both Seneca Letters loci name the Loeb edition Gummere translated', () => {
+      const seneca = allPassages().filter((p) => p.citation.startsWith('Letters '));
+      // Non-vacuity: the filter must actually select the two known loci, or the
+      // work assertion below passes over an empty list.
+      expect(seneca.map((p) => p.citation).sort()).toEqual(['Letters 107.11', 'Letters 13.4']);
+      for (const p of seneca) expect(p.work).toBe(LOEB_WORK);
+    });
+
+    it('no module citation names the Penguin selection title', () => {
+      const offending = moduleQuoteSources()
+        .filter(({ source }) => source.includes(PENGUIN_SELECTION_TITLE))
+        .map(({ file, source }) => `${file} — ${source}`);
+
+      expect(offending).toEqual([]);
+    });
+
+    it('the Gummere module locus names the Loeb edition and keeps its translator suffix', () => {
+      const m = moduleQuoteSources().find(({ file }) => file === 'module-1-aware-presence.json');
+      expect(m).toBeDefined();
+      expect(m!.source).toContain(LOEB_WORK);
+      // `moduleClassicalQuotes.test.ts` reads the translator out of this suffix.
+      expect(m!.source).toContain('(trans. Richard Mott Gummere)');
+    });
+
+    /**
+     * DEBUG-390 non-vacuity control. Both matchers above are `.filter(...)` over
+     * a loaded list, so they pass identically against correct code and against a
+     * loader that silently stopped returning anything. Prove the loaders are
+     * non-trivial and that the predicates still fire on a literal known-bad
+     * string.
+     */
+    it('the Penguin-title matchers still fire (DEBUG-390)', () => {
+      expect(allPassages().length).toBeGreaterThan(10);
+      expect(moduleQuoteSources().length).toBe(MODULE_FILES.length);
+
+      const knownBad = 'Letters from a Stoic, 2.1 (trans. Richard Mott Gummere)';
+      expect(knownBad.includes(PENGUIN_SELECTION_TITLE)).toBe(true);
+      expect(PENGUIN_SELECTION_TITLE === LOEB_WORK).toBe(false);
+      // Every passage carries a non-empty work key, so the field scan reads a
+      // real value rather than a uniformly `undefined` one.
+      expect(allPassages().every((p) => typeof p.work === 'string' && p.work.length > 0)).toBe(true);
     });
   });
 

@@ -28,7 +28,7 @@ export type ClassicalWork =
   | 'Meditations'
   | 'Enchiridion'
   | 'Discourses'
-  | 'Letters from a Stoic'
+  | 'Moral Letters to Lucilius'
   | 'On Tranquility';
 
 /**
@@ -101,6 +101,6 @@ export const CLASSICAL_WORKS: readonly ClassicalWork[] = [
   'Meditations',
   'Enchiridion',
   'Discourses',
-  'Letters from a Stoic',
+  'Moral Letters to Lucilius',
   'On Tranquility',
 ] as const;
