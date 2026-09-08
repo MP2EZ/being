@@ -23,7 +23,15 @@ import { JournalEntryDetailScreen } from '@/features/journal/screens/JournalEntr
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 // DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
-import { RootOverlaySlot } from '@/core/navigation/rootOverlaySlot';
+import {
+  RootOverlaySlot,
+  useIsRootOverlayOccupied,
+  useRootOverlayStore,
+} from '@/core/navigation/rootOverlaySlot';
+import NavigatorA11yHost from '@/core/navigation/NavigatorA11yHost';
+// FEAT-570 — publishes the first-party bug-report form into the slot below.
+// Eager, never lazy: it is a DEBUG-406 conversion on the crisis path.
+import BugReportOverlay from '@/core/components/BugReportOverlay';
 // DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
 // above and by the overlay boundary below.
 import Static988Button from '@/features/crisis/components/Static988Button';
@@ -64,6 +72,7 @@ import ReConsentRoute from '@/features/consent/screens/ReConsentRoute';
 // module graph of every importer, including safety paths (FEAT-376).
 import ConsentBlockedRoute from '@/features/consent/screens/ConsentBlockedRoute';
 import { useReConsentTrigger } from '@/features/consent/hooks/useReConsentTrigger';
+import { useAnalytics } from '@/core/analytics';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { DailyLoopMode, DailyLoopDepth, DailyLoopSessionData } from '@/features/practices/types/flows';
 import {
@@ -223,12 +232,22 @@ const LoadingScreen: React.FC = () => (
 
 const CleanRootNavigator: React.FC = () => {
   const { markCheckInComplete, recordPrincipleEngagement } = useStoicPracticeStore();
+  // DEBUG-536: destructure the individual tracker, never the hook object — the object
+  // is new every render, and this component hosts the RootCrisisButton overlay, so it
+  // must not gain a new render trigger. The tracker itself is useCallback-stable.
+  const { trackCheckInCompleted } = useAnalytics();
   const { loadSettings, markOnboardingComplete } = useSettingsStore();
   const { loadConsent, consentStatus } = useConsentStore();
   const [initialRoute, setInitialRoute] = useState<'LegalGate' | 'Onboarding' | 'Main' | null>(null);
   // MAINT-290: active root-stack route drives the single RootCrisisButton overlay
   // (suppression + immersive/standard mode). Tracked via NavigationContainer below.
   const [activeRootRoute, setActiveRootRoute] = useState<string | undefined>(undefined);
+
+  // DEBUG-575: drives the accessibility focus trap on the navigator host below.
+  // Read here rather than inside the host so the subscription is part of this
+  // component's normal render, and keyed on ownerId so a re-render of the
+  // publishing component does not re-render the whole navigator.
+  const rootOverlayOccupied = useIsRootOverlayOccupied();
 
   useEffect(() => {
     let cancelled = false;
@@ -350,6 +369,25 @@ const CleanRootNavigator: React.FC = () => {
     logSystem(
       `Recorded ${stepKeys.length} principle engagements (daily loop, ${engagementType})`
     );
+
+    // DEBUG-536: LAST statement, and in its own swallowing catch. This function has no
+    // try/catch of its own, so without this an analytics throw rejects an unhandled
+    // promise and loses the check-in record CleanHomeScreen's isCheckInCompletedToday
+    // reads, plus every principle engagement above it.
+    //
+    // The duration is NOT minted here. It is the figure DailyLoopNavigator already
+    // derived from the same mount-scoped `startTime` that emitted `check_in_started`,
+    // so the pair agrees by construction. Omitted when absent or non-finite —
+    // `duration_ms` is in SAFE_NUMERIC_KEYS, so a fabricated value would transmit
+    // unchallenged and read as real data.
+    try {
+      const seconds = sessionData.timeSpentSeconds;
+      const durationMs =
+        typeof seconds === 'number' && Number.isFinite(seconds) ? seconds * 1000 : undefined;
+      trackCheckInCompleted(durationMs);
+    } catch {
+      /* Telemetry must never affect the check-in record. */
+    }
   };
 
   // FEAT-298 slice 6c: the "start practising now" destination is the daily loop. It was
@@ -396,10 +434,49 @@ const CleanRootNavigator: React.FC = () => {
     <NavigationContainer
       ref={navigationRef}
       linking={linkingConfig}
-      onReady={() => setActiveRootRoute(getActiveRootRouteName() ?? initialRoute)}
-      onStateChange={() => setActiveRootRoute(getActiveRootRouteName())}
+      /* DEBUG-575 finding 2 — `syncActiveRoute` enforces the slot's crisis-route
+         invariant: no overlay may hold the slot while CrisisResources is active,
+         because the slot paints ABOVE every navigator route and these backdrops
+         are opaque, so the crisis screen would be both invisible and inert.
+         Driven from navigation state rather than from any control, so the FAB,
+         CrisisKeyboardAccessory, `being://crisis` deep links and the 400ms retry
+         inside navigateToCrisisResources are all covered without enumerating
+         them. It runs AFTER the state commit, which is also why it cannot live
+         in a tap handler — that util requires its first attempt stay first and
+         stay synchronous. */
+      onReady={() => {
+        const r = getActiveRootRouteName() ?? initialRoute;
+        useRootOverlayStore.getState().syncActiveRoute(r);
+        setActiveRootRoute(r);
+      }}
+      onStateChange={() => {
+        const r = getActiveRootRouteName();
+        useRootOverlayStore.getState().syncActiveRoute(r);
+        setActiveRootRoute(r);
+      }}
     >
       <View style={styles.root}>
+        {/* DEBUG-575 — THE FOCUS TRAP FOR EVERY ROOT-SLOT OVERLAY LIVES HERE.
+            Not on the overlay. An overlay published into RootOverlaySlot is a
+            direct native SIBLING of RootCrisisButton and CrisisKeyboardAccessory
+            (the slot renders a bare fragment and adds no view), so
+            `accessibilityViewIsModal` on the overlay prunes BOTH crisis
+            affordances out of the accessibility tree — measured: zero
+            `crisis-button-root` nodes with the weekly-reflection composer open,
+            while the button was plainly painted on screen.
+
+            Hiding the navigator subtree instead confines assistive technology to
+            the overlay PLUS the crisis affordances, which is the trap actually
+            wanted. Scope is load-bearing and mirrors PracticeScreenLayout's rule:
+            this host wraps ONLY Stack.Navigator. RootOverlaySlot,
+            RootCrisisBoundary and CrisisKeyboardAccessory are deliberately
+            OUTSIDE it — wrapping them would hide the overlay along with
+            everything else, and hide 988 along with it.
+
+            `importantForAccessibility` carries Android, where
+            `accessibilityViewIsModal` is a no-op and nothing trapped focus at
+            all before this. Pinned by rootOverlayFocusTrap.test.tsx. */}
+        <NavigatorA11yHost hidden={rootOverlayOccupied} style={styles.root}>
         <Stack.Navigator
           initialRouteName={initialRoute}
         screenOptions={{
@@ -886,6 +963,7 @@ const CleanRootNavigator: React.FC = () => {
           />
         </Stack.Group>
         </Stack.Navigator>
+        </NavigatorA11yHost>
 
         {/* MAINT-290: single persistent crisis-button overlay. Sibling of the root
             Stack.Navigator (JS stack → renders above stack modals too), so 988 access
@@ -917,6 +995,16 @@ const CleanRootNavigator: React.FC = () => {
           would reintroduce, for every overlay at once, the exact
           zero-988-affordance state DEBUG-403 and DEBUG-406 were filed to remove.
         */}
+        {/* FEAT-570 — a PUBLISHER, not a rendered overlay: it returns null and
+            pushes the form into the slot below when `bugReportStore.visible`.
+            Mounted here, inside NavigationContainer, so the slot's route-driven
+            refusal applies to it. It is the first slot claimant armed at the app
+            ROOT (useBugReportShake, in App.tsx above this navigator), which is
+            why the slot had to gain SCREEN_OWNED_988_ROUTES: a shake can raise
+            it on AssessmentFlow or the pre-consent LegalGate, where the FAB
+            steps aside and the screen owns the only route to 988. */}
+        <BugReportOverlay />
+
         <RootOverlaySlot />
 
         <RootCrisisBoundary>

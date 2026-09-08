@@ -1,0 +1,100 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Bug-report form leaves the 988 affordance reachable and has a fixed exit"
+# e2e-certifies: 375x667
+# The smallest supported viewport is the constraining one here: the form is a bottom
+# sheet, so the room left for the crisis FAB above it is tightest at 667pt tall. A pass
+# on a larger device would not certify this.
+---
+# FEAT-570 — the on-device inverse of DEBUG-533's measurement.
+#
+# DEBUG-533 measured, on an iPhone SE 3rd gen / iOS 18.6 Release build, that with
+# Sentry's feedback widget open `crisis-button-root` appeared ZERO times in the
+# accessibility hierarchy — having asserted VISIBLE three steps earlier in the
+# same run. The occluder was `FeedbackWidgetProvider`'s inset-0 backdrop, a later
+# sibling of our whole app, which `RootCrisisButton`'s zIndex 9999 cannot reach
+# past. FEAT-570 replaced the widget with our own form in `rootOverlaySlot`.
+#
+# This flow asserts the opposite of that measurement, and then TAPS THROUGH — the
+# distinction matters under this defect class, because a hierarchy dump can list a
+# view that another native window is covering, so `assertVisible` alone is not
+# proof of reachability (DEBUG-465). Landing on `crisis-resources-screen` is.
+#
+# ⚠️ THIS FLOW MUST NEVER TAP `bug-report-send`.
+# The gate build resolves a LIVE production Sentry DSN — the `e2e-sim` profile
+# sets only the two E2E keys and otherwise extends production — and unlike the
+# crisis-analytics path there is no INFRA-411-style egress suppression on
+# `captureFeedback`. A scripted submit would deliver a real feedback event
+# carrying e2e-seed text to the production Sentry project. Opening proves
+# reachability; submitting proves nothing this flow needs.
+#
+# The shake entry point is NOT covered here and cannot be: Maestro 2.6.0 has no
+# shake or device-motion command. Its route-independence is covered by
+# `bug-report-suppressed-route.yaml` and by jest; the gesture itself is an
+# attended device session.
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
+
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-bug-report"
+    direction: DOWN
+    centerElement: true # DEBUG-465: the card sits inside ProfileScreen's ScrollView
+- tapOn:
+    id: "profile-card-bug-report"
+- assertVisible:
+    id: "bug-report-overlay"
+
+# THE ASSERTION THIS FLOW EXISTS FOR. Present, and reachable, with the form up.
+- assertVisible:
+    id: "crisis-button-root"
+- tapOn:
+    id: "crisis-button-root"
+- assertVisible:
+    id: "crisis-resources-screen"
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
+- assertVisible:
+    id: "crisis-call-988-button"
+
+# The slot's force-release, observed on device: navigating to a crisis route
+# takes the slot away from the owner unconditionally, so the destination the user
+# was just sent to is not covered by an opaque backdrop.
+- assertNotVisible:
+    id: "bug-report-overlay"
+- tapOn:
+    id: "nav-back-button"
+
+# THE EXIT LEG. Sentry's Cancel was the last child of its ScrollView, below the
+# required textarea: measured on device, with three lines typed it was not on
+# screen AT ALL. Ours is pinned in the header, OUTSIDE the scroll region, so it
+# survives a raised keyboard and a filled field.
+- scrollUntilVisible:
+    element:
+      id: "profile-card-bug-report"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "profile-card-bug-report"
+- assertVisible:
+    id: "bug-report-overlay"
+- tapOn:
+    id: "bug-report-input"
+- inputText: "the breathing timer drifts by a second every cycle and then resets"
+- assertVisible:
+    id: "bug-report-cancel" # still on screen with the keyboard up and the field filled
+- tapOn:
+    id: "bug-report-cancel"
+- extendedWaitUntil:
+    notVisible:
+      id: "bug-report-overlay"
+    timeout: 3000
+# One tap left the form, and the root affordance is back.
+- assertVisible:
+    id: "crisis-button-root"

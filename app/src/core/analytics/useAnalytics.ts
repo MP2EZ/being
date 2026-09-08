@@ -9,9 +9,11 @@
 
 import { useCallback } from 'react';
 import { usePostHog } from 'posthog-react-native';
+import { useAnalyticsConsent } from './useAnalyticsConsent';
 import { PHIFilter, AnalyticsEvents } from './PHIFilter';
 import { logAnalytics } from '@/core/services/logging';
 import { coarsenScreenNameForAnalytics } from '@/core/utils/sensitiveScreens';
+import type { SinceLastActiveBucket } from './appLifecycleTelemetry';
 
 /**
  * Hook for safe analytics tracking
@@ -27,6 +29,7 @@ import { coarsenScreenNameForAnalytics } from '@/core/utils/sensitiveScreens';
  */
 export function useAnalytics() {
   const posthog = usePostHog();
+  const mayEmit = useAnalyticsConsent();
 
   /**
    * Track an event with PHI validation
@@ -34,8 +37,21 @@ export function useAnalytics() {
    */
   const trackEvent = useCallback(
     (eventName: string, properties?: Record<string, string | number | boolean>) => {
-      // Skip if PostHog not available (no consent or not configured)
-      if (!posthog) {
+      // Two independent gates, and the ORDER OF IMPORTANCE is the second one.
+      //
+      // `!posthog` used to be the whole gate, and it worked only as a side effect
+      // of a bug: PostHogProvider withheld <PHProvider> without consent, so
+      // usePostHog() was undefined and this returned early. DEBUG-559 fixed that
+      // shape (the conditional was remounting every 988 affordance in the app), so
+      // a client now exists from launch and this check is no longer a consent
+      // signal — it only means "no key in this build".
+      //
+      // `mayEmit` is the consent gate. Without it, enforcement would rest entirely
+      // on the vendored SDK's internal `optedOut` check inside `capture`. That does
+      // hold today, but it makes our privacy posture a property of a third party's
+      // internals and it is silent when it changes. Ruled non-negotiable by the
+      // DEBUG-559 compliance pass: usePostHog() truthiness is never a consent signal.
+      if (!posthog || !mayEmit) {
         return;
       }
 
@@ -52,7 +68,7 @@ export function useAnalytics() {
         });
       }
     },
-    [posthog]
+    [posthog, mayEmit]
   );
 
   /**
@@ -74,54 +90,28 @@ export function useAnalytics() {
   );
 
   /**
-   * Track app lifecycle events
+   * Track app lifecycle events (INFRA-542).
+   *
+   * `since_last_active` is a coarse bucket, never a raw elapsed value —
+   * `seconds_since_last_active` is absent from `SAFE_NUMERIC_KEYS`, so an
+   * unlisted numeric key would make PHIFilter discard the whole event.
+   * `duration_seconds` is whitelisted and means FOREGROUND DWELL on
+   * `app_backgrounded` only; emitting one key that meant dwell here and time
+   * away on `app_opened` would make any aggregate over it meaningless.
    */
-  const trackAppOpened = useCallback(() => {
-    trackEvent(AnalyticsEvents.APP_OPENED);
-  }, [trackEvent]);
-
-  const trackAppBackgrounded = useCallback(() => {
-    trackEvent(AnalyticsEvents.APP_BACKGROUNDED);
-  }, [trackEvent]);
-
-  /**
-   * Track feature usage
-   */
-  const trackCheckInStarted = useCallback(() => {
-    trackEvent(AnalyticsEvents.CHECK_IN_STARTED);
-  }, [trackEvent]);
-
-  const trackCheckInCompleted = useCallback(
-    (durationMs?: number) => {
-      trackEvent(AnalyticsEvents.CHECK_IN_COMPLETED, {
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
+  const trackAppOpened = useCallback(
+    (isColdStart: boolean, sinceLastActive: SinceLastActiveBucket) => {
+      trackEvent(AnalyticsEvents.APP_OPENED, {
+        is_cold_start: isColdStart,
+        since_last_active: sinceLastActive,
       });
     },
     [trackEvent]
   );
 
-  const trackAssessmentStarted = useCallback(() => {
-    trackEvent(AnalyticsEvents.ASSESSMENT_STARTED);
-  }, [trackEvent]);
-
-  const trackAssessmentCompleted = useCallback(
-    (durationMs?: number) => {
-      trackEvent(AnalyticsEvents.ASSESSMENT_COMPLETED, {
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
-
-  const trackPracticeStarted = useCallback(() => {
-    trackEvent(AnalyticsEvents.PRACTICE_STARTED);
-  }, [trackEvent]);
-
-  const trackPracticeCompleted = useCallback(
-    (durationMs?: number) => {
-      trackEvent(AnalyticsEvents.PRACTICE_COMPLETED, {
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
+  const trackAppBackgrounded = useCallback(
+    (durationSeconds: number) => {
+      trackEvent(AnalyticsEvents.APP_BACKGROUNDED, { duration_seconds: durationSeconds });
     },
     [trackEvent]
   );
@@ -183,35 +173,76 @@ export function useAnalytics() {
     [trackEvent]
   );
 
-  const trackLearnModuleCompleted = useCallback(
-    (moduleId?: string, durationMs?: number) => {
-      trackEvent(AnalyticsEvents.LEARN_MODULE_COMPLETED, {
-        ...(moduleId !== undefined && { module_id: moduleId }),
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
-
-  /**
-   * Track breathing exercise lifecycle
-   */
-  const trackBreathingExerciseStarted = useCallback(() => {
-    trackEvent(AnalyticsEvents.BREATHING_EXERCISE_STARTED);
-  }, [trackEvent]);
-
-  const trackBreathingExerciseCompleted = useCallback(
-    (durationMs?: number) => {
-      trackEvent(AnalyticsEvents.BREATHING_EXERCISE_COMPLETED, {
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
 
   /**
    * Track onboarding flow
    */
+  /**
+   * Feature-usage lifecycle (DEBUG-536).
+   *
+   * 🔴 DO NOT ADD AN INSTRUMENT PARAMETER TO THE ASSESSMENT TRACKERS.
+   * `assessment_started`/`assessment_completed` deliberately take no instrument
+   * argument. Neutral tokens (`wellness_9`/`wellness_7`) were REJECTED on review as
+   * laundering rather than sanitization: they defeat the keyword filter while
+   * preserving the inference. `sensitiveScreens.ts` (DEBUG-239) already coarsens
+   * `assessment`/`phq`/`gad` screen names to the bucket `App` so telemetry cannot
+   * disclose which instrument was taken, and FEAT-457 made the identical ruling for
+   * `guidance_opened`'s domain. Completion RATE is computable from the started/
+   * completed pair without any instrument property.
+   *
+   * Note the FILTER IS NOT THE CONTROL here. `phq`/`gad` are PHI_KEYWORDS so those
+   * values block, but a key like `instrument: 'depression'` would pass validation
+   * untouched. This comment is the control.
+   *
+   * 🔴 DO NOT ADD `practice_id` TO THE PRACTICE TRACKERS. An exhaustive
+   * practice→token map is required first: `gratitude-reflection` and
+   * `social-impact-reflection` both contain the PHI keyword `reflection` and would
+   * be dropped while the other ten pass — partial blindness that reads as real data.
+   *
+   * 🔴 NO COMPLETION FIGURE DERIVED FROM THESE MAY BE SHOWN TO THE PRACTITIONER.
+   * Founder-facing only, perpetually. FEAT-328's invariant is that completion may be
+   * stated, never marked; a completion rate surfaced in Insights, on Home or in the
+   * coda is an outcome verdict on someone's practice, which the framework forbids.
+   */
+  const trackCheckInStarted = useCallback(() => {
+    trackEvent(AnalyticsEvents.CHECK_IN_STARTED);
+  }, [trackEvent]);
+
+  const trackCheckInCompleted = useCallback(
+    (durationMs?: number) => {
+      trackEvent(AnalyticsEvents.CHECK_IN_COMPLETED, {
+        ...(durationMs !== undefined && { duration_ms: durationMs }),
+      });
+    },
+    [trackEvent]
+  );
+
+  const trackAssessmentStarted = useCallback(() => {
+    trackEvent(AnalyticsEvents.ASSESSMENT_STARTED);
+  }, [trackEvent]);
+
+  const trackAssessmentCompleted = useCallback(
+    (durationMs?: number) => {
+      trackEvent(AnalyticsEvents.ASSESSMENT_COMPLETED, {
+        ...(durationMs !== undefined && { duration_ms: durationMs }),
+      });
+    },
+    [trackEvent]
+  );
+
+  const trackPracticeStarted = useCallback(() => {
+    trackEvent(AnalyticsEvents.PRACTICE_STARTED);
+  }, [trackEvent]);
+
+  const trackPracticeCompleted = useCallback(
+    (durationMs?: number) => {
+      trackEvent(AnalyticsEvents.PRACTICE_COMPLETED, {
+        ...(durationMs !== undefined && { duration_ms: durationMs }),
+      });
+    },
+    [trackEvent]
+  );
+
   const trackOnboardingStarted = useCallback(() => {
     trackEvent(AnalyticsEvents.ONBOARDING_STARTED);
   }, [trackEvent]);
@@ -227,15 +258,6 @@ export function useAnalytics() {
     trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED);
   }, [trackEvent]);
 
-  /**
-   * Track errors (sanitized - no PHI in error messages)
-   */
-  const trackErrorOccurred = useCallback(
-    (errorType: string) => {
-      trackEvent(AnalyticsEvents.ERROR_OCCURRED, { error_type: errorType });
-    },
-    [trackEvent]
-  );
 
   return {
     // Core methods
@@ -247,12 +269,6 @@ export function useAnalytics() {
     trackAppBackgrounded,
 
     // Features
-    trackCheckInStarted,
-    trackCheckInCompleted,
-    trackAssessmentStarted,
-    trackAssessmentCompleted,
-    trackPracticeStarted,
-    trackPracticeCompleted,
     trackCrisisResourcesViewed,
     trackCrisisHotlineTapped,
     trackGuidanceOpened,
@@ -262,11 +278,14 @@ export function useAnalytics() {
     // Learn
     trackLearnContentViewed,
     trackLearnModuleStarted,
-    trackLearnModuleCompleted,
+    trackCheckInStarted,
+    trackCheckInCompleted,
+    trackAssessmentStarted,
+    trackAssessmentCompleted,
+    trackPracticeStarted,
+    trackPracticeCompleted,
 
     // Breathing
-    trackBreathingExerciseStarted,
-    trackBreathingExerciseCompleted,
 
     // Onboarding
     trackOnboardingStarted,
@@ -274,7 +293,6 @@ export function useAnalytics() {
     trackOnboardingCompleted,
 
     // Errors
-    trackErrorOccurred,
   };
 }
 

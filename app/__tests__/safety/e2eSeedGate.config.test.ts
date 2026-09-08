@@ -42,7 +42,7 @@ describe('EXPO_PUBLIC_E2E_SEED_ONBOARDED is scoped to the e2e-sim profile only',
     },
   );
 
-  it('the ineligible marker cannot be swallowed by another marker (INFRA-481)', () => {
+  it('no launch marker can be swallowed by another (INFRA-481, widened FEAT-570)', () => {
     // Every predicate in e2eSeed.ts is `url.includes(MARKER)`, so no marker token may be a
     // substring of another. The AC proposed `e2eSeed=stale-ineligible`, which
     // `isStaleConsentBootRequested` matches — an ineligible launch would have silently
@@ -55,10 +55,17 @@ describe('EXPO_PUBLIC_E2E_SEED_ONBOARDED is scoped to the e2e-sim profile only',
       path.join(__dirname, '..', '..', 'src', 'core', 'config', 'e2eSeed.ts'),
       'utf8',
     );
-    const markers = [...src.matchAll(/E2E_SEED_[A-Z_]*MARKER\s*=\s*'([^']+)'/g)].map(m => m[1]);
+    // FEAT-570 WIDENED THIS PATTERN from `E2E_SEED_[A-Z_]*MARKER`. Its bug-report
+    // marker uses a different KEY (`e2eOpen=`) precisely so it can appear in the
+    // same URL as a seed marker and be read alongside it — and that different key
+    // meant the old regex did not match the constant at all, so the new token
+    // would have been excluded from the very check that exists to vet it. A
+    // collision guard that silently stops covering new members is the failure
+    // this file is otherwise built to prevent.
+    const markers = [...src.matchAll(/E2E_[A-Z_]*MARKER\s*=\s*'([^']+)'/g)].map(m => m[1]);
 
     // Fail CLOSED: a regex that stopped matching would make the loop below vacuous.
-    expect(markers.length).toBeGreaterThanOrEqual(3);
+    expect(markers.length).toBeGreaterThanOrEqual(4);
 
     for (const a of markers) {
       for (const b of markers) {
@@ -69,6 +76,10 @@ describe('EXPO_PUBLIC_E2E_SEED_ONBOARDED is scoped to the e2e-sim profile only',
 
     // Proof the comparator still discriminates: the REJECTED token does collide.
     expect('e2eSeed=stale-ineligible'.includes('e2eSeed=stale')).toBe(true);
+
+    // And proof the WIDENED pattern actually reaches the new key — without this,
+    // narrowing the regex back would leave the loop green on fewer markers.
+    expect(markers).toContain('e2eOpen=bugreport');
   });
 
   it('appears in exactly one build profile across all of eas.json', () => {
@@ -253,5 +264,94 @@ describe('INFRA-377 stale-consent forge is reachable only through the store seam
       /export async function __seedStaleConsentRecordForE2E/,
     );
     expect(seedSource.length).toBeGreaterThan(1000);
+  });
+});
+
+/**
+ * INFRA-532 — the check-in seed that makes WeeklyReflectionComposer reachable.
+ *
+ * `WeeklyReflectionCard` renders null below MIN_CHECK_INS_TO_SHOW = 4, so the
+ * composer — a DEBUG-406 conversion site and a Protected Path — was absent from
+ * the gate build entirely and could only be given a printed notice. The seed
+ * writes four check-ins so `crisis-button-reachability` can tap through it.
+ *
+ * These pins protect the two properties that make that seed safe, neither of
+ * which is visible in a diff of the flow it enables.
+ *
+ * NOTE ON COMMENT-STRIPPING (DEBUG-390): this file's existing pins match import
+ * syntax and storage-key literals, which the codebase never names in prose. That
+ * is NOT true here — `'daily'` appears in `e2eSeed.ts`'s own comment explaining
+ * why it is excluded, so a bare `not.toContain("'daily'")` would match the
+ * warning and fail correct code. Strip comments first and match call-shaped
+ * patterns, then prove the matchers still fire.
+ */
+describe('INFRA-532 check-in seed stays inert to every other surface', () => {
+  /** `e2eSeed.ts` with block and line comments removed. */
+  const strippedSeedSource = seedSource
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+  it("never seeds a 'daily' check-in", () => {
+    // 'daily' is the ONLY check-in type a production surface reads back
+    // (CleanHomeScreen -> isCheckInCompletedToday('daily')). Seeding it would
+    // flip the Home check-in card's completed state for every flow in the suite,
+    // including daily-loop-ax5-entry, which taps that card. The four types that
+    // ARE seeded have no reader outside getCheckInHistory.
+    expect(strippedSeedSource).not.toMatch(/['"]daily['"]/);
+  });
+
+  it('seeds exactly the four types the card needs, through the real store API', () => {
+    const listMatch = strippedSeedSource.match(
+      /E2E_SEEDED_CHECK_IN_TYPES:\s*readonly CheckInType\[\]\s*=\s*\[([\s\S]*?)\]/,
+    );
+    expect(listMatch).not.toBeNull();
+
+    const seeded = (listMatch as RegExpMatchArray)[1]
+      .split(',')
+      .map((entry) => entry.trim().replace(/^['"]|['"]$/g, ''))
+      .filter(Boolean);
+    expect(seeded).toEqual(['morning', 'midday', 'evening', 'learn']);
+
+    // Through the real mutator, not a seam. INFRA-377's seam precedent requires
+    // that no real API can produce the state; markCheckInComplete can, so a new
+    // seam would be unjustified power.
+    expect(strippedSeedSource).toMatch(/markCheckInComplete\(/);
+    expect(strippedSeedSource).not.toMatch(/__seed[A-Za-z]*CheckIn[A-Za-z]*ForE2E/);
+    // And never by reaching around the store to its storage key.
+    expect(seedSource).not.toContain('stoic_practice_state');
+  });
+
+  it('writes the check-ins AFTER all three marker early-returns', () => {
+    // The ungranted / stale / ineligible boot states must keep byte-identical
+    // state, or deeplink-consent-gate, reconsent-stale and
+    // reconsent-stale-ineligible silently start booting into a seeded store.
+    const lastMarkerIdx = strippedSeedSource.indexOf('isStaleIneligibleBootRequested(launchUrl)');
+    const checkInIdx = strippedSeedSource.indexOf('markCheckInComplete(');
+    expect(lastMarkerIdx).toBeGreaterThan(-1);
+    expect(checkInIdx).toBeGreaterThan(lastMarkerIdx);
+
+    // And after grantConsent, so the seeded store is written into a fully
+    // consented state rather than ahead of it.
+    expect(checkInIdx).toBeGreaterThan(strippedSeedSource.indexOf('grantConsent(preferences'));
+  });
+
+  it('the assertions above can still fail (DEBUG-390 control)', () => {
+    // Each matcher, proven against a literal known-bad string. Without this,
+    // comment-stripping plus a narrow regex is exactly the combination that can
+    // silently match nothing and read as a pass.
+    expect("await practice.markCheckInComplete('daily');").toMatch(/['"]daily['"]/);
+    expect('await practice.markCheckInComplete(type);').toMatch(/markCheckInComplete\(/);
+    expect('await __seedCheckInHistoryForE2E({});').toMatch(
+      /__seed[A-Za-z]*CheckIn[A-Za-z]*ForE2E/,
+    );
+    expect("const K = 'stoic_practice_state';").toContain('stoic_practice_state');
+    expect(
+      "const E2E_SEEDED_CHECK_IN_TYPES: readonly CheckInType[] = ['morning'];",
+    ).toMatch(/E2E_SEEDED_CHECK_IN_TYPES:\s*readonly CheckInType\[\]\s*=\s*\[([\s\S]*?)\]/);
+
+    // The stripped source must still be substantial — a stripper that ate the
+    // file would make every `not.toMatch` above vacuously true.
+    expect(strippedSeedSource.length).toBeGreaterThan(1000);
+    expect(strippedSeedSource).toContain('maybeSeedE2EOnboardedState');
   });
 });

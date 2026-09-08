@@ -24,9 +24,30 @@
  *   - PREVIEW, NOT DELIVERY. This slice scopes; it does not produce a second
  *     file. Copy must never claim a completed export.
  *
- * CRISIS-PATH SAFETY: pushed route INSIDE ProfileStackNavigator — inherits the
- * sibling CollapsibleCrisisButton overlay. The gather/serialize work runs async
- * so it never blocks the overlay's touch handler. `buildExportPayload` is
+ * CRISIS-PATH SAFETY: pushed route INSIDE ProfileStackNavigator — inherits
+ * `RootCrisisButton` (testID `crisis-button-root`) from CleanRootNavigator. This
+ * used to say "the sibling CollapsibleCrisisButton overlay"; that was wrong, and
+ * wrong in a way that mattered — MAINT-290 removed the per-navigator mount as
+ * redundant (see ProfileStackNavigator's header), so a probe written from the old
+ * sentence would assert a testID that is not mounted, go vacuously red, and report
+ * an occlusion it never tested. The gather/serialize work runs async so it never
+ * blocks the overlay's touch handler.
+ *
+ * ⚠️ THAT INHERITANCE DOES NOT HOLD WHILE THE SHARE SHEET IS UP — MEASURED ON
+ * SIMULATOR, DEBUG-577 (2026-09-07; Release build, iPhone SE 3rd gen / iOS 18.6,
+ * 375x667). With `Sharing.shareAsync`'s UIActivityViewController up, `maestro
+ * hierarchy` carried ZERO app-owned nodes — not a covered FAB but an absent app
+ * tree, leaving only a full-bleed `PopoverDismissRegion` and the sheet's own
+ * out-of-process `ShareSheet.RemoteContainerView`. A matched-pair hit test at one
+ * screen point inside the FAB reached `CrisisResources` with the sheet down and
+ * did not with it up. So the 988 affordance is unreachable for the sheet's
+ * duration, and the duration is bounded only by the user dismissing it.
+ * `ExportData` is NOT in `RootCrisisButton.SUPPRESSED_ROUTES`, and the JSON export
+ * path above is always on, so this is the most reachable instance of the shape.
+ * Scope: iOS only. Android's share sheet is a different presenter and is
+ * unmeasured — there is no Android e2e harness. The ruling and what it does not
+ * prove live in the guard's PRESENTER_ALLOWLIST; this header must never
+ * out-claim that entry. `buildExportPayload` is
  * synchronous but bounded by on-device record counts, and runs in a `useMemo`
  * keyed on the selection, so it re-runs only on an explicit user toggle.
  */

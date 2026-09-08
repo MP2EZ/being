@@ -66,10 +66,14 @@ export type FeatureFlag =
   // low-vision and eyes-closed practitioners, so its availability must not be
   // coupled to analytics consent (INFRA-199 carve-out, same reasoning as
   // `bug_reporting`). A user who declined analytics must not thereby lose their
-  // only non-visual cue channel. Ships dark: the item's 60fps / cue-latency /
+  // only non-visual cue channel. It SHIPPED dark: the item's 60fps / cue-latency /
   // degradation checks are on-device manual validation that CI cannot run
   // (100% ubuntu, and the iOS simulator emits no haptics at all), so the flag
-  // stays false in production until that checklist is signed off.
+  // stayed false in production until that checklist was signed off. INFRA-395
+  // carried that sign-off and it is now `practice_haptics:true` in BOTH prod
+  // sources — `.config/.env.production` and the EAS `production` env, which is
+  // what a shipped build actually reads. Note the e2e-sim profile keeps it
+  // FALSE, so the gate build does not exercise it.
   | 'practice_haptics'
   // INFRA-395 briefly added a `haptic_trace` diagnostic flag here and REMOVED it
   // again. Recorded so nobody re-derives it: the goal was a cue-latency trace
@@ -134,8 +138,16 @@ export type FeatureFlag =
  * single bad pair must not crash the app at module load (this module is
  * imported by UI screens).
  */
-function parseFlags(blob: string): Record<string, boolean> {
+function parseFlags(blob: string | undefined): Record<string, boolean> {
   const flags: Record<string, boolean> = {};
+  // An ABSENT blob answers "no flags", never a throw. The paragraph above says
+  // this module must not crash at module load, but leaned on env.ts guaranteeing
+  // a non-empty string — a guarantee that does not survive a suite mocking
+  // `@/core/config/env` with a partial object, which several do. The failure was
+  // a TypeError thrown during import of anything transitively reaching here, so
+  // it surfaced as an unrelated suite collapsing rather than as a flag bug.
+  // Absent → every flag false is also exactly the documented fail-safe.
+  if (!blob) return flags;
   for (const pair of blob.split(',')) {
     const idx = pair.indexOf(':');
     if (idx === -1) continue;

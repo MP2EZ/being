@@ -442,6 +442,16 @@ describe('App.tsx — the root boundary exists at all', () => {
     require('path').join(__dirname, '../../App.tsx'),
     'utf8',
   );
+  // DEBUG-390: this file deliberately names anti-patterns in prose, and App.tsx's
+  // comments discuss these very elements, so structural matching runs on
+  // comment-stripped source. The length assertion below is what stops a
+  // mis-written strip from making every matcher below vacuously true.
+  const stripped = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  test('the comment-stripped source is still substantive (guards the matchers below)', () => {
+    expect(stripped.length).toBeGreaterThan(1000);
+    expect(stripped).toContain('<CleanRootNavigator />');
+  });
 
   test('RootCrisisBoundary is the immediate parent of CleanRootNavigator', () => {
     // Sentry.wrap is a profiler/touch wrapper — componentDidCatch appears nowhere in its
@@ -453,11 +463,47 @@ describe('App.tsx — the root boundary exists at all', () => {
   });
 
   test('the boundary sits INSIDE SafeAreaProvider and GestureHandlerRootView', () => {
-    const gh = source.indexOf('<GestureHandlerRootView');
-    const sa = source.indexOf('<SafeAreaProvider>');
-    const rb = source.indexOf('<RootCrisisBoundary');
+    const gh = stripped.search(/<GestureHandlerRootView[\s>]/);
+    const sa = stripped.search(/<SafeAreaProvider[\s>]/);
+    const rb = stripped.search(/<RootCrisisBoundary[\s>]/);
+    // Matched with a trailing-delimiter regex, not `indexOf('<SafeAreaProvider>')`
+    // (DEBUG-559). The exact-match form silently returned -1 the moment the element
+    // took a prop, and `gh < -1` then failed with a message about ORDERING — a real
+    // red for an unrelated reason, which is worse than no pin.
+    expect(gh).toBeGreaterThan(-1);
+    expect(sa).toBeGreaterThan(-1);
+    expect(rb).toBeGreaterThan(-1);
     expect(gh).toBeLessThan(sa);
     expect(sa).toBeLessThan(rb);
+  });
+
+  test('SafeAreaProvider is seeded with initialMetrics — otherwise it renders NOTHING on mount', () => {
+    // DEBUG-559. SafeAreaProvider's body is `{insets != null ? … : null}`, seeded
+    // from `initialMetrics?.insets ?? initialSafeAreaInsets ?? parentInsets ?? null`.
+    // This is the outermost such provider, so without initialMetrics that seed is
+    // null on EVERY mount and the provider renders nothing until the native insets
+    // round-trip lands. Every 988 affordance in the app is inside it — the root
+    // button, the keyboard accessory, and BOTH Static988Button fallbacks — so an
+    // unseeded remount is a blank, zero-988 screen rather than a FAB gap that the
+    // static button covers. This is the class of window this whole file exists to
+    // forbid, and here it was reachable by an ordinary consent tap.
+    expect(/<SafeAreaProvider[^>]*\binitialMetrics=\{initialWindowMetrics\}/.test(stripped)).toBe(
+      true,
+    );
+    expect(/\binitialWindowMetrics\b/.test(stripped.slice(0, stripped.indexOf('<SafeAreaProvider')))).toBe(
+      true,
+    );
+
+    // The matcher fires against a known-bad literal, so a narrowed regex cannot go
+    // silently vacuous (DEBUG-390).
+    expect(
+      /<SafeAreaProvider[^>]*\binitialMetrics=\{initialWindowMetrics\}/.test(
+        '<SafeAreaProvider initialMetrics={initialWindowMetrics}>',
+      ),
+    ).toBe(true);
+    expect(
+      /<SafeAreaProvider[^>]*\binitialMetrics=\{initialWindowMetrics\}/.test('<SafeAreaProvider>'),
+    ).toBe(false);
   });
 });
 

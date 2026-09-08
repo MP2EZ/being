@@ -83,6 +83,35 @@ interface ResourceCardProps {
 }
 
 /**
+ * DEBUG-560 — one contact line, one text flow.
+ *
+ * Was a `flexDirection: 'row'` View pairing a `width: 80` label with a `flex: 1` value.
+ * A fixed pt box holding Dynamic-Type-scaled text overflows by construction: "Languages:"
+ * measures ~77-80pt at bodySmall 14 semibold against that 80pt box, so it word-broke at
+ * the first step above Large, and the value was confined to the remaining 214pt of a 294pt
+ * card and wrapped into a narrow indented column. Nesting the label inside the paragraph
+ * removes the fixed dimension entirely, so correctness holds at every type step rather
+ * than at a measured breakpoint, and continuation lines use the full content box.
+ *
+ * The nested span also merges the two VoiceOver stops into one natively —
+ * `RCTParagraphComponentAccessibilityProvider` exposes a single element carrying the
+ * rendered attributed string, adding more only for "button"/"link" spans. Pre-fix the
+ * label was an orphan stop with no referent. Do NOT add `accessibilityLabel` (it REPLACES
+ * the rendered string and cannot track `resource.languages`), `accessible` in either
+ * direction (`false` erases the line, phone number included), or `accessibilityRole` on
+ * the span (re-splits the element and stamps a false trait).
+ *
+ * The separator space lives INSIDE the template literal. Written as JSX whitespace it is
+ * trimmed at a line boundary by a formatter reflow, silently yielding "Languages:English".
+ */
+const ContactLine: React.FC<{ label: string; children: React.ReactNode }> = ({ label, children }) => (
+  <Text style={styles.contactLine}>
+    <Text style={styles.contactLabel}>{`${label}: `}</Text>
+    {children}
+  </Text>
+);
+
+/**
  * Resource Card Component
  * Displays individual crisis resource with contact actions
  */
@@ -164,28 +193,19 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress, hidePrim
 
       {/* Contact Information */}
       {resource.phone && (
-        <View style={styles.contactInfo}>
-          <Text style={styles.contactLabel}>Phone:</Text>
-          <Text style={styles.contactValue}>
-            {resource.phone}{resource.extension ? ` (Press ${resource.extension})` : ''}
-          </Text>
-        </View>
+        <ContactLine label="Phone">
+          {`${resource.phone}${resource.extension ? ` (Press ${resource.extension})` : ''}`}
+        </ContactLine>
       )}
 
       {resource.textNumber && (
-        <View style={styles.contactInfo}>
-          <Text style={styles.contactLabel}>Text:</Text>
-          <Text style={styles.contactValue}>
-            {resource.textMessage} to {resource.textNumber}
-          </Text>
-        </View>
+        <ContactLine label="Text">
+          {`${resource.textMessage} to ${resource.textNumber}`}
+        </ContactLine>
       )}
 
       {resource.languages && resource.languages.length > 0 && (
-        <View style={styles.contactInfo}>
-          <Text style={styles.contactLabel}>Languages:</Text>
-          <Text style={styles.contactValue}>{resource.languages.join(', ')}</Text>
-        </View>
+        <ContactLine label="Languages">{resource.languages.join(', ')}</ContactLine>
       )}
 
       {/* Warning Note */}
@@ -696,26 +716,28 @@ const styles = StyleSheet.create({
     // 911 card to #FFEBEE, where gray[650] is 4.8744 (gray[700] was 8.7911) — passing,
     // and pinned in APP_LOCAL_TINTED_SURFACES rather than left ungoverned.
     // Deliberately NOT `primary`: that would put orienting prose at parity with
-    // `resourceName` and `contactValue` (both gray[800]), and the phone number must
+    // `resourceName` and `contactLine` (both gray[800]), and the phone number must
     // out-rank the description on a crisis card.
     color: semantic.text.secondary,
     lineHeight: spacing[20],
     marginBottom: spacing[16]
   },
-  contactInfo: {
-    flexDirection: 'row',
-    marginBottom: spacing[4]
-  },
-  contactLabel: {
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: semantic.text.secondary,
-    width: 80
-  },
-  contactValue: {
+  contactLine: {
     fontSize: typography.bodySmall.size,
     color: colorSystem.gray[800],
-    flex: 1
+    marginBottom: spacing[4]
+    // DEBUG-560: deliberately NO width/minWidth/flex — a fixed dimension beside scaled
+    // text is the defect this replaced, and a larger constant is the same bug. Also NO
+    // lineHeight: RN scales fontSize under Dynamic Type but not a numeric lineHeight, so
+    // a fixed value clips at AX5. (`resourceDescription` above carries that pre-existing
+    // hazard; do not propagate it here.)
+  },
+  contactLabel: {
+    // No fontSize — inherited from the paragraph, so one font-size owner per line and
+    // nothing to drift. Keeps the MAINT-487 hierarchy: the value stays gray[800] so the
+    // phone number out-ranks its label.
+    fontWeight: typography.fontWeight.semibold,
+    color: semantic.text.secondary
   },
   warningContainer: {
     backgroundColor: '#FFF3CD',
