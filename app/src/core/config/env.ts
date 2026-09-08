@@ -210,6 +210,17 @@ export const envSchema = z
     // solely on eas.json profile scoping, pinned by the static-config test at
     // `__tests__/safety/e2eSeedGate.config.test.ts`.
     EXPO_PUBLIC_E2E_SEED_ONBOARDED: booleanString.default('false'),
+
+    // === Frame probe HUD (INFRA-373) ===
+    // When 'true', PracticeTimerScreen mounts BreathingFrameProbe and renders its
+    // window result as text for `breathing-fps-budget.yaml` to read. Absent →
+    // 'false', so a build that never sets it cannot show the HUD by omission.
+    //
+    // NOT reusing EXPO_PUBLIC_PERFORMANCE_OVERLAY above, which is declared, unread
+    // and semantically close: it sits in the generic Debug group, so anyone
+    // flipping it to see some other overlay would silently enable this one too.
+    // One switch, two meanings is how a debug HUD reaches a user mid-practice.
+    EXPO_PUBLIC_PERF_HUD: booleanString.default('false'),
   })
   .superRefine((env, ctx) => {
     // Insecure SSL must not be enabled in production builds.
@@ -300,6 +311,7 @@ function readRawEnv(): Record<string, string | undefined> {
     EXPO_PUBLIC_PERFORMANCE_CHECKIN_TRANSITION_MAX_MS: process.env['EXPO_PUBLIC_PERFORMANCE_CHECKIN_TRANSITION_MAX_MS'],
     EXPO_PUBLIC_ALLOW_INSECURE_SSL: process.env['EXPO_PUBLIC_ALLOW_INSECURE_SSL'],
     EXPO_PUBLIC_E2E_SEED_ONBOARDED: process.env['EXPO_PUBLIC_E2E_SEED_ONBOARDED'],
+    EXPO_PUBLIC_PERF_HUD: process.env['EXPO_PUBLIC_PERF_HUD'],
   };
 }
 

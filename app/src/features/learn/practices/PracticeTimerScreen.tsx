@@ -40,6 +40,8 @@ import { useHapticsOptIn } from '@/features/practices/shared/haptics/useHapticsO
 import { HapticsOptInPrompt } from '@/features/practices/shared/components/HapticsOptInPrompt';
 import { boundariesWithin } from '@/features/practices/shared/haptics/phaseAtElapsed';
 import Timer from '@/features/practices/shared/components/Timer';
+import BreathingFrameProbe from '@/features/practices/shared/components/BreathingFrameProbe';
+import { env } from '@/core/config/env';
 import type { PracticeVisualMode } from '@/features/learn/types/education';
 
 /**
@@ -238,6 +240,14 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
             isActive={isTimerActive}
             testID={`${testID}-breathing-circle`}
           />
+          {/* INFRA-373 frame probe. Sibling, not child: it must not enter
+              BreathingCircle's memoized subtree, and it measures UI-thread frame
+              delivery for the whole screen rather than the circle alone. Ships
+              dark — EXPO_PUBLIC_PERF_HUD defaults to 'false', so a build that
+              never sets it cannot render this. */}
+          {env.EXPO_PUBLIC_PERF_HUD === 'true' && (
+            <BreathingFrameProbe testID={`${testID}-frame-probe`} />
+          )}
         </View>
       )}
 
