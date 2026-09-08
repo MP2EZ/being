@@ -53,6 +53,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/insights/components/` | `crisis` + `philosopher` |
 | `app/src/features/home/screens/CleanHomeScreen.tsx` | `crisis` |
 | `app/src/features/profile/screens/DeleteAccountScreen.tsx` | `crisis` |
+| `app/src/features/profile/screens/ExportDataScreen.tsx` | `crisis` |
 | `app/src/core/services/logging/ExternalErrorReporter.ts` | `crisis` |
 | `app/src/features/profile/screens/ProfileScreen.tsx` | `crisis` |
 | `app/plugins/` | `crisis` |
@@ -163,6 +164,22 @@ INFRA-531's import rule matches nothing here because nothing on the path imports
 pattern", but "mounts a third-party component that occludes the affordance while importing
 nothing of ours at all". The hand-maintained table is the only control. Full ruling is
 recorded at `showFeedbackForm()`.
+
+`features/profile/screens/ExportDataScreen.tsx` is the fifteenth instance (added
+DEBUG-577), and the first where the consumer owns a third-party PRESENTER CALL rather than
+an affordance or a constant. `Sharing.shareAsync` was MEASURED to leave zero app-owned
+nodes in the hierarchy for the sheet's duration — an absent app tree, not a covered FAB —
+on a route absent from `SUPPRESSED_ROUTES`, reached by an always-on, never-flag-gated path.
+That is the `ExternalErrorReporter` shape, already gated, and INFRA-571 established this
+site is strictly MORE reachable. FILE-level: the directory's legal, settings, account and
+backup members carry no crisis surface, and its two that do are already listed. No detector
+reaches it — the file imports `expo-sharing` and nothing from `features/crisis/`, so
+INFRA-531's import rule misses it, and `check-modal-occlusion-guard.js` rule 4 catches the
+CALL but produces no agent mapping and arms no gate. Note `IAPService.ts` is the same class
+and is deliberately NOT gated yet: DEBUG-577 ruled its measurement unsatisfiable in this
+environment (`mockMode = __DEV__`, no `.storekit` config, no Android harness), so a row
+would arm a build against a surface nothing can verify. That is a recorded carry, not an
+oversight — gate it the moment sandbox products exist.
 
 `plugins/` is the sixth instance (added FEAT-522), and the first that is not app code:
 `withPrivacyShield.js` injects a native view that covers every 988 affordance while the

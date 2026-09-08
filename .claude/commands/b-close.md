@@ -428,7 +428,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -651,6 +651,8 @@ alone and the documented gate and the running gate disagree, with the running on
 | `core/components/ThresholdEducationModal.tsx` change | **`crisis-button-reachability`** | DEBUG-525. A DEBUG-406 conversion site: an RN `<Modal>` whose content tells the reader to seek help while occluding the route to it. The flow already taps through it, so the arm is free. |
 | `features/home/screens/CleanHomeScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-547. Consumes `crisisButtonGeometry` rather than owning crisis code. The FAB's `zIndex: 9999` makes any overlap a wrong-DESTINATION tap into `CrisisResources` — a crisis false POSITIVE. The flow already starts on Home and renders both rows, so the arm is free. **The flow is necessary and NOT sufficient**: Maestro taps element CENTRES, which never enter the contested column, so a point tap is required to falsify this. |
 | `features/profile/screens/DeleteAccountScreen.tsx` change | **`crisis-button-reachability`** + device-only notice | INFRA-531 (crisis ruling). Consumes `crisisInputAccessory`; the keyboard is necessarily up (the user types the confirmation word), so on iOS the accessory is the SOLE 988 affordance. FILE-level — the dir's other members carry no crisis surface and `ProfileStackNavigator` is already covered by `CRISIS_HOST_CHANGED`. **Necessary, not sufficient**: the flow never types into `delete-confirm-input`, so the keyboard-up half is `crisis-keyboard-accessory` (`safety-device-only`). |
+| `features/profile/screens/ExportDataScreen.tsx` change | **`crisis-button-reachability`** + printed notice | DEBUG-577 (crisis ruling). Owns `Sharing.shareAsync`, MEASURED to leave zero app-owned nodes in the hierarchy for the sheet's duration; a matched-pair coordinate tap reached `CrisisResources` with the sheet down and not with it up. Same shape as `ExternalErrorReporter`, and INFRA-571 established this site is strictly MORE reachable (JSON export is always on; the Sentry path is bounded by `bug_reporting` being dark). FILE-level — the dir's other members carry no crisis surface and its two that do are already listed. **Necessary, not sufficient**: no gate flow opens the share sheet, so the arm proves only that the route renders the overlay with the sheet DOWN. |
+| `.maestro/<flow>.yaml` tagged `safety-occlusion-measurement` edited | **no sim flow** — notice only, never scoped | DEBUG-577. `export-share-sheet-occlusion` PINS A DEBT STATE: its load-bearing assertion is that the 988 affordance is UNREACHABLE, so it stays green after a fix and must be DELETED, not repaired, if the occlusion is remedied. It also leaves an open share sheet — state Maestro does not reliably clear, which per DEBUG-422 reds later flows against a healthy app. Needs its own case arm; the `*)` catch-all would fire a full suite. |
 | `features/profile/screens/ProfileScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-533 (crisis ruling). Hosts the second entry to `showFeedbackForm()`, which opens a zero-988 window. The flow already walks the Profile tab and every subscreen depth, so the arm is free. **Necessary, not sufficient**: no flow opens the widget, so this proves only that Profile still renders the overlay. |
 | `core/services/logging/ExternalErrorReporter.ts` change | **`bug-report-crisis-reachability` + `bug-report-suppressed-route`** | FEAT-570 REPLACED THIS ROW'S REASONING. It used to be notice-only, because "no sim flow opens the widget, and authoring one would emit a real Sentry feedback event". The first half expired: the widget is gone, opening is first-party and emits NOTHING, so a flow can open it. The second half is still true and now binds the flows instead — **neither may tap `bug-report-send`**, because the gate build resolves a live production DSN from `.env.production` and there is no INFRA-411-style egress suppression on `captureFeedback`. That row also asserted "`feedbackIntegration` is what mounts the provider at all", which is FALSE — `Sentry.wrap` mounts `FeedbackWidgetProvider` unconditionally (`sdk.js:127-139`) and `feedbackIntegration()` has no `setupOnce`. **Necessary, not sufficient**: the shake entry is not sim-drivable (Maestro 2.6.0 has no shake command), so its verdict is an attended device session. |
 | `core/components/BugReportOverlay.tsx` / `core/stores/bugReportStore.ts` change | **`bug-report-crisis-reachability` + `bug-report-suppressed-route` + `crisis-button-reachability`** | FEAT-570 (crisis ruling). The overlay is armed at the app ROOT, so unlike the two `insights/` slot claimants it can be published while a FAB-suppressed route is active — a zero-988 state. The store is the sole gate on that and imports nothing of ours, so INFRA-531's rule cannot see it; the Protected Paths row is the only control. `bug-report-suppressed-route` is the one that proves the refusal, via an `e2eSeed` marker reproducing the real boot race. **Necessary, not sufficient**: same shake limitation as the row above. |
@@ -863,6 +865,25 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/profile/screens/DeleteAc
   echo "   taps through to CrisisResources, but never types into delete-confirm-input, so it"
   echo "   exercises the UNOCCLUDED overlay and cannot observe the accessory contract."
   echo "   The keyboard-up half is device-only: npm run e2e:safety:keyboard-accessory"
+fi
+# DEBUG-577 (crisis ruling E): ExportDataScreen owns a registered full-screen presenter
+# call — Sharing.shareAsync — MEASURED to remove every 988 affordance for as long as the
+# share sheet is up (the hierarchy carries zero app-owned nodes, and a matched-pair
+# coordinate tap reaches CrisisResources with the sheet down and not with it up). Same
+# shape as ExternalErrorReporter, which is already gated, and INFRA-571 established this
+# site is STRICTLY MORE REACHABLE: the JSON export path is always on and never flag-gated,
+# where the Sentry path is bounded by bug_reporting being off in the public build.
+# FILE-level, not features/profile/screens/: the dir's legal/settings/account/backup
+# members carry no crisis surface, and its two that do are already listed individually.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/profile/screens/ExportDataScreen\.tsx'; then
+  FLOWS+=("crisis-button-reachability")
+  echo "📤 ExportDataScreen changed — it calls Sharing.shareAsync, a measured zero-988"
+  echo "   window. The flow arm is NECESSARY BUT NOT SUFFICIENT: crisis-button-reachability"
+  echo "   walks to export-data-screen and taps crisis-button-root there, but NO sim flow in"
+  echo "   the gate opens the share sheet, so it proves only that the route still renders the"
+  echo "   overlay with the sheet DOWN. The occlusion window itself is verified by DEBUG-577's"
+  echo "   measurement and by nothing in the suite. Re-measure with:"
+  echo "   maestro test app/.maestro/export-share-sheet-occlusion.yaml (booted 375x667)"
 fi
 # DEBUG-533: the two entries to showFeedbackForm(), which opens a zero-988 window that
 # cannot be converted in place (the occluder is Sentry's, not ours). ProfileScreen gets a
@@ -1130,7 +1151,7 @@ journal-record-liveness profile-voice-reflection-xxxl breathing-fps-budget
 q9-single-alert phq9-severe-completion gad7-severe
 crisis-button-reachability journal-crisis-scan daily-loop-quick-depth daily-loop-deeplink
 deeplink-consent-gate reconsent-stale-ineligible reconsent-stale crisis-keyboard-accessory
-guidance-suppressed-handoff guidance-gentle-tier-cap"
+guidance-suppressed-handoff guidance-gentle-tier-cap export-share-sheet-occlusion"
 MAESTRO_CHANGED="$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
 while IFS= read -r f; do
   [ -z "$f" ] && continue
@@ -1222,6 +1243,14 @@ while IFS= read -r f; do
       echo "   extra-extra-extra-large (largest NON-accessibility step) via"
       echo "   E2E_DYNAMIC_TYPE_SIZE, not the wrapper's AX5 default. Validate it directly:"
       echo "   npm run e2e:safety:xxxl" ;;
+    export-share-sheet-occlusion.yaml)
+      echo "📤 export-share-sheet-occlusion.yaml changed — safety-occlusion-measurement."
+      echo "   It PINS A DEBT STATE, not a contract: its load-bearing assertion is that the"
+      echo "   988 affordance is UNREACHABLE behind the share sheet, so it stays green on the"
+      echo "   day the debt is discharged. NOT added to the run set, and NOT a full-suite"
+      echo "   trigger — it also leaves an open share sheet, state Maestro does not reliably"
+      echo "   clear, which per DEBUG-422 reds LATER flows against a healthy app. Run it alone"
+      echo "   on a booted 375x667 device, or delete it if the occlusion is ever remedied." ;;
     q9-single-alert.yaml)            FLOWS+=("q9-single-alert") ;;
     phq9-severe-completion.yaml)     FLOWS+=("phq9-severe-completion") ;;
     gad7-severe.yaml)                FLOWS+=("gad7-severe") ;;
