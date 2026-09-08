@@ -3,6 +3,39 @@ tags:
   - safety-device-only
 name: "Crisis affordance stays reachable while a software keyboard is up (device-only)"
 ---
+# e2e-device-unavailable: DEBUG-589 measured=2026-09-07 dead-versions=2.0.0..2.10.0
+#
+# THE DEVICE HALF OF THE MAESTRO SAFETY GATE IS UNAVAILABLE. No Maestro version can
+# execute any flow on a physical iPhone — measured 2026-09-07 across 2.0.0 through 2.10.0
+# on iPhone 16e / iOS 26.6 / Xcode 26.0.1. Full root cause and the two failure modes are
+# recorded once, in crisis-988-dial.yaml. THE HARDWARE IS NOT THE PROBLEM: the iPhone is
+# wired, paired and Developer-Mode enabled, and the runner Maestro installs launches by
+# hand — do not read this as a missing or sleeping device. Maestro's own driver is the
+# failure. So this flow cannot start today.
+#
+# BUT THIS LOSS IS RECOVERABLE AND MUST NOT BE READ AS PERMANENT — that is the difference
+# between this flow and crisis-988-dial, and flattening the two would be wrong. The dial is
+# device-only by PHYSICS: the simulator's canOpenURL is unconditionally false, so no
+# substitute exists even in principle. This flow is device-only only by a DEFERRED
+# AUTHORING TASK. Its own header below already records that its device-only rationale is
+# FALSE (DEBUG-506): a software keyboard does rise on the gate simulator at the default,
+# `UIKeyboardLayoutStar Preview` lands at measured bounds, and journal-crisis-scan.yaml
+# asserts that very node three times in the default sim suite today. The reachability half
+# of this contract is SIMULATOR-RUNNABLE NOW.
+#
+# Status: NOT YET MIGRATED — not "unavailable". Follow-up DEBUG-590 moves the reachability
+# half into the sim suite (bumping the 14-flow tripwire in the same commit); the dial half
+# stays here behind DEBUG-589's exit condition.
+#
+# UNTIL DEBUG-590 LANDS we are accepting unverified runtime behaviour on the crisis
+# keyboard accessory: that iOS actually attaches and paints the accessory over a real
+# software keyboard, and that the occlusion predicate fires. This is the DEBUG-450 defect
+# class — an accessory that never attached at all, for its entire life, with this flow the
+# only thing pinning it. `check-crisis-keyboard-accessory-guard.js` pins that the PROP is
+# present on every shipping TextInput; it cannot pin that iOS honours it.
+#
+# DO NOT delete, rename or skip this flow.
+#
 # DEVICE-ONLY, AND THE RECORDED REASON FOR IT IS FALSE (DEBUG-506).
 #
 # This header used to say: "The simulator boots with Connect Hardware Keyboard enabled, so
