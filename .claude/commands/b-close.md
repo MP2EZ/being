@@ -428,7 +428,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -661,6 +661,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | `features/guidance/` change | **`guidance-suppressed-handoff` + `guidance-gentle-tier-cap`** | FEAT-457 + INFRA-420. The first drives Home entry → suppressed → notice → CrisisResources → 988 with all four tier testIDs ABSENT; the second pins the positive branch (Tier 0/1 shown, Tier 2/3 capped). Both arms are required — suppression alone stays green if the gate suppresses everyone. Supersedes the INFRA-416 crisis-button fail-safe. |
 | `features/practices/dailyloop/` change | **`daily-loop-quick-depth` + `daily-loop-deeplink`** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. INFRA-509 narrowed this from the full suite: these two are the only tagged flows carrying a daily-loop testID, so they ARE that coverage. A `DailyLoopDepthSelectScreen` edit additionally prints the `e2e:safety:ax5` instruction (DEBUG-469's `CRISIS_FAB_CLEARANCE` is invisible to centre-tapping flows). |
 | `features/practices/` change (outside `dailyloop/`) | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
+| `practices/shared/components/(HapticsOptInPrompt\|ResumeSessionModal).tsx` | **`daily-loop-quick-depth`** (Resume) / **`crisis-button-reachability`** + notice (Haptics) | DEBUG-586 (crisis ruling). Both size `paddingBottom` from `CRISIS_BUTTON_RESERVED_BAND` so their controls cannot sit under a `zIndex: 9999` FAB — a crisis FALSE POSITIVE, the DEBUG-547 shape. FILE-level: the other 12 members of that dir carry no crisis surface and a directory clause would re-import the over-trigger the `practices/` exemption one row above exists to prevent. `daily-loop-quick-depth` is the only flow rendering `resume-session-overlay` and already asserts the DEBUG-403 crisis round-trip there. **Necessary, not sufficient, both:** no Maestro assertion can read a `paddingBottom`, the flows tap element CENTRES, and `ResumeSessionModal.test.tsx:296-305` records a 1.5pt shortfall Maestro reported as a COMPLETED tap. `HapticsOptInPrompt` is flag-dark in the gate build (`practice_haptics:false`), so no flow renders it at all. The falsifier for both is the jest style assertion pinned to the imported constant. |
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
 | `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
 | `.maestro/<flow>.yaml` added or edited | **trigger** that flow | The flow IS the contract; one that has never run is not coverage. Bypasses the inert filter — a deletion-only diff here is assertions being removed. |
@@ -953,6 +954,22 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/guidance/' && \
 # the root route name lives in core/navigation) — both already mapped by their own clauses.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/practices/dailyloop' && \
   FLOWS+=("daily-loop-quick-depth" "daily-loop-deeplink")
+# DEBUG-586: the two centred-card overlays in practices/shared/components size their
+# paddingBottom from CRISIS_BUTTON_RESERVED_BAND, so an under-reserved band puts their
+# controls under a zIndex-9999 FAB — a crisis FALSE POSITIVE, the DEBUG-547 shape. They
+# map to DIFFERENT flows, hence two clauses. Both are NECESSARY, NOT SUFFICIENT: no
+# Maestro assertion can read a paddingBottom, and the flows tap element CENTRES. The
+# falsifier for both is the jest style assertion pinned to the imported constant.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'practices/shared/components/ResumeSessionModal' && \
+  FLOWS+=("daily-loop-quick-depth")
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'practices/shared/components/HapticsOptInPrompt' && {
+  FLOWS+=("crisis-button-reachability")
+  echo "ℹ️  DEBUG-586: HapticsOptInPrompt is FLAG-DARK in the gate build"
+  echo "   (eas.json e2e-sim: practice_haptics:false; useHapticsOptIn gates on it)."
+  echo "   No sim flow can render it. crisis-button-reachability proves only that the"
+  echo "   surrounding crisis paths still reach CrisisResources. The band's oracle is"
+  echo "   the jest style assertion in haptic-cues-accessibility.test.tsx."
+}
 # DEBUG-469: DailyLoopDepthSelectScreen carries CRISIS_FAB_CLEARANCE — without it a
 # practice-choice tap on a card's right-hand end silently navigates to CrisisResources
 # (a crisis FALSE POSITIVE) — and the AX5 blurb relocation. The tagged suite taps element

@@ -60,7 +60,7 @@ EXEMPT_PATHS=(
 exempt_reason() {
   case "$1" in
     "app/src/features/practices/")
-      echo "Protected for \`philosopher\` (classical accuracy), not for 988 reachability. The Validation Matrix gives \"Therapeutic content (Stoic)\" no safety-e2e cell, and no Maestro flow pins practice content. Gating it would charge a sim build for a philosophical-accuracy review — the over-trigger that trains the --skip-e2e reflex Phase 2.5 warns about. SCOPED: \`practices/dailyloop/\` is NOT covered by this exemption — DEBUG-465 carved it back in as its own Protected Path because DailyLoopStepScreen hosts SUPPORT_LINE. This exemption now means the REST of practices/. Re-scope it again if another practice screen takes on a crisis affordance."
+      echo "Protected for \`philosopher\` (classical accuracy), not for 988 reachability. The Validation Matrix gives \"Therapeutic content (Stoic)\" no safety-e2e cell, and no Maestro flow pins practice content. Gating it would charge a sim build for a philosophical-accuracy review — the over-trigger that trains the --skip-e2e reflex Phase 2.5 warns about. SCOPED: \`practices/dailyloop/\` is NOT covered by this exemption — DEBUG-465 carved it back in as its own Protected Path because DailyLoopStepScreen hosts SUPPORT_LINE. This exemption now means the REST of practices/. Re-scope it again if another practice screen takes on a crisis affordance. Re-scoped again DEBUG-586: \`shared/components/HapticsOptInPrompt.tsx\` and \`shared/components/ResumeSessionModal.tsx\` are NOT covered either — both import CRISIS_BUTTON_RESERVED_BAND and are gated as FILES. This exemption now means the rest of practices/ outside dailyloop/ and those two files."
       ;;
     *) echo "NO REASON RECORDED" ;;
   esac

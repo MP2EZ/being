@@ -65,6 +65,8 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/core/analytics/PostHogProvider.tsx` | `crisis` + `compliance` |
 | `app/src/core/components/BugReportOverlay.tsx` | `crisis` |
 | `app/src/core/stores/bugReportStore.ts` | `crisis` |
+| `app/src/features/practices/shared/components/HapticsOptInPrompt.tsx` | `crisis` + `philosopher` |
+| `app/src/features/practices/shared/components/ResumeSessionModal.tsx` | `crisis` + `philosopher` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -231,6 +233,23 @@ all be named and reviewed. The overlay consumes `crisisButtonGeometry` and
 `crisisInputAccessory`, so INFRA-531's import rule catches it; **the store is caught by
 nothing** — it imports only zustand — yet it is the sole gate on whether that overlay
 opens, which is why the row is the only control.
+
+`features/practices/shared/components/HapticsOptInPrompt.tsx` and
+`ResumeSessionModal.tsx` are the fifteenth instance (added DEBUG-586), and the first
+where the consumption the table already relied on **did not exist**. Both size a
+`paddingBottom` from the FAB's geometry so their own controls cannot land under a
+control at `zIndex: 9999` — the DEBUG-547 crisis FALSE-POSITIVE shape — and both
+re-derived `104 + TOUCH_TARGETS.minimum + 12 + spacing[16]` as a literal for the whole
+life of `crisisButtonGeometry.ts`, whose header meanwhile named them as consumers.
+Two oracles, both wrong in the same direction: the module claimed coverage and the
+import detector saw none, so neither a reader nor INFRA-531 could find the gap.
+DEBUG-586 makes the import real, which is what puts them in the detector's reach.
+FILE-level, not `practices/shared/components/`: the other twelve members carry no
+crisis surface (`Timer.tsx:335` only cites the overlay in a comment), and a directory
+clause would charge a sim build to every Stoic-copy edit — the over-trigger the
+`practices/` exemption directly above exists to prevent. `philosopher` still owns
+both files' content; `ResumeSessionModal`'s header declares its own Stoic
+non-negotiables.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
