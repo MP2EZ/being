@@ -411,9 +411,16 @@ delivering a steady 60fps on such a device is dropping **half** its frames while
 `fps >= 55` floor. Mid-tier Android spans 60/90/120Hz. So the budget must eventually be expressed
 as a **dropped-frame ratio against the device's own measured nominal refresh interval**, not the
 literal `60` in `CLAUDE.md`'s Performance Budgets table. Reanimated's `FrameInfo` exposes only
-`timestamp` / `timeSincePreviousFrame` / `timeSinceFirstFrame` — no refresh rate — so normalising
-needs a native call (`UIScreen.maximumFramesPerSecond`, Android `Display.getRefreshRate()`) that
-does not exist in this codebase yet.
+`timestamp` / `timeSincePreviousFrame` / `timeSinceFirstFrame` — no refresh rate.
+
+**That does NOT require a native call, and this paragraph used to say it did.** The nominal
+interval is recoverable from the interval distribution itself: bin the observed intervals and take
+the **mode**. INFRA-373 measured `nominal 16.66` on a 60Hz iPhone 16e that way, with no
+`UIScreen.maximumFramesPerSecond` binding. Take the mode specifically, not the minimum the earlier
+AC proposed — the same run measured `min 16.42` against a true nominal of 16.67, because frames
+land early. Normalising against the minimum inflates the dropped-frame ratio, i.e. it makes the
+budget look worse than reality, which is the direction that gets a threshold loosened on first red.
+Mean and max fail differently: on a hitching run the mean drags up and the max *is* the worst hitch.
 
 ### Removed in the same change: a fabricated metric
 
@@ -445,14 +452,71 @@ whoever picks up INFRA-373.
 The 60fps control is, and remains, `check-breathing-worklets` (structural proxy) plus INFRA-373
 (the real on-device UI-thread measurement, still unbuilt).
 
-### The real control
+### The real control — what INFRA-373 actually delivered, and what it is not
 
-**INFRA-373** — a UI-thread `useFrameCallback` probe accumulating in shared values, a
-flag-scoped HUD, and a device-only Maestro flow asserting the rendered number via
-`copyTextFrom` + `assertTrue`. Blocked on naming a calibration handset: there is no device
-inventory in this repo, and the only model named anywhere (`ACCESSIBILITY_TESTING_GUIDE.md:326`,
-iPhone 13 Pro) is a bug-report template example — and is a 120Hz ProMotion device, so neither
-mid-tier nor 60Hz.
+**It is a manual instrument, not a gate. Read that literally.** There is no automated assertion on
+frame delivery and there cannot currently be one, so `CLAUDE.md`'s Performance Budgets table must
+keep saying the 60fps budget is *measured by hand*, never *enforced*. That table already carries a
+correction (MAINT-307) for claiming Maestro enforced budgets it does not assert; describing this
+probe as a control would recreate that defect one layer up.
+
+**Built and verified (INFRA-373, 2026-09-07):**
+
+- `BreathingFrameProbe` — a `useFrameCallback` sibling on `PracticeTimerScreen`. Its callback makes
+  **no** JS hop at all: it folds intervals into shared state, and a JS-side timer closes the window,
+  stops the callback and reads the state. It therefore sits inside
+  `check-breathing-worklet-purity.js`'s guarded set with no rule change and no skip directive.
+- `perf/frameAccumulator.ts` — the statistics, pure and `'worklet'`-annotated, with 14 unit tests
+  (synthetic 120/60Hz streams, injected hitches, null first frame, background gaps, degenerate
+  input). The device-independent half is provable on CI.
+- `EXPO_PUBLIC_PERF_HUD`, defaulting to `'false'` and enabled in **no** committed configuration, so
+  a build that never sets it cannot render the HUD by omission. Pinned by
+  `__tests__/safety/perfHudGate.config.test.ts`.
+
+**Calibration evidence — iPhone 16e, iOS 26.6, 60Hz, Release build, 10s window, 2026-09-07:**
+
+| frames | nominal | min | max | dropped | ratio | gaps | nullFirst |
+|---|---|---|---|---|---|---|---|
+| 599 | 16.66 | 16.42 | 16.67 | 0 | 0.00000 | 0 | true |
+
+`frames 599` is the correctness signal rather than an approximation: 600 frames delivered at 60Hz
+over 10s, the first carrying a null interval, leaves exactly 599 counted intervals. `max ≈ nominal`
+means not one frame in 599 took two frame-intervals. On this evidence the 60fps budget is not being
+violated — which is consistent with the item's Urgency 1, and is a *reading*, not a guarantee: it is
+one screen, one device, one window, with `practice_haptics` in whatever state that build carried.
+
+**Two device-verified constraints, both counter-intuitive, both easy to reintroduce:**
+
+1. **Never clock the measurement window off `timeSinceFirstFrame`.** It is `timestamp - startTime`
+   where `startTime` is per-**registration**, and Reanimated re-registers whenever the callback's
+   identity changes. `PracticeTimerScreen` re-renders 1x/sec (`useTimerPractice` sets state on each
+   whole-second `onTick`), so an unmemoized probe had its clock reset every second: 708 frames
+   counted, window never closed, and the symptom was indistinguishable from "the hook never ticks".
+   Sum elapsed from `timeSincePreviousFrame` instead.
+2. **The `React.memo` on the probe is load-bearing, not an optimisation.** Without it the probe is
+   reset by the very JS-thread cascade it exists to observe.
+
+**What is NOT available, and why it is not a matter of waiting.** The design called for a device-only
+Maestro flow asserting the rendered number via `copyTextFrom` + `assertTrue`.
+`.maestro/breathing-fps-budget.yaml` is written and tagged `perf-device-only`, but **it has never
+executed in either direction** and cannot: DEBUG-589 measured that no Maestro version in 2.0.0–2.10.0
+can run a flow on a physical iPhone. It inherits `e2e-safety.sh`'s `DEVICE_PATH_UNAVAILABLE` refusal
+(exit 5) via the device-only tag union, so it cannot report a false green while dormant. Automating
+this measurement is blocked on DEBUG-589, not on hardware.
+
+**The manual procedure, until then.** Build Release to a connected iPhone with the HUD enabled —
+`EXPO_PUBLIC_PERF_HUD=true xcodebuild -workspace ios/Being.xcworkspace -scheme Being -configuration
+Release -destination "id=<udid>" -allowProvisioningUpdates build`, then
+`xcrun devicectl device install app` / `process launch`. Note `expo run:ios --device` does **not**
+work: it omits `-allowProvisioningUpdates` and fails to sign. Open
+`being://practice/<id>?duration=60&title=Frame+Probe` (`visualMode` is not a link parameter and
+defaults to `breathing`, so the circle and probe mount), wait ~15s, and read the eight lines.
+Record the result in the table above rather than in a commit message.
+
+**Still owed before any threshold is set:** the two control runs — `practice_haptics` off vs on, to
+isolate the JS-thread cue chain, and `BreathingCircle`'s reduce-motion static-glow branch, to
+quantify the probe's own per-frame cost. Until both exist, the numbers above describe the screen,
+not a budget anyone should assert against.
 
 ---
 
