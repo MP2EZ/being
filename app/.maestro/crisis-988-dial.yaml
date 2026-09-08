@@ -6,15 +6,6 @@ name: "988 dial does not surface 'Unable to Call' fallback (device-only)"
 # INFRA-486 — safety-device-only: runs on real hardware to prove canOpenURL(tel:) does not fall
 # back. The axis is the OS URL handler, not the viewport.
 ---
-# ⛔ CURRENTLY UNRUNNABLE (DEBUG-589, 2026-09-07). maestro 2.6.0 cannot build its
-# XCUITest driver for a connected iPhone — its own extracted project is missing
-# MaestroDriverLib/Info.plist — so this flow fails in ~8s with NO_REPORT before any
-# step executes. That is a TOOLCHAIN failure, not a dial-path regression. The config
-# half of this contract is still pinned and CI-gated by
-# __tests__/safety/lsApplicationQueriesSchemes.config.test.ts; what is unverified is
-# the runtime behaviour on real hardware. Do not read a red here as a defect until
-# DEBUG-589 is resolved.
-#
 # DEVICE-ONLY (INFRA-184). Cannot pass on iOS simulator: the sim's
 # Linking.canOpenURL('tel:988') returns false unconditionally because the
 # simulator has no phone app — independent of LSApplicationQueriesSchemes.
