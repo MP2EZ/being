@@ -188,23 +188,67 @@ const THIRD_PARTY_PRESENTERS = [
  */
 const PRESENTER_ALLOWLIST = {
   'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync':
-    'INFRA-571 — REASONED FROM THE PRESENTATION MECHANISM, NOT MEASURED. Unlike the ' +
-    "DEBUG-533 entry above, no device capture backs this: expo-sharing presents a " +
-    'native UIActivityViewController above the RN root view by the same mechanism ' +
-    'the header documents for RN <Modal>, so the 988 affordance is off screen for ' +
-    'the sheet’s duration. Measuring it is tracked as follow-up work and this ' +
-    'entry must be revised, not merely re-approved, once that lands (DEBUG-577). '+
+    'INFRA-571, MEASURED ON SIMULATOR by DEBUG-577 — DEBT REGISTER ENTRY, NOT AN ' +
+    'EXCEPTION GRANTED. INFRA-571 registered this reasoning from the presentation ' +
+    'mechanism; DEBUG-577 measured it and the inferred reading UNDERSTATED it. ' +
+    'Provenance: 2026-09-07, Release build (launcher-free, tel/sms intact) of a tree ' +
+    'byte-identical to origin/development on every file on the measured path, ' +
+    'iPhone SE 3rd gen / iOS 18.6, 375x667. ' +
+    'WHAT WAS MEASURED, in two separable parts, because they can disagree and that ' +
+    'is the point. (1) PRESENCE: with the sheet up `maestro hierarchy` carried ZERO ' +
+    '`crisis-button-root` nodes — and zero app-owned nodes of ANY kind. Not a covered ' +
+    'FAB; an absent app tree. What remained was a full-bleed `PopoverDismissRegion` ' +
+    '[-375,-667][750,1334] and the sheet’s own `ShareSheet.RemoteContainerView`, which ' +
+    'is REMOTE — hosted out of process — and is the structural reason no app-side ' +
+    'change reaches above it. (2) HIT-TESTABILITY, which is the finding: presence was ' +
+    'NOT the evidence, because a hierarchy lists views another window covers and so ' +
+    'discriminates nothing here. A matched-pair coordinate tap at screen point ' +
+    '98%,82% — inside the FAB’s measured bounds [331,523][375,567] — reached ' +
+    '`CrisisResources` with the sheet DOWN and did not reach it with the sheet UP, on ' +
+    'the same route, the same point, the same run. That pair is also the falsification ' +
+    'demonstration: the probe is shown capable of going green, so its red adjudicates. ' +
+    'The sheet was proven up by screenshot at probe time, and the app proven alive ' +
+    'afterwards by dismissing it and re-asserting the screen and the FAB. ' +
+    'RULING: the exception STANDS and does not convert. UIActivityViewController is ' +
+    'OS-owned and out-of-process, so no RN element, zIndex or z-order change reaches ' +
+    'above it — the same structural conclusion DEBUG-533 reached for Sentry’s feedback ' +
+    'widget (whose entry FEAT-570 deleted along with the call it examined, so do not go ' +
+    'looking for it above) and the same ' +
+    'reasoning that earned NotificationTimePicker’s Android dialog its DEBUG-406 ' +
+    'carve-out. What makes it acceptable is that the window is user-initiated, ' +
+    'self-terminating, and on a route the user chose for a data-portability action — ' +
+    'NOT that it is short: it is bounded only by the user dismissing the sheet. ' +
+    'WHAT THIS DOES NOT PROVE: one point in the FAB’s band, one device, one viewport, ' +
+    'one orientation. It says nothing about iPad’s popover presentation, nothing about ' +
+    'dwell, and nothing about what the user can do during the window. SCOPE: iOS only. ' +
+    'Android’s share sheet is a different presenter and is UNMEASURED — there is no ' +
+    'Android e2e harness. This entry says nothing about the IAPService entry below. ' +
     'Reachability is ' +
     'the reason it is registered rather than deferred: Profile → Privacy & Data ' +
     '→ Export, `ExportData` is NOT in `RootCrisisButton.SUPPRESSED_ROUTES`, and this ' +
     "file's own header records the JSON export path as ALWAYS ON, never flag-gated " +
-    '— strictly more reachable than the Sentry widget, whose exposure is bounded by ' +
-    '`bug_reporting` being off in the public build. WHEN THAT CALL IS REMOVED, ' +
+    '— which is why INFRA-571 registered it rather than deferring it, and it stands on ' +
+    'those facts alone. (INFRA-571 argued it by comparison to the Sentry widget, bounded ' +
+    'by `bug_reporting` being dark; FEAT-570 has since removed that widget, so the ' +
+    'comparison is history and the reachability claim no longer rests on it.) ' +
+    'WHEN THAT CALL IS REMOVED, ' +
     'DELETE this entry in the same commit.',
 
   'src/core/services/subscription/IAPService.ts::RNIap.requestPurchase':
-    'INFRA-571 — REASONED FROM THE PRESENTATION MECHANISM, NOT MEASURED, on the same ' +
-    'basis as the expo-sharing entry above; measuring it is tracked as DEBUG-577. ' +
+    'INFRA-571 — REASONED FROM THE PRESENTATION MECHANISM, NOT MEASURED. DEBUG-577 ' +
+    'ATTEMPTED the measurement and was BLOCKED; it did not decline to try, and the ' +
+    'blockers are structural rather than scheduling, so record them here instead of ' +
+    'making the next reader re-derive them. (a) `mockMode = __DEV__` at IAPService.ts:153 ' +
+    'means the mock branch returns a synthetic purchase and this call is UNREACHABLE in ' +
+    'any Debug build. (b) No `.storekit` configuration exists anywhere in the tree, so ' +
+    'simulator StoreKit resolves no products and the call throws instead of presenting; ' +
+    'a device measurement additionally needs a sandbox Apple ID and live products in App ' +
+    'Store Connect. (c) Android is separately blocked and further out: Play Billing is a ' +
+    'DIFFERENT presenter from StoreKit, needs a Play-signed build on an internal track ' +
+    'plus a licence tester, and there is no Android e2e harness at all. Discharging this ' +
+    'needs (a)+(b) for iOS and all of (c) again for Android. It borrows NO credibility ' +
+    'from the measured expo-sharing entry above: being an OS sheet is a shared mechanism, ' +
+    'not shared evidence. ' +
     'StoreKit (iOS) and Play Billing (Android) present the purchase sheet as a ' +
     'system surface above the JS hierarchy, with unbounded dwell while the user ' +
     'reads terms or authenticates, and the module imports nothing of ours. Reached ' +

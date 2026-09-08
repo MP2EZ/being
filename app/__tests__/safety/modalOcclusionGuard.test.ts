@@ -304,24 +304,50 @@ describe('INFRA-571 · third-party full-screen presenter call sites', () => {
       }
     });
 
-    it('marks every REMAINING ruling as NOT MEASURED', () => {
-      // Both survivors are reasoned from the presentation mechanism only.
+    it('keeps measured and inferred rulings on opposite sides of the line', () => {
       // Recording an unmeasured ruling as though measured is the failure
       // DEBUG-533's own "MEASURED, NOT INFERRED" section was written to stop.
       //
-      // FEAT-570 NOTE: the one measured ruling in this list was DEBUG-533's, and
-      // it left with the call it examined. So every entry here is now inferred —
-      // which is a weaker allowlist than the one this test used to describe, and
-      // is worth knowing when reading its green. Measuring the two survivors is
-      // tracked as DEBUG-577.
-      const inferred = [
+      // THIS ASSERTION USED TO BE VACUOUS ON THE HALF THAT MATTERS (DEBUG-577).
+      // It pinned the measured entry with `toMatch(/MEASURED/)` — and /MEASURED/
+      // is a substring of "NOT MEASURED", so the one check standing between a
+      // ruling and a false claim of evidence passed on prose asserting the exact
+      // opposite. A measured entry must therefore match the POSITIVE form and be
+      // asserted NOT to carry the negation.
+      //
+      // FEAT-570 + DEBUG-577 SWAPPED WHICH ENTRY IS THE MEASURED ONE. FEAT-570
+      // removed DEBUG-533's entry with the call it examined, briefly leaving the
+      // allowlist wholly inferred; DEBUG-577 then measured the share sheet. So the
+      // partition below is not the historical one, and the count on each side is
+      // not what makes it correct — the prose matching its own evidence is.
+      const measured = [
         'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync',
-        'src/core/services/subscription/IAPService.ts::RNIap.requestPurchase',
       ];
-      expect(Object.keys(PRESENTER_ALLOWLIST).sort()).toEqual([...inferred].sort());
+      for (const key of measured) {
+        expect(PRESENTER_ALLOWLIST[key]).toMatch(/MEASURED ON (DEVICE|SIMULATOR)/);
+        expect(PRESENTER_ALLOWLIST[key]).not.toMatch(/NOT MEASURED/);
+      }
+
+      // IAPService remains reasoned from the presentation mechanism: DEBUG-577
+      // attempted it and was blocked (mockMode = __DEV__, no .storekit config, no
+      // Android harness). Blocked is not measured.
+      const inferred = ['src/core/services/subscription/IAPService.ts::RNIap.requestPurchase'];
       for (const key of inferred) {
         expect(PRESENTER_ALLOWLIST[key]).toMatch(/NOT MEASURED/);
       }
+
+      // Every entry is on exactly one side. Without this the two loops above stay
+      // green over an entry that is on NEITHER list — which is what a third,
+      // unclassified ruling would be.
+      expect([...measured, ...inferred].sort()).toEqual(Object.keys(PRESENTER_ALLOWLIST).sort());
+
+      // Proof the matcher can still fire — the pair above is only worth its cost
+      // if the old vacuous form is demonstrably rejected by the new one. Both are
+      // literals, not entries, so they survive any future allowlist churn.
+      expect('REASONED FROM THE MECHANISM, NOT MEASURED').not.toMatch(
+        /MEASURED ON (DEVICE|SIMULATOR)/,
+      );
+      expect('MEASURED ON DEVICE by DEBUG-533').toMatch(/MEASURED ON (DEVICE|SIMULATOR)/);
     });
 
     it('documents the denylist as non-exhaustive rather than as the set', () => {
