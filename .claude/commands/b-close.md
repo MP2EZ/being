@@ -1765,6 +1765,9 @@ fi
 this branch also edits, re-read your section in the merged file before pushing: git
 resolves markdown by line proximity, so an addition anchored to what was the last
 paragraph can land mid-section and orphan what follows. No conflict is reported.
+Same class, different symptom: if the merge DELETED a sibling your prose cites, the
+citation survives the merge cleanly and no test can see it — so re-read your own
+cross-references, not only your placement.
 
 **It can also merge two correct changes into a red suite.** When an incoming test
 encodes a premise this branch removes, fix the incoming FIXTURE — never loosen this
