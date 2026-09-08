@@ -8,7 +8,7 @@ Being is a wellness app touching at-risk users. These user-visible safety contra
 2. PHQ-9 score ≥20 completion shows a crisis-tier results banner.
 3. GAD-7 score ≥15 completion shows a crisis-tier results banner.
 4. Crisis button reaches `CrisisResources` from each tab (Home/Learn/Insights/Profile).
-5. 988 dial does not surface the "Unable to Call" fallback alert (pins `LSApplicationQueriesSchemes`). *Primary pin is now the jest static-config test at `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`; the Maestro flow is device-only supplementary verification — see INFRA-184.*
+5. 988 dial does not surface the "Unable to Call" fallback alert (pins `LSApplicationQueriesSchemes`). *Primary pin is now the jest static-config test at `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`; the Maestro flow is device-only supplementary verification — see INFRA-184. **That flow CANNOT RUN as of 2026-09-07 (DEBUG-589); the runtime half of this contract is unverified.***
 6. A voice-journal entry containing crisis language surfaces support, and a clean entry does not (FEAT-283 slice A).
 7. A cold-start `being://daily` deep link mounts an immersive practice screen with the crisis overlay present and an escape available (FEAT-298 slice 4).
 8. The DailyLoop **quick**-depth arc keeps the crisis affordance reachable despite omitting Radical Acceptance, deep's inline support-line carrier (FEAT-301).
@@ -33,7 +33,7 @@ flow cannot be validly run on the suite's target:
 | Tag | Excluded because | Run it with |
 |---|---|---|
 | `safety` | — (this is the suite) | `npm run e2e:safety` |
-| `safety-device-only` | sim `canOpenURL` is unconditionally false; sim raises no software keyboard | `e2e:safety:988-dial`, `e2e:safety:keyboard-accessory` — real iPhone |
+| `safety-device-only` | sim `canOpenURL` is unconditionally false; sim raises no software keyboard | ⛔ **CANNOT RUN — see below.** `e2e:safety:988-dial`, `e2e:safety:keyboard-accessory` refuse with exit 5 |
 | `safety-dynamic-type` | content size is device-global; a bare run poisons the shared sim | `e2e:safety:ax5`, `e2e:safety:xxxl` |
 | `safety-bottom-inset` | needs a non-zero bottom safe-area inset; the collision it adjudicates cannot occur at 375x667 at any clearance value | `npm run e2e:safety:reconsent-ineligible-fab` — booted 393x852 |
 
@@ -42,6 +42,65 @@ Every class but the first two must declare `# e2e-certifies:` — pinned by
 name so a fourth class fails closed into the requirement. The two are exempt because their
 certifying target is *unexpressible* by that key, not unstated: device-only runs on
 whatever iPhone is plugged in, and dynamic-type's axis is text size.
+
+### ⛔ Do not author a new `safety-device-only` flow (DEBUG-589, 2026-09-07)
+
+**The device half of the Maestro safety gate is UNAVAILABLE. No Maestro version can execute
+any flow on a physical iPhone.** A flow you tag `safety-device-only` today will never run.
+`e2e-safety.sh` refuses the device path up front with **exit 5** (`DEVICE_PATH_UNAVAILABLE`)
+rather than letting maestro die ~8s in with no JUnit report — a no-report death is
+indistinguishable at a glance from a flow regression, which is the worst failure shape a
+gate can have.
+
+Measured 2026-09-07 on iPhone 16e / iOS 26.6 / Xcode 26.0.1 / team KN6FDLG98K, across
+2.0.0, 2.1.0, 2.2.0, 2.4.0, 2.5.1, 2.6.0, 2.6.1, 2.7.0, 2.8.0, 2.9.0, 2.10.0 — two failure
+modes, no survivor:
+
+| Versions | What happens |
+|---|---|
+| **≥ 2.2.0** (incl. 2.10.0, current latest) | The shipped driver Xcode project declares a `MaestroDriverLib` framework target — 47 `project.pbxproj` references, `INFOPLIST_FILE = MaestroDriverLib/Info.plist`, a source at `Sources/MaestroDriverLib/` — and the entire `MaestroDriverLib/` directory is shipped in **zero** releases, while five UITests sources `import MaestroDriverLib`. Build dies in ~8s: `error: Build input file cannot be found: .../MaestroDriverLib/Info.plist`. **Upgrading cannot fix this.** |
+| **≤ 2.1.0** | Predates that target. Driver **builds** and the runner **installs**, but the XCUITest runner never becomes ready within a 300s `MAESTRO_DRIVER_STARTUP_TIMEOUT`. |
+
+**The hardware is not the problem.** This is *not* the sleeping-tunnel case documented in
+`.claude/CLAUDE.md`. The iPhone is wired, paired, Developer-Mode enabled and tunnel
+connected, and the runner Maestro installs launches by hand via
+`xcrun devicectl device process launch`. Maestro's own driver is the failure. Do not send
+anyone to check cables or Settings.
+
+Simulator flows are entirely unaffected: a simulator run uses a **prebuilt** driver from
+`maestro-ios-driver.jar` and never compiles. That asymmetry is the whole reason the 14
+sim-runnable safety flows are green while both device flows cannot start. **Nothing here is
+an argument to loosen Phase 2.5, the `--skip-e2e` policy, or the 14-flow tripwire.**
+
+**If your contract needs a device**, it cannot be automated today. Either express it on the
+simulator, or take it to the attended device checklist (INFRA-591). Do not tag a flow
+`safety-device-only` and assume it runs — it will not, and the tag makes the gap invisible.
+
+**Exit condition**: a Maestro release shipping `MaestroDriverLib/`, or an upstream fix to
+the runner handshake on iOS ≥ 26. To re-test once one ships:
+
+```bash
+E2E_FORCE_DEVICE_ATTEMPT=1 bash scripts/e2e-safety.sh crisis-988-dial
+```
+
+Then remove the notices in both flow headers and
+`app/__tests__/safety/deviceOnlyFlowsUnavailable.test.ts`, which pins that the record stays
+present, bounded, and still true.
+
+### The Maestro version is pinned (DEBUG-589)
+
+`app/package.json` → `maestro.pinnedVersion` (**2.6.0**) is the version every safety flow is
+certified against, and `e2e-safety.sh` refuses to run on any other (exit 2). Before this
+there was no version check anywhere in the repo — `brew upgrade` moved the toolchain with no
+diff, no reviewer and no failing check, so the gate silently re-baselined itself and the
+next red was unattributable.
+
+Moving the pin means **re-certifying every safety flow on the new version in the same
+commit**. To trial one first:
+
+```bash
+E2E_ALLOW_MAESTRO_VERSION_DRIFT=1 npm run e2e:safety   # NOT merge evidence
+```
 
 **`/b-close` never SCOPES an out-of-suite flow — it emits a notice.** Scoping one alongside
 a suite flow makes the close unsatisfiable: `e2e_resolve_sim_device` pins exactly one
@@ -431,7 +490,7 @@ npm run e2e:safety:crisis-button   # crisis button reaches CrisisResources from 
 # see the E2E_SIM_UDID note above, which tells you to export that one for a whole
 # session; if the device resolver read it, that simulator UDID would refuse a
 # correctly-attached iPhone.
-npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" fallback (device-only)
+npm run e2e:safety:988-dial        # ⛔ REFUSES with exit 5 — device path unavailable (DEBUG-589)
 
 # Two device-only + simulator flows in ONE invocation is REFUSED, not resolved — the
 # two families need different hardware, and picking either one mislabels the result.

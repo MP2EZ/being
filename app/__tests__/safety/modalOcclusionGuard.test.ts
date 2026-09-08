@@ -229,15 +229,23 @@ describe('INFRA-571 · third-party full-screen presenter call sites', () => {
       // The DEBUG-390 failure mode is comment-stripping plus a narrow regex
       // producing a guard that can never fire. Assert the input the matcher
       // actually sees is still real code, not blanks.
+      //
+      // FEAT-570 REPOINTED THIS FIXTURE. It used to read ExternalErrorReporter.ts
+      // and assert `showFeedbackWidget(` survived stripping. That file no longer
+      // CALLS the presenter — FEAT-570 deleted the call, and every surviving
+      // mention of the name is prose explaining why it must not come back. So the
+      // stripped source correctly contains none, and the old assertion would have
+      // forced the call to be re-added to keep a test green. Repointed at a file
+      // that still carries a real, allowlisted presenter call.
       const fs = require('fs');
       const path = require('path');
       const abs = path.join(
         __dirname,
-        '../../src/core/services/logging/ExternalErrorReporter.ts',
+        '../../src/features/profile/screens/ExportDataScreen.tsx',
       );
       const stripped = stripComments(fs.readFileSync(abs, 'utf8'));
       expect(stripped.replace(/\s/g, '').length).toBeGreaterThan(5000);
-      expect(stripped).toMatch(/showFeedbackWidget\s*\(/);
+      expect(stripped).toMatch(/Sharing\s*\.\s*shareAsync\s*\(/);
     });
   });
 
@@ -266,8 +274,13 @@ describe('INFRA-571 · third-party full-screen presenter call sites', () => {
     });
 
     it('allowlists ONLY the presenter call sites with a recorded ruling', () => {
+      // FEAT-570 removed the DEBUG-533 entry. That deletion is the load-bearing
+      // artifact of the item, not bookkeeping: `Sentry.wrap` mounts
+      // FeedbackWidgetProvider unconditionally and dropping `feedbackIntegration`
+      // removes no occluder, so once the call site is gone the ONLY thing keeping
+      // this path closed is rule 4 refusing any new call. With no entry, a
+      // reintroduced `showFeedbackWidget` anywhere under app/src hard-fails.
       expect(Object.keys(PRESENTER_ALLOWLIST).sort()).toEqual([
-        'src/core/services/logging/ExternalErrorReporter.ts::showFeedbackWidget',
         'src/core/services/subscription/IAPService.ts::RNIap.requestPurchase',
         'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync',
       ]);
@@ -291,22 +304,24 @@ describe('INFRA-571 · third-party full-screen presenter call sites', () => {
       }
     });
 
-    it('marks the two inferred rulings as NOT MEASURED', () => {
-      // DEBUG-533's Sentry finding was measured on device (zero
-      // `crisis-button-root` nodes in the hierarchy). These two are reasoned
-      // from the presentation mechanism only. Recording an unmeasured ruling
-      // as though measured is the failure DEBUG-533's own "MEASURED, NOT
-      // INFERRED" section was written to stop.
+    it('marks every REMAINING ruling as NOT MEASURED', () => {
+      // Both survivors are reasoned from the presentation mechanism only.
+      // Recording an unmeasured ruling as though measured is the failure
+      // DEBUG-533's own "MEASURED, NOT INFERRED" section was written to stop.
+      //
+      // FEAT-570 NOTE: the one measured ruling in this list was DEBUG-533's, and
+      // it left with the call it examined. So every entry here is now inferred —
+      // which is a weaker allowlist than the one this test used to describe, and
+      // is worth knowing when reading its green. Measuring the two survivors is
+      // tracked as DEBUG-577.
       const inferred = [
         'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync',
         'src/core/services/subscription/IAPService.ts::RNIap.requestPurchase',
       ];
+      expect(Object.keys(PRESENTER_ALLOWLIST).sort()).toEqual([...inferred].sort());
       for (const key of inferred) {
         expect(PRESENTER_ALLOWLIST[key]).toMatch(/NOT MEASURED/);
       }
-      expect(
-        PRESENTER_ALLOWLIST['src/core/services/logging/ExternalErrorReporter.ts::showFeedbackWidget'],
-      ).toMatch(/MEASURED/);
     });
 
     it('documents the denylist as non-exhaustive rather than as the set', () => {

@@ -111,6 +111,57 @@ MAESTRO_DIR=".maestro"
 
 BUNDLE_ID="fyi.being.app"
 
+# --- Maestro version pin (DEBUG-589) -----------------------------------------------------
+# The gate's whole value is that a red flow means a REGRESSION rather than a toolchain
+# difference, and nothing in this repo used to read `maestro --version` at all. `brew
+# upgrade` moves it with no diff, no reviewer and no failing check, so an unpinned gate
+# silently re-baselines itself: the next red is unattributable and the next green vouches
+# for a toolchain nobody certified.
+#
+# Placed here, before flow selection, because it is the cheapest possible refusal and it
+# applies to every invocation — the scoped per-flow scripts included. Exit 2, not 1: a
+# version mismatch means no trustworthy VERDICT can exist, which is the harness arm of the
+# exit alphabet, not the flow arm.
+#
+# E2E_ALLOW_MAESTRO_VERSION_DRIFT=1 downgrades the refusal to a banner. It exists for the
+# deliberate act of TRIALLING a new version — which is what re-certification requires —
+# and never for getting past a surprise. A run under it is not merge evidence.
+# Resolved relative to THIS SCRIPT, not the cwd. The gate is always invoked from app/, but
+# a cwd-relative read silently returns empty anywhere else — and an empty read is a refusal,
+# so it would pre-empt every other pre-flight arm with the wrong message.
+MAESTRO_PKG_JSON="$(cd "$(dirname "$0")/.." && pwd)/package.json"
+MAESTRO_PINNED_VERSION="$(node -e 'process.stdout.write(String(require(process.argv[1]).maestro?.pinnedVersion || ""))' "$MAESTRO_PKG_JSON" 2>/dev/null || true)"
+if [ -z "$MAESTRO_PINNED_VERSION" ]; then
+  echo "❌ app/package.json declares no maestro.pinnedVersion — the gate cannot say which" >&2
+  echo "   toolchain it certified. Restore the key rather than removing this check." >&2
+  exit 2
+fi
+# `maestro --version` writes JVM warnings to stderr and the bare semver to stdout; take the
+# last line that IS a semver so a future banner cannot be mistaken for a version.
+MAESTRO_INSTALLED_VERSION="$(maestro --version 2>/dev/null | tr -d '\r' | grep -oE '^[0-9]+\.[0-9]+\.[0-9]+$' | tail -1 || true)"
+if [ -z "$MAESTRO_INSTALLED_VERSION" ]; then
+  echo "❌ could not read \`maestro --version\`. Is maestro installed?" >&2
+  echo "   brew install mobile-dev-inc/tap/maestro   # NOT \`brew install maestro\`" >&2
+  exit 2
+fi
+if [ "$MAESTRO_INSTALLED_VERSION" != "$MAESTRO_PINNED_VERSION" ]; then
+  if [ "${E2E_ALLOW_MAESTRO_VERSION_DRIFT:-}" = "1" ]; then
+    echo "⚠️  MAESTRO_VERSION_MISMATCH — pinned $MAESTRO_PINNED_VERSION, running $MAESTRO_INSTALLED_VERSION." >&2
+    echo "   Proceeding because E2E_ALLOW_MAESTRO_VERSION_DRIFT=1. NOT MERGE EVIDENCE:" >&2
+    echo "   every flow below is being certified against an uncertified toolchain." >&2
+  else
+    echo "❌ MAESTRO_VERSION_MISMATCH — pinned $MAESTRO_PINNED_VERSION, installed $MAESTRO_INSTALLED_VERSION." >&2
+    echo "   A version change shifts behaviour across every flow at once, so this run could" >&2
+    echo "   not tell a regression from a toolchain difference. Either install the pin:" >&2
+    echo "     https://github.com/mobile-dev-inc/maestro/releases/download/cli-$MAESTRO_PINNED_VERSION/maestro.zip" >&2
+    echo "   (the brew tap carries only the latest, so an exact pin comes from the release zip)" >&2
+    echo "   or re-certify all safety flows on $MAESTRO_INSTALLED_VERSION and move the pin in" >&2
+    echo "   app/package.json in the SAME commit. To trial it first:" >&2
+    echo "     E2E_ALLOW_MAESTRO_VERSION_DRIFT=1 npm run e2e:safety" >&2
+    exit 2
+  fi
+fi
+
 # --- Flow selection: explicit args, else the tagged suite -------------------------------
 # Deliberately BEFORE the pre-flight: which flows were asked for decides whether a booted
 # simulator is even relevant. Checking the sim first would break the device-only flow.
@@ -230,6 +281,42 @@ if [ "$DEVICE_ONLY" != "1" ] && [ "$DEVICE_ONLY_COUNT" -gt 0 ]; then
   # selection — before any flow starts — so `ran` is 0 by construction. Recorded explicitly
   # because a reader comparing the two commits would otherwise read it as drift.
   exit 2
+fi
+
+# --- Device path unavailable (DEBUG-589) -------------------------------------------------
+# Refuse a device-only run BEFORE invoking maestro, with a code of its own.
+#
+# Left alone, `npm run e2e:safety:988-dial` dies in ~8s inside maestro's driver build,
+# writing NO JUnit report — and a no-report death is indistinguishable at a glance from a
+# dial-path REGRESSION. That is the worst possible failure shape for a safety gate and it
+# is the hazard DEBUG-589 exists to remove, so leaving it in place would be failing the
+# item while claiming it. The operator must be told the toolchain is broken, not left to
+# infer that the 988 dial path regressed.
+#
+# Exit 5 — its own letter, deliberately. Not 1 (no flow ran, so no flow verdict exists),
+# not 2 (the harness is fine; it is refusing on a known-dead dependency rather than
+# failing to complete), and not 4, which belongs to e2e-gate.sh (INFRA-472).
+#
+# Measured 2026-09-07 across Maestro 2.0.0..2.10.0 on iPhone 16e / iOS 26.6 / Xcode 26.0.1.
+# Full root cause lives in .maestro/crisis-988-dial.yaml; the marker asserted by
+# __tests__/safety/deviceOnlyFlowsUnavailable.test.ts is what keeps this and that in step.
+#
+# E2E_FORCE_DEVICE_ATTEMPT=1 re-attempts anyway. It exists for RE-TESTING the exit
+# condition — the whole point is that someone must be able to find out the day a fixed
+# Maestro ships — and never for getting a verdict out of a run that cannot produce one.
+if [ "$DEVICE_ONLY" = "1" ] && [ "${E2E_FORCE_DEVICE_ATTEMPT:-}" != "1" ]; then
+  echo "⛔ DEVICE_PATH_UNAVAILABLE — no Maestro version can execute a flow on a physical" >&2
+  echo "   iPhone. Measured 2026-09-07 across 2.0.0..2.10.0 (2.10.0 is current latest):" >&2
+  echo "     >= 2.2.0  driver build dies — MaestroDriverLib/ is shipped in zero releases" >&2
+  echo "     <= 2.1.0  driver builds, XCUITest runner never becomes ready on iOS >= 26" >&2
+  echo "   THE HARDWARE IS NOT THE PROBLEM. This is not a missing or sleeping device;" >&2
+  echo "   Maestro's own driver is the failure. Do not go looking at cables or Settings." >&2
+  echo "   THIS IS NOT A FLOW REGRESSION and must not be read as one." >&2
+  echo "   What this leaves unverified is recorded in the flow header:" >&2
+  for f in "${FLOWS[@]}"; do echo "     $f" >&2; done
+  echo "   To re-test the exit condition once a fixed Maestro ships:" >&2
+  echo "     E2E_FORCE_DEVICE_ATTEMPT=1 bash scripts/e2e-safety.sh $(basename "${FLOWS[0]}" .yaml)" >&2
+  exit 5
 fi
 
 # INFRA-383 — artifact-shape pre-flight, once, before any flow runs (<1s).

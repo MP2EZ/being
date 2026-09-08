@@ -187,25 +187,6 @@ const THIRD_PARTY_PRESENTERS = [
  * symbol is part of the key.
  */
 const PRESENTER_ALLOWLIST = {
-  'src/core/services/logging/ExternalErrorReporter.ts::showFeedbackWidget':
-    'DEBUG-533 — DEBT REGISTER ENTRY, NOT AN EXCEPTION GRANTED. The `crisis` pass ' +
-    'ruled this a DEBUG-406 conversion site that fails all three legs of the ' +
-    'NotificationTimePicker exception. MEASURED ON DEVICE, not inferred: with the ' +
-    'widget open the hierarchy carried zero `crisis-button-root` nodes. The occluder ' +
-    'is not the RN <Modal> — `Sentry.wrap(App)` mounts `FeedbackWidgetProvider` above ' +
-    '`GestureHandlerRootView`, which emits our whole app as children and THEN, as a ' +
-    'later sibling, an inset-0 `Animated.View` animating to rgba(0,0,0,0.9). ' +
-    "`RootCrisisButton`'s zIndex 9999 cannot reach past it, because zIndex orders " +
-    "siblings and that backdrop is a later sibling of the button's ANCESTOR. So no " +
-    'RN-level or z-order change recovers this surface; only not rendering Sentry’s ' +
-    'component can. The remedy is tracked separately (a first-party form in ' +
-    '`rootOverlaySlot`, submitting via `Sentry.captureFeedback()`), and note that ' +
-    'dropping `feedbackIntegration` alone does NOT disarm this path: `Sentry.wrap` ' +
-    'mounts the provider unconditionally and `showFeedbackWidget()` re-adds the ' +
-    'integration at call time, so removal without deleting the call merely strips ' +
-    "our showName/showEmail:false. Full ruling in prose at `showFeedbackForm()`. " +
-    'WHEN THAT CALL IS REMOVED, DELETE this entry in the same commit.',
-
   'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync':
     'INFRA-571 — REASONED FROM THE PRESENTATION MECHANISM, NOT MEASURED. Unlike the ' +
     "DEBUG-533 entry above, no device capture backs this: expo-sharing presents a " +
