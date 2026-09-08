@@ -1,0 +1,67 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Bug-report form is refused on the pre-consent gate, which keeps its own 988 footer"
+# e2e-certifies: 375x667
+# Same viewport and the same reason as deeplink-consent-gate, which asserts this screen's
+# pinned 988 footer: whether that footer is on screen is a function of height.
+---
+# FEAT-570 — the half of the contract the Profile entry point CANNOT reach.
+#
+# WHY THIS FLOW EXISTS. The bug-report form has two entry points, and only one is
+# drivable: Maestro 2.6.0 has no shake or device-motion command (every command
+# class in `maestro-orchestra-models.jar` was enumerated). It would be tempting to
+# argue that both entries converge on one store action and one overlay, so the
+# Profile flow covers both — that is DEBUG-403's reasoning-by-analogy, and it is
+# wrong here. Convergence covers the OVERLAY. It does not cover the ENTRY, and
+# what differs between the two entries is the only safety-relevant variable:
+# WHICH ROUTE IS ACTIVE when the form opens.
+#
+# The Profile card can only fire on a Profile tab under `Main` — non-suppressed,
+# FAB present, the one route where nothing interesting can happen. The shake is
+# armed at the app ROOT (`useBugReportShake()` is called inside `App()`, ABOVE
+# `NavigationContainer`), so it fires on `AssessmentFlow`, on `CrisisResources`,
+# and on the pre-consent `LegalGate` — routes where `RootCrisisButton` steps
+# aside and the SCREEN owns the only route to 988.
+#
+# WHAT THE MARKER REPRODUCES. `e2eOpen=bugreport` raises the form during
+# `maybeSeedE2EOnboardedState`, BEFORE the navigator mounts. That is not a
+# convenience shortcut — it is exactly the state a real shake produces, because
+# the gesture is armed while `CleanRootNavigator` is still rendering
+# `LoadingScreen`, so a claim can be standing before any route exists to check.
+# Paired with `e2eSeed=ungranted`, the first route that then resolves is
+# `LegalGate`, whose pinned footer is the ONLY crisis affordance a user has
+# before accepting anything.
+#
+# If the slot's refusal regressed to claim-time only, or was removed, the form
+# would paint its OPAQUE backdrop over that footer and `NavigatorA11yHost` would
+# prune the navigator subtree from the accessibility tree — a zero-988 state, for
+# sighted and assistive-technology users alike, reached without a single tap.
+#
+# ⚠️ NEVER add a submit step here. See the note in
+# `bug-report-crisis-reachability.yaml`: the gate build resolves a live
+# production Sentry DSN with no egress suppression on `captureFeedback`.
+- stopApp
+- clearState
+- clearKeychain
+- openLink: being://daily?e2eSeed=ungranted&e2eOpen=bugreport
+- extendedWaitUntil:
+    visible:
+      id: "legal-dob-picker"
+    timeout: 90000
+
+# THE ASSERTION THIS FLOW EXISTS FOR. The claim was standing before this route
+# resolved, and the slot refused it.
+- assertNotVisible:
+    id: "bug-report-overlay"
+
+# And the affordance it would have covered is present and tappable.
+- assertVisible:
+    id: "legal-gate-crisis-988"
+- assertVisible:
+    id: "legal-gate-crisis-text"
+
+# Anti-vacuity: prove we are actually on the pre-consent gate and did not simply
+# boot somewhere the overlay was never going to appear.
+- assertNotVisible:
+    id: "home-screen"

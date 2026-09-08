@@ -187,25 +187,6 @@ const THIRD_PARTY_PRESENTERS = [
  * symbol is part of the key.
  */
 const PRESENTER_ALLOWLIST = {
-  'src/core/services/logging/ExternalErrorReporter.ts::showFeedbackWidget':
-    'DEBUG-533 — DEBT REGISTER ENTRY, NOT AN EXCEPTION GRANTED. The `crisis` pass ' +
-    'ruled this a DEBUG-406 conversion site that fails all three legs of the ' +
-    'NotificationTimePicker exception. MEASURED ON DEVICE, not inferred: with the ' +
-    'widget open the hierarchy carried zero `crisis-button-root` nodes. The occluder ' +
-    'is not the RN <Modal> — `Sentry.wrap(App)` mounts `FeedbackWidgetProvider` above ' +
-    '`GestureHandlerRootView`, which emits our whole app as children and THEN, as a ' +
-    'later sibling, an inset-0 `Animated.View` animating to rgba(0,0,0,0.9). ' +
-    "`RootCrisisButton`'s zIndex 9999 cannot reach past it, because zIndex orders " +
-    "siblings and that backdrop is a later sibling of the button's ANCESTOR. So no " +
-    'RN-level or z-order change recovers this surface; only not rendering Sentry’s ' +
-    'component can. The remedy is tracked separately (a first-party form in ' +
-    '`rootOverlaySlot`, submitting via `Sentry.captureFeedback()`), and note that ' +
-    'dropping `feedbackIntegration` alone does NOT disarm this path: `Sentry.wrap` ' +
-    'mounts the provider unconditionally and `showFeedbackWidget()` re-adds the ' +
-    'integration at call time, so removal without deleting the call merely strips ' +
-    "our showName/showEmail:false. Full ruling in prose at `showFeedbackForm()`. " +
-    'WHEN THAT CALL IS REMOVED, DELETE this entry in the same commit.',
-
   'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync':
     'INFRA-571, MEASURED ON SIMULATOR by DEBUG-577 — DEBT REGISTER ENTRY, NOT AN ' +
     'EXCEPTION GRANTED. INFRA-571 registered this reasoning from the presentation ' +
@@ -230,7 +211,9 @@ const PRESENTER_ALLOWLIST = {
     'afterwards by dismissing it and re-asserting the screen and the FAB. ' +
     'RULING: the exception STANDS and does not convert. UIActivityViewController is ' +
     'OS-owned and out-of-process, so no RN element, zIndex or z-order change reaches ' +
-    'above it — the same structural conclusion as the DEBUG-533 entry and the same ' +
+    'above it — the same structural conclusion DEBUG-533 reached for Sentry’s feedback ' +
+    'widget (whose entry FEAT-570 deleted along with the call it examined, so do not go ' +
+    'looking for it above) and the same ' +
     'reasoning that earned NotificationTimePicker’s Android dialog its DEBUG-406 ' +
     'carve-out. What makes it acceptable is that the window is user-initiated, ' +
     'self-terminating, and on a route the user chose for a data-portability action — ' +
@@ -244,8 +227,11 @@ const PRESENTER_ALLOWLIST = {
     'the reason it is registered rather than deferred: Profile → Privacy & Data ' +
     '→ Export, `ExportData` is NOT in `RootCrisisButton.SUPPRESSED_ROUTES`, and this ' +
     "file's own header records the JSON export path as ALWAYS ON, never flag-gated " +
-    '— strictly more reachable than the Sentry widget, whose exposure is bounded by ' +
-    '`bug_reporting` being off in the public build. WHEN THAT CALL IS REMOVED, ' +
+    '— which is why INFRA-571 registered it rather than deferring it, and it stands on ' +
+    'those facts alone. (INFRA-571 argued it by comparison to the Sentry widget, bounded ' +
+    'by `bug_reporting` being dark; FEAT-570 has since removed that widget, so the ' +
+    'comparison is history and the reachability claim no longer rests on it.) ' +
+    'WHEN THAT CALL IS REMOVED, ' +
     'DELETE this entry in the same commit.',
 
   'src/core/services/subscription/IAPService.ts::RNIap.requestPurchase':

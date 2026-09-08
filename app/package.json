@@ -5,6 +5,11 @@
   "engines": {
     "node": ">=24.3.0"
   },
+  "maestro": {
+    "pinnedVersion": "2.6.0",
+    "comment": "DEBUG-589. The version every safety flow is certified against; scripts/e2e-safety.sh refuses to run on any other. Moving it requires re-certifying the flows in the same commit.",
+    "deviceFlowsUnavailableReason": "No released Maestro can run a flow on a physical iPhone. 2.2.0 through 2.10.0 ship a driver Xcode project that declares a MaestroDriverLib framework target while omitting the entire MaestroDriverLib/ directory, so the device driver build always fails; 2.0.0 and 2.1.0 predate that target and build, but their XCUITest runner never becomes ready on iOS 26. Simulator flows are unaffected because they use a prebuilt driver and never compile."
+  },
   "scripts": {
     "generate:legal-content": "node scripts/generate-legal-content.js",
     "prestart": "npm run generate:legal-content",
