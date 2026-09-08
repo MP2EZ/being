@@ -170,8 +170,9 @@ DEBUG-577), and the first where the consumer owns a third-party PRESENTER CALL r
 an affordance or a constant. `Sharing.shareAsync` was MEASURED to leave zero app-owned
 nodes in the hierarchy for the sheet's duration — an absent app tree, not a covered FAB —
 on a route absent from `SUPPRESSED_ROUTES`, reached by an always-on, never-flag-gated path.
-That is the `ExternalErrorReporter` shape, already gated, and INFRA-571 established this
-site is strictly MORE reachable. FILE-level: the directory's legal, settings, account and
+That is the `ExternalErrorReporter` shape, already gated, and this site is strictly MORE
+reachable: the export path is always on and never flag-gated, where the bug-report surface
+is bounded by `bug_reporting`. FILE-level: the directory's legal, settings, account and
 backup members carry no crisis surface, and its two that do are already listed. No detector
 reaches it — the file imports `expo-sharing` and nothing from `features/crisis/`, so
 INFRA-531's import rule misses it, and `check-modal-occlusion-guard.js` rule 4 catches the
