@@ -14,6 +14,7 @@ import { StyleSheet, Text } from 'react-native';
 import { render, fireEvent } from '@testing-library/react-native';
 
 import { colorSystem } from '@/core/theme';
+import { CRISIS_BUTTON_RESERVED_BAND } from '@/features/crisis/constants/crisisButtonGeometry';
 import PracticeScreenLayout from '@/features/learn/practices/shared/PracticeScreenLayout';
 
 import {
@@ -253,6 +254,23 @@ describe('first-run opt-in prompt', () => {
       expect(flat(getByTestId('haptics-optin-prompt')).backgroundColor).toBe(
         colorSystem.base.white
       );
+    });
+
+    it('reserves the crisis button band, sized from the imported geometry', () => {
+      // DEBUG-586. This assertion did not exist, which is why the haptics half of the
+      // band had NO oracle at all: the prompt is flag-dark in the gate build
+      // (`practice_haptics:false` in eas.json's e2e-sim profile, gated in
+      // useHapticsOptIn), so no Maestro flow can render it and nothing on the sim side
+      // can observe this value. It is live in production.
+      //
+      // The equality is against the imported constant, not 176. The prompt is
+      // undismissable and its mis-tap is BIASED — the crisis button wins the overlap at
+      // zIndex 9999 and lands on the DECLINE side — so an under-reserved band here is a
+      // false crisis entry that also answers a once-ever question for the user.
+      const { getByTestId } = renderPrompt();
+      const style = flat(getByTestId('haptics-optin-prompt'));
+      expect(style.position).toBe('absolute');
+      expect(style.paddingBottom).toBe(CRISIS_BUTTON_RESERVED_BAND);
     });
   });
 });
