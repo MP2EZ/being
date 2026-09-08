@@ -866,13 +866,17 @@ e2e_assert_gate_target() {
 MAESTRO_TEAM_ARGS=()
 if [ "$DEVICE_ONLY" = "1" ]; then
   APPLE_TEAM_ID="${E2E_APPLE_TEAM_ID:-$(node -e 'process.stdout.write(String(require("./app.json").expo?.ios?.appleTeamId || ""))' 2>/dev/null || true)}"
+  # WARN, never exit. An unresolvable team id is recoverable — maestro reports it
+  # itself — and hard-failing here turns a runnable device path into "no verdict",
+  # which is strictly worse and breaks the proceed-anyway contract the INFRA-424
+  # device tests encode (app.json is not staged in their sandbox).
   if [ -z "$APPLE_TEAM_ID" ]; then
-    echo "❌ device run needs an Apple team ID and app.json has no expo.ios.appleTeamId." >&2
-    echo "   Set E2E_APPLE_TEAM_ID, or restore the key. Without it maestro cannot build" >&2
-    echo "   the iOS driver and fails with no report — which reads as a flow regression." >&2
-    exit 2
+    echo "⚠️  No Apple team id (E2E_APPLE_TEAM_ID unset, app.json unreadable or missing" >&2
+    echo "    expo.ios.appleTeamId). Proceeding without --apple-team-id; if the driver" >&2
+    echo "    build fails with 'Apple account team ID must be specified', that is why." >&2
+  else
+    MAESTRO_TEAM_ARGS=(--apple-team-id "$APPLE_TEAM_ID")
   fi
-  MAESTRO_TEAM_ARGS=(--apple-team-id "$APPLE_TEAM_ID")
 fi
 
 MAESTRO_ENV_ARGS=()
