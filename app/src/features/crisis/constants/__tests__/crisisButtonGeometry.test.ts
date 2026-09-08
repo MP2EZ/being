@@ -13,6 +13,9 @@
  * drifts below the band, that argument is void and the rect is a silent weakening.
  */
 
+import { readFileSync } from 'fs';
+import { join } from 'path';
+
 import {
   CRISIS_BUTTON_BOTTOM_OFFSET,
   CRISIS_BUTTON_TOP_EDGE_FROM_BOTTOM,
@@ -231,5 +234,73 @@ describe('keyboardOccludesCrisisButton (DEBUG-450)', () => {
     expect(keyboardOccludesCrisisButton({ height: 300 }, SCREEN)).toBe(true);
     expect(keyboardOccludesCrisisButton(docked(300), { height: 0 })).toBe(true);
     expect(keyboardOccludesCrisisButton(docked(300), { height: NaN })).toBe(true);
+  });
+});
+
+/**
+ * DEBUG-586 — the module header names `HapticsOptInPrompt` and `ResumeSessionModal`
+ * as this constant's consumers. Until this item that claim was false, and false in
+ * the one direction nothing could catch: each file re-derived
+ * `104 + TOUCH_TARGETS.minimum + 12 + spacing[16]` as a literal, so the value could
+ * desync from the FAB's geometry silently, AND `/b-close`'s INFRA-531 import
+ * detector — anchored on the `@/features/crisis/constants/` specifier — saw neither
+ * file. Two oracles, both answering "fine", both wrong.
+ *
+ * This pins the wiring the header asserts. It is the only CI-visible control: the
+ * Protected Paths rows and the Phase 2.5 arm live in `.claude/`, which is gitignored
+ * on `development`, so no CI checkout can read them.
+ */
+describe('DEBUG-586 · the centred-card consumers import the band', () => {
+  const CONSUMERS = ['HapticsOptInPrompt.tsx', 'ResumeSessionModal.tsx'] as const;
+
+  /**
+   * DEBUG-390: strip comments before matching. Both files keep the consequence prose
+   * explaining why the band exists, and it names the constant — a bare identifier
+   * match would hit that and pass on a file that had gone back to a literal.
+   */
+  const stripComments = (src: string): string =>
+    src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  /**
+   * The ALIAS specifier, not merely the module name. A relative import is
+   * functionally identical and matches nothing in `I531_IMPORT_RE`, so it would
+   * reproduce the exact detector-invisibility DEBUG-586 exists to remove.
+   */
+  const ALIAS_IMPORT =
+    /import\s*\{[^}]*\bCRISIS_BUTTON_RESERVED_BAND\b[^}]*\}\s*from\s*'@\/features\/crisis\/constants\/crisisButtonGeometry'/;
+  const LOCAL_DECL = /\bconst\s+CRISIS_BUTTON_RESERVED_BAND\s*=/;
+
+  const read = (f: string): string =>
+    stripComments(
+      readFileSync(join(__dirname, '../../../practices/shared/components', f), 'utf8'),
+    );
+
+  it('the matchers can still go red', () => {
+    expect(
+      ALIAS_IMPORT.test(
+        "import { CRISIS_BUTTON_RESERVED_BAND } from '@/features/crisis/constants/crisisButtonGeometry';",
+      ),
+    ).toBe(true);
+    // A relative import must NOT satisfy it — that is the whole point of the anchor.
+    expect(
+      ALIAS_IMPORT.test(
+        "import { CRISIS_BUTTON_RESERVED_BAND } from '../../../crisis/constants/crisisButtonGeometry';",
+      ),
+    ).toBe(false);
+    expect(
+      LOCAL_DECL.test(
+        'const CRISIS_BUTTON_RESERVED_BAND = 104 + TOUCH_TARGETS.minimum + 12 + spacing[16];',
+      ),
+    ).toBe(true);
+    // ...and the comment strip must not have eaten the files.
+    for (const f of CONSUMERS) expect(read(f).length).toBeGreaterThan(1000);
+  });
+
+  it.each(CONSUMERS)('%s imports the band via the alias specifier', (f) => {
+    expect(read(f)).toMatch(ALIAS_IMPORT);
+  });
+
+  it.each(CONSUMERS)('%s declares no band of its own', (f) => {
+    expect(read(f)).not.toMatch(LOCAL_DECL);
   });
 });
