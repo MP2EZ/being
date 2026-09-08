@@ -213,9 +213,18 @@ function makeProject(opts = {}) {
     path.join(root, 'app.json'),
     JSON.stringify({ expo: { ios: { infoPlist: { LSApplicationQueriesSchemes: appJsonSchemes } } } })
   );
+  // DEBUG-589: e2e-safety.sh's first pre-flight reads the Maestro version pin from
+  // `<script dir>/../package.json` and refuses (exit 2) when it is missing, which would
+  // pre-empt every gate-run arm below with the wrong message. Not a CNG-projected key
+  // (cng-fingerprint.js's CNG_PACKAGE_KEYS), so it does not perturb the fingerprint cases.
   fs.writeFileSync(
     path.join(root, 'package.json'),
-    JSON.stringify({ name: 'app', dependencies: { expo: '56.0.0' }, scripts: { test: 'jest' } })
+    JSON.stringify({
+      name: 'app',
+      dependencies: { expo: '56.0.0' },
+      scripts: { test: 'jest' },
+      maestro: { pinnedVersion: '2.6.0' },
+    })
   );
   // INFRA-508: package-lock.json joined the CNG projection. Absent, the fingerprint throws
   // and the script fails safe into a regeneration — which would make every 'current' case
@@ -730,6 +739,10 @@ describe('DEBUG-469 — the sandbox stages every helper the gate scripts source'
   });
 });
 
+// DEBUG-589: flows that can only run on a physical iPhone. e2e-safety.sh refuses this
+// path with exit 5 because no released Maestro can build its driver for a device.
+const DEVICE_ONLY_FLOW_NAMES = ['crisis-988-dial', 'crisis-keyboard-accessory'];
+
 function runSafety(built, opts = {}) {
   const {
     flows = [],
@@ -826,7 +839,14 @@ function runSafety(built, opts = {}) {
   writeStub(
     built.stubs,
     'maestro',
-    [`echo "maestro $@" >> "${trace}"`, maestroBody !== null ? maestroBody : defaultMaestro].join('\n')
+    [
+      // DEBUG-589: answer `--version` with the pinned version, BEFORE the trace append —
+      // the version pre-flight must not appear in the trace, or the assertions that count
+      // maestro invocations would see a call no flow made.
+      'if [ "$1" = "--version" ]; then echo 2.6.0; exit 0; fi',
+      `echo "maestro $@" >> "${trace}"`,
+      maestroBody !== null ? maestroBody : defaultMaestro,
+    ].join('\n')
   );
   // INFRA-423: `pkill` is gone from the gate entirely — the reap now targets an explicit
   // pid list. The stub survives only so that a REGRESSION reintroducing a pattern kill
@@ -887,6 +907,15 @@ function runSafety(built, opts = {}) {
       E2E_DEVICE_UDID: '', // DEBUG-497, see runBuild
       E2E_LOCK_ROOT: path.join(built.root, '.locks'), // INFRA-436, see runBuild
       E2E_TELEMETRY_FILE: path.join(built.root, '.telemetry.jsonl'), // INFRA-490, see runBuild
+      // DEBUG-589: the device path is refused up front now (exit 5), so a device-only
+      // selection never reaches device RESOLUTION — which is what this file's INFRA-424
+      // block exists to test. Set the documented escape hatch for exactly those
+      // selections, so those specs keep testing resolution rather than the refusal.
+      // Placed BEFORE `...env` so a spec can still clear it and assert the refusal;
+      // `deviceOnlyFlowsRefused` below is the spec that does.
+      ...(flows.length > 0 && flows.every(f => DEVICE_ONLY_FLOW_NAMES.includes(f))
+        ? { E2E_FORCE_DEVICE_ATTEMPT: '1' }
+        : {}),
       ...env,
     },
     timeout: 45000,
@@ -1868,6 +1897,35 @@ describe('INFRA-405 — e2e-safety.sh device selection', () => {
 // the same limitation the work item records — the refusal branches are testable with
 // stubs, the happy path is not. Real-hardware validation remains a manual step.
 // =====================================================================================
+describe('e2e-safety.sh — DEBUG-589 the device path is refused before resolution', () => {
+  // runSafety() sets E2E_FORCE_DEVICE_ATTEMPT=1 for device-only selections so the
+  // INFRA-424 block below still tests RESOLUTION. That auto-set would otherwise hide the
+  // refusal entirely from this file, and a later edit removing it would look like a
+  // no-op. This spec clears the hatch and pins the real default.
+  test('a device-only flow refuses with exit 5 and runs nothing', () => {
+    const built = runScript({ attachedDevices: ONE_DEVICE });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      env: { E2E_FORCE_DEVICE_ATTEMPT: '' },
+    });
+    expect(r.status).toBe(5);
+    expect(r.flowsRun).toBe(0);
+    expect(r.output).toMatch(/DEVICE_PATH_UNAVAILABLE/);
+  });
+
+  test('the refusal blames the toolchain, not the attached hardware', () => {
+    // The trap the crisis ruling called load-bearing: a reader who takes this for a
+    // missing device spends a day on cables. A device IS attached in this fixture.
+    const built = runScript({ attachedDevices: ONE_DEVICE });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      env: { E2E_FORCE_DEVICE_ATTEMPT: '' },
+    });
+    expect(r.output).toMatch(/HARDWARE IS NOT THE PROBLEM/);
+    expect(r.output).toMatch(/NOT A FLOW REGRESSION/);
+  });
+});
+
 describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () => {
   test('ZERO attached devices REFUSES and runs nothing — no silent simulator fallback', () => {
     // The headline regression assertion. Two simulators are booted and the app is
