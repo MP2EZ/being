@@ -473,17 +473,51 @@ probe as a control would recreate that defect one layer up.
   a build that never sets it cannot render the HUD by omission. Pinned by
   `__tests__/safety/perfHudGate.config.test.ts`.
 
-**Calibration evidence — iPhone 16e, iOS 26.6, 60Hz, Release build, 10s window, 2026-09-07:**
+**Calibration evidence — iPhone 16e, iOS 26.6, 60Hz, Release build, 10s window, 2026-09-07.**
+`PracticeTimerScreen`, reached by `being://practice/<id>?duration=60&title=…`.
 
-| frames | nominal | min | max | dropped | ratio | gaps | nullFirst |
-|---|---|---|---|---|---|---|---|
-| 599 | 16.66 | 16.42 | 16.67 | 0 | 0.00000 | 0 | true |
+| # | Condition | frames | nominal | dropped | ratio | gaps |
+|---|---|---|---|---|---|---|
+| 1 | Baseline — haptics pipeline ON, opt-in ON, motion normal | 599 | 16.67 | 0 | 0.00000 | 0 |
+| 1b | Baseline, repeat (same binary) | 600 | 16.67 | 0 | 0.00 | 0 |
+| 2 | **Control (b)** — Reduce Motion ON, same binary | 599 | 16.67 | 0 | 0.00 | 0 |
+| 3 | **Control (a)** — `practice_haptics:false` build | 600 | 16.67 | 0 | 0.00 | 0 |
 
-`frames 599` is the correctness signal rather than an approximation: 600 frames delivered at 60Hz
-over 10s, the first carrying a null interval, leaves exactly 599 counted intervals. `max ≈ nominal`
-means not one frame in 599 took two frame-intervals. On this evidence the 60fps budget is not being
-violated — which is consistent with the item's Urgency 1, and is a *reading*, not a guarantee: it is
-one screen, one device, one window, with `practice_haptics` in whatever state that build carried.
+An earlier pre-merge baseline read 599 / 16.66 / 0, i.e. the `development` merge did not perturb
+frame delivery.
+
+`frames 599` is a correctness signal, not an approximation: 600 frames delivered at 60Hz over 10s,
+the first carrying a null interval, leaves exactly 599 counted intervals. **Run-to-run variance is
+±1 frame** (rows 1 and 1b are the same binary under the same conditions) — any future threshold must
+clear that noise floor to mean anything.
+
+**Both controls are null, and both nulls are informative.**
+
+- **(a) The JS-thread haptic cue chain has no measurable effect on UI-thread frame delivery.**
+  `PracticeTimerScreen` builds a whole-session cue schedule from `DEFAULT_PATTERN` and re-arms a
+  `setTimeout` at every breath boundary, plus AppState and navigation-blur listeners. Rows 1/1b/2 ran
+  with that scheduler live (build-time flag on **and** the persisted `practiceHaptics` opt-in on —
+  both are required: `tactileEnabled = flagOn && practiceHaptics === true`, and this screen passes no
+  `announce`, so the speech channel is absent). Row 3 ran with the pipeline off. No difference.
+  This is the architecturally expected result — the cue chain is JS-thread, the animation is UI-thread
+  worklets, and Reanimated exists so one cannot stall the other — and it is the first direct on-device
+  evidence in this repo that the separation holds.
+- **(b) The probe's own per-frame cost is below one frame interval.** With the animation reduced to
+  `BreathingCircle`'s static-glow branch, delivery stayed clean. Note this is an **upper bound, not a
+  measurement**: both arms have the probe running, and a probe-off arm yields no numbers by
+  definition. It is what licenses reading row 1's zero as a property of the screen rather than an
+  artifact of measuring it.
+
+**Interpretation.** On this screen, this device, this build, the 60fps budget is not being violated.
+That is a *reading*, not a guarantee: one screen, one 60Hz device, four 10s windows. Notably it is
+also the first time the budget has been checked against anything at all — the prior control was
+structural only and cannot measure frames.
+
+**Do not set a threshold from this.** Every run read exactly zero, which supports either
+`ratio must be 0` — brittle, one hitch fails it — or nothing. There is no noise floor to calibrate
+against beyond the ±1 frame above, and since DEBUG-589 removed the automation there is no gate for a
+threshold to live in. A number invented here would be the permanently-green no-op this whole item
+exists to prevent.
 
 **Two device-verified constraints, both counter-intuitive, both easy to reintroduce:**
 
@@ -513,10 +547,10 @@ work: it omits `-allowProvisioningUpdates` and fails to sign. Open
 defaults to `breathing`, so the circle and probe mount), wait ~15s, and read the eight lines.
 Record the result in the table above rather than in a commit message.
 
-**Still owed before any threshold is set:** the two control runs — `practice_haptics` off vs on, to
-isolate the JS-thread cue chain, and `BreathingCircle`'s reduce-motion static-glow branch, to
-quantify the probe's own per-frame cost. Until both exist, the numbers above describe the screen,
-not a budget anyone should assert against.
+**Both control runs are done** (rows 2 and 3 above). What remains before a threshold could ever be
+set is not another control but a *vehicle*: DEBUG-589 must first make an automated device run
+possible. Until then this is an instrument someone reads, and the numbers above describe the screen
+rather than a budget anyone asserts against.
 
 ---
 
