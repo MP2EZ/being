@@ -109,7 +109,7 @@ describe('validatePassageCollection', () => {
         id: 'x-1',
         principle: 'aware-presence' as ModuleId,
         author: 'Seneca' as const,
-        work: 'Letters from a Stoic' as const,
+        work: 'Moral Letters to Lucilius' as const,
         citation: 'Letters 1',
         translation: 'Gummere',
         text: 'A passage.',
