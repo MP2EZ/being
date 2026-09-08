@@ -178,10 +178,17 @@ fi
 # path resolves and pins its own target (e2e-real-device.sh), and the run still declares
 # that it carries NO artifact attestation — the target is named, the binary on it is not
 # vouched for.
+# INFRA-373 — the device-only tag is a UNION, not the single `safety` string. A frame
+# probe has to run on real hardware for the same reason `crisis-988-dial` does (a
+# simulator renders on the host Mac GPU), but it is not a safety flow and must not be
+# counted or described as one. Matching only `safety-device-only` would have cleared
+# DEVICE_ONLY for `perf-device-only`, sent the probe to the simulator, and produced a
+# frame reading of the Mac. Note the no-arg discovery above still greps EXACTLY `- safety`,
+# so a perf flow never joins the safety suite; this union governs target resolution only.
 DEVICE_ONLY=1
 DEVICE_ONLY_COUNT=0
 for f in "${FLOWS[@]}"; do
-  if grep -qE '^[[:space:]]*-[[:space:]]+safety-device-only[[:space:]]*$' "$f"; then
+  if grep -qE '^[[:space:]]*-[[:space:]]+(safety|perf)-device-only[[:space:]]*$' "$f"; then
     DEVICE_ONLY_COUNT=$((DEVICE_ONLY_COUNT + 1))
   else
     DEVICE_ONLY=0
@@ -213,7 +220,7 @@ if [ "$DEVICE_ONLY" != "1" ] && [ "$DEVICE_ONLY_COUNT" -gt 0 ]; then
   echo "   banners describing a binary it never ran against." >&2
   echo "   Run them as two invocations instead:" >&2
   for f in "${FLOWS[@]}"; do
-    if grep -qE '^[[:space:]]*-[[:space:]]+safety-device-only[[:space:]]*$' "$f"; then
+    if grep -qE '^[[:space:]]*-[[:space:]]+(safety|perf)-device-only[[:space:]]*$' "$f"; then
       echo "     bash scripts/e2e-safety.sh $(basename "$f" .yaml)      # real iPhone" >&2
     fi
   done
@@ -751,6 +758,46 @@ e2e_assert_gate_target() {
 # run and the fall-through is unreachable by construction. It is kept as a refusal anyway:
 # an empty --device list is the original defect, and it must not be reachable by a future
 # edit that adds a third target class without noticing.
+# INFRA-373 — forward flow parameters to `maestro -e`. Nothing needed this before: every
+# safety flow is self-contained by design, because a gate whose verdict depends on an
+# operator-supplied value is a gate that can be argued with. The perf flow is the
+# deliberate exception — its threshold is a CALIBRATION, and INFRA-373's AC requires it to
+# be a required parameter with NO default so an uncalibrated run errors rather than passes.
+# Unset leaves the array empty, so every existing invocation is byte-identical.
+# INFRA-373 — a PHYSICAL-device run cannot build its XCUITest driver without an Apple
+# team ID: maestro dies with "Apple account team ID must be specified to build drivers for
+# connected iPhone", writes NO report, and exits 1. That is indistinguishable at a glance
+# from a flow regression, which makes it the worst possible failure for a gate.
+#
+# This is NOT specific to the perf flow. `crisis-988-dial` — the only `safety-device-only`
+# flow, and the one pinning the crisis dial path — has the same blocker, so the documented
+# `npm run e2e:safety:988-dial` could not have completed on a real iPhone as shipped.
+#
+# The id is read from app.json (expo.ios.appleTeamId), the same committed source the build
+# uses, so it cannot drift from the signing identity. `--apple-team-id` is accepted by
+# `maestro test` but is absent from its --help output.
+MAESTRO_TEAM_ARGS=()
+if [ "$DEVICE_ONLY" = "1" ]; then
+  APPLE_TEAM_ID="${E2E_APPLE_TEAM_ID:-$(node -e 'process.stdout.write(String(require("./app.json").expo?.ios?.appleTeamId || ""))' 2>/dev/null || true)}"
+  if [ -z "$APPLE_TEAM_ID" ]; then
+    echo "❌ device run needs an Apple team ID and app.json has no expo.ios.appleTeamId." >&2
+    echo "   Set E2E_APPLE_TEAM_ID, or restore the key. Without it maestro cannot build" >&2
+    echo "   the iOS driver and fails with no report — which reads as a flow regression." >&2
+    exit 2
+  fi
+  MAESTRO_TEAM_ARGS=(--apple-team-id "$APPLE_TEAM_ID")
+fi
+
+MAESTRO_ENV_ARGS=()
+if [ -n "${E2E_MAESTRO_ENV:-}" ]; then
+  for _kv in $E2E_MAESTRO_ENV; do
+    case "$_kv" in
+      *=*) MAESTRO_ENV_ARGS+=(-e "$_kv") ;;
+      *) echo "❌ E2E_MAESTRO_ENV entry is not KEY=VALUE: $_kv" >&2; exit 2 ;;
+    esac
+  done
+fi
+
 MAESTRO_DEVICE_ARGS=()
 if [ -n "$SIM_UDID" ]; then
   MAESTRO_DEVICE_ARGS=(--device "$SIM_UDID")
@@ -1113,6 +1160,8 @@ for f in "${FLOWS[@]}"; do
                           # not laundered into the flow's own time.
   set -m
   maestro test ${MAESTRO_DEVICE_ARGS[@]+"${MAESTRO_DEVICE_ARGS[@]}"} \
+    ${MAESTRO_TEAM_ARGS[@]+"${MAESTRO_TEAM_ARGS[@]}"} \
+    ${MAESTRO_ENV_ARGS[@]+"${MAESTRO_ENV_ARGS[@]}"} \
     --format=JUNIT --output="$REPORT" \
     --debug-output="$DEBUG_DIR" --flatten-debug-output \
     "$f" &
