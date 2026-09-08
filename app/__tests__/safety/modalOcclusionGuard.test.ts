@@ -291,22 +291,39 @@ describe('INFRA-571 · third-party full-screen presenter call sites', () => {
       }
     });
 
-    it('marks the two inferred rulings as NOT MEASURED', () => {
-      // DEBUG-533's Sentry finding was measured on device (zero
-      // `crisis-button-root` nodes in the hierarchy). These two are reasoned
-      // from the presentation mechanism only. Recording an unmeasured ruling
-      // as though measured is the failure DEBUG-533's own "MEASURED, NOT
-      // INFERRED" section was written to stop.
-      const inferred = [
+    it('keeps measured and inferred rulings on opposite sides of the line', () => {
+      // Recording an unmeasured ruling as though measured is the failure
+      // DEBUG-533's own "MEASURED, NOT INFERRED" section was written to stop.
+      //
+      // THIS ASSERTION USED TO BE VACUOUS ON THE HALF THAT MATTERS (DEBUG-577).
+      // It pinned the measured entry with `toMatch(/MEASURED/)` — and /MEASURED/
+      // is a substring of "NOT MEASURED", so the one check standing between a
+      // ruling and a false claim of evidence passed on prose asserting the exact
+      // opposite. A measured entry must therefore match the POSITIVE form and be
+      // asserted NOT to carry the negation.
+      const measured = [
+        'src/core/services/logging/ExternalErrorReporter.ts::showFeedbackWidget',
         'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync',
-        'src/core/services/subscription/IAPService.ts::RNIap.requestPurchase',
       ];
+      for (const key of measured) {
+        expect(PRESENTER_ALLOWLIST[key]).toMatch(/MEASURED ON (DEVICE|SIMULATOR)/);
+        expect(PRESENTER_ALLOWLIST[key]).not.toMatch(/NOT MEASURED/);
+      }
+
+      // IAPService remains reasoned from the presentation mechanism: DEBUG-577
+      // attempted it and was blocked (mockMode = __DEV__, no .storekit config, no
+      // Android harness). Blocked is not measured.
+      const inferred = ['src/core/services/subscription/IAPService.ts::RNIap.requestPurchase'];
       for (const key of inferred) {
         expect(PRESENTER_ALLOWLIST[key]).toMatch(/NOT MEASURED/);
       }
-      expect(
-        PRESENTER_ALLOWLIST['src/core/services/logging/ExternalErrorReporter.ts::showFeedbackWidget'],
-      ).toMatch(/MEASURED/);
+
+      // Proof the matcher can still fire — the pair above is only worth its cost
+      // if the old vacuous form is demonstrably rejected by the new one.
+      expect('REASONED FROM THE MECHANISM, NOT MEASURED').not.toMatch(
+        /MEASURED ON (DEVICE|SIMULATOR)/,
+      );
+      expect('MEASURED ON DEVICE by DEBUG-533').toMatch(/MEASURED ON (DEVICE|SIMULATOR)/);
     });
 
     it('documents the denylist as non-exhaustive rather than as the set', () => {
