@@ -13,6 +13,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, semantic, getTheme, spacing, borderRadius, typography } from '@/core/theme';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';
@@ -71,12 +72,39 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
           // WCAG AA: gray[400] for 3:1 contrast ratio on borders
           borderColor: isCurrent ? themeColors.primary : colorSystem.gray[400],
           borderWidth: isCurrent ? 2 : 1,
-          opacity: pressed ? 0.9 : isCompleted ? 0.5 : 1,
+          // DEBUG-527: press feedback ONLY. The `isCompleted ? 0.5` arm that used to
+          // sit here composited the whole subtree, halving the contrast of the
+          // description (`semantic.text.secondary`) and of the `gray[400]` border
+          // chosen three lines above precisely to clear 3:1 — a WCAG AA failure in
+          // the state a daily user sees every day after practising. Opacity is not a
+          // colour token and cannot be contrast-audited, so completion is expressed
+          // structurally instead (see the affordance below).
+          opacity: pressed ? 0.9 : 1,
         }
       ]}
       onPress={handlePress}
       accessibilityRole="button"
-      accessibilityLabel={`${title} check-in, ${duration}${isCompleted ? ', completed today' : ''}`}
+      // DEBUG-548: the description is APPENDED to the name, as its own sentence.
+      // `Pressable` defaults `accessible` to true, collapsing the subtree, so this
+      // label wins and the visible `cardDescription` below was never announced —
+      // and it is the only text on the card saying what the practice consists of.
+      // Ruled a PARITY defect, not a WCAG failure (4.1.2 is met as authored; 1.3.1
+      // is credible but not airtight). It is includable now only because MAINT-528
+      // cut the description to one short sentence; the previous 134-char version
+      // would have made the announcement unusable, which is why the accessibility
+      // suite pins a length ceiling rather than trusting the copy to stay short.
+      //
+      // Two properties are load-bearing and must survive any edit here:
+      //   1. It interpolates the SAME `description` prop the visible Text renders,
+      //      so parity holds by construction rather than by a second string kept
+      //      in sync by hand.
+      //   2. ', completed today' stays lowercase and comma-preceded. Promoting it
+      //      to its own 'Completed today.' sentence reads fine and silently breaks
+      //      the case-sensitive DEBUG-527 pin.
+      // The duration badge is ruled the OTHER way and stays `importantForAccessibility="no"`
+      // — the duration is already here in prose (MAINT-71), so exposing the badge
+      // would double-speak it.
+      accessibilityLabel={`${title} check-in, ${duration}${isCompleted ? ', completed today' : ''}. ${description}`}
       accessibilityHint={
         isCompleted
           ? 'Tap to start this check-in again'
@@ -96,12 +124,34 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
             {duration}
           </Text>
         </View>
-        <Text style={styles.cardDescription} numberOfLines={2}>{description}</Text>
+        {/* DEBUG-548: testID exists so the accessibility suite can DERIVE the
+            announced description from the rendered tree rather than snapshotting
+            today's copy. A hardcoded literal would pass while the label and the
+            visible text silently diverged, which is the defect this pins. */}
+        <Text
+          style={styles.cardDescription}
+          numberOfLines={2}
+          testID="checkin-card-description"
+        >
+          {description}
+        </Text>
       </View>
 
-      <View style={[styles.startButton, { backgroundColor: themeColors.primary }]}>
-        <Text style={styles.startButtonText}>{isCompleted ? 'Complete' : 'Start'}</Text>
-      </View>
+      {/* DEBUG-527: completion is a STATE, not an action. A filled, high-contrast,
+          full-width bar reading "Complete" parses as an imperative — a call to action
+          telling the reader to complete what they have already completed. The done
+          state solicits nothing, so it is a quiet status line rather than a button.
+          The card itself remains the tap target (accessibilityHint above still offers
+          the restart), so no touch target is lost by dropping the bar. */}
+      {isCompleted ? (
+        <Text style={[styles.completedStatus, { color: themeColors.primary }]}>
+          ✓ Done today
+        </Text>
+      ) : (
+        <View style={[styles.startButton, { backgroundColor: themeColors.primary }]}>
+          <Text style={styles.startButtonText}>Start</Text>
+        </View>
+      )}
     </Pressable>
   );
 };
@@ -215,7 +265,16 @@ const CleanHomeScreen: React.FC = () => {
           <CheckInCard
             type="daily-loop"
             title="Daily Practice"
-            description="One loop through the Five Principles: Aware Presence, Radical Acceptance, Sphere Sovereignty, Virtuous Response, Interconnected Living."
+            // MAINT-528 (philosopher constraint C1): the card must state NO principle
+            // COUNT. Quick depth runs THREE beats (QUICK_STEP_KEYS), and FEAT-301 already
+            // ruled — as a philosopher blocker — that the count must not be stated for
+            // quick, because it re-ranks quick as the deficient version against
+            // DepthSelect's pinned "Both are complete practices." A card promising five
+            // immediately before that picker pre-attaches "all five" to the practice,
+            // which is exactly the inference FEAT-301 blocks at the coda. The old string
+            // also named by name the two beats quick omits, and truncated mid-word at
+            // 375pt so two of the five never rendered at all.
+            description="One loop through the principles."
             duration="5-6 min"
             isCurrent
             isCompleted={isCheckInCompletedToday('daily')}
@@ -230,12 +289,13 @@ const CleanHomeScreen: React.FC = () => {
 
             SITED HERE, between checkInSection and the Practices row, and inside
             the ScrollView DEBUG-469 added. What it displaces: `checkInSection`
-            and `checkInCard` are now `flexGrow: 1` with a `minHeight: 180` floor
-            rather than `flex: 1`, so this row's height comes out of the card's
-            SURPLUS down to that floor, and past it the ScrollView scrolls instead
-            of the card collapsing. (This comment originally said `flex: 1` and
-            "nothing below moves" — true when written, and DEBUG-469 landed the
-            AX5 fix that made it false. The floor is what now bounds the squeeze.)
+            and `checkInCard` no longer grow at all (MAINT-528), so this row
+            displaces NOTHING: every element takes its intrinsic height and this
+            row's arrival simply shortens the terminal margin below the Practices
+            row. Past the point where that margin reaches zero, the ScrollView
+            engages. (This comment has been wrong twice — it first claimed
+            `flex: 1` and "nothing below moves", then described a `minHeight: 180`
+            floor bounding a squeeze. There is no squeeze now to bound.)
 
             It must stay INSIDE the ScrollView. Pinned below one, it would share
             screen coordinates with content clipped behind it, and XCUITest scores
@@ -302,17 +362,22 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[8],
     alignItems: 'center',
   },
+  // MAINT-528: the header's intervals were 4pt and 2pt, which made the top of the screen
+  // dense while the bottom held a void — the visual signature of an unfinished layout
+  // rather than of restraint. Spaciousness is a rhythm property, not a quantity one: it
+  // reads as deliberate only when every interval is generous and roughly proportional.
   appTitle: {
     fontSize: typography.display2.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.base.midnightBlue,
-    marginBottom: spacing[4],
+    marginBottom: spacing[8],
   },
   greeting: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.semibold,
     color: semantic.text.primary,
-    marginBottom: borderRadius.xs,
+    // Was `borderRadius.xs` — a RADIUS token used as spacing, and only 2pt of it.
+    marginBottom: spacing[8],
   },
   subtitle: {
     fontSize: typography.bodySmall.size,
@@ -321,13 +386,14 @@ const styles = StyleSheet.create({
     marginBottom: spacing[12],
   },
   checkInSection: {
-    // DEBUG-469: `flexGrow: 1`, NOT `flex: 1`. `flex: 1` sets flexBasis to 0, so this
-    // section's base size is nothing and it grows only into leftover space — of which
-    // there is none at AX5 once the header, badge and practices row have taken their
-    // intrinsic heights. That is what collapsed the card to 40pt and pushed it off
-    // screen. flexBasis stays `auto` here, so the section is sized by its content first.
-    flexGrow: 1,
-    marginTop: spacing[12],
+    // MAINT-528: no `flexGrow`. DEBUG-469 kept the card reachable at AX5 by making this
+    // chain grow into surplus with a `minHeight` floor; this removes the growth instead.
+    // With nothing in the tree competing for vertical space, the flexBasis-0 collapse
+    // cannot recur by construction — every child takes its intrinsic height and the
+    // ScrollView engages when they exceed the viewport. The surplus now falls BELOW the
+    // last element, out of `justifyContent` defaulting to flex-start, rather than being
+    // absorbed into the card.
+    marginTop: spacing[48],
   },
   // FEAT-293: fixed height, so it never competes with the flex:1 check-in cards.
   practicesEntry: {
@@ -338,6 +404,19 @@ const styles = StyleSheet.create({
     marginTop: spacing[8],
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[200],
+    // DEBUG-547: moves the Pressable's OWN FRAME out of the crisis FAB's
+    // contested column. Must NOT be `paddingRight`: the testID and this style are
+    // on the same Pressable, so padding sits inside its border box — the frame
+    // stays put, the FAB at zIndex 9999 keeps winning every tap in the overlap,
+    // and only the glyph moves. Measured on device before the fix:
+    //   crisis-button-root [331,523][375,567] vs the Practices row [24,516][351,561].
+    // The correctness criterion is `intersectsCrisisButtonExclusion(...) === false`
+    // — right edge <= 303 — NOT "the label moved". Note the FAB's real touch band
+    // starts at x=319, not the 331 the hierarchy reports, because of its 12pt
+    // hitSlop; clearing only the painted bounds under-fixes by 12pt.
+    // Declared LAST because RN StyleSheet is last-key-wins: a `marginHorizontal`
+    // added below this line would silently override it.
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   practicesEntryLabel: {
     fontSize: typography.bodyRegular.size,
@@ -349,17 +428,17 @@ const styles = StyleSheet.create({
     color: semantic.text.secondary,
   },
   checkInCard: {
-    // DEBUG-469: same reasoning as checkInSection — flexGrow, not flex. The minHeight is
-    // the floor that stops a squeeze taking the card below a usable size; it binds only
-    // when space is scarce, since at AX5 the card's own content is far taller than this.
-    flexGrow: 1,
-    minHeight: 180,
-    justifyContent: 'space-between',
+    // MAINT-528: the card HUGS its content. It previously carried `flexGrow: 1` plus
+    // `justifyContent: 'space-between'`, so it swelled to eat every spare pixel and then
+    // pinned its own title block to its top and its button to its bottom — putting ~300pt
+    // of dead space INSIDE a bordered container, where it reads as a hole rather than as
+    // air. `minHeight: 180` went with them: it existed only to bound a squeeze, and with
+    // nothing squeezing it would now just force the card past its own content.
     paddingTop: spacing[16],
     paddingHorizontal: spacing[16],
     paddingBottom: spacing[20], // Extra to optically balance with title line-height
     borderRadius: borderRadius.xl,
-    marginBottom: spacing[16],
+    marginBottom: spacing[40],
     // MAINT-222: border-preferred elevation (DS guidance), replacing the
     // hand-rolled black-shadow recipe. Matches the unified card system.
     borderWidth: 1,
@@ -401,6 +480,15 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
+  },
+  // DEBUG-527: the done state's affordance. Colour comes from `themeColors.primary`
+  // at the call site (the same token the Start bar fills with), so it inherits the
+  // palette rather than minting a second one. No bottom padding — the card already
+  // carries `paddingBottom: spacing[20]`.
+  completedStatus: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.semibold,
+    paddingTop: spacing[12],
   },
 });
 

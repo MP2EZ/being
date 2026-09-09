@@ -1,0 +1,85 @@
+appId: fyi.being.app
+tags:
+  - perf-device-only
+name: "UI frame delivery on the breathing path stays within the dropped-frame budget (device-only)"
+# e2e-certifies: any
+# INFRA-373 — perf-device-only: a simulator renders on the host Mac GPU, so a frame
+# reading taken there measures the Mac. The axis is the device's display pipeline.
+---
+# DEVICE-ONLY. Run against a real iPhone:
+#   npm run e2e:perf:breathing-fps        # requires E2E_PERF_MAX_DROPPED_RATIO
+#
+# The `perf-device-only` tag keeps this out of `npm run e2e:safety`, whose discovery
+# greps for a tag line that is exactly `- safety`. It is NOT a safety flow and must not
+# be counted as one; INFRA-373 taught `e2e-safety.sh` to treat the tag as device-only
+# for TARGET RESOLUTION only.
+#
+# WHAT THIS PINS. UI-thread frame delivery while `PracticeTimerScreen` is mounted — not
+# `BreathingCircle` specifically. The same screen mounts `Timer` (re-rendering at 4 Hz)
+# and the `usePracticeHaptics` cue chain. Read the result as "the breathing screen", not
+# "the breathing animation". See BreathingFrameProbe.tsx.
+#
+# NO ARTIFACT ATTESTATION. Device runs cannot have it — `simctl get_app_container`, the
+# otool/plutil shape checks and e2e-provenance.js are all simulator-container-bound. This
+# flow names its target but does not vouch for the binary. Install the build you mean to
+# measure, deliberately, with EXPO_PUBLIC_PERF_HUD=true.
+#
+# WHY THE ASSERTIONS LOOK PARANOID. The Technical Notes for INFRA-373 flag that
+# `${maestro.copiedText}` coercion is unexercised in this repo and that a string/number
+# comparison bug there produces a SILENTLY PASSING assertion — the exact failure class
+# this item exists to eliminate. Three specific traps are guarded below:
+#   1. An absent threshold. `"0.001" <= undefined` is false, but an empty string coerces:
+#      `Number('') === 0`, so a blank threshold would compare as zero and could pass a
+#      genuinely clean run while silently testing nothing. The threshold is REQUIRED and
+#      has NO default, and is validated as a number before use.
+#   2. A probe that never sampled. `frames 0` still renders `ratio 0.00000`, which passes
+#      any budget. A zero-frame window must fail, not sail through.
+#   3. Reading the wrong element, or an empty one. Each copied string is shape-checked
+#      against its expected label before any numeric comparison.
+
+# ---- 1. The threshold is required, and must be a number ---------------------------
+# `typeof` rather than a bare reference: an undeclared identifier would raise a
+# ReferenceError, which is also a failure, but this reports WHY.
+- assertTrue: ${typeof E2E_PERF_MAX_DROPPED_RATIO !== 'undefined' && String(E2E_PERF_MAX_DROPPED_RATIO).trim().length > 0 && !isNaN(Number(E2E_PERF_MAX_DROPPED_RATIO))}
+
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
+- runFlow: _legal-and-onboarding.yaml
+
+# Deep link rather than UI navigation: `visualMode` is not a link parameter and defaults
+# to 'breathing', so the circle — and therefore the probe — mounts. `duration` and `title`
+# are REQUIRED params of the PracticeTimer route (DEBUG-353).
+- openLink: being://practice/probe?duration=60&title=Frame+Probe
+- assertVisible:
+    id: "practice-timer-screen"
+
+# ---- 2. Wait out the probe's measurement window ------------------------------------
+# The probe closes a 10 s window from a JS-side timer, then renders. 25 s of headroom
+# covers a cold first frame without masking a probe that never reports at all.
+- extendedWaitUntil:
+    visible:
+      id: "practice-timer-screen-frame-probe-dropped-ratio"
+    timeout: 25000
+
+# ---- 3. The probe actually sampled --------------------------------------------------
+- copyTextFrom:
+    id: "practice-timer-screen-frame-probe-frames"
+- assertTrue: ${/^frames \d+$/.test(maestro.copiedText)}
+# A 10 s window on any shipping refresh rate delivers hundreds of frames. 100 is a floor
+# that only a probe which barely ran could fail — it is a liveness check, not a budget.
+- assertTrue: ${Number(maestro.copiedText.replace('frames ', '')) >= 100}
+
+# ---- 4. The nominal interval was derived ---------------------------------------------
+# Guards against normalising a ratio against a zero nominal, which would make every
+# interval read as zero dropped frames.
+- copyTextFrom:
+    id: "practice-timer-screen-frame-probe-nominal-ms"
+- assertTrue: ${/^nominal \d+\.\d+$/.test(maestro.copiedText)}
+- assertTrue: ${Number(maestro.copiedText.replace('nominal ', '')) > 0}
+
+# ---- 5. The budget itself -------------------------------------------------------------
+- copyTextFrom:
+    id: "practice-timer-screen-frame-probe-dropped-ratio"
+- assertTrue: ${/^ratio \d+\.\d+$/.test(maestro.copiedText)}
+- assertTrue: ${Number(maestro.copiedText.replace('ratio ', '')) <= Number(E2E_PERF_MAX_DROPPED_RATIO)}

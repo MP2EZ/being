@@ -251,10 +251,30 @@ name: "Voice journal crisis scan surfaces support"
 # dismisses the keyboard, which destroys the one condition this block tests.
 #
 # Tapping Save DIRECTLY at its resting position is therefore both the honest shape
-# and the stricter one. MEASURED at 375x667 with the keyboard up: Save sits at
-# [24,377][279,429] against an occluding edge of y=407 — 42% covered, tap centre
-# y=403 clearing by 4pt. With no scroll to rescue it, this block goes red if
-# anything ever erodes that clearance. That sensitivity is the point.
+# and the stricter one. The ABSENCE of a scroll before the tap is itself load-bearing:
+# adding one would convert "Save is reachable with the keyboard up" into "Save is
+# reachable after scrolling", a strictly weaker contract that hides the regression class
+# this block exists to catch.
+#
+# ── THE 4pt FIGURE IS PRE-DEBUG-506 EVIDENCE, NOT A THRESHOLD (DEBUG-516) ─────
+# MEASURED at 375x667 with the keyboard up, on `development` in August 2026: Save sat at
+# [24,377][279,429] against an occluding edge of y=407 — 42% covered, tap centre y=403
+# clearing by 4pt. Read that as a record of one build, because two things move it:
+#
+#   1. TYPE SIZE. DEBUG-507 re-measured at extra-extra-extra-large and found Save at
+#      [24,415][279,473] — 100% covered, 37pt UNDER the edge. 4pt was one Dynamic Type
+#      step from failing, and it failed. That is DEBUG-516.
+#   2. THE KEYBOARD'S OWN CHROME. An attached inputAccessoryView is installed into
+#      UIRemoteKeyboardWindow and joins the union UIKeyboardFrameEndUserInfoKey reports,
+#      so the occluding edge RISES by the bar's height. DEBUG-506 attaches this app's
+#      crisis accessory for the first time (~72pt: TOUCH_TARGETS.large plus padding),
+#      which would have taken this 4pt negative at the DEFAULT text size.
+#
+# DEBUG-516 therefore stopped deriving the layout from this number. Save is pinned outside
+# the ScrollView and its container is inset from the LIVE keyboard frame, so clearance is
+# non-negative by construction and this block is now a behavioural pin rather than a
+# clearance pin. Do NOT re-derive a fix from the coordinates above, and do not treat a
+# change in them as the regression — `journal-saved-state` failing to arrive is.
 - launchApp:
     clearState: true
     clearKeychain: true

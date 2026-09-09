@@ -416,7 +416,17 @@ const EVENING: ModeConfig = {
         key: 'response',
         label: 'Where did you meet them, or fall short — and how would you meet it next time?',
         hint: 'Honest review, with compassion — not self-flagellation.',
-        placeholder: "E.g., 'Courage in the meeting; short on temperance at dinner.'",
+        // MAINT-566. The virtue NAMES need not appear here; the discernment MOVE
+        // must. The virtueChips selector directly above already names all four
+        // cardinal virtues with glosses, so that UI is the doctrine-carrying
+        // surface — and this file's own INVARIANT block calls naming a virtue
+        // "optional scaffolding, never a gate" for this beat. Repeating the names
+        // as bare labels is what produced the audit-report register a reader
+        // reported as "never said by any human"; dropping them is not dropping
+        // doctrine. The example still models all three parts of the label above:
+        // met, fell short, and the next-time correction.
+        placeholder:
+          "E.g., 'I spoke up in the meeting even though I was nervous. I snapped at dinner when I got tired — next time I'll eat something first.'",
       },
     ],
   },

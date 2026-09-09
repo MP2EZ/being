@@ -100,10 +100,15 @@
 import { importPKCS8, SignJWT } from 'https://esm.sh/jose@5.9.6';
 import { APPLE_ENVIRONMENTS, BEING_BUNDLE_ID } from './verifyAppleJWS.ts';
 
-/** The two App Store Server API hosts. Selected by environment; never defaulted. */
+/** The two App Store Server API hosts. Selected by environment; never defaulted.
+ *
+ * These are the forms Apple documents. The older `*.itunes.apple.com` aliases still
+ * resolve — each pair shares one Akamai CNAME — so this is a guard against Apple
+ * retiring them, not a live fix. Both forms working is NOT a reason to try both:
+ * see the no-host-switching-retry rule above. */
 export const APP_STORE_SERVER_API_ORIGINS = {
-  Production: 'https://api.storekit.itunes.apple.com',
-  Sandbox: 'https://api.storekit-sandbox.itunes.apple.com',
+  Production: 'https://api.storekit.apple.com',
+  Sandbox: 'https://api.storekit-sandbox.apple.com',
 } as const;
 
 /** Fixed audience for App Store Connect API tokens. Never configurable — an env-driven

@@ -66,6 +66,38 @@ const GAD7_QUESTIONS = [
   'gad7_1', 'gad7_2', 'gad7_3', 'gad7_4', 'gad7_5', 'gad7_6', 'gad7_7'
 ];
 
+/**
+ * DEBUG-550 — the single completeness predicate. SET EQUALITY: exactly the
+ * expected ids, each exactly once.
+ *
+ * Deliberately stronger than either check that existed before, because those two
+ * are INCOMPARABLE rather than ordered:
+ *   • the shipped count check (`filter(startsWith).length !== 9`) catches a short
+ *     set and an extra answer, but passes nine entries with a duplicate and a gap;
+ *   • `validateCurrentAnswers`'s presence check catches that gap, but passes ten
+ *     entries carrying an extra.
+ * Substituting one for the other would have LOST a case that is caught today.
+ *
+ * Returns the expected ids with no answer, in question order, so a caller can
+ * route the reader to the first one rather than just refusing.
+ */
+function missingAnswerIds(type: AssessmentType, answers: AssessmentAnswer[]): string[] {
+  const expected = type === 'phq9' ? PHQ9_QUESTIONS : GAD7_QUESTIONS;
+  return expected.filter((id) => !answers.some((a) => a.questionId === id));
+}
+
+/** True when `answers` carries an id that is not expected, or any id twice. */
+function hasUnexpectedOrDuplicateAnswers(type: AssessmentType, answers: AssessmentAnswer[]): boolean {
+  const expected = new Set(type === 'phq9' ? PHQ9_QUESTIONS : GAD7_QUESTIONS);
+  const seen = new Set<string>();
+  for (const a of answers) {
+    if (!expected.has(a.questionId)) return true;
+    if (seen.has(a.questionId)) return true;
+    seen.add(a.questionId);
+  }
+  return false;
+}
+
 // Severity mappings (validated scoring algorithm)
 const PHQ9_SEVERITY_THRESHOLDS = {
   minimal: [0, 4],
@@ -479,6 +511,13 @@ export interface AssessmentStoreState {
   // Performance tracking
   autoSaveEnabled: boolean;
   lastSyncAt: number | null;
+
+  /**
+   * DEBUG-550 — set when `completeAssessment` REFUSED to score. Distinct from
+   * `error`, which is a free-text string nothing renders; this is structured so
+   * the flow can route the reader back to a specific question.
+   */
+  completionBlocked: { reason: 'incomplete_answers'; missingQuestionIds: string[] } | null;
 }
 
 /**
@@ -539,10 +578,11 @@ export const useAssessmentStore = create<AssessmentStore>()(
         lastSavedAt: null,
         autoSaveEnabled: true,
         lastSyncAt: null,
+        completionBlocked: null,
 
         // Session management actions
         startAssessment: async (type: AssessmentType, context: AssessmentContext = 'standalone') => {
-          set({ isLoading: true, error: null });
+          set({ isLoading: true, error: null, completionBlocked: null });
 
           try {
             const sessionId = generateTimestampedId(type);
@@ -659,6 +699,34 @@ export const useAssessmentStore = create<AssessmentStore>()(
           set({ isLoading: true });
 
           try {
+            // DEBUG-550 — REFUSE an answer set that is not exactly the expected
+            // ids. A count is not a completeness check: nine PHQ-9 entries with a
+            // duplicate and `phq9_9` absent used to score, band, and report
+            // `suicidalIdeation: false` from the missing question — a Q9 false
+            // negative from a set that looks complete.
+            //
+            // Refuse rather than score-and-flag. A partial-flagged result still
+            // needs a band to render and still enters `completedAssessments`,
+            // history, trends and cloud backup, so the false negative would just
+            // move downstream. Nothing here is destroyed: the session and answers
+            // stay put so the reader can finish.
+            const missing = missingAnswerIds(state.currentSession.type, state.answers);
+            const malformed = hasUnexpectedOrDuplicateAnswers(state.currentSession.type, state.answers);
+            if (missing.length > 0 || malformed) {
+              set({
+                isLoading: false,
+                // Explicitly null: `recoverSession` does not clear this, so a
+                // second assessment completed-then-refused in one app session
+                // could otherwise render the EARLIER banded result as this one —
+                // and SyncCoordinator's null -> non-null transition would
+                // re-evaluate it for crisis.
+                currentResult: null,
+                completionBlocked: { reason: 'incomplete_answers', missingQuestionIds: missing },
+                error: `ASSESSMENT_INCOMPLETE: ${missing.length} unanswered`
+              });
+              return;
+            }
+
             // Calculate final result
             let result: PHQ9Result | GAD7Result;
             
@@ -694,7 +762,8 @@ export const useAssessmentStore = create<AssessmentStore>()(
               currentResult: result,
               completedAssessments: updatedHistory,
               isLoading: false,
-              hasRecoverableSession: false
+              hasRecoverableSession: false,
+              completionBlocked: null
             });
 
             // Handle crisis if detected. handleCrisisDetection is now the
@@ -728,7 +797,8 @@ export const useAssessmentStore = create<AssessmentStore>()(
             crisisIntervention: null,
             hasRecoverableSession: false,
             error: null,
-            isLoading: false
+            isLoading: false,
+            completionBlocked: null
           });
         },
 
@@ -922,13 +992,12 @@ export const useAssessmentStore = create<AssessmentStore>()(
         },
 
         validateCurrentAnswers: () => {
+          // DEBUG-550: delegates to the same predicate `completeAssessment` uses,
+          // so there is one implementation and two views rather than two
+          // validators that can drift apart.
           const state = get();
           if (!state.currentSession) return false;
-          
-          const expectedQuestions = state.currentSession.type === 'phq9' ? PHQ9_QUESTIONS : GAD7_QUESTIONS;
-          return expectedQuestions.every(questionId => 
-            state.answers.some(answer => answer.questionId === questionId)
-          );
+          return missingAnswerIds(state.currentSession.type, state.answers).length === 0;
         }
       }),
       {
@@ -975,38 +1044,35 @@ export const useAssessmentStore = create<AssessmentStore>()(
   )
 );
 
-// Helper: call .unref() on a setTimeout handle when running in Node
-// (Jest). In browser/RN, setTimeout returns a number that has no unref.
-function unrefTimeout(handle: ReturnType<typeof setTimeout>): void {
-  const h = handle as unknown as { unref?: () => void };
-  if (typeof h.unref === 'function') h.unref();
-}
-
-// Auto-save subscription for real-time persistence
-useAssessmentStore.subscribe(
-  (state) => ({
-    answers: state.answers,
-    currentSession: state.currentSession,
-    autoSaveEnabled: state.autoSaveEnabled
-  }),
-  async (current, previous) => {
-    if (
-      current.autoSaveEnabled &&
-      current.currentSession &&
-      (current.answers.length !== previous.answers.length ||
-       current.currentSession?.id !== previous.currentSession?.id)
-    ) {
-      // Debounced auto-save; unref the timer in Node so it doesn't keep
-      // Jest alive past test completion. Safe in RN production.
-      unrefTimeout(setTimeout(async () => {
-        try {
-          await useAssessmentStore.getState().saveProgress();
-        } catch (error) {
-          logError(LogCategory.SYSTEM, 'Auto-save failed:', error instanceof Error ? error : new Error(String(error)));
-        }
-      }, 1000));
-    }
-  }
-);
+// DEBUG-549 — the module-level autosave subscription was REMOVED, not repaired.
+//
+// It read `autoSaveEnabled` at SCHEDULE time and never re-read it in the fired
+// callback, and it discarded the `setTimeout` handle, so nothing could ever
+// cancel one. A PHQ-9 run scheduled nine uncancelled 1000ms timers, each of
+// which re-persisted whatever state existed a second later.
+//
+// The repair is a deletion because the subscription was REDUNDANT, not merely
+// un-debounced. Every mutation that could trigger it has already persisted
+// synchronously on the same call chain:
+//   • `startAssessment`   — awaits `saveProgress()` under the same flag
+//   • `answerQuestion`    — awaits `saveProgress()` under the same flag
+//   • `completeAssessment`— always saves
+//   • `setSessionNote`    — always saves
+//   • `resetAssessment`   — nulls `currentSession`, which the guard excluded
+// The one mutation it uniquely covered is `recoverSession`, which has NO
+// production callers and in any case only writes back the blob it just read.
+// So every timer it ever scheduled was a duplicate encrypted write.
+//
+// `autoSaveEnabled` and both setters DELIBERATELY REMAIN. The flag is persisted
+// via `partialize` AND is one of exactly two fields in CloudBackupService's
+// restore allowlist (`EXPECTED_SAFE_FIELDS = 2`, pinned in both directions by
+// CloudBackupService.privacy.test.ts), so removing it would break a cross-feature
+// contract and its privacy suite. It still gates the inline saves above; only the
+// deferred duplicate is gone.
+//
+// Not a retention control, and must never be described as one: the zustand
+// `persist` middleware writes `answers` on every `set()` with no
+// `autoSaveEnabled` gate, so disabling autosave has never stopped answers
+// reaching encrypted storage.
 
 export default useAssessmentStore;

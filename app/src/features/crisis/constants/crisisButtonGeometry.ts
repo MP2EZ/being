@@ -13,7 +13,12 @@
  *
  * DEBUG-406 needed a THIRD consumer with a different shape, which is the point at
  * which copying stops being tolerable. Both shapes now derive from the raw
- * geometry below.
+ * geometry below — but DEBUG-406 only ADDED the derivation, it did not rewire the
+ * two files that motivated it. They kept their literals for the whole life of this
+ * module while this header claimed otherwise, and no detector could see the gap:
+ * the import rule found no import and a reader found this sentence. DEBUG-586
+ * made both files real importers. Do not describe a consumer here that does not
+ * import from this file.
  *
  * THE RAW GEOMETRY (mirrors CollapsibleCrisisButton.tsx:456, 471-477)
  * ==================================================================
@@ -31,8 +36,8 @@
  * ====================================
  * `CRISIS_BUTTON_RESERVED_BAND` — a full-width bottom inset. Correct for a
  * CENTRED CARD (`justifyContent: 'center'`), where the card is free to float and
- * a full-width inset costs nothing. Used by `HapticsOptInPrompt` and
- * `ResumeSessionModal`, both unchanged by DEBUG-406.
+ * a full-width inset costs nothing. Imported by `HapticsOptInPrompt` and
+ * `ResumeSessionModal` (DEBUG-586); DEBUG-406 changed neither file's behaviour.
  *
  * `CRISIS_BUTTON_EXCLUSION_RECT` — the actual contested region. Correct for a
  * BOTTOM SHEET (`justifyContent: 'flex-end'`), where a full-width 176pt inset
@@ -113,9 +118,10 @@ export const CRISIS_BUTTON_CLEARANCE = spacing[16];
 /**
  * Full-width bottom inset for a CENTRED-CARD overlay.
  *
- * 104 + 44 + 12 + 16 = 176. Consumed by `HapticsOptInPrompt` and
- * `ResumeSessionModal`, which keep their existing behaviour — this constant
- * reproduces the literal both files declared, it does not change it.
+ * 104 + 44 + 12 + 16 = 176. Imported by `HapticsOptInPrompt` and
+ * `ResumeSessionModal` (DEBUG-586) and by `overlayBottomInset` below. Both
+ * practice overlays are gated Protected Paths precisely because they consume
+ * this — a wrong value there is a crisis FALSE POSITIVE, not a layout bug.
  */
 export const CRISIS_BUTTON_RESERVED_BAND =
   CRISIS_BUTTON_BOTTOM_OFFSET_MAX +

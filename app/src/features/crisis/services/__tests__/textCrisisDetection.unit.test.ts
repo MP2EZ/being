@@ -1,18 +1,16 @@
 /**
  * textCrisisDetection — unit specs (FEAT-283 Slice A)
  *
- * SCOPE OF THE ZERO-FALSE-NEGATIVE GUARANTEE — read before trusting this suite.
+ * WHAT THIS SUITE ESTABLISHES — read before citing it.
  *
- * These specs pin detection over *correctly-transcribed text only*. They do NOT
- * and cannot establish that a spoken crisis disclosure is always detected: an
- * on-device speech recognizer may mishear "I want to die" as "I want a die",
- * and no assertion in this file would fail. The mitigations for that failure
- * mode are layered elsewhere (an always-reachable crisis affordance that is
- * never route-suppressed, and a low-confidence support line on the review
- * screen) and are pinned by their own tests.
+ * These specs pin that the shipped vocabulary matches, that near-misses do not,
+ * and that the result leaks no content. They do NOT establish that every crisis
+ * disclosure is detected: recall is unmeasured and known misses exist
+ * (`textCrisisDetection.ts` header; INFRA-512 §3). Nor can they see recognizer
+ * error — a mishearing of "I want to die" fails no assertion here.
  *
- * Do not cite this suite as evidence that voice capture is safe. Cite it as
- * evidence that the text scanner behaves correctly on the text it is given.
+ * Cite this suite as evidence that the approved phrases still fire. Do not cite
+ * it as evidence that voice capture is safe, or that a null scan means no crisis.
  */
 
 import {

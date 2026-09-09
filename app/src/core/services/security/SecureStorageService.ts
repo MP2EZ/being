@@ -114,6 +114,18 @@ export const SECURE_STORAGE_CONFIG = {
    * Note the two entries fail differently, which is why one comment cannot serve
    * both: `crisis_analytics_queue` is a passive buffer that nothing rewrites
    * after erasure, so for IT the list membership genuinely is the whole control.
+   *
+   * DEBUG-539 — do NOT add PostHog's residuals here. `.posthog-rn.json` and
+   * `.posthog-rn-logs.json` are storage KEYS that resolve to FILENAMES in the
+   * document directory under the `expo-file-system` backend, not AsyncStorage
+   * keys, so listing them deletes nothing and a test asserting "no AsyncStorage
+   * key matches /posthog/i" passes before any fix and would pass forever. They
+   * are handled in `core/analytics/analyticsIdentityReset.ts`, which resets
+   * THROUGH the live instance where one exists — deleting the files under a live
+   * client is the same write-back fake control described above for
+   * `storeMetadata`. A tripwire pins the backend branch, because if a future
+   * dependency resolution loses `Paths`/`File` the adapter silently becomes
+   * AsyncStorage-backed and THIS list becomes the correct fix.
    */
   SWEPT_EXACT_KEYS: [
     '@being/supabase/crisis_analytics_queue',
@@ -201,12 +213,50 @@ export const WELLNESS_SECURE_STORE_KEYS = [
  *    de-authenticate the device with no recovery path and holds no wellness
  *    content.
  */
+/**
+ * DEBUG-545 — the account-deletion attestation's own key.
+ *
+ * It exists as a SEPARATE key from `consent_history_v1` because that key is
+ * shared with the consent-history chain, whose migration into AES-256-GCM
+ * AsyncStorage is REQUIRED behaviour and cannot be switched off. The attestation
+ * rode along with it: `readWithLegacyFallback` relocated the plaintext hit into
+ * `wellness_async_*` and deleted the SecureStore copy, and both that prefix and
+ * the migration marker are in `SWEPT_ASYNC_PREFIXES` — so the Art. 17(3)(b)
+ * evidence left its erasure-excluded home on the next consent read and became
+ * sweepable by any later `clearAllWellnessData`, including a partial one.
+ *
+ * Plaintext at rest is deliberate, not an oversight: the record must survive
+ * `deleteMasterKey: true`, and AES-256-GCM under a deleted master key is
+ * unrecoverable. It carries no identifier — booleans, a timestamp and a count —
+ * which is what makes plaintext acceptable, and that ceiling is load-bearing.
+ */
+export const ACCOUNT_DELETION_ATTESTATION_KEY = 'account_deletion_attestation_v1';
+
 export const ERASURE_EXCLUDED_SECURE_STORE_KEYS = [
   'consent_record_v1',
   'consent_history_v1',
   'legal_gate_consents_v1',
   'age_verification_v1',
   'auth_device_id',
+  ACCOUNT_DELETION_ATTESTATION_KEY,
+] as const;
+
+/**
+ * DEBUG-545 — keys that must NEVER be routed through the legacy-migration path.
+ *
+ * A SEPARATE list from `ERASURE_EXCLUDED_SECURE_STORE_KEYS`, and conflating the
+ * two would break consent history outright: `consent_history_v1` is erasure-
+ * excluded AND is legitimately passed to `readWithLegacyFallback` on every load.
+ * Erasure-exclusion says "the sweep leaves this alone"; migration-isolation says
+ * "no code path may relocate this into sweepable storage". Only the second is
+ * what the attestation needs.
+ *
+ * Enforced in `readWithLegacyFallback` rather than left as a convention, because
+ * the defect it prevents is silent: the write succeeds, the read succeeds, and
+ * the record is simply gone one launch later.
+ */
+export const MIGRATION_ISOLATED_SECURE_STORE_KEYS = [
+  ACCOUNT_DELETION_ATTESTATION_KEY,
 ] as const;
 
 /**
@@ -1106,6 +1156,24 @@ export class SecureStorageService {
     }
 
     if (!legacySecureStoreKey || (await this.isMigrated(legacySecureStoreKey))) {
+      return null;
+    }
+
+    // DEBUG-545 — refuse to migrate a migration-isolated key.
+    //
+    // Migrating one relocates it into `wellness_async_*` (swept) and deletes the
+    // SecureStore copy, which for the account-deletion attestation destroys the
+    // Art. 17(3)(b) evidence it exists to preserve. Loud in development so a
+    // future caller's mistake is unmissable; in release it degrades to "no legacy
+    // value" plus a high-severity log, because throwing here would abort a
+    // consent load — and a deletion flow — in the field.
+    if ((MIGRATION_ISOLATED_SECURE_STORE_KEYS as readonly string[]).includes(legacySecureStoreKey)) {
+      const message =
+        `[SecureStorage] ${legacySecureStoreKey} is migration-isolated and must not be ` +
+        'passed to readWithLegacyFallback — migrating it would move the record into ' +
+        'sweepable storage. Read it directly via SecureStore.';
+      if (__DEV__) throw new Error(message);
+      logSecurity(message, 'high');
       return null;
     }
 
