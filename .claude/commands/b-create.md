@@ -140,7 +140,7 @@ After resolving, set DEPTH to the matched level and continue. Everything downstr
 
 ## Dimension Reference (shared by Phase 3)
 
-Score each dimension using Being's prioritization framework (`docs/product/prioritization-framework.md`). Notion calculates Priority via `(I × V^1.5 × SF × U) / (E × R)`.
+Score each dimension using Being's prioritization framework (`docs/product/prioritization-framework-v2.md`). Notion calculates Priority via `(I × V^1.5 × SF × U) / (E × R)`.
 
 - **Impact (1-5)** — business outcome magnitude: 5=Transformative, 4=Significant, 3=Moderate, 2=Minor, 1=Negligible
 - **Value (1-5)** — user benefit (weighted 1.5×): 5=Critical Need, 4=Significant Need, 3=Noticeable Benefit, 2=Quality of Life, 1=Cosmetic

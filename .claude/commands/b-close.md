@@ -1316,6 +1316,19 @@ echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/navigation/|CleanRootNavigator
 #    jest owns the surface; no sim build needed (this is the MAINT-237 narrowing payoff).
 if [ ${#FLOWS[@]} -eq 0 ] && [ -z "$FULL_SUITE" ]; then
   if [ -n "$RENDER_BOOT_RELEVANT" ]; then
+    # NAME the substitution, for the INFRA-517 reason one screen up: a silent cap reads
+    # exactly like a deliberate scope. This arm is the fail-safe for a render/boot path
+    # that reached Step 2.5.1's grep but matched no Step 2.5.3 clause — the shape a newly
+    # added Protected Path takes before anyone writes it an arm. check-safety-paths.sh
+    # cannot catch it: it reconciles the 2.5.1 grep and b-batch's copy, never the arm set,
+    # and the drift printer above is flow-side (it only runs when .maestro files changed).
+    # Unannounced, the operator sees an ordinary scoped run and the generic flow reads as
+    # the mapped one.
+    echo "🛡️  No Step 2.5.3 clause matched a render/boot-relevant change — falling back to"
+    echo "    crisis-button-reachability. This is the fail-safe, NOT a scope: it proves 988"
+    echo "    reachability only, and pins nothing specific to what changed:"
+    echo "$RENDER_BOOT_RELEVANT" | sed 's/^/      /'
+    echo "    Give these paths a Step 2.5.3 arm to scope them properly."
     FLOWS=("crisis-button-reachability")
   else
     echo "ℹ️  Safety-surface change is SERVICE-LAYER ONLY (MAINT-237 narrowing) — no sim flow:"
