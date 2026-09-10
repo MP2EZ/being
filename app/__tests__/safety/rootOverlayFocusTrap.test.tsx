@@ -134,12 +134,23 @@ describe('DEBUG-575 · the crisis affordances are outside the host', () => {
     expect(navClose).toBeLessThan(hostClose);
   });
 
-  it('leaves the slot and both crisis affordances outside it', () => {
+  // DEBUG-506 removed the accessory from this list, and the reason is not that it moved
+  // somewhere safer — it is that its position in THIS file never governed its a11y
+  // exposure, before or after. `RCTInputAccessoryComponentView.mm:72` assigns
+  // `_textInput.inputAccessoryView = _contentView`, so UIKit reparents the visible content
+  // into the keyboard window; the component view left behind in the React tree is
+  // `hidden = true` (:121) and never paints. Placement relative to this host therefore
+  // could not have hidden it, and asserting that placement was protective in appearance
+  // only — it guarded a control that, on the root mount, never attached at all.
+  //
+  // What replaced it is real but is NOT a source claim: the accessory is emitted from
+  // CrisisTextInput's own Fragment, so it shares a mount lifecycle with the input it
+  // serves. That is pinned in CrisisTextInput.test.tsx, not here.
+  it('leaves the slot and the root crisis button outside it', () => {
     const hostClose = idx('</NavigatorA11yHost>');
     for (const affordance of [
       '<RootOverlaySlot',
       '<RootCrisisBoundary',
-      '<CrisisKeyboardAccessory',
     ]) {
       const at = idx(affordance);
       expect(at).toBeGreaterThan(-1);
@@ -147,6 +158,23 @@ describe('DEBUG-575 · the crisis affordances are outside the host', () => {
       expect(at).toBeGreaterThan(hostClose);
     }
   });
+
+  // The inverse pin, and it is not bookkeeping. A root mount IS the DEBUG-450 defect: it
+  // renders nothing, warns nothing, attaches to nothing, and leaves every gate green — so
+  // no other assertion in this suite can notice it coming back.
+  it('does not mount the keyboard accessory at the root at all', () => {
+    expect(idx('<CrisisKeyboardAccessory')).toBe(-1);
+  });
+
+  // OPEN, and deliberately not answered here (INFRA-427). Whether the accessory stays in
+  // VoiceOver's tree while a root-slot overlay holds the screen is a question about UIKit
+  // window modality — `accessibilityViewIsModal` is set on an app-window view while the
+  // accessory lives in UIRemoteKeyboardWindow — and this file reads source, so it cannot
+  // answer it. The trigger is reachable today: BugReportOverlay is shake-armed from the app
+  // root and deliberately neither autofocuses nor dismisses the keyboard (:160-166), so a
+  // field in the navigator can still hold first responder with the overlay up. If VoiceOver
+  // cannot reach the accessory in that state, the route has no reachable 988 affordance,
+  // because the keyboard is occluding the root button — which is this item's whole premise.
 
   it('drives the host from slot occupancy, not from a route or local state', () => {
     expect(stripped).toMatch(/<NavigatorA11yHost\s+hidden=\{rootOverlayOccupied\}/);
