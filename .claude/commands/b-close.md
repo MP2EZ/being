@@ -671,7 +671,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
 | `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
 | `.maestro/<flow>.yaml` added or edited | **trigger** that flow | The flow IS the contract; one that has never run is not coverage. Bypasses the inert filter — a deletion-only diff here is assertions being removed. |
-| `.maestro/_<helper>.yaml` edited | **its transitive `runFlow:` callers** | INFRA-517. `runFlow:` is a static per-file include, so a helper reaches exactly its callers — measured on INFRA-494, where a `_legal-and-onboarding.yaml` diff ran 12 sim flows and its only two callers are both `safety-device-only`. Callers that cannot run in the sim get a NOT-VERIFIED notice; the Step 2.5.3 net then still runs `crisis-button-reachability`, so this is one flow, never zero. Falls back to the full suite on any of: a `config.yaml`, matcher self-test failure, unreconciled residue, a depth-capped closure, or zero callers. |
+| `.maestro/_<helper>.yaml` edited | **its transitive `runFlow:` callers** | INFRA-517. `runFlow:` is a static per-file include, so a helper reaches exactly its callers — measured on INFRA-494, where a `_legal-and-onboarding.yaml` diff ran 12 sim flows and all THREE of its callers are device-class (`crisis-988-dial` + `crisis-keyboard-accessory` `safety-device-only`, `breathing-fps-budget` `perf-device-only`), so none is sim-runnable — the count was two when INFRA-494 measured it. Callers that cannot run in the sim get a NOT-VERIFIED notice; the Step 2.5.3 net then still runs `crisis-button-reachability`, so this is one flow, never zero. Falls back to the full suite on any of: a `config.yaml`, matcher self-test failure, unreconciled residue, a depth-capped closure, or zero callers. |
 | `.maestro/crisis-988-dial.yaml` edited | **no sim flow** — hardware notice | `safety-device-only`; sim `canOpenURL` is unconditionally false, so it cannot pass here. Run `e2e:safety:988-dial` on a real iPhone. |
 | A screen carrying `CRISIS_FAB_CLEARANCE` changed, or `CollapsibleCrisisButton` | **notice only** — never scoped | INFRA-510. `reconsent-stale-ineligible-fab-clearance` is `safety-bottom-inset` and declares 393x852; 375x667 has a zero bottom inset, so the collision cannot occur there at any clearance value. Scoping it beside a 375x667 flow is unsatisfiable on one device — the shape that trains `--skip-e2e`. |
 | `.maestro/<flow>.yaml` tagged `safety-dynamic-type` edited | **no sim flow** — instruction | DEBUG-469 / DEBUG-507. The suite selects on an exact `- safety` tag at the DEFAULT content size, so it can neither select nor validly run these. `e2e:safety:ax5` (AX5) and `e2e:safety:xxxl` (largest non-accessibility step) own them. Each needs its own case arm; the `*)` catch-all would fire a pointless full suite. |
@@ -1147,15 +1147,17 @@ mflow_closure() {
   printf '%s\n' $visited
 }
 mflow_tag() { awk '/^tags:/{f=1;next} /^[^ -]/{f=0} f{gsub(/[ -]/,"");print;exit}' "$E2E_DIR/$1" 2>/dev/null; }
-# Every flow name carrying a case arm below. Kept beside the case deliberately: BOTH drift
-# directions are loud — a name here with no arm falls to the named catch-all, an arm with
-# no name here is reported as unmapped by the drift printer after the loop.
-MAPPED_FLOWS="crisis-988-dial reconsent-stale-ineligible-fab-clearance daily-loop-ax5-entry
+# Every flow carrying a NAMED case arm below — i.e. the ones the sim gate cannot run.
+# `safety`-tagged flows are deliberately absent: they self-map through the tag check in
+# the catch-all, so listing them here would be a second copy of the .maestro directory
+# that has to be maintained by hand. That copy is what drifted — two safety flows were
+# missing from it and silently cost a full suite each.
+# Kept beside the case deliberately: BOTH drift directions stay loud — a name here with
+# no arm falls to the catch-all, an arm with no name here is reported by the drift
+# printer after the loop.
+EXCLUDED_FLOWS="crisis-988-dial reconsent-stale-ineligible-fab-clearance daily-loop-ax5-entry
 journal-record-liveness profile-voice-reflection-xxxl breathing-fps-budget
-q9-single-alert phq9-severe-completion gad7-severe
-crisis-button-reachability journal-crisis-scan daily-loop-quick-depth daily-loop-deeplink
-deeplink-consent-gate reconsent-stale-ineligible reconsent-stale crisis-keyboard-accessory
-guidance-suppressed-handoff guidance-gentle-tier-cap export-share-sheet-occlusion"
+crisis-keyboard-accessory export-share-sheet-occlusion"
 MAESTRO_CHANGED="$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
 while IFS= read -r f; do
   [ -z "$f" ] && continue
@@ -1255,46 +1257,52 @@ while IFS= read -r f; do
       echo "   trigger — it also leaves an open share sheet, state Maestro does not reliably"
       echo "   clear, which per DEBUG-422 reds LATER flows against a healthy app. Run it alone"
       echo "   on a booted 375x667 device, or delete it if the occlusion is ever remedied." ;;
-    q9-single-alert.yaml)            FLOWS+=("q9-single-alert") ;;
-    phq9-severe-completion.yaml)     FLOWS+=("phq9-severe-completion") ;;
-    gad7-severe.yaml)                FLOWS+=("gad7-severe") ;;
-    crisis-button-reachability.yaml) FLOWS+=("crisis-button-reachability") ;;
-    journal-crisis-scan.yaml)        FLOWS+=("journal-crisis-scan") ;;
-    daily-loop-quick-depth.yaml)     FLOWS+=("daily-loop-quick-depth") ;;
-    daily-loop-deeplink.yaml)        FLOWS+=("daily-loop-deeplink") ;;
-    deeplink-consent-gate.yaml)      FLOWS+=("deeplink-consent-gate") ;;
-    reconsent-stale-ineligible.yaml) FLOWS+=("reconsent-stale-ineligible") ;;
-    reconsent-stale.yaml)            FLOWS+=("reconsent-stale") ;;
     crisis-keyboard-accessory.yaml)
       echo "⌨️  crisis-keyboard-accessory.yaml changed — safety-device-only. Its keyboard"
       echo "   accessory assertions need real hardware; NOT added to the run set."
       echo "   Validate directly with a device connected." ;;
-    guidance-suppressed-handoff.yaml) FLOWS+=("guidance-suppressed-handoff") ;;
-    guidance-gentle-tier-cap.yaml) FLOWS+=("guidance-gentle-tier-cap") ;;
-    # INFRA-517: still the full suite — an unmapped flow is a shape nobody has reasoned
-    # about, and the INFRA-428 asymmetry says bias safe. But NAME it: a silent cap reads
-    # exactly like a deliberate scope, and this arm was quietly absorbing real drift.
+    # Self-map on the TAG, not the filename — which is what the "not a name transform"
+    # caveat above asks for: a FILENAME transform gets helpers, dynamic-type and
+    # device-only flows wrong, and the tag is what distinguishes each. It is also what
+    # e2e-safety.sh selects on, so this cannot disagree with the runner. One arm per
+    # flow could: bug-report-crisis-reachability and bug-report-suppressed-route were
+    # `safety`-tagged with no arm and gated the full suite instead of running.
     *)
-      echo "🛡️  unmapped flow $(basename "$f") — no case arm, gating full suite."
-      echo "    Give it an arm (and add it to MAPPED_FLOWS) to scope it properly."
-      FULL_SUITE=1 ;;
+      if [ "$(mflow_tag "$(basename "$f")")" = "safety" ]; then
+        FLOWS+=("$(basename "$f" .yaml)")
+      else
+        # INFRA-517 / INFRA-428: neither `safety` nor a named arm is a shape nobody has
+        # reasoned about — bias safe, but NAME it. Print the tag: dispatch keys on it, so
+        # an unexpected tag IS the diagnosis.
+        echo "🛡️  unmapped flow $(basename "$f") (tag: $(mflow_tag "$(basename "$f")")) —"
+        echo "    neither \`safety\` nor a named arm. Gating full suite."
+        echo "    Give it an arm (and add it to EXCLUDED_FLOWS) to scope it properly."
+        FULL_SUITE=1
+      fi ;;
   esac
 done <<< "$MAESTRO_CHANGED"
 # INFRA-517 drift printer. Runs whenever the loop ran at all, not only on a catch-all hit:
 # an arm set that only reports drift for files someone happens to edit is not a check.
 if [ -n "$MAESTRO_CHANGED" ]; then
-  # Collapse the newlines out of MAPPED_FLOWS first: the membership test is
+  # Collapse the newlines out of EXCLUDED_FLOWS first: the membership test is
   # space-delimited, so a name sitting at a line break would never match itself.
-  MAPPED_NORM=" $(echo $MAPPED_FLOWS) "
+  MAPPED_NORM=" $(echo $EXCLUDED_FLOWS) "
   for ff in "$E2E_DIR"/[!_]*.yaml; do
     [ -e "$ff" ] || continue
     nn="$(basename "$ff" .yaml)"
+    # A `safety` flow needs no arm — it self-maps on its tag. Only a flow that is
+    # neither `safety` nor named is unreasoned-about, and only that is drift now.
+    [ "$(mflow_tag "$nn.yaml")" = "safety" ] && continue
     case "$MAPPED_NORM" in *" $nn "*) ;; *)
-      echo "⚠️  arm-set drift: $nn.yaml is present with no case arm (falls to full suite)." ;;
+      echo "⚠️  arm-set drift: $nn.yaml carries tag \`$(mflow_tag "$nn.yaml")\` with no case arm (falls to full suite)." ;;
     esac
   done
-  for nn in $MAPPED_FLOWS; do
+  for nn in $EXCLUDED_FLOWS; do
     [ -e "$E2E_DIR/$nn.yaml" ] || echo "⚠️  arm-set drift: case arm \`$nn\` names no file in $E2E_DIR."
+    # An excluded flow that becomes plain `safety` would now self-map, and its named arm
+    # would shadow that silently — the arm wins, because a case matches in order.
+    [ -e "$E2E_DIR/$nn.yaml" ] && [ "$(mflow_tag "$nn.yaml")" = "safety" ] && \
+      echo "⚠️  arm-set drift: \`$nn\` is tagged \`safety\` but still has an exclusion arm shadowing it."
   done
 fi
 # e2eSeed sets the launch state EVERY flow starts from, so no narrower scope is valid.
