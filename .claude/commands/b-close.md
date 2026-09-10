@@ -432,7 +432,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal)\.tsx|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -667,6 +667,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | `features/guidance/` change | **`guidance-suppressed-handoff` + `guidance-gentle-tier-cap`** | FEAT-457 + INFRA-420. The first drives Home entry → suppressed → notice → CrisisResources → 988 with all four tier testIDs ABSENT; the second pins the positive branch (Tier 0/1 shown, Tier 2/3 capped). Both arms are required — suppression alone stays green if the gate suppresses everyone. Supersedes the INFRA-416 crisis-button fail-safe. |
 | `features/practices/dailyloop/` change | **`daily-loop-quick-depth` + `daily-loop-deeplink`** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. INFRA-509 narrowed this from the full suite: these two are the only tagged flows carrying a daily-loop testID, so they ARE that coverage. A `DailyLoopDepthSelectScreen` edit additionally prints the `e2e:safety:ax5` instruction (DEBUG-469's `CRISIS_FAB_CLEARANCE` is invisible to centre-tapping flows). |
 | `features/practices/` change (outside `dailyloop/`) | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
+| `practices/shared/haptics/`, `shared/components/BreathingCircle.tsx` or `shared/useIsFocusedSafe.ts` | **`crisis-button-reachability`** + notice | DEBUG-587 (crisis ruling). `shared/haptics/` is DIRECTORY-level — all eight members are on the cue-delivery path — and `BreathingCircle.tsx` is FILE-level, beside the two rows above. Both route practice output that can reach a crisis screen: the hook gates the tactile and paired-speech channels, and `BreathingCircle` speaks every phase through `announceForAccessibility` on a path touching no haptics code. Neither imports from `features/crisis/`, so INFRA-531's rule misses both, and `practices/` is exempt outside `dailyloop/` — a diff whose whole subject was whether practice output reaches a crisis surface merged with this gate never firing. **Notice-only**: `e2e-sim` carries `practice_haptics:false`, so no flow can render a cue; the falsifier is `crisisBlurGate.test.tsx`. |
 | `practices/shared/components/(HapticsOptInPrompt\|ResumeSessionModal).tsx` | **`daily-loop-quick-depth`** (Resume) / **`crisis-button-reachability`** + notice (Haptics) | DEBUG-586 (crisis ruling). Both size `paddingBottom` from `CRISIS_BUTTON_RESERVED_BAND` so their controls cannot sit under a `zIndex: 9999` FAB — a crisis FALSE POSITIVE, the DEBUG-547 shape. FILE-level: the other 12 members of that dir carry no crisis surface and a directory clause would re-import the over-trigger the `practices/` exemption one row above exists to prevent. `daily-loop-quick-depth` is the only flow rendering `resume-session-overlay` and already asserts the DEBUG-403 crisis round-trip there. **Necessary, not sufficient, both:** no Maestro assertion can read a `paddingBottom`, the flows tap element CENTRES, and `ResumeSessionModal.test.tsx:296-305` records a 1.5pt shortfall Maestro reported as a COMPLETED tap. `HapticsOptInPrompt` is flag-dark in the gate build (`practice_haptics:false`), so no flow renders it at all. The falsifier for both is the jest style assertion pinned to the imported constant. |
 | Test-only file (`__tests__/`, `.test.`, `.spec.`) | **skip** | Drives nothing in the running app (pre-existing exclusion). |
 | `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
@@ -987,6 +988,20 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/practices/dailyloop' && \
 # falsifier for both is the jest style assertion pinned to the imported constant.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'practices/shared/components/ResumeSessionModal' && \
   FLOWS+=("daily-loop-quick-depth")
+# DEBUG-587 (crisis ruling): shared/haptics/ routes BOTH the tactile and the paired-speech
+# channels, and BreathingCircle speaks every breath phase through announceForAccessibility.
+# Neither imports from features/crisis/, so INFRA-531's rule cannot see them, and practices/
+# is exempt outside dailyloop/ — the hand-maintained row is the only control.
+if echo "$RENDER_BOOT_RELEVANT" | grep -qE 'practices/shared/haptics/|practices/shared/components/BreathingCircle\.tsx|practices/shared/useIsFocusedSafe\.tsx?'; then
+  FLOWS+=("crisis-button-reachability")
+  echo "🔇 A practice cue/breath surface changed — it decides whether practice output can"
+  echo "   reach a crisis screen. NOTICE-ONLY by construction: eas.json's e2e-sim profile"
+  echo "   sets practice_haptics:false, so schedulerNeeded is false in the gate build and NO"
+  echo "   flow can render a cue. The arm proves only that the surrounding crisis paths still"
+  echo "   reach CrisisResources. The falsifier is jest at the expo-haptics and"
+  echo "   announceForAccessibility boundaries:"
+  echo "     __tests__/unit/practices/haptics/crisisBlurGate.test.tsx"
+fi
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'practices/shared/components/HapticsOptInPrompt' && {
   FLOWS+=("crisis-button-reachability")
   echo "ℹ️  DEBUG-586: HapticsOptInPrompt is FLAG-DARK in the gate build"

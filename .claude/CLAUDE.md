@@ -68,6 +68,9 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/core/stores/bugReportStore.ts` | `crisis` |
 | `app/src/features/practices/shared/components/HapticsOptInPrompt.tsx` | `crisis` + `philosopher` |
 | `app/src/features/practices/shared/components/ResumeSessionModal.tsx` | `crisis` + `philosopher` |
+| `app/src/features/practices/shared/haptics/` | `crisis` |
+| `app/src/features/practices/shared/components/BreathingCircle.tsx` | `crisis` |
+| `app/src/features/practices/shared/useIsFocusedSafe.ts` | `crisis` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -268,6 +271,24 @@ clause would charge a sim build to every Stoic-copy edit — the over-trigger th
 `practices/` exemption directly above exists to prevent. `philosopher` still owns
 both files' content; `ResumeSessionModal`'s header declares its own Stoic
 non-negotiables.
+
+`features/practices/shared/haptics/` and `shared/components/BreathingCircle.tsx` are the
+seventeenth instance (added DEBUG-587), and the first where the surface EMITS toward a crisis
+screen rather than being occluded by one. `usePracticeHaptics` routes both the tactile and
+paired-speech channels and its own docstring commits that "no haptic may fire on or over a
+crisis surface"; `BreathingCircle` speaks every breath phase through
+`announceForAccessibility` on a path touching no haptics code at all. Neither imports from
+`features/crisis/`, so INFRA-531's rule matches nothing, and `practices/` is exempt outside
+`dailyloop/` — so DEBUG-587, whose entire subject was whether practice output reaches a
+crisis surface, merged with the gate never firing. `shared/haptics/` is DIRECTORY-level and
+clears the naming bar: all eight members are on the cue-delivery path. `BreathingCircle.tsx`
+is a FILE for the reason the two rows above are. `useIsFocusedSafe.ts` is gated because it
+is the SOLE focus signal both of them read: its no-navigator default of `true` exists for
+tests and direct embedding, and widening it — or breaking the blur listener — fails BOTH
+gates open at once, silently. Note what a gate arm CANNOT prove here:
+`eas.json`'s `e2e-sim` profile carries `practice_haptics:false`, so the pipeline is dark in
+the gate build and no flow can render a cue — the arm is notice-only and the falsifier is
+jest at the `expo-haptics` and `announceForAccessibility` boundaries.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
