@@ -71,7 +71,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
   ScrollView,
   BackHandler,
   AccessibilityInfo,
@@ -87,7 +86,7 @@ import {
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useOverlayBottomInset } from '@/core/hooks/useOverlayBottomInset';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 
 const MAX_LEN = 5000;
 
@@ -201,8 +200,7 @@ const WeeklyReflectionComposer: React.FC<WeeklyReflectionComposerProps> = ({
             {TITLE}
           </Text>
 
-          <TextInput
-            {...crisisAccessoryProps()} /* DEBUG-450 */
+          <CrisisTextInput
             style={styles.input}
             value={text}
             onChangeText={(next) => {

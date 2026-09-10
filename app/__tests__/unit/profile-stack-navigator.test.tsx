@@ -19,8 +19,19 @@ import { render } from '@testing-library/react-native';
 
 // Root navigation spy — the navigator must resolve THIS (root) nav for onNavigate.
 const mockNavigate = jest.fn();
+// DEBUG-506 widened what this screen pulls in eagerly: DeleteAccountScreen now renders
+// CrisisTextInput, whose accessory half imports navigateToCrisisResources ->
+// navigationRef, which calls createNavigationContainerRef at module scope. A partial
+// mock without it fails the SUITE, not a test. (No production cost — the accessory was
+// already mounted at app root, so this module was always in the eager graph.)
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
+  createNavigationContainerRef: () => ({
+    isReady: () => false,
+    navigate: jest.fn(),
+    getRootState: jest.fn(),
+    addListener: jest.fn(() => jest.fn()),
+  }),
 }));
 
 // Stub the stack so <Stack.Navigator> just renders its children and screens are

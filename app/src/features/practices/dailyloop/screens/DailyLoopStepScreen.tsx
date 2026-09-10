@@ -79,7 +79,6 @@ import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
@@ -125,7 +124,7 @@ import {
   type StagesByStep,
 } from '../config/stageNotes';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 
 /**
  * DEBUG-518 — horizontal inset reserving the floating crisis button's touch band.
@@ -306,8 +305,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
     <View style={styles.inputSection} key={key}>
       <Text style={styles.inputLabel}>{label}</Text>
       {hint ? <Text style={styles.inputHint}>{hint}</Text> : null}
-      <TextInput
-        {...crisisAccessoryProps()} /* DEBUG-450 */
+      <CrisisTextInput
         style={[styles.textInput, { borderColor: values[key] ? themeColors.primary : colorSystem.gray[300] }]}
         value={values[key]}
         onChangeText={(t) => setField(key, t)}
@@ -503,8 +501,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               <View style={styles.inputSection}>
                 <Text style={styles.inputLabel}>{PREMEDITATIO.label}</Text>
                 <Text style={styles.inputHint}>{PREMEDITATIO.hint}</Text>
-                <TextInput
-                  {...crisisAccessoryProps()} /* DEBUG-450 */
+                <CrisisTextInput
                   style={[
                     styles.textInput,
                     { borderColor: adversityRehearsal ? themeColors.primary : colorSystem.gray[300] },

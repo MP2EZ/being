@@ -47,7 +47,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
   ScrollView,
   useWindowDimensions,
 } from 'react-native';
@@ -72,7 +71,7 @@ import {
   startGuardedRecognition,
 } from '@/core/services/speech/onDeviceSpeechGuard';
 import { sweepAllAudioArtifacts } from '@/core/services/speech/audioArtifactSweeper';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useKeyboardAvoidingBottomInset } from '@/core/hooks/useKeyboardFrameHeight';
 
@@ -551,8 +550,7 @@ export function VoiceReflectionScreen(): React.ReactElement {
               scanOnSave reads the `transcript` state string, never rendered text, so
               clipping or scrolling this field changes what the user SEES and nothing
               about what the crisis scanner receives. */}
-          <TextInput
-            {...crisisAccessoryProps()} /* DEBUG-450 */
+          <CrisisTextInput
             style={[
               styles.input,
               { minHeight: transcriptMinHeight, maxHeight: transcriptMaxHeight },

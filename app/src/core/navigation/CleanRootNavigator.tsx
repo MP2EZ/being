@@ -23,7 +23,6 @@ import { JournalEntryDetailScreen } from '@/features/journal/screens/JournalEntr
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 // DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
-import CrisisKeyboardAccessory from '@/features/crisis/components/CrisisKeyboardAccessory';
 import {
   RootOverlaySlot,
   useIsRootOverlayOccupied,
@@ -1012,21 +1011,19 @@ const CleanRootNavigator: React.FC = () => {
           <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
         </RootCrisisBoundary>
 
-        {/* DEBUG-450 — the crisis affordance for when a software keyboard occludes the
-            root button. Mounted ONCE: RN registers InputAccessoryView content by
-            nativeID app-wide, so every TextInput spreading crisisAccessoryProps() reaches
-            this single instance.
+        {/* DEBUG-506 — the crisis keyboard accessory is NOT mounted here, and must not be.
 
-            ADDITIVE, and a SIBLING of RootCrisisButton rather than a replacement for it.
-            Neither control suppresses the other — coordinating them would be a fourth
-            instance of the two-list reconciliation failure CLAUDE.md names for
-            features/guidance/ and features/consent/.
+            It used to be, on the belief that RN registers InputAccessoryView content by
+            nativeID app-wide from one mount. That is false on Fabric: attachment happens
+            once, in didMoveToWindow, by a depth-first search of the window for a TextInput
+            carrying the id. From this mount that search ran at app launch, when no such
+            input existed, and could never re-run — so the control was inert for its whole
+            shipped life while every gate stayed green.
 
-            Deliberately OUTSIDE RootCrisisBoundary: that boundary's fallback renders
-            Static988Button, which dials directly and needs no keyboard. Nesting this
-            inside would tie a keyboard-only affordance to a crash-recovery surface that
-            has no TextInput. */}
-        <CrisisKeyboardAccessory />
+            It is now one instance per input, owned by CrisisTextInput. RootCrisisButton
+            above is unaffected: the two controls remain independently correct, neither
+            suppressing the other, which is what stops a bug in one silently removing the
+            other's coverage. */}
       </View>
     </NavigationContainer>
   );
