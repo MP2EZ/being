@@ -48,8 +48,28 @@
  * `phaseText.hold` label. This component now paces exactly one shape: a
  * two-phase inhale/exhale pattern, symmetric (4-4) or asymmetric (4-6, the
  * extended-exhale shape). The full ruling — including what reintroducing
- * retention would require — lives in `../breathingPatterns`.
+ * retention would require — lives in `../breathingPatterns`. *
+ * THE BREATH RE-ENTERS AT ABSOLUTE ACTIVE-ELAPSED; IT DOES NOT RESTART (DEBUG-587).
+ *
+ * Activation used to rebuild a fresh `withRepeat(withSequence(inhale, exhale))`
+ * from the top of an inhale and announce "Breathe in", however far into the breath
+ * the practitioner had paused. One pause was enough to put the visible and spoken
+ * breath a phase away from the cue timeline, which excludes paused time. The
+ * scheduler was ruled authoritative (see `haptics/cueScheduler`), so the position
+ * is derived here from `phaseAtElapsed` on the same clock, and the activation
+ * announcement names the phase actually being resumed into.
+ *
+ * Two constraints on anything that touches this path. `scripts/check-breathing-worklet-purity.js`
+ * (CI) forbids `runOnJS` or a state setter inside `useAnimatedStyle` /
+ * `useDerivedValue` / `useAnimatedReaction` / `useFrameCallback`, forbids
+ * `requestAnimationFrame` anywhere in this file, and requires the default export to
+ * stay `React.memo`-wrapped with its module-scope prop constants intact — a
+ * `runOnJS` inside a `withTiming` COMPLETION callback is explicitly fine and is what
+ * the legs below use. And the resume seeds an eased position rather than a linear
+ * one, so the remainder is re-eased: the velocity is discontinuous at the resume
+ * instant, deliberately, because what has to be exact is the phase BOUNDARY.
  */
+
 
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { View, Text, StyleSheet, AccessibilityInfo } from 'react-native';
@@ -66,6 +86,8 @@ import Animated, {
 import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { DEFAULT_PATTERN } from '../breathingPatterns';
 import { groundingItemForCycle } from '../breathingGuidance';
+import { phaseAtElapsed } from '../haptics/phaseAtElapsed';
+import { useIsFocusedSafe } from '../useIsFocusedSafe';
 
 interface BreathingPattern {
   inhale: number;  // milliseconds
@@ -189,6 +211,37 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   // Last phase announced, recorded unconditionally (not only under reduced
   // motion) so the visible cue can be seeded the instant suppression turns on.
   const lastPhaseRef = useRef<string | null>(null);
+
+  /**
+   * Speech stops at the screen edge (DEBUG-587).
+   *
+   * This component announces every breath phase through
+   * `announceForAccessibility`, and did so with no idea whether it was still on
+   * screen. A VoiceOver practitioner who tapped the crisis button therefore kept
+   * hearing "Breathe in" / "Breathe out" over CrisisResources for as long as the
+   * practice screen stayed mounted behind it. That is flag-independent — this path
+   * has nothing to do with `practice_haptics` — so it reached every VoiceOver user
+   * on every one of the four screens that render this component.
+   *
+   * The visible reduced-motion cue and `lastPhaseRef` are deliberately still
+   * updated while blurred: they are on-screen state, not an interruption, and
+   * leaving them stale would strand a returning practitioner on the wrong label.
+   */
+  const isFocused = useIsFocusedSafe();
+  const focusedRef = useRef(isFocused);
+  focusedRef.current = isFocused;
+
+  /**
+   * Session position, paused time excluded — the same definition
+   * `cueScheduler.elapsedMs()` uses, on the same `performance.now()` clock.
+   *
+   * This is what lets the breath resume into the phase that was actually running
+   * instead of restarting at the top of an inhale. It is internal on purpose: the
+   * two Daily Loop screens that render this component sit on a Protected Path, and
+   * a new prop would drag them into the diff to buy nothing they need.
+   */
+  const accumulatedActiveMsRef = useRef(0);
+  const activeSinceRef = useRef<number | null>(null);
   useEffect(() => {
     const wasReduced = reducedMotionRef.current;
     reducedMotionRef.current = effectiveReducedMotion;
@@ -217,9 +270,11 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   // practitioner gets pacing from the animation and, under reduced motion, from
   // the visible phase label below — never from a sound.
   const announcePhase = useCallback((phaseText: string) => {
-    AccessibilityInfo.announceForAccessibility(phaseText);
     lastPhaseRef.current = phaseText;
     if (reducedMotionRef.current) setPhaseCue(phaseText);
+    // DEBUG-587: never speak over a screen the practitioner has navigated to.
+    if (!focusedRef.current) return;
+    AccessibilityInfo.announceForAccessibility(phaseText);
   }, []);
 
   // Handle cycle completion on JS thread
@@ -279,6 +334,13 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
   useEffect(() => {
     if (!isActive) {
+      // Fold the closing stretch into the session position before the animation
+      // is torn down, so a resume knows where the breath actually is (DEBUG-587).
+      if (activeSinceRef.current !== null) {
+        accumulatedActiveMsRef.current += performance.now() - activeSinceRef.current;
+        activeSinceRef.current = null;
+      }
+
       // Stop all animations and reset to initial state
       activeRef.value = false;
       cancelAnimation(scale);
@@ -293,9 +355,43 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
     // When becoming active, ensure clean state by canceling any existing animations
     activeRef.value = true;
+    activeSinceRef.current = performance.now();
     cancelAnimation(scale);
     cancelAnimation(opacity);
     cancelAnimation(phase);
+
+    /**
+     * RE-ENTER THE BREATH WHERE IT LEFT OFF (DEBUG-587 AC1/AC2).
+     *
+     * This effect used to rebuild a fresh `withRepeat(withSequence(inhale, exhale))`
+     * and announce "Breathe in" on every activation, so one pause was enough to put
+     * the visible and spoken breath a phase away from the cue timeline — which
+     * resumes from `accumulatedMs` and excludes paused time.
+     *
+     * The ruling was that the SCHEDULER is authoritative and the visuals move to
+     * meet it. `cueScheduler` is pattern-agnostic and shared with the interval and
+     * body-region timelines, which are correct precisely because their targets are
+     * absolute against a fixed origin; snapping it on resume would have made the
+     * cue count a function of pause history. So the position is derived here from
+     * the same analytic model the cues use — `phaseAtElapsed`, imported rather than
+     * re-derived, because two copies of this arithmetic is how the two halves drift
+     * apart in the first place.
+     *
+     * On a genuine start elapsed is 0, which yields the opening inhale at full
+     * duration and a seed of exactly the resting scale — so cold-start behaviour is
+     * unchanged, including on the two Daily Loop screens that never pause.
+     */
+    const elapsedMs = accumulatedActiveMsRef.current;
+    const { phase: resumePhase, phaseStartedAtMs } = phaseAtElapsed(pattern, elapsedMs);
+    const phaseDurationMs = resumePhase === 'inhale' ? pattern.inhale : pattern.exhale;
+    const intoPhaseMs = elapsedMs - phaseStartedAtMs;
+    const remainingMs = Math.max(0, phaseDurationMs - intoPhaseMs);
+    // Seed at the EASED position, not the linear one, so the circle picks up where
+    // the eye left it. Re-easing the remainder puts a velocity discontinuity at the
+    // resume instant; that is accepted — motion resuming after a pause should ease
+    // in — and what has to be exact is the BOUNDARY, which `remainingMs` carries.
+    const easeFn = Easing.inOut(Easing.ease);
+    const easedProgress = phaseDurationMs > 0 ? easeFn(intoPhaseMs / phaseDurationMs) : 0;
 
     // Two-phase inhale/exhale pattern — the only engine (MAINT-391). Scale
     // expands over `inhale` then contracts over `exhale`, repeating seamlessly:
@@ -310,49 +406,68 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
     const inhaleLabel = phaseText.inhale || 'Breathe in';
     const exhaleLabel = phaseText.exhale || 'Breathe out';
 
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(
-          1.5,
-          { duration: pattern.inhale, easing: Easing.inOut(Easing.ease) },
-          (finished) => {
-            'worklet';
-            // Contraction begins → announce exhale.
-            if (finished && activeRef.value) {
-              runOnJS(announcePhase)(exhaleLabel);
-            }
-          }
-        ),
-        withTiming(
-          1,
-          { duration: pattern.exhale, easing: Easing.inOut(Easing.ease) },
-          (finished) => {
-            'worklet';
-            // Cycle end → count it once, then cue the next inhale (the repeat
-            // loops straight into the next expansion).
-            if (finished && activeRef.value) {
-              runOnJS(handleCycleComplete)();
-              runOnJS(announcePhase)(inhaleLabel);
-            }
-          }
+    // Each leg is a factory so the partial resume leg and the steady-state legs
+    // stay one definition — the completion callbacks are the load-bearing part and
+    // must not be written twice.
+    const inhaleScaleLeg = (durationMs: number) =>
+      withTiming(1.5, { duration: durationMs, easing: Easing.inOut(Easing.ease) }, (finished) => {
+        'worklet';
+        // Contraction begins → announce exhale.
+        if (finished && activeRef.value) {
+          runOnJS(announcePhase)(exhaleLabel);
+        }
+      });
+    const exhaleScaleLeg = (durationMs: number) =>
+      withTiming(1, { duration: durationMs, easing: Easing.inOut(Easing.ease) }, (finished) => {
+        'worklet';
+        // Cycle end → count it once, then cue the next inhale (the repeat loops
+        // straight into the next expansion).
+        if (finished && activeRef.value) {
+          runOnJS(handleCycleComplete)();
+          runOnJS(announcePhase)(inhaleLabel);
+        }
+      });
+    const inhaleOpacityLeg = (durationMs: number) =>
+      withTiming(1, { duration: durationMs, easing: Easing.inOut(Easing.ease) });
+    const exhaleOpacityLeg = (durationMs: number) =>
+      withTiming(0.8, { duration: durationMs, easing: Easing.inOut(Easing.ease) });
+
+    if (resumePhase === 'inhale') {
+      scale.value = 1 + 0.5 * easedProgress;
+      opacity.value = 0.8 + 0.2 * easedProgress;
+      scale.value = withSequence(
+        inhaleScaleLeg(remainingMs),
+        withRepeat(withSequence(exhaleScaleLeg(pattern.exhale), inhaleScaleLeg(pattern.inhale)), -1, false)
+      );
+      opacity.value = withSequence(
+        inhaleOpacityLeg(remainingMs),
+        withRepeat(
+          withSequence(exhaleOpacityLeg(pattern.exhale), inhaleOpacityLeg(pattern.inhale)),
+          -1,
+          false
         )
-      ),
-      -1,
-      false
-    );
+      );
+    } else {
+      scale.value = 1.5 - 0.5 * easedProgress;
+      opacity.value = 1 - 0.2 * easedProgress;
+      scale.value = withSequence(
+        exhaleScaleLeg(remainingMs),
+        withRepeat(withSequence(inhaleScaleLeg(pattern.inhale), exhaleScaleLeg(pattern.exhale)), -1, false)
+      );
+      opacity.value = withSequence(
+        exhaleOpacityLeg(remainingMs),
+        withRepeat(
+          withSequence(inhaleOpacityLeg(pattern.inhale), exhaleOpacityLeg(pattern.exhale)),
+          -1,
+          false
+        )
+      );
+    }
 
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: pattern.inhale, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.8, { duration: pattern.exhale, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      false
-    );
-
-    // Immediate first inhale cue on activation (subsequent inhale cues come
-    // from the exhale-leg completion callback above).
-    announcePhase(inhaleLabel);
+    // Announce the phase actually being entered. On a genuine start that is the
+    // opening inhale, exactly as before; on a resume it is whatever the session
+    // clock says is running, which is the half that was lying.
+    announcePhase(resumePhase === 'inhale' ? inhaleLabel : exhaleLabel);
 
     return () => {
       cancelAnimation(scale);
