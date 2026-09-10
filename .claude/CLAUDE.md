@@ -165,7 +165,7 @@ pattern", but "mounts a third-party component that occludes the affordance while
 nothing of ours at all". The hand-maintained table is the only control. Full ruling is
 recorded at `showFeedbackForm()`.
 
-`features/profile/screens/ExportDataScreen.tsx` is the fifteenth instance (added
+`features/profile/screens/ExportDataScreen.tsx` is the sixteenth instance (added
 DEBUG-577), and the first where the consumer owns a third-party PRESENTER CALL rather than
 an affordance or a constant. `Sharing.shareAsync` was MEASURED to leave zero app-owned
 nodes in the hierarchy for the sheet's duration — an absent app tree, not a covered FAB —
