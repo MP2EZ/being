@@ -157,7 +157,8 @@ describe('DEBUG-469 — the class stays OUT of the default safety suite', () => 
   //          an existing flow. The second flow covers what the Profile entry
   //          structurally cannot — the form arriving on a FAB-suppressed route.
   // 14 → 15: DEBUG-506 added crisis-keyboard-reachability — the sim half of a contract
-  //          whose only pin could not run where the gate runs. Supersedes DEBUG-590.
+  //          whose only pin could not run where the gate runs. It served DEBUG-590's
+  //          AC 1–3; DEBUG-590 moved the device flow's record to MIGRATED.
   test('the exact-tag matcher the suite uses still selects exactly the fifteen safety flows', () => {
     const files = fs.readdirSync(MAESTRO).filter((f) => f.endsWith('.yaml') && !f.startsWith('_'));
     const tagged = files.filter((f) =>

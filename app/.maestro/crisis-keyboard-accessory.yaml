@@ -13,26 +13,21 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 # hand — do not read this as a missing or sleeping device. Maestro's own driver is the
 # failure. So this flow cannot start today.
 #
-# BUT THIS LOSS IS RECOVERABLE AND MUST NOT BE READ AS PERMANENT — that is the difference
-# between this flow and crisis-988-dial, and flattening the two would be wrong. The dial is
-# device-only by PHYSICS: the simulator's canOpenURL is unconditionally false, so no
-# substitute exists even in principle. This flow is device-only only by a DEFERRED
-# AUTHORING TASK. Its own header below already records that its device-only rationale is
-# FALSE (DEBUG-506): a software keyboard does rise on the gate simulator at the default,
-# `UIKeyboardLayoutStar Preview` lands at measured bounds, and journal-crisis-scan.yaml
-# asserts that very node three times in the default sim suite today. The reachability half
-# of this contract is SIMULATOR-RUNNABLE NOW.
+# e2e-sim-half: MIGRATED flow=crisis-keyboard-reachability.yaml by=DEBUG-506
 #
-# Status: NOT YET MIGRATED — not "unavailable". Follow-up DEBUG-590 moves the reachability
-# half into the sim suite (bumping the 14-flow tripwire in the same commit); the dial half
-# stays here behind DEBUG-589's exit condition.
+# THE REACHABILITY CONTRACT HAS MIGRATED, so this flow is no longer its only runtime pin.
+# `crisis-keyboard-reachability.yaml` (DEBUG-506; closes DEBUG-590) runs it in the default
+# `safety` sim suite: software keyboard up, the accessory BUTTON visible, ONE tap,
+# `crisis-resources-screen`. That is ONE runtime site. Every other text surface is covered
+# by construction, not by measurement: each renders `CrisisTextInput`, which owns the input
+# and its accessory from one mount, and `check-crisis-keyboard-accessory-guard.js` fails CI
+# on a bare `<TextInput>` or an `inputAccessoryViewID=` anywhere outside it.
 #
-# UNTIL DEBUG-590 LANDS we are accepting unverified runtime behaviour on the crisis
-# keyboard accessory: that iOS actually attaches and paints the accessory over a real
-# software keyboard, and that the occlusion predicate fires. This is the DEBUG-450 defect
-# class — an accessory that never attached at all, for its entire life, with this flow the
-# only thing pinning it. `check-crisis-keyboard-accessory-guard.js` pins that the PROP is
-# present on every shipping TextInput; it cannot pin that iOS honours it.
+# MIGRATED does NOT mean the hardware path was verified. What only this flow can reach —
+# real keyboards and `UIRemoteKeyboardWindow` layering on hardware, the non-seeded LegalGate
+# preamble, and current iOS (the gate simulator runs 18.6) — stays unavailable per
+# DEBUG-589 above. The attended device checklist (INFRA-591) compensates for it; the sim
+# flow does not.
 #
 # DO NOT delete, rename or skip this flow.
 #
