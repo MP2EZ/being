@@ -654,7 +654,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | `src/core/hooks/` change | **`journal-crisis-scan`** + 2 printed notices | DEBUG-525. Gated as a DIRECTORY: 3 of 4 files decide crisis-affordance placement/visibility; the 4th has one lifetime commit — and is NOT benign (corrected DEBUG-533: `useBugReportShake.ts` arms a root-mounted gesture opening a zero-988 window). `journal-crisis-scan` is the only keyboard-up flow in the suite. `useKeyboardOccludesCrisisButton` (device-only) and the dynamic-type inset get instructions — neither is sim-runnable. |
 | `core/components/ThresholdEducationModal.tsx` change | **`crisis-button-reachability`** | DEBUG-525. A DEBUG-406 conversion site: an RN `<Modal>` whose content tells the reader to seek help while occluding the route to it. The flow already taps through it, so the arm is free. |
 | `features/home/screens/CleanHomeScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-547. Consumes `crisisButtonGeometry` rather than owning crisis code. The FAB's `zIndex: 9999` makes any overlap a wrong-DESTINATION tap into `CrisisResources` — a crisis false POSITIVE. The flow already starts on Home and renders both rows, so the arm is free. **The flow is necessary and NOT sufficient**: Maestro taps element CENTRES, which never enter the contested column, so a point tap is required to falsify this. |
-| `features/profile/screens/DeleteAccountScreen.tsx` change | **`crisis-button-reachability`** + device-only notice | INFRA-531 (crisis ruling). Consumes `crisisInputAccessory`; the keyboard is necessarily up (the user types the confirmation word), so on iOS the accessory is the SOLE 988 affordance. FILE-level — the dir's other members carry no crisis surface and `ProfileStackNavigator` is already covered by `CRISIS_HOST_CHANGED`. **Necessary, not sufficient**: the flow never types into `delete-confirm-input`, so the keyboard-up half is `crisis-keyboard-accessory` (`safety-device-only`). |
+| `features/profile/screens/DeleteAccountScreen.tsx` change | **`crisis-button-reachability`** + device-only notice | INFRA-531 (crisis ruling). Consumes `crisisInputAccessory`; the keyboard is necessarily up (the user types the confirmation word), so on iOS the accessory is the SOLE 988 affordance. FILE-level — the dir's other members carry no crisis surface and `ProfileStackNavigator` is already covered by `CRISIS_HOST_CHANGED`. **Necessary, not sufficient**: the flow never types into `delete-confirm-input`, so the keyboard-up half is pinned on the sim by `crisis-keyboard-reachability` — one runtime site; this screen is covered by construction via `CrisisTextInput` (DEBUG-590). |
 | `features/profile/screens/ExportDataScreen.tsx` change | **`crisis-button-reachability`** + printed notice | DEBUG-577 (crisis ruling). Owns `Sharing.shareAsync`, MEASURED to leave zero app-owned nodes in the hierarchy for the sheet's duration; a matched-pair coordinate tap reached `CrisisResources` with the sheet down and not with it up. Same shape as `ExternalErrorReporter`, and strictly MORE reachable: the JSON export path is always on and never flag-gated, where the bug-report surface is bounded by `bug_reporting`. (INFRA-571 argued this against Sentry's widget; FEAT-570 replaced it with the first-party overlay, and the flag bound still holds.) FILE-level — the dir's other members carry no crisis surface and its two that do are already listed. **Necessary, not sufficient**: no gate flow opens the share sheet, so the arm proves only that the route renders the overlay with the sheet DOWN. |
 | `.maestro/<flow>.yaml` tagged `safety-occlusion-measurement` edited | **no sim flow** — notice only, never scoped | DEBUG-577. `export-share-sheet-occlusion` PINS A DEBT STATE: its load-bearing assertion is that the 988 affordance is UNREACHABLE, so it stays green after a fix and must be DELETED, not repaired, if the occlusion is remedied. It also leaves an open share sheet — state Maestro does not reliably clear, which per DEBUG-422 reds later flows against a healthy app. Needs its own case arm; the `*)` catch-all would fire a full suite. |
 | `features/profile/screens/ProfileScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-533 (crisis ruling). Hosts the second entry to `showFeedbackForm()`, which opens a zero-988 window. The flow already walks the Profile tab and every subscreen depth, so the arm is free. **Necessary, not sufficient**: no flow opens the widget, so this proves only that Profile still renders the overlay. |
@@ -869,7 +869,8 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/profile/screens/DeleteAc
   echo "   NECESSARY BUT NOT SUFFICIENT: crisis-button-reachability reaches this screen and"
   echo "   taps through to CrisisResources, but never types into delete-confirm-input, so it"
   echo "   exercises the UNOCCLUDED overlay and cannot observe the accessory contract."
-  echo "   The keyboard-up half is device-only: npm run e2e:safety:keyboard-accessory"
+  echo "   The keyboard-up mechanism is pinned on the sim by crisis-keyboard-reachability"
+  echo "   (one runtime site; this screen is covered by construction via CrisisTextInput)."
 fi
 # DEBUG-577 (crisis ruling E): ExportDataScreen owns a registered full-screen presenter
 # call — Sharing.shareAsync — MEASURED to remove every 988 affordance for as long as the
@@ -1273,9 +1274,12 @@ while IFS= read -r f; do
       echo "   clear, which per DEBUG-422 reds LATER flows against a healthy app. Run it alone"
       echo "   on a booted 375x667 device, or delete it if the occlusion is ever remedied." ;;
     crisis-keyboard-accessory.yaml)
-      echo "⌨️  crisis-keyboard-accessory.yaml changed — safety-device-only. Its keyboard"
-      echo "   accessory assertions need real hardware; NOT added to the run set."
-      echo "   Validate directly with a device connected." ;;
+      # DEBUG-590 (crisis ruling): the reachability contract MIGRATED to a sim flow, so an
+      # edit here runs that flow. The device path itself refuses with exit 5 (DEBUG-589).
+      FLOWS+=("crisis-keyboard-reachability")
+      echo "⌨️  crisis-keyboard-accessory.yaml changed — safety-device-only, and the device"
+      echo "   path is unavailable (DEBUG-589). Running its migrated sim half instead:"
+      echo "   crisis-keyboard-reachability. The hardware residual is INFRA-591's." ;;
     # Self-map on the TAG, not the filename — which is what the "not a name transform"
     # caveat above asks for: a FILENAME transform gets helpers, dynamic-type and
     # device-only flows wrong, and the tag is what distinguishes each. It is also what
