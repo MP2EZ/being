@@ -14,14 +14,25 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 # failure. So this flow cannot start today.
 #
 # e2e-sim-half: MIGRATED flow=crisis-keyboard-reachability.yaml by=DEBUG-506
+# e2e-attach-site: journal-crisis-scan.yaml by=INFRA-594
 #
 # THE REACHABILITY CONTRACT HAS MIGRATED, so this flow is no longer its only runtime pin.
 # `crisis-keyboard-reachability.yaml` (DEBUG-506; closes DEBUG-590) runs it in the default
 # `safety` sim suite: software keyboard up, the accessory BUTTON visible, ONE tap,
-# `crisis-resources-screen`. That is ONE runtime site. Every other text surface is covered
-# by construction, not by measurement: each renders `CrisisTextInput`, which owns the input
-# and its accessory from one mount, and `check-crisis-keyboard-accessory-guard.js` fails CI
-# on a bare `<TextInput>` or an `inputAccessoryViewID=` anywhere outside it.
+# `crisis-resources-screen`. That is the one site measuring REACHABILITY end to end.
+#
+# A SECOND site measures ATTACH ONLY (INFRA-594). `journal-crisis-scan.yaml`'s keyboard-up
+# block asserts the BUTTON visible with the keyboard raised and then taps Save — no tap on
+# the button, no destination — so it pins attachment and the occlusion predicate, and
+# nothing beyond them. It is not a duplicate of the first: its input is unmounted by
+# `setPhase('saved'|'idle')`, the `prepareForRecycle` dead-`__weak`-ref shape
+# `CrisisTextInput` exists to survive, which DailyLoop's concurrent-field surface cannot
+# exercise. Both surfaces that component's header names are now measured.
+#
+# Every other text surface is covered by construction, not by measurement: each renders
+# `CrisisTextInput`, which owns the input and its accessory from one mount, and
+# `check-crisis-keyboard-accessory-guard.js` fails CI on a bare `<TextInput>` or an
+# `inputAccessoryViewID=` anywhere outside it.
 #
 # MIGRATED does NOT mean the hardware path was verified. What only this flow can reach —
 # real keyboards and `UIRemoteKeyboardWindow` layering on hardware, the non-seeded LegalGate
