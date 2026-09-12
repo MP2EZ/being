@@ -79,6 +79,34 @@ const REACHABILITY_STEPS: ReadonlyArray<readonly [string, string]> = [
 ];
 const ALL_STEPS = REACHABILITY_STEPS.map(([verb, id]) => `${verb} ${id}`);
 
+/**
+ * INFRA-594. The accessory's ATTACH is measured on a SECOND runtime surface.
+ *
+ * `journal-crisis-scan.yaml` raises a keyboard over a `CrisisTextInput` whose input is
+ * unmounted by `setPhase('saved'|'idle')` — the `prepareForRecycle` dead-`__weak`-ref shape
+ * `CrisisTextInput.tsx:12-21` names as the reason the accessory is a component rather than a
+ * JSX convention. The DailyLoop site cannot exercise that lifecycle, so this is a different
+ * site rather than a duplicate.
+ *
+ * IT IS NOT A REACHABILITY PIN, and must never be folded into one. It never taps the button
+ * and reaches no destination, so it cannot join REACHABILITY_STEPS, and it cannot join the
+ * structured MIGRATED marker — that accepts exactly one flow and then demands all four
+ * reachability steps of whatever it names.
+ */
+const ATTACH_SITE_FLOW = 'journal-crisis-scan.yaml';
+const ACCESSORY_BUTTON_ASSERT = /-\s*assertVisible:\s*id:\s*"crisis-keyboard-accessory-button"/;
+const KEYBOARD_DISMISSAL = /-\s*tapOn:\s*id:\s*"journal-review-header"/;
+
+/**
+ * Structured, for the reason MARKER is: the device flow's header ALREADY names
+ * `journal-crisis-scan.yaml` in prose, as the counter-example proving a software keyboard
+ * rises on the gate simulator. A pin that merely looked for the filename would therefore be
+ * satisfied by text that predates this site existing — green before the work was done.
+ * Separate key from `e2e-sim-half`, which stays a one-flow reachability record.
+ */
+const ATTACH_SITE_MARKER =
+  /^#\s*e2e-attach-site:\s*([a-z0-9-]+\.yaml)\s+by=(INFRA-\d+)\s*$/m;
+
 function readFlow(name: string): string {
   return fs.readFileSync(path.join(MAESTRO_DIR, name), 'utf8');
 }
@@ -104,6 +132,26 @@ function stepsInOrder(src: string): string[] {
     from = re.lastIndex;
   }
   return found;
+}
+
+/**
+ * The segment of `journal-crisis-scan.yaml` between its LAST keyboard-up assertion and the
+ * Save tap that follows — i.e. the DEBUG-480 block, the only one that taps Save with the
+ * keyboard still up. Comments are stripped: this is ordinary source, not a notice.
+ *
+ * Anchored on the LAST keyboard assertion deliberately. A plain ordered-prefix match would be
+ * satisfied by the button assertion sitting in either keyboard-DOWN block above, which pins a
+ * different contract on a surface that dismisses the keyboard before saving.
+ */
+function keyboardUpSaveBlock(src: string): string | null {
+  const body = stripYamlComments(src);
+  const kb = [...body.matchAll(/-\s*assertVisible:\s*id:\s*"UIKeyboardLayoutStar Preview"/g)];
+  if (kb.length === 0) return null;
+  const last = kb[kb.length - 1];
+  const after = body.slice((last.index as number) + last[0].length);
+  const save = after.search(/-\s*tapOn:\s*id:\s*"journal-save-button"/);
+  if (save === -1) return null;
+  return after.slice(0, save);
 }
 
 describe('DEBUG-589 — the device-unavailability notice', () => {
@@ -250,6 +298,102 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
       const body = stripYamlComments(readFlow((m as RegExpExecArray)[1]));
       expect(body.trim().length).toBeGreaterThan(500); // stripping must not leave nothing
       expect(stepsInOrder(body)).toEqual(ALL_STEPS);
+    });
+  });
+
+  describe('INFRA-594 — journal-crisis-scan pins the accessory ATTACH on a second surface', () => {
+    describe('vacuity controls', () => {
+      const KEYBOARD_UP = ['- assertVisible:', '    id: "UIKeyboardLayoutStar Preview"'];
+      const BUTTON = ['- assertVisible:', '    id: "crisis-keyboard-accessory-button"'];
+      const DISMISS = ['- tapOn:', '    id: "journal-review-header"'];
+      const SAVE = ['- tapOn:', '    id: "journal-save-button"'];
+
+      it('the extractor returns the keyboard-up block, not the whole file and not nothing', () => {
+        const block = keyboardUpSaveBlock([...KEYBOARD_UP, ...BUTTON, ...SAVE].join('\n'));
+        expect(block).not.toBeNull();
+        expect(block as string).toMatch(ACCESSORY_BUTTON_ASSERT);
+        // Bounded: the Save tap that closes the block is NOT inside it.
+        expect(block as string).not.toMatch(/journal-save-button/);
+      });
+
+      it('returns null rather than a false pass when the anchors are absent', () => {
+        expect(keyboardUpSaveBlock([...BUTTON, ...SAVE].join('\n'))).toBeNull();
+        expect(keyboardUpSaveBlock([...KEYBOARD_UP, ...BUTTON].join('\n'))).toBeNull();
+      });
+
+      it('REJECTS a button assertion that sits in a keyboard-DOWN block instead', () => {
+        // Block 1 dismisses the keyboard before saving, so a button assertion there proves
+        // nothing about the keyboard-up surface. The last-anchor rule is what catches it.
+        const twoBlocks = [
+          ...KEYBOARD_UP, ...BUTTON, ...DISMISS, ...SAVE,
+          ...KEYBOARD_UP, ...SAVE,
+        ].join('\n');
+        expect(keyboardUpSaveBlock(twoBlocks)).not.toMatch(ACCESSORY_BUTTON_ASSERT);
+      });
+
+      it('surfaces a dismissal placed between the keyboard assertion and the Save tap', () => {
+        const withDismissal = [...KEYBOARD_UP, ...BUTTON, ...DISMISS, ...SAVE].join('\n');
+        expect(keyboardUpSaveBlock(withDismissal)).toMatch(KEYBOARD_DISMISSAL);
+      });
+
+      it('the attach-site marker fires on a known-GOOD literal and NOT on prose naming the file', () => {
+        expect(
+          ATTACH_SITE_MARKER.test('# e2e-attach-site: journal-crisis-scan.yaml by=INFRA-594'),
+        ).toBe(true);
+        // This is the exact sentence already in the device flow's header. It must not satisfy
+        // the record, or the pin is green before the second site exists.
+        expect(
+          ATTACH_SITE_MARKER.test('# `journal-crisis-scan.yaml` runs in the default suite'),
+        ).toBe(false);
+      });
+    });
+
+    it('asserts the accessory BUTTON with the keyboard up, before the Save tap', () => {
+      // The bar renders always but collapsed (height 0, opacity 0, no-hide-descendants), so
+      // only the BUTTON proves the occlusion predicate fired. It must precede the tap:
+      // handleSave's setPhase('saved') unmounts the CrisisTextInput, so the node is gone
+      // afterwards by design.
+      const block = keyboardUpSaveBlock(readFlow(ATTACH_SITE_FLOW));
+      expect(block).not.toBeNull();
+      expect(block as string).toMatch(ACCESSORY_BUTTON_ASSERT);
+    });
+
+    it('adds no dismissal and no scroll to that block — the pre-forbidden repairs', () => {
+      // DEBUG-480's block proves Save is reachable with the keyboard UP. A dismissal or a
+      // scroll before the tap converts that into a strictly weaker contract.
+      const block = keyboardUpSaveBlock(readFlow(ATTACH_SITE_FLOW)) as string;
+      expect(block).not.toBeNull();
+      expect(block).not.toMatch(KEYBOARD_DISMISSAL);
+      expect(block).not.toMatch(/scrollUntilVisible/);
+    });
+
+    it('matches the button by id, never by text', () => {
+      // CrisisKeyboardAccessory's accessibilityLabel is "I need support", deliberately
+      // identical to the root FAB's — and this flow asserts crisis-button-root visible a few
+      // lines earlier. A text matcher could be satisfied by the root button alone.
+      const block = keyboardUpSaveBlock(readFlow(ATTACH_SITE_FLOW)) as string;
+      expect(block).not.toMatch(/text:\s*".*I need support.*"/);
+    });
+
+    it('is recorded on the device flow as a second site, without widening the marker', () => {
+      const src = readFlow('crisis-keyboard-accessory.yaml');
+
+      const attach = ATTACH_SITE_MARKER.exec(src);
+      expect(attach).not.toBeNull();
+      expect((attach as RegExpExecArray)[1]).toBe(ATTACH_SITE_FLOW);
+
+      // The reachability marker still names exactly ONE flow, and not this one: it demands
+      // all four reachability steps of whatever it names, which an attach-only site lacks.
+      const m = MIGRATED_MARKER.exec(src);
+      expect(m).not.toBeNull();
+      expect((m as RegExpExecArray)[1]).toBe('crisis-keyboard-reachability.yaml');
+    });
+
+    it('the named attach site is a real flow that runs in the DEFAULT suite', () => {
+      const src = readFlow(ATTACH_SITE_FLOW);
+      expect(src.length).toBeGreaterThan(1000);
+      expect(src).toMatch(/^\s*-\s+safety\s*$/m);
+      expect(src).not.toMatch(/^\s*-\s+safety-device-only\s*$/m);
     });
   });
 
