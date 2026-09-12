@@ -403,8 +403,11 @@ discarded work, and the commit you missed may be the one that breaks the run.
 
 ```bash
 cd /Users/max/dev/being
-git worktree add [dir-name] -b [branch-name] development
+git worktree add [dir-name] -b [branch-name] origin/development
 ```
+
+Base on `origin/development`, never the local ref — it can lag the remote, and the
+remote-tracking ref satisfies the up-to-date-branch requirement by construction.
 
 **Error handling**:
 - If git error: Report error details and suggest manual resolution
