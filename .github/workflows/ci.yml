@@ -406,11 +406,18 @@ jobs:
         # all of them, but each one records why its slice is gated and points a failure at
         # one directory rather than at 172 suites. ~10s of duplicate runtime buys that.
         #
-        # --forceExit matches all 24 sibling test scripts and is load-bearing, not cosmetic:
-        # a bare run of this tree exits 1 with all 2646 tests PASSING, because
-        # crisisTapTrace's 5s watchdog outlives the CollapsibleCrisisButton behavioural
-        # suite. That open handle is a separate defect and is tracked on its own item.
-        # No --verbose: 172 suites / 2646 tests would bury the log.
+        # --forceExit was REMOVED here (DEBUG-596). The claim it carried was wrong twice:
+        # the flag never matched "all 24" sibling scripts (7 lack it), and the exit 1 it
+        # masked did not come from crisisTapTrace's open handle at all. jest computes its
+        # code from results.success alone and merely console.errors the open-handle report;
+        # the 1 came from jest-runner's freezeConsole, which sets process.exitCode = 1 on
+        # every "Cannot log after tests are done". Measured: a suite with 6 such logs and
+        # ZERO open handles exits 1, while one with neither exits 0.
+        #
+        # Running bare is now the point. A post-teardown write under app/src fails this job
+        # instead of hiding behind the flag — including a non-deterministic one, which is a
+        # deliberate tightening of a required check on both protected branches.
+        # No --verbose: 171 suites / 2637 tests would bury the log.
         run: cd app && npm run test:src -- --ci --testTimeout=20000
 
       - name: Upload coverage
