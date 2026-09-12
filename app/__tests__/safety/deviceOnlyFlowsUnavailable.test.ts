@@ -32,7 +32,9 @@
  *              crisis-keyboard-reachability.yaml (authored by DEBUG-506). The device flow
  *              records it as MIGRATED, and the block below pins that the record is still
  *              true. Its hardware residual stays unavailable.
- *   INFRA-591  attended manual device checklist for both contracts, release-gated.
+ *   INFRA-591  done — docs/testing/crisis-device-checklist.md, run by /b-release Phase 2.9.
+ *              The block below pins that it exists exactly while the notice does, and that
+ *              every on-screen label it tells a tester to look for still exists in source.
  *   INFRA-592  assert the GENERATED Info.plist keeps tel/sms after plugin composition —
  *              the one dial residual the surviving jest pin cannot reach, since it reads
  *              app.json and iOS is CNG (INFRA-280).
@@ -106,6 +108,38 @@ const KEYBOARD_DISMISSAL = /-\s*tapOn:\s*id:\s*"journal-review-header"/;
  */
 const ATTACH_SITE_MARKER =
   /^#\s*e2e-attach-site:\s*([a-z0-9-]+\.yaml)\s+by=(INFRA-\d+)\s*$/m;
+
+/**
+ * INFRA-591. The attended checklist is the compensating control for the notice, so the two
+ * must exist together: a checklist outliving the notice is a manual step nobody needs, and a
+ * notice without it is the unverified dial path the crisis ruling refused to ship.
+ */
+const APP_ROOT = path.join(__dirname, '..', '..');
+const CHECKLIST = path.join(APP_ROOT, '..', 'docs', 'testing', 'crisis-device-checklist.md');
+const CHECKLIST_MARKER =
+  /^<!--\s*e2e-device-compensates:\s*DEBUG-589\s+flows=crisis-988-dial\.yaml,crisis-keyboard-accessory\.yaml\s*-->\s*$/m;
+
+/**
+ * Every on-screen string the checklist tells a human to find, and the source that renders it.
+ * A hand-run script rots silently — nothing fails when a button is relabelled — so a rename
+ * must go red here rather than leave the tester hunting for a control that no longer exists.
+ */
+const CHECKLIST_LABELS: ReadonlyArray<readonly [string, string]> = [
+  ['lifebuoy', 'src/features/crisis/components/CollapsibleCrisisButton.tsx'],
+  ['Crisis Support Resources', 'src/features/crisis/screens/CrisisResourcesScreen.tsx'],
+  ['📞 Call 988', 'src/features/crisis/screens/CrisisResourcesScreen.tsx'],
+  ['📞 Call 911', 'src/features/crisis/screens/CrisisResourcesScreen.tsx'],
+  ['Unable to Call', 'src/features/crisis/utils/openCrisisUrl.ts'],
+  ['Daily Practice', 'src/features/home/screens/CleanHomeScreen.tsx'],
+  ['Quick', 'src/features/practices/dailyloop/config/tenseMode.ts'],
+  ['Skip →', 'src/features/practices/shared/components/SkipLink.tsx'],
+  ['I need support', 'src/features/crisis/components/CrisisKeyboardAccessory.tsx'],
+];
+
+/** Source, not a notice: a label surviving only in a comment is a label that is gone. */
+function stripTsComments(src: string): string {
+  return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
 
 function readFlow(name: string): string {
   return fs.readFileSync(path.join(MAESTRO_DIR, name), 'utf8');
@@ -394,6 +428,53 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
       expect(src.length).toBeGreaterThan(1000);
       expect(src).toMatch(/^\s*-\s+safety\s*$/m);
       expect(src).not.toMatch(/^\s*-\s+safety-device-only\s*$/m);
+    });
+  });
+
+  describe('INFRA-591 — the attended checklist exists exactly while the notice does', () => {
+    describe('vacuity controls', () => {
+      it('the checklist marker fires on a known-GOOD literal and NOT on prose', () => {
+        expect(
+          CHECKLIST_MARKER.test(
+            '<!-- e2e-device-compensates: DEBUG-589 flows=crisis-988-dial.yaml,crisis-keyboard-accessory.yaml -->',
+          ),
+        ).toBe(true);
+        expect(CHECKLIST_MARKER.test('This checklist compensates for DEBUG-589.')).toBe(false);
+        // Naming one flow is a narrower control than the one ruled on.
+        expect(
+          CHECKLIST_MARKER.test('<!-- e2e-device-compensates: DEBUG-589 flows=crisis-988-dial.yaml -->'),
+        ).toBe(false);
+      });
+
+      it('a label present only in a comment reads as absent once stripped', () => {
+        const commented = '// <Text>Unable to Call</Text>\n/* 📞 Call 988 */\nconst x = 1;';
+        expect(stripTsComments(commented)).not.toContain('Unable to Call');
+        expect(stripTsComments(commented)).not.toContain('📞 Call 988');
+        expect(stripTsComments(commented)).toContain('const x = 1;');
+      });
+
+      it.each(CHECKLIST_LABELS)('%s: its source file is real and survives stripping', (_label, file) => {
+        const stripped = stripTsComments(fs.readFileSync(path.join(APP_ROOT, file), 'utf8'));
+        expect(stripped.trim().length).toBeGreaterThan(500);
+      });
+    });
+
+    it('exists while any device-only flow carries the unavailability notice, and not otherwise', () => {
+      const noticePresent = DEVICE_ONLY_FLOWS.some((name) => MARKER.test(readFlow(name)));
+      expect(fs.existsSync(CHECKLIST)).toBe(noticePresent);
+    });
+
+    it('carries the structured marker naming DEBUG-589 and both device-only flows', () => {
+      expect(fs.readFileSync(CHECKLIST, 'utf8')).toMatch(CHECKLIST_MARKER);
+    });
+
+    it('names its trigger, so it cannot drift into a document nobody runs', () => {
+      expect(fs.readFileSync(CHECKLIST, 'utf8')).toMatch(/\/b-release`? Phase 2\.9/);
+    });
+
+    it.each(CHECKLIST_LABELS)('"%s" is quoted by the checklist and still rendered by %s', (label, file) => {
+      expect(fs.readFileSync(CHECKLIST, 'utf8')).toContain(label);
+      expect(stripTsComments(fs.readFileSync(path.join(APP_ROOT, file), 'utf8'))).toContain(label);
     });
   });
 
