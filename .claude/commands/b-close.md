@@ -1927,6 +1927,10 @@ Route on (c), never on (b)'s exit code:
   because `CI pass` is the sole required context and an empty rollup is
   indistinguishable from "the workflow never triggered".
 
+**A GREEN rollup does not prove a NEW workflow step ran.** When the diff touches
+`.github/workflows/`, confirm the step executed rather than being skipped or absent:
+`gh run view <run-id> --json jobs -q '.jobs[]|select(.name=="<job>")|.steps[]|"\(.name)\t\(.conclusion)"'`
+
 Expect **one row per gate** now that the duplicate push-triggered run is gone. Two
 rows per gate means a second workflow is attaching runs to this commit — a
 `CI pass` row green in one and red in the other is exactly the INFRA-329 shape,
