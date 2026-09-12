@@ -826,6 +826,9 @@ Phase 2.5 gate; do not re-author Maestro flows here.
   claims to cover, confirm red, revert. One mutation per *mechanism*, not per
   file — a control that conflates two mechanisms stays green while either
   survives, and looks exactly like a working pin.
+  Revert each mutation from a copy taken before the run, never `git checkout --`:
+  on a test-first lane the implementation is still uncommitted, so a checkout
+  reverts the work along with the mutation.
   Co-locate per repo convention; clinical/safety specs must land in the suites
   wired into `test:clinical` / `test:crisis-detection`. Then drive the
   red → green → refactor loop via the **`/tdd` skill** through Step 3.5.
