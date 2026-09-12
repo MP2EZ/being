@@ -209,6 +209,58 @@ introduced a `PHPhotoLibrary` call and got v1.2.0 rejected with ITMS-90683.
 the permission half of this in precommit and CI. This step is for the rest —
 anything else a native bump can change that no gate models yet.
 
+### 2.9 Attended crisis device checklist (INFRA-591)
+
+No Maestro can run a flow on a physical iPhone (DEBUG-589). That makes this the only
+hardware check of the 988 dial and the keyboard accessory. It runs here, before anything
+is bumped, because a failure after 6.3 would strand a merged bump on `development`.
+
+Follow `docs/testing/crisis-device-checklist.md` exactly. It owns the steps, the pass/fail
+rules and the result block. Do not restate them here.
+
+```bash
+cd /Users/max/dev/being/development
+TESTED_SHA=$(git rev-parse origin/development)
+PREV_WAIVED=$(gh pr list --base main --head development --state merged --limit 1 --json body \
+  -q '(.[0].body // "") | test("Result:\\s+WAIVED")')
+echo "TESTED_SHA=${TESTED_SHA}  previous release waived: ${PREV_WAIVED}"
+```
+
+Stop and ask the operator to build `TESTED_SHA` for their iPhone and run the checklist's §2
+and §3. Wait for the device model, the iOS version and each step's result. Never ask the
+operator for the SHA.
+
+- **Any FAIL:** ABORT. Nothing has been bumped yet.
+- **WAIVED:** accept it only when no qualifying iPhone is available. ABORT if `PREV_WAIVED`
+  is `true`.
+- **Otherwise:** fill in the checklist's §5 block as `CHECKLIST_BLOCK` for 6.4.
+
+**Binding check.** 6.4 and 6.6 re-run this block with `SHIP_SHA` set to the tree about to
+ship. It passes only when that tree differs from `TESTED_SHA` in version fields and nothing
+else. A filename allowlist is not enough, because `app/app.json` also carries
+`LSApplicationQueriesSchemes`.
+
+```bash
+cd /Users/max/dev/being/development && git fetch origin --quiet
+BIND=ok
+OTHERS=$(git diff --name-only "${TESTED_SHA}" "${SHIP_SHA}" | awk '!/^app\/(app|package|package-lock)\.json$/')
+[ -z "$OTHERS" ] || BIND="files beyond the bump changed: $(printf '%s' "$OTHERS" | tr '\n' ' ')"
+for spec in 'app/app.json|del(.expo.version, .expo.ios.buildNumber, .expo.android.versionCode)' \
+            'app/package.json|del(.version)' \
+            'app/package-lock.json|del(.version, .packages[""].version)'; do
+  f=${spec%%|*}; filt=${spec#*|}
+  [ "$BIND" = ok ] || break
+  [ "$(git show "${TESTED_SHA}:${f}" | jq -S "$filt")" = "$(git show "${SHIP_SHA}:${f}" | jq -S "$filt")" ] \
+    || BIND="${f} changed beyond its version fields"
+done
+echo "binding: ${BIND}"
+```
+
+**Anything but `binding: ok` is an ABORT.** That includes a fix pushed onto the bump branch
+to turn its CI green. Do not re-run `/b-release`, which would bump a second time. Instead,
+re-run the checklist against the new `origin/development`, set `TESTED_SHA` to it, and
+resume at the step that failed.
+
 ---
 
 ## Phase 3: Bump prompt
@@ -489,8 +541,13 @@ git pull --rebase origin development
 
 ### 6.4 Open release PR
 
+First re-run the Phase 2.9 binding check with `SHIP_SHA=$(git rev-parse origin/development)`,
+and ABORT unless it prints `binding: ok`.
+
 ```bash
 RELEASE_NOTES=$(cat <<'EOF'
+[CHECKLIST_BLOCK from Phase 2.9]
+
 [Generated release notes from Phase 6.1]
 
 ---
@@ -552,8 +609,15 @@ is the worst place to discover that from a misread `--watch`.
 
 ### 6.6 Merge with merge-commit strategy (decision #1)
 
+The release PR's head is the live `development` branch, so anything merged during 6.5 would
+ship untested. Pin the head, re-run the Phase 2.9 binding check with that `SHIP_SHA`, and
+ABORT unless it prints `binding: ok`. `--match-head-commit` refuses the merge if the head
+moves after the check.
+
 ```bash
-gh pr merge $PR_NUMBER --merge --admin
+SHIP_SHA=$(gh pr view $PR_NUMBER --json headRefOid -q .headRefOid)
+# ... Phase 2.9 binding check ...
+gh pr merge $PR_NUMBER --merge --admin --match-head-commit "$SHIP_SHA"
 ```
 
 **IMPORTANT**: `--merge` (NOT `--squash`). Preserves the per-tranche history on main — you can see "this release contained these 6 commits" via `git log --merges` on main.
