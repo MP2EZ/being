@@ -51,20 +51,16 @@
  * Safe Harbor obligation — the previous "HIPAA Safe Harbor" framing named a rule
  * that does not apply to us (DEBUG-553).
  *
- * AUTHORITATIVE SET (DEBUG-553, AC4). The security layer carries a deliberate
- * near-duplicate, `WELLNESS_DATA_PATTERNS` in
- * `core/services/security/wellnessDataPatterns.ts`. The two have diverged: that
- * copy holds an exact 7-of-10 subset of this one, byte-identical where present,
- * missing exactly these three — international phone, IPv4, and UUID. Named here
- * so nobody has to re-diff them.
- *
- * Decision: LEAVE BOTH, this set authoritative. The duplication exists because a
- * security leaf must not import from analytics, and closing the gap in code has
- * no live effect today — the only consumer of the security copy is
- * `sanitizeWellnessData` <- `SecurityMonitoringService`, which has zero runtime
- * importers. Widening it would also collapse more log payloads to
- * `{sanitized:true}`, a real observability change that deserves its own item.
- * Revisit if `SecurityMonitoringService` ever gains a runtime caller.
+ * AUTHORITATIVE SET (DEBUG-553, AC4), and now the ONLY set. The security layer
+ * used to carry a deliberate near-duplicate, `WELLNESS_DATA_PATTERNS` in
+ * `core/services/security/wellnessDataPatterns.ts`; MAINT-597 deleted it along
+ * with its sole consumer, the unwired `SecurityMonitoringService`. The
+ * divergence is recorded here because it was measured, not guessed: that copy
+ * held an exact 7-of-10 subset of this one, byte-identical where present,
+ * missing exactly three — international phone, IPv4, and UUID. If a security
+ * leaf ever needs wellness-data patterns again, it must not import from
+ * analytics, so it will reintroduce a copy; start from those three gaps rather
+ * than re-diffing from scratch.
  *
  * The `PHI_DETECTION_PATTERNS` / `containsPHI` identifiers are left as-is; the
  * terminology rename is tracked separately.
