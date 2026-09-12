@@ -392,6 +392,9 @@ git log --oneline origin/development..[their-branch] | head
 Non-empty output means their work is NOT on development: a `development`-based worktree
 will show pre-migration code, and cannot host edits to files only their branch has in
 current form. Ask which base to use — don't assume `development`.
+Check that branch for commits touching YOUR files too (`git log --all --oneline -- <path>`):
+a named item may already have DONE your work on an unmerged branch, which makes the item's
+premise stale rather than its base wrong.
 
 **Re-fetch immediately before any expensive verification run.** A worktree created minutes
 earlier can already be behind. If the deliverable is a build, gate run, or e2e suite,
