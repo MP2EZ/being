@@ -345,12 +345,12 @@ jobs:
         # Wired by PATTERN, never by renaming files toward one — scripts/ci-uncovered
         # -tests.json records coverage-by-filename as the defect it exists to remove.
         #
-        # Scoped to src/features/practices/ deliberately, NOT widened to src/**: the
-        # ledger's own "wiring-them-is-deferred" note blocks the general case on
-        # src/features/assessment/stores/__tests__/assessmentStore.test.ts, which is
-        # load-dependent (3/3 solo, 2 of 6 failures under parallel load). `CI pass` is
-        # the sole required check on main and development with enforce_admins:true, so
-        # dragging a flaky suite in here would intermittently block every PR in the repo.
+        # Scoped to src/features/practices/. INFRA-595 added the broad `Co-located src
+        # tests` step below, which subsumes this one; it is KEPT because its failure line
+        # names the daily-loop suites instead of pointing at a 172-suite run. The blocker
+        # this comment used to cite is RETIRED: DEBUG-515 (cross-test real-timer leakage)
+        # and DEBUG-549 (deleted the autosave subscription's uncancellable timers) both
+        # landed after it was written; re-measured 10/10 green under parallel load.
         run: cd app && npm run test:practices -- --ci --testTimeout=20000
 
       - name: Navigation layout tests
@@ -394,6 +394,24 @@ jobs:
         #
         # Wired by PATTERN, never by renaming files toward one (DEBUG-468 precedent).
         run: cd app && npm run test:library -- --ci --testTimeout=20000
+
+      - name: Co-located src tests
+        # INFRA-595. The catch-all for app/src/**: every co-located suite, including the 41
+        # that scripts/ci-uncovered-tests.json recorded as running on NOBODY'S pull request.
+        # That ledger's `uncovered` list is now EMPTY, which is the real win here - a new
+        # ungated test file can no longer land silently, because check:ci-test-coverage
+        # fails the Safety + privacy job the moment one does.
+        #
+        # The four narrower src steps above are deliberately RETAINED. This step subsumes
+        # all of them, but each one records why its slice is gated and points a failure at
+        # one directory rather than at 172 suites. ~10s of duplicate runtime buys that.
+        #
+        # --forceExit matches all 24 sibling test scripts and is load-bearing, not cosmetic:
+        # a bare run of this tree exits 1 with all 2646 tests PASSING, because
+        # crisisTapTrace's 5s watchdog outlives the CollapsibleCrisisButton behavioural
+        # suite. That open handle is a separate defect and is tracked on its own item.
+        # No --verbose: 172 suites / 2646 tests would bury the log.
+        run: cd app && npm run test:src -- --ci --testTimeout=20000
 
       - name: Upload coverage
         if: always()
