@@ -13,8 +13,23 @@
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { CollapsibleCrisisButton } from '../CollapsibleCrisisButton';
+import { __resetCrisisTapTraceForTests } from '@/features/crisis/services/crisisTapTrace';
 
 describe('CollapsibleCrisisButton — onNavigate behavioral contract', () => {
+  // Every case below presses the REAL button, so each opens a crisisTapTrace mark and
+  // arms its 5s watchdog. Nothing here closes one — these cases pin dispatch, not a
+  // terminal outcome — so without this the timer outlives the suite and fires
+  // `deadline_exceeded` at HIGH severity into a torn-down runtime (DEBUG-596 RC1).
+  //
+  // HYGIENE, NOT THE FIX. The tracer's terminal contract is pinned by
+  // services/__tests__/crisisTapTrace.contract.test.ts; this hook only stops one
+  // suite's state leaking into the next. Never reach for it as a way to silence the
+  // watchdog — a quiet watchdog with no terminal assertion anywhere is the state
+  // DEBUG-596 exists to end.
+  afterEach(() => {
+    __resetCrisisTapTraceForTests();
+  });
+
   test('pressing the collapsed button invokes onNavigate', () => {
     const onNavigate = jest.fn();
     const { getByTestId } = render(

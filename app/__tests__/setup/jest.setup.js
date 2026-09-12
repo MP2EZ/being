@@ -685,6 +685,61 @@ jest.mock('@sentry/react-native', () => ({
   })),
 }));
 
+// DEBUG-596 RC3 — the network boundary, and ONLY the network boundary.
+//
+// WHAT LEAKS WITHOUT THIS. `trackCrisisDetection` → `flushCrisisAnalytics` →
+// `ensureClient` → `ensureAnonymousSession` → `signInAnonymously()` runs for REAL under
+// jest: node's global fetch is live and unmocked, and env.mock.js points
+// EXPO_PUBLIC_SUPABASE_URL at test.supabase.co. That host has no A record, so the call
+// dies at DNS *after* the owning suite has torn down. Two logs follow, 8 of the 10
+// "Cannot log after tests are done" occurrences between them:
+//   • `[PinnedFetch] Request failed: …/auth/v1/signup`  — the rejection itself
+//   • `[SupabaseService] Anonymous session not yet established` — SupabaseService.ts:524,
+//     which is a CATCH block, so it fires precisely because the handshake threw.
+// jest-runner's freezeConsole turns every one of those into `process.exitCode = 1`, which
+// is what actually fails a bare `--testPathPattern=src/` run — not the open handle.
+// Returning a VALID GoTrue session is therefore load-bearing: a bare 200 with an empty
+// body resolves the fetch but establishes no session, which just re-raises the second log
+// by another route.
+//
+// NOT A BLANKET MODULE MOCK. src/core/services/security/__tests__/pinned-fetch.test.ts
+// drives the REAL SSLPinningError (12 uses), validatePinningConfiguration (6) and
+// pinnedFetch. We spread requireActual and override exactly one export, so that suite
+// keeps the genuine module. Suite-local mocks (sessionIdRotation, crisisTelemetryBoot)
+// still win over this one.
+//
+// THIS IS CONTAINMENT, NOT A CLAIM ABOUT EGRESS. What stops the call reaching the network
+// today is DNS non-existence, and that fails OPEN — a resolver that wildcarded the domain
+// would turn the same code into real egress with nothing in the log to show for it.
+jest.mock('@/core/services/security/pinned-fetch', () => {
+  const actual = jest.requireActual('@/core/services/security/pinned-fetch');
+  return {
+    ...actual,
+    createSupabasePinnedFetch: () => async (input, init) => {
+      const url = typeof input === 'string' ? input : input?.url ?? String(input);
+      // GoTrue anonymous sign-in — must yield a session, or SupabaseService.ts:524 fires.
+      if (url.includes('/auth/v1/signup') || url.includes('/auth/v1/token')) {
+        return new Response(
+          JSON.stringify({
+            access_token: 'test-access-token',
+            token_type: 'bearer',
+            expires_in: 3600,
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+            refresh_token: 'test-refresh-token',
+            user: { id: 'anon-user-uuid', aud: 'authenticated', role: 'authenticated' },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      // PostgREST insert.
+      return new Response(JSON.stringify([]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  };
+});
+
 // Global teardown for performance reporting
 afterAll(() => {
   if (global.testPerformance?.results?.length > 0) {

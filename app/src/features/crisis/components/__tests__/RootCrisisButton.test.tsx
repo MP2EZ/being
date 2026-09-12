@@ -253,11 +253,22 @@ describe('RootCrisisButton (MAINT-290 single root mount)', () => {
     });
 
     it('still does not throw, and does not navigate synchronously', () => {
-      render(<RootCrisisButton routeName="Main" />);
-      expect(() => receivedProps[0]?.onNavigate()).not.toThrow();
-      expect(mockNavigate).not.toHaveBeenCalled();
-      // ...but it has NOT given up: the retry is armed. See the deadline case below.
-      expect(mockOpenCrisisUrl).not.toHaveBeenCalled();
+      // FAKE TIMERS ARE LOAD-BEARING (DEBUG-596 RC2), not stylistic symmetry with the
+      // three cases below. This case deliberately ARMS the 400ms retry chain and then
+      // asserts nothing has happened yet — so under real timers the chain outlives the
+      // suite, fires into a torn-down runtime, and leaves an open handle plus a
+      // post-teardown `navigator not ready at deadline, dialling 988 directly` log.
+      // It was the only case in this block without the wrap.
+      jest.useFakeTimers();
+      try {
+        render(<RootCrisisButton routeName="Main" />);
+        expect(() => receivedProps[0]?.onNavigate()).not.toThrow();
+        expect(mockNavigate).not.toHaveBeenCalled();
+        // ...but it has NOT given up: the retry is armed. See the deadline case below.
+        expect(mockOpenCrisisUrl).not.toHaveBeenCalled();
+      } finally {
+        jest.useRealTimers();
+      }
     });
 
     it('dials 988 once the 400ms deadline passes', () => {
