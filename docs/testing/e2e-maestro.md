@@ -33,7 +33,7 @@ flow cannot be validly run on the suite's target:
 | Tag | Excluded because | Run it with |
 |---|---|---|
 | `safety` | — (this is the suite) | `npm run e2e:safety` |
-| `safety-device-only` | sim `canOpenURL` is unconditionally false; sim raises no software keyboard | ⛔ **CANNOT RUN — see below.** `e2e:safety:988-dial`, `e2e:safety:keyboard-accessory` refuse with exit 5 |
+| `safety-device-only` | sim `canOpenURL` is unconditionally false (dial); real-device keyboard layering and the non-seeded preamble (accessory — its reachability half runs in the suite as `crisis-keyboard-reachability`) | ⛔ **CANNOT RUN — see below.** `e2e:safety:988-dial`, `e2e:safety:keyboard-accessory` refuse with exit 5 |
 | `safety-dynamic-type` | content size is device-global; a bare run poisons the shared sim | `e2e:safety:ax5`, `e2e:safety:xxxl` |
 | `safety-bottom-inset` | needs a non-zero bottom safe-area inset; the collision it adjudicates cannot occur at 375x667 at any clearance value | `npm run e2e:safety:reconsent-ineligible-fab` — booted 393x852 |
 
@@ -68,9 +68,9 @@ connected, and the runner Maestro installs launches by hand via
 anyone to check cables or Settings.
 
 Simulator flows are entirely unaffected: a simulator run uses a **prebuilt** driver from
-`maestro-ios-driver.jar` and never compiles. That asymmetry is the whole reason the 14
+`maestro-ios-driver.jar` and never compiles. That asymmetry is the whole reason the 15
 sim-runnable safety flows are green while both device flows cannot start. **Nothing here is
-an argument to loosen Phase 2.5, the `--skip-e2e` policy, or the 14-flow tripwire.**
+an argument to loosen Phase 2.5, the `--skip-e2e` policy, or the 15-flow tripwire.**
 
 **If your contract needs a device**, it cannot be automated today. Either express it on the
 simulator, or take it to the attended device checklist (INFRA-591). Do not tag a flow

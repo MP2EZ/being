@@ -24,11 +24,14 @@
  * in a YAML file whose entire header is comments. Stripping would delete the thing under
  * test and every assertion would pass vacuously. Matching is deliberately on RAW source,
  * and the vacuity controls below are what stand in for the stripping rule's protection.
+ * The ONE exception is the DEBUG-590 step pin on the SIM flow, which does strip: that
+ * flow's header names the ids it asserts, so it is ordinary source, not a notice.
  *
  * Compensating follow-ups (crisis ruling, DEBUG-589):
- *   DEBUG-590  move the keyboard-accessory REACHABILITY half into the sim suite — it is
- *              simulator-runnable today (DEBUG-506), so that loss is recoverable and is
- *              recorded as "not yet migrated", never as "unavailable".
+ *   DEBUG-590  done — the keyboard-accessory REACHABILITY contract runs in the sim suite as
+ *              crisis-keyboard-reachability.yaml (authored by DEBUG-506). The device flow
+ *              records it as MIGRATED, and the block below pins that the record is still
+ *              true. Its hardware residual stays unavailable.
  *   INFRA-591  attended manual device checklist for both contracts, release-gated.
  *   INFRA-592  assert the GENERATED Info.plist keeps tel/sms after plugin composition —
  *              the one dial residual the surviving jest pin cannot reach, since it reads
@@ -56,8 +59,51 @@ const DEVICE_ONLY_FLOWS = ['crisis-988-dial.yaml', 'crisis-keyboard-accessory.ya
 const MARKER =
   /^#\s*e2e-device-unavailable:\s*DEBUG-589\s+measured=(\d{4}-\d{2}-\d{2})\s+dead-versions=([0-9.]+)\.\.([0-9.]+)\s*$/m;
 
+/**
+ * DEBUG-590. The accessory's reachability half migrated to a sim flow; the record names it
+ * structurally so the pin can follow it to that file and check the claim there.
+ */
+const MIGRATED_MARKER =
+  /^#\s*e2e-sim-half:\s*MIGRATED\s+flow=([a-z0-9-]+\.yaml)\s+by=(DEBUG-\d+)\s*$/m;
+
+/**
+ * What makes the sim flow a reachability pin rather than a false green, in order. The
+ * button assertion before the tap is the load-bearing one: the accessory bar renders always
+ * but collapsed, so only its BUTTON proves the occlusion predicate fired.
+ */
+const REACHABILITY_STEPS: ReadonlyArray<readonly [string, string]> = [
+  ['assertVisible', 'UIKeyboardLayoutStar Preview'],
+  ['assertVisible', 'crisis-keyboard-accessory-button'],
+  ['tapOn', 'crisis-keyboard-accessory-button'],
+  ['assertVisible', 'crisis-resources-screen'],
+];
+const ALL_STEPS = REACHABILITY_STEPS.map(([verb, id]) => `${verb} ${id}`);
+
 function readFlow(name: string): string {
   return fs.readFileSync(path.join(MAESTRO_DIR, name), 'utf8');
+}
+
+function stripYamlComments(src: string): string {
+  return src.replace(/^\s*#.*$/gm, '');
+}
+
+/**
+ * The steps found IN ORDER, not necessarily adjacent — another step may sit between two of
+ * them. Returns the matched prefix, so a failure names the first missing step.
+ */
+function stepsInOrder(src: string): string[] {
+  const found: string[] = [];
+  let from = 0;
+  for (const [verb, id] of REACHABILITY_STEPS) {
+    const escaped = id.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const re = new RegExp(`-\\s*${verb}:\\s*id:\\s*"${escaped}"`, 'g');
+    re.lastIndex = from;
+    const m = re.exec(src);
+    if (!m) break;
+    found.push(`${verb} ${id}`);
+    from = re.lastIndex;
+  }
+  return found;
 }
 
 describe('DEBUG-589 — the device-unavailability notice', () => {
@@ -116,13 +162,95 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
     expect(src).toMatch(/do not cover runtime\s*\n?#?\s*behaviour on hardware|not cover runtime behaviour on hardware/i);
   });
 
-  it('crisis-keyboard-accessory records a RECOVERABLE loss, never a permanent one', () => {
-    // Ruling: flattening this into the dial's "unavailable" would launder a movable gap
-    // into a permanent one. Its reachability half is simulator-runnable today (DEBUG-506).
-    const src = readFlow('crisis-keyboard-accessory.yaml');
-    expect(src).toMatch(/SIMULATOR-RUNNABLE NOW/);
-    expect(src).toMatch(/NOT YET MIGRATED/);
-    expect(src).toMatch(/DEBUG-590/);
+  describe('DEBUG-590 — crisis-keyboard-accessory records its reachability half as MIGRATED', () => {
+    // Pins that the RECORD is still true — a sim flow in the default suite owns this
+    // contract — not that the device gate is healthy. What only hardware can reach stays
+    // unavailable (DEBUG-589) and is INFRA-591's to compensate, not the sim flow's.
+    function migratedTo(): RegExpExecArray | null {
+      return MIGRATED_MARKER.exec(readFlow('crisis-keyboard-accessory.yaml'));
+    }
+
+    describe('vacuity controls', () => {
+      it('the MIGRATED marker regex fires on a known-GOOD literal and not on prose', () => {
+        expect(
+          MIGRATED_MARKER.test('# e2e-sim-half: MIGRATED flow=crisis-keyboard-reachability.yaml by=DEBUG-506'),
+        ).toBe(true);
+        expect(
+          MIGRATED_MARKER.test('# the reachability half migrated to crisis-keyboard-reachability.yaml'),
+        ).toBe(false);
+      });
+
+      it('the step matcher accepts the steps in order with another step between them', () => {
+        const literal = [
+          '- assertVisible:', '    id: "UIKeyboardLayoutStar Preview"',
+          '- assertVisible:', '    id: "crisis-keyboard-accessory-button"',
+          '- assertNotVisible:', '    id: "daily-loop-support-line"',
+          '- tapOn:', '    id: "crisis-keyboard-accessory-button"',
+          '- assertVisible:', '    id: "crisis-resources-screen"',
+        ].join('\n');
+        expect(stepsInOrder(literal)).toEqual(ALL_STEPS);
+      });
+
+      it('the step matcher REJECTS a tap that precedes the button being asserted visible', () => {
+        const reordered = [
+          '- assertVisible:', '    id: "UIKeyboardLayoutStar Preview"',
+          '- tapOn:', '    id: "crisis-keyboard-accessory-button"',
+          '- assertVisible:', '    id: "crisis-keyboard-accessory-button"',
+          '- assertVisible:', '    id: "crisis-resources-screen"',
+        ].join('\n');
+        expect(stepsInOrder(reordered)).not.toEqual(ALL_STEPS);
+      });
+
+      it('a step disabled by commenting its verb line reads as present raw, and absent stripped', () => {
+        const disabled = [
+          '- assertVisible:', '    id: "UIKeyboardLayoutStar Preview"',
+          '#- assertVisible:', '    id: "crisis-keyboard-accessory-button"',
+          '- tapOn:', '    id: "crisis-keyboard-accessory-button"',
+          '- assertVisible:', '    id: "crisis-resources-screen"',
+        ].join('\n');
+        expect(stepsInOrder(disabled)).toEqual(ALL_STEPS);
+        expect(stepsInOrder(stripYamlComments(disabled))).not.toEqual(ALL_STEPS);
+      });
+    });
+
+    it('carries the structured MIGRATED marker, attributed to DEBUG-506', () => {
+      const m = migratedTo();
+      expect(m).not.toBeNull();
+      expect((m as RegExpExecArray)[2]).toBe('DEBUG-506');
+    });
+
+    it('no longer carries the superseded not-yet-migrated record', () => {
+      // Raw source, like the notice: the header IS comments. A header holding both statuses
+      // at once is the contradiction this item exists to remove.
+      const src = readFlow('crisis-keyboard-accessory.yaml');
+      expect(src).not.toMatch(/NOT YET MIGRATED/);
+      expect(src).not.toMatch(/UNTIL DEBUG-590 LANDS/);
+    });
+
+    it('says in the same breath that MIGRATED is not verification of the hardware path', () => {
+      // Same job as the dial's rebuttal above: a migration record must not read as
+      // reassurance that nothing on hardware was lost.
+      expect(readFlow('crisis-keyboard-accessory.yaml')).toMatch(
+        /MIGRATED does NOT mean the hardware path was verified/,
+      );
+    });
+
+    it('names a sim flow that exists and runs in the DEFAULT suite (exact `- safety` tag)', () => {
+      const m = migratedTo();
+      expect(m).not.toBeNull();
+      const src = readFlow((m as RegExpExecArray)[1]);
+      expect(src.length).toBeGreaterThan(1000);
+      expect(src).toMatch(/^\s*-\s+safety\s*$/m);
+      expect(src).not.toMatch(/^\s*-\s+safety-device-only\s*$/m);
+    });
+
+    it('the named sim flow still asserts the four load-bearing steps, in order', () => {
+      const m = migratedTo();
+      expect(m).not.toBeNull();
+      const body = stripYamlComments(readFlow((m as RegExpExecArray)[1]));
+      expect(body.trim().length).toBeGreaterThan(500); // stripping must not leave nothing
+      expect(stepsInOrder(body)).toEqual(ALL_STEPS);
+    });
   });
 
   it('the set of safety-device-only flows is EXACTLY the two that were ruled on', () => {
