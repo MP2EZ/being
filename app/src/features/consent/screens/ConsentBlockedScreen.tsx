@@ -43,10 +43,17 @@
  * copy by `consentStore.ts`. Naming a feature that is currently off is
  * observable and true; predicting consequences is not.
  *
- * 🚫 NO TELEMETRY on any branch. `PostHogProvider` gates mounting on
- * `currentConsent?.preferences?.analyticsEnabled`, and `currentConsent` is null
- * for all three statuses, so no client exists — and for `revoked` an event would
- * describe a user who told us to stop.
+ * 🚫 NO TELEMETRY on any branch. `currentConsent` is null for all three
+ * statuses, so `useAnalyticsConsent()` is false and `trackEvent` withholds every
+ * event — and for `revoked` an event would describe a user who told us to stop.
+ *
+ * The MECHANISM changed in DEBUG-559 even though the guarantee did not, and the
+ * old wording is worth correcting rather than deleting. This used to say no
+ * client EXISTS, because `PostHogProvider` withheld `<PHProvider>` without
+ * consent. That withholding was an element-TYPE swap above every 988 affordance
+ * in the app and had to go, so a client now exists from launch. What withholds
+ * the event is the explicit consent read in `useAnalytics.trackEvent`, not the
+ * absence of a client — never reason from `usePostHog()` being undefined here.
  *
  * ── CRISIS AFFORDANCE ────────────────────────────────────────────────────────
  *

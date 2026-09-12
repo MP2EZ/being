@@ -202,7 +202,7 @@ describe('e2e-safety.sh — the third verdict token', () => {
     expect(uncertifiedArm.join('\n')).not.toMatch(/\bfail=1\b/);
   });
 
-  it('freezes the exit alphabet at 0/1/2/3', () => {
+  it('freezes the exit alphabet at 0/1/2/3/5', () => {
     const literals = [...runnerCode.matchAll(/^[ \t]*exit[ \t]+([0-9]+)[ \t]*$/gm)].map(m => m[1]);
     expect(literals.length).toBeGreaterThan(0);
     // A SUBSET assertion, not an equality one. DEBUG-496 states the invariant at the top of
@@ -211,7 +211,12 @@ describe('e2e-safety.sh — the third verdict token', () => {
     // present would pin the opposite of the landed contract. Kept as a set-difference so
     // this fails on a 4th status AND on a reintroduced bare `exit 1`, which are the two
     // ways the alphabet can stop being frozen.
-    expect([...new Set(literals)].filter(n => n !== '2' && n !== '3')).toEqual([]);
+    // DEBUG-589 widened the alphabet by one letter, deliberately: 5 is the device path
+    // refusing on a dependency it has MEASURED to be dead (no Maestro release can drive a
+    // physical iPhone). Not 2 — the harness completed fine and is declining, rather than
+    // failing to complete — and not 4, which belongs to e2e-gate.sh (INFRA-472). The
+    // set-difference shape is unchanged, so a 6th status still fails here.
+    expect([...new Set(literals)].filter(n => !['2', '3', '5'].includes(n))).toEqual([]);
     expect(runnerCode).toMatch(/exit "\$fail"/);
   });
 });

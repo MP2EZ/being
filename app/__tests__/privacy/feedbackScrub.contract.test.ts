@@ -1,20 +1,29 @@
 /**
  * PRIVACY CONTRACT — FEAT-284 in-app bug/feedback reporting.
  *
- * The surface is Sentry's feedback widget (message + screenshot), triggered by
- * shake-to-report or the Profile entry, gated behind the build-time
+ * The surface is OUR OWN form since FEAT-570 (`core/components/BugReportOverlay`),
+ * triggered by shake-to-report or the Profile entry, gated behind the build-time
  * `bug_reporting` flag (INTERNAL/TestFlight only; flipped OFF before the public
  * App Store launch). CRITICAL SDK FACT (verified in @sentry/core@10.x): a
  * `type:'feedback'` event does NOT pass through `beforeSend`, so a global event
  * processor (`scrubFeedbackEvent`) is the only place to touch the outbound
- * feedback event.
+ * feedback event — which is why the transport swap to `captureFeedback()` left
+ * this contract intact rather than bypassing it.
  *
- * Posture is deliberately useful (internal tool, owner's own data): the
- * screenshot is intentional, and breadcrumbs ride along because they are already
- * sanitized app-wide by `beforeBreadcrumbHook`. This contract pins the LIGHT
- * hygiene the processor still enforces — identity reduced to the anonymous uid,
- * no cross-linking to a prior error, and a pattern-scrub of the typed message —
- * and the flag mechanism. Runs in `npm run precommit` via `test:privacy`.
+ * **THERE IS NO LONGER A SCREENSHOT.** This docblock used to record that "the
+ * screenshot is intentional" as part of a deliberately-useful posture. FEAT-570
+ * dropped the capability outright: attachments ride the ENVELOPE rather than the
+ * event, so the processor pinned here structurally cannot reach one, and the
+ * surface is armed over `AssessmentFlow` and `VoiceReflectionScreen`. Message
+ * text only. Breadcrumbs still ride along because they are already sanitized
+ * app-wide by `beforeBreadcrumbHook`.
+ *
+ * This contract pins the LIGHT hygiene the processor enforces — identity reduced
+ * to the anonymous uid, no cross-linking to a prior error, and a pattern-scrub of
+ * the typed message — and the flag mechanism. The submit path's own guarantees
+ * (kill switch, payload shape, call-site scrub) are pinned separately in
+ * `bugReportSubmit.contract.test.ts`. Runs in `npm run precommit` via
+ * `test:privacy`.
  *
  * @see docs/legal/dpia-sensitive-wellness-data.md §2 (Sentry)
  */

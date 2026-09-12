@@ -149,7 +149,7 @@ Honest examination for learning and growth (not self-judgment):
 ## ✨ **Core Features**
 
 ### **Philosophical Accuracy**
-- **Classical Sources**: All content grounded in Marcus Aurelius (*Meditations*), Epictetus (*Enchiridion*, *Discourses*), Seneca (*Letters from a Stoic*, *On Anger*)
+- **Classical Sources**: All content grounded in Marcus Aurelius (*Meditations*), Epictetus (*Enchiridion*), Seneca (*Moral Letters to Lucilius*, *On Anger*)
 - **Educational Approach**: Learn authentic Stoic Mindfulness V2 framework, not pop-Stoicism
 - **Virtue Ethics**: Track growth in Wisdom, Justice, Courage, Temperance
 - **Balanced Practice**: Self-compassion integrated to prevent harsh "stoicism" (emotional suppression)
@@ -410,7 +410,7 @@ While Being is primarily an educational tool for Stoic Mindfulness philosophy an
 **Classical Stoic Texts** — public-domain translations, the only renderings shipped in the app:
 - Marcus Aurelius - *Meditations*, trans. George Long (1862; text as digitized in Project Gutenberg ebook #15877, *Thoughts of Marcus Aurelius Antoninus*)
 - Epictetus - *Enchiridion*, trans. Elizabeth Carter (1758)
-- Seneca - *Letters from a Stoic* (*Epistulae Morales*), trans. Richard Mott Gummere (Loeb Classical Library, 1917–1925); *Of Anger*, *Of Peace of Mind* and the other dialogues, trans. Aubrey Stewart (*Minor Dialogues*, 1889); *On Benefits*, trans. Aubrey Stewart (1887)
+- Seneca - *Moral Letters to Lucilius* (*Ad Lucilium Epistulae Morales*), trans. Richard Mott Gummere (Loeb Classical Library, 1917–1925; public domain by pre-1929 US publication; text as digitized on Wikisource from Internet Archive scans `adluciliumepistu01seneuoft` and `adluciliumepistu03seneuoft`); *Of Anger*, *Of Peace of Mind* and the other dialogues, trans. Aubrey Stewart (*Minor Dialogues*, 1889); *On Benefits*, trans. Aubrey Stewart (1887)
 
 Gregory Hays (2002), Robin Hard (2011/2014) and Nicholas White (1983) are excellent modern translations and worth reading, but they are **in copyright** and no rendering from them appears anywhere in this app. That is enforced mechanically by `app/src/features/learn/__tests__/moduleClassicalQuotes.test.ts` and its sibling guards.
 

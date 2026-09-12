@@ -1282,8 +1282,10 @@ export class SecureStorageService {
     // and both prefixes are swept on both branches, so after either call the
     // cache is 100% stale by construction. `accessLog` is deliberately NOT
     // cleared alongside it: `getStorageMetrics` derives `successRate` from that
-    // array, and an empty one reports 0, which trips
-    // SecurityMonitoringService's reliability and audit-trail checks.
+    // array, and an empty one reports 0 — a false reliability signal to any
+    // consumer of that metric. (The original consumer, SecurityMonitoringService,
+    // was deleted unwired in MAINT-597; the invariant stands on its own and this
+    // array must not be "tidied up" alongside the cache.)
     this.metadataCache.clear();
 
     const asyncKeys = await AsyncStorage.getAllKeys();

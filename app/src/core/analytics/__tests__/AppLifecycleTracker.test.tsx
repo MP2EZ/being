@@ -6,21 +6,37 @@
  * `trackEvent` early-returns. Wiring the emits there would have compiled,
  * type-checked, passed review and transmitted nothing — the FEAT-137 shape.
  *
- * The two contracts worth pinning are therefore:
+ * The three contracts worth pinning are:
  *  1. the emits happen where a client can exist, and
  *  2. the `setLastActiveTimestamp` write — which feeds the Home intro
  *     animation and is NOT analytics — still runs for a user who has not
- *     consented, i.e. when there is no PostHog client at all.
- * (2) is the regression this component's placement is designed to avoid, and
- * it is invisible to any test that only checks the events.
+ *     consented. (2) is the regression this component's placement is designed
+ *     to avoid, and it is invisible to any test that only checks the events.
+ *  3. DEBUG-559: the mount emit is gated on CONSENT, not on client presence,
+ *     and `consumeColdStart` — a one-shot marker — is not burned while the
+ *     event would be dropped. Until DEBUG-559 the gate was `!posthog`, which
+ *     worked only because the provider withheld the client without consent.
+ *     Fixing that (it was remounting every 988 affordance in the app) made a
+ *     client exist from launch, so the old gate would have consumed the marker
+ *     on every cold start regardless of consent, losing the first open forever.
+ *     There is also no second mount to retry on any more, so the effect must
+ *     re-run in place when consent is granted.
  */
 
 import React from 'react';
 import { AppState } from 'react-native';
-import { render, waitFor } from '@testing-library/react-native';
+import { render, waitFor, act } from '@testing-library/react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AppLifecycleTracker } from '../AppLifecycleTracker';
 import { useSettingsStore } from '@/core/stores/settingsStore';
+import { useConsentStore } from '@/core/stores/consentStore';
+
+/** DEBUG-559: the mount emit now reads consent, not client presence. */
+function setAnalyticsConsent(analyticsEnabled: boolean, universalOptOut = false): void {
+  useConsentStore.setState({
+    currentConsent: { preferences: { analyticsEnabled }, universalOptOut },
+  } as unknown as Parameters<typeof useConsentStore.setState>[0]);
+}
 
 const mockCapture = jest.fn();
 let mockPosthogAvailable = true;
@@ -44,6 +60,7 @@ describe('AppLifecycleTracker (INFRA-542)', () => {
     mockCapture.mockClear();
     setLastActiveTimestamp.mockClear();
     mockPosthogAvailable = true;
+    setAnalyticsConsent(true);
 
     (AsyncStorage.getItem as jest.Mock).mockReset().mockResolvedValue('1');
     (AsyncStorage.setItem as jest.Mock).mockReset().mockResolvedValue(undefined);
@@ -152,6 +169,62 @@ describe('AppLifecycleTracker (INFRA-542)', () => {
 
     await waitFor(() => expect(setLastActiveTimestamp).toHaveBeenCalled());
     expect(mockCapture).not.toHaveBeenCalled();
+  });
+
+  describe('DEBUG-559 — the gate is consent, not client presence', () => {
+    it('does NOT burn the cold-start marker when a client exists but consent does not', async () => {
+      // The regression the fix would otherwise have introduced. A client now
+      // exists from launch, so a `!posthog` gate would let this effect run for a
+      // non-consenting user: consumeColdStart() consumes a ONE-SHOT marker, the
+      // event is then dropped, and the first open is lost permanently — including
+      // for a user who consents five minutes later.
+      setAnalyticsConsent(false);
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+
+      render(<AppLifecycleTracker />);
+      emitAppState('background');
+
+      // The always-on, non-analytics write still happens.
+      await waitFor(() => expect(setLastActiveTimestamp).toHaveBeenCalled());
+      // ...but nothing was emitted, and nothing consumed the marker.
+      expect(mockCapture).not.toHaveBeenCalled();
+      expect(AsyncStorage.setItem).not.toHaveBeenCalled();
+    });
+
+    it('emits the first open when consent arrives mid-session, with no remount to rely on', async () => {
+      // Before DEBUG-559 this was delivered by the consent grant REMOUNTING the
+      // whole subtree. That remount is gone, so the effect has to re-run in place
+      // on the consent transition instead. If it does not, opting in mid-session
+      // silently never reports a first open.
+      setAnalyticsConsent(false);
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+
+      render(<AppLifecycleTracker />);
+      await waitFor(() => expect(setLastActiveTimestamp).not.toHaveBeenCalled());
+      expect(mockCapture).not.toHaveBeenCalled();
+
+      await act(async () => {
+        setAnalyticsConsent(true);
+      });
+
+      await waitFor(() =>
+        expect(mockCapture).toHaveBeenCalledWith(
+          'app_opened',
+          expect.objectContaining({ is_cold_start: true }),
+        ),
+      );
+    });
+
+    it('treats universalOptOut as withholding consent (INFRA-151)', async () => {
+      setAnalyticsConsent(true, true);
+      (AsyncStorage.getItem as jest.Mock).mockResolvedValue(null);
+
+      render(<AppLifecycleTracker />);
+      emitAppState('background');
+
+      await waitFor(() => expect(setLastActiveTimestamp).toHaveBeenCalled());
+      expect(mockCapture).not.toHaveBeenCalled();
+    });
   });
 
   it('removes its AppState subscription on unmount', () => {

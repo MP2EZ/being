@@ -14,12 +14,18 @@
  * `usePostHog`. That is the FEAT-137 shape: instrumentation that looks correct
  * and transmits nothing.
  *
- * WHY IT RENDERS IN BOTH PROVIDER BRANCHES. Job (1) is not analytics and must
- * keep running for a user who has not consented. Mounting this only inside the
- * gated `<PHProvider>` branch would silently stop the intro animation's
- * timestamp for every non-consenting user. Outside a provider `usePostHog()`
- * returns undefined, so job (2) becomes a no-op on its own — no extra gating
- * needed, and none should be added.
+ * WHY IT RENDERS UNCONDITIONALLY. Job (1) is not analytics and must keep running
+ * for a user who has not consented, so this may never be mounted only on a
+ * consented path. Since DEBUG-559 it also may never be mounted CONDITIONALLY at
+ * all: it is a sibling of `children` under `PostHogProvider`, and React reconciles
+ * unkeyed children by index, so a component that renders only under consent shifts
+ * every later sibling and remounts the crisis subtree — the same defect DEBUG-559
+ * fixed, by a different route.
+ *
+ * Job (2) no longer self-disables. That used to be free — outside a provider
+ * `usePostHog()` returned undefined and `trackEvent` early-returned — but the
+ * provider is now always mounted, so both this component and `useAnalytics` gate
+ * on `useAnalyticsConsent()` explicitly.
  *
  * The client is read through the React context hook ONLY. Never reach for the
  * module-scope reference in `analyticsIdentityReset` — that one deliberately
@@ -31,6 +37,7 @@ import { useEffect, useRef } from 'react';
 import { AppState, AppStateStatus } from 'react-native';
 import { usePostHog } from 'posthog-react-native';
 import { useAnalytics } from './useAnalytics';
+import { useAnalyticsConsent } from './useAnalyticsConsent';
 import { bucketSinceLastActive, consumeColdStart } from './appLifecycleTelemetry';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 
@@ -40,6 +47,7 @@ function isBackgroundish(state: AppStateStatus): boolean {
 
 export function AppLifecycleTracker(): null {
   const posthog = usePostHog();
+  const mayEmit = useAnalyticsConsent();
   const { trackAppOpened, trackAppBackgrounded } = useAnalytics();
 
   // `?? 'active'` because AppState.currentState is null on Android before the
@@ -50,13 +58,22 @@ export function AppLifecycleTracker(): null {
   const backgroundedAt = useRef<number | null>(null);
   const emittedOpenForThisMount = useRef(false);
 
-  // Mount emit. Gated on a live client for a specific reason: consumeColdStart
-  // CONSUMES the marker, so running it while the event would be dropped loses
-  // the first open permanently. Granting consent remounts this whole subtree
-  // (pinned by PostHogProvider.consentRemount.privacy.test.tsx), so a user who
-  // opts in still gets a mount with a client present.
+  // Mount emit. Gated because consumeColdStart CONSUMES a one-shot marker, so
+  // running it while the event would be dropped loses the first open permanently.
+  //
+  // THE GATE IS CONSENT, NOT CLIENT PRESENCE (corrected DEBUG-559). It used to be
+  // `!posthog`, and this comment used to explain that "granting consent remounts
+  // this whole subtree ... so a user who opts in still gets a mount with a client
+  // present" — i.e. INFRA-542's first-open delivery was load-bearing on the very
+  // remount DEBUG-559 removes. Two things broke at once when that remount went
+  // away: a client now exists from launch, so `!posthog` no longer means "no
+  // consent" and this effect would fire at launch for a non-consenting user,
+  // burning the marker on an event `trackEvent` then drops; and there is no second
+  // mount later to retry on. Reading `mayEmit` fixes both — it is false at launch
+  // without consent, and it flips true in place when consent is granted, re-running
+  // this effect without anything unmounting.
   useEffect(() => {
-    if (!posthog || emittedOpenForThisMount.current) return;
+    if (!posthog || !mayEmit || emittedOpenForThisMount.current) return;
     emittedOpenForThisMount.current = true;
 
     let cancelled = false;
@@ -70,7 +87,7 @@ export function AppLifecycleTracker(): null {
     return (): void => {
       cancelled = true;
     };
-  }, [posthog, trackAppOpened]);
+  }, [posthog, mayEmit, trackAppOpened]);
 
   useEffect(() => {
     const handleAppStateChange = (nextAppState: AppStateStatus): void => {

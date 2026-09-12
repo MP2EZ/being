@@ -110,15 +110,26 @@ function devicesJson(udids) {
  */
 function makeSandbox({ booted = [SIM_A], devices = [], simctlFails = false, lockRootBroken = false } = {}) {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'debug496-'));
+  const stubs = fs.mkdtempSync(path.join(os.tmpdir(), 'debug496-stubs-'));
   fs.mkdirSync(path.join(root, 'scripts'), { recursive: true });
   for (const f of SOURCED) fs.copyFileSync(path.join(SCRIPTS, f), path.join(root, 'scripts', f));
+
+  // DEBUG-589 — the sandbox is a fake app root, and e2e-safety.sh's first pre-flight now
+  // reads the Maestro version pin from `<script dir>/../package.json` and refuses when it
+  // is absent. Without these two fixtures that refusal fires first and pre-empts every
+  // arm under test with the wrong message, turning this whole suite green-to-red for a
+  // reason unrelated to the exit alphabet.
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({ maestro: { pinnedVersion: '2.6.0' } }, null, 2)
+  );
+  writeStub(stubs, 'maestro', 'echo 2.6.0');
 
   const maestro = path.join(root, '.maestro');
   fs.mkdirSync(maestro, { recursive: true });
   fs.writeFileSync(path.join(maestro, 'q9-single-alert.yaml'), 'tags:\n  - safety\n');
   fs.writeFileSync(path.join(maestro, 'crisis-988-dial.yaml'), 'tags:\n  - safety-device-only\n');
 
-  const stubs = fs.mkdtempSync(path.join(os.tmpdir(), 'debug496-stubs-'));
   const bootedPath = path.join(root, 'booted.json');
   const devicesPath = path.join(root, 'devices.json');
   fs.writeFileSync(bootedPath, bootedJson(booted));
@@ -238,13 +249,23 @@ describe('DEBUG-496 — a device-resolution refusal is exit 2, never 1', () => {
   test('the real-device sibling refuses identically — 2+ attached', () => {
     // `:246` carried the identical `|| exit 1`. It is reached only by a device-only flow,
     // which is why the defect could survive a reading of the simulator path alone.
-    const r = runGate(makeSandbox({ devices: [DEV_1, DEV_2] }), { flows: ['crisis-988-dial'] });
+    // DEBUG-589 — the device path is refused up front now (exit 5, see below), so reaching
+    // device RESOLUTION at all requires the documented escape hatch. The alphabet fact
+    // under test is unchanged and still worth pinning: the day a working Maestro ships,
+    // this arm is what stops the resolver's `|| exit 1` regressing back in behind it.
+    const r = runGate(makeSandbox({ devices: [DEV_1, DEV_2] }), {
+      flows: ['crisis-988-dial'],
+      env: { E2E_FORCE_DEVICE_ATTEMPT: '1' },
+    });
     expect(r.output).toMatch(/ambiguous/i);
     expect(r.status).toBe(2);
   }, 60000);
 
   test('the real-device sibling refuses identically — none attached', () => {
-    const r = runGate(makeSandbox({ devices: [] }), { flows: ['crisis-988-dial'] });
+    const r = runGate(makeSandbox({ devices: [] }), {
+      flows: ['crisis-988-dial'],
+      env: { E2E_FORCE_DEVICE_ATTEMPT: '1' }, // DEBUG-589, as above
+    });
     expect(r.output).toMatch(/no eligible iPhone attached/i);
     expect(r.status).toBe(2);
   }, 60000);
@@ -360,7 +381,27 @@ describe('DEBUG-505 — the alphabet still has teeth (this suite can go red)', (
 
     expect(/\bexit\s+3\b/.test(src)).toBe(true); // INFRA-434, target replaced
     expect(/\bexit\s+4\b/.test(src)).toBe(false); // belongs to e2e-gate.sh (INFRA-472)
+    expect(/\bexit\s+5\b/.test(src)).toBe(true); // DEBUG-589, device path unavailable
   });
+
+  test('DEBUG-589 — a device-only run refuses with 5, its own letter', () => {
+    // 5 rather than 2, and the distinction is the point. 2 means the harness could not
+    // complete; this is a harness that completed fine and is declining a dependency it has
+    // MEASURED to be dead. Collapsing them would put a known-permanent refusal in the same
+    // bucket as a transient one, and /b-close's mapping would retry it forever.
+    const r = runGate(makeSandbox(), { flows: ['crisis-988-dial'] });
+    expect(r.output).toMatch(/DEVICE_PATH_UNAVAILABLE/);
+    expect(r.status).toBe(5);
+  }, 60000);
+
+  test('DEBUG-589 — the refusal names the toolchain, never the hardware', () => {
+    // The trap the crisis ruling called load-bearing: a reader who takes this for a
+    // missing or sleeping device spends a day on cables. CLAUDE.md already carries a
+    // sleeping-tunnel gotcha for the genuinely-absent case.
+    const r = runGate(makeSandbox(), { flows: ['crisis-988-dial'] });
+    expect(r.output).toMatch(/HARDWARE IS NOT THE PROBLEM/);
+    expect(r.output).toMatch(/NOT A FLOW REGRESSION/);
+  }, 60000);
 
   test('the target-replaced verdict is reached BEFORE the zero-flow guard', () => {
     // Found while sweeping the 11 sites, and not covered by any AC.

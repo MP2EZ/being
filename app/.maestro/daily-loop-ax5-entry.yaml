@@ -42,14 +42,25 @@ name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility t
 #   crisis-button-root        [331,523][375,567] 16pt clear of the cards' x-extent (303)
 #
 # ⚠️  WHAT THIS FLOW DELIBERATELY DOES NOT ASSERT — the KEYBOARD-UP case, which is RED.
-#     With the beat's text input focused at AX5 the scroll viewport collapses to 83pt
-#     (< the >=88pt residual floor DEBUG-465's crisis pass set) and the support line is
-#     TRUNCATED — "...support is here" renders, "anytime." does not. The affordance still
-#     TAPS and still routes to CrisisResources, so this is a legibility and floor defect,
-#     NOT a crisis false negative. It is a defect in the beat screen this item did not
-#     change, so it is tracked separately rather than asserted here — a flow that is red on
-#     arrival gates nothing and trains a bypass. Do not "fix" this flow by adding the
-#     assertion; fix the screen, then add it.
+#     With the beat's text input focused at AX5 the scroll viewport collapses and the
+#     support line TRUNCATES — "...support is here" renders, "anytime." does not. The
+#     affordance still TAPS and still routes to CrisisResources, so this is a legibility
+#     and floor defect, NOT a crisis false negative. It is a defect in the beat screen this
+#     item did not change, so it is tracked separately rather than asserted here — a flow
+#     that is red on arrival gates nothing and trains a bypass. Do not "fix" this flow by
+#     adding the assertion; fix the screen, then add it.
+#
+#     THE 83pt / >=88pt PAIR THAT USED TO BE QUOTED HERE IS VOID (DEBUG-506). It was
+#     measured against a build in which CrisisKeyboardAccessory never attached, so it
+#     describes no build that will ever ship again — and left standing it would read as a
+#     post-fix baseline. Re-derive on a fixed build before quoting a number.
+#
+#     The >=88pt floor itself is also re-scoped, not merely re-measured: it was an
+#     instrument for ORDINARY content competing with a crisis affordance. Once the
+#     competitor is itself a crisis affordance rendered in the keyboard's own window — which
+#     cannot be scrolled off, folded or clipped — the invariant to hold is "at least one
+#     untruncated, tappable crisis affordance is on screen without scrolling", and the
+#     residual floor survives as a content-legibility floor owned by accessibility.
 - launchApp:
     clearState: true
     clearKeychain: true

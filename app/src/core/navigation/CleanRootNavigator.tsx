@@ -23,13 +23,15 @@ import { JournalEntryDetailScreen } from '@/features/journal/screens/JournalEntr
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 // DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
-import CrisisKeyboardAccessory from '@/features/crisis/components/CrisisKeyboardAccessory';
 import {
   RootOverlaySlot,
   useIsRootOverlayOccupied,
   useRootOverlayStore,
 } from '@/core/navigation/rootOverlaySlot';
 import NavigatorA11yHost from '@/core/navigation/NavigatorA11yHost';
+// FEAT-570 — publishes the first-party bug-report form into the slot below.
+// Eager, never lazy: it is a DEBUG-406 conversion on the crisis path.
+import BugReportOverlay from '@/core/components/BugReportOverlay';
 // DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
 // above and by the overlay boundary below.
 import Static988Button from '@/features/crisis/components/Static988Button';
@@ -993,27 +995,35 @@ const CleanRootNavigator: React.FC = () => {
           would reintroduce, for every overlay at once, the exact
           zero-988-affordance state DEBUG-403 and DEBUG-406 were filed to remove.
         */}
+        {/* FEAT-570 — a PUBLISHER, not a rendered overlay: it returns null and
+            pushes the form into the slot below when `bugReportStore.visible`.
+            Mounted here, inside NavigationContainer, so the slot's route-driven
+            refusal applies to it. It is the first slot claimant armed at the app
+            ROOT (useBugReportShake, in App.tsx above this navigator), which is
+            why the slot had to gain SCREEN_OWNED_988_ROUTES: a shake can raise
+            it on AssessmentFlow or the pre-consent LegalGate, where the FAB
+            steps aside and the screen owns the only route to 988. */}
+        <BugReportOverlay />
+
         <RootOverlaySlot />
 
         <RootCrisisBoundary>
           <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
         </RootCrisisBoundary>
 
-        {/* DEBUG-450 — the crisis affordance for when a software keyboard occludes the
-            root button. Mounted ONCE: RN registers InputAccessoryView content by
-            nativeID app-wide, so every TextInput spreading crisisAccessoryProps() reaches
-            this single instance.
+        {/* DEBUG-506 — the crisis keyboard accessory is NOT mounted here, and must not be.
 
-            ADDITIVE, and a SIBLING of RootCrisisButton rather than a replacement for it.
-            Neither control suppresses the other — coordinating them would be a fourth
-            instance of the two-list reconciliation failure CLAUDE.md names for
-            features/guidance/ and features/consent/.
+            It used to be, on the belief that RN registers InputAccessoryView content by
+            nativeID app-wide from one mount. That is false on Fabric: attachment happens
+            once, in didMoveToWindow, by a depth-first search of the window for a TextInput
+            carrying the id. From this mount that search ran at app launch, when no such
+            input existed, and could never re-run — so the control was inert for its whole
+            shipped life while every gate stayed green.
 
-            Deliberately OUTSIDE RootCrisisBoundary: that boundary's fallback renders
-            Static988Button, which dials directly and needs no keyboard. Nesting this
-            inside would tie a keyboard-only affordance to a crash-recovery surface that
-            has no TextInput. */}
-        <CrisisKeyboardAccessory />
+            It is now one instance per input, owned by CrisisTextInput. RootCrisisButton
+            above is unaffected: the two controls remain independently correct, neither
+            suppressing the other, which is what stops a bug in one silently removing the
+            other's coverage. */}
       </View>
     </NavigationContainer>
   );

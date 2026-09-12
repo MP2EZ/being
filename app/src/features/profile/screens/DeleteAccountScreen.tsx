@@ -26,7 +26,6 @@ import {
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   Pressable,
   ActivityIndicator,
 } from 'react-native';
@@ -37,7 +36,7 @@ import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { AnalyticsIdentityResetTarget } from '@/core/analytics/analyticsIdentityReset';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 
 const CONFIRM_WORD = 'DELETE';
 
@@ -64,9 +63,17 @@ const DeleteAccountScreen: React.FC = () => {
   // DEBUG-539: the package types LIE here — `usePostHog` is declared
   // `() => PostHog`, but PostHogContext's default value is `{client: undefined}`
   // and the hook only warns before returning it. So this is genuinely
-  // `PostHog | undefined` on the very path that matters (analytics is opt-in and
-  // default OFF, so no provider is mounted for most users), and `undefined` is
-  // not `null`. Normalise once, here.
+  // `PostHog | undefined`, and `undefined` is not `null`. Normalise once, here.
+  //
+  // DEBUG-559 narrowed WHEN it is undefined, in the helpful direction. This used
+  // to add "analytics is opt-in and default OFF, so no provider is mounted for
+  // most users" — true then, wrong now: the provider was withholding <PHProvider>
+  // without consent, which remounted every 988 affordance in the app on a consent
+  // tap, so it is now always mounted. In a build with an API key the client is
+  // therefore present here regardless of consent, and erasure takes the
+  // reset-THROUGH-the-instance branch rather than the unlink fallback — which is
+  // the branch DEBUG-539 wants, since a live instance can re-persist the
+  // pre-erasure distinct_id. Undefined now means only "no key in this build".
   const posthog = usePostHog() as AnalyticsIdentityResetTarget | undefined;
 
   const handleDelete = useCallback(async () => {
@@ -138,8 +145,7 @@ const DeleteAccountScreen: React.FC = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Type {CONFIRM_WORD} to confirm</Text>
-          <TextInput
-            {...crisisAccessoryProps()} /* DEBUG-450 */
+          <CrisisTextInput
             style={styles.input}
             value={confirmText}
             onChangeText={setConfirmText}

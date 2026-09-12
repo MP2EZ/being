@@ -42,7 +42,7 @@ describe('EXPO_PUBLIC_E2E_SEED_ONBOARDED is scoped to the e2e-sim profile only',
     },
   );
 
-  it('the ineligible marker cannot be swallowed by another marker (INFRA-481)', () => {
+  it('no launch marker can be swallowed by another (INFRA-481, widened FEAT-570)', () => {
     // Every predicate in e2eSeed.ts is `url.includes(MARKER)`, so no marker token may be a
     // substring of another. The AC proposed `e2eSeed=stale-ineligible`, which
     // `isStaleConsentBootRequested` matches — an ineligible launch would have silently
@@ -55,10 +55,17 @@ describe('EXPO_PUBLIC_E2E_SEED_ONBOARDED is scoped to the e2e-sim profile only',
       path.join(__dirname, '..', '..', 'src', 'core', 'config', 'e2eSeed.ts'),
       'utf8',
     );
-    const markers = [...src.matchAll(/E2E_SEED_[A-Z_]*MARKER\s*=\s*'([^']+)'/g)].map(m => m[1]);
+    // FEAT-570 WIDENED THIS PATTERN from `E2E_SEED_[A-Z_]*MARKER`. Its bug-report
+    // marker uses a different KEY (`e2eOpen=`) precisely so it can appear in the
+    // same URL as a seed marker and be read alongside it — and that different key
+    // meant the old regex did not match the constant at all, so the new token
+    // would have been excluded from the very check that exists to vet it. A
+    // collision guard that silently stops covering new members is the failure
+    // this file is otherwise built to prevent.
+    const markers = [...src.matchAll(/E2E_[A-Z_]*MARKER\s*=\s*'([^']+)'/g)].map(m => m[1]);
 
     // Fail CLOSED: a regex that stopped matching would make the loop below vacuous.
-    expect(markers.length).toBeGreaterThanOrEqual(3);
+    expect(markers.length).toBeGreaterThanOrEqual(4);
 
     for (const a of markers) {
       for (const b of markers) {
@@ -69,6 +76,10 @@ describe('EXPO_PUBLIC_E2E_SEED_ONBOARDED is scoped to the e2e-sim profile only',
 
     // Proof the comparator still discriminates: the REJECTED token does collide.
     expect('e2eSeed=stale-ineligible'.includes('e2eSeed=stale')).toBe(true);
+
+    // And proof the WIDENED pattern actually reaches the new key — without this,
+    // narrowing the regex back would leave the loop green on fewer markers.
+    expect(markers).toContain('e2eOpen=bugreport');
   });
 
   it('appears in exactly one build profile across all of eas.json', () => {

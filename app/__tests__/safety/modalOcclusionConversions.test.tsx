@@ -25,6 +25,7 @@ import { render } from '@testing-library/react-native';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import SessionNoteComposer from '@/features/insights/components/SessionNoteComposer';
 import WeeklyReflectionComposer from '@/features/insights/components/WeeklyReflectionComposer';
+import { BugReportForm } from '@/core/components/BugReportOverlay';
 import {
   CRISIS_BUTTON_EXCLUSION_RECT,
   OVERLAY_ACTION_ROW_PADDING_RIGHT,
@@ -73,6 +74,18 @@ const CASES = [
         onSave={noop}
         onCancel={noop}
       />
+    ),
+  },
+  {
+    // FEAT-570. The fourth conversion, and the first whose ORIGINAL occluder was
+    // third-party code we do not render: Sentry's feedback widget, whose backdrop
+    // is a later sibling of our whole app, so no z-order change could reach it.
+    // The same structural guards apply to the replacement.
+    name: 'BugReportForm',
+    mount: 'root-slot' as const,
+    overlayTestId: 'bug-report-overlay',
+    element: (visible: boolean) => (
+      <BugReportForm visible={visible} killed={false} onClose={noop} />
     ),
   },
 ] as const;
@@ -186,6 +199,12 @@ describe('DEBUG-406 · action rows clear the crisis button exclusion rect', () =
         onCancel={noop}
       />,
       <WeeklyReflectionComposer key="w" visible initialText="x" onSave={noop} onCancel={noop} />,
+      // FEAT-570: on this one the padded row is the BOTTOM Send row, not the
+      // pinned header. The exclusion rect is anchored to the screen's bottom
+      // right, so padding a header would protect nothing and would leave Send in
+      // the contested column — where the FAB's zIndex 9999 turns a Send press
+      // into a wrong-destination crisis navigation.
+      <BugReportForm key="b" visible killed={false} onClose={noop} />,
     ]) {
       const { UNSAFE_root } = render(element);
       const padded = UNSAFE_root.findAll((n) => {
@@ -210,6 +229,7 @@ describe('DEBUG-406 · the composers do not steal focus with autoFocus', () => {
   it.each([
     ['session-note-input', <SessionNoteComposer key="s" visible initialText="" onSave={noop} onDelete={noop} onCancel={noop} />],
     ['weekly-reflection-input', <WeeklyReflectionComposer key="w" visible initialText="" onSave={noop} onCancel={noop} />],
+    ['bug-report-input', <BugReportForm key="b" visible killed={false} onClose={noop} />],
   ] as const)('%s does not autoFocus', (testId, element) => {
     const { getByTestId } = render(element);
     expect(getByTestId(testId).props.autoFocus).toBeFalsy();

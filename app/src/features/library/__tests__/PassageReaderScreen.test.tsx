@@ -37,15 +37,19 @@ describe('PassageReaderScreen', () => {
     const { queryByText } = render(<PassageReaderScreen />);
     expect(queryByText('Seneca')).toBeTruthy();
     expect(queryByText(/Letters 13\.4 · trans\. Richard Mott Gummere/)).toBeTruthy();
-    expect(queryByText(/we suffer more from imagination than from reality/)).toBeTruthy();
+    expect(queryByText(/we suffer more often in imagination than in reality/)).toBeTruthy();
   });
 
   it('toggles the full passage when the disclosure is tapped', () => {
     const { getByText, queryByText } = render(<PassageReaderScreen />);
-    // Full text is hidden until the disclosure is opened.
-    expect(queryByText(/There are more things, Lucilius/)).toBeNull();
+    // The collapsed-state anchor MUST come from fullText's TAIL, never its opening.
+    // Since DEBUG-582 the excerpt is a verbatim PREFIX of fullText, so any opening
+    // phrase is present in BOTH states and a `toBeNull()` on one inverts — passing
+    // vacuously in neither state and reading as a regression in this toggle rather
+    // than as a stale anchor. Re-anchoring to the opening silently disarms this test.
+    expect(queryByText(/not to be unhappy before the crisis comes/)).toBeNull();
     fireEvent.press(getByText('Read full passage'));
-    expect(queryByText(/There are more things, Lucilius/)).toBeTruthy();
+    expect(queryByText(/not to be unhappy before the crisis comes/)).toBeTruthy();
     expect(getByText('Show excerpt')).toBeTruthy();
   });
 
@@ -64,6 +68,21 @@ describe('PassageReaderScreen', () => {
     // The clause doing the doctrinal work, not the whole note — same short
     // anchor the provenance pin uses, so rewording moves both together.
     expect(queryByText(/one of those causes/)).toBeTruthy();
+  });
+
+  /**
+   * FEAT-580, the virtuous-response half of the same contract. Letters 107.11 is
+   * the sternest passage in the corpus and the one likeliest to read as punitive
+   * submission, so its corrective reaching the screen matters more here than
+   * anywhere — and this record carries no `fullText`, so there is no disclosure:
+   * whatever the note says is on screen the moment the passage opens.
+   */
+  it('renders the Context box on the corpus\'s sternest passage', () => {
+    mockRouteParams = { passageId: 'seneca-letters-107' };
+    const { queryByText } = render(<PassageReaderScreen />);
+    expect(queryByText('Context')).toBeTruthy();
+    // Same short anchor as the provenance pin, so rewording moves both together.
+    expect(queryByText(/changes the man, not the outcome/)).toBeTruthy();
   });
 
   it('does not show a disclosure for passages without fullText', () => {

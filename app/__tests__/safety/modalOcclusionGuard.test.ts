@@ -229,15 +229,23 @@ describe('INFRA-571 · third-party full-screen presenter call sites', () => {
       // The DEBUG-390 failure mode is comment-stripping plus a narrow regex
       // producing a guard that can never fire. Assert the input the matcher
       // actually sees is still real code, not blanks.
+      //
+      // FEAT-570 REPOINTED THIS FIXTURE. It used to read ExternalErrorReporter.ts
+      // and assert `showFeedbackWidget(` survived stripping. That file no longer
+      // CALLS the presenter — FEAT-570 deleted the call, and every surviving
+      // mention of the name is prose explaining why it must not come back. So the
+      // stripped source correctly contains none, and the old assertion would have
+      // forced the call to be re-added to keep a test green. Repointed at a file
+      // that still carries a real, allowlisted presenter call.
       const fs = require('fs');
       const path = require('path');
       const abs = path.join(
         __dirname,
-        '../../src/core/services/logging/ExternalErrorReporter.ts',
+        '../../src/features/profile/screens/ExportDataScreen.tsx',
       );
       const stripped = stripComments(fs.readFileSync(abs, 'utf8'));
       expect(stripped.replace(/\s/g, '').length).toBeGreaterThan(5000);
-      expect(stripped).toMatch(/showFeedbackWidget\s*\(/);
+      expect(stripped).toMatch(/Sharing\s*\.\s*shareAsync\s*\(/);
     });
   });
 
@@ -266,8 +274,13 @@ describe('INFRA-571 · third-party full-screen presenter call sites', () => {
     });
 
     it('allowlists ONLY the presenter call sites with a recorded ruling', () => {
+      // FEAT-570 removed the DEBUG-533 entry. That deletion is the load-bearing
+      // artifact of the item, not bookkeeping: `Sentry.wrap` mounts
+      // FeedbackWidgetProvider unconditionally and dropping `feedbackIntegration`
+      // removes no occluder, so once the call site is gone the ONLY thing keeping
+      // this path closed is rule 4 refusing any new call. With no entry, a
+      // reintroduced `showFeedbackWidget` anywhere under app/src hard-fails.
       expect(Object.keys(PRESENTER_ALLOWLIST).sort()).toEqual([
-        'src/core/services/logging/ExternalErrorReporter.ts::showFeedbackWidget',
         'src/core/services/subscription/IAPService.ts::RNIap.requestPurchase',
         'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync',
       ]);
@@ -291,22 +304,50 @@ describe('INFRA-571 · third-party full-screen presenter call sites', () => {
       }
     });
 
-    it('marks the two inferred rulings as NOT MEASURED', () => {
-      // DEBUG-533's Sentry finding was measured on device (zero
-      // `crisis-button-root` nodes in the hierarchy). These two are reasoned
-      // from the presentation mechanism only. Recording an unmeasured ruling
-      // as though measured is the failure DEBUG-533's own "MEASURED, NOT
-      // INFERRED" section was written to stop.
-      const inferred = [
+    it('keeps measured and inferred rulings on opposite sides of the line', () => {
+      // Recording an unmeasured ruling as though measured is the failure
+      // DEBUG-533's own "MEASURED, NOT INFERRED" section was written to stop.
+      //
+      // THIS ASSERTION USED TO BE VACUOUS ON THE HALF THAT MATTERS (DEBUG-577).
+      // It pinned the measured entry with `toMatch(/MEASURED/)` — and /MEASURED/
+      // is a substring of "NOT MEASURED", so the one check standing between a
+      // ruling and a false claim of evidence passed on prose asserting the exact
+      // opposite. A measured entry must therefore match the POSITIVE form and be
+      // asserted NOT to carry the negation.
+      //
+      // FEAT-570 + DEBUG-577 SWAPPED WHICH ENTRY IS THE MEASURED ONE. FEAT-570
+      // removed DEBUG-533's entry with the call it examined, briefly leaving the
+      // allowlist wholly inferred; DEBUG-577 then measured the share sheet. So the
+      // partition below is not the historical one, and the count on each side is
+      // not what makes it correct — the prose matching its own evidence is.
+      const measured = [
         'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync',
-        'src/core/services/subscription/IAPService.ts::RNIap.requestPurchase',
       ];
+      for (const key of measured) {
+        expect(PRESENTER_ALLOWLIST[key]).toMatch(/MEASURED ON (DEVICE|SIMULATOR)/);
+        expect(PRESENTER_ALLOWLIST[key]).not.toMatch(/NOT MEASURED/);
+      }
+
+      // IAPService remains reasoned from the presentation mechanism: DEBUG-577
+      // attempted it and was blocked (mockMode = __DEV__, no .storekit config, no
+      // Android harness). Blocked is not measured.
+      const inferred = ['src/core/services/subscription/IAPService.ts::RNIap.requestPurchase'];
       for (const key of inferred) {
         expect(PRESENTER_ALLOWLIST[key]).toMatch(/NOT MEASURED/);
       }
-      expect(
-        PRESENTER_ALLOWLIST['src/core/services/logging/ExternalErrorReporter.ts::showFeedbackWidget'],
-      ).toMatch(/MEASURED/);
+
+      // Every entry is on exactly one side. Without this the two loops above stay
+      // green over an entry that is on NEITHER list — which is what a third,
+      // unclassified ruling would be.
+      expect([...measured, ...inferred].sort()).toEqual(Object.keys(PRESENTER_ALLOWLIST).sort());
+
+      // Proof the matcher can still fire — the pair above is only worth its cost
+      // if the old vacuous form is demonstrably rejected by the new one. Both are
+      // literals, not entries, so they survive any future allowlist churn.
+      expect('REASONED FROM THE MECHANISM, NOT MEASURED').not.toMatch(
+        /MEASURED ON (DEVICE|SIMULATOR)/,
+      );
+      expect('MEASURED ON DEVICE by DEBUG-533').toMatch(/MEASURED ON (DEVICE|SIMULATOR)/);
     });
 
     it('documents the denylist as non-exhaustive rather than as the set', () => {

@@ -351,6 +351,31 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
         },
         headerTintColor: colorSystem.themes.midday.primary,
         headerLeft: () => closeButton,
+        // MAINT-564 (AC2). The filed cause — "React Navigation has narrowed the NATIVE
+        // title slot" — is a category error: this app has no @react-navigation/native-stack
+        // dependency at all. The real mechanism is @react-navigation/elements' own
+        // Header.tsx:364-372, which with headerTitleAlign 'center' and a headerLeft present
+        // computes maxWidth = layout.width - (reservation + rightButton + insets) * 2, where
+        // the per-side reservation is 80 unless this option is 'minimal', in which case 32.
+        // Header.tsx:120 defaults it to 'default' on iOS — sized for a BACK CHEVRON PLUS ITS
+        // LABEL, which is not what sits there. Our headerLeft is a bare 44x44 close button,
+        // so ~36pt a side was reserved for a label that does not exist.
+        //
+        // MEASURED on a 390pt-wide device, no side insets and no headerRight:
+        //   'default'  ->  390 - (80 + 0 + 0) * 2  =  230pt of title slot
+        //   'minimal'  ->  390 - (32 + 0 + 0) * 2  =  326pt
+        // a 96pt gain. (An earlier note put the 'default' figure at ~198pt; that assumed a
+        // headerRight adding 16 a side, and there is none.)
+        //
+        // COUPLED to the close button keeping its current ~60-76pt footprint: 'minimal'
+        // reserves 32 a side, so a headerLeft that grew past that would start colliding with
+        // the title rather than being cleared by it. Re-measure if that button changes.
+        //
+        // Purely horizontal, deliberately. headerStyle.height STAYS 72 (DEBUG-468 above):
+        // daily-loop-quick-depth.yaml's hand-measured fold, continue-button and support-line
+        // y-ranges and its DEBUG-518 timeout:25000 scroll budget are all anchored to it, and
+        // a height change would silently invalidate every one of them.
+        headerBackButtonDisplayMode: 'minimal' as const,
       }}
       screenListeners={{
         state: (e) => {

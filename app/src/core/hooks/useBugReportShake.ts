@@ -2,19 +2,32 @@
  * FEAT-284 — shake-to-report.
  *
  * Subscribes to the accelerometer ONLY when the build-time `bug_reporting` flag
- * is on (internal / TestFlight builds), and opens Sentry's feedback widget on a
- * shake. In the public App Store build the flag is off, so this never subscribes
- * — zero sensor cost for end users. Safe no-op on the dev sim (empty Sentry DSN
- * → showFeedbackForm short-circuits).
+ * is on (internal / TestFlight builds), and opens the first-party bug-report form
+ * on a shake. In the public App Store build the flag is off, so this never
+ * subscribes — zero sensor cost for end users. Since FEAT-570 the form OPENS on
+ * the dev sim too (an empty DSN no longer short-circuits it); submission is what
+ * refuses there, which is what keeps this surface verifiable.
  *
- * ── DEBUG-533: WHY THE TRIGGER IS DELIBERATELY HARD TO FIRE ──
+ * ── WHY THE TRIGGER IS DELIBERATELY HARD TO FIRE ──
  *
- * What this opens is a zero-988-affordance window — see the ruling recorded at
- * `ExternalErrorReporter.showFeedbackForm()`. This hook is mounted at the app
- * root, so the gesture is armed on EVERY screen, including `CrisisResources`
- * and a mid-assessment `AssessmentFlow`. An accidental open is therefore a
- * crisis-reachability event, not a nuisance: it covers the 988 affordance with
- * a form the user did not ask for and cannot reliably leave in one tap.
+ * DEBUG-533 hardened this because what the gesture opened was a zero-988
+ * -affordance window. FEAT-570 removed that window — the form is now our own,
+ * published into `rootOverlaySlot`, which structurally cannot paint above the
+ * crisis button, and the slot refuses it outright on the routes where the FAB
+ * has stepped aside.
+ *
+ * ⚠️ THAT DOES NOT MAKE THIS ERGONOMICS. Do not delete the burst requirement on
+ * the grounds that "the occlusion was fixed". Three residual costs survive it,
+ * and this hook is a RATE CONTROL on all three:
+ *   • the backdrop is OPAQUE by requirement (WCAG 1.4.11, DEBUG-406), so an
+ *     accidental open still covers whatever screen the user was on;
+ *   • `NavigatorA11yHost` hides the entire navigator subtree from assistive
+ *     technology while the slot is held, so for a VoiceOver user an accidental
+ *     shake still deletes the screen they were reading;
+ *   • touching the message field raises the keyboard, which occludes the root
+ *     FAB regardless of z-order (`UIRemoteKeyboardWindow` is a separate window).
+ * And on `AssessmentFlow` / `LegalGate` it is the SCREEN-owned affordance at
+ * stake, which is precisely why the slot gained `SCREEN_OWNED_988_ROUTES`.
  *
  * The old trigger was a SINGLE-SAMPLE magnitude test at 1.8g sampled at 5Hz.
  * At rest the vector magnitude is already ~1g, so that asked for 0.8g of net
@@ -27,10 +40,10 @@
  * condition to HOLD ACROSS SAMPLES separates shaking from being jostled. Do not
  * "simplify" this back to a one-sample test by raising SHAKE_THRESHOLD further.
  *
- * ⚠️ AND THIS IS A RATE CONTROL, NOT AN INVARIANT. It reduces how often the
- * zero-988 window opens by accident; it cannot make opening it acceptable. The
- * structural fix is an in-hierarchy form rendered into `rootOverlaySlot`, which
- * is tracked separately.
+ * ⚠️ AND THIS IS A RATE CONTROL, NOT AN INVARIANT. It bounds how often an
+ * unasked-for overlay appears; it was never what made the surface safe. The
+ * structural fix — the in-hierarchy form in `rootOverlaySlot` — LANDED in
+ * FEAT-570, and the two controls are complementary rather than alternatives.
  */
 
 import { useEffect, useRef } from 'react';

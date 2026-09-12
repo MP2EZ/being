@@ -425,13 +425,15 @@ const ProfileScreen: React.FC = () => {
           </Pressable>
 
           {/* FEAT-284: internal-only bug/feedback entry. Gated on the build-time
-              `bug_reporting` flag. Opens Sentry's feedback widget (screenshot +
-              form); you can also shake the device from anywhere. Discoverable
-              fallback for the shake gesture.
+              `bug_reporting` flag. You can also shake the device from anywhere;
+              this card is the discoverable fallback for that gesture.
 
-              ⚠️ DEBUG-533: what this opens is a zero-988-affordance window — a
-              DEBUG-406 conversion site that cannot be converted in place because
-              the occluder is third-party. The full ruling is recorded at
+              FEAT-570 converted what this opens. It was Sentry's own widget — a
+              zero-988-affordance window that could not be fixed in place, because
+              the occluder was third-party code we do not render (DEBUG-533). It
+              is now our own form in `rootOverlaySlot`, which structurally cannot
+              paint above the crisis button. There is NO SCREENSHOT any more; the
+              copy below must not promise one. The full ruling is recorded at
               `ExternalErrorReporter.showFeedbackForm()`; read it before adding a
               second entry point or moving this one onto a non-settings route.
               This file is a Protected Path for that reason and no other. */}
@@ -442,11 +444,11 @@ const ProfileScreen: React.FC = () => {
               testID="profile-card-bug-report"
               accessibilityRole="button"
               accessibilityLabel="Report a bug or send feedback"
-              accessibilityHint="Opens a form to send a bug report with a screenshot. You can also shake your device."
+              accessibilityHint="Opens a form to describe a bug or issue. No screenshot is attached. You can also shake your device."
             >
               <Text style={styles.cardTitle}>Report a bug / Send feedback</Text>
               <Text style={styles.cardDescription}>
-                Hit a bug during testing? Send it with a screenshot attached — or just shake your device from any screen.
+                Hit a bug during testing? Describe what happened — no screenshot is attached. You can also shake your device from any screen.
               </Text>
               <Text style={styles.cardAction} importantForAccessibility="no">Report →</Text>
             </Pressable>

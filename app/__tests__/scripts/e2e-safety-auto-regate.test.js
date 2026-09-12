@@ -173,7 +173,15 @@ function makeSandbox({ buildBehaviour = 'repair', extraBuild = '' } = {}) {
   );
   writeStub(stubs, 'otool', 'echo "\t/usr/lib/libSystem.B.dylib"');
   writeStub(stubs, 'plutil', "echo '[\"tel\",\"sms\"]'");
-  writeStub(stubs, 'maestro', 'exit 0');
+  // DEBUG-589 — the maestro stub must report the PINNED version, and the sandbox root needs
+  // a package.json carrying that pin. e2e-safety.sh's first pre-flight reads
+  // `<script dir>/../package.json` and refuses (exit 2) when the pin is missing or the
+  // installed version differs, which would otherwise pre-empt every arm under test here.
+  writeStub(stubs, 'maestro', 'if [ "$1" = "--version" ]; then echo 2.6.0; else exit 0; fi');
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({ maestro: { pinnedVersion: '2.6.0' } }, null, 2)
+  );
 
   // The rebuild stub. It records that it ran and the lease token it inherited, and (when
   // repairing) installs a marker fingerprinted against THIS tree into the fresh container.

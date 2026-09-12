@@ -1,0 +1,79 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Crisis affordance is reachable in one tap while a software keyboard is up"
+# e2e-certifies: 375x667
+---
+# THE SIM HALF OF THE KEYBOARD-ACCESSORY CONTRACT (DEBUG-506 AC5).
+#
+# `crisis-keyboard-accessory.yaml` stays `safety-device-only` and owns the real-hardware
+# pass. This flow owns the half that needs no hardware, and it exists because the absence
+# of one is how DEBUG-450 shipped an accessory that never attached for its entire life:
+# the only flow pinning it could not run where the gate runs, so `npm run e2e:safety` was
+# green over a control that rendered nothing at all.
+#
+# NOTHING HERE NEEDS `canOpenURL`. The device-only rationale covers the DIAL, and the dial
+# is owned by `crisis-988-dial.yaml`. Reaching `crisis-resources-screen` is in-process
+# navigation, so the reachability contract is fully assertable on a simulator.
+#
+# WHY DailyLoopStepScreen AND NOT THE JOURNAL COMPOSER. DEBUG-431's tap arithmetic found
+# no bounded exit here at all — `headerShown: false` AND `gestureEnabled: false` — so this
+# is the surface where the accessory is not a convenience but the only affordance. It is
+# also one of the two IMMERSIVE routes where the root button is additionally faded to 0.6.
+#
+# THE KEYBOARD-UP ASSERTION IS LOAD-BEARING. `crisis-keyboard-accessory` renders always but
+# COLLAPSED (height 0, a11y-hidden) when nothing occludes, so asserting the BAR proves
+# nothing. What proves the keyboard is genuinely up is that the accessory's own BUTTON is
+# visible, which happens only when the occlusion predicate fired. Assert that before
+# asserting reachability, or this flow degrades to the false-green it exists to prevent.
+#
+# PRECONDITION, SEEDED BY THE HARNESS (DEBUG-506). `e2e-safety.sh` refuses if a hardware
+# keyboard is connected and seeds `DidShowContinuousPathIntroduction` so iOS's QuickPath
+# tutorial does not occupy the keyboard's region. Do not run this flow bare.
+
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
+- runFlow: _seeded-home.yaml
+
+# ── Enter the daily practice, Quick depth (mirrors daily-loop-quick-depth.yaml) ──
+- tapOn:
+    text: ".*Daily Practice.*"
+- assertVisible:
+    id: "daily-loop-depth-quick"
+- tapOn:
+    id: "daily-loop-depth-quick"
+
+# Beat 1 is breath-gated; skip straight to the text beat. Conditional because the breath
+# is time-based and may already have elapsed.
+- runFlow:
+    when:
+      visible:
+        id: "daily-loop-breathing-circle"
+    commands:
+      - tapOn:
+          id: "daily-loop-skip-breath"
+
+- assertVisible:
+    id: "daily-loop-input-response"
+- tapOn:
+    id: "daily-loop-input-response"
+
+# A real software keyboard, not a hardware one. `UIKeyboardLayoutStar Preview` is the key
+# layout itself — the harness's QuickPath seeding is what keeps this from failing against
+# a healthy app on a freshly-erased simulator.
+- assertVisible:
+    id: "UIKeyboardLayoutStar Preview"
+
+# THE GUARD AGAINST FALSE GREEN — see the header. The button is visible only if the
+# accessory actually attached AND the occlusion predicate returned true.
+- assertVisible:
+    id: "crisis-keyboard-accessory-button"
+
+# ONE TAP. Not "dismiss the keyboard, then find the root button" — DEBUG-431 measured that
+# path at 3 taps minimum, and unbounded on this very screen, which is why keyboard-dismiss
+# hygiene was ruled insufficient to close DEBUG-450.
+- tapOn:
+    id: "crisis-keyboard-accessory-button"
+- assertVisible:
+    id: "crisis-resources-screen"
