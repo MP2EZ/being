@@ -753,6 +753,13 @@ FULL_SUITE=""
 # If you ever wire a NEW security/crisis service into app boot or the crisis overlay's
 # import graph, DROP it from the carve-out so its changes re-arm the smoke test.
 RENDER_BOOT_RELEVANT=$(echo "$SAFETY_CHANGED" | awk '
+  # DEBUG-596 (crisis ruling): crisisTapTrace.ts is NOT a backend service. It is tap-path
+  # code in the crisis overlay import graph — CollapsibleCrisisButton.tsx:85/:322 and
+  # CrisisKeyboardAccessory.tsx:67/:107 call beginCrisisTap() on the tap frame ahead of the
+  # navigate, and CrisisResourcesScreen.tsx:290 / openCrisisUrl.ts:50,:82 close the mark.
+  # The carve-out below names that exit condition itself. Keep this rule FIRST — awk takes
+  # the first matching rule.
+  /src\/features\/crisis\/services\/crisisTapTrace\.ts/ { print; next }
   /src\/features\/crisis\/services\// { next }
   /src\/core\/services\/security\// {
     # Bare regex, NOT `$0 ~ …`: the harness substitutes $0 with the run’s arguments when
