@@ -925,8 +925,10 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/hooks/'; then
   echo "⌨️  A core/hooks/ file changed — these decide crisis-affordance placement and"
   echo "   visibility. journal-crisis-scan covers the keyboard-up inset path. Two surfaces"
   echo "   it cannot witness, both outside the tagged suite:"
-  echo "     npm run e2e:safety:keyboard-accessory   (hardware — the only flow pinning"
-  echo "       useKeyboardOccludesCrisisButton via CrisisKeyboardAccessory)"
+  echo "     npm run e2e:safety:keyboard-reachability (sim — the reachability pin on"
+  echo "       useKeyboardOccludesCrisisButton; journal-crisis-scan above pins the same"
+  echo "       predicate on the journal surface, INFRA-594). The device flow refuses,"
+  echo "       exit 5 — DEBUG-589."
   echo "     npm run e2e:safety:xxxl                 (dynamic-type — DEBUG-507/516's pin"
   echo "       on the journal save inset)"
 fi
