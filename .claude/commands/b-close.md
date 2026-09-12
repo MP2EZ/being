@@ -1976,6 +1976,11 @@ gh pr merge [PR_NUMBER] \
   --admin
 ```
 
+**`gh pr merge` can exit non-zero while the merge SUCCEEDS.** Its local-checkout step always
+fails in this bare-repo setup (`'development' is already used by worktree`, Step 3.7), so take
+the verdict from `gh pr view [PR_NUMBER] --json state` — never from the exit code. Aborting a
+close on an already-merged PR is the expensive misread.
+
 **Display**:
 ```
 ✅ Merged PR #[PR_NUMBER] to development
