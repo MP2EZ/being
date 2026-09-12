@@ -77,6 +77,22 @@ const APP_ROOT = path.resolve(__dirname, '..');
  */
 const ANIMATION_PATH_FILES = [
   'src/features/practices/shared/components/BreathingCircle.tsx',
+  // INFRA-373. Its `useFrameCallback` body only folds intervals into shared
+  // state — the window is closed by a JS-side timer that stops the callback and
+  // reads the state, so there is no runOnJS on the per-frame path. It therefore
+  // enters this list with NO rule change, NO skip directive and no weakening,
+  // which is the shape the INFRA-309 test below already blessed.
+  //
+  // An earlier revision closed the window from inside the callback and did need
+  // a hop there. The conclusion drawn from that — "the guard needs a companion
+  // rule permitting one close-time runOnJS" — was wrong: the fix was to move the
+  // clock, not to widen the guard. Do not add such a rule. `hasSkipDirective`
+  // keys off the HOOK's line, so any skip here suppresses the whole callback
+  // body and would put this file in the guarded set while guarding nothing.
+  //
+  // Note WORKLET_HOOKS only applies to files named in THIS list, so INFRA-309's
+  // addition of `useFrameCallback` to it bought nothing until this line existed.
+  'src/features/practices/shared/components/BreathingFrameProbe.tsx',
 ];
 
 /**

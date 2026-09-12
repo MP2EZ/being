@@ -47,7 +47,8 @@
  * button so it structurally cannot cover it.
  *
  * ── WHAT <Modal> SUPPLIED FOR FREE AND IS NOW HAND-ROLLED ──
- *   • iOS focus trap             → `accessibilityViewIsModal`
+ *   • the focus trap           → CleanRootNavigator's host (DEBUG-575; it is
+ *                                  NOT `accessibilityViewIsModal` — see below)
  *   • Android back-to-dismiss    → BackHandler, live only while visible
  *   • touch isolation            → the overlay root claims the responder
  *   • the surface-change announcement → focus moves to the title
@@ -70,7 +71,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
   ScrollView,
   BackHandler,
   AccessibilityInfo,
@@ -86,7 +86,7 @@ import {
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useOverlayBottomInset } from '@/core/hooks/useOverlayBottomInset';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 
 const MAX_LEN = 5000;
 
@@ -97,6 +97,12 @@ interface WeeklyReflectionComposerProps {
   initialText: string;
   onSave: (text: string) => void | Promise<void>;
   onCancel: () => void;
+  /**
+   * Reports the in-progress text so the host can preserve it if the slot is
+   * revoked by a crisis route (DEBUG-575 finding 2). Not a controlled-input
+   * conversion: `text` stays local, this only mirrors it upward.
+   */
+  onDraftChange?: (text: string) => void;
   /** Control that opened the sheet; focus returns here on close. */
   returnFocusRef?: React.RefObject<React.ComponentRef<typeof Pressable> | null>;
 }
@@ -106,6 +112,7 @@ const WeeklyReflectionComposer: React.FC<WeeklyReflectionComposerProps> = ({
   initialText,
   onSave,
   onCancel,
+  onDraftChange,
   returnFocusRef,
 }) => {
   const [text, setText] = useState(initialText);
@@ -161,7 +168,15 @@ const WeeklyReflectionComposer: React.FC<WeeklyReflectionComposerProps> = ({
   return (
     <View
       style={styles.overlay}
-      accessibilityViewIsModal
+      /* DEBUG-575: NO `accessibilityViewIsModal` HERE, deliberately.
+         This overlay is published into the root slot, which renders a bare
+         fragment — so it is a direct native SIBLING of RootCrisisButton and
+         CrisisKeyboardAccessory, and that prop prunes the receiver's SIBLINGS.
+         Setting it deleted both crisis affordances from the accessibility tree
+         while this sheet was open: a zero-988 state for assistive tech, with the
+         button still painted on screen so no screenshot could catch it. The trap
+         now lives on CleanRootNavigator's host, which hides the Stack.Navigator
+         subtree and nothing else. Pinned by modalOcclusionConversions.test.tsx. */
       testID="weekly-reflection-overlay"
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
@@ -185,13 +200,14 @@ const WeeklyReflectionComposer: React.FC<WeeklyReflectionComposerProps> = ({
             {TITLE}
           </Text>
 
-          <TextInput
-            {...crisisAccessoryProps()} /* DEBUG-450 */
+          <CrisisTextInput
             style={styles.input}
             value={text}
-            onChangeText={(next) =>
-              setText(next.length > MAX_LEN ? next.slice(0, MAX_LEN) : next)
-            }
+            onChangeText={(next) => {
+              const clamped = next.length > MAX_LEN ? next.slice(0, MAX_LEN) : next;
+              setText(clamped);
+              onDraftChange?.(clamped);
+            }}
             placeholder="Write what you noticed this week…"
             placeholderTextColor={colorSystem.gray[400]}
             multiline

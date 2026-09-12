@@ -71,12 +71,20 @@
  *
  * ── WHAT THIS DELIBERATELY DOES NOT DO ───────────────────────────────────────
  *
- * 🚫 NO TELEMETRY, of any kind, on any branch. Not merely forbidden —
- * structurally pointless: `PostHogProvider` gates mounting on
- * `currentConsent?.preferences?.analyticsEnabled`, and `loadConsent` nulls
- * `currentConsent` for the entire `version_mismatch` window, so no client exists
- * to receive an event. Any event here would also describe an interaction that
- * happened BEFORE consent existed.
+ * 🚫 NO TELEMETRY, of any kind, on any branch. `loadConsent` nulls
+ * `currentConsent` for the entire `version_mismatch` window, so
+ * `useAnalyticsConsent()` is false and `useAnalytics.trackEvent` withholds every
+ * event. Any event here would also describe an interaction that happened BEFORE
+ * consent existed.
+ *
+ * Corrected in DEBUG-559, and the correction matters because the old wording
+ * invited a dangerous inference. It called telemetry here "structurally
+ * pointless" on the grounds that no client EXISTS — true only because
+ * `PostHogProvider` withheld `<PHProvider>` without consent, which was the
+ * DEBUG-559 defect (an element-type swap that remounted every 988 affordance).
+ * A client now exists from launch, so an event added here WOULD reach a live
+ * client and be withheld only by the explicit consent gate. Still forbidden,
+ * no longer self-enforcing.
  *
  * 🚫 NO RE-ARMING — no interval, no `AppState` re-check, no retry loop. The
  * trigger is launch-scoped, and that is what makes condition (6) sound: this

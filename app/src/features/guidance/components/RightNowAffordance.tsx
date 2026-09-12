@@ -70,6 +70,7 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { colorSystem, semantic, spacing, typography } from '@/core/theme';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { useAnalytics } from '@/core/analytics';
 import { DOMAIN_BINDINGS } from '../constants/domainBindings';
@@ -141,6 +142,19 @@ const styles = StyleSheet.create({
     marginTop: spacing[8],
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[200],
+    // DEBUG-547: moves the Pressable's OWN FRAME out of the crisis FAB's
+    // contested column. Must NOT be `paddingRight`: the testID and this style are
+    // on the same Pressable, so padding sits inside its border box — the frame
+    // stays put, the FAB at zIndex 9999 keeps winning every tap in the overlap,
+    // and only the glyph moves. Measured on device before the fix:
+    //   crisis-button-root [331,523][375,567] vs the sibling Practices row [24,516][351,561].
+    // The correctness criterion is `intersectsCrisisButtonExclusion(...) === false`
+    // — right edge <= 303 — NOT "the label moved". Note the FAB's real touch band
+    // starts at x=319, not the 331 the hierarchy reports, because of its 12pt
+    // hitSlop; clearing only the painted bounds under-fixes by 12pt.
+    // Declared LAST because RN StyleSheet is last-key-wins: a `marginHorizontal`
+    // added below this line would silently override it.
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   labels: {
     flex: 1,

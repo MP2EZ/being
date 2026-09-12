@@ -136,12 +136,15 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #     Keyboard DOWN: fully visible, untruncated, taps through to CrisisResources. HOLDS.
 #
 #     ⚠️  Keyboard UP: RED, and tracked separately rather than asserted. Focusing the beat's
-#     input collapses the scroll viewport to 83pt — below the >=88pt residual floor that
-#     same crisis pass set — and the support line TRUNCATES: "...support is here" renders,
-#     "anytime." does not. It still TAPS and still routes, so this is a legibility and floor
-#     defect, NOT a crisis false negative. The defect is in the beat screen, which DEBUG-469
-#     did not change; asserting it here would make this flow red on arrival, which gates
-#     nothing and trains a bypass.
+#     input collapses the scroll viewport and the support line TRUNCATES: "...support is
+#     here" renders, "anytime." does not. It still TAPS and still routes, so this is a
+#     legibility and floor defect, NOT a crisis false negative. The defect is in the beat
+#     screen, which DEBUG-469 did not change; asserting it here would make this flow red on
+#     arrival, which gates nothing and trains a bypass.
+#
+#     The 83pt / >=88pt pair that used to be quoted here is VOID (DEBUG-506) — measured
+#     against a build in which CrisisKeyboardAccessory never attached. See
+#     `daily-loop-ax5-entry.yaml` for the full reasoning and the re-scoped floor.
 #
 #     This flow itself stays at the DEFAULT content size. The AX5 assertions live in
 #     `daily-loop-ax5-entry.yaml`, tagged `safety-dynamic-type` so the exact `- safety` tag

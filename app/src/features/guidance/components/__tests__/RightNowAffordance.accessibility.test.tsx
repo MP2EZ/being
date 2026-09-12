@@ -15,6 +15,8 @@
  *   · the analytics call carries NO argument
  */
 
+import fsNode from 'fs';
+import pathNode from 'path';
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 
@@ -141,3 +143,63 @@ function StyleSheetFlatten(style: unknown): Record<string, number> {
   }
   return (style ?? {}) as Record<string, number>;
 }
+
+/**
+ * DEBUG-547: the guidance row's FRAME clears the crisis FAB's exclusion region.
+ *
+ * This row is NOT incidental to the Home fix — it is the reason the fix could not
+ * be scoped to `features/home/`. `eas.json`'s `e2e-sim` profile sets
+ * `domain_guidance: true`, so this row is LIT in every gate build. With it
+ * rendered it sits inside the exclusion region itself AND pushes the Practices
+ * row below it down into the FAB's band, which is worse than the filed defect.
+ * A Home-only fix would have shipped a screen whose only armed witness
+ * (`crisis-button-reachability`, 375x667) renders a still-broken row on every run.
+ */
+describe('DEBUG-547: the guidance row clears the crisis FAB exclusion region', () => {
+  const SRC = fsNode.readFileSync(pathNode.join(__dirname, '../RightNowAffordance.tsx'), 'utf-8');
+
+  /**
+   * COMMENT-STRIPPED (DEBUG-390). The block below deliberately names the
+   * anti-patterns it must avoid — "Must NOT be `paddingRight`", and a warning
+   * about `marginHorizontal` — so a bare `not.toContain` would match the warning
+   * and fail on correct code.
+   */
+  const styleBlock = (name: string): string => {
+    const start = SRC.indexOf(`  ${name}: {`);
+    if (start === -1) throw new Error(`style "${name}" not found in RightNowAffordance`);
+    return SRC.slice(start, SRC.indexOf('\n  },', start))
+      .replace(/\/\*[\s\S]*?\*\//g, '')
+      .replace(/^\s*\/\/.*$/gm, '');
+  };
+
+  it('sets the inset on the SAME element that carries the testID', () => {
+    const { getByTestId } = render(<RightNowAffordance />);
+    const style = StyleSheetFlatten(getByTestId('home-guidance-entry').props.style);
+    expect(style.marginRight).toBe(72);
+    expect(style.paddingRight).toBeUndefined();
+  });
+
+  it('keeps its 44pt minimum touch height — the inset is horizontal only', () => {
+    // The clearance must not be bought with vertical space; this row's own
+    // `minHeight: TOUCH_TARGETS.minimum` pin is the one that could regress.
+    const { getByTestId } = render(<RightNowAffordance />);
+    const style = StyleSheetFlatten(getByTestId('home-guidance-entry').props.style);
+    expect(style.minHeight).toBeGreaterThanOrEqual(44);
+  });
+
+  it('uses the derived constant and declares it LAST', () => {
+    const block = styleBlock('row');
+    expect(block).toContain('marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left');
+    expect(block).not.toMatch(/marginHorizontal\s*:/);
+    expect(block).not.toMatch(/paddingRight\s*:/);
+    expect(block.indexOf('marginRight:')).toBeGreaterThan(block.indexOf('marginTop:'));
+  });
+
+  it('PROOF OF LIVENESS — the matchers can still go red (DEBUG-390)', () => {
+    expect(() => styleBlock('noSuchStyleBlock')).toThrow(/not found/);
+    const stripped = styleBlock('row');
+    expect(stripped).toMatch(/marginRight\s*:/);
+    expect(stripped).not.toContain('Must NOT be');
+    expect('  paddingRight: 72,').toMatch(/paddingRight\s*:/);
+  });
+});

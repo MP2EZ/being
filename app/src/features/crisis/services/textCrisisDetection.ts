@@ -40,7 +40,13 @@
  * THE GUARANTEE IS PRECISION, NOT RECALL. What this module guarantees is that a
  * small, fixed, hand-approved vocabulary matches deterministically, in linear
  * time, without leaking content. It does NOT guarantee that every disclosure
- * matches. Recall is UNMEASURED, and three miss classes are verified
+ * matches. Recall against a REPRESENTATIVE distribution of journal entries
+ * remains UNMEASURED. Against an adversarial corpus it is now MEASURED, per
+ * reachability stratum (INFRA-554, 2026-08-28): 12/12 on the repo-reviewed seed,
+ * and 0/30 on thirty phrasings drafted blind to this pattern list. Twenty-one of
+ * those thirty are carried by no fixed literal at all, so no widening of this
+ * pattern set can reach them — that is a stated ceiling, not a backlog. Read the
+ * strata, never a blended rate. Three miss classes are verified
  * (INFRA-512 §3): morphological variants of approved phrases ("killing myself"
  * against `kill\s*my\s*self`), contractions the normalizer does not expand
  * ("cant" against `can\s*not`), and phrasings no pattern covers at all ("i wish
@@ -57,7 +63,7 @@
  * it renders only once this scan has already fired.
  *
  * Recall is RECORDED, not thresholded, by `__tests__/textCrisisDetection.corpus.test.ts`
- * against `docs/development/audits/INFRA-512-corpus-review-packet-2026-08-22.md`.
+ * against `docs/development/audits/INFRA-554-corpus-baseline-2026-08-28.md`.
  * Widening the pattern set is NOT the remedy — see `CRISIS_TEXT_PATTERN_SOURCES`.
  */
 
@@ -89,10 +95,10 @@ export interface TextCrisisDetection {
  * "killmyself" are all plausible transcriptions of one utterance. Word
  * boundaries are precisely what cannot be trusted in STT output.
  *
- * This set is the single source of truth for free-text crisis vocabulary. The
- * legacy private list in `core/services/premeditationSafetyService.ts` is a
- * strict subset and should be refactored to consume this module; the parity
- * spec pins that no phrase is silently lost in the meantime.
+ * This set is the single source of truth for free-text crisis vocabulary, and
+ * since MAINT-598 it is the only one: the module-private list that used to live
+ * in `core/services/premeditationSafetyService.ts`, and the parity spec that
+ * pinned the two together, were deleted along with that unwired service.
  *
  * Deliberately NOT included: fuzzy/phonetic (Soundex, Levenshtein) matching.
  * It generates false positives on ordinary language ("dye" → "die"), its cost

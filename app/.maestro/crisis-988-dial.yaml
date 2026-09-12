@@ -6,6 +6,52 @@ name: "988 dial does not surface 'Unable to Call' fallback (device-only)"
 # INFRA-486 — safety-device-only: runs on real hardware to prove canOpenURL(tel:) does not fall
 # back. The axis is the OS URL handler, not the viewport.
 ---
+# e2e-device-unavailable: DEBUG-589 measured=2026-09-07 dead-versions=2.0.0..2.10.0
+#
+# THE DEVICE HALF OF THE MAESTRO SAFETY GATE IS UNAVAILABLE. No Maestro version can
+# execute any flow on a physical iPhone. Measured 2026-09-07 on iPhone 16e / iOS 26.6 /
+# Xcode 26.0.1 / team KN6FDLG98K, across 2.0.0, 2.1.0, 2.2.0, 2.4.0, 2.5.1, 2.6.0, 2.6.1,
+# 2.7.0, 2.8.0, 2.9.0 and 2.10.0 — two distinct failure modes and no survivor:
+#
+#   >= 2.2.0 (incl. 2.10.0, current latest)  the shipped driver Xcode project declares a
+#     MaestroDriverLib framework target (47 pbxproj references, INFOPLIST_FILE =
+#     MaestroDriverLib/Info.plist, a source at Sources/MaestroDriverLib/) and the entire
+#     MaestroDriverLib/ directory is shipped in ZERO releases. Five UITests sources
+#     `import MaestroDriverLib`. The build dies in ~8s with
+#     `error: Build input file cannot be found: .../MaestroDriverLib/Info.plist`,
+#     writing NO JUnit report. Upgrading cannot fix this.
+#   <= 2.1.0  predates that target and BUILDS the driver and installs the runner, but the
+#     XCUITest runner never becomes ready within a 300s MAESTRO_DRIVER_STARTUP_TIMEOUT.
+#
+# THE HARDWARE IS HEALTHY. Do not read this as "no device attached" — that is a different,
+# already-documented failure (a sleeping tunnel; see .claude/CLAUDE.md). The iPhone is
+# wired, paired, Developer Mode enabled, tunnel connected, and the Maestro runner it
+# installed launches by hand via `xcrun devicectl device process launch`. Maestro's own
+# driver is the failure. Simulator flows are unaffected because they use a PREBUILT driver
+# and never compile — that asymmetry is the whole reason 14 sim flows are green while this
+# one cannot start.
+#
+# WE ARE ACCEPTING UNVERIFIED RUNTIME BEHAVIOUR ON THE 988 DIAL PATH, indefinitely, with
+# no known working version. Specifically unverified:
+#   - that the GENERATED Info.plist still carries `tel`/`sms` after plugin composition
+#     (iOS is CNG per INFRA-280, so no reviewer ever sees a plist diff);
+#   - that `canOpenURL('tel:988')` returns true on real iOS;
+#   - that no "Unable to Call" alert appears on a real tap.
+#
+# THE SURVIVING JEST PINS DO NOT SUBSUME THIS. The PRIMARY/SUPPLEMENTARY framing below
+# describes which pin catches a CONFIG regression first — not that one contains the other.
+# The jest pins cover configuration and call-site routing; they do not cover runtime
+# behaviour on hardware, and this supplementary flow was the only thing that ever did.
+# A green `npm run e2e:safety` and a green precommit do NOT mean the dial path was verified.
+#
+# DO NOT delete, rename or skip this flow. It is the specification of what is now
+# unverified, and the thing to re-run the day a driver works.
+#
+# EXIT CONDITION: a Maestro release that ships MaestroDriverLib/, or an upstream fix to the
+# runner handshake on iOS >= 26. Re-run this flow, then remove this notice and the entry in
+# app/__tests__/safety/deviceOnlyFlowsUnavailable.test.ts in the same commit.
+# Compensating follow-ups: see that test's header.
+#
 # DEVICE-ONLY (INFRA-184). Cannot pass on iOS simulator: the sim's
 # Linking.canOpenURL('tel:988') returns false unconditionally because the
 # simulator has no phone app — independent of LSApplicationQueriesSchemes.

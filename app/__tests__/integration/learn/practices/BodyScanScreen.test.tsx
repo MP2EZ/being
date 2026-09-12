@@ -168,6 +168,10 @@ jest.mock('@/features/learn/practices/shared/usePracticeCompletion', () => ({
           </View>
         );
       },
+      // DEBUG-536: the hook now returns markStarted alongside markComplete, and the
+      // timer screens call it on first activation. A mock missing it throws
+      // "markStarted is not a function" the moment the toggle is pressed.
+      markStarted: jest.fn(),
       markComplete: () => {
         setShowCompletion(true);
       },

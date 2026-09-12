@@ -10,94 +10,83 @@ Every feature follows this consistent structure:
 features/[feature-name]/
 ├── components/          # UI components specific to this feature
 │   ├── [Component].tsx
-│   └── index.ts        # Barrel export
+│   └── index.ts         # OPTIONAL directory barrel, selective (see below)
 ├── screens/             # Full-screen views (if needed)
-│   ├── [Screen].tsx
-│   └── index.ts
+│   └── [Screen].tsx
 ├── services/            # Business logic and data operations
-│   ├── [Service].ts
-│   └── index.ts
+│   └── [Service].ts
 ├── stores/              # Zustand state management
-│   ├── [feature]Store.ts
-│   └── index.ts
+│   └── [feature]Store.ts
 ├── types/               # TypeScript type definitions
-│   ├── [types].ts
-│   └── index.ts
-├── hooks/               # React hooks (if needed)
-│   ├── use[Hook].ts
-│   └── index.ts
-├── utils/               # Feature-specific utilities (if needed)
-│   └── index.ts
-└── index.ts             # Public API - exports what other features can use
+│   └── [types].ts
+├── constants/           # Feature constants (if needed)
+│   └── [constants].ts
+└── utils/               # Feature-specific utilities (if needed)
+    └── [util].ts
 ```
 
+**There is no feature-level `index.ts`.** MAINT-599 and MAINT-600 removed the last of
+them: each sat at zero importers while its `export *` put the whole feature on the
+eager module graph of anyone who adopted it (FEAT-376). Import the module you need,
+by path — see [Import Guidelines](./import-guidelines.md).
+
 ## Example: Crisis Feature
+
+The actual tree, as of MAINT-600:
 
 ```
 features/crisis/
 ├── components/
-│   ├── CrisisButton.tsx
+│   ├── CollapsibleCrisisButton.tsx
 │   ├── CrisisErrorBoundary.tsx
-│   └── index.ts
+│   ├── CrisisKeyboardAccessory.tsx
+│   ├── CrisisTextInput.tsx
+│   ├── RootCrisisBoundary.tsx
+│   ├── RootCrisisButton.tsx
+│   ├── Static988Button.tsx
+│   └── index.ts                    # selective directory barrel
+├── constants/
+│   ├── crisisButtonGeometry.ts
+│   └── crisisInputAccessory.ts
 ├── screens/
-│   ├── CrisisResourcesScreen.tsx
-│   ├── CrisisPlanScreen.tsx
-│   └── index.ts
+│   └── CrisisResourcesScreen.tsx
 ├── services/
-│   ├── CrisisDetectionEngine.ts
-│   ├── CrisisInterventionWorkflow.ts
-│   ├── SuicidalIdeationProtocol.ts
-│   └── index.ts
-├── stores/
-│   ├── crisisPlanStore.ts
-│   └── index.ts
+│   ├── crisisAlert.ts
+│   ├── CrisisSecurityProtocol.ts
+│   ├── crisisTapTrace.ts
+│   ├── textCrisisDetection.ts
+│   └── types/CrisisResources.ts
 ├── types/
-│   ├── crisis.ts
-│   ├── safety.ts
-│   └── index.ts
-├── hooks/
-│   ├── useCrisisDetection.ts
-│   └── index.ts
-└── index.ts
+│   └── safety.ts
+└── utils/
+    ├── navigateToCrisisResources.ts
+    └── openCrisisUrl.ts
 ```
 
-## Public API Pattern
+Note what is absent: there is no feature-level `index.ts`, and no `hooks/` or
+`stores/` directory. Not every feature uses every directory in the layout above.
 
-Each feature exports its public API through `index.ts`:
+## Import Pattern
+
+A feature has no single "public API" file. Import the module you need, by path:
 
 ```typescript
-// features/crisis/index.ts
+// ✅ Good - name the module
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { detectCrisis } from '@/features/crisis/types/safety';
+import type { CrisisDetection } from '@/features/crisis/types/safety';
 
-// Public components
-export { CrisisButton, CrisisErrorBoundary } from './components';
-
-// Public screens
-export { CrisisResourcesScreen, CrisisPlanScreen } from './screens';
-
-// Public services
-export { CrisisDetectionEngine, detectCrisis } from './services';
-
-// Public hooks
-export { useCrisisDetection } from './hooks';
-
-// Public types
-export type {
-  CrisisDetection,
-  CrisisSeverity,
-  CrisisPlan
-} from './types';
-
-// Public store
-export { useCrisisPlanStore } from './stores';
+// ❌ Bad - a feature-wide barrel (none exists; this would not resolve)
+import { CollapsibleCrisisButton, detectCrisis } from '@/features/crisis';
 ```
 
-**Import from other features:**
-```typescript
-// ✅ Good - use public API
-import { CrisisButton, useCrisisDetection } from '@/features/crisis';
+A **directory** barrel is fine where it stays small and selective — re-exporting by
+name, never with `export *`:
 
-// ❌ Bad - don't reach into internals
-import { CrisisButton } from '@/features/crisis/components/CrisisButton';
+```typescript
+// features/crisis/components/index.ts
+export { default as CollapsibleCrisisButton } from './CollapsibleCrisisButton';
+export type { CrisisButtonMode } from './CollapsibleCrisisButton';
 ```
 
 ## Feature Dependencies
@@ -183,15 +172,15 @@ Some features have special domain authority status and override technical decisi
 mkdir -p src/features/[feature-name]/{components,screens,services,stores,types,hooks}
 ```
 
-### Step 2: Create Barrel Exports
+### Step 2: Create Directory Barrels (optional)
+
+Only where a directory holds several modules that are genuinely imported together.
+A barrel is never required, and a **feature-level** `index.ts` is not the house
+pattern — see [Import Guidelines](./import-guidelines.md).
 
 ```bash
-# Create index.ts in each directory
+# Selective, re-exported by name — never `export *`
 touch src/features/[feature-name]/components/index.ts
-touch src/features/[feature-name]/services/index.ts
-touch src/features/[feature-name]/stores/index.ts
-touch src/features/[feature-name]/types/index.ts
-touch src/features/[feature-name]/index.ts  # Main export
 ```
 
 ### Step 3: Update Path Aliases (tsconfig.json)
@@ -234,15 +223,16 @@ Follow the standard structure, implement functionality, export public API.
 
 ## Barrel Export Best Practices
 
+Scope a barrel to a **directory**, never to a whole feature (FEAT-376, MAINT-600).
+
 ### ✅ Do:
-- Export only public-facing APIs
+- Re-export by name, so the eager graph stays readable
 - Keep internal utilities private
-- Use named exports (not default)
 - Document what's exported and why
 
 ### ❌ Don't:
-- Export everything
-- Use default exports (use named exports)
+- Use `export *` — it loads everything, internals included
+- Add a feature-level `index.ts`
 - Export internal implementation details
 - Create circular dependencies
 
@@ -250,27 +240,28 @@ Follow the standard structure, implement functionality, export public API.
 
 ### Components
 ```
-PascalCase: CrisisButton.tsx, AssessmentQuestion.tsx
+PascalCase: CollapsibleCrisisButton.tsx, RootCrisisBoundary.tsx
 ```
 
 ### Services
 ```
-PascalCase: CrisisDetectionEngine.ts, AnalyticsService.ts
+Match the file name to its primary export:
+  CrisisSecurityProtocol.ts (a class), textCrisisDetection.ts (functions)
 ```
 
 ### Stores
 ```
-camelCase: crisisPlanStore.ts, assessmentStore.ts
+camelCase: consentStore.ts, bugReportStore.ts
 ```
 
 ### Hooks
 ```
-camelCase: useCrisisDetection.ts, useAssessmentPerformance.ts
+camelCase: useOverlayBottomInset.ts, useKeyboardOccludesCrisisButton.ts
 ```
 
 ### Types
 ```
-camelCase: crisis.ts, assessment.ts, safety.ts
+camelCase: safety.ts, scoring.ts
 ```
 
 ## Size Guidelines
@@ -331,8 +322,9 @@ Don't create a "god feature" that does everything.
 ### ❌ Shared Utils in Features
 Don't put widely-used utilities in a feature. Move to `core/utils/`.
 
-### ❌ Cross-Feature Direct Imports
-Don't import directly from another feature's internals.
+### ❌ Cross-Feature Coupling
+Don't reach into another feature where an event, a navigation param, or a `core/`
+hook would do. Where a cross-feature import is unavoidable, prefer a type-only one.
 
 ### ❌ Feature-Specific Types in Global Types
 Don't put feature-specific types in `types/`. Keep in feature.
@@ -346,8 +338,8 @@ When moving code from old structure:
 
 1. **Identify the feature**: What domain does this code belong to?
 2. **Move related code together**: Components, services, stores, types all together
-3. **Update imports**: Change to use `@/features/[feature]`
-4. **Create barrel exports**: Export public API
+3. **Update imports**: Change to use `@/features/[feature]/[dir]/[Module]`
+4. **Verify with `tsc --noEmit`**: a stale import fails the typecheck, not a grep
 5. **Test thoroughly**: Ensure nothing broke
 
 ## Questions?

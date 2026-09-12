@@ -21,17 +21,70 @@
  * otherwise inherited from the single root overlay (MAINT-290); no per-step button.
  * DEBUG-465 pinned the support line outside the ScrollView, inside the
  * KeyboardAvoidingView — see the block comment at its render site for the measurements.
+ *
+ * THE ARRIVING BREATH IS A GATE, NOT A PRACTICE (FEAT-588 — philosopher + ux, ruled
+ * independently, same verdict: NO CHANGE). Answer the next report from here rather
+ * than re-litigating it.
+ *
+ * The report was "Make haptics work in daily flow too" (JAVASCRIPT-REACT-B, tester
+ * feedback). FEAT-565 declined the literal request on content-accuracy grounds. This
+ * item ruled on the reading underneath it — that the beat presents as a diminished
+ * version of a practice the reporter already has, so its differences read as
+ * omissions. It does not. Five differences from the standalone practices are the
+ * load-bearing evidence that it is a threshold:
+ *   1. It STARTS ITSELF. `isBreathActive` initialises to `showBreath`, where all three
+ *      standalone practices gate on PracticeToggleButton's Begin/Pause/Resume. The
+ *      absence of a Begin button IS the gate — you do not enter a threshold, you are
+ *      already in it.
+ *   2. It carries NO NAME while it runs. The title is an instruction ("Take a moment
+ *      to arrive"); the principle name appears only once you are through it.
+ *   3. It ENDS IN THE NEXT BEAT — `breathCompleted` flips and the same ScrollView
+ *      re-renders. No completion screen, no quote, no Continue. A practice in this app
+ *      always ends in a bounded artefact; this one becomes the next thing.
+ *   4. NO HAPTICS AT ALL — not the scheduled breath cues and not the
+ *      `sessionStart`/`sessionEnd` anchors — because the opt-in promises eyes-closed
+ *      practice and this beat is eyes-open by construction (FEAT-565 declined the whole
+ *      hook; block comment at the render site).
+ *   5. It is NOT in STANDALONE_PRACTICES, because it is a doorway, not a room.
+ * The loop is the practice; this is its threshold. What it has that no standalone
+ * practice has is the paced grounding triad — body, environment, mind, one per breath
+ * (DEBUG-468). `SkipLink` stays, in flow and above the fold, because a gate a person
+ * cannot decline is coercion and prohairesis is non-negotiable.
+ *
+ * ONE PREMISE OF THE REPORT IS INVERTED, and it is the strongest item on its list.
+ * Timer's built-in Pause/Resume is NOT borrowed practice vocabulary — it is ORPHAN
+ * vocabulary. All three standalone practices pass `showControls={false}` ("using custom
+ * button below"); the only two live sites rendering Timer's own transport are this beat
+ * and DailyLoopCompleteScreen's coda. The practices REFUSED this control. So the beat is
+ * not a stripped-down practice — it is the raw Timer default, and the two Daily Loop
+ * breaths share one internally consistent idiom.
+ *
+ * DELIBERATELY NOT CHANGED, all considered and none owed by the ruling: dropping
+ * `showControls` (a real improvement both lenses liked, but it needs an `accessibility`
+ * sign-off on WCAG 2.2.2 — auto-starting motion over 5s — and it intersects DEBUG-468's
+ * ruling that Pause is this beat's stay-with-it affordance); `showProgress`; and
+ * 30000 -> 32000 ms for four clean cycles, which is a refinement rather than a defect,
+ * would invalidate three shipped rationales written around 3.75 cycles, and would leave
+ * the coda's 15000 ms (1.875 cycles) inconsistent unless carried too. Do not read that
+ * list as the whole bar: `BREATH_DURATION_MS` is load-bearing in a CRISIS ruling —
+ * `config/tenseMode.ts` re-hosted quick's SUPPORT_LINE onto Sphere Sovereignty precisely
+ * because Aware Presence's reflection phase sits behind this 30s gate, and crisis review
+ * rejected the alternative as making quick's crisis affordance strictly less available
+ * than deep's — so lengthening it, or ever moving the support line back onto this beat,
+ * is a `crisis` question and not only a content one. Above all, add
+ * NOTHING — least of all a Begin button, which would be the actual conversion of gate
+ * into practice.
  */
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   Pressable,
+  useWindowDimensions,
 } from 'react-native';
 // MAINT-437: never the `react-native` core export — it is iOS-only and applies zero
 // insets on Android, where Expo SDK 56 makes edge-to-edge mandatory.
@@ -71,7 +124,7 @@ import {
   type StagesByStep,
 } from '../config/stageNotes';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 
 /**
  * DEBUG-518 — horizontal inset reserving the floating crisis button's touch band.
@@ -100,6 +153,38 @@ import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAcc
  * failure mode is app-wide. Insetting the CTA costs 988 reachability nothing.
  */
 const CRISIS_FAB_CLEARANCE = spacing[72];
+
+/**
+ * MAINT-564 (AC1) — the virtue chips lay out on a DECIDED grid, not on whatever
+ * `flexWrap` happened to produce. Four chips of unequal intrinsic width wrapped
+ * three-up with an orphan, which is the "arbitrarily wrapped" reading the item was
+ * filed against.
+ *
+ * Two-up at default type, one-up past this scale. The split resolves a real conflict
+ * between two constraints that are each correct in their own range:
+ *   - A fixed 2x2 breaks at accessibility sizes. The content box is ~350pt at 390x844
+ *     (scrollContent padding spacing[20] a side), so a half-column is ~171pt, and
+ *     "Temperance" (10 chars against 6-7 for the other three) does not fit on one line
+ *     there. RN's fallback is per-glyph wrapping — the exact "fits at default, breaks
+ *     at AX5" trap AC3 names.
+ *   - Full-width rows at DEFAULT type read more like a checklist, not less: a vertical
+ *     stack of toggles is the canonical checklist shape, and AC4 exists to stop this
+ *     beat becoming one. So the single column is confined to the sizes that need it.
+ *
+ * 1.6 sits in the gap between iOS's xxxLarge (1.353) and AX1 (1.786), so the grid holds
+ * for every non-accessibility size and the column takes over from AX1 up. Read from
+ * useWindowDimensions().fontScale — the house convention (DailyLoopDepthSelectScreen.tsx
+ * and VoiceReflectionScreen both do) and reactive, where PixelRatio.getFontScale() is a
+ * static read that would hold a stale layout until the next remount.
+ *
+ * `minHeight: 44` stays a FLOOR and never becomes a fixed height (AC3): a two-line
+ * label at large type grows the row, so the touch target only ever grows.
+ */
+export const VIRTUE_CHIP_SINGLE_COLUMN_FONT_SCALE = 1.6;
+
+/** Pure so AC1's breakpoint is testable without rendering at an accessibility size. */
+export const virtueChipsAreSingleColumn = (fontScale: number): boolean =>
+  fontScale >= VIRTUE_CHIP_SINGLE_COLUMN_FONT_SCALE;
 
 const BREATH_DURATION_MS = 30 * 1000;
 
@@ -178,7 +263,17 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
 
   const [values, setValues] = useState<Record<LoopFieldKey, string>>({ response: '', notMine: '', mine: '' });
   const [selectedVirtues, setSelectedVirtues] = useState<CardinalVirtue[]>([]);
+
+  // MAINT-564 (AC1/AC3). The hook re-renders on a Dynamic Type change, so the grid
+  // reflows with it rather than holding the layout it booted with.
+  const { fontScale } = useWindowDimensions();
+  const singleColumnVirtueChips = virtueChipsAreSingleColumn(fontScale);
   const [adversityRehearsal, setAdversityRehearsal] = useState('');
+  // FEAT-588 ruled the arriving breath a GATE, not a diminished practice — no change.
+  // `breathCompleted` flipping in place, with no completion screen, is one of the five
+  // differences that ruling rests on. The full record, the inverted Pause premise, and
+  // what was considered and declined are in this module's header; answer the next
+  // report from there rather than re-litigating it.
   const [breathCompleted, setBreathCompleted] = useState(!showBreath);
   const [isBreathActive, setIsBreathActive] = useState(showBreath);
 
@@ -210,8 +305,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
     <View style={styles.inputSection} key={key}>
       <Text style={styles.inputLabel}>{label}</Text>
       {hint ? <Text style={styles.inputHint}>{hint}</Text> : null}
-      <TextInput
-        {...crisisAccessoryProps()} /* DEBUG-450 */
+      <CrisisTextInput
         style={[styles.textInput, { borderColor: values[key] ? themeColors.primary : colorSystem.gray[300] }]}
         value={values[key]}
         onChangeText={(t) => setField(key, t)}
@@ -256,6 +350,25 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
           here.") was deleted, not relocated — it paraphrased grounding anchors 1
           and 3, so with the triad delivered properly it was the redundancy. The
           title stays: it names the act, and is the cheapest instruction layer.
+        */}
+        {/*
+          FEAT-565 — haptic breath cues were DECLINED on this beat (philosopher
+          ruling). An absence by decision, not an omission: do not wire
+          `usePracticeHaptics` here without reopening it.
+
+          The cues' warrant is the opt-in's own promise — "follow a practice with
+          your eyes closed" — and this beat is eyes-open by construction, because
+          DEBUG-468 paces the grounding anchors through the circle's guidance slot.
+          Pacing is already triple-served (animation, `announcePhase` on both legs,
+          the reduce-motion label), so `announce` would double-speak rather than add
+          a channel. Both session anchors would assert falsehoods: `sessionStart`
+          says "you can close your eyes now", `sessionEnd` says "the practice is
+          complete" on beat 1 of 5 — and `handleBreathComplete` is shared with
+          `SkipLink` below, so the latter would fire on a skip.
+
+          Reopens on an arrival that is genuinely eyes-closed, or on a cue authored
+          for a GATE transition with its own catalog meaning — never by reusing the
+          practice-boundary anchors, whose meanings three shipped screens rely on.
         */}
         {!breathCompleted && (
           <View style={styles.breathSection}>
@@ -351,6 +464,9 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
                         onPress={() => toggleVirtue(v.key)}
                         style={[
                           styles.virtueChip,
+                          singleColumnVirtueChips
+                            ? styles.virtueChipFullWidth
+                            : styles.virtueChipHalfWidth,
                           {
                             borderColor: active ? themeColors.primary : colorSystem.gray[300],
                             backgroundColor: active ? themeColors.background : colorSystem.base.white,
@@ -385,8 +501,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               <View style={styles.inputSection}>
                 <Text style={styles.inputLabel}>{PREMEDITATIO.label}</Text>
                 <Text style={styles.inputHint}>{PREMEDITATIO.hint}</Text>
-                <TextInput
-                  {...crisisAccessoryProps()} /* DEBUG-450 */
+                <CrisisTextInput
                   style={[
                     styles.textInput,
                     { borderColor: adversityRehearsal ? themeColors.primary : colorSystem.gray[300] },
@@ -561,7 +676,15 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[8],
     minHeight: 44,
     justifyContent: 'center',
+    // The chips now carry a width, so their label no longer sizes the box and has to
+    // be centred explicitly. Content-sized chips got this for free.
+    alignItems: 'center',
   },
+  // MAINT-564: flexBasis below half forces exactly two per row (three would need 135%);
+  // flexGrow then spends the remainder so the pair meets the gap exactly, leaving no
+  // dead strip. A percentage width such as 48% would leave the row 4pt short.
+  virtueChipHalfWidth: { flexBasis: '45%', flexGrow: 1 },
+  virtueChipFullWidth: { flexBasis: '100%' },
   virtueChipText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,

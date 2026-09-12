@@ -18,7 +18,6 @@ import React, { useState, useCallback, useEffect, useRef } from 'react';
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
@@ -36,7 +35,7 @@ import { BreathingCircle, Timer, SkipLink } from '@/features/practices/shared/co
 import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
 import type { DailyLoopMode, DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
 import { CLOSING, STEP_TITLES, getStepKeysForDepth, getCompleteTitle } from '../config/tenseMode';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 
 const CLOSING_BREATH_MS = 15 * 1000;
 
@@ -171,8 +170,7 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
             </View>
 
             <Text style={styles.inputLabel}>{CLOSING.noteLabel}</Text>
-            <TextInput
-              {...crisisAccessoryProps()} /* DEBUG-450 */
+            <CrisisTextInput
               style={[
                 styles.textInput,
                 { borderColor: integrationNote ? themeColors.primary : colorSystem.gray[300] },

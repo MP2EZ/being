@@ -12,12 +12,15 @@
  * - Active state: the brand hue on an ActiveTabIndicator container (DEBUG-356)
  */
 
-import React from 'react';
+import React, { useMemo } from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import type { BottomTabNavigationOptions } from '@react-navigation/bottom-tabs';
 import { View, Text } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect, ClipPath, Defs, G } from 'react-native-svg';
 import { semantic, colorSystem, spacing, typography } from '@/core/theme';
 import { ActiveTabIndicator } from './ActiveTabIndicator';
+import { TAB_LABEL_LINE_HEIGHT, getTabBarHeight } from './tabBarLayout';
 import CleanHomeScreen from '@/features/home/screens/CleanHomeScreen';
 import ProfileStackNavigator from '@/features/profile/ProfileStackNavigator';
 import InsightsScreen from '@/features/insights/screens/InsightsScreen';
@@ -87,16 +90,31 @@ const PlaceholderScreen: React.FC<{ name: string; description: string }> = ({ na
 // ProfileScreen now imported from separate file
 
 const CleanTabNavigator: React.FC = () => {
-  return (
-    <Tab.Navigator
-      screenOptions={{
+  // DEBUG-562 — the bar must own the bottom safe-area inset. Before this it
+  // hardcoded `height: 84` + `paddingBottom: spacing[8]`, which made
+  // bottom-tabs' `getTabBarHeight` early-return past its own
+  // `TABBAR_HEIGHT_UIKIT + inset` path AND overrode the library's
+  // `paddingBottom: insets.bottom` (our style is the later array entry), so on a
+  // home-indicator device the icon+label stack rendered into the indicator band.
+  const insets = useSafeAreaInsets();
+
+  // Memoised on the inset alone: `screenOptions` is re-read on every render and a
+  // fresh object identity churns the navigator for no reason.
+  const screenOptions = useMemo<BottomTabNavigationOptions>(
+    () =>
+      ({
         tabBarStyle: {
           backgroundColor: colorSystem.base.white,
           borderTopColor: colorSystem.gray[200],
           borderTopWidth: 1,
-          paddingBottom: spacing[8],
-          paddingTop: spacing[8],
-          height: 84,
+          // The inset is spent as PADDING; the content box above it is fixed, so
+          // the bar's TOP EDGE sits the same distance from the screen bottom on
+          // every device. That is what keeps it clear of the crisis FAB's touch
+          // band — see tabBarLayout.ts for the invariant and why AC2's two
+          // offered options were both refused.
+          paddingBottom: insets.bottom,
+          paddingTop: spacing[0],
+          height: getTabBarHeight(insets.bottom),
           shadowColor: '#000',
           shadowOffset: {
             width: 0,
@@ -145,7 +163,14 @@ const CleanTabNavigator: React.FC = () => {
               fontWeight: focused
                 ? typography.fontWeight.semibold
                 : typography.fontWeight.medium,
-              marginTop: spacing[4],
+              // spacing[0], not spacing[4]: the scale has no 2, and 4 would put
+              // the item stack at 56 against the 54 the invariant allows. A
+              // literal 2 would be a magic number.
+              marginTop: spacing[0],
+              // Pinned so the stack stops depending on platform font metrics —
+              // otherwise the 2pt of slack is at the mercy of a metrics change,
+              // and the failure mode is a clipped label rather than a loud error.
+              lineHeight: TAB_LABEL_LINE_HEIGHT,
               color,
             }}
           >
@@ -170,7 +195,13 @@ const CleanTabNavigator: React.FC = () => {
           fontWeight: typography.fontWeight.semibold,
           color: semantic.text.primary,
         },
-      }}
+      }) satisfies BottomTabNavigationOptions,
+    [insets.bottom],
+  );
+
+  return (
+    <Tab.Navigator
+      screenOptions={screenOptions}
     >
       <Tab.Screen
         name="Home"

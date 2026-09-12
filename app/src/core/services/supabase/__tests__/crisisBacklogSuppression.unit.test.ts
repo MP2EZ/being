@@ -214,9 +214,19 @@ describe('DEBUG-413 — pre-fix crisis backlog suppression', () => {
       // The two things a re-timestamp would have introduced.
       expect(mapper).not.toMatch(/event_time/);
       expect(mapper).not.toMatch(/enqueued_at\s*:/);
+      // INFRA-568 — the flush must project the PERSISTED session_id, never re-stamp
+      // from the live field. The `toMatch(/session_id/)` above is satisfied by BOTH
+      // spellings, so it does not cover this. Re-stamping breaks the durable queue's
+      // composite identity (`${session_id}|${enqueued_at}|${event_type}|…`): the
+      // in-memory copy stops matching its own disk copy, the DEBUG-335 merge classifies
+      // one event as two, and the crisis row is inserted TWICE. It would also relabel an
+      // offline backlog with the drain-day's session.
+      expect(mapper).not.toMatch(/session_id:\s*this\.sessionId/);
+      expect(mapper).toMatch(/session_id:\s*e\.session_id/);
       // Matcher liveness: prove the slice is real and the negative assertions can fire.
       expect(mapper.length).toBeGreaterThan(100);
       expect('event_time: x').toMatch(/event_time/);
+      expect('session_id: this.sessionId,').toMatch(/session_id:\s*this\.sessionId/);
     });
   });
 });

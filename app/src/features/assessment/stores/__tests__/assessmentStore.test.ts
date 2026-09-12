@@ -504,6 +504,58 @@ describe('Assessment Store - Clinical Validation', () => {
       useAssessmentStore.setState({ autoSaveEnabled: false });
     });
 
+    /**
+     * DEBUG-549 — the module-level autosave subscription no longer schedules
+     * uncancelled timers, because it no longer exists.
+     *
+     * WHY THIS PIN IS NEW RATHER THAN A STRENGTHENED SIBLING. The two tests below
+     * cannot observe this change at all: `startAssessment` and `answerQuestion`
+     * each `await get().saveProgress()` INLINE under the same flag, so
+     * `mockStoreWellnessBlob` has already been called before any timer is
+     * advanced. Both pass with the subscription present and with it deleted —
+     * tautological with respect to the code under change. Timer COUNT is the only
+     * property that discriminates.
+     *
+     * Against the pre-fix code this asserts 0 and finds 9 (one uncancelled
+     * 1000ms timer per answer, unref'd so `--detectOpenHandles` cannot see them).
+     */
+    it('queues no deferred duplicate write across a full PHQ-9 (DEBUG-549)', async () => {
+      const { result } = renderHook(() => useAssessmentStore());
+
+      act(() => {
+        result.current.enableAutoSave();
+      });
+
+      await act(async () => {
+        await result.current.startAssessment('phq9');
+        for (let i = 1; i <= 9; i += 1) {
+          await result.current.answerQuestion(`phq9_${i}`, 1);
+        }
+      });
+
+      // Control, asserted BEFORE the discriminating step: the inline persistence
+      // path is genuinely live. Without this, "no deferred write" would also be
+      // satisfied by a store that never persists at all.
+      const inlineWrites = mockStoreWellnessBlob.mock.calls.length;
+      expect(inlineWrites).toBeGreaterThan(0);
+
+      // THE DISCRIMINATING ASSERTION. Everything above has already been written
+      // synchronously. Draining the timer queue must therefore produce no further
+      // write — a deferred one would be a duplicate of state already on disk.
+      //
+      // Deliberately NOT `jest.getTimerCount()`: the process has other, unrelated
+      // pending timers (measured: 1 after startAssessment, 5 after nine answers,
+      // none of them per-answer), so an absolute count would assert something this
+      // item does not own and would rot on any unrelated change. The pre-fix delta
+      // was 13 across nine answers versus 4 now — exactly the nine this removed.
+      await act(async () => {
+        jest.advanceTimersByTime(1100);
+        await Promise.resolve();
+      });
+
+      expect(mockStoreWellnessBlob.mock.calls.length).toBe(inlineWrites);
+    });
+
     it('auto-saves progress after each answer when enabled', async () => {
       const { result } = renderHook(() => useAssessmentStore());
 

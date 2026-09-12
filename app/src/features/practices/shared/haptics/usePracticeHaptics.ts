@@ -33,16 +33,28 @@
  * that fires after the practitioner has navigated away is at best confusing,
  * and the crisis button is reachable from every practice screen — no haptic may
  * fire on or over a crisis surface.
+ *
+ * THE ONE RESIDUAL, WITH ITS BOUND (DEBUG-587). React Navigation emits `blur`
+ * from an effect AFTER the incoming screen's push has committed, so between
+ * CrisisResources committing and `focused` going false there is a 1-3 frame gap
+ * that no assignment-timing change inside this hook can close — it is upstream of
+ * every signal the hook has. It is partially masked by the stack push animation.
+ * That gap is RECORDED, not fixed. Nothing else here is: the every-tick gate
+ * re-open, the AppState re-arm on returning from a 988 call, and the uncleared
+ * stagger timers were all defects and are all closed, pinned by
+ * `__tests__/unit/practices/haptics/crisisBlurGate.test.tsx`. Closing the residual
+ * too would need the crisis press itself to publish a suppression signal that
+ * practice surfaces read; that is a design change, not a timing one.
  */
 
-import { useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef } from 'react';
 import { AppState, type AppStateStatus, Platform } from 'react-native';
-import { NavigationContext } from '@react-navigation/native';
 
 import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { logAccessibility } from '@/core/services/logging';
 import { usePracticeSettings } from '@/core/stores/settingsStore';
 
+import { useIsFocusedSafe } from '../useIsFocusedSafe';
 import { createHapticEngine } from './hapticEngine';
 import { createCueScheduler, type ScheduledCue } from './cueScheduler';
 import { HAPTIC_ANNOUNCEMENT_STAGGER_MS } from './constants';
@@ -87,39 +99,6 @@ export interface UsePracticeHapticsReturn {
   emitSessionEnd: () => void;
 }
 
-/**
- * Navigation focus, WITHOUT requiring a navigation container.
- *
- * `useIsFocused` throws outright when there is no navigator above it. That
- * would make this hook — and therefore every practice screen using it —
- * unrenderable outside a NavigationContainer, which is how most of the existing
- * practice screen tests mount them, and would be a hard crash rather than a
- * degraded experience anywhere a practice is embedded directly.
- *
- * Reading the context instead lets the hook degrade honestly: inside a
- * navigator it tracks focus and blur properly; outside one it reports focused,
- * because there is no navigation state that could say otherwise.
- */
-function useIsFocusedSafe(): boolean {
-  const navigation = useContext(NavigationContext);
-  const [focused, setFocused] = useState(true);
-
-  useEffect(() => {
-    if (!navigation) return undefined;
-
-    setFocused(navigation.isFocused());
-    const unsubscribeFocus = navigation.addListener('focus', () => setFocused(true));
-    const unsubscribeBlur = navigation.addListener('blur', () => setFocused(false));
-
-    return () => {
-      unsubscribeFocus();
-      unsubscribeBlur();
-    };
-  }, [navigation]);
-
-  return focused;
-}
-
 export function usePracticeHaptics({
   schedule,
   isActive,
@@ -148,6 +127,16 @@ export function usePracticeHaptics({
 
   // Refs so the effect below does not re-run (and tear down the scheduler) every
   // time one of these changes.
+  //
+  // ONE WRITER, ONE MEANING (DEBUG-587). Each of these is assigned exactly once,
+  // here in the render body, and carries exactly the value its name says. The
+  // scheduled gate is COMPOSED from them at read time (`isRunning` below), never
+  // pre-combined into a ref. It used to be: `activeRef` was written here as raw
+  // `isActive` and again in the focus effect as `isActive && isFocused`, so the
+  // two writers disagreed and the last one to run won. Since a blurred practice
+  // screen keeps re-rendering on its elapsed-time tick — and the effect's deps do
+  // not change when it does — the render-body write restored the gate about once a
+  // second for the entire time the practitioner sat on the crisis screen.
   const enabledRef = useRef(tactileEnabled);
   enabledRef.current = tactileEnabled;
   const activeRef = useRef(isActive);
@@ -160,6 +149,17 @@ export function usePracticeHaptics({
   anchorsRef.current = sessionAnchors;
 
   const schedulerRef = useRef<ReturnType<typeof createCueScheduler> | null>(null);
+  /**
+   * Cancels any announcement still waiting out its stagger (DEBUG-587).
+   *
+   * The handles live in the scheduler effect's closure, but the transition that
+   * must cancel them — pause, or a navigation away — is observed by the focus
+   * effect below. Pausing the scheduler is not enough on its own: a stagger timer
+   * is already armed and consults the gate when it FIRES, so an utterance
+   * scheduled up to HAPTIC_ANNOUNCEMENT_STAGGER_MS before the navigation would
+   * still land, on the crisis screen, with a correct gate.
+   */
+  const clearPendingSpeechRef = useRef<(() => void) | null>(null);
 
   /**
    * THE SESSION ANCHORS (FEAT-311) — a second, imperative path.
@@ -247,6 +247,24 @@ export function usePracticeHaptics({
     const staggerHandles = new Set<ReturnType<typeof setTimeout>>();
 
     /**
+     * The scheduled channels' gate, composed at read time from single-writer refs.
+     *
+     * Deliberately shaped like the anchor engine's gate above rather than reading
+     * one pre-combined ref: a ref that means two things is a ref two code paths
+     * can disagree about, which is the DEBUG-587 defect exactly. Note what is
+     * absent — `enabledRef`. Declining vibration must not silence the paired
+     * speech (DEBUG-425), so the tactile preference is ANDed in at the tactile
+     * call site only, never folded in here.
+     */
+    const isRunning = (): boolean => activeRef.current && focusedRef.current;
+
+    const clearPendingSpeech = (): void => {
+      staggerHandles.forEach(clearTimeout);
+      staggerHandles.clear();
+    };
+    clearPendingSpeechRef.current = clearPendingSpeech;
+
+    /**
      * Speak the boundary.
      *
      * The stagger is a TACTILE accommodation — every justification for it in
@@ -259,20 +277,20 @@ export function usePracticeHaptics({
       if (!announceFn) return;
 
       if (!enabledRef.current) {
-        if (activeRef.current) announceFn(cue);
+        if (isRunning()) announceFn(cue);
         return;
       }
 
       const handle = setTimeout(() => {
         staggerHandles.delete(handle);
-        if (activeRef.current) announceFn(cue);
+        if (isRunning()) announceFn(cue);
       }, HAPTIC_ANNOUNCEMENT_STAGGER_MS);
       staggerHandles.add(handle);
     };
 
     const engine = createHapticEngine({
       // Re-read on every cue: the practitioner may revoke mid-session.
-      isEnabled: () => enabledRef.current && activeRef.current,
+      isEnabled: () => enabledRef.current && isRunning(),
       platform: Platform.OS === 'ios' ? 'ios' : 'android',
     });
 
@@ -319,7 +337,14 @@ export function usePracticeHaptics({
       if (next === 'active') {
         // Re-arm from the current position. The scheduler drops every boundary
         // that went stale while suspended, so this emits nothing itself.
-        if (activeRef.current) scheduler.start();
+        //
+        // The focus term is load-bearing (DEBUG-587), not defensive symmetry.
+        // Dialling 988 from CrisisResources backgrounds the app, so THIS is the
+        // handler that runs when the practitioner comes back from the call — and
+        // with a gate that could not stay closed, it re-armed the scheduler onto a
+        // practice screen sitting behind the crisis surface, for the rest of the
+        // session.
+        if (isRunning()) scheduler.start();
       } else {
         scheduler.pause();
       }
@@ -332,8 +357,8 @@ export function usePracticeHaptics({
       subscription.remove();
       scheduler.stop();
       schedulerRef.current = null;
-      staggerHandles.forEach(clearTimeout);
-      staggerHandles.clear();
+      clearPendingSpeech();
+      clearPendingSpeechRef.current = null;
     };
     // `schedule` identity governs the session; callers must memoise it.
     //
@@ -356,7 +381,12 @@ export function usePracticeHaptics({
    */
   useEffect(() => {
     const running = isActive && isFocused;
-    activeRef.current = running;
+
+    // No assignment here. `activeRef` and `focusedRef` are each written once, in
+    // the render body, and the gate composes them at read time — see the
+    // one-writer-one-meaning note above. Writing a combined value here is what
+    // made the gate re-openable by an unrelated re-render (DEBUG-587).
+    if (!running) clearPendingSpeechRef.current?.();
 
     const scheduler = schedulerRef.current;
     if (!scheduler) return;

@@ -309,6 +309,22 @@ name: "Voice journal crisis scan surfaces support"
 # keyboard node goes red in this file rather than quietly satisfying a negative.
 - assertVisible:
     id: "UIKeyboardLayoutStar Preview"
+# INFRA-594: THE ACCESSORY'S ATTACH, ON A SECOND RUNTIME SURFACE. Not a reachability pin —
+# this never taps the button and reaches no destination. That half is
+# crisis-keyboard-reachability.yaml, on DailyLoop. What differs HERE is the lifecycle: this
+# input is unmounted by setPhase('saved'|'idle'), the prepareForRecycle dead-`__weak`-ref
+# shape CrisisTextInput exists to survive, which DailyLoop's surface cannot exercise.
+#
+# The BAR renders always but COLLAPSED (height 0, opacity 0, a11y-hidden), so only the
+# BUTTON proves the occlusion predicate fired.
+#
+# IT MUST STAY BEFORE THE SAVE TAP — handleSave's setPhase('saved') unmounts the input, so
+# the node is gone by design afterwards. And it must stay a BARE id assertion: no scroll and
+# no dismissal (both pre-forbidden in this block, see above), and never a `text:` matcher —
+# the button's accessibilityLabel is deliberately identical to the root FAB's, which this
+# flow asserts visible a few lines up, so text could match the wrong control.
+- assertVisible:
+    id: "crisis-keyboard-accessory-button"
 - tapOn:
     id: "journal-save-button"
 # THE ORACLE IS THE STATE CHANGE, NOT THE KEYBOARD. `tapOn` reports COMPLETED

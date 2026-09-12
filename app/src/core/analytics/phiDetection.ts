@@ -1,11 +1,34 @@
 /**
  * PHI detection for analytics events (MAINT-202).
  *
- * Scans a user-supplied analytics `data` payload for Protected Health
- * Information / personal-identifier patterns. Extracted from AnalyticsService
- * so the pure detection logic can be unit-tested in isolation (no singleton /
- * native-module graph) and shared by both scan sites: `sanitizeEvent` and
- * `AnalyticsPrivacyEngine.validatePrivacyProtection`.
+ * Scans a user-supplied analytics `data` payload for wellness-data and
+ * personal-identifier patterns. Extracted from AnalyticsService so the pure
+ * detection logic can be unit-tested in isolation (no singleton /
+ * native-module graph).
+ *
+ * STATUS — one production consumer (DEBUG-553). `containsPHI` is imported by
+ * `PHIFilter` and called from `PHIFilter.scanValue`, per string property value,
+ * skipped when the key is in `SAFE_PROPERTY_KEYS`. That is reached from
+ * `PHIFilter.validate` <- `useAnalytics.trackEvent`, so it runs on every tracked
+ * event. INFRA-535 armed it; before that it had no production importer at all.
+ * Note the predicate does NOT by itself "gate" an event: it is one of several
+ * checks inside `scanValue`, and it never sees numeric values or property keys.
+ *
+ * This docblock previously named two scan sites, `sanitizeEvent` and
+ * `AnalyticsPrivacyEngine.validatePrivacyProtection`. Neither exists anywhere in
+ * the repo. They were real when this module was written (MAINT-202) and lived
+ * only on the custom-API `AnalyticsService` path that INFRA-214 deleted; the
+ * prose was orphaned by that deletion rather than being wrong when authored.
+ * Recorded so the next reader does not repeat the archaeology.
+ *
+ * KEEP — do not delete or merge (DEBUG-553, AC5). Deleting this module removes a
+ * live analytics gate. Merging it into the security layer's
+ * `wellnessDataPatterns.ts` is forbidden by that file's own layering constraint:
+ * a security leaf must not import from analytics.
+ *
+ * The import in `PHIFilter` must stay STATIC — the `core/analytics` barrel is
+ * eager on `CrisisResourcesScreen.tsx` (FEAT-376), so a lazy import here would
+ * resolve a module during a crisis tap.
  *
  * SCAN SURFACE (non-negotiable): callers pass the event `data` payload ONLY,
  * never the service-injected envelope (`eventType`, `timestamp`, `sessionId`).
@@ -21,9 +44,26 @@
  */
 
 /**
- * COMPREHENSIVE PHI DETECTION PATTERNS
- * Enhanced patterns with Unicode normalization and broader coverage.
- * HIPAA Safe Harbor: block transmission of these identifiers.
+ * WELLNESS-DATA AND IDENTIFIER PATTERNS
+ *
+ * Block transmission of these identifiers. Being is a consumer-wellness app and
+ * NOT a HIPAA-covered entity, so this set is a product commitment rather than a
+ * Safe Harbor obligation — the previous "HIPAA Safe Harbor" framing named a rule
+ * that does not apply to us (DEBUG-553).
+ *
+ * AUTHORITATIVE SET (DEBUG-553, AC4), and now the ONLY set. The security layer
+ * used to carry a deliberate near-duplicate, `WELLNESS_DATA_PATTERNS` in
+ * `core/services/security/wellnessDataPatterns.ts`; MAINT-597 deleted it along
+ * with its sole consumer, the unwired `SecurityMonitoringService`. The
+ * divergence is recorded here because it was measured, not guessed: that copy
+ * held an exact 7-of-10 subset of this one, byte-identical where present,
+ * missing exactly three — international phone, IPv4, and UUID. If a security
+ * leaf ever needs wellness-data patterns again, it must not import from
+ * analytics, so it will reintroduce a copy; start from those three gaps rather
+ * than re-diffing from scratch.
+ *
+ * The `PHI_DETECTION_PATTERNS` / `containsPHI` identifiers are left as-is; the
+ * terminology rename is tracked separately.
  */
 export const PHI_DETECTION_PATTERNS: RegExp[] = [
   // Assessment scores (PHQ-9/GAD-7) - with Unicode normalization support

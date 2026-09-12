@@ -26,6 +26,7 @@ import { generateRandomString } from '@/core/utils/id';
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import { ACCOUNT_DELETION_ATTESTATION_KEY } from '@/core/services/security/SecureStorageService';
 import { getCurrentUserId } from '@/core/constants/devMode';
 import { logSecurity } from '@/core/services/logging';
 // INFRA-377: read directly rather than importing `isE2EOnboardingSeedEnabled`
@@ -770,7 +771,85 @@ async function persistConsentHistory(history: ConsentHistoryEntry[]): Promise<vo
  * Idempotency: a separate flag (`being.consent_history_migration_v2`) ensures
  * the migration audit entry is appended exactly once across reruns.
  */
+/**
+ * DEBUG-545 — is this entry the terminal account-deletion attestation?
+ *
+ * Matches the exact shape `recordAccountDeletionAttestation` writes. Kept as one
+ * predicate so the writer and the two backfill arms cannot drift apart.
+ */
+function isDeletionAttestation(entry: ConsentHistoryEntry): boolean {
+  return entry.action === 'revoked' && (entry.note ?? '').startsWith('account_deletion_requested');
+}
+
+/**
+ * DEBUG-545 — recover an attestation written by a SHIPPED build into the shared
+ * `consent_history_v1` key, before the migration relocates it out of reach.
+ *
+ * Write-if-absent, so it can never overwrite a fresher attestation and is safe to
+ * run on every load. Two arms, because an install can be in either state:
+ *
+ *   (a) not yet relaunched since deletion — the plaintext copy is still at the
+ *       legacy key. Read it DIRECTLY via SecureStore: routing through
+ *       retrieveWellnessBlob is what destroys it, and doing that here would be
+ *       the very bug this function repairs.
+ *   (b) already relaunched — the attestation has been migrated into the
+ *       encrypted history blob. Recovered by the caller from the loaded history,
+ *       which is why this returns rather than reading the blob itself.
+ *
+ * Best-effort throughout: a failure here must never block a consent load.
+ */
+async function backfillDeletionAttestation(): Promise<void> {
+  try {
+    const existing = await SecureStore.getItemAsync(ACCOUNT_DELETION_ATTESTATION_KEY);
+    if (existing !== null) return;
+
+    const legacy = await SecureStore.getItemAsync(LEGACY_CONSENT_HISTORY_KEY);
+    if (legacy === null) return;
+
+    const parsed: unknown = JSON.parse(legacy);
+    if (!Array.isArray(parsed)) return;
+    const attestation = (parsed as ConsentHistoryEntry[]).find(isDeletionAttestation);
+    if (!attestation) return;
+
+    // Copied VERBATIM — the no-identifier ceiling extends to the migration path
+    // itself, so no field (not even a "backfilled" marker) may be added here.
+    await SecureStore.setItemAsync(
+      ACCOUNT_DELETION_ATTESTATION_KEY,
+      JSON.stringify(attestation)
+    );
+  } catch {
+    // Never block a consent load on evidence recovery.
+  }
+}
+
+/**
+ * DEBUG-545 — arm (b): recover an attestation already relocated into the
+ * migrated history blob. Called with the freshly-loaded history.
+ */
+async function backfillDeletionAttestationFromHistory(
+  history: ConsentHistoryEntry[]
+): Promise<void> {
+  try {
+    const existing = await SecureStore.getItemAsync(ACCOUNT_DELETION_ATTESTATION_KEY);
+    if (existing !== null) return;
+    const attestation = [...history].reverse().find(isDeletionAttestation);
+    if (!attestation) return;
+    await SecureStore.setItemAsync(
+      ACCOUNT_DELETION_ATTESTATION_KEY,
+      JSON.stringify(attestation)
+    );
+  } catch {
+    // Best-effort.
+  }
+}
+
 async function loadConsentHistoryWithMigration(): Promise<ConsentHistoryEntry[]> {
+  // DEBUG-545 — FIRST statement, and the ordering is the whole point: the
+  // retrieveWellnessBlob call below migrates the legacy key and DELETES the
+  // SecureStore copy, so any recovery has to happen before it. One line here
+  // covers all three callers of this function.
+  await backfillDeletionAttestation();
+
   const migrationFlag = await AsyncStorage.getItem(CONSENT_HISTORY_MIGRATION_FLAG);
   const isFirstRun = migrationFlag !== '1';
 
@@ -785,6 +864,9 @@ async function loadConsentHistoryWithMigration(): Promise<ConsentHistoryEntry[]>
     if (isFirstRun) {
       await AsyncStorage.setItem(CONSENT_HISTORY_MIGRATION_FLAG, '1');
     }
+    // DEBUG-545 arm (b): an install that already relaunched since deletion has
+    // its attestation inside the migrated blob rather than at the legacy key.
+    await backfillDeletionAttestationFromHistory(history ?? []);
     return history ?? [];
   }
 
@@ -798,6 +880,7 @@ async function loadConsentHistoryWithMigration(): Promise<ConsentHistoryEntry[]>
   const annotated = [...history, migrationEntry];
   await persistConsentHistory(annotated);
   await AsyncStorage.setItem(CONSENT_HISTORY_MIGRATION_FLAG, '1');
+  await backfillDeletionAttestationFromHistory(annotated);
   return annotated;
 }
 
@@ -1486,7 +1569,23 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
       timestamp: Date.now(),
       note: `account_deletion_requested; prior_entries=${consentHistory.length}`,
     };
+    // DUAL-WRITE (DEBUG-545). Both writes are required and neither is redundant.
+    //
+    // The legacy overwrite is RETAINED, not replaced: on an install that has not
+    // yet migrated, `consent_history_v1` still holds the FULL plaintext consent
+    // chain in an erasure-excluded key, and collapsing it to a single entry is
+    // what minimises that chain at erasure (Art. 5(1)(e)). Dropping this write
+    // would silently preserve the whole pre-deletion history.
+    //
+    // The isolated key is what makes the record DURABLE. The legacy copy is
+    // migrated into sweepable storage on the next consent read — correct
+    // behaviour for the history, fatal for the attestation — so the Art. 17(3)(b)
+    // evidence lives at a key no migration path may touch.
     await SecureStore.setItemAsync(LEGACY_CONSENT_HISTORY_KEY, JSON.stringify([attestation]));
+    await SecureStore.setItemAsync(
+      ACCOUNT_DELETION_ATTESTATION_KEY,
+      JSON.stringify(attestation)
+    );
   },
 
   /**
@@ -1595,6 +1694,16 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
   /**
    * Export consent records (CCPA compliance)
    */
+  // DEBUG-545 — the account-deletion attestation is DELIBERATELY not read here.
+  //
+  // It documents a TERMINATED subject's erasure. Surfacing it in a later
+  // occupant's data-subject export on the same device would disclose a previous
+  // user's deletion to a different person, which is a worse privacy outcome than
+  // the gap it would close. The architecture review proposed merging it into the
+  // exported history so it could not "silently disappear from the export that
+  // evidences the erasure"; compliance ruled the other way and that ruling is
+  // recorded in the DPIA (v2.10) so this absence is not later read as an
+  // oversight and 'fixed'.
   exportConsentRecords: async () => {
     const { currentConsent } = get();
 

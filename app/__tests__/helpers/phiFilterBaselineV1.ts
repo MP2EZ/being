@@ -6,7 +6,7 @@
  * scan-surface tightening. It exists so the differential test can compare the
  * live filter against a fixed reference rather than against itself.
  *
- * THREE RULES, each load-bearing:
+ * FOUR RULES, each load-bearing:
  *
  *  1. This file MUST NOT import from `@/core/analytics/PHIFilter`. A baseline
  *     that imports the implementation compares the implementation to itself and
@@ -24,6 +24,14 @@
  *     `setup/ utils/ reporters/ helpers/` — so a `__tests__/privacy/fixtures/`
  *     directory would be collected as a suite and fail "Your test suite must
  *     contain at least one test."
+ *
+ *  4. This file is NEVER AMENDED to track a newly-added event type, and the
+ *     `BASELINE_SAFE_EVENT_TYPES.size` pin in the differential is NEVER BUMPED.
+ *     Both are anti-tamper guards on a fixed reference, not a headcount of the
+ *     live whitelist. Adding a live event type here would restore the
+ *     compare-to-itself failure rule 1 exists to prevent. A legitimate widening
+ *     is recorded in the differential's `WIDENED` ledger instead — see the
+ *     amendment procedure in that file's header (INFRA-558).
  *
  * DELIBERATE DEVIATION FROM VERBATIM: every `logSecurity(...)` call in the
  * original `validate()` has been REMOVED. The baseline is called thousands of
