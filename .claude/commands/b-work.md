@@ -264,6 +264,10 @@ Items and packets assert that touching some path forces an expensive tier — an
 close, a device run, a rebuild. Read the gate's own filter before accepting it: an
 over-stated tier spends a human session on work that closes headless.
 
+**Likewise a claim about what VERIFIES it.** When an item names the commands that verify
+it, check those patterns actually match the changed file — both can go green on broken
+work.
+
 **Then ask whether any AC still needs doing.** An item deferred as release-gated or
 release-only is satisfied by the next release shipping, so re-derive its ACs against
 `origin/main` — not `development` — before Step 1.6 marks it `In progress`. Where they
