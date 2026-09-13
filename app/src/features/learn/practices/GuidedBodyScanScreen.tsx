@@ -89,7 +89,7 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
   const [isPracticeStarted, setIsPracticeStarted] = useState(false);
 
   // Shared hooks
-  const { renderCompletion, markComplete } = usePracticeCompletion({
+  const { renderCompletion, markStarted, markComplete } = usePracticeCompletion({
     practiceId,
     moduleId,
     title,
@@ -111,6 +111,8 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
     // Start practice on first Next press
     if (!isPracticeStarted) {
       setIsPracticeStarted(true);
+      // DEBUG-536: this screen's honest start — the first Next, not the mount.
+      markStarted();
     }
 
     if (isLastArea) {

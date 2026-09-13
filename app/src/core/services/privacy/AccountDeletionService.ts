@@ -17,6 +17,10 @@
 
 import supabaseService from '@/core/services/supabase/SupabaseService';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import {
+  resetAnalyticsIdentity,
+  type AnalyticsIdentityResetTarget,
+} from '@/core/analytics/analyticsIdentityReset';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { clearLogAuditTrail, logError, logSecurity, LogCategory } from '@/core/services/logging';
 
@@ -32,7 +36,24 @@ export type AccountDeletionResult =
  * (a second deleteAccount() on an already-erased account returns true via the
  * no-account fast path).
  */
-export async function deleteAccountAndWipe(): Promise<AccountDeletionResult> {
+export async function deleteAccountAndWipe({
+  posthog,
+}: {
+  /**
+   * The live PostHog client, or `null` when the caller has none.
+   *
+   * DEBUG-539: REQUIRED and explicitly nullable, with no default. A future
+   * caller must decide what to pass rather than silently inheriting the defect
+   * this parameter exists to fix — an optional parameter would let a new
+   * deletion entry point erase the account and leave the analytics identity
+   * intact, which is exactly what happened here.
+   *
+   * `null` is not a fallback to "skip the reset": the primitive falls back to a
+   * module-registered instance, and only unlinks storage when no instance was
+   * ever built.
+   */
+  posthog: AnalyticsIdentityResetTarget | null;
+}): Promise<AccountDeletionResult> {
   // 1. Server erasure FIRST. On failure, abort before touching local storage.
   const serverErased = await supabaseService.deleteAccount();
   if (!serverErased) {
@@ -55,13 +76,30 @@ export async function deleteAccountAndWipe(): Promise<AccountDeletionResult> {
     );
   }
 
-  // 3. On-device wipe incl. master key. Non-retryable once reached: if this
+  // 3. Analytics identity reset. AFTER the server delete (a failed one aborts
+  //    with local state untouched) and BEFORE the wipe (so a wipe failure cannot
+  //    strand a still-linked analytics identity).
+  //
+  //    Best-effort, mirroring the attestation above: a reset failure must never
+  //    gate the wipe. Note the WIPE itself stays non-best-effort — swallowing its
+  //    error would route a FAILED deletion to DeleteAccountScreen's success path.
+  try {
+    resetAnalyticsIdentity({ posthog });
+  } catch (error) {
+    logSecurity(
+      '[AccountDeletion] analytics identity reset failed (continuing with wipe)',
+      'high',
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+    );
+  }
+
+  // 4. On-device wipe incl. master key. Non-retryable once reached: if this
   //    throws, do NOT loop back to the server call — the account is already
   //    gone server-side and a retry of the whole sequence remains safe.
   await SecureStorageService.clearAllWellnessData({ deleteMasterKey: true });
   logSecurity('[AccountDeletion] local wellness data wiped after server erasure', 'low');
 
-  // 4. Drop the in-memory log audit trail LAST (DEBUG-355), so the entry the
+  // 5. Drop the in-memory log audit trail LAST (DEBUG-355), so the entry the
   //    line above just pushed goes with it. Synchronous and structurally
   //    non-throwing by design — a rejection here, after both erasures have
   //    already succeeded, would be caught by DeleteAccountScreen and reported to

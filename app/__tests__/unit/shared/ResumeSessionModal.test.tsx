@@ -9,6 +9,7 @@ import { StyleSheet } from 'react-native';
 import { render, fireEvent, within } from '@testing-library/react-native';
 import { ResumeSessionModal } from '@/features/practices/shared/components/ResumeSessionModal';
 import { colorSystem } from '@/core/theme';
+import { CRISIS_BUTTON_RESERVED_BAND } from '@/features/crisis/constants/crisisButtonGeometry';
 import type { SessionMetadata } from '@/core/types/session';
 
 // Mock Vibration
@@ -285,7 +286,11 @@ describe('ResumeSessionModal', () => {
       expect(style.position).toBe('absolute');
       // The crisis button's hit area reaches ~156pt up from the bottom edge; it renders at
       // zIndex 9999, so an overlap would win the tap and fire a false crisis entry.
-      expect(style.paddingBottom).toBeGreaterThanOrEqual(156);
+      // DEBUG-586: equality against the imported constant, not a loose floor. The floor
+      // passed while this file re-derived its own literal, which is how the band was free
+      // to desync from the FAB's geometry. The contract is that this overlay consumes
+      // `crisisButtonGeometry`, and only an equality states it.
+      expect(style.paddingBottom).toBe(CRISIS_BUTTON_RESERVED_BAND);
       // WHITE, not the old rgba(0,0,0,0.6) scrim. The faded crisis button now composites
       // over this layer: against #171717 it measures 1.34:1, against white 2.71:1, and
       // DEBUG-396's FADED_OPACITY of 0.6 clears 3:1 on white. Darkening moves the wrong way.

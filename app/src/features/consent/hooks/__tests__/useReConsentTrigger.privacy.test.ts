@@ -39,11 +39,13 @@ import { useSettingsStore } from '@/core/stores/settingsStore';
 import {
   RECONSENT_TRIGGER_STATUSES,
   RECONSENT_DEFERRAL_ROUTES,
+  CONSENT_BLOCK_STATUSES,
   resolveReConsentPresentation,
   useReConsentTrigger,
   hasShownReConsentThisLaunch,
   __resetReConsentTriggerForTests,
   type ReConsentTriggerInputs,
+  type ReConsentPresentation,
 } from '../useReConsentTrigger';
 
 /**
@@ -78,18 +80,28 @@ const eligibleBase = (overrides: Partial<ConsentRecord> = {}): ConsentRecord => 
   ...overrides,
 });
 
-/** Every condition satisfied. Each case below breaks exactly one of them. */
+/**
+ * Every condition satisfied. Each case below breaks exactly one of them.
+ *
+ * `launchStatus` defaults to whatever `consentStatus` is, so a case that does
+ * not care about the DEBUG-451 latch reads as if the status were resolved at
+ * launch — which is the ordinary situation. Cases that DO exercise the latch
+ * override it explicitly.
+ */
 const passingInputs = (
   overrides: Partial<ReConsentTriggerInputs> = {},
-): ReConsentTriggerInputs => ({
-  consentStatus: 'version_mismatch',
-  base: eligibleBase(),
-  onboardingCompleted: true,
-  activeRootRoute: 'Main',
-  navigationReady: true,
-  shownThisLaunch: false,
-  ...overrides,
-});
+): ReConsentTriggerInputs => {
+  const merged = {
+    consentStatus: 'version_mismatch' as ConsentStatus,
+    base: eligibleBase(),
+    onboardingCompleted: true,
+    activeRootRoute: 'Main' as string | undefined,
+    navigationReady: true,
+    shownThisLaunch: false,
+    ...overrides,
+  };
+  return { launchStatus: merged.consentStatus, ...merged };
+};
 
 describe('RECONSENT_TRIGGER_STATUSES (allowlist membership)', () => {
   /**
@@ -113,17 +125,38 @@ describe('RECONSENT_TRIGGER_STATUSES (allowlist membership)', () => {
     expect(RECONSENT_TRIGGER_STATUSES.has('expired')).toBe(false);
   });
 
-  it.each<ConsentStatus>([
-    'loading',
-    'valid',
-    'integrity_error',
-    'revoked',
-    'missing',
-    'under_age',
-  ])('never triggers from status %s', (status) => {
-    expect(RECONSENT_TRIGGER_STATUSES.has(status)).toBe(false);
-    expect(resolveReConsentPresentation(passingInputs({ consentStatus: status }))).toBe('none');
-  });
+  /**
+   * Split from a single case by DEBUG-451. These four still resolve 'none':
+   * there is nothing to say to them. `loading` and `missing` are pre-resolution
+   * states, and `valid` is the happy path.
+   */
+  it.each<ConsentStatus>(['loading', 'valid', 'missing'])(
+    'never triggers, and presents nothing, from status %s',
+    (status) => {
+      expect(RECONSENT_TRIGGER_STATUSES.has(status)).toBe(false);
+      expect(resolveReConsentPresentation(passingInputs({ consentStatus: status }))).toBe('none');
+    },
+  );
+
+  /**
+   * 🔴 DEBUG-451 INVERTED THIS DELIBERATELY — it previously asserted 'none' for
+   * these three, which is precisely the defect: an onboarded user in any of them
+   * strands at `Main` with no explanation.
+   *
+   * The half that must NOT change is the first assertion. `RECONSENT_TRIGGER_STATUSES`
+   * stays narrow: admitting `revoked` there would arm the `'renew'` path and
+   * re-prompt a GDPR Art. 7(3) withdrawal, and admitting `integrity_error` would
+   * fabricate a fromVersion → toVersion audit entry off a record we could not
+   * read (`consentStore.ts:315-322`). The new statuses resolve on their OWN
+   * allowlist to a destination that can grant nothing.
+   */
+  it.each<ConsentStatus>(['integrity_error', 'revoked', 'under_age'])(
+    'never triggers re-consent from status %s, but no longer presents nothing',
+    (status) => {
+      expect(RECONSENT_TRIGGER_STATUSES.has(status)).toBe(false);
+      expect(resolveReConsentPresentation(passingInputs({ consentStatus: status }))).toBe('blocked');
+    },
+  );
 });
 
 describe('RECONSENT_DEFERRAL_ROUTES (live crisis surfaces)', () => {
@@ -539,5 +572,225 @@ describe('DEBUG-418 — ineligible is a destination, not a silence', () => {
       resolveReConsentPresentation(passingInputs({ shownThisLaunch: true })),
     ]);
     expect([...seen].sort()).toEqual(['ineligible', 'none', 'renew']);
+  });
+});
+
+/**
+ * DEBUG-451 — the three fail-closed statuses reach a destination.
+ *
+ * The superset DEBUG-418's investigation surfaced. `CleanRootNavigator`'s
+ * `checkInitialRoute` tests `settings?.onboardingCompleted` FIRST and
+ * unconditionally, so for any onboarded user the resolved consent status is
+ * irrelevant to routing and `integrity_error`, `revoked` and `under_age` all
+ * land at `Main`.
+ *
+ * 🔴 WHY DEBUG-418'S SEAM COULD NOT SIMPLY BE WIDENED. Its resolution is
+ * RECORD-driven — it ends at `if (!base) return 'none'`, where `base` is
+ * `staleConsent ?? currentConsent`. `loadConsent` nulls BOTH for
+ * `integrity_error` (`consentStore.ts:875-885`, and the catch at `:978-995`)
+ * and for `revoked` (`:887-897`); only `under_age` (`:918-928`) retains a
+ * record. So widening the allowlist alone is a no-op for two of the three. The
+ * resolution here is STATUS-driven and returns before that tail.
+ */
+describe('DEBUG-451 — status-driven destinations for the fail-closed statuses', () => {
+  const blockStatuses: ConsentStatus[] = ['integrity_error', 'revoked', 'under_age'];
+
+  describe('CONSENT_BLOCK_STATUSES (allowlist membership)', () => {
+    /** Literal, human-written right-hand side — same rationale as the trigger set. */
+    it('holds exactly the three fail-closed statuses', () => {
+      expect([...CONSENT_BLOCK_STATUSES].sort()).toEqual([
+        'integrity_error',
+        'revoked',
+        'under_age',
+      ]);
+    });
+
+    it('is non-empty, so the cases below are not vacuous', () => {
+      expect(CONSENT_BLOCK_STATUSES.size).toBeGreaterThan(0);
+    });
+
+    /**
+     * 🔴 THE TWO SETS MUST NEVER INTERSECT. An overlap would mean one status
+     * could resolve either to a screen that grants nothing or to `ReConsentScreen`,
+     * the only component able to produce an Art. 9(2)(a) affirmation — decided by
+     * branch order rather than by law.
+     */
+    it('is disjoint from RECONSENT_TRIGGER_STATUSES', () => {
+      const overlap = [...CONSENT_BLOCK_STATUSES].filter((s) =>
+        RECONSENT_TRIGGER_STATUSES.has(s),
+      );
+      expect(overlap).toEqual([]);
+      // Anti-vacuity: both sets have content, so "no overlap" means something.
+      expect(RECONSENT_TRIGGER_STATUSES.size).toBeGreaterThan(0);
+      expect(CONSENT_BLOCK_STATUSES.size).toBeGreaterThan(0);
+    });
+  });
+
+  /**
+   * 🔴 THE REGRESSION THAT MATTERS MOST. This is the assertion that fails if
+   * someone "simplifies" the blocked branch back below the `!base` guard — the
+   * exact shape that made DEBUG-418's fix unable to serve these cohorts.
+   */
+  it.each(blockStatuses)(
+    'resolves blocked for %s even with NO consent record at all',
+    (status) => {
+      const result = resolveReConsentPresentation(
+        passingInputs({ consentStatus: status, base: null }),
+      );
+      expect(result).toBe('blocked');
+      // The load-bearing half: 'none' is what stranded them at Main.
+      expect(result).not.toBe('none');
+    },
+  );
+
+  it.each(blockStatuses)(
+    'resolves blocked for %s regardless of what a lingering record says',
+    (status) => {
+      // `revokeConsent` leaves `currentConsent: revokedConsent` in memory —
+      // non-null, and `isEligible` still true because it spreads the old record
+      // (`consentStore.ts:1417-1423`). A record-driven read would call that
+      // renewable and re-prompt an Art. 7(3) withdrawal. Status wins over record.
+      expect(
+        resolveReConsentPresentation(passingInputs({ consentStatus: status, base: eligibleBase() })),
+      ).toBe('blocked');
+    },
+  );
+
+  /**
+   * Crisis deferral, per status × per route, derived by iterating the exported
+   * Set so a future member is covered automatically.
+   */
+  describe('crisis deferral applies identically to all three', () => {
+    it.each(
+      blockStatuses.flatMap((status) =>
+        [...RECONSENT_DEFERRAL_ROUTES].map((route) => [status, route] as const),
+      ),
+    )('defers %s while %s is the active root route', (status, route) => {
+      expect(
+        resolveReConsentPresentation(
+          passingInputs({ consentStatus: status, base: null, activeRootRoute: route }),
+        ),
+      ).toBe('none');
+    });
+
+    it('is a deferral, not a suppression — presents once the surface is left', () => {
+      const onCrisis = passingInputs({
+        consentStatus: 'integrity_error',
+        base: null,
+        activeRootRoute: 'CrisisResources',
+      });
+      expect(resolveReConsentPresentation(onCrisis)).toBe('none');
+      expect(resolveReConsentPresentation({ ...onCrisis, activeRootRoute: 'Main' })).toBe('blocked');
+    });
+
+    it('has a non-empty deferral set, so the cases above are not vacuous', () => {
+      expect(RECONSENT_DEFERRAL_ROUTES.size).toBeGreaterThan(0);
+    });
+  });
+
+  /** The launch-scoped flag is SHARED, never per-status — one modal per launch. */
+  it.each(blockStatuses)('respects the shared once-per-launch flag for %s', (status) => {
+    expect(
+      resolveReConsentPresentation(
+        passingInputs({ consentStatus: status, base: null, shownThisLaunch: true }),
+      ),
+    ).toBe('none');
+  });
+
+  it.each(blockStatuses)('does not present %s before onboarding completes', (status) => {
+    expect(
+      resolveReConsentPresentation(
+        passingInputs({ consentStatus: status, base: null, onboardingCompleted: false }),
+      ),
+    ).toBe('none');
+  });
+
+  it.each(blockStatuses)('does not present %s before navigation is ready', (status) => {
+    expect(
+      resolveReConsentPresentation(
+        passingInputs({ consentStatus: status, base: null, navigationReady: false }),
+      ),
+    ).toBe('none');
+  });
+
+  /**
+   * 🔴 THE MID-SESSION LATCH (DEBUG-451, resolving the blindness this hook's own
+   * header warned about).
+   *
+   * The deferral guard reads the ROOT route only, so it cannot see a nested
+   * crisis leaf — the journal crisis banner lives on `VoiceReflection` under
+   * `Main`. That was tolerable while `consentStatus` only ever resolved at
+   * launch. It no longer is: `PrivacyDataScreen.tsx:183-190` calls `loadConsent()`
+   * in a mount effect, so a thrown read flips `valid → integrity_error` mid-session.
+   *
+   * Rather than widen the deferral to leaf routes, the blocked presentation is
+   * latched to the status resolved AT LAUNCH. A mid-session flip therefore cannot
+   * present at all; it surfaces on the next launch, when the pre-route window
+   * makes a crisis leaf impossible. Fail-safe direction, and far smaller than
+   * making the deferral leaf-aware.
+   */
+  describe('the launch latch', () => {
+    it.each(blockStatuses)(
+      'does NOT present %s when the status flipped after launch',
+      (status) => {
+        expect(
+          resolveReConsentPresentation(
+            passingInputs({ consentStatus: status, base: null, launchStatus: 'valid' }),
+          ),
+        ).toBe('none');
+      },
+    );
+
+    it('does not present when the launch status is not yet known', () => {
+      expect(
+        resolveReConsentPresentation(
+          passingInputs({ consentStatus: 'integrity_error', base: null, launchStatus: null }),
+        ),
+      ).toBe('none');
+    });
+
+    it('presents when the status was already resolved at launch', () => {
+      expect(
+        resolveReConsentPresentation(
+          passingInputs({
+            consentStatus: 'integrity_error',
+            base: null,
+            launchStatus: 'integrity_error',
+          }),
+        ),
+      ).toBe('blocked');
+    });
+
+    /**
+     * The latch must not leak across the re-consent path: `version_mismatch`
+     * resolves at launch and is unaffected by this mechanism.
+     */
+    it('does not gate the renewable path', () => {
+      expect(
+        resolveReConsentPresentation(passingInputs({ launchStatus: 'valid' })),
+      ).toBe('renew');
+    });
+  });
+
+  it('resolves all four values across the input space, so none is vestigial', () => {
+    const seen = new Set<ReConsentPresentation>([
+      resolveReConsentPresentation(passingInputs()),
+      resolveReConsentPresentation(
+        passingInputs({
+          base: eligibleBase({
+            ageVerification: {
+              verified: true,
+              birthYear: new Date().getFullYear() - 16,
+              ageAtVerification: 16,
+              verifiedAt: 1_700_000_000_000,
+              isEligible: true,
+            },
+          }),
+        }),
+      ),
+      resolveReConsentPresentation(passingInputs({ shownThisLaunch: true })),
+      resolveReConsentPresentation(passingInputs({ consentStatus: 'revoked', base: null })),
+    ]);
+    expect([...seen].sort()).toEqual(['blocked', 'ineligible', 'none', 'renew']);
   });
 });

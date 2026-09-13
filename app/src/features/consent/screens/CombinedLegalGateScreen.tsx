@@ -446,7 +446,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             {/* testID on the 24px indicator (INFRA-181): outer Pressable center
                 falls in the text region and overlaps the inline TOS link. */}
             <View testID="legal-consent-tos" style={styles.checkboxIndicator}>
-              {tosAccepted && <Text style={styles.checkboxCheck}>✓</Text>}
+              {tosAccepted && <Text testID="legal-consent-tos-check" style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
               I agree to the <Text style={styles.checkboxLink} onPress={() => Linking.openURL(TERMS_URL)}>Terms of Service</Text>.
@@ -465,7 +465,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             onAccessibilityAction={onDocumentAction(PRIVACY_URL, togglePrivacy)}
           >
             <View testID="legal-consent-privacy" style={styles.checkboxIndicator}>
-              {privacyAccepted && <Text style={styles.checkboxCheck}>✓</Text>}
+              {privacyAccepted && <Text testID="legal-consent-privacy-check" style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
               I agree to the <Text style={styles.checkboxLink} onPress={() => Linking.openURL(PRIVACY_URL)}>Privacy Policy</Text>.
@@ -485,7 +485,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             accessibilityHint="Required to continue"
           >
             <View testID="legal-consent-wellness" style={styles.checkboxIndicator}>
-              {wellnessDisclaimerAcknowledged && <Text style={styles.checkboxCheck}>✓</Text>}
+              {wellnessDisclaimerAcknowledged && <Text testID="legal-consent-wellness-check" style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
               I understand Being provides wellness support, not medical care. In a crisis I will call 911 (emergency) or 988 (mental health crisis).
@@ -515,7 +515,7 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
             accessibilityHint="Optional — you can continue without accepting this"
           >
             <View testID="legal-consent-mh-processing" style={styles.checkboxIndicator}>
-              {mentalHealthProcessingConsented && <Text style={styles.checkboxCheck}>✓</Text>}
+              {mentalHealthProcessingConsented && <Text testID="legal-consent-mh-processing-check" style={styles.checkboxCheck}>✓</Text>}
             </View>
             <Text style={styles.checkboxText}>
               I explicitly consent to Being processing my personal wellness data — including mood check-ins, anxiety and depression self-screenings, and journal entries — to provide wellness support features.

@@ -9,9 +9,11 @@
 
 import { useCallback } from 'react';
 import { usePostHog } from 'posthog-react-native';
+import { useAnalyticsConsent } from './useAnalyticsConsent';
 import { PHIFilter, AnalyticsEvents } from './PHIFilter';
 import { logAnalytics } from '@/core/services/logging';
 import { coarsenScreenNameForAnalytics } from '@/core/utils/sensitiveScreens';
+import type { SinceLastActiveBucket } from './appLifecycleTelemetry';
 
 /**
  * Hook for safe analytics tracking
@@ -27,6 +29,7 @@ import { coarsenScreenNameForAnalytics } from '@/core/utils/sensitiveScreens';
  */
 export function useAnalytics() {
   const posthog = usePostHog();
+  const mayEmit = useAnalyticsConsent();
 
   /**
    * Track an event with PHI validation
@@ -34,8 +37,21 @@ export function useAnalytics() {
    */
   const trackEvent = useCallback(
     (eventName: string, properties?: Record<string, string | number | boolean>) => {
-      // Skip if PostHog not available (no consent or not configured)
-      if (!posthog) {
+      // Two independent gates, and the ORDER OF IMPORTANCE is the second one.
+      //
+      // `!posthog` used to be the whole gate, and it worked only as a side effect
+      // of a bug: PostHogProvider withheld <PHProvider> without consent, so
+      // usePostHog() was undefined and this returned early. DEBUG-559 fixed that
+      // shape (the conditional was remounting every 988 affordance in the app), so
+      // a client now exists from launch and this check is no longer a consent
+      // signal — it only means "no key in this build".
+      //
+      // `mayEmit` is the consent gate. Without it, enforcement would rest entirely
+      // on the vendored SDK's internal `optedOut` check inside `capture`. That does
+      // hold today, but it makes our privacy posture a property of a third party's
+      // internals and it is silent when it changes. Ruled non-negotiable by the
+      // DEBUG-559 compliance pass: usePostHog() truthiness is never a consent signal.
+      if (!posthog || !mayEmit) {
         return;
       }
 
@@ -52,7 +68,7 @@ export function useAnalytics() {
         });
       }
     },
-    [posthog]
+    [posthog, mayEmit]
   );
 
   /**
@@ -74,18 +90,154 @@ export function useAnalytics() {
   );
 
   /**
-   * Track app lifecycle events
+   * Track app lifecycle events (INFRA-542).
+   *
+   * `since_last_active` is a coarse bucket, never a raw elapsed value —
+   * `seconds_since_last_active` is absent from `SAFE_NUMERIC_KEYS`, so an
+   * unlisted numeric key would make PHIFilter discard the whole event.
+   * `duration_seconds` is whitelisted and means FOREGROUND DWELL on
+   * `app_backgrounded` only; emitting one key that meant dwell here and time
+   * away on `app_opened` would make any aggregate over it meaningless.
    */
-  const trackAppOpened = useCallback(() => {
-    trackEvent(AnalyticsEvents.APP_OPENED);
-  }, [trackEvent]);
+  const trackAppOpened = useCallback(
+    (isColdStart: boolean, sinceLastActive: SinceLastActiveBucket) => {
+      trackEvent(AnalyticsEvents.APP_OPENED, {
+        is_cold_start: isColdStart,
+        since_last_active: sinceLastActive,
+      });
+    },
+    [trackEvent]
+  );
 
-  const trackAppBackgrounded = useCallback(() => {
-    trackEvent(AnalyticsEvents.APP_BACKGROUNDED);
+  const trackAppBackgrounded = useCallback(
+    (durationSeconds: number) => {
+      trackEvent(AnalyticsEvents.APP_BACKGROUNDED, { duration_seconds: durationSeconds });
+    },
+    [trackEvent]
+  );
+
+  const trackCrisisResourcesViewed = useCallback(() => {
+    trackEvent(AnalyticsEvents.CRISIS_RESOURCES_VIEWED);
   }, [trackEvent]);
 
   /**
-   * Track feature usage
+   * A crisis hotline was dialled (FEAT-137), and WHICH affordance carried it
+   * (FEAT-543).
+   *
+   * `primary988` is `true` only for the pinned footer 988 button -- this
+   * screen's single 988 affordance -- and `false` for a phone tap on any other
+   * listed resource. It exists to validate the "988 in under three taps"
+   * safety commitment from behaviour instead of assuming it from layout.
+   *
+   * NOT AN ENGAGEMENT METRIC. A rising count of crisis-hotline taps is not a
+   * success signal and must never be presented as one; more people reaching
+   * crisis resources is not a product win. The only supported reading is the
+   * primary/secondary SPLIT -- whether the affordance the safety design relies
+   * on is the one people actually use.
+   *
+   * BOOLEAN, DELIBERATELY. Do not widen this to a resource identifier: a
+   * `trevor_project` or `veterans_crisis_line` value is a special-category
+   * inference about the user (LGBTQ+ youth, veteran status) and would falsify
+   * the published "What We NEVER Collect" commitment, exactly as a `domain`
+   * property would for `trackGuidanceOpened` below. Do not make it a numeric
+   * rank either -- it proxies the identifier once section order is known, and
+   * PHIFilter rejects any numeric key absent from SAFE_NUMERIC_KEYS, which
+   * would silently discard the whole event.
+   *
+   * The parameter is REQUIRED, not optional: an omitted argument would ship
+   * `primary_988: undefined`, which PHIFilter passes, producing a silently
+   * untagged crisis tap.
+   *
+   * SCOPE: counts PHONE taps only. The Crisis Text Line SMS path injects no
+   * onTap and has emitted nothing since FEAT-137, so `false` means "a phone tap
+   * on a non-988 resource", NOT "every non-988 crisis contact".
+   */
+  const trackCrisisHotlineTapped = useCallback(
+    (primary988: boolean) => {
+      trackEvent(AnalyticsEvents.CRISIS_HOTLINE_TAPPED, { primary_988: primary988 });
+    },
+    [trackEvent]
+  );
+
+  /**
+   * Domain guidance opened from its Home entry point (FEAT-457).
+   *
+   * 🔴 TAKES NO ARGUMENTS, DELIBERATELY. Do not add a `domain` parameter.
+   *
+   * The hardship domain ("this user opened grief") IS the wellness inference, and
+   * `docs/architecture/analytics-architecture.md` publishes "What We NEVER
+   * Collect: … Any mental health data." Shipping it would make that published
+   * promise false — an FTC Act §5 exposure, not a disclosure gap you can close by
+   * editing the policy — and would trip the DPIA's own material-change trigger
+   * plus new App Store mental-health labels.
+   *
+   * The house pattern this follows: track ACCESS, never CONTENT.
+   * `assessment_started` carries no score; `crisis_resources_viewed` carries no
+   * contact details; this carries no domain.
+   */
+  const trackGuidanceOpened = useCallback(() => {
+    trackEvent(AnalyticsEvents.GUIDANCE_OPENED);
+  }, [trackEvent]);
+
+  const trackSettingsOpened = useCallback(() => {
+    trackEvent(AnalyticsEvents.SETTINGS_OPENED);
+  }, [trackEvent]);
+
+  const trackConsentChanged = useCallback(() => {
+    trackEvent(AnalyticsEvents.CONSENT_CHANGED);
+  }, [trackEvent]);
+
+  const trackLearnContentViewed = useCallback(
+    (moduleId?: string) => {
+      trackEvent(AnalyticsEvents.LEARN_CONTENT_VIEWED, {
+        ...(moduleId !== undefined && { module_id: moduleId }),
+      });
+    },
+    [trackEvent]
+  );
+
+  /**
+   * Track learn module lifecycle
+   */
+  const trackLearnModuleStarted = useCallback(
+    (moduleId?: string) => {
+      trackEvent(AnalyticsEvents.LEARN_MODULE_STARTED, {
+        ...(moduleId !== undefined && { module_id: moduleId }),
+      });
+    },
+    [trackEvent]
+  );
+
+
+  /**
+   * Track onboarding flow
+   */
+  /**
+   * Feature-usage lifecycle (DEBUG-536).
+   *
+   * 🔴 DO NOT ADD AN INSTRUMENT PARAMETER TO THE ASSESSMENT TRACKERS.
+   * `assessment_started`/`assessment_completed` deliberately take no instrument
+   * argument. Neutral tokens (`wellness_9`/`wellness_7`) were REJECTED on review as
+   * laundering rather than sanitization: they defeat the keyword filter while
+   * preserving the inference. `sensitiveScreens.ts` (DEBUG-239) already coarsens
+   * `assessment`/`phq`/`gad` screen names to the bucket `App` so telemetry cannot
+   * disclose which instrument was taken, and FEAT-457 made the identical ruling for
+   * `guidance_opened`'s domain. Completion RATE is computable from the started/
+   * completed pair without any instrument property.
+   *
+   * Note the FILTER IS NOT THE CONTROL here. `phq`/`gad` are PHI_KEYWORDS so those
+   * values block, but a key like `instrument: 'depression'` would pass validation
+   * untouched. This comment is the control.
+   *
+   * 🔴 DO NOT ADD `practice_id` TO THE PRACTICE TRACKERS. An exhaustive
+   * practice→token map is required first: `gratitude-reflection` and
+   * `social-impact-reflection` both contain the PHI keyword `reflection` and would
+   * be dropped while the other ten pass — partial blindness that reads as real data.
+   *
+   * 🔴 NO COMPLETION FIGURE DERIVED FROM THESE MAY BE SHOWN TO THE PRACTITIONER.
+   * Founder-facing only, perpetually. FEAT-328's invariant is that completion may be
+   * stated, never marked; a completion rate surfaced in Insights, on Home or in the
+   * coda is an outcome verdict on someone's practice, which the framework forbids.
    */
   const trackCheckInStarted = useCallback(() => {
     trackEvent(AnalyticsEvents.CHECK_IN_STARTED);
@@ -126,72 +278,6 @@ export function useAnalytics() {
     [trackEvent]
   );
 
-  const trackCrisisResourcesViewed = useCallback(() => {
-    trackEvent(AnalyticsEvents.CRISIS_RESOURCES_VIEWED);
-  }, [trackEvent]);
-
-  const trackCrisisHotlineTapped = useCallback(() => {
-    trackEvent(AnalyticsEvents.CRISIS_HOTLINE_TAPPED);
-  }, [trackEvent]);
-
-  const trackSettingsOpened = useCallback(() => {
-    trackEvent(AnalyticsEvents.SETTINGS_OPENED);
-  }, [trackEvent]);
-
-  const trackConsentChanged = useCallback(() => {
-    trackEvent(AnalyticsEvents.CONSENT_CHANGED);
-  }, [trackEvent]);
-
-  const trackLearnContentViewed = useCallback(
-    (moduleId?: string) => {
-      trackEvent(AnalyticsEvents.LEARN_CONTENT_VIEWED, {
-        ...(moduleId !== undefined && { module_id: moduleId }),
-      });
-    },
-    [trackEvent]
-  );
-
-  /**
-   * Track learn module lifecycle
-   */
-  const trackLearnModuleStarted = useCallback(
-    (moduleId?: string) => {
-      trackEvent(AnalyticsEvents.LEARN_MODULE_STARTED, {
-        ...(moduleId !== undefined && { module_id: moduleId }),
-      });
-    },
-    [trackEvent]
-  );
-
-  const trackLearnModuleCompleted = useCallback(
-    (moduleId?: string, durationMs?: number) => {
-      trackEvent(AnalyticsEvents.LEARN_MODULE_COMPLETED, {
-        ...(moduleId !== undefined && { module_id: moduleId }),
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
-
-  /**
-   * Track breathing exercise lifecycle
-   */
-  const trackBreathingExerciseStarted = useCallback(() => {
-    trackEvent(AnalyticsEvents.BREATHING_EXERCISE_STARTED);
-  }, [trackEvent]);
-
-  const trackBreathingExerciseCompleted = useCallback(
-    (durationMs?: number) => {
-      trackEvent(AnalyticsEvents.BREATHING_EXERCISE_COMPLETED, {
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
-
-  /**
-   * Track onboarding flow
-   */
   const trackOnboardingStarted = useCallback(() => {
     trackEvent(AnalyticsEvents.ONBOARDING_STARTED);
   }, [trackEvent]);
@@ -207,15 +293,6 @@ export function useAnalytics() {
     trackEvent(AnalyticsEvents.ONBOARDING_COMPLETED);
   }, [trackEvent]);
 
-  /**
-   * Track errors (sanitized - no PHI in error messages)
-   */
-  const trackErrorOccurred = useCallback(
-    (errorType: string) => {
-      trackEvent(AnalyticsEvents.ERROR_OCCURRED, { error_type: errorType });
-    },
-    [trackEvent]
-  );
 
   return {
     // Core methods
@@ -227,25 +304,23 @@ export function useAnalytics() {
     trackAppBackgrounded,
 
     // Features
-    trackCheckInStarted,
-    trackCheckInCompleted,
-    trackAssessmentStarted,
-    trackAssessmentCompleted,
-    trackPracticeStarted,
-    trackPracticeCompleted,
     trackCrisisResourcesViewed,
     trackCrisisHotlineTapped,
+    trackGuidanceOpened,
     trackSettingsOpened,
     trackConsentChanged,
 
     // Learn
     trackLearnContentViewed,
     trackLearnModuleStarted,
-    trackLearnModuleCompleted,
+    trackCheckInStarted,
+    trackCheckInCompleted,
+    trackAssessmentStarted,
+    trackAssessmentCompleted,
+    trackPracticeStarted,
+    trackPracticeCompleted,
 
     // Breathing
-    trackBreathingExerciseStarted,
-    trackBreathingExerciseCompleted,
 
     // Onboarding
     trackOnboardingStarted,
@@ -253,7 +328,6 @@ export function useAnalytics() {
     trackOnboardingCompleted,
 
     // Errors
-    trackErrorOccurred,
   };
 }
 

@@ -25,6 +25,7 @@ import { render } from '@testing-library/react-native';
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import SessionNoteComposer from '@/features/insights/components/SessionNoteComposer';
 import WeeklyReflectionComposer from '@/features/insights/components/WeeklyReflectionComposer';
+import { BugReportForm } from '@/core/components/BugReportOverlay';
 import {
   CRISIS_BUTTON_EXCLUSION_RECT,
   OVERLAY_ACTION_ROW_PADDING_RIGHT,
@@ -42,6 +43,7 @@ const noop = (): void => undefined;
 const CASES = [
   {
     name: 'ThresholdEducationModal',
+    mount: 'inline' as const,
     overlayTestId: 'threshold-education-overlay',
     element: (visible: boolean) => (
       <ThresholdEducationModal visible={visible} onDismiss={noop} />
@@ -49,6 +51,7 @@ const CASES = [
   },
   {
     name: 'SessionNoteComposer',
+    mount: 'root-slot' as const,
     overlayTestId: 'session-note-overlay',
     element: (visible: boolean) => (
       <SessionNoteComposer
@@ -62,6 +65,7 @@ const CASES = [
   },
   {
     name: 'WeeklyReflectionComposer',
+    mount: 'root-slot' as const,
     overlayTestId: 'weekly-reflection-overlay',
     element: (visible: boolean) => (
       <WeeklyReflectionComposer
@@ -72,9 +76,21 @@ const CASES = [
       />
     ),
   },
+  {
+    // FEAT-570. The fourth conversion, and the first whose ORIGINAL occluder was
+    // third-party code we do not render: Sentry's feedback widget, whose backdrop
+    // is a later sibling of our whole app, so no z-order change could reach it.
+    // The same structural guards apply to the replacement.
+    name: 'BugReportForm',
+    mount: 'root-slot' as const,
+    overlayTestId: 'bug-report-overlay',
+    element: (visible: boolean) => (
+      <BugReportForm visible={visible} killed={false} onClose={noop} />
+    ),
+  },
 ] as const;
 
-describe.each(CASES)('DEBUG-406 · $name occlusion guards', ({ overlayTestId, element }) => {
+describe.each(CASES)('DEBUG-406 · $name occlusion guards', ({ overlayTestId, element, mount }) => {
   it('renders no RN <Modal> — the occlusion shape must not return', () => {
     const { UNSAFE_queryAllByType } = render(element(true));
     expect(UNSAFE_queryAllByType(Modal)).toHaveLength(0);
@@ -87,9 +103,30 @@ describe.each(CASES)('DEBUG-406 · $name occlusion guards', ({ overlayTestId, el
     expect(queryByTestId(overlayTestId)).toBeNull();
   });
 
-  it('traps iOS accessibility focus via accessibilityViewIsModal', () => {
+  // DEBUG-575 — SPLIT BY MOUNT SITE. This used to assert `toBe(true)` for all
+  // three, which PINNED A DEFECT: `accessibilityViewIsModal` prunes the
+  // RECEIVER'S SIBLINGS, and the two root-slot overlays are direct native
+  // siblings of RootCrisisButton and CrisisKeyboardAccessory (RootOverlaySlot
+  // renders a bare fragment). So on those two the prop deleted both crisis
+  // affordances from the accessibility tree — measured on device as zero
+  // `crisis-button-root` nodes with the sheet open, the button still painted.
+  // ThresholdEducationModal mounts INLINE in ProfileScreen, where the crisis
+  // button is an ancestor's sibling and out of prune scope, so it keeps the prop.
+  //
+  // Asserted on the RENDERED TREE, never on source text: both composers now
+  // carry prose naming this anti-pattern, which is exactly the DEBUG-390
+  // collision a source-string matcher would trip over.
+  it('supplies its focus trap in the way its mount site allows', () => {
     const { getByTestId } = render(element(true));
-    expect(getByTestId(overlayTestId).props.accessibilityViewIsModal).toBe(true);
+    const isModal = getByTestId(overlayTestId).props.accessibilityViewIsModal;
+
+    if (mount === 'inline') {
+      expect(isModal).toBe(true);
+    } else {
+      // Root-slot: the trap is CleanRootNavigator's host instead, pinned by
+      // __tests__/safety/rootOverlayFocusTrap.test.tsx.
+      expect(isModal).not.toBe(true);
+    }
   });
 
   it('is a full-bleed absolute layer, so its box is its host', () => {
@@ -162,6 +199,12 @@ describe('DEBUG-406 · action rows clear the crisis button exclusion rect', () =
         onCancel={noop}
       />,
       <WeeklyReflectionComposer key="w" visible initialText="x" onSave={noop} onCancel={noop} />,
+      // FEAT-570: on this one the padded row is the BOTTOM Send row, not the
+      // pinned header. The exclusion rect is anchored to the screen's bottom
+      // right, so padding a header would protect nothing and would leave Send in
+      // the contested column — where the FAB's zIndex 9999 turns a Send press
+      // into a wrong-destination crisis navigation.
+      <BugReportForm key="b" visible killed={false} onClose={noop} />,
     ]) {
       const { UNSAFE_root } = render(element);
       const padded = UNSAFE_root.findAll((n) => {
@@ -186,6 +229,7 @@ describe('DEBUG-406 · the composers do not steal focus with autoFocus', () => {
   it.each([
     ['session-note-input', <SessionNoteComposer key="s" visible initialText="" onSave={noop} onDelete={noop} onCancel={noop} />],
     ['weekly-reflection-input', <WeeklyReflectionComposer key="w" visible initialText="" onSave={noop} onCancel={noop} />],
+    ['bug-report-input', <BugReportForm key="b" visible killed={false} onClose={noop} />],
   ] as const)('%s does not autoFocus', (testId, element) => {
     const { getByTestId } = render(element);
     expect(getByTestId(testId).props.autoFocus).toBeFalsy();

@@ -345,13 +345,80 @@ jobs:
         # Wired by PATTERN, never by renaming files toward one — scripts/ci-uncovered
         # -tests.json records coverage-by-filename as the defect it exists to remove.
         #
-        # Scoped to src/features/practices/ deliberately, NOT widened to src/**: the
-        # ledger's own "wiring-them-is-deferred" note blocks the general case on
-        # src/features/assessment/stores/__tests__/assessmentStore.test.ts, which is
-        # load-dependent (3/3 solo, 2 of 6 failures under parallel load). `CI pass` is
-        # the sole required check on main and development with enforce_admins:true, so
-        # dragging a flaky suite in here would intermittently block every PR in the repo.
+        # Scoped to src/features/practices/. INFRA-595 added the broad `Co-located src
+        # tests` step below, which subsumes this one; it is KEPT because its failure line
+        # names the daily-loop suites instead of pointing at a 172-suite run. The blocker
+        # this comment used to cite is RETIRED: DEBUG-515 (cross-test real-timer leakage)
+        # and DEBUG-549 (deleted the autosave subscription's uncancellable timers) both
+        # landed after it was written; re-measured 10/10 green under parallel load.
         run: cd app && npm run test:practices -- --ci --testTimeout=20000
+
+      - name: Navigation layout tests
+        # DEBUG-562. Co-located under src/core/navigation/, which no existing pattern
+        # reaches: `test:unit` is --testPathPattern=unit and `test:integration` is
+        # =integration, and neither matches this directory. Two suites ran on NOBODY'S
+        # pull request until this step existed — including the one that pins the tab
+        # bar's top edge clear of the crisis FAB's touch band, which is the mechanical
+        # form of DEBUG-562's AC2 ruling and the only thing that catches drift on
+        # EITHER side of that collision.
+        #
+        # Wired by PATTERN, never by renaming files toward one — scripts/
+        # ci-uncovered-tests.json records coverage-by-filename as the defect it exists
+        # to remove. Scoped to the directory rather than the file for the same reason.
+        #
+        # `CleanTabNavigator.accessibility.test.tsx` in the same directory is already
+        # reached by the Accessibility job (its name carries `accessibility`); running
+        # it twice is cheap and beats keying this step on a filename.
+        run: cd app && npm run test:navigation -- --ci --testTimeout=20000
+
+      - name: Analytics boundary tests
+        # INFRA-542. Co-located under src/core/analytics/, which no existing pattern
+        # reaches: the two files here carrying `privacy` in their NAME are gated by
+        # test:privacy, and the rest of the directory by nothing — coverage by
+        # filename, the defect scripts/ci-uncovered-tests.json exists to remove.
+        #
+        # This directory is the app's ONLY third-party egress path. Its failure mode
+        # is silent in both directions: trackEvent early-returns without a client, and
+        # PHIFilter drops a violating payload with a log rather than a throw. A pin
+        # here that runs on nobody's PR is worth approximately nothing.
+        #
+        # Wired by PATTERN, never by renaming files toward one (DEBUG-468 precedent).
+        run: cd app && npm run test:analytics -- --ci --testTimeout=20000
+
+      - name: Classical library tests
+        # FEAT-567. passagesContent.test.ts holds the passage SCHEMA checks —
+        # author/work enum membership, principle match, duplicate ids, required
+        # fields — and matched no CI pattern, so a malformed passage could land
+        # unnoticed. The provenance suite that checks TRANSLATORS already runs
+        # (it lives under app/__tests__/unit/); this is the other half.
+        #
+        # Wired by PATTERN, never by renaming files toward one (DEBUG-468 precedent).
+        run: cd app && npm run test:library -- --ci --testTimeout=20000
+
+      - name: Co-located src tests
+        # INFRA-595. The catch-all for app/src/**: every co-located suite, including the 41
+        # that scripts/ci-uncovered-tests.json recorded as running on NOBODY'S pull request.
+        # That ledger's `uncovered` list is now EMPTY, which is the real win here - a new
+        # ungated test file can no longer land silently, because check:ci-test-coverage
+        # fails the Safety + privacy job the moment one does.
+        #
+        # The four narrower src steps above are deliberately RETAINED. This step subsumes
+        # all of them, but each one records why its slice is gated and points a failure at
+        # one directory rather than at 172 suites. ~10s of duplicate runtime buys that.
+        #
+        # --forceExit was REMOVED here (DEBUG-596). The claim it carried was wrong twice:
+        # the flag never matched "all 24" sibling scripts (7 lack it), and the exit 1 it
+        # masked did not come from crisisTapTrace's open handle at all. jest computes its
+        # code from results.success alone and merely console.errors the open-handle report;
+        # the 1 came from jest-runner's freezeConsole, which sets process.exitCode = 1 on
+        # every "Cannot log after tests are done". Measured: a suite with 6 such logs and
+        # ZERO open handles exits 1, while one with neither exits 0.
+        #
+        # Running bare is now the point. A post-teardown write under app/src fails this job
+        # instead of hiding behind the flag — including a non-deterministic one, which is a
+        # deliberate tightening of a required check on both protected branches.
+        # No --verbose: 171 suites / 2637 tests would bury the log.
+        run: cd app && npm run test:src -- --ci --testTimeout=20000
 
       - name: Upload coverage
         if: always()
@@ -362,9 +429,11 @@ jobs:
           retention-days: 14
 
   # Security + compliance — encryption, HIPAA-adjacent checks, dependency
-  # audit. npm audit threshold is `high` (not `moderate`) until the
-  # 5-month-old lockfile is refreshed — see audit-roadmap.md Phase 0/3 for
-  # the planned dependency refresh.
+  # audit. npm audit threshold is `moderate`, tightened from `high` by
+  # MAINT-182 once the explicit allowlist landed (this header claimed `high`
+  # until INFRA-576; .audit-ci.json has said `"moderate": true` since
+  # MAINT-182). The 5-month-old lockfile refresh is still outstanding — see
+  # audit-roadmap.md Phase 0/3.
   security:
     name: Security + compliance
     runs-on: ubuntu-latest
@@ -467,6 +536,15 @@ jobs:
         # JS view hierarchy, so while one is open the root crisis button is not
         # on screen at all — a zero-988-affordance render state.
         #
+        # INFRA-571 added rule 4, which is a different SHAPE: a CALL SITE in
+        # app/src handing presentation to a third-party component that never
+        # appears in our tree (Sentry's feedback widget, expo-sharing's share
+        # sheet, the StoreKit purchase sheet). The <Modal> lives in node_modules,
+        # so rules 1-3 cannot see it, and INFRA-531's crisis-constant-import rule
+        # matches nothing because nothing on those paths imports from
+        # features/crisis/. Its allowlist is keyed <file>::<name> and fails on a
+        # stale entry the same way rule 2 does.
+        #
         # This exists because a Protected Paths row could not catch it. The four
         # sites DEBUG-406 audited live in src/core/components/ and
         # src/features/insights/, neither of which is on that list and neither of
@@ -520,14 +598,13 @@ jobs:
       - name: npm audit
         # MAINT-182: switched from raw `npm audit --audit-level=high` to
         # `audit-ci` with an explicit allowlist at app/.audit-ci.json.
-        # Three transitive CVEs in @expo/config-plugins@56.0.8 are
-        # allowlisted (GHSA-ph9p-34f9-6g65 tmp path traversal,
-        # GHSA-6vfc-qv3f-vr6c markdown-it ReDoS, GHSA-w5hq-g745-h8pq
-        # uuid bounds check) — all build-time only, no patched stable
-        # version available. Threshold is `moderate` (tightened from the
-        # prior `high`) since the allowlist gives precise control.
-        # Drop the GHSAs from .audit-ci.json when @expo/config-plugins
-        # >=56.0.9 ships as stable.
+        # Threshold is `moderate` (tightened from the prior `high`) since
+        # the allowlist gives precise control. Every allowlisted GHSA
+        # carries its own review note and drop-condition in that file's
+        # `$comment` — read there, not here; this list rotted twice.
+        # INFRA-576 retired GHSA-ph9p-34f9-6g65 (tmp), which this comment
+        # had attributed to @expo/config-plugins: the tree's only tmp
+        # arrives via patch-package and is already patched.
         #
         # Historical context (kept for archaeology): the W3 paydown's
         # `npm audit fix` cleared 11 high+critical vulns (xmldom,

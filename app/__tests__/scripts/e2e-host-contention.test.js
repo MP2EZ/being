@@ -54,7 +54,10 @@ const REAL_JVM_ARGS =
  * TWO invocations (macOS caps `comm` at 16 chars when `args` shares the call), so a stub
  * that answered one fixed table would not exercise the real path.
  */
-function run(fnCall, { rows = [], loadavg = '{ 3.93 8.40 9.16 }', ncpu = '10', env = {} } = {}) {
+function run(
+  fnCall,
+  { rows = [], loadavg = '{ 3.93 8.40 9.16 }', loadavgSeq = null, ncpu = '10', env = {} } = {}
+) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infra476-'));
 
   const commTable = rows.map(r => `${r.pid} ${r.ppid} ${r.pgid} ${r.comm}`).join('\n');
@@ -77,14 +80,42 @@ esac
     { mode: 0o755 }
   );
 
+  // A SEQUENCE, not a constant: the settle loop re-reads load on every poll, so a stub
+  // answering one fixed value could never distinguish "decayed below the threshold" from
+  // "never moved". Reads past the end clamp to the last entry, which is what a host that
+  // has stopped changing looks like.
+  const seq = loadavgSeq || (loadavg === null ? null : [loadavg]);
+  if (seq) fs.writeFileSync(path.join(dir, 'loadavg.seq'), `${seq.join('\n')}\n`);
+
   fs.writeFileSync(
     path.join(dir, 'sysctl'),
     `#!/bin/sh
+D="${dir}"
 case "$*" in
-  *vm.loadavg*) ${loadavg === null ? 'exit 1' : `echo '${loadavg}'`} ;;
+  *vm.loadavg*)
+${
+  seq === null
+    ? '    exit 1'
+    : `    N=$(cat "$D/loadavg.n" 2>/dev/null || echo 0); N=$((N + 1)); echo "$N" > "$D/loadavg.n"
+    L=$(sed -n "\${N}p" "$D/loadavg.seq"); [ -n "$L" ] || L=$(tail -1 "$D/loadavg.seq")
+    echo "$L"`
+}
+    ;;
   *hw.ncpu*)    ${ncpu === null ? 'exit 1' : `echo '${ncpu}'`} ;;
   *) exit 1 ;;
 esac
+`,
+    { mode: 0o755 }
+  );
+
+  // Stubbed so a 120s bound costs no wall-clock, and so the test can assert HOW LONG the
+  // settle believed it waited — a loop that returns instantly and one that honours its
+  // bound are otherwise indistinguishable from the outside.
+  fs.writeFileSync(
+    path.join(dir, 'sleep'),
+    `#!/bin/sh
+echo "$1" >> "${dir}/sleeps"
+exit 0
 `,
     { mode: 0o755 }
   );
@@ -93,11 +124,17 @@ esac
     encoding: 'utf8',
     env: { ...process.env, ...env, PATH: `${dir}:${process.env.PATH}` },
   });
+  const sleepLog = path.join(dir, 'sleeps');
+  const sleeps = fs.existsSync(sleepLog)
+    ? fs.readFileSync(sleepLog, 'utf8').trim().split('\n').filter(Boolean).map(Number)
+    : [];
   fs.rmSync(dir, { recursive: true, force: true });
   return {
     status: res.status,
     stdout: (res.stdout || '').trim(),
     stderr: (res.stderr || '').trim(),
+    sleeps,
+    slept: sleeps.reduce((a, b) => a + b, 0),
   };
 }
 
@@ -115,6 +152,9 @@ const COMPILE = {
   pid: 400, ppid: 399, pgid: 400, comm: XCODEBUILD_COMM,
   args: `${XCODEBUILD_COMM} -workspace Being.xcworkspace -scheme Being build`,
 };
+/** `_e2e_load1` reads field 2 of `{ a b c }`, so a ratio fixture only needs the 1-min slot. */
+const LA = ratio => `{ ${(ratio * 10).toFixed(2)} 1.00 1.00 }`; // ncpu is 10 everywhere here
+
 /** THE defect-class row: a shell that merely MENTIONS the strings. */
 const ZSH_WRAPPER = {
   pid: 600, ppid: 599, pgid: 600, comm: '/bin/zsh',
@@ -248,6 +288,244 @@ describe('LIVENESS — the counter can still go red', () => {
     // `(^|/)xcodebuild$`. If someone reverts the two-read table, this is what they get.
     expect(/(^|\/)xcodebuild$/.test(XCODEBUILD_COMM.slice(0, 16))).toBe(false);
     expect(/(^|\/)xcodebuild$/.test(XCODEBUILD_COMM)).toBe(true);
+  });
+});
+
+// =====================================================================================
+// INFRA-500 — the 1.0x threshold's "empty band" was unsampled, not empty
+// =====================================================================================
+
+describe('INFRA-500 AC1: the default threshold warns in the band the gate itself produces', () => {
+  // The incident: a 1073s gate build left load1 at 14.88/10cpu, the flow run started
+  // immediately into that decay at 0.91x, `daily-loop-quick-depth` failed at
+  // scrollUntilVisible — and `grep -c 'HOST LOOKS CONTENDED'` on that run returned 0.
+  it('warns at 0.91x, the reading that went unwarned', () => {
+    const r = run('f="$(e2e_host_contention_facts "")"; e2e_host_contention_warn "$f"', {
+      rows: [],
+      loadavg: LA(0.91),
+    });
+    expect(r.stderr).toMatch(/HOST LOOKS CONTENDED/);
+    expect(r.status).toBe(0);
+  });
+
+  // The floor is not free to move down. DEBUG-473 documents an idle ceiling of 0.3-0.5x
+  // and INFRA-490 measured 0.26-0.29x on this machine; a threshold at or below 0.5x would
+  // warn on genuinely quiet runs, which is how an advisory becomes wallpaper.
+  it.each([0.26, 0.29, 0.5])('stays quiet at the observed idle ratio %sx', ratio => {
+    const r = run('f="$(e2e_host_contention_facts "")"; e2e_host_contention_warn "$f"', {
+      rows: [],
+      loadavg: LA(ratio),
+    });
+    expect(r.stderr).toBe('');
+  });
+
+  it('quotes evidence from the band it now fires in, not only the severe one', () => {
+    // Lowering the threshold without this makes the warning oversell: an operator at 0.8x
+    // was being shown a case measured on a host 40x busier than theirs, which is the same
+    // "plausible but wrong causal story" failure the item was filed against, inverted.
+    const r = run('f="$(e2e_host_contention_facts "")"; e2e_host_contention_warn "$f"', {
+      rows: [],
+      loadavg: LA(0.91),
+    });
+    expect(r.stderr).toMatch(/INFRA-490/);
+    expect(r.stderr).toMatch(/0\.91x/);
+    expect(r.stderr).toMatch(/fixed-duration flows did not move/);
+  });
+
+  it('tells the operator which threshold produced the warning', () => {
+    const r = run('f="$(e2e_host_contention_facts "")"; e2e_host_contention_warn "$f"', {
+      rows: [],
+      loadavg: LA(0.91),
+    });
+    expect(r.stderr).toMatch(/E2E_HOST_LOAD_WARN_RATIO \(current: 0\.7x\)/);
+  });
+});
+
+describe('INFRA-500 AC5: the header records WHICH sample the number came from', () => {
+  const src = fs.readFileSync(HELPER, 'utf8');
+
+  it('no longer claims the band it splits is empty', () => {
+    // Falsified, not refined — INFRA-490's telemetry contains the moderate band that
+    // DEBUG-473's bimodal sample did not. Left standing, it is the exact sentence that
+    // would talk the next reader out of re-deriving the number.
+    expect(src).not.toMatch(/band it splits is empty/);
+  });
+
+  it('cites the INFRA-490 sample and the paired-flow evidence', () => {
+    expect(src).toMatch(/INFRA-490/);
+    expect(src).toMatch(/0\.91x/);
+    // The reading that must survive: the stretch is SELECTIVE, concentrated in
+    // scroll/wait-dominated flows, so a reader cannot infer "everything gets 40% slower".
+    expect(src).toMatch(/scrollUntilVisible|scroll/i);
+  });
+
+  it('the matcher can still go red', () => {
+    // A source assertion that matches nothing looks identical to one that passes.
+    expect(/band it splits is empty/.test('so the band it splits is empty in the')).toBe(true);
+    expect(src.length).toBeGreaterThan(2000);
+  });
+});
+
+// =====================================================================================
+// INFRA-500 AC2/AC3/AC4 — a BOUNDED SETTLE, which is a wait and never a refusal
+// =====================================================================================
+
+const SETTLE = 'f="$(e2e_host_settle "")"; echo "$f"';
+
+describe('INFRA-500 AC2: a bounded post-build settle', () => {
+  it('does not wait at all when the host is already quiet', () => {
+    const r = run(SETTLE, { rows: [], loadavg: LA(0.29) });
+    expect(r.sleeps).toEqual([]);
+    expect(fact(r.stdout, 'settle')).toBe('quiet');
+    expect(fact(r.stdout, 'settle_waited_s')).toBe('0');
+  });
+
+  it('waits, then proceeds once the load decays below the threshold', () => {
+    const r = run(SETTLE, {
+      rows: [],
+      // 1.49x -> 1.10x -> 0.85x -> 0.62x: three polls of decay, as a 1-min load average
+      // sheds a finished build.
+      loadavgSeq: [LA(1.49), LA(1.1), LA(0.85), LA(0.62)],
+      env: { E2E_HOST_SETTLE_MAX_S: '120', E2E_HOST_SETTLE_INTERVAL_S: '5' },
+    });
+    expect(fact(r.stdout, 'settle')).toBe('settled');
+    expect(fact(r.stdout, 'settle_waited_s')).toBe('15');
+    expect(r.slept).toBe(15);
+    expect(r.stderr).toMatch(/settled/i);
+  });
+
+  it('returns the POST-settle reading, not the one that triggered the wait', () => {
+    // Load-bearing: the caller feeds this line to the summary AND the warning. If it
+    // carried the pre-settle figure, the gate would wait out the contention and then warn
+    // about it anyway — reporting a host state that no longer exists.
+    const r = run(SETTLE, {
+      rows: [],
+      loadavgSeq: [LA(1.49), LA(0.3)],
+      env: { E2E_HOST_SETTLE_MAX_S: '120', E2E_HOST_SETTLE_INTERVAL_S: '5' },
+    });
+    expect(fact(r.stdout, 'ratio')).toBe('0.30');
+  });
+
+  it('proceeds when the bound expires with the host still loaded, and says so', () => {
+    const r = run(SETTLE, {
+      rows: [],
+      loadavg: LA(1.2), // never decays
+      env: { E2E_HOST_SETTLE_MAX_S: '20', E2E_HOST_SETTLE_INTERVAL_S: '5' },
+    });
+    expect(fact(r.stdout, 'settle')).toBe('timeout');
+    expect(fact(r.stdout, 'settle_waited_s')).toBe('20');
+    expect(r.slept).toBe(20);
+    expect(r.status).toBe(0);
+  });
+
+  it('honours E2E_HOST_SETTLE_MAX_S=0 as "do not settle"', () => {
+    const r = run(SETTLE, {
+      rows: [],
+      loadavg: LA(1.49),
+      env: { E2E_HOST_SETTLE_MAX_S: '0' },
+    });
+    expect(r.sleeps).toEqual([]);
+    expect(fact(r.stdout, 'settle')).toBe('disabled');
+  });
+
+  it('proceeds without waiting when sysctl gives no load at all', () => {
+    const r = run(SETTLE, { rows: [], loadavg: null, ncpu: null });
+    expect(r.sleeps).toEqual([]);
+    expect(fact(r.stdout, 'settle')).toBe('unknown');
+    expect(r.status).toBe(0);
+  });
+});
+
+describe('INFRA-500: e2e-safety.sh actually goes through the settle', () => {
+  // The one thing the jest suite cannot execute: the four lines in e2e-safety.sh that
+  // consume this helper. Running them needs a booted simulator and an installed gate
+  // target, so a typo'd function name would surface only as a live gate failure — at
+  // which point it is someone else's close that pays. Pin the seam statically instead.
+  const safety = fs.readFileSync(path.join(REPO_APP, 'scripts', 'e2e-safety.sh'), 'utf8');
+  const helper = fs.readFileSync(HELPER, 'utf8');
+
+  it('reads its host facts through a settle-capable entry point that exists', () => {
+    const m = safety.match(/HOST_FACTS="\$\((e2e_host_\w+)\s+""\)"/);
+    expect(m).not.toBeNull();
+    expect(m[1]).toBe('e2e_host_settle');
+    // …and that name resolves to a function the sourced helper defines.
+    expect(helper).toMatch(new RegExp(`^${m[1]}\\(\\)\\s*\\{`, 'm'));
+  });
+
+  it('feeds the SAME post-settle reading to the summary and the warning', () => {
+    // Re-reading the facts for either would report a host state that the settle has
+    // already changed, which is the defect this item exists to remove, one step later.
+    expect(safety).toMatch(/e2e_host_summary_line "\$HOST_FACTS"/);
+    expect(safety).toMatch(/e2e_host_contention_warn "\$HOST_FACTS"/);
+    expect(safety).not.toMatch(/e2e_host_(summary_line|contention_warn) "\$\(/);
+  });
+
+  it('the matchers can still go red', () => {
+    expect(/HOST_FACTS="\$\((e2e_host_\w+)\s+""\)"/.test('HOST_FACTS="$(e2e_host_typo "")"')).toBe(true);
+    expect(new RegExp('^e2e_host_settle\\(\\)\\s*\\{', 'm').test('e2e_host_settle() {')).toBe(true);
+  });
+});
+
+describe('INFRA-500 AC3: a settle is a WAIT, never a refusal', () => {
+  const timedOut = () =>
+    run('f="$(e2e_host_settle "")"; e2e_host_contention_warn "$f"', {
+      rows: [],
+      loadavg: LA(1.2),
+      env: { E2E_HOST_SETTLE_MAX_S: '10', E2E_HOST_SETTLE_INTERVAL_S: '5' },
+    });
+
+  it('exits 0 after the bound expires — the flows still run', () => {
+    expect(timedOut().status).toBe(0);
+  });
+
+  it('uses no refusal verb on any settle path', () => {
+    // Same matcher shape as the INFRA-476 test above: refusal VERBS, not the word
+    // "blocked", because the advisory text says "Nothing is blocked".
+    expect(timedOut().stderr).not.toMatch(
+      /\b(aborting|refusing|refused|will not run|cannot run|skipping the gate)\b/i
+    );
+  });
+
+  it('says out loud that waiting is not refusing', () => {
+    const r = run(SETTLE, {
+      rows: [],
+      loadavg: LA(1.2),
+      env: { E2E_HOST_SETTLE_MAX_S: '10', E2E_HOST_SETTLE_INTERVAL_S: '5' },
+    });
+    expect(r.stderr).toMatch(/not a refusal/i);
+  });
+
+  it('the source keeps the reasoning, not just the behaviour', () => {
+    const src = fs.readFileSync(HELPER, 'utf8');
+    expect(src).toMatch(/not a refusal|never a refusal/i);
+    expect(src).toMatch(/--skip-e2e/);
+  });
+});
+
+describe('INFRA-500 AC4: a peer\'s load is warned, not waited out', () => {
+  it('does not spend the bound on a peer that cannot decay', () => {
+    // A peer mid-build holds the host for as long as its build takes — up to 21 minutes
+    // cold. No useful bound waits that out, so the honest move is to report it now.
+    const r = run(SETTLE, { rows: [COMPILE], loadavg: LA(1.49) });
+    expect(r.sleeps).toEqual([]);
+    expect(fact(r.stdout, 'settle')).toBe('peers');
+  });
+
+  it('still warns after declining to wait', () => {
+    const r = run('f="$(e2e_host_settle "")"; e2e_host_contention_warn "$f"', {
+      rows: [PEER_JVM, PEER_DRIVER],
+      loadavg: LA(1.49),
+    });
+    expect(r.stderr).toMatch(/HOST LOOKS CONTENDED/);
+    expect(r.status).toBe(0);
+  });
+
+  it('a quiet host with a peer still warns, and never settles it away', () => {
+    const r = run('f="$(e2e_host_settle "")"; e2e_host_contention_warn "$f"', {
+      rows: [PEER_DRIVER],
+      loadavg: LA(0.26),
+    });
+    expect(r.stderr).toMatch(/HOST LOOKS CONTENDED/);
   });
 });
 

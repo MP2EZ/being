@@ -2,6 +2,9 @@ appId: fyi.being.app
 tags:
   - safety
 name: "Re-consent over Main (INFRA-377): 988 stays reachable and Decline is not eaten by the FAB"
+# e2e-certifies: 375x667
+# INFRA-486 — Its load-bearing step taps the footer at 95% width to adjudicate CRISIS_FAB_CLEARANCE
+# against an absolutely-positioned FAB band — a width- and height-dependent hit test.
 ---
 # INFRA-377 safety flow — pins the re-consent screen's crisis contract on the RUNNING app.
 #

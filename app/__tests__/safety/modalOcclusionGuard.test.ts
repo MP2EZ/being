@@ -35,8 +35,11 @@
 
 const {
   ALLOWLIST,
+  PRESENTER_ALLOWLIST,
+  THIRD_PARTY_PRESENTERS,
   findAliasedModalImports,
   findModalJsx,
+  findPresenterCalls,
   runGuard,
   stripComments,
   // eslint-disable-next-line @typescript-eslint/no-var-requires
@@ -142,6 +145,224 @@ describe('DEBUG-406 · RN <Modal> occlusion guard', () => {
       const reason = ALLOWLIST['src/core/components/NotificationTimePicker.tsx'];
       expect(reason).toMatch(/CONDITIONAL/);
       expect(reason).toMatch(/benign/);
+    });
+  });
+});
+
+describe('INFRA-571 · third-party full-screen presenter call sites', () => {
+  /**
+   * Rule 4 is a different SHAPE from rules 1-3. Those match a component we
+   * render; this matches a CALL that hands presentation to a third party whose
+   * component never appears in our tree. DEBUG-533 found the first instance and
+   * no detector could see it: the guard scans `app/src` for JSX `<Modal>`, so
+   * Sentry's `<Modal>` in node_modules is invisible, and INFRA-531's
+   * crisis-constant-import rule matches nothing because nothing on the path
+   * imports from `features/crisis/`. The call site is the right anchor because
+   * it is the only part of the mechanism that is ours.
+   */
+
+  describe('the matcher fires for every denylisted name', () => {
+    it.each(THIRD_PARTY_PRESENTERS)('matches a literal known-bad call to %s', (name) => {
+      const found = findPresenterCalls(`const go = () => ${name}();`);
+      expect(found).toEqual([{ name, line: 1 }]);
+    });
+
+    it('matches the member form the real defect takes', () => {
+      // ExternalErrorReporter reaches Sentry through a dynamically-assigned
+      // module handle, so the live call is a member expression on an instance
+      // field — not the `Sentry.showFeedbackWidget()` an import-aware matcher
+      // would look for.
+      expect(findPresenterCalls('this.sentryModule.showFeedbackWidget();')).toEqual([
+        { name: 'showFeedbackWidget', line: 1 },
+      ]);
+    });
+
+    it('reports the real line number of the match', () => {
+      expect(findPresenterCalls('a\nb\nawait Sharing.shareAsync(uri);')).toEqual([
+        { name: 'Sharing.shareAsync', line: 3 },
+      ]);
+    });
+
+    it('tolerates whitespace around the member access and the call parens', () => {
+      expect(findPresenterCalls('RNIap . requestPurchase ({});')).toEqual([
+        { name: 'RNIap.requestPurchase', line: 1 },
+      ]);
+    });
+  });
+
+  describe('the matcher stays silent on everything that is not a call', () => {
+    it('ignores a comment naming a presenter', () => {
+      const src = '/**\n * Never call showFeedbackWidget() here.\n */\nconst a = 1;';
+      expect(findPresenterCalls(src)).toHaveLength(0);
+    });
+
+    it('ignores a line comment naming a presenter', () => {
+      expect(findPresenterCalls('// do not use Sharing.shareAsync(...)\nconst a = 1;')).toHaveLength(0);
+    });
+
+    it('ignores the capability probe, which is not a call', () => {
+      // ExternalErrorReporter.ts:619 — `typeof x.showFeedbackWidget === 'function'`.
+      const src = "if (typeof this.sentryModule.showFeedbackWidget === 'function') { noop(); }";
+      expect(findPresenterCalls(src)).toHaveLength(0);
+    });
+
+    it('ignores the identifier inside a log-message string literal', () => {
+      // ExternalErrorReporter.ts:623 sits three lines from the real call.
+      // stripComments() blanks comments but NOT string literals, so a
+      // bare-identifier matcher would report a log message as a defect site.
+      const src = "logger.warn(LogCategory.SYSTEM, 'showFeedbackWidget failed');";
+      expect(findPresenterCalls(src)).toHaveLength(0);
+    });
+
+    it('ignores a lookalike identifier that merely starts with a denylisted name', () => {
+      expect(findPresenterCalls('showFeedbackWidgetLater();')).toHaveLength(0);
+    });
+
+    it('still finds a real call sitting beneath a warning comment', () => {
+      const src = '// never call showFeedbackWidget()\nshowFeedbackWidget();';
+      expect(findPresenterCalls(src)).toEqual([{ name: 'showFeedbackWidget', line: 2 }]);
+    });
+  });
+
+  describe('comment-stripping cannot silently reduce this to a matcher that matches nothing', () => {
+    it('leaves a real source file substantially intact after stripping', () => {
+      // The DEBUG-390 failure mode is comment-stripping plus a narrow regex
+      // producing a guard that can never fire. Assert the input the matcher
+      // actually sees is still real code, not blanks.
+      //
+      // FEAT-570 REPOINTED THIS FIXTURE. It used to read ExternalErrorReporter.ts
+      // and assert `showFeedbackWidget(` survived stripping. That file no longer
+      // CALLS the presenter — FEAT-570 deleted the call, and every surviving
+      // mention of the name is prose explaining why it must not come back. So the
+      // stripped source correctly contains none, and the old assertion would have
+      // forced the call to be re-added to keep a test green. Repointed at a file
+      // that still carries a real, allowlisted presenter call.
+      const fs = require('fs');
+      const path = require('path');
+      const abs = path.join(
+        __dirname,
+        '../../src/features/profile/screens/ExportDataScreen.tsx',
+      );
+      const stripped = stripComments(fs.readFileSync(abs, 'utf8'));
+      expect(stripped.replace(/\s/g, '').length).toBeGreaterThan(5000);
+      expect(stripped).toMatch(/Sharing\s*\.\s*shareAsync\s*\(/);
+    });
+  });
+
+  describe('the real tree', () => {
+    const result = runGuard();
+
+    it('has no denylisted presenter call outside PRESENTER_ALLOWLIST', () => {
+      expect(result.unallowedPresenters).toEqual([]);
+    });
+
+    it('has no presenter ruling that outlived the call it examined', () => {
+      // Keyed per FILE+SYMBOL, not per file: a ruling that examined one call
+      // must go stale when THAT call is removed, even if a different
+      // denylisted call survives in the same file. A file-level key would
+      // silently transfer a recorded ruling onto a call it never examined,
+      // which is DEBUG-403's failure mode reproduced inside the fix for it.
+      expect(result.stalePresenters).toEqual([]);
+    });
+
+    it('does not disturb the <Modal> rules it shares a script with', () => {
+      // A merged allowlist would cross-fire: a <Modal>-allowlisted file would
+      // report as a stale presenter and vice versa.
+      expect(result.unallowed).toEqual([]);
+      expect(result.stale).toEqual([]);
+      expect(result.aliased).toEqual([]);
+    });
+
+    it('allowlists ONLY the presenter call sites with a recorded ruling', () => {
+      // FEAT-570 removed the DEBUG-533 entry. That deletion is the load-bearing
+      // artifact of the item, not bookkeeping: `Sentry.wrap` mounts
+      // FeedbackWidgetProvider unconditionally and dropping `feedbackIntegration`
+      // removes no occluder, so once the call site is gone the ONLY thing keeping
+      // this path closed is rule 4 refusing any new call. With no entry, a
+      // reintroduced `showFeedbackWidget` anywhere under app/src hard-fails.
+      expect(Object.keys(PRESENTER_ALLOWLIST).sort()).toEqual([
+        'src/core/services/subscription/IAPService.ts::RNIap.requestPurchase',
+        'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync',
+      ]);
+    });
+
+    it('records a substantive reason for every allowlisted presenter call', () => {
+      for (const [key, reason] of Object.entries(PRESENTER_ALLOWLIST)) {
+        expect(typeof reason).toBe('string');
+        expect(reason.length).toBeGreaterThan(120);
+        expect(reason).toMatch(/DEBUG-533|INFRA-571/);
+        expect(key).toMatch(/^src\/.+::.+$/);
+      }
+    });
+
+    it('carries its own removal instruction in every ruling', () => {
+      // Whoever deletes a presenter call owns the allowlist edit. Putting the
+      // instruction in the ruling itself is what makes that mechanical rather
+      // than remembered — the CLI failure message repeats it.
+      for (const reason of Object.values(PRESENTER_ALLOWLIST)) {
+        expect(reason).toMatch(/DELETE this entry in the same commit/);
+      }
+    });
+
+    it('keeps measured and inferred rulings on opposite sides of the line', () => {
+      // Recording an unmeasured ruling as though measured is the failure
+      // DEBUG-533's own "MEASURED, NOT INFERRED" section was written to stop.
+      //
+      // THIS ASSERTION USED TO BE VACUOUS ON THE HALF THAT MATTERS (DEBUG-577).
+      // It pinned the measured entry with `toMatch(/MEASURED/)` — and /MEASURED/
+      // is a substring of "NOT MEASURED", so the one check standing between a
+      // ruling and a false claim of evidence passed on prose asserting the exact
+      // opposite. A measured entry must therefore match the POSITIVE form and be
+      // asserted NOT to carry the negation.
+      //
+      // FEAT-570 + DEBUG-577 SWAPPED WHICH ENTRY IS THE MEASURED ONE. FEAT-570
+      // removed DEBUG-533's entry with the call it examined, briefly leaving the
+      // allowlist wholly inferred; DEBUG-577 then measured the share sheet. So the
+      // partition below is not the historical one, and the count on each side is
+      // not what makes it correct — the prose matching its own evidence is.
+      const measured = [
+        'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync',
+      ];
+      for (const key of measured) {
+        expect(PRESENTER_ALLOWLIST[key]).toMatch(/MEASURED ON (DEVICE|SIMULATOR)/);
+        expect(PRESENTER_ALLOWLIST[key]).not.toMatch(/NOT MEASURED/);
+      }
+
+      // IAPService remains reasoned from the presentation mechanism: DEBUG-577
+      // attempted it and was blocked (mockMode = __DEV__, no .storekit config, no
+      // Android harness). Blocked is not measured.
+      const inferred = ['src/core/services/subscription/IAPService.ts::RNIap.requestPurchase'];
+      for (const key of inferred) {
+        expect(PRESENTER_ALLOWLIST[key]).toMatch(/NOT MEASURED/);
+      }
+
+      // Every entry is on exactly one side. Without this the two loops above stay
+      // green over an entry that is on NEITHER list — which is what a third,
+      // unclassified ruling would be.
+      expect([...measured, ...inferred].sort()).toEqual(Object.keys(PRESENTER_ALLOWLIST).sort());
+
+      // Proof the matcher can still fire — the pair above is only worth its cost
+      // if the old vacuous form is demonstrably rejected by the new one. Both are
+      // literals, not entries, so they survive any future allowlist churn.
+      expect('REASONED FROM THE MECHANISM, NOT MEASURED').not.toMatch(
+        /MEASURED ON (DEVICE|SIMULATOR)/,
+      );
+      expect('MEASURED ON DEVICE by DEBUG-533').toMatch(/MEASURED ON (DEVICE|SIMULATOR)/);
+    });
+
+    it('documents the denylist as non-exhaustive rather than as the set', () => {
+      const fs = require('fs');
+      const path = require('path');
+      const guard = fs.readFileSync(
+        path.join(__dirname, '../../scripts/check-modal-occlusion-guard.js'),
+        'utf8',
+      );
+      expect(guard).toMatch(/NON-EXHAUSTIVE/);
+      // `showScreenshotButton` is not a root export of @sentry/react-native
+      // 7.11.0, so it can never fire against the import shape this repo uses.
+      // It is forward-looking, and the header must not present the three
+      // Sentry names as a complete account of that SDK's presenters.
+      expect(THIRD_PARTY_PRESENTERS).toContain('showScreenshotButton');
     });
   });
 });

@@ -114,6 +114,7 @@ import {
 
 import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
+import { CRISIS_BUTTON_RESERVED_BAND } from '@/features/crisis/constants/crisisButtonGeometry';
 
 export interface HapticsOptInPromptProps {
   onChoose: (enabled: boolean) => void;
@@ -126,21 +127,6 @@ export interface HapticsOptInPromptProps {
  * recommendation is NOT here — see the header note.
  */
 const CHOICE_HINT = 'Saves your choice. You will not be asked again.';
-
-/**
- * Vertical band at the bottom of the screen that the root crisis button occupies,
- * kept clear so the choices row can never overlap it.
- *
- * Derived from CollapsibleCrisisButton's own geometry: it sits at `bottom` 100 (iOS)
- * / 104 (Android), is TOUCH_TARGETS.minimum tall, and carries a 12pt hitSlop — so its
- * hit area reaches ~156pt up from the bottom edge. The larger platform value plus one
- * spacing step of margin is used for both platforms rather than branching, because
- * being generous here costs nothing and an overlap is unrecoverable: the button
- * renders at zIndex 9999 above this prompt and would win the tap, so an overlap would
- * BOTH fire a false crisis entry AND land on the DECLINE side — biasing against the
- * very choice it made harder to press.
- */
-const CRISIS_BUTTON_RESERVED_BAND = 104 + TOUCH_TARGETS.minimum + 12 + spacing[16];
 
 export const HapticsOptInPrompt: React.FC<HapticsOptInPromptProps> = ({
   onChoose,
@@ -258,7 +244,12 @@ const styles = StyleSheet.create({
     // available direction: the crisis overlay composites over it.
     backgroundColor: colorSystem.base.white,
     padding: spacing[24],
-    // Keeps the whole card clear of the root crisis button's hit area.
+    // Keeps the whole card clear of the root crisis button's hit area. An overlap is
+    // unrecoverable: the button renders at zIndex 9999 above this prompt and would win
+    // the tap, so an overlap would BOTH fire a false crisis entry AND land on the
+    // DECLINE side — biasing against the very choice it made harder to press.
+    // Derivation lives in crisisButtonGeometry.ts — never restate the numbers here
+    // (DEBUG-586).
     paddingBottom: CRISIS_BUTTON_RESERVED_BAND,
   },
   card: {

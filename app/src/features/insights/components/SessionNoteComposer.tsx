@@ -56,7 +56,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
   ScrollView,
   BackHandler,
   AccessibilityInfo,
@@ -73,7 +72,7 @@ import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useOverlayBottomInset } from '@/core/hooks/useOverlayBottomInset';
 import { SESSION_NOTE_MAX_LENGTH } from '@/features/assessment/stores/assessmentStore';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 
 /** Fixed label — compliance + philosopher red line; never "clinical context". */
 export const SESSION_NOTE_LABEL = 'Your note';
@@ -157,7 +156,15 @@ const SessionNoteComposer: React.FC<SessionNoteComposerProps> = ({
   return (
     <View
       style={styles.overlay}
-      accessibilityViewIsModal
+      /* DEBUG-575: NO `accessibilityViewIsModal` HERE, deliberately.
+         This overlay is published into the root slot, which renders a bare
+         fragment — so it is a direct native SIBLING of RootCrisisButton and
+         CrisisKeyboardAccessory, and that prop prunes the receiver's SIBLINGS.
+         Setting it deleted both crisis affordances from the accessibility tree
+         while this sheet was open: a zero-988 state for assistive tech, with the
+         button still painted on screen so no screenshot could catch it. The trap
+         now lives on CleanRootNavigator's host, which hides the Stack.Navigator
+         subtree and nothing else. Pinned by modalOcclusionConversions.test.tsx. */
       testID="session-note-overlay"
       onStartShouldSetResponder={() => true}
       onMoveShouldSetResponder={() => true}
@@ -178,8 +185,7 @@ const SessionNoteComposer: React.FC<SessionNoteComposerProps> = ({
           </Text>
           {subtitle ? <Text style={styles.subtitle}>{subtitle}</Text> : null}
 
-          <TextInput
-            {...crisisAccessoryProps()} /* DEBUG-450 */
+          <CrisisTextInput
             style={styles.input}
             value={text}
             onChangeText={(next) =>

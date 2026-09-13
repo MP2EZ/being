@@ -207,6 +207,39 @@ e2e_telemetry_flow() {
   return 0
 }
 
+# e2e_telemetry_settle <host-facts-line>
+#
+# INFRA-500. One record per gate run, written AFTER the settle, so `load1`/`ratio` are the
+# figures the flows actually ran under rather than the ones they inherited from the build.
+# outcome ∈ quiet | settled | timeout | peers | unknown | disabled.
+#
+# Deliberately its own kind rather than extra columns on the flow record: a settle happens
+# once per invocation, so repeating it per flow would make anyone counting settles count
+# flows instead — the same "measuring the wrong thing" hazard `inherited` is excluded for.
+# `e2e_telemetry_summary` does not report it; this is written for the next recalibration of
+# E2E_HOST_LOAD_WARN_RATIO, which read the raw log rather than the summary.
+e2e_telemetry_settle() {
+  e2e_telemetry_enabled || return 0
+  local outcome waited line k
+  _e2e_tel_fact "${1:-}" settle
+  # A facts line with no settle tokens never went through the settle — nothing to record.
+  [ -n "$_E2E_TEL_F" ] || return 0
+  _e2e_tel_str "$_E2E_TEL_F"; outcome="$_E2E_TEL_S"
+  _e2e_tel_fact "${1:-}" settle_waited_s
+  _e2e_tel_int "$_E2E_TEL_F"; waited="$_E2E_TEL_I"
+
+  line="{\"epoch\":$(date +%s),\"kind\":\"settle\",\"outcome\":$outcome"
+  line="$line,\"waited_s\":$waited,\"pid\":$$"
+  for k in peer_jvms peer_drivers other_xcodebuild load1 ncpu ratio; do
+    _e2e_tel_fact "${1:-}" "$k"
+    _e2e_tel_num "$_E2E_TEL_F"
+    line="$line,\"$k\":$_E2E_TEL_N"
+  done
+
+  e2e_telemetry_append "$line}"
+  return 0
+}
+
 # e2e_telemetry_summary [file]
 #
 # AC5 — "a telemetry file nobody can read is not telemetry." One command, no dependencies

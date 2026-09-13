@@ -38,7 +38,10 @@ jobs:
   build-and-submit:
     name: EAS build + auto-submit to TestFlight
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    # Waits for the build (see the --no-wait note below), so this must cover
+    # EAS queue + build + submit. Observed build alone is ~7 min; queue is the
+    # variable. 15 min was the old budget for a fire-and-forget exit.
+    timeout-minutes: 60
 
     steps:
       - uses: actions/checkout@v5
@@ -114,10 +117,17 @@ jobs:
       # accepts only --auto-submit / --auto-submit-with-profile, and the
       # invented --submit-profile failed every real release from INFRA-146
       # until DEBUG-336 (dry runs skip this step, so it went unnoticed).
-      # --no-wait lets this workflow exit quickly while EAS does
-      # the 20-30 min build + submit asynchronously. Failures surface in
-      # the EAS dashboard, in App Store Connect, and (for EAS-side errors)
-      # in this job's logs.
+      # This step deliberately does NOT pass --no-wait. It used to, and that
+      # made a red build report green: `eas build --no-wait` exits 0 the moment
+      # EAS *accepts* the job, so the workflow's conclusion described the
+      # scheduling, not the build. v1.2.0 errored in `Install dependencies` on
+      # an expired GITHUB_TOKEN while this job reported success, and nothing on
+      # GitHub ever went red. Waiting costs wall-clock and buys a real verdict.
+      #
+      # What waiting still does NOT cover: Apple's own processing of the
+      # uploaded binary. That is asynchronous and reported only by email / App
+      # Store Connect — a successful upload is not an accepted build. ITMS-90683
+      # rejected v1.2.0 minutes after a fully green submit. See the final step.
       # Skipped on a workflow_dispatch with dry_run=true (validation only).
       - name: Build + auto-submit to TestFlight
         if: ${{ !inputs.dry_run }}
@@ -127,5 +137,15 @@ jobs:
             --platform ios \
             --profile production \
             --auto-submit \
-            --non-interactive \
-            --no-wait
+            --non-interactive
+
+      # A green job above means the binary built and uploaded. It does NOT mean
+      # the build is in TestFlight — Apple can still reject it during
+      # processing, and only tells you by email.
+      - name: Report what green does and does not mean
+        if: ${{ !inputs.dry_run && success() }}
+        run: |
+          echo "Build succeeded and the binary was uploaded to App Store Connect."
+          echo "This is NOT yet a TestFlight build: Apple processing can still reject it"
+          echo "(e.g. ITMS-90683), and reports only by email / App Store Connect."
+          echo "Verify: https://appstoreconnect.apple.com/apps/6777579207/testflight/ios"

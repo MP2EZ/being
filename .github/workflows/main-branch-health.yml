@@ -44,12 +44,15 @@ name: Main Branch Health
 # exactly this gate, and this probe covers exactly it.
 #
 # WHAT THIS PROBE DOES NOT COVER — say it here so no future reader assumes
-# coverage that is not present. `main`'s .github/workflows/ is separately stale
-# (retired workflows still active there, an older NODE_VERSION, and a
-# job-list that differs from development's). A pull_request into `main` runs
-# MAIN's ci.yml, not this repo's current one, so a green probe does NOT by
-# itself prove a hotfix PR will pass. Those gaps are tracked as INFRA-458 and
-# INFRA-459.
+# coverage that is not present. A pull_request into `main` runs MAIN's ci.yml,
+# not this repo's current one, so a green probe does NOT by itself prove a
+# hotfix PR will pass. `main` carries whatever workflows the last release
+# shipped, so any workflow change merged to `development` since then is absent
+# there. That drift is the normal state between releases, not an incident, and
+# it RE-OPENS after every release — so read
+# `git show origin/main:.github/workflows/ci.yml` rather than this repo's copy
+# before reasoning about what gates a hotfix. INFRA-458 closed the 2026-07-13
+# instance, in which `main` lacked the safety-privacy job outright for six weeks.
 #
 # THIS PROBE STILL CANNOT OBSERVE ITS OWN SILENCE, but something else now does:
 # INFRA-460 added a liveness cross-check as a step in ci.yml's `ci-pass` job,

@@ -64,6 +64,10 @@ jest.mock('react-native-reanimated', () => {
     withSequence: jest.fn((...values) => values[values.length - 1]),
     withRepeat: jest.fn((value) => value),
     runOnJS: jest.fn((fn) => fn),
+    // INFRA-373: never invokes the callback. A mock that fired it would assert
+    // a frame cadence jest cannot have, and the spike exists precisely because
+    // whether the real hook ticks under New Arch is not knowable from here.
+    useFrameCallback: jest.fn(() => ({ setActive: jest.fn(), isActive: false, callbackId: 0 })),
     runOnUI: jest.fn((fn) => fn),
     interpolate: jest.fn((value, inputRange, outputRange) => outputRange[0]),
     Extrapolation: { CLAMP: 'clamp', EXTEND: 'extend', IDENTITY: 'identity' },

@@ -3,20 +3,72 @@ tags:
   - safety-device-only
 name: "Crisis affordance stays reachable while a software keyboard is up (device-only)"
 ---
-# DEVICE-ONLY (DEBUG-450). This flow CANNOT be trusted on the iOS simulator, and the
-# reason is a false-GREEN, not a false-red — which is the dangerous direction.
+# e2e-device-unavailable: DEBUG-589 measured=2026-09-07 dead-versions=2.0.0..2.10.0
 #
-# The simulator boots with "Connect Hardware Keyboard" enabled, so tapping into a
-# TextInput raises NO software keyboard. A naive "type, then assert the crisis control
-# is visible" flow therefore PASSES against a build where the accessory never mounts:
-# nothing was ever occluded, so the root button was visible the whole time and the
-# assertion succeeded for the wrong reason.
+# THE DEVICE HALF OF THE MAESTRO SAFETY GATE IS UNAVAILABLE. No Maestro version can
+# execute any flow on a physical iPhone — measured 2026-09-07 across 2.0.0 through 2.10.0
+# on iPhone 16e / iOS 26.6 / Xcode 26.0.1. Full root cause and the two failure modes are
+# recorded once, in crisis-988-dial.yaml. THE HARDWARE IS NOT THE PROBLEM: the iPhone is
+# wired, paired and Developer-Mode enabled, and the runner Maestro installs launches by
+# hand — do not read this as a missing or sleeping device. Maestro's own driver is the
+# failure. So this flow cannot start today.
 #
-# Same family as the canOpenURL caveat that makes crisis-988-dial device-only, and the
-# `safety-device-only` tag excludes this from `npm run e2e:safety` for the same reason.
+# e2e-sim-half: MIGRATED flow=crisis-keyboard-reachability.yaml by=DEBUG-506
+# e2e-attach-site: journal-crisis-scan.yaml by=INFRA-594
 #
-# On a real device (or a simulator with I/O ▸ Keyboard ▸ Connect Hardware Keyboard
-# UNCHECKED), run:
+# THE REACHABILITY CONTRACT HAS MIGRATED, so this flow is no longer its only runtime pin.
+# `crisis-keyboard-reachability.yaml` (DEBUG-506; closes DEBUG-590) runs it in the default
+# `safety` sim suite: software keyboard up, the accessory BUTTON visible, ONE tap,
+# `crisis-resources-screen`. That is the one site measuring REACHABILITY end to end.
+#
+# A SECOND site measures ATTACH ONLY (INFRA-594). `journal-crisis-scan.yaml`'s keyboard-up
+# block asserts the BUTTON visible with the keyboard raised and then taps Save — no tap on
+# the button, no destination — so it pins attachment and the occlusion predicate, and
+# nothing beyond them. It is not a duplicate of the first: its input is unmounted by
+# `setPhase('saved'|'idle')`, the `prepareForRecycle` dead-`__weak`-ref shape
+# `CrisisTextInput` exists to survive, which DailyLoop's concurrent-field surface cannot
+# exercise. Both surfaces that component's header names are now measured.
+#
+# Every other text surface is covered by construction, not by measurement: each renders
+# `CrisisTextInput`, which owns the input and its accessory from one mount, and
+# `check-crisis-keyboard-accessory-guard.js` fails CI on a bare `<TextInput>` or an
+# `inputAccessoryViewID=` anywhere outside it.
+#
+# MIGRATED does NOT mean the hardware path was verified. What only this flow can reach —
+# real keyboards and `UIRemoteKeyboardWindow` layering on hardware, the non-seeded LegalGate
+# preamble, and current iOS (the gate simulator runs 18.6) — stays unavailable per
+# DEBUG-589 above. The attended device checklist (INFRA-591) compensates for it; the sim
+# flow does not.
+#
+# DO NOT delete, rename or skip this flow.
+#
+# DEVICE-ONLY, AND THE RECORDED REASON FOR IT IS FALSE (DEBUG-506).
+#
+# This header used to say: "The simulator boots with Connect Hardware Keyboard enabled, so
+# tapping into a TextInput raises NO software keyboard", and that a naive flow would
+# therefore false-GREEN. Measured on the gate simulator (iPhone SE 3 / iOS 18.6):
+# `ConnectHardwareKeyboard` is unset both globally and per-device, a software keyboard DOES
+# rise at the default, and `UIKeyboardLayoutStar Preview` lands at [0,451][375,667] — the
+# same bounds DEBUG-506's evidence table records. `journal-crisis-scan.yaml` runs in the
+# default suite and asserts that node three times, which is the standing counter-example.
+#
+# That matters because this tag is why a regression in this affordance is invisible to
+# `npm run e2e:safety` by construction — and DEBUG-450 shipped an accessory that never
+# attached at all, for its entire life, with this flow the only thing pinning it.
+#
+# The real per-simulator hazard is different and is now handled in the harness: iOS's
+# QuickPath first-run tutorial occupies the keyboard's whole region, is not a keyboard
+# node, and `simctl erase` restores it. `e2e-safety.sh` seeds
+# `DidShowContinuousPathIntroduction` and refuses outright if a hardware keyboard is on.
+#
+# THE SPLIT IS DONE (DEBUG-506 AC5). `crisis-keyboard-reachability.yaml` carries the
+# reachability contract in the default sim suite, measured green before it was committed.
+# This flow stays device-only, and the reason is now the PREAMBLE rather than the keyboard:
+# it walks `_legal-and-onboarding.yaml`, which is correct for a non-seeded real-device build
+# and fails on the gate build, where `EXPO_PUBLIC_E2E_SEED_ONBOARDED=true` routes straight
+# past the LegalGate. It is what AC 6 runs on hardware.
+#
+# On a real device, run:
 #   npm run e2e:safety:keyboard-accessory
 #
 # CONTRACT PINNED: while a software keyboard occludes the root crisis button, a crisis

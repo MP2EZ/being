@@ -85,17 +85,17 @@
     },
     "APPLE_ISSUER_ID": {
       "required": true,
-      "usedBy": ["verify-apple-receipt"],
+      "usedBy": ["verify-apple-receipt", "grace-period-automation"],
       "note": "App Store Connect API issuer id, the `iss` claim of the ES256 token. Must come from a TEAM key — an INDIVIDUAL key has no issuer and uses `sub: 'user'` instead, which 401s against the claim set this function signs. Absent = every Apple verification fails as misconfigured (500), never as an invalid receipt."
     },
     "APPLE_KEY_ID": {
       "required": true,
-      "usedBy": ["verify-apple-receipt"],
+      "usedBy": ["verify-apple-receipt", "grace-period-automation"],
       "note": "App Store Connect API key id, the `kid` JWT header. Pairs with APPLE_PRIVATE_KEY; rotating one without the other 401s."
     },
     "APPLE_PRIVATE_KEY": {
       "required": true,
-      "usedBy": ["verify-apple-receipt"],
+      "usedBy": ["verify-apple-receipt", "grace-period-automation"],
       "note": "App Store Connect API private key, PKCS#8 PEM. _shared/appStoreServerApi.ts normalises literal \\n (the standard secret-paste failure) and rethrows a fixed message on a bad key, never echoing its content. Never logged, never returned."
     },
     "ALLOW_MOCK_RECEIPTS": {

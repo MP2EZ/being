@@ -13,7 +13,7 @@ const isQuickMode = process.env.JEST_QUICK === 'true';
 const isDevMode = process.env.NODE_ENV === 'development' || !process.env.CI;
 
 module.exports = {
-  preset: 'react-native',
+  preset: '@react-native/jest-preset',
 
   // Setup files for different test types
   setupFiles: [

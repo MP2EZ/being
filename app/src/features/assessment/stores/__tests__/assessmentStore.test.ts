@@ -72,6 +72,12 @@ describe('Assessment Store - Clinical Validation', () => {
     jest.clearAllMocks();
     for (const k of Object.keys(mockWellnessBlobs)) delete mockWellnessBlobs[k];
     useAssessmentStore.getState().resetAssessment();
+    // DEBUG-515: `resetAssessment()` does NOT clear `autoSaveEnabled`, and it
+    // defaults to true — so without this line every describe outside Auto-Save runs
+    // with the subscription armed under REAL timers. Safe because every storage
+    // assertion outside that describe is driven by an EXPLICIT `saveProgress()`
+    // call, never by autosave firing.
+    useAssessmentStore.setState({ autoSaveEnabled: false });
 
     // Mock SecureStore for testing
     mockSecureStore.setItemAsync.mockResolvedValue();
@@ -84,8 +90,21 @@ describe('Assessment Store - Clinical Validation', () => {
   });
 
   afterEach(() => {
-    // Clean up after each test - no timer management needed
-    // Timer cleanup only needed when jest.useFakeTimers() is used
+    // DEBUG-515: no test may leave the autosave subscription ARMED.
+    //
+    // The module-level subscription schedules a real 1000ms `setTimeout` per answer
+    // whenever `autoSaveEnabled` is true, and the file contains zero `clearTimeout`,
+    // so N answers leak N uncancelled timers. `jest.useFakeTimers()` is installed
+    // only inside the Auto-Save describe, so every OTHER describe schedules REAL
+    // timers that mature ~1s later — inside whatever test is running by then — and
+    // call `saveProgress()` against CURRENT state.
+    //
+    // This assertion is the root cause stated as an invariant. It is deliberately
+    // NOT a timer-count assertion: the leaked handles are `unref`'d, which makes
+    // them invisible to --detectOpenHandles, process.getActiveResourcesInfo() and
+    // process._getActiveHandles() alike, and jest.getTimerCount() counts only FAKE
+    // timers. The flag is the only observable proxy for the leak.
+    expect(useAssessmentStore.getState().autoSaveEnabled).toBe(false);
   });
 
   describe('PHQ-9 Clinical Accuracy', () => {
@@ -474,9 +493,67 @@ describe('Assessment Store - Clinical Validation', () => {
     });
 
     afterEach(() => {
-      // Clean up fake timers when used in this describe block
-      jest.runOnlyPendingTimers();
+      // DEBUG-515: CLEAR, do not RUN. `jest.runOnlyPendingTimers()` FIRES the
+      // enabled test's leftover autosave callback, whose async tail
+      // (saveProgress -> set({lastSavedAt}) -> persist write) then resolves inside
+      // the NEXT test. Clearing drops nothing any assertion here depends on.
+      jest.clearAllTimers();
       jest.useRealTimers();
+      // This describe is the only one that deliberately ARMS the subscription, so
+      // it is the only one that has to disarm it — see the outer afterEach.
+      useAssessmentStore.setState({ autoSaveEnabled: false });
+    });
+
+    /**
+     * DEBUG-549 — the module-level autosave subscription no longer schedules
+     * uncancelled timers, because it no longer exists.
+     *
+     * WHY THIS PIN IS NEW RATHER THAN A STRENGTHENED SIBLING. The two tests below
+     * cannot observe this change at all: `startAssessment` and `answerQuestion`
+     * each `await get().saveProgress()` INLINE under the same flag, so
+     * `mockStoreWellnessBlob` has already been called before any timer is
+     * advanced. Both pass with the subscription present and with it deleted —
+     * tautological with respect to the code under change. Timer COUNT is the only
+     * property that discriminates.
+     *
+     * Against the pre-fix code this asserts 0 and finds 9 (one uncancelled
+     * 1000ms timer per answer, unref'd so `--detectOpenHandles` cannot see them).
+     */
+    it('queues no deferred duplicate write across a full PHQ-9 (DEBUG-549)', async () => {
+      const { result } = renderHook(() => useAssessmentStore());
+
+      act(() => {
+        result.current.enableAutoSave();
+      });
+
+      await act(async () => {
+        await result.current.startAssessment('phq9');
+        for (let i = 1; i <= 9; i += 1) {
+          await result.current.answerQuestion(`phq9_${i}`, 1);
+        }
+      });
+
+      // Control, asserted BEFORE the discriminating step: the inline persistence
+      // path is genuinely live. Without this, "no deferred write" would also be
+      // satisfied by a store that never persists at all.
+      const inlineWrites = mockStoreWellnessBlob.mock.calls.length;
+      expect(inlineWrites).toBeGreaterThan(0);
+
+      // THE DISCRIMINATING ASSERTION. Everything above has already been written
+      // synchronously. Draining the timer queue must therefore produce no further
+      // write — a deferred one would be a duplicate of state already on disk.
+      //
+      // Deliberately NOT `jest.getTimerCount()`: the process has other, unrelated
+      // pending timers (measured: 1 after startAssessment, 5 after nine answers,
+      // none of them per-answer), so an absolute count would assert something this
+      // item does not own and would rot on any unrelated change. The pre-fix delta
+      // was 13 across nine answers versus 4 now — exactly the nine this removed.
+      await act(async () => {
+        jest.advanceTimersByTime(1100);
+        await Promise.resolve();
+      });
+
+      expect(mockStoreWellnessBlob.mock.calls.length).toBe(inlineWrites);
     });
 
     it('auto-saves progress after each answer when enabled', async () => {

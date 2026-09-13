@@ -150,6 +150,12 @@ function runGate({ root, stubs, lockRoot, gate }, args = [], extraEnv = {}) {
     env: {
       ...process.env,
       PATH: `${stubs}:${process.env.PATH}`,
+      // DEBUG-497: scrub the operator's session pin. The override is now honoured at any
+      // device count, so an exported E2E_SIM_UDID naming a real simulator refuses against
+      // this sandbox's stubbed devices — and the docs tell operators to export it for a
+      // whole session. Same reasoning as e2e-sim-build.test.js's runBuild.
+      E2E_SIM_UDID: '',
+      E2E_DEVICE_UDID: '',
       E2E_LOCK_ROOT: lockRoot,
       // INFRA-490: sandbox the telemetry log too. Unset, it appends to the SHARED /tmp
       // collection INFRA-491 is read off — and these specs plant live holders on 1s

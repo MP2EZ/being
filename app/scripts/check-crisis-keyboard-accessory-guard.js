@@ -1,25 +1,34 @@
 #!/usr/bin/env node
 /**
- * DEBUG-450 — every shipping <TextInput> must reach the crisis keyboard accessory.
+ * DEBUG-506 — no screen may render a bare <TextInput>; they render <CrisisTextInput>.
  *
- * WHY A GUARD AND NOT A CODE REVIEW. The affordance is per-call-site: a TextInput that
- * omits `crisisAccessoryProps()` silently has no 988 access while its keyboard is up, and
- * nothing renders differently anywhere else. That is invisible in review and invisible in
- * every jest suite. MAINT-290 made the root button a single root mount precisely so a new
- * screen could not forget it; this prop cannot be centralised the same way, because RN
- * requires the id on each input. The guard is what replaces the single mount.
+ * THE POLARITY IS INVERTED FROM DEBUG-450's VERSION, AND THAT IS THE POINT. This guard
+ * used to assert that every <TextInput> carried `crisisAccessoryProps()`. It passed
+ * continuously while the affordance those props named was INERT: attachment happens once,
+ * in `didMoveToWindow`, by a depth-first search of the window
+ * (`RCTInputAccessoryComponentView.mm:66-82`), and the single app-root mount ran that
+ * search at launch when no input existed. The old guard verified the half of the contract
+ * that is a static property of one file, and the half that failed lived in native mount
+ * ordering. A prop naming an accessory that never attaches is not 988 access.
  *
- * HOW IT DIFFERS FROM check-modal-occlusion-guard.js, which it is otherwise modelled on.
- * That guard asks "does this file contain a <Modal>" — tag presence. This one must ask
- * "does THIS <TextInput> carry the prop" — attribute presence, per tag. A file-level
- * answer would pass a file whose first input is wired and whose second is not, which is
- * exactly the DailyLoopStepScreen shape (two sites, one of them inside a .map() factory).
- * So this scans each opening tag's own attribute span.
+ * So the checkable unit is now the PAIRING, not the prop. `CrisisTextInput` renders the
+ * input and its own accessory from one mount with a per-instance id, which is what makes
+ * attachment possible at all; this guard's whole job is to make that component
+ * unavoidable. Two rules follow, and both are file-level because the pairing is:
  *
- * The allowlist + stale-entry design IS reused verbatim: a recorded ruling that outlives
+ *   1. No bare `<TextInput` outside the one file allowed to render it.
+ *   2. `inputAccessoryViewID=` appears in exactly that same file — a second occurrence is
+ *      a hand-rolled second wiring path, which is how the shared-id collision returns.
+ *
+ * Its old header claimed "this prop cannot be centralised the same way [as the root
+ * button], because RN requires the id on each input." The id is still per-input; what was
+ * wrong is the conclusion that a call site must therefore supply it. A component can own
+ * a per-instance id, and this one does.
+ *
+ * The allowlist + stale-entry design is reused verbatim: a recorded ruling that outlives
  * its subject is how DEBUG-406 describes a stale exemption surviving review.
  *
- * Exit 0 when every site is wired or allowlisted; exit 1 otherwise.
+ * Exit 0 when both rules hold; exit 1 otherwise.
  */
 
 'use strict';
@@ -30,17 +39,48 @@ const path = require('path');
 const APP_ROOT = path.resolve(__dirname, '..');
 const SRC_ROOT = path.join(APP_ROOT, 'src');
 
-/** The prop spread that wires a TextInput to the accessory. */
-const ACCESSORY_MARKERS = [/crisisAccessoryProps\s*\(/, /inputAccessoryViewID\s*=/];
+/**
+ * The single file permitted to render a bare <TextInput>.
+ *
+ * It is the composite itself. Nothing else may render one, because a bare input is one
+ * that ships with no crisis affordance behind its keyboard.
+ */
+const COMPOSITE = 'src/features/crisis/components/CrisisTextInput.tsx';
 
 /**
- * Sites deliberately NOT wired, each with a recorded ruling.
+ * Both ways an input can be bound to an accessory: the raw RN prop, and the helper that
+ * produces it. Either one at a call site is a second wiring path, and a second path is
+ * how the shared id — and the first-match collision behind it — comes back.
  *
- * An entry here is a safety decision, not a cleanup. Rule 2 below fails when an entry's
- * file no longer renders a bare <TextInput>, so a ruling cannot outlive its subject.
+ * Matching only the raw prop would be VACUOUS here, because the composite itself uses the
+ * helper and never writes the prop literally: rule 2 would then hold trivially across a
+ * tree in which nothing named either, and would keep holding if a call site started
+ * calling the helper directly.
+ */
+const ACCESSORY_ID_MARKERS = [/inputAccessoryViewID\s*=/, /crisisAccessoryProps\s*\(/];
+
+/**
+ * Files allowed to name those markers: the composite that consumes them, and the module
+ * that defines them. Neither renders a screen.
+ */
+const WIRING_OWNERS = new Set([
+  COMPOSITE,
+  'src/features/crisis/constants/crisisInputAccessory.ts',
+]);
+
+/**
+ * Files allowed to render a bare <TextInput> anyway, each with a recorded ruling.
+ *
+ * READ THIS BEFORE ADDING AN ENTRY — its meaning changed with the polarity. Under the old
+ * guard an entry meant "this input is wired some other way". It now means: **this input
+ * ships with NO crisis affordance while its keyboard is up.** That is a crisis ruling, not
+ * a wiring note, and it needs the `crisis` agent's sign-off in the entry.
+ *
+ * Rule 3 below fails when an entry's file no longer renders a bare <TextInput>, so a
+ * ruling cannot outlive its subject.
  */
 const ALLOWLIST = {
-  // (empty — every live TextInput is wired. Add entries with a written ruling.)
+  // (empty — every live input is a CrisisTextInput. Add entries with a written ruling.)
 };
 
 /** Blank comments while preserving offsets, so reported line numbers stay true. */
@@ -74,19 +114,37 @@ function openingTagSpan(src, startIdx) {
   return null;
 }
 
-/** Every JSX `<TextInput` site in a source string, with its wiring verdict. */
+/**
+ * Every bare JSX `<TextInput` site in a source string.
+ *
+ * The lookahead is what keeps `<CrisisTextInput` out: the regex anchors on `<` followed
+ * immediately by `TextInput`, so the composite's own tag never matches. Comments are
+ * blanked first — under this polarity a prose mention would be a false FAIL, which is the
+ * safe direction but still noise, and this repo names `TextInput` in prose constantly.
+ */
 function findTextInputSites(src) {
   const stripped = stripComments(src);
   const sites = [];
   const re = /<TextInput(?=[\s/>])/g;
   let match;
   while ((match = re.exec(stripped)) !== null) {
-    const line = stripped.slice(0, match.index).split('\n').length;
-    const span = openingTagSpan(stripped, match.index);
-    const wired = span === null ? false : ACCESSORY_MARKERS.some((r) => r.test(span));
-    sites.push({ line, wired, unparsed: span === null });
+    sites.push({ line: stripped.slice(0, match.index).split('\n').length });
   }
   return sites;
+}
+
+/** Lines binding an input to an accessory, by either path, comments excluded. */
+function findAccessoryIdSites(src) {
+  const stripped = stripComments(src);
+  const sites = [];
+  for (const marker of ACCESSORY_ID_MARKERS) {
+    const re = new RegExp(marker.source, 'g');
+    let match;
+    while ((match = re.exec(stripped)) !== null) {
+      sites.push({ line: stripped.slice(0, match.index).split('\n').length });
+    }
+  }
+  return sites.sort((a, b) => a.line - b.line);
 }
 
 /** Recursively collect shipping .ts/.tsx sources, excluding tests. */
@@ -106,55 +164,88 @@ function collectSourceFiles(dir, acc = []) {
 
 const toRel = (abs) => path.relative(APP_ROOT, abs).split(path.sep).join('/');
 
-/** @returns {{unwired: Array, stale: Array}} */
+/**
+ * @returns {{bare: Array, strayIds: Array, stale: Array, scanned: number}}
+ *   `scanned` exists so a caller can prove the walk was not vacuous. An inverted guard
+ *   reports success by finding NOTHING, so a scan that silently covered zero files is
+ *   indistinguishable from a clean tree — the failure mode the old polarity did not have.
+ */
 function runGuard(srcRoot = SRC_ROOT) {
   const files = collectSourceFiles(srcRoot);
-  const unwired = [];
+  const bare = [];
+  const strayIds = [];
   const seenWithTextInput = new Set();
 
   for (const abs of files) {
     const rel = toRel(abs);
-    const sites = findTextInputSites(fs.readFileSync(abs, 'utf8'));
-    if (sites.length === 0) continue;
+    const src = fs.readFileSync(abs, 'utf8');
 
+    // Rule 2 — the accessory id is the composite's own invariant. Anywhere else it is a
+    // hand-rolled second wiring path, and a second path is how a shared id returns.
+    if (!WIRING_OWNERS.has(rel)) {
+      const ids = findAccessoryIdSites(src);
+      if (ids.length > 0) strayIds.push({ file: rel, lines: ids.map((s) => s.line) });
+    }
+
+    // Rule 1 — no bare <TextInput> outside the composite.
+    const sites = findTextInputSites(src);
+    if (sites.length === 0) continue;
     seenWithTextInput.add(rel);
+    if (rel === COMPOSITE) continue;
     if (Object.prototype.hasOwnProperty.call(ALLOWLIST, rel)) continue;
 
-    const bad = sites.filter((s) => !s.wired);
-    if (bad.length > 0) unwired.push({ file: rel, lines: bad.map((s) => s.line) });
+    bare.push({ file: rel, lines: sites.map((s) => s.line) });
   }
 
-  // Rule 2 — an allowlist entry whose file no longer renders a <TextInput> is a recorded
+  // Rule 3 — an allowlist entry whose file no longer renders a <TextInput> is a recorded
   // ruling that has outlived its subject. Fail so the record is updated, not preserved.
   const stale = Object.keys(ALLOWLIST).filter((rel) => !seenWithTextInput.has(rel));
 
-  return { unwired, stale };
+  return { bare, strayIds, stale, scanned: files.length };
 }
 
 function main() {
-  const { unwired, stale } = runGuard();
+  const { bare, strayIds, stale, scanned } = runGuard();
   let failed = false;
 
-  if (unwired.length > 0) {
+  // A guard that passes by finding nothing must prove it looked. Zero scanned files is a
+  // broken walk reported as a clean tree.
+  if (scanned === 0) {
+    console.error('\n❌ DEBUG-506: the guard scanned ZERO files — the walk is broken.\n');
+    process.exit(1);
+  }
+
+  if (bare.length > 0) {
     failed = true;
-    console.error('\n❌ DEBUG-450: <TextInput> sites with no crisis keyboard accessory:\n');
-    for (const { file, lines } of unwired) {
-      console.error(`     ${file}:${lines.join(',')}`);
-    }
+    console.error('\n❌ DEBUG-506: bare <TextInput> sites (no crisis keyboard accessory):\n');
+    for (const { file, lines } of bare) console.error(`     ${file}:${lines.join(',')}`);
     console.error(
-      '\n  While a software keyboard is up, the root crisis button is inside the\n' +
-        '  keyboard window and unreachable — so an unwired TextInput has NO 988 access.\n' +
-        '  Spread the props on each site:\n\n' +
-        "      import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';\n" +
-        '      <TextInput {...crisisAccessoryProps()} … />\n\n' +
-        '  If a site genuinely must not carry it, add the FILE to ALLOWLIST in\n' +
-        '  scripts/check-crisis-keyboard-accessory-guard.js with a written ruling.\n',
+      '\n  While a software keyboard is up the root crisis button is inside the keyboard\n' +
+        "  window and unreachable, so a bare TextInput has NO 988 access. A prop alone is\n" +
+        '  not enough — the accessory only attaches when it shares ONE mount with its\n' +
+        '  input, which is what CrisisTextInput is for. Convert the site:\n\n' +
+        "      import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';\n" +
+        '      <CrisisTextInput … />   // same props, same ref, plus its own accessory\n\n' +
+        '  If a site genuinely must ship with no crisis affordance behind its keyboard,\n' +
+        '  add the FILE to ALLOWLIST with a written ruling signed off by `crisis`.\n',
+    );
+  }
+
+  if (strayIds.length > 0) {
+    failed = true;
+    console.error('\n❌ DEBUG-506: inputAccessoryViewID named outside the composite:\n');
+    for (const { file, lines } of strayIds) console.error(`     ${file}:${lines.join(',')}`);
+    console.error(
+      `\n  Only ${COMPOSITE} (and the module defining it) may name these. A second wiring\n` +
+        '  path is how the shared id —\n' +
+        '  and with it the first-match collision that leaves every input but one\n' +
+        '  uncovered — comes back. Render CrisisTextInput instead.\n',
     );
   }
 
   if (stale.length > 0) {
     failed = true;
-    console.error('\n❌ DEBUG-450: ALLOWLIST entries whose file renders no <TextInput>:\n');
+    console.error('\n❌ DEBUG-506: ALLOWLIST entries whose file renders no <TextInput>:\n');
     for (const file of stale) console.error(`     ${file}`);
     console.error(
       '\n  Remove the entry. The allowlist is the audit trail of deliberate\n' +
@@ -163,14 +254,20 @@ function main() {
   }
 
   if (failed) process.exit(1);
-  console.log('✓ DEBUG-450: every shipping <TextInput> reaches the crisis keyboard accessory');
+  console.log(
+    `✓ DEBUG-506: no bare <TextInput> outside the composite (${scanned} files scanned)`,
+  );
 }
 
 if (require.main === module) main();
 
 module.exports = {
+  ACCESSORY_ID_MARKERS,
   ALLOWLIST,
+  COMPOSITE,
+  WIRING_OWNERS,
   collectSourceFiles,
+  findAccessoryIdSites,
   findTextInputSites,
   openingTagSpan,
   runGuard,

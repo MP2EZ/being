@@ -83,7 +83,12 @@ const TWO_DEVICES = [
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
 const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
 const REAL_HOST_CONTENTION = path.resolve(__dirname, '../../scripts/e2e-host-contention.sh');
+const REAL_CONTENT_SIZE = path.resolve(__dirname, '../../scripts/e2e-content-size.sh');
 const REAL_TELEMETRY = path.resolve(__dirname, '../../scripts/e2e-telemetry.sh');
+// INFRA-508: the build script shells out to the CNG fingerprint helper. Real file —
+// a stub would decide the very predicate these CNG tests exist to exercise.
+const REAL_CNG_FINGERPRINT = path.resolve(__dirname, '../../scripts/cng-fingerprint.js');
+const { cngFingerprint } = require('../../scripts/cng-fingerprint.js');
 const REAL_VERDICT = path.resolve(__dirname, '../../scripts/e2e-verdict.js');
 const BUNDLE_ID = 'fyi.being.app';
 const PRODUCT_REL = 'ios/build/Build/Products/Release-iphonesimulator';
@@ -189,17 +194,45 @@ function makeProject(opts = {}) {
   // stage it or every test here dies on the source line before reaching anything under
   // test. Real file: it warns and never exits, so staging it cannot change a verdict.
   fs.copyFileSync(REAL_HOST_CONTENTION, path.join(root, 'scripts', 'e2e-host-contention.sh'));
+  // DEBUG-469: e2e-safety.sh sources the content-size pre-flight. Real file, not a stub —
+  // it REFUSES a non-default size, so a stub that always passed would hide the one thing it
+  // exists to do. Note this is the FOURTH helper to need a line here (INFRA-436, INFRA-476,
+  // INFRA-490 preceded it) and the failure is silent by construction: bash reports a missing
+  // source and carries on, so the helper's functions become `command not found` and every
+  // test in this file fails on an exit code unrelated to what it asserts. The guard below
+  // derives the list instead of trusting this one.
+  fs.copyFileSync(REAL_CONTENT_SIZE, path.join(root, 'scripts', 'e2e-content-size.sh'));
   // INFRA-490: both gate scripts source the telemetry writer. Real file, not a stub — it
   // appends to E2E_TELEMETRY_FILE, which runInSandbox points at the sandbox, so staging it
   // cannot touch the shared /tmp log or change a verdict.
   fs.copyFileSync(REAL_TELEMETRY, path.join(root, 'scripts', 'e2e-telemetry.sh'));
+  fs.copyFileSync(REAL_CNG_FINGERPRINT, path.join(root, 'scripts', 'cng-fingerprint.js'));
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
     path.join(root, 'app.json'),
     JSON.stringify({ expo: { ios: { infoPlist: { LSApplicationQueriesSchemes: appJsonSchemes } } } })
   );
-  fs.writeFileSync(path.join(root, 'package.json'), JSON.stringify({ name: 'app' }));
+  // DEBUG-589: e2e-safety.sh's first pre-flight reads the Maestro version pin from
+  // `<script dir>/../package.json` and refuses (exit 2) when it is missing, which would
+  // pre-empt every gate-run arm below with the wrong message. Not a CNG-projected key
+  // (cng-fingerprint.js's CNG_PACKAGE_KEYS), so it does not perturb the fingerprint cases.
+  fs.writeFileSync(
+    path.join(root, 'package.json'),
+    JSON.stringify({
+      name: 'app',
+      dependencies: { expo: '56.0.0' },
+      scripts: { test: 'jest' },
+      maestro: { pinnedVersion: '2.6.0' },
+    })
+  );
+  // INFRA-508: package-lock.json joined the CNG projection. Absent, the fingerprint throws
+  // and the script fails safe into a regeneration — which would make every 'current' case
+  // below silently assert the opposite of what it says.
+  fs.writeFileSync(
+    path.join(root, 'package-lock.json'),
+    JSON.stringify({ name: 'app', lockfileVersion: 3, packages: {} })
+  );
   fs.mkdirSync(path.join(root, 'plugins'), { recursive: true });
   fs.writeFileSync(path.join(root, 'plugins', 'withAppGroupsEntitlement.js'), '// plugin');
   fs.mkdirSync(path.join(root, 'patches'), { recursive: true });
@@ -208,12 +241,14 @@ function makeProject(opts = {}) {
 
   if (iosExists) {
     fs.mkdirSync(path.join(root, PRODUCT_REL), { recursive: true });
-    // The stamp marks when ios/ was last generated. The script compares its mtime against
-    // the newest CNG input; anything newer means the generated project is behind.
+    // The stamp records the CNG fingerprint ios/ was generated from. The script compares it
+    // against the tree's current fingerprint; any difference means the project is behind.
     // Written last, so it is naturally newer than the inputs above => 'current'.
     const stamp = path.join(root, 'ios', '.cng-stamp');
-    fs.writeFileSync(stamp, 'generated');
-    if (cngStamp === 'stale') fs.utimesSync(stamp, new Date(946684800000), new Date(946684800000));
+    // INFRA-508: the stamp holds a CONTENT fingerprint of the CNG inputs, not a timestamp.
+    // 'stale' therefore means a fingerprint that does not match the tree — it used to mean
+    // an old mtime, which no longer decides anything.
+    fs.writeFileSync(stamp, cngStamp === 'stale' ? 'a-fingerprint-of-some-other-tree' : cngFingerprint(root));
   }
 
   // Two `safety`-tagged flows, one device-only, one helper — enough to pin the tag filter,
@@ -613,6 +648,15 @@ function runScript(opts = {}) {
     env: {
       ...process.env,
       PATH: `${stubs}:${process.env.PATH}`,
+      // DEBUG-497: scrub the OPERATOR'S session pin out of the inherited environment.
+      // These fixtures boot a stubbed "AAAA-1111", and since the override is now honoured
+      // at any device count, an exported E2E_SIM_UDID naming a real simulator refuses
+      // every one of them — measured at 79 of 126 specs in this file and e2e-gate's.
+      // docs/testing/e2e-maestro.md tells operators to export it for a whole session, so
+      // this is the common case, not a corner. Placed before any `...env` spread so an
+      // explicit per-case override still wins. Precedent: e2e-safety-exit-alphabet.test.js.
+      E2E_SIM_UDID: '',
+      E2E_DEVICE_UDID: '',
       // INFRA-436: per-sandbox lock root. The default is a shared /tmp path, which would
       // make concurrently-running suites contend for a real lock and leave one behind.
       E2E_LOCK_ROOT: path.join(root, '.locks'),
@@ -676,6 +720,29 @@ function runScript(opts = {}) {
  * @param opts.env     extra env (e.g. E2E_REQUIRE_CLEAN_PROVENANCE)
  * @param opts.maestroExits exit code for every `maestro test`
  */
+describe('DEBUG-469 — the sandbox stages every helper the gate scripts source', () => {
+  // FOURTH occurrence of one failure mode (INFRA-436, INFRA-476, INFRA-490, DEBUG-469), and
+  // it is silent by construction: bash prints "No such file or directory" on the source line
+  // and CARRIES ON, so the helper's functions become `command not found` — 127 — and every
+  // test here fails on an exit code that has nothing to do with what it asserts. Derive the
+  // requirement from the scripts instead of maintaining a fifth hand-written list.
+  test.each(['e2e-safety.sh', 'e2e-sim-build.sh'])('%s: every sourced helper is staged', (script) => {
+    const root = makeProject();
+    const staged = path.join(root, 'scripts', script);
+    expect(fs.existsSync(staged)).toBe(true);
+    const sourced = [
+      ...fs.readFileSync(staged, 'utf8').matchAll(/^\s*\.\s+"\$\(dirname "\$0"\)\/([\w.-]+)"/gm),
+    ].map((m) => m[1]);
+    expect(sourced.length).toBeGreaterThan(0);
+    const missing = sourced.filter((f) => !fs.existsSync(path.join(root, 'scripts', f)));
+    expect(missing).toEqual([]);
+  });
+});
+
+// DEBUG-589: flows that can only run on a physical iPhone. e2e-safety.sh refuses this
+// path with exit 5 because no released Maestro can build its driver for a device.
+const DEVICE_ONLY_FLOW_NAMES = ['crisis-988-dial', 'crisis-keyboard-accessory'];
+
 function runSafety(built, opts = {}) {
   const {
     flows = [],
@@ -772,7 +839,14 @@ function runSafety(built, opts = {}) {
   writeStub(
     built.stubs,
     'maestro',
-    [`echo "maestro $@" >> "${trace}"`, maestroBody !== null ? maestroBody : defaultMaestro].join('\n')
+    [
+      // DEBUG-589: answer `--version` with the pinned version, BEFORE the trace append —
+      // the version pre-flight must not appear in the trace, or the assertions that count
+      // maestro invocations would see a call no flow made.
+      'if [ "$1" = "--version" ]; then echo 2.6.0; exit 0; fi',
+      `echo "maestro $@" >> "${trace}"`,
+      maestroBody !== null ? maestroBody : defaultMaestro,
+    ].join('\n')
   );
   // INFRA-423: `pkill` is gone from the gate entirely — the reap now targets an explicit
   // pid list. The stub survives only so that a REGRESSION reintroducing a pattern kill
@@ -829,8 +903,19 @@ function runSafety(built, opts = {}) {
     env: {
       ...process.env,
       PATH: `${built.stubs}:${process.env.PATH}`,
+      E2E_SIM_UDID: '', // DEBUG-497, see runBuild
+      E2E_DEVICE_UDID: '', // DEBUG-497, see runBuild
       E2E_LOCK_ROOT: path.join(built.root, '.locks'), // INFRA-436, see runBuild
       E2E_TELEMETRY_FILE: path.join(built.root, '.telemetry.jsonl'), // INFRA-490, see runBuild
+      // DEBUG-589: the device path is refused up front now (exit 5), so a device-only
+      // selection never reaches device RESOLUTION — which is what this file's INFRA-424
+      // block exists to test. Set the documented escape hatch for exactly those
+      // selections, so those specs keep testing resolution rather than the refusal.
+      // Placed BEFORE `...env` so a spec can still clear it and assert the refusal;
+      // `deviceOnlyFlowsRefused` below is the spec that does.
+      ...(flows.length > 0 && flows.every(f => DEVICE_ONLY_FLOW_NAMES.includes(f))
+        ? { E2E_FORCE_DEVICE_ATTEMPT: '1' }
+        : {}),
       ...env,
     },
     timeout: 45000,
@@ -986,6 +1071,128 @@ describe('e2e-sim-build.sh — CNG staleness (the regression the swap would intr
     const r = runScript({ cngStamp: 'current' });
     expect(r.status).toBe(0);
     expect(r.prebuildRan).toBe(false);
+  });
+});
+
+/**
+ * INFRA-508. The predicate above used to be an MTIME test:
+ *
+ *     find app.json package.json plugins patches -newer ios/.cng-stamp
+ *
+ * `git checkout` restamps every file it rewrites, so any package.json move fired a full
+ * regeneration whether or not a dependency changed. Measured over five instrumented gate
+ * runs (DEBUG-469 close, 2026-08-21): 11m05s / 12m43s / 14m26s when it fired against
+ * 1m02s / 3m51s when it did not, and the trigger predicted all five exactly.
+ *
+ * These tests pin BOTH directions. The cheap direction alone would be satisfied by simply
+ * deleting the check, which is the false-green this whole file exists to prevent.
+ */
+describe('e2e-sim-build.sh — CNG staleness keys on content, not mtime (INFRA-508)', () => {
+  /** Rewrite a JSON file in the sandbox through a mutator. */
+  const edit = (root, file, mutate) => {
+    const f = path.join(root, file);
+    const obj = JSON.parse(fs.readFileSync(f, 'utf8'));
+    mutate(obj);
+    fs.writeFileSync(f, JSON.stringify(obj, null, 2));
+  };
+
+  test('an npm SCRIPT edit does NOT regenerate — the measured 11-14 min defect', () => {
+    const r = runScript({
+      cngStamp: 'current',
+      beforeRun: root => edit(root, 'package.json', p => {
+        p.scripts['e2e:safety:q9'] = 'bash scripts/e2e-safety.sh q9-single-alert';
+      }),
+    });
+    expect(r.status).toBe(0);
+    expect(r.prebuildRan).toBe(false);
+  });
+
+  test('a byte-identical rewrite does NOT regenerate — the mtime mechanism itself', () => {
+    // Exactly what `git checkout` does to a file whose content did not change between two
+    // commits, and what a peer re-pointing the shared gate worktree does to yours.
+    const r = runScript({
+      cngStamp: 'current',
+      beforeRun: root => {
+        for (const f of ['package.json', 'app.json', 'package-lock.json']) {
+          const q = path.join(root, f);
+          fs.writeFileSync(q, fs.readFileSync(q));
+          const future = new Date(Date.now() + 60_000);
+          fs.utimesSync(q, future, future);
+        }
+      },
+    });
+    expect(r.status).toBe(0);
+    expect(r.prebuildRan).toBe(false);
+  });
+
+  test('a DEPENDENCY change still regenerates', () => {
+    const r = runScript({
+      cngStamp: 'current',
+      beforeRun: root => edit(root, 'package.json', p => { p.dependencies['expo-print'] = '56.0.4'; }),
+    });
+    expect(r.status).toBe(0);
+    expect(r.prebuildRan).toBe(true);
+  });
+
+  test('an app.json edit still regenerates — the 988 dial Info.plist control', () => {
+    // The safety half. app.json is the sole source of the generated Info.plist, and
+    // LSApplicationQueriesSchemes gates Linking.canOpenURL('tel:988'). Content-keying must
+    // not have narrowed this.
+    const r = runScript({
+      cngStamp: 'current',
+      beforeRun: root => edit(root, 'app.json', a => {
+        a.expo.ios.infoPlist.LSApplicationQueriesSchemes = ['tel'];
+      }),
+    });
+    expect(r.status).toBe(0);
+    expect(r.prebuildRan).toBe(true);
+  });
+
+  test('a lockfile-only change still regenerates', () => {
+    const r = runScript({
+      cngStamp: 'current',
+      beforeRun: root => edit(root, 'package-lock.json', l => {
+        l.packages['node_modules/expo-print'] = { version: '56.0.4' };
+      }),
+    });
+    expect(r.status).toBe(0);
+    expect(r.prebuildRan).toBe(true);
+  });
+
+  test('regenerates when the fingerprint helper cannot run — fails safe, and says so', () => {
+    // A broken helper must cost the 11-minute build, never a skipped one. The build itself
+    // still succeeds: it has just regenerated, so the artifact is fresh and refusing it
+    // would reject a valid build over bookkeeping. What must NOT happen is degrading
+    // quietly into a permanent regeneration floor, so the warning is part of the contract.
+    const r = runScript({
+      cngStamp: 'current',
+      beforeRun: root => fs.unlinkSync(path.join(root, 'scripts', 'cng-fingerprint.js')),
+    });
+    expect(r.status).toBe(0);
+    expect(r.prebuildRan).toBe(true);
+    expect(r.output).toMatch(/CNG fingerprint unavailable after prebuild/);
+    expect(fs.existsSync(path.join(r.root, 'ios', '.cng-stamp'))).toBe(false);
+  });
+
+  test('stamps the POST-prebuild fingerprint, so the next run is warm', () => {
+    // `expo prebuild` rewrites package.json ("Updated package.json | no changes"). Stamping
+    // the fingerprint read BEFORE it would leave the stamp disagreeing with the tree and
+    // regenerate on every subsequent run — a permanent 11-minute floor.
+    const r = runScript({ cngStamp: 'stale' });
+    expect(r.prebuildRan).toBe(true);
+
+    const stamped = fs.readFileSync(path.join(r.root, 'ios', '.cng-stamp'), 'utf8');
+    expect(stamped).toBe(cngFingerprint(r.root));
+  });
+
+  test('names WHICH condition fired rather than one message for every cause', () => {
+    // The old text read "CNG inputs changed (or ios/ missing)" for all of them, so
+    // diagnosing a surprise 12-minute build afterwards took the gate worktree's reflog.
+    const absent = runScript({ iosExists: false });
+    expect(absent.output).toMatch(/ios\/ is absent/);
+
+    const changed = runScript({ cngStamp: 'stale' });
+    expect(changed.output).toMatch(/CNG inputs changed/);
   });
 });
 
@@ -1165,7 +1372,8 @@ describe('e2e-safety.sh — provenance comparison (AC2, AC3)', () => {
   test('REFUSES every flow when the tree moved after the build', () => {
     const built = runScript({});
     const gate = runSafety(built, { git: { head: '2222222222222222222222222222222222222222' } });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: provenance MISMATCH is artifact LINEAGE, not flow behaviour.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0); // refuses BEFORE the loop, not per-flow
     expect(gate.output).toMatch(/MISMATCH/);
   });
@@ -1183,7 +1391,8 @@ describe('e2e-safety.sh — provenance comparison (AC2, AC3)', () => {
     const built = runScript({});
     fs.unlinkSync(path.join(built.container, MARKER_NAME));
     const gate = runSafety(built);
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: a MISSING marker means the gate cannot vouch for the target.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
     expect(gate.output).toMatch(/MISSING/);
   });
@@ -1237,7 +1446,8 @@ describe('e2e-safety.sh — dirty-tree runs are visibly not evidence (AC3/AC4)',
     // AC3 (banner, still run) and AC4 (gate failure) are opposite policies over ONE
     // implementation; this knob is the whole difference. /b-close sets it.
     const gate = runSafety(builtDirty(), { env: { E2E_REQUIRE_CLEAN_PROVENANCE: '1' } });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: "commit and rebuild" is an evidence instruction; no flow ran.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
     expect(gate.output).toMatch(/DIRTY tree|dirty tree/i);
   });
@@ -1337,7 +1547,8 @@ describe('e2e-safety.sh — flow selection and the no-silent-green rule', () => 
     // "✓ provenance" banners. There is no correct target for a mixed set, so it refuses.
     const built = runScript({});
     const gate = runSafety(built, { flows: ['crisis-988-dial', 'q9-single-alert'] });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: refused during SELECTION, so `ran` is 0 by construction.
+    expect(gate.status).toBe(2);
     expect(gate.output).toMatch(/mixed flow selection/i);
     expect(gate.flowsRun).toBe(0);
     // The refusal must name the offending flow so the operator can split the invocation.
@@ -1355,7 +1566,10 @@ describe('e2e-safety.sh — pre-flight checks BOTH crisis dial schemes', () => {
     const built = runScript({});
     writeStub(built.stubs, 'plutil', `echo '${JSON.stringify(['tel'])}'`);
     const gate = runSafety(built);
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: the most 1-flavoured pre-flight arm, and still 2. The SOURCE
+    // contract has an owner that can say "regression" (INFRA-184's jest pin, in precommit);
+    // the gate knows only that this installed binary is not the attested target.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
     expect(gate.output).toMatch(/sms/);
   });
@@ -1438,6 +1652,8 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
       env: {
         ...process.env,
         PATH: `${stubs}:${process.env.PATH}`,
+        E2E_SIM_UDID: '', // DEBUG-497, see runBuild — this site bypasses it, same as INFRA-490
+        E2E_DEVICE_UDID: '', // DEBUG-497, see runBuild
         E2E_LOCK_ROOT: path.join(root, '.locks'),
         E2E_TELEMETRY_FILE: path.join(root, '.telemetry.jsonl'),
         CI: '',
@@ -1454,14 +1670,17 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
   test('refuses a helper subflow by name', () => {
     const built = runScript({});
     const gate = runSafety(built, { flows: ['_legal-and-onboarding'] });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: invocation error, no flow started.
+    expect(gate.status).toBe(2);
     expect(gate.flowsRun).toBe(0);
   });
 
   test('refuses a flow that does not exist instead of running nothing successfully', () => {
     const built = runScript({});
     const gate = runSafety(built, { flows: ['no-such-flow'] });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: invocation error. The exit-1 message told the operator to debug
+    // a flow file that does not exist.
+    expect(gate.status).toBe(2);
     expect(gate.output).toMatch(/no such flow/i);
   });
 
@@ -1474,7 +1693,8 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
       fs.unlinkSync(path.join(built.root, '.maestro', f));
     }
     const gate = runSafety(built);
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — 1 -> 2: zero flows ran, which is the definition of "no verdict".
+    expect(gate.status).toBe(2);
     expect(gate.output).not.toMatch(/all safety flows passed/);
     expect(gate.output).toMatch(/refusing to report success/i);
   });
@@ -1482,7 +1702,9 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
   test('a failing flow still fails the gate', () => {
     const built = runScript({});
     const gate = runSafety(built, { maestroExits: 1 });
-    expect(gate.status).not.toBe(0);
+    // DEBUG-505 — tightened to pin what 1 still MEANS after the sweep: an adjudicated red
+    // flow, and nothing else in this file. Loosened, it would pass on any non-zero code.
+    expect(gate.status).toBe(1);
     expect(gate.output).toMatch(/one or more safety flows failed/);
   });
 });
@@ -1621,7 +1843,7 @@ describe('INFRA-405 — e2e-safety.sh device selection', () => {
   test('refuses when a second simulator booted between the build and the gate run', () => {
     const built = runScript({ bootedDevices: ONE });
     const r = runSafety(built, { booted: TWO });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.flowsRun).toBe(0);
     expect(r.output).toMatch(/ambiguous/i);
   });
@@ -1675,6 +1897,35 @@ describe('INFRA-405 — e2e-safety.sh device selection', () => {
 // the same limitation the work item records — the refusal branches are testable with
 // stubs, the happy path is not. Real-hardware validation remains a manual step.
 // =====================================================================================
+describe('e2e-safety.sh — DEBUG-589 the device path is refused before resolution', () => {
+  // runSafety() sets E2E_FORCE_DEVICE_ATTEMPT=1 for device-only selections so the
+  // INFRA-424 block below still tests RESOLUTION. That auto-set would otherwise hide the
+  // refusal entirely from this file, and a later edit removing it would look like a
+  // no-op. This spec clears the hatch and pins the real default.
+  test('a device-only flow refuses with exit 5 and runs nothing', () => {
+    const built = runScript({ attachedDevices: ONE_DEVICE });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      env: { E2E_FORCE_DEVICE_ATTEMPT: '' },
+    });
+    expect(r.status).toBe(5);
+    expect(r.flowsRun).toBe(0);
+    expect(r.output).toMatch(/DEVICE_PATH_UNAVAILABLE/);
+  });
+
+  test('the refusal blames the toolchain, not the attached hardware', () => {
+    // The trap the crisis ruling called load-bearing: a reader who takes this for a
+    // missing device spends a day on cables. A device IS attached in this fixture.
+    const built = runScript({ attachedDevices: ONE_DEVICE });
+    const r = runSafety(built, {
+      flows: ['crisis-988-dial'],
+      env: { E2E_FORCE_DEVICE_ATTEMPT: '' },
+    });
+    expect(r.output).toMatch(/HARDWARE IS NOT THE PROBLEM/);
+    expect(r.output).toMatch(/NOT A FLOW REGRESSION/);
+  });
+});
+
 describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () => {
   test('ZERO attached devices REFUSES and runs nothing — no silent simulator fallback', () => {
     // The headline regression assertion. Two simulators are booted and the app is
@@ -1682,7 +1933,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
     // behaviour did exactly that.
     const built = runScript({ bootedDevices: ONE, attachedDevices: [] });
     const r = runSafety(built, { flows: ['crisis-988-dial'], booted: TWO });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.flowsRun).toBe(0);
     expect(r.output).toMatch(/device-only/i);
     // Never runs maestro at all, and never names a simulator as the target.
@@ -1706,7 +1957,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
   test('TWO attached devices refuse as AMBIGUOUS and list the candidates', () => {
     const built = runScript({ attachedDevices: TWO_DEVICES });
     const r = runSafety(built, { flows: ['crisis-988-dial'] });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.flowsRun).toBe(0);
     expect(r.output).toMatch(/ambiguous/i);
     expect(r.output).toMatch(/DEV-1111/);
@@ -1731,7 +1982,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
       flows: ['crisis-988-dial'],
       env: { E2E_DEVICE_UDID: 'DEV-9999' },
     });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.output).toMatch(/not among the attached devices/i);
     expect(r.trace).not.toMatch(/maestro test/);
   });
@@ -1759,7 +2010,7 @@ describe('e2e-safety.sh — INFRA-424 device-only flows pin their target', () =>
     // is the normal shape of a failure and would otherwise read as "nothing attached".
     const built = runScript({ devicectlFails: true });
     const r = runSafety(built, { flows: ['crisis-988-dial'] });
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(2);
     expect(r.output).toMatch(/could not enumerate/i);
     expect(r.output).not.toMatch(/no eligible iPhone attached/i);
     expect(r.trace).not.toMatch(/maestro test/);
@@ -2213,7 +2464,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
       }),
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).not.toMatch(/all safety flows passed/);
     expect(r.output).toMatch(/replaced/i);
     // Attribution is free — the marker already carries repoRoot and branch.
@@ -2264,7 +2515,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
       }),
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     // The two arms are distinguishable on purpose: an uninstall leaves NO marker, so
     // "name the replacing worktree" is unsatisfiable for it and must not be claimed.
     expect(r.output).toMatch(/vanished|gone|absent/i);
@@ -2327,7 +2578,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
 
     // A top-of-loop-only check would report this 1-of-1 run — the common /b-close
     // per-flow shape — as a clean pass.
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).not.toMatch(/all safety flows passed/);
   }, 60000);
 
@@ -2343,7 +2594,7 @@ describe('INFRA-434 — mid-suite gate-target substitution', () => {
       env: { E2E_REQUIRE_CLEAN_PROVENANCE: '1' },
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     // The marker change bounds a WINDOW, not an instant — the substitution could have
     // happened at any point during flow 1 — so no completed flow survives as evidence.
     expect(r.output).toMatch(/VOID|inconclusive/i);
@@ -2442,7 +2693,7 @@ describe('INFRA-466 — a failed container re-resolve is a refusal, not a fallba
 
     // On unmodified `development` this suite runs to completion and reports PASS —
     // that is the fail-open, and this assertion is what makes it visible.
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).not.toMatch(/all safety flows passed/);
     expect(r.flowsRun).toBe(1);
   }, 60000);
@@ -2492,7 +2743,7 @@ describe('INFRA-466 — a failed container re-resolve is a refusal, not a fallba
       }),
     });
 
-    expect(r.status).not.toBe(0);
+    expect(r.status).toBe(3);
     expect(r.output).toMatch(/vanished/i);
   }, 60000);
 });

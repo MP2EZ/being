@@ -76,10 +76,33 @@ function suppressesOnGad7(gad7: GAD7Result | null): boolean {
   return gad7.totalScore >= CRISIS_SAFETY_THRESHOLDS.GAD7_SEVERE_THRESHOLD;
 }
 
-/** At or above the support floor — gentlest layer only, not suppression. */
-function isGentleBand(phq9: PHQ9Result | null): boolean {
+/**
+ * At or above this axis's gentle floor — gentlest layer only, not suppression.
+ *
+ * ONE RULE, APPLIED PER AXIS (FEAT-457): the gentle floor is the floor of the
+ * standard severity band IMMEDIATELY BELOW that axis's suppression floor.
+ *
+ *   PHQ-9  suppresses at 20 (`severe`)  → gentle at 15 (`moderately_severe` floor)
+ *   GAD-7  suppresses at 15 (`severe`)  → gentle at 10 (`moderate` floor)
+ *
+ * That the two land on differently-named bands is a property of the instruments —
+ * PHQ-9 has five, GAD-7 has four — not a drift between the axes. Do NOT "align"
+ * them by lowering the PHQ-9 floor to 10: that would be a new clinical decision
+ * over a large shipped cohort with no derivation warrant.
+ *
+ * Kept as two sibling predicates rather than one `(score, floor)` helper on
+ * purpose. The whole reason this file survives review is that every threshold read
+ * NAMES ITS MODULE at the point of use — a shared helper takes the floor as a
+ * parameter, which is exactly how the wrong constant gets passed in silently.
+ */
+function isGentleBandPhq9(phq9: PHQ9Result | null): boolean {
   if (!phq9) return false;
   return phq9.totalScore >= CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE;
+}
+
+function isGentleBandGad7(gad7: GAD7Result | null): boolean {
+  if (!gad7) return false;
+  return gad7.totalScore >= CRISIS_THRESHOLDS.GAD7_MODERATE_THRESHOLD;
 }
 
 /**
@@ -93,8 +116,8 @@ function isGentleBand(phq9: PHQ9Result | null): boolean {
  *
  *   1. SUPPRESSED — Q9 > 0, or PHQ-9 ≥ 20, or GAD-7 ≥ 15, on whichever axis is
  *      on record. Renders no domain content and routes to crisis resources.
- *   2. GENTLE     — PHQ-9 ≥ 15, OR either axis is missing. Tier 0 and Tier 1
- *      only.
+ *   2. GENTLE     — PHQ-9 ≥ 15, OR GAD-7 ≥ 10, OR either axis is missing. Tier 0
+ *      and Tier 1 only.
  *   3. FULL       — both axes on record and below every floor.
  *
  * On "most recent": there is deliberately no staleness window here. Inventing one
@@ -127,7 +150,11 @@ export function decideGuidanceAccess(
   // `full` requires complete data. A missing axis cannot be read as a zero, so it
   // caps the ladder here rather than passing through.
   const hasBothAxes = phq9 !== null && gad7 !== null;
-  if (!hasBothAxes || isGentleBand(phq9)) {
+  // Per axis, ORed — the more protective reading wins and two gentle readings are
+  // still gentle, never suppression. Until FEAT-457 the GAD-7 arm was absent here,
+  // so GAD-7 10-14 fell through to `full`: inert while `full` and `gentle` rendered
+  // the same two tiers, and a live divergence the moment Tier 2/3 landed.
+  if (!hasBothAxes || isGentleBandPhq9(phq9) || isGentleBandGad7(gad7)) {
     return {
       level: 'gentle',
       allowTier2Plus: false,

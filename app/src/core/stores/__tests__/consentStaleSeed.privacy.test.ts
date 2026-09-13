@@ -184,6 +184,54 @@ describe('__seedStaleConsentRecordForE2E — the forged record reaches version_m
 
     expect(record.ageVerification.birthYear).toBe(2012);
   });
+
+  /**
+   * INFRA-481. The test above proves the seam does not REINTERPRET the variant. That is
+   * not the same as proving the variant reaches the ineligible SCREEN, and the gap between
+   * those two is where a wrong fixture hides: a record can be written verbatim and still
+   * route to ReConsent.
+   *
+   * `isBaseEligibleForRenewal` has three arms — `isEligible !== true`, a non-finite
+   * birthYear, and `calculateAge(birthYear) >= MINIMUM_CONSENT_AGE`. The production hazard
+   * FEAT-399 exists for is the THIRD: every v1.0.0 record was written under the pre-DEBUG-150
+   * 13+ gate, so a real 14-year-old's record legitimately carries `isEligible: true` and
+   * only the age re-derivation catches it. Seeding `isEligible: false` would bail at the
+   * first arm and exercise none of that.
+   */
+  it('an ineligible variant actually FAILS the renewal gate — not just the write', async () => {
+    const store = loadStore('true');
+    const birthYear = new Date().getFullYear() - 14;
+    await store.__seedStaleConsentRecordForE2E(
+      variant({ birthYear, ageAtVerification: 14, isEligible: true }),
+    );
+    const record = writtenRecord(store);
+
+    // Written verbatim, including the flag a real prior-policy record would carry.
+    expect(record.ageVerification.isEligible).toBe(true);
+    expect(record.ageVerification.birthYear).toBe(birthYear);
+
+    // ...and the real gate still refuses it, via the age arm.
+    expect(store.isBaseEligibleForRenewal(record)).toBe(false);
+  });
+
+  it('the renewal gate fails CLOSED on an unreadable age', async () => {
+    // The second sub-cohort this screen serves, and why its copy says "cannot establish
+    // 18+" rather than "you are under 18". Covered here rather than with a second Maestro
+    // flow: it renders the identical screen, so a device run would buy no new coverage.
+    const store = loadStore('true');
+    await store.__seedStaleConsentRecordForE2E(
+      variant({ birthYear: undefined, ageAtVerification: 0, isEligible: true }),
+    );
+    expect(store.isBaseEligibleForRenewal(writtenRecord(store))).toBe(false);
+  });
+
+  it('the renewal gate ACCEPTS the renewable cohort — proof it can still say yes', async () => {
+    // Negative control. Without it the two assertions above pass just as well against a
+    // gate that refuses everything.
+    const store = loadStore('true');
+    await store.__seedStaleConsentRecordForE2E(variant());
+    expect(store.isBaseEligibleForRenewal(writtenRecord(store))).toBe(true);
+  });
 });
 
 describe('__seedStaleConsentRecordForE2E — writes no audit history', () => {

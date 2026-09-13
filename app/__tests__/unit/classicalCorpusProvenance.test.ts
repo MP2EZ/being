@@ -44,6 +44,80 @@
  * so elisions stay visible. Long's bracketed glosses are omitted per this
  * corpus's existing convention (see 7.29, which drops Long's "[formal]").
  *
+ * CANONICAL DIGITIZATION — Epictetus (FEAT-567). Wikisource's transcription of
+ * "All the Works of Epictetus, Which Are Now Extant", trans. Elizabeth Carter,
+ * 1759, from Internet Archive scan `allworksofepicte00epic`. Pinned for exactly
+ * the reason Long was: the digitizations DISAGREE, and not only on orthography.
+ * MIT's Internet Classics Archive text is credited to Carter but is a silently
+ * MODERNISED revision by an unattributed hand — it reads "may be carried" at
+ * Ench. 43 where the 1759 print reads "may be borne", and uses contractions
+ * ("Don't") that cannot occur in a 1758/59 setting. FEAT-567 found all four
+ * shipped Epictetus passages had been drawn from that modernised text while
+ * declaring "Elizabeth Carter", which is the DEBUG-352 defect class exactly —
+ * a real translator's name over another text — and it survived DEBUG-352
+ * because that sweep pinned only the loci it had already repaired.
+ *
+ * CANONICAL DIGITIZATION — Seneca, *Letters* (DEBUG-582). Wikisource's
+ * transcription of "Moral letters to Lucilius", trans. Richard Mott Gummere,
+ * Loeb Classical Library, backed by Internet Archive scans
+ * `adluciliumepistu01seneuoft` (Vol. I, 1917, Epistles 1-65) and
+ * `adluciliumepistu03seneuoft` (Vol. III, 1925, Epistles 93-124). TWO
+ * identifiers, not one, and that is load-bearing: the corpus's two Seneca
+ * *Letters* loci fall in DIFFERENT Loeb volumes (13.4 in Vol. I, 107.11 in
+ * Vol. III), so a single-volume pin would leave 107.11 unpinned while appearing
+ * to cover it. Public domain by PRE-1929 US PUBLICATION — and that is the SOLE
+ * basis, not the safer of two. Life+70 is the wrong legal theory outright for
+ * a pre-1978 published work: the US term for works published 1923-1977 runs
+ * from publication (+ renewal, 95 years max), never from the author's life,
+ * so Gummere's 1955 death is simply irrelevant here and must not reappear as
+ * a backup rationale (corrected DEBUG-585; DEBUG-582 called it merely the
+ * weaker footing).
+ *
+ * The work KEY that carries this pin is `Moral Letters to Lucilius` — the title
+ * the pinned Wikisource transcription itself runs under. Title-cased in the
+ * union because it names the work; sentence-case here because this docblock
+ * quotes the source page verbatim. DEBUG-585 renamed it from `Letters from a
+ * Stoic`, which is Robin Campbell's in-copyright 1969 Penguin selection.
+ *
+ * Pinned because Seneca was entirely unpinned until DEBUG-582: the allowlist
+ * below carried Gummere's NAME, which is why a paraphrase shipping under it
+ * sailed through. `seneca-letters-13` declared Gummere while its `text` was a
+ * popular condensation ("We are more often frightened than hurt...") — and its
+ * own `fullText` carried the genuine Gummere alongside, so the record held the
+ * real translation and the paraphrase side by side, with the paraphrase in the
+ * field that is displayed and attributed. Same defect class as DEBUG-352 and
+ * FEAT-567, surviving for the same reason: those sweeps pinned only the loci
+ * they had already repaired, so an unrepaired locus stayed invisible.
+ *
+ * A THIRD Gummere locus lives outside this corpus and was swept in the same pass:
+ * `app/assets/modules/module-1-aware-presence.json`'s classicalQuote, "Letters
+ * from a Stoic, 2.1". Collated against the same pinned digitization and CONFIRMED
+ * verbatim — no repair needed. It is not pinned here because this suite reads
+ * `PASSAGES_DIR` only, and the suite that does read the module JSONs
+ * (`src/features/learn/__tests__/moduleClassicalQuotes.test.ts`) matches none of
+ * CI's `--testPathPattern` values, so a pin there would never run. Recorded here
+ * instead so the confirmation is at least auditable.
+ *
+ * THREE NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
+ * auditable rather than invisible:
+ *   1. Long-s: the 1759 print sets `ſ`; the corpus uses `s`.
+ *   2. The transcription emits a space before punctuation where the print
+ *      italicises a proper noun ("Socrates ." -> "Socrates.").
+ *   3. Verse lineation (DEBUG-582): Gummere sets the Cleanthes prayer at
+ *      `Letters 107.11` as seven verse lines; the corpus flattens it to prose,
+ *      which lowercases two line-initial capitals ("In sin" -> "in sin",
+ *      "In noble" -> "in noble") while "Fate" keeps its capital as a
+ *      personification rather than a line-initial. Every word and mark is
+ *      otherwise Gummere's. AC4's sweep CONFIRMED that locus rather than
+ *      repairing it — it is pinned below anyway, because an unpinned
+ *      confirmation is exactly the condition that let seneca-letters-13 survive.
+ *
+ * ONE LOCUS CORRECTION, likewise recorded rather than silently applied:
+ * Ench. 8 in the pinned transcription reads "as you with; but with them" — a
+ * long-s OCR error for "wiſh". The corpus carries the corrected reading and the
+ * assertion below pins it, so the correction is falsifiable rather than folklore.
+ * Do NOT "fix" the corpus back to the transcription's literal text.
+ *
  * LOCATION: `app/__tests__/unit/` on purpose — the sibling provenance suites
  * under `app/src/features/<feature>/__tests__/` match none of CI's
  * `--testPathPattern` values, so they never run in CI or precommit.
@@ -53,6 +127,7 @@ import { readFileSync } from 'fs';
 import { join, resolve } from 'path';
 
 const PASSAGES_DIR = resolve(__dirname, '../../assets/passages');
+const MODULES_DIR = resolve(__dirname, '../../assets/modules');
 
 const PASSAGE_FILES = [
   'passages-1-aware-presence.json',
@@ -79,8 +154,14 @@ interface Passage {
   id: string;
   citation: string;
   author: string;
+  /** Closed-union work key. Metadata only — no surface renders it (DEBUG-585). */
+  work: string;
   translation: string;
   text: string;
+  /** Optional full quotation; `text` is the excerpt shown before the disclosure. */
+  fullText?: string;
+  /** Our editorial frame. Never the translator's words. */
+  context?: string;
 }
 
 const loadPassages = (file: string): Passage[] => {
@@ -92,6 +173,30 @@ const allPassages = (): Array<Passage & { file: string }> =>
   PASSAGE_FILES.flatMap((file) =>
     loadPassages(file).map((p) => ({ ...p, file }))
   );
+
+/**
+ * Module `classicalQuote` citations (DEBUG-585). Read HERE, not in
+ * `moduleClassicalQuotes.test.ts` where the module guards otherwise live:
+ * that suite sits under `app/src/features/learn/__tests__/`, matches none of
+ * CI's `--testPathPattern` values, and is listed in
+ * `scripts/ci-uncovered-tests.json` as deliberately ungated — so a pin placed
+ * there runs on nobody's PR. Same reasoning that put this whole file under
+ * `app/__tests__/unit/`.
+ */
+const MODULE_FILES = [
+  'module-1-aware-presence.json',
+  'module-2-radical-acceptance.json',
+  'module-3-sphere-sovereignty.json',
+  'module-4-virtuous-response.json',
+  'module-5-interconnected-living.json',
+];
+
+const moduleQuoteSources = (): Array<{ file: string; source: string }> =>
+  MODULE_FILES.flatMap((file) => {
+    const raw = JSON.parse(readFileSync(join(MODULES_DIR, file), 'utf8'));
+    const source = raw?.classicalQuote?.source;
+    return typeof source === 'string' ? [{ file, source }] : [];
+  });
 
 describe('classical corpus provenance (DEBUG-352)', () => {
   it('every passage file is readable and non-empty', () => {
@@ -121,12 +226,203 @@ describe('classical corpus provenance (DEBUG-352)', () => {
   });
 
   /**
+   * THE STRUCTURAL TELL (DEBUG-582). Where a record carries both fields, `text`
+   * is the excerpt and `fullText` the whole quotation — so `text` must be a
+   * verbatim SPAN of `fullText`. An excerpt that is not a substring of its own
+   * full text is by construction not verbatim in at least one of the two, and
+   * that is exactly the shape DEBUG-582 found: `seneca-letters-13` shipped a
+   * popular condensation in `text` while its own `fullText` carried the real
+   * Gummere, side by side under one attributed translator.
+   *
+   * This is the general form, and it is why the repair is not just one more
+   * locus pin: a pin covers the locus it names, whereas this closes the class
+   * for every teaser the corpus ever grows. `library.ts`'s doc contract carries
+   * the same rule in prose for authors; this is the mechanical half.
+   */
+  it('an excerpt is a verbatim span of its own full text', () => {
+    const drifted = allPassages()
+      .filter((p) => p.fullText && !p.fullText.includes(p.text))
+      .map(({ file, id }) => `${file}:${id}`);
+
+    expect(drifted).toEqual([]);
+  });
+
+  it('the excerpt-span rule is not vacuous — some passage carries a fullText', () => {
+    // The rule above is satisfied by an empty set, so it would pass unchanged if
+    // `fullText` were renamed or dropped corpus-wide. Assert the population it
+    // guards is non-empty, or the guard silently stops guarding.
+    const withFullText = allPassages().filter((p) => p.fullText);
+    expect(withFullText.length).toBeGreaterThan(0);
+  });
+
+  /**
    * Exact pins for the loci this item repaired. A translator-allowlist check
    * alone cannot catch the original defect — those entries DID declare an
    * allowlisted translator, they just weren't that translator's words. Pinning
    * the opening clause is what makes a silent re-rewrite fail.
    */
-  describe('repaired loci stay verbatim (PG #15877 Long / Stewart)', () => {
+  /**
+   * AUTHOR BALANCE (FEAT-567, philosopher ruling).
+   *
+   * Marcus Aurelius is by far the easiest of the three to mine, so left to
+   * convenience he dominates every principle — which is precisely what the parent
+   * item's AC4 forbids. Measured before this change: Marcus 9/16 overall, and
+   * `interconnected-living` 100% Marcus with zero Epictetus and zero Seneca.
+   *
+   * Shipped as a RATCHET, not a flat rule, and deliberately so: enforcing it
+   * outright fails four of five principles today, and a gate that cannot go green
+   * is the shape that trains people to bypass gates. So the existing violations are
+   * DECLARED below and may not worsen; anything not declared must comply. The debt
+   * is discharged by FEAT-569, which owns the content.
+   *
+   * Rules (a) and (c) apply only at 4+ passages: below that the ratios are too
+   * coarse to be meaningful — a 3-passage principle cannot have a work supply
+   * "half" of it in any useful sense.
+   */
+  describe('per-principle author balance (FEAT-567)', () => {
+    const PRINCIPLE_FILES = [
+      'passages-1-aware-presence.json',
+      'passages-2-radical-acceptance.json',
+      'passages-3-sphere-sovereignty.json',
+      'passages-4-virtuous-response.json',
+      'passages-5-interconnected-living.json',
+    ];
+
+    /** Declared, dischargeable debt — each entry is owed by FEAT-569. */
+    const BALANCE_DEBT: Readonly<Record<string, readonly string[]>> = {
+      'passages-1-aware-presence.json': ['Seneca'],
+      'passages-2-radical-acceptance.json': ['Seneca'],
+      'passages-4-virtuous-response.json': ['Epictetus'],
+      'passages-5-interconnected-living.json': ['Epictetus', 'Seneca'],
+    };
+
+    const REQUIRED = ['Epictetus', 'Seneca'] as const;
+
+    const counts = (file: string) => {
+      const ps = loadPassages(file);
+      const byAuthor: Record<string, number> = {};
+      const byWork: Record<string, number> = {};
+      for (const x of ps) {
+        byAuthor[x.author] = (byAuthor[x.author] ?? 0) + 1;
+        byWork[x.work] = (byWork[x.work] ?? 0) + 1;
+      }
+      return { total: ps.length, byAuthor, byWork };
+    };
+
+    it.each(PRINCIPLE_FILES)('%s satisfies the rule, or its gap is declared', (file) => {
+      const { total, byAuthor, byWork } = counts(file);
+      const declared = BALANCE_DEBT[file] ?? [];
+
+      // (b) every principle carries at least one Epictetus and one Seneca —
+      //     unless that author is a declared, still-outstanding debt.
+      for (const author of REQUIRED) {
+        if (declared.includes(author)) continue;
+        expect({ file, author, have: byAuthor[author] ?? 0 }).toEqual({
+          file,
+          author,
+          have: expect.any(Number),
+        });
+        expect(byAuthor[author] ?? 0).toBeGreaterThan(0);
+      }
+
+      if (total >= 4) {
+        // (a) Marcus may not exceed half.
+        expect(byAuthor['Marcus Aurelius'] ?? 0).toBeLessThanOrEqual(Math.floor(total / 2));
+        // (c) no single work supplies more than half.
+        for (const [work, n] of Object.entries(byWork)) {
+          expect({ work, n }).toEqual({ work, n: expect.any(Number) });
+          expect(n).toBeLessThanOrEqual(Math.floor(total / 2));
+        }
+      }
+    });
+
+    it('the declared debt is real and not stale', () => {
+      // A principle that has since been balanced must be REMOVED from the debt
+      // list. A stale entry silently exempts a principle that no longer needs it,
+      // which is how a ratchet quietly stops ratcheting.
+      for (const [file, authors] of Object.entries(BALANCE_DEBT)) {
+        const { byAuthor } = counts(file);
+        for (const author of authors) {
+          expect({ file, author, present: (byAuthor[author] ?? 0) > 0 }).toEqual({
+            file,
+            author,
+            present: false,
+          });
+        }
+      }
+    });
+
+    it('the debt may not grow — no undeclared principle is unbalanced', () => {
+      const undeclared = PRINCIPLE_FILES.filter((f) => !(f in BALANCE_DEBT));
+      // Non-vacuity: if every principle were declared, the it.each above would
+      // assert nothing at all and this suite would be theatre.
+      expect(undeclared.length).toBeGreaterThan(0);
+      for (const f of undeclared) {
+        const { byAuthor } = counts(f);
+        for (const author of REQUIRED) expect(byAuthor[author] ?? 0).toBeGreaterThan(0);
+      }
+    });
+  });
+
+  describe('Epictetus is 1759 Carter, not the modernised revision (FEAT-567)', () => {
+    const findById = (file: string, id: string): Passage => {
+      const p = loadPassages(file).find((x) => x.id === id);
+      if (!p) throw new Error(`${id} missing from ${file}`);
+      return p;
+    };
+
+    // Positive pins: an opening clause that ONLY the 1759 setting produces.
+    it.each([
+      ['passages-3-sphere-sovereignty.json', 'epictetus-enchiridion-1', 'Of Things, some are in our Power, and others not.'],
+      ['passages-3-sphere-sovereignty.json', 'epictetus-enchiridion-2', 'Remember that Desire promises the Attainment'],
+      ['passages-1-aware-presence.json', 'epictetus-enchiridion-5', 'Men are disturbed, not by Things, but by the Principles and Notions'],
+      ['passages-2-radical-acceptance.json', 'epictetus-enchiridion-8', 'Require not Things to happen as you wish'],
+    ])('%s / %s opens with the 1759 Carter wording', (file, id, opening) => {
+      expect(findById(file, id).text).toContain(opening);
+    });
+
+    // Negative pins: the modernised readings that WERE shipped. A name check
+    // alone cannot catch this class — those entries did declare an allowlisted
+    // translator, they simply were not that translator's words.
+    it('the modernised revision does not come back', () => {
+      const all = [
+        ...loadPassages('passages-1-aware-presence.json'),
+        ...loadPassages('passages-2-radical-acceptance.json'),
+        ...loadPassages('passages-3-sphere-sovereignty.json'),
+      ].filter((x) => x.author === 'Epictetus');
+
+      for (const p of all) {
+        // Contractions are impossible in a 1758/59 setting and are the cheapest
+        // single tell that a modernised text has been substituted.
+        expect(p.text).not.toMatch(/\b(don't|can't|won't|isn't|doesn't)\b/i);
+      }
+
+      const byId = Object.fromEntries(all.map((x) => [x.id, x.text]));
+      expect(byId['epictetus-enchiridion-1']).not.toContain('Some things are in our control');
+      expect(byId['epictetus-enchiridion-5']).not.toContain('Someone just starting instruction');
+      expect(byId['epictetus-enchiridion-8']).not.toContain('demand that things happen');
+    });
+
+    it('Ench. 8 carries the RECORDED locus correction, not the OCR defect', () => {
+      // The pinned transcription reads "as you with; but with them" — a long-s
+      // misread of "wiſh". The corpus carries the corrected reading. Pinned in
+      // both directions so neither the defect nor a silent re-edit can land.
+      const t = findById('passages-2-radical-acceptance.json', 'epictetus-enchiridion-8').text;
+      expect(t).toContain('as you wish; but wish them to happen as they do happen');
+      expect(t).not.toContain('as you with');
+    });
+
+    it('the matcher still fires (DEBUG-390)', () => {
+      // Prove these assertions can go red: run the same predicate over a literal
+      // known-bad string rather than over corpus state, which would make the
+      // control a second symptom of the same failure.
+      const modernised = "Don't demand that things happen as you wish";
+      expect(modernised).toMatch(/\b(don't|can't|won't|isn't|doesn't)\b/i);
+      expect(modernised).toContain('demand that things happen');
+    });
+  });
+
+  describe('repaired loci stay verbatim (PG #15877 Long / Stewart / Gummere Loeb)', () => {
     const findPassage = (file: string, citation: string): Passage => {
       const p = loadPassages(file).find((x) => x.citation === citation);
       if (!p) throw new Error(`${citation} missing from ${file}`);
@@ -166,6 +462,303 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       // The non-Stewart text this item replaced.
       expect(p.text).not.toContain('gives a mind so much trouble');
       expect(p.text).not.toContain('interrupted by fortune');
+    });
+
+    it('Letters 13.4 is Gummere, not the popular condensation', () => {
+      const p = findPassage('passages-4-virtuous-response.json', 'Letters 13.4');
+      expect(p.translation).toBe('Richard Mott Gummere');
+      // Gummere's own wording. "likely to frighten us than there are to crush us"
+      // is idiosyncratic enough that no paraphraser reproduces it independently.
+      expect(p.text).toContain('There are more things, Lucilius, likely to frighten us');
+      expect(p.text).toContain('we suffer more often in imagination than in reality');
+      // Seneca disavowing the hard-Stoic register in his own voice. This clause is
+      // on the EXCERPT surface deliberately (DEBUG-582): `FromTheSourceSection`
+      // renders `text` and never `fullText`, so behind the disclosure it reaches
+      // no reader on that surface at all.
+      expect(p.text).toContain('not speaking with you in the Stoic strain');
+      // The unattributed condensation this item removed must not come back.
+      expect(p.text).not.toContain('We are more often frightened than hurt');
+      expect(p.text).not.toContain('suffer more from imagination');
+    });
+
+    it('Letters 107.11 is Gummere, confirmed not repaired', () => {
+      // AC4's sweep found this locus already verbatim — every word, comma and
+      // semicolon is Gummere's, with only the verse lineation flattened (see the
+      // normalisation recorded in this file's header). It is pinned ANYWAY:
+      // an unpinned confirmation is precisely the condition that let the
+      // seneca-letters-13 defect survive FEAT-567's sweep, which pinned only the
+      // loci it had already repaired.
+      const p = findPassage('passages-4-virtuous-response.json', 'Letters 107.11');
+      expect(p.translation).toBe('Richard Mott Gummere');
+      expect(p.text).toContain('Lead me, O Master of the lofty heavens');
+      expect(p.text).toContain('I shall not falter, but obey with speed');
+      expect(p.text).toContain('the willing soul Fate leads, but the unwilling drags along');
+    });
+  });
+
+  /**
+   * THE SAME DEFECT ONE LAYER UP (DEBUG-585). DEBUG-352, FEAT-567 and DEBUG-582
+   * each found an edition's identity attached to text that edition did not
+   * produce, and each found it in `text`. This is that class in the METADATA:
+   * both Seneca *Letters* records declared `work: "Letters from a Stoic"` — Robin
+   * Campbell's 1969 Penguin Classics SELECTION title, in copyright — over
+   * Gummere's public-domain Loeb text. A reader following our own metadata to
+   * find the source landed on the wrong book.
+   *
+   * Nothing is infringed by a title alone (titles are not copyrightable subject
+   * matter), so the exposure is not a copyright claim. It is the verifiability
+   * of the repo's OWN public-domain warranty: `README.md`'s Acknowledgments
+   * asserts "public-domain translations, the only renderings shipped in the app"
+   * and, until this item, named a copyrighted commercial edition inside that
+   * very sentence.
+   *
+   * The key names the WORK, never the volume — which is why nothing else in the
+   * corpus shares the defect. `Meditations` is not Long's *Thoughts of the
+   * Emperor M. Aurelius Antoninus*, `Enchiridion` is not Carter's *All the Works
+   * of Epictetus*, and `On Tranquility` is not Stewart's *Minor Dialogues*. In
+   * each case volume identity is confined to the digitization pin, which is the
+   * correct architecture and is what this rename restores for Seneca.
+   *
+   * Asserted on the `work` FIELD, never on raw file text. `passages-4`'s
+   * `marcus-meditations-5-20` note deliberately quotes the banned Hays phrasing
+   * in order to warn against it, and a blind whole-file scan for a title string
+   * would collide with the same convention the moment a note legitimately names
+   * the Campbell edition to disambiguate it.
+   */
+  describe('the Loeb Gummere is not shelved under Penguin (DEBUG-585)', () => {
+    const PENGUIN_SELECTION_TITLE = 'Letters from a Stoic';
+    const LOEB_WORK = 'Moral Letters to Lucilius';
+
+    it('no passage declares the in-copyright Penguin selection title', () => {
+      const offending = allPassages()
+        .filter((p) => p.work === PENGUIN_SELECTION_TITLE)
+        .map(({ file, id, work }) => `${file}:${id} — ${work}`);
+
+      expect(offending).toEqual([]);
+    });
+
+    it('both Seneca Letters loci name the Loeb edition Gummere translated', () => {
+      const seneca = allPassages().filter((p) => p.citation.startsWith('Letters '));
+      // Non-vacuity: the filter must actually select the two known loci, or the
+      // work assertion below passes over an empty list.
+      expect(seneca.map((p) => p.citation).sort()).toEqual(['Letters 107.11', 'Letters 13.4']);
+      for (const p of seneca) expect(p.work).toBe(LOEB_WORK);
+    });
+
+    it('no module citation names the Penguin selection title', () => {
+      const offending = moduleQuoteSources()
+        .filter(({ source }) => source.includes(PENGUIN_SELECTION_TITLE))
+        .map(({ file, source }) => `${file} — ${source}`);
+
+      expect(offending).toEqual([]);
+    });
+
+    it('the Gummere module locus names the Loeb edition and keeps its translator suffix', () => {
+      const m = moduleQuoteSources().find(({ file }) => file === 'module-1-aware-presence.json');
+      expect(m).toBeDefined();
+      expect(m!.source).toContain(LOEB_WORK);
+      // `moduleClassicalQuotes.test.ts` reads the translator out of this suffix.
+      expect(m!.source).toContain('(trans. Richard Mott Gummere)');
+    });
+
+    /**
+     * DEBUG-390 non-vacuity control. Both matchers above are `.filter(...)` over
+     * a loaded list, so they pass identically against correct code and against a
+     * loader that silently stopped returning anything. Prove the loaders are
+     * non-trivial and that the predicates still fire on a literal known-bad
+     * string.
+     */
+    it('the Penguin-title matchers still fire (DEBUG-390)', () => {
+      expect(allPassages().length).toBeGreaterThan(10);
+      expect(moduleQuoteSources().length).toBe(MODULE_FILES.length);
+
+      const knownBad = 'Letters from a Stoic, 2.1 (trans. Richard Mott Gummere)';
+      expect(knownBad.includes(PENGUIN_SELECTION_TITLE)).toBe(true);
+      expect(PENGUIN_SELECTION_TITLE === LOEB_WORK).toBe(false);
+      // Every passage carries a non-empty work key, so the field scan reads a
+      // real value rather than a uniformly `undefined` one.
+      expect(allPassages().every((p) => typeof p.work === 'string' && p.work.length > 0)).toBe(true);
+    });
+  });
+
+  /**
+   * A passage can be verbatim, correctly attributed, public domain — and still
+   * ship a reading its own principle is defined against. The provenance pins
+   * above cannot see that class: they assert on `text`, and the defect lives in
+   * `context`, our editorial frame. `radical-acceptance` carried it three times
+   * over, every note assenting and none pivoting, so the file taught the Lazy
+   * Argument by omission: if it was settled, deliberation is theatre.
+   *
+   * Prose alone does not close that — the next editor reverts it and nothing
+   * goes red. These are the ratchet. Anchors are deliberately SHORT so ordinary
+   * rewording survives while a semantic reversion does not, and each trap is
+   * pinned in BOTH directions: the corrective must be present AND the reading it
+   * replaced must stay gone.
+   */
+  describe('doctrinal traps stay closed (FEAT-569 AC5)', () => {
+    const contextOf = (file: string, id: string): string => {
+      const p = loadPassages(file).find((x) => x.id === id);
+      if (!p) throw new Error(`${id} missing from ${file}`);
+      // An absent note is the defect's original form, not a neutral state.
+      if (!p.context) throw new Error(`${id} has no context note`);
+      return p.context;
+    };
+
+    const RADICAL = 'passages-2-radical-acceptance.json';
+    // FEAT-580 brought a SECOND principle into this block. Everything above the
+    // virtuous-response section below is still radical-acceptance's.
+    const VIRTUOUS = 'passages-4-virtuous-response.json';
+
+    it('every radical-acceptance passage carries a note at all', () => {
+      const missing = loadPassages(RADICAL)
+        .filter((p) => !p.context?.trim())
+        .map((p) => p.id);
+      expect(missing).toEqual([]);
+    });
+
+    // Positive pins: the clause carrying the doctrinal work, not the whole note.
+    it.each([
+      // Assent is from inside the causal order, not from its sidelines.
+      [RADICAL, 'marcus-meditations-4-23', 'from inside the order'],
+      // The maxim governs desire and aversion — not action.
+      [RADICAL, 'epictetus-enchiridion-8', 'desire and aversion'],
+      // A choice is one of the causes, so fixity is not a reason for inaction.
+      [RADICAL, 'marcus-meditations-10-6', 'one of those causes'],
+    ])('%s / %s keeps its action pivot', (file, id, anchor) => {
+      expect(contextOf(file, id)).toContain(anchor);
+    });
+
+    // Negative pins: the exact framings that were live before FEAT-569. A
+    // presence check alone cannot catch this class — all three DID have notes;
+    // they simply restated the trap instead of pivoting away from it.
+    it('the assent-only framings do not come back', () => {
+      expect(contextOf(RADICAL, 'marcus-meditations-4-23')).not.toContain(
+        'the classic expression of the Stoic acceptance of fate',
+      );
+      expect(contextOf(RADICAL, 'epictetus-enchiridion-8')).not.toContain(
+        'stating non-resistance to events directly',
+      );
+      expect(contextOf(RADICAL, 'marcus-meditations-10-6')).not.toContain(
+        'a ground for welcoming what comes',
+      );
+    });
+
+    // The corrective may not overcorrect into denying what the passage says.
+    // Meditations 10.6 DOES assert causal fixity; a note implying outcomes are
+    // ours breaks sphere-sovereignty while purporting to fix this principle.
+    // Corpus-wide since FEAT-580: its own note turns on "consent changes the man,
+    // not the outcome", which is one careless rewording away from the very claim
+    // this guard forbids. Verified zero violators corpus-wide when widened.
+    it('no note claims outcomes are within our control', () => {
+      for (const p of allPassages()) {
+        expect(p.context ?? '').not.toMatch(/\b(you can control|within your control|up to you to decide what happens)\b/i);
+      }
+    });
+
+    /**
+     * VIRTUOUS RESPONSE — Letters 107.11 (FEAT-580).
+     *
+     * Two live defects, one of them in no AC. The note credited "a hymn of the
+     * Stoic Cleanthes", which is wrong twice: it scoped the whole quoted block —
+     * including the closing line that has no counterpart in the Greek Epictetus
+     * preserves at Ench. 53 — to Cleanthes; and von Arnim Frag. 527 is a standalone
+     * prayer fragment, NOT the Hymn to Zeus (Frag. 537), so "hymn" is itself the
+     * pop conflation.
+     *
+     * What the note may assert is bounded by what Gummere's own apparatus supports:
+     * the textual fact that the closing line is absent from that Greek. It may NOT
+     * say who composed it — the apparatus records division over the WHOLE passage
+     * (Augustine and Wilamowitz give all of it to Seneca), not a four-plus-one split.
+     *
+     * The trap this pins against is a PREMEDITATIO framing. Ep. 107.3-9 genuinely is
+     * expectation-shaped, so anyone reading the whole letter lands there — but we
+     * cite 107.11, and seneca-letters-13 sits at order 3 in the same file already
+     * owning that move.
+     */
+    it.each([
+      // Both are led and both arrive: consent is not causally efficacious, so the
+      // submission reading collapses from inside rather than being denied.
+      [VIRTUOUS, 'seneca-letters-107', 'both arrive'],
+      // What consent DOES change — the man. This is the file's own principle, and
+      // it is why the passage sits under virtuous-response, not radical-acceptance.
+      [VIRTUOUS, 'seneca-letters-107', 'changes the man, not the outcome'],
+      // The affective refusal, marked as EXTERNAL to these lines. In the verse the
+      // groaning belongs to the UNWILLING man; the passage does not itself make
+      // room for tears, and a note implying it does has falsified the text.
+      [VIRTUOUS, 'seneca-letters-107', 'not at feeling'],
+    ])('%s / %s keeps its corrective', (file, id, anchor) => {
+      expect(contextOf(file, id)).toContain(anchor);
+    });
+
+    it('the Cleanthes mis-attribution and the inert gloss do not come back', () => {
+      const note = contextOf(VIRTUOUS, 'seneca-letters-107');
+      // Scoped the whole verse — closing line included — to Cleanthes.
+      expect(note).not.toContain('a hymn of the Stoic Cleanthes');
+      // Bibliographically adequate, doctrinally inert: it framed the passage as
+      // acceptance and stopped, which is the reading the corrective must defuse.
+      expect(note).not.toContain('closing a letter on accepting what is not in our control');
+      // "Hymn" is the Frag. 527 / Frag. 537 conflation. Independent of the phrase above.
+      expect(note).not.toMatch(/\bhymn\b/i);
+      // The premeditatio mis-aim AC1 names as the likeliest drift. Ep. 107.11 is
+      // fatum/prohairesis; the anticipation passage in this file is seneca-letters-13.
+      expect(note).not.toMatch(/\b(premeditatio|rehears\w*|anticipat\w*|foresee|expect the worst)\b/i);
+    });
+
+    it('the virtuous-response matchers still fire (DEBUG-390)', () => {
+      // Literal known-bad strings, never corpus state. The shipped note FEAT-580
+      // replaced is the natural negative fixture: every predicate above must fire
+      // on it, or the pins would pass vacuously against correct-looking prose.
+      const shipped =
+        "Seneca's Latin rendering of a hymn of the Stoic Cleanthes, closing a letter on accepting what is not in our control.";
+      expect(shipped).toContain('a hymn of the Stoic Cleanthes');
+      expect(shipped).toContain('closing a letter on accepting what is not in our control');
+      expect(shipped).toMatch(/\bhymn\b/i);
+      expect(shipped).not.toContain('both arrive');
+      expect(shipped).not.toContain('changes the man, not the outcome');
+      expect(shipped).not.toContain('not at feeling');
+
+      // The premeditatio matcher needs its own fixture — the shipped note does not
+      // contain that drift, so asserting against it would prove nothing.
+      const premeditatio = 'A passage on rehearsing misfortune before it arrives.';
+      expect(premeditatio).toMatch(/\b(premeditatio|rehears\w*|anticipat\w*|foresee|expect the worst)\b/i);
+
+      // And prove the note being read is real prose, not an empty string that would
+      // satisfy every not.toContain above vacuously.
+      expect(contextOf(VIRTUOUS, 'seneca-letters-107').length).toBeGreaterThan(40);
+    });
+
+    it('the matchers still fire (DEBUG-390)', () => {
+      // Run each predicate over literal known-bad strings rather than over
+      // corpus state — a control drawn from the corpus is a second symptom of
+      // the same failure, not an independent check.
+      const assentOnly = 'One of the Handbook\'s shortest maxims, stating non-resistance to events directly.';
+      expect(assentOnly).toContain('stating non-resistance to events directly');
+      expect(assentOnly).not.toContain('desire and aversion');
+
+      const overcorrected = 'Marcus reminds us that outcomes are within your control.';
+      expect(overcorrected).toMatch(/\b(you can control|within your control|up to you to decide what happens)\b/i);
+
+      // And prove the notes being read are real prose, not empty strings that
+      // would satisfy every not.toContain above vacuously.
+      for (const id of ['marcus-meditations-4-23', 'epictetus-enchiridion-8', 'marcus-meditations-10-6']) {
+        expect(contextOf(RADICAL, id).length).toBeGreaterThan(40);
+      }
+    });
+
+    // The frame is ours; the passage is the source. A note that outgrows what it
+    // frames has stopped framing and started competing.
+    //
+    // Corpus-wide since DEBUG-582. It was scoped to this principle only because
+    // seneca-letters-13 was the sole corpus-wide violator, and it was a violator
+    // only because its `text` was a truncated paraphrase rather than the Gummere
+    // it declared. Repairing that provenance defect cleared the exception, so the
+    // rule was widened here rather than the id being exempted there.
+    it('no note runs longer than the passage it frames', () => {
+      const overlong = allPassages()
+        .filter((p) => p.context && p.context.length > p.text.length)
+        .map(({ file, id, context, text }) => `${file}:${id} — ${context!.length} > ${text.length}`);
+
+      expect(overlong).toEqual([]);
     });
   });
 

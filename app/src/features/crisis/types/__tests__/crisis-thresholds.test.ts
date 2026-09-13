@@ -12,6 +12,7 @@ import type {
   GAD7Result,
   AssessmentAnswer,
 } from '@/features/assessment/types';
+import { GAD7_SCORING_CONFIG, PHQ9_SCORING_CONFIG } from '@/features/assessment/types/scoring';
 
 // Minimal PHQ-9 / GAD-7 result factories (mirrors AssessmentResults.test.tsx).
 const phqAnswers = (totalScore: number, q9Response = 0): AssessmentAnswer[] => {
@@ -85,6 +86,65 @@ describe('CRISIS thresholds — dual-threshold contract', () => {
     );
     expect(CRISIS_SAFETY_THRESHOLDS.PHQ9_CRISIS_SCORE).toBeGreaterThan(
       CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE,
+    );
+  });
+});
+
+/**
+ * FEAT-457 — the GAD-7 gentle floor consumed by the domain-guidance gate.
+ *
+ * THE DERIVATION RULE, which is what these assertions actually pin: each axis's
+ * gentle floor is the floor of the standard severity band IMMEDIATELY BELOW that
+ * axis's suppression floor. PHQ-9 suppresses at 20 (`severe`) → gentle at 15
+ * (`moderately_severe` floor). GAD-7 suppresses at 15 (`severe`) → gentle at 10
+ * (`moderate` floor). One rule, two axes, no free parameters.
+ *
+ * So 10 is NOT a new clinical number: it is the Spitzer (2006) moderate cut-point
+ * already encoded in `GAD7_SCORING_CONFIG`, reached by the same derivation that
+ * produced the shipped PHQ-9 floor. The tests below assert the RELATIONSHIP rather
+ * than restating the literal, so a future re-band of either instrument surfaces here
+ * instead of silently moving a safety floor.
+ *
+ * `GAD7_MODERATE_THRESHOLD` is named for the BAND, never for a tier or a trigger.
+ * `CRISIS_THRESHOLDS` is re-exported wholesale, so a `*_SUPPORT_*` or `*_CRISIS_*`
+ * name here would read to the next author as a ratified intervention floor at
+ * GAD-7 10 and invite a crisis banner or a `crisis_detected` emit. No detection
+ * path may read this constant.
+ */
+describe('FEAT-457 — GAD-7 moderate floor (guidance gentle band)', () => {
+  it('pins the constant at 10', () => {
+    expect(CRISIS_THRESHOLDS.GAD7_MODERATE_THRESHOLD).toBe(10);
+  });
+
+  it('equals the floor of the standard GAD-7 moderate band, not an independent number', () => {
+    expect(CRISIS_THRESHOLDS.GAD7_MODERATE_THRESHOLD).toBe(
+      GAD7_SCORING_CONFIG.severityThresholds.moderate[0],
+    );
+  });
+
+  it('sits strictly below the GAD-7 severe (suppression) floor', () => {
+    expect(CRISIS_THRESHOLDS.GAD7_MODERATE_THRESHOLD).toBeLessThan(
+      CRISIS_SAFETY_THRESHOLDS.GAD7_SEVERE_THRESHOLD,
+    );
+  });
+
+  it('leaves NO score gap between the gentle band and suppression, on either axis', () => {
+    // A gap is how a score falls through a ladder: every integer from the gentle
+    // floor up to the suppression floor must be claimed by exactly one band.
+    expect(GAD7_SCORING_CONFIG.severityThresholds.moderate[1] + 1).toBe(
+      CRISIS_SAFETY_THRESHOLDS.GAD7_SEVERE_THRESHOLD,
+    );
+    expect(PHQ9_SCORING_CONFIG.severityThresholds.moderately_severe[1] + 1).toBe(
+      CRISIS_SAFETY_THRESHOLDS.PHQ9_SEVERE_THRESHOLD,
+    );
+  });
+
+  it('applies ONE derivation rule to both axes', () => {
+    expect(CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE).toBe(
+      PHQ9_SCORING_CONFIG.severityThresholds.moderately_severe[0],
+    );
+    expect(CRISIS_THRESHOLDS.GAD7_MODERATE_THRESHOLD).toBe(
+      GAD7_SCORING_CONFIG.severityThresholds.moderate[0],
     );
   });
 });

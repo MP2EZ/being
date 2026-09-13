@@ -51,35 +51,20 @@
  * Fix: DEBUG-450. Do NOT make the button's `bottom` dynamic — see that document.
  */
 
-import { useEffect, useState } from 'react';
-import { Keyboard, Platform } from 'react-native';
 import { overlayBottomInset } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useKeyboardFrameHeight } from '@/core/hooks/useKeyboardFrameHeight';
 
 /**
+ * DEBUG-516 extracted the keyboard subscription this hook used to own into
+ * `useKeyboardFrameHeight`, unchanged in event pairing and therefore in behaviour. The
+ * MAX with the crisis-button band stays here, because it is what distinguishes an overlay
+ * inset from a plain keyboard inset — a full-screen surface with a bottom-anchored action
+ * row wants the raw height and dodges the crisis button horizontally instead.
+ *
  * @returns the bottom inset an overlay should apply right now, in points.
  */
 export function useOverlayBottomInset(): number {
-  const [keyboardHeight, setKeyboardHeight] = useState(0);
-
-  useEffect(() => {
-    // `WillChangeFrame` on iOS so the inset animates with the keyboard rather
-    // than snapping after it; Android has no `will*` events, so use the
-    // `did*` pair there.
-    const showEvent = Platform.OS === 'ios' ? 'keyboardWillChangeFrame' : 'keyboardDidShow';
-    const hideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
-
-    const showSub = Keyboard.addListener(showEvent, (e) => {
-      setKeyboardHeight(e?.endCoordinates?.height ?? 0);
-    });
-    const hideSub = Keyboard.addListener(hideEvent, () => setKeyboardHeight(0));
-
-    return () => {
-      showSub.remove();
-      hideSub.remove();
-    };
-  }, []);
-
-  return overlayBottomInset(keyboardHeight);
+  return overlayBottomInset(useKeyboardFrameHeight());
 }
 
 export default useOverlayBottomInset;

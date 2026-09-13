@@ -18,11 +18,20 @@ import { semantic, spacing, typography } from '@/core/theme';
 import CleanTabNavigator from './CleanTabNavigator';
 import { DailyLoopNavigator } from '@/features/practices/dailyloop';
 import { VoiceReflectionScreen } from '@/features/journal/screens/VoiceReflectionScreen';
+import { JournalHistoryScreen } from '@/features/journal/screens/JournalHistoryScreen';
+import { JournalEntryDetailScreen } from '@/features/journal/screens/JournalEntryDetailScreen';
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 // DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
-import CrisisKeyboardAccessory from '@/features/crisis/components/CrisisKeyboardAccessory';
-import { RootOverlaySlot } from '@/core/navigation/rootOverlaySlot';
+import {
+  RootOverlaySlot,
+  useIsRootOverlayOccupied,
+  useRootOverlayStore,
+} from '@/core/navigation/rootOverlaySlot';
+import NavigatorA11yHost from '@/core/navigation/NavigatorA11yHost';
+// FEAT-570 — publishes the first-party bug-report form into the slot below.
+// Eager, never lazy: it is a DEBUG-406 conversion on the crisis path.
+import BugReportOverlay from '@/core/components/BugReportOverlay';
 // DEBUG-341: eager, never lazy (CLAUDE.md crisis-path rule). Rendered by LoadingScreen
 // above and by the overlay boundary below.
 import Static988Button from '@/features/crisis/components/Static988Button';
@@ -44,6 +53,11 @@ import {
 // FEAT-293: standalone practice discoverability.
 import SortingPracticeRoute from '@/features/practices/catalog/SortingPracticeRoute';
 import PracticeLibraryScreen from '@/features/practices/screens/PracticeLibraryScreen';
+// FEAT-433 — direct paths, never a features/guidance barrel (FEAT-376): a barrel
+// would pull guidanceGate and the content loader into this navigator's eager graph,
+// defeating the lazy load the suppression ordering depends on.
+import DomainGuidanceScreen from '@/features/guidance/screens/DomainGuidanceScreen';
+import type { GuidanceDomain } from '@/features/guidance/types/guidance';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { useConsentStore } from '@/core/stores/consentStore';
@@ -54,7 +68,11 @@ import { CombinedLegalGateScreen } from '@/features/consent';
 // surface. Per FEAT-376's lesson (CLAUDE.md), a barrel re-export enlarges the
 // eager module graph of every importer, including safety paths.
 import ReConsentRoute from '@/features/consent/screens/ReConsentRoute';
+// Deep path, not the feature barrel: a barrel re-export enlarges the eager
+// module graph of every importer, including safety paths (FEAT-376).
+import ConsentBlockedRoute from '@/features/consent/screens/ConsentBlockedRoute';
 import { useReConsentTrigger } from '@/features/consent/hooks/useReConsentTrigger';
+import { useAnalytics } from '@/core/analytics';
 import type { AssessmentType, PHQ9Result, GAD7Result } from '@/features/assessment/types';
 import type { DailyLoopMode, DailyLoopDepth, DailyLoopSessionData } from '@/features/practices/types/flows';
 import {
@@ -84,6 +102,17 @@ export type RootStackParamList = {
    * the render prop below.
    */
   ReConsent: undefined;
+  /**
+   * DEBUG-451 — the explanation for `integrity_error`, `revoked` and
+   * `under_age`. Presented OVER Main by `useReConsentTrigger`, never as an
+   * initial route.
+   *
+   * 🔴 `undefined`, and it must stay that way — for the serializability reason
+   * above, and for a second one: the variant is re-derived from `consentStatus`
+   * inside `ConsentBlockedRoute`. A status param could be constructed by any
+   * caller to show a user copy that contradicts the state the app is in.
+   */
+  ConsentBlocked: undefined;
   // The single daily ritual (FEAT-298 slice 5: the default practice; no longer flagged).
   // `mode` is a test/tooling param only — the tense is inferred from the clock, and there
   // is no mode picker.
@@ -91,6 +120,8 @@ export type RootStackParamList = {
   // FEAT-283 Slice A: spoken reflection capture, reached from the
   // `voice_journal`-flag-gated Profile card.
   VoiceReflection: undefined;
+  JournalHistory: undefined;
+  JournalEntryDetail: { entryId: string };
   ModuleDetail: { moduleId: ModuleId };
   ClassicalLibrary: { principle?: ModuleId; author?: PassageAuthor } | undefined;
   PassageReader: { passageId: string };
@@ -145,12 +176,23 @@ export type RootStackParamList = {
   };
   CrisisResources: {
     severityLevel?: 'moderate' | 'high' | 'emergency';
-    // ⚠️ DEBUG-450 — kept in sync BY HAND with `CrisisTapSource` in
-    // features/crisis/services/crisisTapTrace.ts. Separately declared, nothing enforces
-    // the correspondence. 'assessment' and 'direct' are route-only; 'error_boundary'
-    // never navigates (it dials 988 directly), so it has no member here.
-    source?: 'assessment' | 'direct' | 'crisis_button' | 'keyboard_accessory';
+    // How the CrisisResources route was REACHED. Widened by FEAT-433 (`guidance_gate`)
+    // and DEBUG-450 (`keyboard_accessory`).
+    //
+    // Do NOT loosen this to `string` and do NOT cast at the call site. The sole reader is
+    // CrisisResourcesScreen.tsx (`source ?? 'direct'` into a logSecurity metadata bag), so
+    // there is no exhaustive switch to break.
+    //
+    // ⚠️ Related to `CrisisTapSource` (features/crisis/services/crisisTapTrace.ts) but
+    // deliberately NOT equal to it, and nothing enforces either way. That union means "a
+    // human TAP on a crisis control"; this one means "how the route was reached". The
+    // route-only members are `assessment`, `direct` and `guidance_gate` — a gate redirect
+    // is not a tap, which is why guidance never calls beginCrisisTap. `error_boundary` is
+    // tap-only: it dials 988 directly and never navigates. So do not "resync" these lists
+    // by making them identical; adding a member to one is a decision about which it is.
+    source?: 'assessment' | 'direct' | 'crisis_button' | 'guidance_gate' | 'keyboard_accessory';
   } | undefined;
+  DomainGuidance: { domain: GuidanceDomain };
   Subscription: undefined;
   SubscriptionStatus: undefined;
   WellnessTrendsDetail: undefined;
@@ -190,12 +232,22 @@ const LoadingScreen: React.FC = () => (
 
 const CleanRootNavigator: React.FC = () => {
   const { markCheckInComplete, recordPrincipleEngagement } = useStoicPracticeStore();
+  // DEBUG-536: destructure the individual tracker, never the hook object — the object
+  // is new every render, and this component hosts the RootCrisisButton overlay, so it
+  // must not gain a new render trigger. The tracker itself is useCallback-stable.
+  const { trackCheckInCompleted } = useAnalytics();
   const { loadSettings, markOnboardingComplete } = useSettingsStore();
   const { loadConsent, consentStatus } = useConsentStore();
   const [initialRoute, setInitialRoute] = useState<'LegalGate' | 'Onboarding' | 'Main' | null>(null);
   // MAINT-290: active root-stack route drives the single RootCrisisButton overlay
   // (suppression + immersive/standard mode). Tracked via NavigationContainer below.
   const [activeRootRoute, setActiveRootRoute] = useState<string | undefined>(undefined);
+
+  // DEBUG-575: drives the accessibility focus trap on the navigator host below.
+  // Read here rather than inside the host so the subscription is part of this
+  // component's normal render, and keyed on ownerId so a re-render of the
+  // publishing component does not re-render the whole navigator.
+  const rootOverlayOccupied = useIsRootOverlayOccupied();
 
   useEffect(() => {
     let cancelled = false;
@@ -317,6 +369,25 @@ const CleanRootNavigator: React.FC = () => {
     logSystem(
       `Recorded ${stepKeys.length} principle engagements (daily loop, ${engagementType})`
     );
+
+    // DEBUG-536: LAST statement, and in its own swallowing catch. This function has no
+    // try/catch of its own, so without this an analytics throw rejects an unhandled
+    // promise and loses the check-in record CleanHomeScreen's isCheckInCompletedToday
+    // reads, plus every principle engagement above it.
+    //
+    // The duration is NOT minted here. It is the figure DailyLoopNavigator already
+    // derived from the same mount-scoped `startTime` that emitted `check_in_started`,
+    // so the pair agrees by construction. Omitted when absent or non-finite —
+    // `duration_ms` is in SAFE_NUMERIC_KEYS, so a fabricated value would transmit
+    // unchallenged and read as real data.
+    try {
+      const seconds = sessionData.timeSpentSeconds;
+      const durationMs =
+        typeof seconds === 'number' && Number.isFinite(seconds) ? seconds * 1000 : undefined;
+      trackCheckInCompleted(durationMs);
+    } catch {
+      /* Telemetry must never affect the check-in record. */
+    }
   };
 
   // FEAT-298 slice 6c: the "start practising now" destination is the daily loop. It was
@@ -363,10 +434,49 @@ const CleanRootNavigator: React.FC = () => {
     <NavigationContainer
       ref={navigationRef}
       linking={linkingConfig}
-      onReady={() => setActiveRootRoute(getActiveRootRouteName() ?? initialRoute)}
-      onStateChange={() => setActiveRootRoute(getActiveRootRouteName())}
+      /* DEBUG-575 finding 2 — `syncActiveRoute` enforces the slot's crisis-route
+         invariant: no overlay may hold the slot while CrisisResources is active,
+         because the slot paints ABOVE every navigator route and these backdrops
+         are opaque, so the crisis screen would be both invisible and inert.
+         Driven from navigation state rather than from any control, so the FAB,
+         CrisisKeyboardAccessory, `being://crisis` deep links and the 400ms retry
+         inside navigateToCrisisResources are all covered without enumerating
+         them. It runs AFTER the state commit, which is also why it cannot live
+         in a tap handler — that util requires its first attempt stay first and
+         stay synchronous. */
+      onReady={() => {
+        const r = getActiveRootRouteName() ?? initialRoute;
+        useRootOverlayStore.getState().syncActiveRoute(r);
+        setActiveRootRoute(r);
+      }}
+      onStateChange={() => {
+        const r = getActiveRootRouteName();
+        useRootOverlayStore.getState().syncActiveRoute(r);
+        setActiveRootRoute(r);
+      }}
     >
       <View style={styles.root}>
+        {/* DEBUG-575 — THE FOCUS TRAP FOR EVERY ROOT-SLOT OVERLAY LIVES HERE.
+            Not on the overlay. An overlay published into RootOverlaySlot is a
+            direct native SIBLING of RootCrisisButton and CrisisKeyboardAccessory
+            (the slot renders a bare fragment and adds no view), so
+            `accessibilityViewIsModal` on the overlay prunes BOTH crisis
+            affordances out of the accessibility tree — measured: zero
+            `crisis-button-root` nodes with the weekly-reflection composer open,
+            while the button was plainly painted on screen.
+
+            Hiding the navigator subtree instead confines assistive technology to
+            the overlay PLUS the crisis affordances, which is the trap actually
+            wanted. Scope is load-bearing and mirrors PracticeScreenLayout's rule:
+            this host wraps ONLY Stack.Navigator. RootOverlaySlot,
+            RootCrisisBoundary and CrisisKeyboardAccessory are deliberately
+            OUTSIDE it — wrapping them would hide the overlay along with
+            everything else, and hide 988 along with it.
+
+            `importantForAccessibility` carries Android, where
+            `accessibilityViewIsModal` is a no-op and nothing trapped focus at
+            all before this. Pinned by rootOverlayFocusTrap.test.tsx. */}
+        <NavigatorA11yHost hidden={rootOverlayOccupied} style={styles.root}>
         <Stack.Navigator
           initialRouteName={initialRoute}
         screenOptions={{
@@ -474,6 +584,42 @@ const CleanRootNavigator: React.FC = () => {
           {({ navigation }) => <ReConsentRoute onDismiss={() => navigation.goBack()} />}
         </Stack.Screen>
 
+        {/* DEBUG-451 — the explanation for the three fail-closed consent
+            statuses (integrity_error, revoked, under_age). Presented over Main by
+            useReConsentTrigger; never an initial route.
+
+            🔴 WHY THIS IS NOT AN `initialRoute` CHANGE. checkInitialRoute tests
+            `settings?.onboardingCompleted` first and unconditionally, which is
+            what makes the resolved status irrelevant to routing — but that test
+            is CORRECT under this architecture. Main is the right initial route;
+            the missing piece was a trigger-layer handler, not a routing-table
+            entry. Routing these statuses at initialRoute instead would change
+            the root route for a cohort, which DEBUG-418 rejected as the riskiest
+            available fix on the navigator that owns the crisis overlay.
+
+            Every option below is copied from ReConsent deliberately and for the
+            same reasons — `transparentModal` for its `detachPreviousScreen: false`
+            mount semantics, `gestureEnabled: false` and `headerShown: false` so
+            the notice cannot be dismissed without the user pressing its own
+            control. See the ReConsent block above for the full rationale.
+
+            988: ConsentBlocked is deliberately NOT in RootCrisisButton's
+            SUPPRESSED_ROUTES or IMMERSIVE_ROUTES, and owns no crisis section of
+            its own, so the root overlay below is its ONLY affordance — identical
+            to the Main these users come from. Adding it to either set would
+            silently switch 988 off for a cohort already in a fail-closed app.
+            Pinned by __tests__/safety/consentBlockedCrisisReachability.test.tsx. */}
+        <Stack.Screen
+          name="ConsentBlocked"
+          options={{
+            headerShown: false,
+            presentation: 'transparentModal',
+            gestureEnabled: false,
+          }}
+        >
+          {({ navigation }) => <ConsentBlockedRoute onDismiss={() => navigation.goBack()} />}
+        </Stack.Screen>
+
         {/* Educational Module Detail */}
         <Stack.Screen
           name="ModuleDetail"
@@ -539,6 +685,22 @@ const CleanRootNavigator: React.FC = () => {
             NOT modal — it is a browsable listing surface, and it must keep the
             root crisis overlay in its default `standard` mode (hence its
             deliberate absence from RootCrisisButton's route sets). */}
+        {/* FEAT-433 slice 3a. Deliberately absent from BOTH of RootCrisisButton's
+            route sets (SUPPRESSED_ROUTES and IMMERSIVE_ROUTES), so the root 988
+            overlay renders here in default `standard` mode — the feature ships zero
+            floating UI of its own, so without the overlay it would have no crisis
+            affordance at all. `MUST_RENDER_STANDARD` in RootCrisisButton.test.tsx
+            pins that rather than leaving it safe-by-accident.
+
+            No entry point until FEAT-457 adds the Home affordance: this route is
+            reachable only by an explicit navigate. That unreachability is also why
+            the slice ships unflagged. */}
+        <Stack.Screen
+          name="DomainGuidance"
+          component={DomainGuidanceScreen}
+          options={{ headerShown: true, title: 'Guidance', headerBackTitle: 'Back' }}
+        />
+
         <Stack.Screen
           name="PracticeLibrary"
           options={{ headerShown: false, presentation: 'card' }}
@@ -651,6 +813,33 @@ const CleanRootNavigator: React.FC = () => {
             options={{ headerShown: true, title: 'Reflections' }}
           >
             {() => <VoiceReflectionScreen />}
+          </Stack.Screen>
+
+          {/* FEAT-287 Slice B: re-read. Registered in THIS group, beside
+              VoiceReflection, deliberately — the group sets
+              `presentation: 'modal'`, and VoiceReflection is the standing proof
+              that this navigator's modal presentation keeps the root crisis
+              overlay (RootCrisisButton.tsx: "VoiceReflection keeps this
+              button"). It is a JS stack, so a modal-presented screen stays in
+              the same view tree; the hazard is an RN <Modal>, which is a
+              separate window, not this option.
+
+              Both are absent from RootCrisisButton's SUPPRESSED_ROUTES and
+              IMMERSIVE_ROUTES, so the overlay paints at full salience. Neither
+              carries its own 988 control: duplicating it is a reverted mistake
+              (crisis-zero-988-windows.test.tsx), not a missing safeguard. Keep
+              both out of linking.ts, as VoiceReflection is. */}
+          <Stack.Screen
+            name="JournalHistory"
+            options={{ headerShown: true, title: 'Past reflections' }}
+          >
+            {() => <JournalHistoryScreen />}
+          </Stack.Screen>
+          <Stack.Screen
+            name="JournalEntryDetail"
+            options={{ headerShown: true, title: 'Reflection' }}
+          >
+            {() => <JournalEntryDetailScreen />}
           </Stack.Screen>
 
           {/* FEAT-291: Daily Loop prototype — reached only from the Home
@@ -774,6 +963,7 @@ const CleanRootNavigator: React.FC = () => {
           />
         </Stack.Group>
         </Stack.Navigator>
+        </NavigatorA11yHost>
 
         {/* MAINT-290: single persistent crisis-button overlay. Sibling of the root
             Stack.Navigator (JS stack → renders above stack modals too), so 988 access
@@ -805,27 +995,35 @@ const CleanRootNavigator: React.FC = () => {
           would reintroduce, for every overlay at once, the exact
           zero-988-affordance state DEBUG-403 and DEBUG-406 were filed to remove.
         */}
+        {/* FEAT-570 — a PUBLISHER, not a rendered overlay: it returns null and
+            pushes the form into the slot below when `bugReportStore.visible`.
+            Mounted here, inside NavigationContainer, so the slot's route-driven
+            refusal applies to it. It is the first slot claimant armed at the app
+            ROOT (useBugReportShake, in App.tsx above this navigator), which is
+            why the slot had to gain SCREEN_OWNED_988_ROUTES: a shake can raise
+            it on AssessmentFlow or the pre-consent LegalGate, where the FAB
+            steps aside and the screen owns the only route to 988. */}
+        <BugReportOverlay />
+
         <RootOverlaySlot />
 
         <RootCrisisBoundary>
           <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
         </RootCrisisBoundary>
 
-        {/* DEBUG-450 — the crisis affordance for when a software keyboard occludes the
-            root button. Mounted ONCE: RN registers InputAccessoryView content by
-            nativeID app-wide, so every TextInput spreading crisisAccessoryProps() reaches
-            this single instance.
+        {/* DEBUG-506 — the crisis keyboard accessory is NOT mounted here, and must not be.
 
-            ADDITIVE, and a SIBLING of RootCrisisButton rather than a replacement for it.
-            Neither control suppresses the other — coordinating them would be a fourth
-            instance of the two-list reconciliation failure CLAUDE.md names for
-            features/guidance/ and features/consent/.
+            It used to be, on the belief that RN registers InputAccessoryView content by
+            nativeID app-wide from one mount. That is false on Fabric: attachment happens
+            once, in didMoveToWindow, by a depth-first search of the window for a TextInput
+            carrying the id. From this mount that search ran at app launch, when no such
+            input existed, and could never re-run — so the control was inert for its whole
+            shipped life while every gate stayed green.
 
-            Deliberately OUTSIDE RootCrisisBoundary: that boundary's fallback renders
-            Static988Button, which dials directly and needs no keyboard. Nesting this
-            inside would tie a keyboard-only affordance to a crash-recovery surface that
-            has no TextInput. */}
-        <CrisisKeyboardAccessory />
+            It is now one instance per input, owned by CrisisTextInput. RootCrisisButton
+            above is unaffected: the two controls remain independently correct, neither
+            suppressing the other, which is what stops a bug in one silently removing the
+            other's coverage. */}
       </View>
     </NavigationContainer>
   );
