@@ -36,9 +36,17 @@ Sentry org `being-prod` / project `javascript-react`):**
 - Sentry has **one** alert rule — the default onboarding issue rule "Send a notification for
   high priority issues" (ID `2878415`). **Zero metric alerts.** So §1/§2/§5 genuinely do not
   exist yet.
-- Prod has 5 cron jobs, **all `crisis-*`**. The INFRA-266 grace-period stack
+- ~~Prod has 5 cron jobs, **all `crisis-*`**. The INFRA-266 grace-period stack
   (`grace_period_automation_runs` table + `grace-period-automation` cron) is **not applied in
-  prod** — see the deploy-ordering prerequisite in [§4](#4-subscription-verification-failure-watchdog-shipped).
+  prod**.~~ **Superseded — re-verified 2026-08-21 (INFRA-84).** Prod now has **10 active cron
+  jobs**, all succeeding over the trailing 7 days with zero failures: the five `crisis-*` jobs
+  plus `grace-period-automation`, `grace-period-automation-runs-prune`,
+  `subscription-verification-watchdog`, `analytics-retention-prune` and
+  `retention-prune-runs-prune`. **Alert #4 below is therefore genuinely operational, not merely
+  shipped** — the deploy-ordering prerequisite in
+  [§4](#4-subscription-verification-failure-watchdog-shipped) has been met. Alerts #1, #2 and #5
+  remain operator-to-create; the Sentry half of this grounding was not re-verified.
+  Verification queries: `supabase-operations-runbook.md` §2.
 
 ---
 
