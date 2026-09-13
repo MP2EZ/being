@@ -247,8 +247,16 @@ describe('DEBUG-430 — the document links are reachable by screen reader', () =
   const box = (screen: ReturnType<typeof renderScreen>, label: string) =>
     screen.getByLabelText(label);
 
-  const TOS = 'I agree to the Terms of Service';
-  const PRIVACY = 'I agree to the Privacy Policy';
+  /**
+   * FEAT-470 appended a `, required` / `, optional` suffix to every consent label.
+   * That suffix is load-bearing, not cosmetic: it is the one required/optional
+   * channel a user cannot switch off (iOS lets hint speech be disabled and TalkBack
+   * truncates hints), following AccessibleInput.tsx:86's `${label}, required` shape.
+   * These constants carry it so the lookup stays an EXACT match — a substring match
+   * here would silently keep passing if the suffix were later dropped.
+   */
+  const TOS = 'I agree to the Terms of Service, required';
+  const PRIVACY = 'I agree to the Privacy Policy, required';
 
   beforeEach(() => {
     // Linking.openURL is a shared global jest.fn; without this the openURL
@@ -347,5 +355,173 @@ describe('DEBUG-430 — the document links are reachable by screen reader', () =
     // trivially empty and the matcher can still fire.
     expect(code.length).toBeGreaterThan(1000);
     expect(/const TERMS_URL\s*=\s*'https:\/\/being\.fyi\/terms'/.test('const TERMS_URL = \'https://being.fyi/terms\';')).toBe(true);
+  });
+});
+
+/**
+ * FEAT-470 — the required/optional split is discoverable by a screen reader.
+ *
+ * WHY THIS IS AN ACCESSIBILITY CONCERN AND NOT A COSMETIC ONE. Before FEAT-470 all
+ * four consent checkboxes were required and visually identical, so uniformity was
+ * itself the information. Now three are required and one is not, with nothing in the
+ * rendered tree distinguishing them unless it is put there deliberately. A
+ * screen-reader user who cannot tell which box is optional has strictly less
+ * information than a sighted one — and the whole point of the change is that
+ * refusing the optional box is a real choice.
+ *
+ * THREE CHANNELS, asserted separately because each fails independently:
+ *   - `accessibilityLabel` suffix — cannot be disabled by the user;
+ *   - `accessibilityHint` — CAN be disabled on iOS and truncated by TalkBack, so it
+ *     may never be the sole carrier of load-bearing information;
+ *   - a visible group heading with `accessibilityRole="header"` — navigable by the
+ *     headings rotor, which no per-control property can substitute for.
+ */
+describe('FEAT-470 — required vs optional is exposed on three channels', () => {
+  const REQUIRED_LABELS = [
+    'I agree to the Terms of Service, required',
+    'I agree to the Privacy Policy, required',
+    'I understand Being provides wellness support, not medical care, and in a crisis I will call 911 or 988, required',
+  ];
+
+  it('suffixes every mandatory checkbox label with ", required"', () => {
+    const screen = renderScreen();
+    for (const label of REQUIRED_LABELS) {
+      expect(screen.getByLabelText(label)).toBeTruthy();
+    }
+  });
+
+  /**
+   * Queried by label regex, not by walking up from the testID: the indicator View
+   * carrying `legal-consent-mh-processing` is not the node holding the
+   * accessibility props, and a `.parent` hop is brittle against any change in the
+   * Pressable's host-component nesting.
+   */
+  const art9Box = (screen: ReturnType<typeof renderScreen>) =>
+    screen.getByLabelText(/^I explicitly consent to Being processing my personal wellness data/);
+
+  it('suffixes the Art. 9 checkbox label with ", optional" and never ", required"', () => {
+    const screen = renderScreen();
+    expect(art9Box(screen).props.accessibilityLabel).toMatch(/, optional$/);
+    expect(art9Box(screen).props.accessibilityLabel).not.toMatch(/, required/);
+  });
+
+  it('gives the three mandatory boxes a "Required to continue" hint', () => {
+    const screen = renderScreen();
+    for (const label of REQUIRED_LABELS) {
+      expect(screen.getByLabelText(label).props.accessibilityHint).toBe('Required to continue');
+    }
+  });
+
+  it('leads the Art. 9 hint with "Optional" rather than burying it', () => {
+    // The repo convention for optional controls is to lead with the word, so a
+    // truncating screen reader still conveys the operative fact.
+    const screen = renderScreen();
+    expect(art9Box(screen).props.accessibilityHint).toMatch(/^Optional\b/);
+  });
+
+  it('marks both group headings with accessibilityRole="header"', () => {
+    const screen = renderScreen();
+    for (const heading of ['Required to continue', 'Optional']) {
+      const node = screen.getByText(heading);
+      expect(node.props.accessibilityRole).toBe('header');
+    }
+  });
+
+  it('does not rely on the hint alone — the label carries the split too', () => {
+    // Guards the guard: if a future edit moved the required/optional marker into
+    // the hint only, every assertion above except this one would still pass.
+    const screen = renderScreen();
+    const withHintsDisabled = art9Box(screen).props.accessibilityLabel ?? '';
+    expect(withHintsDisabled).toContain('optional');
+  });
+});
+
+/**
+ * FEAT-470 — the Continue button explains why it is disabled.
+ *
+ * A disabled button with no hint tells a screen-reader user nothing about what to
+ * do next, and this screen now has two independent blockers (birth year, and the
+ * three required acceptances). The count must name THREE, never four: naming the
+ * Art. 9 tick as a blocker would re-imply it is mandatory, which is the exact
+ * defect FEAT-470 removes.
+ */
+describe('FEAT-470 — the Continue hint counts only the three required items', () => {
+  const continueBtn = (screen: ReturnType<typeof renderScreen>) =>
+    screen.getByTestId('legal-gate-continue');
+
+  const tick = (screen: ReturnType<typeof renderScreen>, testID: string) => {
+    const pressable = screen.getByTestId(testID).parent;
+    if (!pressable) throw new Error(`no pressable ancestor for ${testID}`);
+    fireEvent.press(pressable);
+  };
+
+  it('reports three remaining when nothing is ticked', () => {
+    const screen = renderScreen();
+    expect(continueBtn(screen).props.accessibilityHint).toMatch(/3 remaining/);
+  });
+
+  it('counts down as required items are ticked, ignoring the Art. 9 tick', () => {
+    const screen = renderScreen();
+    tick(screen, 'legal-consent-tos');
+    expect(continueBtn(screen).props.accessibilityHint).toMatch(/2 remaining/);
+
+    // Ticking the OPTIONAL box must not change the count. If it did, the hint would
+    // be describing a four-item gate that no longer exists.
+    tick(screen, 'legal-consent-mh-processing');
+    expect(continueBtn(screen).props.accessibilityHint).toMatch(/2 remaining/);
+
+    tick(screen, 'legal-consent-privacy');
+    expect(continueBtn(screen).props.accessibilityHint).toMatch(/1 remaining/);
+  });
+
+  it('never says "four" anywhere in the disabled-state hint', () => {
+    const screen = renderScreen();
+    expect(continueBtn(screen).props.accessibilityHint).not.toMatch(/four|4 remaining/i);
+  });
+
+  it('switches to the birth-year reason once all three required items are ticked', () => {
+    const screen = renderScreen();
+    for (const id of ['legal-consent-tos', 'legal-consent-privacy', 'legal-consent-wellness']) {
+      tick(screen, id);
+    }
+    // Consents satisfied, year still unset — the hint must name the real blocker.
+    expect(continueBtn(screen).props.accessibilityHint).toMatch(/birth year/i);
+  });
+});
+
+/**
+ * FEAT-470 — the error banner reaches Android too.
+ *
+ * `announceForAccessibility` at the setError sites covers iOS, which has no trait
+ * that auto-announces an alert. Android needs the live region. Before this change
+ * the banner had neither prop, so Android users were shown an error they were never
+ * told about.
+ */
+describe('FEAT-470 — the error banner is announced on both platforms', () => {
+  it('declares role="alert" and an assertive live region on the error text', () => {
+    // Source-level: the banner renders only when `error` is set, and the guard that
+    // sets it is unreachable defensive code (Continue is disabled on the same
+    // condition), so there is no render path to assert against.
+    const banner = code.slice(code.indexOf('{error && ('), code.indexOf('Continue Button'));
+    expect(banner).toMatch(/accessibilityRole="alert"/);
+    expect(banner).toMatch(/accessibilityLiveRegion="assertive"/);
+  });
+
+  it('proves that matcher can fail', () => {
+    expect(/accessibilityRole="alert"/.test('<Text style={styles.errorText}>')).toBe(false);
+    expect(/accessibilityRole="alert"/.test('accessibilityRole="alert"')).toBe(true);
+  });
+
+  it('keeps the visible and announced error strings aligned on the count', () => {
+    // These two strings drifted before (only the visible one said "to continue").
+    // A screen-reader user hearing a different count than the screen shows is the
+    // failure this pins.
+    const guard = code.slice(code.indexOf('if (!requiredConsentsTicked)'));
+    const visible = guard.match(/setError\('([^']+)'\)/)?.[1];
+    const announced = guard.match(/announceForAccessibility\(\s*'([^']+)'/)?.[1];
+    expect(visible).toBeDefined();
+    expect(announced).toBeDefined();
+    expect(visible).toMatch(/three/);
+    expect(announced).toContain(visible as string);
   });
 });

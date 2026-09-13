@@ -29,15 +29,36 @@
  *     `isBaseEligibleForRenewal` re-derives from `birthYear` and is imported
  *     rather than reimplemented, so screen and store share ONE definition of the
  *     18+ boundary. It fails closed on a missing `birthYear`
- *     (`consentStore.ts:738`), which means the trigger goes permanently silent
- *     for such a user. Deliberate.
+ *     (`consentStore.ts:738`), so a record without one resolves `'ineligible'`
+ *     alongside the genuinely under-18 — which is why the destination's copy says
+ *     we cannot establish 18+, never that the user is under 18. That sentence is
+ *     true of both sub-cohorts and asserts nothing we do not know.
  *
- *     Under-18 holders of a stale record are excluded from the prompt and left
- *     at Main, fail-closed, with no under-age route (founder decision D2). The
- *     cohort is currently empty: `loadConsent` tests `version` before age
- *     (`consentStore.ts:901` before `:918`), so a v1.0.0 record always resolves
- *     `version_mismatch` and never `under_age` — and every grant post-dates the
- *     18+ rule, so no record written under it can be v1.0.0.
+ *     🔄 DEBUG-418 CHANGED THIS BRANCH'S OUTCOME, NOT ITS PREDICATE. It used to
+ *     return a bare `false`, leaving under-18 holders of a stale record at Main —
+ *     fail-closed, with `canPerformOperation` false for every operation, no
+ *     re-consent prompt, and nothing explaining why (founder decision D2). The
+ *     age check still excludes them from `ReConsentScreen`; it now routes them to
+ *     a decline-only destination instead of nowhere.
+ *
+ *     Two things this deliberately does NOT do, because the item's own ACs got
+ *     them backwards. It does not reorder `loadConsent` — version is tested
+ *     before age to stop an Art. 7(3) withdrawal being re-prompted, and reordering
+ *     would not help anyway: a 13-17-year-old on a v1.0.0 record carries
+ *     `isEligible: TRUE`, because that flag was computed under the old 13+ gate,
+ *     so they pass the age check and still resolve `version_mismatch`. And it does
+ *     not touch `initialRoute`: `checkInitialRoute` tests `onboardingCompleted`
+ *     FIRST and unconditionally, so a resolved-status change cannot move the route
+ *     for anyone who has onboarded. The trigger layer is the only layer that can
+ *     see this cohort, which is what `renewConsent`'s own comment says —
+ *     "suppression belongs to the trigger layer".
+ *
+ *     The v1.0.0 cohort is currently EMPTY and this is a latent trap, not a live
+ *     defect: `loadConsent` tests `version` before age (`consentStore.ts:901`
+ *     before `:918`), and every grant post-dates the 18+ rule, so no record
+ *     written under it can be v1.0.0. The LIVE superset — every onboarded user in
+ *     `under_age`, `revoked` or `integrity_error` strands at Main for the same
+ *     `onboardingCompleted`-first reason — is DEBUG-451 and is NOT fixed here.
  *
  * (3) `onboardingCompleted === true` — re-consent must not land on top of the
  *     onboarding flow, which collects consent itself.
@@ -50,12 +71,20 @@
  *
  * ── WHAT THIS DELIBERATELY DOES NOT DO ───────────────────────────────────────
  *
- * 🚫 NO TELEMETRY, of any kind, on any branch. Not merely forbidden —
- * structurally pointless: `PostHogProvider` gates mounting on
- * `currentConsent?.preferences?.analyticsEnabled`, and `loadConsent` nulls
- * `currentConsent` for the entire `version_mismatch` window, so no client exists
- * to receive an event. Any event here would also describe an interaction that
- * happened BEFORE consent existed.
+ * 🚫 NO TELEMETRY, of any kind, on any branch. `loadConsent` nulls
+ * `currentConsent` for the entire `version_mismatch` window, so
+ * `useAnalyticsConsent()` is false and `useAnalytics.trackEvent` withholds every
+ * event. Any event here would also describe an interaction that happened BEFORE
+ * consent existed.
+ *
+ * Corrected in DEBUG-559, and the correction matters because the old wording
+ * invited a dangerous inference. It called telemetry here "structurally
+ * pointless" on the grounds that no client EXISTS — true only because
+ * `PostHogProvider` withheld `<PHProvider>` without consent, which was the
+ * DEBUG-559 defect (an element-type swap that remounted every 988 affordance).
+ * A client now exists from launch, so an event added here WOULD reach a live
+ * client and be withheld only by the explicit consent gate. Still forbidden,
+ * no longer self-enforcing.
  *
  * 🚫 NO RE-ARMING — no interval, no `AppState` re-check, no retry loop. The
  * trigger is launch-scoped, and that is what makes condition (6) sound: this
@@ -90,6 +119,29 @@ import { logError, LogCategory } from '@/core/services/logging';
  */
 export const RECONSENT_TRIGGER_STATUSES: ReadonlySet<ConsentStatus> = new Set<ConsentStatus>([
   'version_mismatch',
+]);
+
+/**
+ * The fail-closed statuses that get an EXPLANATION rather than a re-consent
+ * prompt (DEBUG-451).
+ *
+ * 🔴 A SECOND, DISJOINT ALLOWLIST — never merged into the one above. Membership
+ * here means "tell the user why the app is fail-closed"; membership there means
+ * "offer a re-grant". Collapsing them would arm `ReConsentScreen` — the only
+ * component that can produce an Art. 9(2)(a) affirmation — for a user who
+ * withdrew consent (Art. 7(3)) or whose record we could not read at all. The
+ * disjointness is pinned in `__tests__/useReConsentTrigger.privacy.test.ts`.
+ *
+ * All three are resolved from STATUS ALONE. `loadConsent` nulls both
+ * `currentConsent` and `staleConsent` for `integrity_error` (`consentStore.ts:875-885`
+ * and the catch at `:978-995`) and for `revoked` (`:887-897`), so a record-driven
+ * read — which is what DEBUG-418 shipped — resolves `'none'` for two of the
+ * three and strands them exactly as before.
+ */
+export const CONSENT_BLOCK_STATUSES: ReadonlySet<ConsentStatus> = new Set<ConsentStatus>([
+  'integrity_error',
+  'revoked',
+  'under_age',
 ]);
 
 /**
@@ -136,7 +188,29 @@ export interface ReConsentTriggerInputs {
   activeRootRoute: string | undefined;
   navigationReady: boolean;
   shownThisLaunch: boolean;
+  /**
+   * The first non-`'loading'` `consentStatus` of this launch, or `null` before
+   * one has resolved. Gates the BLOCKED presentation only — see the latch note
+   * on `resolveReConsentPresentation`.
+   */
+  launchStatus: ConsentStatus | null;
 }
+
+/**
+ * What, if anything, the `ReConsent` route should present.
+ *
+ * - `'none'`    — do not navigate at all.
+ * - `'renew'`   — present `ReConsentScreen`; the user can re-grant.
+ * - `'ineligible'` — present the decline-only destination: they cannot re-grant,
+ *                    but they must be told why rather than left at a Main where
+ *                    every operation fails closed.
+ *
+ * 🔴 A THREE-WAY RESULT, NOT A BOOLEAN, AND THAT IS THE FIX. The boolean shape is
+ * what encoded DEBUG-418: "not eligible to renew" and "should see nothing" are
+ * different facts, and collapsing them into one `false` is what stranded the
+ * cohort. Do not reintroduce a boolean wrapper for convenience.
+ */
+export type ReConsentPresentation = 'none' | 'renew' | 'ineligible' | 'blocked';
 
 /**
  * Pure, total, and the single place the six conditions are evaluated.
@@ -144,8 +218,15 @@ export interface ReConsentTriggerInputs {
  * Extracted from the hook so every condition can be tested at its boundary
  * without a renderer, a navigator or a store — which is what makes the 17/18
  * age cases and the crisis-deferral case cheap enough to actually assert.
+ *
+ * The five non-age conditions are unchanged by DEBUG-418 and still resolve
+ * `'none'`: the allowlist is NOT widened, and the crisis deferral applies to the
+ * ineligible cohort exactly as it does to the renewable one — a minor sitting on
+ * `CrisisResources` is not yanked onto a consent notice either.
  */
-export function shouldPresentReConsent(inputs: ReConsentTriggerInputs): boolean {
+export function resolveReConsentPresentation(
+  inputs: ReConsentTriggerInputs,
+): ReConsentPresentation {
   const {
     consentStatus,
     base,
@@ -153,23 +234,57 @@ export function shouldPresentReConsent(inputs: ReConsentTriggerInputs): boolean 
     activeRootRoute,
     navigationReady,
     shownThisLaunch,
+    launchStatus,
   } = inputs;
 
-  if (!RECONSENT_TRIGGER_STATUSES.has(consentStatus)) return false;
-  if (onboardingCompleted !== true) return false;
-  if (shownThisLaunch) return false;
-  if (!navigationReady) return false;
+  const isBlockStatus = CONSENT_BLOCK_STATUSES.has(consentStatus);
+  if (!RECONSENT_TRIGGER_STATUSES.has(consentStatus) && !isBlockStatus) return 'none';
+  if (onboardingCompleted !== true) return 'none';
+  if (shownThisLaunch) return 'none';
+  if (!navigationReady) return 'none';
 
   // An undefined route is NOT a deferral route — condition (5) already covers
   // the pre-ready window, and treating "unknown" as "crisis" would suppress the
   // prompt for the wrong reason.
+  //
+  // 🔴 STAYS ABOVE THE STATUS BRANCHING BELOW. Every presentation defers on a
+  // live crisis surface, on the same set — a user on `CrisisResources` is not
+  // yanked onto a consent notice for ANY reason. Moving the DEBUG-451 branch
+  // above this would exempt exactly the three statuses that reach it.
   if (activeRootRoute !== undefined && RECONSENT_DEFERRAL_ROUTES.has(activeRootRoute)) {
-    return false;
+    return 'none';
+  }
+
+  /**
+   * 🔴 DEBUG-451 — RESOLVED FROM STATUS, AND DELIBERATELY BEFORE THE `!base`
+   * TAIL BELOW. That tail is why DEBUG-418's fix could not be widened to serve
+   * these cohorts: `integrity_error` and `revoked` carry no record at all, so
+   * they fall out at `'none'` — the stranding itself. Do not "simplify" this
+   * branch below it.
+   *
+   * Reading the status rather than the record is also what keeps `revoked` safe.
+   * `revokeConsent` leaves `currentConsent: revokedConsent` in memory —
+   * non-null, and `isEligible` still true because it spreads the prior record
+   * (`consentStore.ts:1417-1423`) — so a record-driven read would call a
+   * withdrawal renewable and re-prompt it, an Art. 7(3) violation. Note the same
+   * status has two in-memory shapes: non-null in-session, null after relaunch.
+   *
+   * THE LAUNCH LATCH. Presented only when this status was already resolved at
+   * launch. `PrivacyDataScreen.tsx:183-190` calls `loadConsent()` in a mount
+   * effect, so `valid → integrity_error` can flip MID-SESSION — and the deferral
+   * above reads the ROOT route only, so it cannot see a nested crisis leaf such
+   * as `VoiceReflection`'s journal-crisis banner under `Main`. Latching means a
+   * mid-session flip cannot present at all; it surfaces on the next launch,
+   * where the pre-route window makes a crisis leaf impossible. The alternative —
+   * making the deferral leaf-aware — is larger and fails less safely.
+   */
+  if (isBlockStatus) {
+    return launchStatus === consentStatus ? 'blocked' : 'none';
   }
 
   // Last, because it is the only condition that reads a record's contents.
-  if (!base) return false;
-  return isBaseEligibleForRenewal(base);
+  if (!base) return 'none';
+  return isBaseEligibleForRenewal(base) ? 'renew' : 'ineligible';
 }
 
 /**
@@ -196,11 +311,33 @@ export function markReConsentShown(): void {
 }
 
 /**
- * Test-only reset. Exported because the flag is module scope: without it the
- * trigger's own suite is order-dependent and can pass for the wrong reason.
+ * 🔴 THE LAUNCH LATCH (DEBUG-451) — module scope for the same reason as the flag
+ * above: it must die with the JS context so the next launch re-reads the status.
+ *
+ * Holds the FIRST non-`'loading'` `consentStatus` of this launch. `'loading'` is
+ * excluded because it is the pre-resolution placeholder every launch starts in;
+ * latching it would mean no status ever matches and nothing could present.
+ */
+let launchConsentStatus: ConsentStatus | null = null;
+
+export function latchLaunchConsentStatus(status: ConsentStatus): void {
+  if (launchConsentStatus === null && status !== 'loading') {
+    launchConsentStatus = status;
+  }
+}
+
+export function getLaunchConsentStatus(): ConsentStatus | null {
+  return launchConsentStatus;
+}
+
+/**
+ * Test-only reset. Exported because both the flag and the latch are module
+ * scope: without it the trigger's own suite is order-dependent and can pass for
+ * the wrong reason.
  */
 export function __resetReConsentTriggerForTests(): void {
   shownThisLaunch = false;
+  launchConsentStatus = null;
 }
 
 /**
@@ -239,25 +376,45 @@ export function useReConsentTrigger(activeRootRoute: string | undefined): void {
 
   useEffect(() => {
     try {
+      // Before the predicate: the first non-'loading' status of this launch is
+      // what the DEBUG-451 blocked branch is allowed to present from.
+      latchLaunchConsentStatus(consentStatus);
+
       const navigationReady = navigationRef.isReady();
-      if (
-        !shouldPresentReConsent({
-          consentStatus,
-          base: staleConsent ?? currentConsent,
-          onboardingCompleted,
-          activeRootRoute,
-          navigationReady,
-          shownThisLaunch,
-        })
-      ) {
+      const presentation = resolveReConsentPresentation({
+        consentStatus,
+        base: staleConsent ?? currentConsent,
+        onboardingCompleted,
+        activeRootRoute,
+        navigationReady,
+        shownThisLaunch,
+        launchStatus: launchConsentStatus,
+      });
+      if (presentation === 'none') {
         return;
       }
 
+      // 'renew' and 'ineligible' navigate to the SAME route. `ReConsentRoute`
+      // re-derives which screen to mount from the same `isBaseEligibleForRenewal`
+      // this function used, so there is one definition of the 18+ boundary and no
+      // param to drift out of sync with the record. It also means the decision
+      // cannot be spoofed by a caller constructing the route with a param.
+      //
+      // 🔴 'blocked' is a SECOND route, and carries no param either — DEBUG-451.
+      // `ConsentBlockedRoute` re-reads `consentStatus` from the store to choose
+      // its copy, for the same anti-spoofing reason. ONE route serves all three
+      // statuses: every new root-route name is a fresh membership decision
+      // against `SUPPRESSED_ROUTES`, and one a later author could add there "for
+      // tidiness", silently switching the root 988 overlay off.
+      const route = presentation === 'blocked' ? 'ConsentBlocked' : 'ReConsent';
+
       // Order matters. Mark BEFORE navigating: if `navigate` throws, the catch
       // below swallows it and we must not retry into a loop on the next state
-      // change. One presentation attempt per launch, whatever its outcome.
+      // change. One presentation attempt per launch, whatever its outcome — the
+      // flag is SHARED across both routes, never per-status, so a status that
+      // oscillates cannot present twice.
       markReConsentShown();
-      navigationRef.navigate('ReConsent');
+      navigationRef.navigate(route);
     } catch (error) {
       logError(
         LogCategory.SYSTEM,

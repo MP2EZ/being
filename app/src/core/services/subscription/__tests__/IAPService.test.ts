@@ -14,6 +14,7 @@
  */
 
 import { IAPService } from '../IAPService';
+import { appleTransactionIdentityFrom } from '../appleTransactionIdentity';
 import * as RNIap from 'react-native-iap';
 import type { Purchase, PurchaseError } from 'react-native-iap';
 
@@ -254,10 +255,19 @@ describe('IAPService - Receipt Verification', () => {
     const result = await service.verifyReceipt('base64-receipt', 'apple');
 
     // Body must NOT include userId — that's derived from auth.uid() server-side now.
-    expect(mockInvoke).toHaveBeenCalledWith(
-      'verify-apple-receipt',
-      { body: { receiptData: 'base64-receipt' } }
-    );
+    //
+    // Asserted on the captured keys, NOT with toHaveBeenCalledWith. That matcher uses
+    // toEqual semantics, under which `{receiptData, transactionId: undefined}` equals
+    // `{receiptData}` — so the old form went green exactly when INFRA-467's field was
+    // added and did nothing, and red only once it worked. Object.keys can tell the two
+    // apart; see the trap-control test at the end of this describe block.
+    const [fnName, opts] = mockInvoke.mock.calls[0] as [string, { body: Record<string, unknown> }];
+    expect(fnName).toBe('verify-apple-receipt');
+    // Empty body when the purchase carries no transaction identity: `receiptData` is no
+    // longer sent at all (INFRA-467 slice 4). The server stopped reading it at slice 3,
+    // so continuing to send a base64 app receipt on every purchase was pure waste.
+    expect(Object.keys(opts.body).sort()).toEqual([]);
+    expect('receiptData' in opts.body).toBe(false);
 
     expect(result.valid).toBe(true);
     expect(result.subscriptionId).toBe('test-sub-id');
@@ -414,10 +424,98 @@ describe('IAPService - Receipt Verification', () => {
 
     expect(result.valid).toBe(false);
     expect(result.error).toBe('EMPTY_RECEIPT');
-    expect(mockInvoke).toHaveBeenCalledWith(
-      'verify-apple-receipt',
-      { body: { receiptData: '' } }
-    );
+    const [fnName, opts] = mockInvoke.mock.calls[0] as [string, { body: Record<string, unknown> }];
+    expect(fnName).toBe('verify-apple-receipt');
+    expect('receiptData' in opts.body).toBe(false);
+  });
+
+  // -------------------------------------------------------------------------
+  // INFRA-467 slice 2 — Apple transaction identity travels to the server.
+  //
+  // Slice 2 shipped this additively, before the server read it. Slice 4 then dropped
+  // `receiptData`, which needed no adoption window of its own: nothing server-side ever
+  // read it successfully, so there was no traffic to strand.
+  // -------------------------------------------------------------------------
+
+  it('sends transactionId and the environment hint when the purchase carries them', async () => {
+    const service = IAPService;
+    mockInvoke.mockResolvedValue({ data: { valid: true, subscriptionId: 's' }, error: null });
+
+    await service.verifyReceipt('base64-receipt', 'apple', undefined, {
+      transactionId: '2000000847061713',
+      environment: 'Sandbox',
+    });
+
+    const [, opts] = mockInvoke.mock.calls[0] as [string, { body: Record<string, unknown> }];
+    expect(Object.keys(opts.body).sort()).toEqual(['environment', 'transactionId']);
+    expect(opts.body.transactionId).toBe('2000000847061713');
+    expect(opts.body.environment).toBe('Sandbox');
+    // The receipt blob is gone from the wire even when identity IS present.
+    expect('receiptData' in opts.body).toBe(false);
+  });
+
+  it('OMITS the keys entirely when identity is absent — never sends them as undefined', async () => {
+    const service = IAPService;
+    mockInvoke.mockResolvedValue({ data: { valid: true }, error: null });
+
+    await service.verifyReceipt('base64-receipt', 'apple', undefined, undefined);
+
+    const [, opts] = mockInvoke.mock.calls[0] as [string, { body: Record<string, unknown> }];
+    // `in`, not a truthiness check: an explicitly-undefined key is present to `in` and
+    // survives JSON round-tripping as an absent key, which is precisely the ambiguity
+    // that made the old assertions unable to fail.
+    expect('transactionId' in opts.body).toBe(false);
+    expect('environment' in opts.body).toBe(false);
+  });
+
+  // The extractor is the single place that reads a purchase of unknown shape, so the
+  // runtime environment rule lives there and is tested there. `verifyReceipt` does not
+  // re-check it: its parameter is typed to the two legal values, so an unrecognized one
+  // is unrepresentable rather than filtered twice in two places that can drift apart.
+  describe('appleTransactionIdentityFrom', () => {
+    it('extracts the id and a recognized environment', () => {
+      expect(
+        appleTransactionIdentityFrom({ transactionId: '2000000847061713', environmentIOS: 'Sandbox' })
+      ).toEqual({ transactionId: '2000000847061713', environment: 'Sandbox' });
+    });
+
+    it('omits an unrecognized environment rather than forwarding it', () => {
+      // The server fails closed on an unknown environment, so forwarding garbage would
+      // turn "no hint supplied" into a hard rejection.
+      const identity = appleTransactionIdentityFrom({
+        transactionId: '2000000847061713',
+        environmentIOS: 'Staging',
+      });
+      expect(identity).toEqual({ transactionId: '2000000847061713' });
+      expect('environment' in (identity as object)).toBe(false);
+    });
+
+    it('returns undefined when no usable transaction id is present', () => {
+      // purchaseToken is optional AND nullable on PurchaseIOS; transactionId is not,
+      // but this crosses a native boundary where the type annotation is not enforced.
+      for (const bad of [undefined, null, {}, { transactionId: '' }, { transactionId: 123 }]) {
+        expect(appleTransactionIdentityFrom(bad)).toBeUndefined();
+      }
+    });
+
+    it('is permissive on id FORMAT — the server owns that check', () => {
+      // A stricter client rule would silently drop legitimate purchases if Apple's id
+      // format widens. The client only asserts "present and a usable string".
+      expect(appleTransactionIdentityFrom({ transactionId: '1000000123' })).toEqual({
+        transactionId: '1000000123',
+      });
+    });
+  });
+
+  it('TRAP CONTROL — toHaveBeenCalledWith cannot see an undefined-valued key, Object.keys can', () => {
+    // This is the defect the assertions above exist to avoid, demonstrated directly.
+    // If this first expectation ever starts failing, jest changed its toEqual
+    // semantics and the surrounding assertions can be simplified.
+    expect({ receiptData: 'x', transactionId: undefined }).toEqual({ receiptData: 'x' });
+    expect(Object.keys({ receiptData: 'x', transactionId: undefined }).sort()).toEqual([
+      'receiptData',
+      'transactionId',
+    ]);
   });
 });
 

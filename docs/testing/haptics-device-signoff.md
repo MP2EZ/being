@@ -1,0 +1,365 @@
+# Practice-haptics device sign-off (INFRA-395)
+
+> **STATUS (2026-08-15): the flag is ON.** `practice_haptics:true` in
+> `.config/.env.production` **and** in the EAS-stored `production` environment — both
+> are required, neither implies the other. Founder decision: ship it to TestFlight and
+> judge it there, with the founder as the only tester, rather than gate the flip on a
+> measurement session. This document is therefore no longer a gate; it is the procedure
+> to follow **if it feels wrong** and you need to know why.
+
+The attended, on-device checklist for `practice_haptics`. Nothing in CI can stand in for it, and nothing in CI ever
+will: CI is 100% `ubuntu-latest`, and even a macOS runner would not help, because
+**the iOS simulator emits no haptics at all**. `expo-haptics` no-ops silently rather
+than erroring, so on a simulator "correctly wired" and "completely broken" produce
+identical output — nothing.
+
+Same class as `npm run e2e:safety:988-dial`: hand-run, device-attended, and the only
+evidence that exists for the thing it covers.
+
+> **A green CI run is not evidence for any criterion in this document.** The relevant
+> precedent is the breathing 60fps budget, enforced in CI only by a *structural* proxy
+> (`npm run check:breathing-worklets`) that explicitly does not measure frames.
+
+---
+
+## 1. What is being signed off, and why it is one-way
+
+`practice_haptics` gates a ~3,200 LOC subsystem (FEAT-285) plus its entire Settings
+surface. With the flag off there are **zero** discovery surfaces in production —
+`AppSettingsScreen.tsx:324` gates the whole "Practices / Haptic Cues" block on the
+same flag as the opt-in prompt.
+
+**Treat the flip as irreversible.** `useHapticsOptIn` spends a once-ever,
+unrepeatable prompt and persists `practiceHapticsPrompted: true`. A user who
+declines during an ON window, followed by a rollback to OFF, has spent their only
+choice on a capability that no longer exists — and will **never** be re-asked when it
+returns. Consequences:
+
+- Do not flip as a trial or a canary.
+- Any rollback decision must be paired with an explicit decision about resetting
+  `practiceHapticsPrompted` for affected users.
+
+---
+
+## 2. Prerequisites
+
+| Requirement | Why |
+|---|---|
+| A real iPhone **with a Taptic Engine** | The measurement cases are unobservable anywhere else. |
+| An iPad or other actuator-less iOS device | Case (ii) below. An **iPad Air M1 (`iPad13,16`) is registered on this machine** and is exactly the right hardware. |
+| A **dev** build and a **Release** build | Two different questions; see §3. |
+| Console.app, with the device attached | How the trace is read on the dev build. |
+| VoiceOver, toggled via Accessibility Shortcut (triple-click) | §6 is executed with it running. |
+
+### Two builds, because no single build can answer both questions
+
+This is the constraint everything below is shaped by, and it is not a preference.
+
+**A production bundle deletes the trace.** `babel.config.js` runs
+`transform-remove-console`, and `metro.config.js` sets `drop_console: true` — which
+strips `console.error` and `console.warn` too, despite babel excluding them. So *no*
+console diagnostic survives a Release bundle, under any flag. INFRA-395 added a
+`haptic_trace` flag to try, discovered this, and **deleted the flag** rather than leave
+something that promised numbers it could not deliver.
+
+**A dev bundle misreports frames.** Unbundled JS and unoptimised React commits make
+frame timing unrepresentative, so a Release build is the only honest source there.
+
+Hence:
+
+| Question | Build | Why |
+|---|---|---|
+| Cue latency, drops | **Dev** device build | The `__DEV__` traces work. Dev JS is *slower* than Release, so clearing the budget here clears it there — conservative, not unrepresentative. |
+| Frame timing, and "does it feel right" | **Release** device build or TestFlight | Representative. No trace; judged by feel and by Instruments. |
+
+---
+
+## 3. Build recipe
+
+### Dev build — for the latency figures
+
+`practice_haptics` is already `true` in `.config/.env.development`, so nothing needs
+editing. From the worktree's `app/`:
+
+```bash
+npx expo run:ios --device
+```
+
+### Release build — for frames and feel
+
+`practice_haptics` is now `true` in `.config/.env.production` as well, so again no edit:
+
+```bash
+npx expo run:ios --device --configuration Release
+```
+
+**Never pipe either command** (`| tee`, `| tail`). A pipeline reports the *last*
+command's status, so a failed build reads as exit 0. Use `set -o pipefail` if you must
+capture it.
+
+> TestFlight works for the Release half too, and is the better choice when other things
+> need testing in the same build. It reads its flags from the **EAS-stored production
+> environment**, never from the gitignored `.config/.env.production` — the two are kept
+> in step by hand. Check with `npx eas env:list production`.
+
+### Reading the trace (dev build only)
+
+Console.app → select the device → filter on `[haptics]`. Two line shapes, and you need
+both, because **neither is the cue latency on its own**:
+
+```
+[haptics] inhale delivered late=12ms          <- cueScheduler: timer jitter
+[haptics] inhale → delivered in 8ms (impactLight)   <- hapticEngine: JS→native round trip
+```
+
+The scheduler closes out its report *before* `void engine.fire(cue)` runs
+(`usePracticeHaptics.ts:229` is fire-and-forget), so the two segments are disjoint and
+**add**. A third segment — the actuator itself, ~10-20ms on iOS and 30-80ms on Android
+per `constants.ts:63-66` — is not observable from JS at all and must be cited, never
+claimed as measured.
+
+---
+
+## 4. The acceptance bars
+
+`MAX_CUE_LATENESS_MS = 150` (`constants.ts:38`) is a **drop threshold, not a quality
+bar** — the scheduler discards anything past it, so a session where every cue lands at
+149ms would deliver 100% of cues and still feel wrong.
+
+| Metric | Bar | Why this one |
+|---|---|---|
+| **Drops** | **Zero** | The real product metric. A late cue is bounded at 150ms by construction; a *dropped* cue is an unbounded, invisible failure, and for the eyes-closed practitioner the haptic **is** the pacing signal. Any drop in a clean, foreground, unpaused session is a scheduling defect, not tuning. |
+| Cue latency | p50 ≤ 30ms, p95 ≤ 75ms | Half the budget, so ordinary jitter has headroom before it becomes a drop. Record max, but `max ≤ 150ms` is tautological and is not a bar. |
+| Session length | ≥10 min continuous, per screen | Short sessions cannot surface accumulating drift. |
+| Breathing frames | **No regression attributable to cue delivery** | See below. |
+
+**If p95 exceeds 75ms, investigate — never raise `MAX_CUE_LATENESS_MS`.** That constant
+is a perceptual finding (the visuotactile simultaneity ceiling), not a tuning knob.
+
+### The 60fps criterion needs restating to be measurable
+
+"Holds 60fps" is not a pass/fail on a ProMotion iPhone — nominal is **8.3ms, not
+16.67ms**, the same device-naivety CLAUDE.md already flags for INFRA-373. Measure the
+**differential** instead: same practice, same duration, haptics off, then on. The bar is
+no frame-timing regression attributable to cue delivery.
+
+Instrument: Xcode → Open Developer Tool → Instruments → **Animation Hitches**. This
+works against a Release build and needs no code.
+
+**Record the handset model and whether it is ProMotion.** A figure without the device
+is not a measurement.
+
+---
+
+## 5. Procedure
+
+### What actually gates the flip, versus what is thorough
+
+**Read this before booking time.** The sections below describe the complete
+characterisation. The *decision* needs much less, and conflating the two is how a
+15-minute check becomes an afternoon nobody schedules.
+
+| | Runs | Why it is (or is not) decision-relevant |
+|---|---|---|
+| **Core — gates the flip** | ~15 min, one screen | `PracticeTimerScreen` for ≥5 min: **zero drops**, p95 within budget, and a haptics-off/on frame differential. Plus the adversarial lifecycle run (a2), which is short and catches the one failure mode that is both plausible and bad. |
+| **Thorough — characterises** | the rest | The other two screens share one `cueScheduler` and one module-scoped `hapticEngine` and differ only in schedule *shape*, so they mostly re-measure the same code. The 9-item VoiceOver checklist is real coverage, but most of it verifies FEAT-385's prompt, not the cue channel this flag gates. |
+
+Run the core. Run as much of the thorough set as the session has room for, and record
+which parts were not run rather than implying full coverage — a partial run recorded
+honestly is worth more than a complete one nobody performs.
+
+### Case (a) — cue latency, per screen
+
+One session each on `PracticeTimerScreen`, `ReflectionTimerScreen`, `BodyScanScreen`.
+One session per screen is sufficient: the three differ only in schedule *shape*
+(`intervalSchedule` / `regionSchedule` / breathing phases) and share one
+`cueScheduler` and one module-scoped `hapticEngine`.
+
+### Case (a2) — the adversarial lifecycle session
+
+**Not named in the ACs, and the highest-value single measurement here.** It is the only
+test of the invariant that `cueScheduler`'s entire single-timer design exists to hold.
+
+One session, with: background/foreground ×2, pause/resume ×2, navigate away and back.
+Assert **zero cues emitted on resume** and **zero cues after blur**.
+
+### Case (b) — breathing frames
+
+Per §4. Differential, Instruments, both haptics states.
+
+### Case (c)(i) — system haptics disabled
+
+Settings → Sounds & Haptics → System Haptics **off**. All must hold *simultaneously*:
+
+- No vibration.
+- **No alert, toast, error, or visible layout change of any kind.**
+- The practice runs to completion with unchanged timing.
+- The Settings "Haptic Cues" toggle still reads **ON**.
+- `BreathingCircle` phase announcements continue at normal cadence under VoiceOver.
+- Body Scan speaks "Next area" at every region boundary.
+
+**Record FAIL if anything appears on screen.** A visible degradation notice during an
+eyes-closed practice is precisely the interruption the subsystem exists to avoid.
+
+### Case (c)(ii) — no actuator at all (the iPad)
+
+**Executable today; does not wait on the iPhone.**
+
+`expo-haptics@56.0.3` exports no capability API — its whole surface is
+`notificationAsync` / `impactAsync` / `selectionAsync` / `performAndroidHapticsAsync` —
+and on iOS `UIFeedbackGenerator` resolves normally on hardware with no Taptic Engine.
+So `hapticEngine`'s `catch`-only latch **never fires on an iPad**.
+
+Primary criterion is a negative: **the opt-in prompt must not appear** on any of the
+three practice screens, on a fresh install, across at least two app launches. Then:
+
+- Profile → App Settings → Practices still renders, both rows present and operable.
+- Toggling the master on and running a practice produces the case (c)(i) observable set.
+- `practiceHapticsPrompted` remains `false` afterwards.
+
+> DEBUG-426 has landed (PR #331), so this case is runnable. It is also the **only**
+> direct verification that the suppression predicate works on real hardware — jest
+> mocks `expo-device` entirely.
+
+### Case (c)(iii) — announcements survive
+
+Positively assert a spoken utterance, never infer it from absence of a crash. On the
+iPad, haptics accepted, VoiceOver running: every Body Scan region boundary produces
+"Next area", every breathing phase transition produces its phase text.
+
+---
+
+## 6. VoiceOver checklist
+
+Fresh install, VoiceOver on throughout. Each item names something a sighted tester
+structurally **cannot** see.
+
+1. **Prompt focus landing.** Enter `PracticeTimerScreen` cold. VoiceOver's *first*
+   utterance must be the heading, announced as a header — not a button, not the screen
+   title. (`HapticsOptInPrompt.tsx:151-168` is a rAF plus a 350ms retry; either can lose
+   the race.)
+2. **Modal scope.** Swipe right repeatedly past "Leave off". Focus must never reach
+   "Begin", the practice title, the instructions, or the tab bar. **Record — do not
+   judge — whether it reaches the crisis button** (INFRA-427, §7).
+3. **The recommendation survives the speech channel.** Confirm the body prose, including
+   the suggestion sentence, is reached and read *before* either button. Repeat at the
+   largest Dynamic Type size: the prose lives in a `flexShrink: 1` ScrollView that gives
+   way first by design, so confirm it has not been clipped out of the swipe order.
+4. **Neither choice is pre-selected in speech.** Both buttons announce role "button",
+   byte-identical hints, and neither announces "selected" or "dimmed". (A sighted tester
+   sees the fill on "Turn on" and cannot hear whether that asymmetry leaked into
+   `accessibilityState` — the boundary the equal-cost design rests on.)
+5. **Accept, then Body Scan.** At each region boundary: haptic felt, then "Next area"
+   spoken ~150ms later, not interrupted or duplicated by the region list's label
+   updates. Log the felt-then-heard order per boundary — the only direct evidence for
+   case (a) that does not come from a trace.
+6. **Breathing with the scheduler live.** Phase announcements continue at unchanged
+   cadence with haptics on; no utterance swallowed by a cue. Repeat with **Reduce Motion
+   enabled**.
+7. **Anchors are silent, completion is not.** `sessionStart` / `sessionEnd` produce no
+   speech by design. Confirm the practitioner still learns the session ended through
+   *some* channel, and name it here. A blind practitioner who feels one pulse and hears
+   nothing has no confirmation the practice completed rather than crashed.
+8. **Settings, with the master toggled.** Both rows in the swipe order; Interval Cues
+   announces disabled with its hint; toggle master off and on and confirm the row
+   neither disappears nor reorders and focus does not move. (The live WCAG 3.2.2 pin
+   that `AppSettingsScreen.tsx:393-394` asserts in prose but nothing tests.)
+9. **Post-decline recovery — fresh install, last.** Decline with VoiceOver on, then
+   reach the Settings toggle by VoiceOver alone, turn it on, run a practice, confirm
+   cues fire. The AC asks whether the block *renders*; this asks whether the remedy
+   *works*.
+
+---
+
+## 7. Prerequisites — both landed; one observation remains
+
+### DEBUG-426 — prompt suppression on actuator-less hardware ✅ landed
+
+Shipped in PR #331 (`9705498a`). This was the one genuine gate, because **the flip
+creates the harm**: `app.json:16` sets `supportsTablet: true`, so post-flip an iPad user
+would have been shown a permanent, unrepeatable, "Turn on"-recommended question for
+hardware that cannot answer it. Suppression landed as a **pure read** inside `eligible`,
+so it never writes `practiceHapticsPrompted` and the prompt survives unspent for a
+device that can deliver.
+
+**Two corrections the landed code made to this document's earlier framing**, both from
+reading `expo-device`'s native source rather than its docs:
+
+- The no-actuator set is `{TABLET, DESKTOP, TV}`, not `{TABLET}` — `getDeviceType`
+  returns `DESKTOP` for Mac Catalyst / iOS-app-on-Mac *before* consulting
+  `userInterfaceIdiom`, and `supportsTablet: true` means this build installs on Apple
+  Silicon Macs with `isDevice` true.
+- `deviceType` is **not** a fallback for a null `modelId`; the two cover disjoint cases
+  and are OR'd.
+
+Case (c)(ii) below is the only verification of any of this on real hardware — jest mocks
+`expo-device` entirely.
+
+### DEBUG-425 — Body Scan announcement decoupling ✅ landed
+
+Shipped in PR #329 (`60907dd8`). Recorded here because an earlier revision of this
+document called it a blocker and it was not one: with the flag off, `enabled` was false
+for *everyone*, so nobody received that announcement, and post-flip decliners would have
+stood exactly where 100% of users already stood. The flip regressed no one.
+
+Distinguish an *activation* from a *regression* before promoting a finding to a blocker.
+
+### INFRA-427 — 988 reachability under the prompt (open, not blocking)
+
+Not a work package; a two-minute observation inside a session that is already happening.
+It is §6 item 2 of this checklist, and the expected answer is that the button is
+reachable — the root crisis button is not a sibling of the modal view, so iOS should not
+suppress it.
+
+It stays on the list because "should not" is not a verification and the budget it bears
+on is non-negotiable (988 <3 taps from any screen). The prompt sets
+`accessibilityViewIsModal` with no dismissal path on three `IMMERSIVE_ROUTES` screens,
+and the component's own argument is about *contrast* (2.71:1 faded, 8.31:1 full) —
+**contrast is not reachability**. Record the answer; do not judge it. If it comes back
+unreachable it becomes a `crisis` fix and a hard blocker, and only then.
+
+**Also unresolved: Android.** One flag string turns this on for both platforms, and
+`constants.ts:63-66` documents Android's actuator at 30-80ms against iOS's 10-20ms — a
+4× worse timing regime. The ACs name iOS only. Confirm whether Android ships from the
+same string; if so, either run one Android session or split the flag.
+
+---
+
+## 8. Results
+
+Fill in and copy into the INFRA-395 work item. **Figures, never a "verified" claim — a
+sign-off with no numbers is not a sign-off.**
+
+```
+Date:              
+Handset:                          ProMotion? [ ]
+iOS version:       
+Builds:            dev (latency) + Release (frames/feel), practice_haptics:true
+Commit:            
+
+CUE LATENCY (scheduler jitter + JS→native; actuator segment cited, not measured)
+  screen                  cues   drops   p50    p95    max
+  PracticeTimerScreen                                       
+  ReflectionTimerScreen                                     
+  BodyScanScreen                                            
+
+  Adversarial lifecycle:  cues on resume ____   cues after blur ____   (both must be 0)
+
+BREATHING FRAMES (differential, Instruments Animation Hitches)
+  haptics off:  hitches ____   worst frame ____ ms
+  haptics on:   hitches ____   worst frame ____ ms
+  Regression attributable to cue delivery?  [ ] no  [ ] yes → 
+
+DEGRADATION
+  (c)(i)  system haptics off      [ ] pass  [ ] fail → 
+  (c)(ii) no actuator (iPad)      [ ] pass  [ ] fail → 
+  (c)(iii) announcements survive  [ ] pass  [ ] fail → 
+
+VOICEOVER CHECKLIST  1[ ] 2[ ] 3[ ] 4[ ] 5[ ] 6[ ] 7[ ] 8[ ] 9[ ]
+  Item 2 — crisis button reachable under the prompt?  [ ] yes  [ ] no   (INFRA-427)
+
+NOT RUN THIS SESSION (name them — a gap recorded beats a gap implied):
+  
+
+VERDICT   [ ] flip  [ ] do not flip →
+```

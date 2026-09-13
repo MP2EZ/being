@@ -22,7 +22,7 @@
 import React, { Component, ErrorInfo, ReactNode } from 'react';
 import { View, Text, StyleSheet, Pressable } from 'react-native';
 import { sanitizeError, logError } from '@/core/utils/errorSanitization';
-import { spacing, borderRadius, typography } from '@/core/theme';
+import { semantic, spacing, borderRadius, typography } from '@/core/theme';
 
 interface Props {
   children: ReactNode;
@@ -36,7 +36,9 @@ interface State {
 
 const colors = {
   white: '#FFFFFF',
-  black: '#1C1C1C',
+  // DEBUG-387: was the raw literal '#1C1C1C' — invisible to any
+  // `colorSystem.base.black` scanner, which is how it survived prior audits.
+  black: semantic.text.primary,
   gray100: '#F3F4F6',
   gray600: '#4B5563',
   error: '#EF4444',

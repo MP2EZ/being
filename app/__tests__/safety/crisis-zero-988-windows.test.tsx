@@ -84,12 +84,48 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
     'utf8',
   );
 
+  /**
+   * Comment-stripped source (DEBUG-390's own lesson, applied to this block).
+   *
+   * This block asserted against RAW source and survived on luck. The screen
+   * deliberately names anti-patterns in prose to warn the next reader off them —
+   * `accessibilityViewIsModal`, and a bare `Linking.openURL('tel:988')` — and the
+   * negative matcher below is exactly the shape that goes red on correct code the
+   * moment such a warning is written. FEAT-470 added several explanatory comments
+   * to this screen, so the latent hazard becomes a live one. Strip first.
+   */
+  const code = source
+    .replace(/\/\*[\s\S]*?\*\//g, '')
+    .replace(/^\s*\/\/.*$/gm, '');
+
+  /**
+   * The main render branch, bounded at the stylesheet.
+   *
+   * Bounding matters: an unbounded `slice(lastIndexOf('  return ('))` runs to EOF
+   * and therefore swallows `const styles`, where `crisisFooter:` is DEFINED. The
+   * `toContain('crisisFooter')` assertion below would pass with the footer JSX
+   * deleted outright. It has teeth only because of the accessibilityLabel checks —
+   * so bound the slice and let the structural assertion stand on its own.
+   */
+  const mainBranch = (() => {
+    const start = code.lastIndexOf('  return (');
+    const stylesAt = code.indexOf('const styles = StyleSheet.create(', start);
+    return code.slice(start, stylesAt === -1 ? undefined : stylesAt);
+  })();
+
   test('the MAIN branch keeps its always-visible crisis footer', () => {
-    const mainBranchStart = source.lastIndexOf('  return (');
-    const mainBranch = source.slice(mainBranchStart);
     expect(mainBranch).toContain('crisisFooter');
     expect(mainBranch).toContain('accessibilityLabel="Call 988"');
     expect(mainBranch).toContain('accessibilityLabel="Text Crisis Line"');
+  });
+
+  test('the bounded main-branch slice excludes the stylesheet', () => {
+    // Proves the bound above actually works. Without this, a future refactor that
+    // renamed the stylesheet const would silently restore the unbounded slice and
+    // re-hollow the assertion above.
+    expect(mainBranch.length).toBeGreaterThan(200);
+    expect(mainBranch).not.toContain('StyleSheet.create(');
+    expect(mainBranch).not.toContain('crisisFooter: {');
   });
 
   test('DEBUG-390: the crisis footer is pinned OUTSIDE the ScrollView', () => {
@@ -102,13 +138,78 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
     // lives in
     // src/features/consent/screens/__tests__/CombinedLegalGateScreen.accessibility.test.tsx
     // and is the authoritative one; this is the copy that runs in precommit.
-    const mainBranch = source.slice(source.lastIndexOf('  return ('));
     const scrollViewCloses = mainBranch.indexOf('</ScrollView>');
     const footerOpens = mainBranch.indexOf('styles.crisisFooter}');
 
     expect(scrollViewCloses).toBeGreaterThan(-1);
     expect(footerOpens).toBeGreaterThan(-1);
     expect(footerOpens).toBeGreaterThan(scrollViewCloses);
+  });
+
+  /**
+   * FEAT-470 — the footer is UNCONDITIONAL, and the Art. 9 state cannot reach it.
+   *
+   * WHY THESE ARE NEW. Every assertion above is a substring or an ordering check, so
+   * all of them pass against a footer wrapped in a conditional. FEAT-470 introduced
+   * new conditional state to this screen (the Art. 9 tick, now optional, plus the
+   * refusal copy), which makes "the footer renders unconditionally" a property worth
+   * asserting for the first time rather than an obvious one.
+   *
+   * The stakes: `LegalGate` is in `RootCrisisButton.SUPPRESSED_ROUTES`, so the root
+   * overlay deliberately does not cover this screen. This footer is the ONLY crisis
+   * affordance a user has before accepting anything. A footer that renders for some
+   * consent states and not others is a zero-988 window by construction.
+   */
+  const footerRegion = (() => {
+    const from = mainBranch.indexOf('</ScrollView>');
+    const to = mainBranch.indexOf('</SafeAreaView>');
+    return mainBranch.slice(from, to === -1 ? undefined : to);
+  })();
+
+  test('FEAT-470: nothing conditional sits between the ScrollView and the footer', () => {
+    // The gap where a `{someState && (` wrapper would be introduced. Kept narrow on
+    // purpose: this is the span whose contents decide whether the footer mounts.
+    const gap = footerRegion.slice(0, footerRegion.indexOf('styles.crisisFooter}'));
+
+    expect(gap).not.toMatch(/&&/);
+    expect(gap).not.toMatch(/\?[^.]/); // ternary, but not optional chaining
+    expect(gap.length).toBeGreaterThan(0);
+  });
+
+  test('FEAT-470: the Art. 9 consent state never reaches the footer subtree', () => {
+    // The assertion that directly discharges FEAT-470's red AC. Mechanically proves
+    // the optional consent cannot gate, relabel or reorder the crisis affordance —
+    // no reasoning about JSX required.
+    expect(footerRegion).not.toContain('mentalHealthProcessingConsented');
+    expect(footerRegion).not.toContain('requiredConsentsTicked');
+  });
+
+  test('FEAT-470: no sibling was appended after the footer', () => {
+    // A view added AFTER the footer competes for the same fixed vertical budget as
+    // the footer itself and clips it at large Dynamic Type — the same failure mode
+    // DEBUG-390 fixed, arriving from the other side.
+    const afterFooter = footerRegion.slice(footerRegion.lastIndexOf('</View>'));
+    expect(afterFooter).not.toMatch(/<View/);
+    expect(afterFooter).not.toMatch(/<Text/);
+  });
+
+  test('FEAT-470: the footer-region matchers can actually fail', () => {
+    // DEBUG-390's bar: a comment-stripped source plus narrow regexes is exactly the
+    // combination that can silently match nothing. Prove each matcher still fires
+    // against a literal known-bad string, and that the slices are non-trivial.
+    expect(footerRegion.length).toBeGreaterThan(100);
+    expect(code.length).toBeGreaterThan(1000);
+
+    expect(/&&/.test('{!refused && (')).toBe(true);
+    expect(/\?[^.]/.test('{refused ? null : (')).toBe(true);
+    expect('<View style={styles.crisisFooter}>'.includes('mentalHealthProcessingConsented')).toBe(
+      false,
+    );
+    expect(
+      '{mentalHealthProcessingConsented && <View style={styles.crisisFooter}>'.includes(
+        'mentalHealthProcessingConsented',
+      ),
+    ).toBe(true);
   });
 
   test('the under-age branch keeps its own crisis section', () => {
@@ -121,7 +222,105 @@ describe('CombinedLegalGateScreen — CORRECTION to a disproved finding', () => 
 
   test('both crisis blocks route through the guarded dial helper', () => {
     // DEBUG-314: a bare Linking.openURL fails silently when the scheme cannot open.
-    expect(source).toContain("openCrisisUrl('tel:988'");
+    // Asserted against the COMMENT-STRIPPED source: the negative matcher would
+    // otherwise go red the moment anyone documents this anti-pattern in prose, which
+    // is a house convention on this very screen.
+    expect(code).toContain("openCrisisUrl('tel:988'");
+    expect(code).not.toMatch(/Linking\.openURL\(\s*['"]tel:988/);
+  });
+
+  test('the guarded-dial matcher can still fail', () => {
+    // Pairs with the comment-stripping above: proves the negative assertion is not
+    // vacuous now that it runs against a transformed string.
+    expect(/Linking\.openURL\(\s*['"]tel:988/.test("Linking.openURL('tel:988')")).toBe(true);
+    expect(/Linking\.openURL\(\s*['"]tel:988/.test("openCrisisUrl('tel:988')")).toBe(false);
+  });
+});
+
+describe('CrisisResourcesScreen — DEBUG-432: the 988 control is pinned OUTSIDE the ScrollView', () => {
+  /**
+   * The same defect as DEBUG-390's, on the screen DEBUG-390's principle exists to protect.
+   * `CrisisResources` is in SUPPRESSED_ROUTES — the root overlay is absent — and it is the
+   * destination every other crisis affordance in the app routes to. Its own 988 control
+   * was the LAST child of the 988 resource card, itself inside the screen's only
+   * ScrollView, so the destination failed the standard every other surface is held to.
+   *
+   * Measured before the fix (`maestro hierarchy`, Release build, provenance 505fc417):
+   * iPhone SE 3 at DEFAULT Dynamic Type put the button at y=746..797 against a fold of
+   * y=86..667 — 130pt of scrolling, and 0% of the tap target on screen. At AX5 the same
+   * button sat at y=3926..4095. Three of four measured configurations failed; only the
+   * largest phone at default type passed, which is why the existing green Maestro
+   * assertion said nothing (the gate pins no simulator model).
+   *
+   * Source-level on purpose: this file is the structural safety suite, renders nothing,
+   * and is the copy that runs in precommit. The authoritative render-tree equivalent —
+   * walking ancestors from the control — is
+   * src/features/crisis/screens/__tests__/CrisisResourcesScreen.reachability.test.tsx.
+   */
+  const rawSource = require('fs').readFileSync(
+    require('path').join(
+      __dirname,
+      '../../src/features/crisis/screens/CrisisResourcesScreen.tsx',
+    ),
+    'utf8',
+  );
+
+  /**
+   * DEBUG-390's lesson: this codebase deliberately names anti-patterns in prose to warn
+   * the next reader off them, so an assertion about what the file DOES must not read what
+   * it SAYS. The comment block above this very screen's pinned footer names `ScrollView`.
+   */
+  const stripComments = (s: string): string =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const source = stripComments(rawSource);
+
+  /**
+   * The second failure mode DEBUG-390 flagged: comment-stripping plus a narrow matcher is
+   * exactly the combination that can silently match NOTHING and go green forever. This
+   * test is the proof-of-liveness for the two below — it fails if stripping ate the render
+   * body, and it fails if the comparator stops discriminating a known-bad shape.
+   */
+  test('the comment-stripped matcher can still go red', () => {
+    expect(source.length).toBeGreaterThan(2000);
+    expect(source).toContain('</ScrollView>');
+    expect(source).toContain('crisis-call-988-button');
+
+    const knownBad = `
+      <ScrollView>
+        <Pressable testID="crisis-call-988-button" />
+      </ScrollView>
+    `;
+    // The comparator applied to a nested control must FAIL, or it proves nothing.
+    expect(knownBad.indexOf('crisis-call-988-button')).toBeLessThan(
+      knownBad.indexOf('</ScrollView>'),
+    );
+  });
+
+  test('crisis-call-988-button is declared AFTER the ScrollView closes', () => {
+    // Whole-file ordering, NOT a slice from the last `return (`. The pre-fix defect
+    // declared this testID inside `ResourceCard`, a component defined ABOVE the screen,
+    // so a slice of the screen's own return would report "not found" (-1) instead of
+    // "wrongly ordered" — a red for the wrong reason, and one that would go green if a
+    // future refactor moved the control back into a card.
+    const scrollViewCloses = source.indexOf('</ScrollView>');
+    const buttonDeclared = source.indexOf('crisis-call-988-button');
+
+    expect(scrollViewCloses).toBeGreaterThan(-1);
+    expect(buttonDeclared).toBeGreaterThan(-1);
+    expect(buttonDeclared).toBeGreaterThan(scrollViewCloses);
+  });
+
+  test('exactly one crisis-call-988-button exists in the file', () => {
+    // DEBUG-341 reverted a duplicated crisis control: two differently-labelled Call-988
+    // buttons on one screen is worse for a screen reader user than the gap it closed.
+    // Two Maestro flows address this id (crisis-988-dial, deeplink-consent-gate), so a
+    // duplicate also makes their selectors ambiguous.
+    expect(source.match(/crisis-call-988-button/g)).toHaveLength(1);
+  });
+
+  test('the pinned control dials through the guarded helper, never a bare openURL', () => {
+    expect(source).toContain('openCrisisUrl');
     expect(source).not.toMatch(/Linking\.openURL\(\s*['"]tel:988/);
   });
 });
@@ -243,6 +442,16 @@ describe('App.tsx — the root boundary exists at all', () => {
     require('path').join(__dirname, '../../App.tsx'),
     'utf8',
   );
+  // DEBUG-390: this file deliberately names anti-patterns in prose, and App.tsx's
+  // comments discuss these very elements, so structural matching runs on
+  // comment-stripped source. The length assertion below is what stops a
+  // mis-written strip from making every matcher below vacuously true.
+  const stripped = source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  test('the comment-stripped source is still substantive (guards the matchers below)', () => {
+    expect(stripped.length).toBeGreaterThan(1000);
+    expect(stripped).toContain('<CleanRootNavigator />');
+  });
 
   test('RootCrisisBoundary is the immediate parent of CleanRootNavigator', () => {
     // Sentry.wrap is a profiler/touch wrapper — componentDidCatch appears nowhere in its
@@ -254,11 +463,401 @@ describe('App.tsx — the root boundary exists at all', () => {
   });
 
   test('the boundary sits INSIDE SafeAreaProvider and GestureHandlerRootView', () => {
-    const gh = source.indexOf('<GestureHandlerRootView');
-    const sa = source.indexOf('<SafeAreaProvider>');
-    const rb = source.indexOf('<RootCrisisBoundary');
+    const gh = stripped.search(/<GestureHandlerRootView[\s>]/);
+    const sa = stripped.search(/<SafeAreaProvider[\s>]/);
+    const rb = stripped.search(/<RootCrisisBoundary[\s>]/);
+    // Matched with a trailing-delimiter regex, not `indexOf('<SafeAreaProvider>')`
+    // (DEBUG-559). The exact-match form silently returned -1 the moment the element
+    // took a prop, and `gh < -1` then failed with a message about ORDERING — a real
+    // red for an unrelated reason, which is worse than no pin.
+    expect(gh).toBeGreaterThan(-1);
+    expect(sa).toBeGreaterThan(-1);
+    expect(rb).toBeGreaterThan(-1);
     expect(gh).toBeLessThan(sa);
     expect(sa).toBeLessThan(rb);
   });
+
+  test('SafeAreaProvider is seeded with initialMetrics — otherwise it renders NOTHING on mount', () => {
+    // DEBUG-559. SafeAreaProvider's body is `{insets != null ? … : null}`, seeded
+    // from `initialMetrics?.insets ?? initialSafeAreaInsets ?? parentInsets ?? null`.
+    // This is the outermost such provider, so without initialMetrics that seed is
+    // null on EVERY mount and the provider renders nothing until the native insets
+    // round-trip lands. Every 988 affordance in the app is inside it — the root
+    // button, the keyboard accessory, and BOTH Static988Button fallbacks — so an
+    // unseeded remount is a blank, zero-988 screen rather than a FAB gap that the
+    // static button covers. This is the class of window this whole file exists to
+    // forbid, and here it was reachable by an ordinary consent tap.
+    expect(/<SafeAreaProvider[^>]*\binitialMetrics=\{initialWindowMetrics\}/.test(stripped)).toBe(
+      true,
+    );
+    expect(/\binitialWindowMetrics\b/.test(stripped.slice(0, stripped.indexOf('<SafeAreaProvider')))).toBe(
+      true,
+    );
+
+    // The matcher fires against a known-bad literal, so a narrowed regex cannot go
+    // silently vacuous (DEBUG-390).
+    expect(
+      /<SafeAreaProvider[^>]*\binitialMetrics=\{initialWindowMetrics\}/.test(
+        '<SafeAreaProvider initialMetrics={initialWindowMetrics}>',
+      ),
+    ).toBe(true);
+    expect(
+      /<SafeAreaProvider[^>]*\binitialMetrics=\{initialWindowMetrics\}/.test('<SafeAreaProvider>'),
+    ).toBe(false);
+  });
 });
 
+describe('DailyLoopDepthSelectScreen — DEBUG-469: the depth choices are pinned OUTSIDE the ScrollView', () => {
+  /**
+   * DEBUG-432's defect a third time, on the daily-loop ENTRY point. At AX5 the picker's
+   * intro copy alone spans 880pt, so both depth Pressables — the only way into the loop —
+   * were pushed clean out of the XCUITest hierarchy on a 667pt screen. The screen was
+   * already a ScrollView, so "add a scroll" was not the fix; the choices had to leave it.
+   *
+   * Measured before the fix (`maestro hierarchy`, Release build, provenance ce393ec0,
+   * clean tree, content_size accessibility-extra-extra-extra-large):
+   *   iPhone 16e  390x844  "Daily Practice" y=133..491, subtitle y=499..1013
+   *                        daily-loop-depth-quick / -deep  ABSENT from the hierarchy
+   *
+   * THE CLEARANCE IS NOT COSMETIC. `DailyLoop` is a ROOT-STACK MODAL with no tab bar, but
+   * CollapsibleCrisisButton is positioned `bottom: 100` under a comment reading "Above tab
+   * bar" — true on a tabbed screen, false here — so the FAB's touch band (44pt target plus
+   * 12pt hitSlop, right 0..56) lands squarely in content. While the cards were scroll
+   * children they moved out from under it; pinned, they cannot, and the FAB wins both
+   * z-order (zIndex 9999) and hit-testing. Without the inset a practice-choice tap on a
+   * card's right-hand end silently navigates to CrisisResources.
+   *
+   * Source-level on purpose: this file is the structural safety suite, renders nothing, and
+   * is the copy that runs in precommit.
+   */
+  const rawSource = require('fs').readFileSync(
+    require('path').join(
+      __dirname,
+      '../../src/features/practices/dailyloop/screens/DailyLoopDepthSelectScreen.tsx',
+    ),
+    'utf8',
+  );
+
+  /** DEBUG-390: assert what the file DOES, never what it SAYS. */
+  const stripComments = (s: string): string =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const source = stripComments(rawSource);
+
+  /**
+   * DEBUG-390's second failure mode: stripping plus a narrow matcher can silently match
+   * NOTHING and stay green forever. Proof-of-liveness for everything below.
+   */
+  test('the comment-stripped matcher can still go red', () => {
+    expect(source.length).toBeGreaterThan(800);
+    expect(source).toContain('</ScrollView>');
+    expect(source).toContain('testID={`daily-loop-depth-');
+
+    const knownBad = `
+      <ScrollView>
+        <Pressable testID={\`daily-loop-depth-${'${depth}'}\`} />
+      </ScrollView>
+    `;
+    // Applied to a nested control the comparator must FAIL, or it proves nothing.
+    expect(knownBad.indexOf('testID={`daily-loop-depth-')).toBeLessThan(
+      knownBad.indexOf('</ScrollView>'),
+    );
+  });
+
+  test('the depth choices are declared AFTER the ScrollView closes', () => {
+    const scrollViewCloses = source.indexOf('</ScrollView>');
+    // Match the CHOICE template specifically. A bare `daily-loop-depth-` also matches the
+    // container's own `daily-loop-depth-select-screen`, which legitimately precedes the
+    // ScrollView — a matcher that finds the wrong element reads as a failure on correct code.
+    const choiceDeclared = source.indexOf('testID={`daily-loop-depth-');
+
+    expect(scrollViewCloses).toBeGreaterThan(-1);
+    expect(choiceDeclared).toBeGreaterThan(-1);
+    expect(choiceDeclared).toBeGreaterThan(scrollViewCloses);
+  });
+
+  test('the pinned region declares its own CRISIS_FAB_CLEARANCE', () => {
+    // Its OWN, not imported from features/consent — the two existing sites each declare
+    // one locally, and a shared import would couple a practice screen to consent.
+    expect(source).toMatch(/const\s+CRISIS_FAB_CLEARANCE\s*=/);
+  });
+
+  test('the clearance is applied as paddingRight, AFTER any paddingHorizontal', () => {
+    // RN StyleSheet is last-key-wins, so a paddingHorizontal declared afterwards would
+    // silently overwrite the inset and restore the collision with no visible diff.
+    expect(source).toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+    // Fail CLOSED if the anchor is gone: indexOf(-1) would make the slices below
+    // degenerate and the assertion pass while checking nothing.
+    const choicesAt = source.indexOf('choices:');
+    expect(choicesAt).toBeGreaterThan(-1);
+    const pinnedBlock = source.slice(choicesAt);
+    const horiz = pinnedBlock.indexOf('paddingHorizontal');
+    const right = pinnedBlock.indexOf('paddingRight');
+    expect(right).toBeGreaterThan(-1);
+    if (horiz > -1) expect(right).toBeGreaterThan(horiz);
+  });
+
+  test('the clearance is NOT applied to the scrolling content container', () => {
+    // Insetting the prose buys nothing — it scrolls out from under the FAB — and it would
+    // narrow the framework copy the philosopher pass ruled must stay intact.
+    const contentAt = source.indexOf('content:');
+    const choicesAt = source.indexOf('choices:');
+    expect(contentAt).toBeGreaterThan(-1);
+    expect(choicesAt).toBeGreaterThan(contentAt);
+    const contentBlock = source.slice(contentAt, choicesAt);
+    expect(contentBlock.length).toBeGreaterThan(20);
+    expect(contentBlock).not.toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+  });
+
+  test('both depths render from ONE template, so their treatment is symmetric', () => {
+    // FEAT-301: two EQUAL choices. Two hand-written Pressables could drift apart and
+    // reintroduce ranking; one map over DEPTHS makes symmetry structural.
+    expect(source).toMatch(/DEPTHS\.map\(/);
+    expect((source.match(/testID=\{`daily-loop-depth-/g) ?? []).length).toBe(1);
+  });
+
+  test('the pinned region is a flex sibling, never absolutely positioned', () => {
+    // Absolute positioning re-introduces the RN parent-padding-box trap (DEBUG-403) and
+    // would let the region float over the FAB rather than beside it.
+    const choicesAt = source.indexOf('choices:');
+    expect(choicesAt).toBeGreaterThan(-1);
+    const pinnedBlock = source.slice(choicesAt, choicesAt + 400);
+    expect(pinnedBlock).not.toMatch(/position:\s*'absolute'/);
+  });
+});
+
+describe('DailyLoopStepScreen — DEBUG-465: the support line is pinned OUTSIDE the ScrollView', () => {
+  /**
+   * DEBUG-432's defect, on the daily-loop practice beat. FEAT-301 re-hosted SUPPORT_LINE
+   * onto a no-breath-gate beat so it renders the instant the user lands — anything less
+   * makes quick's crisis affordance strictly less available than deep's, which the
+   * FEAT-301 crisis review rejected. As the second-to-last child of the beat's only
+   * ScrollView it did not hold.
+   *
+   * Measured before the fix (`maestro hierarchy`, Release build, provenance c1c01157,
+   * clean tree; quick depth, flat tense, default Dynamic Type, no stage note):
+   *   iPhone SE 3   375x667  fold y=130..667  ABSENT from the hierarchy (~90pt below)
+   *   iPhone 16e    390x844  fold y=157..844  y=785..843  (1pt clearance)
+   *   iPhone 16 Pro 402x874  fold y=172..874  y=800..858  (16pt clearance)
+   * On the viewport scripts/e2e-sim-device.sh names E2E_SMALLEST_SUPPORTED_MODEL it was
+   * not clipped but ABSENT — 0% of the tap target on screen.
+   *
+   * The bar must also stay INSIDE the KeyboardAvoidingView: this beat exists to be typed
+   * into, and with the keyboard up `crisis-button-root` is not dimmed but gone, in
+   * UIRemoteKeyboardWindow above the app's. That is asserted here too, because it is an
+   * ordering property no render test in jsdom can see.
+   *
+   * Source-level on purpose: this file is the structural safety suite, renders nothing,
+   * and is the copy that runs in precommit. The authoritative render-tree equivalent —
+   * the ancestor walk from the control — is
+   * src/features/practices/dailyloop/__tests__/DailyLoopStepScreen.crisisSupportLineReachability.test.tsx.
+   */
+  const rawSource = require('fs').readFileSync(
+    require('path').join(
+      __dirname,
+      '../../src/features/practices/dailyloop/screens/DailyLoopStepScreen.tsx',
+    ),
+    'utf8',
+  );
+
+  /**
+   * DEBUG-390's lesson. This screen's prose names `ScrollView`, `KeyboardAvoidingView` and
+   * the support line repeatedly — the block comment at the bar's own render site does all
+   * three — so an assertion about what the file DOES must not read what it SAYS.
+   */
+  const stripComments = (s: string): string =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const source = stripComments(rawSource);
+
+  /**
+   * DEBUG-390's second failure mode: comment-stripping plus a narrow matcher is exactly
+   * the combination that can silently match NOTHING and stay green forever. This is the
+   * proof-of-liveness for the tests below — it fails if stripping ate the render body, and
+   * it fails if the comparator stops discriminating a known-bad shape.
+   */
+  test('the comment-stripped matcher can still go red', () => {
+    expect(source.length).toBeGreaterThan(2000);
+    expect(source).toContain('</ScrollView>');
+    expect(source).toContain('</KeyboardAvoidingView>');
+    expect(source).toContain('daily-loop-support-line');
+
+    const knownBad = `
+      <ScrollView>
+        <Pressable testID="daily-loop-support-line" />
+      </ScrollView>
+    `;
+    // The comparator applied to a nested control must FAIL, or it proves nothing.
+    expect(knownBad.indexOf('daily-loop-support-line')).toBeLessThan(
+      knownBad.indexOf('</ScrollView>'),
+    );
+  });
+
+  test('daily-loop-support-line is declared AFTER the ScrollView closes', () => {
+    const scrollViewCloses = source.indexOf('</ScrollView>');
+    const lineDeclared = source.indexOf('daily-loop-support-line');
+
+    expect(scrollViewCloses).toBeGreaterThan(-1);
+    expect(lineDeclared).toBeGreaterThan(-1);
+    expect(lineDeclared).toBeGreaterThan(scrollViewCloses);
+  });
+
+  test('...and BEFORE the KeyboardAvoidingView closes', () => {
+    // Not a stylistic preference. Outside the KAV the software keyboard covers the bar,
+    // and keyboard-up is this beat's typical state — which is precisely the state in which
+    // crisis-button-root is absent from the app's window entirely.
+    const kavCloses = source.indexOf('</KeyboardAvoidingView>');
+    const lineDeclared = source.indexOf('daily-loop-support-line');
+
+    expect(kavCloses).toBeGreaterThan(-1);
+    expect(lineDeclared).toBeLessThan(kavCloses);
+  });
+
+  test('exactly one daily-loop-support-line exists in the file', () => {
+    // The exactly-once-per-depth invariant is owned at the data level by showsSupportLine()
+    // and asserted in tenseMode.test.ts. This guards the render site: a duplicate would
+    // also make the selector in .maestro/daily-loop-quick-depth.yaml ambiguous.
+    expect(source.match(/daily-loop-support-line/g)).toHaveLength(1);
+  });
+
+  test('the line still navigates to CrisisResources and never dials directly', () => {
+    // The destination owns the dial. A bare tel: here would bypass the guarded path and
+    // put a second dialling control on a practice surface (DEBUG-341).
+    expect(source).toContain('openCrisisResources');
+    expect(source).not.toMatch(/Linking\.openURL\(\s*['"]tel:/);
+  });
+
+  test('the bar reserves the bottom safe area', () => {
+    // DEBUG-432's trap: pinned bars sit under the home indicator unless the 'bottom' edge
+    // is claimed. This screen previously reserved nothing there at all.
+    expect(source).toMatch(/edges=\{\[\s*'bottom'\s*\]\}/);
+  });
+
+  /**
+   * DEBUG-518 — the Continue button clears the floating crisis button's touch band.
+   *
+   * MEASURED, from the hierarchy of a failing daily-loop-quick-depth run at 375x667:
+   *   continue-button     [20,512][355,568]
+   *   crisis-button-root  [331,523][375,567]
+   * The FAB overlapped the CTA by 24pt of its 335pt width, so a tap on Continue's right
+   * end navigated to CrisisResources mid-practice — a crisis FALSE POSITIVE, the same
+   * harm DEBUG-469 fixed on the sibling depth-select screen.
+   *
+   * It is at-rest geometry, not a scroll artefact: the support bar measures 58pt, so the
+   * scroll viewport ends at 609; scrollContent's paddingBottom (40) puts the CTA's bottom
+   * at 569 and its 56pt height puts its top at 513 — a 1pt reconstruction of the capture.
+   * It therefore reproduces on EVERY beat where showsSupportLine() is true, in both
+   * depths and all tense modes. Aggravating: DailyLoop is in IMMERSIVE_ROUTES, so the FAB
+   * paints at 0.6 opacity while hit-testing at full strength — the occluder is
+   * deliberately less visible than the control it eats.
+   */
+  test('the Continue button declares its OWN CRISIS_FAB_CLEARANCE', () => {
+    // Its own, not imported from features/consent: every existing site declares one
+    // locally, and sharing would couple a practice screen to the consent module.
+    expect(source).toMatch(/const\s+CRISIS_FAB_CLEARANCE\s*=\s*spacing\[72\]/);
+    expect(source).not.toMatch(/import[^\n]*CRISIS_FAB_CLEARANCE/);
+  });
+
+  test('the clearance is applied as paddingRight, AFTER any paddingHorizontal', () => {
+    // RN StyleSheet is last-key-wins, so a paddingHorizontal declared afterwards would
+    // silently overwrite the inset and restore the collision with no visible diff.
+    expect(source).toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+    const wrapAt = source.indexOf('continueWrap:');
+    expect(wrapAt).toBeGreaterThan(-1);
+    const block = source.slice(wrapAt, wrapAt + 300);
+    const horiz = block.indexOf('paddingHorizontal');
+    const right = block.indexOf('paddingRight');
+    expect(right).toBeGreaterThan(-1);
+    if (horiz > -1) expect(right).toBeGreaterThan(horiz);
+  });
+
+  test('the clearance is NOT applied to scrollContent', () => {
+    // Deliberately asserted against scrollContent SPECIFICALLY, not against "any scroll
+    // child" — Continue IS a scroll child, and the blanket form would forbid the correct
+    // fix. Insetting scrollContent would narrow every TextInput, the PreviousAnswerCard
+    // and the centred breath section, undoing the layout DEBUG-468 measured on an SE 3.
+    const contentAt = source.indexOf('scrollContent:');
+    expect(contentAt).toBeGreaterThan(-1);
+    // Bound the slice to scrollContent's OWN entry, not a fixed character window: the
+    // continueWrap entry that carries the inset sits immediately beneath it, and a greedy
+    // window swallows it and fails on correct code. Ends at the entry's closing brace, so
+    // this still holds if the entry becomes multi-line.
+    const contentEnd = source.indexOf('},', contentAt);
+    expect(contentEnd).toBeGreaterThan(contentAt);
+    const contentBlock = source.slice(contentAt, contentEnd);
+    expect(contentBlock.length).toBeGreaterThan(20);
+    expect(contentBlock).not.toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+  });
+
+  test('the clearance matchers can still go red', () => {
+    // A comment-stripped source plus a narrow regex is exactly the pairing that can
+    // silently match nothing (CLAUDE.md, DEBUG-390). Prove the matchers fire against a
+    // known-good literal and reject a known-bad one, and that the stripped source is not
+    // degenerate.
+    expect(source.length).toBeGreaterThan(2000);
+    expect('paddingRight: CRISIS_FAB_CLEARANCE,').toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+    expect('paddingRight: spacing[56],').not.toMatch(/paddingRight:\s*CRISIS_FAB_CLEARANCE/);
+    expect('const CRISIS_FAB_CLEARANCE = spacing[72];').toMatch(
+      /const\s+CRISIS_FAB_CLEARANCE\s*=\s*spacing\[72\]/
+    );
+    expect('const CRISIS_FAB_CLEARANCE = spacing[56];').not.toMatch(
+      /const\s+CRISIS_FAB_CLEARANCE\s*=\s*spacing\[72\]/
+    );
+  });
+});
+
+
+describe('FEAT-287 journal re-read screens — no self-made zero-988 window', () => {
+  /**
+   * This suite names files rather than walking a directory, so a new screen is
+   * covered only when someone adds it here. These two are added with the screens
+   * themselves, per the FEAT-287 crisis planning pass.
+   *
+   * The hazard is precisely an RN `<Modal>`, which is a separate window and
+   * therefore does not contain `RootCrisisButton`. It is NOT the navigator's
+   * `presentation: 'modal'` option: both screens are registered in the same
+   * `Stack.Group` as `VoiceReflection`, which already carries that option and
+   * keeps the root button — this is a JS stack, so a modal-presented screen
+   * stays in the same view tree.
+   *
+   * Comment-stripped and prop-shaped per DEBUG-390: this file's own convention
+   * is to name anti-patterns in prose, and these docblocks say "Modal" out loud.
+   */
+  const strip = (s: string) =>
+    s.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+
+  const read = (rel: string) =>
+    strip(
+      require('fs').readFileSync(
+        require('path').join(__dirname, '../../src/features/journal/screens/', rel),
+        'utf8',
+      ),
+    );
+
+  const SCREENS = ['JournalHistoryScreen.tsx', 'JournalEntryDetailScreen.tsx'];
+
+  test.each(SCREENS)('%s imports no RN Modal', (file) => {
+    const source = read(file);
+    expect(source.length).toBeGreaterThan(200);
+    expect(source).not.toMatch(/^\s*import\s+\{[^}]*\bModal\b[^}]*\}\s+from\s+'react-native'/m);
+  });
+
+  test.each(SCREENS)('%s renders no <Modal> element', (file) => {
+    expect(read(file)).not.toMatch(/<Modal[\s/>]/);
+  });
+
+  test.each(SCREENS)('%s declares no second 988 control of its own', (file) => {
+    // Duplicating the root control is a REVERTED mistake, not a missing
+    // safeguard — two differently-labelled Call-988 buttons on one screen are
+    // worse for a screen reader user than the gap they were meant to close.
+    const source = read(file);
+    expect(source).not.toMatch(/988/);
+    expect(source).not.toMatch(/openCrisisUrl/);
+  });
+
+  test('the Modal matchers still fire against known-bad source', () => {
+    const bad = "import { View, Modal } from 'react-native';\nconst x = <Modal visible />;";
+    expect(bad).toMatch(/^\s*import\s+\{[^}]*\bModal\b[^}]*\}\s+from\s+'react-native'/m);
+    expect(bad).toMatch(/<Modal[\s/>]/);
+  });
+});

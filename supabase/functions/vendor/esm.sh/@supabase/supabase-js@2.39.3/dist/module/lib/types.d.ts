@@ -1,0 +1,98 @@
+import { GoTrueClient } from 'https://esm.sh/@supabase/gotrue-js@2.67.3/dist/module/index.d.ts';
+import { RealtimeClientOptions } from 'https://esm.sh/@supabase/realtime-js@2.11.3/dist/module/index.d.ts';
+import { PostgrestError } from 'https://esm.sh/@supabase/postgrest-js@1.17.11/dist/cjs/index.d.ts';
+declare type GoTrueClientOptions = ConstructorParameters<typeof GoTrueClient>[0];
+export interface SupabaseAuthClientOptions extends GoTrueClientOptions {
+}
+export declare type Fetch = typeof fetch;
+export declare type SupabaseClientOptions<SchemaName> = {
+    /**
+     * The Postgres schema which your tables belong to. Must be on the list of exposed schemas in Supabase. Defaults to `public`.
+     */
+    db?: {
+        schema?: SchemaName;
+    };
+    auth?: {
+        /**
+         * Automatically refreshes the token for logged-in users. Defaults to true.
+         */
+        autoRefreshToken?: boolean;
+        /**
+         * Optional key name used for storing tokens in local storage.
+         */
+        storageKey?: string;
+        /**
+         * Whether to persist a logged-in session to storage. Defaults to true.
+         */
+        persistSession?: boolean;
+        /**
+         * Detect a session from the URL. Used for OAuth login callbacks. Defaults to true.
+         */
+        detectSessionInUrl?: boolean;
+        /**
+         * A storage provider. Used to store the logged-in session.
+         */
+        storage?: SupabaseAuthClientOptions['storage'];
+        /**
+         * OAuth flow to use - defaults to implicit flow. PKCE is recommended for mobile and server-side applications.
+         */
+        flowType?: SupabaseAuthClientOptions['flowType'];
+        /**
+         * If debug messages for authentication client are emitted. Can be used to inspect the behavior of the library.
+         */
+        debug?: SupabaseAuthClientOptions['debug'];
+        /**
+         * Provide your own locking mechanism based on the environment. By default no locking is done at this time.
+         *
+         * @experimental
+         */
+        lock?: SupabaseAuthClientOptions['lock'];
+    };
+    /**
+     * Options passed to the realtime-js instance
+     */
+    realtime?: RealtimeClientOptions;
+    global?: {
+        /**
+         * A custom `fetch` implementation.
+         */
+        fetch?: Fetch;
+        /**
+         * Optional headers for initializing the client.
+         */
+        headers?: Record<string, string>;
+    };
+};
+export declare type GenericTable = {
+    Row: Record<string, unknown>;
+    Insert: Record<string, unknown>;
+    Update: Record<string, unknown>;
+};
+export declare type GenericUpdatableView = {
+    Row: Record<string, unknown>;
+    Insert: Record<string, unknown>;
+    Update: Record<string, unknown>;
+};
+export declare type GenericNonUpdatableView = {
+    Row: Record<string, unknown>;
+};
+export declare type GenericView = GenericUpdatableView | GenericNonUpdatableView;
+export declare type GenericFunction = {
+    Args: Record<string, unknown>;
+    Returns: unknown;
+};
+export declare type GenericSchema = {
+    Tables: Record<string, GenericTable>;
+    Views: Record<string, GenericView>;
+    Functions: Record<string, GenericFunction>;
+};
+/**
+ * Helper types for query results.
+ */
+export declare type QueryResult<T> = T extends PromiseLike<infer U> ? U : never;
+export declare type QueryData<T> = T extends PromiseLike<{
+    data: infer U;
+}> ? Exclude<U, null> : never;
+export declare type QueryError = PostgrestError;
+export {};
+//# sourceMappingURL=types.d.ts.map

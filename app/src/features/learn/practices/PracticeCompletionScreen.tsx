@@ -146,11 +146,18 @@ export const PRACTICE_QUOTES: Record<string, ClassicalQuote> = {
   // public-domain Epictetus is Elizabeth Carter (1758), per the `translation`
   // field on every Enchiridion entry in passages-3-sphere-sovereignty.json.
   // Now byte-identical to that corpus entry's opening sentence.
-  // NOTE: the FULL White paragraph still ships in
-  // assets/modules/module-3-sphere-sovereignty.json — a larger exposure than
-  // this one, tracked separately as DEBUG-343.
+  // FEAT-567 re-cut this against the PINNED Carter digitization (Wikisource's
+  // transcription of the 1759 printing, IA scan allworksofepicte00epic). The
+  // previous wording — "Some things are in our control and others not." — was
+  // not Carter either: it came from the MIT Internet Classics Archive text,
+  // which is credited to Carter but is an unattributed MODERNISED revision. The
+  // 1759 print reads as below. See classicalCorpusProvenance.test.ts.
+  // (The DEBUG-343 note that used to sit here said the full White paragraph still
+  // shipped in module-3-sphere-sovereignty.json. DEBUG-343 did remove White — but
+  // it substituted the same MODERNISED text this entry carried, still credited to
+  // Carter. FEAT-567 re-cut that module quote against the pinned 1759 printing too.)
   'control-sorting': {
-    text: 'Some things are in our control and others not.',
+    text: 'Of Things, some are in our Power, and others not.',
     author: 'Epictetus',
     source: 'Enchiridion 1',
     translation: 'Elizabeth Carter',
@@ -452,14 +459,14 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline2.size,
     fontWeight: typography.headline2.weight,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
     textAlign: 'center',
   },
   practiceName: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.medium,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     marginBottom: spacing[32],
     textAlign: 'center',
   },
@@ -476,7 +483,7 @@ const styles = StyleSheet.create({
   quoteText: {
     fontSize: typography.bodyLarge.size,
     fontStyle: 'italic',
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     lineHeight: typography.bodyLarge.size * (typography.bodyLarge.lineHeight || 1.5),
     marginBottom: spacing[16],
     textAlign: 'center',
@@ -489,7 +496,7 @@ const styles = StyleSheet.create({
   },
   educationalMessage: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: typography.bodyRegular.size * (typography.bodyRegular.lineHeight || 1.5),
     marginBottom: spacing[32],
@@ -536,10 +543,10 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   secondaryButtonTextPressed: {
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
   },
 });
 

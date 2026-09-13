@@ -16,27 +16,45 @@
  * boundary (no consent auto-grant in a shipping build) rests on that profile
  * scoping and is pinned by `__tests__/safety/e2eSeedGate.config.test.ts`.
  *
- * The seed writes REAL state via the same store APIs a user's LegalGate flow
- * uses — it does NOT weaken or bypass `useConsentStore.canPerformOperation(...)`.
- * Must run after `EncryptionService.initialize()` (consent persists to
- * SecureStore, which depends on the encryption keys).
+ * The onboarded and ungranted-boot variants write REAL state via the same store
+ * APIs a user's LegalGate flow uses — they do NOT weaken or bypass
+ * `useConsentStore.canPerformOperation(...)`. Must run after
+ * `EncryptionService.initialize()` (consent persists to SecureStore, which
+ * depends on the encryption keys).
+ *
+ * INFRA-377's stale-consent variant is the ONE exception, and it is deliberately
+ * narrow: no real store API can produce a version-mismatched record, because
+ * every mutator stamps `version: CONSENT_VERSION`. It forges that single field
+ * via the named store seam `__seedStaleConsentRecordForE2E`, then routes through
+ * the real `loadConsent()` classification exactly as a genuine stale install
+ * would. The forgery is confined to the one field a real flow could never write.
  *
  * INFRA-317 adds a per-flow OPT-OUT (`E2E_SEED_UNGRANTED_MARKER`) so the same
  * binary can also boot with consent ungranted, which is the only state in which
  * the INFRA-308 deep-link consent-gate contracts can be exercised end-to-end. It
  * is a suppressor only — see the block comment on the marker below.
+ *
+ * INFRA-377 adds a second per-flow marker (`E2E_SEED_STALE_CONSENT_MARKER`) on
+ * the same channel. It is a WRITER, not a suppressor, gated identically to the
+ * original onboarded seed: solely by `SEED_ACTIVE`. See its own block comment.
  */
 
 import * as Linking from 'expo-linking';
 import { env } from './env';
 import { useSettingsStore } from '../stores/settingsStore';
+import { openBugReport } from '../stores/bugReportStore';
 import {
   useConsentStore,
   recordLegalGateConsents,
+  __seedStaleConsentRecordForE2E,
   type ConsentPreferences,
   type AgeVerification,
 } from '../stores/consentStore';
 import { logSystem, logError, LogCategory } from '../services/logging';
+import {
+  useStoicPracticeStore,
+  type CheckInType,
+} from '@/features/practices/stores/stoicPracticeStore';
 
 /**
  * Deterministic eligible birth year for the seeded age verification. Any year
@@ -44,6 +62,24 @@ import { logSystem, logError, LogCategory } from '../services/logging';
  * resolve to 'valid'; 1990 is comfortably clear of the 18+ boundary.
  */
 const SEED_BIRTH_YEAR = 1990;
+
+/**
+ * The check-in types seeded to satisfy `WeeklyReflectionCard`'s
+ * MIN_CHECK_INS_TO_SHOW = 4 gate (INFRA-532).
+ *
+ * EXACTLY FOUR, AND DELIBERATELY WITHOUT 'daily'. `markCheckInComplete` de-dupes
+ * on (type, date), so reaching four in one launch requires four distinct types.
+ * 'daily' is the one type a production surface reads back
+ * (`CleanHomeScreen` → `isCheckInCompletedToday('daily')`); the four here have no
+ * reader outside `getCheckInHistory`, so the seed is inert to every other flow.
+ * Pinned by `__tests__/safety/e2eSeedGate.config.test.ts`.
+ */
+const E2E_SEEDED_CHECK_IN_TYPES: readonly CheckInType[] = [
+  'morning',
+  'midday',
+  'evening',
+  'learn',
+];
 
 /** Whether the e2e-sim onboarding seed is enabled for this build. */
 export const isE2EOnboardingSeedEnabled = (): boolean =>
@@ -91,6 +127,101 @@ const SEED_ACTIVE = isE2EOnboardingSeedEnabled();
 export const E2E_SEED_UNGRANTED_MARKER = 'e2eSeed=ungranted';
 
 /**
+ * INFRA-377 — per-flow "boot with stale consent" switch.
+ *
+ * Rides the SAME channel as the marker above, for the same reason: a
+ * `EXPO_PUBLIC_*` var is inlined at build time and so cannot vary per flow, and
+ * a second EAS profile would mean a second ~21-minute Release build per gate run
+ * plus a second compliance boundary to scope and pin. One binary, three boot
+ * states, chosen at launch.
+ *
+ * ── SAFETY / COMPLIANCE BOUNDARY (compliance + crisis review, INFRA-377) ──────
+ * ⚠️ Unlike the ungranted marker above, this one is a WRITER. It does not and
+ * cannot carry that marker's suppressor guarantee, because a stale record has to
+ * be forged — `grantConsent` hardcodes `version: CONSENT_VERSION`, so no real
+ * store API can produce one.
+ *
+ * Its posture is therefore the ORIGINAL seed's, not INFRA-317's: gated solely by
+ * `SEED_ACTIVE`. That is the same single belt `maybeSeedE2EOnboardedState` has
+ * always relied on to overwrite consent state, and it is pinned by
+ * `__tests__/safety/e2eSeedGate.config.test.ts` to exactly one non-shippable EAS
+ * profile. Read only inside the `SEED_ACTIVE` branch below, so with the build var
+ * at its 'false' default the whole path is unreachable dead code.
+ *
+ * The write itself goes through the named seam `__seedStaleConsentRecordForE2E`
+ * in `consentStore.ts`, never through SecureStore directly from this module —
+ * that separation is itself pinned, so this file cannot reach around the seam.
+ * The seam can only ever write a complete, non-revoked record; it has no path to
+ * revoke, clear, or downgrade an existing one.
+ */
+export const E2E_SEED_STALE_CONSENT_MARKER = 'e2eSeed=stale';
+
+/**
+ * The real policy version immediately prior to `CONSENT_VERSION` ('1.1.0').
+ * Must be an OLDER, PARSEABLE version: `computeConsentDelta` falls back to the
+ * generic "something changed" summary for anything unparseable or newer, so a
+ * typo'd value renders a passing screen showing the wrong copy.
+ */
+const STALE_SEED_VERSION = '1.0.0';
+
+/**
+ * INFRA-481 — the INELIGIBLE stale-consent cohort (13–17, or an age that cannot be read).
+ *
+ * WHY THE TOKEN IS `ineligible` AND NOT `stale-ineligible`. Every predicate here is
+ * `url.includes(MARKER)`, and `'e2eSeed=stale-ineligible'.includes('e2eSeed=stale')` is
+ * TRUE. The descriptive name would have been swallowed by the renewable branch above,
+ * silently seeding the wrong cohort and landing on ReConsentScreen — a failure that
+ * surfaces ~90 s of cold boot later and reads as a screen regression, not a marker bug.
+ * A collision pin in e2eSeedGate.config.test.ts keeps it that way.
+ *
+ * Read ONLY inside the `SEED_ACTIVE` branch, exactly like the two markers above, so with
+ * the build var at its 'false' default this is unreachable in any shippable artifact.
+ */
+export const E2E_SEED_STALE_INELIGIBLE_MARKER = 'e2eSeed=ineligible';
+
+/**
+ * FEAT-570 — open the bug-report form at boot, before the navigator mounts.
+ *
+ * WHY THIS EXISTS. `BugReportOverlay` has two entry points and only one of them
+ * is drivable: Maestro 2.6.0 has NO shake or device-motion command (every
+ * command class in `maestro-orchestra-models.jar` was enumerated). The Profile
+ * card can only fire on a non-suppressed tab, which is the one route where
+ * nothing interesting can happen. What differs between the two entries is the
+ * only safety-relevant variable — WHICH ROUTE IS ACTIVE when the form opens —
+ * so without this arm the entire suppressed-route case is verified nowhere on
+ * device.
+ *
+ * WHY IT OPENS AT BOOT RATHER THAN ON DEMAND. This is not a convenience: it
+ * reproduces the actual hazard. `useBugReportShake()` is called inside `App()`,
+ * ABOVE `NavigationContainer`, so a real shake can set `visible` while
+ * `CleanRootNavigator` is still rendering `LoadingScreen` — a claim standing
+ * before any route exists to check, on a build whose first route is `LegalGate`.
+ * Setting it here puts the app in exactly that state. What the flow then asserts
+ * is that the slot REFUSES it and the pre-consent 988 footer survives.
+ *
+ * A DISTINCT KEY, NOT AN `e2eSeed=` VALUE, DELIBERATELY. Every predicate here is
+ * `url.includes(MARKER)`, which is why `E2E_SEED_STALE_INELIGIBLE_MARKER` had to
+ * avoid the `stale-` prefix. Combining this with the ungranted marker in one URL
+ * needs both to be readable at once, so it uses its own key and cannot be a
+ * substring of — or swallowed by — any seed marker. Pinned in
+ * `e2eSeedGate.config.test.ts` alongside the existing collision pin.
+ *
+ * Read ONLY inside the `SEED_ACTIVE` branch, exactly like the markers above, so
+ * with the build var at its 'false' default this is unreachable dead code in any
+ * shippable artifact. It is strictly weaker than the seed itself: it can only
+ * raise a UI overlay, and writes nothing.
+ */
+export const E2E_OPEN_BUG_REPORT_MARKER = 'e2eOpen=bugreport';
+
+/**
+ * RELATIVE, never a literal birth year. A hardcoded 2012 turns 18 in 2030 and the fixture
+ * silently flips to the RENEWABLE screen — the same class of dated-constant rot the seed
+ * version above is insulated from.
+ */
+const INELIGIBLE_SEED_AGE = 14;
+const INELIGIBLE_SEED_BIRTH_YEAR = new Date().getFullYear() - INELIGIBLE_SEED_AGE;
+
+/**
  * How long to wait on `getInitialURL()` before falling back to the normal seed.
  * A hung or slow resolution must degrade to today's behaviour, not to a boot that
  * silently skips the seed and strands every other safety flow on LegalGate.
@@ -98,20 +229,42 @@ export const E2E_SEED_UNGRANTED_MARKER = 'e2eSeed=ungranted';
 const INITIAL_URL_TIMEOUT_MS = 3000;
 
 /**
- * True when this launch carries the ungranted-boot marker. Any failure, timeout,
- * or absent URL answers `false`, so the 7 existing seeded flows keep today's
- * exact behaviour — the failure direction is "seed as usual", never "skip".
+ * The launch URL, or `null`. Any failure, timeout, or absent URL answers `null`,
+ * so the existing seeded flows keep today's exact behaviour — the failure
+ * direction is "seed as usual", never "skip" and never "forge".
+ *
+ * Read ONCE per launch and shared by every marker predicate below: two separate
+ * `getInitialURL()` races could resolve differently and dispatch to two
+ * different boot states within one launch.
  */
-async function isUngrantedBootRequested(): Promise<boolean> {
+async function readInitialLaunchUrl(): Promise<string | null> {
   try {
-    const url = await Promise.race([
+    return await Promise.race([
       Linking.getInitialURL(),
       new Promise<null>((resolve) => setTimeout(() => resolve(null), INITIAL_URL_TIMEOUT_MS)),
     ]);
-    return typeof url === 'string' && url.includes(E2E_SEED_UNGRANTED_MARKER);
   } catch {
-    return false;
+    return null;
   }
+}
+
+/** True when this launch carries the INFRA-317 ungranted-boot marker. */
+function isUngrantedBootRequested(url: string | null): boolean {
+  return typeof url === 'string' && url.includes(E2E_SEED_UNGRANTED_MARKER);
+}
+
+/** True when this launch carries the INFRA-377 stale-consent marker. */
+function isStaleConsentBootRequested(url: string | null): boolean {
+  return typeof url === 'string' && url.includes(E2E_SEED_STALE_CONSENT_MARKER);
+}
+
+function isStaleIneligibleBootRequested(url: string | null): boolean {
+  return typeof url === 'string' && url.includes(E2E_SEED_STALE_INELIGIBLE_MARKER);
+}
+
+/** True when this launch carries the FEAT-570 bug-report-open marker. */
+function isBugReportOpenRequested(url: string | null): boolean {
+  return typeof url === 'string' && url.includes(E2E_OPEN_BUG_REPORT_MARKER);
 }
 
 // Module-level "seed gate" promise. CleanRootNavigator awaits it BEFORE reading
@@ -158,15 +311,107 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
   if (!SEED_ACTIVE) return;
 
   try {
-    // INFRA-317: ungranted-boot variant. Deliberately the FIRST thing inside the
-    // try, and a bare `return` — every write below is skipped, nothing is
+    // Read the launch URL ONCE; every marker predicate below shares it.
+    const launchUrl = await readInitialLaunchUrl();
+
+    // FEAT-570: raise the bug-report form BEFORE any route resolves. Deliberately
+    // above the ungranted branch's `return`, so it composes with it — the pair
+    // `?e2eSeed=ungranted&e2eOpen=bugreport` boots to LegalGate with a claim
+    // already standing, which is the state a root-armed shake produces for real.
+    // Writes nothing; only sets a visibility flag.
+    if (isBugReportOpenRequested(launchUrl)) {
+      logSystem('[E2ESeed] Bug-report form open requested at boot (FEAT-570)');
+      openBugReport();
+    }
+
+    // INFRA-317: ungranted-boot variant. Deliberately the FIRST WRITE-AFFECTING
+    // branch inside the try, and a bare `return` — every write below is skipped, nothing is
     // written, cleared, or revoked. `finally` still releases the seed gate, so
     // CleanRootNavigator proceeds and resolves its route from real (empty) state:
     // onboardingCompleted false + consentStatus 'missing' → LegalGate.
-    if (await isUngrantedBootRequested()) {
+    if (isUngrantedBootRequested(launchUrl)) {
       logSystem(
         '[E2ESeed] Ungranted-consent boot requested (INFRA-317) — skipping all seed writes',
       );
+      return;
+    }
+
+    // INFRA-377: stale-consent variant. Onboarding IS complete (the navigator
+    // checks that before consent, so without it the app routes to LegalGate and
+    // the re-consent screen never presents), but the consent record is forged at
+    // the prior policy version so `loadConsent` resolves 'version_mismatch' and
+    // `useReConsentTrigger` presents ReConsent over Main.
+    //
+    // Deliberately NOT calling `recordLegalGateConsents` here: it stamps
+    // `version: CONSENT_VERSION`, which would leave a v1.1.0 legal-gate record
+    // beside a v1.0.0 consent record — a state no real user could be in. Nothing
+    // on the path to ReConsent reads that record; the screen's own dual-write
+    // creates it on submit, which is the behaviour under test.
+    if (isStaleConsentBootRequested(launchUrl)) {
+      logSystem('[E2ESeed] Stale-consent boot requested (INFRA-377) — forging a v1.0.0 record');
+
+      const settings = useSettingsStore.getState();
+      await settings.loadSettings();
+      await settings.markOnboardingComplete();
+
+      const { verifyAge } = useConsentStore.getState();
+      const { age, eligible } = await verifyAge(SEED_BIRTH_YEAR);
+      await __seedStaleConsentRecordForE2E({
+        version: STALE_SEED_VERSION,
+        ageVerification: {
+          verified: true,
+          birthYear: SEED_BIRTH_YEAR,
+          ageAtVerification: age,
+          verifiedAt: Date.now(),
+          isEligible: eligible,
+        },
+      });
+
+      logSystem('[E2ESeed] Stale consent seeded; navigator will present ReConsent over Main');
+      return;
+    }
+
+    // INFRA-481: stale-consent INELIGIBLE variant. Same version_mismatch entry point as the
+    // branch above — `loadConsent` resolves version BEFORE age, retaining the whole record
+    // as `staleConsent` — so the knob that selects StaleConsentIneligibleScreen over
+    // ReConsentScreen is `isBaseEligibleForRenewal`, downstream.
+    //
+    // `isEligible: true` ON AN INELIGIBLE RECORD IS THE POINT, NOT A TYPO. That function has
+    // three arms: `isEligible !== true`, an unreadable birthYear, and
+    // `calculateAge(birthYear) >= MINIMUM_CONSENT_AGE`. The production hazard FEAT-399
+    // exists for is the THIRD — every v1.0.0 record was written under the pre-DEBUG-150 13+
+    // gate, so a real 14-year-old's record legitimately carries `isEligible: true`, and only
+    // the age re-derivation catches it. Seeding `false` would bail at the first arm and
+    // exercise none of that.
+    //
+    // And DELIBERATELY NOT via `verifyAge`, which the branch above uses: it recomputes
+    // eligibility against TODAY's MINIMUM_CONSENT_AGE (returning false here) and side-writes
+    // AGE_VERIFICATION_KEY with that false — leaving a contradictory pair no real prior-policy
+    // install can hold. Hand-construct the literal instead.
+    //
+    // `recordLegalGateConsents` is omitted for the same reason as the branch above: it stamps
+    // `version: CONSENT_VERSION`, which no real user could hold beside a v1.0.0 record.
+    if (isStaleIneligibleBootRequested(launchUrl)) {
+      logSystem(
+        '[E2ESeed] Stale-consent INELIGIBLE boot requested (INFRA-481) — forging a v1.0.0 minor record',
+      );
+
+      const settings = useSettingsStore.getState();
+      await settings.loadSettings();
+      await settings.markOnboardingComplete();
+
+      await __seedStaleConsentRecordForE2E({
+        version: STALE_SEED_VERSION,
+        ageVerification: {
+          verified: true,
+          birthYear: INELIGIBLE_SEED_BIRTH_YEAR,
+          ageAtVerification: INELIGIBLE_SEED_AGE,
+          verifiedAt: Date.now(),
+          isEligible: true,
+        },
+      });
+
+      logSystem('[E2ESeed] Ineligible cohort seeded; navigator will present the no-exit screen');
       return;
     }
 
@@ -188,8 +433,15 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
     });
 
     // 3. Age verification (≥18) + full consent record via the real store API.
-    //    mentalHealthProcessingConsent unlocks the assessment / check-in screens
-    //    the safety flows exercise (GDPR Art. 9(2)(a) explicit consent).
+    //    `mentalHealthProcessingConsent` is the GDPR Art. 9(2)(a) explicit consent.
+    //    It is seeded true to mirror a fully-consented user, NOT because anything
+    //    depends on it: this comment used to claim it "unlocks the assessment /
+    //    check-in screens the safety flows exercise," which was never true and is a
+    //    trap. Nothing gates on it — `canPerformOperation('mental_health_processing')`
+    //    has zero production callers and `consentCache.canProcessMentalHealthData` has
+    //    no consumer outside consentStore. A reader who believed the old comment would
+    //    conclude that refusing this consent blocks assessments and therefore blocks
+    //    crisis detection; it blocks neither. Enforcement is FEAT-318.
     const { verifyAge, grantConsent } = useConsentStore.getState();
     const { age, eligible } = await verifyAge(SEED_BIRTH_YEAR);
     const ageVerification: AgeVerification = {
@@ -207,6 +459,44 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
       mentalHealthProcessingConsent: true,
     };
     await grantConsent(preferences, ageVerification);
+
+    // 4. Weekly-reflection precondition (INFRA-532).
+    //
+    //    WHY THIS EXISTS. `WeeklyReflectionCard` returns null below
+    //    MIN_CHECK_INS_TO_SHOW = 4 check-ins in the trailing 7 days, so on a
+    //    `clearState` + `clearKeychain` launch the card — and therefore
+    //    `WeeklyReflectionComposer`, a DEBUG-406 conversion site and a Protected
+    //    Path — is absent from the hierarchy entirely. Without this the composer
+    //    is unreachable in the gate build and its Phase 2.5 entry can only ever
+    //    be a printed notice. `crisis-button-reachability` taps through it.
+    //
+    //    WHY THE REAL API AND NOT A SEAM. INFRA-377's `__seedStale…ForE2E` seam
+    //    exists because no real mutator can stamp an old consent version. That
+    //    precondition is absent here: `markCheckInComplete` writes a complete,
+    //    well-formed record through the normal path. Nothing is forged, so no
+    //    new seam is justified.
+    //
+    //    WHY NOT 'daily'. It de-dupes on (type, date), so four records means four
+    //    distinct types. 'daily' is excluded deliberately — it is the ONLY type
+    //    any consumer reads outside this card (`CleanHomeScreen` →
+    //    `isCheckInCompletedToday('daily')`), and seeding it would flip the Home
+    //    check-in card's completed state for every flow in the suite, including
+    //    `daily-loop-ax5-entry`, which taps that card. The four seeded here have
+    //    no production writer and no reader but `getCheckInHistory`.
+    //
+    //    PLACEMENT IS LOAD-BEARING. This sits after `grantConsent`, below all
+    //    three marker early-returns, so the ungranted / stale / ineligible boot
+    //    states keep byte-identical state and their flows are unaffected.
+    //
+    //    COMPLIANCE: these are fabricated wellness records written to the
+    //    encrypted store. They exist only under SEED_ACTIVE, which is scoped to
+    //    the non-shippable `e2e-sim` EAS profile, so no boundary moves — but the
+    //    gate build does contain check-in records no user created.
+    const practice = useStoicPracticeStore.getState();
+    await practice.loadPersistedState();
+    for (const type of E2E_SEEDED_CHECK_IN_TYPES) {
+      await practice.markCheckInComplete(type);
+    }
 
     logSystem('[E2ESeed] Post-onboarding state seeded; navigator will route to Main');
   } catch (error) {

@@ -34,7 +34,11 @@ type BadgeStatus = 'recent' | 'due' | 'recommended';
 // WCAG-AA compliant colors with muted presentation
 const colors = {
   white: '#FFFFFF',
-  black: '#1C1C1C',
+  // DEBUG-387: the `black: '#1C1C1C'` entry that sat here was DEAD — declared and
+  // referenced nowhere in this file. Deleted rather than re-pointed onto
+  // `semantic.text.primary`, which would only have minted a fresh unused alias.
+  // (The remaining hardcoded hex in this object is a separate, wider debt: this
+  // item's scope is the primary-text ramp only.)
   gray600: '#4B5563',
   gray700: '#374151',
   // Muted status colors (low opacity backgrounds)

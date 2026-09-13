@@ -231,6 +231,11 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       mockIAP.purchaseSubscription.mockResolvedValue({
         transactionReceipt: 'receipt-xyz',
         orderId: 'order-1',
+        // INFRA-467: the store forwards Apple transaction identity as a 4th argument.
+        // Present on the fixture so this asserts the value is threaded through, rather
+        // than only that an extra `undefined` appeared in the call.
+        transactionId: '2000000847061713',
+        environmentIOS: 'Sandbox',
       });
       mockIAP.verifyReceipt.mockResolvedValue({
         valid: true,
@@ -241,7 +246,10 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       await useSubscriptionStore.getState().purchaseSubscription('yearly');
 
       const state = useSubscriptionStore.getState();
-      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith('receipt-xyz', 'apple', undefined);
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith('receipt-xyz', 'apple', undefined, {
+        transactionId: '2000000847061713',
+        environment: 'Sandbox',
+      });
       expect(mockIAP.finishTransaction).toHaveBeenCalledTimes(1);
       expect(state.subscription?.status).toBe('active');
       expect(state.subscription?.interval).toBe('yearly');

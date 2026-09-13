@@ -94,6 +94,13 @@ const FromTheSourceSection: React.FC<FromTheSourceSectionProps> = ({ principle }
                   </Text>
                   {passage.context && (
                     <View style={styles.contextBox}>
+                      {/* Labelled, not merely ruled off. The note is OUR editorial
+                          voice and sits directly beneath the translator byline, so
+                          without a marker it reads as the translator's own
+                          commentary. A visual treatment cannot carry that: a screen
+                          reader hears the two Text nodes consecutively with nothing
+                          between them. Mirrors PassageReaderScreen's label. */}
+                      <Text style={styles.contextLabel}>Context</Text>
                       <Text style={styles.contextText}>{passage.context}</Text>
                     </View>
                   )}
@@ -127,7 +134,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   intro: {
@@ -157,7 +164,7 @@ const styles = StyleSheet.create({
   headerText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     flex: 1,
     paddingRight: spacing[8],
   },
@@ -184,6 +191,14 @@ const styles = StyleSheet.create({
     paddingTop: spacing[12],
     borderTopWidth: 1,
     borderTopColor: colorSystem.gray[200],
+  },
+  contextLabel: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.bold,
+    color: semantic.text.secondary,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: spacing[4],
   },
   contextText: {
     fontSize: typography.bodySmall.size,

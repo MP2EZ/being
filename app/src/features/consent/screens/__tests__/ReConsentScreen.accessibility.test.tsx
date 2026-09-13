@@ -198,23 +198,83 @@ describe('FEAT-376 — group structure is navigable non-visually', () => {
     expect(headers.filter((h) => h.props.accessibilityLevel === 1)).toHaveLength(1);
   });
 
-  it('marks both group titles as headers', () => {
+  it('marks every group and subsection title as a header', () => {
     // RN has no group role, so heading navigation (VoiceOver's rotor, TalkBack's
     // heading jump) IS the group boundary. `CombinedLegalGateScreen.tsx:263,296`
     // ships bare Text for its section titles — a gap in that file, not a
     // convention to mirror.
     const screen = renderScreen();
-    expect(screen.getByText('What you need to accept').props.accessibilityRole).toBe('header');
+    expect(screen.getByText('What you agree to').props.accessibilityRole).toBe('header');
     expect(screen.getByText('Optional data sharing').props.accessibilityRole).toBe('header');
+
+    // FEAT-475 subsection split. `Optional — wellness data processing` is
+    // deliberately NOT bare `Optional`: this screen already ships `Optional data
+    // sharing`, and one rotor entry being a prefix of another is a real
+    // navigation ambiguity. `accessibilityLevel` cannot resolve it — RN maps
+    // level to AccessibilityNodeInfo on Android only, iOS has no heading-level
+    // API — so distinct text is the only channel that works on both platforms.
+    const required = screen.getByText('Required to continue');
+    const optional = screen.getByText('Optional — wellness data processing');
+    expect(required.props.accessibilityRole).toBe('header');
+    expect(optional.props.accessibilityRole).toBe('header');
+    expect(required.props.accessibilityLevel).toBe(3);
+    expect(optional.props.accessibilityLevel).toBe(3);
   });
 
-  it('states each required control\'s obligation on the control itself', () => {
+  it('keeps the subsection headings in sentence case', () => {
+    // Uppercase presentation comes from `textTransform` in the style. A literal
+    // all-caps string would be spelled out letter-by-letter by some screen readers.
+    const screen = renderScreen();
+    expect(screen.getByText('Required to continue')).toBeTruthy();
+    expect(screen.queryByText('REQUIRED TO CONTINUE')).toBeNull();
+  });
+
+  it('states each REQUIRED control\'s obligation on the control itself', () => {
     // Survives a rotor jump into the middle of the list, which a heading does not.
-    renderScreen()
-      .getAllByRole('checkbox')
-      .forEach((box) => {
-        expect(box.props.accessibilityHint).toBe('Required to continue');
-      });
+    // Narrowed by FEAT-475 to the three required boxes — NOT weakened to
+    // "hint is non-empty", which would stop distinguishing them at all.
+    const boxes = renderScreen().getAllByRole('checkbox');
+    [0, 1, 2].forEach((i) => {
+      expect(boxes[i].props.accessibilityHint).toBe('Required to continue');
+      expect(boxes[i].props.accessibilityLabel).toMatch(/, required$/);
+    });
+  });
+
+  it('states the Art. 9 control is optional, on the control itself', () => {
+    const art9 = renderScreen().getAllByRole('checkbox')[3];
+
+    expect(art9.props.accessibilityHint).toMatch(/^Optional\b/);
+    expect(art9.props.accessibilityLabel).toMatch(/, optional$/);
+    expect(art9.props.accessibilityLabel).not.toMatch(/, required/);
+  });
+
+  it('carries optional in the LABEL, which the user cannot switch off', () => {
+    // Guards the guard. iOS VoiceOver → Verbosity → Speak Hints disables hints
+    // outright and TalkBack truncates them, so a future edit that moved the
+    // marker into the hint alone would leave every other assertion here green
+    // while the information became unreachable for some users.
+    const art9 = renderScreen().getAllByRole('checkbox')[3];
+
+    expect(art9.props.accessibilityLabel.toLowerCase()).toContain('optional');
+  });
+
+  it('does not count the Art. 9 box toward the required total', () => {
+    /**
+     * Asserts the hint is UNCHANGED by toggling Art. 9, not merely that it reads
+     * "3 remaining". A bare count assertion here is vacuous: `4 - accepted` and
+     * `3 - requiredRemaining` coincide for every state in which Art. 9 is ticked,
+     * so it passed against the bundled implementation too. Invariance under the
+     * toggle is the property only an unbundled counter has.
+     */
+    const screen = renderScreen();
+    const submitHint = () => screen.getByTestId('reconsent-submit').props.accessibilityHint;
+    const onMount = submitHint();
+
+    fireEvent.press(screen.getAllByRole('checkbox')[3]);
+
+    expect(submitHint()).toBe(onMount);
+    expect(submitHint()).toMatch(/3 remaining/);
+    expect(screen.getByTestId('reconsent-submit').props.accessibilityState.disabled).toBe(true);
   });
 });
 
@@ -229,7 +289,7 @@ describe('FEAT-376 — the disabled submit button discloses WHY', () => {
     const submit = screen.getByTestId('reconsent-submit');
 
     expect(submit.props.accessibilityState.disabled).toBe(true);
-    expect(submit.props.accessibilityHint).toMatch(/4 remaining/);
+    expect(submit.props.accessibilityHint).toMatch(/3 remaining/);
   });
 
   it('changes its hint once enabled', () => {
@@ -239,7 +299,10 @@ describe('FEAT-376 — the disabled submit button discloses WHY', () => {
     const submitHint = () => screen.getByTestId('reconsent-submit').props.accessibilityHint;
     const disabledHint = submitHint();
 
-    screen.getAllByRole('checkbox').forEach((box) => fireEvent.press(box));
+    // Only the three required — pressing all four would still enable Submit and
+    // the assertion would pass without proving the Art. 9 box is optional.
+    const boxes = screen.getAllByRole('checkbox');
+    [0, 1, 2].forEach((i) => fireEvent.press(boxes[i]));
 
     expect(screen.getByTestId('reconsent-submit').props.accessibilityState.disabled).toBe(false);
     expect(submitHint()).not.toBe(disabledHint);
@@ -248,7 +311,7 @@ describe('FEAT-376 — the disabled submit button discloses WHY', () => {
   it('counts down as boxes are ticked', () => {
     const screen = renderScreen();
     fireEvent.press(screen.getAllByRole('checkbox')[0]);
-    expect(screen.getByTestId('reconsent-submit').props.accessibilityHint).toMatch(/3 remaining/);
+    expect(screen.getByTestId('reconsent-submit').props.accessibilityHint).toMatch(/2 remaining/);
   });
 
   it('reports busy while submitting', () => {

@@ -21,7 +21,7 @@ import {
   ScrollView,
   Pressable,
 } from 'react-native';
-import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { semantic, colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { FocusProvider, Focusable, SkipLink } from '@/core/components/accessibility';
 import { useNavigation } from '@react-navigation/native';
@@ -368,7 +368,7 @@ const styles = StyleSheet.create({
   closeButtonText: {
     fontSize: typography.title.size,
     fontWeight: typography.fontWeight.regular,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   scrollContent: {
     padding: spacing[16],

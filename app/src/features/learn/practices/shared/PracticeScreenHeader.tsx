@@ -84,7 +84,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.headline3.weight as any,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     flex: 1,
     marginHorizontal: spacing[8],

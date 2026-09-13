@@ -79,7 +79,9 @@ export function useFeatureFlag(flag: FeatureFlag | string): boolean {
 
   // usePostHog() does NOT throw when no provider is mounted — at runtime it
   // returns undefined (its declared return type is non-nullable and lies, so we
-  // widen it). The provider is unmounted whenever analytics consent is absent.
+  // widen it). Since DEBUG-559 the provider is mounted unconditionally, so this
+  // is undefined only in a build with no API key — NOT a consent signal. The
+  // consent conjuncts below are what gate the read, and always were.
   const posthog = usePostHog() as ReturnType<typeof usePostHog> | undefined;
 
   const analyticsEnabled = useConsentStore(
@@ -92,8 +94,10 @@ export function useFeatureFlag(flag: FeatureFlag | string): boolean {
   const buildTimeDefault = isFeatureEnabled(flag);
 
   // Only product flags, under granted consent, with a live client, may consult
-  // PostHog. This mirrors the mount conditions in PostHogProvider so the two
-  // never disagree.
+  // PostHog. Reading the consent store here rather than inferring consent from
+  // `posthog != null` is why this hook needed no change in DEBUG-559, when the
+  // provider became unconditional and client presence stopped implying consent —
+  // `useAnalytics.trackEvent` had made that inference and did need fixing.
   const mayConsultPostHog =
     PRODUCT_FLAGS.has(flag) && analyticsEnabled && !universalOptOut && posthog != null;
 

@@ -7,7 +7,7 @@ catch detection drift, and produce an aggregate, PII-free record for the DPIA pa
 
 > [!IMPORTANT]
 > **This dashboard is monitoring-only. It is NOT the safety mechanism.** The crisis
-> safety guarantees (988 < 3 taps / < 3 s, detection < 200 ms, zero false negatives) are
+> safety guarantees (988 < 3 taps / < 3 s, detection < 200 ms, zero false negatives on the score path) are
 > enforced in-app and recorded by the **on-device crisis audit log**, which is independent
 > of this telemetry. These views observe an *aggregate copy* of detection events for
 > operational assurance. Never treat the dashboard as the accountability record, and never
@@ -34,8 +34,10 @@ The `crisis_detected` payload is bucketed and PII-free:
 | `intervention_surfaced` | boolean — currently always `true` |
 | `assessment_type` | `phq9` / `gad7` |
 
-No raw scores, no Q9 value, no device id. `session_id` is a daily-rotated anonymous token
-that cannot be joined to an identity.
+No raw scores, no Q9 value, no device id. `session_id` is a bounded-lifetime anonymous
+token — it rotates at the UTC day boundary and after 30 minutes idle (INFRA-568). It is
+**not** an anonymity control on its own: every row also carries the persistent `user_id`
+(the INFRA-260 `auth.uid()` principal). See `docs/legal/lia-crisis-telemetry.md` §2/§4.
 
 ### Views (defined in `app/src/core/services/supabase/schema.sql` §6b + migration `20260605000000_crisis_analytics_views.sql`)
 
@@ -65,7 +67,7 @@ system's timing budgets, the numbers live in different stores:
 |---|---|---|
 | 988-button response (< 200 ms target) | **Sentry** span | not in Supabase or PostHog |
 | Crisis detection counts / mix | **Supabase** (`crisis_detected`, these views) | counts only; no numeric latency is transmitted |
-| Crisis *access* events (`crisis_resources_viewed`, `crisis_hotline_tapped`) | **PostHog** | property-less, consent-gated product analytics |
+| Crisis *access* events (`crisis_resources_viewed`, `crisis_hotline_tapped`) | **PostHog** | consent-gated product analytics; `crisis_hotline_tapped` carries `{primary_988: boolean}` (FEAT-543) and nothing else — a split, never an engagement count |
 
 Button-access time (< 3 taps / < 3 s) is not instrumented as telemetry — it is pinned by
 the Maestro safety e2e flow. Do not present the Supabase detection counts as if they hold
@@ -141,8 +143,10 @@ SELECT * FROM crisis_detection_volume_daily LIMIT 14;
 Compare `detection_count` against the trailing baseline. A sudden spike or a drop to zero
 across days where you'd expect activity both warrant investigation. `detection_count`
 (`COUNT(*)`) is the **authoritative** number; `distinct_sessions` is a secondary
-same-day-episode proxy that **under-counts** (the daily-rotated `session_id` collapses
-repeat same-day detections on one device) — never treat it as the floor.
+**episode** proxy — never treat it as the floor, nor as a device count. INFRA-568 reversed
+its bias: it used to under-count (one id per device per day collapsed repeat same-day
+detections); with idle rotation one device can produce several ids in a day, so it now
+over-counts devices while counting episodes more honestly.
 
 ---
 
@@ -203,8 +207,11 @@ never include `session_id` or `user_id` in any exported artifact.
 > Re-identification is managed by five controls: (1) **severity-bucketing** — no raw
 > PHQ-9/GAD-7 scores or Q9 values are stored or queried; (2) **absence of
 > quasi-identifiers** — no device id, name, IP, or geolocation is associated with any
-> crisis event; (3) **daily session rotation** — the anonymous `session_id` does not
-> persist across calendar days and cannot be joined to a user identity; (4) **operator-only
+> crisis event; (3) **bounded-lifetime session token** — the anonymous `session_id` rotates
+> at the UTC day boundary and after 30 minutes idle, so it links only events within one
+> engagement; it is **not** an anonymity control at the table level, since each row also
+> carries the persistent `user_id`, and the identity protection is (4) plus RLS isolation
+> and the non-enumerability of `auth.uid()`; (4) **operator-only
 > views** — aggregate data is reachable only via service-role credentials, never the
 > `authenticated` role or a client-facing path; (5) **synthetic-probe isolation** (INFRA-265)
 > — the liveness probe writes only to the dedicated `crisis_liveness_probe` table, never to
@@ -288,7 +295,7 @@ at row granularity unless they clear the floor.
 The migration references all secrets BY NAME — bootstrap the values out of band before the jobs can fire.
 
 1. **Resend:** verify `being.fyi` as a sending domain, create an API key, choose a sender (e.g. `alerts@being.fyi`). Sign the standard Resend DPA (recorded as a sub-processor in the DPIA v1.3).
-2. **Supabase Edge secrets** (`supabase secrets set …`), read by the edge function: `CRON_SECRET` (fresh ≥256-bit random, **distinct from grace-period-automation's**), `RESEND_API_KEY`, `CRISIS_ALERT_FROM`, `CRISIS_ALERT_TO`, plus any threshold overrides above.
+2. **Supabase Edge secrets** (`supabase secrets set …`), read by the edge function: `CRON_SECRET` (fresh ≥256-bit random, **distinct from grace-period-automation's `GRACE_PERIOD_CRON_SECRET`** — INFRA-379 gave the ops domain its own edge-secret *name*, because edge secrets are project-wide and a shared name made this asserted distinctness impossible; note `crisis-liveness-probe` deliberately *does* share `CRON_SECRET`, same trust domain), `RESEND_API_KEY`, `CRISIS_ALERT_FROM`, `CRISIS_ALERT_TO`, plus any threshold overrides above.
 3. **Supabase Vault secrets** (dashboard → Vault, or non-committed psql), read by the cron/watchdog SQL: `crisis_alert_cron_secret` (must equal the edge `CRON_SECRET`), `crisis_alert_function_url`, `crisis_alert_resend_key`, `crisis_alert_from`, `crisis_alert_to`. (The Resend key/from/to are duplicated in Vault deliberately so the watchdog is an independent send path.)
 4. Deploy: `supabase functions deploy crisis-detection-alerting` and `supabase db push`. Test-fire the function with a valid `x-cron-secret` and confirm a `crisis_alert_runs` row appears and (if forcing a breach) an email arrives.
 
@@ -424,6 +431,7 @@ check reads the **live project**, never the worktree.
 | 4 | **Secret parity, proven by a fresh heartbeat** | Re-run the `crisis-detection-alerting` cron body (reads Vault, posts to the function), then `SELECT ran_at, status FROM crisis_alert_runs ORDER BY ran_at DESC LIMIT 1;` | a row newer than the fire, `status = 'ok'`/`'alerted'`, **never** `error`. A 401 (Edge≠Vault) writes **no row at all** — "no fresh row" *is* the failure. Parity is **never** asserted by reading the two secret values (Vault is write-only in practice). |
 | 5 | Probe ingest leg alive | Re-run the `crisis-liveness-probe` cron body, then `SELECT probed_at, status FROM crisis_liveness_probe ORDER BY probed_at DESC LIMIT 1;` | a fresh `status = 'ok'` row within the 6h cadence. Absent/stale ⇒ the cron→edge→PostgREST write leg is dead. |
 | 6 | External dead-man's-switch armed | `supabase secrets list …` shows `CRISIS_HEALTHCHECK_PING_URL` set, **and** the healthchecks.io check shows a recent ping / **up** | an unset ping URL makes the alerter skip the ping *silently* — a never-pinged check looks identical to a newly-created one. Confirm a real ping landed. |
+| 7 | **Watchdog RPC not publicly callable** (DEBUG-440) | `SELECT has_function_privilege('anon','public.crisis_alert_watchdog()','EXECUTE');` — or run the whole suite, `supabase/tests/debug440_watchdog_privilege.sql`, which is read-only and prod-safe | **`false`**. `true` means anyone holding the app-embedded anon key can fire the watchdog at `POST /rest/v1/rpc/crisis_alert_watchdog`, burning the Resend quota on the founder's only escalation channel — and the send path arms itself precisely when the alerter is unhealthy. **Never assert this by reading the migration**: `20260607000000` line 154 has always contained a `REVOKE … FROM anon, authenticated`, which is inert against the inherited PUBLIC grant, so source looked correct throughout. Privilege is runtime state; query it. |
 
 The exact cron command bodies for checks 4–5 are the `command` columns of the `crisis-detection-alerting` /
 `crisis-liveness-probe` rows in `cron.job`; re-run them verbatim via `SELECT net.http_post(…)` so the

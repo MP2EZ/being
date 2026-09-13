@@ -116,7 +116,7 @@ const styles = StyleSheet.create({
   documentTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   documentDescription: {

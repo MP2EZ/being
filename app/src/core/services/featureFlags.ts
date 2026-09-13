@@ -66,11 +66,25 @@ export type FeatureFlag =
   // low-vision and eyes-closed practitioners, so its availability must not be
   // coupled to analytics consent (INFRA-199 carve-out, same reasoning as
   // `bug_reporting`). A user who declined analytics must not thereby lose their
-  // only non-visual cue channel. Ships dark: the item's 60fps / cue-latency /
+  // only non-visual cue channel. It SHIPPED dark: the item's 60fps / cue-latency /
   // degradation checks are on-device manual validation that CI cannot run
   // (100% ubuntu, and the iOS simulator emits no haptics at all), so the flag
-  // stays false in production until that checklist is signed off.
+  // stayed false in production until that checklist was signed off. INFRA-395
+  // carried that sign-off and it is now `practice_haptics:true` in BOTH prod
+  // sources — `.config/.env.production` and the EAS `production` env, which is
+  // what a shipped build actually reads. Note the e2e-sim profile keeps it
+  // FALSE, so the gate build does not exercise it.
   | 'practice_haptics'
+  // INFRA-395 briefly added a `haptic_trace` diagnostic flag here and REMOVED it
+  // again. Recorded so nobody re-derives it: the goal was a cue-latency trace
+  // reachable in a Release build, since `practice_haptics` ships dark pending an
+  // on-device sign-off and the existing traces are `__DEV__`-only. It cannot
+  // work. A production bundle strips `console.*` twice — `babel.config.js` runs
+  // `transform-remove-console`, and `metro.config.js` sets `drop_console: true`,
+  // which removes `error` and `warn` too despite babel excluding them. No flag
+  // can reach a sink that the bundler has deleted. A Release-observable
+  // diagnostic would need a different channel entirely (Sentry, or an in-app
+  // surface), which is a real design decision and not a flag.
   // FEAT-283: gates the voice journal / spoken reflection surface (capture,
   // on-device transcription, encrypted store, crisis scan). Build-time, NOT
   // runtime/PostHog, for three reasons: it gates a whole screen + entry point
@@ -97,7 +111,24 @@ export type FeatureFlag =
   // stays reachable when it is false.
   //
   // Ships dark (`data_export:false` in both env files and the e2e-sim profile).
-  | 'data_export';
+  | 'data_export'
+  // FEAT-457: gates the Home entry point into domain-specific guidance. Build-time,
+  // NOT runtime/PostHog, and the INFRA-199 carve-out applies at its strongest here:
+  // the surface this reveals routes a suppressed reader to CrisisResources, so its
+  // availability must never be a function of analytics consent or a network
+  // round-trip. Same shape as `voice_journal` — it gates a whole entry point, not a
+  // per-user rollout.
+  //
+  // Note this flag buys NO incident response: flipping a build-time flag needs a
+  // new build, exactly like a revert. Its value is ship-dark-then-enable — merge
+  // the code, run the safety gate and validate on device, then expose with a
+  // one-line env change rather than another code change.
+  //
+  // Ships dark (`domain_guidance:false` in `.env.production`). ⚠️ The e2e-sim EAS
+  // profile MUST set it true: `/b-close` Phase 2.5 runs a safety-tagged Maestro
+  // flow through this entry point, and a dark flag makes that flow unrunnable
+  // rather than failing loudly.
+  | 'domain_guidance';
 
 /**
  * Parse a feature-flag blob into a boolean lookup.
@@ -107,8 +138,16 @@ export type FeatureFlag =
  * single bad pair must not crash the app at module load (this module is
  * imported by UI screens).
  */
-function parseFlags(blob: string): Record<string, boolean> {
+function parseFlags(blob: string | undefined): Record<string, boolean> {
   const flags: Record<string, boolean> = {};
+  // An ABSENT blob answers "no flags", never a throw. The paragraph above says
+  // this module must not crash at module load, but leaned on env.ts guaranteeing
+  // a non-empty string — a guarantee that does not survive a suite mocking
+  // `@/core/config/env` with a partial object, which several do. The failure was
+  // a TypeError thrown during import of anything transitively reaching here, so
+  // it surfaced as an unrelated suite collapsing rather than as a flag bug.
+  // Absent → every flag false is also exactly the documented fail-safe.
+  if (!blob) return flags;
   for (const pair of blob.split(',')) {
     const idx = pair.indexOf(':');
     if (idx === -1) continue;

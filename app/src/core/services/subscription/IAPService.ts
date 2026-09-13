@@ -52,6 +52,12 @@ import {
 import { Platform } from 'react-native';
 import { supabaseService } from '../supabase/SupabaseService';
 import { logSystem, logPerformance } from '@/core/services/logging';
+import type { AppleTransactionIdentity } from './appleTransactionIdentity';
+
+// Re-exported so existing importers of this module keep working. New consumers should
+// import from './appleTransactionIdentity' directly — see that module's header for why.
+export type { AppleEnvironment, AppleTransactionIdentity } from './appleTransactionIdentity';
+export { appleTransactionIdentityFrom } from './appleTransactionIdentity';
 
 /**
  * IAP Product Configuration
@@ -463,7 +469,7 @@ class IAPServiceClass {
    * Verify receipt server-side
    * Sends receipt to Supabase Edge Function for verification (or mocks in development)
    */
-  async verifyReceipt(receiptData: string, platform: 'apple' | 'google', purchaseToken?: string): Promise<{
+  async verifyReceipt(receiptData: string, platform: 'apple' | 'google', purchaseToken?: string, appleTransaction?: AppleTransactionIdentity): Promise<{
     valid: boolean;
     subscriptionId?: string | undefined;
     expiresDate?: number | undefined;
@@ -528,9 +534,31 @@ class IAPServiceClass {
 
       // Call appropriate Edge Function based on platform
       if (platform === 'apple') {
+        // `receiptData` is NOT sent (INFRA-467 slice 4). The server verifies against the
+        // App Store Server API, which is keyed on a transactionId, and stopped reading
+        // this field at slice 3 — so continuing to send it would ship a base64 app
+        // receipt over the wire on every purchase for no consumer at all. Retiring it
+        // needed no adoption window: nothing server-side ever read it successfully, and
+        // the value is still available locally for the Google branch below.
+        //
+        // Conditional spread, NOT `transactionId: appleTransaction?.transactionId`.
+        // An explicitly-undefined key is indistinguishable from an absent one under
+        // toEqual, which is what made the old body assertions in IAPService.test.ts
+        // pass exactly when this feature did nothing. Absent must mean absent.
+        const body = {
+          ...(appleTransaction
+            ? {
+                transactionId: appleTransaction.transactionId,
+                ...(appleTransaction.environment
+                  ? { environment: appleTransaction.environment }
+                  : {}),
+              }
+            : {}),
+        };
+
         const { data, error } = await client.functions.invoke<VerifyReceiptResponse>(
           'verify-apple-receipt',
-          { body: { receiptData } }
+          { body }
         );
 
         if (error) {

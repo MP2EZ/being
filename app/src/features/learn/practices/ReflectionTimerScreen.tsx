@@ -34,6 +34,7 @@ import {
   useTimerPractice,
   sharedPracticeStyles,
   colorSystem,
+  semantic,
   spacing,
   typography,
   borderRadius,
@@ -70,7 +71,7 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
   testID = 'reflection-timer-screen',
 }) => {
   // Shared hooks
-  const { renderCompletion, markComplete } = usePracticeCompletion({
+  const { renderCompletion, markStarted, markComplete } = usePracticeCompletion({
     practiceId,
     moduleId,
     title,
@@ -138,6 +139,17 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
   const handlePause = React.useCallback(() => setIsTimerActive(false), [setIsTimerActive]);
   const handleResume = React.useCallback(() => setIsTimerActive(true), [setIsTimerActive]);
 
+  // DEBUG-536: `practice_started` fires on the first activation, not on mount —
+  // opening the screen is not beginning the practice. `markStarted` is latched, so
+  // a resume (and a return from background) does not re-emit.
+  const handleToggle = React.useCallback(
+    (active: boolean) => {
+      if (active) markStarted();
+      setIsTimerActive(active);
+    },
+    [markStarted, setIsTimerActive]
+  );
+
   // Show completion screen after timer finishes
   const completionScreen = renderCompletion();
   if (completionScreen) {
@@ -199,7 +211,7 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
       <PracticeToggleButton
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
-        onToggle={setIsTimerActive}
+        onToggle={handleToggle}
         style={{ marginBottom: spacing[32] }}
         testID={`${testID}-toggle-button`}
       />
@@ -260,7 +272,7 @@ const styles = StyleSheet.create({
   },
   contemplationText: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: spacing[24],
     paddingHorizontal: spacing[16],

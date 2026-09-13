@@ -14,16 +14,18 @@
  *
  * ORDERING: AccountDeletionService.deleteAccountAndWipe() erases the server
  * account FIRST; a failed server delete surfaces a retryable error and leaves
- * local data intact (no wipe). See AccountDeletionService for the invariant.
+ * local data intact (no wipe). DEBUG-539 inserted the analytics-identity reset
+ * between that erasure and the local wipe. See AccountDeletionService for the
+ * invariant.
  */
 
 import React, { useState, useCallback } from 'react';
+import { usePostHog } from 'posthog-react-native';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
-  TextInput,
   Pressable,
   ActivityIndicator,
 } from 'react-native';
@@ -32,7 +34,9 @@ import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import type { AnalyticsIdentityResetTarget } from '@/core/analytics/analyticsIdentityReset';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 
 const CONFIRM_WORD = 'DELETE';
 
@@ -56,12 +60,28 @@ const DeleteAccountScreen: React.FC = () => {
 
   const canDelete = confirmText === CONFIRM_WORD && !isDeleting;
 
+  // DEBUG-539: the package types LIE here — `usePostHog` is declared
+  // `() => PostHog`, but PostHogContext's default value is `{client: undefined}`
+  // and the hook only warns before returning it. So this is genuinely
+  // `PostHog | undefined`, and `undefined` is not `null`. Normalise once, here.
+  //
+  // DEBUG-559 narrowed WHEN it is undefined, in the helpful direction. This used
+  // to add "analytics is opt-in and default OFF, so no provider is mounted for
+  // most users" — true then, wrong now: the provider was withholding <PHProvider>
+  // without consent, which remounted every 988 affordance in the app on a consent
+  // tap, so it is now always mounted. In a build with an API key the client is
+  // therefore present here regardless of consent, and erasure takes the
+  // reset-THROUGH-the-instance branch rather than the unlink fallback — which is
+  // the branch DEBUG-539 wants, since a live instance can re-persist the
+  // pre-erasure distinct_id. Undefined now means only "no key in this build".
+  const posthog = usePostHog() as AnalyticsIdentityResetTarget | undefined;
+
   const handleDelete = useCallback(async () => {
     if (confirmText !== CONFIRM_WORD) return;
     setIsDeleting(true);
     setErrorMessage(null);
     try {
-      const result = await deleteAccountAndWipe();
+      const result = await deleteAccountAndWipe({ posthog: posthog ?? null });
       if (result.ok) {
         // Reset to the clean onboarding state in the same tick the wipe
         // completes — Onboarding mounts its own crisis button + 988 line.
@@ -81,11 +101,27 @@ const DeleteAccountScreen: React.FC = () => {
     } finally {
       setIsDeleting(false);
     }
-  }, [confirmText, rootNavigation]);
+  }, [confirmText, rootNavigation, posthog]);
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']} testID="delete-account-screen">
-      <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scrollContainer}
+        contentContainerStyle={styles.scrollContent}
+        testID="delete-account-scroll"
+        // DEBUG-480 companion. Same shape as VoiceReflectionScreen: delete-error
+        // renders between delete-confirm-input and delete-account-button and
+        // pushes the button down, while the keyboard is necessarily up — the user
+        // has just typed the confirmation word.
+        //
+        // This is a DATA-SUBJECT-RIGHT access fix, not polish. This screen's own
+        // header cites CCPA / TDPSA / VCDPA / CPA / GDPR Art. 17; a confirm button
+        // that is occluded or whose first tap is swallowed is a functional
+        // obstruction of the right to erasure.
+        automaticallyAdjustKeyboardInsets
+        keyboardShouldPersistTaps="handled"
+        keyboardDismissMode="on-drag"
+      >
         <Text style={styles.heading}>Delete account & wellness data</Text>
         <Text style={styles.lead}>
           This permanently erases your account and on-device wellness data. It cannot be undone.
@@ -109,7 +145,7 @@ const DeleteAccountScreen: React.FC = () => {
 
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Type {CONFIRM_WORD} to confirm</Text>
-          <TextInput
+          <CrisisTextInput
             style={styles.input}
             value={confirmText}
             onChangeText={setConfirmText}
@@ -166,7 +202,7 @@ const styles = StyleSheet.create({
   heading: {
     fontSize: typography.headline2.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   lead: {
@@ -182,7 +218,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[12],
   },
   card: {
@@ -230,7 +266,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing[12],
     paddingHorizontal: spacing[16],
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   errorText: {
     fontSize: typography.bodySmall.size,

@@ -85,7 +85,7 @@ const styles = StyleSheet.create({
   quoteText: {
     fontSize: typography.bodyLarge.size,
     fontStyle: 'italic',
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     lineHeight: 28,
     marginBottom: spacing[12],
   },

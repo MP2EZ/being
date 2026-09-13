@@ -152,13 +152,26 @@ decides whether something is urgent enough to jump the queue at all, see
 [`docs/emergency-deployment-triggers.md`](../emergency-deployment-triggers.md).
 
 ```bash
-cd ~/dev/being/main
-git checkout main && git pull
-git checkout -b hotfix/short-description
+# There is no standing `main` worktree — `main` is only ever a ref here. Cut a
+# throwaway worktree off origin/main; `git checkout main` inside the development
+# worktree would move it off development, which the tooling assumes.
+git -C ~/dev/being fetch origin main
+git -C ~/dev/being worktree add ~/dev/being/hotfix-<slug> -b hotfix/<slug> origin/main
+cd ~/dev/being/hotfix-<slug>
+
+# `worktree add` does not create the env symlinks that /b-work does. Only needed
+# if the fix requires a build or the test suite:
+ln -s ../../.config/.env.production  app/.env.production
+ln -s ../../.config/.env.development app/.env.development
+
 # ... fix + commit ...
-git push -u origin hotfix/short-description
-gh pr create --base main --head hotfix/short-description --title "..." --body "..."
-# CI runs against main, merge when green
+git push -u origin hotfix/<slug>
+gh pr create --base main --head hotfix/<slug> --title "..." --body "..."
+# hotfix/* is not in ci.yml's push: trigger, so the PR's `opened` event is what
+# fires CI. Merge when green.
+
+# After the PR merges AND the backport below has landed:
+git -C ~/dev/being worktree remove hotfix-<slug>
 ```
 
 After the hotfix merges to main:

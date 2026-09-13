@@ -31,6 +31,15 @@ const SENSITIVE_ROUTE_KEYWORDS: ReadonlyArray<string> = [
   'intervention',
   'journal',
   'reflection',
+  // FEAT-457. The route is `DomainGuidance` and the screen `DomainGuidanceScreen`;
+  // neither matched any keyword above, so the exact name would have shipped to
+  // PostHog verbatim the moment anything called `trackScreenView` on it — telling
+  // PostHog "this user opened the hardship-guidance screen". Collateral was
+  // checked: `DomainGuidance` is the ONLY navigator route or tracked screen name
+  // in the tree containing this substring (`GuidanceCard` and `breathingGuidance.ts`
+  // are a component and a utility, never passed as screen names), so no existing
+  // per-screen funnel loses resolution.
+  'guidance',
 ];
 
 /**

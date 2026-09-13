@@ -34,6 +34,7 @@ import {
 } from 'react-native';
 import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
+import { CRISIS_BUTTON_RESERVED_BAND } from '@/features/crisis/constants/crisisButtonGeometry';
 import { SessionMetadata } from '@/core/types/session';
 import { themeKeyFor } from '@/core/types/practice-identity';
 import type { PracticeIdentity } from '@/core/types/practice-identity';
@@ -366,23 +367,6 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
   );
 };
 
-/**
- * DEBUG-403 — vertical band at the bottom of the screen that the root crisis button
- * occupies, kept clear so this prompt's choices row can never overlap it.
- *
- * Derived from CollapsibleCrisisButton's geometry: it sits at `bottom` 100 (iOS) / 104
- * (Android), is TOUCH_TARGETS.minimum tall, and carries a 12pt hitSlop, so its hit area
- * reaches ~156pt up from the bottom edge. The larger platform value plus one spacing
- * step is used for both rather than branching — being generous costs nothing and an
- * overlap is unrecoverable: the crisis button renders at zIndex 9999 above this layer
- * and would win the tap, BOTH firing a false crisis entry AND biasing the mis-tap
- * toward one specific choice.
- *
- * This constraint did not exist while this component was an RN <Modal>, because the
- * crisis button was not on screen at all. Mirrors HapticsOptInPrompt's band.
- */
-const CRISIS_BUTTON_RESERVED_BAND = 104 + TOUCH_TARGETS.minimum + 12 + spacing[16];
-
 const styles = StyleSheet.create({
   overlay: {
     // DEBUG-403: absolute inset-0, not `flex: 1`. This layer is now a sibling of
@@ -411,7 +395,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: spacing[24],
     paddingTop: spacing[24],
-    // Keeps the card clear of the crisis button's hit area.
+    // DEBUG-403 — keeps the card clear of the crisis button's hit area. An overlap is
+    // unrecoverable: the button renders at zIndex 9999 above this layer and would win
+    // the tap, BOTH firing a false crisis entry AND biasing the mis-tap toward one
+    // specific choice. This constraint did not exist while this component was an RN
+    // <Modal>, because the crisis button was not on screen at all.
+    // Derivation lives in crisisButtonGeometry.ts — never restate the numbers here
+    // (DEBUG-586).
     paddingBottom: CRISIS_BUTTON_RESERVED_BAND,
   },
   /**
@@ -461,7 +451,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
   },
   infoSection: {
@@ -479,7 +469,7 @@ const styles = StyleSheet.create({
   infoValue: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[16],
   },
   progressSection: {
@@ -505,7 +495,7 @@ const styles = StyleSheet.create({
   },
   message: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     textAlign: 'center',
     lineHeight: 22,
     marginBottom: spacing[8],
@@ -530,7 +520,7 @@ const styles = StyleSheet.create({
   },
   tooltipButtonText: {
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     fontWeight: typography.fontWeight.semibold,
   },
   tooltip: {
@@ -544,18 +534,18 @@ const styles = StyleSheet.create({
   tooltipTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   tooltipText: {
     fontSize: 13,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     lineHeight: typography.bodyLarge.size,
     marginBottom: spacing[4],
   },
   tooltipBold: {
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   tooltipCitation: {
     fontSize: typography.micro.size,
@@ -598,6 +588,6 @@ const styles = StyleSheet.create({
   secondaryButtonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
   },
 });

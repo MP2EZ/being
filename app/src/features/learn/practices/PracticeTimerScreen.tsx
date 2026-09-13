@@ -40,6 +40,8 @@ import { useHapticsOptIn } from '@/features/practices/shared/haptics/useHapticsO
 import { HapticsOptInPrompt } from '@/features/practices/shared/components/HapticsOptInPrompt';
 import { boundariesWithin } from '@/features/practices/shared/haptics/phaseAtElapsed';
 import Timer from '@/features/practices/shared/components/Timer';
+import BreathingFrameProbe from '@/features/practices/shared/components/BreathingFrameProbe';
+import { env } from '@/core/config/env';
 import type { PracticeVisualMode } from '@/features/learn/types/education';
 
 /**
@@ -109,7 +111,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   });
 
   // Shared hooks
-  const { renderCompletion, markComplete } = usePracticeCompletion({
+  const { renderCompletion, markStarted, markComplete } = usePracticeCompletion({
     practiceId,
     moduleId,
     title,
@@ -180,6 +182,17 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   const showBreathingCircle = !isContemplative;
   const noteText = isContemplative ? CONTEMPLATIVE_NOTE : BREATHING_NOTE;
 
+  // DEBUG-536: `practice_started` fires on the first activation, not on mount —
+  // opening the screen is not beginning the practice. `markStarted` is latched, so
+  // a resume (and a return from background) does not re-emit.
+  const handleToggle = React.useCallback(
+    (active: boolean) => {
+      if (active) markStarted();
+      setIsTimerActive(active);
+    },
+    [markStarted, setIsTimerActive]
+  );
+
   // Show completion screen after timer finishes
   const completionScreen = renderCompletion();
   if (completionScreen) {
@@ -227,6 +240,14 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
             isActive={isTimerActive}
             testID={`${testID}-breathing-circle`}
           />
+          {/* INFRA-373 frame probe. Sibling, not child: it must not enter
+              BreathingCircle's memoized subtree, and it measures UI-thread frame
+              delivery for the whole screen rather than the circle alone. Ships
+              dark — EXPO_PUBLIC_PERF_HUD defaults to 'false', so a build that
+              never sets it cannot render this. */}
+          {env.EXPO_PUBLIC_PERF_HUD === 'true' && (
+            <BreathingFrameProbe testID={`${testID}-frame-probe`} />
+          )}
         </View>
       )}
 
@@ -251,7 +272,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
       <PracticeToggleButton
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
-        onToggle={setIsTimerActive}
+        onToggle={handleToggle}
         style={{ marginBottom: spacing[32] }}
         testID={`${testID}-toggle-button`}
       />

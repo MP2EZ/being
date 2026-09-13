@@ -16,10 +16,11 @@
  *    the real Midday flow's saved session. A local accumulator sidesteps that entirely.
  *  - Themed as 'midday' (no ThemeKey/FlowType/CheckInType union change).
  */
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useAnalytics } from '@/core/analytics';
 import { createStackNavigator } from '@react-navigation/stack';
 import { View, Pressable, Text, StyleSheet } from 'react-native';
-import { colorSystem, spacing, typography } from '@/core/theme';
+import { semantic, colorSystem, spacing, typography } from '@/core/theme';
 import { FlowProgressIndicator } from '../shared/components';
 import type {
   DailyLoopMode,
@@ -82,6 +83,33 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
   const [mode, setMode] = useState<DailyLoopMode>(initialMode ?? getDailyLoopTense());
   const [sessionData, setSessionData] = useState<Partial<DailyLoopSessionData>>({});
   const [startTime] = useState(() => Date.now());
+
+  // DEBUG-536: `check_in_started`, emitted once per navigator mount from the same
+  // `startTime` that becomes `timeSpentSeconds` at completion — so the started/completed
+  // pair agrees by construction rather than by two independent clocks.
+  //
+  // Mount, not the depth picker's onSelect: onSelect is SKIPPED whenever `initialDepth`
+  // is passed (a deeplink, or an accepted resume), which would systematically under-count
+  // exactly the paths that already have safety flows.
+  //
+  // Semantics, because they are not obvious: mount precedes the picker, so this counts
+  // "entered the loop" — including a user who taps ✕ without choosing a depth. That is
+  // the correct funnel semantic; ✕'s onExit is a bare goBack() that skips onComplete
+  // entirely, so started-without-completed is a real, measurable abandonment. A resumed
+  // session re-mounts and emits a second `check_in_started` while markCheckInComplete
+  // de-dupes on (type, date): the user genuinely did start twice, so the ratio is honest,
+  // but do not read it as a bug.
+  const { trackCheckInStarted } = useAnalytics();
+  const startedEmittedRef = useRef(false);
+  useEffect(() => {
+    if (startedEmittedRef.current) return;
+    startedEmittedRef.current = true;
+    try {
+      trackCheckInStarted();
+    } catch {
+      /* Telemetry must never affect the loop. */
+    }
+  }, [trackCheckInStarted]);
   const [currentStep, setCurrentStep] = useState(1);
 
   // ── Session resumption (FEAT-298 slice 3b) ──────────────────────────────────────────
@@ -312,10 +340,42 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
           backgroundColor: colorSystem.themes.midday.background,
           borderBottomColor: colorSystem.themes.midday.primary,
           borderBottomWidth: 1,
-          height: 100,
+          // DEBUG-468: 100 -> 72. The header's content is the two-line title block
+          // — "Daily Practice" (18pt) + 4 + a 4pt progress bar + 4 + "step n of m"
+          // (12pt) ≈ 47pt — so 100 carried ~50pt of slack, on EVERY beat, on the
+          // wrong side of the fold. 72 keeps ~12pt of vertical padding around that
+          // block and still clears the 44pt close button in `headerLeft`. Measured
+          // on an SE 3 the fold began at y=130; this is the cheapest 28pt in the
+          // flow and it is chrome, so it costs no practice content.
+          height: 72,
         },
         headerTintColor: colorSystem.themes.midday.primary,
         headerLeft: () => closeButton,
+        // MAINT-564 (AC2). The filed cause — "React Navigation has narrowed the NATIVE
+        // title slot" — is a category error: this app has no @react-navigation/native-stack
+        // dependency at all. The real mechanism is @react-navigation/elements' own
+        // Header.tsx:364-372, which with headerTitleAlign 'center' and a headerLeft present
+        // computes maxWidth = layout.width - (reservation + rightButton + insets) * 2, where
+        // the per-side reservation is 80 unless this option is 'minimal', in which case 32.
+        // Header.tsx:120 defaults it to 'default' on iOS — sized for a BACK CHEVRON PLUS ITS
+        // LABEL, which is not what sits there. Our headerLeft is a bare 44x44 close button,
+        // so ~36pt a side was reserved for a label that does not exist.
+        //
+        // MEASURED on a 390pt-wide device, no side insets and no headerRight:
+        //   'default'  ->  390 - (80 + 0 + 0) * 2  =  230pt of title slot
+        //   'minimal'  ->  390 - (32 + 0 + 0) * 2  =  326pt
+        // a 96pt gain. (An earlier note put the 'default' figure at ~198pt; that assumed a
+        // headerRight adding 16 a side, and there is none.)
+        //
+        // COUPLED to the close button keeping its current ~60-76pt footprint: 'minimal'
+        // reserves 32 a side, so a headerLeft that grew past that would start colliding with
+        // the title rather than being cleared by it. Re-measure if that button changes.
+        //
+        // Purely horizontal, deliberately. headerStyle.height STAYS 72 (DEBUG-468 above):
+        // daily-loop-quick-depth.yaml's hand-measured fold, continue-button and support-line
+        // y-ranges and its DEBUG-518 timeout:25000 scroll budget are all anchored to it, and
+        // a height change would silently invalidate every one of them.
+        headerBackButtonDisplayMode: 'minimal' as const,
       }}
       screenListeners={{
         state: (e) => {
@@ -386,7 +446,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   closeButton: {
@@ -399,7 +459,7 @@ const styles = StyleSheet.create({
   },
   closeButtonText: {
     fontSize: typography.headline4.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     fontWeight: typography.fontWeight.regular,
   },
 });

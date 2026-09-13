@@ -62,6 +62,10 @@ jest.mock('react-native-reanimated', () => {
     withSequence: (val) => val,
     withSpring: (val) => val,
     runOnJS: (fn) => fn,
+    // INFRA-373: never invokes the callback. A mock that fired it would assert
+    // a frame cadence jest cannot have, and the spike exists precisely because
+    // whether the real hook ticks under New Arch is not knowable from here.
+    useFrameCallback: () => ({ setActive: () => {}, isActive: false, callbackId: 0 }),
     runOnUI: (fn) => fn,
     cancelAnimation: jest.fn(),
     Easing: {
@@ -293,7 +297,27 @@ jest.mock('react-native', () => {
     // `Element type is invalid: ... got: undefined` on first render of
     // any screen that uses it.
     KeyboardAvoidingView: RN.KeyboardAvoidingView,
-    SafeAreaView: RN.SafeAreaView,
+
+    // DEBUG-450: same omission class as KeyboardAvoidingView above. The crisis keyboard
+    // accessory mounts inside CleanRootNavigator, so its absence from this curated list
+    // broke not just its own suite but every test that renders the navigator, with the
+    // same misleading `Element type is invalid: ... got: undefined`. Safe + non-deprecated.
+    InputAccessoryView: RN.InputAccessoryView,
+
+    // MAINT-437: `SafeAreaView: RN.SafeAreaView` removed. Reading that property off the
+    // core export invokes the deprecating getter (react-native/index.js:96-107), and
+    // because this file runs before any app module in every test registry, it was the
+    // SOLE emitter of the deprecation warning — verified, not assumed: with this line
+    // gone, a full `npm test` (245 suites, 3861 tests) emits zero deprecation lines, as
+    // do `test:accessibility` and `validate:accessibility`. Migrating the 8 app files
+    // silenced nothing on its own; this line was the whole of it. Note several suites
+    // spread `jest.requireActual('react-native')`, which looks like it should re-emit and
+    // does not — do not "fix" them on the theory that it should.
+    //
+    // Removing it is also a third enforcement layer, after the ESLint rule and the
+    // check script: any future core import now fails at RENDER with
+    // `Element type is invalid`, rather than rendering fine and warning once.
+    // Use `react-native-safe-area-context`, which is mocked below with prop forwarding.
 
     // Layout & Styling (SAFE)
     StyleSheet: RN.StyleSheet,
@@ -305,11 +329,17 @@ jest.mock('react-native', () => {
       Version: 15
     },
     Dimensions: {
-      get: jest.fn(() => ({ width: 375, height: 812 })),
+      get: jest.fn(() => ({ width: 375, height: 812, scale: 2, fontScale: 1 })),
       set: jest.fn(),
       addEventListener: jest.fn(),
       removeEventListener: jest.fn()
     },
+    // DEBUG-469: this allow-list mock never exported `useWindowDimensions`, so any screen
+    // reading it threw `is not a function` at render. Additive — nothing could have
+    // depended on its absence. `fontScale: 1` is DEFAULT Dynamic Type; a suite exercising
+    // a scaled-type branch overrides it with
+    // `jest.spyOn(RN, 'useWindowDimensions').mockReturnValue({ ...,  fontScale: 3.1 })`.
+    useWindowDimensions: jest.fn(() => ({ width: 375, height: 812, scale: 2, fontScale: 1 })),
 
     // Interaction APIs (SAFE)
     Alert: {
@@ -586,10 +616,36 @@ jest.mock('react-native-safe-area-context', () => {
   const inset = { top: 0, right: 0, bottom: 0, left: 0 };
   const frame = { x: 0, y: 0, width: 390, height: 844 };
   const passthrough = ({ children }) => children;
+
+  // MAINT-437 — SafeAreaView renders a real host element and FORWARDS its props.
+  //
+  // It was `passthrough`, which renders no host node and silently drops `style`,
+  // `testID` and every accessibility prop. Screens rooted on it were therefore
+  // unqueryable: `getByTestId('practice-screen')` resolved only because
+  // PracticeScreenLayout used the DEPRECATED core import, which the curated RN mock
+  // backs with a real host component. Migrating the import without fixing this would
+  // have deleted that testID — which is why this lands first and is verified green
+  // with the old imports still in place.
+  //
+  // `edges` is forwarded deliberately: it is the ONLY thing in ACs 1-4 that can
+  // observe an edges decision at all. Insets are pinned at zero here, so no test can
+  // see an edges value having a layout EFFECT — a per-site `props.edges` assertion
+  // pins the value, never the pixels. The rendered result is AC5/AC6 device work.
+  //
+  // `mode` is consumed, not forwarded — it is not a View prop and leaking it would
+  // pollute prop assertions.
+  //
+  // SafeAreaProvider deliberately stays `passthrough`: promoting it to a host View
+  // would insert a second node at the root of every rendered tree app-wide, which is
+  // a far larger blast radius than this item's.
+  const { View: RNView } = require('react-native');
+  const SafeAreaViewMock = ({ children, edges, mode: _mode, ...props }) =>
+    require('react').createElement(RNView, { ...props, edges }, children);
+
   return {
     SafeAreaProvider: passthrough,
     SafeAreaConsumer: ({ children }) => children(inset),
-    SafeAreaView: passthrough,
+    SafeAreaView: SafeAreaViewMock,
     useSafeAreaInsets: () => inset,
     useSafeAreaFrame: () => frame,
     SafeAreaInsetsContext: { Consumer: ({ children }) => children(inset), Provider: passthrough },
@@ -628,6 +684,61 @@ jest.mock('@sentry/react-native', () => ({
     end: jest.fn(),
   })),
 }));
+
+// DEBUG-596 RC3 — the network boundary, and ONLY the network boundary.
+//
+// WHAT LEAKS WITHOUT THIS. `trackCrisisDetection` → `flushCrisisAnalytics` →
+// `ensureClient` → `ensureAnonymousSession` → `signInAnonymously()` runs for REAL under
+// jest: node's global fetch is live and unmocked, and env.mock.js points
+// EXPO_PUBLIC_SUPABASE_URL at test.supabase.co. That host has no A record, so the call
+// dies at DNS *after* the owning suite has torn down. Two logs follow, 8 of the 10
+// "Cannot log after tests are done" occurrences between them:
+//   • `[PinnedFetch] Request failed: …/auth/v1/signup`  — the rejection itself
+//   • `[SupabaseService] Anonymous session not yet established` — SupabaseService.ts:524,
+//     which is a CATCH block, so it fires precisely because the handshake threw.
+// jest-runner's freezeConsole turns every one of those into `process.exitCode = 1`, which
+// is what actually fails a bare `--testPathPattern=src/` run — not the open handle.
+// Returning a VALID GoTrue session is therefore load-bearing: a bare 200 with an empty
+// body resolves the fetch but establishes no session, which just re-raises the second log
+// by another route.
+//
+// NOT A BLANKET MODULE MOCK. src/core/services/security/__tests__/pinned-fetch.test.ts
+// drives the REAL SSLPinningError (12 uses), validatePinningConfiguration (6) and
+// pinnedFetch. We spread requireActual and override exactly one export, so that suite
+// keeps the genuine module. Suite-local mocks (sessionIdRotation, crisisTelemetryBoot)
+// still win over this one.
+//
+// THIS IS CONTAINMENT, NOT A CLAIM ABOUT EGRESS. What stops the call reaching the network
+// today is DNS non-existence, and that fails OPEN — a resolver that wildcarded the domain
+// would turn the same code into real egress with nothing in the log to show for it.
+jest.mock('@/core/services/security/pinned-fetch', () => {
+  const actual = jest.requireActual('@/core/services/security/pinned-fetch');
+  return {
+    ...actual,
+    createSupabasePinnedFetch: () => async (input, init) => {
+      const url = typeof input === 'string' ? input : input?.url ?? String(input);
+      // GoTrue anonymous sign-in — must yield a session, or SupabaseService.ts:524 fires.
+      if (url.includes('/auth/v1/signup') || url.includes('/auth/v1/token')) {
+        return new Response(
+          JSON.stringify({
+            access_token: 'test-access-token',
+            token_type: 'bearer',
+            expires_in: 3600,
+            expires_at: Math.floor(Date.now() / 1000) + 3600,
+            refresh_token: 'test-refresh-token',
+            user: { id: 'anon-user-uuid', aud: 'authenticated', role: 'authenticated' },
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        );
+      }
+      // PostgREST insert.
+      return new Response(JSON.stringify([]), {
+        status: 201,
+        headers: { 'Content-Type': 'application/json' },
+      });
+    },
+  };
+});
 
 // Global teardown for performance reporting
 afterAll(() => {

@@ -1,5 +1,30 @@
 {
   "modules": {
+    "https://esm.sh/@supabase/functions-js@2.4.4/dist/module/FunctionsClient.d.ts": {},
+    "https://esm.sh/@supabase/gotrue-js@2.67.3/dist/module/AuthAdminApi.d.ts": {},
+    "https://esm.sh/@supabase/gotrue-js@2.67.3/dist/module/AuthClient.d.ts": {},
+    "https://esm.sh/@supabase/gotrue-js@2.67.3/dist/module/GoTrueAdminApi.d.ts": {},
+    "https://esm.sh/@supabase/gotrue-js@2.67.3/dist/module/GoTrueClient.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.17.11/dist/cjs/PostgrestBuilder.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.17.11/dist/cjs/PostgrestClient.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.17.11/dist/cjs/PostgrestError.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.17.11/dist/cjs/PostgrestFilterBuilder.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.17.11/dist/cjs/PostgrestQueryBuilder.d.ts": {},
+    "https://esm.sh/@supabase/postgrest-js@1.17.11/dist/cjs/PostgrestTransformBuilder.d.ts": {},
+    "https://esm.sh/@supabase/realtime-js@2.11.3/dist/module/RealtimeChannel.d.ts": {},
+    "https://esm.sh/@supabase/realtime-js@2.11.3/dist/module/RealtimeClient.d.ts": {},
+    "https://esm.sh/@supabase/realtime-js@2.11.3/dist/module/RealtimePresence.d.ts": {},
+    "https://esm.sh/@supabase/storage-js@2.7.1/dist/module/StorageClient.d.ts": {},
+    "https://esm.sh/@supabase/storage-js@2.7.1/dist/module/packages/StorageBucketApi.d.ts": {},
+    "https://esm.sh/@supabase/storage-js@2.7.1/dist/module/packages/StorageFileApi.d.ts": {},
+    "https://esm.sh/@supabase/supabase-js@2.39.3": {
+      "headers": {
+        "content-type": "application/javascript; charset=utf-8",
+        "x-typescript-types": "https://esm.sh/@supabase/supabase-js@2.39.3/dist/module/index.d.ts"
+      }
+    },
+    "https://esm.sh/@supabase/supabase-js@2.39.3/dist/module/SupabaseClient.d.ts": {},
+    "https://esm.sh/@supabase/supabase-js@2.39.3/dist/module/lib/SupabaseAuthClient.d.ts": {},
     "https://esm.sh/jose@5.9.6": {
       "headers": {
         "content-type": "application/javascript; charset=utf-8",

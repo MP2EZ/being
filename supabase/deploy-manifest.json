@@ -1,0 +1,149 @@
+{
+  "$comment": "INFRA-442. Declares what the Supabase project is EXPECTED to hold, so that the gap between merged code and deployed state has something to be compared against. This file is the expectation half; scripts/supabase-deploy-drift.js is the comparison half. Reconcile mode (credential-free, runs in CI's `security` job) checks this manifest against the SOURCE, so a name added to the code without a manifest entry fails on the PR that introduces it. The live probe that compares against the deployed PROJECT is INFRA-448 and needs a Supabase PAT that does not yet exist.",
+
+  "$whyAManifestAndNotAGrep": "Deno.env.get appears in three shapes and only one is greppable. (1) literal-required, e.g. Deno.env.get('CRON_SECRET'). (2) literal-with-a-default via the envInt wrapper — a tunable, where absence is correct and alerting on it would be noise. (3) NON-LITERAL: crisis-detection-alerting/index.ts reads Deno.env.get(name) inside envInt, so the names exist only at the call sites, and any future wrapper of that shape is invisible to a regex entirely. A grep alone therefore cannot produce the expected set; it can only be reconciled against one. The reconcile pass fails if it finds a non-literal read it does not already know about, so the blind spot cannot silently widen.",
+
+  "$nameShapeWarning": "Presence checks must normalise before comparing. INFRA-379 hit a Vault secret stored as ' grace_period_cron_secret' with a LEADING SPACE: an exact-match lookup reads it as ABSENT while a human reading the dashboard reads it as PRESENT. The two classes need different remediation — rename vs create — so the live probe must report MALFORMED distinctly from ABSENT rather than collapsing them.",
+
+  "functions": [
+    "crisis-detection-alerting",
+    "crisis-liveness-probe",
+    "delete-account",
+    "grace-period-automation",
+    "subscription-webhook",
+    "verify-apple-receipt",
+    "verify-google-receipt"
+  ],
+
+  "$functionsNote": "Directories under supabase/functions/ that are deployable functions. `_shared`, `_tests` and `vendor` are excluded by the underscore/name convention, not by being listed here.",
+
+  "platformInjected": [
+    "SUPABASE_URL",
+    "SUPABASE_SERVICE_ROLE_KEY",
+    "SUPABASE_ANON_KEY",
+    "SUPABASE_DB_URL"
+  ],
+
+  "$platformInjectedNote": "Supplied by the Supabase edge runtime. They are never provisioned by hand and must never be reported as drift — without this exclusion every function false-positives on its first line.",
+
+  "edgeSecrets": {
+    "CRON_SECRET": {
+      "required": true,
+      "usedBy": ["crisis-detection-alerting", "crisis-liveness-probe"],
+      "note": "Shared secret for the crisis trust domain's cron callers. Must equal the Vault secret `crisis_alert_cron_secret` — they are two stores of one value and drift between them silently breaks crisis alerting."
+    },
+    "GRACE_PERIOD_CRON_SECRET": {
+      "required": true,
+      "usedBy": ["grace-period-automation"],
+      "note": "Deliberately SEPARATE from CRON_SECRET. The ops and crisis trust domains are kept code-independent (see _tests/cron-secret-trust-domains.test.ts); do not consolidate. Must equal Vault `grace_period_cron_secret`."
+    },
+    "RECEIPT_ENCRYPTION_KEY": {
+      "required": true,
+      "usedBy": ["verify-apple-receipt", "verify-google-receipt"],
+      "note": "32-byte base64 AES-256 key. _shared/receiptCrypto.ts throws on absent or wrong-length rather than falling back — a misconfigured key must fail loud, never silently store weakly-protected receipts."
+    },
+    "RESEND_API_KEY": {
+      "required": true,
+      "usedBy": ["crisis-detection-alerting"],
+      "note": "Outbound email for crisis alerting. Absent = alerts are computed and never delivered, which looks identical to no alerts firing."
+    },
+    "CRISIS_ALERT_FROM": {
+      "required": true,
+      "usedBy": ["crisis-detection-alerting"],
+      "note": "Sender address for crisis alert email."
+    },
+    "CRISIS_ALERT_TO": {
+      "required": true,
+      "usedBy": ["crisis-detection-alerting"],
+      "note": "Recipient for crisis alert email."
+    },
+
+    "CRISIS_HEALTHCHECK_PING_URL": {
+      "required": false,
+      "usedBy": ["crisis-detection-alerting"],
+      "note": "External dead-man's-switch (INFRA-296). Optional in the sense that the function runs without it, but its ABSENCE means nobody is watching for the function failing to run at all. Its own trust domain — never point it at the ops check."
+    },
+    "SUBSCRIPTION_HEALTHCHECK_PING_URL": {
+      "required": false,
+      "usedBy": ["grace-period-automation"],
+      "note": "Ops dead-man's-switch. Separate check from the crisis one, deliberately."
+    },
+    "GOOGLE_SERVICE_ACCOUNT": {
+      "required": false,
+      "usedBy": ["verify-google-receipt"],
+      "note": "Blocked on business setup, not engineering: the founder is not enrolled in the Play Console, so this cannot be provisioned and verify-google-receipt cannot be exercised at all. Optional until enrolment."
+    },
+    "GOOGLE_PUBSUB_SERVICE_ACCOUNT": {
+      "required": false,
+      "usedBy": ["subscription-webhook"],
+      "note": "Same Play Console dependency as GOOGLE_SERVICE_ACCOUNT."
+    },
+    "GOOGLE_PUBSUB_AUDIENCE": {
+      "required": false,
+      "usedBy": ["subscription-webhook"],
+      "note": "Same Play Console dependency."
+    },
+    "APPLE_ISSUER_ID": {
+      "required": true,
+      "usedBy": ["verify-apple-receipt", "grace-period-automation"],
+      "note": "App Store Connect API issuer id, the `iss` claim of the ES256 token. Must come from a TEAM key — an INDIVIDUAL key has no issuer and uses `sub: 'user'` instead, which 401s against the claim set this function signs. Absent = every Apple verification fails as misconfigured (500), never as an invalid receipt."
+    },
+    "APPLE_KEY_ID": {
+      "required": true,
+      "usedBy": ["verify-apple-receipt", "grace-period-automation"],
+      "note": "App Store Connect API key id, the `kid` JWT header. Pairs with APPLE_PRIVATE_KEY; rotating one without the other 401s."
+    },
+    "APPLE_PRIVATE_KEY": {
+      "required": true,
+      "usedBy": ["verify-apple-receipt", "grace-period-automation"],
+      "note": "App Store Connect API private key, PKCS#8 PEM. _shared/appStoreServerApi.ts normalises literal \\n (the standard secret-paste failure) and rethrows a fixed message on a bad key, never echoing its content. Never logged, never returned."
+    },
+    "ALLOW_MOCK_RECEIPTS": {
+      "required": false,
+      "mustBeAbsentInProduction": true,
+      "usedBy": ["verify-apple-receipt", "verify-google-receipt"],
+      "note": "Opt-in gate on the mock-approval branch, defaulting to REJECT. Setting it to 'true' on a deployed project re-opens an entitlement bypass reachable by anyone holding the anon key. This is the one name whose PRESENCE is the drift — the live probe must flag it if it is ever set, which is the inverse of every other entry here."
+    }
+  },
+
+  "tunables": {
+    "CRISIS_ALERT_STALENESS_HOURS": { "default": 48, "readVia": "envInt", "usedBy": ["crisis-detection-alerting"] },
+    "CRISIS_ALERT_SPIKE_MULTIPLIER": { "default": 3, "readVia": "envInt", "usedBy": ["crisis-detection-alerting"] },
+    "CRISIS_ALERT_SPIKE_MIN": { "default": 5, "readVia": "envInt", "usedBy": ["crisis-detection-alerting"] },
+    "CRISIS_ALERT_BUCKET_FLOOR": { "default": 3, "readVia": "envInt", "usedBy": ["crisis-detection-alerting"] },
+    "CRISIS_ALERT_BASELINE_DAYS": { "default": 7, "readVia": "envInt", "usedBy": ["crisis-detection-alerting"] },
+    "CRISIS_PROBE_STALENESS_HOURS": { "default": 12, "readVia": "envInt", "usedBy": ["crisis-detection-alerting"] }
+  },
+
+  "$tunablesNote": "Read through envInt(name, fallback), which never throws and falls back on absent or garbage. Absence is CORRECT for these, so the live probe must not report them missing — that would be pure noise, and a drift check that cries wolf is one that gets ignored.",
+
+  "vaultSecrets": {
+    "crisis_alert_cron_secret": {
+      "required": true,
+      "readBy": ["20260607000000_crisis_alert_cron.sql", "20260613000000_crisis_liveness_probe.sql"],
+      "note": "Must equal the CRISIS trust domain's edge CRON_SECRET. This is the exact name INFRA-379 found stored with a leading space."
+    },
+    "crisis_alert_function_url": { "required": true, "readBy": ["20260607000000_crisis_alert_cron.sql"] },
+    "crisis_alert_resend_key": { "required": true, "readBy": ["20260607000000_crisis_alert_cron.sql"] },
+    "crisis_alert_from": { "required": true, "readBy": ["20260607000000_crisis_alert_cron.sql"] },
+    "crisis_alert_to": { "required": true, "readBy": ["20260607000000_crisis_alert_cron.sql"] },
+    "crisis_probe_function_url": { "required": true, "readBy": ["20260613000000_crisis_liveness_probe.sql"] },
+    "grace_period_cron_secret": {
+      "required": true,
+      "readBy": ["20260616000000_grace_period_automation_cron.sql"],
+      "note": "Must equal the edge GRACE_PERIOD_CRON_SECRET. Separate trust domain from crisis_alert_cron_secret — do not consolidate."
+    },
+    "grace_period_function_url": { "required": true, "readBy": ["20260616000000_grace_period_automation_cron.sql"] },
+    "subscription_alert_resend_key": { "required": true, "readBy": ["20260618000000_subscription_verification_watchdog.sql"] },
+    "subscription_alert_from": { "required": true, "readBy": ["20260618000000_subscription_verification_watchdog.sql"] },
+    "subscription_alert_to": { "required": true, "readBy": ["20260618000000_subscription_verification_watchdog.sql"] }
+  },
+
+  "knownNonLiteralEnvReads": [
+    {
+      "file": "supabase/functions/crisis-detection-alerting/index.ts",
+      "symbol": "envInt",
+      "note": "Reads Deno.env.get(name) from a parameter. Its callers pass literals, which the reconcile pass extracts separately as `tunables`. Declared here so the reconcile pass can distinguish a KNOWN wrapper from a NEW one — a new non-literal read means names that no static pass can discover, which must fail rather than silently shrink the expected set."
+    }
+  ]
+}

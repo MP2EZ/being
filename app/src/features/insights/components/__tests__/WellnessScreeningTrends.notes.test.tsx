@@ -49,6 +49,7 @@ jest.mock('@/core/services/security/SecureStorageService', () => ({
 }));
 
 import WellnessScreeningTrends from '../WellnessScreeningTrends';
+import { RootOverlaySlot } from '@/core/navigation/rootOverlaySlot';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import type { AssessmentSession, AssessmentType, PHQ9Result } from '@/features/assessment/types';
@@ -108,8 +109,17 @@ describe('WellnessScreeningTrends — Your note (flag ON)', () => {
   });
 
   it('opens the composer when a row is tapped and saves through the encrypted store path', async () => {
+    // DEBUG-406: the composer no longer renders inside this component. It is
+    // published into the ROOT overlay slot, because an inline full-bleed overlay
+    // here would resolve `position: 'absolute'` against the card rather than the
+    // screen — covering the card, scrolling with the content, and being clipped
+    // on Android. The slot must therefore be mounted for the composer to appear,
+    // which is itself worth asserting: it pins that the indirection is wired.
     const { getAllByText, getByTestId } = render(
-      <WellnessScreeningTrends sessions={sessions} now={NOW} />
+      <>
+        <WellnessScreeningTrends sessions={sessions} now={NOW} />
+        <RootOverlaySlot />
+      </>
     );
 
     fireEvent.press(getAllByText('Add a note')[0]!);

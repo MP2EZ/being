@@ -335,6 +335,91 @@ jobs:
         # running them — the exact failure mode MAINT-366 exists to remove.
         run: cd app && npm run test:scripts -- --ci --testTimeout=20000
 
+      - name: Practice + daily-loop tests
+        # DEBUG-468. These are co-located under src/features/practices/, which no
+        # existing pattern reaches: `test:unit` is --testPathPattern=unit and
+        # `test:integration` is =integration. Ten suites ran on NOBODY'S pull request
+        # until this step existed, including the render-tree pins for the daily loop's
+        # breath beat and the tenseMode config invariants.
+        #
+        # Wired by PATTERN, never by renaming files toward one — scripts/ci-uncovered
+        # -tests.json records coverage-by-filename as the defect it exists to remove.
+        #
+        # Scoped to src/features/practices/. INFRA-595 added the broad `Co-located src
+        # tests` step below, which subsumes this one; it is KEPT because its failure line
+        # names the daily-loop suites instead of pointing at a 172-suite run. The blocker
+        # this comment used to cite is RETIRED: DEBUG-515 (cross-test real-timer leakage)
+        # and DEBUG-549 (deleted the autosave subscription's uncancellable timers) both
+        # landed after it was written; re-measured 10/10 green under parallel load.
+        run: cd app && npm run test:practices -- --ci --testTimeout=20000
+
+      - name: Navigation layout tests
+        # DEBUG-562. Co-located under src/core/navigation/, which no existing pattern
+        # reaches: `test:unit` is --testPathPattern=unit and `test:integration` is
+        # =integration, and neither matches this directory. Two suites ran on NOBODY'S
+        # pull request until this step existed — including the one that pins the tab
+        # bar's top edge clear of the crisis FAB's touch band, which is the mechanical
+        # form of DEBUG-562's AC2 ruling and the only thing that catches drift on
+        # EITHER side of that collision.
+        #
+        # Wired by PATTERN, never by renaming files toward one — scripts/
+        # ci-uncovered-tests.json records coverage-by-filename as the defect it exists
+        # to remove. Scoped to the directory rather than the file for the same reason.
+        #
+        # `CleanTabNavigator.accessibility.test.tsx` in the same directory is already
+        # reached by the Accessibility job (its name carries `accessibility`); running
+        # it twice is cheap and beats keying this step on a filename.
+        run: cd app && npm run test:navigation -- --ci --testTimeout=20000
+
+      - name: Analytics boundary tests
+        # INFRA-542. Co-located under src/core/analytics/, which no existing pattern
+        # reaches: the two files here carrying `privacy` in their NAME are gated by
+        # test:privacy, and the rest of the directory by nothing — coverage by
+        # filename, the defect scripts/ci-uncovered-tests.json exists to remove.
+        #
+        # This directory is the app's ONLY third-party egress path. Its failure mode
+        # is silent in both directions: trackEvent early-returns without a client, and
+        # PHIFilter drops a violating payload with a log rather than a throw. A pin
+        # here that runs on nobody's PR is worth approximately nothing.
+        #
+        # Wired by PATTERN, never by renaming files toward one (DEBUG-468 precedent).
+        run: cd app && npm run test:analytics -- --ci --testTimeout=20000
+
+      - name: Classical library tests
+        # FEAT-567. passagesContent.test.ts holds the passage SCHEMA checks —
+        # author/work enum membership, principle match, duplicate ids, required
+        # fields — and matched no CI pattern, so a malformed passage could land
+        # unnoticed. The provenance suite that checks TRANSLATORS already runs
+        # (it lives under app/__tests__/unit/); this is the other half.
+        #
+        # Wired by PATTERN, never by renaming files toward one (DEBUG-468 precedent).
+        run: cd app && npm run test:library -- --ci --testTimeout=20000
+
+      - name: Co-located src tests
+        # INFRA-595. The catch-all for app/src/**: every co-located suite, including the 41
+        # that scripts/ci-uncovered-tests.json recorded as running on NOBODY'S pull request.
+        # That ledger's `uncovered` list is now EMPTY, which is the real win here - a new
+        # ungated test file can no longer land silently, because check:ci-test-coverage
+        # fails the Safety + privacy job the moment one does.
+        #
+        # The four narrower src steps above are deliberately RETAINED. This step subsumes
+        # all of them, but each one records why its slice is gated and points a failure at
+        # one directory rather than at 172 suites. ~10s of duplicate runtime buys that.
+        #
+        # --forceExit was REMOVED here (DEBUG-596). The claim it carried was wrong twice:
+        # the flag never matched "all 24" sibling scripts (7 lack it), and the exit 1 it
+        # masked did not come from crisisTapTrace's open handle at all. jest computes its
+        # code from results.success alone and merely console.errors the open-handle report;
+        # the 1 came from jest-runner's freezeConsole, which sets process.exitCode = 1 on
+        # every "Cannot log after tests are done". Measured: a suite with 6 such logs and
+        # ZERO open handles exits 1, while one with neither exits 0.
+        #
+        # Running bare is now the point. A post-teardown write under app/src fails this job
+        # instead of hiding behind the flag — including a non-deterministic one, which is a
+        # deliberate tightening of a required check on both protected branches.
+        # No --verbose: 171 suites / 2637 tests would bury the log.
+        run: cd app && npm run test:src -- --ci --testTimeout=20000
+
       - name: Upload coverage
         if: always()
         uses: actions/upload-artifact@v6
@@ -344,9 +429,11 @@ jobs:
           retention-days: 14
 
   # Security + compliance — encryption, HIPAA-adjacent checks, dependency
-  # audit. npm audit threshold is `high` (not `moderate`) until the
-  # 5-month-old lockfile is refreshed — see audit-roadmap.md Phase 0/3 for
-  # the planned dependency refresh.
+  # audit. npm audit threshold is `moderate`, tightened from `high` by
+  # MAINT-182 once the explicit allowlist landed (this header claimed `high`
+  # until INFRA-576; .audit-ci.json has said `"moderate": true` since
+  # MAINT-182). The 5-month-old lockfile refresh is still outstanding — see
+  # audit-roadmap.md Phase 0/3.
   security:
     name: Security + compliance
     runs-on: ubuntu-latest
@@ -404,6 +491,30 @@ jobs:
         # other self-clearing patterns.
         run: node scripts/check-service-interval-guards.js
 
+      - name: Supabase deploy-manifest reconciliation
+        # INFRA-442: There is no CI auto-deploy for Supabase migrations, edge
+        # functions or secrets, so "merged" and "running" drift apart silently.
+        # It has bitten three times (INFRA-278 dormant crisis-monitoring stack,
+        # INFRA-379 four unapplied migrations, and the service_role DML gap found
+        # while executing INFRA-379) and every discovery was incidental.
+        #
+        # This step is the CREDENTIAL-FREE half: it reconciles
+        # supabase/deploy-manifest.json against the source, so a secret name
+        # entering the code without anyone declaring it fails on THAT PR rather
+        # than six weeks later. It catches the commonest cause of live drift —
+        # a name nobody provisioned — without needing project access.
+        #
+        # It does NOT prove the project is deployed. That is the live probe
+        # (INFRA-448), blocked on a Supabase PAT: repo secrets hold only
+        # SUPABASE_URL + SUPABASE_ANON_KEY, and the anon key can read none of the
+        # three drift classes (schema_migrations is not PostgREST-exposed under
+        # this project's [api] schemas pin; vault.secrets is postgres-role-only).
+        #
+        # Fails closed: exit 1 on drift, exit 2 on "could not determine" (an
+        # unreadable manifest or a broken scan). It never reports clean when it
+        # could not look.
+        run: node scripts/supabase-deploy-drift.js --reconcile
+
       - name: Crisis-dial guard check
         # DEBUG-314: Verifies every tel:/sms: dial routes through
         # `openCrisisUrl`, which owns the canOpenURL guard, the manual-dial
@@ -418,6 +529,48 @@ jobs:
         # and `--no-verify` is permitted on hotfix/* branches, so CI must not
         # depend on the local hook having run.
         run: cd app && npm run check:crisis-dial
+
+      - name: Modal-occlusion guard check
+        # DEBUG-406: fails on any RN <Modal> in app/src outside an explicit
+        # allowlist. An RN <Modal> renders in a separate native window above the
+        # JS view hierarchy, so while one is open the root crisis button is not
+        # on screen at all — a zero-988-affordance render state.
+        #
+        # INFRA-571 added rule 4, which is a different SHAPE: a CALL SITE in
+        # app/src handing presentation to a third-party component that never
+        # appears in our tree (Sentry's feedback widget, expo-sharing's share
+        # sheet, the StoreKit purchase sheet). The <Modal> lives in node_modules,
+        # so rules 1-3 cannot see it, and INFRA-531's crisis-constant-import rule
+        # matches nothing because nothing on those paths imports from
+        # features/crisis/. Its allowlist is keyed <file>::<name> and fails on a
+        # stale entry the same way rule 2 does.
+        #
+        # This exists because a Protected Paths row could not catch it. The four
+        # sites DEBUG-406 audited live in src/core/components/ and
+        # src/features/insights/, neither of which is on that list and neither of
+        # which should be: the risk is a component SHAPE, not a directory. Same
+        # failure class CLAUDE.md already records for features/guidance/ and
+        # features/consent/.
+        #
+        # The primary pin is `app/__tests__/safety/modalOcclusionGuard.test.ts`,
+        # which shares this script's detection logic and runs in `precommit`.
+        # This step exists because `test:safety` is not a CI job and --no-verify
+        # is permitted on hotfix/* branches.
+        run: cd app && npm run check:modal-occlusion
+
+      - name: Crisis keyboard accessory guard
+        # DEBUG-450 — every shipping <TextInput> must carry the accessory props. While a
+        # software keyboard is up the root crisis button is inside the keyboard's own
+        # UIWindow and unreachable, so an unwired input has NO 988 access.
+        #
+        # Attribute-level, not tag-presence: a file-level check would pass a screen whose
+        # first input is wired and whose second is not.
+        #
+        # Primary pin is `app/__tests__/safety/crisisKeyboardAccessoryGuard.test.ts`, which
+        # shares this script's detection logic and runs in `precommit`. This step exists
+        # for the same reason as the one above: `test:safety` is not a CI job and
+        # --no-verify is permitted on hotfix/* branches.
+        run: cd app && npm run check:crisis-keyboard-accessory
 
       - name: Security test suite
         # --coverage omitted on subset runs (see Unit tests rationale).
@@ -445,14 +598,13 @@ jobs:
       - name: npm audit
         # MAINT-182: switched from raw `npm audit --audit-level=high` to
         # `audit-ci` with an explicit allowlist at app/.audit-ci.json.
-        # Three transitive CVEs in @expo/config-plugins@56.0.8 are
-        # allowlisted (GHSA-ph9p-34f9-6g65 tmp path traversal,
-        # GHSA-6vfc-qv3f-vr6c markdown-it ReDoS, GHSA-w5hq-g745-h8pq
-        # uuid bounds check) — all build-time only, no patched stable
-        # version available. Threshold is `moderate` (tightened from the
-        # prior `high`) since the allowlist gives precise control.
-        # Drop the GHSAs from .audit-ci.json when @expo/config-plugins
-        # >=56.0.9 ships as stable.
+        # Threshold is `moderate` (tightened from the prior `high`) since
+        # the allowlist gives precise control. Every allowlisted GHSA
+        # carries its own review note and drop-condition in that file's
+        # `$comment` — read there, not here; this list rotted twice.
+        # INFRA-576 retired GHSA-ph9p-34f9-6g65 (tmp), which this comment
+        # had attributed to @expo/config-plugins: the tree's only tmp
+        # arrives via patch-package and is already patched.
         #
         # Historical context (kept for archaeology): the W3 paydown's
         # `npm audit fix` cleared 11 high+critical vulns (xmldom,
@@ -754,9 +906,14 @@ jobs:
     # (contents: read + packages: read) rather than merging with it, so
     # `contents: read` is restated here deliberately. `packages: read` is
     # omitted because this job never checks out or runs npm ci.
+    #
+    # INFRA-460 added `actions: read` for the probe-liveness cross-check, which
+    # calls the Actions API. Because this block replaces rather than merges, an
+    # omission here is a runtime 403, not a config warning.
     permissions:
       contents: read
       issues: write
+      actions: read
     needs:
       - typecheck
       - lint
@@ -974,4 +1131,196 @@ jobs:
               core.notice(`Closed CI-health issue #${existing.number}`);
             } catch (e) {
               core.warning(`CI-health recovery step failed (non-fatal): ${e.message}`);
+            }
+
+      # ---------------------------------------------------------------------
+      # INFRA-460 — cross-check that the `main-branch-health` probe still runs.
+      #
+      # A scheduled control cannot observe its own silence. DEBUG-389 is the
+      # standing proof: a scheduled job in this repo failed on every run for two
+      # months unnoticed, then was switched off in the GitHub UI. A workflow's
+      # `active` flag is API state, not file state, so a green `git log` says
+      # nothing about whether the control actually ran.
+      #
+      # A STEP, NEVER A JOB. A job wired into ci-pass's `needs:` must also appear
+      # in three more hand-synced lists that check-ci-test-coverage.js asserts
+      # agree; and a schedule-gated job resolves to `skipped` on every PR run,
+      # which the aggregate's `!= "success"` test reads as failure — red-gating
+      # every PR in the repo.
+      #
+      # ITS OWN MARKER, DELIBERATELY. This files under the probe's LABEL — same
+      # notification stream, same triage queue — but a DISTINCT marker. Both
+      # notifiers select by `listForRepo({labels})` then `.find(body.includes(
+      # MARKER))` and close whatever they find, with no control discriminator.
+      # Sharing the marker would mean the probe's recovery arm closes a live
+      # liveness alarm, and this step's recovery arm closes a live main-is-red
+      # alarm while `main` is still red. Neither marker is a substring of the
+      # other, so the two `.find()` calls stay disjoint. Do not align them.
+      #
+      # FAILS CLOSED ON A VERDICT, QUIET ONLY ON UNCERTAINTY. `getWorkflow`
+      # throws 404 on a deleted workflow — one of the very conditions this step
+      # exists to catch — so 404 and 403 are ALARMS, not warnings. Every other
+      # error warns and returns WITHOUT touching issue state, because closing an
+      # open alarm because an API call failed is a false all-clear.
+      #
+      # ONLY `schedule` RUNS COUNT toward staleness. A manual dispatch would
+      # otherwise reset the clock and mask a dead cron for another full window —
+      # including the dispatch used to verify this step.
+      #
+      # THRESHOLD ARITHMETIC. The probe runs at 11:00 UTC and this workflow at
+      # 09:00 UTC, so a healthy last-run age here is ~22h. One dropped probe day
+      # reads 46h and stays quiet; two consecutive misses read ~70h and fire.
+      # 48h is therefore deliberately one-miss-tolerant: GitHub drops scheduled
+      # runs under load, and a 24h threshold would fire on that and train the
+      # reader to ignore it. The cost is ~2-day worst-case detection latency.
+      #
+      # WHO WATCHES THE WATCHER — NOBODY, AND THAT IS STATED RATHER THAN IMPLIED.
+      # This step rides ci.yml's own 09:00 schedule, so it observes the probe's
+      # silence and not its own. Both workflows also live in this repo, and
+      # GitHub's 60-day-inactivity auto-disable of scheduled workflows is
+      # repo-wide — so the single likeliest cause of the probe going quiet
+      # disables this check in the same instant. It is genuinely independent only
+      # for a probe-scoped disable, delete, or cron hiccup. Covering
+      # non-execution of the outermost control needs an external dead-man's
+      # switch (healthchecks.io, tracked as INFRA-296) and is out of scope here.
+      # The chain terminates at this step.
+      - name: Cross-check main-branch-health probe liveness
+        if: >-
+          !cancelled()
+          && (github.event_name == 'schedule'
+              || (github.event_name == 'workflow_dispatch' && inputs.simulate_schedule))
+        uses: actions/github-script@v8
+        continue-on-error: true
+        with:
+          script: |
+            const MARKER = '<!-- main-branch-health-liveness-tracker -->';
+            const LABEL = 'main-branch-health';
+            const WATCHED = 'main-branch-health.yml';
+            const STALE_AFTER_MS = 48 * 60 * 60 * 1000;
+            const { owner, repo } = context.repo;
+            const runUrl = `${context.serverUrl}/${owner}/${repo}/actions/runs/${context.runId}`;
+            const today = new Date().toISOString().slice(0, 10);
+
+            // `silent` doubles as verdict and reason. null === healthy.
+            let silent = null;
+            let observed = '';
+
+            try {
+              const wf = await github.rest.actions.getWorkflow({
+                owner, repo, workflow_id: WATCHED,
+              });
+              observed = `state=${wf.data.state}`;
+              // `disabled_manually` is the DEBUG-389 mode (a UI toggle git
+              // cannot see); `disabled_inactivity` is the 60-day auto-disable.
+              if (wf.data.state !== 'active') {
+                silent = `the workflow is \`${wf.data.state}\``;
+              }
+            } catch (e) {
+              if (e.status === 404) {
+                observed = 'state=absent';
+                silent = 'the workflow no longer exists — deleted or renamed';
+              } else if (e.status === 403) {
+                observed = 'state=forbidden';
+                silent = 'the Actions API returned 403 — `actions: read` may have been dropped from this job';
+              } else {
+                core.warning(
+                  `probe liveness: could not read ${WATCHED} (${e.status || '?'} ${e.message}). ` +
+                  'Leaving issue state untouched.');
+                return;
+              }
+            }
+
+            if (!silent) {
+              try {
+                const runs = await github.rest.actions.listWorkflowRuns({
+                  owner, repo, workflow_id: WATCHED, event: 'schedule', per_page: 1,
+                });
+                const latest = runs.data.workflow_runs[0];
+                if (!latest) {
+                  observed += ' lastScheduledRun=never';
+                  silent = 'it has never produced a scheduled run';
+                } else {
+                  // Deliberately NOT filtered on conclusion: the question is
+                  // whether it EXECUTED. A failing probe is a working probe, and
+                  // its own notifier already reports that.
+                  const startedAt = new Date(latest.run_started_at || latest.created_at).getTime();
+                  const ageH = Math.round((Date.now() - startedAt) / 3600000);
+                  observed += ` lastScheduledRun=${ageH}h`;
+                  if (Date.now() - startedAt > STALE_AFTER_MS) {
+                    silent = `its last scheduled run was ${ageH}h ago, past the 48h threshold — ${latest.html_url}`;
+                  }
+                }
+              } catch (e) {
+                core.warning(
+                  `probe liveness: could not list runs for ${WATCHED} (${e.status || '?'} ${e.message}). ` +
+                  'Leaving issue state untouched.');
+                return;
+              }
+            }
+
+            // Emitted on EVERY run, healthy or not, so the threshold arithmetic
+            // is observable from one log line instead of by waiting 48h.
+            core.notice(`probe liveness: ${silent ? 'SILENT' : 'ok'} — ${observed}`);
+
+            try {
+              // The label normally exists already, but the deleted-probe path is
+              // exactly the one where its creator is gone, and issues.create with
+              // an unknown label 422s.
+              try {
+                await github.rest.issues.createLabel({
+                  owner, repo, name: LABEL, color: 'B60205',
+                  description: 'main branch health probe (INFRA-452) and its liveness cross-check (INFRA-460)',
+                });
+              } catch (e) {
+                if (e.status !== 422) core.warning(`createLabel: ${e.message}`);
+              }
+
+              const open = (await github.rest.issues.listForRepo({
+                owner, repo, state: 'open', labels: LABEL, per_page: 100,
+              })).data.find(i => (i.body || '').includes(MARKER));
+
+              if (silent) {
+                const body = [
+                  MARKER,
+                  '**The `main-branch-health` probe is silent.**',
+                  '',
+                  `- Reason: ${silent}`,
+                  `- Observed: \`${observed}\``,
+                  `- Detected by: ${runUrl}`,
+                  `- Detected: ${today}`,
+                  '',
+                  'While it is silent, nothing is checking whether `main` still passes its',
+                  'own audit gate between releases — so a hotfix branch cut from `main` can',
+                  'find CI red on arrival, with no warning.',
+                  '',
+                  'Re-arm with `gh workflow enable main-branch-health.yml`, then',
+                  '`gh workflow run main-branch-health.yml` to confirm it reports.',
+                ].join('\n');
+                if (open) {
+                  await github.rest.issues.createComment({
+                    owner, repo, issue_number: open.number, body,
+                  });
+                  core.notice(`Updated probe-liveness issue #${open.number}`);
+                } else {
+                  const created = await github.rest.issues.create({
+                    owner, repo,
+                    title: `main-branch-health probe is silent (${today})`,
+                    labels: [LABEL],
+                    body,
+                  });
+                  core.notice(`Opened probe-liveness issue #${created.data.number}`);
+                }
+              } else if (open) {
+                await github.rest.issues.createComment({
+                  owner, repo, issue_number: open.number,
+                  body: `${MARKER}\n✅ The \`main-branch-health\` probe is running again (${observed}). ${runUrl}`,
+                });
+                await github.rest.issues.update({
+                  owner, repo, issue_number: open.number,
+                  state: 'closed', state_reason: 'completed',
+                });
+                core.notice(`Closed probe-liveness issue #${open.number}`);
+              }
+            } catch (e) {
+              core.warning(`probe liveness: issue update failed (non-fatal): ${e.message}`);
             }

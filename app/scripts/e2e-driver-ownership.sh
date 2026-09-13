@@ -60,17 +60,60 @@
 #
 # Identity is taken from `comm` (the executable), never from a substring of the command
 # line — the same shape DEBUG-392's `other_maestro_jvms()` established, and for the same
-# reason. `ps -o comm=` prints a BARE name for java but a FULL PATH for xcodebuild, hence
-# the `(^|/)name$` anchoring on both.
+# reason. `ps` prints a BARE name for java but a FULL PATH for xcodebuild, hence the
+# `(^|/)name$` anchoring on both — and hence the two-read table below, since the path form
+# is the one macOS truncates.
 #
 # This file sets no `set` options: callers differ in `set -e`/`pipefail` (the mirror of
 # e2e-sim-device.sh's contract), so every function handles its own failure explicitly.
 # =========================================================================================
 
-# One `ps` read, shared by every function below. Bash 3.2 on macOS has no associative
+# One process table, shared by every function below. Bash 3.2 on macOS has no associative
 # arrays, so all classification happens inside awk.
+#
+# TWO READS, DELIBERATELY (INFRA-476). This was a single
+# `ps -axo pid=,ppid=,pgid=,comm=,args=`. macOS caps `comm` at 16 characters whenever
+# `args` is requested in the SAME invocation — measured, a 119-char comm comes back as
+# `/System/Library/` — so the driver's
+# `/Applications/Xcode.app/Contents/Developer/usr/bin/xcodebuild` arrived as
+# `/Applications/Xc` and could never satisfy the `(^|/)xcodebuild$` anchoring below.
+# Every xcodebuild matcher in this file was dead. The java matchers kept working because
+# `java` is 4 characters, which is why the asymmetry survived review and why the reap
+# looked healthy on a quiet machine.
+#
+# Neither `-ww` nor reordering fixes it: `-ww` leaves the cap in place, and putting
+# `args=` first just moves the truncation onto args. Read each column in the invocation
+# where it is complete, then join on pid. Emitted shape is unchanged, so every consumer
+# below is untouched: `pid ppid pgid comm args...`.
+#
+# A process that exits between the two reads is missing from the join and is simply not
+# classified. That fails toward NOT reaping — the same direction as the unknown-parent
+# rule below, and the safe one.
 _e2e_ps_table() {
-  ps -axo pid=,ppid=,pgid=,comm=,args= 2>/dev/null
+  {
+    ps -axo pid=,ppid=,pgid=,comm= 2>/dev/null
+    printf '%s\n' '===E2E_PS_SPLIT==='
+    ps -axo pid=,args= 2>/dev/null
+  } | awk '
+    $0 == "===E2E_PS_SPLIT===" { seen_split = 1; next }
+    !seen_split {
+      _pid = $1
+      pp[_pid] = $2
+      pg[_pid] = $3
+      c = $0
+      sub(/^[[:space:]]*[0-9]+[[:space:]]+[0-9]+[[:space:]]+[0-9]+[[:space:]]+/, "", c)
+      cm[_pid] = c
+      have[_pid] = 1
+      next
+    }
+    {
+      _pid = $1
+      if (!(_pid in have)) next
+      a = $0
+      sub(/^[[:space:]]*[0-9]+[[:space:]]+/, "", a)
+      print _pid, pp[_pid], pg[_pid], cm[_pid], a
+    }
+  '
 }
 
 # Live maestro JVMs. Requires the executable to BE java AND the command line to carry the

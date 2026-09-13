@@ -1,8 +1,19 @@
 /**
  * GUIDANCE CARD - Shared DRY Component
  *
- * Displays sensory anchoring guidance for breathing screens.
- * Used across morning/midday/evening flows to teach Aware Presence.
+ * Displays sensory anchoring guidance as a titled bullet list.
+ *
+ * NO PRODUCTION CONSUMER AS OF DEBUG-468. This docstring used to claim it was
+ * "used across morning/midday/evening flows" — those flows were retired in
+ * FEAT-298 slice 6c, leaving `DailyLoopStepScreen` as the only caller, and
+ * DEBUG-468 replaced that use with anchors paced through the breath itself
+ * (the card was ~245pt at wrap and sat ~350pt below the fold on an iPhone SE 3).
+ * What remains referencing it is its own coverage, in BOTH test roots:
+ * `__tests__/unit/shared/GuidanceCard.test.tsx` and
+ * `src/features/practices/__tests__/accessibility/practices-surface-contrast…`.
+ * Kept rather than deleted because removing a component is a call of its own, not
+ * a side effect of a layout fix — but do not treat those suites as evidence that
+ * anything ships this.
  *
  * Props:
  * - title: Header text (e.g., "Before this day begins, notice:")
@@ -45,7 +56,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[16],
   },
   list: {

@@ -21,38 +21,45 @@ The project uses TypeScript path aliases for clean, maintainable imports.
 ```typescript
 // ✅ Good - use path aliases
 import { theme } from '@/core/theme';
-import { CrisisButton } from '@/features/crisis';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { AnalyticsService } from '@/analytics';
 
 // ❌ Bad - relative paths get messy
 import { theme } from '../../../core/theme';
-import { CrisisButton } from '../../features/crisis/components/CrisisButton';
+import { CollapsibleCrisisButton } from '../../features/crisis/components/CollapsibleCrisisButton';
 ```
 
 ## Import Patterns
 
-### Feature Public API Pattern
+### Feature Import Pattern
 
-Always import from feature barrel exports, never from internal files:
+Import the module you actually need, by path. **Feature-wide barrels
+(`features/<name>/index.ts`) are not the house pattern.** MAINT-600 removed the last
+one, and ~92 of the crisis feature's ~94 import sites already resolve a file directly.
 
 ```typescript
-// ✅ Good - use public API
-import {
-  CrisisButton,
-  useCrisisDetection,
-  type CrisisDetection
-} from '@/features/crisis';
+// ✅ Good - name the module you need
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { detectCrisis } from '@/features/crisis/types/safety';
+import type { CrisisDetection } from '@/features/crisis/types/safety';
 
-// ❌ Bad - reaching into internals
-import { CrisisButton } from '@/features/crisis/components/CrisisButton';
-import { useCrisisDetection } from '@/features/crisis/hooks/useCrisisDetection';
+// ❌ Bad - a feature-wide barrel
+import { CollapsibleCrisisButton, detectCrisis } from '@/features/crisis';
 ```
 
-**Why?**
-- Public API is documented and stable
-- Internal structure can change without breaking imports
-- Easier to understand what's public vs. private
-- Enables better tree-shaking
+**Why (FEAT-376):**
+- A feature barrel's `export *` puts the whole feature on the eager module graph of
+  every importer, safety paths included — the barrel, not the route, becomes what
+  makes code reachable.
+- A feature-wide barrel invites an *incomplete* public API. The crisis barrel omitted
+  `constants/` and `utils/`, which hold `crisisButtonGeometry` and
+  `crisisInputAccessory` — the exact specifiers the safety tooling anchors on. An
+  audit surface that excludes the safety-bearing modules is worse than none.
+- The path is documentation: `@/features/crisis/types/safety` says what
+  `@/features/crisis` hides.
+
+**Directory-level barrels are still fine** where they stay small and selective.
+`@/features/crisis/components` re-exports by name rather than with `export *`.
 
 ### Core Imports
 
@@ -114,11 +121,11 @@ Use type-only imports for better build performance:
 
 ```typescript
 // ✅ Good - type-only import
-import type { CrisisDetection, CrisisSeverity } from '@/features/crisis';
+import type { CrisisDetection, CrisisSeverityLevel } from '@/features/crisis/types/safety';
 import type { User } from '@/types';
 
 // ⚠️  Works but creates runtime dependency
-import { CrisisDetection, CrisisSeverity } from '@/features/crisis';
+import { CrisisDetection, CrisisSeverityLevel } from '@/features/crisis/types/safety';
 ```
 
 ### React Native Imports
@@ -137,7 +144,7 @@ import * as RN from 'react-native';
 
 ```typescript
 // Features can import from core, compliance, analytics, global types
-// ✅ features/crisis/services/CrisisDetection.ts
+// ✅ features/crisis/services/textCrisisDetection.ts
 import { logger } from '@/core/services/logging';
 import { HIPAAComplianceEngine } from '@/compliance';
 import { trackEvent } from '@/analytics';
@@ -159,15 +166,15 @@ import type { ComplianceEvent } from '@/types';
 ```typescript
 // ❌ Core cannot import from features
 // core/services/logging/logger.ts
-import { CrisisButton } from '@/features/crisis'; // FORBIDDEN
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton'; // FORBIDDEN
 
 // ❌ Global types cannot import from features
 // types/index.ts
-import type { CrisisDetection } from '@/features/crisis'; // FORBIDDEN
+import type { CrisisDetection } from '@/features/crisis/types/safety'; // FORBIDDEN
 
 // ❌ Features should avoid importing other features directly
 // features/assessment/services/scoring.ts
-import { CrisisDetection } from '@/features/crisis'; // DISCOURAGED
+import { detectCrisis } from '@/features/crisis/types/safety'; // DISCOURAGED
 ```
 
 ### Cross-Feature Communication
@@ -188,7 +195,7 @@ eventBus.emit('crisis-detected', {
   source: 'phq9-q9'
 });
 
-// features/crisis/hooks/useCrisisDetection.ts
+// features/crisis/components/RootCrisisButton.tsx
 import { eventBus } from '@/core/services/events';
 
 useEffect(() => {
@@ -219,7 +226,7 @@ navigation.navigate('CrisisResources', {
 // core/providers/AppProvider.tsx
 export const AppContext = createContext();
 
-// features/crisis/hooks/useCrisisState.ts
+// features/crisis/components/RootCrisisBoundary.tsx
 import { useContext } from 'react';
 import { AppContext } from '@/core/providers';
 
@@ -231,7 +238,7 @@ const { crisisState } = useContext(AppContext);
 ```typescript
 // features/assessment/types/assessment.ts
 // Type-only imports from other features are OK
-import type { CrisisDetection } from '@/features/crisis';
+import type { CrisisDetection } from '@/features/crisis/types/safety';
 
 export interface AssessmentResult {
   crisis?: CrisisDetection;  // Using the type
@@ -356,11 +363,11 @@ import { HIPAAComplianceEngine } from '@/compliance';
 import { trackEvent } from '@/analytics';
 
 // 4. Feature imports (current feature)
-import { CrisisButton } from '../components';
-import { useCrisisDetection } from '../hooks';
+import { CollapsibleCrisisButton } from '../components/CollapsibleCrisisButton';
+import { openCrisisUrl } from '../utils/openCrisisUrl';
 
 // 5. Type imports (last)
-import type { CrisisDetection } from '../types';
+import type { CrisisDetection } from '../types/safety';
 import type { NavigationProp } from '@react-navigation/native';
 ```
 
@@ -374,9 +381,9 @@ import { View } from 'react-native';
 
 import { theme } from '@/core/theme';
 
-import { CrisisButton } from '@/features/crisis';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 
-import type { Crisis } from './types';
+import type { CrisisDetection } from './types/safety';
 ```
 
 ## Auto-Import Configuration
@@ -478,45 +485,44 @@ import { logger } from '../../../core/services/logging';
 import { logger } from '@/core/services/logging';
 ```
 
-### ❌ Mistake 2: Importing Internals
+### ❌ Mistake 2: Importing a Feature-Wide Barrel
 
 ```typescript
-// ❌ Bad
-import { CrisisButton } from '@/features/crisis/components/CrisisButton';
+// ❌ Bad - loads the whole feature eagerly (FEAT-376)
+import { CollapsibleCrisisButton } from '@/features/crisis';
 
-// ✅ Good
-import { CrisisButton } from '@/features/crisis';
+// ✅ Good - name the module
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 ```
 
 ### ❌ Mistake 3: Runtime Type Imports
 
 ```typescript
 // ❌ Bad - creates runtime dependency
-import { CrisisType } from '@/features/crisis';
+import { CrisisTriggerType } from '@/features/crisis/types/safety';
 
 // ✅ Good - type-only import
-import type { CrisisType } from '@/features/crisis';
+import type { CrisisTriggerType } from '@/features/crisis/types/safety';
 ```
 
 ### ❌ Mistake 4: Barrel Export Everything
 
+`export *` puts every module the barrel names onto the eager graph of every importer
+(FEAT-376). This is what retired the feature-wide barrels: MAINT-600 deleted
+`features/crisis/index.ts` after it sat at zero importers while re-exporting four
+sub-barrels — and omitting `constants/` and `utils/` entirely.
+
 ```typescript
 // ❌ Bad - exports too much
-// features/crisis/index.ts
+// features/<name>/index.ts
 export * from './components';
 export * from './services';
-export * from './stores';
-// This imports EVERYTHING, including internal utilities
+// This loads EVERYTHING, including internal utilities
 
-// ✅ Good - export selectively
-export {
-  CrisisButton,
-  CrisisErrorBoundary
-} from './components';
-export {
-  CrisisDetectionEngine,
-  detectCrisis
-} from './services';
+// ✅ Good - a directory barrel, selective and by name
+// features/crisis/components/index.ts
+export { default as CollapsibleCrisisButton } from './CollapsibleCrisisButton';
+export type { CrisisButtonMode } from './CollapsibleCrisisButton';
 ```
 
 ## Questions?

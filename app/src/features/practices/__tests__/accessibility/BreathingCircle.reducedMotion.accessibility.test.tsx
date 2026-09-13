@@ -206,5 +206,31 @@ describe('BreathingCircle — OS reduce-motion (DEBUG-394)', () => {
       // hears.
       expect(screen.queryByText(/announced/i)).toBeNull();
     });
+
+    it('lets a paced grounding anchor stack BELOW the cue, never take its slot', async () => {
+      // DEBUG-468 gave this component an opt-in guidance slot that replaces the
+      // generic copy with authored anchors, one per breath cycle. It must not
+      // reach the phase cue: with the circle static and no audio in the app, that
+      // cue is the ONLY pacing a sighted vestibular-sensitive practitioner gets.
+      // The anchor is content; the cue is the metronome. Both, or the
+      // accommodation regresses into a silent, untimed sit.
+      mockReduceMotion(true);
+
+      render(
+        <BreathingCircle
+          isActive
+          testID={TEST_ID}
+          guidanceItems={['one physical sensation — feet on the ground']}
+        />
+      );
+
+      const cue = await screen.findByTestId(`${TEST_ID}-phase-cue`, {
+        includeHiddenElements: true,
+      });
+      expect(cue).toHaveTextContent('Breathe in');
+      expect(
+        screen.getByTestId(`${TEST_ID}-grounding`, { includeHiddenElements: true })
+      ).toHaveTextContent('one physical sensation — feet on the ground');
+    });
   });
 });

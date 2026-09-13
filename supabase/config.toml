@@ -43,7 +43,7 @@ verify_jwt = true
 
 # Subscription Webhook Handler
 # Apple/Google call this directly; they don't carry a Supabase JWT. The
-# function verifies their own signatures (Apple JWS via verifyAppleJWS.ts,
+# function verifies their own signatures (Apple JWS via _shared/verifyAppleJWS.ts,
 # Google Pub/Sub OIDC via verifyGoogleOIDC.ts) before mutating state.
 [functions.subscription-webhook]
 verify_jwt = false

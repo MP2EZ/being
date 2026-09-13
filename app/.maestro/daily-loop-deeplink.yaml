@@ -2,6 +2,9 @@ appId: fyi.being.app
 tags:
   - safety
 name: "DailyLoop deep link (FEAT-298): crisis overlay + escape from a cold-start link"
+# e2e-certifies: any
+# INFRA-486 — Asserts navigation state and the structural presence of crisis-button-root, a
+# bottom-right-anchored root overlay whose presence is a JSX fact, not a layout one.
 ---
 # FEAT-298 slice 4 safety flow — pins the contract for the NEW deep-link entry point
 # `being://daily`, which opens the single daily ritual directly, bypassing Home.

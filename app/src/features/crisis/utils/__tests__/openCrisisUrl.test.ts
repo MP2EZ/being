@@ -50,6 +50,39 @@ describe('openCrisisUrl', () => {
     expect(onTap).toHaveBeenCalledTimes(1);
   });
 
+  /**
+   * FEAT-543 -- analytics must never be able to block a dial.
+   *
+   * `onTap?.()` is the FIRST statement in openCrisisUrl, ahead of the
+   * canOpenURL guard, and `trackEvent` carries no try/catch of its own. Until
+   * FEAT-543 every caller passed a bare function reference, so nothing was
+   * evaluated at the call site; that item introduced a call-site expression
+   * (`() => track(resource.id === PRIMARY_988_RESOURCE_ID)`) into the slot.
+   *
+   * A throw here would abort the dial with no openURL, no manual-dial Alert,
+   * no logError(CRISIS) and no endCrisisTap terminal -- a silent crisis false
+   * negative, not a visible failure.
+   */
+  test('a throwing onTap still reaches the dial and is logged', async () => {
+    const onTap = jest.fn(() => {
+      throw new Error('analytics exploded');
+    });
+
+    await expect(openCrisisUrl('tel:988', { onTap })).resolves.toBeUndefined();
+    await flush();
+
+    expect(onTap).toHaveBeenCalledTimes(1);
+    expect(Linking.openURL).toHaveBeenCalledWith('tel:988');
+    // The swallow must be recorded, not silent.
+    expect(logError).toHaveBeenCalledWith(
+      LogCategory.CRISIS,
+      expect.stringMatching(/analytics/i),
+      expect.any(Error)
+    );
+    // A failed tap is not a failed dial: no manual-dial fallback.
+    expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
   test('omitting onTap does not throw', async () => {
     await expect(openCrisisUrl('tel:988')).resolves.toBeUndefined();
   });

@@ -223,8 +223,18 @@ Keeping the two checks separate is console discipline, which is why it is writte
 1. **Deploy the grace-period stack** (`supabase db push`, Vault secrets first) and confirm
    with `SELECT jobname, schedule, active FROM cron.job;` that `grace-period-automation`
    exists and is active, and that `grace_period_automation_runs` is present.
+   **Both ends of the cron bearer are `GRACE_PERIOD_*`, never `CRON_SECRET`** — Vault
+   `grace_period_cron_secret` must equal the `GRACE_PERIOD_CRON_SECRET` **edge** secret.
+   INFRA-379 renamed the edge side: edge secrets are project-wide and `CRON_SECRET` is the
+   crisis pipeline's bearer, so pointing this job at it is the one way to break the
+   trust-domain separation stated above while appearing to follow the instructions.
 2. **Redeploy the edge function** — `supabase functions deploy grace-period-automation
    --no-verify-jwt` — so the deployed code contains both the heartbeat and this ping.
+   **Then trigger one run by hand before step 3.** The §4 watchdog fires every 6h and
+   escalates when `grace_period_automation_runs` has no `ok` row inside 26h — an empty
+   table reads as `never`, so a watchdog armed ahead of the first 02:00 UTC run pages on a
+   pipeline that is in fact healthy. One manual run seeds the heartbeat and doubles as the
+   step-5 ping check.
 3. **Create the healthchecks.io check.** A NEW check, distinct from the crisis one.
    **Period 1 day, grace 26h** — the daily 02:00 UTC cadence plus one tolerated skip, which
    also matches the 26h healthy window hard-coded in the §4 watchdog. If the cron schedule
@@ -401,9 +411,16 @@ delivering a steady 60fps on such a device is dropping **half** its frames while
 `fps >= 55` floor. Mid-tier Android spans 60/90/120Hz. So the budget must eventually be expressed
 as a **dropped-frame ratio against the device's own measured nominal refresh interval**, not the
 literal `60` in `CLAUDE.md`'s Performance Budgets table. Reanimated's `FrameInfo` exposes only
-`timestamp` / `timeSincePreviousFrame` / `timeSinceFirstFrame` — no refresh rate — so normalising
-needs a native call (`UIScreen.maximumFramesPerSecond`, Android `Display.getRefreshRate()`) that
-does not exist in this codebase yet.
+`timestamp` / `timeSincePreviousFrame` / `timeSinceFirstFrame` — no refresh rate.
+
+**That does NOT require a native call, and this paragraph used to say it did.** The nominal
+interval is recoverable from the interval distribution itself: bin the observed intervals and take
+the **mode**. INFRA-373 measured `nominal 16.66` on a 60Hz iPhone 16e that way, with no
+`UIScreen.maximumFramesPerSecond` binding. Take the mode specifically, not the minimum the earlier
+AC proposed — the same run measured `min 16.42` against a true nominal of 16.67, because frames
+land early. Normalising against the minimum inflates the dropped-frame ratio, i.e. it makes the
+budget look worse than reality, which is the direction that gets a threshold loosened on first red.
+Mean and max fail differently: on a hitching run the mean drags up and the max *is* the worst hitch.
 
 ### Removed in the same change: a fabricated metric
 
@@ -435,14 +452,105 @@ whoever picks up INFRA-373.
 The 60fps control is, and remains, `check-breathing-worklets` (structural proxy) plus INFRA-373
 (the real on-device UI-thread measurement, still unbuilt).
 
-### The real control
+### The real control — what INFRA-373 actually delivered, and what it is not
 
-**INFRA-373** — a UI-thread `useFrameCallback` probe accumulating in shared values, a
-flag-scoped HUD, and a device-only Maestro flow asserting the rendered number via
-`copyTextFrom` + `assertTrue`. Blocked on naming a calibration handset: there is no device
-inventory in this repo, and the only model named anywhere (`ACCESSIBILITY_TESTING_GUIDE.md:326`,
-iPhone 13 Pro) is a bug-report template example — and is a 120Hz ProMotion device, so neither
-mid-tier nor 60Hz.
+**It is a manual instrument, not a gate. Read that literally.** There is no automated assertion on
+frame delivery and there cannot currently be one, so `CLAUDE.md`'s Performance Budgets table must
+keep saying the 60fps budget is *measured by hand*, never *enforced*. That table already carries a
+correction (MAINT-307) for claiming Maestro enforced budgets it does not assert; describing this
+probe as a control would recreate that defect one layer up.
+
+**Built and verified (INFRA-373, 2026-09-07):**
+
+- `BreathingFrameProbe` — a `useFrameCallback` sibling on `PracticeTimerScreen`. Its callback makes
+  **no** JS hop at all: it folds intervals into shared state, and a JS-side timer closes the window,
+  stops the callback and reads the state. It therefore sits inside
+  `check-breathing-worklet-purity.js`'s guarded set with no rule change and no skip directive.
+- `perf/frameAccumulator.ts` — the statistics, pure and `'worklet'`-annotated, with 14 unit tests
+  (synthetic 120/60Hz streams, injected hitches, null first frame, background gaps, degenerate
+  input). The device-independent half is provable on CI.
+- `EXPO_PUBLIC_PERF_HUD`, defaulting to `'false'` and enabled in **no** committed configuration, so
+  a build that never sets it cannot render the HUD by omission. Pinned by
+  `__tests__/safety/perfHudGate.config.test.ts`.
+
+**Calibration evidence — iPhone 16e, iOS 26.6, 60Hz, Release build, 10s window, 2026-09-07.**
+`PracticeTimerScreen`, reached by `being://practice/<id>?duration=60&title=…`.
+
+| # | Condition | frames | nominal | dropped | ratio | gaps |
+|---|---|---|---|---|---|---|
+| 1 | Baseline — haptics pipeline ON, opt-in ON, motion normal | 599 | 16.67 | 0 | 0.00000 | 0 |
+| 1b | Baseline, repeat (same binary) | 600 | 16.67 | 0 | 0.00 | 0 |
+| 2 | **Control (b)** — Reduce Motion ON, same binary | 599 | 16.67 | 0 | 0.00 | 0 |
+| 3 | **Control (a)** — `practice_haptics:false` build | 600 | 16.67 | 0 | 0.00 | 0 |
+
+An earlier pre-merge baseline read 599 / 16.66 / 0, i.e. the `development` merge did not perturb
+frame delivery.
+
+`frames 599` is a correctness signal, not an approximation: 600 frames delivered at 60Hz over 10s,
+the first carrying a null interval, leaves exactly 599 counted intervals. **Run-to-run variance is
+±1 frame** (rows 1 and 1b are the same binary under the same conditions) — any future threshold must
+clear that noise floor to mean anything.
+
+**Both controls are null, and both nulls are informative.**
+
+- **(a) The JS-thread haptic cue chain has no measurable effect on UI-thread frame delivery.**
+  `PracticeTimerScreen` builds a whole-session cue schedule from `DEFAULT_PATTERN` and re-arms a
+  `setTimeout` at every breath boundary, plus AppState and navigation-blur listeners. Rows 1/1b/2 ran
+  with that scheduler live (build-time flag on **and** the persisted `practiceHaptics` opt-in on —
+  both are required: `tactileEnabled = flagOn && practiceHaptics === true`, and this screen passes no
+  `announce`, so the speech channel is absent). Row 3 ran with the pipeline off. No difference.
+  This is the architecturally expected result — the cue chain is JS-thread, the animation is UI-thread
+  worklets, and Reanimated exists so one cannot stall the other — and it is the first direct on-device
+  evidence in this repo that the separation holds.
+- **(b) The probe's own per-frame cost is below one frame interval.** With the animation reduced to
+  `BreathingCircle`'s static-glow branch, delivery stayed clean. Note this is an **upper bound, not a
+  measurement**: both arms have the probe running, and a probe-off arm yields no numbers by
+  definition. It is what licenses reading row 1's zero as a property of the screen rather than an
+  artifact of measuring it.
+
+**Interpretation.** On this screen, this device, this build, the 60fps budget is not being violated.
+That is a *reading*, not a guarantee: one screen, one 60Hz device, four 10s windows. Notably it is
+also the first time the budget has been checked against anything at all — the prior control was
+structural only and cannot measure frames.
+
+**Do not set a threshold from this.** Every run read exactly zero, which supports either
+`ratio must be 0` — brittle, one hitch fails it — or nothing. There is no noise floor to calibrate
+against beyond the ±1 frame above, and since DEBUG-589 removed the automation there is no gate for a
+threshold to live in. A number invented here would be the permanently-green no-op this whole item
+exists to prevent.
+
+**Two device-verified constraints, both counter-intuitive, both easy to reintroduce:**
+
+1. **Never clock the measurement window off `timeSinceFirstFrame`.** It is `timestamp - startTime`
+   where `startTime` is per-**registration**, and Reanimated re-registers whenever the callback's
+   identity changes. `PracticeTimerScreen` re-renders 1x/sec (`useTimerPractice` sets state on each
+   whole-second `onTick`), so an unmemoized probe had its clock reset every second: 708 frames
+   counted, window never closed, and the symptom was indistinguishable from "the hook never ticks".
+   Sum elapsed from `timeSincePreviousFrame` instead.
+2. **The `React.memo` on the probe is load-bearing, not an optimisation.** Without it the probe is
+   reset by the very JS-thread cascade it exists to observe.
+
+**What is NOT available, and why it is not a matter of waiting.** The design called for a device-only
+Maestro flow asserting the rendered number via `copyTextFrom` + `assertTrue`.
+`.maestro/breathing-fps-budget.yaml` is written and tagged `perf-device-only`, but **it has never
+executed in either direction** and cannot: DEBUG-589 measured that no Maestro version in 2.0.0–2.10.0
+can run a flow on a physical iPhone. It inherits `e2e-safety.sh`'s `DEVICE_PATH_UNAVAILABLE` refusal
+(exit 5) via the device-only tag union, so it cannot report a false green while dormant. Automating
+this measurement is blocked on DEBUG-589, not on hardware.
+
+**The manual procedure, until then.** Build Release to a connected iPhone with the HUD enabled —
+`EXPO_PUBLIC_PERF_HUD=true xcodebuild -workspace ios/Being.xcworkspace -scheme Being -configuration
+Release -destination "id=<udid>" -allowProvisioningUpdates build`, then
+`xcrun devicectl device install app` / `process launch`. Note `expo run:ios --device` does **not**
+work: it omits `-allowProvisioningUpdates` and fails to sign. Open
+`being://practice/<id>?duration=60&title=Frame+Probe` (`visualMode` is not a link parameter and
+defaults to `breathing`, so the circle and probe mount), wait ~15s, and read the eight lines.
+Record the result in the table above rather than in a commit message.
+
+**Both control runs are done** (rows 2 and 3 above). What remains before a threshold could ever be
+set is not another control but a *vehicle*: DEBUG-589 must first make an automated device run
+possible. Until then this is an instrument someone reads, and the numbers above describe the screen
+rather than a budget anyone asserts against.
 
 ---
 
@@ -464,5 +572,17 @@ mid-tier nor 60Hz.
 - **Merged ≠ deployed.** There is no CI auto-deploy for Supabase migrations/functions/secrets — a
   PR merging to `development`/`main` does not touch the live project. Run the §4 verification after
   every deploy and secret rotation. (This is why the grace-period stack was found dormant in prod.)
-</content>
-</invoke>
+- **What is now automated, and what is not (INFRA-442).** `node scripts/supabase-deploy-drift.js
+  --reconcile` runs in CI's `security` job and fails a PR that introduces a secret name, a Vault
+  name or a function nobody declared in `supabase/deploy-manifest.json`. That closes the commonest
+  *cause* of live drift — a name nobody provisioned — on the PR that creates it. It does **not**
+  observe the live project, so it cannot tell you whether anything is deployed; the bullet above
+  still stands. The live probe is INFRA-448 and is blocked on a Supabase PAT (repo secrets hold
+  only `SUPABASE_URL` + `SUPABASE_ANON_KEY`, and the anon key can read none of the three drift
+  classes). Until it lands, the §4 manual verification remains the only check on deployed state.
+- **The mirror direction — deployed ≠ merged (INFRA-454).** Everything above asks whether prod is
+  behind the repo. It does not answer whether prod contains objects the repo has never heard of,
+  and `supabase/migrations/` is **not** a complete description of production. A census dated
+  2026-08-16 lists every such object and why each is platform-managed rather than ours:
+  `supabase/README.md` → *Objects present in production but created by no migration*. Read it
+  before treating "the migration is in the repo" as proof the object in prod came from it.

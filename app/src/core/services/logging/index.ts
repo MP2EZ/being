@@ -192,7 +192,9 @@ export {
   reportExternalError,
   killExternalReporting,
   isExternalReportingActive,
+  isExternalReportingKilled,
   showFeedbackForm,
+  submitFeedback,
 } from './ExternalErrorReporter';
 
 /**

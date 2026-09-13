@@ -209,7 +209,7 @@ const styles = StyleSheet.create({
   introTitle: {
     fontSize: typography.headline3.size,
     fontWeight: typography.fontWeight.bold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   introText: {
@@ -252,7 +252,7 @@ const styles = StyleSheet.create({
   practiceTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   practiceMetadata: {
     flexDirection: 'row',
@@ -270,7 +270,7 @@ const styles = StyleSheet.create({
   },
   practiceDescription: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 22,
   },
   instructionsSection: {
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
   instructionsLabel: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     marginBottom: spacing[4],
   },
   instructionRow: {
@@ -298,7 +298,7 @@ const styles = StyleSheet.create({
   instructionText: {
     flex: 1,
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   instructionsMore: {
@@ -324,7 +324,7 @@ const styles = StyleSheet.create({
   tipsTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[8],
   },
   tipCard: {
@@ -342,7 +342,7 @@ const styles = StyleSheet.create({
   tipText: {
     flex: 1,
     fontSize: typography.bodySmall.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.secondary,
     lineHeight: 20,
   },
   tipBold: {

@@ -183,7 +183,7 @@ const styles = StyleSheet.create({
   title: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   description: {
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
   detailSectionTitle: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
     marginBottom: spacing[4],
   },
   detailBullet: {

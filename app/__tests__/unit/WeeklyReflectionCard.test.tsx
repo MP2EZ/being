@@ -8,6 +8,7 @@ import React from 'react';
 import { render, fireEvent, act } from '@testing-library/react-native';
 import * as SecureStore from 'expo-secure-store';
 import WeeklyReflectionCard from '@/features/insights/components/WeeklyReflectionCard';
+import { RootOverlaySlot } from '@/core/navigation/rootOverlaySlot';
 import {
   useStoicPracticeStore,
   CheckInType,
@@ -70,7 +71,18 @@ describe('WeeklyReflectionCard', () => {
 
   it('saves a new reflection through the composer round-trip', async () => {
     seedCheckIns(4);
-    const { getByTestId } = render(<WeeklyReflectionCard />);
+    // DEBUG-406: the composer is no longer rendered inline by this card. It is
+    // published into the ROOT overlay slot, because an inline full-bleed overlay
+    // would resolve `position: 'absolute'` against the card rather than the
+    // screen — covering the card, scrolling with the content, and being clipped
+    // on Android. Mounting the slot here is what makes the composer reachable,
+    // and asserting through it pins that the indirection is wired.
+    const { getByTestId } = render(
+      <>
+        <WeeklyReflectionCard />
+        <RootOverlaySlot />
+      </>
+    );
 
     fireEvent.press(getByTestId('weekly-reflection-prompt'));
 

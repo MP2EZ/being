@@ -13,8 +13,11 @@
 const path = require('path');
 const {
   extractNpmRunNames,
+  extractScriptFileRefs,
+  collectScriptFileRefs,
   isScannedWorkflow,
   resolveMissing,
+  resolveUntracked,
   scanWorkflowDir,
 } = require('../../scripts/check-workflow-scripts');
 
@@ -122,5 +125,134 @@ describe('the real workflow tree', () => {
       ).scripts || {}
     );
     expect(findings).toEqual([]);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// INFRA-499: npm script → tracked-file assertion.
+// ---------------------------------------------------------------------------
+
+describe('extractScriptFileRefs', () => {
+  it('picks up a node-invoked script file', () => {
+    expect(extractScriptFileRefs('node scripts/check-crisis-hotline.js')).toEqual([
+      'scripts/check-crisis-hotline.js',
+    ]);
+  });
+
+  it('picks up a bash-invoked shell file, ignoring its arguments', () => {
+    expect(extractScriptFileRefs('bash scripts/e2e-safety.sh --tag safety')).toEqual([
+      'scripts/e2e-safety.sh',
+    ]);
+  });
+
+  it('picks up a file reached through && after another command', () => {
+    expect(extractScriptFileRefs('patch-package && node scripts/generate-legal-content.js')).toEqual([
+      'scripts/generate-legal-content.js',
+    ]);
+  });
+
+  it('picks up a helper sourced with `.` inside bash -c', () => {
+    // `e2e:safety:telemetry` reaches its helper this way. A sourced file that is
+    // not in the repository fails exactly like an executed one, so the `.` and
+    // `source` forms are in scope.
+    const body = "bash -c '. scripts/e2e-telemetry.sh; e2e_telemetry_summary \"${1:-}\"' --";
+    expect(extractScriptFileRefs(body)).toEqual(['scripts/e2e-telemetry.sh']);
+  });
+
+  it('does NOT treat an interpreter flag as a file', () => {
+    // `version-check` is `node -e "…"`. Requiring a script extension on the
+    // captured token is what keeps `-e` and `-c` out.
+    const body =
+      'node -e "const pkg=require(\'./package.json\'); if(pkg.dependencies.react !== \'19.2.3\') throw new Error(\'x\')"';
+    expect(extractScriptFileRefs(body)).toEqual([]);
+  });
+
+  it('does NOT match an extensionless binary path', () => {
+    expect(extractScriptFileRefs('node node_modules/.bin/jest --ci')).toEqual([]);
+  });
+
+  it('normalises a leading ./', () => {
+    expect(extractScriptFileRefs('node ./scripts/lint-baseline.js')).toEqual([
+      'scripts/lint-baseline.js',
+    ]);
+  });
+});
+
+describe('collectScriptFileRefs', () => {
+  it('rewrites app-relative paths to repo-relative ones', () => {
+    // npm runs a script with cwd = app/, so `scripts/x.js` in package.json is
+    // `app/scripts/x.js` to git. Getting this wrong makes every file read as
+    // untracked, which is the one failure shape that looks like a real finding.
+    expect(collectScriptFileRefs({ 'check:x': 'node scripts/x.js' })).toEqual([
+      { file: 'app/scripts/x.js', scripts: ['check:x'] },
+    ]);
+  });
+
+  it('groups every script that references the same file', () => {
+    expect(
+      collectScriptFileRefs({
+        'e2e:safety': 'bash scripts/e2e-safety.sh',
+        'e2e:safety:q9': 'bash scripts/e2e-safety.sh --flow q9',
+      })
+    ).toEqual([
+      { file: 'app/scripts/e2e-safety.sh', scripts: ['e2e:safety', 'e2e:safety:q9'] },
+    ]);
+  });
+
+  it('returns nothing for scripts that invoke no file', () => {
+    expect(collectScriptFileRefs({ lint: 'eslint src', test: 'jest' })).toEqual([]);
+  });
+});
+
+describe('resolveUntracked', () => {
+  const onDisk = (f) => f !== 'app/scripts/deleted.js';
+
+  it('returns nothing when every file is in the index and on disk', () => {
+    const refs = [{ file: 'app/scripts/x.js', scripts: ['check:x'] }];
+    expect(resolveUntracked(refs, new Set(['app/scripts/x.js']), onDisk)).toEqual([]);
+  });
+
+  it('flags a file that exists on disk but is not in the index', () => {
+    // This is the INFRA-499 shape: `.gitignore` swallowed it, `git add .`
+    // reported nothing, every local check passed because the file is on disk.
+    const refs = [{ file: 'app/scripts/ignored.js', scripts: ['check:ignored'] }];
+    expect(resolveUntracked(refs, new Set(), onDisk)).toEqual([
+      { file: 'app/scripts/ignored.js', scripts: ['check:ignored'], reason: 'untracked' },
+    ]);
+  });
+
+  it('flags a file that is in the index but absent from the working tree', () => {
+    const refs = [{ file: 'app/scripts/deleted.js', scripts: ['check:deleted'] }];
+    expect(resolveUntracked(refs, new Set(['app/scripts/deleted.js']), onDisk)).toEqual([
+      { file: 'app/scripts/deleted.js', scripts: ['check:deleted'], reason: 'missing' },
+    ]);
+  });
+
+  it('reports untracked in preference to missing when a file is neither', () => {
+    const refs = [{ file: 'app/scripts/deleted.js', scripts: ['check:deleted'] }];
+    expect(resolveUntracked(refs, new Set(), onDisk)[0].reason).toBe('untracked');
+  });
+});
+
+describe('the real package.json script tree', () => {
+  // The sibling of the workflow guard above, one level down: that one pins
+  // workflow → npm script, this one pins npm script → a file git actually has.
+  it('has no npm script invoking a file that is not in the git index', () => {
+    const fs = require('fs');
+    const { execFileSync } = require('child_process');
+    const repoRoot = path.resolve(__dirname, '..', '..', '..');
+    const scripts =
+      JSON.parse(fs.readFileSync(path.join(repoRoot, 'app', 'package.json'), 'utf8')).scripts || {};
+
+    const refs = collectScriptFileRefs(scripts);
+    expect(refs.length).toBeGreaterThan(10); // the matcher still fires
+
+    const listed = execFileSync('git', ['ls-files', '-z', '--', ...refs.map((r) => r.file)], {
+      cwd: repoRoot,
+      encoding: 'utf8',
+    });
+    const tracked = new Set(listed.split('\0').filter(Boolean));
+
+    expect(resolveUntracked(refs, tracked, (f) => fs.existsSync(path.join(repoRoot, f)))).toEqual([]);
   });
 });

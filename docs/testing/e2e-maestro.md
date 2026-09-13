@@ -8,19 +8,104 @@ Being is a wellness app touching at-risk users. These user-visible safety contra
 2. PHQ-9 score ≥20 completion shows a crisis-tier results banner.
 3. GAD-7 score ≥15 completion shows a crisis-tier results banner.
 4. Crisis button reaches `CrisisResources` from each tab (Home/Learn/Insights/Profile).
-5. 988 dial does not surface the "Unable to Call" fallback alert (pins `LSApplicationQueriesSchemes`). *Primary pin is now the jest static-config test at `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`; the Maestro flow is device-only supplementary verification — see INFRA-184.*
+5. 988 dial does not surface the "Unable to Call" fallback alert (pins `LSApplicationQueriesSchemes`). *Primary pin is now the jest static-config test at `app/__tests__/safety/lsApplicationQueriesSchemes.config.test.ts`; the Maestro flow is device-only supplementary verification — see INFRA-184. **That flow CANNOT RUN as of 2026-09-07 (DEBUG-589); the runtime half of this contract is unverified.***
 6. A voice-journal entry containing crisis language surfaces support, and a clean entry does not (FEAT-283 slice A).
 7. A cold-start `being://daily` deep link mounts an immersive practice screen with the crisis overlay present and an escape available (FEAT-298 slice 4).
 8. The DailyLoop **quick**-depth arc keeps the crisis affordance reachable despite omitting Radical Acceptance, deep's inline support-line carrier (FEAT-301).
 9. A consent-gated deep link is blocked pre-consent while a crisis deep link never is (INFRA-308 / INFRA-317).
+10. Over a stale-consent re-consent modal, 988 stays reachable and Decline is not eaten by the crisis FAB (INFRA-377).
 
 **Keep this list in step with the flows.** It read "Five" for a long stretch after contracts 6–9 shipped, which understates what the gate covers — the opposite error to the telemetry overclaim below, and just as misleading. The count is not enforced anywhere; the runner globs by tag. Verify with:
 
 ```bash
-grep -lE '^[[:space:]]*-[[:space:]]+safety[[:space:]]*$' app/.maestro/*.yaml | wc -l   # 8 sim-runnable
+grep -lE '^[[:space:]]*-[[:space:]]+safety[[:space:]]*$' app/.maestro/*.yaml | wc -l   # 9 sim-runnable
 ```
 
-Contract 5 is the ninth flow and is tagged `safety-device-only`, so it is excluded from that count and from `npm run e2e:safety`.
+Contract 5 is the tenth flow and is tagged `safety-device-only`, so it is excluded from that count and from `npm run e2e:safety`.
+
+### Tag classes
+
+`e2e-safety.sh` selects the suite on a tag line matching **exactly** `- safety`, so every
+other `safety-*` class is excluded by construction — no runner change, and a flow that
+loses its class falls back INTO the suite rather than out of it. A class exists only when a
+flow cannot be validly run on the suite's target:
+
+| Tag | Excluded because | Run it with |
+|---|---|---|
+| `safety` | — (this is the suite) | `npm run e2e:safety` |
+| `safety-device-only` | sim `canOpenURL` is unconditionally false (dial); real-device keyboard layering and the non-seeded preamble (accessory — its reachability half runs in the suite as `crisis-keyboard-reachability`) | ⛔ **CANNOT RUN — see below.** `e2e:safety:988-dial`, `e2e:safety:keyboard-accessory` refuse with exit 5 |
+| `safety-dynamic-type` | content size is device-global; a bare run poisons the shared sim | `e2e:safety:ax5`, `e2e:safety:xxxl` |
+| `safety-bottom-inset` | needs a non-zero bottom safe-area inset; the collision it adjudicates cannot occur at 375x667 at any clearance value | `npm run e2e:safety:reconsent-ineligible-fab` — booted 393x852 |
+
+Every class but the first two must declare `# e2e-certifies:` — pinned by
+`__tests__/scripts/e2e-flow-certification.test.js`, which carries the two exemptions by
+name so a fourth class fails closed into the requirement. The two are exempt because their
+certifying target is *unexpressible* by that key, not unstated: device-only runs on
+whatever iPhone is plugged in, and dynamic-type's axis is text size.
+
+### ⛔ Do not author a new `safety-device-only` flow (DEBUG-589, 2026-09-07)
+
+**The device half of the Maestro safety gate is UNAVAILABLE. No Maestro version can execute
+any flow on a physical iPhone.** A flow you tag `safety-device-only` today will never run.
+`e2e-safety.sh` refuses the device path up front with **exit 5** (`DEVICE_PATH_UNAVAILABLE`)
+rather than letting maestro die ~8s in with no JUnit report — a no-report death is
+indistinguishable at a glance from a flow regression, which is the worst failure shape a
+gate can have.
+
+Measured 2026-09-07 on iPhone 16e / iOS 26.6 / Xcode 26.0.1 / team KN6FDLG98K, across
+2.0.0, 2.1.0, 2.2.0, 2.4.0, 2.5.1, 2.6.0, 2.6.1, 2.7.0, 2.8.0, 2.9.0, 2.10.0 — two failure
+modes, no survivor:
+
+| Versions | What happens |
+|---|---|
+| **≥ 2.2.0** (incl. 2.10.0, current latest) | The shipped driver Xcode project declares a `MaestroDriverLib` framework target — 47 `project.pbxproj` references, `INFOPLIST_FILE = MaestroDriverLib/Info.plist`, a source at `Sources/MaestroDriverLib/` — and the entire `MaestroDriverLib/` directory is shipped in **zero** releases, while five UITests sources `import MaestroDriverLib`. Build dies in ~8s: `error: Build input file cannot be found: .../MaestroDriverLib/Info.plist`. **Upgrading cannot fix this.** |
+| **≤ 2.1.0** | Predates that target. Driver **builds** and the runner **installs**, but the XCUITest runner never becomes ready within a 300s `MAESTRO_DRIVER_STARTUP_TIMEOUT`. |
+
+**The hardware is not the problem.** This is *not* the sleeping-tunnel case documented in
+`.claude/CLAUDE.md`. The iPhone is wired, paired, Developer-Mode enabled and tunnel
+connected, and the runner Maestro installs launches by hand via
+`xcrun devicectl device process launch`. Maestro's own driver is the failure. Do not send
+anyone to check cables or Settings.
+
+Simulator flows are entirely unaffected: a simulator run uses a **prebuilt** driver from
+`maestro-ios-driver.jar` and never compiles. That asymmetry is the whole reason the 15
+sim-runnable safety flows are green while both device flows cannot start. **Nothing here is
+an argument to loosen Phase 2.5, the `--skip-e2e` policy, or the 15-flow tripwire.**
+
+**If your contract needs a device**, it cannot be automated today. Either express it on the
+simulator, or take it to the attended device checklist (INFRA-591). Do not tag a flow
+`safety-device-only` and assume it runs — it will not, and the tag makes the gap invisible.
+
+**Exit condition**: a Maestro release shipping `MaestroDriverLib/`, or an upstream fix to
+the runner handshake on iOS ≥ 26. To re-test once one ships:
+
+```bash
+E2E_FORCE_DEVICE_ATTEMPT=1 bash scripts/e2e-safety.sh crisis-988-dial
+```
+
+Then remove the notices in both flow headers and
+`app/__tests__/safety/deviceOnlyFlowsUnavailable.test.ts`, which pins that the record stays
+present, bounded, and still true.
+
+### The Maestro version is pinned (DEBUG-589)
+
+`app/package.json` → `maestro.pinnedVersion` (**2.6.0**) is the version every safety flow is
+certified against, and `e2e-safety.sh` refuses to run on any other (exit 2). Before this
+there was no version check anywhere in the repo — `brew upgrade` moved the toolchain with no
+diff, no reviewer and no failing check, so the gate silently re-baselined itself and the
+next red was unattributable.
+
+Moving the pin means **re-certifying every safety flow on the new version in the same
+commit**. To trial one first:
+
+```bash
+E2E_ALLOW_MAESTRO_VERSION_DRIFT=1 npm run e2e:safety   # NOT merge evidence
+```
+
+**`/b-close` never SCOPES an out-of-suite flow — it emits a notice.** Scoping one alongside
+a suite flow makes the close unsatisfiable: `e2e_resolve_sim_device` pins exactly one
+device, so two different certifying targets in one request cannot both be met, and an
+unsatisfiable gate is what trains the `--skip-e2e` reflex (INFRA-510).
 
 Every Jest test in the suite mocks `Alert.alert` and `Linking.canOpenURL`. That's correct for Jest's job (fast logic verification), but it means these user-visible contracts are invisible to the rest of the test stack. The MAINT-166 PR 1 double-Alert regression existed because nothing mechanically pinned them — the bug only surfaced because a code-review docstring (`⚠️`) flagged it.
 
@@ -155,6 +240,22 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > — CI is 100% `ubuntu-latest`, so nothing there proves Xcode actually rebuilt the
 > bundle, only that the script refuses to proceed when the evidence says it did not.
 
+> **A peer can still replace your target between the gate build and the flows (INFRA-484).**
+> `e2e-gate.sh` releases its leases on exit and `e2e-safety.sh` acquires the simulator lease
+> when it starts, so inside `/b-close` nothing owns the device between the two steps. Measured
+> at 4 of 28 flow-run attempts over 19h.
+>
+> The pre-flight now **rebuilds once, automatically**, when the installed marker names a
+> *different* worktree, and says whose build it found. `E2E_NO_AUTO_REGATE=1` restores the
+> plain refusal. Two cases deliberately never auto-rebuild: a marker naming **your own**
+> worktree (your tree moved — that is your edit and your call) and **no marker at all**
+> (nothing to attribute, so nothing to act on).
+>
+> Holding one lease across gate → flows would close the window outright and was rejected on
+> measurement: 17 of 18 spans already overlap another session, median 14.5 min and worst 58.3,
+> so spanning would serialise every close on the machine to remove a failure that already
+> fails closed.
+
 > ⚠️ **The gate target is a Release build — `npm run ios` (Debug) will not do.**
 > The **configuration**, not the EAS profile, is what removes the dev launcher.
 >
@@ -203,9 +304,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   E2E_SIM_UDID=<udid> npm run e2e:safety:build   # …or name the target explicitly
   ```
 
-  `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike. Set it for
-  both halves of a session, or the gate will resolve a different device than the build did
-  and refuse the artifact.
+  `E2E_SIM_UDID` is honoured by `e2e:safety:build` and by `e2e:safety` alike, **and at any
+  device count** (DEBUG-497). Set it for both halves of a session, or the gate will resolve
+  a different device than the build did and refuse the artifact.
+
+  It is matched as an exact UDID, never a prefix and never against the device name. A pin
+  naming a simulator that is not booted **refuses** rather than falling back to whatever is
+  running — including when only one device is up, which used to resolve the booted one and
+  report success. So a stale exported pin now stops a session instead of silently
+  mis-attributing it; boot the device you named, or clear the variable.
 
   It names a **simulator** only. The device-only flow (`e2e:safety:988-dial`) uses a
   separate `E2E_DEVICE_UDID`, deliberately — because you are told right here to export
@@ -216,9 +323,27 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   cocoapods`.)*
 - **Timing (measured, SDK 56 / Xcode 26.0.1):** ~14 min for the first build in a *fresh*
   worktree — it also pays the CNG prebuild and `pod install`; ~11 min if `app/ios/`
-  already exists; **~35-75 s warm** thereafter. DerivedData is ~7.5 GB and keyed by
+  already exists; **~35-75 s warm** thereafter. DerivedData is ~5-7 GB and keyed by
   project path, so each worktree pays its own cold build once. Use
   `npm run e2e:safety:clean` to see what that is costing and to reclaim it.
+- **Orphaned DerivedData is the one that fills the disk (INFRA-435).** Removing a worktree
+  does not remove its cache, and nothing reaped them, so they accumulated at roughly one
+  per closed work item — observed at **119 GB across 24 `Being-*` directories against only
+  5 live worktrees**, which surfaced as a build dying with `lipo: can't write to output
+  file … (No space left on device)` and `xcodebuild` error 65. That message names the
+  linker, not the disk. Reclaim with:
+
+  ```bash
+  npm run e2e:safety:clean:orphans            # list orphans + reclaimable total
+  npm run e2e:safety:clean:orphans -- --yes   # reap them
+  ```
+
+  Orphanhood is keyed on the **worktree root**, never the `.xcworkspace` leaf: under CNG
+  `app/ios/` is generated, and `e2e-sim-build.sh` deletes it for the duration of a
+  `prebuild --clean`, so a leaf-keyed sweep would reap the shared gate worktree's own cache
+  mid-build. A cache whose `WorkspacePath` is unreadable is reported as unknown and never
+  reaped. `e2e-sim-build.sh` also refuses up front below `E2E_MIN_FREE_GB` (default 10)
+  with a message naming **disk space**, so this never again presents as a linker error.
 - The EAS fallback (`npm run e2e:safety:build:eas`) *does* still need `eas-cli` logged in
   (`npx eas whoami`), `fastlane`, and a clean tree, and takes 10–15 min every run.
 - **eas-cli version (INFRA-351).** That fallback calls the **bare global** `eas`, whose
@@ -285,8 +410,37 @@ rollback and as a re-measurable baseline after toolchain upgrades.
 
 ## Running the flows
 
+> **Operator rule (INFRA-434): do not replace the installed app while a suite is running.**
+> The gate resolves and attests its target once at pre-flight, then runs for minutes.
+> INFRA-436's per-UDID lock covers a peer's `npm run e2e:safety:build`, so that path now
+> waits rather than trampling. It does **not** cover anything that never takes the lock:
+> `npm run e2e:safety:build:eas` (zero lock acquisitions — it uninstalls and installs
+> directly), `npm run ios`, Xcode Run, or a hand-run `xcrun simctl install` / `uninstall` /
+> `erase`.
+>
+> Since INFRA-434 the gate re-reads its target's provenance marker between flows and after
+> the last one, and **aborts with exit 3** if it changed or disappeared — distinct from
+> exit 1 (a flow regression) and exit 2 (the harness could not complete). Every flow that
+> had already finished is reported `VOID`, not `PASS`: a marker change bounds a window
+> rather than an instant, so nothing that ran before it is evidence. When the marker was
+> replaced rather than deleted, the abort names the replacing worktree's `repoRoot` and
+> `branch`; an uninstall leaves no marker, so that case reports `VANISHED` with no
+> attribution.
+>
+> **INFRA-472 — `npm run e2e:safety:gate` leases the worktree and the simulator together,
+> and exits 4 when a peer owns either.** The pair is taken before the gate re-points the
+> shared worktree, so a refusal has mutated nothing; the message names the holder's work
+> item, commit, and when the lease was taken. Exit 4 is the gate slot being busy — wait,
+> or build in your own worktree — and is deliberately distinct from 1/2/3 above. Stale
+> leases are reclaimed automatically (the holder is identified by pid **and** process
+> start time, so a recycled pid cannot be mistaken for a live one). For a holder you have
+> confirmed is wedged rather than working, `E2E_LOCK_FORCE=1` overrides and prints the
+> full record it destroys; it will clobber a genuinely running peer, so confirm first.
+
 ```bash
-# Sim suite (4 flows tagged `safety`, ~3–5 min) — runnable on iOS sim.
+# Sim suite (currently 8 flows tagged `safety`, ~12 min) — runnable on iOS sim.
+# The count is DESCRIPTIVE: the runner globs by tag, so adding a `safety`-tagged
+# flow silently changes it. Verify with `grep -c 'safety$' app/.maestro/*.yaml`.
 # INFRA-220: runs each flow as a SEPARATE maestro invocation with an XCUITest-
 # driver reset between (scripts/e2e-safety.sh), NOT one batch
 # `maestro test .maestro/` session. A shared session degrades across the suite
@@ -336,7 +490,7 @@ npm run e2e:safety:crisis-button   # crisis button reaches CrisisResources from 
 # see the E2E_SIM_UDID note above, which tells you to export that one for a whole
 # session; if the device resolver read it, that simulator UDID would refuse a
 # correctly-attached iPhone.
-npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" fallback (device-only)
+npm run e2e:safety:988-dial        # ⛔ REFUSES with exit 5 — device path unavailable (DEBUG-589)
 
 # Two device-only + simulator flows in ONE invocation is REFUSED, not resolved — the
 # two families need different hardware, and picking either one mislabels the result.
@@ -344,6 +498,399 @@ npm run e2e:safety:988-dial        # 988 button does not show "Unable to Call" f
 ```
 
 `/b-close` Phase 2.5 automatically picks the scoped subset of flows based on changed paths — see CLAUDE.md Workflow Commands. `app.json` / `Info.plist` changes no longer trigger a Maestro flow: the jest static-config test in precommit catches `LSApplicationQueriesSchemes` regressions deterministically (INFRA-184).
+
+## Run the gate on an UNCONTENDED machine (DEBUG-473)
+
+The gate is single-*device* by construction (`e2e_resolve_sim_device` refuses when 2+ are
+booted). It is not single-*machine-run*, and nothing enforces that — so two worktrees can
+each resolve their own simulator, both pass the pre-flight, and still invalidate each
+other's result by starving the host.
+
+**Measured.** `crisis-button-reachability` at 402x874, one unchanged tree, Release build,
+clean provenance:
+
+| host state | flow wall-clock | verdict |
+|---|---|---|
+| idle (load ~3-5, 0 peer processes) | 1m57s, 5/5 | PASS |
+| 2 peer Maestro drivers + 1 Xcode build (load 300-480) | 2m21s / 15m12s / **45m20s** | FAIL |
+
+A single `scrollUntilVisible` iteration cost ~1.5s idle and up to 13.7s contended. Under
+load the failing element **wandered** between `profile-card-export` and
+`profile-card-delete` across runs of a byte-identical tree — which is the tell, because
+geometry is deterministic about which element it hides and a budget is not.
+
+**Why this matters beyond flakiness.** A contended red is indistinguishable from a layout
+regression at the point of reading, and it invites a device-specific diagnosis that the
+geometry does not support. DEBUG-473 was filed as a 402x874 fold defect on exactly that
+basis; `maestro hierarchy` showed both cards 100% inside the fold.
+
+**The gate now reports this itself (INFRA-476).** `e2e-safety.sh` prints a host reading at
+pre-flight — after the INFRA-436 lock acquire and after the pre-flight driver reap, so the
+figure is current and our own about-to-die orphans are not counted as someone else's load —
+and repeats it beside the summary. Every verdict line also carries that flow's wall-clock,
+so a 45-minute "pass" reads as untrustworthy rather than green:
+
+```
+🖥️  Host at flow start: load1 3.20 / 10 cpu (0.32x) · 0 peer maestro JVM · 0 peer driver · 0 other xcodebuild
+    PASS  crisis-button-reachability  (1m57s)
+```
+
+**It WARNS and never refuses.** Same reasoning `e2e_warn_if_not_smallest_viewport`
+documents: a pre-flight that refuses on a judgement the operator disagrees with trains the
+`--skip-e2e` reflex the gate exists to prevent, and a false "someone else is running" means
+the human does not run the gate at all — failing toward *not testing*, which DEBUG-392
+recorded happening in this exact shape. Tune the threshold with
+`E2E_HOST_LOAD_WARN_RATIO` (default `0.7`). It is advisory reporting only and takes no
+lock; INFRA-472 owns any actual lease.
+
+**The threshold was 1.0x and that was too high (INFRA-500).** It was justified as splitting
+a band that was "empty in the measurements", but DEBUG-473's sample is bimodal — idle at
+0.3-0.5x, catastrophic peer contention at 30-48x — and never observed the moderate band a
+gate's own build produces. INFRA-490's per-flow telemetry did: at **0.91x**, scroll-bound
+flows stretched 35-88% and `daily-loop-quick-depth` failed at `scrollUntilVisible`, while
+fixed-duration flows did not move at all. Nothing warned, because `0.91 < 1.0` and the
+build had already exited so the peer count was 0. Two things not to unlearn: the stretch is
+*selective* (scroll budgets, not wall-clock generally), and elapsed time *hides* it on the
+runs that fail — that FAIL took 61s against 64s/65s passes, because it aborted at the blown
+budget instead of completing. The full re-derivation is in `e2e-host-contention.sh`'s
+header.
+
+**The gate now settles before flow 1, rather than only reporting (INFRA-500).** The
+documented recipe runs `npm run e2e:safety:gate` and then the flows back to back, so the
+load it warns about is usually *its own build's*, decaying on a ~60s time constant. So
+`e2e-safety.sh` waits — up to `E2E_HOST_SETTLE_MAX_S` (default `120`, polling every
+`E2E_HOST_SETTLE_INTERVAL_S`, `0` disables) — for the ratio to fall below the threshold,
+then says which happened and runs either way. The host line you see is the *post*-settle
+reading, i.e. the load the flows actually ran under.
+
+**A settle is a wait, not a refusal, and must never become one.** Every flow still runs,
+the exit alphabet is unchanged, and nothing is excluded — the reasoning above against
+refusing is not overturned by it. A **peer's** load is never waited out, because a peer
+mid-build holds the host for as long as its build takes and no useful bound covers that;
+the wait ends immediately and the warning does the work. Each settle is recorded to the
+INFRA-490 log as `"kind":"settle"` so the next recalibration has a sample.
+
+To check by hand before starting a build, identify processes by executable, never by
+command line — an `args` match also matches the shell that mentions it (DEBUG-392):
+
+```bash
+ps -axo comm= | awk '$0 ~ /(^|\/)(xcodebuild|java)$/'
+```
+
+Read that as *what else is running*, not as a verdict: it counts any unrelated Xcode build
+or JVM on the machine, so a non-empty result is not proof a peer gate run is in progress.
+**Use the single-column form.** Asking for `comm` and `args` in one `ps` invocation caps
+`comm` at 16 characters, so `/Applications/Xcode.app/…/xcodebuild` arrives as
+`/Applications/Xc` and matches nothing — the defect INFRA-476 fixed in
+`e2e-driver-ownership.sh`, where it had silently disabled every xcodebuild matcher while
+the `java` ones kept working because `java` is 4 characters.
+
+Do not tune a flow's timeouts to survive a contended host. A machine slow enough to blow a
+scroll budget is a machine on which that flow's crisis assertions — the ~10s `assertVisible`
+standing in for the <3s 988 SLA, the 3000ms `notVisible: "Unable to Call"` windows — are not
+trustworthy either. Contention must be **visible**, never absorbed: the run reports it
+loudly and lets the operator decide, rather than failing closed on it.
+
+## Lease waits and host load are recorded, not just printed (INFRA-490)
+
+Three locks exist — INFRA-436 (simulator), INFRA-463 (gate worktree), INFRA-472 (the pair)
+— and until INFRA-490 none of them recorded anything, so *how often does a session actually
+wait, and for how long?* had no answer. Each lock was filed on one captured incident: real,
+but an incident is not a rate. INFRA-476 computed the host reading above and then discarded
+it.
+
+Every `e2e_lock_acquire` now appends one JSON line, and so does every flow that runs:
+
+```
+/tmp/being-e2e-telemetry/events.jsonl
+{"epoch":1755647051,"kind":"lock","ns":"sim","key":"5C81…","outcome":"acquired","waited_s":0,"contended":false,"pid":52118,"label":"gate build"}
+{"epoch":1755647312,"kind":"flow","flow":"crisis-button-reachability","verdict":"PASS","elapsed_s":117,"viewport":"402x874","pid":52118,"peer_jvms":0,…,"ratio":0.32}
+```
+
+Read it with one command — `npm run e2e:safety:telemetry` (append `-- <file>` for a log
+elsewhere):
+
+```
+📊 e2e gate telemetry — /tmp/being-e2e-telemetry/events.jsonl
+   lock acquires   12    (contended 6 = 50.0%; inherited 1 not counted)
+   wait median     0s     p90  61s     max  1800s
+   outcomes        acquired 10 · reclaimed-stale 1 · refused 1 · inherited 1
+   flow runs       2    (PASS 1 · FAIL 1)
+   flow median     117s     p90  912s     max  912s
+```
+
+Four things about it are load-bearing:
+
+- **The path is outside every worktree, and that is correctness, not tidiness.**
+  `e2e-provenance.js` fingerprints untracked file contents repo-wide, so a log under the
+  repo would make the next verify return `MISMATCH` and force a rebuild on every gate run.
+  Not `$TMPDIR` either — macOS gives each user a private one, and telemetry two sessions
+  cannot both append to answers the wrong question. `/tmp/being-e2e-locks` is the sibling
+  precedent.
+- **A zero-wait acquire is recorded.** Without the denominator a wait distribution has no
+  population, and the answer would always look like "waits are long" because only waits
+  would be in it.
+- **A wait is timed from the first lost `mkdir`**, not from function entry. `date +%s` is
+  second-granular and the acquire path spends ~100 ms in its own `ps` scans, so anchoring
+  at entry stamped phantom 1-second waits onto the overwhelmingly-uncontended population —
+  directly on top of the median this exists to measure.
+- **`inherited` is excluded from the contended rate.** A child honouring its parent's lease
+  (INFRA-472) could never have waited; counting it would drag the rate toward zero by
+  construction.
+
+Nothing locks the log: a single `printf` of a sub-`PIPE_BUF` line to an `O_APPEND` file is
+atomic, so peers interleave records but never characters — and a lock around the record of
+lock contention would be circular. Writes fail open and are silenced with
+`E2E_TELEMETRY=0`; a telemetry writer that can fail an acquire would make the gate less
+reliable in the name of measuring its reliability.
+
+This is a **two-week collection feeding one decision** (INFRA-491: whether parallel gate
+runs are possible on this machine). Append-only, no rotation, no aggregation at write time.
+Delete the file once that decision is recorded.
+
+## Which VIEWPORT is a gate result allowed to certify? (INFRA-486, armed INFRA-493)
+
+**Decision: a declared target plus a labelled verdict, declared PER FLOW — never an exit
+status.** Each flow carries a machine-readable `# e2e-certifies: <viewport>|any` key, read by
+`e2e_flow_certifies`. Every run labels each result with whether the device it ran on matches
+that declaration. A run on another viewport still executes and still reports; it simply does
+not claim to certify.
+
+**Why per flow, not per suite.** Only some flows are layout-sensitive. Four declare
+`375x667` — `crisis-button-reachability`, `deeplink-consent-gate`, `reconsent-stale`,
+`daily-loop-quick-depth` — because each asserts a position against the fold or a hit test
+against the FAB band. The other five assert a threshold, a detection, or the structural
+presence of a root overlay, and declare `any`. Requiring the whole suite to certify the
+small viewport would roughly double the cost of satisfying the gate for no added coverage,
+and an expensive gate is what trains the `--skip-e2e` reflex.
+
+Contract-independence is **not** run-independence: a flow declaring `any` can still go red on
+a small device for harness-geometry reasons (DEBUG-477). That is a flake to diagnose, not a
+certification claim.
+
+**Fails closed.** A flow with no declaration is treated as declaring the smallest supported
+viewport, so a newly added flow is flagged rather than silently certified everywhere. A jest
+coverage pin asserts every safety-tagged flow carries the key.
+
+**The predicate is the derived VIEWPORT, by equality** — not the display name (renameable),
+not `deviceTypeIdentifier` (a hand-kept table that rots), and not `<=` (which would admit
+320x568; iOS minimum is 16.4 and every 320x568 iPhone caps at iOS 15.8, so no user is there).
+
+**ARMED (INFRA-493).** A flow whose assertions held on a viewport it does not declare
+reports a third verdict token — `UNCERTIFIED`, never `PASS` (a green a reader or a grep can
+salvage is an unenforced guarantee) and never `FAIL` (which would make a real 988 regression
+indistinguishable from a wrong-device run). `E2E_SIM_VIEWPORT=unknown` counts as
+non-certifying for a layout-sensitive flow and as certifying for a `viewport-independent`
+one. `e2e_run_certifies` is the single authority; the label consumes it rather than
+re-deriving it, so the two cannot drift.
+
+**The exit alphabet is unchanged: 0 pass / 1 regression / 2 harness / 3 target replaced.** A
+non-certifying all-green run still exits **0**, so any device remains usable for iterating
+and debugging. The refusal is `/b-close`'s alone and applies only to a MERGE — it fires on
+the ABSENCE of a certifying run, never on the presence of a large device. It reads
+`certification: CERTIFIED|UNCERTIFIED` from the run receipt, whose path the caller sets with
+`E2E_RECEIPT_PATH`; an absent or unreadable receipt refuses, because that is an absence too.
+There is no `--allow-any-viewport`; `--skip-e2e` stays hotfix-only. What keeps this from
+training the skip reflex is that remediation is one pasteable command, which the refusal
+prints. The gate never boots or creates a simulator — the simulator is shared across
+worktrees and whoever owns the boot owns the driver (INFRA-423).
+
+**Dynamic Type is a second axis and is deliberately NOT carried by this key.** INFRA-493
+planned to shape `e2e-certifies` to hold a type setting; DEBUG-469 owns the axis and is
+closing it by ASSERTING default content size at pre-flight instead, with scaled type as its
+own tag class. An invariant the harness enforces needs no per-flow declaration, and
+declaring one would imply a variable the default suite does not have. Revisit only if that
+approach changes.
+
+**Validation record — the first full-suite green at the declared target (INFRA-486,
+2026-08-19).** `npm run e2e:safety`, all **9** safety-tagged flows green in one uninterrupted
+invocation on **iPhone SE 3 / iOS 18.6 (375x667)**, `development` @ `93efef69`, Release,
+clean-tree provenance, default Dynamic Type. DEBUG-477's two remaining reds (`gad7-severe`,
+`journal-crisis-scan`) are fixed, and `reconsent-stale` ran at this viewport for the first
+time. This supersedes the 5/8 and 7/8 figures recorded elsewhere, both of which predate
+`reconsent-stale`.
+
+## Which iOS runtime is a gate result allowed to be earned on? (INFRA-429)
+
+**Decision: 18.6 is retired as a *gate* target and retained as a *triage* target.** The gate
+runs against whichever single simulator is resolved. No runtime is pinned and none is refused.
+
+**Validation record.** `npm run e2e:safety`, all 8 safety-tagged flows green in one
+uninterrupted invocation on **iPhone 16 Plus / iOS 26.0** — a freshly created simulator with
+no scheme approval and no driver history — clean-tree provenance, no reboot between flows
+(2026-08-16, INFRA-429). This is the first full-suite result recorded on 26.x. The
+per-device matrix lives in `daily-loop-quick-depth.yaml`; extend it, don't replace rows.
+
+**Validation record — the SMALLEST supported viewport (DEBUG-477, 2026-08-18).**
+`npm run e2e:safety` on **iPhone SE 3 / iOS 18.6 (375x667)**, a freshly created simulator,
+Release build, clean-tree provenance `086d6139`, idle host: **7 of 8 green**. The eighth,
+`daily-loop-quick-depth`, fails on `Element not found: Id matching regex: daily-loop-skip-breath`
+— that is **DEBUG-468's** defect, whose fix is on `fix/DEBUG-468-daily-loop-skip-breath-fold`
+and not yet on `development`. Every flow DEBUG-477 owns is green here.
+
+This is the **first** full-suite result ever recorded at 375x667, and it matters more than the
+count: the suite had never been run as a whole on this viewport, while `e2e-sim-device.sh`
+actively directs operators to it and DEBUG-465 ruled the gate should be pinned to it. Do not
+read the earlier 430x932 and 402x874 greens as covering it — two of the three flows that were
+red here were red for reasons no larger viewport can exhibit.
+
+**Why not "both runtimes must pass".** The version has never been the variable. Both prior
+version-attributions in this repo were wrong and both resolved to simulator *state*: the
+`Open in "Being"?` alert (DEBUG-422 — a fresh 18.6 sim alerts identically) and DEBUG-408's
+iPhone 17 Pro / 26.0 failure (fixed by `simctl erase`). Two false signals, zero true ones.
+Requiring both doubles the slowest gate in the repo, and a gate made slow enough is one
+people learn to `--skip-e2e` past.
+
+**Why not pin a runtime.** `e2e-sim-device.sh` only *resolves* among already-booted
+simulators; it never boots one. A pin is therefore implementable only as a *refusal*, which
+hard-fails on a machine whose sole booted simulator is 26.x — and `--skip-e2e` is a
+`hotfix/*`-only bypass, so the operator's remaining options would be "boot a different sim"
+or "don't merge". Fresh Xcode installs land on 26.x, so that population only grows.
+
+**What "triage target" obliges.** Before concluding a red flow is a runtime difference rather
+than an app regression, re-run it on the other runtime. That is not advice — it is the step
+that disproved DEBUG-408's below-the-fold hypothesis in minutes, after a full investigation
+had already accepted it.
+
+**Residual risk, stated rather than hidden.** A reactive cross-version check catches 26.x
+regressions that go *red* and misses any that go *false green*. The known instance is
+`journal-crisis-scan.yaml`'s `hideKeyboard`: were a runtime to degrade it to a no-op, the
+specificity assertions would pass without proving anything and nothing would turn red.
+Measured on 26.0 for INFRA-429 and it is genuinely dismissing — hierarchy after `hideKeyboard`
+contains no keyboard elements and no `journal-crisis-banner`, against a control with the
+keyboard raised that shows nine. Closing the class rather than this instance would require
+both-must-pass, and should be argued on that basis if it is ever revisited.
+
+**Recorded since INFRA-478.** This used to say the runtime a green was earned on was not
+recorded anywhere, leaving the hand-maintained flow headers as the only record. The gate now
+derives and prints the resolved device's **model, iOS runtime and viewport** — on every
+verdict line and in the run summary:
+
+```
+📱 Device: iPhone SE (3rd generation) / iOS 18.6 / 375x667
+    PASS  crisis-button-reachability  (1m57s · 375x667)
+```
+
+Derived, not tabulated: `deviceTypeIdentifier` and the runtime key come from the
+`xcrun simctl list devices booted -j` call the resolver already made and discarded, and the
+viewport from the device type's own `profile.plist` (`mainScreenWidth`/`Height`/`Scale`). A
+hand-kept model→points table is the thing that rots — every `375x667` and `430x932` figure
+elsewhere in this repo is typed into a comment by hand.
+
+The smallest-viewport check now keys on that **derived viewport** rather than on the
+simulator's display name. The old `case` against the substring `"iPhone SE"` was wrong in
+both directions: an iPhone SE 1st-gen (320x568) is genuinely smaller than the baseline and
+silently satisfied it, while any renamed simulator defeated it. Both are pinned in
+`app/__tests__/scripts/e2e-sim-device-attribution.test.js`.
+
+**Still warn-only, and still not a pin.** The gate records which device it ran on; it does
+not choose one. Choosing is **INFRA-486**, and it is deliberately separate: "pin to the
+smallest model" and "never refuse because the device is large" are the same behaviour with
+opposite verdicts, since the resolver consumes an already-booted simulator and never boots
+one. That item is also blocked on a full **9-flow** SE 3 measurement that has never been run
+— the 8-flow baseline predates `reconsent-stale.yaml`.
+
+**Update (DEBUG-477, 2026-08-18):** `journal-crisis-scan` no longer uses `hideKeyboard`. The
+false-green hazard described above is now pinned by a two-sided assertion on the keyboard
+itself rather than trusted. See the next section.
+
+## The swallowed tap: a mid-content swipe eats the next touch (DEBUG-477)
+
+**The predicate, so you can recognise it without re-deriving it.** A Maestro
+`scrollUntilVisible` whose swipe terminates **mid-content**, followed by a `tapOn`, loses
+exactly **one** touch. The command reports `COMPLETED`; the app never receives it.
+
+It is cleared by **any** prior touch, or by a scroll that terminates at a **content
+boundary**. It is *not* cleared by time. `retryTapIfNoChange` cannot save you: the swallowed
+tap nudges the list 1–3 pt, so Maestro sees "the hierarchy changed" and does not retry — the
+defect defeats Maestro's own guard against it.
+
+**Positive evidence, not inference.** The Profile `ScrollView` was temporarily instrumented
+(`onScrollEndDrag` / `onMomentumScrollBegin` / `onMomentumScrollEnd`, plus `onPressIn` on the
+card) with the counters rendered into the hierarchy so they could be read headlessly:
+
+| point | `d` | `mb` | `me` | `pi` |
+|---|---|---|---|---|
+| after the scroll, before any tap | 1 | 1 | 1 | 0 |
+| after the swallowed tap | 2 | 1 | 1 | 0 |
+
+Momentum had already **begun and ended** before the tap, so the list was at rest by RN's own
+accounting — this is not inertia. The tap incremented `onScrollEndDrag` (the ScrollView took
+it as a zero-distance drag) and never fired `onPressIn`. `UIScrollView` consumed it.
+
+**The probe table.** All on iPhone SE 3 / iOS 18.6 (375x667), Release, one flow each, idle
+host. Nine observations; the model explains all nine.
+
+| # | sequence | result |
+|---|---|---|
+| A/B | scroll DOWN to a mid-list card → tap → tap again | tap 1 does nothing, **tap 2 navigates** |
+| C | same, `waitToSettleTimeoutMs: 6000` (honoured), one tap | **fails** — time is not the variable |
+| D | scroll DOWN to card 2, scroll UP to card 1 (top boundary), tap card 1 | **passes** |
+| E | DOWN → UP → DOWN to card 2, tap | fails |
+| F | same as A but `centerElement: true` (centre y=300 not y=279) | fails — not position |
+| G | DOWN past the card, UP back to it, tap | fails — not scroll direction |
+| H | scroll, tap an **inert blank gap**, then tap the card | **passes** — not card-specific |
+| I | scroll, tap `tab-profile` (outside the ScrollView), then tap the card | **passes**, offset survives |
+| K | faster swipe: `speed: 60` → 0.401 s | fails. `speed: 100` → 0.001 s: the scroll itself fails |
+| P | same-point `swipe` (a touch held for a stated duration) at 120 / 300 / 600 / 1200 ms | **all four fail** |
+| P-ctl | same 120 ms touch, but with the swallow already absorbed by a prior tap | **passes** — so the primitive is valid and P's result is real |
+
+**Which flows this can bite.** Only a flow that scrolls to a **mid-list** target and then taps
+it. The suite's other card scrolls are immune by construction, and it is worth knowing why
+rather than assuming they are lucky:
+
+- `phq9-severe-completion` / `q9-single-alert` scroll to `take-phq9-button`, the **first**
+  card, already 100% visible at offset 0 — **zero swipes**, so no swallowed touch.
+- `crisis-button-reachability` uses `centerElement: true` + `visibilityPercentage: 100`
+  throughout, which per DEBUG-453 drives those scrolls to **maximum scroll**, i.e. to a
+  boundary.
+- `journal-crisis-scan`'s `profile-card-voice-reflection` is the **last** card in the list, so
+  its DOWN scroll *usually* terminates at the bottom boundary and the swallow does not
+  reproduce — it passed 3/3 in isolation. **Do not read that as immunity.** The same site
+  then failed in the Phase 2.5 gate, by a *different* mechanism: the scroll stopped short
+  with the card at `[24,463][351,666]` while Maestro logged `Visibility Percent: 1.0`,
+  because the ScrollView clip ends at y=583 and XCUITest keeps elements that are merely
+  clipped. That is DEBUG-465's shape, not this one, and `centerElement: true` is its fix.
+  **Two different defects can wear the same red on one line of a flow** — check the bounds
+  before choosing a remedy, and do not let a handful of green runs stand in for that.
+  **The bottom-boundary immunity is also TYPE-SIZE-DEPENDENT (DEBUG-507).** At
+  `extra-extra-extra-large` the card measures 279pt against 203pt, the DOWN scroll no longer
+  terminates cleanly at the boundary, and the swallow reproduces on this last card too.
+
+**Do not add the workaround to a flow that is green.** In particular do not add
+`waitToSettleTimeoutMs` to `crisis-button-reachability`: it is spent per swipe iteration
+*inside* the scroll's own timeout, and DEBUG-473 measured that flow's budget at 95% consumed
+on an idle machine. Hardening a structurally immune flow at the cost of turning the suite's
+most important flow red on a busy host is a net loss.
+
+**The remedy, where it is needed:** an absorbing `tapOn` on an element-anchored target
+*outside* the ScrollView, between the scroll and the real tap — `gad7-severe` re-taps
+`tab-profile`, which is already the active tab. Comment it, because a bare extra tap on the
+active tab reads as a copy-paste slip and will be tidied away otherwise.
+
+**Resolved — the producer is the variable (DEBUG-479, 2026-08-21).** Every probe above shows
+the app never receiving the touch, and probe P had narrowed the field the wrong way: it
+excluded touch duration only *within* the XCUITest producer, so that exclusion never
+transferred. Tested by hand on the Simulator — iPhone SE 3 / iOS 18.6 (375x667), Release
+`e2e-sim` build at `3eb94691`, Profile -> flick the GAD-7 card to mid-screen -> tap **once**,
+five reps — **5/5 first taps navigated.** Same device, geometry, build and gesture as the probe
+table; only the input path differs. XCUITest's synthesised touch is swallowed; the Simulator's
+HID path is not.
+
+The classification is therefore **harness artefact**, and DEBUG-477's absorbing tap stays: the
+swallow is fully reproducible on the automation path this suite actually runs on. The blast
+radius is unchanged from "Which flows this can bite" above — `take-gad7-button`, and any target
+that is neither first nor last on a scrolled surface — but it is a blast radius over *flows*,
+not over users. DEBUG-507 widened it at non-default text sizes: at `extra-extra-extra-large`
+the last card loses its immunity, and a Profile entry that navigates correctly by hand still
+fails the harness.
+
+**One residual, named so it is not re-derived as settled.** This ran on the Simulator's
+simulated HID stack, not a physical handset, so it is confirmed down to that stack and not to a
+real finger. DEBUG-479's AC 2 was conditional on a device being available, and no iPhone SE 3
+exists on this machine. The gap is narrow — UIScrollView touch delivery is UIKit code common to
+both — but it is a residual, not a proof, and this defect has already burned one reassuring
+explanation that held right up until it was measured.
 
 ## How a flow works
 

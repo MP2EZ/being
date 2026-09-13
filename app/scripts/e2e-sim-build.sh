@@ -72,8 +72,9 @@ BUNDLE_ID="fyi.being.app"
 PRODUCT_DIR="ios/build/Build/Products/Release-iphonesimulator"
 CNG_STAMP="ios/.cng-stamp"
 # CNG inputs: everything `expo prebuild` reads to generate ios/. app.json is the sole
-# source of the generated Info.plist since INFRA-280 moved iOS to CNG.
-CNG_INPUTS=(app.json package.json plugins patches)
+# source of the generated Info.plist since INFRA-280 moved iOS to CNG. The stamp holds a
+# CONTENT fingerprint of those inputs (scripts/cng-fingerprint.js), not a timestamp —
+# see step 4 for why the mtime form was wrong.
 
 BUILD_OK=0
 # INFRA-405. Declared HERE, before the trap is armed at the bottom of this block: cleanup()
@@ -139,6 +140,54 @@ else
 fi
 
 # ---------------------------------------------------------------------------------------
+# 1b. Disk-headroom pre-flight (INFRA-435).
+#
+#     PLACEMENT IS FORCED, NOT STYLISTIC. This must run before step 2's device resolution,
+#     before step 2b's lock acquisition, and decisively before step 3's `simctl uninstall` —
+#     the first mutation. `cleanup` only reinstalls nothing; a refusal after step 3 leaves
+#     the simulator with no fyi.being.app, having also taken and released a peer-visible
+#     lock. Refusing here costs nothing and mutates nothing.
+#
+#     Why it exists: out of disk, `xcodebuild` fails as
+#     `lipo: can't write to output file ... (No space left on device)` + error 65, which
+#     names the linker rather than the disk and sends the reader diagnosing the wrong
+#     subsystem. The dominant consumer is orphaned DerivedData from removed worktrees, so
+#     the message points at the sweep that reclaims it.
+#
+#     Fails OPEN on an unreadable probe. This check is advisory plumbing; it must never be
+#     the reason the gate cannot run. `df -P` forces single-line POSIX output so a long
+#     device name cannot shift the column that `awk` reads.
+# ---------------------------------------------------------------------------------------
+MIN_FREE_GB="${E2E_MIN_FREE_GB:-10}"
+AVAIL_KB="$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print $4}' || true)"
+case "$AVAIL_KB" in
+  '' | *[!0-9]*)
+    echo "⚠️  Could not read free disk space — skipping the headroom check." >&2
+    ;;
+  *)
+    AVAIL_GB=$((AVAIL_KB / 1048576))
+    if [ "$MIN_FREE_GB" -gt 0 ] && [ "$AVAIL_GB" -lt "$MIN_FREE_GB" ]; then
+      echo "❌ Not enough DISK SPACE to build." >&2
+      echo "   Free: ${AVAIL_GB} GB · required: ${MIN_FREE_GB} GB" >&2
+      echo "   A cold build writes ~5-8 GB of DerivedData. Out of space, xcodebuild fails" >&2
+      echo "   as a 'lipo: No space left on device' linker error, which names the wrong" >&2
+      echo "   subsystem — hence this check." >&2
+      echo "" >&2
+      echo "   Reclaim caches whose worktree no longer exists:" >&2
+      echo "     npm run e2e:safety:clean:orphans            # list" >&2
+      echo "     npm run e2e:safety:clean:orphans -- --yes   # reap" >&2
+      echo "" >&2
+      echo "   Override with E2E_MIN_FREE_GB=0 if you know the build fits." >&2
+      exit 1
+    fi
+    if [ "$MIN_FREE_GB" -gt 0 ] && [ "$AVAIL_GB" -lt $((MIN_FREE_GB * 2)) ]; then
+      echo "⚠️  DISK SPACE is tight: ${AVAIL_GB} GB free. A cold build wants ~5-8 GB." >&2
+      echo "    npm run e2e:safety:clean:orphans   # see what is reclaimable" >&2
+    fi
+    ;;
+esac
+
+# ---------------------------------------------------------------------------------------
 # 2. Resolve the target simulator — ONCE, here, before anything is mutated.
 #
 #    INFRA-405. This used to be a bare "is anything booted?" probe, with the actual UDID
@@ -167,22 +216,64 @@ xcrun simctl uninstall "$SIM_UDID" "$BUNDLE_ID" >/dev/null 2>&1 || true
 # ---------------------------------------------------------------------------------------
 # 4. CNG staleness -> prebuild. Conditional ON PURPOSE: an unconditional prebuild would
 #    erase the ~1 min warm rebuild that is the entire point of this script.
+#
+#    INFRA-508: the stamp holds a CONTENT fingerprint, not a timestamp. This used to be
+#    `find app.json package.json plugins patches -newer ios/.cng-stamp`, and `git checkout`
+#    restamps every file it rewrites — so ANY package.json move fired a full regeneration,
+#    including a one-line npm-script edit with zero dependency delta. Measured over five
+#    instrumented gate runs (DEBUG-469 close): 11m05s / 12m43s / 14m26s when it fired
+#    against 1m02s / 3m51s when it did not. Two of those three were fired by a PEER session
+#    re-pointing the shared gate worktree, so the cost was unattributable from inside the
+#    session paying it.
+#
+#    The fingerprint is WIDER than the mtime test on real inputs, not narrower: it keeps
+#    app.json, plugins and patches, ADDS package-lock.json, and drops only the package.json
+#    fields prebuild cannot read. That direction matters — a missed regeneration yields a
+#    binary whose Info.plist does not reflect app.json, which on this repo is the
+#    LSApplicationQueriesSchemes 988 dial path.
+#
+#    An empty fingerprint (helper missing, malformed JSON, unreadable input) regenerates.
+#    Failing toward the 11-minute build is the only safe direction here.
 # ---------------------------------------------------------------------------------------
+CNG_HASH="$(node "$(dirname "$0")/cng-fingerprint.js" . 2>/dev/null || true)"
+
 NEEDS_PREBUILD=0
-if [ ! -d ios ] || [ ! -f "$CNG_STAMP" ]; then
-  NEEDS_PREBUILD=1
-elif [ -n "$(find "${CNG_INPUTS[@]}" -newer "$CNG_STAMP" -print -quit 2>/dev/null)" ]; then
-  NEEDS_PREBUILD=1
+PREBUILD_REASON=""
+if [ ! -d ios ]; then
+  NEEDS_PREBUILD=1; PREBUILD_REASON="ios/ is absent"
+elif [ ! -f "$CNG_STAMP" ]; then
+  NEEDS_PREBUILD=1; PREBUILD_REASON="no CNG stamp — ios/ was generated by something else"
+elif [ -z "$CNG_HASH" ]; then
+  NEEDS_PREBUILD=1; PREBUILD_REASON="CNG fingerprint unavailable — failing safe"
+elif [ "$(cat "$CNG_STAMP" 2>/dev/null)" != "$CNG_HASH" ]; then
+  NEEDS_PREBUILD=1; PREBUILD_REASON="CNG inputs changed (app.json / deps / lockfile / plugins / patches)"
 fi
 
 if [ "$NEEDS_PREBUILD" = "1" ]; then
-  echo "🧱 CNG inputs changed (or ios/ missing) — regenerating the native project…"
+  # Name WHICH condition fired. The old message read "CNG inputs changed (or ios/ missing)"
+  # for every cause, so diagnosing a surprise 12-minute build afterwards took the gate
+  # worktree's reflog. A build that costs this much states its reason.
+  echo "🧱 Regenerating the native project — $PREBUILD_REASON (≈11-14 min)…"
   # --clean, not a plain prebuild: a partial regeneration can leave plugin output from an
   # older app.json in place, which is the stale-Info.plist failure this stage exists for.
   npx expo prebuild --platform ios --clean || fail "expo prebuild"
-  touch "$CNG_STAMP" || fail "CNG stamp write"
+  # Re-read AFTER prebuild: it rewrites package.json ("Updated package.json | no changes"),
+  # and stamping a pre-prebuild fingerprint would regenerate again on the very next run.
+  CNG_HASH="$(node "$(dirname "$0")/cng-fingerprint.js" . 2>/dev/null || true)"
+  if [ -n "$CNG_HASH" ]; then
+    printf '%s' "$CNG_HASH" > "$CNG_STAMP" || fail "CNG stamp write"
+  else
+    # Do NOT fail: the project was just regenerated, so the artifact is fresh and correct —
+    # refusing it over bookkeeping would reject a valid build. But an unstamped project
+    # regenerates forever, which is the ~11 min floor this whole change removes, so say so
+    # loudly rather than degrading quietly.
+    echo "⚠️  CNG fingerprint unavailable after prebuild — leaving ios/ unstamped." >&2
+    echo "   This build is correct, but EVERY later build will regenerate (~11-14 min)" >&2
+    echo "   until scripts/cng-fingerprint.js runs again. Check it before closing." >&2
+    rm -f "$CNG_STAMP"
+  fi
 else
-  echo "✓ Native project is current with app.json / plugins / patches — skipping prebuild"
+  echo "✓ Native project is current with app.json / deps / plugins / patches — skipping prebuild"
 fi
 
 # ---------------------------------------------------------------------------------------
@@ -270,7 +361,13 @@ fi
 # marker write itself still fails closed.
 TREE_BEFORE_BUILD="$(node scripts/e2e-provenance.js fingerprint 2>/dev/null || true)"
 
-echo "🏗  Building Release simulator app (warm ≈1 min, cold ≈11 min)…"
+# Tiers re-measured INFRA-508 over five instrumented gate runs (DEBUG-469 close):
+#   warm, no native regeneration ....... 1m02s / 3m51s
+#   after a native regeneration ........ 11m05s / 12m43s / 14m26s
+#   cold, fresh worktree (INFRA-436) ... ~21m31s
+# The old string read "cold ≈11 min", which was the REGENERATION tier mislabelled as
+# cold — so a genuine cold build looked like a hang, and a regeneration looked normal.
+echo "🏗  Building Release simulator app (warm ≈1-4 min, after a regen ≈11-14 min, cold ≈21 min)…"
 
 # INFRA-407: BUILD ONLY, then install ourselves. Never let expo launch the app.
 #

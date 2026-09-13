@@ -27,25 +27,33 @@
  *     their legal state.
  *
  * 🚫 The copy must NOT say what happens if they never re-consent. The
- * lapse-window characterisation is open counsel work — `consentStore.ts:519-522`
+ * lapse-window characterisation is open counsel work — `consentStore.ts:522-527`
  * bars consent copy from it. Saying "you'll be asked again next launch"
  * describes the PROMPT CADENCE, which is observable and true; saying anything
  * about restricted processing would not be.
  *
- * 🚫 NO TELEMETRY on any branch. `PostHogProvider` gates mounting on
- * `currentConsent?.preferences?.analyticsEnabled`, and `currentConsent` is null
- * for the whole `version_mismatch` window, so no client exists — and any event
- * would describe an interaction that happened before consent existed.
+ * 🚫 NO TELEMETRY on any branch. `currentConsent` is null for the whole
+ * `version_mismatch` window, so `useAnalyticsConsent()` is false and
+ * `trackEvent` withholds every event — and any event would describe an
+ * interaction that happened before consent existed.
+ *
+ * Corrected in DEBUG-559: this used to say no client EXISTS. `PostHogProvider`
+ * withheld `<PHProvider>` without consent, which swapped the element type above
+ * every 988 affordance in the app and remounted them on a consent tap. The
+ * provider is now always mounted, so the guarantee rests on the explicit consent
+ * read in `useAnalytics.trackEvent` — not on the absence of a client.
  */
 
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   getConsentDeltaSince,
+  isBaseEligibleForRenewal,
   useConsentStore,
   type ConsentDelta,
 } from '@/core/stores/consentStore';
 import { logError, LogCategory } from '@/core/services/logging';
 import ReConsentScreen from './ReConsentScreen';
+import StaleConsentIneligibleScreen from './StaleConsentIneligibleScreen';
 import { submitReConsent, type ReConsentSubmission } from '../services/submitReConsent';
 
 /**
@@ -174,6 +182,30 @@ const ReConsentRoute: React.FC<ReConsentRouteProps> = ({ onDismiss }) => {
 
   if (!base || !delta) {
     return null;
+  }
+
+  /**
+   * DEBUG-418 — which screen, decided HERE rather than passed in.
+   *
+   * Re-derived from the SAME `isBaseEligibleForRenewal` the trigger used, so
+   * there is one definition of the 18+ boundary and no route param that could
+   * drift out of sync with the record — or be constructed by a caller to reach
+   * the renewable screen with an ineligible record.
+   *
+   * 🔴 THE BLOCK IS STRUCTURAL, NOT COSMETIC. `ReConsentScreen` is the only
+   * component that can produce an Art. 9(2)(a) affirmation, and this branch means
+   * it is never MOUNTED for this cohort. That makes `submitReConsent`'s
+   * `'ineligible'` age-failure stage — which this file's header describes as a
+   * reachable race — unreachable from this path entirely.
+   */
+  if (!isBaseEligibleForRenewal(base)) {
+    return (
+      <StaleConsentIneligibleScreen
+        delta={delta}
+        isSubmitting={isSubmitting}
+        onAcknowledge={handleDecline}
+      />
+    );
   }
 
   return (

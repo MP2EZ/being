@@ -289,7 +289,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontSize: typography.bodyLarge.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { paddingHorizontal: spacing[24], paddingTop: spacing[8] },
@@ -311,11 +311,11 @@ const styles = StyleSheet.create({
   featuredTitle: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.semibold,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   featuredFraming: {
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.gray[700],
+    color: semantic.text.primary,
     lineHeight: 22,
   },
   citation: {
@@ -361,7 +361,7 @@ const styles = StyleSheet.create({
   practiceRowTitle: {
     flex: 1,
     fontSize: typography.bodyRegular.size,
-    color: colorSystem.base.black,
+    color: semantic.text.primary,
   },
   practiceRowMeta: {
     fontSize: typography.bodySmall.size,

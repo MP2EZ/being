@@ -30,6 +30,10 @@ import { isSensitiveRoute, sanitizeScreenName } from '@/core/utils/sensitiveScre
 // MAINT-248: canonical sensitive-data patterns single source of truth. The
 // reporter keeps only its two reporter-specific extras (JWT, base64) below.
 import { SENSITIVE_DATA_PATTERNS as CORE_SENSITIVE_DATA_PATTERNS } from './SensitiveDataPatterns';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
+// FEAT-570: a visibility FLAG, not a render tree. `bugReportStore` imports only
+// zustand, so this does not pull React Native into the logging module graph.
+import { openBugReport } from '@/core/stores/bugReportStore';
 
 /**
  * CONFIGURATION
@@ -218,20 +222,33 @@ const CRISIS_CONTENT_PATTERNS: readonly (string | RegExp)[] = [
 const SENSITIVE_PATH_SEGMENT = '[sensitive]';
 
 /* ------------------------------------------------------------------------- *
- * FEAT-284 — in-app bug/feedback reporting (Sentry feedback widget)
+ * FEAT-284 — in-app bug/feedback reporting (FIRST-PARTY form since FEAT-570)
  *
- * The surface is Sentry's native feedback widget (message + screenshot),
- * triggered by shake-to-report or the Profile entry. It is INTERNAL-ONLY: the
- * whole thing is gated behind the build-time `bug_reporting` flag, which is ON
- * for TestFlight/dev and MUST be flipped OFF before the public App Store launch
- * (there is no build-time TestFlight-vs-App-Store distinction — same binary).
+ * The surface is OUR OWN form (`core/components/BugReportOverlay`), rendered
+ * into `rootOverlaySlot` and submitting through `Sentry.captureFeedback()` — the
+ * SDK is the transport, we own the presentation. It is triggered by
+ * shake-to-report or the Profile entry, and is INTERNAL-ONLY: the whole thing is
+ * gated behind the build-time `bug_reporting` flag, which is ON for TestFlight/dev
+ * and MUST be flipped OFF before the public App Store launch (there is no
+ * build-time TestFlight-vs-App-Store distinction — same binary).
  *
- * PRIVACY POSTURE (deliberately useful, not maximal — internal tool, owner's
- * own data): the screenshot is intentional and never scrubbed. Breadcrumbs ride
- * along because they are ALREADY sanitized app-wide by `beforeBreadcrumbHook`
- * (drops ui-interaction and sensitive-route nav, scrubs messages) and are the trail
- * a bug report needs. `scrubFeedbackEvent` (a global event processor) applies
- * light identity hygiene + a message pattern-scrub as defense-in-depth.
+ * PRIVACY POSTURE. Message text only. **THERE IS NO SCREENSHOT** — FEAT-570
+ * dropped it and did not re-implement it, deliberately (compliance ruling). Three
+ * reasons, and the first is decisive: attachments ride the ENVELOPE, not the
+ * event, so `scrubFeedbackEvent` — an event processor — structurally cannot
+ * reach one whatever it is made to do. Second, there is no public capture API to
+ * build on (`NATIVE.captureScreenshot()` is not exported). Third, this surface is
+ * armed at the app root, so a capture could contain a mid-PHQ-9 `AssessmentFlow`
+ * screen or `VoiceReflectionScreen` prose. Re-adding it would mean shipping an
+ * unscrubbable attachment path over exactly those two screens. Do not "restore"
+ * it as a convenience.
+ *
+ * Breadcrumbs still ride along because they are ALREADY sanitized app-wide by
+ * `beforeBreadcrumbHook` (drops ui-interaction and sensitive-route nav, scrubs
+ * messages) and are the trail a bug report needs. `scrubFeedbackEvent` (a global
+ * event processor) applies light identity hygiene + a message pattern-scrub, and
+ * `submitFeedback()` ALSO scrubs at the call site — see there for why that is not
+ * redundant.
  *
  * WHY A PROCESSOR: `captureFeedback` (which the widget calls) emits a
  * `type:'feedback'` event that BYPASSES `beforeSend` (verified in
@@ -379,25 +396,42 @@ export class ExternalErrorReporter {
             // CRITICAL: Privacy-first beforeBreadcrumb hook
             beforeBreadcrumb: (breadcrumb: any) => this.beforeBreadcrumbHook(breadcrumb),
 
-            // FEAT-284: register the in-app feedback widget (shake-to-report /
-            // Profile entry → Sentry's native form + screenshot). Only wired
-            // when a DSN is present, so the dev/sim (empty DSN) build never gets
-            // it. Screenshot is intentional (a bug reporter needs it) — the
-            // wellness-data guardrail is that the whole surface is gated OFF for
-            // the public App Store build (bug_reporting flag). Feedback events
-            // are still sanitized by scrubFeedbackEvent (registered below).
+            // FEAT-570 — THIS REGISTRATION IS AN IDENTITY FLOOR, NOT A FEATURE.
+            //
+            // Nothing presents Sentry's widget any more: the call was deleted and
+            // `check-modal-occlusion-guard.js` rule 4 now refuses to let one
+            // return. So these options configure a UI we never show — which is
+            // exactly why they must stay.
+            //
+            // `Sentry.wrap` mounts `FeedbackWidgetProvider` UNCONDITIONALLY
+            // (sdk.js:127-139, no integration check) and `feedbackIntegration()`
+            // is a pure options carrier with no setupOnce/setup — it mounts
+            // nothing and renders nothing. Dropping it therefore removes NO
+            // occluder. What it does remove is the only control we have on the
+            // identity fields: with no `MobileFeedback` integration registered,
+            // `getFeedbackOptions()` returns `{}` and `FeedbackWidget` falls back
+            // to `defaultProps = defaultConfiguration`, where `showName` and
+            // `showEmail` are BOTH `true` (defaults.js:54-55). `scrubFeedbackEvent`
+            // never reads `contexts.feedback.contact_email` or `.name`, so nothing
+            // downstream compensates. Dropping this makes a residual call strictly
+            // worse on identity while buying nothing.
+            //
+            // Screenshot flags are pinned explicitly `false` rather than omitted.
+            // The SDK defaults agree today, but omission inherits whatever a
+            // future SDK bump makes the default, and the drift direction is
+            // toward capturing — over a mid-assessment screen, on this surface.
+            //
+            // The widget's copy options (formTitle / submitButtonLabel /
+            // messagePlaceholder) were removed: they configured a form nobody
+            // renders. The live copy is in `BugReportOverlay`.
             integrations: (defaultIntegrations: any[]) => [
               ...defaultIntegrations,
               this.sentryModule.feedbackIntegration({
-                enableScreenshot: true,
-                enableTakeScreenshot: true,
+                enableScreenshot: false,
+                enableTakeScreenshot: false,
                 showName: false,
                 showEmail: false,
                 showBranding: false,
-                formTitle: 'Report a bug',
-                submitButtonLabel: 'Send report',
-                messagePlaceholder:
-                  "What happened? A screenshot is attached — avoid typing personal wellness details here.",
               }),
             ],
 
@@ -522,15 +556,204 @@ export class ExternalErrorReporter {
    * entry are harmless in dev. The widget itself requires `Sentry.wrap(App)` —
    * see App.tsx. Feedback events are sanitized by the scrubFeedbackEvent
    * processor registered in initialize().
+   *
+   * ── ⚠️ THIS OPENS A ZERO-988-AFFORDANCE WINDOW (DEBUG-533 RULING) ──
+   *
+   * Ruled by `crisis`: this IS a DEBUG-406 conversion site. It fails all three
+   * legs of the `NotificationTimePicker` exception, which is the only RN-modal
+   * occlusion DEBUG-406 let stand. Recorded here rather than only in the work
+   * item, for the reason NotificationTimePicker gives: a ruling that lives where
+   * the code cannot see it is how DEBUG-403's four-site analogy survived review.
+   *
+   * WHAT RENDERS. Not, as first reported, a native window outside our tree.
+   * `Sentry.wrap(App)` mounts `FeedbackWidgetProvider` ABOVE
+   * `GestureHandlerRootView`, and its render emits our whole app as `children`
+   * and THEN, as a later sibling, an `Animated.View` at inset-0 animating to
+   * `rgba(0,0,0,0.9)`, and inside that an RN `<Modal transparent>` whose sheet is
+   * `flex: 1` below a 64pt spacer. So the occlusion is doubled, and the
+   * important half is the FIRST one: a 90%-opaque full-screen backdrop inside
+   * our own JS hierarchy. `RootCrisisButton`'s `zIndex: 9999` cannot reach past
+   * it — zIndex orders siblings, and that backdrop is a later sibling of the
+   * button's ANCESTOR. An RN change that put the crisis button above `<Modal>`
+   * would not recover this surface.
+   *
+   * WHY THE NotificationTimePicker EXCEPTION DOES NOT EXTEND HERE:
+   *   • Benign content — FAILS. That ruling's premise is that the picker is
+   *     reachable only from Settings by deliberate tap, so it can neither occlude
+   *     nor receive a disclosure. This is armed at the app root, so it opens over
+   *     `CrisisResources`, over a mid-PHQ-9 `AssessmentFlow`, and over
+   *     `VoiceReflectionScreen` right after `scanOnSave`. The wellness-bearing
+   *     content is what it OCCLUDES. And the form is a free-text box whose own
+   *     placeholder says "avoid typing personal wellness details here", which
+   *     concedes it receives them.
+   *   • Fixed, non-scrolling, one-tap exits — FAILS, and this is decisive.
+   *     Cancel is the LAST CHILD of the widget's `ScrollView`, below the required
+   *     textarea and the screenshot controls, with `automaticallyAdjustKeyboard-
+   *     Insets` on iOS and `showName`/`showEmail` false so the keyboard is up
+   *     whenever the user has engaged at all. There is no backdrop tap (the 64pt
+   *     spacer is a bare `View`), `onRequestClose` is Android-back only, and the
+   *     pull-down dismiss needs `isScrollAtTop && dy > 200` — dead once scrolled.
+   *     Dwell is unbounded.
+   *   • iOS-only Modal, Android a native OS dialog — FAILS AND INVERTS. One
+   *     `<Modal>` on both platforms, so converting splits nothing; and iOS is the
+   *     strictly worse platform here, having no hardware back.
+   *
+   * ── MEASURED, NOT INFERRED (DEBUG-533 AC 1) ──
+   *
+   * On a Release build, iPhone SE 3rd gen / iOS 18.6, opened from the Profile
+   * card. `crisis-button-root` appears ZERO times in the accessibility
+   * hierarchy while the widget is up, having asserted VISIBLE on Profile three
+   * steps earlier in the same run — present before, gone after, same selector.
+   * No Profile markers survive either: the whole app hierarchy is replaced.
+   * After 75s untouched, still open and still absent — dwell is unbounded.
+   *
+   * The keyboard finding is WORSE than the source reading above implies. With
+   * three lines typed, `Cancel` is not on screen AT ALL — the keyboard covers
+   * it, leaving only a sliver of `Send report`. There is no visible exit.
+   *
+   * Two traps for whoever verifies this next. (1) Do NOT assert on the
+   * `feedback-form-modal` testID: Sentry sets it on the `<Modal>` and it does
+   * not propagate to the native modal host, so it is absent even when the
+   * widget is plainly open — assert on content ("Report a bug"). (2) Do NOT
+   * read `Cancel` out of a hierarchy dump and call it reachable: XCUITest
+   * retains ScrollView-clipped elements (DEBUG-465), so it is listed while
+   * invisible. The screenshot is the authority for on-screen; the hierarchy is
+   * the authority for the crisis button's ABSENCE.
+   *
+   * WHY IT COULD NOT BE FIXED IN PLACE. The occluder is third-party code we do
+   * not render, so we could not host it in `rootOverlaySlot`, add a backdrop
+   * handler, bound the dwell, or inject a 988 control into Sentry's sheet. There
+   * was no compensating control available. That is why the remedy is a
+   * replacement rather than a repair.
+   *
+   * ── FEAT-570 SHIPPED THAT REMEDY. WHAT HOLDS THE PATH CLOSED NOW ──
+   *
+   * `showFeedbackForm()` below opens OUR form (`core/components/BugReportOverlay`)
+   * via `bugReportStore`. It is published into `rootOverlaySlot`, which is a
+   * sibling declared immediately before `RootCrisisButton` in
+   * `CleanRootNavigator`, so it CANNOT paint above the crisis button — not by
+   * convention, by construction. Submission goes through `submitFeedback()` and
+   * `Sentry.captureFeedback()`, a top-level export of @sentry/react-native
+   * (`index.d.ts:2`) and exactly what `FeedbackWidget.js:70` itself calls, so the
+   * SDK remains the transport and we own only the presentation.
+   *
+   * ⚠️ A PREVIOUS VERSION OF THIS RULING WAS WRONG HERE, AND IT PROPAGATED.
+   * It said the remedy "must ALSO drop `feedbackIntegration` above, or
+   * `FeedbackWidgetProvider` stays mounted and a stray call re-opens this path."
+   * BOTH HALVES ARE FALSE, verified in @sentry/react-native@7.11.0:
+   *   • `Sentry.wrap` composes `TouchEventBoundary > ReactNativeProfiler >
+   *     FeedbackWidgetProvider > App` UNCONDITIONALLY (`sdk.js:127-139`), reading
+   *     no integration. The provider is mounted either way, and `wrap` is KEPT —
+   *     replacing it would need a deep import of `ReactNativeProfiler`, which is
+   *     not a top-level export, so it would break silently on an SDK upgrade.
+   *   • Nothing gates the widget on the integration either, so dropping it would
+   *     not stop a stray call. `feedbackIntegration()` has no `setupOnce`/`setup`
+   *     — it is a pure options carrier.
+   * A later crisis review read that sentence, believed it, and built a constraint
+   * on it before checking `node_modules`. That is the DEBUG-403 failure shape —
+   * a ruling inherited by analogy rather than re-derived — reproduced inside the
+   * fix for it. Re-derive claims about third-party behaviour from the installed
+   * tarball, not from this comment.
+   *
+   * THE SOLE REMAINING CONTROL IS "NO CALL SITE EXISTS", and it is mechanical.
+   * `showFeedbackWidget()` is on `THIRD_PARTY_PRESENTERS` in
+   * `check-modal-occlusion-guard.js` (INFRA-571 rule 4), and FEAT-570 DELETED the
+   * `PRESENTER_ALLOWLIST` entry that permitted this file's call. With no entry,
+   * any reintroduced call anywhere under `app/src` hard-fails the guard. Do not
+   * add one back to "temporarily" restore the widget.
+   *
+   * Known blind spots in that guard, stated so its green is not over-read: it
+   * does not match bracket access (`mod['showFeedbackWidget']()`) or a renaming
+   * deep import, and it scans `app/src` only, so Sentry's own `<Modal>` in
+   * node_modules stays invisible to it. INFRA-531's crisis-constant-import
+   * detector also matches nothing on this path, because nothing here imports from
+   * `features/crisis/`. The Protected Paths rows for this file and
+   * `ProfileScreen.tsx` are what gate the path; the guard is what pins the call.
    */
   showFeedbackForm(): void {
-    if (!this.isActive() || !this.sentryModule) return;
+    // The single funnel for both entry points (Profile card, shake gesture), so
+    // the flag is enforced in one place rather than twice by convention.
+    if (!isFeatureEnabled('bug_reporting')) return;
+
+    // DELIBERATELY NOT gated on `isActive()`, and this is a ruling, not an
+    // oversight (crisis + compliance, FEAT-570):
+    //
+    //   • NOT on `killed`. The kill switch still covers feedback, but it does so
+    //     by changing WHAT THE FORM RENDERS, not by refusing to open. A killed
+    //     reporter opens a form with no input field and no submit control, which
+    //     says so. Refusing to open would make the Profile card and the shake
+    //     gesture a silent no-op on a surface that advertises itself as working
+    //     from any screen — and silence is the failure mode this whole item
+    //     exists to remove. `BugReportOverlay` reads
+    //     `isExternalReportingKilled()` to pick the variant.
+    //   • NOT on `enabled`/`initialized` either. Those are false on the dev sim
+    //     (empty DSN), and gating the OPEN on them would make this surface
+    //     unverifiable in every `npm run ios` build and in the Maestro gate.
+    //     They protect DELIVERY, and delivery is `submitFeedback()`'s business.
+    openBugReport();
+  }
+
+  /**
+   * Send a bug report. The ONLY transmission path for the first-party form.
+   *
+   * @returns true when the event was handed to the SDK; false when refused.
+   *
+   * ── THIS MUST STAY `captureFeedback`, NEVER `captureMessage` ──
+   *
+   * A feedback event (`type: 'feedback'`) BYPASSES `beforeSend` and is cleaned by
+   * `scrubFeedbackEvent`, which keys on exactly that type. Routing a bug report
+   * through `captureMessage` instead would send it through `beforeSendHook` →
+   * `containsCrisisContent` → wholesale DROP, so any report that happened to
+   * mention crisis prose would vanish silently — and it would skip the identity
+   * hygiene that reduces `user` to the anonymous uid. Pinned by
+   * `__tests__/privacy/feedbackScrub.contract.test.ts`.
+   *
+   * ── THE KILL SWITCH LIVES HERE ──
+   *
+   * `isActive()` is read FRESH at the moment of the call, never cached from when
+   * the form opened. `kill()` is an emergency circuit breaker that can fire while
+   * the form is open and the user is still typing; a stale "was active when
+   * opened" flag would submit straight through it.
+   *
+   * ── NOT WRAPPED IN `withIsolationScope`, DELIBERATELY ──
+   *
+   * `scrubFeedbackEvent` is registered with `addEventProcessor`, which attaches to
+   * the ISOLATION scope. On RN today a wrapper would not actually bypass it — the
+   * SDK registers no forking async-context strategy, so `withIsolationScope`
+   * hands back the same singleton — but it buys nothing and would become a real
+   * bypass the moment that changes. Do not add one.
+   *
+   * ── THE CALL-SITE SCRUB IS NOT REDUNDANT ──
+   *
+   * `scrubFeedbackEvent` also scrubs the message, but only if
+   * `addEventProcessor` was available and registered at init — which this file
+   * guards with a `typeof` check, so it can legitimately be absent. This scrub
+   * does not depend on that. If only one survives, it should be this one.
+   *
+   * The message is NEVER persisted, queued, or retried — see `bugReportStore`.
+   */
+  submitFeedback(message: string): boolean {
+    if (!this.isActive() || !this.sentryModule) return false;
+
     try {
-      if (typeof this.sentryModule.showFeedbackWidget === 'function') {
-        this.sentryModule.showFeedbackWidget();
-      }
+      if (typeof this.sentryModule.captureFeedback !== 'function') return false;
+
+      const sanitized = sanitizeFeedbackMessage(message);
+      if (!sanitized.trim()) return false;
+
+      // No `name`, no `email`, and no `associatedEventId` — omitted at source
+      // rather than deleted downstream. `captureFeedback` destructures them, so
+      // omission serialises as absent keys, not empty strings. Cross-linking a
+      // report to a prior (possibly wellness-context) error is exactly what
+      // `scrubFeedbackEvent` strips; not sending it is stronger.
+      this.sentryModule.captureFeedback({
+        message: sanitized,
+        source: 'first-party-form',
+      });
+      return true;
     } catch {
-      logger.warn(LogCategory.SYSTEM, 'showFeedbackWidget failed');
+      logger.warn(LogCategory.SYSTEM, 'submitFeedback failed');
+      return false;
     }
   }
 
@@ -986,8 +1209,30 @@ export const isExternalReportingActive = () =>
   externalErrorReporter.isActive();
 
 /**
- * FEAT-284: Open the in-app bug/feedback widget (Sentry). Safe no-op when
- * reporting is inactive (dev/sim empty DSN). Gated at call sites by
- * isFeatureEnabled('bug_reporting').
+ * Whether the kill switch has fired.
+ *
+ * FEAT-570: `BugReportOverlay` reads this to choose its variant. Deliberately
+ * NARROWER than `isExternalReportingActive()` — `enabled`/`initialized` are false
+ * on the dev sim and in any empty-DSN build, which is an environment fact, not an
+ * incident. `killed` is a deliberate act, and it is the only one of the three
+ * that should make the surface refuse to accept input.
+ */
+export const isExternalReportingKilled = (): boolean =>
+  externalErrorReporter.getStatus().killed;
+
+/**
+ * FEAT-284 / FEAT-570: open the in-app bug/feedback form.
+ *
+ * Since FEAT-570 this opens OUR form in `rootOverlaySlot`, not Sentry's widget.
+ * The `bug_reporting` flag is enforced inside. It always opens when the flag is
+ * on: a killed reporter changes what the form RENDERS, never whether it appears.
  */
 export const showFeedbackForm = (): void => externalErrorReporter.showFeedbackForm();
+
+/**
+ * FEAT-570: submit a bug report. Returns false when refused — the kill switch
+ * fired, the SDK is absent, or the message scrubbed down to nothing. The caller
+ * must tell the user; it must NOT persist or queue the text.
+ */
+export const submitFeedback = (message: string): boolean =>
+  externalErrorReporter.submitFeedback(message);
