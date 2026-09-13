@@ -2,6 +2,22 @@ appId: fyi.being.app
 tags:
   - safety-dynamic-type
 name: "Tab label at scaled type (DEBUG-579): capture the tab bar at the wrapper's content size"
+
+# e2e-certifies: any
+#
+# DELIBERATE, and NOT the mislabel INFRA-510's exemption is guarding against. AC1 names
+# BOTH 375x667 (inset 0) and 393x852 (inset 34), so this harness is meant to be pointed at
+# each in turn and no single viewport is its subject.
+#
+# Declaring is REQUIRED here even though `safety-dynamic-type` is on the jest
+# DECLARATION_EXEMPT list, because the exemption exists only in that test. At runtime
+# `e2e_flow_certifies` fails CLOSED to 375x667 for an undeclared flow, so without this line
+# the flow silently claims a viewport it never claimed, every 393x852 run reports
+# UNCERTIFIED, and the operator is told to reboot onto the SE and re-run /b-close —
+# remediation for a certification this flow does not owe. Measured: both 393x852 runs
+# passed and were still reported `declares 375x667, ran 393x852 — does not certify`.
+#
+# `crisis-988-dial` is the precedent: also an exempt class, and it declares `any` too.
 ---
 # DEBUG-579 AC1 / AC6 — A CAPTURE HARNESS, NOT A GATE. READ THIS BEFORE TRUSTING A GREEN.
 #
