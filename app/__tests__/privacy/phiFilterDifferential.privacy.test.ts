@@ -102,6 +102,8 @@ const CORPUS: ReadonlyArray<Case> = [
   { label: 'app_opened bare', eventType: 'app_opened', data: {} },
   { label: 'crisis_resources_viewed bare', eventType: 'crisis_resources_viewed', data: {} },
   { label: 'crisis_hotline_tapped bare', eventType: 'crisis_hotline_tapped', data: {} },
+  { label: 'crisis_hotline_tapped primary', eventType: 'crisis_hotline_tapped', data: { primary_988: true } },
+  { label: 'crisis_hotline_tapped secondary', eventType: 'crisis_hotline_tapped', data: { primary_988: false } },
   { label: 'guidance_opened bare', eventType: 'guidance_opened', data: {} },
   { label: 'screen_viewed coarsened', eventType: 'screen_viewed', data: { screen_name: 'App' } },
   { label: 'screen_viewed Home', eventType: 'screen_viewed', data: { screen_name: 'Home' } },

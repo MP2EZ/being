@@ -67,7 +67,7 @@ system's timing budgets, the numbers live in different stores:
 |---|---|---|
 | 988-button response (< 200 ms target) | **Sentry** span | not in Supabase or PostHog |
 | Crisis detection counts / mix | **Supabase** (`crisis_detected`, these views) | counts only; no numeric latency is transmitted |
-| Crisis *access* events (`crisis_resources_viewed`, `crisis_hotline_tapped`) | **PostHog** | property-less, consent-gated product analytics |
+| Crisis *access* events (`crisis_resources_viewed`, `crisis_hotline_tapped`) | **PostHog** | consent-gated product analytics; `crisis_hotline_tapped` carries `{primary_988: boolean}` (FEAT-543) and nothing else — a split, never an engagement count |
 
 Button-access time (< 3 taps / < 3 s) is not instrumented as telemetry — it is pinned by
 the Maestro safety e2e flow. Do not present the Supabase detection counts as if they hold
