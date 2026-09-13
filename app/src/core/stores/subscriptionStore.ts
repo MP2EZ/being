@@ -429,37 +429,6 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   },
 
   /**
-   * Verify receipt with platform API
-   * Called periodically (every 24 hours) to check subscription status
-   */
-  verifyReceipt: async (): Promise<boolean> => {
-    const { subscription } = get();
-    if (!subscription || !subscription.receiptData) {
-      return false;
-    }
-
-    set({ isVerifyingReceipt: true });
-
-    try {
-      logger.info('Verifying receipt');
-
-      // TODO: Implement receipt verification
-      // 1. Send receipt to Supabase Edge Function
-      // 2. Edge Function calls Apple/Google verification API
-      // 3. Parse response
-      // 4. Update subscription metadata
-
-      // For now, mock success
-      set({ isVerifyingReceipt: false });
-      return true;
-    } catch (error) {
-      logger.error('Receipt verification failed', { error });
-      set({ isVerifyingReceipt: false });
-      return false;
-    }
-  },
-
-  /**
    * Check feature access
    * CRITICAL: Crisis features ALWAYS return true (hardcoded)
    */

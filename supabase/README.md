@@ -138,7 +138,9 @@ repo?") and can consume the table above rather than re-deriving the classificati
 
 ### 1. verify-apple-receipt
 
-**Purpose:** Server-side Apple receipt verification via Apple's verifyReceipt API
+**Purpose:** Server-side Apple transaction verification via the **App Store Server API**.
+The deprecated `verifyReceipt` endpoint was retired in INFRA-467 — do not reintroduce it,
+and do not provision `APPLE_SHARED_SECRET`.
 
 **Endpoint:** `/functions/v1/verify-apple-receipt`
 
@@ -176,7 +178,12 @@ const { data, error } = await supabase.functions.invoke('verify-apple-receipt', 
 ```
 
 **Environment Variables:**
-- `APPLE_SHARED_SECRET`: From App Store Connect
+- `APPLE_ISSUER_ID` / `APPLE_KEY_ID` / `APPLE_PRIVATE_KEY`: from an App Store Connect
+  **Team** API key. An **Individual** key has no issuer and signs `sub: 'user'` instead of
+  `iss`, which 401s against the token this function builds. Absent any of the three, the
+  function returns a typed misconfiguration **5xx**, never `{"valid": false}` — our missing
+  secret must not present as the user's transaction being bad.
+  Provisioning procedure: `docs/development/app-store-credentials-runbook.md`.
 
 ### 2. verify-google-receipt
 
@@ -306,10 +313,16 @@ supabase functions deploy
 ### 4. Set Environment Variables
 
 ```bash
-# Apple receipt verification
-supabase secrets set APPLE_SHARED_SECRET=your_apple_shared_secret
+# Apple transaction verification — App Store Connect TEAM key, three parts.
+# APPLE_SHARED_SECRET is RETIRED (INFRA-467) and is no longer declared in
+# deploy-manifest.json; setting it is dead work that looks like progress.
+# See docs/development/app-store-credentials-runbook.md before generating the key.
+supabase secrets set APPLE_ISSUER_ID=<uuid from App Store Connect → Integrations → Keys>
+supabase secrets set APPLE_KEY_ID=<10-char key id>
+supabase secrets set APPLE_PRIVATE_KEY="$(cat AuthKey_<KEYID>.p8)"
 
-# Google receipt verification
+# Google receipt verification. NOTE the name is GOOGLE_SERVICE_ACCOUNT, not
+# GOOGLE_SERVICE_ACCOUNT_JSON — the latter leaves the function reporting "not configured".
 supabase secrets set GOOGLE_SERVICE_ACCOUNT='{"type":"service_account",...}'
 
 # Cron job authentication — TWO separate bearers, one per trust domain (INFRA-379).
