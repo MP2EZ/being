@@ -69,7 +69,10 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
   trackAppOpened: [true, 'cold_start'],
   trackAppBackgrounded: [42],
   trackCrisisResourcesViewed: [],
-  trackCrisisHotlineTapped: [],
+  // FEAT-543 -- REQUIRED boolean. Leaving this `[]` would ship
+  // `{primary_988: undefined}`, which PHIFilter passes, greening this
+  // contract against a payload no call site actually sends.
+  trackCrisisHotlineTapped: [true],
   trackGuidanceOpened: [],
   trackSettingsOpened: [],
   trackConsentChanged: [],
@@ -158,6 +161,40 @@ describe('every useAnalytics tracker transmits (INFRA-535)', () => {
         Record<string, unknown>,
       ];
       expect(PHIFilter.validate(eventName, payload)).toEqual({ valid: true });
+    });
+  });
+
+  describe('crisis_hotline_tapped carries a real boolean primary_988 (FEAT-543)', () => {
+    // The generic contract above asserts only that the emitted payload
+    // VALIDATES. `{primary_988: undefined}` validates too, so an omitted
+    // argument would green that assertion against a payload no call site
+    // sends. These pin the SHAPE, which is what the fixture change relies on.
+    const track = (primary988: boolean): Record<string, unknown> => {
+      mockCapture.mockClear();
+      (
+        result.current as unknown as {
+          trackCrisisHotlineTapped: (p: boolean) => void;
+        }
+      ).trackCrisisHotlineTapped(primary988);
+      expect(mockCapture).toHaveBeenCalledTimes(1);
+      const [eventName, payload] = mockCapture.mock.calls[0] as [
+        string,
+        Record<string, unknown>,
+      ];
+      expect(eventName).toBe(AnalyticsEvents.CRISIS_HOTLINE_TAPPED);
+      return payload;
+    };
+
+    it.each([[true], [false]])('primary988=%s reaches the sink as a boolean', (primary988) => {
+      const payload = track(primary988);
+      expect(payload).toEqual({ primary_988: primary988 });
+      expect(typeof payload.primary_988).toBe('boolean');
+    });
+
+    it('emits that key and nothing else -- no resource name, number or URL', () => {
+      // AC3. A resource identifier would be a special-category inference; this
+      // asserts the payload cannot grow one without failing here first.
+      expect(Object.keys(track(false))).toEqual(['primary_988']);
     });
   });
 

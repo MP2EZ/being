@@ -120,9 +120,44 @@ export function useAnalytics() {
     trackEvent(AnalyticsEvents.CRISIS_RESOURCES_VIEWED);
   }, [trackEvent]);
 
-  const trackCrisisHotlineTapped = useCallback(() => {
-    trackEvent(AnalyticsEvents.CRISIS_HOTLINE_TAPPED);
-  }, [trackEvent]);
+  /**
+   * A crisis hotline was dialled (FEAT-137), and WHICH affordance carried it
+   * (FEAT-543).
+   *
+   * `primary988` is `true` only for the pinned footer 988 button -- this
+   * screen's single 988 affordance -- and `false` for a phone tap on any other
+   * listed resource. It exists to validate the "988 in under three taps"
+   * safety commitment from behaviour instead of assuming it from layout.
+   *
+   * NOT AN ENGAGEMENT METRIC. A rising count of crisis-hotline taps is not a
+   * success signal and must never be presented as one; more people reaching
+   * crisis resources is not a product win. The only supported reading is the
+   * primary/secondary SPLIT -- whether the affordance the safety design relies
+   * on is the one people actually use.
+   *
+   * BOOLEAN, DELIBERATELY. Do not widen this to a resource identifier: a
+   * `trevor_project` or `veterans_crisis_line` value is a special-category
+   * inference about the user (LGBTQ+ youth, veteran status) and would falsify
+   * the published "What We NEVER Collect" commitment, exactly as a `domain`
+   * property would for `trackGuidanceOpened` below. Do not make it a numeric
+   * rank either -- it proxies the identifier once section order is known, and
+   * PHIFilter rejects any numeric key absent from SAFE_NUMERIC_KEYS, which
+   * would silently discard the whole event.
+   *
+   * The parameter is REQUIRED, not optional: an omitted argument would ship
+   * `primary_988: undefined`, which PHIFilter passes, producing a silently
+   * untagged crisis tap.
+   *
+   * SCOPE: counts PHONE taps only. The Crisis Text Line SMS path injects no
+   * onTap and has emitted nothing since FEAT-137, so `false` means "a phone tap
+   * on a non-988 resource", NOT "every non-988 crisis contact".
+   */
+  const trackCrisisHotlineTapped = useCallback(
+    (primary988: boolean) => {
+      trackEvent(AnalyticsEvents.CRISIS_HOTLINE_TAPPED, { primary_988: primary988 });
+    },
+    [trackEvent]
+  );
 
   /**
    * Domain guidance opened from its Home entry point (FEAT-457).
