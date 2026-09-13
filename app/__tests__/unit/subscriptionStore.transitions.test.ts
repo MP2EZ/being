@@ -9,12 +9,11 @@
  * IAPService (purchase/verify/finish), and AuthenticationService
  * (getCurrentUser).
  *
- * NOT-YET-IMPLEMENTED STUBS: restorePurchases / cancelSubscription /
- * verifyReceipt are asserted at their CURRENT contract. restorePurchases
- * and cancelSubscription throw 'not yet implemented' INTERNALLY but the
- * store catches and routes to state.error; verifyReceipt is currently a
- * mock that returns true. These are pinned explicitly below with TODO
- * follow-up notes — NOT pretended to work.
+ * NOT-YET-IMPLEMENTED STUBS: restorePurchases / cancelSubscription are
+ * asserted at their CURRENT contract — they throw 'not yet implemented'
+ * INTERNALLY but the store catches and routes to state.error. Pinned
+ * explicitly below with TODO follow-up notes — NOT pretended to work.
+ * verifyReceipt was removed outright under INFRA-84; its absence is pinned.
  *
  * PLACEMENT: under __tests__/unit/ so it is gated by `npm run test:unit`.
  * INFRA-180 discipline: literal strings asserted; no duplicated timeout flag.
@@ -377,19 +376,23 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       expect(useSubscriptionStore.getState().error).toBe('Failed to cancel subscription');
     });
 
-    // TODO(MAINT-242 follow-up): implement real server-side receipt
-    // verification. verifyReceipt() is currently a mock that returns true
-    // when a receipt exists, and false when no receipt/subscription is
-    // present. Pin both current branches.
-    it('verifyReceipt returns false when there is no receipt to verify', async () => {
-      resetStore();
-      await expect(useSubscriptionStore.getState().verifyReceipt()).resolves.toBe(false);
+    // INFRA-84: the store's own verifyReceipt() was DELETED, not neutered.
+    // On a payment trust boundary neither stub value is safe: `true` grants
+    // unverified premium access, `false` would strip a paying user's access
+    // the moment anything called it. It had no callers, while its doc comment
+    // claimed a 24-hour cadence — so the invitation to wire up an always-true
+    // verifier was sitting in this suite. Real verification is
+    // IAPService.verifyReceipt(), asserted above, which reaches the Supabase
+    // edge function.
+    it('the store exposes no verifyReceipt action', () => {
+      expect('verifyReceipt' in useSubscriptionStore.getState()).toBe(false);
     });
 
-    it('verifyReceipt currently returns true (mock) when a receipt exists', async () => {
-      useSubscriptionStore.setState({ subscription: seedSubscription({ receiptData: 'r' }) });
-      await expect(useSubscriptionStore.getState().verifyReceipt()).resolves.toBe(true);
-      expect(useSubscriptionStore.getState().isVerifyingReceipt).toBe(false);
+    // Positive control (DEBUG-390 lesson): an absence assertion passes
+    // vacuously if the lookup itself is wrong. Prove this exact lookup still
+    // finds a sibling action that IS present.
+    it('positive control: the same lookup finds a sibling action', () => {
+      expect('cancelSubscription' in useSubscriptionStore.getState()).toBe(true);
     });
   });
 });

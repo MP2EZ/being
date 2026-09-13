@@ -234,7 +234,6 @@ export interface SubscriptionStore {
   cancelSubscription: () => Promise<void>;
 
   // Receipt Verification
-  verifyReceipt: () => Promise<boolean>;
 
   // Feature Access
   checkFeatureAccess: (feature: keyof FeatureAccess) => boolean;
