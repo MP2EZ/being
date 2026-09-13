@@ -196,3 +196,58 @@ describe('DEBUG-507 — the XXXL profile-entry flow joins the class, not the def
     expect(Number(m[1])).toBeGreaterThanOrEqual(30000);
   });
 });
+
+describe('DEBUG-579 — the tab-label capture harness joins the class, not the default suite', () => {
+  const FLOW = 'tab-label-dynamic-type-capture.yaml';
+  const PKG = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')
+  );
+
+  // The same carve-out as the two above, and the case for it is stronger here: this flow
+  // CANNOT fail on its own subject. Maestro asserts presence, not clipping or truncation,
+  // so in the default suite it would contribute a green that discharges nothing while
+  // also mixing a second text size into a run whose reds must stay readable.
+  test('is tagged safety-dynamic-type and NOT safety', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    expect(/^\s*-\s+safety-dynamic-type\s*$/m.test(src)).toBe(true);
+    expect(/^\s*-\s+safety\s*$/m.test(src)).toBe(false);
+  });
+
+  // DEBUG-579 AC6 requires observation at AX1 *and* AX5, and the evidence is per-size
+  // screenshots. Two edits lose a size SILENTLY — both runners naming the same content
+  // size, or the same DEBUG579_LABEL, which makes the second run overwrite the first's
+  // images and leaves the operator adjudicating one size twice believing it was two.
+  test('the two runners request different sizes and different screenshot labels', () => {
+    const ax1 = PKG.scripts['e2e:capture:tabbar-ax1'];
+    const ax5 = PKG.scripts['e2e:capture:tabbar-ax5'];
+    expect(ax1).toContain('E2E_DYNAMIC_TYPE_SIZE=accessibility-medium');
+    expect(ax5).toContain('E2E_DYNAMIC_TYPE_SIZE=accessibility-extra-extra-extra-large');
+
+    const label = (s) => (s.match(/DEBUG579_LABEL=([A-Za-z0-9_-]+)/) || [])[1];
+    expect(label(ax1)).toBeDefined();
+    expect(label(ax5)).toBeDefined();
+    expect(label(ax1)).not.toBe(label(ax5));
+
+    // Both must go through the wrapper: a bare `maestro test` sets no size and, worse,
+    // restores none — the device-global leak the whole class exists to prevent.
+    for (const s of [ax1, ax5]) {
+      expect(s).toContain(`scripts/e2e-dynamic-type.sh ${FLOW.replace(/\.yaml$/, '')}`);
+    }
+  });
+
+  // Every capture path carries the label. A path that forgets it reintroduces the
+  // overwrite above one line at a time, and the loss is invisible in a green run.
+  test('every screenshot path carries the per-run label', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    const shots = src.match(/^-\s+takeScreenshot:.*$/gm) || [];
+    expect(shots.length).toBeGreaterThan(1);
+    for (const s of shots) expect(s).toContain('${DEBUG579_LABEL}');
+  });
+
+  // The flow asserts the label ARRIVED. Without it a dropped -e yields one silently
+  // overwritten set rather than a failure, which is the same loss by a different route.
+  test('the flow refuses to run without the label', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    expect(/assertTrue:.*DEBUG579_LABEL/.test(src)).toBe(true);
+  });
+});

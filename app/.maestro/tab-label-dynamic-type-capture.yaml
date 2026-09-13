@@ -1,0 +1,116 @@
+appId: fyi.being.app
+tags:
+  - safety-dynamic-type
+name: "Tab label at scaled type (DEBUG-579): capture the tab bar at the wrapper's content size"
+---
+# DEBUG-579 AC1 / AC6 — A CAPTURE HARNESS, NOT A GATE. READ THIS BEFORE TRUSTING A GREEN.
+#
+# WHAT A PASS HERE DOES AND DOES NOT MEAN. Every assertion below proves only that the app
+# is alive, the tab bar is mounted, and the crisis FAB is still reachable on each tab. NONE
+# of them can see the defect this flow exists to observe. Maestro asserts PRESENCE, not
+# wrapping, clipping or truncation — daily-loop-ax5-entry.yaml records the same limitation
+# for DEBUG-560's Languages text, and XCUITest scores a label fully visible while it renders
+# below the bar's bottom edge. The EVIDENCE is the screenshots; the adjudication is human.
+# A green run with no one reading the images discharges nothing.
+#
+# That is why this flow is tagged and named as a capture, and why it must never acquire
+# `- safety`: a gate flow that cannot fail on its own subject is worse than no flow.
+#
+# WHY IT IS DELIBERATELY SIZE-AGNOSTIC — a departure from both existing members of this
+# class. daily-loop-ax5-entry pins AX5 and profile-voice-reflection-xxxl pins XXXL, and each
+# warns that running it at another size asserts something it was not measured at. This one
+# inverts that: DEBUG-579 AC6 requires observation at BOTH accessibility-medium (AX1, the
+# FIRST accessibility step, where DEBUG-578 saw labels clipped at the screen edge) and
+# accessibility-extra-extra-extra-large (AX5, where they render entirely below the bar). The
+# flow therefore asserts nothing about which size it is running at, and the size is supplied
+# by the wrapper:
+#
+#   npm run e2e:capture:tabbar-ax1     # accessibility-medium
+#   npm run e2e:capture:tabbar-ax5     # accessibility-extra-extra-extra-large
+#
+# NEVER with a bare `maestro test`. scripts/e2e-dynamic-type.sh sets the size and restores
+# it in a trap on EXIT/INT/TERM. Content size is device-global and PERSISTENT — it survives
+# relaunch, clearState and clearKeychain — and this machine drives one simulator from several
+# worktrees, so a bare run leaves the shared device poisoned and silently invalidates the
+# next worktree's layout assertions. That leak is the whole reason the class exists.
+#
+# NO `e2e-certifies:` KEY, ON PURPOSE. `safety-dynamic-type` is one of the two classes
+# INFRA-510 exempts, because this key carries a VIEWPORT and this class's axis is TEXT SIZE.
+# Declaring one would be a mislabel, not extra rigour — see the rationale at
+# __tests__/scripts/e2e-flow-certification.test.js:150-157.
+#
+# ── AC1 NEEDS TWO DEVICES, AND THIS FLOW CANNOT GIVE YOU BOTH IN ONE RUN ────────
+# AC1 is both 375x667 (inset 0 — the worst case, where the content box has 1pt of slack)
+# and 393x852 (inset 34). The gate is single-device by construction: e2e_resolve_sim_device
+# refuses at 2+ booted simulators and nothing iterates devices, so "fan out to certify a
+# viewport" is not available and is not the intent. Four runs total, serially:
+#
+#   boot iPhone SE (3rd gen)  375x667  ->  e2e:capture:tabbar-ax1, then :tabbar-ax5
+#   shut it down, boot iPhone 16  393x852  ->  the same two
+#
+# iPhone 16, not 16 Pro: Pro is 402x874 and is a different viewport.
+#
+# ── WHERE THE SCREENSHOTS GO, AND THE ONE UNPROVEN MECHANIC HERE ────────────────
+# /tmp, never the worktree. The provenance fingerprint hashes UNTRACKED FILE CONTENTS
+# repo-wide, so a screenshot written under app/ between the gate build and a later verify
+# reads as MISMATCH and costs a rebuild.
+#
+# The per-run label comes from DEBUG579_LABEL, injected by the npm scripts through
+# E2E_MAESTRO_ENV -> `maestro test -e`. The assertTrue below proves the label ARRIVED, and
+# that mechanic is exercised in this repo already (breathing-fps-budget.yaml reads
+# E2E_PERF_MAX_DROPPED_RATIO the same way). What is NOT exercised anywhere here is
+# interpolating a variable into a `takeScreenshot` PATH. If that turns out to be
+# unsupported, the failure is visible rather than silent — you get files with `${` in the
+# name — but it is NOT harmless: both runs would then write the same path and the second
+# would overwrite the first, leaving you adjudicating one size twice. CONFIRM YOU HAVE TWO
+# DISTINCT SETS before reading them.
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- runFlow: _seeded-home.yaml # INFRA-217: the e2e-sim build seeds onboarding; start at Home
+
+# The label arrived. Without this a missing -e would produce one silently-overwritten set.
+- assertTrue: ${typeof DEBUG579_LABEL !== 'undefined' && String(DEBUG579_LABEL).trim().length > 0}
+
+# ── HOME ───────────────────────────────────────────────────────────────────────
+# The FAB assertion is not decoration. TAB_BAR_CONTENT_HEIGHT + MAX_IOS_BOTTOM_INSET is
+# flush against the FAB's touch band (88pt), so the crisis-relevant failure on this surface
+# is a wrong-DESTINATION tap into CrisisResources — the DEBUG-547 false-POSITIVE shape, not
+# an unreachable affordance. Presence at each size is the cheap half of watching for it.
+- assertVisible:
+    id: "crisis-button-root"
+- takeScreenshot: /tmp/debug579-${DEBUG579_LABEL}-01-home
+
+# ── EACH TAB SELECTED ──────────────────────────────────────────────────────────
+# All four, because the SELECTED label is the state cue: tabBarLabel renders focused at
+# semibold and unfocused at medium, so the focused glyphs are the wider ones and a capture
+# of only the resting bar would miss the worse case. "Insights" is the longest string and
+# the first to overflow horizontally at AX1.
+#
+# The tab anchors are `tabBarButtonTestID`s (INFRA-183), the only mechanically reliable
+# handle on a tab. No per-tab screen id is asserted — this flow invents none, and the bar
+# is what is under observation.
+- tapOn:
+    id: "tab-learn"
+- assertVisible:
+    id: "crisis-button-root"
+- takeScreenshot: /tmp/debug579-${DEBUG579_LABEL}-02-learn
+
+- tapOn:
+    id: "tab-insights"
+- assertVisible:
+    id: "crisis-button-root"
+- takeScreenshot: /tmp/debug579-${DEBUG579_LABEL}-03-insights
+
+- tapOn:
+    id: "tab-profile"
+- assertVisible:
+    id: "crisis-button-root"
+- takeScreenshot: /tmp/debug579-${DEBUG579_LABEL}-04-profile
+
+# Back to Home, so the run ends where it started and the last screenshot is not a subscreen.
+- tapOn:
+    id: "tab-home"
+- assertVisible:
+    id: "crisis-button-root"
+- takeScreenshot: /tmp/debug579-${DEBUG579_LABEL}-05-home-return
