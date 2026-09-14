@@ -21,6 +21,7 @@ Standards and patterns for building features in a consistent way.
 - You need to understand feature boundaries
 - You're deciding where to put new code
 - You want to understand barrel exports and public APIs
+- You're building crisis-related features or error boundaries (see Crisis-safe error boundaries)
 
 ### [Import Guidelines](./import-guidelines.md)
 Best practices for imports, path aliases, and avoiding circular dependencies.
@@ -29,18 +30,6 @@ Best practices for imports, path aliases, and avoiding circular dependencies.
 - Setting up imports in a new file
 - Debugging circular dependency issues
 - Understanding the approved import patterns
-
-## Technical Patterns
-
-### [Technical Patterns & Safety](./technical-patterns.md)
-Provider architecture, error boundaries, crisis fallbacks, and safety-first patterns.
-
-**Read this when:**
-- Implementing clinical safety features
-- Setting up new providers or contexts
-- Understanding the initialization order
-- Implementing error boundaries
-- Building crisis-related features
 
 ## Data & Privacy
 

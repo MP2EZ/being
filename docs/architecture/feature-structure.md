@@ -66,6 +66,31 @@ features/crisis/
 Note what is absent: there is no feature-level `index.ts`, and no `hooks/` or
 `stores/` directory. Not every feature uses every directory in the layout above.
 
+### Crisis-safe error boundaries
+
+_Moved here from technical-patterns.md, which MAINT-611 deleted; body as corrected by MAINT-604._
+
+```typescript
+// Two crisis-safe tiers; React's nearest boundary wins (DEBUG-341)
+import RootCrisisBoundary from '@/features/crisis/components/RootCrisisBoundary';
+import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
+
+// App.tsx wraps <CleanRootNavigator /> in one RootCrisisBoundary. The overlay
+// gets its OWN boundary inside the navigator (CleanRootNavigator.tsx):
+<RootCrisisBoundary>
+  <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
+</RootCrisisBoundary>
+```
+
+**Boundaries that exist:**
+- `RootCrisisBoundary`: the immediate parent of `CleanRootNavigator`, and separately of
+  the crisis overlay. Its fallback is a static 988 screen (`Static988Button`) that depends
+  on none of the subsystems most likely to have crashed. No auto-retry: recovery is
+  user-initiated, so the 988 control cannot unmount mid-tap.
+- `CrisisErrorBoundary`: wraps the assessment flow (`EnhancedAssessmentFlow`) and catches
+  its crashes first. Its fallback renders `CollapsibleCrisisButton`, and it retries on a
+  timer and on app foreground.
+
 ## Import Pattern
 
 A feature has no single "public API" file. Import the module you need, by path:
@@ -350,4 +375,3 @@ When moving code from old structure:
 Refer to:
 - [Codebase Organization](./codebase-organization.md) - Overall structure
 - [Import Guidelines](./import-guidelines.md) - Import patterns
-- [Technical Patterns](./technical-patterns.md) - Implementation patterns
