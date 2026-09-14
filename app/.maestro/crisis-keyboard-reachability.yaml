@@ -16,10 +16,20 @@ name: "Crisis affordance is reachable in one tap while a software keyboard is up
 # is owned by `crisis-988-dial.yaml`. Reaching `crisis-resources-screen` is in-process
 # navigation, so the reachability contract is fully assertable on a simulator.
 #
-# WHY DailyLoopStepScreen AND NOT THE JOURNAL COMPOSER. DEBUG-431's tap arithmetic found
-# no bounded exit here at all — `headerShown: false` AND `gestureEnabled: false` — so this
-# is the surface where the accessory is not a convenience but the only affordance. It is
-# also one of the two IMMERSIVE routes where the root button is additionally faded to 0.6.
+# WHY DailyLoopStepScreen AND NOT THE JOURNAL COMPOSER. It is on `IMMERSIVE_ROUTES`
+# (RootCrisisButton.tsx), where the root crisis button starts faded to `FADED_OPACITY` 0.6
+# (CollapsibleCrisisButton.tsx), and — decisively — the
+# journal composer is behind `voice_journal`, which is FALSE in `.env.production`, so the
+# two halves of this contract could not otherwise pin the same surface.
+#
+# CORRECTION (DEBUG-574 crisis ruling): this header claimed DEBUG-431 "found no bounded exit
+# here at all — `headerShown: false` AND `gestureEnabled: false`". Those options are the
+# ROOT `DailyLoop` Stack.Screen's (CleanRootNavigator.tsx). The NESTED navigator sets the
+# opposite — `headerShown: true, gestureEnabled: true` — and puts `daily-loop-exit` ("Close
+# daily practice") in `headerLeft` (DailyLoopNavigator.tsx), true since FEAT-291. There IS a
+# bounded exit, at the TOP of the screen where a bottom-anchored keyboard cannot occlude it.
+# Read DEBUG-431 as "unbounded WITHOUT LEAVING THE PRACTICE" — abandoning a session is not a
+# crisis affordance — which is what the surface choice actually rests on.
 #
 # THE KEYBOARD-UP ASSERTION IS LOAD-BEARING. `crisis-keyboard-accessory` renders always but
 # COLLAPSED (height 0, a11y-hidden) when nothing occludes, so asserting the BAR proves
@@ -70,9 +80,18 @@ name: "Crisis affordance is reachable in one tap while a software keyboard is up
 - assertVisible:
     id: "crisis-keyboard-accessory-button"
 
+# THE ACCESSORY MUST BE THE ONLY IN-PLACE AFFORDANCE ON THIS BEAT, PINNED NOT ASSUMED
+# (DEBUG-574 crisis ruling). `showsSupportLine` hosts `daily-loop-support-line` on Sphere
+# Sovereignty in quick depth, not on this breath beat, and the support bar sits inside the
+# KAV so it would survive keyboard-up. A re-host onto this beat would quietly turn this into
+# a test of the support line rather than of the accessory, still green.
+- assertNotVisible:
+    id: "daily-loop-support-line"
+
 # ONE TAP. Not "dismiss the keyboard, then find the root button" — DEBUG-431 measured that
-# path at 3 taps minimum, and unbounded on this very screen, which is why keyboard-dismiss
-# hygiene was ruled insufficient to close DEBUG-450.
+# path at 3 taps minimum, and unbounded on this screen WITHOUT LEAVING THE PRACTICE (see the
+# header correction), which is why keyboard-dismiss hygiene was ruled insufficient to close
+# DEBUG-450.
 - tapOn:
     id: "crisis-keyboard-accessory-button"
 - assertVisible:

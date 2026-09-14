@@ -63,10 +63,20 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 #
 # THE SPLIT IS DONE (DEBUG-506 AC5). `crisis-keyboard-reachability.yaml` carries the
 # reachability contract in the default sim suite, measured green before it was committed.
-# This flow stays device-only, and the reason is now the PREAMBLE rather than the keyboard:
-# it walks `_legal-and-onboarding.yaml`, which is correct for a non-seeded real-device build
-# and fails on the gate build, where `EXPO_PUBLIC_E2E_SEED_ONBOARDED=true` routes straight
-# past the LegalGate. It is what AC 6 runs on hardware.
+#
+# WHY THIS FLOW STILL EXISTS, now that a sim flow pins the same surface (DEBUG-574 crisis
+# ruling). Not the preamble — that is a harness fact, not a crisis reason. Two things only
+# hardware can show:
+#   1. The accessory attaches and stays reachable against a REAL keyboard window.
+#      `UIRemoteKeyboardWindow` layering above the app window, a real bottom safe-area /
+#      home-indicator inset, a third-party or predictive keyboard, real animation timing.
+#      The simulator reproduces the layout; it does not reproduce the window server.
+#   2. It is the only on-hardware traversal of the NON-SEEDED LegalGate + onboarding path —
+#      the state a real install starts from — via `_legal-and-onboarding.yaml`, whose other
+#      callers (`crisis-988-dial.yaml`, `breathing-fps-budget.yaml`) are device-class too, and
+#      which carries INFRA-494's recorded, deliberately-unfixed clipped-`legal-gate-continue`
+#      hazard.
+# Keep the tag. Keep it out of `npm run e2e:safety`.
 #
 # On a real device, run:
 #   npm run e2e:safety:keyboard-accessory
@@ -86,26 +96,48 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 - launchApp:
     clearState: true
     clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
+# EXACTLY ONE PREAMBLE, AND IT DECLARES THE TARGET BUILD (DEBUG-574). This flow used to
+# run `_legal-and-onboarding.yaml` AND `_seeded-home.yaml`. Running both makes the build
+# class ambiguous: the first dies at its non-optional `extendedWaitUntil: legal-dob-picker`
+# on a seeded build, the second is a no-op on an unseeded one, so the pair names neither.
+# `_legal-and-onboarding.yaml` is the correct one here and ends on `home-screen` itself.
 - runFlow: _legal-and-onboarding.yaml
-- runFlow: _seeded-home.yaml
 
-# Reach a free-text surface. The journal composer is the canonical distress-bearing
-# multiline input — the surface DEBUG-431's tap arithmetic showed had no bounded exit.
+# ── Reach a free-text surface: the daily practice, Quick depth ───
+# NOT the Insights weekly reflection, which is where this flow used to go and is why it was
+# RED ON ARRIVAL for its entire life (DEBUG-574). `WeeklyReflectionCard` returns null below
+# `MIN_CHECK_INS_TO_SHOW` (4) check-ins in the last 7 days; `clearState: true` zeroes them
+# and this flow has no check-in preamble, so `weekly-reflection-card` could never exist and
+# the scroll could never succeed. INFRA-532's seeded check-ins do not reach here: that seed
+# is gated on `EXPO_PUBLIC_E2E_SEED_ONBOARDED`, declared only in `eas.json`'s `e2e-sim`
+# profile, which is `ios.simulator: true`.
+#
+# NOR the journal composer, which the deleted comment here called "the canonical
+# distress-bearing multiline input". It is behind `voice_journal`, FALSE in
+# `.env.production` — so it cannot exist on the build this flow runs against. The target
+# must be flag-free in BOTH envs, and DailyLoop is: FEAT-298 slice 5 retired `daily_loop` /
+# `daily_loop_only` and the Home card is unconditional.
 - tapOn:
-    id: "tab-insights"
-- scrollUntilVisible:
-    element:
-      id: "weekly-reflection-card"
-    direction: DOWN
-# `weekly-reflection-prompt` is the trigger on a seeded state (no reflection yet);
-# `weekly-reflection-edit` replaces it once one exists. Seeded state means the prompt.
+    text: ".*Daily Practice.*"
+- assertVisible:
+    id: "daily-loop-depth-quick"
 - tapOn:
-    id: "weekly-reflection-prompt"
+    id: "daily-loop-depth-quick"
+
+# Beat 1 is breath-gated; skip straight to the text beat. Conditional because the breath is
+# time-based and may already have elapsed.
+- runFlow:
+    when:
+      visible:
+        id: "daily-loop-breathing-circle"
+    commands:
+      - tapOn:
+          id: "daily-loop-skip-breath"
 
 - assertVisible:
-    id: "weekly-reflection-input"
+    id: "daily-loop-input-response"
 - tapOn:
-    id: "weekly-reflection-input"
+    id: "daily-loop-input-response"
 
 # THE GUARD AGAINST FALSE GREEN. The accessory button is only visible when the occlusion
 # predicate returned true — i.e. a bottom-anchored software keyboard taller than the
@@ -114,9 +146,21 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 - assertVisible:
     id: "crisis-keyboard-accessory-button"
 
-# ONE TAP. Not "dismiss the keyboard, then find the root button" — DEBUG-431 measured
-# that path at 3 taps minimum and unbounded on DailyLoop, which is why keyboard-dismiss
-# hygiene was explicitly ruled insufficient to close this item.
+# THE ACCESSORY MUST BE THE ONLY IN-PLACE AFFORDANCE HERE, PINNED NOT ASSUMED (DEBUG-574
+# crisis ruling). `showsSupportLine` puts `daily-loop-support-line` on SphereSovereignty
+# only in quick depth (tenseMode.ts QUICK_SUPPORT_STEP), and the support bar is pinned
+# INSIDE the KAV so it survives keyboard-up. A future re-host onto this beat would silently
+# demote this flow to a weaker test that still greens. Placed after the button assertion,
+# matching crisis-keyboard-reachability.yaml, so the negative is never checked against an
+# empty screen.
+- assertNotVisible:
+    id: "daily-loop-support-line"
+
+# ONE TAP. Not "dismiss the keyboard, then find the root button" — DEBUG-431 measured that
+# path at 3 taps minimum, and unbounded on DailyLoop WITHOUT LEAVING THE PRACTICE (the
+# `daily-loop-exit` ✕ in the nested navigator's `headerLeft` is a bounded exit, but
+# abandoning a session is not a crisis affordance — see crisis-keyboard-reachability.yaml).
+# That is why keyboard-dismiss hygiene was ruled insufficient to close DEBUG-450.
 - tapOn:
     id: "crisis-keyboard-accessory-button"
 

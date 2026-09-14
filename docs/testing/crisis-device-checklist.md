@@ -143,10 +143,6 @@ Waiver:    <WAIVED only: reason + "988 dial and keyboard accessory NOT verified 
   without passing through `/b-release`. Tracked as INFRA-605.
 - **The generated `Info.plist` keeping `tel` and `sms`** after plugin composition is
   INFRA-592.
-- **`crisis-keyboard-accessory.yaml` walks to the Insights weekly reflection**, which is absent
-  on a non-seeded device. When DEBUG-589's exit condition arrives, that flow will fail on its
-  intended build until it is re-pointed. It fails red, not green, but re-certification has to
-  account for it.
 - **The automated dial flow can only assert that the fallback alert is absent.** It cannot see
   the iOS prompt, so removing this checklist gives up that observation.
 
