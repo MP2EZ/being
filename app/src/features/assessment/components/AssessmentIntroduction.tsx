@@ -1,9 +1,9 @@
 /**
  * AssessmentIntroduction Component - DRD-FLOW-005
  * 
- * CLINICAL SPECIFICATIONS:
+ * WELLNESS SCREENING SPECIFICATIONS:
  * - Therapeutic guidance and mindful awareness
- * - PHQ-9/GAD-7 clinical context and purpose explanation
+ * - PHQ-9/GAD-7 wellness-screening context and purpose explanation
  * - Therapeutic language for anxiety reduction
  * - Crisis support integration and safety messaging
  * - Accessibility compliant therapeutic content
@@ -74,8 +74,8 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
         return {
           title: 'Depression Assessment (PHQ-9)',
           subtitle: 'Understanding Your Mood Patterns',
-          description: 'This assessment helps you observe your mood patterns with kindness and awareness, in the spirit of mindfulness-based cognitive therapy.',
-          purpose: 'The PHQ-9 is a clinically validated tool that gently guides you to notice patterns in your thoughts and feelings over the past two weeks.',
+          description: 'This assessment helps you observe your mood patterns with kindness and awareness.',
+          purpose: 'The PHQ-9 is a widely used wellness screening tool that helps you notice how you\'ve been feeling over the past two weeks—a starting point, not a diagnosis.',
           mindfulnessNote: 'As you respond, practice observing your experiences without judgment—simply noticing what has been present for you.',
           timeEstimate: '3-5 minutes',
           questionCount: 9,
