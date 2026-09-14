@@ -37,10 +37,12 @@ import {
   evaluateLiveness,
   evaluateProbeLiveness,
   evaluateSpike,
+  evaluateBackfill,
   buildAlertPayload,
   composeReason,
   shouldPingHealthcheck,
   type BucketRow,
+  type DayCounts,
 } from './alertLogic.ts';
 
 /** Constant-time compare; false (without timing leak) when byte-lengths differ. */
@@ -81,6 +83,12 @@ function dayString(ms: number): string {
 interface VolumeRow {
   event_date: string;
   detection_count: number;
+  // DEBUG-541 provenance split. Nullable in practice: a row read before the migration
+  // lands carries none of these, so every consumer coalesces rather than assuming.
+  event_time_rows?: number | null;
+  ingest_time_rows?: number | null;
+  clock_skew_count?: number | null;
+  implausible_past_count?: number | null;
 }
 
 serve(async (req) => {
@@ -117,6 +125,12 @@ serve(async (req) => {
   let lastDetectionAt: string | null = null;
   let volumeRows: VolumeRow[] = [];
   let bucketRows: BucketRow[] = [];
+  // DEBUG-541: the watermark must NOT be persisted by a run whose volume read failed.
+  // Each view read has its own try/catch and execution CONTINUES, so without this flag a
+  // failed read would persist an empty map and the next run would see the entire series as
+  // grown-from-zero and page a full-series backfill alert.
+  let volumeReadOk = false;
+  let arrivalToday = 0;
 
   try {
     const { data, error } = await supabase
@@ -133,11 +147,15 @@ serve(async (req) => {
   try {
     const { data, error } = await supabase
       .from('crisis_detection_volume_daily')
-      .select('event_date, detection_count')
+      .select(
+        'event_date, detection_count, event_time_rows, ingest_time_rows, ' +
+          'clock_skew_count, implausible_past_count',
+      )
       .order('event_date', { ascending: false })
       .limit(baselineDays + 2);
     if (error) throw error;
     volumeRows = (data ?? []) as VolumeRow[];
+    volumeReadOk = true;
   } catch (e) {
     errors.push(`volume view read failed: ${errMsg(e)}`);
   }
@@ -180,6 +198,48 @@ serve(async (req) => {
     errors.push(`probe marker read failed: ${errMsg(e)}`);
   }
 
+  // DEBUG-541: today's ARRIVAL count (ingest-keyed). The occurrence series is
+  // right-truncated — a device that detected today and has not flushed is not in today's
+  // occurrence count and cannot be — so evaluating on occurrence alone goes blind at the
+  // LEADING edge. This is the un-truncated counterpart, and it is what lets the alert say
+  // "a backlog flushed" instead of "a spike occurred".
+  try {
+    const { data, error } = await supabase
+      .from('crisis_detection_arrival_daily')
+      .select('arrival_date, arrival_count')
+      .order('arrival_date', { ascending: false })
+      .limit(baselineDays + 2);
+    if (error) throw error;
+    const todayKey = dayString(startedMs);
+    const row = ((data ?? []) as Array<{ arrival_date: string; arrival_count: number }>).find(
+      (r) => typeof r.arrival_date === 'string' && r.arrival_date.slice(0, 10) === todayKey,
+    );
+    arrivalToday = row?.arrival_count ?? 0;
+  } catch (e) {
+    errors.push(`arrival view read failed: ${errMsg(e)}`);
+  }
+
+  // DEBUG-541: the backfill watermark — per-day counts as the last CLEAN run saw them.
+  // Read only from a run that both completed cleanly AND persisted a map. A NULL map is a
+  // run from the pre-deploy alerter; that is a COLD START, not an empty map, and the
+  // distinction is what stops the first run after deploy paging the whole series.
+  let watermark: DayCounts | null = null;
+  try {
+    const { data, error } = await supabase
+      .from('crisis_alert_runs')
+      .select('evaluated_counts')
+      .in('status', ['ok', 'alerted'])
+      .not('evaluated_counts', 'is', null)
+      .order('ran_at', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (error) throw error;
+    const raw = data?.evaluated_counts ?? null;
+    watermark = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as DayCounts) : null;
+  } catch (e) {
+    errors.push(`backfill watermark read failed: ${errMsg(e)}`);
+  }
+
   // Build a gap-filled per-day count map (a quiet day is a real 0, not a missing row).
   const countByDay = new Map<string, number>();
   for (const r of volumeRows) {
@@ -191,6 +251,28 @@ serve(async (req) => {
   for (let i = 1; i <= baselineDays; i++) {
     baselineCounts.push(countByDay.get(dayString(startedMs - i * DAY_MS)) ?? 0);
   }
+
+  // DEBUG-541: the gap-filled window this run evaluated, persisted as the next run's
+  // watermark. Gap-filling is load-bearing, not tidiness: evaluateBackfill only considers
+  // days that are KEYS in the watermark, so "present with count 0" and "absent" must mean
+  // different things — otherwise a day sliding out of the window reads as growth-from-zero.
+  const currentCounts: DayCounts = {};
+  for (let i = 0; i <= baselineDays; i++) {
+    const d = dayString(startedMs - i * DAY_MS);
+    currentCounts[d] = countByDay.get(d) ?? 0;
+  }
+
+  // Provenance over the same window. Coalesced: rows read before the migration lands carry
+  // none of these columns, and a missing column must not read as a zero-fallback share.
+  const provenance = volumeRows.reduce(
+    (acc, r) => ({
+      eventTimeRows: acc.eventTimeRows + (r.event_time_rows ?? 0),
+      ingestTimeRows: acc.ingestTimeRows + (r.ingest_time_rows ?? 0),
+      clockSkewCount: acc.clockSkewCount + (r.clock_skew_count ?? 0),
+      implausiblePastCount: acc.implausiblePastCount + (r.implausible_past_count ?? 0),
+    }),
+    { eventTimeRows: 0, ingestTimeRows: 0, clockSkewCount: 0, implausiblePastCount: 0 },
+  );
 
   // --- Evaluate (pure logic). ---
   const liveness = evaluateLiveness({
@@ -212,17 +294,33 @@ serve(async (req) => {
     stalenessThresholdHours: probeStalenessHours,
   });
 
-  // STRICTLY ADDITIVE (crisis specialist C3/C4): the probe can RAISE a page but NEVER
-  // suppress a real verdict — three independent axes OR'd together, never gated.
-  const shouldAlert = liveness.alert || spike.alert || probe.alert;
-  const reason = composeReason(liveness.alert, spike.alert, probe.alert);
+  // DEBUG-541 backfill axis — did a day we already closed the books on grow? Reuses
+  // minAbsoluteForSpike as the report threshold rather than introducing a new env name:
+  // its horizon must stay pinned to the SQL floor in the migration, and a tunable that can
+  // drift from a hardcoded SQL constant is a silent-miss surface, not a feature.
+  const backfill = evaluateBackfill({
+    currentCounts,
+    watermark,
+    today,
+    minGrowthToReport: minAbsoluteForSpike,
+    spikeMultiplier,
+    minAbsoluteForSpike,
+  });
+
+  // STRICTLY ADDITIVE (crisis specialist C3/C4): the probe and backfill axes can RAISE a
+  // page but NEVER suppress a real verdict — four independent axes OR'd together.
+  const shouldAlert = liveness.alert || spike.alert || probe.alert || backfill.alert;
+  const reason = composeReason(liveness.alert, spike.alert, probe.alert, backfill.alert);
 
   const payload = buildAlertPayload({
     reason,
     liveness,
     spike,
     probe,
+    backfill,
     todayVolume: todayCount,
+    arrivalToday,
+    provenance,
     buckets: bucketRows,
     bucketFloor,
     lastDetectionDate: lastDetectionAt ? lastDetectionAt.slice(0, 10) : null,
@@ -252,8 +350,12 @@ serve(async (req) => {
       liveness_status: liveness.status,
       spike_status: spike.status,
       probe_status: probe.status,
+      backfill_status: backfill.status,
       today_volume: todayCount,
       alert_sent: alertSent,
+      // Persist the watermark ONLY when the volume read actually succeeded. A partial or
+      // empty map would make the NEXT run read the whole series as grown-from-zero.
+      evaluated_counts: volumeReadOk ? currentCounts : null,
       errors: errors.length ? errors : null,
       duration_ms: Date.now() - startedMs,
     });
@@ -284,7 +386,10 @@ serve(async (req) => {
       liveness: liveness.status,
       spike: spike.status,
       probe: probe.status,
+      backfill: backfill.status,
+      // Occurrence vs arrival, named so the basis of each number is never implicit.
       todayVolume: todayCount,
+      arrivalToday,
     },
     alertSent,
     errors,
@@ -348,8 +453,18 @@ async function sendResendAlert(payload: ReturnType<typeof buildAlertPayload>): P
     `Liveness: ${payload.liveness.status}` +
       (payload.liveness.ageHours != null ? ` (last detection ~${payload.liveness.ageHours}h ago)` : '') +
       (payload.lastDetectionDate ? ` [last detection day ${payload.lastDetectionDate}]` : ' [no detection retained]'),
-    `Volume: today ${payload.todayVolume}, spike status ${payload.spike.status}` +
+    `Volume (OCCURRENCE — the day detection happened): today ${payload.todayVolume}, ` +
+      `spike status ${payload.spike.status}` +
       (payload.spike.baselineMean != null ? `, baseline mean ${payload.spike.baselineMean}` : ' (cold start)'),
+    `Volume (ARRIVAL — the day the row reached the server): today ${payload.arrivalToday}`,
+    ...(payload.arrivalToday !== payload.todayVolume
+      ? [
+          `  NOTE: occurrence and arrival differ by ${Math.abs(payload.arrivalToday - payload.todayVolume)}. ` +
+            (payload.arrivalToday > payload.todayVolume
+              ? 'More arrived than occurred today — that is a BACKLOG FLUSH (events detected on earlier days), not a surge.'
+              : 'More occurred than arrived today — detections are still on devices that have not flushed yet.'),
+        ]
+      : []),
     `Probe (INFRA-265, ingest/cron/edge leg only — NOT the on-device emit leg): ${payload.probe.status}` +
       (payload.probe.ageHours != null ? ` (last probe ~${payload.probe.ageHours}h ago)` : ' (no probe recorded)'),
     '',
@@ -371,6 +486,50 @@ async function sendResendAlert(payload: ReturnType<typeof buildAlertPayload>): P
         'This does NOT cover the on-device emit leg; run the manual active-liveness assertion ' +
         '(runbook step 1) to confirm the app path.',
     );
+  }
+
+  // DEBUG-541 — provenance, printed on EVERY alert, not only when fallback is present.
+  // A number whose basis is implicit is the defect this item fixes, one layer up.
+  lines.push(
+    '',
+    `Attribution over the evaluated window: ${payload.provenance.eventTimeRows} row(s) by ` +
+      `detection date, ${payload.provenance.ingestTimeRows} by arrival date (no usable ` +
+      `detected_on)` +
+      (payload.provenance.fallbackShare != null
+        ? ` — fallback share ${Math.round(payload.provenance.fallbackShare * 100)}%.`
+        : ' — no rows in window.'),
+  );
+  if (payload.provenance.fallbackShare != null && payload.provenance.fallbackShare >= 0.5) {
+    lines.push(
+      '  WARNING: most rows in this window are attributed by ARRIVAL date, not detection ' +
+        'date. The occurrence series is not yet trustworthy — clients predating DEBUG-541 ' +
+        'send no detected_on, and that population is permanent, not a transition window.',
+    );
+  }
+  if (payload.provenance.clockSkewCount > 0 || payload.provenance.implausiblePastCount > 0) {
+    lines.push(
+      `  Rejected client dates: ${payload.provenance.clockSkewCount} ahead of arrival ` +
+        `(clock skew), ${payload.provenance.implausiblePastCount} older than the horizon. ` +
+        'Both were attributed to the arrival date rather than dropped.',
+    );
+  }
+
+  lines.push('', `Backfill axis: ${payload.backfill.status}.`);
+  if (payload.backfill.status === 'cold_start') {
+    lines.push(
+      '  No watermark from a prior run — this run recorded the baseline. This is NOT a ' +
+        'statement that nothing was backfilled; it is a statement that we could not tell.',
+    );
+  } else if (payload.backfill.grownDays.length > 0) {
+    lines.push('  Closed days that grew since the last evaluated run:');
+    for (const g of payload.backfill.grownDays) {
+      lines.push(`    - ${g.day}: ${g.priorCount} -> ${g.currentCount} (+${g.delta})`);
+    }
+    if (!payload.backfill.alert) {
+      lines.push(
+        '  Reported, not paged: none cleared the spike test against current neighbours.',
+      );
+    }
   }
   lines.push('', 'Monitoring-only. Confirm via the Supabase SQL editor; see crisis-analytics-runbook.md.');
 

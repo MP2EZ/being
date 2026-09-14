@@ -326,6 +326,20 @@ WHERE event_type = 'crisis_detected'
 GROUP BY 1
 ORDER BY event_date DESC;
 
+-- (d) Arrival volume — per-INGEST-day totals (DEBUG-541). An event-time series is
+--     right-truncated (a device that detected today but has not flushed is not in today's
+--     occurrence count), so the spike test needs an un-truncated counterpart or it goes
+--     blind at the leading edge. It is also what lets the alert distinguish a backlog
+--     flush from a real surge instead of suppressing it.
+CREATE OR REPLACE VIEW crisis_detection_arrival_daily AS
+SELECT
+  DATE_TRUNC('day', created_at)  AS arrival_date,
+  COUNT(*)                       AS arrival_count
+FROM analytics_events
+WHERE event_type = 'crisis_detected'
+GROUP BY 1
+ORDER BY arrival_date DESC;
+
 -- (c) Liveness / reconciliation — supports the post-release check that distinguishes
 --     "zero crises (healthy)" from "pipeline dead (no events landing)". A count alone
 --     cannot tell these apart; the runbook pairs `last_detection_at` with an ACTIVE

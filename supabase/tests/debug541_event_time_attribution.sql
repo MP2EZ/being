@@ -240,6 +240,26 @@ BEGIN
   RAISE NOTICE 'PASS: day-series views moved together on event time; liveness stays on ingest';
 END $$;
 
+-- ============ Test 9b: the arrival view exists and is NOT on event time ============
+-- It is the un-truncated counterpart to the occurrence series. If this ever gets
+-- "consistently" repointed onto detected_on it stops being able to see the leading edge,
+-- and the backlog-vs-surge distinction collapses.
+DO $$
+DECLARE v_def text;
+BEGIN
+  IF to_regclass('public.crisis_detection_arrival_daily') IS NULL THEN
+    RAISE EXCEPTION 'FAIL: public.crisis_detection_arrival_daily does not exist';
+  END IF;
+  v_def := pg_get_viewdef('public.crisis_detection_arrival_daily'::regclass, true);
+  IF v_def LIKE '%crisis_event_day%' THEN
+    RAISE EXCEPTION 'FAIL: arrival view was moved to event time — it must stay on created_at';
+  END IF;
+  IF v_def NOT LIKE '%created_at%' THEN
+    RAISE EXCEPTION 'FAIL: arrival view does not read created_at';
+  END IF;
+  RAISE NOTICE 'PASS: arrival view exists and is keyed on ingest time';
+END $$;
+
 -- ============ Test 10: watermark columns exist and are nullable ============
 -- Nullable is load-bearing: a pre-deploy alerter row leaves them NULL, and NULL must read
 -- as cold_start rather than as an empty map (which would page a full-series backfill).
@@ -266,7 +286,8 @@ DECLARE r record;
 BEGIN
   FOR r IN SELECT unnest(ARRAY['crisis_detection_daily',
                                'crisis_detection_volume_daily',
-                               'crisis_detection_liveness']) AS v
+                               'crisis_detection_liveness',
+                               'crisis_detection_arrival_daily']) AS v
   LOOP
     IF has_table_privilege('anon', 'public.' || r.v, 'SELECT')
     OR has_table_privilege('authenticated', 'public.' || r.v, 'SELECT') THEN

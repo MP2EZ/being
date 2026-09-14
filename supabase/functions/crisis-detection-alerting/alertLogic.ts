@@ -5,11 +5,12 @@
  * Date.now(). `nowMs` is injected so the staleness comparison is deterministic and
  * unit-testable. The edge function (index.ts) wires these against the live views.
  *
- * Three responsibilities, kept separate:
+ * Responsibilities, kept separate:
  *   - evaluateLiveness      : is the detection→Supabase pipeline alive? (safety-critical)
  *   - evaluateProbeLiveness : has the INFRA-265 synthetic probe landed recently? — the
  *                             authoritative dead-vs-quiet discriminator for the ingest leg.
  *   - evaluateSpike         : is today's volume an anomalous spike vs the trailing baseline?
+ *   - evaluateBackfill      : did a CLOSED day grow since we last evaluated it? (DEBUG-541)
  *   - buildAlertPayload     : assemble a PII-free, counts-only alert body with the ≥N
  *                             minimum-count floor applied before anything leaves Supabase.
  *
@@ -27,6 +28,11 @@
  *   - Per-bucket rows below the floor are SUPPRESSED from the external breakdown but still
  *     COUNTED in the aggregate — never silently dropped (k-anon is not claimed; a rare
  *     crisis is real signal, it just isn't transmitted at row granularity).
+ *   - DEBUG-541: the series is keyed on OCCURRENCE time, but "have I already evaluated
+ *     this day" is keyed on INGEST. Without that second key a backfilled detection lands
+ *     in an already-closed day, is never spike-tested, AND raises the baseline the next
+ *     genuine spike is measured against — trading a visible false positive for a silent
+ *     false negative. The backfill axis is strictly ADDITIVE, like the probe.
  */
 
 const MS_PER_HOUR = 3_600_000;
@@ -280,6 +286,147 @@ export function evaluateSpike(input: SpikeInput): SpikeVerdict {
 }
 
 // ---------------------------------------------------------------------------
+// Backfill (DEBUG-541) — did a day we already closed the books on grow?
+// ---------------------------------------------------------------------------
+
+/** Per-day counts, keyed 'YYYY-MM-DD'. */
+export type DayCounts = Record<string, number>;
+
+export interface BackfillInput {
+  /** Per-day occurrence counts as THIS run observes them, gap-filled over the window. */
+  currentCounts: DayCounts;
+  /**
+   * The same map as recorded by the newest prior run that completed cleanly AND persisted
+   * one. `null` means no usable watermark — a first run, or a run from the pre-deploy
+   * alerter whose column is NULL. Both are cold start; neither may page.
+   */
+  watermark: DayCounts | null;
+  /** Today ('YYYY-MM-DD'). Excluded — today is the spike axis's job, not this one. */
+  today: string;
+  /** A closed day growing by at least this much is REPORTED. */
+  minGrowthToReport: number;
+  /** Ratio a grown day must clear against its CURRENT neighbours to page. */
+  spikeMultiplier: number;
+  /** Absolute floor a grown day must clear to page (never page on 1-vs-0). */
+  minAbsoluteForSpike: number;
+}
+
+export type BackfillStatus = 'cold_start' | 'none' | 'backfill';
+
+/** A closed day whose count grew. Day precision only — never a sub-day timestamp. */
+export interface GrownDay {
+  day: string;
+  priorCount: number;
+  currentCount: number;
+  delta: number;
+}
+
+export interface BackfillVerdict {
+  alert: boolean;
+  status: BackfillStatus;
+  grownDays: GrownDay[];
+  detail: string;
+}
+
+/**
+ * Decide whether any CLOSED day grew since the last evaluated run.
+ *
+ * Why this exists at all: the cron is daily and the spike test reads only the current day,
+ * so once event-time attribution lands, every backfilled detection arrives into a day that
+ * has already been evaluated and will never be evaluated again. It is invisible to the
+ * spike test and it silently lifts the trailing baseline. This axis is the second key.
+ *
+ * EDGE-TRIGGERED, deliberately. A stateless "re-check the whole window every run" would be
+ * level-triggered: it re-pages for the same day every day until it ages out, which trains
+ * the reader to ignore the axis. The watermark is what makes a page mean "something changed
+ * since you last looked".
+ *
+ * ONLY days present as KEYS in the watermark are evaluated. A day absent from it was never
+ * previously evaluated, so it cannot be shown to have GROWN — and treating absent as zero
+ * would make the first run after the window slides report the whole tail as backfill. This
+ * is also why the caller must persist a GAP-FILLED map: with gap-filling, "key present with
+ * count 0" and "key absent" mean different things, and only the first is a real prior.
+ *
+ * Growth magnitude is an INDEPENDENT trigger from the ratio. Backfill raises the baseline,
+ * so a day's own neighbours may have grown too — meaning a backfill can mask the very day it
+ * lands on if the ratio were the only gate. A day that grows by >= minGrowthToReport is
+ * therefore always REPORTED even when it does not page.
+ *
+ * The per-day ratio is computed from CURRENT neighbour counts, excluding the day itself —
+ * never from the stored watermark, which is by definition the stale view.
+ */
+export function evaluateBackfill(input: BackfillInput): BackfillVerdict {
+  const {
+    currentCounts,
+    watermark,
+    today,
+    minGrowthToReport,
+    spikeMultiplier,
+    minAbsoluteForSpike,
+  } = input;
+
+  if (watermark === null) {
+    return {
+      alert: false,
+      status: 'cold_start',
+      grownDays: [],
+      detail:
+        'No usable watermark from a prior run (first run, or the previous run predates ' +
+        'DEBUG-541) — recording this run’s counts as the baseline. Deliberately NOT a page: ' +
+        'reading an absent watermark as an empty map would report the entire series as ' +
+        'backfill on the first run after deploy.',
+    };
+  }
+
+  const grownDays: GrownDay[] = [];
+  for (const day of Object.keys(watermark)) {
+    if (day === today) continue; // today is still open; the spike axis owns it
+    const priorCount = watermark[day] ?? 0;
+    const currentCount = currentCounts[day] ?? priorCount;
+    const delta = currentCount - priorCount;
+    if (delta >= minGrowthToReport && delta > 0) {
+      grownDays.push({ day, priorCount, currentCount, delta });
+    }
+  }
+  grownDays.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
+
+  if (grownDays.length === 0) {
+    return {
+      alert: false,
+      status: 'none',
+      grownDays: [],
+      detail: 'No closed day grew since the last evaluated run.',
+    };
+  }
+
+  // Page only if a grown day also looks anomalous against its CURRENT neighbours.
+  const pageWorthy = grownDays.filter((g) => {
+    if (g.currentCount < minAbsoluteForSpike) return false;
+    const neighbours = Object.keys(watermark)
+      .filter((d) => d !== g.day && d !== today)
+      .map((d) => currentCounts[d] ?? watermark[d] ?? 0);
+    if (neighbours.length === 0) return false;
+    const mean = neighbours.reduce((a, b) => a + b, 0) / neighbours.length;
+    return g.currentCount >= mean * spikeMultiplier;
+  });
+
+  const summary = grownDays
+    .map((g) => `${g.day} ${g.priorCount}→${g.currentCount} (+${g.delta})`)
+    .join(', ');
+
+  return {
+    alert: pageWorthy.length > 0,
+    status: 'backfill',
+    grownDays,
+    detail:
+      `${grownDays.length} closed day(s) grew since the last evaluated run: ${summary}. ` +
+      (pageWorthy.length > 0
+        ? `${pageWorthy.length} of them also clear the spike test against current neighbours.`
+        : 'None clear the spike test against current neighbours — reported, not paged.'),
+  };
+}
+
+// ---------------------------------------------------------------------------
 // Payload assembly
 // ---------------------------------------------------------------------------
 
@@ -300,9 +447,9 @@ export interface PublicBucket {
 }
 
 /**
- * Which axes tripped, '+'-joined in fixed order (liveness, spike, probe) — e.g.
- * 'liveness', 'probe', 'liveness+spike', 'liveness+spike+probe'. A free-form composed
- * string (not a closed union) so adding an axis needs no type churn. See composeReason().
+ * Which axes tripped, '+'-joined in fixed order (liveness, spike, probe, backfill) — e.g.
+ * 'liveness', 'probe', 'liveness+spike', 'liveness+spike+probe+backfill'. A free-form
+ * composed string (not a closed union) so adding an axis needs no type churn.
  */
 export type AlertReason = string;
 
@@ -311,12 +458,31 @@ export function composeReason(
   livenessAlert: boolean,
   spikeAlert: boolean,
   probeAlert: boolean,
+  backfillAlert: boolean,
 ): AlertReason {
   const axes: string[] = [];
   if (livenessAlert) axes.push('liveness');
   if (spikeAlert) axes.push('spike');
   if (probeAlert) axes.push('probe');
+  if (backfillAlert) axes.push('backfill');
   return axes.join('+');
+}
+
+/**
+ * Per-window provenance counts (DEBUG-541). Every field is a COUNT or a ratio — no
+ * identifier, no timestamp. These exist so the alert can say how much of the occurrence
+ * series is real event time; the mixed population is permanent, so an unlabelled
+ * occurrence number would be a number whose basis the reader cannot know.
+ */
+export interface ProvenanceCounts {
+  /** Rows in the window attributed by their own detected_on. */
+  eventTimeRows: number;
+  /** Rows attributed by ingest date — no usable detected_on. */
+  ingestTimeRows: number;
+  /** Rows whose detected_on was later than ingest (untrusted clock), so it was rejected. */
+  clockSkewCount: number;
+  /** Rows whose detected_on fell before the horizon, so it was rejected. */
+  implausiblePastCount: number;
 }
 
 export interface AlertPayloadInput {
@@ -325,7 +491,14 @@ export interface AlertPayloadInput {
   spike: SpikeVerdict;
   /** INFRA-265 synthetic-probe verdict (the ingest/cron/edge-leg liveness axis). */
   probe: ProbeLivenessVerdict;
+  /** DEBUG-541 backfill verdict (did a closed day grow since we last looked?). */
+  backfill: BackfillVerdict;
+  /** Today's OCCURRENCE count — right-truncated by construction (see evaluateBackfill). */
   todayVolume: number;
+  /** Today's ARRIVAL count (ingest-keyed, never truncated). Pairs with todayVolume. */
+  arrivalToday: number;
+  /** Provenance split over the evaluated window. */
+  provenance: ProvenanceCounts;
   buckets: BucketRow[];
   /** Minimum per-bucket count to transmit a row externally (compliance floor; >= 3). */
   bucketFloor: number;
@@ -335,11 +508,22 @@ export interface AlertPayloadInput {
 
 export interface AlertPayload {
   reason: AlertReason;
+  /** OCCURRENCE count for today. Right-truncated: devices that detected today and have
+   *  not yet flushed are not in it. Always read alongside `arrivalToday`. */
   todayVolume: number;
+  /** ARRIVAL count for today (ingest-keyed). Never truncated. A large gap between this
+   *  and `todayVolume` means a backlog flushed, not that a surge occurred. */
+  arrivalToday: number;
   liveness: { status: LivenessStatus; alert: boolean; ageHours: number | null };
   spike: { status: SpikeStatus; alert: boolean; baselineMean: number | null };
   /** Probe leg (INFRA-265): proves cron/edge/ingest only, NOT the on-device emit path. */
   probe: { status: ProbeStatus; alert: boolean; ageHours: number | null };
+  /** Backfill axis (DEBUG-541). `cold_start` is stated explicitly, never rendered as
+   *  "no backfill" — an absent watermark is not evidence that nothing grew. */
+  backfill: { status: BackfillStatus; alert: boolean; grownDays: GrownDay[] };
+  /** Counts only. `fallbackShare` is 0..1 over the window; null when the window is empty
+   *  (a share of "0 of 0" would read as fully trustworthy, which is the wrong direction). */
+  provenance: ProvenanceCounts & { fallbackShare: number | null };
   /** Only rows with detection_count >= bucketFloor. */
   buckets: PublicBucket[];
   /** How many per-bucket rows were withheld for being below the floor. */
@@ -358,8 +542,23 @@ export interface AlertPayload {
  * structured data; the edge function composes the human-readable subject/body from it.
  */
 export function buildAlertPayload(input: AlertPayloadInput): AlertPayload {
-  const { reason, liveness, spike, probe, todayVolume, buckets, bucketFloor, lastDetectionDate } =
-    input;
+  const {
+    reason,
+    liveness,
+    spike,
+    probe,
+    backfill,
+    todayVolume,
+    arrivalToday,
+    provenance,
+    buckets,
+    bucketFloor,
+    lastDetectionDate,
+  } = input;
+
+  const attributedRows = provenance.eventTimeRows + provenance.ingestTimeRows;
+  const fallbackShare =
+    attributedRows > 0 ? round1((provenance.ingestTimeRows / attributedRows) * 100) / 100 : null;
 
   const included: PublicBucket[] = [];
   let suppressedBucketCount = 0;
@@ -382,9 +581,16 @@ export function buildAlertPayload(input: AlertPayloadInput): AlertPayload {
   return {
     reason,
     todayVolume,
+    arrivalToday,
     liveness: { status: liveness.status, alert: liveness.alert, ageHours: liveness.ageHours },
     spike: { status: spike.status, alert: spike.alert, baselineMean: spike.baselineMean },
     probe: { status: probe.status, alert: probe.alert, ageHours: probe.ageHours },
+    backfill: {
+      status: backfill.status,
+      alert: backfill.alert,
+      grownDays: backfill.grownDays,
+    },
+    provenance: { ...provenance, fallbackShare },
     buckets: included,
     suppressedBucketCount,
     suppressedDetectionTotal,

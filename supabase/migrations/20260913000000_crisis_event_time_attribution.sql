@@ -177,6 +177,30 @@ ORDER BY event_date DESC;
 
 -- (c) crisis_detection_liveness is DELIBERATELY NOT REDEFINED HERE. See the header.
 
+-- (d) Arrival volume — per-INGEST-day totals. NEW in DEBUG-541, and it exists because
+-- moving the series to event time introduces a failure at the OTHER end of the series.
+--
+-- An event-time series is RIGHT-TRUNCATED: a device that detected today and has not yet
+-- flushed is not in today's occurrence count, and cannot be. An ingest-time series never
+-- is — a row exists the instant it lands. Evaluating the spike test on occurrence time
+-- alone therefore desensitises the LEADING edge, which is the same silent-false-negative
+-- class this item is guarding against, reintroduced at the opposite end.
+--
+-- Keeping both is also what lets the alerter describe a backlog flush HONESTLY instead of
+-- suppressing it: arrival high + occurrence spread across older days is a backlog, not a
+-- surge. The original false positive gets RECLASSIFIED, not deleted.
+CREATE OR REPLACE VIEW public.crisis_detection_arrival_daily AS
+SELECT
+  DATE_TRUNC('day', created_at)  AS arrival_date,
+  COUNT(*)                       AS arrival_count
+FROM public.analytics_events
+WHERE event_type = 'crisis_detected'
+GROUP BY 1
+ORDER BY arrival_date DESC;
+
+COMMENT ON VIEW public.crisis_detection_arrival_daily IS
+  'DEBUG-541 operator-only aggregate: per-INGEST-day crisis_detected arrivals. Deliberately NOT event time — this is the un-truncated counterpart to crisis_detection_volume_daily, so the alerter can tell a backlog flush (arrivals high, occurrences spread over older days) from a real same-day surge. PII-free (counts only).';
+
 -- ---------------------------------------------------------------------------
 -- Watermark for the alerter's backfill axis. Additive and nullable, mirroring INFRA-265's
 -- `probe_status`: an older row, or a run from the pre-deploy alerter, simply leaves these
@@ -203,5 +227,6 @@ COMMENT ON VIEW public.crisis_detection_volume_daily IS
 GRANT SELECT ON
   public.crisis_detection_volume_daily,
   public.crisis_detection_liveness,
-  public.crisis_detection_daily
+  public.crisis_detection_daily,
+  public.crisis_detection_arrival_daily
   TO service_role;
