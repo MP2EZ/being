@@ -271,27 +271,56 @@ ORDER BY event_date DESC, event_count DESC;
 -- they are the FEAT-129 operator aggregates and the alerter's dead-vs-quiet baseline,
 -- both of which need history longer than a quarter.
 
--- (a) Detection mix — per-day breakdown by assessment, trigger, and severity bucket.
+-- DEBUG-541: the two DAY-SERIES views below are keyed on the day the detection HAPPENED,
+-- not the day it was ingested. The resolution functions (`crisis_event_day` and
+-- `crisis_event_day_source`) are defined in migration
+-- `20260913000000_crisis_event_time_attribution.sql`, not here — this file mirrors the
+-- view shapes, so read that migration for the rule and its rationale. In short:
+-- `detected_on` is used only when it parses AND falls within [created_at - 90d, created_at];
+-- anything else falls back to the ingest day, and is never clamped to a boundary (which
+-- would invent a detection on a day that had none).
+--
+-- The 90-day horizon is NOT a retention window — retention is the 3-year prune described
+-- above and stays keyed on created_at. It is the alerter's backfill revisit horizon: a day
+-- whose prior count is no longer held cannot be re-evaluated.
+
+-- (a) Detection mix — per-detection-day breakdown by assessment, trigger, and severity.
 CREATE OR REPLACE VIEW crisis_detection_daily AS
 SELECT
-  DATE_TRUNC('day', created_at)                                       AS event_date,
+  DATE_TRUNC('day', crisis_event_day(properties, created_at)::timestamptz)
+                                                                      AS event_date,
   properties->>'assessment_type'                                      AS assessment_type,
   properties->>'trigger_type'                                         AS trigger_type,
   properties->>'severity_bucket'                                      AS severity_bucket,
   COUNT(*)                                                            AS detection_count,
   COUNT(*) FILTER (WHERE properties->>'intervention_surfaced' = 'true')
-                                                                      AS intervention_surfaced_count
+                                                                      AS intervention_surfaced_count,
+  COUNT(*) FILTER (WHERE crisis_event_day_source(properties, created_at) = 'event')
+                                                                      AS event_time_rows,
+  COUNT(*) FILTER (WHERE crisis_event_day_source(properties, created_at) <> 'event')
+                                                                      AS ingest_time_rows
 FROM analytics_events
 WHERE event_type = 'crisis_detected'
 GROUP BY 1, 2, 3, 4
 ORDER BY event_date DESC, detection_count DESC;
 
--- (b) Detection volume — per-day total for spike/drift monitoring.
+-- (b) Detection volume — per-detection-day total for spike/drift monitoring. This is the
+-- view the INFRA-219 trailing baseline is computed from; it and (a) move TOGETHER or not at
+-- all, or todayVolume stops equalling the sum of the emailed bucket breakdown.
 CREATE OR REPLACE VIEW crisis_detection_volume_daily AS
 SELECT
-  DATE_TRUNC('day', created_at)  AS event_date,
+  DATE_TRUNC('day', crisis_event_day(properties, created_at)::timestamptz)
+                                 AS event_date,
   COUNT(*)                       AS detection_count,
-  COUNT(DISTINCT session_id)     AS distinct_sessions
+  COUNT(DISTINCT session_id)     AS distinct_sessions,
+  COUNT(*) FILTER (WHERE crisis_event_day_source(properties, created_at) = 'event')
+                                 AS event_time_rows,
+  COUNT(*) FILTER (WHERE crisis_event_day_source(properties, created_at) <> 'event')
+                                 AS ingest_time_rows,
+  COUNT(*) FILTER (WHERE crisis_event_day_source(properties, created_at) = 'future_skew')
+                                 AS clock_skew_count,
+  COUNT(*) FILTER (WHERE crisis_event_day_source(properties, created_at) = 'implausible_past')
+                                 AS implausible_past_count
 FROM analytics_events
 WHERE event_type = 'crisis_detected'
 GROUP BY 1
@@ -301,6 +330,13 @@ ORDER BY event_date DESC;
 --     "zero crises (healthy)" from "pipeline dead (no events landing)". A count alone
 --     cannot tell these apart; the runbook pairs `last_detection_at` with an ACTIVE
 --     synthetic-detection assertion in staging after each release.
+--
+--     DEBUG-541: this view DELIBERATELY stays on created_at while (a) and (b) move to
+--     detection time. It answers "is the pipeline dead", which is an INGEST question — on
+--     event time a healthy pipeline draining an old backlog would page as dead. The inverse
+--     failure is already on record: crisisBacklogSuppression.unit.test.ts names old-dated
+--     rows flipping this view from `unproven` to `stale` (which pages at >=48h) as a
+--     false-positive path. Do not "finish the job" by repointing this one too.
 CREATE OR REPLACE VIEW crisis_detection_liveness AS
 SELECT
   COUNT(*)         AS total_detections_retained,

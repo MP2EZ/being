@@ -33,8 +33,11 @@ The `crisis_detected` payload is bucketed and PII-free:
 | `severity_bucket` | bucketed severity (e.g. `moderate` / `high` / `critical` / `emergency`) |
 | `intervention_surfaced` | boolean — currently always `true` |
 | `assessment_type` | `phq9` / `gad7` |
+| `detected_on` | UTC calendar day of detection, `YYYY-MM-DD` (DEBUG-541) — absent on clients predating it |
 
-No raw scores, no Q9 value, no device id. `session_id` is a bounded-lifetime anonymous
+No raw scores, no Q9 value, no time of day, no device id. `detected_on` is a **date**, never
+a clock time: a sub-day value on a pseudonymous row would disclose clock skew, time-of-day of
+a crisis, and offline periods, and was rejected on that basis (`lia-crisis-telemetry.md` §2). `session_id` is a bounded-lifetime anonymous
 token — it rotates at the UTC day boundary and after 30 minutes idle (INFRA-568). It is
 **not** an anonymity control on its own: every row also carries the persistent `user_id`
 (the INFRA-260 `auth.uid()` principal). See `docs/legal/lia-crisis-telemetry.md` §2/§4.
@@ -43,11 +46,27 @@ token — it rotates at the UTC day boundary and after 30 minutes idle (INFRA-56
 
 | View | Use |
 |---|---|
-| `crisis_detection_daily` | detection mix — per day × `assessment_type` × `trigger_type` × `severity_bucket`, with `detection_count` and `intervention_surfaced_count` |
-| `crisis_detection_volume_daily` | per-day total volume (`detection_count`, `distinct_sessions`) for spike/drift watching |
-| `crisis_detection_liveness` | `total_detections_retained`, `last_detection_at`, `first_detection_retained_at` — for the pipeline-liveness check |
+| `crisis_detection_daily` | detection mix — per **detection** day × `assessment_type` × `trigger_type` × `severity_bucket`, with `detection_count`, `intervention_surfaced_count`, and the `event_time_rows` / `ingest_time_rows` provenance split |
+| `crisis_detection_volume_daily` | per-**detection**-day total volume (`detection_count`, `distinct_sessions`) for spike/drift watching, plus `event_time_rows` / `ingest_time_rows` / `clock_skew_count` / `implausible_past_count` |
+| `crisis_detection_liveness` | `total_detections_retained`, `last_detection_at`, `first_detection_retained_at` — for the pipeline-liveness check. **Still keyed on ingest time, deliberately** |
 
 All three are **operator-only** (service-role) and emit counts only.
+
+> **Know which clock each view uses (DEBUG-541).** The two day-series views are keyed on
+> `detected_on` — the day the threshold was actually crossed — falling back to the ingest day
+> for rows that lack it. `crisis_detection_liveness` is keyed on `created_at` and must stay
+> that way: it answers "is the pipeline dead", which is an ingest question, and on event time
+> a healthy pipeline draining an old backlog pages as dead.
+>
+> The two day-series views move **together** or not at all. The INFRA-219 trailing baseline is
+> computed from `crisis_detection_volume_daily`; `crisis_detection_daily` only feeds the email
+> breakdown. Repointing one alone makes `todayVolume` stop equalling the sum of `buckets` in
+> the one document a founder reads under time pressure.
+>
+> **Mixed provenance is permanent, not a transition window** — clients predating DEBUG-541
+> keep emitting rows with no `detected_on` for as long as they stay installed. That is what
+> `event_time_rows` / `ingest_time_rows` are for. While the ingest-time share is high the
+> occurrence series is not yet trustworthy; label it, never suppress it.
 
 ---
 
@@ -75,29 +94,35 @@ button-response latency.
 
 ---
 
-## ⚠️ Read this before interpreting ANY count below (INFRA-400, 2026-08-12)
+## ⚠️ Read this before interpreting ANY count below (INFRA-400, corrected INFRA-412)
 
-**A zero-row reading is currently EXPECTED and does not indicate a dead pipeline.** The
-delivery path cannot fire for most users. Measured against the live project:
+**Read a zero-row reading against the BUILD, not against the table.** This section used to
+say flatly that zero rows was expected and that the delivery path could not fire for most
+users. That was true of every build when it was written, and is true of only one build now:
 
-```sql
-SELECT event_type, count(*) FROM public.analytics_events GROUP BY event_type;
- crisis_detected | 1     -- one row, total, of ANY event type, ever
-```
+| Build | Zero rows means |
+|---|---|
+| Gate build (`npm run e2e:safety:build`) | **Expected.** INFRA-411 suppresses egress at `flushCrisisAnalytics`: `if (env.EXPO_PUBLIC_E2E_SEED_ONBOARDED === 'true') return;`. That flag exists only in `eas.json`'s `e2e-sim` profile. Events are retained, never dropped. |
+| Normal Release build (`.env.production`) | **A REGRESSION.** Delivery is proven — see below. |
 
-`flushCrisisAnalytics()` early-returns at `if (!this.client) return;`, and the only thing
-that constructs that client is `initializeCloudServices()` — whose module-scope eager call
-is gated on `canPerformOperation('cloud_sync')`, evaluated at module-load time when consent
-has not yet hydrated from SecureStore, so the predicate is necessarily `false` and never
-re-runs. The client therefore exists only for a user who has navigated to Profile → Cloud
-Backup. Events are durably queued on-device and reconcile if a client ever appears; the
-single row above has a `session_id` dated the day *before* its `created_at`, which is that
-reconciliation signature.
+**DEBUG-409 fixed the original defect.** `flushCrisisAnalytics()` early-returned on
+`if (!this.client) return;`, and the only thing constructing a client was
+`initializeCloudServices()`, gated at module-load time on `canPerformOperation('cloud_sync')`
+while `consentStatus` was still `'loading'` — necessarily `false`, never re-run, so the eager
+init was dead code in every build. It is now a lazy `ensureClient()` called from the flush
+itself, reading no consent state.
 
-Tracked in **DEBUG-409**. Until it lands, the liveness assertion below will fail on any
-device that has not opened Cloud Backup — that is the defect, not a regression you have
-just introduced. Do not "fix" it by granting `cloud_sync` consent on the test device: that
-hides the defect and certifies a configuration no real crisis user is in.
+**INFRA-412 measured it end-to-end (2026-08-15).** A non-suppressed Release build on a
+default-configured device — fresh install, `cloudSyncEnabled: false`, Profile → Cloud Backup
+never opened — took a PHQ-9 Q9>0 detection to a landed row in **576 ms**, carrying exactly the
+allow-listed properties. The anonymous principal did not exist beforehand, which is the proof
+the client was built *on the crisis* rather than at boot.
+
+To reproduce, do **not** use `npm run e2e:safety:build` — it resolves the `e2e-sim` profile and
+is the suppressed binary by construction. Build with `.env.production`. Note also that
+DEBUG-413 drops any event enqueued before `PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS`
+(`Date.UTC(2026, 7, 14)`) at queue adoption, so a pre-2026-08-14 backlog will never appear no
+matter which build reads it.
 
 ---
 
