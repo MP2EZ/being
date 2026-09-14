@@ -114,6 +114,7 @@
   "src/features/assessment/components/AssessmentProgress.tsx": 1,
   "src/features/assessment/components/AssessmentStatusBadge.tsx": 1,
   "src/features/assessment/components/EnhancedAssessmentFlow.tsx": 10,
+  "src/features/assessment/components/__tests__/AssessmentIntroduction.copy.test.tsx": 1,
   "src/features/assessment/components/__tests__/AssessmentResults.test.tsx": 1,
   "src/features/assessment/components/__tests__/EnhancedAssessmentQuestion.test.tsx": 1,
   "src/features/assessment/stores/__tests__/answerQuestionValidation.unit.test.ts": 1,

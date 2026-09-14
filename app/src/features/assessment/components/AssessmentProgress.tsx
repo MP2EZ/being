@@ -1,7 +1,7 @@
 /**
  * AssessmentProgress Component - DRD-FLOW-005
  * 
- * CLINICAL SPECIFICATIONS:
+ * WELLNESS SCREENING SPECIFICATIONS:
  * - Visual progress tracking for therapeutic continuity
  * - Theme-aware progress styling (morning/midday/evening)
  * - Accessibility compliant progress indication
