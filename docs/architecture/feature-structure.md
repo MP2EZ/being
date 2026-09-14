@@ -43,8 +43,7 @@ features/crisis/
 │   ├── CrisisTextInput.tsx
 │   ├── RootCrisisBoundary.tsx
 │   ├── RootCrisisButton.tsx
-│   ├── Static988Button.tsx
-│   └── index.ts                    # selective directory barrel
+│   └── Static988Button.tsx
 ├── constants/
 │   ├── crisisButtonGeometry.ts
 │   └── crisisInputAccessory.ts
@@ -84,10 +83,14 @@ A **directory** barrel is fine where it stays small and selective — re-exporti
 name, never with `export *`:
 
 ```typescript
-// features/crisis/components/index.ts
-export { default as CollapsibleCrisisButton } from './CollapsibleCrisisButton';
-export type { CrisisButtonMode } from './CollapsibleCrisisButton';
+// core/components/accessibility/index.ts
+export { default as RadioGroup } from './RadioGroup';
+export type { RadioOption, RadioGroupProps } from './RadioGroup';
 ```
+
+Crisis components have no barrel: import each one by its file path
+(`@/features/crisis/components/CollapsibleCrisisButton`). MAINT-603 deleted the
+crisis components barrel, which had no runtime importer.
 
 ## Feature Dependencies
 

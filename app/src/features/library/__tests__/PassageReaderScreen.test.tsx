@@ -21,10 +21,6 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: mockRouteParams }),
 }));
 
-jest.mock('@/features/crisis/components', () => ({
-  CollapsibleCrisisButton: () => null,
-}));
-
 import PassageReaderScreen from '../screens/PassageReaderScreen';
 
 describe('PassageReaderScreen', () => {

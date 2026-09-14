@@ -59,7 +59,8 @@ import { CollapsibleCrisisButton, detectCrisis } from '@/features/crisis'; // do
   `@/features/crisis` hides.
 
 **Directory-level barrels are still fine** where they stay small and selective.
-`@/features/crisis/components` re-exports by name rather than with `export *`.
+`@/core/components/accessibility` re-exports by name rather than with `export *`.
+Crisis components have no barrel; import each by its file path.
 
 ### Core Imports
 
@@ -460,9 +461,9 @@ export * from './services';
 // This loads EVERYTHING, including internal utilities
 
 // ✅ Good - a directory barrel, selective and by name
-// features/crisis/components/index.ts
-export { default as CollapsibleCrisisButton } from './CollapsibleCrisisButton';
-export type { CrisisButtonMode } from './CollapsibleCrisisButton';
+// core/components/accessibility/index.ts
+export { default as RadioGroup } from './RadioGroup';
+export type { RadioOption, RadioGroupProps } from './RadioGroup';
 ```
 
 ## Questions?
