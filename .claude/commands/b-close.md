@@ -953,10 +953,8 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'insights/components/WeeklyReflectionComp
   echo "   crisis button's contested column, so a marginal action-row geometry regression is"
   echo "   invisible to it. CI-side pin: __tests__/safety/modalOcclusionConversions.test.tsx"
   echo "   NOT covered by any runnable flow: the keyboard-up path."
-  echo "     crisis-keyboard-accessory is safety-device-only AND currently red on arrival —"
-  echo "     it scrolls to weekly-reflection-card with no check-in preamble, and the e2eSeed"
-  echo "     fix cannot reach it (the device build resolves no e2e-sim profile). Do not cite"
-  echo "     it as coverage until that is repaired (DEBUG-574)."
+  echo "     crisis-keyboard-accessory does not reach it: DEBUG-574 re-pointed that device"
+  echo "     flow to DailyLoop, and the device path cannot run anyway (DEBUG-589)."
 }
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'insights/components/SessionNoteComposer\.tsx' && {
   echo "🪟 SessionNoteComposer changed — the only site that occluded TWO 988 affordances,"
