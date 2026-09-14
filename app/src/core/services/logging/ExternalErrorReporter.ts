@@ -27,6 +27,11 @@ import { Platform } from 'react-native';
 import { LogCategory, logger } from './ProductionLogger';
 import { env } from '@/core/config/env';
 import { isSensitiveRoute, sanitizeScreenName } from '@/core/utils/sensitiveScreens';
+// INFRA-561: a READ-ONLY use of the navigation ref, for the bug-report screen
+// tag. No listener, no dispatch, no new export in `core/navigation/` — crisis
+// ruled that not opening that directory is a structural guarantee where editing
+// it carefully is only a procedural one.
+import { navigationRef } from '@/core/navigation/navigationRef';
 // MAINT-248: canonical sensitive-data patterns single source of truth. The
 // reporter keeps only its two reporter-specific extras (JWT, base64) below.
 import { SENSITIVE_DATA_PATTERNS as CORE_SENSITIVE_DATA_PATTERNS } from './SensitiveDataPatterns';
@@ -215,6 +220,12 @@ const CRISIS_CONTENT_PATTERNS: readonly (string | RegExp)[] = [
  * So the segment is coarsened rather than the event dropped. The keyword set is
  * the SHARED `isSensitiveRoute` constant, so it provably cannot drift from the
  * screen-name path.
+ *
+ * INFRA-561 — THAT "PROVABLY" WAS NOT TRUE WHEN IT WAS WRITTEN. `sanitizeScreenName`
+ * returned an allowlist hit VERBATIM without ever consulting `isSensitiveRoute`,
+ * so the two paths could diverge on any name carrying both an allowlisted and a
+ * sensitive token. The claim above holds only because the screen-name path now
+ * tests sensitivity first. Two oracles, one of which was not consulting the other.
  *
  * A distinct token, not `GENERIC_SCREEN_BUCKET` ('App'), because this lands
  * inside a path where 'App' reads as a real directory name.
@@ -741,6 +752,11 @@ export class ExternalErrorReporter {
       const sanitized = sanitizeFeedbackMessage(message);
       if (!sanitized.trim()) return false;
 
+      // Omitted entirely when unavailable, rather than sent as an empty/undefined
+      // value — the same "absent keys, not empty strings" posture as the identity
+      // fields below.
+      const screen = this.activeScreenTag();
+
       // No `name`, no `email`, and no `associatedEventId` — omitted at source
       // rather than deleted downstream. `captureFeedback` destructures them, so
       // omission serialises as absent keys, not empty strings. Cross-linking a
@@ -749,11 +765,58 @@ export class ExternalErrorReporter {
       this.sentryModule.captureFeedback({
         message: sanitized,
         source: 'first-party-form',
+        // `tags` IS THE ONLY VEHICLE. `captureFeedback` destructures a fixed key
+        // set — {message, name, email, url, source, associatedEventId, tags} —
+        // and discards anything else SILENTLY, with no error. A bare `screen:`
+        // key here would look correct at the call site and arrive as nothing.
+        ...(screen ? { tags: { screen } } : {}),
       });
       return true;
     } catch {
       logger.warn(LogCategory.SYSTEM, 'submitFeedback failed');
       return false;
+    }
+  }
+
+  /**
+   * INFRA-561 — the active LEAF route, coarsened, for a bug report's `screen` tag.
+   *
+   * ── LEAF, NOT THE ROOT STACK ROUTE ──
+   *
+   * `getActiveRootRouteName()` is deliberately root-only: it exists to drive
+   * crisis-overlay suppression, and its own docstring says nested routes are
+   * "intentionally ignored". Every report raised from a tab sits under the root
+   * route `Main`, which coarsens to 'App' and names nothing — so the root route
+   * would make this tag constant across exactly the reports it exists to tell
+   * apart. `getCurrentRoute()` is the focused leaf.
+   *
+   * ── THIS METHOD IS THE ENTIRE CONTROL ON THE VALUE ──
+   *
+   * `captureFeedback` puts `tags` at the TOP LEVEL of a `type:'feedback'` event.
+   * `beforeSend` does not run for those at all, and `scrubFeedbackEvent` never
+   * reads `event.tags`. Nothing downstream compensates, so a raw route name must
+   * never leave this method. Note the form IS reachable on wellness-sensitive
+   * screens — the root overlay slot refuses only CrisisResources / AssessmentFlow
+   * / LegalGate, while the shake gesture is armed at the app root, so
+   * VoiceReflection, ReflectionTimer, JournalHistory, JournalEntryDetail and
+   * DomainGuidance all permit it. The slot's refusal is a 988-reachability
+   * control and was never a privacy one; `sanitizeScreenName` is what covers this.
+   *
+   * ── GUARDED SEPARATELY FROM `submitFeedback`, DELIBERATELY ──
+   *
+   * That method's own catch returns false, and `BugReportForm` renders
+   * `bug-report-refused` on false — so a throw here would show the user a refusal
+   * notice for a navigation hiccup and drop a report that is never persisted,
+   * queued or retried. The tag is enrichment and may never gate the send.
+   * `isReady()` also keeps us off the ref's uninitialised path, which does not
+   * throw but does `console.error`.
+   */
+  private activeScreenTag(): string | undefined {
+    try {
+      if (!navigationRef.isReady()) return undefined;
+      return sanitizeScreenName(navigationRef.getCurrentRoute()?.name);
+    } catch {
+      return undefined;
     }
   }
 
@@ -795,10 +858,16 @@ export class ExternalErrorReporter {
     }
 
     try {
-      // Block navigation breadcrumbs to assessment/crisis screens
+      // Block navigation breadcrumbs touching assessment/crisis screens at
+      // EITHER END. INFRA-561: this read only `data.to`, and an SDK-emitted
+      // navigation breadcrumb's message is `Navigation to <to>` — so neither
+      // path ever saw `data.from`, and a trip AWAY from a sensitive screen kept
+      // the breadcrumb with that screen's name on it. Latent rather than live:
+      // nothing in the app emits a navigation breadcrumb today.
       if (breadcrumb.category === 'navigation') {
-        const route = breadcrumb.data?.to || breadcrumb.message || '';
-        if (isSensitiveRoute(route)) {
+        const to = breadcrumb.data?.to || breadcrumb.message || '';
+        const from = breadcrumb.data?.from || '';
+        if (isSensitiveRoute(to) || isSensitiveRoute(from)) {
           return null;
         }
       }
