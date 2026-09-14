@@ -2,14 +2,14 @@
  * Enhanced Assessment Question Component
  *
  * Renders a single PHQ-9/GAD-7 question and forwards the selected response to
- * the parent via `onAnswer`. All clinical-data handling — AES-256 encryption,
+ * the parent via `onAnswer`. All wellness-data handling — AES-256 encryption,
  * consent enforcement, audit logging, and crisis detection (inline PHQ-9 Q9 and
  * score-based thresholds) — happens downstream in
  * `assessmentStore.answerQuestion` → `SecureStorageService`, NOT in this
  * component. The component only renders the always-on crisis button and the
  * store-sourced crisis banner.
  *
- * CLINICAL SPECIFICATIONS:
+ * WELLNESS SCREENING SPECIFICATIONS:
  * - PHQ-9/GAD-7 validated response handling
  * - Suicidal ideation immediate intervention (PHQ-9 Q9 >0)
  * - Crisis score thresholds (PHQ≥20, GAD≥15)
