@@ -958,8 +958,9 @@ rule rather than reimplementing its bash — the point of naming the classes her
 `/b-batch` classifies *earlier* and pays *more* for a false RED: an over-classified
 RED-ATTENDED buys a serial human simulator session for a diff `/b-close` then declares inert
 and skips. Under-classifying is the safe direction — `/b-close` re-runs its own detection and
-still fires the gate. Two carve-outs to the carve-out, matching `/b-close`: `app.json` /
-`Info.plist`, and `.maestro/` flows and `e2eSeed.ts`, all bypass the inert filter. A
+still fires the gate. Three carve-outs to the carve-out, matching `/b-close`: `app.json` /
+`Info.plist`, `.maestro/` flows and `e2eSeed.ts`, and any code line naming
+`CollapsibleCrisisButton` (CRISIS_HOST_CHANGED), all bypass the inert filter. A
 deletion-only diff to a flow is assertions being removed, which is the change class this gate
 most needs to catch.
 **Routing after the re-check:**
