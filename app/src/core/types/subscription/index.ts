@@ -154,8 +154,6 @@ export interface GoogleReceipt {
 export interface FeatureAccess {
   // Crisis Features (ALWAYS accessible, regardless of subscription)
   crisisButton: true;                  // ALWAYS true (hardcoded)
-  crisisContacts: true;                // ALWAYS true
-  safetyPlan: true;                    // ALWAYS true
   nineEightEightAccess: true;          // ALWAYS true
 
   // Non-Crisis Features (gated by subscription status)
@@ -329,8 +327,6 @@ export const SUBSCRIPTION_PRICING = {
  */
 export const CRISIS_FEATURES = [
   'crisisButton',
-  'crisisContacts',
-  'safetyPlan',
   'nineEightEightAccess'
 ] as const;
 
@@ -342,8 +338,6 @@ export function calculateFeatureAccess(status: SubscriptionStatus): FeatureAcces
   // Crisis features: ALWAYS accessible (hardcoded true)
   const crisisAccess = {
     crisisButton: true as const,
-    crisisContacts: true as const,
-    safetyPlan: true as const,
     nineEightEightAccess: true as const
   };
 

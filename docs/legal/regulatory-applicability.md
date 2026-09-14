@@ -1,8 +1,8 @@
 # Regulatory Applicability & Compliance Source of Truth
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Effective Date:** December 26, 2025  
-**Last Updated:** December 26, 2025  
+**Last Updated:** September 13, 2026  
 **Authority:** This document is the authoritative reference for regulatory compliance decisions.
 
 ---
@@ -25,7 +25,7 @@ Being is a **consumer wellness application** that provides:
 - Stoic philosophy education and mindfulness practices
 - Self-monitoring mood tracking and journaling
 - Wellness screening tools (PHQ-9, GAD-7) for personal awareness
-- Crisis resources and emergency contact access
+- Crisis resources, with direct access to 988, the Crisis Text Line and 911
 - Progress visualization and personal insights
 
 **Key Characteristics:**
@@ -78,7 +78,7 @@ As of 2025, 20 US states have comprehensive consumer privacy laws. The following
 
 **Compliance Approach:** Provide data access, deletion, and export features. Maintain transparent privacy notices. Honor universal opt-out mechanisms (including Global Privacy Control signals). See `california-privacy.md` and the "No Sale or Sharing of Personal Information" section of `privacy-policy.md`.
 
-**Sensitive-data processing assessment.** TDPSA (Tex. Bus. & Com. Code §541.105(a)), CPA (C.R.S. §6-1-1309), VCDPA (Va. Code §59.1-580), and CTDPA (Conn. Pub. Act 22-15 §6) each require a documented data protection assessment for processing of sensitive personal information — including mental health condition data. See [`dpia-sensitive-wellness-data.md`](dpia-sensitive-wellness-data.md) for the assessment covering Being's processing of PHQ-9, GAD-7, mood check-ins, journal entries, crisis safety plans, consent records, and subscription metadata.
+**Sensitive-data processing assessment.** TDPSA (Tex. Bus. & Com. Code §541.105(a)), CPA (C.R.S. §6-1-1309), VCDPA (Va. Code §59.1-580), and CTDPA (Conn. Pub. Act 22-15 §6) each require a documented data protection assessment for processing of sensitive personal information — including mental health condition data. See [`dpia-sensitive-wellness-data.md`](dpia-sensitive-wellness-data.md) for the assessment covering Being's processing of PHQ-9, GAD-7, mood check-ins, journal entries, consent records, and subscription metadata.
 
 ### 3. International Privacy Laws
 
@@ -236,6 +236,7 @@ We implement strong security because it's the right thing to do for users entrus
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-26 | Initial document creation |
+| 1.1 | 2026-09-13 | DEBUG-608: "What Being IS" no longer lists emergency contact access, and the sensitive-data assessment summary no longer lists crisis safety plans. Being never collected either: the safety-plan screen and store were deleted before the first external distribution. Crisis access is to 988, the Crisis Text Line and 911. See `dpia-sensitive-wellness-data.md` §9 v2.14. |
 
 ---
 

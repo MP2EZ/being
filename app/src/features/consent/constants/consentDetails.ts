@@ -78,7 +78,6 @@ export const CONSENT_DETAILS = {
       ],
       whatWeDontCollect: [
         'PHQ-9/GAD-7 assessment raw scores (local only for privacy)',
-        'Crisis contact information (device-specific)',
       ],
       whyItHelps: 'Restore data if you get a new phone. Access your journal on tablet and phone. Automatic backup protection.',
       privacyNote: 'End-to-end encryption. We cannot decrypt or access your synced content.',

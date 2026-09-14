@@ -319,6 +319,7 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       const store = useSubscriptionStore.getState();
       expect(store.checkFeatureAccess('checkIns')).toBe(false);
       expect(store.checkFeatureAccess('crisisButton')).toBe(true);
+      expect(store.checkFeatureAccess('nineEightEightAccess')).toBe(true);
     });
   });
 

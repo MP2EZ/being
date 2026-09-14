@@ -152,7 +152,7 @@ describe('Subscription Integration - Full Lifecycle', () => {
 
     // Step 3: Verify crisis access during trial
     expect(storeAfterTrial.checkFeatureAccess('crisisButton')).toBe(true);
-    expect(storeAfterTrial.checkFeatureAccess('crisisContacts')).toBe(true);
+    expect(storeAfterTrial.checkFeatureAccess('nineEightEightAccess')).toBe(true);
     expect(storeAfterTrial.getCrisisAccessStatus()).toBe(true);
     console.log('✅ STEP 3: Crisis access verified during trial');
 
@@ -230,8 +230,7 @@ describe('Subscription Integration - Full Lifecycle', () => {
 
     // Step 8: Verify crisis access still guaranteed with active subscription
     expect(activeStore.checkFeatureAccess('crisisButton')).toBe(true);
-    expect(activeStore.checkFeatureAccess('crisisContacts')).toBe(true);
-    expect(activeStore.checkFeatureAccess('safetyPlan')).toBe(true);
+    expect(activeStore.checkFeatureAccess('nineEightEightAccess')).toBe(true);
     expect(activeStore.getCrisisAccessStatus()).toBe(true);
     console.log('✅ STEP 8: Crisis access guaranteed with active subscription');
 
@@ -350,6 +349,7 @@ describe('Subscription Integration - Full Lifecycle', () => {
 
     const expiredStore = useSubscriptionStore.getState();
     expect(expiredStore.checkFeatureAccess('crisisButton')).toBe(true);
+    expect(expiredStore.checkFeatureAccess('nineEightEightAccess')).toBe(true);
     expect(expiredStore.checkFeatureAccess('checkIns')).toBe(false);
     console.log('✅ Expired: Crisis=true, Non-crisis=false');
 
