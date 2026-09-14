@@ -376,10 +376,13 @@ DEBUG-409 fixed the original defect: `flushCrisisAnalytics()` early-returned on 
 
 ## State (Zustand)
 
-- `user` — profile, preferences
-- `checkIn` — mood (encrypted at rest)
-- `assessment` — PHQ/GAD results (critical: encrypted, validated)
-- `crisis` — emergency contacts, safety plan (critical: encrypted)
+Stores live with their owners: `core/stores/` (bugReport,
+consent, settings, subscription) and per feature
+(`assessment/stores/assessmentStore`,
+`practices/stores/stoicPracticeStore`,
+`learn/stores/educationStore`). There is no crisis store —
+no safety plan or emergency contacts exist (DEBUG-608). What
+is encrypted is a per-store fact: read the store, not this list.
 
 ## Design System
 
