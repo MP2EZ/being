@@ -88,6 +88,7 @@
     "check:breathing-worklets": "node scripts/check-breathing-worklet-purity.js",
     "check:ci-test-coverage": "node scripts/check-ci-test-coverage.js",
     "check:workflow-scripts": "node scripts/check-workflow-scripts.js",
+    "check:doc-import-paths": "node scripts/check-doc-import-paths.js",
     "check:crisis-dial": "node scripts/check-crisis-dial-guard.js",
     "check:modal-occlusion": "node scripts/check-modal-occlusion-guard.js",
     "check:crisis-keyboard-accessory": "node scripts/check-crisis-keyboard-accessory-guard.js",

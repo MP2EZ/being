@@ -22,7 +22,7 @@ The project uses TypeScript path aliases for clean, maintainable imports.
 // ✅ Good - use path aliases
 import { theme } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
-import { AnalyticsService } from '@/analytics';
+import { useAnalytics } from '@/core/analytics';
 
 // ❌ Bad - relative paths get messy
 import { theme } from '../../../core/theme';
@@ -44,7 +44,7 @@ import { detectCrisis } from '@/features/crisis/types/safety';
 import type { CrisisDetection } from '@/features/crisis/types/safety';
 
 // ❌ Bad - a feature-wide barrel
-import { CollapsibleCrisisButton, detectCrisis } from '@/features/crisis';
+import { CollapsibleCrisisButton, detectCrisis } from '@/features/crisis'; // doc-import: unresolved-by-design - MAINT-600 deleted this barrel
 ```
 
 **Why (FEAT-376):**
@@ -71,7 +71,7 @@ import { theme } from '@/core/theme';
 import { colors } from '@/core/theme/colors';
 
 import { logger } from '@/core/services/logging';
-import { LoggingService } from '@/core/services/logging/LoggingService';
+import { ProductionLogger } from '@/core/services/logging/ProductionLogger';
 ```
 
 ### Cryptographic ID Generation
@@ -108,11 +108,10 @@ const insecureId = `id_${Math.random().toString(36).substr(2, 9)}`; // NEVER DO 
 **Prefer barrel exports when available:**
 ```typescript
 // ✅ Better - use barrel
-import { logger, LoggingService } from '@/core/services/logging';
+import { logger, ProductionLogger } from '@/core/services/logging';
 
 // ⚠️  Works but less preferred
-import { logger } from '@/core/services/logging/logger';
-import { LoggingService } from '@/core/services/logging/LoggingService';
+import { logger, ProductionLogger } from '@/core/services/logging/ProductionLogger';
 ```
 
 ### Type Imports
@@ -122,7 +121,7 @@ Use type-only imports for better build performance:
 ```typescript
 // ✅ Good - type-only import
 import type { CrisisDetection, CrisisSeverityLevel } from '@/features/crisis/types/safety';
-import type { User } from '@/types';
+import type { SessionMetadata } from '@/core/types/session';
 
 // ⚠️  Works but creates runtime dependency
 import { CrisisDetection, CrisisSeverityLevel } from '@/features/crisis/types/safety';
@@ -143,22 +142,15 @@ import * as RN from 'react-native';
 ### Allowed Import Patterns
 
 ```typescript
-// Features can import from core, compliance, analytics, global types
-// ✅ features/crisis/services/textCrisisDetection.ts
+// Features can import from core
+// ✅ features/<name>/...
 import { logger } from '@/core/services/logging';
-import { HIPAAComplianceEngine } from '@/compliance';
-import { trackEvent } from '@/analytics';
-import type { SessionData } from '@/types';
+import { useAnalytics } from '@/core/analytics';
+import type { SessionMetadata } from '@/core/types/session';
 
-// Core can import from other core modules and global types
-// ✅ core/services/security/EncryptionService.ts
+// Core can import from other core modules
+// ✅ core/services/security/...
 import { logger } from '@/core/services/logging';
-import type { EncryptionConfig } from '@/types/security';
-
-// Compliance can import from core and global types
-// ✅ compliance/services/HIPAAComplianceEngine.ts
-import { logger } from '@/core/services/logging';
-import type { ComplianceEvent } from '@/types';
 ```
 
 ### Forbidden Import Patterns
@@ -181,33 +173,7 @@ import { detectCrisis } from '@/features/crisis/types/safety'; // DISCOURAGED
 
 When features need to interact, use these patterns:
 
-#### 1. Shared Events
-
-```typescript
-// core/services/events/EventBus.ts
-export const eventBus = new EventEmitter();
-
-// features/assessment/services/scoring.ts
-import { eventBus } from '@/core/services/events';
-
-eventBus.emit('crisis-detected', {
-  severity: 'high',
-  source: 'phq9-q9'
-});
-
-// features/crisis/components/RootCrisisButton.tsx
-import { eventBus } from '@/core/services/events';
-
-useEffect(() => {
-  const handler = (data) => {
-    // Handle crisis detection
-  };
-  eventBus.on('crisis-detected', handler);
-  return () => eventBus.off('crisis-detected', handler);
-}, []);
-```
-
-#### 2. Navigation with Data
+#### 1. Navigation with Data
 
 ```typescript
 // features/assessment/components/AssessmentComplete.tsx
@@ -220,20 +186,7 @@ navigation.navigate('CrisisResources', {
 });
 ```
 
-#### 3. Shared Context
-
-```typescript
-// core/providers/AppProvider.tsx
-export const AppContext = createContext();
-
-// features/crisis/components/RootCrisisBoundary.tsx
-import { useContext } from 'react';
-import { AppContext } from '@/core/providers';
-
-const { crisisState } = useContext(AppContext);
-```
-
-#### 4. Type-Only Imports (Allowed)
+#### 2. Type-Only Imports (Allowed)
 
 ```typescript
 // features/assessment/types/assessment.ts
@@ -303,18 +256,8 @@ import { crisisStore } from './crisisStore';
 import { assessmentStore } from './assessmentStore';
 ```
 
-**Solution:** Use events or selectors
-
-```typescript
-// ✅ Good - use events
-// stores/assessmentStore.ts
-import { eventBus } from '@/core/services/events';
-eventBus.emit('assessment-complete', data);
-
-// stores/crisisStore.ts
-import { eventBus } from '@/core/services/events';
-eventBus.on('assessment-complete', handler);
-```
+**Solution:** Don't import one store from another. Read both where they are consumed —
+the hook or component that needs the two values subscribes to each store.
 
 #### Cause 3: Type Circular References
 
@@ -357,16 +300,13 @@ import { useNavigation } from '@react-navigation/native';
 // 2. Core imports
 import { theme } from '@/core/theme';
 import { logger } from '@/core/services/logging';
+import { useAnalytics } from '@/core/analytics';
 
-// 3. Compliance/Analytics (if needed)
-import { HIPAAComplianceEngine } from '@/compliance';
-import { trackEvent } from '@/analytics';
-
-// 4. Feature imports (current feature)
+// 3. Feature imports (current feature)
 import { CollapsibleCrisisButton } from '../components/CollapsibleCrisisButton';
 import { openCrisisUrl } from '../utils/openCrisisUrl';
 
-// 5. Type imports (last)
+// 4. Type imports (last)
 import type { CrisisDetection } from '../types/safety';
 import type { NavigationProp } from '@react-navigation/native';
 ```
@@ -489,7 +429,7 @@ import { logger } from '@/core/services/logging';
 
 ```typescript
 // ❌ Bad - loads the whole feature eagerly (FEAT-376)
-import { CollapsibleCrisisButton } from '@/features/crisis';
+import { CollapsibleCrisisButton } from '@/features/crisis'; // doc-import: unresolved-by-design - MAINT-600 deleted this barrel
 
 // ✅ Good - name the module
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
