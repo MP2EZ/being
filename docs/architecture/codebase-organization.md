@@ -209,7 +209,7 @@ src/
 
 - [Feature Structure Guidelines](./feature-structure.md) - How to build features
 - [Import Guidelines](./import-guidelines.md) - Import patterns & dependencies
-- [Technical Patterns](./technical-patterns.md) - Provider architecture, error boundaries
+- [Crisis-safe error boundaries](./feature-structure.md#crisis-safe-error-boundaries) - Root and assessment-flow boundaries
 
 ## Questions?
 
