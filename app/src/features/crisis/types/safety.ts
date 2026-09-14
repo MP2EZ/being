@@ -54,8 +54,7 @@ export type CrisisTriggerType =
   | 'phq9_suicidal_ideation'     // PHQ-9 Question 9 response >0
   | 'gad7_severe_score'          // GAD-7 score ≥15
   | 'combined_high_risk'         // Both PHQ-9 and GAD-7 high scores
-  | 'manual_override'            // Clinician or system override
-  | 'safety_plan_triggered';     // User-initiated safety plan
+  | 'manual_override';           // Clinician or system override
 
 /**
  * Crisis Severity Levels
@@ -135,8 +134,6 @@ export interface CrisisIntervention {
   status: CrisisInterventionStatus;
   /** Actions taken during intervention */
   actionsTaken: CrisisAction[];
-  /** Safety plan activation */
-  safetyPlan?: CrisisSafetyPlan;
   /** Follow-up requirements */
   followUp: CrisisFollowUp;
   /** Whether intervention can be safely dismissed */
@@ -155,7 +152,6 @@ export type CrisisInterventionStatus =
   | 'displaying_resources' // Showing crisis resources
   | 'awaiting_action'     // Waiting for user to take action
   | 'support_contacted'   // User has contacted support
-  | 'safety_plan_active'  // Safety plan is being executed
   | 'monitoring'          // Active monitoring phase
   | 'resolved'            // Crisis intervention completed
   | 'escalated';          // Escalated to emergency services
@@ -180,58 +176,10 @@ export type CrisisActionType =
   | 'viewed_resources'      // User viewed crisis resources
   | 'contacted_988'         // Called 988 Suicide & Crisis Lifeline
   | 'contacted_emergency'   // Called emergency services
-  | 'activated_safety_plan' // Activated personal safety plan
   | 'contacted_support'     // Contacted personal support person
   | 'used_coping_skill'     // Used a coping strategy
   | 'scheduled_followup'    // Scheduled follow-up appointment
   | 'acknowledged_safety';  // Acknowledged safety commitment
-
-/**
- * Crisis Safety Plan
- */
-export interface CrisisSafetyPlan {
-  /** Plan ID */
-  id: string;
-  /** When plan was created */
-  createdAt: number;
-  /** When plan was last updated */
-  updatedAt: number;
-  /** Personal warning signs */
-  warningSignsPersonal: string[];
-  /** Environmental warning signs */
-  warningSignsEnvironmental: string[];
-  /** Coping strategies that help */
-  copingStrategies: Array<{
-    strategy: string;
-    effectiveness: 1 | 2 | 3 | 4 | 5;
-    lastUsed?: number;
-  }>;
-  /** Professional support contacts */
-  professionalContacts: Array<{
-    name: string;
-    role: string;
-    phone: string;
-    email?: string;
-    availability: string;
-  }>;
-  /** Personal support contacts */
-  personalContacts: Array<{
-    name: string;
-    relationship: string;
-    phone: string;
-    canContactAnytime: boolean;
-  }>;
-  /** Emergency contacts */
-  emergencyContacts: Array<{
-    name: string;
-    phone: string;
-    type: '988' | 'emergency' | 'crisis_center';
-  }>;
-  /** Environmental safety measures */
-  environmentalSafety: string[];
-  /** Reasons for living/hope statements */
-  reasonsForLiving: string[];
-}
 
 /**
  * Crisis Follow-Up Requirements
@@ -281,7 +229,6 @@ export interface CrisisResolution {
 export type CrisisResolutionType = 
   | 'user_safe_confirmed'     // User confirmed safety
   | 'support_contacted'       // Professional support engaged
-  | 'safety_plan_activated'   // Safety plan successfully used
   | 'emergency_services'      // Emergency services contacted
   | 'clinical_referral'       // Referred to clinical care
   | 'ongoing_monitoring';     // Requires continued monitoring
@@ -498,7 +445,6 @@ export interface CrisisSafetyValidator {
   validateDetection: (detection: CrisisDetection) => boolean;
   validateIntervention: (intervention: CrisisIntervention) => boolean;
   validateResponseTime: (responseTimeMs: number) => boolean;
-  validateSafetyPlan: (plan: CrisisSafetyPlan) => boolean;
 }
 
 /**

@@ -1618,7 +1618,7 @@ else
         echo "   stopped waiting and dialled." >&2
         echo "" >&2
         echo "   This is NOT a flaky test. The user reached the dialer instead of" >&2
-        echo "   CrisisResources, skipping the resource list, the safety plan and the" >&2
+        echo "   CrisisResources, skipping the resource list and the" >&2
         echo "   text-line option. Confirm in the app log:" >&2
         echo "     xcrun simctl spawn ${SIM_UDID:-<udid>} log show --last 10m \\" >&2
         echo "       --predicate 'eventMessage CONTAINS \"navigator not ready at deadline\"'" >&2

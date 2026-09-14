@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.12
+**Version:** 1.13
 **Effective Date:** December 12, 2025
 **Last Updated:** September 13, 2026
 
@@ -48,7 +48,6 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 - **Check-In Data:** Daily mindfulness check-ins, mood tracking, journal entries
 - **Wellness Assessments:** PHQ-9 and GAD-7 responses and scores (for self-monitoring, not clinical diagnosis)
-- **Emergency Contacts:** Contact information for crisis support (stored locally only)
 - **Voice Reflections:** If you choose to speak a reflection rather than type it, your device's microphone captures audio for the sole purpose of transcribing it into text. Transcription runs entirely on your device — Being will not begin recording unless your device confirms it can transcribe without using the network. The audio is discarded as soon as transcription completes; only the resulting text is saved, encrypted, on your device. No audio and no transcript is sent to Being, to Palouse Labs, or to any third party.
 
 ### 2.2 Automatically Collected Information
@@ -169,7 +168,6 @@ What we **NEVER** collect in-app:
 - Assessment scores (PHQ-9, GAD-7)
 - Mood check-in values or notes
 - Journal entries
-- Crisis contact information
 - Any mental health data
 
 Your control:
@@ -292,6 +290,8 @@ Being is based in the United States. If you access our Services from outside the
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 **Recent revisions**
+
+- **v1.13 (September 13, 2026):** Correction. §2.1 listed emergency contacts as information you provide, and §5.2 listed crisis contacts among the things analytics never collects. Being has never offered a way to enter or save personal emergency contacts, so neither entry described anything the app does, and both are removed. This narrows what the policy describes and nothing else: what Being collects, keeps and shares is unchanged, and the crisis resources the app points you to (988, the Crisis Text Line and 911) are unaffected. Because the correction only removes a description of more than we collect, it is published with the next app release rather than separately.
 
 - **v1.12 (September 13, 2026):** §3 now names a fifth field in the crisis-detection event — the calendar day the detection happened. Previously the event was dated by when it reached our server, so a detection made offline was counted on the day the device reconnected. Nothing new is learned about you: the field is a date with no time of day, and it is capped at the day we received the event so a wrong clock on a device cannot place a detection in the future. This is disclosed because §3 previously said the event contained *only* four things, and that list is now five.
 

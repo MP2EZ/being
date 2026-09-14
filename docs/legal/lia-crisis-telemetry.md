@@ -3,16 +3,18 @@
 **Document scope:** Internal compliance artifact. Regulator-facing only. Not for public distribution.
 **Document type:** Lawful-basis assessment record (GDPR Art. 6(1)(d), Art. 9(2)(c))
 **Processing activity:** `crisis_detected` event — Supabase `analytics_events` table
-**Version:** 1.1
+**Version:** 1.2
 **Date:** 2026-06-03 (amended 2026-09-13)
 **Author:** Palouse Labs LLC
-**Related work item:** INFRA-214 T5; amended under DEBUG-541, which discharges the §5 payload-expansion review clause
+**Related work item:** INFRA-214 T5; amended under DEBUG-541, which discharges the §5 payload-expansion review clause, and under DEBUG-608 (§1 purpose wording)
 
 ---
 
 ## 1. Purpose
 
-When Being detects a PHQ-9 total score ≥20, a non-zero PHQ-9 Q9 (self-harm ideation) response, or a GAD-7 total score ≥15, it records a single `crisis_detected` event to the first-party Supabase `analytics_events` table. The purpose is twofold: (a) operational safety monitoring — to allow the founder to verify that crisis-resource interventions (988 prompt, safety-plan display) are being surfaced at the correct thresholds; and (b) aggregate pattern observation — to detect any systematic failure in the crisis-detection path across the user base.
+When Being detects a PHQ-9 total score ≥20, a non-zero PHQ-9 Q9 (self-harm ideation) response, or a GAD-7 total score ≥15, it records a single `crisis_detected` event to the first-party Supabase `analytics_events` table. The purpose is twofold: (a) operational safety monitoring — to allow the founder to verify that crisis-resource interventions (988 prompt, crisis-resources screen) are being surfaced at the correct thresholds; and (b) aggregate pattern observation — to detect any systematic failure in the crisis-detection path across the user base.
+
+**Corrected (DEBUG-608).** The paragraph above previously named a "safety-plan display" among the interventions this telemetry verifies. Being has no safety-plan feature and no shipped build ever had one; the intervention surfaced is the crisis-resources screen. The purpose, the payload and the §3 balancing are unaffected.
 
 This processing occurs without analytics consent and is not suppressible by the universal opt-out, because its lawful basis is vital interests rather than consent or legitimate interests.
 
