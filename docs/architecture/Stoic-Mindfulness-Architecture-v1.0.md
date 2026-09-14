@@ -1,6 +1,24 @@
 # Stoic Mindfulness Architecture Specification v1.1 (LOCKED)
 *FEAT-45 | Being. MBCT → Stoic Mindfulness Pivot | 5-Principle Framework*
 
+> ⚠️ **HISTORICAL DESIGN RECORD — not maintained against the code (MAINT-604, 2026-09-13).**
+> This is the FEAT-45 design-sprint specification as locked on 2025-10-29. Its content is
+> version 1.1; only the filename says v1.0. The "READY FOR IMPLEMENTATION" status and
+> "authoritative reference" wording below describe that moment only. Paths, stores and
+> interfaces here are design-time: the source tree has since moved to `app/src/features/`,
+> and many of the modules named below never shipped or were later removed. Do not use this
+> document to locate code.
+>
+> **The crisis-plan requirements in this document are NOT met today.** §4.1 and §4.3 describe
+> a `CrisisPlanStore` / `crisisPlanStore.ts` marked PRESERVE, §6.1 requires "Crisis plan
+> accessible <3s", and §6.3 lists the crisis plan as encrypted data. That store and the safety
+> plan screen were removed by MAINT-123 (`4d1a0178`) and MAINT-125 (`d974086f`), and nothing
+> has replaced them. This body records what was specified, not what the app does.
+>
+> Current sources: `app/src/README.md` and `docs/architecture/feature-structure.md` for code;
+> `docs/product/stoic-mindfulness/INDEX.md` for the framework. The body below is unchanged
+> except for DEBUG-352's translator-provenance correction.
+
 ---
 
 ## Document Status
