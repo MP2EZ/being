@@ -195,23 +195,47 @@ describe('DEBUG-413 — pre-fix crisis backlog suppression', () => {
     });
   });
 
-  describe('the flush projection is unchanged (AC4 — no payload widening)', () => {
-    test('suppression adds no transmitted field', async () => {
-      // Re-timestamping would have added a fifth field, which
-      // docs/legal/lia-crisis-telemetry.md commits to re-reviewing. Suppression is a
-      // client-side drop and must leave the wire format byte-identical, so no compliance
-      // pass is owed. Read the mapper's source rather than the shape of one call, so a
-      // future field addition is caught even if no test exercises that row.
+  describe('the flush projection carries exactly the reviewed wire fields', () => {
+    test('projection shape is pinned, and the raw enqueue timestamp is never transmitted', async () => {
+      // SCOPE SUPERSEDED (DEBUG-541), recorded rather than silently rewritten. This block
+      // was authored for DEBUG-413's AC4 — "no payload widening" — on the reasoning that
+      // suppression is a client-side drop owing no compliance pass, and that a fifth field
+      // is the branch lia-crisis-telemetry.md §5 commits to re-reviewing. DEBUG-541 IS that
+      // branch: it adds `detected_on` and DISCHARGED the review clause (LIA §3 re-run, §5
+      // outcome recorded) rather than bypassing it. So the invariant is no longer "nothing
+      // was added"; it is "exactly the reviewed fields reach the wire, and the raw device
+      // timestamp is not among them".
       const src = require('fs').readFileSync(
         require('path').resolve(__dirname, '../SupabaseService.ts'),
         'utf8'
       );
-      // The projection block in flushCrisisAnalytics.
-      const mapper = src.slice(src.indexOf('const pending = ['), src.indexOf('const pending = [') + 900);
+      // Slice to a SEMANTIC boundary, never a fixed byte count. The previous version took
+      // 900 characters from the anchor, so adding a comment above the map pushed every line
+      // of real code out of the window: the positive assertions failed loudly, and the
+      // negative ones went VACUOUS — passing against a window that contained no code at all.
+      // The second half is the dangerous one, and is why the liveness guards below now
+      // assert against the real slice instead of against string literals.
+      const start = src.indexOf('const pending = [');
+      const end = src.indexOf('const result = await this.executeWithResilience', start);
+      expect(start).toBeGreaterThan(-1);
+      expect(end).toBeGreaterThan(start);
+      // Strip comments before matching (DEBUG-390). This file deliberately NAMES
+      // anti-patterns in prose to warn the next reader off them, so an un-stripped match can
+      // be satisfied — or starved — by a comment rather than by code.
+      const mapper = src
+        .slice(start, end)
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
+
       expect(mapper).toMatch(/user_id/);
       expect(mapper).toMatch(/event_type/);
       expect(mapper).toMatch(/session_id/);
-      // The two things a re-timestamp would have introduced.
+      // DEBUG-541: the fifth field is expected now — and it must be DERIVED at flush from
+      // the same `enqueued_at` the cutoff filter reads, never a second clock read.
+      expect(mapper).toMatch(/detected_on/);
+      expect(mapper).toMatch(/crisisDetectedOn\(\s*e\.enqueued_at\s*\)/);
+      // Still forbidden: the raw device timestamp as a transmitted property, and the
+      // `event_time` spelling that was rejected in favour of a day-precision field.
       expect(mapper).not.toMatch(/event_time/);
       expect(mapper).not.toMatch(/enqueued_at\s*:/);
       // INFRA-568 — the flush must project the PERSISTED session_id, never re-stamp
@@ -223,8 +247,14 @@ describe('DEBUG-413 — pre-fix crisis backlog suppression', () => {
       // offline backlog with the drain-day's session.
       expect(mapper).not.toMatch(/session_id:\s*this\.sessionId/);
       expect(mapper).toMatch(/session_id:\s*e\.session_id/);
-      // Matcher liveness: prove the slice is real and the negative assertions can fire.
+      // Matcher liveness, asserted against the REAL slice. The previous version checked
+      // only that known-bad literals matched their patterns, which stayed true even when
+      // the slice held no code — so it could not detect the starvation described above.
       expect(mapper.length).toBeGreaterThan(100);
+      expect(mapper).toMatch(/properties:/);
+      // Proof the comment stripping actually ran: the map is preceded and followed by
+      // prose mentioning this item, and none of it may survive into the matched text.
+      expect(mapper).not.toMatch(/DEBUG-541/);
       expect('event_time: x').toMatch(/event_time/);
       expect('session_id: this.sessionId,').toMatch(/session_id:\s*this\.sessionId/);
     });
