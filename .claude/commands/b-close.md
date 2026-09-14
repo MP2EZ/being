@@ -1182,7 +1182,7 @@ mflow_tag() { awk '/^tags:/{f=1;next} /^[^ -]/{f=0} f{gsub(/[ -]/,"");print;exit
 # printer after the loop.
 EXCLUDED_FLOWS="crisis-988-dial reconsent-stale-ineligible-fab-clearance daily-loop-ax5-entry
 journal-record-liveness profile-voice-reflection-xxxl breathing-fps-budget
-crisis-keyboard-accessory export-share-sheet-occlusion"
+crisis-keyboard-accessory export-share-sheet-occlusion tab-label-dynamic-type-capture"
 MAESTRO_CHANGED="$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
 while IFS= read -r f; do
   [ -z "$f" ] && continue
@@ -1274,6 +1274,11 @@ while IFS= read -r f; do
       echo "   extra-extra-extra-large (largest NON-accessibility step) via"
       echo "   E2E_DYNAMIC_TYPE_SIZE, not the wrapper's AX5 default. Validate it directly:"
       echo "   npm run e2e:safety:xxxl" ;;
+    tab-label-dynamic-type-capture.yaml)
+      echo "🔠 tab-label-dynamic-type-capture.yaml changed — safety-dynamic-type, and a"
+      echo "   CAPTURE HARNESS: Maestro asserts presence, not clipping, so running it can"
+      echo "   prove nothing. NOT added. Size-agnostic by design — run both endpoints:"
+      echo "   npm run e2e:capture:tabbar-ax1 && npm run e2e:capture:tabbar-ax5" ;;
     export-share-sheet-occlusion.yaml)
       echo "📤 export-share-sheet-occlusion.yaml changed — safety-occlusion-measurement."
       echo "   It PINS A DEBT STATE, not a contract: its load-bearing assertion is that the"
