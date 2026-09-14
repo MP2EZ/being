@@ -77,7 +77,7 @@ import { detectCrisis } from '@/features/crisis/types/safety';
 import type { CrisisDetection } from '@/features/crisis/types/safety';
 
 // ❌ Bad - a feature-wide barrel (none exists; this would not resolve)
-import { CollapsibleCrisisButton, detectCrisis } from '@/features/crisis';
+import { CollapsibleCrisisButton, detectCrisis } from '@/features/crisis'; // doc-import: unresolved-by-design - MAINT-600 deleted this barrel
 ```
 
 A **directory** barrel is fine where it stays small and selective — re-exporting by
@@ -116,7 +116,7 @@ export type { CrisisButtonMode } from './CollapsibleCrisisButton';
 **Example:**
 ```typescript
 // ❌ Don't do this
-import { assessmentStore } from '@/features/assessment';
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 
 // ✅ Do this instead
 import { useNavigation } from '@react-navigation/native';
@@ -191,7 +191,7 @@ Usually not needed - `@/features/*` covers all features.
 
 Create `/docs/features/[feature-name].md`:
 
-```markdown
+````markdown
 # [Feature Name]
 
 ## Domain Authority
@@ -215,7 +215,7 @@ What this feature owns and manages.
 
 ## Testing Strategy
 [How to test this feature]
-```
+````
 
 ### Step 5: Build the Feature
 
