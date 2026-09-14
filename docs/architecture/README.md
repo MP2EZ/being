@@ -50,7 +50,7 @@ The Being app follows these core architectural principles:
 
 1. **Feature-Based Organization**: Code is organized by domain feature, not by technical layer
 2. **Domain Authority Hierarchy**: crisis > compliance > philosopher > ux > technical
-3. **Safety First**: Clinical accuracy and crisis detection are never compromised
+3. **Safety First**: Scoring accuracy and crisis detection are never compromised
 4. **Clear Dependencies**: Features depend on core, not vice versa
 5. **Vertical Slicing**: Each feature contains all its layers (UI, logic, state, types)
 6. **Explicit Shared Code**: Shared infrastructure lives in `core/`, not scattered
@@ -60,20 +60,15 @@ The Being app follows these core architectural principles:
 ### Directory Structure
 ```
 src/
-├── core/              # Infrastructure (theme, nav, logging, security)
-├── features/          # Domain features (crisis, assessment, learning, etc.)
-├── compliance/        # Cross-cutting HIPAA/regulatory
-├── analytics/         # Cross-cutting telemetry
-└── types/             # Global shared types
+├── core/              # Infrastructure and shared code (analytics, navigation, services, stores, types, theme)
+└── features/          # Domain features (crisis, assessment, practices, learn, etc.)
 ```
 
 ### Dependency Rules
 ```
-✅ features/ → core/
-✅ features/ → compliance/
-✅ features/ → analytics/
+✅ features/ → core/  (analytics: core/analytics, shared types: core/types, shared state: core/stores)
 ❌ core/ → features/
-⚠️  features/ ↔ features/ (use events/hooks instead)
+⚠️  features/ ↔ features/ (prefer route params, core/ hooks and stores, type-only imports)
 ```
 
 ### Adding New Code Decision Tree
@@ -89,12 +84,18 @@ src/
 - Infrastructure (logging, monitoring)? → `core/services/`
 - Feature-specific? → `features/[feature]/services/`
 - Crisis-related? → `features/crisis/services/`
-- Compliance-related? → `compliance/services/`
+- Compliance-related? → `core/services/security/`, `core/services/privacy/`, `core/stores/consentStore.ts` (consent UI: `features/consent/`)
 
 **New Type?**
-- Used across features? → `types/`
+- Used across features? → `core/types/`
 - Feature-specific? → `features/[feature]/types/`
 - Crisis types? → `features/crisis/types/`
+
+**New Store?**
+- Shared across features? → `core/stores/`
+- Feature-specific? → `features/[feature]/stores/`
+
+**Analytics?** → `core/analytics/`
 
 ## Documented Imports Are Checked (INFRA-601)
 

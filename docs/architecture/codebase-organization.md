@@ -8,43 +8,41 @@ The Being app uses a **feature-based architecture** where code is organized by d
 
 ## Directory Structure
 
+The actual tree, as of MAINT-610:
+
 ```
 src/
 ├── core/                    # Infrastructure & shared code
-│   ├── components/          # Reusable UI primitives
-│   ├── navigation/          # App navigation
-│   ├── providers/           # Global context providers
-│   ├── services/            # Infrastructure services
+│   ├── analytics/           # Consent-gated product analytics, feature flags
+│   ├── components/          # Shared UI (accessibility, settings, subscription, sync)
+│   ├── config/              # Environment config, e2e seed
+│   ├── constants/           # App constants
+│   ├── hooks/               # Shared hooks (keyboard frame, overlay insets, bug-report shake)
+│   ├── navigation/          # Root and tab navigators, deep linking
+│   ├── services/            # Infrastructure services (security, privacy, supabase, logging, ...)
+│   ├── stores/              # Shared Zustand stores (consent, settings, subscription, bug report)
 │   ├── theme/               # Theme & styling
-│   ├── types/               # Core type definitions
-│   ├── utils/               # Shared utilities
-│   └── constants/           # App constants
+│   ├── types/               # Shared type definitions
+│   └── utils/               # Shared utilities
 │
-├── features/                # Domain features (vertical slices)
-│   ├── crisis/              # !! CRITICAL - Domain Authority
-│   ├── assessment/          # !! CLINICAL - Domain Authority
-│   ├── daily-practices/     # Morning/midday/evening check-ins
-│   ├── learning/            # Stoic Mindfulness education
-│   ├── profile/             # User profile & settings
-│   ├── subscription/        # Monetization
-│   ├── sync/                # Cloud sync & backup
-│   ├── insights/            # Progress & analytics
-│   ├── home/                # Home dashboard
-│   └── onboarding/          # User onboarding
-│
-├── compliance/              # Cross-cutting HIPAA/regulatory
-│   ├── services/
-│   └── types/
-│
-├── analytics/               # Cross-cutting telemetry
-│   └── services/
-│
-└── types/                   # Global shared types
-    ├── errors/
-    ├── performance/
-    ├── security/
-    └── ...
+└── features/                # Domain features (vertical slices)
+    ├── assessment/          # !! WELLNESS SCREENING - Domain Authority (PHQ-9/GAD-7)
+    ├── consent/             # Legal gate, consent and re-consent screens
+    ├── crisis/              # !! CRITICAL - Domain Authority
+    ├── data-export/         # Wellness data export
+    ├── guidance/            # Stoic guidance tiers, gated on screening thresholds
+    ├── home/                # Home dashboard
+    ├── insights/            # Progress, wellness trends, weekly reflection
+    ├── journal/             # Voice reflection journal
+    ├── learn/               # Stoic Mindfulness education modules
+    ├── library/             # Classical source passages
+    ├── onboarding/          # User onboarding
+    ├── practices/           # Practice library, daily loop, breathing
+    └── profile/             # User profile & settings
 ```
+
+Subscription lives in `core/`: `core/services/subscription/`, `core/stores/subscriptionStore.ts`, `core/components/subscription/`, `core/types/subscription/`.
+Cloud backup and sync live in `core/`: `core/services/supabase/` (status UI in `core/components/sync/`).
 
 ## Core Principles
 
@@ -59,11 +57,9 @@ Each feature is a **vertical slice** containing all its layers:
 ### 2. Clear Dependency Rules
 
 ```
-✅ features/ → core/
-✅ features/ → compliance/
-✅ features/ → analytics/
+✅ features/ → core/  (analytics: core/analytics, shared types: core/types, shared state: core/stores)
 ❌ core/ → features/
-⚠️  features/ ↔ features/ (discouraged, use events)
+⚠️  features/ ↔ features/ (prefer route params, core/ hooks and stores, type-only imports)
 ```
 
 ### 3. Domain Authority Hierarchy
@@ -92,18 +88,18 @@ Previously scattered across 100+ files in 7+ directories. Now unified for easy a
 **Location:** `features/assessment/`
 
 **Responsibility:**
-- PHQ-9/GAD-7 assessments
-- Clinical scoring (100% accuracy required)
+- PHQ-9/GAD-7 wellness screening
+- Wellness screening scoring (100% accuracy required)
 - Crisis threshold detection
-- HIPAA-compliant data handling
+- Wellness data encrypted at rest (AES-256, `core/services/security/`)
 
 **Critical Requirements:**
 - 100% scoring accuracy (27 PHQ-9 + 21 GAD-7 combinations)
-- Exact clinical wording
+- Exact wellness screening question wording
 - Crisis integration
 
 ### Daily Practices Feature
-**Location:** `features/daily-practices/`
+**Location:** `features/practices/`
 
 **Responsibility:**
 - Morning check-in flow
@@ -112,7 +108,7 @@ Previously scattered across 100+ files in 7+ directories. Now unified for easy a
 - Session state management
 
 ### Learning Feature (Domain Authority: philosopher)
-**Location:** `features/learning/`
+**Location:** `features/learn/`
 
 **Responsibility:**
 - Stoic Mindfulness education modules
@@ -122,7 +118,7 @@ Previously scattered across 100+ files in 7+ directories. Now unified for easy a
 
 ## Migration Context
 
-This structure resulted from a comprehensive reorganization (2025-01) from a mixed layer-based/feature-based structure.
+This structure resulted from a comprehensive reorganization (2025-11, commit `688ffd18`) from a mixed layer-based/feature-based structure.
 
 ### Before (Old Structure)
 ```
@@ -149,9 +145,11 @@ src/
 └── analytics/       # Cross-cutting
 ```
 
+That tree is history: `analytics/` moved into `core/analytics/` and `src/types/` was split between `core/types/` and the owning features in `688ffd18`; `src/compliance/` had no importers and was deleted in MAINT-236. The current tree is under [Directory Structure](#directory-structure).
+
 **Benefits:**
 - Crisis code unified (single location, easy audit)
-- Assessment consolidated (clinical accuracy)
+- Assessment consolidated (scoring accuracy)
 - Clear ownership (each feature self-contained)
 - Correct dependencies (features → core, not reverse)
 
@@ -171,16 +169,19 @@ src/
 - Infrastructure (logging, monitoring)? → `core/services/`
 - Feature-specific? → `features/[feature]/services/`
 - Crisis-related? → `features/crisis/services/`
-- Compliance-related? → `compliance/services/`
+- Compliance-related? → `core/services/security/`, `core/services/privacy/`, `core/stores/consentStore.ts` (consent UI: `features/consent/`)
 
 **Adding a type:**
-- Used across features? → `types/`
+- Used across features? → `core/types/`
 - Feature-specific? → `features/[feature]/types/`
 - Crisis types? → `features/crisis/types/`
 
 **Adding a store:**
-- Global app state? → Probably belongs in a feature
+- Shared across features (consent, settings, subscription, bug report)? → `core/stores/`
 - Feature-specific? → `features/[feature]/stores/`
+
+**Adding analytics?**
+→ `core/analytics/`
 
 ## Performance & Safety
 
@@ -191,7 +192,7 @@ src/
 - **App launch:** <2s
 - **Check-in flows:** <500ms
 
-### Clinical Accuracy
+### Scoring Accuracy
 
 - **PHQ-9 scoring:** 100% accuracy (27 combinations)
 - **GAD-7 scoring:** 100% accuracy (21 combinations)
@@ -202,7 +203,7 @@ src/
 
 - Crisis code easily auditable (single location)
 - Assessment scoring locked down (tested extensively)
-- HIPAA compliance validated (compliance/)
+- Wellness-data encryption and consent reviewed by the compliance domain authority
 - Error boundaries at feature level
 
 ## Related Documentation
@@ -219,4 +220,4 @@ This structure supports:
 - Scalability (add new features without affecting existing)
 - Maintainability (related code grouped together)
 - Performance (critical paths clearly marked)
-- Safety (clinical code easily audited)
+- Safety (crisis and wellness screening code easily audited)

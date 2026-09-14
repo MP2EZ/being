@@ -124,10 +124,9 @@ crisis components barrel, which had no runtime importer.
 
 ```
 ✅ features/[any] → core/*
-✅ features/[any] → compliance/*
-✅ features/[any] → analytics/*
-✅ features/[any] → types/* (global types only)
 ```
+
+Shared analytics live in `core/analytics/` and shared types in `core/types/`.
 
 ### Discouraged Dependencies
 
@@ -136,11 +135,10 @@ crisis components barrel, which had no runtime importer.
 ```
 
 **When features need to communicate:**
-- Use events (EventEmitter pattern)
-- Use React Context from core/
-- Use shared hooks from core/
-- Emit analytics events
-- Use navigation to pass data
+- Navigate with route params (typed by `RootStackParamList` in `core/navigation/CleanRootNavigator.tsx`)
+- Use shared hooks from `core/` (`core/hooks/`, `useAnalytics` in `core/analytics/`)
+- Read shared state from a `core/stores/` store at the call site
+- Import another feature's types type-only (`import type`)
 
 **Example:**
 ```typescript
@@ -152,7 +150,8 @@ import { useNavigation } from '@react-navigation/native';
 
 // Navigate and pass data
 navigation.navigate('AssessmentFlow', {
-  triggeredBy: 'crisis-detection'
+  assessmentType: 'phq9',
+  context: 'standalone',
 });
 ```
 
@@ -160,7 +159,6 @@ navigation.navigate('AssessmentFlow', {
 
 ```
 ❌ core/* → features/*
-❌ types/* → features/*
 ```
 
 ## Domain Authority Features
@@ -177,11 +175,11 @@ Some features have special domain authority status and override technical decisi
   - Security protocols always enforced
 
 ### Assessment Feature (Domain Authority: philosopher + crisis)
-- **Priority**: Critical (clinical accuracy required)
+- **Priority**: Critical (scoring accuracy required)
 - **Accuracy**: 100% PHQ-9/GAD-7 scoring
 - **Validation**: All 48 scoring combinations tested
 - **Special Rules**:
-  - Exact clinical wording required
+  - Exact wellness screening question wording required
   - Scoring algorithms locked down
   - Compliance validation required
 
@@ -340,7 +338,7 @@ features/[feature-name]/
 ### Test Coverage Requirements
 
 - **Crisis features**: 100% coverage (safety-critical)
-- **Assessment features**: 100% coverage (clinical accuracy)
+- **Assessment features**: 100% coverage (scoring accuracy)
 - **Other features**: 80% coverage minimum
 
 ## Anti-Patterns to Avoid
@@ -352,11 +350,12 @@ Don't create a "god feature" that does everything.
 Don't put widely-used utilities in a feature. Move to `core/utils/`.
 
 ### ❌ Cross-Feature Coupling
-Don't reach into another feature where an event, a navigation param, or a `core/`
-hook would do. Where a cross-feature import is unavoidable, prefer a type-only one.
+Don't reach into another feature where a navigation param, a `core/` hook or a
+`core/stores/` store would do. Where a cross-feature import is unavoidable, prefer a
+type-only one.
 
-### ❌ Feature-Specific Types in Global Types
-Don't put feature-specific types in `types/`. Keep in feature.
+### ❌ Feature-Specific Types in Shared Types
+Don't put feature-specific types in `core/types/`. Keep in feature.
 
 ### ❌ Deep Nesting
 Avoid deeply nested structures like `features/x/components/y/z/w/`. Keep flat.
