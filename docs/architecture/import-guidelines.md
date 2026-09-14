@@ -34,8 +34,10 @@ import { CollapsibleCrisisButton } from '../../features/crisis/components/Collap
 ### Feature Import Pattern
 
 Import the module you actually need, by path. **Feature-wide barrels
-(`features/<name>/index.ts`) are not the house pattern.** MAINT-600 removed the last
-one, and ~92 of the crisis feature's ~94 import sites already resolve a file directly.
+(`features/<name>/index.ts`) are not the house pattern.** MAINT-599, MAINT-600 and
+MAINT-602 removed the `export *` ones; `features/consent/index.ts` is kept because it
+re-exports by name and has live importers. ~92 of the crisis feature's ~94 import sites
+already resolve a file directly.
 
 ```typescript
 // ✅ Good - name the module you need

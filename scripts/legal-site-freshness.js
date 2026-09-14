@@ -15,11 +15,12 @@
  * into the deployed bundle: the ONLY way stale text leaves the site is a
  * rebuild.
  *
- * That workflow triggers on pushes to being-website's own main/preview, and on
- * workflow_dispatch. Nothing in THIS repo triggers it. On 2026-08-07 the live
- * site was found serving privacy-policy v1.5 from 2026-05-31 — 68 days and four
- * versions stale — including a crisis-data claim DEBUG-333 had removed as
- * false. Nothing detected it for ten weeks. (INFRA-348.)
+ * On 2026-08-07 the live site was found serving privacy-policy v1.5 from
+ * 2026-05-31 — 68 days and four versions stale — including a crisis-data claim
+ * DEBUG-333 had removed as false. Nothing in this repo triggered a rebuild, and
+ * nothing detected it for ten weeks. (INFRA-348.) `legal-site-redeploy.yml` now
+ * dispatches the rebuild (INFRA-363); this script is how a missed or failed
+ * dispatch gets noticed.
  *
  * ## Why SCHEDULED and not a build-time assertion
  *
@@ -43,11 +44,10 @@
  *
  * ## Which ref
  *
- * `development`, because that is the ref being-website's deploy.yml actually
- * sparse-checkouts. If that pin changes, change DEPLOYED_REF to match or this
- * check reports drift that is really a ref mismatch. Whether `main` would be
- * the better pin is a live question tracked in INFRA-363; this script follows
- * reality rather than asserting a preference.
+ * `main`, because being.fyi production builds its legal pages from `main`
+ * (being-website's `.github/actions/checkout-legal`, INFRA-363) so the published
+ * policy matches the shipped app. If that pin changes, change DEPLOYED_REF to
+ * match or this check reports drift that is really a ref mismatch.
  *
  * Usage:
  *   node scripts/legal-site-freshness.js            # check live site
@@ -66,10 +66,10 @@ const REPO_ROOT = path.resolve(__dirname, '..');
 const SITE_ORIGIN = 'https://being.fyi';
 
 /**
- * The ref being-website/.github/workflows/deploy.yml sparse-checkouts.
- * Keep in sync with that file. See INFRA-363.
+ * The ref being.fyi production builds its legal pages from. Keep in sync with
+ * being-website's .github/actions/checkout-legal/action.yml. See INFRA-363.
  */
-const DEPLOYED_REF = 'origin/development';
+const DEPLOYED_REF = 'origin/main';
 
 /**
  * Public website routes and the docs/legal source each one renders.
@@ -339,9 +339,9 @@ async function main() {
   console.error(
     'A published privacy policy is a legal commitment. Remediate by re-running the\n' +
       'website deploy, which rebuilds from this repo:\n\n' +
-      '    gh workflow run deploy.yml -R mp2ez/being-website\n\n' +
+      '    gh workflow run deploy.yml -R mp2ez/being-website --ref main\n\n' +
       'If the drift is a ref mismatch rather than a stale build, check that\n' +
-      "being-website's deploy.yml still sparse-checkouts " +
+      "being-website's .github/actions/checkout-legal still builds production from " +
       `${DEPLOYED_REF.replace('origin/', '')} and update DEPLOYED_REF here to match.\n` +
       'See docs/legal/README.md and INFRA-363.'
   );

@@ -1,0 +1,56 @@
+name: Legal Site Redeploy
+
+# Rebuilds being.fyi when docs/legal/ changes. (INFRA-363)
+#
+# being-website bakes docs/legal/ into its bundle at build time, so an edit here
+# reaches the site only when that repo's deploy.yml runs again. Until this
+# workflow existed nothing in this repo triggered it, and on 2026-08-07 the live
+# privacy policy was found 68 days stale. (INFRA-348.)
+#
+# Branch mapping, mirrored by being-website's .github/actions/checkout-legal:
+#   main        -> being-website main    -> being.fyi, legal text from `main`
+#   development -> being-website preview -> preview URL, legal text from `development`
+#
+# WHY A CROSS-REPO DISPATCH AND NOT A CRON IN being-website. That repo is public
+# and rarely committed to, and GitHub disables scheduled workflows in a public
+# repo after 60 days without activity. A cron there would stop with no failed
+# run to show for it.
+#
+# THE `main` HALF ACTIVATES AT THE NEXT RELEASE (INFRA-459). A push to `main`
+# runs the workflow files on `main`, and this file lands on `development`. Until
+# a release carries it, a legal hotfix to `main` needs the deploy run by hand:
+#   gh workflow run deploy.yml -R MP2EZ/being-website --ref main
+# legal-site-freshness.yml catches a missed redeploy by the next day either way.
+#
+# TOKEN. The ambient GITHUB_TOKEN cannot act on another repository.
+# WEBSITE_DEPLOY_TOKEN is a fine-grained PAT scoped to MP2EZ/being-website only,
+# with Actions: read and write — enough to dispatch a workflow, not to push
+# code. It expires; when it does this job goes red here, and the freshness check
+# goes red as the site falls behind.
+
+on:
+  push:
+    branches: [main, development]
+    paths:
+      - 'docs/legal/**'
+
+permissions: {}
+
+jobs:
+  dispatch:
+    name: Dispatch being-website deploy
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Dispatch deploy.yml
+        env:
+          GH_TOKEN: ${{ secrets.WEBSITE_DEPLOY_TOKEN }}
+          WEBSITE_BRANCH: ${{ github.ref_name == 'main' && 'main' || 'preview' }}
+        run: |
+          if [ -z "$GH_TOKEN" ]; then
+            echo "::error::WEBSITE_DEPLOY_TOKEN is empty or missing, so being.fyi will not rebuild"
+            exit 1
+          fi
+          gh workflow run deploy.yml -R MP2EZ/being-website --ref "$WEBSITE_BRANCH"
+          echo "Dispatched MP2EZ/being-website deploy.yml on \`$WEBSITE_BRANCH\`" >> "$GITHUB_STEP_SUMMARY"
