@@ -5,13 +5,13 @@
  * Error handling and validation for therapeutic precision
  */
 
-import { 
+import type { 
   AssessmentType, 
   AssessmentResponse, 
   AssessmentAnswer, 
   PHQ9Result, 
   GAD7Result 
-} from '../index';
+} from './index';
 import { CrisisDetection } from '@/features/crisis/types/safety';
 
 /**

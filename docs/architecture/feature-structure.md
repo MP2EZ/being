@@ -25,10 +25,11 @@ features/[feature-name]/
     └── [util].ts
 ```
 
-**There is no feature-level `index.ts`.** MAINT-599 and MAINT-600 removed the last of
-them: each sat at zero importers while its `export *` put the whole feature on the
-eager module graph of anyone who adopted it (FEAT-376). Import the module you need,
-by path — see [Import Guidelines](./import-guidelines.md).
+**Don't add a feature-level `index.ts`.** MAINT-599, MAINT-600 and MAINT-602 removed the
+`export *` ones: each sat at zero importers while it put the whole feature on the eager
+module graph of anyone who adopted it (FEAT-376). One survives by design —
+`features/consent/index.ts` re-exports by name and has live importers. Import the module
+you need, by path — see [Import Guidelines](./import-guidelines.md).
 
 ## Example: Crisis Feature
 
