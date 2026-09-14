@@ -16,8 +16,9 @@ name: "Crisis affordance is reachable in one tap while a software keyboard is up
 # is owned by `crisis-988-dial.yaml`. Reaching `crisis-resources-screen` is in-process
 # navigation, so the reachability contract is fully assertable on a simulator.
 #
-# WHY DailyLoopStepScreen AND NOT THE JOURNAL COMPOSER. It is one of the two IMMERSIVE
-# routes where the root crisis button is additionally faded to 0.6, and — decisively — the
+# WHY DailyLoopStepScreen AND NOT THE JOURNAL COMPOSER. It is on `IMMERSIVE_ROUTES`
+# (RootCrisisButton.tsx), where the root crisis button starts faded to `FADED_OPACITY` 0.6
+# (CollapsibleCrisisButton.tsx), and — decisively — the
 # journal composer is behind `voice_journal`, which is FALSE in `.env.production`, so the
 # two halves of this contract could not otherwise pin the same surface.
 #

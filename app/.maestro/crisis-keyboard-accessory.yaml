@@ -139,20 +139,22 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 - tapOn:
     id: "daily-loop-input-response"
 
-# THE ACCESSORY MUST BE THE ONLY IN-PLACE AFFORDANCE HERE, PINNED NOT ASSUMED (DEBUG-574
-# crisis ruling). `showsSupportLine` puts `daily-loop-support-line` on SphereSovereignty
-# only in quick depth (tenseMode.ts QUICK_SUPPORT_STEP), and the support bar is pinned
-# INSIDE the KAV so it survives keyboard-up. A future re-host onto this beat would silently
-# demote this flow to a weaker test that still greens.
-- assertNotVisible:
-    id: "daily-loop-support-line"
-
 # THE GUARD AGAINST FALSE GREEN. The accessory button is only visible when the occlusion
 # predicate returned true — i.e. a bottom-anchored software keyboard taller than the
 # button's 156pt top edge is actually up. With a hardware keyboard connected this fails
 # here, loudly, instead of silently passing the reachability assertion below.
 - assertVisible:
     id: "crisis-keyboard-accessory-button"
+
+# THE ACCESSORY MUST BE THE ONLY IN-PLACE AFFORDANCE HERE, PINNED NOT ASSUMED (DEBUG-574
+# crisis ruling). `showsSupportLine` puts `daily-loop-support-line` on SphereSovereignty
+# only in quick depth (tenseMode.ts QUICK_SUPPORT_STEP), and the support bar is pinned
+# INSIDE the KAV so it survives keyboard-up. A future re-host onto this beat would silently
+# demote this flow to a weaker test that still greens. Placed after the button assertion,
+# matching crisis-keyboard-reachability.yaml, so the negative is never checked against an
+# empty screen.
+- assertNotVisible:
+    id: "daily-loop-support-line"
 
 # ONE TAP. Not "dismiss the keyboard, then find the root button" — DEBUG-431 measured that
 # path at 3 taps minimum, and unbounded on DailyLoop WITHOUT LEAVING THE PRACTICE (the
