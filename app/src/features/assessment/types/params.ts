@@ -4,14 +4,14 @@
  * Supports crisis intervention routing and safety constraints
  */
 
-import { 
+import type { 
   AssessmentType, 
   PHQ9Result, 
   GAD7Result, 
   CrisisDetection, 
   CrisisIntervention,
   AssessmentSession 
-} from '../index';
+} from './index';
 
 /**
  * Root Assessment Stack Parameters

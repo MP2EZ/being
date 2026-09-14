@@ -4,7 +4,7 @@
  * Ensures clinical accuracy and crisis safety compliance
  */
 
-import { 
+import type { 
   AssessmentType,
   AssessmentResponse, 
   AssessmentAnswer,
@@ -12,7 +12,7 @@ import {
   GAD7Result,
   CrisisDetection,
   CrisisIntervention 
-} from '../index';
+} from './index';
 import { CRISIS_SAFETY_THRESHOLDS } from '@/features/crisis/types/safety';
 import { PHQ9_SCORING_CONFIG, GAD7_SCORING_CONFIG } from './scoring';
 
