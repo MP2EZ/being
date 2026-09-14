@@ -141,6 +141,13 @@ jobs:
       - name: Typecheck
         run: cd app && npm run typecheck
 
+      # INFRA-601: every @/ import quoted in a docs/architecture code fence resolves
+      # under tsc's own module resolution — the same question this job answers for
+      # src. Deliberately no `paths:` filter: rot usually arrives with a src move or
+      # delete, not a doc edit. Paths only; exported identifiers are not checked.
+      - name: Documented import paths resolve (docs/architecture)
+        run: cd app && npm run check:doc-import-paths
+
   # ESLint job gates on the per-file baseline ratchet (W4 paydown).
   # The codebase carries ~955 errors of accumulated debt from 5+ months
   # of unguarded dev. Rather than blocking PRs on all of them, the

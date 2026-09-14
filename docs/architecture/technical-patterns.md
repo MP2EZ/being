@@ -30,23 +30,25 @@ This document describes the core architectural foundation for the Being Stoic Mi
 ### 1. Error Boundary System
 
 ```typescript
-// Comprehensive error handling with clinical safety
-<ErrorBoundary context="crisis" enableCrisisFallback={true}>
-  <CrisisButton />
-</ErrorBoundary>
+// Two crisis-safe tiers; React's nearest boundary wins (DEBUG-341)
+import RootCrisisBoundary from '@/features/crisis/components/RootCrisisBoundary';
+import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
+
+// App.tsx wraps <CleanRootNavigator /> in one RootCrisisBoundary. The overlay
+// gets its OWN boundary inside the navigator (CleanRootNavigator.tsx):
+<RootCrisisBoundary>
+  <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
+</RootCrisisBoundary>
 ```
 
-**Features:**
-- Context-aware error classification (crisis, assessment, therapeutic, navigation)
-- Automatic crisis resource access when errors occur in critical paths
-- Local error logging without external dependencies
-- Graceful degradation with therapeutic continuity
-
-**Specialized Boundaries:**
-- `CrisisErrorBoundary`: Never blocks crisis access
-- `AssessmentErrorBoundary`: Preserves assessment data during errors
-- `TherapeuticErrorBoundary`: Maintains session state
-- `NavigationErrorBoundary`: Provides navigation fallbacks
+**Boundaries that exist:**
+- `RootCrisisBoundary`: the immediate parent of `CleanRootNavigator`, and separately of
+  the crisis overlay. Its fallback is a static 988 screen (`Static988Button`) that depends
+  on none of the subsystems most likely to have crashed. No auto-retry: recovery is
+  user-initiated, so the 988 control cannot unmount mid-tap.
+- `CrisisErrorBoundary`: wraps the assessment flow (`EnhancedAssessmentFlow`) and catches
+  its crashes first. Its fallback renders `CollapsibleCrisisButton`, and it retries on a
+  timer and on app foreground.
 
 ### 2. Provider Architecture
 

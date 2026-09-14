@@ -107,6 +107,21 @@ src/
 - Feature-specific? → `features/[feature]/types/`
 - Crisis types? → `features/crisis/types/`
 
+## Documented Imports Are Checked (INFRA-601)
+
+CI (`typecheck` job, `npm run check:doc-import-paths`) fails when a `@/` import quoted
+in a fenced code block in this directory does not resolve under `app/tsconfig.json`
+against the git index.
+
+- **Paths only.** It does not check that the imported names are exported — a green run
+  means every documented import *path* exists, not that the example compiles.
+- **Out of scope:** prose, inline code spans, relative specifiers (`../x`), and docs
+  outside `docs/architecture/`.
+- **An example that must not resolve** (an anti-pattern naming a deleted module) carries
+  a marker on the same line:
+  `import { X } from '@/features/crisis'; // doc-import: unresolved-by-design - <reason>`.
+  The check fails if a marked import starts resolving, or a marker has no reason.
+
 ## Contact
 
 For architecture questions or clarifications, refer to these docs first. If you need to propose architectural changes, update the relevant documentation as part of your PR.
