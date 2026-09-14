@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.11
+**Version:** 1.12
 **Effective Date:** December 12, 2025
-**Last Updated:** August 24, 2026
+**Last Updated:** September 13, 2026
 
 ---
 
@@ -73,7 +73,7 @@ We use your information solely to provide and improve the Being app:
 
 - **Core Functionality:** Enable mindfulness check-ins, mood tracking, and progress visualization
 - **Wellness Tools:** Calculate PHQ-9 and GAD-7 scores for self-monitoring, recommend crisis resources when wellness screening thresholds are reached
-- **Safety Features:** Provide crisis support resources when wellness screening thresholds are met. When a PHQ-9 score of 20 or higher, a non-zero PHQ-9 Q9 (self-harm) response, or a GAD-7 score of 15 or higher is detected, Being also records an aggregate, PII-free crisis-detection event to our own first-party secure storage (Supabase). This recording happens under a vital-interests basis and is **not** gated on your analytics consent — crisis-safety monitoring is not something you can inadvertently disable. The event contains only a category label, a severity bucket, whether an intervention was surfaced, and the assessment type — **no** raw score, no Q9 value, no device identifier, and nothing that identifies you.
+- **Safety Features:** Provide crisis support resources when wellness screening thresholds are met. When a PHQ-9 score of 20 or higher, a non-zero PHQ-9 Q9 (self-harm) response, or a GAD-7 score of 15 or higher is detected, Being also records an aggregate, PII-free crisis-detection event to our own first-party secure storage (Supabase). This recording happens under a vital-interests basis and is **not** gated on your analytics consent — crisis-safety monitoring is not something you can inadvertently disable. The event contains only a category label, a severity bucket, whether an intervention was surfaced, the assessment type, and the calendar day the detection happened — **no** raw score, no Q9 value, no time of day, no device identifier, and nothing that identifies you. The detection day is recorded so that a detection made while your device is offline is counted on the day it actually happened rather than the day your device next reconnects. It is a date only, never a clock time.
 - **App Improvement:** Analyze anonymized usage patterns to improve user experience
 - **Technical Support:** Debug issues, provide customer support
 - **Legal Compliance:** Comply with applicable laws and regulations
@@ -292,6 +292,8 @@ Being is based in the United States. If you access our Services from outside the
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 **Recent revisions**
+
+- **v1.12 (September 13, 2026):** §3 now names a fifth field in the crisis-detection event — the calendar day the detection happened. Previously the event was dated by when it reached our server, so a detection made offline was counted on the day the device reconnected. Nothing new is learned about you: the field is a date with no time of day, and it is capped at the day we received the event so a wrong clock on a device cannot place a detection in the future. This is disclosed because §3 previously said the event contained *only* four things, and that list is now five.
 
 - **v1.11 (August 25, 2026):** §7.3 now names the account-deletion record and states its retention (3 years, on-device, no identifier). Nothing about what is kept has changed — the record already existed and already survived erasure — but it was not disclosed, and an undisclosed retention with no stated bound is not a defensible one. §7.4 additionally states that deletion resets the analytics identity and discards anything queued but unsent.
 

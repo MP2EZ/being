@@ -27,7 +27,9 @@ import {
   evaluateLiveness,
   evaluateProbeLiveness,
   evaluateSpike,
+  evaluateBackfill,
   buildAlertPayload,
+  composeReason,
   shouldPingHealthcheck,
   type BucketRow,
 } from '../crisis-detection-alerting/alertLogic.ts';
@@ -45,6 +47,26 @@ const PROBE_LIVE = evaluateProbeLiveness({
 const NOW = Date.parse('2026-06-07T12:00:00.000Z');
 const HOUR = 3_600_000;
 const STALE_HOURS = 48; // threshold under test
+const TODAY = '2026-06-07';
+
+// DEBUG-541: a settled backfill verdict for payload tests that are not about backfill.
+// Identical maps => nothing grew.
+const NO_BACKFILL = evaluateBackfill({
+  currentCounts: { '2026-06-06': 2, '2026-06-07': 2 },
+  watermark: { '2026-06-06': 2, '2026-06-07': 2 },
+  today: TODAY,
+  minGrowthToReport: 5,
+  spikeMultiplier: 3,
+  minAbsoluteForSpike: 5,
+});
+
+// All-event-time provenance, so payload tests are not implicitly asserting a fallback state.
+const CLEAN_PROVENANCE = {
+  eventTimeRows: 11,
+  ingestTimeRows: 0,
+  clockSkewCount: 0,
+  implausiblePastCount: 0,
+};
 
 // ---------------------------------------------------------------------------
 // evaluateLiveness — the safety-critical guard
@@ -212,7 +234,10 @@ Deno.test('payload: per-bucket rows below the ≥3 floor are suppressed from bre
     liveness: evaluateLiveness({ lastDetectionAt: new Date(NOW - HOUR).toISOString(), totalDetectionsRetained: 11, nowMs: NOW, stalenessThresholdHours: STALE_HOURS }),
     spike: evaluateSpike({ todayCount: 11, baselineCounts: [2, 2, 2], spikeMultiplier: SPIKE_X, minAbsoluteForSpike: SPIKE_MIN }),
     probe: PROBE_LIVE,
+    backfill: NO_BACKFILL,
     todayVolume: 11,
+    arrivalToday: 11,
+    provenance: CLEAN_PROVENANCE,
     buckets: BUCKETS,
     bucketFloor: 3,
     lastDetectionDate: '2026-06-07',
@@ -230,7 +255,20 @@ Deno.test('payload: never contains PII / forbidden keys (denylist over serialize
     liveness: evaluateLiveness({ lastDetectionAt: null, totalDetectionsRetained: 0, nowMs: NOW, stalenessThresholdHours: STALE_HOURS }),
     spike: evaluateSpike({ todayCount: 11, baselineCounts: [2, 2, 2], spikeMultiplier: SPIKE_X, minAbsoluteForSpike: SPIKE_MIN }),
     probe: PROBE_LIVE,
+    // DEBUG-541: exercise the denylist against a payload that actually CARRIES backfill
+    // detail and provenance counts — a clean verdict here would leave the new fields
+    // untested by the one assertion that guards what leaves Supabase.
+    backfill: evaluateBackfill({
+      currentCounts: { '2026-06-05': 9, '2026-06-06': 1, '2026-06-07': 11 },
+      watermark: { '2026-06-05': 1, '2026-06-06': 1, '2026-06-07': 0 },
+      today: TODAY,
+      minGrowthToReport: 5,
+      spikeMultiplier: SPIKE_X,
+      minAbsoluteForSpike: SPIKE_MIN,
+    }),
     todayVolume: 11,
+    arrivalToday: 4,
+    provenance: { eventTimeRows: 6, ingestTimeRows: 5, clockSkewCount: 2, implausiblePastCount: 1 },
     buckets: BUCKETS,
     bucketFloor: 3,
     lastDetectionDate: null,
@@ -249,7 +287,19 @@ Deno.test('payload: last_detection granularity is day-level only (no sub-day tim
     liveness: evaluateLiveness({ lastDetectionAt: new Date(NOW - 60 * HOUR).toISOString(), totalDetectionsRetained: 4, nowMs: NOW, stalenessThresholdHours: STALE_HOURS }),
     spike: evaluateSpike({ todayCount: 0, baselineCounts: [0, 0], spikeMultiplier: SPIKE_X, minAbsoluteForSpike: SPIKE_MIN }),
     probe: PROBE_LIVE,
+    // Carry real grown-day detail: those entries hold DATE strings, and this assertion is
+    // the one that would catch a future change putting a run timestamp in the payload.
+    backfill: evaluateBackfill({
+      currentCounts: { '2026-06-05': 9, '2026-06-06': 1, '2026-06-07': 0 },
+      watermark: { '2026-06-05': 1, '2026-06-06': 1, '2026-06-07': 0 },
+      today: TODAY,
+      minGrowthToReport: 5,
+      spikeMultiplier: SPIKE_X,
+      minAbsoluteForSpike: SPIKE_MIN,
+    }),
     todayVolume: 0,
+    arrivalToday: 0,
+    provenance: CLEAN_PROVENANCE,
     buckets: [],
     bucketFloor: 3,
     lastDetectionDate: '2026-06-05',
@@ -282,4 +332,140 @@ Deno.test('healthcheck gate: an alerted-but-clean run still pings (orthogonal to
 Deno.test('healthcheck gate: ANY error → no ping (dead-man fires)', () => {
   assertFalse(shouldPingHealthcheck({ errorCount: 1 }));
   assertFalse(shouldPingHealthcheck({ errorCount: 3 }));
+});
+
+// ---------------------------------------------------------------------------
+// evaluateBackfill — the second key (DEBUG-541)
+// ---------------------------------------------------------------------------
+// The series is keyed on OCCURRENCE; "have I already evaluated this day" is keyed on
+// INGEST. Without the second key a backfilled detection lands in an already-closed day,
+// is never spike-tested, AND lifts the baseline the next genuine spike is measured
+// against — trading a visible false positive for a silent false negative. These pin the
+// failure modes that are silent in the no-page direction.
+
+const BF = {
+  minGrowthToReport: 5,
+  spikeMultiplier: SPIKE_X,
+  minAbsoluteForSpike: SPIKE_MIN,
+  today: TODAY,
+};
+
+Deno.test('backfill: absent watermark is cold_start, never none', () => {
+  const v = evaluateBackfill({ ...BF, currentCounts: { '2026-06-01': 4 }, watermark: null });
+  assertEquals(v.status, 'cold_start');
+  assertFalse(v.alert);
+  assertEquals(v.grownDays.length, 0);
+});
+
+Deno.test('backfill: cold_start does NOT page even on a large series', () => {
+  // The first run after deploy reads a NULL evaluated_counts from the pre-deploy alerter.
+  // Reading that as an empty map would report the whole series as grown-from-zero, and an
+  // operator's introduction to a new axis being a cry of wolf is how an axis gets ignored.
+  const v = evaluateBackfill({
+    ...BF,
+    currentCounts: { '2026-06-01': 99, '2026-06-02': 99, '2026-06-03': 99 },
+    watermark: null,
+  });
+  assertFalse(v.alert);
+  assertEquals(v.status, 'cold_start');
+});
+
+Deno.test('backfill: nothing grew → none', () => {
+  const counts = { '2026-06-01': 3, '2026-06-02': 4, [TODAY]: 1 };
+  const v = evaluateBackfill({ ...BF, currentCounts: { ...counts }, watermark: { ...counts } });
+  assertEquals(v.status, 'none');
+  assertFalse(v.alert);
+});
+
+Deno.test('backfill: a grown closed day is REPORTED even when it does not page', () => {
+  // Growth magnitude is an INDEPENDENT trigger from the ratio. Backfill lifts neighbours
+  // too, so a ratio-only gate lets a backfill mask the very day it lands on.
+  const v = evaluateBackfill({
+    ...BF,
+    currentCounts: { '2026-06-01': 6, '2026-06-02': 20, '2026-06-03': 20, [TODAY]: 0 },
+    watermark: { '2026-06-01': 0, '2026-06-02': 20, '2026-06-03': 20, [TODAY]: 0 },
+  });
+  assertEquals(v.status, 'backfill');
+  assertEquals(v.grownDays.length, 1);
+  assertEquals(v.grownDays[0].day, '2026-06-01');
+  assertEquals(v.grownDays[0].delta, 6);
+  assertFalse(v.alert); // 6 is nowhere near 3x a neighbour mean of 20
+});
+
+Deno.test('backfill: a grown day that also clears the spike test PAGES', () => {
+  const v = evaluateBackfill({
+    ...BF,
+    currentCounts: { '2026-06-01': 9, '2026-06-02': 0, '2026-06-03': 0, [TODAY]: 0 },
+    watermark: { '2026-06-01': 0, '2026-06-02': 0, '2026-06-03': 0, [TODAY]: 0 },
+  });
+  assert(v.alert);
+  assertEquals(v.status, 'backfill');
+});
+
+Deno.test('backfill: today is EXCLUDED — the spike axis owns the open day', () => {
+  // Double-counting today would page twice for one event and make the two axes disagree.
+  const v = evaluateBackfill({
+    ...BF,
+    currentCounts: { '2026-06-01': 1, [TODAY]: 50 },
+    watermark: { '2026-06-01': 1, [TODAY]: 0 },
+  });
+  assertEquals(v.status, 'none');
+  assertFalse(v.alert);
+});
+
+Deno.test('backfill: a day ABSENT from the watermark is not growth-from-zero', () => {
+  // A day the previous run never evaluated cannot be shown to have grown. Treating absent
+  // as 0 would report the whole tail as backfill every time the window slides.
+  const v = evaluateBackfill({
+    ...BF,
+    currentCounts: { '2026-06-01': 50, '2026-06-02': 1 },
+    watermark: { '2026-06-02': 1 },
+  });
+  assertEquals(v.status, 'none');
+  assertEquals(v.grownDays.length, 0);
+});
+
+Deno.test('backfill: growth below the report threshold is ignored', () => {
+  const v = evaluateBackfill({
+    ...BF,
+    currentCounts: { '2026-06-01': 4 },
+    watermark: { '2026-06-01': 1 }, // +3, below minGrowthToReport of 5
+  });
+  assertEquals(v.status, 'none');
+});
+
+Deno.test('backfill: a day that SHRANK is not reported as growth', () => {
+  // Retention pruning moves counts DOWN. A negative delta must never read as backfill.
+  const v = evaluateBackfill({
+    ...BF,
+    currentCounts: { '2026-06-01': 2 },
+    watermark: { '2026-06-01': 10 },
+  });
+  assertEquals(v.status, 'none');
+  assertEquals(v.grownDays.length, 0);
+});
+
+Deno.test('backfill: grown days carry DAY precision only (no sub-day timestamp)', () => {
+  const v = evaluateBackfill({
+    ...BF,
+    currentCounts: { '2026-06-01': 9, '2026-06-02': 0, [TODAY]: 0 },
+    watermark: { '2026-06-01': 0, '2026-06-02': 0, [TODAY]: 0 },
+  });
+  for (const g of v.grownDays) {
+    assert(/^\d{4}-\d{2}-\d{2}$/.test(g.day), `grown day must be YYYY-MM-DD, got ${g.day}`);
+  }
+  assertFalse(/\d{2}:\d{2}/.test(JSON.stringify(v.grownDays)));
+});
+
+// ---------------------------------------------------------------------------
+// composeReason — the backfill axis is additive and last
+// ---------------------------------------------------------------------------
+
+Deno.test('composeReason: backfill appears last and never displaces another axis', () => {
+  assertEquals(composeReason(false, false, false, false), '');
+  assertEquals(composeReason(false, false, false, true), 'backfill');
+  assertEquals(composeReason(true, false, false, true), 'liveness+backfill');
+  assertEquals(composeReason(true, true, true, true), 'liveness+spike+probe+backfill');
+  // A backfill trip must never suppress a real verdict — the other axes survive intact.
+  assertEquals(composeReason(true, true, false, false), 'liveness+spike');
 });

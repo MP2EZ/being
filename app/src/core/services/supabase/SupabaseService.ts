@@ -105,6 +105,34 @@ function isPostFixCrisisEvent(e: any): boolean {
   return t >= PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS;
 }
 
+/**
+ * ECMA-262 maximum time value. Beyond it `new Date(n).toISOString()` throws RangeError,
+ * and `Number.isFinite` does NOT exclude it — 1e20 is perfectly finite.
+ */
+const MAX_TIME_VALUE_MS = 8.64e15;
+
+/**
+ * DEBUG-541 — the UTC day a queued crisis event was DETECTED.
+ *
+ * Reads the SAME `enqueued_at` that `isPostFixCrisisEvent` above reads, with no second
+ * clock read. That is a correctness constraint, not tidiness: if the two ever diverged, an
+ * event could survive the DEBUG-413 cutoff while projecting a date from before it, and
+ * `min(detected_on)` would stop being bounded by the cutoff that suppression enforces.
+ *
+ * TOTAL BY CONSTRUCTION. This runs inside the flush projection, so a throw here would take
+ * out the whole batch insert — the sole crisis audit sink — for every event in it. A value
+ * that cannot be used yields `null` and the caller OMITS the property; the server then
+ * falls back to the ingest date. Never a placeholder, and never a dropped event.
+ *
+ * (`utcDateString` is declared later in this module but is a hoisted function declaration,
+ * and this is only ever called at flush time, so the ordering is safe.)
+ */
+export function crisisDetectedOn(enqueuedAt: unknown): string | null {
+  if (typeof enqueuedAt !== 'number' || !Number.isFinite(enqueuedAt)) return null;
+  if (Math.abs(enqueuedAt) > MAX_TIME_VALUE_MS) return null;
+  return utcDateString(enqueuedAt);
+}
+
 const STORAGE_KEYS = {
   LAST_SYNC: '@being/supabase/last_sync',
   OFFLINE_QUEUE: '@being/supabase/offline_queue',
@@ -1087,12 +1115,29 @@ class SupabaseService {
       }
 
       const pending = [...this.crisisAnalyticsQueue];
-      const rows: AnalyticsEvent[] = pending.map((e) => ({
-        user_id: this.userId!,
-        event_type: e.event_type,
-        properties: e.properties,
-        session_id: e.session_id,
-      }));
+      const rows: AnalyticsEvent[] = pending.map((e) => {
+        // DEBUG-541: project the detection day HERE, at flush, never at enqueue.
+        //
+        // Three reasons it has to be this seam. (1) The on-disk queue format stays put, so
+        // the DEBUG-335 composite dedup identity (`session_id|enqueued_at|event_type|
+        // properties`) is byte-stable — projecting at enqueue would make an in-memory copy
+        // stop matching its own disk copy, and the merge would insert the crisis row TWICE.
+        // (2) Events ALREADY queued on existing installs gain `detected_on` retroactively,
+        // which is most of the point. (3) Two live suites pin the exact four-key set on the
+        // emitter's arguments (journalCrisisScan, crisisTelemetryFields.regression) and stay
+        // green by construction — an enqueue-time projection would red them, and "fix the
+        // test" would be the wrong move.
+        const detectedOn = crisisDetectedOn(e.enqueued_at);
+        return {
+          user_id: this.userId!,
+          event_type: e.event_type,
+          // A NEW object when the day is usable. Never mutate `e.properties` — that object
+          // IS the persisted queue entry, and mutating it would change the dedup identity
+          // of an event still sitting on disk.
+          properties: detectedOn ? { ...e.properties, detected_on: detectedOn } : e.properties,
+          session_id: e.session_id,
+        };
+      });
 
       const result = await this.executeWithResilience(
         async () => {
