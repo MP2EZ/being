@@ -26,6 +26,9 @@
  * THIS IS A CI GATE, and it can be one. `@expo/cli` skips iOS prebuild only on win32
  * (56.1.12, build/src/prebuild/resolveOptions.js:210), and the template ships in
  * node_modules/expo/template.tgz, so ubuntu-latest generates the same project macOS does.
+ * Measured on ubuntu-latest, PR #510 (actions/runs/<id>): clean → 0 (34916221140); a
+ * finalized mod stripping sms → 1 with the app.json pin green (34916372558); tel → telprompt
+ * → 1 (34916496957); a throwing plugin → 2 (34916608339).
  * Do not move it to local-only without a new crisis ruling.
  *
  * Deliberately narrow: two exact array elements, not a plist snapshot, which would churn on
