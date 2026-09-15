@@ -95,11 +95,17 @@ name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility t
       visible:
         id: "daily-loop-breathing-circle"
     commands:
+      # DEBUG-546: NO `centerElement` on this scroll. The SkipLink is the LAST node in the
+      # scroll content, so it can never reach centre, and Maestro 2.6.0 then swipes five
+      # more times (`maxRetryCenterCount = 4`) before accepting a 100%-visible element —
+      # while the 30s BREATH_DURATION_MS runs down to unmount the link. Measured red: found
+      # at y=534, 100% visible, timeout lapsed ~220ms before the retry that would have
+      # returned. DEBUG-465's reason for centring does not apply: on a QUICK beat 1 nothing
+      # is pinned below the ScrollView (the support line is on Sphere Sovereignty).
       - scrollUntilVisible:
           element:
             id: "daily-loop-skip-breath"
           direction: DOWN
-          centerElement: true
           timeout: 25000
       - tapOn:
           id: "daily-loop-skip-breath"
