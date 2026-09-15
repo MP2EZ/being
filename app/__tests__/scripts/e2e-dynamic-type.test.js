@@ -169,6 +169,45 @@ describe('DEBUG-469 — the class stays OUT of the default safety suite', () => 
   });
 });
 
+describe('DEBUG-546 — the skip-breath scroll must not centre an element that cannot centre', () => {
+  // The SkipLink is the last node in beat 1's scroll content. `centerElement` there costs
+  // five guaranteed extra swipes inside a scroll racing the 30s breath timer, which is what
+  // held this flow red. Nothing that gates on merge runs the flow, so this is the only
+  // thing that notices the neighbouring continue-button step's shape being copied back.
+  const stepsOf = (src, command) => {
+    const lines = src.split('\n').filter((l) => !/^\s*#/.test(l));
+    const steps = [];
+    lines.forEach((line, i) => {
+      const m = line.match(new RegExp(`^(\\s*)-\\s+${command}:\\s*$`));
+      if (!m) return;
+      const body = [];
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j].trim() === '') continue;
+        if (lines[j].match(/^\s*/)[0].length <= m[1].length) break;
+        body.push(lines[j]);
+      }
+      steps.push(body.join('\n'));
+    });
+    return steps;
+  };
+  const CENTRED = /^\s*centerElement:\s*true\s*$/m;
+
+  test('daily-loop-skip-breath is scrolled to WITHOUT centerElement', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, 'daily-loop-ax5-entry.yaml'), 'utf8');
+    const scrolls = stepsOf(src, 'scrollUntilVisible');
+    const skip = scrolls.filter((s) => /id:\s*"daily-loop-skip-breath"/.test(s));
+    const cont = scrolls.filter((s) => /id:\s*"continue-button"/.test(s));
+
+    // Controls against the file itself: the slicer found exactly the real step (it carries
+    // its timeout), and the centring matcher fires on this file's formatting.
+    expect(skip).toHaveLength(1);
+    expect(skip[0]).toMatch(/^\s*timeout:\s*\d+\s*$/m);
+    expect(cont.some((s) => CENTRED.test(s))).toBe(true);
+
+    expect(skip[0]).not.toMatch(CENTRED);
+  });
+});
+
 describe('DEBUG-507 — the XXXL profile-entry flow joins the class, not the default suite', () => {
   const FLOW = 'profile-voice-reflection-xxxl.yaml';
 
