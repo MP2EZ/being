@@ -10,7 +10,7 @@ Being includes a comprehensive encryption system that provides strong privacy pr
 
 #### EncryptionService (`/src/services/security/EncryptionService.ts`)
 - **AES-256-GCM** encryption framework (with XOR fallback for demo)
-- **Device keychain** integration with biometric protection
+- **Device keychain** integration (`expo-secure-store`; no biometric or passcode prompt, DEBUG-624)
 - **Data sensitivity classification** (Clinical, Personal, Therapeutic, System)
 - **Key rotation** with 90-day compliance cycle
 - **Audit logging** for security compliance
@@ -76,13 +76,13 @@ All existing stores now use the secure data layer:
 - ✅ **Access Control**: User-based data access with device authentication
 - ✅ **Audit Controls**: Clinical data access logging for compliance  
 - ✅ **Integrity**: Data corruption detection and validation
-- ✅ **Person/Entity Authentication**: Device keychain with biometric protection
+- **Person/Entity Authentication**: not implemented in-app. Access rests on the device lock; there is no biometric or passcode gate (DEBUG-624)
 - ✅ **Transmission Security**: Local encryption (Phase 1), ready for secure cloud sync
 
 ### Key Security Features
 
 - **Master Key Hierarchy**: Single master key derives clinical/personal keys
-- **Device Keychain**: Hardware-backed key storage with biometric protection
+- **Device Keychain**: Hardware-backed key storage, released while the device is unlocked (no biometric binding)
 - **Key Rotation**: Automatic 90-day rotation for compliance
 - **Secure Deletion**: Cryptographic key destruction for data deletion
 - **Audit Trail**: All clinical data access logged for security compliance
