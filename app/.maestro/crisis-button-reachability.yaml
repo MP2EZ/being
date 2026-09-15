@@ -55,7 +55,7 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 #
 # This flow otherwise cannot tell "navigated" from "dialled, then recovered": it only
 # ever asserts the destination is present. Distinguishing them matters because the two
-# outcomes are not equivalent — dialling skips the resource list, the safety plan and
+# outcomes are not equivalent — dialling skips the resource list and
 # the text-line option that CrisisResources carries.
 #
 # Placed AFTER the assertVisible, never before. `extendedWaitUntil: notVisible` returns

@@ -35,9 +35,10 @@
  *   INFRA-591  done — docs/testing/crisis-device-checklist.md, run by /b-release Phase 2.9.
  *              The block below pins that it exists exactly while the notice does, and that
  *              every on-screen label it tells a tester to look for still exists in source.
- *   INFRA-592  assert the GENERATED Info.plist keeps tel/sms after plugin composition —
- *              the one dial residual the surviving jest pin cannot reach, since it reads
- *              app.json and iOS is CNG (INFRA-280).
+ *   INFRA-592  done — scripts/check-generated-infoplist.js, run on every PR by CI's
+ *              `Generated Info.plist keeps tel/sms` step, asserts the GENERATED Info.plist
+ *              keeps tel/sms after plugin composition. It reads prebuild output, not the
+ *              binary, so it does not stand in for the checklist.
  */
 
 import * as fs from 'fs';

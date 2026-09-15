@@ -152,7 +152,7 @@ export const CONSENT_BLOCK_STATUSES: ReadonlySet<ConsentStatus> = new Set<Consen
  * (`navigationRef.ts:22-27` reads the top of the root stack). 988 itself
  * survives, because `ReConsent` is not in `SUPPRESSED_ROUTES` and the overlay
  * still renders in `standard` mode. But the user is yanked off the resources
- * list, the safety plan and the text-line option, onto a consent form.
+ * list and the text-line option, onto a consent form.
  * `RootCrisisButton.tsx:190-198` names that exact harm — "yanking the user out
  * of the CrisisResources screen they just reached" — when justifying its own
  * single-flight guard. `AssessmentFlow` is worse: a PHQ-9 with Q9 > 0 renders

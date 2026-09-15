@@ -473,4 +473,3 @@ export type { RadioOption, RadioGroupProps } from './RadioGroup';
 Refer to:
 - [Feature Structure](./feature-structure.md) - How features are organized
 - [Codebase Organization](./codebase-organization.md) - Overall structure
-- [Technical Patterns](./technical-patterns.md) - Implementation patterns

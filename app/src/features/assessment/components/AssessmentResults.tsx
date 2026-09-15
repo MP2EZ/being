@@ -1,8 +1,8 @@
 /**
  * AssessmentResults Component - DRD-FLOW-005
  * 
- * CLINICAL SPECIFICATIONS:
- * - PHQ-9/GAD-7 score display with clinical accuracy
+ * WELLNESS SCREENING SPECIFICATIONS:
+ * - PHQ-9/GAD-7 score display with exact standard scoring
  * - Crisis intervention triggers (PHQ-9 ≥20, GAD-7 ≥15)
  * - Suicidal ideation detection (PHQ-9 Question 9 >0)
  * - Therapeutic language and guidance

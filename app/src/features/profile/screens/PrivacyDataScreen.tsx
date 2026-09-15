@@ -519,12 +519,6 @@ const PrivacyDataScreen: React.FC = () => {
             />
             <View style={styles.storageDivider} />
             <StorageLocationRow
-              label="Crisis Contacts"
-              description="Emergency contacts and safety plan"
-              location="device"
-            />
-            <View style={styles.storageDivider} />
-            <StorageLocationRow
               label="Preferences"
               description="App settings and customizations"
               location={cloudSyncEnabled && !universalOptOut ? 'cloud' : 'app'}

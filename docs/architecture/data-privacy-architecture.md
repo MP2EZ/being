@@ -13,7 +13,6 @@ Being is designed so that **mental health data never leaves the user's device**.
 1. **All health data stays local**
    - Assessment scores (PHQ-9, GAD-7)
    - Mood check-ins and notes
-   - Crisis contacts and safety plans
    - Practice history and progress
 
 2. **No cloud sync of health data**
@@ -45,7 +44,7 @@ Being is designed so that **mental health data never leaves the user's device**.
 
 ### Non-Negotiables
 
-- **Never send**: Assessment scores, mood values, journal content, crisis contact details
+- **Never send**: Assessment scores, mood values, journal content
 - **Safe to send**: App opens, screen views, feature usage counts, crash stack traces (sanitized), performance metrics
 
 ---

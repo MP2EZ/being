@@ -119,8 +119,8 @@ Being's analytics follows a simple rule: **track feature usage, never health dat
 | Screen views | Assessment scores (PHQ-9, GAD-7) |
 | Feature usage counts | Mood values or selections |
 | Session duration | Journal content |
-| Performance metrics | Crisis contact details |
-| App version, platform | Any health outcomes |
+| Performance metrics | Any health outcomes |
+| App version, platform | |
 
 This eliminates the need for HIPAA Business Associate Agreements (BAAs). If no PHI is transmitted, no BAA is required.
 
@@ -510,7 +510,6 @@ Required disclosure for privacy policy:
 > - Assessment scores (PHQ-9, GAD-7)
 > - Mood check-in values or notes
 > - Journal entries
-> - Crisis contact information
 > - Any mental health data
 >
 > **Your Control:**
