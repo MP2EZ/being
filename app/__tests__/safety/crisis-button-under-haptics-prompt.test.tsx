@@ -109,7 +109,7 @@ import {
  * combination that ships.
  */
 const HOSTS = [
-  { route: 'PracticeTimer', screen: 'PracticeTimerScreen.tsx', shipsScrollable: false },
+  { route: 'PracticeTimer', screen: 'PracticeTimerScreen.tsx', shipsScrollable: true },
   { route: 'ReflectionTimer', screen: 'ReflectionTimerScreen.tsx', shipsScrollable: true },
   { route: 'BodyScan', screen: 'BodyScanScreen.tsx', shipsScrollable: true },
 ] as const;
