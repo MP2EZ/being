@@ -1,5 +1,13 @@
 # Being Clinical Testing Implementation
 
+> ⚠️ **HISTORICAL DESIGN RECORD — not maintained against the code (MAINT-617, 2026-09-14).**
+> The `src/test/*` files and `clinical:*` scripts described here do not exist. Current commands:
+> `npm run test:clinical` and `npm run test:crisis-detection`.
+>
+> **"Emergency contacts and safety plans" is NOT a feature of the app.** No safety plan or personal
+> emergency contact exists; the 988, 741741 and 911 crisis lines this document also names are live.
+> Score-based crisis detection (PHQ-9 ≥15/≥20, Q9>0, GAD-7 ≥15) is live and not covered by this notice.
+
 ## Overview
 
 This document outlines the comprehensive testing strategy implemented for the Being clinical export feature, focusing on clinical accuracy, crisis safety, and therapeutic effectiveness validation.
@@ -185,7 +193,7 @@ npm run clinical:report
 - **Data Integrity**: Zero data loss or corruption during export
 - **Performance**: Large dataset processing within therapeutic UX limits
 - **Accessibility**: Full WCAG AA compliance for generated documents
-- **Privacy**: Complete HIPAA-aware data handling and minimization
+- **Privacy**: Wellness data handling and minimization
 
 ### Accessibility Compliance Standards
 - **Contrast Ratios**: 4.5:1 minimum (AA), 7:1 for crisis elements (AAA)

@@ -301,9 +301,6 @@ open "docs/product/Being. DRD.md"
 # Product roadmap
 open "docs/product/Being. Product Roadmap - Prioritized.md"
 
-# Crisis implementation guide
-open "docs/Crisis-Button-Implementation-Guide.md"
-
 # TypeScript safety guide
 open "docs/TypeScript-Safety-Guide.md"
 
@@ -533,7 +530,6 @@ npm run validate:offline-crisis
 ### Emergency Access
 - **Crisis Hotline**: 988 (always accessible <3 seconds)
 - **Emergency Commands**: `npm run test:crisis-quick`
-- **Safety Documentation**: `docs/Crisis-Button-Implementation-Guide.md`
 
 ### Stoic Framework
 - **Philosopher Agent**: Auto-validates Stoic content (see `.claude/CLAUDE.md`)
