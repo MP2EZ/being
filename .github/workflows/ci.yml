@@ -840,6 +840,14 @@ jobs:
       - name: Safety pin suite
         run: cd app && npm run test:safety -- --ci --testTimeout=20000
 
+      # INFRA-592. The pin above reads app.json; this runs a fresh `expo prebuild` and reads
+      # the Info.plist it GENERATES, so a plugin or dependency bump that strips tel/sms is
+      # caught even while app.json still declares them. ~2s, no pod install. Exit 2 means no
+      # trustworthy reading — never treat it as flake. The script header records why ubuntu
+      # can generate the iOS project, and that moving this local-only needs a crisis ruling.
+      - name: Generated Info.plist keeps tel/sms
+        run: cd app && npm run check:generated-infoplist
+
       - name: Privacy contract suite
         run: cd app && npm run test:privacy -- --ci --testTimeout=20000
 
