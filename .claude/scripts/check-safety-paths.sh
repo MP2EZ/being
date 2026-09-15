@@ -60,7 +60,7 @@ EXEMPT_PATHS=(
 exempt_reason() {
   case "$1" in
     "app/src/features/practices/")
-      echo "Protected for \`philosopher\` (classical accuracy), not for 988 reachability. The Validation Matrix gives \"Therapeutic content (Stoic)\" no safety-e2e cell, and no Maestro flow pins practice content. Gating it would charge a sim build for a philosophical-accuracy review — the over-trigger that trains the --skip-e2e reflex Phase 2.5 warns about. SCOPED: \`practices/dailyloop/\` is NOT covered by this exemption — DEBUG-465 carved it back in as its own Protected Path because DailyLoopStepScreen hosts SUPPORT_LINE. This exemption now means the REST of practices/. Re-scope it again if another practice screen takes on a crisis affordance. Re-scoped again DEBUG-586: \`shared/components/HapticsOptInPrompt.tsx\` and \`shared/components/ResumeSessionModal.tsx\` are NOT covered either — both import CRISIS_BUTTON_RESERVED_BAND and are gated as FILES. Re-scoped again DEBUG-587: \`shared/haptics/\` (directory) and \`shared/components/BreathingCircle.tsx\` (file) are NOT covered either — both route practice output that can reach a crisis screen, and neither imports from features/crisis/ so no detector sees them. This exemption now means the rest of practices/ outside dailyloop/, shared/haptics/, useIsFocusedSafe.ts, and those three files."
+      echo "Protected for \`philosopher\` (classical accuracy), not for 988 reachability. The Validation Matrix gives \"Therapeutic content (Stoic)\" no safety-e2e cell, and no Maestro flow pins practice content. Gating it would charge a sim build for a philosophical-accuracy review — the over-trigger that trains the --skip-e2e reflex Phase 2.5 warns about. SCOPED: \`practices/dailyloop/\` is NOT covered by this exemption — DEBUG-465 carved it back in as its own Protected Path because DailyLoopStepScreen hosts SUPPORT_LINE. This exemption now means the REST of practices/. Re-scope it again if another practice screen takes on a crisis affordance. Re-scoped again DEBUG-586: \`shared/components/HapticsOptInPrompt.tsx\` and \`shared/components/ResumeSessionModal.tsx\` are NOT covered either — both import CRISIS_BUTTON_RESERVED_BAND and are gated as FILES. Re-scoped again DEBUG-587: \`shared/haptics/\` (directory) and \`shared/components/BreathingCircle.tsx\` (file) are NOT covered either — both route practice output that can reach a crisis screen, and neither imports from features/crisis/ so no detector sees them. Re-scoped again DEBUG-620: \`screens/PracticeLibraryScreen.tsx\` (file) is NOT covered either — it sizes a trailing spacer from CRISIS_BUTTON_EXCLUSION_RECT. This exemption now means the rest of practices/ outside dailyloop/, shared/haptics/, useIsFocusedSafe.ts, and those four files."
       ;;
     *) echo "NO REASON RECORDED" ;;
   esac
@@ -329,6 +329,8 @@ PROBE_PATHS=(
   "app/ios/Being/Info.plist"
   "app/src/features/practices/morning/MorningFlowNavigator.tsx"
   "app/src/features/home/screens/CleanHomeScreen.tsx"
+  "app/src/features/learn/practices/PracticeTimerScreen.tsx"
+  "app/src/features/practices/screens/PracticeLibraryScreen.tsx"
   "app/src/features/profile/screens/DeleteAccountScreen.tsx"
   "app/src/core/stores/settingsStore.ts"
   "app/src/core/components/AccessibleButton.tsx"

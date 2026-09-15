@@ -71,6 +71,8 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/practices/shared/haptics/` | `crisis` |
 | `app/src/features/practices/shared/components/BreathingCircle.tsx` | `crisis` |
 | `app/src/features/practices/shared/useIsFocusedSafe.ts` | `crisis` |
+| `app/src/features/learn/practices/PracticeTimerScreen.tsx` | `crisis` |
+| `app/src/features/practices/screens/PracticeLibraryScreen.tsx` | `crisis` + `philosopher` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -289,6 +291,16 @@ gates open at once, silently. Note what a gate arm CANNOT prove here:
 `eas.json`'s `e2e-sim` profile carries `practice_haptics:false`, so the pipeline is dark in
 the gate build and no flow can render a cue — the arm is notice-only and the falsifier is
 jest at the `expo-haptics` and `announceForAccessibility` boundaries.
+
+`features/learn/practices/PracticeTimerScreen.tsx` and
+`features/practices/screens/PracticeLibraryScreen.tsx` are the eighteenth instance (added
+DEBUG-618/620/622): the DEBUG-547 shape on two more screens. Each clears the FAB with a
+`CRISIS_BUTTON_EXCLUSION_RECT` inset (the Begin Practice toggle's right margin, the library's
+trailing spacer), because at `zIndex: 9999` an overlap is a wrong-destination tap into
+`CrisisResources`. FILE-level: `ReflectionTimerScreen` and `BodyScanScreen` host the same toggle
+but are unmeasured, and the rest of `practices/` stays exempt. `crisis-button-reachability`
+renders neither screen, so its arm proves the FAB mount only; the falsifier is the jest geometry
+pin.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
