@@ -84,6 +84,18 @@ export function sanitizeScreenName(name?: string): string | undefined {
   if (!name) return undefined;
 
   const genericName = name.replace(/Screen$/, '');
+
+  // INFRA-561 — sensitivity is tested BEFORE the allowlist, never instead of it.
+  // The allowlist matches with `.includes()`, so a future leaf named
+  // `PracticeReflection` or `ProgressAssessment` would hit an allowlisted token
+  // and return VERBATIM, carrying the sensitive one out with it. No route in the
+  // tree collides today, so this is a behavioural no-op now and a guarantee from
+  // here on — the ceiling that made it unreachable was the small, fixed root-route
+  // table, and INFRA-561 moved the screen-name path to leaf routes, where any new
+  // screen name anywhere is a candidate. `coarsenScreenNameForAnalytics` is
+  // blocklist-only and already had this ordering, so the two no longer diverge.
+  if (isSensitiveRoute(genericName)) return GENERIC_SCREEN_BUCKET;
+
   if (
     ALLOWED_GENERIC_SCREENS.some((s) =>
       genericName.toLowerCase().includes(s.toLowerCase())
