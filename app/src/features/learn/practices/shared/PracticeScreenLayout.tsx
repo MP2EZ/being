@@ -17,8 +17,8 @@ interface PracticeScreenLayoutProps {
    * container rather than inside it (FEAT-385).
    *
    * The distinction is load-bearing, not stylistic. `children` are nested inside the
-   * ScrollView whenever `scrollable` is true — which is the case for two of the three
-   * practice screens — and an `position:'absolute'` inset-0 backdrop placed there
+   * ScrollView whenever `scrollable` is true — which is the case for all three
+   * practice screens since DEBUG-618 — and an `position:'absolute'` inset-0 backdrop placed there
    * sizes to the SCROLL CONTENT box and scrolls away with it. Rendering here instead
    * puts the layer inside the `flex:1` SafeAreaView, where inset-0 means the screen.
    *
@@ -78,6 +78,7 @@ const PracticeScreenLayout: React.FC<PracticeScreenLayoutProps> = ({
             style={sharedPracticeStyles.scrollView}
             contentContainerStyle={sharedPracticeStyles.content}
             showsVerticalScrollIndicator={false}
+            testID={`${testID}-scroll`}
           >
             {children}
           </ScrollView>

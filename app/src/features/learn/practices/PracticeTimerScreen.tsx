@@ -203,7 +203,10 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
     <PracticeScreenLayout
       title={title}
       onBack={onBack || (() => {})}
-      scrollable={false}
+      // DEBUG-618: the column must scroll. As a plain View, Begin Practice fell below
+      // the modal card's clip edge from xxxLarge text up and could not be reached.
+      // Clearing the crisis FAB's touch band is the toggle's own style (DEBUG-622).
+      scrollable={true}
       overlay={
         shouldPromptHaptics ? <HapticsOptInPrompt onChoose={onChooseHaptics} /> : undefined
       }
@@ -278,7 +281,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
       />
 
       {/* Mindfulness Note */}
-      <View style={sharedPracticeStyles.noteSection}>
+      <View style={sharedPracticeStyles.noteSection} testID={`${testID}-note`}>
         <Text style={sharedPracticeStyles.noteIcon}>💡</Text>
         <Text style={sharedPracticeStyles.noteText}>{noteText}</Text>
       </View>
