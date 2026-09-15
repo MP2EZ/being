@@ -2,7 +2,7 @@
 const fs = require('fs');
 const { withFinalizedMod, IOSConfig } = require('expo/config-plugins');
 const plist = require('@expo/plist').default;
-const MODE = 'strip-sms';
+const MODE = 'telprompt';
 module.exports = (config) =>
   withFinalizedMod(config, ['ios', async (cfg) => {
     if (MODE === 'throw') throw new Error('INFRA-592 mutation: plugin throws');
