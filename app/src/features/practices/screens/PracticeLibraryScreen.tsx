@@ -33,8 +33,21 @@ import {
   StyleSheet,
   Text,
   View,
+  useWindowDimensions,
 } from 'react-native';
+/**
+ * DEBUG-620 — `edges` applies to the one SafeAreaView root in this file.
+ *
+ * Root-stack card with `headerShown: false` (CleanRootNavigator), so no navigator
+ * supplies the top inset: without it "‹ Back" sat under the clock and the title in the
+ * Dynamic Island row. TOP ONLY, deliberately. The crisis FAB is positioned against the
+ * window, not the safe area, so a bottom edge would move the list's end further INTO
+ * its touch band rather than away from it (crisis ruling). The trailing spacer below
+ * handles that clearance instead. Same shape as WellnessTrendsDetailScreen.
+ */
+import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { semantic, colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 import { loadModuleContent } from '@/core/services/moduleContent';
@@ -50,8 +63,7 @@ import type { StoicPrinciple } from '@/features/practices/types/stoic';
 /**
  * The framing line on the featured card. Single-sourced from the same constant
  * the completion screen uses, so the drill's citation cannot drift between the
- * surface that launches it and the surface that closes it. Pinned by
- * practiceLibrary.contract.test.ts.
+ * surface that launches it and the surface that closes it.
  */
 const FRAMING_QUOTE = PRACTICE_QUOTES[FEATURED_PRACTICE.practiceId];
 
@@ -69,6 +81,22 @@ interface ResolvedEntry {
   practice: Practice;
 }
 
+/** Module scope, so the prop keeps a stable identity across renders. */
+const LIBRARY_EDGES: readonly Edge[] = ['top'];
+
+/**
+ * DEBUG-620 — the font scale from which the header stacks and the featured card's
+ * horizontal padding tightens. Between xxxLarge (1.353, the largest standard slider
+ * size) and AX1 (1.786), matching the Daily Loop screens' AX layout threshold. At AX3
+ * a centred Back / title / spacer row needs ~490pt against ~358pt available, and at AX5
+ * the header rendered "‹ BackPractice" with the title clipped.
+ */
+export const PRACTICE_LIBRARY_AX_LAYOUT_FONT_SCALE = 1.6;
+
+export function libraryHeaderStacks(fontScale: number): boolean {
+  return Number.isFinite(fontScale) && fontScale >= PRACTICE_LIBRARY_AX_LAYOUT_FONT_SCALE;
+}
+
 const formatDuration = (seconds?: number | null): string | null =>
   seconds ? `${Math.round(seconds / 60)} min` : null;
 
@@ -79,6 +107,8 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
   testID = 'practice-library-screen',
 }) => {
   const [entries, setEntries] = useState<ResolvedEntry[] | null>(null);
+  const { fontScale } = useWindowDimensions();
+  const axLayout = libraryHeaderStacks(fontScale);
 
   useEffect(() => {
     let cancelled = false;
@@ -144,8 +174,11 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
   };
 
   return (
-    <View style={styles.container} testID={testID}>
-      <View style={styles.header}>
+    <SafeAreaView edges={LIBRARY_EDGES} style={styles.container} testID={testID}>
+      <View
+        style={[styles.header, axLayout && styles.headerStacked]}
+        testID="practice-library-header"
+      >
         <Pressable
           onPress={onBack}
           style={styles.backButton}
@@ -155,8 +188,12 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
         >
           <Text style={styles.backText}>‹ Back</Text>
         </Pressable>
-        <Text style={styles.headerTitle}>Practices</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={styles.headerTitle} testID="practice-library-title">Practices</Text>
+        {/* The spacer only balances a centred single-row title; stacked, it would be
+            an empty row. */}
+        {!axLayout && (
+          <View style={styles.headerSpacer} testID="practice-library-header-spacer" />
+        )}
       </View>
 
       {!entries ? (
@@ -165,14 +202,21 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[styles.scrollContent, axLayout && styles.scrollContentAx]}
           showsVerticalScrollIndicator={false}
+          testID="practice-library-scroll"
         >
           {/* FEATURED — the sorting drill, promoted to a first-class Stoic
               practice, carrying its principle framing and citation. */}
           {featured && featuredPrinciple && FRAMING_QUOTE && (
-            <View style={styles.featuredCard} testID="practice-library-featured">
-              <Text style={styles.principleEyebrow}>
+            <View
+              style={[styles.featuredCard, axLayout && styles.featuredCardAx]}
+              testID="practice-library-featured"
+            >
+              <Text
+                style={[styles.principleEyebrow, axLayout && styles.principleEyebrowAx]}
+                testID="practice-library-featured-eyebrow"
+              >
                 {featuredPrinciple.title.toUpperCase()}
               </Text>
               <Text style={styles.featuredTitle}>{featured.practice.title}</Text>
@@ -255,10 +299,15 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
             </View>
           ))}
 
-          <View style={{ height: spacing[48] }} />
+          {/* DEBUG-620 (crisis ruling): the list's end clears the FAB. With no bottom
+              edge the ScrollView reaches the window bottom, so at maximum scroll the
+              last row's bottom rests at least CRISIS_BUTTON_EXCLUSION_RECT.top above the
+              window bottom and never enters the contested region. A bare spacing[48] left its right column in
+              the FAB's touch band once the top inset moved the list down. */}
+          <View style={styles.fabClearance} testID="practice-library-fab-clearance" />
         </ScrollView>
       )}
-    </View>
+    </SafeAreaView>
   );
 };
 
@@ -282,6 +331,14 @@ const styles = StyleSheet.create({
   // Non-interactive right-hand spacer that balances the centred title. Keeps
   // ONLY the width — it is not a touch target and must not gain a height.
   headerSpacer: { minWidth: spacing[64] },
+  // DEBUG-620: at accessibility sizes Back takes its own line and the title wraps below
+  // it, instead of both competing for one row.
+  headerStacked: {
+    flexDirection: 'column',
+    alignItems: 'flex-start',
+    justifyContent: 'flex-start',
+    gap: spacing[4],
+  },
   backText: {
     fontSize: typography.bodyRegular.size,
     color: semantic.text.learn,
@@ -293,6 +350,10 @@ const styles = StyleSheet.create({
   },
   centered: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { paddingHorizontal: spacing[24], paddingTop: spacing[8] },
+  // DEBUG-620: at accessibility sizes, horizontal padding is handed back to the text so
+  // single long words ("SOVEREIGNTY", "Practice") are less likely to break mid-word.
+  // Text size itself is never capped.
+  scrollContentAx: { paddingHorizontal: spacing[16] },
   featuredCard: {
     borderWidth: 1.5,
     borderColor: colorSystem.navigation.learn,
@@ -301,6 +362,7 @@ const styles = StyleSheet.create({
     gap: spacing[8],
     marginBottom: spacing[32],
   },
+  featuredCardAx: { paddingHorizontal: spacing[8] },
   principleEyebrow: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
@@ -308,6 +370,7 @@ const styles = StyleSheet.create({
     letterSpacing: 1,
     marginBottom: spacing[4],
   },
+  principleEyebrowAx: { letterSpacing: 0 },
   featuredTitle: {
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.semibold,
@@ -350,6 +413,7 @@ const styles = StyleSheet.create({
     color: colorSystem.base.white,
   },
   section: { marginBottom: spacing[32] },
+  fabClearance: { height: CRISIS_BUTTON_EXCLUSION_RECT.top },
   practiceRow: {
     flexDirection: 'row',
     alignItems: 'center',
