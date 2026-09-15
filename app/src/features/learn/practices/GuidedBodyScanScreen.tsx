@@ -35,11 +35,14 @@ import {
   Animated,
 } from 'react-native';
 /**
- * MAINT-437 — `edges` applies to all 1 SafeAreaView root(s) in this file.
+ * MAINT-437, corrected DEBUG-621 — `edges` applies to all 1 SafeAreaView root(s) in
+ * this file.
  *
- * Root-stack card with `headerShown: false`: no navigator supplies either
- * inset, which is what RN core's iOS-only SafeAreaView already did here — so iOS
- * rendering is unchanged by construction and the whole behavioural delta is Android.
+ * Root-stack `modal` card with `headerShown: false`. The earlier claim that iOS
+ * rendering was "unchanged by construction" was false: RN core's SafeAreaView used
+ * the view's own position, while react-native-safe-area-context reads the window's
+ * insets, so claiming `top` doubled the inset the iOS modal card's margin already
+ * supplies. `getModalPracticeEdges` drops `top` on iOS and keeps both on Android.
  *
  * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
  * are never listed. NOTE: no test in this repo can observe an `edges` value having
@@ -51,6 +54,7 @@ import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
+import { getModalPracticeEdges } from '@/features/learn/practices/shared/practiceSafeAreaEdges';
 import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
 import { useInstructionsFade } from '@/features/learn/practices/shared/useInstructionsFade';
 import type { ModuleId } from '@/features/learn/types/education';
@@ -131,7 +135,7 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
   }
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.container} testID={testID}>
+    <SafeAreaView edges={getModalPracticeEdges()} style={styles.container} testID={testID}>
       <StatusBar barStyle="dark-content" backgroundColor={colorSystem.base.white} />
 
       {/* Header */}
