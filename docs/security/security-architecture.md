@@ -80,7 +80,7 @@ interface KeyDerivation {
 #### C. Data-at-Rest Encryption Implementation
 ```typescript
 class LocalStorageEncryption {
-  // Clinical data (PHQ-9/GAD-7, crisis plans)
+  // Wellness screening data (PHQ-9/GAD-7)
   async encryptClinicalData(data: ClinicalData): Promise<EncryptedData> {
     const key = await this.deriveKey('clinical', {
       rotationPeriod: '24_hours',
@@ -290,9 +290,7 @@ class BiometricKeyProtection {
   private getPromptForOperation(operation: string): string {
     const prompts = {
       'view_clinical': 'Authenticate to view your assessments',
-      'export_data': 'Authenticate to export your mental health data',
-      'view_crisis_plan': 'Authenticate to access your safety plan',
-      'modify_emergency': 'Authenticate to change emergency contacts'
+      'export_data': 'Authenticate to export your mental health data'
     };
     return prompts[operation] || 'Authenticate to continue';
   }
@@ -304,7 +302,7 @@ class BiometricKeyProtection {
 - Use Face ID, Touch ID, or your fingerprint to protect your most sensitive data
 - Your biometric data never leaves your device's secure chip
 - If biometrics aren't available, you can use your device passcode
-- Extra protection for viewing assessments and crisis plans
+- Extra protection for viewing assessments
 
 ---
 
@@ -743,7 +741,7 @@ interface PrivacyDashboard {
     },
 
     data_inventory: {
-      categories: ["Assessments", "Mood Tracking", "Reflections", "Crisis Plans"],
+      categories: ["Assessments", "Mood Tracking", "Reflections"],
       storage_used: "visual_bar_chart",
       last_accessed: "human_readable_timeago"
     },

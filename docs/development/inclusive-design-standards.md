@@ -1,5 +1,13 @@
 # Inclusive Design Standards: Universal Mental Health Accessibility
 
+> ⚠️ **HISTORICAL DESIGN RECORD — not maintained against the code (MAINT-617, 2026-09-14).**
+> Its examples are web/DOM-era sketches, not app code. MAINT-393's accessibility ruling recorded here
+> stays authoritative, and `app/src/core/components/accessibility/index.ts` cites it.
+>
+> **The safety-plan and emergency-contact examples here are NOT features of the app.** `emergencyContacts`,
+> `safetyPlan`, `openSafetyPlan()` and the "Safety Plan" link were never built. 988 access and score-based
+> crisis detection (PHQ-9 ≥15/≥20, Q9>0, GAD-7 ≥15) are live and not covered by this notice.
+
 ## Document Metadata
 
 ```yaml
