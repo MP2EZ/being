@@ -337,7 +337,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
 
     // Announce screen transitions to screen reader
     const screenTransitions: Record<Screen, string> = {
-      'welcome': 'Starting mental health assessments.',
+      'welcome': 'Starting wellness screenings.',
       'stoicIntro': 'Introduction complete. Setting up notification preferences.',
       'notifications': 'Notifications configured. Reviewing privacy and consent information.',
       'privacy': 'Setup complete! Welcome to your mindful journey.',

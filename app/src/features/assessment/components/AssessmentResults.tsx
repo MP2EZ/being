@@ -3,8 +3,7 @@
  * 
  * WELLNESS SCREENING SPECIFICATIONS:
  * - PHQ-9/GAD-7 score display with exact standard scoring
- * - Crisis intervention triggers (PHQ-9 ≥20, GAD-7 ≥15)
- * - Suicidal ideation detection (PHQ-9 Question 9 >0)
+ * - Results banner tier (isInterventionTier): PHQ-9 >=20 (active intervention), PHQ-9 Q9 >0 (immediate intervention), GAD-7 >=15 (support resources offered; top band of the instrument, shares the banner)
  * - Therapeutic language and guidance
  * - <200ms crisis response time (CRITICAL)
  * - Professional support resources and next steps
@@ -30,6 +29,7 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { FocusProvider, Focusable, SkipLink } from '@/core/components/accessibility';
 import type { PHQ9Result, GAD7Result, AssessmentType } from '../types';
+import { WELLNESS_LABELS, WELLNESS_SCREENING_NOT_A_DIAGNOSIS } from '../types/wellnessLabels';
 
 interface AssessmentResultsProps {
   result: PHQ9Result | GAD7Result;
@@ -110,7 +110,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
       switch (phq9Result.severity) {
         case 'minimal':
           return {
-            title: 'Minimal Depression',
+            title: 'Minimal Depressive Symptoms',
             description: 'Your responses suggest minimal depressive symptoms. This is a positive sign for your mental well-being.',
             guidance: 'Continue with mindfulness practices and self-care routines. Regular check-ins can help maintain your wellness.',
             color: colorSystem.status.success,
@@ -118,7 +118,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
           };
         case 'mild':
           return {
-            title: 'Mild Depression',
+            title: 'Mild Depressive Symptoms',
             description: 'Your responses indicate mild depressive symptoms that may benefit from attention and care.',
             guidance: 'Consider incorporating more mindfulness practices, gentle exercise, and connecting with supportive people. Monitor your mood patterns.',
             color: colorSystem.status.warning,
@@ -126,7 +126,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
           };
         case 'moderate':
           return {
-            title: 'Moderate Depression',
+            title: 'Moderate Depressive Symptoms',
             description: 'Your responses suggest moderate depressive symptoms that warrant professional support.',
             guidance: 'We recommend speaking with a mental health professional. In the meantime, practice self-compassion and maintain supportive connections.',
             color: colorSystem.status.warning,
@@ -135,7 +135,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
         case 'moderately_severe':
         case 'severe':
           return {
-            title: 'Significant Depression',
+            title: 'Significant Depressive Symptoms',
             description: 'Your responses indicate significant depressive symptoms that require professional attention.',
             guidance: 'Please reach out to a mental health professional soon. You deserve support, and effective treatments are available.',
             color: colorSystem.status.critical,
@@ -155,7 +155,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
       switch (gad7Result.severity) {
         case 'minimal':
           return {
-            title: 'Minimal Anxiety',
+            title: 'Minimal Anxiety Symptoms',
             description: 'Your responses suggest minimal anxiety symptoms. Your relationship with worry appears manageable.',
             guidance: 'Continue with mindfulness practices and notice when anxiety arises with curiosity rather than judgment.',
             color: colorSystem.status.success,
@@ -163,7 +163,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
           };
         case 'mild':
           return {
-            title: 'Mild Anxiety',
+            title: 'Mild Anxiety Symptoms',
             description: 'Your responses indicate mild anxiety symptoms that you might explore with gentle awareness.',
             guidance: 'Practice breathing exercises and mindful observation of anxious thoughts. Notice patterns without judgment.',
             color: colorSystem.status.warning,
@@ -171,7 +171,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
           };
         case 'moderate':
           return {
-            title: 'Moderate Anxiety',
+            title: 'Moderate Anxiety Symptoms',
             description: 'Your responses suggest moderate anxiety that may benefit from professional guidance.',
             guidance: 'Consider speaking with a counselor who can help you develop effective coping strategies. You\'re not alone in this.',
             color: colorSystem.status.warning,
@@ -179,7 +179,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
           };
         case 'severe':
           return {
-            title: 'Significant Anxiety',
+            title: 'Significant Anxiety Symptoms',
             description: 'Your responses indicate significant anxiety that warrants professional support.',
             guidance: 'Please consider reaching out to a mental health professional. Effective treatments can help you find relief.',
             color: colorSystem.status.critical,
@@ -272,7 +272,7 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
                 style={styles.assessmentTitle}
                 accessibilityRole="header"
               >
-                {assessmentType === 'phq9' ? 'PHQ-9 Depression Assessment' : 'GAD-7 Anxiety Assessment'}
+                {assessmentType === 'phq9' ? WELLNESS_LABELS.phq9 : WELLNESS_LABELS.gad7}
               </Text>
               <View style={[styles.scoreBadge, { backgroundColor: scoreInterpretation.color }]}>
                 <Text 
@@ -377,6 +377,22 @@ const AssessmentResults: React.FC<AssessmentResultsProps> = ({
             </View>
           </Focusable>
         )}
+
+        {/* Not-a-diagnosis line (MAINT-615). Placement is a crisis ruling: after
+            Professional Support (after the guidance block when that is absent),
+            never above the banner or between the score card and the support
+            content, and never an alert. */}
+        <Focusable
+          id="not-a-diagnosis"
+          priority={35}
+        >
+          <Text
+            style={styles.notADiagnosis}
+            testID="results-not-a-diagnosis"
+          >
+            {WELLNESS_SCREENING_NOT_A_DIAGNOSIS}
+          </Text>
+        </Focusable>
 
         {/* Results Summary */}
         <Focusable
@@ -593,6 +609,13 @@ const styles = StyleSheet.create({
     fontWeight: typography.bodyRegular.weight,
     color: colorSystem.accessibility.text.primary,
     lineHeight: typography.bodyRegular.size * 1.4,
+  },
+  notADiagnosis: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.bodyRegular.weight,
+    color: colorSystem.accessibility.text.secondary,
+    lineHeight: typography.bodyRegular.size * 1.4,
+    marginBottom: spacing[24],
   },
   summaryContainer: {
     backgroundColor: colorSystem.gray[50],

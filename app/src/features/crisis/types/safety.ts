@@ -7,7 +7,7 @@
  * DUAL-THRESHOLD SYSTEM (Updated 2025-01-27):
  * - PHQ-9 ≥15: Moderately severe depression - support recommended (23% have suicidal ideation)
  * - PHQ-9 ≥20: Severe depression - immediate intervention required
- * - GAD-7 ≥15: Severe anxiety - immediate intervention required
+ * - GAD-7 ≥15: Severe anxiety band - support resources offered; shares the results banner tier with PHQ-9 ≥20 and Q9 >0 (see isInterventionTier)
  */
 
 import { AssessmentType, PHQ9Result, GAD7Result, AssessmentAnswer } from '@/features/assessment/types';
@@ -28,7 +28,7 @@ export const CRISIS_SAFETY_THRESHOLDS = {
   PHQ9_MODERATE_SEVERE_THRESHOLD: 15,
   /** PHQ-9 Severe Depression Score - Immediate Intervention */
   PHQ9_SEVERE_THRESHOLD: 20,
-  /** GAD-7 Severe Anxiety Score - Immediate Intervention */
+  /** GAD-7 Severe Anxiety Band (≥15) - Support Resources Offered; banner tier (see isInterventionTier) */
   GAD7_SEVERE_THRESHOLD: 15,
   /** PHQ-9 Crisis Score (alias for severe threshold = 20) - see DIVERGENCE WARNING above */
   PHQ9_CRISIS_SCORE: 20,
@@ -394,7 +394,7 @@ export function isCriticalCrisis(detection: CrisisDetection): boolean {
 /**
  * Intervention-tier predicate (MAINT-251).
  *
- * Separates the active-intervention tier (PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15 →
+ * Separates the banner tier (PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15 →
  * primaryTrigger phq9_severe_score | phq9_suicidal_ideation | gad7_severe_score)
  * from the PHQ-9 15–19 support tier (primaryTrigger 'phq9_moderate_severe_score').
  * The support tier offers resources via the severity-driven support surface but

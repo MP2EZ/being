@@ -9,7 +9,7 @@
  * - ProgressiveBodyScanList: Progressive body scan visualization
  * - Timer: Timestamp-based timer with pause/resume and accessibility
  *
- * CLINICAL SPECIFICATIONS:
+ * PRACTICE SPECIFICATIONS:
  * - Progressive body scan through 6 body areas
  * - Timer advances through areas automatically
  * - Guidance text for each body area

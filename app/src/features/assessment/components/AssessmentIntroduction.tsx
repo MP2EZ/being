@@ -28,6 +28,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { AssessmentType } from '../types';
+import { WELLNESS_LABELS } from '../types/wellnessLabels';
 
 interface AssessmentIntroductionProps {
   assessmentType: AssessmentType;
@@ -72,7 +73,7 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
     switch (assessmentType) {
       case 'phq9':
         return {
-          title: 'Depression Assessment (PHQ-9)',
+          title: WELLNESS_LABELS.phq9,
           subtitle: 'Understanding Your Mood Patterns',
           description: 'This assessment helps you observe your mood patterns with kindness and awareness.',
           purpose: 'The PHQ-9 is a widely used wellness screening tool that helps you notice how you\'ve been feeling over the past two weeks—a starting point, not a diagnosis.',
@@ -82,10 +83,10 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
         };
       case 'gad7':
         return {
-          title: 'Anxiety Assessment (GAD-7)',
+          title: WELLNESS_LABELS.gad7,
           subtitle: 'Observing Worry and Anxiety',
           description: 'This assessment invites you to mindfully observe your relationship with worry and anxiety over the past two weeks.',
-          purpose: 'The GAD-7 helps you notice patterns of anxiety with gentle awareness, supporting your journey toward greater understanding.',
+          purpose: 'The GAD-7 helps you notice patterns of anxiety with gentle awareness, supporting your journey toward greater understanding. It\'s a starting point, not a diagnosis.',
           mindfulnessNote: 'As you reflect on each question, breathe deeply and observe your responses with compassion and curiosity.',
           timeEstimate: '2-4 minutes',
           questionCount: 7,

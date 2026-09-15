@@ -128,6 +128,12 @@ describe('ProfileScreen — safety invariants preserved (audit §5.1)', () => {
     expect(gad7).toBeTruthy();
     expect(phq9.props.accessibilityLabel).toContain('PHQ-9');
     expect(gad7.props.accessibilityLabel).toContain('GAD-7');
+    // MAINT-615: titles are the pinned wellness labels, and each label starts
+    // with its visible title so label-in-name holds (WCAG 2.5.3).
+    expect(phq9.props.accessibilityLabel.startsWith('Mood Wellness Screening (PHQ-9),')).toBe(true);
+    expect(gad7.props.accessibilityLabel.startsWith('Stress Wellness Screening (GAD-7),')).toBe(true);
+    expect(phq9.props.accessibilityHint).toBe('Start the mood wellness screening');
+    expect(gad7.props.accessibilityHint).toBe('Start the stress wellness screening');
 
     fireEvent.press(phq9);
     expect(mockNavigate).toHaveBeenCalledWith('AssessmentFlow', {

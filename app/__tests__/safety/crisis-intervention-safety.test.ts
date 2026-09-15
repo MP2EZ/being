@@ -652,7 +652,7 @@ describe('CRISIS INTERVENTION SAFETY TESTING SUITE', () => {
   describe('BOUNDARY CONDITION SAFETY TESTING', () => {
     it('Safety at exact crisis thresholds', async () => {
       // Clinical thresholds per being CLAUDE.md: PHQ-9 ≥15 = crisis (support),
-      // PHQ-9 ≥20 = severe (intervention); GAD-7 ≥15 = crisis. The boundary
+      // PHQ-9 ≥20 = severe (intervention); GAD-7 ≥15 = banner tier (support resources offered). The boundary
       // we're verifying is the crisis-detection threshold, not the severity
       // upgrade — so PHQ-9 14/15 is the right pair, not 19/20.
       const boundaryTests = [
