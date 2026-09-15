@@ -11,10 +11,12 @@
  * choice is spent, and nothing ever vibrates — with no feedback that anything
  * is wrong.
  *
- * THIS IS THE ONLY MODULE PERMITTED TO IMPORT `expo-device`, deliberately
- * mirroring `hapticEngine`'s charter as the only module permitted to call
- * `expo-haptics`. One place to mock, one place to revise when a real
- * capability API lands.
+ * THIS IS THE ONLY MODULE PERMITTED TO INFER DEVICE CAPABILITY FROM
+ * `expo-device`, deliberately mirroring `hapticEngine`'s charter as the only
+ * module permitted to call `expo-haptics`. One place to revise when a real
+ * capability API lands. The one other importer is `ExternalErrorReporter`
+ * (INFRA-555), which reads `isDevice` alone to label simulator traffic in
+ * Sentry and infers nothing about hardware. The jest mock is global.
  *
  * FAIL OPEN. Anything unrecognised — `DeviceType.UNKNOWN`, a null `modelId`,
  * a null `deviceType` — resolves to CAPABLE and still shows the prompt. The
