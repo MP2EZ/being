@@ -120,8 +120,7 @@
           "microphonePermission": "Being uses the microphone only to turn a spoken reflection into text on this device. The recording is discarded once transcribed and never leaves your phone.",
           "speechRecognitionPermission": "Being transcribes spoken reflections entirely on this device. Nothing you say is sent to Apple or to Being."
         }
-      ],
-      "./plugins/_infra592Mutation"
+      ]
     ],
     "extra": {
       "clinicalVersion": "1.0",
