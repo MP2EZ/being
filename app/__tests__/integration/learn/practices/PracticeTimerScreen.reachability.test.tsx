@@ -68,10 +68,20 @@ const renderContemplative = () =>
 
 type RenderResult = ReturnType<typeof render>;
 
-/** Every Text node that opts out of, or caps, Dynamic Type scaling. */
+/** WCAG 1.4.4: text must resize to 200% without loss of content. */
+const WCAG_MIN_TEXT_SCALE = 2;
+
+/**
+ * Every Text node that opts out of Dynamic Type or caps it short of 200%. A cap at or
+ * above 200% is allowed: DEBUG-619 caps the header's back glyph and progress counter at
+ * 2.0× so they cannot outgrow the header, while body text stays uncapped.
+ */
 const scaleCappedTexts = (result: RenderResult) =>
   result.UNSAFE_getAllByType(Text).filter(
-    (node) => node.props.allowFontScaling === false || node.props.maxFontSizeMultiplier !== undefined
+    (node) =>
+      node.props.allowFontScaling === false ||
+      (node.props.maxFontSizeMultiplier !== undefined &&
+        node.props.maxFontSizeMultiplier < WCAG_MIN_TEXT_SCALE)
   );
 
 describe('PracticeTimerScreen column is a scroll container', () => {
@@ -121,18 +131,27 @@ describe('PracticeTimerScreen column is a scroll container', () => {
 });
 
 describe('PracticeTimerScreen text scales freely (WCAG 1.4.4)', () => {
-  it('no Text on the screen disables or caps font scaling', () => {
+  it('no Text on the screen disables font scaling or caps it short of 200%', () => {
     const result = renderBreathing();
 
     expect(result.UNSAFE_getAllByType(Text).length).toBeGreaterThan(3);
     expect(scaleCappedTexts(result).map((node) => node.props.children)).toEqual([]);
   });
 
-  it('control: the scale-cap check flags a capped and a disabled Text', () => {
+  it('the practice column itself carries no cap at all (instructions, toggle, note)', () => {
+    const scroll = within(renderBreathing().getByTestId(`${ID}-scroll`));
+    const texts = scroll.UNSAFE_getAllByType(Text);
+
+    expect(texts.length).toBeGreaterThan(2);
+    expect(texts.filter((node) => node.props.maxFontSizeMultiplier !== undefined)).toEqual([]);
+  });
+
+  it('control: the scale-cap check flags a sub-200% cap and a disabled Text, not a 200% cap', () => {
     const result = render(
       <>
         <Text allowFontScaling={false}>disabled</Text>
         <Text maxFontSizeMultiplier={1.5}>capped</Text>
+        <Text maxFontSizeMultiplier={2}>at 200%</Text>
         <Text>free</Text>
       </>
     );
