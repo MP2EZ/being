@@ -1,5 +1,13 @@
 # Screen Reader Optimization: VoiceOver and TalkBack Implementation Guide
 
+> ⚠️ **HISTORICAL DESIGN RECORD — not maintained against the code (MAINT-617, 2026-09-14).**
+> Native Swift/Kotlin sketches written before the React Native app; they do not describe shipped code.
+>
+> **The safety-plan examples here are NOT features of the app.** The "Safety Plan" rotor,
+> `createSafetyPlanRotor()` and `safety_plan_button` target a safety plan that was never built. 988 access
+> and score-based crisis detection (PHQ-9 ≥15/≥20, Q9>0, GAD-7 ≥15) are live and not covered by this notice.
+> Current sources: `app/src/core/components/accessibility/`, `npm run test:accessibility`.
+
 ## Document Metadata
 
 ```yaml
