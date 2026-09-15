@@ -903,13 +903,11 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/profile/screens/ExportDa
   echo "   measurement and by nothing in the suite. Re-measure with:"
   echo "   maestro test app/.maestro/export-share-sheet-occlusion.yaml (booted 375x667)"
 fi
-# DEBUG-533: the two entries to showFeedbackForm(), which opens a zero-988 window that
-# cannot be converted in place (the occluder is Sentry's, not ours). ProfileScreen gets a
-# real arm because crisis-button-reachability already walks the Profile tab and every
-# subscreen depth, so it costs nothing and proves the overlay still renders there.
-# ExternalErrorReporter gets a NOTICE, not an arm: no flow opens the widget, and one that
-# did would emit a real Sentry feedback event — the gate build resolves a live DSN from
-# .env.production. An arm nobody can satisfy is the shape that trains --skip-e2e.
+# DEBUG-533: ProfileScreen hosts the second entry to showFeedbackForm(). It gets a real arm
+# because crisis-button-reachability already walks the Profile tab and every subscreen
+# depth, so it costs nothing and proves the overlay still renders there.
+# ExternalErrorReporter is armed by the FEAT-570 block below. Since FEAT-570 the form is
+# first-party, so a sim flow can open it; it is no longer a notice.
 if echo "$RENDER_BOOT_RELEVANT" | grep -q 'features/profile/screens/ProfileScreen\.tsx'; then
   FLOWS+=("crisis-button-reachability")
   echo "🪟 ProfileScreen changed — it hosts the second entry to showFeedbackForm(). The arm"
