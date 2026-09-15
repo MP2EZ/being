@@ -665,7 +665,7 @@ alone and the documented gate and the running gate disagree, with the running on
 | `app/plugins/` change | **`crisis-button-reachability`** + printed notice | FEAT-522. A config plugin injects native code that can occlude every 988 affordance, and iOS is CNG so no AppDelegate diff is ever reviewed. No sim flow can observe it — Maestro drives an ACTIVE app and the shield exists only while inactive — so the arm proves the surrounding crisis paths still render and the notice points at the attended device script. |
 | `features/insights/components/` change | **`crisis-button-reachability`** | INFRA-532. Gated as a DIRECTORY: 4 of 6 members are safety-bearing — two DEBUG-406 conversion sites plus the two files that publish them into the root overlay slot and decide whether either ever renders (`WeeklyReflectionCard`'s `MIN_CHECK_INS_TO_SHOW`, `WellnessScreeningTrends`' `notesEnabled`). The other three are `DotCalendar.tsx`, `PrincipleEngagementChart.tsx` and the barrel. The flow taps through `WeeklyReflectionComposer`, reachable only because `e2eSeed.ts` seeds four non-`daily` check-ins. **Necessary, not sufficient**: Maestro taps element CENTRES, so a marginal action-row geometry regression is invisible here — that is `modalOcclusionConversions.test.tsx`. `SessionNoteComposer` stays notice-only (flag-dark in the gate build); keyboard-up stays uncovered pending the `crisis-keyboard-accessory` repair. |
 | `features/guidance/` change | **`guidance-suppressed-handoff` + `guidance-gentle-tier-cap`** | FEAT-457 + INFRA-420. The first drives Home entry → suppressed → notice → CrisisResources → 988 with all four tier testIDs ABSENT; the second pins the positive branch (Tier 0/1 shown, Tier 2/3 capped). Both arms are required — suppression alone stays green if the gate suppresses everyone. Supersedes the INFRA-416 crisis-button fail-safe. |
-| `features/practices/dailyloop/` change | **`daily-loop-quick-depth` + `daily-loop-deeplink`** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. INFRA-509 narrowed this from the full suite: these two are the only tagged flows carrying a daily-loop testID, so they ARE that coverage. A `DailyLoopDepthSelectScreen` edit additionally prints the `e2e:safety:ax5` instruction (DEBUG-469's `CRISIS_FAB_CLEARANCE` is invisible to centre-tapping flows). |
+| `features/practices/dailyloop/` change | **`daily-loop-quick-depth` + `daily-loop-deeplink`** | DEBUG-465. Hosts SUPPORT_LINE, pinned outside the ScrollView; the root overlay does not discharge its above-the-fold obligation. INFRA-509 narrowed this from the full suite: these two are the only tagged flows carrying a daily-loop testID, so they ARE that coverage. Also arms `daily-loop-ax5-entry` — see the AX5 row. |
 | `features/practices/` change (outside `dailyloop/`) | **not gated** (recorded exemption) | INFRA-416. Protected for `philosopher`, not 988 reachability; no safety-e2e cell in the Validation Matrix. Pinned by `check-safety-paths.sh`. |
 | `practices/shared/haptics/`, `shared/components/BreathingCircle.tsx` or `shared/useIsFocusedSafe.ts` | **`crisis-button-reachability`** + notice | DEBUG-587 (crisis ruling). `shared/haptics/` is DIRECTORY-level — all eight members are on the cue-delivery path — and `BreathingCircle.tsx` is FILE-level, beside the two rows above. Both route practice output that can reach a crisis screen: the hook gates the tactile and paired-speech channels, and `BreathingCircle` speaks every phase through `announceForAccessibility` on a path touching no haptics code. Neither imports from `features/crisis/`, so INFRA-531's rule misses both, and `practices/` is exempt outside `dailyloop/` — a diff whose whole subject was whether practice output reaches a crisis surface merged with this gate never firing. **Notice-only**: `e2e-sim` carries `practice_haptics:false`, so no flow can render a cue; the falsifier is `crisisBlurGate.test.tsx`. |
 | `practices/shared/components/(HapticsOptInPrompt\|ResumeSessionModal).tsx` | **`daily-loop-quick-depth`** (Resume) / **`crisis-button-reachability`** + notice (Haptics) | DEBUG-586 (crisis ruling). Both size `paddingBottom` from `CRISIS_BUTTON_RESERVED_BAND` so their controls cannot sit under a `zIndex: 9999` FAB — a crisis FALSE POSITIVE, the DEBUG-547 shape. FILE-level: the other 12 members of that dir carry no crisis surface and a directory clause would re-import the over-trigger the `practices/` exemption one row above exists to prevent. `daily-loop-quick-depth` is the only flow rendering `resume-session-overlay` and already asserts the DEBUG-403 crisis round-trip there. **Necessary, not sufficient, both:** no Maestro assertion can read a `paddingBottom`, the flows tap element CENTRES, and `ResumeSessionModal.test.tsx:296-305` records a 1.5pt shortfall Maestro reported as a COMPLETED tap. `HapticsOptInPrompt` is flag-dark in the gate build (`practice_haptics:false`), so no flow renders it at all. The falsifier for both is the jest style assertion pinned to the imported constant. |
@@ -675,7 +675,8 @@ alone and the documented gate and the running gate disagree, with the running on
 | `.maestro/_<helper>.yaml` edited | **its transitive `runFlow:` callers** | INFRA-517. `runFlow:` is a static per-file include, so a helper reaches exactly its callers — measured on INFRA-494, where a `_legal-and-onboarding.yaml` diff ran 12 sim flows and all THREE of its callers are device-class (`crisis-988-dial` + `crisis-keyboard-accessory` `safety-device-only`, `breathing-fps-budget` `perf-device-only`), so none is sim-runnable — the count was two when INFRA-494 measured it. Callers that cannot run in the sim get a NOT-VERIFIED notice; the Step 2.5.3 net then still runs `crisis-button-reachability`, so this is one flow, never zero. Falls back to the full suite on any of: a `config.yaml`, matcher self-test failure, unreconciled residue, a depth-capped closure, or zero callers. |
 | `.maestro/crisis-988-dial.yaml` edited | **no sim flow** — hardware notice | `safety-device-only`; sim `canOpenURL` is unconditionally false, so it cannot pass here. Run `e2e:safety:988-dial` on a real iPhone. |
 | A screen carrying `CRISIS_FAB_CLEARANCE` changed, or `CollapsibleCrisisButton` | **notice only** — never scoped | INFRA-510. `reconsent-stale-ineligible-fab-clearance` is `safety-bottom-inset` and declares 393x852; 375x667 has a zero bottom inset, so the collision cannot occur there at any clearance value. Scoping it beside a 375x667 flow is unsatisfiable on one device — the shape that trains `--skip-e2e`. |
-| `.maestro/<flow>.yaml` tagged `safety-dynamic-type` edited | **no sim flow** — instruction | DEBUG-469 / DEBUG-507. The suite selects on an exact `- safety` tag at the DEFAULT content size, so it can neither select nor validly run these. `e2e:safety:ax5` (AX5) and `e2e:safety:xxxl` (largest non-accessibility step) own them. Each needs its own case arm; the `*)` catch-all would fire a pointless full suite. |
+| `.maestro/<flow>.yaml` tagged `safety-dynamic-type` edited | **no sim flow** — instruction (except `daily-loop-ax5-entry`, AX5 row) | DEBUG-469 / DEBUG-507. The suite selects on an exact `- safety` tag at the DEFAULT content size, so it can neither select nor validly run these. `e2e:safety:ax5` (AX5) and `e2e:safety:xxxl` (largest non-accessibility step) own them. Each needs its own case arm; the `*)` catch-all would fire a pointless full suite. |
+| `dailyloop/`, `CleanHomeScreen.tsx`, `CrisisResourcesScreen.tsx` or `daily-loop-ax5-entry.yaml` changed | **`daily-loop-ax5-entry`** at AX5, in its own invocation after the suite | DEBUG-546. The only flow walking Home → depth picker → beat 1 → Sphere Sovereignty → CrisisResources at AX5. As an instruction nobody ran it, and DEBUG-518 merged with it red. Runs through `e2e-dynamic-type.sh`, which sets and restores the content size, so it never joins `FLOWS`. The flow taps Skip inside a 30s app timer (measured 6-16s in, host load up to 2.65x): read the host load before reading a red as the app. |
 | `src/core/stores/consentStore.ts` | **`deeplink-consent-gate` + `reconsent-stale` + `reconsent-stale-ineligible`** | INFRA-482. File-level, not `src/core/stores/`. Owns the consent-record writes, `canPerformOperation`, the forging seam, and the safety-critical `loadConsent` branch order. Siblings in that dir have no safety surface. |
 | `src/core/config/e2eSeed.ts` | **full suite** | Sets the launch state every flow starts from; no narrower scope is valid. |
 | `src/core/services/supabase/SupabaseService.ts` | **`q9-single-alert` + `phq9-severe-completion` + `gad7-severe` + `journal-crisis-scan`** + printed notice | INFRA-568 (crisis ruling). FILE-level: owns the sole `crisis_detected` writer and runs inside the frame `handleCrisisDetection` awaits, but the directory's other members (CloudBackupService, SyncCoordinator, secureStoreSessionAdapter, hooks/, index.ts) carry no crisis surface. INFRA-531's import rule cannot see it — nothing here imports from `features/crisis/`. **Necessary, not sufficient**: the gate build suppresses egress (INFRA-411), so these cover the awaited frame not throwing or blocking, never delivery. |
@@ -730,6 +731,9 @@ FLOWS=()
 # a dailyloop-only change fell through to the crisis-button fail-safe instead of the full
 # suite. A single declaration point is what makes the override order legible.
 FULL_SUITE=""
+# DEBUG-546 — safety-dynamic-type flows. Never merged into FLOWS: e2e-safety.sh runs the
+# tagged suite at the DEFAULT content size, and these must run through e2e-dynamic-type.sh.
+DYNAMIC_TYPE_FLOWS=()
 # --- Classify: which safety changes are RENDER/BOOT-relevant vs SERVICE-LAYER-only? ---
 # The sim flows drive the UI; they can ONLY validate render / boot / navigation surfaces.
 # Pure service-layer code is jest-owned (precommit + CI's crisis/clinical/security/
@@ -988,6 +992,11 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/guidance/' && \
 # the root route name lives in core/navigation) — both already mapped by their own clauses.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/practices/dailyloop' && \
   FLOWS+=("daily-loop-quick-depth" "daily-loop-deeplink")
+# DEBUG-546: daily-loop-ax5-entry walks Home -> depth picker -> beat 1 -> Sphere Sovereignty
+# -> CrisisResources at AX5 — including DEBUG-469's CRISIS_FAB_CLEARANCE and DEBUG-560's 988
+# fold, which centre-tapping default-size flows cannot see. Run in Step 2.5.5, not printed.
+echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/features/practices/dailyloop|src/features/home/screens/CleanHomeScreen\.tsx|src/features/crisis/screens/CrisisResourcesScreen\.tsx|\.maestro/daily-loop-ax5-entry\.yaml' && \
+  DYNAMIC_TYPE_FLOWS+=("daily-loop-ax5-entry")
 # DEBUG-586: the two centred-card overlays in practices/shared/components size their
 # paddingBottom from CRISIS_BUTTON_RESERVED_BAND, so an under-reserved band puts their
 # controls under a zIndex-9999 FAB — a crisis FALSE POSITIVE, the DEBUG-547 shape. They
@@ -1017,18 +1026,6 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'practices/shared/components/HapticsOptIn
   echo "   No sim flow can render it. crisis-button-reachability proves only that the"
   echo "   surrounding crisis paths still reach CrisisResources. The band's oracle is"
   echo "   the jest style assertion in haptic-cues-accessibility.test.tsx."
-}
-# DEBUG-469: DailyLoopDepthSelectScreen carries CRISIS_FAB_CLEARANCE — without it a
-# practice-choice tap on a card's right-hand end silently navigates to CrisisResources
-# (a crisis FALSE POSITIVE) — and the AX5 blurb relocation. The tagged suite taps element
-# CENTRES at the default content size, so neither flow above can see either; its owner is
-# daily-loop-ax5-entry.yaml, which is safety-dynamic-type and structurally outside the
-# suite. Surfaced as an instruction, exactly like the flow-file arm below.
-echo "$RENDER_BOOT_RELEVANT" | grep -q 'dailyloop/screens/DailyLoopDepthSelectScreen' && {
-  echo "🔠 DailyLoopDepthSelectScreen changed — it carries DEBUG-469's CRISIS_FAB_CLEARANCE"
-  echo "   inset and the AX5 blurb relocation. The tagged suite taps element CENTRES and"
-  echo "   runs at default content size, so it cannot see either. Validate directly:"
-  echo "   npm run e2e:safety:ax5"
 }
 # INFRA-510: the FAB-clearance collision has no sim-suite owner and must not acquire one.
 # Detected by CONTENT, not a path list, so a fifth screen adopting the constant inherits
@@ -1248,11 +1245,10 @@ while IFS= read -r f; do
       echo "   full-suite trigger. Validate it directly on a booted 393x852 device:"
       echo "   npm run e2e:safety:reconsent-ineligible-fab" ;;
     daily-loop-ax5-entry.yaml)
-      echo "🔠 daily-loop-ax5-entry.yaml changed — safety-dynamic-type. The tagged suite"
-      echo "   selects on an exact \`- safety\` tag and runs at the DEFAULT content size,"
-      echo "   so it can neither select this flow nor validly run it. NOT added, and"
-      echo "   deliberately NOT a full-suite trigger. Validate it directly:"
-      echo "   npm run e2e:safety:ax5" ;;
+      # DEBUG-546: armed into DYNAMIC_TYPE_FLOWS by its own clause above; kept as an arm so
+      # the EXCLUDED_FLOWS drift printer stays quiet and the catch-all never fires.
+      echo "🔠 daily-loop-ax5-entry.yaml changed — safety-dynamic-type, so NOT in the tagged"
+      echo "   suite. Step 2.5.5 runs it at AX5 through e2e-dynamic-type.sh." ;;
     journal-record-liveness.yaml)
       echo "🎙️  journal-record-liveness.yaml changed — safety-host-probe. It drives to"
       echo "   phase:'recording' and STOPS; the verdict is the host-side pid sample either"
@@ -1353,7 +1349,7 @@ echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/navigation/|CleanRootNavigator
 #    enter the gate on a render/boot change and run zero flows).
 #  • ONLY service-layer carve-outs changed → deliberate, LOGGED skip (no silent cap):
 #    jest owns the surface; no sim build needed (this is the MAINT-237 narrowing payoff).
-if [ ${#FLOWS[@]} -eq 0 ] && [ -z "$FULL_SUITE" ]; then
+if [ ${#FLOWS[@]} -eq 0 ] && [ -z "$FULL_SUITE" ] && [ ${#DYNAMIC_TYPE_FLOWS[@]} -eq 0 ]; then
   if [ -n "$RENDER_BOOT_RELEVANT" ]; then
     # NAME the substitution, for the INFRA-517 reason one screen up: a silent cap reads
     # exactly like a deliberate scope. This arm is the fail-safe for a render/boot path
@@ -1398,6 +1394,7 @@ entry points, so the INFRA-436/463/472 leases still queue it.
 | The branch is `hotfix/*` | The one branch class where `--skip-e2e` and `--no-verify` are permitted; a hotfix is by definition being watched. |
 | A multi-slice item's non-final slice | Step 4.1/5.1 would misreport state anyway (see this file's header). |
 | The worktree is dirty | The runner does not commit. Phase 2 must have landed everything first. |
+| `DYNAMIC_TYPE_FLOWS` is non-empty | The runner takes `--flows` for the tagged suite only; it cannot run `e2e-dynamic-type.sh` (DEBUG-546). |
 
 Otherwise offer the handoff — but only if **this worktree** has the runner. Same
 capability gate as Step 0.0 and for the same reason: this file is shared instantly,
@@ -1462,7 +1459,7 @@ letting the operator discover it 12 minutes in:
 # INFRA-483: FULL_SUITE means "run the tagged suite with no arguments", so an empty
 # FLOWS[] does NOT mean "no flows" — check both or a cross-cutting change skips the
 # readiness guards entirely and enters the gate with no simulator.
-if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ]; then
+if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ] || [ ${#DYNAMIC_TYPE_FLOWS[@]} -gt 0 ]; then
   if ! grep -q 'INFRA-383' app/scripts/e2e-sim-build.sh 2>/dev/null; then
     echo "⚠️  This worktree still has the LEGACY EAS gate build (pre-INFRA-383)."
     echo "    'npm run e2e:safety:build' here = eas build --local: 10-15 min EVERY run,"
@@ -1519,7 +1516,7 @@ this item. Reporting it as a gate failure would park a healthy branch and, repea
 exactly the pressure that produces `--skip-e2e`.
 
 ```bash
-if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ]; then
+if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ] || [ ${#DYNAMIC_TYPE_FLOWS[@]} -gt 0 ]; then
   npm run e2e:safety:gate
   GATE_RC=$?
   case "$GATE_RC" in
@@ -1579,7 +1576,7 @@ back-merged `development`. Without the guard, every open feature branch's close 
 ```bash
 # Only require a simulator when there are flows to run. A service-layer-only safety
 # change (Step 2.5.3) resolves to zero flows and closes with no sim build at all.
-if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ]; then
+if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ] || [ ${#DYNAMIC_TYPE_FLOWS[@]} -gt 0 ]; then
   if ! xcrun simctl list devices booted | grep -qE '\([A-F0-9-]+\) \(Booted\)'; then
     echo "❌ No iOS simulator booted."
     echo "   Run 'npm run e2e:safety:build' first (Release build, INFRA-383) to build +"
@@ -1641,7 +1638,8 @@ to the user.
 ```bash
 cd /Users/max/dev/being/[worktree-dir]/app
 if [ ${#FLOWS[@]} -eq 0 ] && [ -z "$FULL_SUITE" ]; then
-  echo "✅ No sim flows required (service-layer-only safety change, Step 2.5.3) — proceeding to close."
+  [ ${#DYNAMIC_TYPE_FLOWS[@]} -eq 0 ] && \
+    echo "✅ No sim flows required (service-layer-only safety change, Step 2.5.3) — proceeding to close."
 else
   # INFRA-384 — a merge gate's evidence must correspond to the commit being merged, so
   # a dirty-tree marker is a FAILURE here even though it is only a banner for a human
@@ -1751,6 +1749,42 @@ else
       echo "   Receipt: $E2E_RECEIPT_PATH"
       exit 1
     fi
+  fi
+fi
+
+# DEBUG-546 — the safety-dynamic-type flows Step 2.5.3 armed, AFTER the suite so the suite
+# keeps running at the default size. Its own invocation: the wrapper sets the content size,
+# runs e2e-safety.sh on the named flows, and restores the size in a trap. Same exit alphabet.
+if [ ${#DYNAMIC_TYPE_FLOWS[@]} -gt 0 ]; then
+  export E2E_REQUIRE_CLEAN_PROVENANCE=1
+  export E2E_RECEIPT_PATH="${TMPDIR:-/tmp}/being-close-receipt-dt-$$.txt"
+  echo "🔠 Running ${#DYNAMIC_TYPE_FLOWS[@]} dynamic-type flow(s) at AX5: ${DYNAMIC_TYPE_FLOWS[*]}"
+  bash scripts/e2e-dynamic-type.sh "${DYNAMIC_TYPE_FLOWS[@]}"
+  DT_RC=$?
+  case "$DT_RC" in
+    0) echo "✅ Dynamic-type flows passed" ;;
+    1) echo "❌ A dynamic-type flow FAILED. Its breath step taps Skip inside a 30s app timer:"
+       echo "   check the receipt's host load before reading the red as the app, re-run once"
+       echo "   on a quiet machine if it was contended, and never reach for --skip-e2e."
+       echo "   Receipt: $E2E_RECEIPT_PATH"
+       exit 1 ;;
+    2|3|4) echo "❌ e2e-dynamic-type.sh exited $DT_RC — no verdict (2 harness, 3 target replaced,"
+       echo "   4 peer holds the slot). Read it exactly as the suite arms above."
+       exit 1 ;;
+    *) echo "❌ e2e-dynamic-type.sh exited $DT_RC — unrecognised. Treat as no verdict."
+       exit 1 ;;
+  esac
+  CERT_HELPER="$(git rev-parse --show-toplevel)/app/scripts/b-close-verdict.sh"
+  if [ -r "$CERT_HELPER" ]; then
+    # shellcheck source=/dev/null
+    . "$CERT_HELPER"
+    DT_CERT="$(b_close_stage_verdict certification \
+      "$(b_close_certification_verdict "$E2E_RECEIPT_PATH" "${DYNAMIC_TYPE_FLOWS[@]}")")"
+    b_close_mergeable "$DT_CERT" || {
+      echo "❌ $DT_CERT for ${DYNAMIC_TYPE_FLOWS[*]} — green but not certified; the"
+      echo "   certification arms above say what to boot. Receipt: $E2E_RECEIPT_PATH"
+      exit 1
+    }
   fi
 fi
 ```
