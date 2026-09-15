@@ -76,6 +76,25 @@ name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility t
     id: "checkin-card-daily-loop"
 - tapOn:
     id: "checkin-card-daily-loop"
+# DEBUG-546: that tap lands while the centring fling is still coasting (the card's bounds
+# drift 2-5pt between the scroll's last read and the tap, every run), and RN's ScrollView
+# takes a touch that starts mid-deceleration for itself (`_isAnimating()` in
+# `_handleStartShouldSetResponderCapture`). Measured 5 runs in 25: the tap only STOPPED the
+# list. A user taps again, so this does — only once the first tap has provably not
+# navigated. The cost: a card whose first tap never works would pass here; the default-size
+# daily-loop flows tap it without a retry and own that.
+- extendedWaitUntil:
+    visible:
+      id: "daily-loop-depth-select-screen"
+    timeout: 5000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "daily-loop-depth-select-screen"
+    commands:
+      - tapOn:
+          id: "checkin-card-daily-loop"
 # AC2 — both depth choices present AND tappable, not merely in the tree.
 - assertVisible:
     id: "daily-loop-depth-select-screen"
@@ -102,6 +121,11 @@ name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility t
       # at y=534, 100% visible, timeout lapsed ~220ms before the retry that would have
       # returned. DEBUG-465's reason for centring does not apply: on a QUICK beat 1 nothing
       # is pinned below the ScrollView (the support line is on Sphere Sovereignty).
+      # One long swipe first: each swipe on this never-static screen costs ~8-11s of Maestro
+      # settle-waiting, and the scroll below needs two short ones to reach the end.
+      - swipe:
+          start: "50%, 85%"
+          end: "50%, 15%"
       - scrollUntilVisible:
           element:
             id: "daily-loop-skip-breath"
