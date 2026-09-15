@@ -68,19 +68,21 @@ export const CONSENT_DETAILS = {
   },
   cloudSync: {
     title: 'Cloud Backup',
-    description: 'Securely sync your data across devices',
+    description: 'Back up a few app settings to encrypted cloud storage',
     details: {
+      // Exactly what CloudBackupService uploads (DEBUG-614). Pinned against the
+      // real payload by cloudBackupConsentCopy.privacy.test.ts.
       whatWeCollect: [
-        'App preferences and settings',
-        'Journal entries (encrypted)',
-        'Mood tracking history',
-        'Custom reminders',
+        'Your autosave setting',
+        'A last-sync timestamp',
       ],
       whatWeDontCollect: [
-        'PHQ-9/GAD-7 assessment raw scores (local only for privacy)',
+        'Journal entries',
+        'Mood check-ins',
+        'PHQ-9/GAD-7 responses and scores',
       ],
-      whyItHelps: 'Restore data if you get a new phone. Access your journal on tablet and phone. Automatic backup protection.',
-      privacyNote: 'End-to-end encryption. We cannot decrypt or access your synced content.',
+      whyItHelps: 'Lets these settings be restored on this device. Your wellness history stays on your device and is not part of the backup.',
+      privacyNote: 'Encrypted on your device before upload. We cannot read it.',
     },
   },
   research: {

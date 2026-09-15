@@ -1,5 +1,12 @@
 # Being Production Testing Strategy
 
+> ⚠️ **HISTORICAL DESIGN RECORD — not maintained against the code (MAINT-617, 2026-09-14).**
+> A testing strategy written ahead of the shipped test suites; current commands are the `test:*` scripts in `app/package.json`.
+>
+> **`emergencyContactsLoaded` is NOT a feature of the app.** No personal emergency contact list exists.
+> 988 access and score-based crisis detection (PHQ-9 ≥15/≥20, Q9>0, GAD-7 ≥15) are live and not covered
+> by this notice.
+
 ## Document Information
 - **Version**: 3.0
 - **Last Updated**: 2025-09-10
