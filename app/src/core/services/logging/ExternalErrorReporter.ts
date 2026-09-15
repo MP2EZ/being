@@ -24,6 +24,9 @@
  */
 
 import { Platform } from 'react-native';
+// INFRA-555: `isDevice` only — see detectEnvironment. Already on the launch path via
+// hapticActuator, so this adds no native module to the boot graph.
+import * as Device from 'expo-device';
 import { LogCategory, logger } from './ProductionLogger';
 import { env } from '@/core/config/env';
 import { isSensitiveRoute, sanitizeScreenName } from '@/core/utils/sensitiveScreens';
@@ -41,12 +44,25 @@ import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { openBugReport } from '@/core/stores/bugReportStore';
 
 /**
+ * Sentry `environment` values. INFRA-555 added `simulator`.
+ *
+ * A LABEL, NEVER A SWITCH. Nothing may branch on this value — not beforeSend, sampling,
+ * `enabled`, or the bug-report form. The gate build exists to test the binary that ships;
+ * a `=== 'simulator'` branch would make it test something that never does.
+ *
+ * CAUTION when adding a value: it is copied into `captureException`'s `tags`, which
+ * `collectContentText` walks, so a token containing a CRISIS_CONTENT_PATTERNS term would
+ * drop every event from that environment wholesale — indistinguishable from "no errors".
+ */
+export type ReporterEnvironment = 'development' | 'staging' | 'production' | 'simulator';
+
+/**
  * CONFIGURATION
  */
 export interface ExternalReporterConfig {
   enabled: boolean;
   dsn?: string;
-  environment: 'development' | 'staging' | 'production';
+  environment: ReporterEnvironment;
   sampleRate: number;
   maxBreadcrumbs: number;
   debug: boolean;
@@ -321,7 +337,7 @@ interface SanitizedErrorEvent {
   message: string;
   timestamp: number;
   platform: 'ios' | 'android' | 'windows' | 'macos' | 'web';
-  environment: 'development' | 'staging' | 'production';
+  environment: ReporterEnvironment;
   version?: string | undefined;
   buildNumber?: string | undefined;
   context: {
@@ -1209,9 +1225,23 @@ export class ExternalErrorReporter {
 
   /**
    * Detect environment
+   *
+   * INFRA-555: the safety-gate build is a Release build on `.env.production`, so `__DEV__`
+   * is false and it used to report as `production`. No env var can tell it apart — the gate
+   * uses the production env on purpose — so the probe is where the code RUNS.
+   *
+   * iOS only. `isDevice` there is a compile-time `targetEnvironment(simulator)` check;
+   * Android's is a substring heuristic that can match a real device on a custom ROM.
+   *
+   * Only an explicit `false` retags. Hiding a real device's crash from production triage is
+   * the worse error than today's simulator noise, so anything unresolved stays `production`.
+   *
+   * The value reaches native events too: `Sentry.init` forwards `environment` to
+   * `RNSentry.initNativeSdk`, which is the only tag native AppHang/watchdog events get.
    */
-  private detectEnvironment(): 'development' | 'staging' | 'production' {
+  private detectEnvironment(): ReporterEnvironment {
     if (__DEV__) return 'development';
+    if (Platform.OS === 'ios' && Device.isDevice === false) return 'simulator';
     if ((process.env.NODE_ENV as string) === 'staging') return 'staging';
     return 'production';
   }
