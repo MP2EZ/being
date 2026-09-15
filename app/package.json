@@ -92,6 +92,7 @@
     "check:crisis-dial": "node scripts/check-crisis-dial-guard.js",
     "check:modal-occlusion": "node scripts/check-modal-occlusion-guard.js",
     "check:crisis-keyboard-accessory": "node scripts/check-crisis-keyboard-accessory-guard.js",
+    "check:generated-infoplist": "node scripts/check-generated-infoplist.js",
     "prepare": "[ ! -e ../.git ] && exit 0; cd .. && husky app/.husky",
     "postinstall": "patch-package --error-on-fail && node scripts/generate-legal-content.js",
     "prepush": "npm run check:crisis-hotline && npm run check:workflow-scripts",
