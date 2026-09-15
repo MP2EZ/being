@@ -1101,6 +1101,9 @@ testable locally before pushing it, since a CI-only fix costs a full round-trip 
 it when a peer holds the gate slot, which says nothing about this item. `/b-close` Step 2.5.4
 reports it as contention; never park it as CI-red, never tier it as a safety regression, and
 never `--skip-e2e` past it. Re-run the item once the named holder finishes.
+While a close waits on a peer's lease, run /b-work for the next item that has no
+hard edge to the waiting one, stopping before its close. Only the simulator is
+contended, and implementing does not use it.
 
 Tell the two apart by the **full rollup** — not the error text, and not
 `gh pr checks --watch`. **Both refusals name `Required status check` at merge time**, so the
