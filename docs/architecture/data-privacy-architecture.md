@@ -18,7 +18,7 @@ Being is designed so that **mental health data never leaves the user's device**.
 2. **No cloud sync of health data**
    - No backend database storing user mental health information
    - No "sync to cloud" for assessments or mood data
-   - Backup/restore is user-initiated export, not cloud sync
+   - The optional cloud backup carries app settings only (an autosave preference and a last-sync timestamp), never wellness data
 
 3. **Encryption at rest**
    - Sensitive data encrypted with AES-256-GCM on device
@@ -38,7 +38,7 @@ Being is designed so that **mental health data never leaves the user's device**.
 | Feature Type | Approach |
 |-------------|----------|
 | Analytics | Track feature usage, not health outcomes. Don't send assessment scores or mood data to analytics. |
-| Cloud backup | Export encrypted local backup to user's cloud (iCloud/Google Drive), not our servers. |
+| Cloud backup | Opt-in under cloud-sync consent. Runs automatically once enabled, encrypts on device, and uploads to Being's Supabase. Settings allowlist only (`CloudBackupService`); wellness data is never included. |
 | Sharing | User explicitly exports/shares, never automatic sync. |
 | Crash reports | Sanitize to remove any health context before transmission. |
 
