@@ -42,6 +42,7 @@ import { boundariesWithin } from '@/features/practices/shared/haptics/phaseAtEla
 import Timer from '@/features/practices/shared/components/Timer';
 import BreathingFrameProbe from '@/features/practices/shared/components/BreathingFrameProbe';
 import { env } from '@/core/config/env';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import type { PracticeVisualMode } from '@/features/learn/types/education';
 
 /**
@@ -276,7 +277,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
         onToggle={handleToggle}
-        style={{ marginBottom: spacing[32] }}
+        style={styles.toggleButton}
         testID={`${testID}-toggle-button`}
       />
 
@@ -295,6 +296,22 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: spacing[32],
+  },
+  toggleButton: {
+    marginBottom: spacing[32],
+    // DEBUG-622 (crisis ruling): moves the toggle's OWN FRAME out of the crisis FAB's
+    // contested column. PracticeTimer is an immersive route: the FAB renders faded, but
+    // a direct tap still navigates at zIndex 9999, so any overlap sends a tap on Begin
+    // Practice to CrisisResources. Measured before the fix (DEBUG-563, default text):
+    //   402x874  FAB x358-401 y730-774  vs  toggle x24-377.7 y757.3-824.3
+    //   390x844  FAB x346-389 y700-744  vs  toggle top y751.3 (12pt hit slop reaches in)
+    // HORIZONTAL because the column scrolls (DEBUG-618): the toggle can rest at any y
+    // and at any text size, but its x-range is fixed. The criterion is
+    // `intersectsCrisisButtonExclusion(...) === false`, which counts the hit slop and
+    // clearance, not just the painted FAB. Must NOT be `paddingRight`, which moves the
+    // label and leaves the frame in place. Declared LAST: StyleSheet is last-key-wins,
+    // so a `marginHorizontal` added below would silently undo it.
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
 });
 
