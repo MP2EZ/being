@@ -116,17 +116,21 @@ in the dashboard, then verify with the MCP.
 > [!WARNING]
 > **Sentry `environment` discriminates simulator traffic only from INFRA-555 (cutoff 2026-09-14).**
 > The Maestro gate build (`npm run e2e:safety:build`) is a Release build on `.env.production`, so
-> it reported as `production`. Every error event before 2026-09-14 except JAVASCRIPT-REACT-H was
-> that build. That includes JAVASCRIPT-REACT-5/6/7. REACT-H (2026-09-08, TestFlight `1.2.1+5`) is
-> the first real-device event. Every gate launch also opened a `production` release-health session,
-> so crash-free session rate before the cutoff is diluted by harness launches.
+> it reported as `production`. No error event before 2026-09-14 came from a user.
+> JAVASCRIPT-REACT-5/6/7 came from the simulator gate build. JAVASCRIPT-REACT-H (2026-09-08,
+> `1.2.1+5`) came from an attended local Release build on a physical iPhone during INFRA-373's
+> device measurement. Every gate launch also opened a `production` release-health session, so
+> crash-free session rate before the cutoff is diluted by harness launches.
 >
 > From INFRA-555, an iOS simulator reports `environment:simulator`. Its events are retagged, not
 > dropped. Physical devices, `__DEV__` builds and Android emulators are unchanged. **The cutoff is a
 > floor, not a guarantee:** a gate build cut from a branch that has not merged INFRA-555 still
-> reports `production`. At any date, confirm with the `device.simulator` field: `environment:production device.simulator:False`
-> is real-device traffic. Every alert or saved search reading real traffic must filter on
-> `environment:production`; the retag changes nothing unless the filter is there.
+> reports `production`. At any date, `device.simulator:True` identifies simulator traffic.
+> **`device.simulator:False` is not a real-user filter**: an attended local device build also
+> reports `production`. It carries `app.json`'s build number, while a TestFlight build carries EAS's
+> remote counter (`appVersionSource: remote`), so check the release's build number against EAS.
+> Every alert or saved search reading real traffic must filter on `environment:production`; the
+> retag changes nothing unless the filter is there.
 
 > [!IMPORTANT]
 > **PostHog is NOT an alternative crash source — don't reach for it.** Verified 2026-06-18: the
