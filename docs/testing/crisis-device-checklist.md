@@ -18,7 +18,8 @@ close-gated.
   - The keyboard accessory sits on a real software keyboard on current iOS and reaches crisis
     resources in one tap.
 - **Out:**
-  - The generated `Info.plist` (INFRA-592).
+  - The generated `Info.plist`. CI's `Generated Info.plist keeps tel/sms` step checks it on
+    every PR (INFRA-592).
   - VoiceOver.
   - The other `tel:988` call sites. They all go through `openCrisisUrl`, which D3 exercises.
 
@@ -141,8 +142,9 @@ Waiver:    <WAIVED only: reason + "988 dial and keyboard accessory NOT verified 
 
 - **Hotfixes ship without it.** A `hotfix/* → main` merge triggers the TestFlight build
   without passing through `/b-release`. Tracked as INFRA-605.
-- **The generated `Info.plist` keeping `tel` and `sms`** after plugin composition is
-  INFRA-592.
+- **CI checks only the generated `Info.plist`, not the binary.** Its `Generated Info.plist
+  keeps tel/sms` step (INFRA-592) reads the `expo prebuild` output, so it cannot see the
+  Xcode build, the EAS binary, or `canOpenURL` on hardware. D3 is the only check of those.
 - **The automated dial flow can only assert that the fallback alert is absent.** It cannot see
   the iOS prompt, so removing this checklist gives up that observation.
 
