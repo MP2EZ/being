@@ -5,9 +5,9 @@
 ```yaml
 document:
   type: Security Architecture
-  version: 2.0.0
+  version: 2.1.0
   status: CURRENT
-  updated: 2025-12-24
+  updated: 2026-09-15  # DEBUG-624: §3/§4 rewritten; in-app auth gate and auto-lock claims removed
   application: Being. Mental Health App
 
 # Being is a CONSUMER WELLNESS APP, not a HIPAA-covered entity.
@@ -64,7 +64,6 @@ interface KeyDerivation {
     components: [
       "device_uuid",
       "app_installation_id",
-      "user_biometric_hash",
       "random_salt_256_bits"
     ],
     total_entropy: "512 bits minimum"
@@ -83,8 +82,7 @@ class LocalStorageEncryption {
   // Wellness screening data (PHQ-9/GAD-7)
   async encryptClinicalData(data: ClinicalData): Promise<EncryptedData> {
     const key = await this.deriveKey('clinical', {
-      rotationPeriod: '24_hours',
-      requireBiometric: true
+      rotationPeriod: '24_hours'
     });
 
     return {
@@ -100,8 +98,7 @@ class LocalStorageEncryption {
   // Personal mental health data (mood tracking, reflections)
   async encryptPersonalData(data: PersonalData): Promise<EncryptedData> {
     const key = await this.deriveKey('personal', {
-      rotationPeriod: '7_days',
-      requireAuth: true
+      rotationPeriod: '7_days'
     });
 
     return {
@@ -139,8 +136,7 @@ interface iOSDataIsolation {
   keychain_integration: {
     access_group: "fyi.being.app.keychain",
     accessibility: "kSecAttrAccessibleWhenUnlockedThisDeviceOnly",
-    synchronization: false, // Never sync to iCloud
-    biometric_protection: "kSecAccessControlBiometryAny"
+    synchronization: false // Never sync to iCloud
   },
 
   file_protection: {
@@ -163,12 +159,7 @@ interface AndroidDataIsolation {
 
   keystore_integration: {
     provider: "AndroidKeyStore",
-    key_alias: "being_master_key",
-    user_authentication: {
-      required: true,
-      validity_duration: 0, // Require auth every time
-      authentication_types: ["BIOMETRIC_STRONG", "DEVICE_CREDENTIAL"]
-    }
+    key_alias: "being_master_key"
   },
 
   storage_encryption: {
@@ -187,16 +178,13 @@ class DataSandbox {
     // Each data category in separate encrypted container
     this.containers = {
       clinical: new EncryptedContainer('clinical', {
-        maxSize: '50MB',
-        accessControl: 'biometric_required'
+        maxSize: '50MB'
       }),
       personal: new EncryptedContainer('personal', {
-        maxSize: '200MB',
-        accessControl: 'authentication_required'
+        maxSize: '200MB'
       }),
       cache: new EncryptedContainer('cache', {
-        maxSize: '100MB',
-        accessControl: 'app_authenticated'
+        maxSize: '100MB'
       })
     };
   }
@@ -223,180 +211,33 @@ class DataSandbox {
 
 ---
 
-## 3. Biometric Authentication Implementation
+## 3. Access to Sensitive Views (Device Authentication)
 
-### Technical Specifications
+Being has **no in-app authentication gate**. No screen asks for Face ID, Touch ID, a fingerprint or a passcode before showing sensitive wellness data, and no export or deletion step asks for one either. Access to wellness data on a device rests on the operating system:
 
-#### A. Biometric Security Framework
-```typescript
-interface BiometricAuthentication {
-  supported_methods: {
-    ios: ["Face ID", "Touch ID"],
-    android: ["Fingerprint", "Face Unlock (Class 3)", "Iris Scanner"]
-  },
+- **Device lock.** Anyone who can unlock the device can open Being and see everything in it. Being does not re-authenticate.
+- **Key storage.** The master encryption key is held in `expo-secure-store` with no `requireAuthentication` option. On iOS it uses the library's default accessibility, `WHEN_UNLOCKED`, so the Keychain releases it only while the device is unlocked. On Android the stored value is encrypted with a key held in the Android Keystore, with no user-authentication requirement attached. No key is bound to biometric enrolment.
+- **Encryption at rest.** See §1.
 
-  security_requirements: {
-    hardware_backed: true,
-    liveness_detection: true,
-    anti_spoofing: "Level 3 - Strong",
-    false_acceptance_rate: "< 0.002%",
-    false_rejection_rate: "< 3%"
-  },
+**Corrected (DEBUG-624).** Earlier versions of this section specified a biometric framework: `expo-local-authentication`, per-operation prompts for viewing assessments and exporting data, and a five-minute biometric-bound session key. None of it was wired. `AuthenticationService.authenticateUser` has no production caller and is the only caller of `authenticateWithBiometric`, and `AuthenticationService.initialize()` is never reached in production. The `expo-local-authentication` dependency is residue of that plan, not evidence of a control. `app.json`'s `NSFaceIDUsageDescription` must stay regardless, because `expo-secure-store` references `LAContext` natively.
 
-  implementation: {
-    library: "expo-local-authentication",
-    fallback: "device_passcode",
-    require_recent_auth: true,
-    max_attempts: 3
-  }
-}
-```
-
-#### B. Biometric Key Protection
-```typescript
-class BiometricKeyProtection {
-  async protectWithBiometrics(sensitiveOperation: string): Promise<boolean> {
-    // Check biometric availability
-    const available = await LocalAuthentication.hasHardwareAsync();
-    const enrolled = await LocalAuthentication.isEnrolledAsync();
-
-    if (!available || !enrolled) {
-      return this.fallbackToPasscode();
-    }
-
-    // Authenticate with reason
-    const result = await LocalAuthentication.authenticateAsync({
-      promptMessage: this.getPromptForOperation(sensitiveOperation),
-      disableDeviceFallback: false,
-      cancelLabel: 'Cancel',
-      fallbackLabel: 'Use Passcode'
-    });
-
-    if (result.success) {
-      // Generate biometric-bound key
-      const bioKey = await this.generateBiometricBoundKey();
-
-      // Key only valid for this session
-      this.sessionKeys.set(sensitiveOperation, {
-        key: bioKey,
-        expiry: Date.now() + 5 * 60 * 1000, // 5 minutes
-        requireReauth: true
-      });
-    }
-
-    return result.success;
-  }
-
-  private getPromptForOperation(operation: string): string {
-    const prompts = {
-      'view_clinical': 'Authenticate to view your assessments',
-      'export_data': 'Authenticate to export your mental health data'
-    };
-    return prompts[operation] || 'Authenticate to continue';
-  }
-}
-```
+**Residual.** Nothing in Being protects wellness data from someone holding an unlocked or shared device. The DPIA scores this as scenario 2(ii) and records its acceptance.
 
 ### User-Facing Description
-**"Your Face or Fingerprint is Your Key"**
-- Use Face ID, Touch ID, or your fingerprint to protect your most sensitive data
-- Your biometric data never leaves your device's secure chip
-- If biometrics aren't available, you can use your device passcode
-- Extra protection for viewing assessments
+No user-facing copy may say that Being protects data with Face ID, Touch ID, a fingerprint or an in-app passcode.
 
 ---
 
-## 4. Auto-Timeout and Session Management
+## 4. Session Timeout and App Lock
 
-### Technical Specifications
+Being has **no auto-lock**, inactivity timeout or session lock. It does not blur, hide or lock its content when backgrounded or left idle, and it does not clear decryption keys from memory on a timer. Once the device is unlocked, the device's own auto-lock setting is the only timeout that applies.
 
-#### A. Session Lifecycle Management
-```typescript
-interface SessionManagement {
-  timeout_policies: {
-    active_use: "30_minutes",
-    background: "5_minutes",
-    crisis_mode: "extended_60_minutes",
-    assessment_in_progress: "no_timeout_until_complete"
-  },
+**Corrected (DEBUG-624).** Earlier versions of this section specified a `SecureSessionManager`: sensitivity-based idle timeouts, soft and hard locks, and blur-on-background. It was never built. `AuthenticationService` contains a periodic session check, but it starts only from `initialize()`, which production never calls. `SESSION_TIMEOUT_MS` in the assessment store configuration is not read anywhere. Hiding content in the app switcher is not shipped either: that privacy-shield plugin (FEAT-522) is unmerged, and this section must not credit it until it lands.
 
-  sensitivity_based_timeouts: {
-    clinical_data_view: "3_minutes_idle",
-    personal_data_view: "10_minutes_idle",
-    general_app_use: "30_minutes_idle"
-  },
-
-  lock_behaviors: {
-    soft_lock: "blur_content_require_auth",
-    hard_lock: "clear_memory_require_full_auth",
-    crisis_exception: "maintain_access_to_crisis_button"
-  }
-}
-```
-
-#### B. Secure Session Implementation
-```typescript
-class SecureSessionManager {
-  private sessionTimer: NodeJS.Timeout;
-  private lastActivity: number;
-  private currentDataSensitivity: 'clinical' | 'personal' | 'general';
-
-  async initializeSession(): Promise<void> {
-    this.lastActivity = Date.now();
-    this.startInactivityMonitor();
-
-    // Clear sensitive data on app state change
-    AppState.addEventListener('change', (state) => {
-      if (state === 'background') {
-        this.handleBackgroundTransition();
-      } else if (state === 'active') {
-        this.handleForegroundTransition();
-      }
-    });
-  }
-
-  private handleBackgroundTransition(): void {
-    // Immediate protection for clinical data
-    if (this.currentDataSensitivity === 'clinical') {
-      this.immediatelyLockSensitiveData();
-    } else {
-      // 5-minute grace period for other data
-      setTimeout(() => this.lockSession(), 5 * 60 * 1000);
-    }
-
-    // Always blur content immediately
-    this.blurApplicationContent();
-  }
-
-  private handleForegroundTransition(): void {
-    const timeSinceBackground = Date.now() - this.lastActivity;
-
-    if (timeSinceBackground > this.getTimeoutForSensitivity()) {
-      this.requireReauthentication();
-    } else {
-      this.unblurApplicationContent();
-    }
-  }
-
-  private immediatelyLockSensitiveData(): void {
-    // Clear decryption keys from memory
-    this.cryptoManager.clearKeys();
-
-    // Overwrite sensitive UI data
-    this.uiManager.clearSensitiveViews();
-
-    // Maintain crisis button access
-    this.crisisManager.maintainEmergencyAccess();
-  }
-}
-```
+**Residual.** Shared with §3; see DPIA scenario 2(ii).
 
 ### User-Facing Description
-**"Automatic Privacy Protection When You Step Away"**
-- Your app locks automatically after a period of inactivity
-- Sensitive data like assessments lock faster (3 minutes) than general features
-- When you switch apps, your data is immediately hidden
-- The crisis button always remains accessible, even when locked
+No user-facing copy may claim an app lock, an inactivity timeout, or hidden content when you switch apps.
 
 ---
 
@@ -432,8 +273,7 @@ interface SecureExport {
       requires: "provider_email_verification"
     },
     direct_transfer: {
-      method: "airdrop_or_nearby_share",
-      requires: "biometric_confirmation"
+      method: "airdrop_or_nearby_share"
     },
     cloud_backup: {
       method: "encrypted_before_upload",
@@ -451,12 +291,6 @@ class SecureDataExporter {
     dataRange: DateRange,
     therapistEmail?: string
   ): Promise<ExportResult> {
-    // Require biometric authentication
-    const authenticated = await this.biometricAuth.authenticate(
-      'export_therapy_data'
-    );
-    if (!authenticated) throw new Error('Authentication required');
-
     // Gather and validate data
     const data = await this.gatherTherapyData(dataRange);
 
@@ -747,8 +581,6 @@ interface PrivacyDashboard {
     },
 
     privacy_controls: {
-      biometric_lock: "toggle_with_explanation",
-      auto_lock_timer: "slider_with_preview",
       export_history: "chronological_list",
       data_deletion: "guided_workflow"
     }
@@ -769,18 +601,6 @@ const SecurityMessages = {
     title: "Your Phone, Your Data",
     description: "Everything stays on your device. We can't see it, and neither can anyone else",
     icon: "📱"
-  },
-
-  biometric: {
-    title: "Only You Can Access",
-    description: "Your face or fingerprint ensures you're the only one who can view your information",
-    icon: "👤"
-  },
-
-  auto_lock: {
-    title: "Automatic Privacy",
-    description: "Your app locks itself when you're not using it, keeping prying eyes out",
-    icon: "⏰"
   },
 
   crisis_access: {
@@ -820,18 +640,8 @@ class SecurityOnboarding {
         action: () => this.showPrivacyPrinciples()
       },
       {
-        title: "Secure Your Data with Biometrics",
-        message: "Use your face or fingerprint to keep your mental health information private.",
-        action: () => this.setupBiometrics()
-      },
-      {
-        title: "Choose Your Privacy Level",
-        message: "How quickly should the app lock when you're not using it?",
-        action: () => this.configureAutoLock()
-      },
-      {
         title: "Emergency Access",
-        message: "Your crisis button will always work, even when the app is locked.",
+        message: "Your crisis button will always work.",
         action: () => this.demonstrateCrisisAccess()
       },
       {
@@ -854,17 +664,14 @@ class SecurityOnboarding {
 ```yaml
 critical_implementation:
   - [ ] AES-256-GCM encryption for clinical data
-  - [ ] Basic biometric authentication
   - [ ] Secure key derivation (PBKDF2)
   - [ ] iOS Keychain / Android Keystore integration
-  - [ ] Auto-lock on background
   - [ ] Basic jailbreak/root detection
 ```
 
 ### Phase 2: Enhanced Protection (Week 3-4)
 ```yaml
 enhanced_features:
-  - [ ] Complete session management with sensitivity-based timeouts
   - [ ] Secure export with password protection
   - [ ] Advanced threat detection
   - [ ] Privacy dashboard UI
@@ -890,8 +697,6 @@ optimization:
 ### Technical Requirements
 - ✅ AES-256 encryption for all sensitive data
 - ✅ Hardware-backed key storage
-- ✅ Biometric authentication support
-- ✅ Automatic session timeout
 - ✅ Secure data deletion
 - ✅ Jailbreak/root detection
 - ✅ Memory protection
@@ -929,18 +734,6 @@ describe('Security Test Suite', () => {
     // Verify AES-256-GCM implementation
     // Test key rotation
     // Verify authentication tags
-  });
-
-  test('Biometric authentication', async () => {
-    // Test successful authentication
-    // Test fallback to passcode
-    // Test failed attempts handling
-  });
-
-  test('Session management', async () => {
-    // Test timeout behaviors
-    // Test background/foreground transitions
-    // Verify crisis mode exceptions
   });
 
   test('Data deletion', async () => {
@@ -1057,4 +850,4 @@ This comprehensive security framework ensures Being. provides industry-leading p
 4. **User Empowerment**: Clear, understandable security that users can control
 5. **Privacy-First**: Strong encryption because users deserve it, not because regulations require it
 
-**Implementation Note**: Begin with Phase 1 core security features, as these provide the foundation for all other protections. The biometric authentication and encryption must be rock-solid before adding enhanced features.
+**Implementation Note**: Begin with Phase 1 core security features, as these provide the foundation for all other protections. The encryption must be rock-solid before adding enhanced features.
