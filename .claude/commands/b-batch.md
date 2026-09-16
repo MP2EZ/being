@@ -605,7 +605,8 @@ Build a directed graph over the batch from these edge sources:
   It does not change the tranche order (resolution is trivial — keep BOTH entries, add
   the comma, re-validate the JSON parses, re-run `lint:baseline`), but it stops the
   later merges reading as a real conflict worth diagnosing.
-  So is a diff that changes counts another item asserts: a deleted suite
+  So is a diff that changes counts another item asserts, or a pin one approach
+  prescribes that a sibling's approved design breaks: a deleted suite
   moves test/suite totals, so an item pinning them must run after.
 
 Then:
