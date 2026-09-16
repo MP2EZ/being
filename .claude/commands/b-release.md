@@ -232,8 +232,11 @@ operator for the SHA.
 
 - **Any FAIL:** ABORT. Nothing has been bumped yet.
 - **WAIVED:** accept it only when no qualifying iPhone is available. ABORT if `PREV_WAIVED`
-  is `true`.
-- **Otherwise:** fill in the checklist's §5 block as `CHECKLIST_BLOCK` for 6.4.
+  is `true`. A waived build is not promoted to the App Store until the checklist passes
+  against its TestFlight build, per the checklist's §5 — that run is not part of this release.
+- **Otherwise:** fill in the checklist's §6 block as `CHECKLIST_BLOCK` for 6.4, with
+  `Trigger: /b-release Phase 2.9` and the local-Release `Build:` literal. The block's
+  TestFlight-only lines belong to §5 runs; omit them here.
 
 **Binding check.** 6.4 and 6.6 re-run this block with `SHIP_SHA` set to the tree about to
 ship. It passes only when that tree differs from `TESTED_SHA` in version fields and nothing
