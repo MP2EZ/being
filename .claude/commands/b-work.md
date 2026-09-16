@@ -284,13 +284,9 @@ items reading `Not started` to every other session for the whole run.
 
 ```
 mcp__notion__notion-update-page
-data: {
-  "page_id": "[page_id from Phase 1]",
-  "command": "update_properties",
-  "properties": {
-    "Status": "In progress"
-  }
-}
+page_id: "[page_id from Phase 1]"
+command: "update_properties"
+properties: { "Status": "In progress" }
 ```
 
 **Display:**
@@ -955,13 +951,9 @@ the next reader and invites a `/b-close` on unfinished work.
 
 ```
 mcp__notion__notion-update-page
-data: {
-  "page_id": "[page_id from Phase 1]",
-  "command": "update_properties",
-  "properties": {
-    "Status": "Testing"
-  }
-}
+page_id: "[page_id from Phase 1]"
+command: "update_properties"
+properties: { "Status": "Testing" }
 ```
 
 ### Step 5.2: Add Testing Comment
