@@ -1457,6 +1457,12 @@ reflexively: re-run the flows only when the newly merged work touches a Step 2.5
 safety path. Unrelated churn does not invalidate a passing gate, and re-gating on
 every dev merge does not terminate on a busy day.
 
+**That re-check has two shortcuts, and both fail toward NOT gating.** Diff
+`$(git merge-base origin/development HEAD)..origin/development`, never
+`HEAD origin/development` — the latter is symmetric and lists your own files as
+incoming. And match with Step 2.5.1's grep verbatim; an abbreviated copy silently
+drops entries and reports a clean incoming set.
+
 **SECOND — is this worktree's build script the new one?** `.claude/` is shared across every
 worktree (it lives on `_bare`), but `app/scripts/e2e-sim-build.sh` is **app code**, so it
 arrives only when INFRA-383 is on *this branch*. Until a branch back-merges `development`,
