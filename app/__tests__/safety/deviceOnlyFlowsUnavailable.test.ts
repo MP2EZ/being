@@ -121,6 +121,14 @@ const CHECKLIST_MARKER =
   /^<!--\s*e2e-device-compensates:\s*DEBUG-589\s+flows=crisis-988-dial\.yaml,crisis-keyboard-accessory\.yaml\s*-->\s*$/m;
 
 /**
+ * INFRA-605. The checklist has TWO triggers and only one of them has a skill behind it:
+ * `/b-release` prompts for Phase 2.9, but the hotfix path is hand-run prose with no command to
+ * fire, so this marker is the only thing that fails when its step is deleted.
+ */
+const CHECKLIST_TRIGGER_MARKER =
+  /^<!--\s*e2e-device-triggers:\s*b-release-phase-2\.9,hotfix-pr\s*-->\s*$/m;
+
+/**
  * Every on-screen string the checklist tells a human to find, and the source that renders it.
  * A hand-run script rots silently — nothing fails when a button is relabelled — so a rename
  * must go red here rather than leave the tester hunting for a control that no longer exists.
@@ -140,6 +148,21 @@ const CHECKLIST_LABELS: ReadonlyArray<readonly [string, string]> = [
 /** Source, not a notice: a label surviving only in a comment is a label that is gone. */
 function stripTsComments(src: string): string {
   return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+}
+
+/**
+ * The body of a numbered `## N. <title>` section, so an assertion about one section cannot be
+ * satisfied by text somewhere else in the file. Matched on the title, never the number: the
+ * sections renumber whenever one is inserted, and a pin that breaks on renumbering teaches
+ * people to edit the pin.
+ */
+function checklistSection(src: string, title: RegExp): string | null {
+  const heading = new RegExp(`^##\\s+\\d+\\.\\s+${title.source}[^\\n]*$`, 'm');
+  const m = heading.exec(src);
+  if (!m) return null;
+  const after = src.slice(m.index + m[0].length);
+  const next = after.search(/^##\s/m);
+  return next === -1 ? after : after.slice(0, next);
 }
 
 function readFlow(name: string): string {
@@ -447,6 +470,28 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
         ).toBe(false);
       });
 
+      it('the trigger marker fires on a known-GOOD literal and NOT on a one-trigger near-miss', () => {
+        expect(
+          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: b-release-phase-2.9,hotfix-pr -->'),
+        ).toBe(true);
+        // The whole point is that BOTH triggers are named. One is the state this pin exists to fail.
+        expect(
+          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: b-release-phase-2.9 -->'),
+        ).toBe(false);
+        expect(CHECKLIST_TRIGGER_MARKER.test('Triggered by /b-release and by hotfix PRs.')).toBe(false);
+      });
+
+      it('the section slicer returns a real body, and null for a section that is not there', () => {
+        const src = fs.readFileSync(CHECKLIST, 'utf8');
+        // Anchored on a section every version of this file has had.
+        const dial = checklistSection(src, /Dial/);
+        expect(dial).not.toBeNull();
+        expect((dial as string).trim().length).toBeGreaterThan(200);
+        expect(checklistSection(src, /Section That Does Not Exist/)).toBeNull();
+        // A slice must not run past its own section into the next one.
+        expect(dial as string).not.toMatch(/^##\s/m);
+      });
+
       it('a label present only in a comment reads as absent once stripped', () => {
         const commented = '// <Text>Unable to Call</Text>\n/* 📞 Call 988 */\nconst x = 1;';
         expect(stripTsComments(commented)).not.toContain('Unable to Call');
@@ -471,6 +516,57 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
 
     it('names its trigger, so it cannot drift into a document nobody runs', () => {
       expect(fs.readFileSync(CHECKLIST, 'utf8')).toMatch(/\/b-release`? Phase 2\.9/);
+    });
+
+    describe('INFRA-605 — the hotfix trigger, which no skill fires', () => {
+      it('carries the structured marker naming BOTH triggers', () => {
+        expect(fs.readFileSync(CHECKLIST, 'utf8')).toMatch(CHECKLIST_TRIGGER_MARKER);
+      });
+
+      it('gives the TestFlight run one named section that both callers point at', () => {
+        const src = fs.readFileSync(CHECKLIST, 'utf8');
+        const section = checklistSection(src, /Running against a TestFlight build/);
+        expect(section).not.toBeNull();
+        const body = section as string;
+        // Both paths that land here must be named IN it, or "both point at one section" is prose.
+        expect(body).toMatch(/hotfix/i);
+        expect(body).toMatch(/waiv/i);
+        // The binding chain: a tree diff cannot reach a binary installed from Apple, so the
+        // record prints each link instead. Losing any one of them loses the chain.
+        expect(body).toMatch(/gitCommitHash/);
+        expect(body).toMatch(/Merge commit:/);
+        expect(body).toMatch(/ASC build:/);
+      });
+
+      it('refuses WAIVED on the hotfix path instead of extending the release waiver to it', () => {
+        const body = checklistSection(
+          fs.readFileSync(CHECKLIST, 'utf8'),
+          /Running against a TestFlight build/,
+        );
+        expect(body).not.toBeNull();
+        expect(body as string).toMatch(
+          /`WAIVED` is not a permitted `Result:` for a hotfix build/,
+        );
+      });
+
+      it('still concedes the unchecked TestFlight window rather than claiming hotfixes are covered', () => {
+        // AC4 as authored said to DELETE this gap. It is not closed: `release.yml` fires on push
+        // to main and `--auto-submit` ships the binary with no human in the loop, so testers can
+        // install a hotfix nobody has run. Only App Store promotion is gated.
+        const gaps = checklistSection(fs.readFileSync(CHECKLIST, 'utf8'), /Known gaps/);
+        expect(gaps).not.toBeNull();
+        const body = gaps as string;
+        expect(body.trim().length).toBeGreaterThan(200);
+        expect(body).toMatch(/TestFlight/);
+        expect(body).toMatch(/INFRA-605/);
+      });
+
+      it('lists the hotfix step among what a removal commit must take with it', () => {
+        // Otherwise a removal leaves the hotfix step pointing at a file that no longer exists.
+        const removal = checklistSection(fs.readFileSync(CHECKLIST, 'utf8'), /Removal/);
+        expect(removal).not.toBeNull();
+        expect(removal as string).toMatch(/hotfix/i);
+      });
     });
 
     it.each(CHECKLIST_LABELS)('"%s" is quoted by the checklist and still rendered by %s', (label, file) => {
