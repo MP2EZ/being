@@ -315,6 +315,11 @@ open.
 staged index, so a run there reads the wrong tree or gets swept into someone's commit. Not
 clean and on `development` → cut your own scratch worktree instead.
 
+**An AC that measures on a device needs the device checked HERE, not at capture time.**
+`xcrun simctl list devices booted` plus `e2e-provenance.js attribute <container>`: a
+`PEER` verdict or 2+ booted means the capture is blocked before you plan it, since
+`e2e_resolve_sim_device` refuses at 2+ and booting another breaks the peer's run.
+
 ### Step 2.1: Determine Branch Naming
 
 **Branch prefix** (based on Type from Notion):
