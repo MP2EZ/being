@@ -2150,6 +2150,11 @@ preserved on remote.
 
 ### Step 4.1: Update Status to "Done"
 
+**An item whose deliverable spans `_bare` and a feature branch is only half-closed by this
+PR.** `.claude/` is gitignored on `development`, so its commit travels separately and no CI
+gate or jest pin can see it. Confirm the `_bare` half is committed before `Done` — a missing
+one leaves the merged half referencing a procedure step that does not exist, silently.
+
 **Do not set `Done` when an AC is unserved and externally blocked.** Distinct from the
 header's slice case: the branch is final, but part of the item cannot ship. Ask whether to
 close-and-file-a-successor or hold `In progress` — `Done` tells every later reader that the
