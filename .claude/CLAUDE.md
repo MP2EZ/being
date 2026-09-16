@@ -578,6 +578,10 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
   and a peer's install lands between your build and your launch — measured 22s apart. Read
   `.e2e-provenance.json` from `simctl get_app_container … app` immediately before AND after
   any observation you make outside `e2e-safety.sh`, or you may be reading their binary.
+- **An observation does not need its own build.** Before paying a cold build to *look* at
+  something, read the installed marker's `head` and diff it against your subject's paths
+  (`git diff --stat <head> origin/development -- <paths>`): an empty diff means a peer's
+  binary already renders it. Observation only — merge evidence still needs a matching tree.
 - **A back-merge that moves `app/package.json` or the lockfile needs `npm ci` before any
   test run** — not only a `@mp2ez/being-design-system` pin move. A stale tree keeps
   packages the merge DELETED, so tests pass locally against a toolchain CI does not
