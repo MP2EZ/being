@@ -330,6 +330,8 @@ PROBE_PATHS=(
   "app/src/features/practices/morning/MorningFlowNavigator.tsx"
   "app/src/features/home/screens/CleanHomeScreen.tsx"
   "app/src/features/learn/practices/PracticeTimerScreen.tsx"
+  "app/src/features/learn/practices/ReflectionTimerScreen.tsx"
+  "app/src/features/learn/practices/BodyScanScreen.tsx"
   "app/src/features/practices/screens/PracticeLibraryScreen.tsx"
   "app/src/features/profile/screens/DeleteAccountScreen.tsx"
   "app/src/core/stores/settingsStore.ts"
