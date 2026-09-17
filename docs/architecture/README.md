@@ -34,13 +34,13 @@ Best practices for imports, path aliases, and avoiding circular dependencies.
 ## Data & Privacy
 
 ### [Data Privacy Architecture](./data-privacy-architecture.md)
-Being's core data philosophy: local-first, no PHI transmission.
+Being's core data philosophy: local-first wellness data, with what leaves the device enumerated.
 
 **Read this when:**
 - Designing any feature that touches user health data
 - Considering cloud sync, backup, or sharing features
 - Evaluating analytics or third-party integrations
-- Understanding why Being doesn't need BAAs
+- Understanding why HIPAA does not apply (Being is not a covered entity)
 
 ---
 

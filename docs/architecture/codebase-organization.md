@@ -76,9 +76,8 @@ Domain authorities can override technical decisions in their domain.
 **Location:** `features/crisis/`
 
 **Responsibility:**
-- Crisis detection (PHQ≥20, GAD≥15, Q9>0)
+- Crisis detection (PHQ-9 ≥15 support resources, PHQ-9 ≥20 and Q9>0 intervention, GAD-7 ≥15)
 - 988 intervention workflow
-- Crisis plan management
 - Performance <200ms requirement
 
 **Why Consolidated:**

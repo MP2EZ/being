@@ -169,10 +169,20 @@ describe('CloudBackupService (MAINT-193)', () => {
       expect(service.getConfig().integrityCheckEnabled).toBe(false);
     });
 
-    it('subscribes to the assessment store for change-triggered backups', async () => {
+    it('does NOT subscribe to the assessment store (DEBUG-625)', async () => {
       await service.initialize();
 
-      expect(mockAssessment.subscribe).toHaveBeenCalled();
+      // This assertion is INVERTED from what it was, deliberately. The listener it
+      // used to pin was dead code: `shouldTriggerImmediateBackup` tested
+      // `lastCompleted` and `crisisDetected`, and NEITHER field exists on the
+      // assessment store, so it could never return true. The test passed because a
+      // subscription was made, not because a backup could ever be triggered.
+      //
+      // DEBUG-625 deleted it rather than repairing it: repairing would have created an
+      // upload fired BY assessment completion — a stronger version of the exact
+      // screening-activity coupling the item exists to remove. So "no subscription" is
+      // now the contract, and this pins it.
+      expect(mockAssessment.subscribe).not.toHaveBeenCalled();
     });
   });
 
@@ -195,9 +205,11 @@ describe('CloudBackupService (MAINT-193)', () => {
       const backup = await service.collectStoreData();
 
       // Exact-equality (toEqual, not toMatchObject) so any extra key fails.
+      // DEBUG-625: `lastSyncAt` is still SET on the mock above and must NOT appear
+      // here — that is what proves the allowlist excludes it, rather than merely that
+      // the store stopped writing it.
       expect(backup.stores.assessment).toEqual({
         autoSaveEnabled: false,
-        lastSyncAt: 1700000000000,
       });
 
       // Independent second failure mode: each excluded field is absent.
@@ -214,9 +226,13 @@ describe('CloudBackupService (MAINT-193)', () => {
       // expected tiny size (config-only backups are ~150 bytes). The service
       // must abort rather than risk transmitting an oversized — potentially
       // wellness-data-bearing — payload to the cloud.
+      // DEBUG-625: this used to inflate `lastSyncAt`, which is no longer in the
+      // allowlist — so the oversized value was silently dropped and the payload stayed
+      // tiny, making the assertion unreachable. Inflate the surviving allowlisted field
+      // instead (as CloudBackupService.privacy.test.ts already does). The contract under
+      // test is unchanged; only the vehicle moved.
       mockAssessment.getState.mockReturnValue({
-        autoSaveEnabled: true,
-        lastSyncAt: 'x'.repeat(600) as unknown as number,
+        autoSaveEnabled: 'x'.repeat(600) as unknown as boolean,
       });
 
       await expect(service.collectStoreData()).rejects.toThrow(/Backup size validation failed/);
@@ -323,7 +339,11 @@ describe('CloudBackupService (MAINT-193)', () => {
       expect(mockAssessment.setState).toHaveBeenCalledTimes(1);
 
       const restoredArg = mockAssessment.setState.mock.calls[0][0];
-      expect(restoredArg).toEqual({ autoSaveEnabled: false, lastSyncAt: 1699999999999 });
+      // DEBUG-625: the legacy blob above still CARRIES lastSyncAt, deliberately — an
+      // existing backup does. What changed is that restore no longer copies it, which
+      // is the stronger property: the allowlist is a whitelist, so a field dropped from
+      // it is excluded on the way back IN as well as on the way out.
+      expect(restoredArg).toEqual({ autoSaveEnabled: false });
       expect(restoredArg).not.toHaveProperty('responses');
       expect(restoredArg).not.toHaveProperty('currentAssessment');
       expect(

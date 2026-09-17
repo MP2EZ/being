@@ -58,6 +58,7 @@ import { usePracticeHaptics } from '@/features/practices/shared/haptics/usePract
 import { useHapticsOptIn } from '@/features/practices/shared/haptics/useHapticsOptIn';
 import { HapticsOptInPrompt } from '@/features/practices/shared/components/HapticsOptInPrompt';
 import { regionSchedule } from '@/features/practices/shared/haptics/cueScheduler';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 
 interface BodyScanScreenProps {
   practiceId: string;
@@ -244,7 +245,7 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
         onToggle={handleToggle}
-        style={{ marginBottom: spacing[32] }}
+        style={styles.toggleButton}
         testID={`${testID}-toggle-button`}
       />
     </PracticeScreenLayout>
@@ -254,6 +255,25 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
 const styles = StyleSheet.create({
   bodyAreaSection: {
     marginBottom: spacing[32],
+  },
+  toggleButton: {
+    marginBottom: spacing[32],
+    // DEBUG-628 (crisis ruling): moves the toggle's OWN FRAME out of the crisis FAB's
+    // contested column, mirroring DEBUG-622 on PracticeTimerScreen. BodyScan is an
+    // immersive route: the FAB renders faded, but FADED_OPACITY does not affect hit
+    // testing and it still wins at zIndex 9999, so any overlap sends a tap on Begin
+    // Practice to CrisisResources.
+    // DERIVED, not measured (DEBUG-626 owns the on-device bounds). The toggle is a stretch
+    // child of sharedPracticeStyles.content, whose paddingHorizontal is spacing[24], so it
+    // spans x=24..W-24; the rect's left is 72. Both are offsets from screen-right, so W
+    // cancels and the overlap is 48pt on EVERY viewport:
+    //   390x844  toggle x24-366 vs region left 318, y ~679-746 vs band 668-772
+    //   402x874  toggle x24-378 vs region left 330, y ~709-776 vs band 698-802
+    // HORIZONTAL because the column scrolls (scrollable={true}): the toggle can rest at
+    // any y and at any text size, but its x-range is fixed. Must NOT be paddingRight,
+    // which moves the label and leaves the frame in place. Declared LAST: StyleSheet is
+    // last-key-wins, so a marginHorizontal added below would silently undo it.
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
 });
 

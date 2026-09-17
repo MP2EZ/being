@@ -72,7 +72,9 @@ import CloudBackupSettings from '@/core/components/settings/CloudBackupSettings'
 
 ### Store Integration
 
-The cloud backup service automatically integrates with Zustand stores. To add a new store:
+Backup uses a strict allowlist (MAINT-117): only explicitly copied, non-wellness
+setting fields are uploaded. Never back up a whole store with `getState()`. To add
+a field:
 
 1. **Import your store** in `CloudBackupService.ts`:
 
@@ -80,17 +82,18 @@ The cloud backup service automatically integrates with Zustand stores. To add a 
 import { yourStore } from '../path/to/yourStore';
 ```
 
-2. **Add to collectStoreData method**:
+2. **Copy only the allowlisted fields** in `collectStoreData`:
 
 ```typescript
 private async collectStoreData(): Promise<BackupData> {
+  const { autoSaveEnabled } = assessmentStore.getState();
+  const { someSetting } = yourStore.getState();   // settings only, never wellness data
   return {
     version: 1,
     timestamp: Date.now(),
     stores: {
-      assessment: assessmentStore.getState(),
-      user: userStore.getState(),           // Add this
-      yourStore: yourStore.getState(),      // Add this
+      assessment: { autoSaveEnabled },   // DEBUG-625: never add a field whose value tracks assessment activity
+      yourStore: { someSetting },
     },
     metadata: {
       platform: 'react-native',
@@ -99,7 +102,12 @@ private async collectStoreData(): Promise<BackupData> {
 }
 ```
 
-3. **Add restore logic** in `restoreFromBackup method`:
+3. **Disclose it in the same change.** Add the field's label to
+   `CONSENT_DETAILS.cloudSync.details.whatWeCollect` and to `PAYLOAD_DISCLOSURE` in
+   `app/__tests__/privacy/cloudBackupConsentCopy.privacy.test.ts`, which fails on any
+   uploaded field the consent card does not name (DEBUG-614).
+
+4. **Add restore logic** in `restoreFromBackup method`, copying the same allowlisted fields:
 
 ```typescript
 if (backupData.stores.yourStore) {

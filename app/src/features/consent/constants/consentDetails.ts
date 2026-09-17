@@ -21,6 +21,7 @@
  */
 
 import type { ConsentToggleCardProps } from '../components/ConsentToggleCard';
+import { OPERATIONAL_TELEMETRY_DISCLOSURE } from '@/core/services/supabase/operationalEvents';
 
 /** The shape `ConsentToggleCard` consumes, minus the per-render state. */
 type ConsentCategoryCopy = Pick<ConsentToggleCardProps, 'title' | 'description' | 'details'>;
@@ -68,19 +69,28 @@ export const CONSENT_DETAILS = {
   },
   cloudSync: {
     title: 'Cloud Backup',
-    description: 'Securely sync your data across devices',
+    description: 'Back up a few app settings to encrypted cloud storage',
     details: {
+      // TWO disjoint sources, both pinned by cloudBackupConsentCopy.privacy.test.ts:
+      //   1. the backup PAYLOAD (DEBUG-614), and
+      //   2. the operational TELEMETRY sent under this same consent (DEBUG-625).
+      // DEBUG-614 pinned only the payload, so the card ended up describing strictly
+      // less than the consent covered — six server-side event types, each stamped with
+      // the anonymous account identifier, appeared nowhere. The `whatWeCollect` heading
+      // reads as exhaustive, which made that an FTC §5 omission independent of the
+      // legal-basis question.
+      // 'A last-sync timestamp' was REMOVED with the field itself (DEBUG-625 AC1).
       whatWeCollect: [
-        'App preferences and settings',
-        'Journal entries (encrypted)',
-        'Mood tracking history',
-        'Custom reminders',
+        'Your autosave setting',
+        OPERATIONAL_TELEMETRY_DISCLOSURE,
       ],
       whatWeDontCollect: [
-        'PHQ-9/GAD-7 assessment raw scores (local only for privacy)',
+        'Journal entries',
+        'Mood check-ins',
+        'PHQ-9/GAD-7 responses and scores',
       ],
-      whyItHelps: 'Restore data if you get a new phone. Access your journal on tablet and phone. Automatic backup protection.',
-      privacyNote: 'End-to-end encryption. We cannot decrypt or access your synced content.',
+      whyItHelps: 'Lets these settings be restored on this device. Your wellness history stays on your device and is not part of the backup.',
+      privacyNote: 'Encrypted on your device before upload. We cannot read it.',
     },
   },
   research: {

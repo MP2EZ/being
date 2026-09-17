@@ -36,6 +36,10 @@ import { DEFAULT_PATTERN } from '@/features/practices/shared/breathingPatterns';
 import type { DailyLoopMode, DailyLoopCompleteData, DailyLoopDepth } from '@/features/practices/types/flows';
 import { CLOSING, STEP_TITLES, getStepKeysForDepth, getCompleteTitle } from '../config/tenseMode';
 import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
+// DEBUG-520 — the DERIVED constant, never a hand-copied 72. It is
+// size(44) + hitSlop(12) + clearance(16); a local literal would silently stop tracking
+// the FAB if any of the three moved, which is the DEBUG-586 failure exactly.
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 
 const CLOSING_BREATH_MS = 15 * 1000;
 
@@ -207,7 +211,10 @@ const DailyLoopCompleteScreen: React.FC<DailyLoopCompleteScreenProps> = ({ depth
           No border and no shadow on the footer: a divider here would read as a form action
           bar, which is the one register the coda must not have. */}
       {breathDone && (
-        <View style={[styles.footer, { paddingBottom: spacing[16] + insets.bottom }]}>
+        <View
+          testID="daily-loop-complete-footer"
+          style={[styles.footer, { paddingBottom: spacing[16] + insets.bottom }]}
+        >
           <AccessibleButton
             onPress={handleDone}
             label="Return to Home"
@@ -344,11 +351,35 @@ const styles = StyleSheet.create({
     marginTop: spacing[24],
     marginBottom: spacing[20],
   },
-  /** Pinned primary action. No border and no shadow — see the JSX comment. */
+  /**
+   * Pinned primary action. No border and no shadow — see the JSX comment.
+   *
+   * DEBUG-520 — THE RIGHT INSET IS A CRISIS CONSTRAINT, NOT A MARGIN CHOICE. Measured
+   * on an iPhone 16e (390x844) before the fix: this CTA sat at [20,738][370,794] against
+   * `crisis-button-root` at [346,700][390,744] — a 24x6pt overlap at its top-right corner.
+   * The FAB is `zIndex: 9999`, so it WINS that tap: the press fired an audit-logged
+   * navigation into CrisisResources and swallowed the completion. `DailyLoopNavigator`
+   * suppresses this route's header ✕, so this button is at once the coda's only exit and
+   * the only path that records the session.
+   *
+   * UNCONDITIONAL, deliberately. Vertical overlap reduces to `insets.bottom > 0`, so it is
+   * clear at exactly one value — zero — and that is the value the Maestro gate certifies
+   * (375x667). An `insets.bottom`-aware inset would ship with its load-bearing arm never
+   * executed. The SE 3 is not safe either: it clears by ZERO at default type and
+   * intersects at one Dynamic Type wrap step.
+   *
+   * ⚠️ paddingLeft + paddingRight as LONGHANDS, never `paddingHorizontal`. Padding resolves
+   * by edge priority (Start/End > Left/Right > Horizontal > All), not declaration order, so
+   * a `paddingEnd` added later would OUTRANK this and silently restore the collision — and
+   * would flip away from the FAB in RTL, while the FAB stays hard-coded `right: 0`.
+   * There is ZERO slack here: the CTA's right edge lands exactly on the exclusion region's
+   * left edge, passing only via the half-open convention. Do not spend any of it.
+   */
   footer: {
-    paddingHorizontal: spacing[20],
+    paddingLeft: spacing[20],
     paddingTop: spacing[16],
     backgroundColor: colorSystem.base.white,
+    paddingRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   returnLine: {
     fontSize: typography.bodySmall.size,

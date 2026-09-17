@@ -42,6 +42,7 @@ import { useConsentStore, ConsentPreferences, getLegalGateConsents } from '@/cor
 import { ConsentToggleCard, CONSENT_DETAILS } from '@/features/consent';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 
 // Local colors for onboarding (flat access for convenience in this large file)
 const localColors = {
@@ -1088,14 +1089,27 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             testID="consent-crash-reports"
           />
 
-          <ConsentToggleCard
-            title={CONSENT_DETAILS.cloudSync.title}
-            description={CONSENT_DETAILS.cloudSync.description}
-            details={CONSENT_DETAILS.cloudSync.details}
-            value={consentPreferences.cloudSyncEnabled}
-            onValueChange={(value) => handleConsentPreferenceToggle('cloudSyncEnabled', value)}
-            testID="consent-cloud-sync"
-          />
+          {/*
+            DEBUG-625 (AC3): the Cloud Backup card renders only where the feature can
+            actually be used. `cloud_sync` gates the two Profile screens that show backup
+            status and perform a RESTORE, but it gates NOTHING in the service — and
+            `canPerformOperation('cloud_sync')` reads the consent cache and never consults
+            the flag. So accepting this card in a flag-dark build was not inert: it is a
+            live egress permission for processing whose BENEFIT (restore) is unreachable.
+            Build-time `isFeatureEnabled`, never `useFeatureFlag`: a consent surface must
+            not have availability that depends on analytics consent or a network
+            round-trip (INFRA-199 carve-out).
+          */}
+          {isFeatureEnabled('cloud_sync') && (
+            <ConsentToggleCard
+              title={CONSENT_DETAILS.cloudSync.title}
+              description={CONSENT_DETAILS.cloudSync.description}
+              details={CONSENT_DETAILS.cloudSync.details}
+              value={consentPreferences.cloudSyncEnabled}
+              onValueChange={(value) => handleConsentPreferenceToggle('cloudSyncEnabled', value)}
+              testID="consent-cloud-sync"
+            />
+          )}
 
           <ConsentToggleCard
             title={CONSENT_DETAILS.research.title}

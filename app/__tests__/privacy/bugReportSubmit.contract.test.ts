@@ -46,6 +46,18 @@ jest.mock('@/core/services/featureFlags', () => ({
   isFeatureEnabled: (...args: unknown[]) => mockIsFeatureEnabled(...(args as [])),
 }));
 
+// INFRA-561: the reporter reads the active LEAF route to tag the report. Mocked
+// so each case can pin a specific route; the real ref is a pure read behind
+// isReady() and is never asked to navigate.
+const mockIsReady = jest.fn(() => true);
+const mockGetCurrentRoute = jest.fn((): { name: string } | undefined => ({ name: 'Home' }));
+jest.mock('@/core/navigation/navigationRef', () => ({
+  navigationRef: {
+    isReady: (...args: unknown[]) => mockIsReady(...(args as [])),
+    getCurrentRoute: (...args: unknown[]) => mockGetCurrentRoute(...(args as [])),
+  },
+}));
+
 import { ExternalErrorReporter } from '@/core/services/logging/ExternalErrorReporter';
 import { useBugReportStore } from '@/core/stores/bugReportStore';
 
@@ -62,6 +74,11 @@ async function freshReporter(): Promise<ExternalErrorReporter> {
 
 beforeEach(() => {
   useBugReportStore.setState({ visible: false });
+  // `jest.clearAllMocks()` in freshReporter() clears calls but NOT
+  // implementations, so a case that pins a route or makes the read throw would
+  // leak into the next one. Reset the navigation mocks to the default here.
+  mockIsReady.mockReturnValue(true);
+  mockGetCurrentRoute.mockReturnValue({ name: 'Home' });
 });
 
 describe('FEAT-570 · the SDK presenter is gone', () => {
@@ -142,9 +159,13 @@ describe('FEAT-570 · the submitted payload carries no identity', () => {
     reporter.submitFeedback('the timer resets when I background the app');
 
     const [params] = mockCaptureFeedback.mock.calls[0];
+    // INFRA-561 added `tags.screen`. Kept as toEqual, deliberately — converting
+    // to toMatchObject would silently admit every future field onto a payload
+    // that `beforeSend` never sees and `scrubFeedbackEvent` never reads.
     expect(params).toEqual({
       message: 'the timer resets when I background the app',
       source: 'first-party-form',
+      tags: { screen: 'Home' },
     });
   });
 
@@ -197,6 +218,66 @@ describe('FEAT-570 · the message is scrubbed at the call site', () => {
     const reporter = await freshReporter();
     expect(reporter.submitFeedback('   ')).toBe(false);
     expect(mockCaptureFeedback).not.toHaveBeenCalled();
+  });
+});
+
+describe('INFRA-561 · the report names the screen it came from', () => {
+  it('tags a non-sensitive leaf route with its real name', async () => {
+    // The positive falsifier. Without it the coarsening assertion below passes
+    // whether or not the route is ever read — a test that would stay green
+    // against a hardcoded 'App'.
+    mockGetCurrentRoute.mockReturnValue({ name: 'Learn' });
+    const reporter = await freshReporter();
+    reporter.submitFeedback('the module list scrolls under the header');
+
+    const [params] = mockCaptureFeedback.mock.calls[0];
+    expect(params.tags).toEqual({ screen: 'Learn' });
+  });
+
+  it('coarsens a WELLNESS-SENSITIVE leaf route to the generic bucket', async () => {
+    // VoiceReflection is sensitive AND reachable with this form open: the root
+    // overlay slot refuses only CrisisResources / AssessmentFlow / LegalGate,
+    // and the shake gesture is armed at the app root. The slot's refusal is a
+    // 988-reachability control, never a privacy one.
+    //
+    // This call site is the ENTIRE control on the value. `captureFeedback` puts
+    // `tags` at the top level of a `type:'feedback'` event, `beforeSend` does
+    // not run for those, and `scrubFeedbackEvent` never reads `event.tags`.
+    mockGetCurrentRoute.mockReturnValue({ name: 'VoiceReflection' });
+    const reporter = await freshReporter();
+    reporter.submitFeedback('the recorder keeps running after I stop it');
+
+    const [params] = mockCaptureFeedback.mock.calls[0];
+    expect(params.tags.screen).toBe('App');
+    expect(params.tags.screen).not.toMatch(/reflection/i);
+  });
+
+  it('still SENDS when navigation is not ready, and attaches NO tag', async () => {
+    // The `tags` assertion is what makes this non-vacuous. Asserting only that
+    // the send succeeded would pass with the isReady() guard deleted, because
+    // this mock returns a route either way — the test would be pinning nothing.
+    mockIsReady.mockReturnValue(false);
+    const reporter = await freshReporter();
+
+    expect(reporter.submitFeedback('the app opened to a blank screen')).toBe(true);
+    expect(mockCaptureFeedback).toHaveBeenCalledTimes(1);
+
+    const [params] = mockCaptureFeedback.mock.calls[0];
+    expect(params.tags).toBeUndefined();
+  });
+
+  it('still SENDS when reading the route throws', async () => {
+    // submitFeedback's existing catch returns false, and BugReportForm renders
+    // `bug-report-refused` on false — so an unguarded throw here would show the
+    // user a refusal notice for a navigation hiccup and silently drop a report
+    // that was never persisted, queued or retried.
+    mockGetCurrentRoute.mockImplementation(() => {
+      throw new Error('navigation state unavailable');
+    });
+    const reporter = await freshReporter();
+
+    expect(reporter.submitFeedback('the breathing timer drifts every cycle')).toBe(true);
+    expect(mockCaptureFeedback).toHaveBeenCalledTimes(1);
   });
 });
 
