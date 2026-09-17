@@ -28,6 +28,7 @@ import { AppState } from 'react-native';
 // Service imports
 import supabaseService from './SupabaseService';
 import cloudBackupService from './CloudBackupService';
+import { CONNECTIVITY_EVENT } from './operationalEvents';
 import { useConsentStore } from '@/core/stores/consentStore';
 
 // Type definitions
@@ -327,9 +328,7 @@ export async function testCloudConnectivity(): Promise<{
     await initializeCloudServices();
 
     // Test basic connectivity with analytics ping
-    await supabaseService.trackEvent('connectivity_test', {
-      timestamp: Date.now(),
-    });
+    await supabaseService.trackEvent(CONNECTIVITY_EVENT.TEST);
 
     const responseTime = Date.now() - startTime;
 

@@ -91,11 +91,13 @@ To keep any data that does reach our servers (optional settings backup; the PII-
 
 ### 4.2 Optional Settings Backup
 
-You may optionally enable an encrypted settings backup. This is a narrow, opt-in feature that backs up a small set of non-wellness app preferences (such as autosave configuration and last-sync timestamps) to encrypted cloud storage. It does **not** back up your mental-health data — PHQ-9 / GAD-7 responses, mood check-ins, journal entries, and crisis records always stay on your device. Settings backups are:
+You may optionally enable an encrypted settings backup. This is a narrow, opt-in feature that backs up a single non-wellness app preference (your autosave setting) to encrypted cloud storage. It does **not** back up your mental-health data — PHQ-9 / GAD-7 responses, mood check-ins, journal entries, and crisis records always stay on your device. Settings backups are:
 
 - Encrypted in transit (TLS 1.2+) and at rest (AES-256) on Supabase infrastructure (SOC 2 Type II certified)
 - Scoped to a strict allowlist of non-sensitive preference fields
-- Deletable at any time from in-app *Settings → Privacy & Data*
+- Removed when you delete your data or account (§7.4), which erases every record tied to your anonymous account identifier
+
+Enabling this backup also sends us **operational records of the backup itself** — when a backup or restore ran, whether it succeeded, how long it took and how large it was. These are stored on our servers alongside your anonymous account identifier (§4.1), are retained for 90 days, and contain no wellness data. They exist so we can tell whether the backup feature is working.
 
 ### 4.3 Security Measures
 

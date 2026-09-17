@@ -510,7 +510,6 @@ export interface AssessmentStoreState {
 
   // Performance tracking
   autoSaveEnabled: boolean;
-  lastSyncAt: number | null;
 
   /**
    * DEBUG-550 — set when `completeAssessment` REFUSED to score. Distinct from
@@ -577,7 +576,6 @@ export const useAssessmentStore = create<AssessmentStore>()(
         hasRecoverableSession: false,
         lastSavedAt: null,
         autoSaveEnabled: true,
-        lastSyncAt: null,
         completionBlocked: null,
 
         // Session management actions
@@ -914,7 +912,18 @@ export const useAssessmentStore = create<AssessmentStore>()(
             };
 
             await EncryptedAssessmentStorage.save(dataToSave);
-            set({ lastSavedAt: Date.now(), lastSyncAt: Date.now() });
+            // DEBUG-625 (compliance ruling): `lastSyncAt` was set HERE, on a purely LOCAL
+            // encrypted save, despite its name. saveProgress is awaited by startAssessment,
+            // answerQuestion, completeAssessment, clearHistory and setSessionNote, so the
+            // field was a per-answer PHQ-9/GAD-7 activity clock. It was also one of only two
+            // fields in CloudBackupService's hashed backup payload, and the other
+            // (autoSaveEnabled) changes almost never — so it was effectively the sole
+            // entropy deciding whether a backup uploaded and emitted a timestamped
+            // `backup_completed` row to analytics_events, bound to auth.uid() and retained
+            // 90 days. That made screening cadence observable server-side from a feature
+            // consented to as "back up a few app settings".
+            // Removed rather than renamed: nothing read its VALUE anywhere in the repo.
+            set({ lastSavedAt: Date.now() });
           } catch (error) {
             logError(LogCategory.SYSTEM, 'Save progress failed:', error instanceof Error ? error : new Error(String(error)));
             set({ error: 'Failed to save assessment progress' });
@@ -1064,9 +1073,10 @@ export const useAssessmentStore = create<AssessmentStore>()(
 // So every timer it ever scheduled was a duplicate encrypted write.
 //
 // `autoSaveEnabled` and both setters DELIBERATELY REMAIN. The flag is persisted
-// via `partialize` AND is one of exactly two fields in CloudBackupService's
-// restore allowlist (`EXPECTED_SAFE_FIELDS = 2`, pinned in both directions by
-// CloudBackupService.privacy.test.ts), so removing it would break a cross-feature
+// via `partialize` AND is now the ONLY field in CloudBackupService's restore
+// allowlist (`EXPECTED_SAFE_FIELDS = 1`, pinned in both directions by
+// CloudBackupService.privacy.test.ts — DEBUG-625 removed `lastSyncAt`, which was
+// a screening-activity clock), so removing it would break a cross-feature
 // contract and its privacy suite. It still gates the inline saves above; only the
 // deferred duplicate is gone.
 //

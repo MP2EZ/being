@@ -19,7 +19,11 @@
  *
  * PERMITTED DATA (non-sensitive settings only):
  * - autoSaveEnabled (boolean preference)
- * - lastSyncAt (backup metadata timestamp)
+ *
+ * DEBUG-625 removed `lastSyncAt`. Nothing whose value is a function of PHQ-9/GAD-7
+ * write activity may be added back: `calculateDataHash` hashes exactly this payload,
+ * so such a field decides whether an upload — and a timestamped `backup_completed`
+ * row bound to auth.uid() — occurs at all.
  *
  * FILTERING APPROACH: STRICT ALLOWLIST
  * Only explicitly permitted fields are backed up. Unknown fields
@@ -53,6 +57,7 @@ import { AppState } from 'react-native';
 // Services
 import EncryptionService, { EncryptedDataPackage } from '../security/EncryptionService';
 import supabaseService from './SupabaseService';
+import { BACKUP_EVENT } from './operationalEvents';
 
 // Store imports
 import { useAssessmentStore as assessmentStore } from '@/features/assessment/stores/assessmentStore';
@@ -87,10 +92,14 @@ interface BackupData {
  * @security MAINT-117 - PHI Filtering Implementation
  */
 interface AssessmentStoreBackup {
-  /** User preference for automatic saving - NOT PHI */
+  /** User preference for automatic saving - not wellness data */
   autoSaveEnabled: boolean;
-  /** Timestamp of last sync operation (backup metadata) - NOT PHI */
-  lastSyncAt: number | null;
+  // DEBUG-625 (compliance ruling): `lastSyncAt` was REMOVED from this allowlist.
+  // It was written by assessmentStore.saveProgress on every PHQ-9/GAD-7 write, and
+  // calculateDataHash hashes exactly this object — so it was effectively the sole
+  // entropy deciding whether a backup uploaded and emitted a timestamped
+  // `backup_completed` row. That made screening cadence observable server-side.
+  // Do not add anything here whose value is a function of assessment write activity.
 }
 
 /**
@@ -173,8 +182,11 @@ class CloudBackupService {
         this.setupAutoBackup();
       }
 
-      // Setup store listeners for immediate backup triggers
-      this.setupStoreListeners();
+      // DEBUG-625: the store-listener trigger was DELETED, not repaired.
+      // `shouldTriggerImmediateBackup` tested `lastCompleted` and `crisisDetected`,
+      // neither of which exists on the assessment store, so it could never return true.
+      // Repairing it would have created an upload fired BY assessment completion — a
+      // stronger version of the very coupling this item exists to remove.
 
       // Setup app state listener
       this.setupAppStateListener();
@@ -266,7 +278,7 @@ class CloudBackupService {
       }));
 
       // Track analytics
-      await supabaseService.trackEvent('backup_completed', {
+      await supabaseService.trackEvent(BACKUP_EVENT.COMPLETED, {
         size_mb: Math.round(finalSize / 1024 / 1024 * 100) / 100,
         duration_ms: Date.now() - startTime,
       });
@@ -286,9 +298,14 @@ class CloudBackupService {
       logError(LogCategory.SYSTEM, '[CloudBackupService] Backup failed:', error instanceof Error ? error : new Error(String(error)));
 
       // Track failure
-      await supabaseService.trackEvent('backup_failed', {
+      // DEBUG-625 (compliance ruling): `error_message` was REMOVED, `error_type` kept.
+      // `sanitizeAnalyticsProperties` tests the KEY name and buckets only NUMBERS, so any
+      // string under a non-clinical key reached analytics_events verbatim — an unscanned
+      // free-text channel. Harmless on this path (size checks, encryption, PostgREST), but
+      // the same field on the RESTORE path below is not, so both go. A message here must
+      // be a closed enum mapped from the error, never `error.message`.
+      await supabaseService.trackEvent(BACKUP_EVENT.FAILED, {
         error_type: error instanceof Error ? error.constructor.name : 'Unknown',
-        error_message: error instanceof Error ? error.message.substring(0, 100) : 'Unknown error',
       });
 
       return {
@@ -357,13 +374,17 @@ class CloudBackupService {
           if (typeof backupData.stores.assessment.autoSaveEnabled === 'boolean') {
             safeRestoreData.autoSaveEnabled = backupData.stores.assessment.autoSaveEnabled;
           }
-          if (backupData.stores.assessment.lastSyncAt !== undefined) {
-            safeRestoreData.lastSyncAt = backupData.stores.assessment.lastSyncAt;
-          }
+          // DEBUG-625: `lastSyncAt` is no longer restored — it is no longer written or
+          // backed up. An EXISTING backup still carries it, which is exactly why the
+          // allowlist is a whitelist rather than a blocklist: it is simply not copied.
 
-          // Log if unexpected fields were found (might be legacy backup with PHI)
-          // SECURITY: Use minimal metadata to prevent structure disclosure (CR-2)
-          const EXPECTED_SAFE_FIELDS = 2; // autoSaveEnabled, lastSyncAt
+          // Log if unexpected fields were found (might be a legacy backup carrying
+          // wellness data). SECURITY: minimal metadata, to prevent structure disclosure.
+          // NOTE (DEBUG-625): with a one-field allowlist, restoring ANY backup written
+          // before this change trips the branch below and logs "Legacy backup filtered"
+          // at severity medium. That is expected and harmless — no user backups exist
+          // pre-launch — not a signal that wellness data was present.
+          const EXPECTED_SAFE_FIELDS = 1; // autoSaveEnabled
           const safeFieldCount = Object.keys(safeRestoreData).length;
           const backupFieldCount = Object.keys(backupData.stores.assessment).length;
 
@@ -391,7 +412,7 @@ class CloudBackupService {
       // if (backupData.stores.exercises) { ... }
 
       // Track restoration
-      await supabaseService.trackEvent('backup_restored', {
+      await supabaseService.trackEvent(BACKUP_EVENT.RESTORED, {
         backup_timestamp: backupData.timestamp,
         restored_stores: restoredStores.length,
         errors_count: errors.length,
@@ -414,9 +435,15 @@ class CloudBackupService {
       logError(LogCategory.SYSTEM, '[CloudBackupService] Restore failed:', error instanceof Error ? error : new Error(String(error)));
 
       // Track failure
-      await supabaseService.trackEvent('backup_restore_failed', {
+      // DEBUG-625 (compliance ruling): `error_message` REMOVED. This is the site that
+      // forced it. `JSON.parse(decryptedData)` above runs on DECRYPTED PLAINTEXT, and the
+      // allowlist filter runs AFTER it — so a truncated or corrupt LEGACY blob (the path
+      // this code exists to read; pre-MAINT-117 blobs carried completedAssessments, total
+      // scores, severity and crisis flags) could embed a 100-char snippet of that plaintext
+      // in a parse error and ship it to analytics_events. `error_type` already carries the
+      // diagnostic value. Never reinstate `error.message` here.
+      await supabaseService.trackEvent(BACKUP_EVENT.RESTORE_FAILED, {
         error_type: error instanceof Error ? error.constructor.name : 'Unknown',
-        error_message: error instanceof Error ? error.message.substring(0, 100) : 'Unknown error',
       });
 
       return {
@@ -483,14 +510,15 @@ class CloudBackupService {
   }
 
   /**
-   * Collect data from all stores with PHI filtering
+   * Collect data from all stores with wellness-data filtering
    *
-   * Privacy COMPLIANCE (MAINT-117):
-   * This method implements STRICT ALLOWLIST filtering to ensure no Protected
-   * Health Information (PHI) is included in cloud backups.
+   * Privacy COMPLIANCE (MAINT-117). Being is a consumer wellness app, NOT a HIPAA
+   * entity — the term is "wellness data", never "PHI" (CLAUDE.md terminology rule).
+   * This method implements STRICT ALLOWLIST filtering so no wellness data reaches
+   * a cloud backup.
    *
-   * PERMITTED DATA (Non-PHI only):
-   * - Assessment: autoSaveEnabled, lastSyncAt
+   * PERMITTED DATA (settings only):
+   * - Assessment: autoSaveEnabled
    * - User: preferences (if added)
    * - Exercises: progress (if added, non-clinical)
    *
@@ -520,15 +548,14 @@ class CloudBackupService {
     // Any field not explicitly copied here is EXCLUDED from backup
     const filteredAssessmentData: AssessmentStoreBackup = {
       autoSaveEnabled: fullAssessmentState.autoSaveEnabled,
-      lastSyncAt: fullAssessmentState.lastSyncAt,
     };
 
     // Audit log: Track PHI filtering (metadata only, no PHI structure revealed)
     // SECURITY: Use static expected count to prevent structure disclosure (CR-2)
-    const EXPECTED_SAFE_FIELDS = 2; // autoSaveEnabled, lastSyncAt
+    const EXPECTED_SAFE_FIELDS = 1; // autoSaveEnabled
     const actualSafeFieldCount = Object.keys(filteredAssessmentData).length;
 
-    logSecurity('[CloudBackupService] PHI filtering applied', 'low', {
+    logSecurity('[CloudBackupService] wellness-data filtering applied', 'low', {
       safeFieldsBackedUp: EXPECTED_SAFE_FIELDS,
       filteringActive: true,
       // DO NOT log: excludedFieldCount (reveals PHI structure over time)
@@ -667,6 +694,19 @@ class CloudBackupService {
     } catch (error) {
       logSecurity('[CloudBackupService] Failed to load config, using defaults', 'low');
     }
+
+    // DEBUG-625: rehydrate the change-detection hash across launches.
+    // `lastBackupHash` is in-memory and initialised to null, and this method only ever
+    // read BACKUP_CONFIG — so the `dataHash === this.lastBackupHash` skip in createBackup
+    // missed unconditionally on the first backup of every process, and the payload
+    // uploaded regardless. That was masked while `lastSyncAt` was in the payload (the
+    // hash moved on every screening anyway). With a one-field payload it would have made
+    // `encrypted_backups` track APP LAUNCHES instead — a weaker residual of the same
+    // shape, so it is closed here rather than left for the next reader to rediscover.
+    const lastBackup = await this.getLastBackupInfo();
+    if (lastBackup && typeof lastBackup.hash === 'string') {
+      this.lastBackupHash = lastBackup.hash;
+    }
   }
 
   /**
@@ -696,37 +736,6 @@ class CloudBackupService {
       () => this.createBackup(),
       this.config.autoBackupIntervalMs
     );
-  }
-
-  /**
-   * Setup store listeners for immediate backup triggers
-   */
-  private setupStoreListeners(): void {
-    // Listen to assessment store changes
-    assessmentStore.subscribe((state: any, prevState: any) => {
-      // Trigger backup on significant changes
-      if (this.shouldTriggerImmediateBackup(state, prevState)) {
-        // Debounce rapid changes
-        setTimeout(() => this.createBackup(), 5000);
-      }
-    });
-  }
-
-  /**
-   * Determine if changes warrant immediate backup
-   */
-  private shouldTriggerImmediateBackup(newState: any, prevState: any): boolean {
-    // Backup immediately after assessment completion
-    if (!prevState?.lastCompleted && newState?.lastCompleted) {
-      return true;
-    }
-
-    // Backup after crisis events
-    if (newState?.crisisDetected && !prevState?.crisisDetected) {
-      return true;
-    }
-
-    return false;
   }
 
   /**
