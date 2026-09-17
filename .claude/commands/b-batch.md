@@ -1126,25 +1126,45 @@ harmless: never resolve this from the error text or from `--watch`.
 
 ## Phase 4: Reds, Pending, and Report
 
-### Step 4.1: Surface the sim-attended queue
+### Step 4.1: Drive the sim-attended close session
 For every `queued_red` item: `/b-work` + headless tests have run and the work is
-committed in its worktree, stopped before close. Emit the queue as **one gate session**,
-not as N independent build-then-close instructions:
-```
-🛡️  Simulator-attended close session (safety surface) — 3 items, run in this order:
+committed in its worktree, stopped before close. This step **drives** those closes with the
+human present; it does not print a checklist for them to retype.
 
-   1. FEAT-211  worktree: feat-211
-   2. DEBUG-44  worktree: debug-44
-   3. MAINT-77  worktree: maint-77
+**Pre-warm before you prompt — still unattended.** The first gate build in a cold gate
+worktree is ~21 min against ~90 s warm, so back-merge the first queued item and run
+`npm run e2e:safety:gate` for it BEFORE surfacing anything, while nobody is waiting. Exit 4
+(a peer holds the lease) skips the pre-warm: it is an optimisation, never a gate. If
+`origin/development` moves before they arrive, provenance fails closed and the rebuild is
+warm — the verdict is re-paid, not wrong.
 
-   Per item, from that item's worktree:
-     git merge origin/development     # Step 2.5.4 gates the MERGED tree, not the branch tip
-     npm run precommit                # `git merge` does not fire the pre-commit hook
-     npm run e2e:safety:gate          # builds in the shared gate worktree
-     /b-close <ID>
+**Per item, in tranche order:**
+1. `git merge origin/development`, then `npm run precommit`. `/b-close` Step 2.5.0 does its
+   own back-merge but runs no precommit after it, so a break the incoming change introduces
+   would otherwise first surface at CI.
+2. Follow `/b-close` through Step 2.5.5 — it invokes `e2e:safety:gate` and the scoped flows
+   itself (Step 2.5.4). Do not run either here.
+3. **Show the evidence, then ask — never a bare green.** This approval is the only thing
+   separating RED-ATTENDED from RED-GATED, and `/b-close` has no gate of its own: Step 3.5
+   merges mechanically. A prompt offering a checkmark and a y/N is a rubber stamp, and
+   strictly worse than the checklist it replaces, because typing the commands at least put a
+   human in the tree. Surface both:
+   - the crisis-surface **diff** — `git diff origin/development...HEAD` restricted to the
+     Step 3.2 path set, not a list of filenames;
+   - Step 2.5.5's per-flow verdicts, verbatim.
 
-   First build ≈21 min (cold gate worktree), each one after ≈90 s.
-```
+   Then ask approve / hold / abort. **Hold** leaves the item `queued_red` with its worktree
+   intact, and is the answer for "the flows passed and the diff still looks wrong."
+4. On approve, continue `/b-close` from Step 3.1 with its three prompts pre-answered per
+   Step 3.3, taking Step 5.1's worktree removal.
+5. **Reconcile before the next item.** Write manifest `state: done` and the PR number. An
+   attended close that updates nothing leaves the entry `queued_red` permanently — Step 0.1c
+   reads that as in-flight, so the ID can never be slated again, and the merged worktree
+   keeps its 5–7 GB of DerivedData.
+
+**If the human is not at the machine**, print the queue and stop. The items stay
+`queued_red`, and `/b-batch --resume` re-enters here.
+
 **Append this run's `Attended-only` items to the same session** (stamped at Step 0.1a.5 or
 Phase 1). They are not closes — they are work the loop declined to run headless — but they
 want the same human at the same machine, and surfacing them anywhere else means they get read
@@ -1298,7 +1318,13 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
      clean status now, and `git commit` will silently finalize a foreign staged merge under
      your own invocation — bundling your change into a merge commit and discarding your
      message, so the change vanishes from `git log`.
-   - Manifest `queued_red` → still belongs in the sim queue, never auto-close.
+   - Manifest `queued_red` → still belongs in the sim queue, never auto-close — **but
+     reconcile it against git first.** A close run by hand updates no manifest, so a merged
+     item reads `queued_red` forever and Step 0.1c treats it as in-flight, permanently
+     withholding the ID from every future slate. Check the worktree's HEAD with
+     `git merge-base --is-ancestor … origin/development`, or `git log --grep=<ID> -i` on
+     `origin/development` once the branch is gone. Already merged → mark it `done` and sweep
+     the stale worktree; do not re-queue it.
    - **Re-verify every work item the `approach` string cites, before feeding it to `/b-work`.**
      This phase reconciles manifest *state*; the approach text is reconciled by nothing and is
      the oldest content in the file. Claims like "X does not exist" or "X is unrelated scope"
