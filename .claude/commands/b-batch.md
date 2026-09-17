@@ -917,8 +917,8 @@ git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2
 # run. `/b-close` Step 2.5.1 carries the same exclusion — keep the two in step; this
 # re-check exists to TIER the item, and it is not the authority on whether the gate
 # runs. `/b-close` is.
-# `check-safety-paths.sh` reconciles CLAUDE.md against `/b-close`'s grep ONLY, so this
-# copy drifts undetected — re-diff it against Step 2.5.1 whenever either list moves.
+# `check-safety-paths.sh` reconciles this copy against `/b-close`'s too, literally then
+# semantically — it is not hand-maintained. Run it after moving either list.
 # Two entries in the path set are NOT feature paths and are easy to omit on sight,
 # but both reach the gate's own subject matter:
 #   - `.maestro/` — a diff that adds or edits a safety flow IS a safety-surface
