@@ -33,19 +33,21 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      // New feature-based path aliases
+      // Feature-based aliases. Subsumed by the `@/*` catch-all above — they are
+      // kept because they read better at call sites, not because removal would
+      // change resolution.
+      //
+      // This block is Metro's LIVE alias table, not just tsc's: Expo CLI passes
+      // these `paths` to the bundler via its `tsconfigPaths` experiment, which
+      // defaults on and is not disabled in app.json. metro.config.js does NOT
+      // supply aliases — see the note there.
+      //
+      // MAINT-623 removed nine entries (@/analytics, @/components, @/screens,
+      // @/services, @/store, @/types, @/utils, @/api, @/validation). Every
+      // target directory had been deleted in the 688ffd1 reorganization and
+      // none had an importer.
       "@/core/*": ["src/core/*"],
-      "@/features/*": ["src/features/*"],
-      "@/analytics/*": ["src/analytics/*"],
-      // Legacy path aliases (kept during migration, will be removed in Phase 10)
-      "@/components/*": ["src/components/*"],
-      "@/screens/*": ["src/screens/*"],
-      "@/services/*": ["src/services/*"],
-      "@/store/*": ["src/store/*"],
-      "@/types/*": ["src/types/*"],
-      "@/utils/*": ["src/utils/*"],
-      "@/api/*": ["src/api/*"],
-      "@/validation/*": ["src/validation/*"]
+      "@/features/*": ["src/features/*"]
     }
   },
   "include": [

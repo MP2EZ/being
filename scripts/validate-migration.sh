@@ -57,10 +57,10 @@ if [ -f "tsconfig.json" ]; then
     pass "tsconfig.json exists"
 
     # Check for new path aliases
+    # The two live aliases. MAINT-623 removed the rest (and @/compliance/* was
+    # never present), so asserting on them failed against a healthy tree.
     if grep -q "@/core/\*" tsconfig.json && \
-       grep -q "@/features/\*" tsconfig.json && \
-       grep -q "@/compliance/\*" tsconfig.json && \
-       grep -q "@/analytics/\*" tsconfig.json; then
+       grep -q "@/features/\*" tsconfig.json; then
         pass "New path aliases configured"
     else
         fail "Missing new path aliases in tsconfig.json"
