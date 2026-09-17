@@ -81,6 +81,7 @@ import type { ConsentDelta, ConsentPreferences } from '@/core/stores/consentStor
 import ConsentToggleCard from '../components/ConsentToggleCard';
 import { CONSENT_DETAILS } from '../constants/consentDetails';
 import type { ReConsentSubmission } from '../services/submitReConsent';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 
 const TERMS_URL = 'https://being.fyi/terms';
 const PRIVACY_URL = 'https://being.fyi/privacy';
@@ -211,20 +212,37 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
       'Any box left unchecked below will be turned off for your account when you submit.';
     if (!currentPreferences) return effect;
 
+    // DEBUG-625 (AC3): when `cloud_sync` is dark the Cloud Backup card does not render,
+    // so there is no box for it. This screen mounts every optional toggle OFF and submits
+    // what is set, so an existing grant IS revoked on submit. That direction is
+    // privacy-safe and is left as-is — but it must not be SILENT, and the notice must not
+    // name a preference the reader is given no control over. So Cloud Backup is dropped
+    // from the "currently on" list (nothing below to uncheck) and called out explicitly.
+    const cloudSyncCardShown = isFeatureEnabled('cloud_sync');
+    const cloudSyncWillBeTurnedOff =
+      !cloudSyncCardShown && currentPreferences.cloudSyncEnabled === true;
+
     const on = [
       currentPreferences.analyticsEnabled ? CONSENT_DETAILS.analytics.title : null,
       currentPreferences.crashReportsEnabled ? CONSENT_DETAILS.crashReports.title : null,
-      currentPreferences.cloudSyncEnabled ? CONSENT_DETAILS.cloudSync.title : null,
+      cloudSyncCardShown && currentPreferences.cloudSyncEnabled
+        ? CONSENT_DETAILS.cloudSync.title
+        : null,
       currentPreferences.researchEnabled ? CONSENT_DETAILS.research.title : null,
     ].filter((title): title is string => title !== null);
+
+    const cloudSyncNotice = cloudSyncWillBeTurnedOff
+      ? ` ${CONSENT_DETAILS.cloudSync.title} is no longer offered and will be turned off when you submit.`
+      : '';
 
     if (on.length === 0) {
       return (
         'You don\'t currently have any of these optional preferences on. ' +
-        'Checking a box below will turn it on when you submit.'
+        'Checking a box below will turn it on when you submit.' +
+        cloudSyncNotice
       );
     }
-    return `You currently have ${joinWithAnd(on)} on. ${effect}`;
+    return `You currently have ${joinWithAnd(on)} on. ${effect}${cloudSyncNotice}`;
   }, [currentPreferences]);
 
   const handleSubmit = useCallback(() => {
@@ -505,14 +523,17 @@ const ReConsentScreen: React.FC<ReConsentScreenProps> = ({
             onValueChange={setCrashReportsEnabled}
             testID="reconsent-crash-reports"
           />
-          <ConsentToggleCard
-            title={CONSENT_DETAILS.cloudSync.title}
-            description={CONSENT_DETAILS.cloudSync.description}
-            details={CONSENT_DETAILS.cloudSync.details}
-            value={cloudSyncEnabled}
-            onValueChange={setCloudSyncEnabled}
-            testID="reconsent-cloud-sync"
-          />
+          {/* DEBUG-625 (AC3) — see OnboardingScreen for the full ruling. Build-time flag. */}
+          {isFeatureEnabled('cloud_sync') && (
+            <ConsentToggleCard
+              title={CONSENT_DETAILS.cloudSync.title}
+              description={CONSENT_DETAILS.cloudSync.description}
+              details={CONSENT_DETAILS.cloudSync.details}
+              value={cloudSyncEnabled}
+              onValueChange={setCloudSyncEnabled}
+              testID="reconsent-cloud-sync"
+            />
+          )}
           <ConsentToggleCard
             title={CONSENT_DETAILS.research.title}
             description={CONSENT_DETAILS.research.description}
