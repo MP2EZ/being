@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import type { AssessmentProgress as AssessmentProgressType } from '../types';
+import { WELLNESS_LABELS } from '../types/wellnessLabels';
 
 interface AssessmentProgressProps {
   progress: AssessmentProgressType;
@@ -76,9 +77,9 @@ const AssessmentProgress: React.FC<AssessmentProgressProps> = ({
   const assessmentDisplayName = useMemo(() => {
     switch (progress.type) {
       case 'phq9':
-        return 'Depression Assessment (PHQ-9)';
+        return WELLNESS_LABELS.phq9;
       case 'gad7':
-        return 'Anxiety Assessment (GAD-7)';
+        return WELLNESS_LABELS.gad7;
       default:
         return 'Assessment';
     }

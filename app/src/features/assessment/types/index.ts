@@ -175,7 +175,7 @@ export const ASSESSMENT_RESPONSE_LABELS = {
  * DUAL-THRESHOLD SYSTEM:
  * - PHQ-9 ≥15: Moderately severe depression (support recommended)
  * - PHQ-9 ≥20: Severe depression (immediate intervention)
- * - GAD-7 ≥15: Severe anxiety (immediate intervention)
+ * - GAD-7 ≥15: Severe anxiety (support resources offered; results banner tier)
  *
  * ⚠️ DIVERGENCE WARNING — `PHQ9_CRISIS_SCORE` means DIFFERENT THINGS in this
  * module vs `CRISIS_SAFETY_THRESHOLDS` in `@/features/crisis/types/safety`:

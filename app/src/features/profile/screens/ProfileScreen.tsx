@@ -28,6 +28,7 @@ import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-
 import ThresholdEducationModal from '@/core/components/ThresholdEducationModal';
 import { BodyHeader } from '@/core/components/BodyHeader';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
+import { WELLNESS_LABELS } from '@/features/assessment/types/wellnessLabels';
 import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
 import { useAnalytics } from '@/core/analytics';
 
@@ -238,14 +239,14 @@ const ProfileScreen: React.FC = () => {
             onPress={() => handleStartAssessment('phq9')}
             testID="take-phq9-button"
             accessibilityRole="button"
-            accessibilityLabel={`Depression Assessment PHQ-9, 3 to 5 minutes, ${
+            accessibilityLabel={`${WELLNESS_LABELS.phq9}, 3 to 5 minutes, ${
               phq9Metadata.status === 'never' ? 'recommended' :
               phq9Metadata.status === 'recent' ? 'completed' :
               phq9Metadata.status === 'due' ? 'due soon' : 'recommended'
             }`}
-            accessibilityHint="Start the depression assessment"
+            accessibilityHint="Start the mood wellness screening"
           >
-            <Text style={styles.cardTitle}>Depression Assessment (PHQ-9)</Text>
+            <Text style={styles.cardTitle}>{WELLNESS_LABELS.phq9}</Text>
             {getStatusIndicator(phq9Metadata)}
             <Text style={styles.cardDescription}>
               Observe your mood patterns over the past two weeks through 9 questions.
@@ -261,14 +262,14 @@ const ProfileScreen: React.FC = () => {
             onPress={() => handleStartAssessment('gad7')}
             testID="take-gad7-button"
             accessibilityRole="button"
-            accessibilityLabel={`Anxiety Assessment GAD-7, 2 to 4 minutes, ${
+            accessibilityLabel={`${WELLNESS_LABELS.gad7}, 2 to 4 minutes, ${
               gad7Metadata.status === 'never' ? 'recommended' :
               gad7Metadata.status === 'recent' ? 'completed' :
               gad7Metadata.status === 'due' ? 'due soon' : 'recommended'
             }`}
-            accessibilityHint="Start the anxiety assessment"
+            accessibilityHint="Start the stress wellness screening"
           >
-            <Text style={styles.cardTitle}>Anxiety Assessment (GAD-7)</Text>
+            <Text style={styles.cardTitle}>{WELLNESS_LABELS.gad7}</Text>
             {getStatusIndicator(gad7Metadata)}
             <Text style={styles.cardDescription}>
               Observe your relationship with worry and anxiety through 7 questions.
