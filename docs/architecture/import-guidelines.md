@@ -12,8 +12,6 @@ The project uses TypeScript path aliases for clean, maintainable imports.
 // Configured in tsconfig.json
 "@/core/*"        → "src/core/*"
 "@/features/*"    → "src/features/*"
-"@/analytics/*"   → "src/analytics/*"
-"@/types/*"       → "src/types/*"
 ```
 
 ### Usage Examples

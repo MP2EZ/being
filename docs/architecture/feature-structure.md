@@ -210,9 +210,11 @@ pattern — see [Import Guidelines](./import-guidelines.md).
 touch src/features/[feature-name]/components/index.ts
 ```
 
-### Step 3: Update Path Aliases (tsconfig.json)
+### Step 3: Path Aliases (no action)
 
-Usually not needed - `@/features/*` covers all features.
+`@/features/*` covers every feature and `@/core/*` covers infrastructure, so a new
+feature needs no alias. Do not add one: MAINT-623 removed nine aliases whose target
+directories no longer existed, and `@/*` already resolves anything either would.
 
 ### Step 4: Document the Feature
 

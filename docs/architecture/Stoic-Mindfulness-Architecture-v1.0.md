@@ -15,7 +15,8 @@
 > plan screen were removed by MAINT-123 (`4d1a0178`) and MAINT-125 (`d974086f`), and nothing
 > has replaced them. This body records what was specified, not what the app does.
 >
-> Current sources: `app/src/README.md` and `docs/architecture/feature-structure.md` for code;
+> Current sources: `docs/architecture/codebase-organization.md` for the directory tree,
+> `app/src/README.md` and `docs/architecture/feature-structure.md` for placement and import rules;
 > `docs/product/stoic-mindfulness/INDEX.md` for the framework. The body below is unchanged
 > except for DEBUG-352's translator-provenance correction.
 
