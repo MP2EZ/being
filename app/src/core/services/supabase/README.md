@@ -86,13 +86,13 @@ import { yourStore } from '../path/to/yourStore';
 
 ```typescript
 private async collectStoreData(): Promise<BackupData> {
-  const { autoSaveEnabled, lastSyncAt } = assessmentStore.getState();
+  const { autoSaveEnabled } = assessmentStore.getState();
   const { someSetting } = yourStore.getState();   // settings only, never wellness data
   return {
     version: 1,
     timestamp: Date.now(),
     stores: {
-      assessment: { autoSaveEnabled, lastSyncAt },
+      assessment: { autoSaveEnabled },   // DEBUG-625: never add a field whose value tracks assessment activity
       yourStore: { someSetting },
     },
     metadata: {

@@ -34,6 +34,17 @@ import { StyleSheet } from 'react-native';
 // render time), so the babel-jest-hoist whitelist + TDZ both stay happy.
 
 const mockNavigate = jest.fn();
+// DEBUG-625: these suites pin the consent-DEFAULT contract (nothing pre-checked, every
+// control labelled) — not which preferences a given build offers. AC3 gates the Cloud
+// Backup card on the build-time `cloud_sync` flag, which is dark by default, so without
+// this the suites would silently be asserting over three toggles while reading as four.
+// Forced ON here so they keep testing the full offered set; the GATING itself is pinned
+// separately by cloudSyncCardGating.privacy.test.tsx.
+jest.mock('@/core/services/featureFlags', () => ({
+  ...jest.requireActual('@/core/services/featureFlags'),
+  isFeatureEnabled: (name: string) => (name === 'cloud_sync' ? true : false),
+}));
+
 jest.mock('@react-navigation/native', () => ({
   // The screen reads navigation via the useNavigation() hook, not the
   // `navigation` prop — passing a prop (as the stale suite did) is ignored.

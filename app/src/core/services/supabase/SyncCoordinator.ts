@@ -28,6 +28,7 @@
 
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
+import { SYNC_EVENT } from './operationalEvents';
 import { generateTimestampedId } from '@/core/utils/id';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
@@ -1316,7 +1317,7 @@ class SyncCoordinator {
 
       // Update SupabaseService with sync status for analytics
       if (this.supabaseService && typeof this.supabaseService.trackEvent === 'function') {
-        await this.supabaseService.trackEvent('sync_metadata_updated', {
+        await this.supabaseService.trackEvent(SYNC_EVENT.METADATA_UPDATED, {
           operation_count: metadata.operationMetrics.totalOperations,
           success_rate: metadata.operationMetrics.successRate,
           queue_size: metadata.queueInfo.pendingOperations,

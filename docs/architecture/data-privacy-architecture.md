@@ -20,7 +20,7 @@ What does leave the device is narrow and enumerated in `docs/legal/dpia-sensitiv
 2. **No cloud sync of wellness data**
    - No backend storage of screening responses, scores, mood entries or journal content
    - No "sync to cloud" for assessments or mood data
-   - The optional cloud backup carries app settings only (an autosave preference and a last-sync timestamp), never wellness data
+   - The optional cloud backup carries app settings only (an autosave preference), never wellness data. DEBUG-625 removed a last-sync timestamp that tracked screening activity through the change-detection hash
 
 3. **Encryption at rest**
    - Sensitive data encrypted with AES-256-GCM on device

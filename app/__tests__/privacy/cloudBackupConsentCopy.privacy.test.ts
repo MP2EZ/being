@@ -61,6 +61,10 @@ import EncryptionService from '@/core/services/security/EncryptionService';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { CONSENT_DETAILS } from '@/features/consent/constants/consentDetails';
+import {
+  CLOUD_SYNC_OPERATIONAL_EVENTS,
+  OPERATIONAL_TELEMETRY_DISCLOSURE,
+} from '@/core/services/supabase/operationalEvents';
 
 const REPO_ROOT = path.resolve(__dirname, '../../..');
 
@@ -75,8 +79,22 @@ const PAYLOAD_DISCLOSURE: Record<string, string | typeof ENVELOPE> = {
   timestamp: ENVELOPE,
   'metadata.platform': ENVELOPE,
   'stores.assessment.autoSaveEnabled': 'Your autosave setting',
-  'stores.assessment.lastSyncAt': 'A last-sync timestamp',
+  // DEBUG-625 removed `stores.assessment.lastSyncAt`. The mock in
+  // captureUploadedPlaintext still SETS lastSyncAt deliberately, so test (a) proves the
+  // allowlist excludes it rather than merely that the store stopped writing it.
 };
+
+/**
+ * DEBUG-625: the SECOND disclosed source. The card covers the backup payload above AND
+ * the operational telemetry sent under this same `cloud_sync` consent. DEBUG-614 modelled
+ * only the payload, which is why the card could describe less than the consent covered.
+ *
+ * Derived from the shared const the emitters themselves use, NOT re-listed here — so a
+ * fifth ops event reds this suite until the card discloses it, instead of drifting.
+ */
+const OPS_EVENT_DISCLOSURE: Record<string, string> = Object.fromEntries(
+  CLOUD_SYNC_OPERATIONAL_EVENTS.map((e) => [e, OPERATIONAL_TELEMETRY_DISCLOSURE])
+);
 
 /** Wellness data that must be named as NOT backed up. */
 const MUST_DISCLOSE_AS_LOCAL: ReadonlyArray<[string, RegExp]> = [
@@ -157,13 +175,42 @@ describe('DEBUG-614 (a): the uploaded payload is exactly the disclosed field set
   });
 });
 
-describe('DEBUG-614 (b): whatWeCollect is exactly the disclosed labels', () => {
-  it('matches the non-envelope labels, no more and no fewer', () => {
-    const labels = Object.values(PAYLOAD_DISCLOSURE).filter(
+describe('DEBUG-614 (b) + DEBUG-625: whatWeCollect is exactly the UNION of both sources', () => {
+  it('matches the payload labels AND the ops-telemetry label, no more and no fewer', () => {
+    const payloadLabels = Object.values(PAYLOAD_DISCLOSURE).filter(
       (v): v is string => typeof v === 'string'
     );
-    expect(new Set(card.details.whatWeCollect)).toEqual(new Set(labels));
-    expect(card.details.whatWeCollect).toHaveLength(labels.length);
+    const opsLabels = Object.values(OPS_EVENT_DISCLOSURE);
+    const expected = new Set([...payloadLabels, ...opsLabels]);
+
+    expect(new Set(card.details.whatWeCollect)).toEqual(expected);
+    expect(card.details.whatWeCollect).toHaveLength(expected.size);
+  });
+
+  it('every operational event sent under cloud_sync consent is covered by a bullet', () => {
+    for (const event of CLOUD_SYNC_OPERATIONAL_EVENTS) {
+      expect(OPS_EVENT_DISCLOSURE[event]).toBeDefined();
+      expect(card.details.whatWeCollect).toContain(OPS_EVENT_DISCLOSURE[event]);
+    }
+  });
+
+  /**
+   * Matcher integrity (DEBUG-390): the two assertions above are only meaningful if the
+   * event list is non-empty and the disclosure string is real. An empty const would make
+   * both vacuously true and look exactly like full coverage.
+   */
+  it('the ops-event list and its disclosure are non-empty', () => {
+    expect(CLOUD_SYNC_OPERATIONAL_EVENTS.length).toBeGreaterThanOrEqual(6);
+    expect(OPERATIONAL_TELEMETRY_DISCLOSURE.trim().length).toBeGreaterThan(40);
+  });
+
+  /**
+   * The ops disclosure must state the SINK and the identifier binding, not just that
+   * something is recorded — that is what the compliance ruling actually required.
+   */
+  it('the ops bullet names the server-side destination and the identifier binding', () => {
+    expect(OPERATIONAL_TELEMETRY_DISCLOSURE).toMatch(/server/i);
+    expect(OPERATIONAL_TELEMETRY_DISCLOSURE).toMatch(/anonymous account identifier/i);
   });
 });
 
