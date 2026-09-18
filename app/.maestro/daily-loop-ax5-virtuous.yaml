@@ -189,13 +189,28 @@ name: "DailyLoop AX5 VirtuousResponse (DEBUG-629): quick depth reaches beat 3 at
 # a deterministic tap point (no settling distribution to sample) and the swallow cleared.
 # At the clamp the CTA sits at [134,303], tap centre 218.5: 125pt clear of the bar.
 #
-# The swipes must START AND END inside the scroll viewport [138,343] — a swipe starting at
-# beat 1's `50%, 85%` (y=567) lands on the pinned bar and drives nothing. 50% = y 333.5 and
-# 22% = y 146.7 are both inside. Overshoot at the clamp is free, so three cover the 117-159pt
-# of remaining scroll with margin.
-- swipe:
-    start: "50%, 50%"
-    end: "50%, 22%"
+# TWO STAGES, because neither alone works and MEASURED why.
+#
+# Stage 1 REACHES it. Swipes alone do not: a swipe must start AND end inside the scroll
+# viewport [138,343] (one starting at beat 1's `50%, 85%` = y 567 lands on the pinned bar and
+# drives nothing), so a single swipe can travel at most ~200pt — and at AX5 this beat has far
+# more than that below the fold. Measured after three such swipes: `daily-loop-input-notMine`
+# still at [22,616][353,853] and `continue-button` ABSENT from the hierarchy entirely, because
+# XCUITest drops elements outside the SCREEN. `scrollUntilVisible` repeats until found, which
+# is the property swipes lack.
+#
+# Stage 2 CLAMPS it, and is what makes the tap point deterministic. Stage 1 stops the instant
+# the element is 100% visible ON SCREEN, which is not the same as inside the ScrollView's
+# clip — that is the DEBUG-465 condition and exactly how the tap reached the crisis line. The
+# extra swipes drive to the content boundary, where the CTA sits at [134,303] and the tap
+# centre is 218.5: 125pt clear of the bar, with no settling distribution to sample.
+#
+# `centerElement` is NOT the remedy for either stage — see the ruling above.
+- scrollUntilVisible:
+    element:
+      id: "continue-button"
+    direction: DOWN
+    timeout: 30000
 - swipe:
     start: "50%, 50%"
     end: "50%, 22%"
