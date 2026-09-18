@@ -74,6 +74,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/learn/practices/PracticeTimerScreen.tsx` | `crisis` |
 | `app/src/features/learn/practices/ReflectionTimerScreen.tsx` | `crisis` |
 | `app/src/features/learn/practices/BodyScanScreen.tsx` | `crisis` |
+| `app/src/features/learn/practices/GuidedBodyScanScreen.tsx` | `crisis` |
 | `app/src/features/practices/screens/PracticeLibraryScreen.tsx` | `crisis` + `philosopher` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
@@ -296,18 +297,23 @@ jest at the `expo-haptics` and `announceForAccessibility` boundaries.
 
 `features/learn/practices/PracticeTimerScreen.tsx`,
 `features/practices/screens/PracticeLibraryScreen.tsx`,
-`features/learn/practices/ReflectionTimerScreen.tsx` and
-`features/learn/practices/BodyScanScreen.tsx` are the eighteenth instance (added
-DEBUG-618/620/622, extended DEBUG-628): the DEBUG-547 shape on four screens. Each clears the
+`features/learn/practices/ReflectionTimerScreen.tsx`,
+`features/learn/practices/BodyScanScreen.tsx` and
+`features/learn/practices/GuidedBodyScanScreen.tsx` are the eighteenth instance (added
+DEBUG-618/620/622, extended DEBUG-628/631): the DEBUG-547 shape on five screens. Each clears the
 FAB with a `CRISIS_BUTTON_EXCLUSION_RECT` inset (three toggle right-margins, the library's
-trailing spacer), because at `zIndex: 9999` an overlap is a wrong-destination tap into
+trailing spacer, GuidedBodyScan's own `nextButton` margin), because at `zIndex: 9999` an
+overlap is a wrong-destination tap into
 `CrisisResources`. FILE-level; the rest of `practices/` stays exempt.
 `crisis-button-reachability` renders none of them, so its arm proves the FAB mount only; the
 falsifier is the jest geometry pin. **The overlap is derivable, so do not buy a device matrix
 for it**: the control is a stretch child of a `paddingHorizontal: spacing[24]` column and the
 rect's `left` is 72 — both offsets from screen-right, so W cancels and the 48pt overlap holds
-at every viewport and text size. On-device bounds are DEBUG-626's. `GuidedBodyScanScreen.tsx`
-is the same defect on a non-`PracticeToggleButton` host, **not yet gated** — carry DEBUG-631.
+at every viewport and text size. On-device bounds are DEBUG-626's. **Do not copy the
+"last-key-wins" rationale onto a new host** (corrected DEBUG-631): it governs an ARRAY merge
+via `PracticeToggleButton`, not two distinct margin keys in one object, which Yoga resolves by
+edge specificity regardless of order. `SortingPracticeScreen.tsx` is the same class on a
+three-control, transform-scaled host, **not yet gated** — carry DEBUG-634.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
