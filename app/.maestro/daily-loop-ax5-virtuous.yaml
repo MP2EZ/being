@@ -31,17 +31,29 @@ name: "DailyLoop AX5 VirtuousResponse (DEBUG-629): quick depth reaches beat 3 at
 # `dailyloop/__tests__/headerLayout.test.tsx`. What this flow pins is REACHABILITY at AX5,
 # and the crisis invariant below.
 #
-# THE RETRY ON EACH `centerElement` TAP IS NOT BELT-AND-BRACES. A `centerElement` scroll
-# leaves the list coasting, and RN's ScrollView takes a touch that starts mid-deceleration
-# for itself (`_isAnimating()` in `_handleStartShouldSetResponderCapture`) — the tap only
-# STOPS the list. `daily-loop-ax5-entry` already carries this shape for
-# `checkin-card-daily-loop` (DEBUG-546, measured 5 runs in 25). MEASURED HERE on the
-# beat-2 -> beat-3 advance: 1 of 2 AX5 runs, `tapOn: continue-button` COMPLETED and
-# `daily-loop-VirtuousResponse-screen` never appeared within 20s. That is almost certainly
-# also the MAINT-564 non-advance which MAINT-583 recorded as "unexplained, possibly an
-# artefact of ad-hoc flow authoring" — same trigger, same signature. A longer timeout does
-# NOT fix it: the tap was consumed, so nothing further is coming. A user taps again, so
-# this does — but only once the first tap has provably not navigated.
+# THE RETRIES ARE NOT BELT-AND-BRACES, AND THERE IS ONLY ONE MECHANISM HERE.
+#
+# Every instance below is the same thing: a scroll ends in a swipe, the tap lands while the
+# list is still decelerating, and RN's ScrollView claims a touch that starts mid-deceleration
+# for itself (`_isAnimating()` in `_handleStartShouldSetResponderCapture`) — so the tap only
+# STOPS the list. Whatever caused the fling is incidental; `centerElement` is merely the
+# commonest way to leave one running.
+#
+# Four observed sites, one cause:
+#   - `checkin-card-daily-loop`, DEBUG-546, measured 5 runs in 25.
+#   - The breath skip, DEBUG-632 — there the swallowed tap is legible because
+#     `breathCompleted` then flips on the 30s timer instead, so `continue-button` appears at
+#     exactly mount + BREATH_DURATION_MS.
+#   - The beat-2 -> beat-3 advance, MEASURED here: 1 of 2 AX5 runs, `tapOn: continue-button`
+#     COMPLETED and `daily-loop-VirtuousResponse-screen` never appeared within 20s. Same
+#     shape, minus the timer that made DEBUG-632's legible.
+#   - Probably the MAINT-564 non-advance that MAINT-583 recorded as "unexplained, possibly an
+#     artefact of ad-hoc flow authoring". HYPOTHESIS: that instance was never re-measured,
+#     and two samples is not a rate.
+#
+# A longer timeout fixes NONE of them: the tap was consumed, so nothing further is coming.
+# A user taps again, so this does — once, and only once the first tap has provably not
+# navigated, confirmed from app state rather than from Maestro's tap verdict.
 - launchApp:
     clearState: true
     clearKeychain: true
