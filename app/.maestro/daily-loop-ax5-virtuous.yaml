@@ -79,21 +79,52 @@ name: "DailyLoop AX5 VirtuousResponse (DEBUG-629): quick depth reaches beat 3 at
 # nothing is pinned below the ScrollView (the support line is on SphereSovereignty), so
 # DEBUG-465's reason for centring does not apply. Centring the Continue here is what red-lined
 # the MAINT-583 harness on this tree: found at [20,457][283,625], 100% visible, every try.
+# The breath. UNCONDITIONAL, and keyed on the SkipLink rather than on
+# `daily-loop-breathing-circle` (DEBUG-632's diagnosis, adopted here rather than re-derived):
+# that testID sits on the component ROOT — a ~300pt node wrapping the circle, the phase cue
+# and the grounding text — so at AX5 it straddles the fold and a `visible:`/`notVisible:`
+# predicate on it is settled by the visibility threshold and varies with how many swipes the
+# run happened to need. Nondeterministically vacuous, which is worse than a stably vacuous
+# guard. Beat 1 of quick always mounts the breath (`showBreath={stepKey === 'AwarePresence'}`
+# with `breathCompleted` false at mount), so there is nothing to guard against here anyway.
+- swipe:
+    start: "50%, 85%"
+    end: "50%, 15%"
+- scrollUntilVisible:
+    element:
+      id: "daily-loop-skip-breath"
+    direction: DOWN
+    timeout: 25000
+- tapOn:
+    id: "daily-loop-skip-breath"
+# CONFIRM THE TAP TOOK — and do NOT read Maestro's `COMPLETED` as that confirmation.
+# Maestro reports a tap COMPLETED whenever the view hierarchy changed at all
+# (`screenshotBasedTap: Something have changed in the UI judging by view hierarchy`), and a
+# breathing circle plus a ticking countdown change it every frame, so a swallowed tap is
+# indistinguishable from one that landed (DEBUG-632). The SkipLink unmounting is app state
+# and cannot be faked by an animation.
+#
+# Why the tap gets swallowed: it is issued ~172ms after the swipe above returns, inside the
+# ScrollView's deceleration, and RN claims a touch that starts mid-deceleration for itself.
+# When it is swallowed, `breathCompleted` flips only on the timer — so `continue-button`
+# appears at exactly mount + BREATH_DURATION_MS (30s), and the scroll below spends its whole
+# budget on an element that does not exist yet.
+- extendedWaitUntil:
+    notVisible:
+      id: "daily-loop-skip-breath"
+    timeout: 3000
+    optional: true
 - runFlow:
     when:
       visible:
-        id: "daily-loop-breathing-circle"
+        id: "daily-loop-skip-breath"
     commands:
-      - swipe:
-          start: "50%, 85%"
-          end: "50%, 15%"
-      - scrollUntilVisible:
-          element:
-            id: "daily-loop-skip-breath"
-          direction: DOWN
-          timeout: 25000
       - tapOn:
           id: "daily-loop-skip-breath"
+- extendedWaitUntil:
+    notVisible:
+      id: "daily-loop-skip-breath"
+    timeout: 5000
 - scrollUntilVisible:
     element:
       id: "continue-button"

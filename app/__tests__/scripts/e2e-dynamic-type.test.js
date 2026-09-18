@@ -253,6 +253,18 @@ describe('DEBUG-629 — the AX5 VirtuousResponse flow joins the class, not the d
     );
   });
 
+  // DEBUG-632's general result, adopted rather than re-derived: Maestro reports a tap
+  // COMPLETED whenever the view hierarchy changed, and an animating screen changes it every
+  // frame — so on the breath beat a swallowed tap is indistinguishable from one that landed.
+  // The confirmation must therefore key on app state (the SkipLink unmounting), and the
+  // guard must NOT key on `daily-loop-breathing-circle`, whose testID is on a ~300pt
+  // component root that straddles the fold at AX5.
+  test('confirms the breath skip from app state, not from a tap verdict', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    expect(src).toMatch(/notVisible:\s*\n\s*id:\s*"daily-loop-skip-breath"/);
+    expect(src).not.toMatch(/(?:not)?[Vv]isible:\s*\n\s*id:\s*"daily-loop-breathing-circle"/);
+  });
+
   // The crisis invariant the crisis ruling requires this flow to carry: the support line is
   // asserted on the beat showsSupportLine() selects with NO scroll in front of it, and its
   // absence on beat 3 is asserted only AFTER a positive assertion, so the negative can

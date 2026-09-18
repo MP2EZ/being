@@ -92,11 +92,16 @@ const MIN_TARGET_SPACING = spacing[8];
 
 /**
  * `Daily Practice`'s measured advance at the default size: [130,42][245,63], so 115pt for
- * an 18pt font. The one estimate in this module, and the reason it is pinned as an
- * inequality in the test rather than trusted: at the 2.0 cap the title needs 230pt against
- * the 239pt this module reserves on the narrowest supported viewport (375pt — iOS 16.4
- * excludes the 320pt SE 1), a 9pt margin. A token move that erases it goes red there, and
- * the remedy is a two-line title budget, NOT a wider reservation: the ✕ owns that space.
+ * an 18pt font. Scaled linearly it predicts 230pt at the 2.0 cap, against the 239pt this
+ * module reserves on the narrowest supported viewport (375pt — iOS 16.4 excludes the 320pt
+ * SE 1).
+ *
+ * That prediction has since been MEASURED and it is conservative: post-fix at AX5 the title
+ * cell renders [76,42][298,126] — 222pt wide, one line, node height 43 — so the real margin
+ * is 17pt, not 9. The 115 is kept as the pinned input because it errs in the safe direction
+ * (it over-states the need), and the inequality is kept in the test because a token move
+ * that erases the margin must go red. The remedy if it ever does is a two-line title
+ * budget, NOT a wider reservation: the ✕ owns that space.
  */
 export const DAILY_LOOP_TITLE_ADVANCE_AT_1X = 115;
 
@@ -133,6 +138,12 @@ export function dailyLoopHeaderBlockHeight(fontScale: number): number {
  *
  * Deliberately not `onLayout`-driven — that adds a reflow the Maestro flows' scroll budgets
  * would race.
+ *
+ * MEASURED post-fix on the gate viewport: 72 at the default size (band [0,30][375,102],
+ * unchanged) and 108 from AX2 up (band [0,30][375,138]). AX2 and AX5 render every header
+ * node at byte-identical bounds, which is the evidence that the cap is actually applied —
+ * without it, 2.143 and 3.571 could not agree. The 108 leaves a 205pt scroll viewport
+ * ([0,138][375,343]) with the crisis support bar unmoved at [20,344][355,667].
  */
 export function dailyLoopHeaderStyleHeight(fontScale: number): number {
   if (!Number.isFinite(fontScale) || (fontScale as number) <= 0) {
