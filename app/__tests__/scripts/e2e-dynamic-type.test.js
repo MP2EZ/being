@@ -240,6 +240,49 @@ describe('DEBUG-629 — the AX5 VirtuousResponse flow joins the class, not the d
     expect(entry.includes('daily-loop-VirtuousResponse')).toBe(false);
   });
 
+  // The beat-2 advance must NOT use `centerElement`, and must carry the attribution guard.
+  // Crisis ruling (DEBUG-629): centring completed and the tap still landed 32pt inside the
+  // pinned crisis line, because a 169pt control cannot be centred in a 205pt viewport and
+  // the bar's top is band-independent at 344 while screen centre is 333.5. The remedy is a
+  // scroll terminating at the CONTENT BOUNDARY — deterministic tap point, and it clears the
+  // swallowed-touch class too (gad7-severe's predicate). Re-adding `centerElement` here
+  // silently restores a ~50% mis-tap into CrisisResources, so it is pinned.
+  test('advances beat 2 by swiping to the content boundary, never by centring', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    // Anchor BOTH ends on structural assertions. A slice that runs to EOF also swallows the
+    // virtue-chip scroll, whose `centerElement` is correct and required — so an unanchored
+    // slice reds against a healthy flow and tells you to remove the wrong thing.
+    const from = src.indexOf('assertVisible:\n    id: "daily-loop-support-line"');
+    const to = src.indexOf('assertVisible:\n    id: "daily-loop-VirtuousResponse-screen"');
+    expect(from).toBeGreaterThan(-1);
+    expect(to).toBeGreaterThan(from);
+    const beat2 = src.slice(from, to);
+    expect(beat2).not.toMatch(/^\s*centerElement:\s*true/m);
+    expect(beat2).toMatch(/swipe:/);
+    // The guard that makes a mis-tap name itself instead of reading as a missing element.
+    expect(beat2.indexOf('assertNotVisible:\n    id: "crisis-resources-screen"')).toBeGreaterThan(
+      beat2.indexOf('tapOn:\n    id: "continue-button"'),
+    );
+  });
+
+  // A swipe must start AND end inside the scroll viewport [138,343] on this 667pt device.
+  // Beat 1's `50%, 85%` (y=567) lands on the PINNED support bar and drives no scroll at all —
+  // which would look like a flow that scrolls and silently doesn't.
+  test('its beat-2 swipes stay inside the scroll viewport', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    const beat2 = src.slice(src.indexOf('daily-loop-support-line'));
+    const from = src.indexOf('assertVisible:\n    id: "daily-loop-support-line"');
+    const to = src.indexOf('assertVisible:\n    id: "daily-loop-VirtuousResponse-screen"');
+    const region = src.slice(from, to);
+    const ys = [...region.matchAll(/"50%,\s*(\d+)%"/g)].map((m) => Number(m[1]));
+    expect(ys.length).toBeGreaterThanOrEqual(2);
+    for (const pct of ys) {
+      const y = (pct / 100) * 667;
+      expect(y).toBeGreaterThan(138);
+      expect(y).toBeLessThan(343);
+    }
+  });
+
   // MEASURED, not defensive. A `centerElement` scroll leaves the list coasting and RN's
   // ScrollView claims a touch that starts mid-deceleration (`_isAnimating()` in
   // `_handleStartShouldSetResponderCapture`), so the tap only STOPS the list: 1 of 2 AX5
@@ -274,7 +317,10 @@ describe('DEBUG-629 — the AX5 VirtuousResponse flow joins the class, not the d
     const sphere = src.indexOf('daily-loop-SphereSovereignty-screen');
     const supportAssert = src.indexOf('assertVisible:\n    id: "daily-loop-support-line"');
     const beat3 = src.indexOf('assertVisible:\n    id: "daily-loop-VirtuousResponse-screen"');
-    const notVisible = src.indexOf('assertNotVisible:');
+    // The SUPPORT-LINE negative specifically. A bare `assertNotVisible:` now finds the
+    // crisis-resources attribution guard, which sits earlier by design — so the loose
+    // matcher would report the ordering broken on a flow whose ordering is correct.
+    const notVisible = src.indexOf('assertNotVisible:\n    id: "daily-loop-support-line"');
 
     expect(sphere).toBeGreaterThan(-1);
     expect(supportAssert).toBeGreaterThan(sphere);

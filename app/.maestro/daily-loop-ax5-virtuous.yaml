@@ -154,16 +154,63 @@ name: "DailyLoop AX5 VirtuousResponse (DEBUG-629): quick depth reaches beat 3 at
 # ever eats the fold.
 - assertVisible:
     id: "daily-loop-support-line"
-# On to beat 3. HERE centerElement stays — a pinned control sits below the ScrollView on this
-# beat, so a tap without a real scroll can land on it instead (DEBUG-465).
-- scrollUntilVisible:
-    element:
-      id: "continue-button"
-    direction: DOWN
-    centerElement: true
-    timeout: 30000
+# On to beat 3 — and this is the ONE scroll in this repo that must NOT use `centerElement`
+# for a reason particular to AX5. Crisis ruling, DEBUG-629.
+#
+# WHAT `centerElement` DID HERE, MEASURED. It completed, and the tap still landed on the
+# pinned crisis line:
+#     continue-button  Bounds(x=20, y=293, width=263, height=169)
+#     tapped at        (151, 376)
+#     support-line     [20,344][355,667]        -> 32pt INSIDE it, app went to CrisisResources
+# A second, no-tap capture of the same state read centre 336 — 8pt clear. So the settled
+# position swings ~40pt run to run and crosses the boundary on some of them.
+#
+# WHY, and it is not a defect this item introduced. The bar is a flex sibling of a `flex: 1`
+# ScrollView, so the ScrollView absorbs every point the band takes and the bar's top stays at
+# `667 - barHeight` = 344 at EVERY band value. Screen centre on 375x667 is 333.5 always. So
+# the distance from Maestro's centring TARGET to the crisis control is 10.5pt before and
+# after the header change alike — the band moved the settled position, not the target, and
+# changed a probability rather than an exposure. What actually spent the margin is AX5: the
+# bar is 58pt at default type and 323pt here, because SUPPORT_LINE wraps at fontScale 3.571.
+# This is a pre-existing exposure newly OBSERVED, because this is the first flow in the repo
+# that taps `continue-button` on beat 2 at AX5 — ax5-entry stops here and taps the bar.
+#
+# NOT A USER-FACING FALSE POSITIVE, and the distinction is why the fix belongs in the flow
+# rather than in the screen: RCTScrollView clips PAINTING to its bounds and iOS `hitTest:`
+# returns nil outside a view's own bounds, so painted region and acting region are identical
+# and the two controls share no coordinate. A person aiming at Continue taps Continue; a
+# person tapping y=376 sees the support line and correctly gets CrisisResources. Only
+# XCUITest sees the unclipped a11y frame, and `tapOn` synthesises a screen coordinate with no
+# hit-test path taken.
+#
+# THE REMEDY IS THE ONE THE REPO ALREADY DOCUMENTS. `gad7-severe.yaml`'s predicate: a
+# swallowed touch "is cleared by any touch, or by a scroll that terminates at a CONTENT
+# BOUNDARY. It is not cleared by time." Swiping to the clamp gets both properties at once —
+# a deterministic tap point (no settling distribution to sample) and the swallow cleared.
+# At the clamp the CTA sits at [134,303], tap centre 218.5: 125pt clear of the bar.
+#
+# The swipes must START AND END inside the scroll viewport [138,343] — a swipe starting at
+# beat 1's `50%, 85%` (y=567) lands on the pinned bar and drives nothing. 50% = y 333.5 and
+# 22% = y 146.7 are both inside. Overshoot at the clamp is free, so three cover the 117-159pt
+# of remaining scroll with margin.
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 22%"
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 22%"
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 22%"
+- assertVisible:
+    id: "continue-button"
 - tapOn:
     id: "continue-button"
+# ATTRIBUTION GUARD — fails NAMING the defect, before the retry below can mask it. Without
+# this, the mis-tap reds as "could not find continue-button" from the retry's own scroll,
+# which is true (we are on another screen) and names the wrong defect entirely.
+- assertNotVisible:
+    id: "crisis-resources-screen"
 - extendedWaitUntil:
     visible:
       id: "daily-loop-VirtuousResponse-screen"
