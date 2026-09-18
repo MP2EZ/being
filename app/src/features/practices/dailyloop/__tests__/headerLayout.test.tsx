@@ -94,8 +94,15 @@ describe('dailyLoopHeaderStyleHeight', () => {
   // 206 is the anti-confusion pin: it is a quantity you can only produce by getting the
   // inset right. The first version of this test compared the knob against a TOTAL-band
   // ceiling and passed by mixing units.
+  //
+  // MEASURED post-fix at AX5: the screen node is [0,138][375,343], i.e. 205pt, against the
+  // 206 this arithmetic gives. The 1pt is a seam, not an error — the support bar's frame
+  // starts at 344 and the screen's ends at 343, so the two sibling frames share an edge
+  // that the subtraction counts once. Both numbers are recorded so the next reader holding
+  // this against a hierarchy capture is not hunting a phantom point.
   it('leaves exactly the budgeted AX5 scroll viewport, and enough to settle continue-button', () => {
     expect(scrollViewportAt(IOS_FONT_SCALES.AX5)).toBe(206);
+    expect(scrollViewportAt(IOS_FONT_SCALES.AX5) - 1).toBe(205); // the measured node height
     expect(scrollViewportAt(IOS_FONT_SCALES.AX5)).toBeGreaterThanOrEqual(AX5_CONTINUE_BUTTON_H);
   });
 
