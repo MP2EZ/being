@@ -174,6 +174,17 @@ name: "DailyLoop AX5 VirtuousResponse (DEBUG-629): quick depth reaches beat 3 at
       notVisible:
         id: "daily-loop-VirtuousResponse-screen"
     commands:
+      # Re-establish visibility BEFORE re-tapping. A bare `tapOn` here fails outright, and
+      # MEASURED doing so: a swallowed tap stops the fling wherever it happened to be, which
+      # can leave `continue-button` below the 100% visibility `tapOn` requires, so the retry
+      # reports FAILED rather than retrying. No `centerElement` on this one — the first tap
+      # already stopped the list, so the cheapest scroll that restores full visibility is
+      # also the one least likely to start a new fling for the re-tap to race.
+      - scrollUntilVisible:
+          element:
+            id: "continue-button"
+          direction: DOWN
+          timeout: 15000
       - tapOn:
           id: "continue-button"
 - assertVisible:
