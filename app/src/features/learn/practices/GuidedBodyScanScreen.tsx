@@ -53,6 +53,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
 import { getModalPracticeEdges } from '@/features/learn/practices/shared/practiceSafeAreaEdges';
 import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
@@ -250,6 +251,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: spacing[4],
     elevation: 2,
+    /**
+     * DEBUG-631 — clear the crisis FAB's touch band. DERIVED, never measured.
+     *
+     * `GuidedBodyScan` is in IMMERSIVE_ROUTES and absent from SUPPRESSED_ROUTES, so the
+     * FAB is FADED, not gone — `FADED_OPACITY` is an opacity and does not affect hit
+     * testing. At `zIndex: 9999` any overlap turns a tap on this button's right edge
+     * into CrisisResources: a crisis FALSE POSITIVE, the DEBUG-547 shape.
+     *
+     * This button is a stretch child of `content` (paddingHorizontal: spacing[24]), so
+     * it spans x = 24..W-24, and the rect's `left` is 72. Both are offsets from the same
+     * screen-right edge, so W cancels and the overlap is exactly 48pt at EVERY viewport.
+     * AX5 scales the label's height, never the x-range of a stretch child in a
+     * fixed-padding column. On-device bounds and a corner point-tap are DEBUG-626's.
+     *
+     * `marginRight`, never `paddingRight`: padding would move only the label and leave
+     * the touch frame — the thing that receives the tap — in the contested column.
+     *
+     * Do NOT reach for DEBUG-628's "last-key-wins" rationale here; it does not apply.
+     * That argument is about an ARRAY merge (`style={[styles.button, style]}`, caller
+     * last) in PracticeToggleButton, which this host does not use — it passes
+     * `style={styles.nextButton}` as a bare object, so there is no array order at all.
+     * Within one object, `marginRight` and `marginHorizontal` are distinct keys that
+     * Yoga resolves by edge specificity (right > horizontal), independent of declaration
+     * order. Adding `marginHorizontal` would not silently defeat this, but it would cost
+     * another 48pt of width for nothing.
+     */
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   nextButtonText: {
     fontSize: typography.bodyRegular.size,
