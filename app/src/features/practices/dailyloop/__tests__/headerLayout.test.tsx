@@ -156,6 +156,14 @@ describe('dailyLoopHeaderTitleMaxWidth', () => {
   // plus the 8pt minimum. Any change to the ✕'s width or marginLeft breaks it in one
   // direction with no intermediate value, so it is asserted from the same constants that
   // produce both rather than eyeballed against a literal.
+  //
+  // THIS IS THE WORST CASE, NOT TODAY'S RENDER, and the difference matters to anyone
+  // checking it against a device. The cell sizes to its intrinsic content and only clamps
+  // at 239, so with the chrome capped the title measures 222pt at AX5 and the cell lands at
+  // x=76 — 16pt clear of the ✕, not 8. The clamp therefore never binds today: the CAP is
+  // what produces the current clearance, and the clamp is the bound that keeps a longer
+  // string, a locale, or a re-inflated cap from reaching the ✕ again. Both are load-bearing
+  // for different failures, which is why neither was dropped.
   it("puts the title cell's left edge exactly 8pt clear of the ✕", () => {
     const slot = dailyLoopHeaderTitleMaxWidth(SMALLEST_SUPPORTED_WIDTH);
     const titleCellLeft = (SMALLEST_SUPPORTED_WIDTH - slot) / 2;
@@ -231,6 +239,13 @@ describe('DailyLoopNavigator header options (source shape)', () => {
 
   it('reserves the title slot with maxWidth and never width', () => {
     const option = stripped.match(/headerTitleContainerStyle\s*:\s*\{[^}]*\}/)?.[0] ?? '';
+    // A `[^}]*` slice stops at the FIRST closing brace, so the moment this option contains a
+    // nested object the slice truncates and every negative below passes against a fragment
+    // that holds no code (DEBUG-628 hit exactly this on a StyleSheet entry with a
+    // shadowOffset). This positive is what proves the slice reached the real content, so the
+    // negatives cannot go vacuous — if it ever fails, make the slice brace-balanced rather
+    // than deleting the assertion.
+    expect(option).toMatch(/dailyLoopHeaderTitleMaxWidth\s*\(/);
     expect(option).toMatch(/maxWidth\s*:/);
     expect(option).not.toMatch(/(^|[^x])width\s*:/);
     expect(option).not.toMatch(/flexBasis\s*:/);
