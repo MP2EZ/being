@@ -45,7 +45,19 @@ name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility t
 #   daily-loop-depth-quick    [20,303][303,428]  present            (DEBUG-469: absent)
 #   daily-loop-skip-breath    [90,534][284,626]  100% visible after one swipe
 #   continue-button           [20,458][283,627]  48pt clear of the FAB's left edge (331)
+#                             ^^ VOID since DEBUG-629 — measured at headerStyle.height 72.
 #   daily-loop-support-line   [20,344][355,667]  335x323 tap target, untruncated
+#
+# RE-MEASURED 2026-09-18 at band 108 (DEBUG-629 grows the header at accessibility sizes;
+# 72 is unchanged at the default size, so only the AX5 numbers here move):
+#   continue-button           [20,499][283,667]  beat 1, 168 tall
+#   daily-loop-support-line   [20,344][355,667]  UNCHANGED — the bar is a flex sibling of a
+#                             `flex: 1` ScrollView, so the ScrollView absorbs every point the
+#                             band takes and the bar's top stays at `667 - barHeight`.
+# Note what that continue-button figure means: its bottom coincides with the SCREEN bottom,
+# so XCUITest is clipping the reported frame and the true layout frame extends below 667.
+# A reported centre is therefore not the control's real centre here. Re-measure rather than
+# extrapolate if anything moves this beat's content height.
 # Carried from DEBUG-469's 2026-08-21 measurement (7e484b61) — no tap logs these bounds:
 #   daily-loop-depth-deep     [20,444][303,645]  present            (was: absent)
 #   crisis-button-root        [331,523][375,567] 16pt clear of the cards' x-extent (303)

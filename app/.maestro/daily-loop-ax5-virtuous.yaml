@@ -91,6 +91,10 @@ name: "DailyLoop AX5 VirtuousResponse (DEBUG-629): quick depth reaches beat 3 at
 # nothing is pinned below the ScrollView (the support line is on SphereSovereignty), so
 # DEBUG-465's reason for centring does not apply. Centring the Continue here is what red-lined
 # the MAINT-583 harness on this tree: found at [20,457][283,625], 100% visible, every try.
+# Those bounds are PRE-FIX (band 72). Re-measured at band 108 the same control reads
+# [20,499][283,667] — and its bottom coincides with the SCREEN bottom, so XCUITest clips the
+# reported frame and the true layout frame extends below 667. Do not read a reported centre
+# here as the control's real centre.
 # The breath. UNCONDITIONAL, and keyed on the SkipLink rather than on
 # `daily-loop-breathing-circle` (DEBUG-632's diagnosis, adopted here rather than re-derived):
 # that testID sits on the component ROOT — a ~300pt node wrapping the circle, the phase cue
