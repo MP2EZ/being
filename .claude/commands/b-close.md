@@ -1003,6 +1003,10 @@ echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/features/practices/dailyloop|src/fe
 # loop's only exit on beat 1 could not be tapped). Same trigger set as ax5-entry: the
 # header is shared by every beat, so a dailyloop change can move either flow.
 #
+# It does NOT fire on a `.maestro/daily-loop-ax5-entry.yaml`-only diff, and that is
+# deliberate: an ax5-entry edit should not charge a second AX5 flow to a close that has
+# nothing to do with beat 3. Each dynamic-type flow is armed by its own subject.
+#
 # FlowProgressIndicator.tsx is deliberately NOT a trigger, though it renders the counter
 # whose cap holds the band. Its falsifier is the jest pin on the rendered
 # maxFontSizeMultiplier, which runs in CI on every commit — Maestro cannot read a font
