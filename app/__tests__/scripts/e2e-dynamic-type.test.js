@@ -290,3 +290,78 @@ describe('DEBUG-579 — the tab-label capture harness joins the class, not the d
     expect(/assertTrue:.*DEBUG579_LABEL/.test(src)).toBe(true);
   });
 });
+
+describe('DEBUG-632 — the skip-breath tap must be CONFIRMED, not assumed', () => {
+  // Maestro calls a tap COMPLETED when the view hierarchy changed ("Something have changed
+  // in the UI judging by view hierarchy. Proceed."), and beat 1's hierarchy changes
+  // continuously — an animating BreathingCircle and a ticking countdown — so that heuristic
+  // cannot tell a tap that took from one the still-decelerating ScrollView swallowed. It is
+  // blind on ANY animating screen, not just this one.
+  //
+  // Measured 4/4 on the retained failing runs: the breath then ran its full 30s and
+  // `continue-button` — which renders only under `breathCompleted` — mounted at exactly
+  // mount+30s, ~22s into the NEXT step's 30s budget, leaving ~6s to fund a ~7s futile
+  // centring phase. The flow failed at `continue-button` for a cause two steps upstream,
+  // which is why it read as a centring defect and not as a swallowed tap.
+  //
+  // The discriminator is the SkipLink's own disappearance and deliberately NOT the
+  // BreathingCircle's: that testID sits on a ~300pt component root that STRADDLES the fold
+  // at AX5, so a predicate on it is decided by the visibility threshold and varies with how
+  // many swipes the run needed — nondeterministically vacuous, confounded with the exact
+  // variable the flow cannot control. The SkipLink is measured at 100% visibility at the
+  // instant it is tapped, so it cannot pass vacuously at t=0.
+  const FLOW = 'daily-loop-ax5-entry.yaml';
+
+  test('the AX5 flow proves the skip took, and recovers once if it did not', () => {
+    const src = fs
+      .readFileSync(path.join(MAESTRO, FLOW), 'utf8')
+      .replace(/^\s*#.*$/gm, '');
+
+    const tapIdx = src.search(/-\s+tapOn:\s*\n\s+id:\s*"daily-loop-skip-breath"/);
+    const contIdx = src.indexOf('id: "continue-button"');
+
+    // Anchors, asserted before anything is read from between them: a slice bounded by
+    // anchors that were never found is empty, and every negative over it would be vacuous.
+    expect(tapIdx).toBeGreaterThan(-1);
+    expect(contIdx).toBeGreaterThan(tapIdx);
+
+    const slice = src.slice(tapIdx, contIdx);
+
+    // Control that the matcher still discriminates ON THE SLICE rather than on a literal:
+    // the region must hold the skip tap it is anchored to plus the re-tap and the proof,
+    // i.e. three references, not the one a stripped-out block would leave.
+    expect((slice.match(/id:\s*"daily-loop-skip-breath"/g) || []).length).toBeGreaterThanOrEqual(3);
+
+    // The BARRIER, at column 0 — OUTSIDE the `when: visible: daily-loop-breathing-circle`
+    // block, mirroring daily-loop-quick-depth.yaml:327. Inside, it would be skipped by the
+    // same fold-straddling guard described above and the flow would revert to its
+    // coin-flip behaviour with nothing to say so.
+    //
+    // It is `extendedWaitUntil`, deliberately not `assertNotVisible`: measured, the step
+    // does NOT fail fast — it blocked 11.98s and then passed on the 30s breath timer
+    // unmounting the link. It holds until `breathCompleted` by either route so the scroll
+    // below never starts against an unmounted button. The explicit 20000 is derived from
+    // the worst-case residual breath; Maestro's own default is emergent from hierarchy-poll
+    // latency and moves with host load, which is exactly why it is written down here.
+    expect(slice).toMatch(
+      /^-\s+extendedWaitUntil:\s*\n\s+notVisible:\s*\n\s+id:\s*"daily-loop-skip-breath"\s*\n\s+timeout:\s*20000/m
+    );
+    // Non-optional: a genuine failure must still go red at the barrier.
+    expect(slice).not.toMatch(
+      /^-\s+extendedWaitUntil:[\s\S]{0,120}?timeout:\s*20000\s*\n\s+optional:\s*true/m
+    );
+
+    // The recovery is CONDITIONAL on the link still being there. Unconditional, the second
+    // tap would land on whatever the completed beat renders at those coordinates.
+    expect(slice).toMatch(
+      /runFlow:\s*\n\s+when:\s*\n\s+visible:\s*\n\s+id:\s*"daily-loop-skip-breath"/
+    );
+
+    // The settle the recovery depends on: the re-tap is issued only after this wait has
+    // polled, so it lands in a list that stopped decelerating seconds ago. A floor, not
+    // slack — shrink it and the DEBUG-546 swallow applies to the second tap too.
+    expect(slice).toMatch(
+      /extendedWaitUntil:\s*\n\s+notVisible:\s*\n\s+id:\s*"daily-loop-skip-breath"\s*\n\s+timeout:\s*5000/
+    );
+  });
+});
