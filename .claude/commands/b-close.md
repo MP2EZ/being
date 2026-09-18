@@ -996,6 +996,22 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/practices/dailyloop' && \
 # fold, which centre-tapping default-size flows cannot see. Run in Step 2.5.5, not printed.
 echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/features/practices/dailyloop|src/features/home/screens/CleanHomeScreen\.tsx|src/features/crisis/screens/CrisisResourcesScreen\.tsx|\.maestro/daily-loop-ax5-entry\.yaml' && \
   DYNAMIC_TYPE_FLOWS+=("daily-loop-ax5-entry")
+# DEBUG-629: daily-loop-ax5-virtuous carries on to beat 3, which NOTHING covered at an
+# accessibility size — daily-loop-quick-depth reaches it only at the default size, and
+# ax5-entry stops at Sphere Sovereignty. It also ends with the ✕ tap, the regression test
+# for a MEASURED AX5 failure (the header's title cell hit-stole daily-loop-exit, so the
+# loop's only exit on beat 1 could not be tapped). Same trigger set as ax5-entry: the
+# header is shared by every beat, so a dailyloop change can move either flow.
+#
+# FlowProgressIndicator.tsx is deliberately NOT a trigger, though it renders the counter
+# whose cap holds the band. Its falsifier is the jest pin on the rendered
+# maxFontSizeMultiplier, which runs in CI on every commit — Maestro cannot read a font
+# multiplier at all, so an arm here would buy nothing and would charge an AX5 build to
+# every unrelated practice's progress-bar edit. It would also be the first clause naming a
+# path with no Protected Paths row, and check-safety-paths.sh only walks Step 2.5.1's grep,
+# so nothing would have reconciled it.
+echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/features/practices/dailyloop|\.maestro/daily-loop-ax5-virtuous\.yaml' && \
+  DYNAMIC_TYPE_FLOWS+=("daily-loop-ax5-virtuous")
 # DEBUG-586: the two centred-card overlays in practices/shared/components size their
 # paddingBottom from CRISIS_BUTTON_RESERVED_BAND, so an under-reserved band puts their
 # controls under a zIndex-9999 FAB — a crisis FALSE POSITIVE, the DEBUG-547 shape. They
@@ -1186,7 +1202,8 @@ mflow_tag() { awk '/^tags:/{f=1;next} /^[^ -]/{f=0} f{gsub(/[ -]/,"");print;exit
 # printer after the loop.
 EXCLUDED_FLOWS="crisis-988-dial reconsent-stale-ineligible-fab-clearance daily-loop-ax5-entry
 journal-record-liveness profile-voice-reflection-xxxl breathing-fps-budget
-crisis-keyboard-accessory export-share-sheet-occlusion tab-label-dynamic-type-capture"
+crisis-keyboard-accessory export-share-sheet-occlusion tab-label-dynamic-type-capture
+daily-loop-ax5-virtuous"
 MAESTRO_CHANGED="$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
 while IFS= read -r f; do
   [ -z "$f" ] && continue
@@ -1258,6 +1275,12 @@ while IFS= read -r f; do
       # the EXCLUDED_FLOWS drift printer stays quiet and the catch-all never fires.
       echo "🔠 daily-loop-ax5-entry.yaml changed — safety-dynamic-type, so NOT in the tagged"
       echo "   suite. Step 2.5.5 runs it at AX5 through e2e-dynamic-type.sh." ;;
+    daily-loop-ax5-virtuous.yaml)
+      # DEBUG-629: same carve-out and same reason as ax5-entry above; armed into
+      # DYNAMIC_TYPE_FLOWS by its own clause. It is the ONLY flow reaching VirtuousResponse
+      # at an accessibility size, and the only one asserting the ✕ actually exits at AX5.
+      echo "🔠 daily-loop-ax5-virtuous.yaml changed — safety-dynamic-type, so NOT in the"
+      echo "   tagged suite. Step 2.5.5 runs it at AX5 through e2e-dynamic-type.sh." ;;
     journal-record-liveness.yaml)
       echo "🎙️  journal-record-liveness.yaml changed — safety-host-probe. It drives to"
       echo "   phase:'recording' and STOPS; the verdict is the host-side pid sample either"
