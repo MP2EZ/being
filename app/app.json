@@ -26,7 +26,7 @@
           "tel",
           "sms"
         ],
-        "NSFaceIDUsageDescription": "Allow Being to use Face ID to protect your wellness data.",
+        "NSFaceIDUsageDescription": "Being does not lock the app or restrict access to your wellness data with Face ID. This notice is required because the secure on-device storage component references Apple's local authentication API.",
         "NSSpeechRecognitionUsageDescription": "Being transcribes spoken reflections entirely on this device. Nothing you say is sent to Apple or to Being.",
         "NSMicrophoneUsageDescription": "Being uses the microphone only to turn a spoken reflection into text on this device. The recording is discarded once transcribed and never leaves your phone.",
         "NSPhotoLibraryUsageDescription": "Being does not access your photo library. This notice is required because a bundled file-storage component references the system photo library API."
