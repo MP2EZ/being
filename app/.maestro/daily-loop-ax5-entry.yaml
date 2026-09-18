@@ -50,6 +50,106 @@ name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility t
 #   daily-loop-depth-deep     [20,444][303,645]  present            (was: absent)
 #   crisis-button-root        [331,523][375,567] 16pt clear of the cards' x-extent (303)
 #
+# ⛔ THAT 8/8 DID NOT HOLD (DEBUG-632). Preserved above rather than deleted, because the
+#    line itself is not what was wrong — 8/8 was truly measured, on a defect whose rate is
+#    ~50%, which is what 8 consecutive passes cannot distinguish from a fix. Measured
+#    2026-09-16 while closing DEBUG-520: 4 FAIL / 8 on the merged tree, 0 FAIL / 5 on the
+#    same tree after a rebuild, 0 FAIL / 5 on a clean development control — the same tree
+#    on both sides of the 50%, so the tree was never the variable.
+#
+#    ROOT CAUSE, from four retained failing runs, all four agreeing: the skip tap does not
+#    take. `continue-button` is ABSENT from the hierarchy for 21.2-23.8s after its scroll
+#    starts (12-13 consecutive ElementNotFound), then appears at EXACTLY screen-mount+30s =
+#    BREATH_DURATION_MS (DailyLoopStepScreen.tsx:189). It renders only under
+#    `breathCompleted`, which flips from the SkipLink's onPress OR the timer's onComplete —
+#    so mount+30s proves the TIMER flipped it and the tap did not. The tap is issued 172ms
+#    after the swipe above returns, inside the ScrollView's deceleration: DEBUG-546's
+#    Home-card mechanism, recurring here because DEBUG-546 ADDED that swipe. The residual
+#    budget is then ~6s against a ~7.0s futile-centring phase — over by ~1.1s, and that
+#    marginality is why the rate is ~50% rather than ~100%.
+#
+#    ⛔ The work item's authored hypothesis — `continue-button` PRESENT but uncentrable at
+#       169pt — is DISPROVED and kept here so it is not re-derived. Futile centring is real
+#       and costs ~7.0s, but that is ~7s inside a 30s budget: the second term, never the
+#       variable. The variable is 22s of the budget spent waiting out a breath that should
+#       already have been skipped.
+#
+#    WHY THE DISCRIMINATOR IS `daily-loop-skip-breath` AND NOT `daily-loop-breathing-circle`.
+#    This is the line to read before editing the guard. The circle's testID sits on the
+#    component ROOT (BreathingCircle.tsx:480) — a ~300pt node wrapping the 120pt circle, the
+#    phase cue AND the grounding text — so at AX5 it STRADDLES the fold at the offset where
+#    the tap happens, and a predicate on it is settled by the visibility threshold and
+#    varies with how many swipes the run needed. That is not merely vacuous (DEBUG-468) but
+#    NONDETERMINISTICALLY vacuous, confounded with the one variable the flow cannot control.
+#    The SkipLink is measured at Visibility Percent 1.0 at the instant Maestro taps it, so
+#    it cannot be false at t=0; it unmounts only when `breathCompleted` flips; and a
+#    swallowed tap STOPS deceleration rather than continuing it, so it cannot scroll away.
+#    That t=0 guarantee depends on the scroll above keeping NO `centerElement` (DEBUG-546):
+#    restore it and the centring swipes can leave the link somewhere else.
+#
+#    TWO MECHANISMS, NOT ONE, WITH MEASURED RATES (2026-09-17, iPhone SE 3 / iOS 18.6 /
+#    375x667, AX5, MATCH_CLEAN, host 0.43-0.68x, zero peers on every run):
+#      RE-TAP — load-bearing. Fired 6/10 runs (i.e. 6 of 10 first taps were swallowed) and
+#        TOOK on all 6: the barrier cleared at mount+11.2s..15.9s in all ten runs, never at
+#        mount+30s, so the skip always completed by tap and never by timer.
+#      BARRIER — insurance. It absorbed in none of the ten. Its only observed exercise is
+#        the AC4 A' mutation, where the re-tap was deliberately diverted: it then blocked
+#        11.98s and cleared at mount+30.2s, exactly BREATH_DURATION_MS.
+#    Control, the same binary code at the UNFIXED flow (0726c4aa, 10 runs, same device and
+#    session): 3/10 entered the degraded path — continue scroll 29.1s / 30.0s / 30.1s with
+#    11-12 ElementNotFound probes, against 10.0-12.8s on the 7 clean runs — and the 30.1s
+#    one FAILED. Fixed: 0/10 degraded, scroll 10.2-11.9s. The pass counts (10/10 vs 9/10)
+#    are NOT the evidence and are not significant at n=10; the degraded-path rate is.
+#
+#    ⛔ "THE CLOSING STEP FAILS FAST" IS REFUTED — struck, not deleted, because it is the
+#       natural thing to re-derive from the shape of the step. It does not fail fast: with
+#       the skip diverted it blocked from 23:24:18.224 to 23:24:30.202 and then PASSED, on
+#       the breath timer unmounting the link. It is a BARRIER, not an assertion. (Origin:
+#       the DEBUG-632 crisis ruling's own §6, retracted by its author on this measurement.)
+#
+#    ⚠️  A FLOW PASS IS NOT EVIDENCE THE SKIP TOOK. The barrier makes that inference unsafe
+#       by design — A' passed with the skip permanently diverted. The readable signal is the
+#       `continue-button` scroll DURATION: 10.2-11.9s across the fixed runs against 31.1s in
+#       every retained failure, matching DEBUG-518's independent 10688ms for that centring
+#       phase. Read the duration, never the verdict.
+#
+#    ⛔ ALSO REFUTED, and reusable: a mutation pointing both taps at `daily-loop-breath-timer`
+#       does NOT pause the breath. Maestro taps an element's GEOMETRIC CENTRE, so a testID on
+#       a component root selects whatever sits at that centre — here Timer.tsx:211's
+#       container centres on `timeText` (237), not on `controlsContainer` (245), and
+#       `showSkip` is false at every call site. Same class as the DEBUG-468 warning above:
+#       reasoning about what a node CONTAINS rather than what Maestro MEASURES at it.
+#
+#    WHY NO SECOND SIGNAL. Every `breathCompleted`-gated positive (daily-loop-input-response,
+#    continue-button) has an on-screen-ness that is a function of scroll offset at AX5 —
+#    the same confound, opposite polarity. The independent confirmation already exists three
+#    steps later: the continue scroll, its tap and daily-loop-SphereSovereignty-screen are
+#    what verify the beat advanced. The new block does not replace them; it makes their
+#    failure ATTRIBUTABLE.
+#
+#    DIVISION OF LABOUR. daily-loop-quick-depth.yaml:327 keeps a bare, unguarded
+#    `assertNotVisible: daily-loop-skip-breath` and owns the "first tap must work" contract
+#    at DEFAULT type, where there is no preceding fling. This flow is the only one whose
+#    content forces a swipe before the tap, and that fling is what creates the swallow —
+#    the same split DEBUG-546 stated for the Home card. crisis-keyboard-reachability.yaml:65
+#    and crisis-keyboard-accessory.yaml:135 tap the link with no preceding swipe and already
+#    post-condition on daily-loop-input-response, so they red honestly and need no guard.
+#
+#    ⚠️  GENERAL RESULT, not local to this flow: Maestro's tap confirmation is BLIND on any
+#       animating screen. It reports COMPLETED when the hierarchy changed ("Something have
+#       changed in the UI judging by view hierarchy. Proceed."), and a breathing circle plus
+#       a ticking countdown change it every frame, so a swallowed tap is indistinguishable
+#       from one that took. Never read a COMPLETED tap on such a screen as evidence. The
+#       remedy is the shape below: key confirmation on an app-state-derived unmount.
+#
+#    RULING DEPENDENCY (crisis, DEBUG-632). None of this is a crisis path TODAY because
+#    `DailyLoop` is in IMMERSIVE_ROUTES and NOT SUPPRESSED_ROUTES (RootCrisisButton.tsx),
+#    so crisis-button-root is mounted and tappable at FADED_OPACITY 0.6 for the whole 30s
+#    breath — the gate is not a zero-988 window, and the support line downstream is a
+#    second, redundant affordance. If `DailyLoop` ever moves to SUPPRESSED_ROUTES, reopen
+#    this: the SkipLink would become the only route to the only in-content 988 affordance,
+#    and one extra tap would stop being free.
+#
 # ⚠️  WHAT THIS FLOW DELIBERATELY DOES NOT ASSERT — the KEYBOARD-UP case, which is RED.
 #     With the beat's text input focused at AX5 the scroll viewport collapses and the
 #     support line TRUNCATES — "...support is here" renders, "anytime." does not. The
@@ -142,6 +242,51 @@ name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility t
           timeout: 25000
       - tapOn:
           id: "daily-loop-skip-breath"
+      # DEBUG-632 — CONFIRM the tap took. Do not delete this and do not simplify it into a
+      # fixed wait; both are how the flow becomes a coin flip again.
+      #
+      # `timeout: 5000` is a SETTLE FLOOR, not slack. The re-tap below is issued only after
+      # this wait has polled, so it lands in a list that stopped decelerating seconds ago —
+      # that is the mechanism by which DEBUG-546's swallow cannot apply to the second tap.
+      # On the happy path it costs one sub-second poll, because it exits the moment the
+      # link is gone. Shrink it and the defect is silently re-armed.
+      - extendedWaitUntil:
+          notVisible:
+            id: "daily-loop-skip-breath"
+          timeout: 5000
+          optional: true
+      # Conditional, never unconditional: once `breathCompleted` flips, the completed beat
+      # renders different content at these coordinates. `optional: true` on the tap closes
+      # a narrow race in which the 30s timer unmounts the link between the guard and the
+      # tap; it masks nothing, because the assertion below is the real gate.
+      - runFlow:
+          when:
+            visible:
+              id: "daily-loop-skip-breath"
+          commands:
+            - tapOn:
+                id: "daily-loop-skip-breath"
+                optional: true
+# DEBUG-632 — the BARRIER. OUTSIDE the block above on purpose (crisis ruling), mirroring
+# daily-loop-quick-depth.yaml:327: inside, it would be skipped by the very
+# `when: visible: daily-loop-breathing-circle` guard this flow cannot trust at AX5.
+#
+# It is NOT a fast-fail assertion. It HOLDS until `breathCompleted` is true by EITHER route
+# — the re-tap above, or the 30s timer — so the scroll below never starts against a button
+# that has not mounted. That is what removes the budget collision, and it removes it whether
+# or not the skip tap ever takes. See the header for the measurement that refuted the
+# fast-fail reading.
+#
+# `timeout: 20000` is DERIVED and must not be deleted as redundant. Worst case the skip
+# lands 6.4s into the breath (header), the settle and re-tap spend ~6s, leaving ~17.6s of
+# breath to absorb. Maestro's own default here is EMERGENT, not 5s: it checks its deadline
+# BETWEEN hierarchy polls and a poll on this never-static screen is slow, so the observed
+# wait was 11.98s against a nominal ~5s — a capacity that moves with host load. Written down
+# so it cannot drift. Non-optional: a genuine failure must still go red here.
+- extendedWaitUntil:
+    notVisible:
+      id: "daily-loop-skip-breath"
+    timeout: 20000
 - scrollUntilVisible:
     element:
       id: "continue-button"
