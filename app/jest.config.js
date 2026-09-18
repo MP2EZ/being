@@ -201,12 +201,11 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@tests/(.*)$': '<rootDir>/__tests__/$1',
     '^@setup/(.*)$': '<rootDir>/__tests__/setup/$1',
-    '^@utils/(.*)$': '<rootDir>/__tests__/utils/$1',
-    '^@components/(.*)$': '<rootDir>/src/components/$1',
-    '^@flows/(.*)$': '<rootDir>/src/flows/$1',
-    '^@stores/(.*)$': '<rootDir>/src/stores/$1',
-    '^@services/(.*)$': '<rootDir>/src/services/$1',
-    '^@types/(.*)$': '<rootDir>/src/types/$1'
+    '^@utils/(.*)$': '<rootDir>/__tests__/utils/$1'
+    // MAINT-630: removed @components/ @flows/ @stores/ @services/ @types/ — all five
+    // mapped into src/ directories that do not exist, with zero importers. Neutral by
+    // per-alias non-overlap (they lack the slash '^@/' requires, so it never subsumed
+    // them), not by a catch-all. @types/ mattered most: it shadowed DefinitelyTyped.
   },
 
   // Coverage configuration
