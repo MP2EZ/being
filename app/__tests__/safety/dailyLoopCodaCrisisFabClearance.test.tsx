@@ -14,7 +14,7 @@
  * `zIndex: 9999` the FAB WINS that tap, so the harm is a crisis FALSE POSITIVE (DEBUG-547's
  * class): the press fires an audit-logged navigation into CrisisResources AND swallows the
  * completion. That matters more here than on the sibling screens because
- * `DailyLoopNavigator.tsx:405` suppresses this route's header ✕, so `daily-loop-done-button`
+ * `DailyLoopNavigator.tsx:437` suppresses this route's header ✕, so `daily-loop-done-button`
  * is simultaneously the coda's ONLY exit and the only path that runs
  * `markCheckInComplete('daily')` and the principle engagements.
  *

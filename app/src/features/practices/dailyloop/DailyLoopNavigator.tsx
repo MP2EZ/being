@@ -19,9 +19,16 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { useAnalytics } from '@/core/analytics';
 import { createStackNavigator } from '@react-navigation/stack';
-import { View, Pressable, Text, StyleSheet } from 'react-native';
+import { View, Pressable, Text, StyleSheet, useWindowDimensions } from 'react-native';
 import { semantic, colorSystem, spacing, typography } from '@/core/theme';
-import { FlowProgressIndicator } from '../shared/components';
+import {
+  DAILY_LOOP_CLOSE_BUTTON_MARGIN_LEFT,
+  DAILY_LOOP_CLOSE_BUTTON_SIZE,
+  DAILY_LOOP_HEADER_CHROME_MAX_FONT_SCALE,
+  dailyLoopHeaderStyleHeight,
+  dailyLoopHeaderTitleMaxWidth,
+} from './config/headerLayout';
+import { DailyLoopHeaderTitle } from './components/DailyLoopHeaderTitle';
 import type {
   DailyLoopMode,
   DailyLoopDepth,
@@ -111,6 +118,13 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
     }
   }, [trackCheckInStarted]);
   const [currentStep, setCurrentStep] = useState(1);
+
+  // DEBUG-629: the header band and the title's reservation are both functions of the live
+  // window. `useWindowDimensions` and not `PixelRatio.getFontScale()` — the house
+  // convention here (DailyLoopStepScreen, DailyLoopDepthSelectScreen, VoiceReflectionScreen
+  // all read it) and reactive, where the static read holds a stale band until the next
+  // remount. A remount is exactly what DEBUG-559 ruled unacceptable above the crisis tree.
+  const { width: windowWidth, fontScale } = useWindowDimensions();
 
   // ── Session resumption (FEAT-298 slice 3b) ──────────────────────────────────────────
   // FEAT-291 skipped resumption because the shared hook keys sessions by CheckInType and
@@ -208,7 +222,15 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
       accessibilityHint="Returns to home screen"
       testID="daily-loop-exit"
     >
-      <Text style={styles.closeButtonText}>✕</Text>
+      {/* DEBUG-629: capped like the rest of the header's chrome. Uncapped, a headline4
+          glyph in a fixed 44x44 box clips to a sliver from AX3 (DEBUG-619's defect), and
+          at AX5 this is the only visible exit from the loop. */}
+      <Text
+        style={styles.closeButtonText}
+        maxFontSizeMultiplier={DAILY_LOOP_HEADER_CHROME_MAX_FONT_SCALE}
+      >
+        ✕
+      </Text>
     </Pressable>
   );
 
@@ -254,14 +276,18 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
 
   const getHeaderOptions = (showProgress: boolean) => ({
     headerTitle: () => (
-      <View style={styles.headerContainer}>
-        <Text style={styles.headerTitle}>Daily Practice</Text>
-        {showProgress && (
-          <FlowProgressIndicator currentStep={currentStep} totalSteps={totalSteps} flowType="daily-loop" />
-        )}
-      </View>
+      <DailyLoopHeaderTitle
+        currentStep={currentStep}
+        totalSteps={totalSteps}
+        showProgress={showProgress}
+      />
     ),
     headerTitleAlign: 'center' as const,
+    // DEBUG-629: reserve the ✕'s band so the title can never share coordinates with it.
+    // maxWidth ONLY — `width` would widen the DEFAULT cell from its intrinsic 115pt to 239
+    // and take FlowProgressIndicator's `width: '100%'` bar with it, moving default-size
+    // geometry that three Maestro flows have measured.
+    headerTitleContainerStyle: { maxWidth: dailyLoopHeaderTitleMaxWidth(windowWidth) },
   });
 
   const makeStep = (stepKey: DailyLoopStepKey, index: number) => ({ navigation }: any) => (
@@ -340,6 +366,12 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
           backgroundColor: colorSystem.themes.midday.background,
           borderBottomColor: colorSystem.themes.midday.primary,
           borderBottomWidth: 1,
+          // DEBUG-629: computed, not a literal — `72 + growth(min(fontScale, 2))`, where
+          // growth(1) is the identity `block(1) - block(1)` so the DEBUG-468 band below is
+          // reproduced EXACTLY at the default size. The band is the total including the
+          // status inset and the scene loses 1pt per 1pt of it, so the growth is capped:
+          // see config/headerLayout.ts for the ceiling and why an uncapped band is refused.
+          //
           // DEBUG-468: 100 -> 72. The header's content is the two-line title block
           // — "Daily Practice" (18pt) + 4 + a 4pt progress bar + 4 + "step n of m"
           // (12pt) ≈ 47pt — so 100 carried ~50pt of slack, on EVERY beat, on the
@@ -347,7 +379,7 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
           // block and still clears the 44pt close button in `headerLeft`. Measured
           // on an SE 3 the fold began at y=130; this is the cheapest 28pt in the
           // flow and it is chrome, so it costs no practice content.
-          height: 72,
+          height: dailyLoopHeaderStyleHeight(fontScale),
         },
         headerTintColor: colorSystem.themes.midday.primary,
         headerLeft: () => closeButton,
@@ -367,14 +399,25 @@ const DailyLoopNavigator: React.FC<DailyLoopNavigatorProps> = ({
         // a 96pt gain. (An earlier note put the 'default' figure at ~198pt; that assumed a
         // headerRight adding 16 a side, and there is none.)
         //
-        // COUPLED to the close button keeping its current ~60-76pt footprint: 'minimal'
-        // reserves 32 a side, so a headerLeft that grew past that would start colliding with
-        // the title rather than being cleared by it. Re-measure if that button changes.
+        // DEBUG-629 CORRECTED THE COUPLING RECORDED HERE, and inverted it. This block used
+        // to say the slot was "COUPLED to the close button keeping its current ~60-76pt
+        // footprint … Re-measure if that button changes" — a comment asking a future reader
+        // to do a measurement, which is exactly the oracle DEBUG-586 found had been wrong
+        // for a whole module's life. 'minimal' NO LONGER SETS THE SLOT: the option below
+        // still widens the library's computed maxWidth, but `headerTitleContainerStyle` is
+        // applied after it (Header.tsx:384) and `dailyLoopHeaderTitleMaxWidth` now wins.
+        // The reservation is ✕-DERIVED, from the same constants the close button's style
+        // consumes, so the coupling is mechanical and a jest pin asserts the equality.
         //
-        // Purely horizontal, deliberately. headerStyle.height STAYS 72 (DEBUG-468 above):
-        // daily-loop-quick-depth.yaml's hand-measured fold, continue-button and support-line
-        // y-ranges and its DEBUG-518 timeout:25000 scroll budget are all anchored to it, and
-        // a height change would silently invalidate every one of them.
+        // What 'minimal' is still for: without it the library reserves 80pt a side for a
+        // back chevron PLUS ITS LABEL that does not exist here, which would clamp the cell
+        // below what the capped title needs and wrap it for no reason.
+        //
+        // headerStyle.height is no longer 72 unconditionally — see DEBUG-629 above. It is
+        // still EXACTLY 72 at the default size, which is what daily-loop-quick-depth.yaml's
+        // hand-measured fold, continue-button and support-line y-ranges and its DEBUG-518
+        // timeout:25000 scroll budget are anchored to; the growth fires only at
+        // accessibility sizes, which that flow never runs at.
         headerBackButtonDisplayMode: 'minimal' as const,
       }}
       screenListeners={{
@@ -442,18 +485,14 @@ const styles = StyleSheet.create({
     borderBottomColor: colorSystem.themes.midday.primary,
     backgroundColor: colorSystem.themes.midday.background,
   },
-  headerContainer: { alignItems: 'center', width: '100%' },
-  headerTitle: {
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: semantic.text.primary,
-    marginBottom: spacing[4],
-  },
   closeButton: {
-    marginLeft: spacing[16],
+    // DEBUG-629: shared with the title's horizontal reservation, so the two cannot drift.
+    // MAINT-564 recorded that coupling as a comment asking the next reader to re-measure;
+    // this makes it mechanical. Changing either value moves `dailyLoopHeaderTitleMaxWidth`.
+    marginLeft: DAILY_LOOP_CLOSE_BUTTON_MARGIN_LEFT,
     padding: spacing[8],
-    width: 44,
-    height: 44,
+    width: DAILY_LOOP_CLOSE_BUTTON_SIZE,
+    height: DAILY_LOOP_CLOSE_BUTTON_SIZE,
     justifyContent: 'center',
     alignItems: 'center',
   },
