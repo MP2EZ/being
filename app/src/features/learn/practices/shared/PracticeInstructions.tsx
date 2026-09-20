@@ -127,7 +127,16 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.navigation.learn,
-    textTransform: 'uppercase' as const,
+    // DEBUG-639: no `textTransform: 'uppercase'`, matching ReflectionTimerScreen's copy
+    // of this style. `Instructions:` is a single token, so uppercasing it leaves no break
+    // opportunity and AX5 breaks it mid-word.
+    //
+    // This entry is DEAD today — nothing passes variant="numbered" — so the change is
+    // consistency, not a second user-visible fix. It is made anyway so the defect cannot
+    // resurface the day a caller uses that variant.
+    //
+    // `stepLabel` below deliberately KEEPS its transform: it renders `Step N of M`, which
+    // is multi-token and wraps at a space, and it is on the live `stepped` path.
     letterSpacing: 0.5,
     marginBottom: spacing[8],
   },

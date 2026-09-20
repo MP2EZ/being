@@ -165,3 +165,73 @@ describe('matcher integrity', () => {
     expect(toggleStyleBlock('const s = { other: { a: 1 } };')).toBe('');
   });
 });
+
+/**
+ * DEBUG-639 — the instructions label must not break mid-word at AX5.
+ *
+ * `textTransform: 'uppercase'` turned the source literal `Instructions:` into a single
+ * 13-glyph all-caps token with NO internal break opportunity. At AX5 the caption size
+ * scales past the 342pt line box (390 - 2 x spacing[24]), and RN's TextKit layout falls
+ * back to a CHARACTER-boundary break when one token exceeds the container — rendering
+ * `INSTRUCTION` / `S:`. Content is preserved and nothing clips, which is why this is a
+ * legibility defect and not WCAG 1.4.4.
+ *
+ * The fix is to drop the transform, NOT to clamp: DEBUG-628's ruling above forbids
+ * `numberOfLines`, a fixed height and `maxFontSizeMultiplier` on this screen, and each
+ * would reintroduce truncation, failing this item's own AC2.
+ *
+ * These are a STRUCTURAL PROXY for AC2 and must never be cited as AC1 evidence. RNTL
+ * performs no layout, no Maestro flow renders this screen, and the gate simulator is
+ * 375x667 while the defect was captured at 390x844 — so whether the glyphs actually fit
+ * is an on-device reading, not something this file can decide.
+ */
+describe('DEBUG-639 — the instructions label breaks between words', () => {
+  const INSTRUCTIONS = ['Settle into a comfortable seat.', 'Let the prompt rest in mind.'];
+
+  const renderLabel = () => {
+    const { getByText } = render(
+      <ReflectionTimerScreen
+        practiceId="evening-reflection"
+        moduleId="aware-presence"
+        duration={180}
+        title="Evening Reflection"
+        instructions={INSTRUCTIONS}
+      />
+    );
+    return getByText('Instructions:');
+  };
+
+  /** The `instructionsLabel: { ... }` StyleSheet entry, anchored on its key. */
+  const instructionsLabelBlock = (source: string): string => {
+    const match = source.match(/\binstructionsLabel:\s*\{([^}]*)\}/);
+    return match ? match[1] : '';
+  };
+
+  it('does not uppercase the label — an all-caps single token has no break opportunity', () => {
+    const style = (StyleSheet.flatten(renderLabel().props.style) ?? {}) as Record<
+      string,
+      unknown
+    >;
+    expect(style.textTransform).toBeUndefined();
+  });
+
+  it('wraps freely — none of the three clamps DEBUG-628 forbids is introduced', () => {
+    const node = renderLabel();
+    const style = (StyleSheet.flatten(node.props.style) ?? {}) as Record<string, unknown>;
+    expect(node.props.numberOfLines).toBeUndefined();
+    expect(node.props.adjustsFontSizeToFit).toBeFalsy();
+    expect(node.props.maxFontSizeMultiplier).toBeUndefined();
+    expect(node.props.allowFontScaling).not.toBe(false);
+    expect(style.height).toBeUndefined();
+  });
+
+  it('the source does not reintroduce the transform on this entry', () => {
+    const block = instructionsLabelBlock(strippedSource());
+    // Non-vacuity: a regex that stops matching the slice reads exactly like a clean
+    // file (DEBUG-390). Prove the slicer still finds the entry before trusting the
+    // negative below.
+    expect(block.trim().length).toBeGreaterThan(0);
+    expect(block).toMatch(/fontSize\s*:/);
+    expect(block).not.toMatch(/textTransform\s*:/);
+  });
+});
