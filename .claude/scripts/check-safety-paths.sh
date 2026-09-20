@@ -333,6 +333,7 @@ PROBE_PATHS=(
   "app/src/features/learn/practices/ReflectionTimerScreen.tsx"
   "app/src/features/learn/practices/BodyScanScreen.tsx"
   "app/src/features/learn/practices/GuidedBodyScanScreen.tsx"
+  "app/src/features/learn/practices/SortingPracticeScreen.tsx"
   "app/src/features/practices/screens/PracticeLibraryScreen.tsx"
   "app/src/features/profile/screens/DeleteAccountScreen.tsx"
   "app/src/core/stores/settingsStore.ts"

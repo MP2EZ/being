@@ -75,6 +75,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/learn/practices/ReflectionTimerScreen.tsx` | `crisis` |
 | `app/src/features/learn/practices/BodyScanScreen.tsx` | `crisis` |
 | `app/src/features/learn/practices/GuidedBodyScanScreen.tsx` | `crisis` |
+| `app/src/features/learn/practices/SortingPracticeScreen.tsx` | `crisis` + `philosopher` |
 | `app/src/features/practices/screens/PracticeLibraryScreen.tsx` | `crisis` + `philosopher` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
@@ -312,8 +313,28 @@ rect's `left` is 72 — both offsets from screen-right, so W cancels and the 48p
 at every viewport and text size. On-device bounds are DEBUG-626's. **Do not copy the
 "last-key-wins" rationale onto a new host** (corrected DEBUG-631): it governs an ARRAY merge
 via `PracticeToggleButton`, not two distinct margin keys in one object, which Yoga resolves by
-edge specificity regardless of order. `SortingPracticeScreen.tsx` is the same class on a
-three-control, transform-scaled host, **not yet gated** — carry DEBUG-634.
+edge specificity regardless of order. Both shapes are now live and they are NOT
+interchangeable — `SortingPracticeScreen` composes real arrays
+(`[choiceButton, inControlButton, pressed && choiceButtonPressed]`), so a later member
+declaring `marginRight` would clobber the clearance and the pin must assert none does;
+`GuidedBodyScanScreen` passes a bare object, where edge specificity decides. Read the host
+before copying either.
+
+`features/learn/practices/SortingPracticeScreen.tsx` (added DEBUG-634) is the same family on
+the first **scale-transformed** host, and the ruling generalises: a uniform scale by s about
+any origin maps edge E to `p + s(E − p)`, so for s ≤ 1 the transformed frame is a strict
+SUBSET of the layout frame on all four edges, and every term in
+`intersectsCrisisButtonExclusion` is monotone in the safe direction. The clearance is
+therefore computed against the LAYOUT frame at s = 1, which is the supremum — the transient
+mid-animation state is strictly safer, not riskier. **An `outputRange` above 1 inverts that**
+(an overshoot pushes the right edge outward, W-dependently), so the pin fixes the card's
+interpolate at `[0.9, 1]` and any change to it comes back through `crisis`. FILE-level: the
+directory's remainder includes an unreviewed `PracticeCompletionScreen.tsx` and twelve
+`shared/` members, two of which — `PracticeToggleButton.tsx` (the array four gated hosts'
+clearance flows through) and `practiceSafeAreaEdges.ts` (it decides the content bottom for
+four gated hosts) — are plausibly crisis-bearing and have had no review. Named here rather
+than gated, because an unnamed non-crisis member is exactly what the standing rule exists to
+catch.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
