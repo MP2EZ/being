@@ -73,6 +73,10 @@ APP_DIR=app; [ -d app ] || APP_DIR=/Users/max/dev/being/development/app
 # `npx jest __tests__/scripts/` (~50s). No precommit pattern matches that
 # directory, so CI's "Script guard tests" job is the first thing to run it —
 # and on a safety-path branch the fix commit then invalidates provenance.
+# All four conditional checks read the WORKING TREE, so on a branch that is behind
+# they test a tree that will not merge — and a back-merge landing mid-run can add
+# suites the run never saw. Check `git rev-list --count HEAD..origin/development`
+# first; if non-zero, do Step 2.5.0's sync before these, not after.
 ```
 
 The second is the same class of cheap local check: a test file added under `src/**`
