@@ -249,7 +249,11 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.navigation.learn,
-    textTransform: 'uppercase',
+    // DEBUG-639: no `textTransform: 'uppercase'`. It made the literal `Instructions:`
+    // a single 13-glyph all-caps token with no internal break opportunity, and at AX5
+    // that token exceeds the 342pt line box — so TextKit fell back to a CHARACTER
+    // break and rendered `INSTRUCTION` / `S:`. Clamping instead is not available:
+    // DEBUG-628 forbids numberOfLines, a fixed height and maxFontSizeMultiplier here.
     letterSpacing: 0.5,
     marginBottom: spacing[8],
   },
