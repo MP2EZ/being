@@ -64,10 +64,73 @@ e2e_assert_default_content_size() {
   echo "❌ The simulator is at content size '${cs}', not the default '${E2E_DEFAULT_CONTENT_SIZE}'." >&2
   echo "   Every layout assertion in this suite would be measuring a text size the app does" >&2
   echo "   not ship by default, so a pass or a fail here says nothing about the product." >&2
-  echo "   Content size is device-global and survives clearState, clearKeychain and relaunch," >&2
-  echo "   so this was almost certainly left behind by an earlier run on this machine." >&2
   echo "" >&2
+  echo "   OBSERVED: content size on ${udid} is '${cs}'. It is device-global and survives" >&2
+  echo "   clearState, clearKeychain and relaunch. simctl records NO OWNER for it, so this" >&2
+  echo "   says nothing about who set it or when." >&2
+  echo "" >&2
+  echo "   NOT OBSERVED: whether a finished run left it behind, or a LIVE run is holding it" >&2
+  echo "   right now. e2e-dynamic-type.sh sets a scaled size and restores it in an" >&2
+  echo "   EXIT/INT/TERM trap, so a deliberate scaled-type run in progress looks identical" >&2
+  echo "   to a leak from the outside." >&2
+  echo "" >&2
+  e2e_report_live_maestro_jvms
   echo "   Restore it:  xcrun simctl ui ${udid} content_size ${E2E_DEFAULT_CONTENT_SIZE}" >&2
   echo "   Deliberate scaled-type run:  E2E_ALLOW_NON_DEFAULT_CONTENT_SIZE=1 (restore in a trap)" >&2
   return 1
+}
+
+# e2e_report_live_maestro_jvms — print what `ps` can and cannot tell us, before any reset.
+#
+# DEBUG-640: this is an OBSERVATION, never a verdict, and both directions are unsound as
+# inferences:
+#
+#   * A live JVM does NOT mean this device is busy. e2e_maestro_jvm_pids has no UDID
+#     predicate, so a peer driving a DIFFERENT simulator matches. `ps` reports host
+#     activity; only the pin or the log says which device a run targets. Reading it as
+#     "this device is in use" is instance 4 of the very defect this rewrite addresses.
+#   * An empty result does NOT mean the size leaked. e2e-driver-ownership.sh already
+#     retired that inference: a peer sitting between its own flows is inside its `sleep 8`
+#     settle and shows no JVM, and e2e-dynamic-type.sh holds the size across its whole
+#     inner run — pre-flight, device resolution, and a lock wait that can reach
+#     E2E_LOCK_TIMEOUT.
+#
+# Sourced defensively: e2e-dynamic-type.test.js stages only three files, and
+# e2e-sim-build.test.js derives its staging list from `. "$(dirname "$0")/..."` lines in
+# OTHER scripts, so a hard source here breaks both sandboxes. Degrades to printing the
+# command rather than erroring — the file is sourced under a bare `set -u`.
+e2e_report_live_maestro_jvms() {
+  local _own_dir _pids _count
+  _own_dir="$(dirname "${BASH_SOURCE[0]:-$0}")"
+  if ! command -v e2e_maestro_jvm_pids >/dev/null 2>&1; then
+    if [ -f "${_own_dir}/e2e-driver-ownership.sh" ]; then
+      # shellcheck source=/dev/null
+      . "${_own_dir}/e2e-driver-ownership.sh" 2>/dev/null || true
+    fi
+  fi
+
+  if ! command -v e2e_maestro_jvm_pids >/dev/null 2>&1; then
+    echo "   CHECK BEFORE ANY RESET — run this by hand; it matches the EXECUTABLE, never a" >&2
+    echo "   command-line substring (DEBUG-392):" >&2
+    echo "     ps -axo pid=,comm=,args= | awk '\$2 ~ /(^|\\/)java\$/ && index(\$0,\"maestro.cli.AppKt\") { print \$1 }'" >&2
+    echo "" >&2
+    return 0
+  fi
+
+  _pids="$(e2e_maestro_jvm_pids '' 2>/dev/null | tr '\n' ' ')"
+  _pids="${_pids%"${_pids##*[![:space:]]}"}"
+  _count="$(printf '%s' "$_pids" | wc -w | tr -d ' ')"
+
+  if [ "${_count:-0}" -gt 0 ]; then
+    echo "   CHECK BEFORE ANY RESET: ${_count} live maestro JVM(s) on this host: ${_pids}" >&2
+    echo "   That is host activity. It does NOT establish that this device is the one being" >&2
+    echo "   driven — a peer may be running against a different device. Confirm against" >&2
+    echo "   their pin or their log before you touch a shared global." >&2
+  else
+    echo "   CHECK BEFORE ANY RESET: no live maestro JVM on this host right now." >&2
+    echo "   That is a fact about NOW, not about who set the size. A peer between flows is" >&2
+    echo "   inside its settle and shows nothing here, so this does not establish a leak." >&2
+  fi
+  echo "" >&2
+  return 0
 }
