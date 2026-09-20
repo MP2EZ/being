@@ -66,8 +66,34 @@
 #                               flow's negative assertion fails for a reason that is not
 #                               a regression
 #   pairingState  == paired     drops devices Xcode cannot drive
-#   tunnelState   not unavailable/disconnected
+#   tunnelState   != unavailable
 #                               drops a device that is remembered but not present
+#
+# `disconnected` IS ELIGIBLE, and that is a correction, not an oversight (DEBUG-584).
+# This condition used to read `not unavailable/disconnected`, which treated a TRANSIENT
+# LIVENESS SIGNAL as a STATIC ELIGIBILITY PROPERTY. Measured 2026-09-18 on iPhone 16e /
+# iOS 26.6.2 / Xcode 26.0.1, sampling every 20s after an explicit wake:
+#
+#     wired         connected @t+0  →  disconnected @t+20 and every sample after
+#     localNetwork  connected @t+0  →  disconnected @t+20, reconnecting only while
+#                                      something was actively driving the device
+#
+# The tunnel is LAZY on BOTH transports and decays within ~20s of the last thing that
+# talked to the device, so `tunnelState` answers "is anyone talking to this device right
+# now" — never "can this device be driven". Filtering on it was wrong in both directions:
+# a quiet machine with a cabled, unlocked iPhone enumerated EMPTY (the common case, and
+# the sleeping-tunnel hazard CLAUDE.md documents), while a device poked in the preceding
+# ~20s enumerated as eligible and was then pinned for a flow whose attach came after the
+# decay — DEBUG-584's NO_REPORT on the crisis path.
+#
+# DO NOT REINTRODUCE A `transportType` CHECK HERE. DEBUG-584 was filed believing a
+# network-paired device was undrivable and a cable was the fix; both halves were measured
+# false. Maestro 2.6.0 printed `Detected connected iPhone` against `localNetwork`, and the
+# wired tunnel above decays FASTER than the network one. `unavailable` is the only
+# connection field that states a durable fact.
+#
+# Eligibility is therefore necessary but not sufficient, and the resolver closes the gap
+# by ESTABLISHING the tunnel it depends on — see e2e_wake_device_tunnel below.
 e2e_attached_devices() {
   local out raw
 
@@ -102,13 +128,126 @@ e2e_attached_devices() {
         if (hw.platform !== "iOS") continue;
         if (hw.deviceType !== "iPhone") continue;
         if (conn.pairingState !== "paired") continue;
-        if (conn.tunnelState === "unavailable" || conn.tunnelState === "disconnected") continue;
+        if (conn.tunnelState === "unavailable") continue;
         if (!hw.udid) continue;
-        console.log(`${hw.udid}\t${props.name || hw.productType || "unknown"}`);
+        const name = props.name || hw.productType || "unknown";
+        console.log(
+          `${hw.udid}\t${name}\t${conn.transportType || "unknown"}\t${conn.tunnelState || "unknown"}`
+        );
       }
       process.exit(0);
     });
   ' 2>/dev/null || return 1
+}
+
+# e2e__device_tunnel_state <udid>
+#
+# Echoes one device's CURRENT tunnelState, re-enumerating to get it. Deliberately a fresh
+# `devicectl list devices` rather than a value carried from the census: the whole point is
+# that the census value is stale by the time anything acts on it.
+e2e__device_tunnel_state() {
+  local udid="${1:-}" out raw
+  [ -n "$udid" ] || return 1
+
+  out="$(mktemp "${TMPDIR:-/tmp}/e2e-devicectl-tunnel-XXXXXX.json")" || return 1
+  if ! xcrun devicectl list devices --json-output "$out" >/dev/null 2>&1; then
+    rm -f "$out"
+    return 1
+  fi
+  raw="$(cat "$out" 2>/dev/null)"
+  rm -f "$out"
+  [ -n "$raw" ] || return 1
+
+  printf '%s' "$raw" | node -e '
+    let s = "";
+    process.stdin.on("data", (d) => (s += d)).on("end", () => {
+      let parsed;
+      try {
+        parsed = JSON.parse(s);
+      } catch {
+        process.exit(1);
+      }
+      const devices = parsed && parsed.result && parsed.result.devices;
+      if (!Array.isArray(devices)) process.exit(1);
+      for (const d of devices) {
+        const hw = (d && d.hardwareProperties) || {};
+        if (hw.udid !== process.argv[1]) continue;
+        const conn = (d && d.connectionProperties) || {};
+        console.log(conn.tunnelState || "unknown");
+        process.exit(0);
+      }
+      process.exit(1); // the device left between the census and this read
+    });
+  ' "$udid" 2>/dev/null || return 1
+}
+
+# e2e_wake_device_tunnel <udid>
+#
+# Brings the CoreDevice tunnel up for one device and CONFIRMS it came up.
+#
+# Exit 0  tunnel is connected and the device is drivable now
+# Exit 1  it would not come up
+#
+# This exists because eligibility is necessary but not sufficient (DEBUG-584). The tunnel
+# is lazy and decays ~20s after the last thing that talked to the device, so a resolver
+# that merely OBSERVES a live tunnel is sampling a race: it can see `connected`, pin the
+# udid, and hand maestro a device whose tunnel has since dropped — which surfaces as a
+# flow dying `NO_REPORT` on the crisis path, indistinguishable at a glance from the
+# affordance under test having regressed.
+#
+# THE WAKE'S OWN EXIT STATUS IS DELIBERATELY IGNORED. What matters is whether the tunnel
+# is up afterwards, and the two are not the same fact: `devicectl` can exit 0 having not
+# established one. Trusting the exit code would rebuild the original mis-pin one layer
+# down — the precise recursion this function was written to end.
+e2e_wake_device_tunnel() {
+  local udid="${1:-}" state
+  [ -n "$udid" ] || return 1
+
+  # `device info details` is the cheapest call that forces the tunnel up. Its OUTPUT is
+  # irrelevant and discarded; only the state it leaves behind is read.
+  xcrun devicectl device info details --device "$udid" >/dev/null 2>&1 || true
+
+  state="$(e2e__device_tunnel_state "$udid")" || return 1
+  [ "$state" = "connected" ] || return 1
+}
+
+# e2e__emit_resolved_device <udid> <listing>
+#
+# The single gate every resolved udid passes through: bring the tunnel up, and only then
+# emit the udid on stdout. Exists as one helper rather than two inline copies because the
+# count==1 path and the E2E_DEVICE_UDID override path must not be able to drift apart —
+# an override that skipped the wake would be the original defect with a longer spelling.
+#
+# Exit 0  udid emitted on stdout
+# Exit 1  tunnel would not come up; diagnostic on stderr, NOTHING on stdout
+e2e__emit_resolved_device() {
+  local udid="${1:-}" listing="${2:-}" row transport
+
+  if e2e_wake_device_tunnel "$udid"; then
+    printf '%s' "$udid"
+    return 0
+  fi
+
+  row="$(printf '%s\n' "$listing" | grep -F "$udid" | head -1)"
+  transport="$(printf '%s' "$row" | cut -f3)"
+
+  echo "❌ $udid is paired and present, but its tunnel would not come up." >&2
+  echo "   The device enumerates, so this is NOT 'no device attached' — it is a device" >&2
+  echo "   that cannot be driven right now. maestro would accept the target and then die" >&2
+  echo "   without writing a report, which on a crisis flow is indistinguishable from the" >&2
+  echo "   988 affordance itself having regressed. Refusing here instead." >&2
+  echo "" >&2
+  echo "   Observed transport: ${transport:-unknown}" >&2
+  echo "" >&2
+  echo "   The tunnel is lazy and decays ~20s after the last thing that talked to the" >&2
+  echo "   device, on a cable exactly as much as over Wi-Fi, so this is not about how it" >&2
+  echo "   is attached. Check in this order:" >&2
+  echo "     1. the phone is unlocked, and stays unlocked for the run" >&2
+  echo "     2. this Mac is trusted on it (Settings → General → VPN & Device Management)" >&2
+  echo "     3. Developer Mode is on (Settings → Privacy & Security → Developer Mode)" >&2
+  echo "     4. bring it up by hand and watch it take:" >&2
+  echo "        xcrun devicectl device info details --device $udid" >&2
+  return 1
 }
 
 # e2e_resolve_real_device <context-label>
@@ -120,6 +259,13 @@ e2e_attached_devices() {
 # Exit 1  could not ENUMERATE devices
 # Exit 2  zero eligible devices attached
 # Exit 3  ambiguous: 2+ attached and no usable E2E_DEVICE_UDID override
+# Exit 4  selected, but its tunnel would not come up — present and undrivable (DEBUG-584)
+#
+# These are the FUNCTION's codes, not the gate's. e2e-safety.sh collapses every one of
+# them to `exit 2` at its single call site, which is correct — a device that cannot be
+# resolved is a harness-cannot-complete fact, never a flow verdict — and is pinned
+# separately by __tests__/scripts/e2e-safety-exit-alphabet.test.js. Exit 4 therefore adds
+# no new gate-level code and cannot collide with e2e-gate.sh's own 4 (INFRA-472).
 #
 # FAILS CLOSED on every non-zero path, and in particular NEVER falls back to a simulator.
 # That is the whole point: a device-only flow silently retargeted at a simulator is exactly
@@ -161,22 +307,38 @@ e2e_resolve_real_device() {
     return 2
   fi
 
-  count="$(printf '%s\n' "$listing" | grep -c .)"
-
-  if [ "$count" -eq 1 ]; then
-    printf '%s' "$(printf '%s' "$listing" | cut -f1)"
-    return 0
-  fi
-
-  # 2+ attached. Honour an explicit override when it names one of them; otherwise refuse.
+  # AN EXPLICIT PIN IS HONOURED AT ANY ATTACHED-DEVICE COUNT, and refuses rather than
+  # falling back when it names something absent. This block used to sit BELOW the
+  # count==1 branch, so with exactly one iPhone attached — the ordinary case — a pin
+  # naming a DIFFERENT device was silently ignored and the one attached device was
+  # resolved instead. That is the silent-mistarget hazard this resolver's own header
+  # says it exists to prevent, and the header's worked example (an E2E_SIM_UDID value
+  # leaking in and being "refused") was false in exactly the configuration operators
+  # actually run. Mirrors E2E_SIM_UDID's shape, which DEBUG-497 already settled:
+  # honoured at any count, exact-match, refuse on a miss rather than fall back.
+  #
+  # Matched on FIELD 1, not as a substring of the row. The listing carries name and
+  # transport columns, so a substring match could be satisfied by a device's NAME while
+  # reporting a different device's udid.
   if [ -n "${E2E_DEVICE_UDID:-}" ]; then
-    if udid="$(printf '%s\n' "$listing" | grep -F "$E2E_DEVICE_UDID" | cut -f1 | head -1)" && [ -n "$udid" ]; then
-      printf '%s' "$udid"
+    udid="$(printf '%s\n' "$listing" | awk -F'\t' -v want="$E2E_DEVICE_UDID" '$1 == want {print $1; exit}')"
+    if [ -n "$udid" ]; then
+      e2e__emit_resolved_device "$udid" "$listing" || return 4
       return 0
     fi
     echo "❌ E2E_DEVICE_UDID=$E2E_DEVICE_UDID is not among the attached devices." >&2
+    echo "   Refusing rather than falling back to one that IS attached — a pin naming a" >&2
+    echo "   device that is not here is a mistake to surface, not to silently correct." >&2
     printf '%s\n' "$listing" | sed 's/^/     /' >&2
     return 3
+  fi
+
+  count="$(printf '%s\n' "$listing" | grep -c .)"
+
+  if [ "$count" -eq 1 ]; then
+    udid="$(printf '%s' "$listing" | cut -f1)"
+    e2e__emit_resolved_device "$udid" "$listing" || return 4
+    return 0
   fi
 
   echo "❌ $count iPhones attached; the target is ambiguous — maestro picks one and does not" >&2
