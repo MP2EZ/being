@@ -1,0 +1,296 @@
+appId: fyi.being.app
+tags:
+  - safety-dynamic-type
+name: "DailyLoop AX5 VirtuousResponse (DEBUG-629): quick depth reaches beat 3 at accessibility sizes"
+# e2e-certifies: 375x667
+---
+# DEBUG-629 — MAINT-583 AC5's remainder, folded into this item by founder decision
+# 2026-09-15 because the header fix must touch `dailyloop/` and so pays for the Release
+# build regardless.
+#
+# Run it with `npm run e2e:safety:ax5-virtuous`, NEVER a bare `maestro test`. The wrapper
+# (scripts/e2e-dynamic-type.sh) sets the device to AX5 and restores it in a trap; content
+# size is device-global and PERSISTENT, so a bare run leaves this machine's shared simulator
+# poisoned and silently invalidates the next worktree's layout assertions.
+#
+# Tagged `safety-dynamic-type`, not `safety`: e2e-safety.sh matches the suite on an EXACT
+# `- safety` tag, so this is excluded from `npm run e2e:safety` by construction and the
+# 15-flow count tripwire does not move. `/b-close` Step 2.5.3 arms it on `dailyloop/`
+# changes alongside `daily-loop-ax5-entry`.
+#
+# WHAT THIS COVERS THAT NOTHING ELSE DID. `daily-loop-quick-depth` reaches VirtuousResponse
+# but runs at the default size by construction (`e2e_assert_default_content_size` refuses
+# any other). `daily-loop-ax5-entry` is the only `safety-dynamic-type` flow entering the
+# loop and it STOPS at SphereSovereignty, one beat short. So beat 3 — the beat carrying the
+# virtue grid and, before DEBUG-629, the beat where the header's counter overstruck the
+# virtue-reference prose — had no accessibility-size coverage at all.
+#
+# WHAT IT CANNOT COVER, stated so a green run is not over-read: Maestro asserts PRESENCE,
+# not bounds, so nothing here observes the header overlap this item fixed. The falsifiers
+# for the geometry are the AX5 `maestro hierarchy` capture and the jest pins in
+# `dailyloop/__tests__/headerLayout.test.tsx`. What this flow pins is REACHABILITY at AX5,
+# and the crisis invariant below.
+#
+# THE RETRIES ARE NOT BELT-AND-BRACES, AND THERE IS ONLY ONE MECHANISM HERE.
+#
+# Every instance below is the same thing: a scroll ends in a swipe, the tap lands while the
+# list is still decelerating, and RN's ScrollView claims a touch that starts mid-deceleration
+# for itself (`_isAnimating()` in `_handleStartShouldSetResponderCapture`) — so the tap only
+# STOPS the list. Whatever caused the fling is incidental; `centerElement` is merely the
+# commonest way to leave one running.
+#
+# Four observed sites, one cause:
+#   - `checkin-card-daily-loop`, DEBUG-546, measured 5 runs in 25.
+#   - The breath skip, DEBUG-632 — there the swallowed tap is legible because
+#     `breathCompleted` then flips on the 30s timer instead, so `continue-button` appears at
+#     exactly mount + BREATH_DURATION_MS.
+#   - The beat-2 -> beat-3 advance, MEASURED here: 1 of 2 AX5 runs, `tapOn: continue-button`
+#     COMPLETED and `daily-loop-VirtuousResponse-screen` never appeared within 20s. Same
+#     shape, minus the timer that made DEBUG-632's legible.
+#   - Probably the MAINT-564 non-advance that MAINT-583 recorded as "unexplained, possibly an
+#     artefact of ad-hoc flow authoring". HYPOTHESIS: that instance was never re-measured,
+#     and two samples is not a rate.
+#
+# A longer timeout fixes NONE of them: the tap was consumed, so nothing further is coming.
+# A user taps again, so this does — once, and only once the first tap has provably not
+# navigated, confirmed from app state rather than from Maestro's tap verdict.
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- runFlow: _seeded-home.yaml
+- scrollUntilVisible:
+    element:
+      id: "checkin-card-daily-loop"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- assertVisible:
+    id: "checkin-card-daily-loop"
+- tapOn:
+    id: "checkin-card-daily-loop"
+- extendedWaitUntil:
+    visible:
+      id: "daily-loop-depth-select-screen"
+    timeout: 5000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "daily-loop-depth-select-screen"
+    commands:
+      - tapOn:
+          id: "checkin-card-daily-loop"
+- assertVisible:
+    id: "daily-loop-depth-select-screen"
+- tapOn:
+    id: "daily-loop-depth-quick"
+- assertVisible:
+    id: "daily-loop-AwarePresence-screen"
+# Beat 1. NO centerElement on either scroll here: the SkipLink and the Continue are each the
+# LAST node in their scroll content so neither can reach centre, and on a quick beat 1
+# nothing is pinned below the ScrollView (the support line is on SphereSovereignty), so
+# DEBUG-465's reason for centring does not apply. Centring the Continue here is what red-lined
+# the MAINT-583 harness on this tree: found at [20,457][283,625], 100% visible, every try.
+# Those bounds are PRE-FIX (band 72). Re-measured at band 108 the same control reads
+# [20,499][283,667] — and its bottom coincides with the SCREEN bottom, so XCUITest clips the
+# reported frame and the true layout frame extends below 667. Do not read a reported centre
+# here as the control's real centre.
+# The breath. UNCONDITIONAL, and keyed on the SkipLink rather than on
+# `daily-loop-breathing-circle` (DEBUG-632's diagnosis, adopted here rather than re-derived):
+# that testID sits on the component ROOT — a ~300pt node wrapping the circle, the phase cue
+# and the grounding text — so at AX5 it straddles the fold and a `visible:`/`notVisible:`
+# predicate on it is settled by the visibility threshold and varies with how many swipes the
+# run happened to need. Nondeterministically vacuous, which is worse than a stably vacuous
+# guard. Beat 1 of quick always mounts the breath (`showBreath={stepKey === 'AwarePresence'}`
+# with `breathCompleted` false at mount), so there is nothing to guard against here anyway.
+- swipe:
+    start: "50%, 85%"
+    end: "50%, 15%"
+- scrollUntilVisible:
+    element:
+      id: "daily-loop-skip-breath"
+    direction: DOWN
+    timeout: 25000
+- tapOn:
+    id: "daily-loop-skip-breath"
+# CONFIRM THE TAP TOOK — and do NOT read Maestro's `COMPLETED` as that confirmation.
+# Maestro reports a tap COMPLETED whenever the view hierarchy changed at all
+# (`screenshotBasedTap: Something have changed in the UI judging by view hierarchy`), and a
+# breathing circle plus a ticking countdown change it every frame, so a swallowed tap is
+# indistinguishable from one that landed (DEBUG-632). The SkipLink unmounting is app state
+# and cannot be faked by an animation.
+#
+# Why the tap gets swallowed: it is issued ~172ms after the swipe above returns, inside the
+# ScrollView's deceleration, and RN claims a touch that starts mid-deceleration for itself.
+# When it is swallowed, `breathCompleted` flips only on the timer — so `continue-button`
+# appears at exactly mount + BREATH_DURATION_MS (30s), and the scroll below spends its whole
+# budget on an element that does not exist yet.
+- extendedWaitUntil:
+    notVisible:
+      id: "daily-loop-skip-breath"
+    timeout: 3000
+    optional: true
+- runFlow:
+    when:
+      visible:
+        id: "daily-loop-skip-breath"
+    commands:
+      - tapOn:
+          id: "daily-loop-skip-breath"
+- extendedWaitUntil:
+    notVisible:
+      id: "daily-loop-skip-breath"
+    timeout: 5000
+- scrollUntilVisible:
+    element:
+      id: "continue-button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "continue-button"
+- extendedWaitUntil:
+    visible:
+      id: "daily-loop-SphereSovereignty-screen"
+    timeout: 20000
+# Beat 2 is the beat showsSupportLine() selects on quick, so this is the crisis assertion.
+# NO SCROLL in front of it, ever, at any depth: the bar is pinned OUTSIDE the ScrollView
+# (DEBUG-465) and must be on screen at offset 0. It is also what reds if the header band
+# ever eats the fold.
+- assertVisible:
+    id: "daily-loop-support-line"
+# On to beat 3 — and this is the ONE scroll in this repo that must NOT use `centerElement`
+# for a reason particular to AX5. Crisis ruling, DEBUG-629.
+#
+# WHAT `centerElement` DID HERE, MEASURED. It completed, and the tap still landed on the
+# pinned crisis line:
+#     continue-button  Bounds(x=20, y=293, width=263, height=169)
+#     tapped at        (151, 376)
+#     support-line     [20,344][355,667]        -> 32pt INSIDE it, app went to CrisisResources
+# A second, no-tap capture of the same state read centre 336 — 8pt clear. So the settled
+# position swings ~40pt run to run and crosses the boundary on some of them.
+#
+# WHY, and it is not a defect this item introduced. The bar is a flex sibling of a `flex: 1`
+# ScrollView, so the ScrollView absorbs every point the band takes and the bar's top stays at
+# `667 - barHeight` = 344 at EVERY band value. Screen centre on 375x667 is 333.5 always. So
+# the distance from Maestro's centring TARGET to the crisis control is 10.5pt before and
+# after the header change alike — the band moved the settled position, not the target, and
+# changed a probability rather than an exposure. What actually spent the margin is AX5: the
+# bar is 58pt at default type and 323pt here, because SUPPORT_LINE wraps at fontScale 3.571.
+# This is a pre-existing exposure newly OBSERVED, because this is the first flow in the repo
+# that taps `continue-button` on beat 2 at AX5 — ax5-entry stops here and taps the bar.
+#
+# NOT A USER-FACING FALSE POSITIVE, and the distinction is why the fix belongs in the flow
+# rather than in the screen: RCTScrollView clips PAINTING to its bounds and iOS `hitTest:`
+# returns nil outside a view's own bounds, so painted region and acting region are identical
+# and the two controls share no coordinate. A person aiming at Continue taps Continue; a
+# person tapping y=376 sees the support line and correctly gets CrisisResources. Only
+# XCUITest sees the unclipped a11y frame, and `tapOn` synthesises a screen coordinate with no
+# hit-test path taken.
+#
+# THE REMEDY IS THE ONE THE REPO ALREADY DOCUMENTS. `gad7-severe.yaml`'s predicate: a
+# swallowed touch "is cleared by any touch, or by a scroll that terminates at a CONTENT
+# BOUNDARY. It is not cleared by time." Swiping to the clamp gets both properties at once —
+# a deterministic tap point (no settling distribution to sample) and the swallow cleared.
+# At the clamp the CTA sits at [134,303], tap centre 218.5: 125pt clear of the bar.
+#
+# TWO STAGES, because neither alone works and MEASURED why.
+#
+# Stage 1 REACHES it. Swipes alone do not: a swipe must start AND end inside the scroll
+# viewport [138,343] (one starting at beat 1's `50%, 85%` = y 567 lands on the pinned bar and
+# drives nothing), so a single swipe can travel at most ~200pt — and at AX5 this beat has far
+# more than that below the fold. Measured after three such swipes: `daily-loop-input-notMine`
+# still at [22,616][353,853] and `continue-button` ABSENT from the hierarchy entirely, because
+# XCUITest drops elements outside the SCREEN. `scrollUntilVisible` repeats until found, which
+# is the property swipes lack.
+#
+# Stage 2 CLAMPS it, and is what makes the tap point deterministic. Stage 1 stops the instant
+# the element is 100% visible ON SCREEN, which is not the same as inside the ScrollView's
+# clip — that is the DEBUG-465 condition and exactly how the tap reached the crisis line. The
+# extra swipes drive to the content boundary, where the CTA sits at [134,303] and the tap
+# centre is 218.5: 125pt clear of the bar, with no settling distribution to sample.
+#
+# `centerElement` is NOT the remedy for either stage — see the ruling above.
+- scrollUntilVisible:
+    element:
+      id: "continue-button"
+    direction: DOWN
+    timeout: 30000
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 22%"
+- swipe:
+    start: "50%, 50%"
+    end: "50%, 22%"
+- assertVisible:
+    id: "continue-button"
+- tapOn:
+    id: "continue-button"
+# ATTRIBUTION GUARD — fails NAMING the defect, before the retry below can mask it. Without
+# this, the mis-tap reds as "could not find continue-button" from the retry's own scroll,
+# which is true (we are on another screen) and names the wrong defect entirely.
+- assertNotVisible:
+    id: "crisis-resources-screen"
+- extendedWaitUntil:
+    visible:
+      id: "daily-loop-VirtuousResponse-screen"
+    timeout: 20000
+    optional: true
+- runFlow:
+    when:
+      notVisible:
+        id: "daily-loop-VirtuousResponse-screen"
+    commands:
+      # Re-establish visibility BEFORE re-tapping. A bare `tapOn` here fails outright, and
+      # MEASURED doing so: a swallowed tap stops the fling wherever it happened to be, which
+      # can leave `continue-button` below the 100% visibility `tapOn` requires, so the retry
+      # reports FAILED rather than retrying. No `centerElement` on this one — the first tap
+      # already stopped the list, so the cheapest scroll that restores full visibility is
+      # also the one least likely to start a new fling for the re-tap to race.
+      - scrollUntilVisible:
+          element:
+            id: "continue-button"
+          direction: DOWN
+          timeout: 15000
+      - tapOn:
+          id: "continue-button"
+- assertVisible:
+    id: "daily-loop-VirtuousResponse-screen"
+# This beat carries NO support line, so the FAB is its only non-scrolling crisis affordance.
+# DailyLoop is in IMMERSIVE_ROUTES — faded to 0.6, hit-testing at full strength.
+- assertVisible:
+    id: "crisis-button-root"
+# The exactly-once invariant, on device. Placed AFTER the positive assertion above so it can
+# never be satisfied by an empty screen (the ordering rule in crisis-keyboard-accessory.yaml).
+- assertNotVisible:
+    id: "daily-loop-support-line"
+# The virtue grid at AX5: single-column past VIRTUE_CHIP_SINGLE_COLUMN_FONT_SCALE and below
+# the fold, so this needs a REAL scroll. `Temperance` is the 10-character case that drove the
+# breakpoint; MAINT-583 measured it at [20,243][355,323], 335x80, one line.
+- scrollUntilVisible:
+    element:
+      id: "virtue-chip-temperance"
+    direction: DOWN
+    centerElement: true
+    timeout: 30000
+- assertVisible:
+    id: "virtue-chip-temperance"
+# DEBUG-629 K9 — the ✕ must actually EXIT at AX5, and this is a regression test for a
+# MEASURED failure, not a precaution. Before the fix, `headerContainer` (a plain View with
+# the default `pointerEvents: 'auto'`, a LATER flex sibling than the header's `start` cell)
+# covered x=32..60 / y=44..88 of `daily-loop-exit [16,44][60,88]` and hit-tested above it,
+# leaving 16x44pt reachable. Same flow, same binary, same device, one variable: this tap
+# reached home at content size `large` and did NOT at AX5.
+#
+# The assertion after the tap is the whole test — Maestro reports a tap COMPLETED whether or
+# not anything handled it, which is why the pre-fix defect was invisible to every flow and
+# why MAINT-564's "tap reported COMPLETED, screen did not change" was never explicable as a
+# Maestro problem.
+#
+# Free to run here: we are already on the last beat, and every flow's `launchApp
+# { clearState: true }` means the resumable session this abandons cannot poison the next one.
+- tapOn:
+    id: "daily-loop-exit"
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 10000

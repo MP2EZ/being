@@ -384,6 +384,10 @@ DEVICE_UDID=""
 # device-only run starts consulting xcrun for a container it does not have.
 GATE_MARKER_NAME=""
 GATE_MARKER_SNAPSHOT=""
+# DEBUG-640 — the per-build owner id of the target this run gated against, extracted once
+# from the pre-flight snapshot. Distinct from repo_head/repoRoot, which a SHARED gate
+# worktree hands to every session alike and which therefore cannot say whose build this is.
+GATE_MARKER_OWNER=""
 GATE_TARGET_REPLACED=0
 GATE_REPLACED_AT=""
 GATE_REPLACED_KIND=""
@@ -595,9 +599,12 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
 
           PROVENANCE_REGATED=1
           echo ""
-          echo "🔁 the gate target was replaced by ${REGATE_ATTRIB#PEER }"
-          echo "   Nothing in this worktree moved — a peer built into the window between"
-          echo "   this close's gate build and its flows. Rebuilding once, then continuing."
+          echo "🔁 the gate target now carries a marker from a different tree:"
+          echo "   ${REGATE_ATTRIB#PEER }"
+          echo "   OBSERVED: that tree is not this worktree, and this worktree's own tree"
+          echo "   has not moved. Which session built it is NOT observable from here — a"
+          echo "   shared gate worktree yields the same repoRoot to everyone who builds it"
+          echo "   (DEBUG-640). Rebuilding once, then continuing."
           echo "   ~90s warm; a cold DerivedData cache can reach 21m31s. Set"
           echo "   E2E_NO_AUTO_REGATE=1 to refuse instead."
           echo ""
@@ -657,6 +664,11 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
   if [ -z "$GATE_MARKER_SNAPSHOT" ]; then
     preflight_fail "the provenance marker verified a moment ago but reads empty now — the gate target is already moving. Rebuild: npm run e2e:safety:build"
   fi
+  # Read-only, and defaulted: this is a diagnostic label for the receipt and must never be
+  # able to fail a run. An older marker has no ownerId and reports as such rather than
+  # falling back to a tree identifier (DEBUG-640).
+  GATE_MARKER_OWNER="$(printf '%s' "$GATE_MARKER_SNAPSHOT" \
+    | sed -n 's/.*"ownerId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
 else
   echo "⚠️  $BUNDLE_ID is not installed on simulator $SIM_UDID — run 'npm run e2e:safety:build' first." >&2
   # DEBUG-505: the likeliest of all eleven to fire in practice — a fresh worktree whose gate
@@ -838,7 +850,12 @@ e2e_assert_gate_target() {
       | sed -n 's/.*"repoRoot"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
     _br="$(printf '%s' "$_now" \
       | sed -n 's/.*"branch"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
-    GATE_REPLACED_BY="${_who:-<unknown worktree>} (${_br:-<unknown branch>})"
+    # DEBUG-640: the per-build owner id, which is the only field here that distinguishes
+    # two builds of the SAME shared worktree at the same commit. Extracted last and
+    # defaulted like the others — a diagnostic must never be able to fail the refusal.
+    _oid="$(printf '%s' "$_now" \
+      | sed -n 's/.*"ownerId"[[:space:]]*:[[:space:]]*"\([^"]*\)".*/\1/p' | head -1)"
+    GATE_REPLACED_BY="tree ${_who:-<unknown worktree>} (${_br:-<unknown branch>}), build ${_oid:-<no owner recorded>}"
     return 1
   fi
 
@@ -1441,6 +1458,9 @@ SUITE_RECEIPT="${E2E_RECEIPT_PATH:-${SUITE_RECEIPT_DIR%/}/e2e-safety-receipt-$(d
   echo "e2e:safety receipt"
   echo "generated_utc:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
   echo "repo_head:       $(git rev-parse HEAD 2>/dev/null || echo unknown)"
+  # DEBUG-640: the build this run actually gated against, distinct from repo_head, which
+  # a shared gate worktree gives to every session alike.
+  echo "target_owner:    ${GATE_MARKER_OWNER:-<no owner recorded>}"
   echo "repo_branch:     $(git rev-parse --abbrev-ref HEAD 2>/dev/null || echo unknown)"
   echo "device_line:     ${E2E_SIM_DEVICE_LINE:-${DEVICE_UDID:+physical device $DEVICE_UDID}}"
   # INFRA-493 — the UDID, so a caller's refusal can print a PASTEABLE remediation rather
@@ -1506,6 +1526,7 @@ if [ "$GATE_TARGET_REPLACED" = "1" ]; then
     *)
       echo "❌ aborted — the gate target was REPLACED at flow ${GATE_REPLACED_AT} of ${FLOW_TOTAL}."
       echo "   Replaced by: ${GATE_REPLACED_BY}"
+      echo "   (a tree path does not identify a session — the gate worktree is shared)"
       ;;
   esac
   echo ""

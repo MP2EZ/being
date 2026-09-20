@@ -47,7 +47,6 @@ const ENV = {
   EXPO_PUBLIC_AUTH_APPLE_CLIENT_ID: 'fyi.being.app',
   EXPO_PUBLIC_AUTH_GOOGLE_CLIENT_ID: 'test-google-client-id.apps.googleusercontent.com',
   EXPO_PUBLIC_AUTH_EMAIL_SIGNUP_ENABLED: 'true',
-  EXPO_PUBLIC_AUTH_BIOMETRIC_ENABLED: 'true',
 
   // Analytics & monitoring
   EXPO_PUBLIC_ANALYTICS_ENABLED: 'true',
