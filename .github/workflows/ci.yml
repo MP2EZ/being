@@ -263,8 +263,8 @@ jobs:
         run: cd app && npm run validate:clinical-authority
 
   # Full unit + integration test suite — catches the regression tests added
-  # in Phase 0 (CollapsibleCrisisButton.a11y.test.ts and
-  # AuthenticationService.sec03.test.ts) via Jest auto-discovery.
+  # in Phase 0 (CollapsibleCrisisButton.a11y.test.ts) via Jest auto-discovery.
+  # AuthenticationService.sec03.test.ts was deleted with its subject in MAINT-635.
   #
   # Gating: as of the W1 debt paydown, broken-import failures are fixed and
   # the running suites enforce. 5 integration tests are temporarily ignored
