@@ -213,9 +213,18 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > and narrower**:
 >
 > * `e2e-sim-build.sh` writes `.e2e-provenance.json` into the installed container: git
->   HEAD, a tree hash, and a dirty flag. It lives inside the container because `simctl`
->   mints a new container UUID on every fresh install, so any reinstall takes the marker
->   with it — that disappearance *is* the binding.
+>   HEAD, a tree hash, a dirty flag, and a per-build owner block. It lives inside the
+>   container because `simctl` mints a new container UUID on every fresh install, so any
+>   reinstall takes the marker with it — that disappearance *is* the binding.
+> * **`head` / `repoRoot` / `branch` are TREE identifiers and cannot establish ownership**
+>   (DEBUG-640). That is exactly their job as merge evidence, and it makes them
+>   ownership-blind by construction: `e2e-gate` is a SHARED worktree, so every session
+>   running `e2e:safety:gate` builds it and inherits the same three values. Reading a
+>   familiar head as "this device is mine" — or an unfamiliar one as "this is a peer's" —
+>   is the misattribution that produced this rule. `ownerId` is a fresh uuid per BUILD, so
+>   two builds of the same worktree at the same commit differ; that is what makes "is this
+>   MY build?" answerable. It is diagnostic only: `verify` compares `treeHash` and
+>   `bundleId` and nothing else, and `attribute`'s SELF/PEER stays a tree comparison.
 > * `e2e-safety.sh` verifies it before any flow and refuses on `MISMATCH` / `MISSING`.
 >   A `MATCH_DIRTY` run still executes, behind an unmissable "NOT MERGE EVIDENCE" banner.
 > * `/b-close` Phase 2.5 sets `E2E_REQUIRE_CLEAN_PROVENANCE=1`, which turns that same
@@ -246,7 +255,8 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > at 4 of 28 flow-run attempts over 19h.
 >
 > The pre-flight now **rebuilds once, automatically**, when the installed marker names a
-> *different* worktree, and says whose build it found. `E2E_NO_AUTO_REGATE=1` restores the
+> *different* worktree, and names the tree it found — not a session, which a shared gate
+> worktree cannot reveal (DEBUG-640). `E2E_NO_AUTO_REGATE=1` restores the
 > plain refusal. Two cases deliberately never auto-rebuild: a marker naming **your own**
 > worktree (your tree moved — that is your edit and your call) and **no marker at all**
 > (nothing to attribute, so nothing to act on).
@@ -423,9 +433,11 @@ rollback and as a re-measurable baseline after toolchain upgrades.
 > exit 1 (a flow regression) and exit 2 (the harness could not complete). Every flow that
 > had already finished is reported `VOID`, not `PASS`: a marker change bounds a window
 > rather than an instant, so nothing that ran before it is evidence. When the marker was
-> replaced rather than deleted, the abort names the replacing worktree's `repoRoot` and
-> `branch`; an uninstall leaves no marker, so that case reports `VANISHED` with no
-> attribution.
+> replaced rather than deleted, the abort names the replacing worktree's `repoRoot`,
+> `branch` and — since DEBUG-640 — the replacing build's `ownerId`, which is the only one
+> of the three that distinguishes two builds of the SAME shared worktree. A tree path does
+> not identify a session. An uninstall leaves no marker, so that case reports `VANISHED`
+> with no attribution.
 >
 > **INFRA-472 — `npm run e2e:safety:gate` leases the worktree and the simulator together,
 > and exits 4 when a peer owns either.** The pair is taken before the gate re-points the
@@ -701,6 +713,17 @@ closing it by ASSERTING default content size at pre-flight instead, with scaled 
 own tag class. An invariant the harness enforces needs no per-flow declaration, and
 declaring one would imply a variable the default suite does not have. Revisit only if that
 approach changes.
+
+**Before resetting the content size, check for a live run — and read the check correctly
+(DEBUG-640).** The refusal states what it observed: the size is non-default, and `simctl`
+records no owner for it. It cannot tell a leak from a run in progress, because
+`e2e-dynamic-type.sh` sets the size and restores it in an EXIT/INT/TERM trap, so a
+deliberate scaled-type run looks identical from outside. The refusal therefore reports live
+`maestro.cli.AppKt` JVMs — matched on the EXECUTABLE via `e2e_maestro_jvm_pids`, never
+`pgrep -f` (DEBUG-392) — and both directions are observations, not verdicts: a live JVM may
+be driving a DIFFERENT simulator, and an absent one proves nothing, since a peer between
+flows sits inside its `sleep 8` settle and shows none. Resetting a device-global out from
+under a live run is exactly the harm this wording exists to prevent.
 
 **Validation record — the first full-suite green at the declared target (INFRA-486,
 2026-08-19).** `npm run e2e:safety`, all **9** safety-tagged flows green in one uninterrupted

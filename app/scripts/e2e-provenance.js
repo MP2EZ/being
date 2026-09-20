@@ -67,6 +67,7 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -207,6 +208,34 @@ function write(containerPath, expected) {
     dirty: fp.dirty,
     builtAt: new Date().toISOString(),
     containerPath,
+    // DEBUG-640 instance 3 — OWNERSHIP, recorded separately from tree identity.
+    //
+    // `repoRoot`, `branch` and `head` answer "which TREE is this binary from". That is
+    // exactly their job as merge evidence, and it makes them ownership-blind BY
+    // CONSTRUCTION under the shared `e2e-gate` worktree: every session running
+    // `e2e:safety:gate` builds that tree and inherits the same three values, so reading
+    // any of them as "whose device is this" attributes a peer's build to whoever last
+    // held that SHA.
+    //
+    // `ownerId` is a fresh uuid PER BUILD, which is the narrow thing that actually fixes
+    // it: two builds of the same worktree at the same commit produce the same treeHash,
+    // the same repoRoot and the same branch, and different ownerIds — so "is this MY
+    // build?" becomes exactly answerable. It deliberately does not try to identify a
+    // person or a session; nothing on this machine is per-session, survives the build
+    // process and stays meaningful minutes later (see e2e-sim-lock.sh's header).
+    //
+    // Written ONCE, here, and never touched by verify/explain/attribute: INFRA-434
+    // compares this file's FULL BYTES before every flow, so a diagnostic that rewrote it
+    // would report `replaced` against our own binary and VOID every completed flow.
+    ownerId: crypto.randomUUID(),
+    ownerHost: os.hostname(),
+    ownerUser: os.userInfo().username,
+    // The shell that invoked us, i.e. e2e-sim-build.sh. A trace, not a liveness signal:
+    // it is dead by the time anyone reads it, and pids are recycled.
+    ownerPid: process.ppid,
+    // Self-declared, never verified, null when unset. Recorded verbatim so a wrapper can
+    // opt into a spanning id later without a schema change.
+    ownerSession: process.env.E2E_SESSION_ID || null,
   };
   try {
     fs.writeFileSync(markerPath(containerPath), `${JSON.stringify(marker, null, 2)}\n`);
@@ -305,6 +334,56 @@ function explainList(label, files) {
   }
 }
 
+/**
+ * DEBUG-640 — report what the marker OBSERVED, and say plainly what it cannot establish.
+ *
+ * Every line here is diagnostic. It cannot change a verdict, and must not: `verify`
+ * compares `treeHash` and `bundleId` only, and adding a second channel that can disagree
+ * with the first is the bug class `e2e-verdict.js` exists to prevent.
+ */
+function explainOwner(marker, containerPath) {
+  const id = marker && typeof marker.ownerId === 'string' ? marker.ownerId.trim() : '';
+
+  console.log('OWNER — who built and installed this binary:');
+  if (id) {
+    const who = [marker.ownerUser, marker.ownerHost].filter(Boolean).join('@');
+    console.log(`  build id:   ${id}`);
+    if (who) console.log(`  built by:   ${who}`);
+    if (marker.ownerPid) {
+      console.log(`  build pid:  ${marker.ownerPid} (dead by now; pids recycle — implies no liveness)`);
+    }
+    if (marker.ownerSession) {
+      console.log(`  session:    ${marker.ownerSession} (self-declared, never verified)`);
+    }
+    if (marker.builtAt) console.log(`  built at:   ${marker.builtAt}`);
+  } else {
+    // The markers already installed in the field have no owner keys, and they are exactly
+    // the ones where this misreading happens. Say so, and offer NO substitute: falling
+    // back to head or repoRoot here would re-commit the defect this block exists to fix.
+    console.log('  no owner recorded — this marker predates the owner field.');
+    console.log('  Nothing below identifies a session; rebuild to record one.');
+  }
+
+  // The disconfirming evidence that sat unread during the original misattribution: the
+  // marker's own containerPath named a different device than the one it was found on.
+  const recordedContainer =
+    marker && typeof marker.containerPath === 'string' ? marker.containerPath.trim() : '';
+  if (recordedContainer && containerPath && path.resolve(recordedContainer) !== path.resolve(containerPath)) {
+    console.log('  ⚠️  this marker records a DIFFERENT container than the one it was read from:');
+    console.log(`      recorded: ${recordedContainer}`);
+    console.log(`      read from: ${containerPath}`);
+    console.log('      It was copied, or you are looking at another device.');
+  }
+
+  console.log('TREE IDENTIFIERS (these CANNOT establish ownership):');
+  console.log(`  repoRoot / branch / head answer "which tree is this binary from", which is`);
+  console.log('  their job as merge evidence. The gate worktree /Users/max/dev/being/e2e-gate');
+  console.log('  is SHARED — every session running e2e:safety:gate builds it and inherits the');
+  console.log('  same values — so a matching head does not make a build yours, and a foreign');
+  console.log('  one does not make it a peer\'s.');
+  console.log('');
+}
+
 function explain(containerPath) {
   let marker;
   try {
@@ -327,14 +406,22 @@ function explain(containerPath) {
     return 0;
   }
 
+  // DEBUG-640 instance 3 — printed BEFORE the match/mismatch fork, deliberately.
+  //
+  // The misreading that produced this block happened with no mismatch in play at all: a
+  // human read `repoRoot` and `head` off a marker on a booted device and concluded whose
+  // device it was. Surfacing ownership only on the failure path would have corrected the
+  // one surface nobody was looking at.
+  explainOwner(marker, containerPath);
+
   if (fp.treeHash === marker.treeHash) {
     console.log('Provenance MATCHES: the installed binary was built from this exact tree.');
     return 0;
   }
 
   console.log('Provenance MISMATCH — the installed binary was not built from this tree.');
-  console.log(`  built in:  ${marker.repoRoot || '<unknown>'}`);
-  console.log(`  running in: ${fp.repoRoot}`);
+  console.log(`  built from tree:   ${marker.repoRoot || '<unknown>'}`);
+  console.log(`  running from tree: ${fp.repoRoot}`);
 
   if (marker.head !== fp.head) {
     console.log('');
@@ -397,6 +484,15 @@ function explain(containerPath) {
  * NONE is not a third kind of peer. A missing, unreadable or repoRoot-less marker carries no
  * attribution, and INFRA-434 already settled that inventing one is worse than refusing
  * without it. So a markerless container never triggers an automatic rebuild.
+ *
+ * DEBUG-640 — SELF and PEER are a TREE comparison, not a statement about a person. They
+ * answer "was this built from the worktree I am standing in", which is what decides whether
+ * a rebuild is automatic or the operator's call. Under the SHARED `e2e-gate` worktree a
+ * genuine peer's build resolves to the same repoRoot and therefore reads SELF — so a SELF
+ * verdict is not evidence that nobody else touched this device. `explain` carries the
+ * per-build `ownerId` for that question; deliberately NOT consumed here, because making
+ * ownership the predicate would read PEER on your own previous build after any edit and
+ * turn a keystroke into a rebuild of up to 21m31s — the inversion INFRA-484 refused.
  *
  * Diagnostic, like `explain`: it always exits 0 and only ever prints. `verify` keeps the
  * refusal, so nothing here can turn a MISMATCH into a pass.
