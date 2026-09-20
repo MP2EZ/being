@@ -31,92 +31,35 @@ security_standards:  # Best practices we follow (not legal requirements)
 ### Technical Specifications
 
 #### A. Primary Encryption Algorithm: AES-256-GCM
-```typescript
-interface PrimaryEncryption {
-  algorithm: {
-    cipher: "AES-256-GCM",
-    key_size: 256, // bits
-    block_size: 128, // bits
-    iv_size: 96, // bits (12 bytes)
-    auth_tag_size: 128 // bits (16 bytes)
-  },
 
-  implementation: {
-    ios: "CryptoKit with Secure Enclave integration",
-    android: "Android Keystore with StrongBox when available",
-    fallback: "expo-crypto with hardware-backed key storage"
-  },
+Sensitive wellness data is encrypted at rest with **AES-256-GCM**. `ENCRYPTION_CONFIG.ALGORITHM` is `'AES-GCM'` and every encryption and decryption path runs through `performAESGCMEncryption` / its decrypt counterpart with `aes-256-gcm`. The IV is 12 bytes (`IV_LENGTH: 12`), randomly generated per record.
 
-  performance: {
-    encryption_speed: "~120 MB/s on modern devices",
-    decryption_speed: "~110 MB/s on modern devices",
-    latency: "<5ms for typical mental health records"
-  }
-}
-```
+The implementation is **`react-native-aes-crypto`** for the cipher and **`expo-crypto`** for random bytes, with a `crypto.subtle` branch used only when `Platform.OS === 'web'`. Key storage is `expo-secure-store` (see §2).
+
+**Corrected (MAINT-627).** Earlier versions of this subsection specified `CryptoKit with Secure Enclave integration` on iOS and `Android Keystore with StrongBox when available` on Android. Neither is accurate: CryptoKit, the Secure Enclave and StrongBox appear nowhere in the codebase, and no Secure-Enclave-bound or StrongBox-backed key is ever requested. The throughput and latency figures were also unmeasured and have been removed rather than restated. The AES-256-GCM claim itself is correct and is unchanged — DPIA control 1 and the breach-notification runbook's "unsecured data" trigger both rest on it.
 
 #### B. Key Derivation Function: PBKDF2-HMAC-SHA256
-```typescript
-interface KeyDerivation {
-  algorithm: "PBKDF2-HMAC-SHA256",
-  iterations: 120000, // Increased from OWASP minimum for mental health data
-  salt_generation: {
-    components: [
-      "device_uuid",
-      "app_installation_id",
-      "random_salt_256_bits"
-    ],
-    total_entropy: "512 bits minimum"
-  },
-  key_stretching: {
-    time_cost: "~300ms on average device",
-    memory_hard: false, // Consider Argon2id for future
-    parallelism: 1
-  }
-}
-```
+
+Record keys are derived with **PBKDF2-HMAC-SHA256 at 100,000 iterations** (`ENCRYPTION_CONFIG.PBKDF2_ITERATIONS`). The salt is **32 bytes of cryptographically secure random data** (`SALT_LENGTH: 32`, via `generateSecureRandomBytes`), generated fresh per encryption and stored alongside the record so it can be decrypted.
+
+**Corrected (MAINT-627).** Earlier versions specified 120,000 iterations and a composite salt built from `device_uuid` + `app_installation_id` + random data, claiming "512 bits minimum" of entropy. The real iteration count is 100,000, and no device- or installation-derived component participates in derivation at all — `deriveEncryptionKey` uses random bytes only. A `generateSecureDeviceId()` helper does exist, but it is a stored UUIDv4 unrelated to key derivation. The stated `~300ms` time cost was unmeasured and is removed.
 
 #### C. Data-at-Rest Encryption Implementation
-```typescript
-class LocalStorageEncryption {
-  // Wellness screening data (PHQ-9/GAD-7)
-  async encryptClinicalData(data: ClinicalData): Promise<EncryptedData> {
-    const key = await this.deriveKey('clinical', {
-      rotationPeriod: '24_hours'
-    });
 
-    return {
-      algorithm: 'AES-256-GCM',
-      ciphertext: await crypto.encrypt(data, key),
-      iv: crypto.randomBytes(12),
-      authTag: crypto.generateAuthTag(),
-      keyVersion: this.currentKeyVersion,
-      timestamp: Date.now()
-    };
-  }
+There is **one** generic encryption path. `encryptData` derives a key, generates a fresh 12-byte IV and a fresh 32-byte salt, and returns the ciphertext with its salt, IV and auth tag. Sensitivity level selects a key id, not a different cipher or a different rotation policy.
 
-  // Personal mental health data (mood tracking, reflections)
-  async encryptPersonalData(data: PersonalData): Promise<EncryptedData> {
-    const key = await this.deriveKey('personal', {
-      rotationPeriod: '7_days'
-    });
+Record keys are **unique per record but do not rotate.** A single `KEY_ROTATION_INTERVAL_MS` of 30 days exists, and `rotateKey()` writes a `${keyId}_v2` entry to secure storage while updating an **in-memory-only** `keyMetadata` map. Nothing persists that map and no decryption path reads it, so the scheduler does not survive a relaunch and no key has ever actually been rotated in a shipped build.
 
-    return {
-      algorithm: 'AES-256-CTR',
-      ciphertext: await crypto.encrypt(data, key),
-      iv: crypto.randomBytes(16),
-      keyVersion: this.currentKeyVersion
-    };
-  }
-}
-```
+**Corrected (MAINT-627).** Earlier versions specified two distinct methods — `encryptClinicalData` with a 24-hour key rotation period and `encryptPersonalData` with 7 days — and gave personal data a different cipher, `AES-256-CTR`, with a 16-byte IV. None of that exists. There is no separate personal-data cipher path; the only `ctr` tokens in the source are unused members of the underlying library's algorithm type union. The distinction between "clinical" and "personal" encryption is not a real boundary in this codebase.
 
 ### User-Facing Description
-**"Military-Grade Encryption for Your Mental Health Data"**
-- Your assessments and mood data are encrypted using AES-256, the same standard used by banks and governments
-- Each piece of data has its own unique encryption key that changes regularly
-- Even if someone accessed your phone's storage, they couldn't read your mental health information
-- Encryption happens instantly and automatically - you won't notice any delays
+**"Strong Encryption for Your Wellness Data"**
+- Your assessments and mood data are encrypted with AES-256, the same standard used by banks and governments
+- Each record is encrypted with its own uniquely derived key
+- Even if someone accessed your phone's storage, they couldn't read your wellness information
+- Encryption happens automatically - you won't notice any delays
+
+**Corrected (MAINT-627).** This description previously promised that each key "changes regularly". Keys are unique per record but are never rotated, so that sentence was withdrawn rather than reworded. The heading's "Military-Grade" framing was also dropped as marketing language with no technical referent.
 
 ---
 
@@ -133,10 +76,10 @@ interface iOSDataIsolation {
     data_protection_api: "Level 4 - Complete Protection"
   },
 
+  // CORRECTED (MAINT-627) — see the note below this block.
   keychain_integration: {
-    access_group: "fyi.being.app.keychain",
-    accessibility: "kSecAttrAccessibleWhenUnlockedThisDeviceOnly",
-    synchronization: false // Never sync to iCloud
+    accessibility: "kSecAttrAccessibleWhenUnlocked (expo-secure-store default)",
+    synchronization: "not specified by Being"
   },
 
   file_protection: {
@@ -189,25 +132,23 @@ class DataSandbox {
     };
   }
 
-  // Memory protection
-  protectMemory(): void {
-    // Clear sensitive data from memory immediately after use
-    process.on('memoryPressure', () => this.clearSensitiveMemory());
-
-    // Prevent memory dumps
-    if (Platform.OS === 'ios') {
-      NativeModules.SecurityModule.preventMemoryDumps();
-    }
-  }
 }
 ```
 
+**Corrected (MAINT-627).** Three claims in this section were withdrawn or narrowed:
+
+- **Keychain accessibility.** The block above previously specified an `access_group` of `fyi.being.app.keychain`, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, and `synchronization: false // Never sync to iCloud`. `initializeMasterKey` calls `SecureStore.setItemAsync` with **no options object**, so the library default `WHEN_UNLOCKED` applies and `ThisDeviceOnly` is not set — meaning the item can migrate to another device via an encrypted backup. Being specifies no access group and no synchronization setting. The absence is meaningful rather than incidental: `secureStoreSessionAdapter` *does* pass `keychainAccessible` deliberately, so the option is understood and used elsewhere in this codebase. This also brought §2 into contradiction with §3, which DEBUG-624 had already corrected to state the real `WHEN_UNLOCKED` behaviour. DPIA control 2 is corrected in the same change.
+- **`DataSandbox` / `EncryptedContainer`.** No such classes exist. There are no per-category encrypted containers and no size caps; records are encrypted individually through the single path described in §1, and sensitivity level selects a key id rather than a container.
+- **`protectMemory` / `preventMemoryDumps`.** **NOT IMPLEMENTED.** There is no `SecurityModule` native module, no memory-pressure handler and no memory-dump prevention anywhere in the codebase. The OS-level app sandbox and file protection described above are real; in-process memory hardening is not.
+
 ### User-Facing Description
-**"Your Data Never Leaves Your Device"**
-- All your mental health information stays isolated on your phone
-- Being. can't access other apps' data, and they can't access yours
-- Your data is kept in a secure "vault" that only you can open
-- Even if your phone is lost or stolen, your mental health data remains protected
+**"Your Wellness Data Stays on Your Device by Default"**
+- Your wellness information is stored encrypted on your phone
+- Being can't access other apps' data, and they can't access yours
+- Nothing is uploaded unless you turn on Cloud Backup, and crisis-safety telemetry is sent under the separate basis described in the privacy policy
+- Even if your phone is lost or stolen, your wellness data remains encrypted at rest
+
+**Corrected (MAINT-627).** This description was headed **"Your Data Never Leaves Your Device"**, which is false. Optional Cloud Backup uploads wellness data when a user enables it; crisis-detection telemetry is delivered to Supabase on a vital-interest basis; and Sentry and PostHog receive error and product analytics under consent. The claim that data "never leaves" the device cannot be made, and the "vault only you can open" metaphor was dropped for implying an access control (a lock the user holds) that §3 establishes does not exist.
 
 ---
 
