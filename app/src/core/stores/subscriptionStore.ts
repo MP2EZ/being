@@ -40,7 +40,6 @@ import {
   DEFAULT_SUBSCRIPTION_CONFIG,
   CRISIS_FEATURES
 } from '@/core/types/subscription';
-import AuthenticationService from '@/core/services/security/AuthenticationService';
 
 const STORAGE_KEY = 'subscription_metadata_v1';
 const SECURE_STORAGE_KEY = 'subscription_secure_v1';
@@ -53,15 +52,26 @@ function generateId(): string {
 }
 
 /**
- * Get current user ID from auth service
- * Falls back to anonymous user if not authenticated
+ * Subscription-local user id.
+ *
+ * MAINT-635 inlined this. It previously read `AuthenticationService.getCurrentUser()`
+ * and fell back to the anonymous literal. That branch was dead by construction:
+ * `currentUser` was assigned only behind a `this.initialized` guard, `initialized` was
+ * set only by `initialize()`, and `initialize()` had exactly two callers — both in the
+ * never-reachable chain this item deletes. So production always took the fallback, and
+ * inlining it changes no behaviour.
+ *
+ * Deliberately NOT converged onto an identity here. Both candidates would be a
+ * behavioural change this item does not authorise: the Supabase anonymous `auth.uid()`
+ * (INFRA-260) would give subscriptions a real principal, and `@/core/constants/devMode`
+ * exports a same-named `getCurrentUserId()` returning a stable `'dev-user-001'` — an easy
+ * accidental substitution that would silently alter persisted subscription identity.
+ *
+ * Known pre-existing wart, preserved rather than fixed: the value is recomputed per call,
+ * so `createTrial` and a later `purchase` mint different ids. Inert today — its only
+ * reader is a `// TODO: Send to analytics service` sink — and out of scope here.
  */
 function getCurrentUserId(): string {
-  const authUser = AuthenticationService.getCurrentUser();
-  if (authUser?.userId) {
-    return authUser.userId;
-  }
-  // Fallback to anonymous user for trials/unauthenticated access
   return `anonymous_${Date.now()}`;
 }
 

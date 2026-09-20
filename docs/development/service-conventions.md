@@ -63,7 +63,7 @@ Use sparingly — expect 0-2 usages across the entire codebase.
 | Ticket | Services touched |
 |---|---|
 | INFRA-144 | `EncryptionService`, `SecureStorageService` (Pattern B) |
-| INFRA-175 | `CrisisSecurityProtocol`, `IncidentResponseService`, `SecurityMonitoringService`, `NetworkSecurityService`, `AuthenticationService` (Pattern A) |
+| INFRA-175 | `CrisisSecurityProtocol`, `IncidentResponseService`, `SecurityMonitoringService`, `NetworkSecurityService`, `AuthenticationService` (Pattern A) — all since deleted; kept as the historical record of what INFRA-175 covered |
 | INFRA-177 | 11 more services in `monitoring/`, `performance/`, `resilience/`, `supabase/` (Pattern A) + enforcement script + this doc |
 | MAINT-190 | `AnalyticsService` Pattern A (missed by INFRA-175 — analytics was out of scope) + `__resetForTesting__` on all 8 stateful singletons (see below) |
 
@@ -73,7 +73,7 @@ Use sparingly — expect 0-2 usages across the entire codebase.
 
 **Why:** The interval guards above (INFRA-144/175/177) solved the *timer-leak* family of flakes — Jest no longer hangs. But the *state pollution* family persists because the `private static instance` survives across Jest test files within the same worker. Default-export evaluations (`export default X.getInstance()`) capture the reference at import time; any test that grabbed the reference before another test reset it sees stale state. Symptoms encountered:
 
-- `CrisisSecurityProtocol not initialized` (CI's Security + compliance job, observed repeatedly post-INFRA-175)
+- `CrisisSecurityProtocol not initialized` (CI's Security + compliance job, observed repeatedly post-INFRA-175; that service is deleted — retained as the observed symptom)
 - `SyncCoordinator.lastSyncTime` carrying timestamps from a prior test (MAINT-188 PR 5 Group C)
 - `crisis-intervention-safety` perf flake (MAINT-188 PR 8)
 
@@ -111,9 +111,7 @@ public static __resetForTesting__(): void {
 
 The `NODE_ENV !== 'test'` throw is non-negotiable. A production caller hitting this method would silently:
 
-- Drop the audit trail mid-session (CrisisSecurityProtocol → FTC HBNR + TDPSA §541.105 violation)
-- Log the user out without firing the sign-out audit event (AuthenticationService)
-- Abort in-flight network requests, corrupting partial uploads (NetworkSecurityService)
+- Drop the audit trail mid-session (FTC HBNR + TDPSA §541.105 violation)
 - Invalidate the AES key cache (EncryptionService) — sub-second perf regression invisible to the user until a slow flow
 
 Throwing is the only safe failure mode. Don't downgrade to a console.warn.
@@ -127,10 +125,10 @@ It also does NOT clear *persisted* state (expo-secure-store entries, master encr
 ### Usage in tests
 
 ```typescript
-import { CrisisSecurityProtocol } from '@/features/crisis/services/CrisisSecurityProtocol';
+import { EncryptionService } from '@/core/services/security/EncryptionService';
 
 afterEach(() => {
-  CrisisSecurityProtocol.__resetForTesting__();
+  EncryptionService.__resetForTesting__();
 });
 ```
 
@@ -138,16 +136,16 @@ For tests that import the default-export singleton instance, the reset also void
 
 ```typescript
 // ❌ Wrong — `proto` is a stale ref after reset
-import proto from '@/features/crisis/services/CrisisSecurityProtocol';
-afterEach(() => { CrisisSecurityProtocol.__resetForTesting__(); });
+import proto from '@/core/services/security/EncryptionService';
+afterEach(() => { EncryptionService.__resetForTesting__(); });
 test('a', () => { proto.someMethod(); });
 test('b', () => { proto.someMethod(); /* stale! */ });
 
 // ✅ Right — re-acquire each test
-import { CrisisSecurityProtocol } from '@/features/crisis/services/CrisisSecurityProtocol';
-afterEach(() => { CrisisSecurityProtocol.__resetForTesting__(); });
-test('a', () => { CrisisSecurityProtocol.getInstance().someMethod(); });
-test('b', () => { CrisisSecurityProtocol.getInstance().someMethod(); });
+import { EncryptionService } from '@/core/services/security/EncryptionService';
+afterEach(() => { EncryptionService.__resetForTesting__(); });
+test('a', () => { EncryptionService.getInstance().someMethod(); });
+test('b', () => { EncryptionService.getInstance().someMethod(); });
 ```
 
 ### Coverage

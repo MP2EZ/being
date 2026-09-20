@@ -551,16 +551,6 @@ jest.mock('@react-native-vector-icons/ionicons', () => {
   return new Proxy({}, { get: () => Icon });
 });
 
-// expo-local-authentication: same expo-modules-core EventEmitter pitfall.
-jest.mock('expo-local-authentication', () => ({
-  hasHardwareAsync: jest.fn(() => Promise.resolve(false)),
-  isEnrolledAsync: jest.fn(() => Promise.resolve(false)),
-  authenticateAsync: jest.fn(() => Promise.resolve({ success: false })),
-  supportedAuthenticationTypesAsync: jest.fn(() => Promise.resolve([])),
-  AuthenticationType: { FINGERPRINT: 1, FACIAL_RECOGNITION: 2, IRIS: 3 },
-  SecurityLevel: { NONE: 0, SECRET: 1, BIOMETRIC_WEAK: 2, BIOMETRIC_STRONG: 3 },
-}));
-
 // expo-file-system (SDK 56 new API): its package entry is TypeScript src that
 // Jest's transformIgnorePatterns skips, so a bare import throws "Unexpected
 // token 'export'". Stub the File/Paths surface (FEAT-267 export path); tests

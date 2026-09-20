@@ -52,7 +52,6 @@ features/crisis/
 │   └── CrisisResourcesScreen.tsx
 ├── services/
 │   ├── crisisAlert.ts
-│   ├── CrisisSecurityProtocol.ts
 │   ├── crisisTapTrace.ts
 │   ├── textCrisisDetection.ts
 │   └── types/CrisisResources.ts
@@ -275,7 +274,7 @@ PascalCase: CollapsibleCrisisButton.tsx, RootCrisisBoundary.tsx
 ### Services
 ```
 Match the file name to its primary export:
-  CrisisSecurityProtocol.ts (a class), textCrisisDetection.ts (functions)
+  crisisAlert.ts (a class), textCrisisDetection.ts (functions)
 ```
 
 ### Stores

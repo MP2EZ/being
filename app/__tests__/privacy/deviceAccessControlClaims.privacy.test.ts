@@ -35,7 +35,10 @@ const SEC_ARCH = 'docs/security/security-architecture.md';
 const ENC_ARCH = 'docs/development/encryption-architecture.md';
 const RUNBOOK = 'docs/legal/breach-notification-runbook.md';
 
-const AUTH_SERVICE = 'core/services/security/AuthenticationService.ts';
+// MAINT-635 deleted AuthenticationService.ts, so there is no exempt importer left to
+// name. This anchors the non-vacuity guard instead: a security-directory file that
+// SURVIVES, proving the walk reached the directory the negatives above range over.
+const SURVIVING_SECURITY_FILE = 'core/services/security/EncryptionService.ts';
 
 const read = (rel: string): string => fs.readFileSync(path.join(REPO_ROOT, rel), 'utf8');
 
@@ -188,42 +191,58 @@ function unresolvedCitations(
 }
 
 /**
- * ⚠️  MAINT-635 OWNS THE REWRITE OF THIS BLOCK — do not "fix" it by restoring the file.
+ * MAINT-635 deleted the chain this block used to exempt.
  *
- * Both assertions below go red BY CONSTRUCTION the moment MAINT-635 deletes
- * `AuthenticationService.ts`: the non-vacuity guard asserts that file is among the
- * scanned sources, and the importer assertion names it as the sole importer of
- * `expo-local-authentication`.
+ * DEBUG-624 established that no authentication prompt was WIRED; the assertions here
+ * carved `AuthenticationService.ts` out as the one permitted importer of
+ * `expo-local-authentication` and the one permitted home for a prompt call. That file,
+ * `NetworkSecurityService.ts` and `CrisisSecurityProtocol.ts` are now gone, and the
+ * dependency is retired — so the code fact is STRONGER than DEBUG-624 recorded it: there
+ * is no prompt to wire, not merely an unwired one.
  *
- * That red is the DELETION LANDING, not a regression. MAINT-635 re-points the
- * non-vacuity guard at a surviving file, flips both expectations to `[]`, and drops
- * the `f.rel !== AUTH_SERVICE` carve-out in the prompt-caller test so it fires with no
- * exemption anywhere. Re-adding the file would satisfy the assertions and undo the work.
+ * Every exemption below is therefore removed rather than re-pointed at a new file. The
+ * non-vacuity guard is anchored on a SURVIVING security-directory file instead, because
+ * dropping it outright would leave `files.length > 100` as the only proof the walker ran
+ * — a strictly weaker probe that cannot tell "nothing imports it" from "nothing was
+ * scanned" (DEBUG-390).
  */
-describe('DEBUG-624 (a) — code fact: no in-app authentication prompt is wired', () => {
+describe('DEBUG-624 (a) — code fact: no in-app authentication prompt exists', () => {
   const files = walkSource(APP_SRC).map((full) => ({
     rel: path.relative(APP_SRC, full),
     src: stripComments(fs.readFileSync(full, 'utf8')),
   }));
 
-  it('scans the app source (non-vacuity)', () => {
+  it('scans the app source, reaching the security directory (non-vacuity)', () => {
     expect(files.length).toBeGreaterThan(100);
-    expect(files.some((f) => f.rel === AUTH_SERVICE)).toBe(true);
+    // MAINT-635: anchored on a file that SURVIVES the deletion. Without this the suite
+    // would pass against an empty or mis-rooted walk.
+    expect(files.some((f) => f.rel === SURVIVING_SECURITY_FILE)).toBe(true);
   });
 
-  it('expo-local-authentication is imported only by the unwired AuthenticationService', () => {
+  it('nothing anywhere imports expo-local-authentication', () => {
     const importers = files.filter((f) => IMPORTS_LOCAL_AUTH.test(f.src)).map((f) => f.rel);
-    // If this list grows, an authentication prompt may now exist: re-credit DPIA §7
-    // control 3 and security-architecture.md §3, then update this test.
-    expect(importers).toEqual([AUTH_SERVICE]);
+    // No carve-out: MAINT-635 removed the sole importer. If this list grows, an
+    // authentication prompt may now exist — re-credit DPIA §7 control 3 and
+    // security-architecture.md §3 before updating this test.
+    expect(importers).toEqual([]);
   });
 
-  it('nothing outside AuthenticationService calls an authentication prompt', () => {
-    const callers = files
-      .filter((f) => f.rel !== AUTH_SERVICE && CALLS_AUTH_PROMPT.test(f.src))
-      .map((f) => f.rel);
-    // A caller here means a gate may be live: re-credit DPIA §7 control 3, then update this test.
+  it('nothing anywhere calls an authentication prompt', () => {
+    const callers = files.filter((f) => CALLS_AUTH_PROMPT.test(f.src)).map((f) => f.rel);
+    // No carve-out either. A caller here means a gate may be live.
     expect(callers).toEqual([]);
+  });
+
+  it('expo-local-authentication is not a dependency', () => {
+    // MAINT-635: without this the retirement is undefended — a reinstall would restore
+    // the package silently, and the two negatives above would stay green until someone
+    // imported it again.
+    const pkg = JSON.parse(read('app/package.json')) as {
+      dependencies?: Record<string, string>;
+      devDependencies?: Record<string, string>;
+    };
+    expect(Object.keys(pkg.dependencies ?? {})).not.toContain('expo-local-authentication');
+    expect(Object.keys(pkg.devDependencies ?? {})).not.toContain('expo-local-authentication');
   });
 });
 

@@ -5,9 +5,9 @@
  * persistence/transition actions, asserting that each status transition
  * wires through calculateFeatureAccess into store.featureAccess.
  *
- * Mocks: expo-secure-store (persistence), the dynamically-imported
- * IAPService (purchase/verify/finish), and AuthenticationService
- * (getCurrentUser).
+ * Mocks: expo-secure-store (persistence) and the dynamically-imported
+ * IAPService (purchase/verify/finish). MAINT-635 removed the
+ * AuthenticationService mock along with the service itself.
  *
  * NOT-YET-IMPLEMENTED STUBS: restorePurchases / cancelSubscription are
  * asserted at their CURRENT contract — they throw 'not yet implemented'
@@ -30,14 +30,6 @@ jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(() => Promise.resolve()),
   getItemAsync: jest.fn(() => Promise.resolve(null)),
   deleteItemAsync: jest.fn(() => Promise.resolve()),
-}));
-
-// AuthenticationService default export is a singleton instance.
-jest.mock('@/core/services/security/AuthenticationService', () => ({
-  __esModule: true,
-  default: {
-    getCurrentUser: jest.fn(() => ({ userId: 'test-user-123' })),
-  },
 }));
 
 // IAPService is dynamically imported by the store; mock the module.
@@ -112,7 +104,10 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
 
       const state = useSubscriptionStore.getState();
       expect(state.subscription?.status).toBe('trial');
-      expect(state.subscription?.userId).toBe('test-user-123');
+      // MAINT-635: AuthenticationService is deleted; getCurrentUserId() now returns
+      // the anonymous literal directly. Shape-matched rather than value-matched
+      // because it embeds Date.now().
+      expect(state.subscription?.userId).toMatch(/^anonymous_\d+$/);
       expect(state.subscription?.crisisAccessEnabled).toBe(true);
       expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(1);
 

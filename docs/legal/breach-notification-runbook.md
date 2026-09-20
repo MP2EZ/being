@@ -86,7 +86,7 @@ Execute in order. Each step has a checklist; tick before advancing.
 ### Step B — Containment (Day 0, within 5 minutes for automated triggers; within 1 hour for manual)
 - [ ] Affected systems isolated (revoke compromised credentials, rotate keys via `docs/security/key-rotation.md`, suspend impacted endpoints)
 - [ ] Evidence preserved (logs, snapshots, network captures) — do NOT delete or "clean up" anything until forensics complete
-- [ ] If crisis-intervention data exposed (`CrisisSecurityProtocol`): immediate professional notification per `INCIDENT_RESPONSE_CONFIG.NOTIFICATION_REQUIREMENTS.crisis_data`
+- [ ] If crisis-intervention data exposed: immediate professional notification. **Corrected (MAINT-635):** this step previously routed through `CrisisSecurityProtocol` and `INCIDENT_RESPONSE_CONFIG.NOTIFICATION_REQUIREMENTS.crisis_data`. `CrisisSecurityProtocol` was never wired to anything and is deleted; `INCIDENT_RESPONSE_CONFIG` and `IncidentResponseService` have never existed in this codebase at all (tracked as MAINT-647, which owns the remaining citations to them in this document). There is no automated crisis-notification path — this step is MANUAL, and the decision is the founder's with counsel.
 
 ### Step C — Assessment (Day 0–1)
 - [ ] Confirm trigger criteria match §1 (HBNR applies / does not apply)
@@ -236,7 +236,7 @@ This table is the **authoritative source** for Being's state breach-notification
 | 60-day FTC enforcement, state matrix | §2 and §7 of this runbook (authoritative; the former `STATE_NOTIFICATION_MATRIX` code constant was removed as dead code in MAINT-236) |
 | Encryption state (determines "secured" vs "unsecured") | `app/src/core/services/security/EncryptionService.ts` |
 | Detection + incident creation hooks | `app/src/core/services/security/IncidentResponseService.ts` (`INCIDENT_RESPONSE_CONFIG`) |
-| Crisis-data special handling | `app/src/features/crisis/services/CrisisSecurityProtocol.ts` |
+| Crisis-data special handling | **None in code (corrected MAINT-635).** `CrisisSecurityProtocol.ts` is deleted — it was never wired to a consumer and wrote no record this runbook could rely on. The crisis audit sink that DOES exist is `trackCrisisDetection` in `app/src/core/services/supabase/SupabaseService.ts` (INFRA-568), which writes `crisis_detected` to `analytics_events`. Step B's notification is manual. |
 | Key rotation procedure (containment step) | `docs/security/key-rotation.md` |
 
 ---
