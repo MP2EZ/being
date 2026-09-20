@@ -293,10 +293,11 @@ If the pool empties here or at 0.1a.4, report why and stop — never widen the c
 Fill **in view order**, subject to all three:
 - **Effort budget** — Step 2.4's 12 points / 6 items, same scale. Selecting past it only
   manufactures `pending` items.
-- **RED quota — at most 2.** Classify from the fetched body against Step 2.1's path set, never
-  from the title: titles do not predict safety surface, and an infra or script item can read
-  alarming while touching nothing gated. Each RED costs a *serial, human-attended* simulator
-  close (Phase 4.1), so four REDs is a bad slate at any priority.
+- **RED quota — at most 2 RED-ATTENDED and 3 RED-GATED.** Classify from the fetched body
+  against Step 2.1's path set, never from the title: titles do not predict safety surface, and
+  an infra or script item can read alarming while touching nothing gated. A RED-ATTENDED costs
+  a *serial, human-attended* simulator close (Phase 4.1); a RED-GATED closes mechanically but
+  still serialises on the simulator lease, so it is bounded too.
 - **Coherence bonus** — prefer candidates forming a `Blocked by` / `Blocking` chain **inside
   the pool**. Phase 2.2 already sorts those into tranches, making A-then-B in one run the
   cheapest batch available. Weaker tie-break: shared `Type` and overlapping subject matter,
@@ -729,15 +730,17 @@ one unit each. So bound both and stop at whichever binds first:
 |---|---|---|
 | Effort points | **12** | implementation + review context |
 | Item count | **6** | per-item fixed overhead |
-| Predicted RED items | **2** | serial human-attended simulator closes |
+| Predicted RED-ATTENDED | **2** | serial human-attended simulator closes |
+| Predicted RED-GATED | **3** | serial sim builds + gate runs; unattended but wall-clock-bound |
 
-The RED ceiling is the same quota Step 0.1a.6 applies when shaping an auto-selected slate,
-lifted here so it governs **both** entry paths. Held only in 0.1a.6 it was trivially bypassed
+The two ceilings are the same quotas Step 0.1a.6 applies when shaping a slate. They bound
+different resources: RED-ATTENDED bounds a HUMAN, RED-GATED bounds the machine, since each
+still serialises on the simulator lease whether or not anyone is watching. Both are lifted
+here so they govern **both** entry paths. Held only in 0.1a.6 they were trivially bypassed
 by typing the IDs — and an explicit list is if anything the likelier way to end up with five
-REDs. It bounds a *human* resource, not a context one: each RED costs a serial, attended
-simulator session (Phase 4.1), which no effort score prices. Apply it to the Step 2.1
-prediction; Step 3.2 may re-tier an item to GREEN against the real diff, and freeing a slot
-after the fact is a good outcome, not a reason to skip the bound.
+REDs. Apply them to the Step 2.1 prediction; Step 3.2 may re-tier an item to GREEN against
+the real diff, and freeing a slot after the fact is a good outcome, not a reason to skip the
+bound.
 
 Points come from the `Effort` property recorded during the Phase 1 fetch — `XS`=1, `S`=2,
 `M`=3, `L`=5, `XL`=8, `XXL`=13, the `/b-create` scale, so a batch prices work the same way
