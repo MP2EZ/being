@@ -5,9 +5,9 @@
 ```yaml
 document:
   type: Security Architecture
-  version: 2.1.0
+  version: 2.2.0
   status: CURRENT
-  updated: 2026-09-15  # DEBUG-624: §3/§4 rewritten; in-app auth gate and auto-lock claims removed
+  updated: 2026-09-20  # MAINT-627: §1/§2 corrected. MAINT-641: §5–§8, roadmap and checklist corrected
   application: Being. Mental Health App
 
 # Being is a CONSUMER WELLNESS APP, not a HIPAA-covered entity.
@@ -184,429 +184,116 @@ No user-facing copy may claim an app lock, an inactivity timeout, or hidden cont
 
 ## 5. Secure Export Mechanisms
 
-### Technical Specifications
+Being ships **one export path**: a plain-JSON copy of the user's own wellness data, handed to them through the operating system's share sheet at their own initiative. It is not encrypted, not password-protected, not watermarked, not time-limited, and not logged.
 
-#### A. Export Security Framework
-```typescript
-interface SecureExport {
-  export_formats: {
-    therapy_report: {
-      format: "encrypted_pdf",
-      encryption: "AES-256",
-      password_protected: true,
-      watermarked: true
-    },
-    personal_backup: {
-      format: "encrypted_json",
-      encryption: "AES-256-GCM",
-      key_derivation: "user_password_based"
-    },
-    provider_share: {
-      format: "fhir_compliant_json",
-      encryption: "end_to_end",
-      time_limited: "7_days"
-    }
-  },
+- **What runs.** `ExportDataScreen.handleExport` gathers the selected categories, calls `serializeExport(gatherExportData())`, writes `being-export-<YYYY-MM-DD>.json` into the app cache directory, and passes its URI to `Sharing.shareAsync` with `mimeType: 'application/json'` and `UTI: 'public.json'`. The destination is whatever the user picks in the share sheet; Being neither chooses it nor sees it.
+- **What the file contains.** The Art. 20 portability envelope built by `DataExportService` — decrypted on device, with the master key, the raw ciphertext and the device identifier excluded by construction.
+- **Transport.** None of Being's. The share sheet hands the file to another application; no Being server participates in an export.
 
-  export_channels: {
-    secure_email: {
-      method: "encrypted_attachment",
-      requires: "provider_email_verification"
-    },
-    direct_transfer: {
-      method: "airdrop_or_nearby_share"
-    },
-    cloud_backup: {
-      method: "encrypted_before_upload",
-      service: "user_chosen_cloud",
-      key_management: "client_side_only"
-    }
-  }
-}
-```
+**Corrected (MAINT-641).** Earlier versions of this section specified a `SecureDataExporter` class and a three-format export framework. None of it was built:
 
-#### B. Export Implementation
-```typescript
-class SecureDataExporter {
-  async exportForTherapy(
-    dataRange: DateRange,
-    therapistEmail?: string
-  ): Promise<ExportResult> {
-    // Gather and validate data
-    const data = await this.gatherTherapyData(dataRange);
+- `encrypted_pdf` with `password_protected: true` and `watermarked: true`, and the `generateSecurePDF` / `generateSecurePassword` methods — **NOT IMPLEMENTED.** `exportService.ts` describes a client-side PDF as the foundation for a later slice, not a shipped path.
+- `provider_share` as `fhir_compliant_json` with `encryption: "end_to_end"` and `time_limited: "7_days"` — **NOT IMPLEMENTED.** There is no FHIR serialiser and no expiring artifact anywhere in the codebase.
+- `secure_email` requiring `provider_email_verification`, and `direct_transfer` via `airdrop_or_nearby_share` — **NOT IMPLEMENTED.** Being addresses no recipient and verifies no provider; the share sheet is the only channel.
+- `auditExport`, and the user-facing promise that every export is logged — **NOT IMPLEMENTED.** Nothing anywhere records that an export occurred.
+- `personal_backup` with `key_derivation: "user_password_based"` — **NOT IMPLEMENTED.** No export is keyed to a user password.
 
-    // Generate secure PDF
-    const pdf = await this.generateSecurePDF(data, {
-      watermark: `Generated for therapy - ${new Date().toISOString()}`,
-      password: this.generateSecurePassword(),
-      expiry: Date.now() + 7 * 24 * 60 * 60 * 1000 // 7 days
-    });
+**This is a correction, not a downgrade.** GDPR Art. 20 does not require a portability export to be encrypted, password-protected or audit-logged; a machine-readable copy delivered to the data subject at their own request is the correct posture. What changes here is the description, not the control. DPIA §7 control 12 is narrowed to match in the same commit.
 
-    // Audit the export
-    await this.auditExport({
-      type: 'therapy_report',
-      recipient: therapistEmail || 'self',
-      dataIncluded: this.summarizeExportedData(data),
-      timestamp: Date.now()
-    });
-
-    return {
-      file: pdf,
-      password: pdf.password,
-      instructions: this.getSecureShareInstructions()
-    };
-  }
-
-  private generateSecurePassword(): string {
-    // Generate pronounceable yet secure password
-    const words = crypto.randomWords(4);
-    const numbers = crypto.randomInt(1000, 9999);
-    return `${words.join('-')}-${numbers}`;
-  }
-}
-```
+**Residual (tracked: DEBUG-645).** The exported file is written to the app cache directory and is never deleted. Nothing sweeps it — `clearAllWellnessData` sweeps storage key namespaces rather than the filesystem — so an unencrypted copy of the export survives account deletion. This section will be updated when DEBUG-645 closes.
 
 ### User-Facing Description
-**"Share Your Data Safely with Your Therapist"**
-- Export your mood tracking and assessments as password-protected reports
-- Reports automatically expire after 7 days for extra security
-- Your therapist receives only what you choose to share
-- Every export is logged so you know exactly what was shared and when
+No user-facing copy may say that exports are password-protected, encrypted, watermarked, expiring, logged, or delivered securely to a therapist. Being's export is a plain JSON file the user shares themselves. Copy may say that the file contains only the categories the user selected, and that Being does not receive it.
 
 ---
 
 ## 6. Complete Data Deletion
 
-### Technical Specifications
+Being deletes an account by **destroying the encryption key and sweeping the stores that hold wellness data**, then hard-deleting the server-side principal. There is no overwrite pass, no cooling-off period, and no crisis check.
 
-#### A. Secure Deletion Framework
-```typescript
-interface SecureDeletion {
-  deletion_methods: {
-    cryptographic_erasure: {
-      method: "key_destruction",
-      overwrites: 0, // Instant deletion via key removal
-      verification: "attempt_decryption_fails"
-    },
-    physical_overwrites: {
-      method: "random_data_overwrites",
-      passes: 3, // DOD 5220.22-M standard
-      patterns: ["random", "zeros", "random"]
-    }
-  },
+- **On device.** `clearAllWellnessData({ deleteMasterKey: true })` destroys the master key held in `expo-secure-store` and sweeps the AsyncStorage prefixes and exact keys enumerated in `SWEPT_ASYNC_PREFIXES` / `SWEPT_EXACT_KEYS`. Destroying the key is what makes any remaining ciphertext unreadable — cryptographic erasure, not overwriting.
+- **On the server.** `supabase/functions/delete-account` runs with `verify_jwt` and a service-role client and calls `auth.admin.deleteUser(authUid, false)`, hard-deleting the caller's own `auth.users` row. Foreign keys cascade, removing every row keyed to that `auth.uid()` — backups, analytics and subscription records.
+- **Ordering.** `AccountDeletionService.deleteAccountAndWipe` performs the server delete, confirms it, and only then wipes locally. That order is non-negotiable: wiping locally first would destroy the credential needed to authenticate the server delete.
+- **Confirmation.** `DeleteAccountScreen` requires the user to type a confirmation word. It is `DELETE`.
 
-  deletion_categories: {
-    selective: "user_chosen_categories",
-    time_based: "data_before_date",
-    complete: "all_user_data",
-    emergency: "crisis_triggered_deletion"
-  },
+**Corrected (MAINT-641).** Earlier versions of this section specified a `SecureDataDeletion` class whose mechanisms were never built:
 
-  safety_checks: {
-    crisis_assessment: "check_current_crisis_state",
-    backup_reminder: "offer_export_before_deletion",
-    confirmation: "require_typed_confirmation",
-    cooling_period: "24_hour_delay_option"
-  }
-}
-```
+- `physical_overwrites` with `passes: 3` on the `DOD 5220.22-M` pattern — **NOT IMPLEMENTED.** No overwrite pass exists; erasure is cryptographic.
+- `Keychain.resetInternetCredentials` / `resetGenericPasswords` on iOS and `AndroidKeystore.deleteAllKeys()` on Android — **NOT IMPLEMENTED.** `react-native-keychain` and a native keystore module are not dependencies; key destruction goes through `expo-secure-store`.
+- `safety_checks.crisis_assessment: "check_current_crisis_state"` — **NOT IMPLEMENTED.** `checkUserCrisisState` does not exist. No crisis check runs before deletion.
+- `safety_checks.cooling_period: "24_hour_delay_option"` — **NOT IMPLEMENTED.** Deletion is immediate.
+- `safety_checks.backup_reminder: "offer_export_before_deletion"` — **NOT IMPLEMENTED.** `DeleteAccountScreen` offers no pre-deletion export.
+- `deletion_categories` for `selective`, `time_based` and `emergency: crisis_triggered_deletion` — **NOT IMPLEMENTED.** Deletion is all-or-nothing.
+- `verifyDeletion()` — **NOT IMPLEMENTED.** No post-deletion verification runs.
+- The documented confirmation string `DELETE ALL MY DATA` — the shipped `CONFIRM_WORD` is `DELETE`. The document is corrected to the code.
 
-#### B. Data Deletion Implementation
-```typescript
-class SecureDataDeletion {
-  async deleteAllData(confirmation: string): Promise<DeletionResult> {
-    // Verify user really wants this
-    if (confirmation !== 'DELETE ALL MY DATA') {
-      throw new Error('Invalid confirmation');
-    }
-
-    // Check for crisis state
-    const crisisCheck = await this.checkUserCrisisState();
-    if (crisisCheck.inCrisis) {
-      return this.offerCrisisSupport(crisisCheck);
-    }
-
-    // Offer backup
-    const backupAccepted = await this.offerBackup();
-
-    // Begin deletion process
-    const deletionSteps = [
-      // 1. Destroy encryption keys
-      this.destroyAllEncryptionKeys(),
-
-      // 2. Overwrite encrypted data
-      this.overwriteEncryptedData(),
-
-      // 3. Clear keychain/keystore
-      this.clearSecureStorage(),
-
-      // 4. Reset app to fresh state
-      this.resetApplication(),
-
-      // 5. Clear caches
-      this.clearAllCaches()
-    ];
-
-    const results = await Promise.all(deletionSteps);
-
-    // Verify deletion
-    const verified = await this.verifyDeletion();
-
-    return {
-      success: verified,
-      timestamp: Date.now(),
-      categoriesDeleted: ['clinical', 'personal', 'cache', 'keys'],
-      backupCreated: backupAccepted
-    };
-  }
-
-  private async destroyAllEncryptionKeys(): Promise<void> {
-    // iOS Keychain
-    if (Platform.OS === 'ios') {
-      await Keychain.resetInternetCredentials('fyi.being.app');
-      await Keychain.resetGenericPasswords();
-    }
-
-    // Android Keystore
-    if (Platform.OS === 'android') {
-      const keystore = await AndroidKeystore.load();
-      await keystore.deleteAllKeys();
-    }
-
-    // Clear runtime keys
-    this.cryptoManager.destroyAllKeys();
-  }
-}
-```
+**Residual.** `delete-account` deletes the caller's own principal only; it is the user's erasure right, not an administrative tool. Coverage for data outside the swept namespaces is tracked by the DPIA's erasure controls, and one known survivor — the export file described in §5 — is tracked as DEBUG-645.
 
 ### User-Facing Description
-**"Complete Control Over Your Data"**
-- Delete specific types of data or everything at once
-- Your data is thoroughly destroyed, not just hidden
-- Option to export your data before deletion
-- Safety check if you're in crisis to ensure you get support
-- Once deleted, your data cannot be recovered - even by us
+Copy may say that deleting an account destroys the encryption key so that remaining data cannot be read, that the server-side record is deleted, and that deletion cannot be undone. No user-facing copy may promise a safety or crisis check before deletion, an offer to export first, a delay or cooling-off window, selective or time-based deletion, or a multi-pass overwrite.
 
 ---
 
 ## 7. Protection Against Device-Level Threats
 
-### Technical Specifications
+Being ships **no device-threat detection**. There is no jailbreak or root check, no debugger or hook detection, no tamper or app-signature verification, and no VPN or proxy check. None of these appears anywhere in the codebase.
 
-#### A. Threat Detection Framework
-```typescript
-interface ThreatProtection {
-  jailbreak_detection: {
-    ios_checks: [
-      "cydia_presence",
-      "suspicious_files",
-      "fork_detection",
-      "dyld_insertion",
-      "sandbox_integrity"
-    ],
-    android_checks: [
-      "root_detection",
-      "busybox_presence",
-      "su_binary_check",
-      "build_tags_check",
-      "dangerous_props"
-    ]
-  },
+**Certificate pinning: NOT IN EFFECT.** This needs stating precisely, because the scaffold exists and reads as a shipped control:
 
-  runtime_protection: {
-    debugger_detection: true,
-    hook_detection: true,
-    tamper_detection: true,
-    integrity_checks: "app_signature_verification"
-  },
+- Pins for `*.supabase.co` are enumerated in `certificate-pinning.ts`, and `pinnedFetch` really is wired into `SupabaseService`, so every Supabase request does pass through the wrapper.
+- But **no request is validated against a pin on any build.** The native pinning call inside `pinned-fetch.ts` is a commented-out block awaiting `react-native-ssl-public-key-pinning`, which is not a dependency. The wrapper performs a plain timed `fetch`.
+- INFRA-231 removed the `pin_validation_success` audit signal from this path precisely because it was "a false assurance, logged on every request without any validation having occurred."
+- `EXPO_PUBLIC_ALLOW_INSECURE_SSL` defaults to `false`, and the env schema refuses to boot if it is truthy in a production environment. **That flag governs a development bypass, not whether pinning happens** — its being false must not be read as pinning being on.
+- **The control actually relied on for transport security is the platform's standard certificate validation over TLS 1.2+**, which is true, is what `privacy-policy.md` §4.3 claims, and is unaffected by this correction.
+- Re-crediting pinning requires three things together: the dependency, the uncommented native call, and a test that fails on a pin mismatch.
 
-  network_security: {
-    certificate_pinning: true,
-    no_proxy_allowed: true,
-    vpn_detection: "warn_user",
-    mitm_protection: true
-  }
-}
-```
+**Corrected (MAINT-641).** Earlier versions of this section specified a `DeviceThreatProtection` class and a `ThreatProtection` framework. Withdrawn:
 
-#### B. Anti-Tampering Implementation
-```typescript
-class DeviceThreatProtection {
-  async performSecurityChecks(): Promise<SecurityStatus> {
-    const checks = {
-      jailbreak: await this.checkJailbreakStatus(),
-      debugger: await this.checkDebuggerAttached(),
-      integrity: await this.verifyAppIntegrity(),
-      certificates: await this.verifyCertificates()
-    };
+- `jailbreak_detection` with `cydia_presence`, `su_binary_check`, `busybox_presence` and the remainder of both platform lists — **NOT IMPLEMENTED.**
+- `runtime_protection` with `debugger_detection: true`, `hook_detection: true`, `tamper_detection: true` and `app_signature_verification` — **NOT IMPLEMENTED.**
+- `network_security` with `certificate_pinning: true` and `mitm_protection: true` — **NOT IN EFFECT**, per the pinning note above. `vpn_detection` and `no_proxy_allowed` — **NOT IMPLEMENTED.**
+- The `handleJailbreakDetected` alert, `enableEnhancedMode()` and `disableHighRiskFeatures()` — **NOT IMPLEMENTED.** No enhanced-encryption mode and no risk-based feature gating exist.
 
-    // Handle different threat levels
-    if (checks.jailbreak.detected) {
-      this.handleJailbreakDetected();
-    }
-
-    if (checks.debugger.attached) {
-      this.preventDebuggerAccess();
-    }
-
-    return {
-      secure: Object.values(checks).every(c => !c.detected),
-      warnings: this.generateSecurityWarnings(checks),
-      recommendations: this.getSecurityRecommendations(checks)
-    };
-  }
-
-  private handleJailbreakDetected(): void {
-    // Warn user about risks
-    Alert.alert(
-      'Security Warning',
-      'Your device appears to be jailbroken/rooted. This may compromise the security of your mental health data.',
-      [
-        { text: 'I Understand the Risks', onPress: () => this.acceptRisk() },
-        { text: 'Exit App', onPress: () => this.secureExit() }
-      ]
-    );
-
-    // Enhance encryption for compromised devices
-    this.cryptoManager.enableEnhancedMode();
-
-    // Disable certain features
-    this.disableHighRiskFeatures();
-  }
-
-  private async verifyAppIntegrity(): Promise<IntegrityCheck> {
-    // Check app signature
-    const signature = await this.getAppSignature();
-    const valid = await this.verifySignature(signature);
-
-    // Check for code modifications
-    const codeIntegrity = await this.checkCodeIntegrity();
-
-    return {
-      signatureValid: valid,
-      codeUnmodified: codeIntegrity.valid,
-      detected: !valid || !codeIntegrity.valid
-    };
-  }
-}
-```
+**Residual.** Being cannot detect a compromised device and does not try. On a jailbroken or rooted device the operating-system guarantees that §1 and §3 rely on may not hold, and Being would neither know nor warn.
 
 ### User-Facing Description
-**"Advanced Protection Against Digital Threats"**
-- Continuous monitoring for security threats on your device
-- Detection of jailbreaking/rooting that could compromise your data
-- Protection against hackers trying to intercept your information
-- Automatic security enhancements if risks are detected
-- You're always informed about your security status
+No user-facing copy may claim threat monitoring, jailbreak or root detection, tamper protection, interception protection, certificate pinning, or that Being strengthens its security in response to device risk.
 
 ---
 
 ## 8. User-Friendly Security Features
 
-### Technical Implementation with User Messaging
+Being ships **no privacy dashboard, no security score and no security onboarding**. The security-related surfaces that exist are the ordinary Profile screens — Privacy Data, Export Data, Delete Account, Cloud Backup — and the consent flow.
 
-#### A. Privacy Dashboard
-```typescript
-interface PrivacyDashboard {
-  display_elements: {
-    security_score: {
-      calculation: "based_on_enabled_features",
-      visualization: "shield_icon_with_percentage",
-      recommendations: "personalized_improvement_tips"
-    },
+**Corrected (MAINT-641).** This section was draft copy for features that were never built; none of its identifiers appears anywhere in the codebase:
 
-    data_inventory: {
-      categories: ["Assessments", "Mood Tracking", "Reflections"],
-      storage_used: "visual_bar_chart",
-      last_accessed: "human_readable_timeago"
-    },
+- `PrivacyDashboard`, with a `security_score`, a data inventory and an `export_history` list — **NOT IMPLEMENTED.**
+- `SecurityOnboarding` and its welcome flow — **NOT IMPLEMENTED.**
+- The `SecurityMessages` block — **NOT IMPLEMENTED**, and several of its strings are false as well as unshipped. They are recorded here so that no future reader ships them:
+  - `local_only`: "Everything stays on your device. We can't see it, and neither can anyone else" — **false.** See the transmission note in the Security Compliance Checklist below.
+  - `threat_protection`: "Guardian Mode Active — We're constantly watching for threats" — **false.** See §7.
+  - `export_control`: "You control exactly what to share with your therapist and how" — **overstates §5.** The user chooses categories and a share destination; there is no therapist-directed channel.
+  - `deletion_rights`: "Delete your data anytime. When it's gone, it's gone forever" — substantially true per §6, but only by key destruction; it must not be paired with any claim of overwriting.
+  - `encryption`: "Bank-Level Security" — marketing rather than a claim; §1 states the actual algorithm.
+  - `crisis_access`: "Even with all our security, your crisis button is always one tap away" — true, and unaffected by this correction.
 
-    privacy_controls: {
-      export_history: "chronological_list",
-      data_deletion: "guided_workflow"
-    }
-  }
-}
-```
+**Residual.** Being gives users no in-app view of what security applies to their data. Those disclosures live in the privacy policy and the consent flow instead.
 
-#### B. User-Facing Security Messages
-```typescript
-const SecurityMessages = {
-  encryption: {
-    title: "Bank-Level Security",
-    description: "Your mental health data is protected with the same encryption used by financial institutions",
-    icon: "🔐"
-  },
-
-  local_only: {
-    title: "Your Phone, Your Data",
-    description: "Everything stays on your device. We can't see it, and neither can anyone else",
-    icon: "📱"
-  },
-
-  crisis_access: {
-    title: "Help Always Available",
-    description: "Even with all our security, your crisis button is always one tap away",
-    icon: "🆘"
-  },
-
-  export_control: {
-    title: "Share on Your Terms",
-    description: "You control exactly what to share with your therapist and how",
-    icon: "📤"
-  },
-
-  deletion_rights: {
-    title: "True Data Ownership",
-    description: "Delete your data anytime. When it's gone, it's gone forever",
-    icon: "🗑️"
-  },
-
-  threat_protection: {
-    title: "Guardian Mode Active",
-    description: "We're constantly watching for threats to keep your data safe",
-    icon: "🛡️"
-  }
-};
-```
-
-#### C. Security Onboarding Flow
-```typescript
-class SecurityOnboarding {
-  async presentToNewUser(): Promise<void> {
-    const steps = [
-      {
-        title: "Welcome to Your Private Space",
-        message: "Being. is designed with your privacy at its core. Let's set up your security preferences.",
-        action: () => this.showPrivacyPrinciples()
-      },
-      {
-        title: "Emergency Access",
-        message: "Your crisis button will always work.",
-        action: () => this.demonstrateCrisisAccess()
-      },
-      {
-        title: "You're in Control",
-        message: "You can change these settings anytime in your Privacy Dashboard.",
-        action: () => this.completOnboarding()
-      }
-    ];
-
-    await this.presentSteps(steps);
-  }
-}
-```
+### User-Facing Description
+No user-facing copy may reference a privacy dashboard, a security score, a guardian or monitoring mode, an export history, or a security onboarding flow. None of them exists.
 
 ---
 
 ## Implementation Priority & Roadmap
 
+**Corrected (MAINT-641).** This roadmap is a historical plan, not a status board, and it was never reconciled against what shipped. Two kinds of error are fixed here. Three Phase 1 items **did** ship and are now checked — AES-256-GCM encryption, PBKDF2 key derivation, and Keychain/Keystore-backed key storage through `expo-secure-store`; all three are described accurately in §1 and §3, and note that §1 withdraws the Secure Enclave and StrongBox claims, so "integration" here means the library's default backing rather than hardware-bound keys. Everything still unchecked below was **never built**, and §5–§8 now say so per item rather than leaving it to be inferred from an empty box. Nothing in this list is scheduled; read it as a record of what was once planned.
+
 ### Phase 1: Core Security (Week 1-2)
 ```yaml
 critical_implementation:
-  - [ ] AES-256-GCM encryption for clinical data
-  - [ ] Secure key derivation (PBKDF2)
-  - [ ] iOS Keychain / Android Keystore integration
+  - [x] AES-256-GCM encryption for clinical data
+  - [x] Secure key derivation (PBKDF2)
+  - [x] iOS Keychain / Android Keystore integration
   - [ ] Basic jailbreak/root detection
 ```
 
@@ -635,38 +322,48 @@ optimization:
 
 ## Security Compliance Checklist
 
+**Corrected (MAINT-641).** Nine boxes in this checklist were ticked for controls that do not exist, and three of them contradicted sections of this same document. A ✅ here now means the control executes on a shipping build; anything else is marked ❌ (never built) or ⚠️ (partly true, with the qualification stated). The withdrawn transmission claim is explained in full beneath the lists.
+
 ### Technical Requirements
-- ✅ AES-256 encryption for all sensitive data
-- ✅ Hardware-backed key storage
-- ✅ Secure data deletion
-- ✅ Jailbreak/root detection
-- ✅ Memory protection
-- ✅ Secure export mechanisms
+- ✅ AES-256 encryption for all sensitive data — §1
+- ⚠️ Key storage backed by Keychain / Android Keystore via `expo-secure-store` — **not hardware-bound.** Corrected from "Hardware-backed key storage"; §1 withdrew the Secure Enclave and StrongBox claims and no key is bound to biometric enrolment (§3).
+- ⚠️ Data deletion by cryptographic erasure — §6. Corrected from "Secure data deletion": the key is destroyed and the stores are swept, but nothing is overwritten.
+- ❌ Jailbreak/root detection — **never built.** §7.
+- ❌ Memory protection — **never built.** §7.
+- ⚠️ Data export as plain JSON through the OS share sheet — §5. Corrected from "Secure export mechanisms": the export is not encrypted, password-protected or logged.
 - ✅ Cryptographic ID generation (no Math.random() - see `@/core/utils/id`)
 
 ### Privacy Requirements
-- ✅ No network transmission of personal data
-- ✅ Complete local data isolation
-- ✅ User-controlled data deletion
-- ✅ Granular privacy controls
-- ✅ Transparent data handling
-- ✅ Crisis mode exceptions
-- ✅ Export audit trail
+- ❌ ~~No network transmission of personal data~~ — **withdrawn; this was false.** See the note below.
+- ❌ ~~Complete local data isolation~~ — **withdrawn**, for the same reason.
+- ✅ User-controlled data deletion — §6
+- ✅ Granular privacy controls — per-category consent
+- ✅ Transparent data handling — privacy policy and consent flow
+- ✅ Crisis mode exceptions — crisis access is never gated on consent
+- ❌ Export audit trail — **never built.** Nothing records that an export occurred (§5).
 - ✅ Clear user consent flows
 
 ### Mental Health Specific
 - ✅ Crisis access always available
 - ✅ Therapeutic relationship protection
 - ✅ Anti-stigmatization measures
-- ✅ Safe deletion with crisis check
-- ✅ Provider-friendly export formats
+- ❌ Safe deletion with crisis check — **never built.** `checkUserCrisisState` does not exist (§6).
+- ❌ Provider-friendly export formats — **never built.** There is no FHIR serialiser and no provider channel (§5).
 - ✅ Trauma-informed security UX
 - ✅ Recovery-oriented design
 - ✅ Dignity preservation
 
+**Corrected (MAINT-641) — the withdrawn "no network transmission" claim.** This checklist previously ticked `No network transmission of personal data`, alongside `Complete local data isolation`. Both were false. Being transmits personal data on five disclosed paths: optional Cloud Backup (an encrypted settings blob plus operational backup records, keyed to the anonymous `auth.uid()` principal); crisis-detection telemetry to Supabase (`crisis_detected`, measured end to end at 576 ms — INFRA-412 — carrying bucketed fields only, no raw score and no Q9 value); Sentry crash events under consent; PostHog product analytics under consent; and subscription and receipt verification.
+
+**A row keyed to an anonymous `auth.uid()` is pseudonymous personal data, not anonymous data** — GDPR Art. 4(1) and Recital 26, and "linked or reasonably linkable" under TDPSA §541.001(28), CCPA §1798.140(v)(1), VCDPA, CPA and CTDPA. The identifier is stable and re-linkable on the device, and crisis telemetry is health-derived, hence Art. 9 special-category — which is precisely why INFRA-214 processes it under Art. 6(1)(d) / 9(2)(c) vital interests. A lawful basis is only needed for personal data, so the three-sink partition is itself an acknowledgement of this.
+
+The limit of that statement matters and must not be flattened: Being holds no name, email address or phone number, so **no transmitted record is attributable to a *named* individual from server-side data alone.** That narrows what a breach notification would contain and how rights requests are handled. It does not put the data out of scope. The lawful-basis partition across the three sinks is INFRA-214's and is recorded in `docs/legal/dpia-sensitive-wellness-data.md` §2, §4 and §7, and in `docs/legal/lia-crisis-telemetry.md`.
+
 ---
 
 ## Testing Requirements
+
+**Corrected (MAINT-641).** This block is a test *plan*, not a record of tests that exist. The threat-detection case below describes checks for mechanisms §7 establishes were never built, and is retained only as a marker of what would be required were they ever implemented.
 
 ### Security Testing
 ```typescript
@@ -679,15 +376,12 @@ describe('Security Test Suite', () => {
 
   test('Data deletion', async () => {
     // Test complete deletion
-    // Verify crisis state checks
-    // Confirm data unrecoverable
+    // NOT IMPLEMENTED (MAINT-641): there is no crisis-state check to verify
+    // Confirm data unrecoverable by key destruction
   });
 
-  test('Threat detection', async () => {
-    // Test jailbreak detection
-    // Test debugger detection
-    // Verify integrity checks
-  });
+  // NOT IMPLEMENTED (MAINT-641): none of the mechanisms below exists. See §7.
+  test.todo('Threat detection — jailbreak, debugger and integrity checks (never built)');
 });
 ```
 

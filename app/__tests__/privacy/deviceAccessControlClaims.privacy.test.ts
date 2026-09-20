@@ -107,6 +107,36 @@ const SEC_ARCH_CLAIMS: Array<[string, RegExp]> = [
   ['biometric / session test plan', /test\(\s*['"](?:Biometric authentication|Session management)['"]/],
   ['user-facing biometric promise', /\bUse Face ID\b|face or fingerprint ensures|biometric authentication and encryption must/i],
   ['app locks itself', /\b(?:app|Being\.?)\s+locks\s+(?:itself|automatically)/i],
+
+  // MAINT-641 — §5–§8, the roadmap and the compliance checklist.
+  // These are deliberately CODE-SHAPED rather than bare tokens. The corrected
+  // prose quotes each withdrawn literal by name when recording what it withdrew,
+  // so a bare-token regex would fire on the correction itself. Pair that with the
+  // `**NOT IMPLEMENTED` / `**NOT IN EFFECT` line filter in describe (c): the shape
+  // stops a false positive, the filter stops the rest, and `matcher integrity`
+  // below proves each one still fires on the pre-correction wording.
+  ['export: SecureDataExporter class', /class\s+SecureDataExporter\b/],
+  ['export: watermarked PDF', /watermarked:\s*true/],
+  ['export: FHIR provider share', /format:\s*["']fhir_compliant_json/],
+  ['export: time-limited share', /time_limited:\s*["']7_days/],
+  ['export: provider-verified email', /requires:\s*["']provider_email_verification/],
+  ['export: AirDrop channel', /\bairdrop_or_nearby_share\b/],
+  ['export: audit trail', /\bauditExport\s*\(|✅\s*Export audit trail/],
+  ['deletion: SecureDataDeletion class', /class\s+SecureDataDeletion\b/],
+  ['deletion: multi-pass overwrite', /DOD 5220\.22-M|passes:\s*3\b/],
+  ['deletion: native keystore wipe', /AndroidKeystore\.\w+\s*\(|Keychain\.reset\w+\s*\(/],
+  ['deletion: crisis-state safety check', /crisis_assessment:\s*["']check_current_crisis_state|✅\s*Safe deletion with crisis check/],
+  ['deletion: cooling-off period', /cooling_period:\s*["']24_hour/],
+  ['threats: DeviceThreatProtection class', /class\s+DeviceThreatProtection\b/],
+  ['threats: jailbreak / root detection', /\bcydia_presence\b|\bsu_binary_check\b|✅\s*Jailbreak\/root detection/],
+  ['threats: runtime tamper detection', /(?:debugger_detection|hook_detection|tamper_detection):\s*true/],
+  ['threats: certificate pinning in effect', /certificate_pinning:\s*true|mitm_protection:\s*true/],
+  ['threats: memory protection', /✅\s*Memory protection|\bpreventMemoryDumps\s*\(/],
+  ['ux: privacy dashboard / onboarding', /class\s+SecurityOnboarding\b|security_score:\s*\{/],
+  ['ux: guardian mode copy', /title:\s*["']Guardian Mode Active/],
+  ['checklist: no network transmission', /✅\s*No network transmission|✅\s*Complete local data isolation/],
+  ['checklist: hardware-backed key storage', /✅\s*Hardware-backed key storage/],
+  ['checklist: secure export / provider formats', /✅\s*Secure export mechanisms|✅\s*Provider-friendly export formats/],
 ];
 
 const ENC_ARCH_CLAIMS: Array<[string, RegExp]> = [
@@ -157,6 +187,19 @@ function unresolvedCitations(
   return { checked, unresolved };
 }
 
+/**
+ * ⚠️  MAINT-635 OWNS THE REWRITE OF THIS BLOCK — do not "fix" it by restoring the file.
+ *
+ * Both assertions below go red BY CONSTRUCTION the moment MAINT-635 deletes
+ * `AuthenticationService.ts`: the non-vacuity guard asserts that file is among the
+ * scanned sources, and the importer assertion names it as the sole importer of
+ * `expo-local-authentication`.
+ *
+ * That red is the DELETION LANDING, not a regression. MAINT-635 re-points the
+ * non-vacuity guard at a surviving file, flips both expectations to `[]`, and drops
+ * the `f.rel !== AUTH_SERVICE` carve-out in the prompt-caller test so it fires with no
+ * exemption anywhere. Re-adding the file would satisfy the assertions and undo the work.
+ */
 describe('DEBUG-624 (a) — code fact: no in-app authentication prompt is wired', () => {
   const files = walkSource(APP_SRC).map((full) => ({
     rel: path.relative(APP_SRC, full),
@@ -223,8 +266,21 @@ describe('DEBUG-624 (b) — the DPIA does not re-credit a gate or an auto-lock',
 describe('DEBUG-624 (c) — security documents describe the protection that exists', () => {
   const secArch = read(SEC_ARCH);
 
+  // MAINT-641: the SEC_ARCH side needs the same withdrawn-line filter the DPIA side
+  // has above. A `**Corrected (…)**` block names each withdrawn claim verbatim so a
+  // reader can see what was retracted — which means the document legitimately contains
+  // the very literals these regexes hunt. Without this filter the corrections would red
+  // the suite against correct content: the DEBUG-390 vacuity problem inverted.
+  // Blank the marked lines rather than dropping them: `offenders` reports `index + 1`
+  // as a line number, so removing lines would shift every subsequent one and the
+  // failure message would point at the wrong place in the file.
+  const secArchLive = secArch
+    .split('\n')
+    .map((line) => (/\*\*NOT IMPLEMENTED|\*\*NOT IN EFFECT/.test(line) ? '' : line))
+    .join('\n');
+
   it('security-architecture.md carries no gate or auto-lock claim', () => {
-    expect(offenders(secArch, SEC_ARCH_CLAIMS)).toEqual([]);
+    expect(offenders(secArchLive, SEC_ARCH_CLAIMS)).toEqual([]);
   });
 
   it('§3 states there is no in-app authentication gate', () => {
@@ -288,6 +344,31 @@ describe('matcher integrity', () => {
       "  test('Biometric authentication', async () => {",
       '- Use Face ID, Touch ID, or your fingerprint to protect your most sensitive data',
       '- Your app locks automatically after a period of inactivity',
+      // MAINT-641 — pre-correction wording for §5–§8, roadmap and checklist
+      'class SecureDataExporter {',
+      '      watermarked: true',
+      '      format: "fhir_compliant_json",',
+      '      time_limited: "7_days"',
+      '      requires: "provider_email_verification"',
+      '      method: "airdrop_or_nearby_share"',
+      '    await this.auditExport({',
+      'class SecureDataDeletion {',
+      '      passes: 3, // DOD 5220.22-M standard',
+      '      await Keychain.resetInternetCredentials("fyi.being.app");',
+      '      const keystore = await AndroidKeystore.load();',
+      '    crisis_assessment: "check_current_crisis_state",',
+      '    cooling_period: "24_hour_delay_option"',
+      'class DeviceThreatProtection {',
+      '      "cydia_presence",',
+      '    debugger_detection: true,',
+      '    certificate_pinning: true,',
+      '- ✅ Memory protection',
+      'class SecurityOnboarding {',
+      '    security_score: {',
+      '    title: "Guardian Mode Active",',
+      '- ✅ No network transmission of personal data',
+      '- ✅ Hardware-backed key storage',
+      '- ✅ Secure export mechanisms',
     ].join('\n');
     for (const [name, re] of SEC_ARCH_CLAIMS) {
       expect({ name, fires: offenders(preFix, [[name, re]]).length > 0 }).toEqual({ name, fires: true });
