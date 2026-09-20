@@ -1013,6 +1013,10 @@ converts "here is what I did not do" into a closed item. Read the item's `Status
 Step 3.1 returns:
 
 - `Testing` → proceed to close.
+- `In progress` on a `scoped: true` item → check whether the narrowing POSTDATES
+  `/b-work`'s run. A scope change recorded at close cannot have moved a status set
+  before it, so close on the carve-offs existing and the scope-down comment being
+  posted — not on the stale status.
 - anything else → **do not close.** Split on WHY: if the unserved ACs need an attended
   session (device/sim observation), that is `queued_red` + leave Notion `In progress` —
   Phase 4.1 already schedules it, and `Blocked` would misreport a queued item as stuck.
