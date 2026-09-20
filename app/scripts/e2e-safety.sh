@@ -311,6 +311,13 @@ if [ "$DEVICE_ONLY" = "1" ] && [ "${E2E_FORCE_DEVICE_ATTEMPT:-}" != "1" ]; then
   echo "     <= 2.1.0  driver builds, XCUITest runner never becomes ready on iOS >= 26" >&2
   echo "   THE HARDWARE IS NOT THE PROBLEM. This is not a missing or sleeping device;" >&2
   echo "   Maestro's own driver is the failure. Do not go looking at cables or Settings." >&2
+  echo "   (DEBUG-584 measured that cabling does not help: the CoreDevice tunnel is lazy" >&2
+  echo "   on a cable exactly as much as over Wi-Fi, so a cable fixes nothing here.)" >&2
+  echo "" >&2
+  echo "   Under E2E_FORCE_DEVICE_ATTEMPT=1 a run can instead stop EARLIER, at device" >&2
+  echo "   resolution, with a message naming a tunnel that would not come up. That one IS" >&2
+  echo "   about the device and its remedies are real — read whichever refusal you got and" >&2
+  echo "   do not carry this paragraph over to it." >&2
   echo "   THIS IS NOT A FLOW REGRESSION and must not be read as one." >&2
   echo "   What this leaves unverified is recorded in the flow header:" >&2
   for f in "${FLOWS[@]}"; do echo "     $f" >&2; done
