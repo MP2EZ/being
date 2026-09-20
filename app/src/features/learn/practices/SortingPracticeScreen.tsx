@@ -34,6 +34,7 @@ import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScre
 import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
 import type { ModuleId } from '@/features/learn/types/education';
 import type { SortingScenario } from '@/features/learn/types/education';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 
 interface SortingPracticeScreenProps {
   practiceId: string;
@@ -404,6 +405,23 @@ const styles = StyleSheet.create({
   buttonRow: {
     gap: spacing[16],
   },
+  // DEBUG-634 — clear the crisis FAB's column. `SortingPractice` is in IMMERSIVE_ROUTES
+  // and absent from SUPPRESSED_ROUTES, so the FAB is mounted over this screen at
+  // zIndex 9999; an overlap is a wrong-destination tap into CrisisResources (the
+  // DEBUG-547 crisis FALSE-POSITIVE shape).
+  //
+  // ONE base entry covers BOTH choice buttons — `buttonRow` declares only `gap`, so
+  // despite its name it is a column and both buttons are full-width stretch children of
+  // the `paddingHorizontal: spacing[24]` container. Each spans x = 24..W−24 against a
+  // region starting at W−72; both are offsets from screen-right, so W cancels and the
+  // 48pt overlap is DERIVED, not measured.
+  //
+  // `marginRight`, never `paddingRight`: the Pressable's frame IS its hit rect, so
+  // padding would move the label and leave the target where the FAB still wins.
+  //
+  // ARRAY COMPOSITION GOVERNS HERE, unlike GuidedBodyScanScreen's bare object — this host
+  // composes `[choiceButton, inControlButton, pressed && choiceButtonPressed]`, so a later
+  // member declaring `marginRight` would clobber this. The pin asserts none does.
   choiceButton: {
     paddingVertical: spacing[16],
     paddingHorizontal: spacing[24],
@@ -411,6 +429,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     minHeight: spacing[48],
     borderWidth: spacing[4],
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   inControlButton: {
     backgroundColor: colorSystem.status.successBackground,
@@ -497,6 +516,9 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
     lineHeight: typography.bodySmall.size * (typography.bodySmall.lineHeight || 1.4),
   },
+  // DEBUG-634 — same clearance, the other render branch. `showFeedback` and
+  // `!showFeedback` are mutually exclusive, so this is a third control a single render
+  // cannot reach; the pin drives the transition rather than asserting one branch.
   nextButton: {
     backgroundColor: colorSystem.navigation.learn,
     paddingVertical: spacing[16],
@@ -504,6 +526,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     minHeight: spacing[48],
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   nextButtonPressed: {
     backgroundColor: colorSystem.navigation.learn + 'DD',
