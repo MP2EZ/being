@@ -275,8 +275,12 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
               {items.map((entry) => {
                 const duration = formatDuration(entry.practice.duration);
                 return (
-                  <Pressable
+                  <View
                     key={entry.practice.id}
+                    style={styles.practiceRowDivider}
+                    testID={`practice-library-row-divider-${entry.practice.id}`}
+                  >
+                  <Pressable
                     style={styles.practiceRow}
                     onPress={() => launch(entry)}
                     accessibilityRole="button"
@@ -294,6 +298,7 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
                       <Text style={styles.practiceRowMeta}>{duration}</Text>
                     )}
                   </Pressable>
+                  </View>
                 );
               })}
             </View>
@@ -399,6 +404,11 @@ const styles = StyleSheet.create({
   principleLinkTouch: {
     minHeight: TOUCH_TARGETS.minimum,
     justifyContent: 'center',
+    // DEBUG-637: AC1 covers this control too. It is a stretch child of `featuredCard`,
+    // so the row's inset does not reach it. The full rect is used rather than a
+    // card-relative derivation because that chain runs through a FRACTIONAL
+    // `borderWidth: 1.5` and could not be proven exact against a half-open predicate.
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   featuredButton: {
     marginTop: spacing[16],
@@ -406,6 +416,7 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.large,
     paddingVertical: spacing[16],
     alignItems: 'center',
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   featuredButtonText: {
     fontSize: typography.bodyRegular.size,
@@ -414,13 +425,23 @@ const styles = StyleSheet.create({
   },
   section: { marginBottom: spacing[32] },
   fabClearance: { height: CRISIS_BUTTON_EXCLUSION_RECT.top },
+  // DEBUG-637 — the divider lives on a full-width wrapper, the INSET on the Pressable.
+  //
+  // The row IS the Pressable, so its style is its hit rect: `paddingRight` would move the
+  // glyphs and leave the tap target exactly where it was, and the FAB at `zIndex: 9999`
+  // would keep winning every tap in the overlap. Splitting the border off keeps the
+  // dividers bleeding to the full content column while the tappable box stops short of
+  // the FAB's exclusion band.
+  practiceRowDivider: {
+    borderBottomWidth: 1,
+    borderBottomColor: colorSystem.gray[200],
+  },
   practiceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingVertical: spacing[16],
-    borderBottomWidth: 1,
-    borderBottomColor: colorSystem.gray[200],
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   practiceRowTitle: {
     flex: 1,
