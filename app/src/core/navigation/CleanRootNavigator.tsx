@@ -141,7 +141,6 @@ export type RootStackParamList = {
     moduleId: ModuleId;
     duration: number;
     title: string;
-    prompt?: string;
     instructions?: string[];
   };
   SortingPractice: {
@@ -772,7 +771,6 @@ const CleanRootNavigator: React.FC = () => {
               moduleId={route.params.moduleId}
               duration={route.params.duration}
               title={route.params.title}
-              {...(route.params.prompt && { prompt: route.params.prompt })}
               {...(route.params.instructions && { instructions: route.params.instructions })}
               onComplete={() => navigation.goBack()}
               onBack={() => navigation.goBack()}

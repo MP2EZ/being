@@ -53,7 +53,6 @@ interface ReflectionTimerScreenProps {
   moduleId: ModuleId;
   duration: number; // Duration in seconds
   title: string;
-  prompt?: string; // Optional brief reflection prompt
   instructions?: string[]; // Full instruction steps (always visible)
   onComplete?: () => void;
   onBack?: () => void;
@@ -65,7 +64,6 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
   moduleId,
   duration,
   title,
-  prompt,
   instructions,
   onComplete,
   onBack,
@@ -185,9 +183,14 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
         <View style={styles.contemplationIcon}>
           <Text style={styles.iconText}>🧘</Text>
         </View>
+        {/* DEBUG-650: names the instruction list above, which every reflection practice
+            ships (pinned by reflectionPracticeInstructions.contract.test.ts). The previous
+            copy pointed at "the prompt", which nothing rendered, and described open,
+            objectless noticing; these are directed examens. Wording ruled by `philosopher`. */}
         <Text style={styles.contemplationText}>
-          Take time to reflect. There's no need to write anything down—simply
-          contemplate the prompt and notice what arises.
+          Work through the steps above at your own pace. There's no need to write anything
+          down—simply hold each one in mind. If your attention wanders, returning to it is the
+          practice.
         </Text>
       </View>
 
