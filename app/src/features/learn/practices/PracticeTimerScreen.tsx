@@ -17,6 +17,7 @@
  */
 
 import React, { useMemo } from 'react';
+import { useWindowDimensions } from 'react-native';
 import {
   View,
   Text,
@@ -43,7 +44,16 @@ import Timer from '@/features/practices/shared/components/Timer';
 import BreathingFrameProbe from '@/features/practices/shared/components/BreathingFrameProbe';
 import { env } from '@/core/config/env';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { practiceHeaderStacksTitle } from '@/features/learn/practices/shared/practiceScreenHeaderLayout';
 import type { PracticeVisualMode } from '@/features/learn/types/education';
+
+/**
+ * DEBUG-638: from this font scale the toggle renders directly after the breathing circle
+ * and the circle hides its generic guidance copy. It is the header's stacking threshold,
+ * so the header and the body change shape at the same step.
+ */
+export const practiceTimerUsesAxLayout = (fontScale: number): boolean =>
+  practiceHeaderStacksTitle(fontScale);
 
 /**
  * DEBUG-353: default copy for the breath-paced presentation. Kept verbatim so
@@ -181,6 +191,12 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   }, [isContemplative, steps.length, duration, elapsedTime]);
 
   const showBreathingCircle = !isContemplative;
+  // DEBUG-638: at AX5 the circle's own guidance copy and the Timer put the circle ~1033pt
+  // above the toggle in a ~502pt viewport, so whenever the control was reachable the breath
+  // guide was not. From the header's stacking threshold the toggle takes the slot directly
+  // after the circle. Contemplative practices render no circle and keep their order.
+  const { fontScale } = useWindowDimensions();
+  const axLayout = showBreathingCircle && practiceTimerUsesAxLayout(fontScale);
   const noteText = isContemplative ? CONTEMPLATIVE_NOTE : BREATHING_NOTE;
 
   // DEBUG-536: `practice_started` fires on the first activation, not on mount —
@@ -199,6 +215,19 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   if (completionScreen) {
     return completionScreen;
   }
+
+  // One element, two fixed slots: the toggle moves across the threshold while
+  // BreathingCircle and Timer keep their child positions. A remount of either would restart
+  // the breath from an inhale (DEBUG-587) or reset the timer; the toggle holds no state.
+  const toggle = (
+    <PracticeToggleButton
+      isActive={isTimerActive}
+      elapsedTime={elapsedTime}
+      onToggle={handleToggle}
+      style={styles.toggleButton}
+      testID={`${testID}-toggle-button`}
+    />
+  );
 
   return (
     <PracticeScreenLayout
@@ -242,6 +271,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
         <View style={styles.breathingSection}>
           <BreathingCircle
             isActive={isTimerActive}
+            showGuidanceCopy={!axLayout}
             testID={`${testID}-breathing-circle`}
           />
           {/* INFRA-373 frame probe. Sibling, not child: it must not enter
@@ -254,6 +284,9 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
           )}
         </View>
       )}
+
+      {/* DEBUG-638: at AX sizes the toggle sits directly under the circle. */}
+      {axLayout && toggle}
 
       {/* Timer Component (Shared DRY Component) - Always rendered, controlled by isActive */}
       <View style={sharedPracticeStyles.timerSection}>
@@ -273,13 +306,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
       </View>
 
       {/* Single Toggle Button: Begin Practice → Pause → Resume */}
-      <PracticeToggleButton
-        isActive={isTimerActive}
-        elapsedTime={elapsedTime}
-        onToggle={handleToggle}
-        style={styles.toggleButton}
-        testID={`${testID}-toggle-button`}
-      />
+      {!axLayout && toggle}
 
       {/* Mindfulness Note */}
       <View style={sharedPracticeStyles.noteSection} testID={`${testID}-note`}>
