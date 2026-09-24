@@ -73,6 +73,7 @@ import {
   TOUCH_TARGETS,
 } from '@/core/theme';
 import { gatherExportData, serializeExport } from '@/core/services/privacy/DataExportService';
+import { exportFileName } from '@/core/services/privacy/exportArtifactSweeper';
 import { logError, LogCategory } from '@/core/services/logging';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { buildExportPayload } from '@/features/data-export/services/exportService';
@@ -215,10 +216,11 @@ const ExportDataScreen: React.FC = () => {
   const handleExport = useCallback(async () => {
     setIsExporting(true);
     setErrorMessage(null);
+    // Declared outside the try so `finally` can remove it on every path (DEBUG-645).
+    let file: File | null = null;
     try {
       const json = serializeExport(await gatherExportData());
-      const stamp = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-      const file = new File(Paths.cache, `being-export-${stamp}.json`);
+      file = new File(Paths.cache, exportFileName());
       file.create({ overwrite: true });
       file.write(json);
 
@@ -239,6 +241,23 @@ const ExportDataScreen: React.FC = () => {
       );
       setErrorMessage('Could not prepare your export. Please try again.');
     } finally {
+      // DEBUG-645: the file is the full export in plaintext and must not outlive
+      // the share. `shareAsync` RESOLVES on user cancel on both platforms, so this
+      // one `finally` covers a completed share, a cancelled one, the
+      // sharing-unavailable early return and every thrown error alike. It runs
+      // strictly after the sheet has closed, so it does not reshape the DEBUG-577
+      // window. `delete()` throws when the file is already gone; that is
+      // swallowed here, never surfaced as an export error, never left to become an
+      // unhandled rejection, and never raised as an Alert (DEBUG-533).
+      try {
+        if (file?.exists) file.delete();
+      } catch (cleanupError) {
+        logError(
+          LogCategory.SYSTEM,
+          '[ExportData] export file cleanup failed',
+          cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError)),
+        );
+      }
       setIsExporting(false);
     }
   }, []);
