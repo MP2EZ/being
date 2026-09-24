@@ -23,6 +23,7 @@ import {
 } from '@/core/analytics/analyticsIdentityReset';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { clearLogAuditTrail, logError, logSecurity, LogCategory } from '@/core/services/logging';
+import { sweepExportArtifacts } from './exportArtifactSweeper';
 
 export type AccountDeletionResult =
   | { ok: true }
@@ -93,13 +94,29 @@ export async function deleteAccountAndWipe({
     );
   }
 
-  // 4. On-device wipe incl. master key. Non-retryable once reached: if this
+  // 4. Plaintext export sweep (DEBUG-645). A data export is written to the app
+  //    cache as plaintext JSON and deleted when its share settles, but a process
+  //    killed in between never runs that delete, and the wipe below walks storage
+  //    keys, never the filesystem. BEFORE the wipe, so a wipe failure cannot strand
+  //    the most exposed copy; best-effort, like steps 2 and 3, because a throw here
+  //    would report an already-completed server erasure as a failure.
+  try {
+    sweepExportArtifacts();
+  } catch (error) {
+    logSecurity(
+      '[AccountDeletion] export-file sweep failed (continuing with wipe)',
+      'high',
+      { error: error instanceof Error ? error.message : 'Unknown error' },
+    );
+  }
+
+  // 5. On-device wipe incl. master key. Non-retryable once reached: if this
   //    throws, do NOT loop back to the server call — the account is already
   //    gone server-side and a retry of the whole sequence remains safe.
   await SecureStorageService.clearAllWellnessData({ deleteMasterKey: true });
   logSecurity('[AccountDeletion] local wellness data wiped after server erasure', 'low');
 
-  // 5. Drop the in-memory log audit trail LAST (DEBUG-355), so the entry the
+  // 6. Drop the in-memory log audit trail LAST (DEBUG-355), so the entry the
   //    line above just pushed goes with it. Synchronous and structurally
   //    non-throwing by design — a rejection here, after both erasures have
   //    already succeeded, would be caught by DeleteAccountScreen and reported to
