@@ -5,9 +5,9 @@
 ```yaml
 document:
   type: Security Architecture
-  version: 2.2.0
+  version: 2.2.1
   status: CURRENT
-  updated: 2026-09-20  # MAINT-627: §1/§2 corrected. MAINT-641: §5–§8, roadmap and checklist corrected
+  updated: 2026-09-24  # MAINT-627: §1/§2 corrected. MAINT-641: §5–§8, roadmap and checklist corrected. DEBUG-645: §5/§6 export residual closed
   application: Being. Mental Health App
 
 # Being is a CONSUMER WELLNESS APP, not a HIPAA-covered entity.
@@ -200,7 +200,9 @@ Being ships **one export path**: a plain-JSON copy of the user's own wellness da
 
 **This is a correction, not a downgrade.** GDPR Art. 20 does not require a portability export to be encrypted, password-protected or audit-logged; a machine-readable copy delivered to the data subject at their own request is the correct posture. What changes here is the description, not the control. DPIA §7 control 12 is narrowed to match in the same commit.
 
-**Residual (tracked: DEBUG-645).** The exported file is written to the app cache directory and is never deleted. Nothing sweeps it — `clearAllWellnessData` sweeps storage key namespaces rather than the filesystem — so an unencrypted copy of the export survives account deletion. This section will be updated when DEBUG-645 closes.
+**Corrected (DEBUG-645).** The exported file is written to the app cache directory and handed to the share sheet, and it is now deleted when the share settles. One `finally` covers every path — a completed share, a cancelled one (`shareAsync` resolves on cancel on both platforms), the sharing-unavailable early return, and a thrown error. Account deletion additionally sweeps the cache for export files (`exportArtifactSweeper.sweepExportArtifacts`, best-effort, before the wipe), because `clearAllWellnessData` walks storage keys rather than the filesystem. The writer and the sweeper share one filename definition, so the sweep cannot drift from what is written. Previously the file was never deleted, and an unencrypted copy of the export survived account deletion.
+
+**Residual (tracked: DEBUG-655).** A process killed while the share sheet is up never reaches the delete. Account deletion still sweeps that file, so deletion is complete; but for a user who never deletes their account, the stranded copy stays in the app cache until an export on the same day overwrites it, because nothing sweeps the cache at launch. The cache is on-device only and excluded from OS backup by default.
 
 ### User-Facing Description
 No user-facing copy may say that exports are password-protected, encrypted, watermarked, expiring, logged, or delivered securely to a therapist. Being's export is a plain JSON file the user shares themselves. Copy may say that the file contains only the categories the user selected, and that Being does not receive it.
@@ -227,7 +229,7 @@ Being deletes an account by **destroying the encryption key and sweeping the sto
 - `verifyDeletion()` — **NOT IMPLEMENTED.** No post-deletion verification runs.
 - The documented confirmation string `DELETE ALL MY DATA` — the shipped `CONFIRM_WORD` is `DELETE`. The document is corrected to the code.
 
-**Residual.** `delete-account` deletes the caller's own principal only; it is the user's erasure right, not an administrative tool. Coverage for data outside the swept namespaces is tracked by the DPIA's erasure controls, and one known survivor — the export file described in §5 — is tracked as DEBUG-645.
+**Residual.** `delete-account` deletes the caller's own principal only; it is the user's erasure right, not an administrative tool. Coverage for data outside the swept namespaces is tracked by the DPIA's erasure controls, and the export file described in §5, formerly a known survivor (DEBUG-645), is now swept on deletion.
 
 ### User-Facing Description
 Copy may say that deleting an account destroys the encryption key so that remaining data cannot be read, that the server-side record is deleted, and that deletion cannot be undone. No user-facing copy may promise a safety or crisis check before deletion, an offer to export first, a delay or cooling-off window, selective or time-based deletion, or a multi-pass overwrite.
