@@ -30,8 +30,16 @@
       </intent-filter>
       <intent-filter android:autoVerify="true" data-generated="true">
         <action android:name="android.intent.action.VIEW"/>
-        <data android:scheme="https" android:host="being.fyi" android:pathPrefix="/"/>
-        <data android:scheme="https" android:host="www.being.fyi" android:pathPrefix="/"/>
+        <data android:scheme="https" android:host="being.fyi"/>
+        <data android:scheme="https" android:host="www.being.fyi"/>
+        <data android:path="/crisis"/>
+        <data android:pathPrefix="/crisis/"/>
+        <data android:path="/daily"/>
+        <data android:pathPrefix="/assessment/"/>
+        <data android:pathPrefix="/module/"/>
+        <data android:pathPrefix="/practice/"/>
+        <data android:path="/subscription"/>
+        <data android:path="/subscription/status"/>
         <category android:name="android.intent.category.BROWSABLE"/>
         <category android:name="android.intent.category.DEFAULT"/>
       </intent-filter>

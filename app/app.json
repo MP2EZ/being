@@ -70,13 +70,35 @@
           "data": [
             {
               "scheme": "https",
-              "host": "being.fyi",
-              "pathPrefix": "/"
+              "host": "being.fyi"
             },
             {
               "scheme": "https",
-              "host": "www.being.fyi",
-              "pathPrefix": "/"
+              "host": "www.being.fyi"
+            },
+            {
+              "path": "/crisis"
+            },
+            {
+              "pathPrefix": "/crisis/"
+            },
+            {
+              "path": "/daily"
+            },
+            {
+              "pathPrefix": "/assessment/"
+            },
+            {
+              "pathPrefix": "/module/"
+            },
+            {
+              "pathPrefix": "/practice/"
+            },
+            {
+              "path": "/subscription"
+            },
+            {
+              "path": "/subscription/status"
             }
           ],
           "category": [
