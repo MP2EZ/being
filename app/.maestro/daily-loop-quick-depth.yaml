@@ -464,6 +464,10 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
     id: "daily-loop-support-line"
 - tapOn:
     id: "continue-button"
+# DEBUG-642 ATTRIBUTION GUARD, the daily-loop-ax5-virtuous shape. A tap that lands on the
+# support line fails here NAMING it, rather than as a missing VirtuousResponse screen.
+- assertNotVisible:
+    id: "crisis-resources-screen"
 
 # ── Quick beat 3 — Virtuous Response is the last beat (no Interconnected
 #    Living in quick). Support line must NOT appear here (exactly-once). ─
@@ -546,6 +550,18 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 # assertion — a `when:` block here could only ever hide a genuine regression.
 - tapOn:
     id: "daily-loop-skip-breath"
+# DEBUG-642: this tap had NO consequence. A swallowed skip let the 30s breath run out on its
+# own and the flow went green, so "the first tap works" was never tested here. This tap
+# directly follows the depth pick, so nearly all of the 30s BREATH_DURATION_MS remains; even
+# at the ~12s EFFECTIVE length a nominal 5000 wait has measured on this screen class, a
+# swallow cannot outlast it, and a real skip clears it at once. The positive assertion is
+# what makes the negative non-vacuous (DEBUG-468).
+- extendedWaitUntil:
+    notVisible:
+      id: "daily-loop-skip-breath"
+    timeout: 5000
+- assertVisible:
+    id: "daily-loop-input-response"
 # DEBUG-519 — the second bare tap. Same guard and same reasoning as the quick beat-1 site
 # above; see that block for the DEBUG-465 ruling and the DEBUG-477 boundary derivation.
 # Deep beat 1 is Aware Presence, so `showsSupportLine()` is false here too: the support line

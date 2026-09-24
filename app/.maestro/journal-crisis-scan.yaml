@@ -185,6 +185,10 @@ name: "Voice journal crisis scan surfaces support"
     id: "tab-profile"
 - tapOn:
     id: "profile-card-voice-reflection"
+# DEBUG-642: the destination is asserted, as block 1 does. Without it a swallowed card tap
+# surfaces as `journal-record-button` not found, which names the wrong step.
+- assertVisible:
+    id: "voice-reflection-screen"
 - tapOn:
     id: "journal-record-button"
 - tapOn:
@@ -293,6 +297,10 @@ name: "Voice journal crisis scan surfaces support"
     id: "tab-profile"
 - tapOn:
     id: "profile-card-voice-reflection"
+# DEBUG-642: the destination is asserted, as block 1 does. Without it a swallowed card tap
+# surfaces as `journal-record-button` not found, which names the wrong step.
+- assertVisible:
+    id: "voice-reflection-screen"
 - tapOn:
     id: "journal-record-button"
 - tapOn:
