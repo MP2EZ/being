@@ -117,6 +117,17 @@ interface BreathingCircleProps {
    * never write `items ?? [...]` at the call site.
    */
   guidanceItems?: readonly string[];
+  /**
+   * DEBUG-638 — OPT-IN, default true. False hides the generic guidance lines below the
+   * circle (both variants of the first line, and "Let your breath find its natural
+   * rhythm"), and drops their container when nothing else is in it. The reduce-motion
+   * phase cue and any grounding anchor still render: under reduce-motion the cue IS the
+   * pacing. Only PracticeTimerScreen passes false, and only from its AX threshold, where
+   * the copy repeats the screen's own instruction and would push the start/pause control
+   * a viewport away from the circle (philosopher-cleared for that screen and threshold).
+   * Render-only: it is not, and must not become, a dependency of the animation effect.
+   */
+  showGuidanceCopy?: boolean;
 }
 
 /**
@@ -143,6 +154,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   pattern = DEFAULT_PATTERN,
   phaseText = DEFAULT_PHASE_TEXT,
   guidanceItems,
+  showGuidanceCopy = true,
 }) => {
   // High-performance shared values for 60fps animations
   const scale = useSharedValue(1);
@@ -481,6 +493,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       {/* Main breathing circle */}
       <Animated.View
         style={[styles.breathingCircle, animatedStyle]}
+        testID={testID ? `${testID}-disc` : undefined}
         accessibilityRole="image"
         accessibilityLabel="Breathing guide circle"
         accessibilityHint="Follow the expanding and contracting circle to guide your breathing. Each phase change is announced."
@@ -489,104 +502,108 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
         <View style={styles.innerCircle} />
       </Animated.View>
 
-      {/* Guidance text */}
-      <View
-        style={styles.guidanceContainer}
-        /*
-          DEBUG-468. With paced anchors the visible text is a moving target, so the
-          container speaks the WHOLE triad as one label — the pre-sit read a screen
-          reader user would otherwise never assemble, since nothing here announces
-          and focus would catch whichever anchor happened to be up. Undefined when
-          no items are supplied, leaving the other three callers' tree untouched.
-        */
-        accessible={guidanceItems && guidanceItems.length > 0 ? true : undefined}
-        accessibilityLabel={
-          guidanceItems && guidanceItems.length > 0
-            ? `As you breathe, notice: ${guidanceItems.join('; ')}`
-            : undefined
-        }
-      >
-        {/*
-          Visible phase cue — the pacing that replaces suppressed motion
-          (MAINT-386). Rendered ONLY under reduced motion: with the circle
-          static, this label and the spoken announcement are the only things
-          carrying the rhythm, so without it a reduce-motion practitioner gets
-          an untimed sit. That is the defect the dead SharedBreathingScreen's
-          own treatment had, and the reason its branch was not copied verbatim.
+      {/* Guidance text. DEBUG-638: the container is dropped when the caller hides the
+          generic copy and neither the phase cue nor a grounding anchor is up, so an empty
+          block does not hold the start/pause control a margin further away. */}
+      {(showGuidanceCopy || groundingItem || (effectiveReducedMotion && phaseCue)) && (
+        <View
+          style={styles.guidanceContainer}
+          /*
+            DEBUG-468. With paced anchors the visible text is a moving target, so the
+            container speaks the WHOLE triad as one label — the pre-sit read a screen
+            reader user would otherwise never assemble, since nothing here announces
+            and focus would catch whichever anchor happened to be up. Undefined when
+            no items are supplied, leaving the other three callers' tree untouched.
+          */
+          accessible={guidanceItems && guidanceItems.length > 0 ? true : undefined}
+          accessibilityLabel={
+            guidanceItems && guidanceItems.length > 0
+              ? `As you breathe, notice: ${guidanceItems.join('; ')}`
+              : undefined
+          }
+        >
+          {/*
+            Visible phase cue — the pacing that replaces suppressed motion
+            (MAINT-386). Rendered ONLY under reduced motion: with the circle
+            static, this label and the spoken announcement are the only things
+            carrying the rhythm, so without it a reduce-motion practitioner gets
+            an untimed sit. That is the defect the dead SharedBreathingScreen's
+            own treatment had, and the reason its branch was not copied verbatim.
 
-          `accessibilityElementsHidden` / `importantForAccessibility="no-hide-
-          descendants"`: `announcePhase` already pushes each transition through
-          the screen-reader announcement queue, so exposing this text as well
-          would double every phase for a VoiceOver/TalkBack user.
+            `accessibilityElementsHidden` / `importantForAccessibility="no-hide-
+            descendants"`: `announcePhase` already pushes each transition through
+            the screen-reader announcement queue, so exposing this text as well
+            would double every phase for a VoiceOver/TalkBack user.
 
-          Colour is `semantic.text.primary` (base.black, 21:1 on white). The
-          dead screen tinted its equivalent text with the flow theme at 0.3
-          container opacity, which multiplied through to the glyphs and landed
-          at ~1.9:1 — a 1.4.3 failure that DEBUG-364 had to pin. Do not
-          reintroduce a themed colour or a container opacity here.
-        */}
-        {effectiveReducedMotion && phaseCue && (
-          <Text
-            style={styles.phaseCueText}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            testID={testID ? `${testID}-phase-cue` : undefined}
-          >
-            {phaseCue}
-          </Text>
-        )}
-        {/*
-          DEBUG-468 — the paced grounding anchor, when a caller supplies one.
-
-          IT STACKS BELOW THE PHASE CUE, NEVER REPLACES IT. Under reduce-motion the
-          cue above is the ONLY pacing a sighted vestibular-sensitive practitioner
-          receives (MAINT-386, DEBUG-394) — the circle is static and Being ships no
-          audio. This line is content, not pacing, so it may not take that slot.
-
-          IT REPLACES THE GENERIC COPY BELOW, and that is the point: "Follow the
-          circle as it expands and contracts" is instruction for the widget, where
-          these anchors are the principle's three capacities (Present Perception,
-          Metacognitive Space, Embodied Awareness — 01-aware-presence.md:12,66).
-          When the widget instruction and the authored content compete for one
-          viewport, the authored content wins.
-
-          NOT ANNOUNCED, and this is a decision rather than an omission. A 4-4
-          cycle already pushes two phase announcements through
-          `announceForAccessibility` every 8s, and the third would land on the same
-          instant as the next "Breathe in" — the cycle-end callback fires both.
-          Instead the container carries all three anchors as one label (below), so
-          a screen-reader user gets the triad whole on focus rather than a stream
-          racing the phase cues. Revisit only with an accessibility pass; do not
-          add a bare announcement here.
-        */}
-        {groundingItem ? (
-          <Text style={styles.groundingText} testID={testID ? `${testID}-grounding` : undefined}>
-            {groundingItem}
-          </Text>
-        ) : (
-          <>
-            <Text style={styles.guidanceText}>
-              {/*
-                DEBUG-394: this read 'Each phase change is announced as it happens'.
-                "Announced" describes `announceForAccessibility`, which only
-                VoiceOver/TalkBack speak — and Being ships no audio playback at all.
-                Reduce-motion is a vestibular/migraine setting, so the MODAL user of
-                this branch is sighted with no screen reader, and for them the
-                sentence was simply false: nothing is announced, they get the silent
-                text label above. Copy here must be true for every user regardless of
-                assistive tech; a screen-reader user additionally hears it.
-              */}
-              {effectiveReducedMotion
-                ? 'Each phase change is shown above as it happens'
-                : 'Follow the circle as it expands and contracts'
-              }
+            Colour is `semantic.text.primary` (base.black, 21:1 on white). The
+            dead screen tinted its equivalent text with the flow theme at 0.3
+            container opacity, which multiplied through to the glyphs and landed
+            at ~1.9:1 — a 1.4.3 failure that DEBUG-364 had to pin. Do not
+            reintroduce a themed colour or a container opacity here.
+          */}
+          {effectiveReducedMotion && phaseCue && (
+            <Text
+              style={styles.phaseCueText}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              testID={testID ? `${testID}-phase-cue` : undefined}
+            >
+              {phaseCue}
             </Text>
-            <Text style={styles.instructionText}>
-              Let your breath find its natural rhythm
+          )}
+          {/*
+            DEBUG-468 — the paced grounding anchor, when a caller supplies one.
+
+            IT STACKS BELOW THE PHASE CUE, NEVER REPLACES IT. Under reduce-motion the
+            cue above is the ONLY pacing a sighted vestibular-sensitive practitioner
+            receives (MAINT-386, DEBUG-394) — the circle is static and Being ships no
+            audio. This line is content, not pacing, so it may not take that slot.
+
+            IT REPLACES THE GENERIC COPY BELOW, and that is the point: "Follow the
+            circle as it expands and contracts" is instruction for the widget, where
+            these anchors are the principle's three capacities (Present Perception,
+            Metacognitive Space, Embodied Awareness — 01-aware-presence.md:12,66).
+            When the widget instruction and the authored content compete for one
+            viewport, the authored content wins.
+
+            NOT ANNOUNCED, and this is a decision rather than an omission. A 4-4
+            cycle already pushes two phase announcements through
+            `announceForAccessibility` every 8s, and the third would land on the same
+            instant as the next "Breathe in" — the cycle-end callback fires both.
+            Instead the container carries all three anchors as one label (below), so
+            a screen-reader user gets the triad whole on focus rather than a stream
+            racing the phase cues. Revisit only with an accessibility pass; do not
+            add a bare announcement here.
+          */}
+          {groundingItem ? (
+            <Text style={styles.groundingText} testID={testID ? `${testID}-grounding` : undefined}>
+              {groundingItem}
             </Text>
-          </>
-        )}
-      </View>
+          ) : showGuidanceCopy ? (
+            <>
+              <Text style={styles.guidanceText}>
+                {/*
+                  DEBUG-394: this read 'Each phase change is announced as it happens'.
+                  "Announced" describes `announceForAccessibility`, which only
+                  VoiceOver/TalkBack speak — and Being ships no audio playback at all.
+                  Reduce-motion is a vestibular/migraine setting, so the MODAL user of
+                  this branch is sighted with no screen reader, and for them the
+                  sentence was simply false: nothing is announced, they get the silent
+                  text label above. Copy here must be true for every user regardless of
+                  assistive tech; a screen-reader user additionally hears it.
+                */}
+                {effectiveReducedMotion
+                  ? 'Each phase change is shown above as it happens'
+                  : 'Follow the circle as it expands and contracts'
+                }
+              </Text>
+              <Text style={styles.instructionText}>
+                Let your breath find its natural rhythm
+              </Text>
+            </>
+          ) : null}
+        </View>
+      )}
     </View>
   );
 };
