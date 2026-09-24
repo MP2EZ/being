@@ -159,12 +159,15 @@ describe('DEBUG-469 — the class stays OUT of the default safety suite', () => 
   // 14 → 15: DEBUG-506 added crisis-keyboard-reachability — the sim half of a contract
   //          whose only pin could not run where the gate runs. It served DEBUG-590's
   //          AC 1–3; DEBUG-590 moved the device flow's record to MIGRATED.
-  test('the exact-tag matcher the suite uses still selects exactly the fifteen safety flows', () => {
+  // 15 → 16: INFRA-494 added legal-gate-art9-optional. It is the first sim flow to drive
+  //          CombinedLegalGateScreen's CONTROLS at all — deeplink-consent-gate reaches the
+  //          screen but ticks nothing, and the helper's gate steps run only on hardware.
+  test('the exact-tag matcher the suite uses still selects exactly the sixteen safety flows', () => {
     const files = fs.readdirSync(MAESTRO).filter((f) => f.endsWith('.yaml') && !f.startsWith('_'));
     const tagged = files.filter((f) =>
       /^\s*-\s+safety\s*$/m.test(fs.readFileSync(path.join(MAESTRO, f), 'utf8'))
     );
-    expect(tagged).toHaveLength(15);
+    expect(tagged).toHaveLength(16);
     expect(tagged).not.toContain('daily-loop-ax5-entry.yaml');
   });
 });

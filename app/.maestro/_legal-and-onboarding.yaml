@@ -117,63 +117,151 @@ name: "Helper: traverse LegalGate + Onboarding"
 # (e.g. "Terms of Service") would intercept the tap and navigate away.
 # Tapping the small indicator forces the touch into a link-free zone — the
 # parent Pressable still receives the event via RN tap propagation.
-- tapOn:
-    id: "legal-consent-tos"
-- tapOn:
-    id: "legal-consent-privacy"
-- tapOn:
-    id: "legal-consent-wellness"
-- tapOn:
-    id: "legal-consent-mh-processing"
+#
+# INFRA-494 (crisis review C7) — each tap is now VERIFIED, not assumed. Each `-check`
+# testID is on a glyph that renders only when its own consent state is true, so the id
+# existing IS the tick; `legalGateE2eOracle.safety.test.tsx` pins that it tracks state in
+# both directions, which is what makes a retry safe (a latching glyph would let a retry
+# silently untick a consent and still green).
+#
+# This does NOT prevent a mis-tap, and must not be read as if it did — the checkbox
+# indicator's centre is x ~60, inside the 988 button's x 50..180, so a tap that lands in
+# the footer's y-band hits a crisis control squarely. What it does is BOUND one: the run
+# now reds at the box that missed, with the `Unable to Call` guard right after it, instead
+# of carrying a modal Alert forward into the Continue step. The positional fix — a
+# viewport-agnostic way to land these four taps in a helper that runs on unknown device
+# viewports — is deliberately NOT attempted here and is tracked separately; the clamp
+# theorem used at Continue below does not transfer to mid-content elements.
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "legal-consent-tos-check"
+    commands:
+      - tapOn:
+          id: "legal-consent-tos"
+          optional: true
+      - waitForAnimationToEnd
+- assertVisible:
+    id: "legal-consent-tos-check"
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "legal-consent-privacy-check"
+    commands:
+      - tapOn:
+          id: "legal-consent-privacy"
+          optional: true
+      - waitForAnimationToEnd
+- assertVisible:
+    id: "legal-consent-privacy-check"
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "legal-consent-wellness-check"
+    commands:
+      - tapOn:
+          id: "legal-consent-wellness"
+          optional: true
+      - waitForAnimationToEnd
+- assertVisible:
+    id: "legal-consent-wellness-check"
+# Unlike `legal-gate-art9-optional.yaml`, this helper DOES tick the Art. 9 box: its job is
+# traversal, not FEAT-470's refusal contract.
+- repeat:
+    times: 3
+    while:
+      notVisible:
+        id: "legal-consent-mh-processing-check"
+    commands:
+      - tapOn:
+          id: "legal-consent-mh-processing"
+          optional: true
+      - waitForAnimationToEnd
+- assertVisible:
+    id: "legal-consent-mh-processing-check"
 
-# Continue. INFRA-181: Continue button sits below the consents; on smaller
-# screens it's offscreen until scrolled. scrollUntilVisible is more durable
-# than blind swipes — adapts to layout shifts across SDK upgrades.
+# ── Continue: reach it by running the ScrollView into its CONTENT BOUNDARY ───────
+# FIXED in INFRA-494 (crisis review C1-C6). This step used to be
+# `scrollUntilVisible: { element: { id: legal-gate-continue } }` followed by `tapOn`,
+# justified as "more durable than blind swipes". That reasoning was sound when INFRA-181
+# wrote it on 2026-05-27, when the crisis footer was still the ScrollView's LAST CHILD,
+# and DEBUG-390 broke it on 2026-08-12 by pinning the footer OUTSIDE the ScrollView.
+# Nothing revisited the helper for 2.5 months.
 #
-# ⚠️ RECORDED, NOT FIXED (INFRA-494, crisis review). The reasoning above is now
-# known to be unsound, and this is the DEBUG-465 shape verbatim:
-# `legal-gate-continue` is INSIDE the ScrollView (CombinedLegalGateScreen.tsx:587)
-# while the 988 footer is pinned OUTSIDE it (:638) and overlays the bottom ~102pt.
-# XCUITest keeps elements that are outside a ScrollView's clip but still on screen,
-# so a clipped Continue reports 100% visible, `scrollUntilVisible` performs NO
-# scroll, and this `tapOn` can land on the footer's coordinates instead — i.e. on
-# `legal-gate-crisis-988`. The footer grows to ~162pt at xxxLarge Dynamic Type once
-# its `flexWrap` row breaks, which widens the window.
+# WHY THE OLD SHAPE WAS A 988 MIS-TAP. `legal-gate-continue` is inside the ScrollView
+# (CombinedLegalGateScreen.tsx:594); the footer is a flex sibling after it (:638) and
+# occupies the bottom ~114pt. XCUITest DROPS elements outside the SCREEN but KEEPS ones
+# merely outside a ScrollView's CLIP, so a Continue hidden behind the footer reports 100%
+# visible, `scrollUntilVisible` performs no scroll, and the tap lands on the footer's
+# coordinates. Continue is full-width so its centre is x 187.5, which today falls in the
+# 16pt gap between the two footer buttons — it misses `legal-gate-crisis-988` (x 50..180)
+# by about half a point. At xxxLarge the footer's `flexWrap` row breaks, the buttons stack
+# and centre, and the same tap point lands squarely on a crisis control.
 #
-# WHO ACTUALLY RUNS THIS. Verified rather than assumed: the only callers are
-# `crisis-988-dial.yaml` and `crisis-keyboard-accessory.yaml`, both tagged
-# `safety-device-only`. The sim flows enter through `_seeded-home.yaml`, which only
-# MENTIONS this file in a comment and never runs it. So the defect is live on REAL
-# HARDWARE and is not exercised by any simulator run — including INFRA-494's own
-# five-run validation, which cannot cover these lines.
+# WHY THE REPLACEMENT IS SAFE ON A VIEWPORT THIS FLOW CANNOT MEASURE. Not "measured on a
+# simulator and assumed to generalise" — derived. The footer is a flex SIBLING of a
+# `flex: 1` ScrollView, a position pinned in CI by
+# `__tests__/safety/crisis-zero-988-windows.test.tsx:131-146`, so the ScrollView's frame
+# ENDS where the footer's begins and the two cannot intersect at any viewport or Dynamic
+# Type setting — the footer growing shrinks the ScrollView rather than overlapping it. At
+# the content clamp, content-bottom coincides with viewport-bottom, so Continue sits above
+# it by `continueButton.marginBottom` (spacing[24]) + `scrollContent.paddingBottom`
+# (spacing[32]). Even with both at zero its tap centre would still be >= 28pt
+# (`minHeight: 56`) inside the ScrollView frame. A UIScrollView also CLAMPS at its content
+# boundary, so extra flicks are no-ops and the count only has to be "enough", never
+# "exact". No visibility measurement is involved anywhere, which is the whole point.
 #
-# MECHANICAL FIX DEFERRED (INFRA-494), DELIBERATELY. The replacement technique —
-# element-anchored swipes to the ScrollView's CONTENT BOUNDARY rather than to an
-# element — is NOT yet proven. Its only on-device trial never reached the first
-# checkbox ("Element not found: legal-consent-tos"), so shipping it here would swap a
-# KNOWN defect for an UNKNOWN one in a helper that only ever runs on real hardware,
-# where no simulator run can tell the difference. The hazard above stays recorded; the
-# gesture below stays unchanged until INFRA-494 lands a technique proven on-device.
+# The corridor is carried verbatim from `legal-gate-art9-optional.yaml`, with its reason:
+# 65%→25% keeps both endpoints inside the ScrollView even at xxxLarge, where the footer
+# grows from ~114pt (top at 82.9% of a 667pt screen) to ~162pt (top at ~75.7%). A corridor
+# starting at 72% would eventually begin ON the footer and every swipe would be a no-op.
 #
-# What IS added is attribution, which costs nothing and changes no gesture. If any tap
-# lands on the footer instead of its target, `canOpenURL('tel:')` is unconditionally
-# false on the simulator (INFRA-184) so the manual-dial Alert appears — and it is MODAL,
-# swallowing every later tap. Unguarded, that surfaces ~90s later as "Home never
-# appeared", pointing at onboarding instead of at the stray tap. These two lines say
-# "you tapped 988" instead: the first catches a miss from the four consent taps above,
-# the second a miss by the Continue tap itself.
+# HONEST LIMIT, stated rather than implied. The technique is proven end-to-end on the
+# SIMULATOR at 375x667 by `legal-gate-art9-optional.yaml`. This helper's own invocation is
+# unproven and cannot be proven: all THREE of its callers are device-class —
+# `crisis-988-dial.yaml` and `crisis-keyboard-accessory.yaml` (`safety-device-only`) and
+# `breathing-fps-budget.yaml` (`perf-device-only`) — and DEBUG-589 established that no
+# released Maestro can drive a physical iPhone, so `e2e-safety.sh` refuses the device path
+# outright. Deferring the fix until it could be device-proven would have been an
+# INDEFINITE deferral of a known 988 mis-tap, which is why it was not deferred again. The
+# residual is the flick COUNT, and the `100%` assertion below converts that from a silent
+# mis-tap into a loud, attributed failure.
 #
-# HONEST LIMIT: these two lines are UNVERIFIED against a live Alert — proving they can
-# fire would mean deliberately tapping a 988 control, which no flow may do. They are an
-# attribution aid, not coverage, and must not be read as evidence that a mis-tap would
-# be caught. If a future run ever does surface the fallback Alert, confirm the regex
-# actually matched it before trusting these.
+# The two `Unable to (Call|Text)` guards below are attribution, not coverage. If a tap
+# lands on a footer control, `canOpenURL('tel:')` is unconditionally false on the
+# simulator (INFRA-184) so the manual-dial Alert appears — and it is MODAL, swallowing
+# every later tap. Unguarded, that surfaces ~90s later as "Home never appeared", pointing
+# at onboarding instead of at the stray tap. The first catches a miss from the consent
+# taps above, the second a miss by the Continue tap itself.
+#
+# HONEST LIMIT on those two lines specifically: they are UNVERIFIED against a live Alert —
+# proving they can fire would mean deliberately tapping a 988 control, which no flow may
+# do. They must not be read as evidence that a mis-tap WOULD be caught. If a future run
+# ever does surface the fallback Alert, confirm the regex actually matched it first.
 - assertNotVisible:
     text: ".*Unable to (Call|Text).*"
-- scrollUntilVisible:
-    element:
-      id: "legal-gate-continue"
-    direction: DOWN
+- swipe:
+    start: "50%, 65%"
+    end: "50%, 25%"
+- swipe:
+    start: "50%, 65%"
+    end: "50%, 25%"
+- swipe:
+    start: "50%, 65%"
+    end: "50%, 25%"
+- waitForAnimationToEnd
+# PROVE the clamp was reached before tapping (crisis review C1). Three flicks is a
+# measured 375x667 constant and this helper runs on unknown device viewports; at an
+# INTERMEDIATE offset Continue can sit inside the footer band, be reported by XCUITest,
+# and be tapped — which is precisely the defect being replaced. iOS publishes the vertical
+# scroll indicator as a node whose text is the offset as a percentage of scrollable range,
+# so this reads scroll POSITION directly rather than inferring it from visibility. Matched
+# as exactly "100%": a 99% reading is evidence the flick count has gone short, not noise.
+- assertVisible:
+    text: "100%"
 - tapOn:
     id: "legal-gate-continue"
 - assertNotVisible:
