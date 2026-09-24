@@ -76,6 +76,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/learn/practices/BodyScanScreen.tsx` | `crisis` |
 | `app/src/features/learn/practices/GuidedBodyScanScreen.tsx` | `crisis` |
 | `app/src/features/learn/practices/SortingPracticeScreen.tsx` | `crisis` + `philosopher` |
+| `app/src/features/learn/practices/shared/PracticeToggleButton.tsx` | `crisis` |
 | `app/src/features/practices/screens/PracticeLibraryScreen.tsx` | `crisis` + `philosopher` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
@@ -335,6 +336,14 @@ clearance flows through) and `practiceSafeAreaEdges.ts` (it decides the content 
 four gated hosts) — are plausibly crisis-bearing and have had no review. Named here rather
 than gated, because an unnamed non-crisis member is exactly what the standing rule exists to
 catch.
+
+`features/learn/practices/shared/PracticeToggleButton.tsx` is the nineteenth instance (added
+2026-09-23 on two independent `crisis` rulings, DEBUG-638 and DEBUG-643) and retires the first of
+those two names. Its `[styles.button, style]` merge is where three gated hosts' `marginRight`
+clearance lands, so a base-style `width`, `alignSelf` or margin key there defeats all three while
+each host's pin, which reads only its own style, stays green. It imports nothing from
+`features/crisis/`, so INFRA-531 cannot see it. FILE-level; `practiceSafeAreaEdges.ts` stays named,
+not gated.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
