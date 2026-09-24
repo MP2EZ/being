@@ -31,7 +31,16 @@ export const DEEP_LINK_CONFIG = {
   /** Allowed URL schemes */
   ALLOWED_SCHEMES: ['being', 'https'] as const,
 
-  /** Allowed hosts for https scheme */
+  /**
+   * Allowed hosts for https scheme.
+   *
+   * `app.being.fyi` is RESERVED, not live (DEBUG-649): it does not resolve in DNS
+   * and is deliberately absent from both platforms' link-capture config (app.json
+   * `android.intentFilters` and `ios.associatedDomains`), so no OS ever hands the
+   * app a URL on it. Do not add capture for it until the subdomain exists; when it
+   * does, scope it to the same served-and-allowed path set as being.fyi, pinned by
+   * __tests__/safety/androidAppLinks.config.test.ts.
+   */
   ALLOWED_HOSTS: ['being.fyi', 'www.being.fyi', 'app.being.fyi'] as const,
 
   /** Allowed navigation paths (must match RootStackParamList routes) */
