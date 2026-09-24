@@ -379,14 +379,25 @@ name: "Legal gate: Art. 9 consent is refusable (FEAT-470 contract)"
 - tapOn:
     id: "legal-gate-continue"
 
+# THE POSITIVE IS THE PROOF, AND IT COMES FIRST — order is load-bearing here.
+# Onboarding is where a released gate lands when `onboardingCompleted` is false, which is
+# the state `?e2eSeed=ungranted` produces. Selected by text because this control carries
+# no testID; `_legal-and-onboarding.yaml` addresses it the same way.
+#
+# This used to be `extendedWaitUntil: { notVisible: legal-dob-picker }` followed by the
+# positive. A mutation run — Art. 9 made required in `requiredConsentsTicked`, so the gate
+# can never release — showed that negative passing ANYWAY: the flow arrives here at the
+# content clamp, where the picker has scrolled off the top of the screen and XCUITest
+# drops it. "The picker is gone" was a statement about scroll offset, not about
+# navigation. The mutation was caught by the positive alone, so the negative was carrying
+# no weight while reading as if it were.
 - extendedWaitUntil:
-    notVisible:
-      id: "legal-dob-picker"
+    visible:
+      text: "Begin Your Practice"
     timeout: 30000
-# Positive half of the release proof: LegalGate being gone is necessary but not sufficient
-# — a crash also satisfies it. Onboarding is where a released gate lands when
-# `onboardingCompleted` is false, which is the state `?e2eSeed=ungranted` produces.
-# Selected by text because this control carries no testID; `_legal-and-onboarding.yaml`
-# already addresses it the same way.
-- assertVisible:
-    text: "Begin Your Practice"
+# Now non-vacuous, because it runs AFTER the positive: on the onboarding screen there is
+# no scroll offset that could hide a LegalGate that was still mounted. Kept because the
+# positive alone would also be satisfied by the gate rendering onboarding underneath
+# itself.
+- assertNotVisible:
+    id: "legal-dob-picker"
