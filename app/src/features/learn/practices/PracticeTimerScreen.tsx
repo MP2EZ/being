@@ -43,6 +43,7 @@ import Timer from '@/features/practices/shared/components/Timer';
 import BreathingFrameProbe from '@/features/practices/shared/components/BreathingFrameProbe';
 import { env } from '@/core/config/env';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 import type { PracticeVisualMode } from '@/features/learn/types/education';
 
 /**
@@ -195,6 +196,10 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
   );
 
   // Show completion screen after timer finishes
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  const toggleExclusionCheck = useCrisisExclusionAssertion(`${testID}-toggle-button`, 'scrolls');
+
   const completionScreen = renderCompletion();
   if (completionScreen) {
     return completionScreen;
@@ -277,6 +282,7 @@ const PracticeTimerScreen: React.FC<PracticeTimerScreenProps> = ({
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
         onToggle={handleToggle}
+        onLayout={toggleExclusionCheck}
         style={styles.toggleButton}
         testID={`${testID}-toggle-button`}
       />

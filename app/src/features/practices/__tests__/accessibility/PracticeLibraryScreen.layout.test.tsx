@@ -40,6 +40,7 @@ import {
 } from '@/features/crisis/constants/crisisButtonGeometry';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { spacing } from '@/core/theme';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 /** RN iOS `UIContentSizeCategory` multipliers. */
 const IOS_FONT_SCALES = {
@@ -259,8 +260,8 @@ describe('matcher integrity', () => {
  * 72−24 and 72−16. Read literally the AC yields 72−48 = 24, which still intersects.
  *
  * Rather than repair that arithmetic, this uses the branch-free form the four settled
- * sibling hosts already use (`BodyScanScreen.tsx:276`, `GuidedBodyScanScreen.tsx:280`,
- * `PracticeTimerScreen.tsx:314`, `ReflectionTimerScreen.tsx:241`): the full `rect.left`,
+ * sibling hosts already use (the `toggleButton` style of `BodyScanScreen`, `PracticeTimerScreen`
+ * and `ReflectionTimerScreen`, and `GuidedBodyScanScreen`'s `nextButton`): the full `rect.left`,
  * unmodified. It needs no AX branch, it covers the featured-card controls — whose own
  * exact derivation runs through a FRACTIONAL `borderWidth: 1.5` and could not be proven
  * exact — and it leaves real slack instead of the exact form's zero, where the predicate
@@ -390,5 +391,16 @@ describe('DEBUG-637 — no interactive node intersects the crisis FAB column', (
     // 48 and 56 are the literals an implementer is actually tempted to write, and both
     // are real `spacing` keys, so `spacing[48]` would pass a 72-only matcher.
     expect(source).not.toMatch(/\b(48|56|72)\b/);
+  });
+});
+
+describe('DEBUG-643 — the __DEV__ crisis-exclusion check is wired to the cleared control', () => {
+  it('warns for the principle link, the featured start, and a mapped row', async () => {
+    const result = await renderLoaded();
+    for (const id of ['practice-library-principle-link', 'practice-library-featured-start']) {
+      await expectExclusionCheckWired(result.getByTestId(id), id);
+    }
+    const row = result.getAllByTestId(/^practice-library-item-/)[0];
+    await expectExclusionCheckWired(row, row.props.testID as string);
   });
 });

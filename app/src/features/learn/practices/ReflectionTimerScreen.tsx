@@ -47,6 +47,7 @@ import { HapticsOptInPrompt } from '@/features/practices/shared/components/Hapti
 import { intervalSchedule } from '@/features/practices/shared/haptics/cueScheduler';
 import { usePracticeSettings } from '@/core/stores/settingsStore';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 
 interface ReflectionTimerScreenProps {
   practiceId: string;
@@ -152,6 +153,10 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
   );
 
   // Show completion screen after timer finishes
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  const toggleExclusionCheck = useCrisisExclusionAssertion(`${testID}-toggle-button`, 'scrolls');
+
   const completionScreen = renderCompletion();
   if (completionScreen) {
     return completionScreen;
@@ -213,6 +218,7 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
         onToggle={handleToggle}
+        onLayout={toggleExclusionCheck}
         style={styles.toggleButton}
         testID={`${testID}-toggle-button`}
       />

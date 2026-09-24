@@ -59,6 +59,7 @@ import { useHapticsOptIn } from '@/features/practices/shared/haptics/useHapticsO
 import { HapticsOptInPrompt } from '@/features/practices/shared/components/HapticsOptInPrompt';
 import { regionSchedule } from '@/features/practices/shared/haptics/cueScheduler';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 
 interface BodyScanScreenProps {
   practiceId: string;
@@ -190,6 +191,10 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
     [markStarted, setIsTimerActive]
   );
 
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  const toggleExclusionCheck = useCrisisExclusionAssertion(`${testID}-toggle-button`, 'scrolls');
+
   const completionScreen = renderCompletion();
   if (completionScreen) {
     return completionScreen;
@@ -245,6 +250,7 @@ const BodyScanScreen: React.FC<BodyScanScreenProps> = ({
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
         onToggle={handleToggle}
+        onLayout={toggleExclusionCheck}
         style={styles.toggleButton}
         testID={`${testID}-toggle-button`}
       />

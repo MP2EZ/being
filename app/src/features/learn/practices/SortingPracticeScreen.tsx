@@ -35,6 +35,7 @@ import { usePracticeCompletion } from '@/features/learn/practices/shared/usePrac
 import type { ModuleId } from '@/features/learn/types/education';
 import type { SortingScenario } from '@/features/learn/types/education';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 
 interface SortingPracticeScreenProps {
   practiceId: string;
@@ -145,6 +146,12 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
   }, [cardAnimation]);
 
   // Show completion screen
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  const inControlExclusionCheck = useCrisisExclusionAssertion(`${testID}-in-control-button`, 'scrolls');
+  const notInControlExclusionCheck = useCrisisExclusionAssertion(`${testID}-not-in-control-button`, 'scrolls');
+  const nextExclusionCheck = useCrisisExclusionAssertion(`${testID}-next-button`, 'scrolls');
+
   const completionScreen = renderCompletion();
   if (completionScreen) {
     return completionScreen;
@@ -208,6 +215,7 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
                     styles.inControlButton,
                     pressed && styles.choiceButtonPressed,
                   ]}
+                  onLayout={inControlExclusionCheck}
                   onPress={() => handleSelection('in-control')}
                   accessibilityRole="button"
                   accessibilityLabel="Within my control"
@@ -231,6 +239,7 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
                     styles.notInControlButton,
                     pressed && styles.choiceButtonPressed,
                   ]}
+                  onLayout={notInControlExclusionCheck}
                   onPress={() => handleSelection('not-in-control')}
                   accessibilityRole="button"
                   accessibilityLabel="Outside my control"
@@ -316,6 +325,7 @@ const SortingPracticeScreen: React.FC<SortingPracticeScreenProps> = ({
                   styles.nextButton,
                   pressed && styles.nextButtonPressed,
                 ]}
+                onLayout={nextExclusionCheck}
                 onPress={handleNext}
                 accessibilityRole="button"
                 accessibilityLabel={

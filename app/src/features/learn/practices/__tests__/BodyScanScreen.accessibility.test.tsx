@@ -40,6 +40,7 @@ import {
   intersectsCrisisButtonExclusion,
 } from '@/features/crisis/constants/crisisButtonGeometry';
 import { spacing } from '@/core/theme';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 jest.mock('@/features/practices/shared/components/Timer', () => {
   const { View } = require('react-native');
@@ -163,5 +164,12 @@ describe('matcher integrity', () => {
   it('the StyleSheet slicer finds the toggle entry in the real source', () => {
     expect(toggleStyleBlock(strippedSource()).trim().length).toBeGreaterThan(0);
     expect(toggleStyleBlock('const s = { other: { a: 1 } };')).toBe('');
+  });
+});
+
+describe('DEBUG-643 — the __DEV__ crisis-exclusion check is wired to the cleared control', () => {
+  it('warns when the toggle reaches the FAB column', async () => {
+    const { getByTestId } = render(<BodyScanScreen practiceId="body-scan" moduleId="aware-presence" duration={300} />);
+    await expectExclusionCheckWired(getByTestId(TOGGLE), TOGGLE);
   });
 });

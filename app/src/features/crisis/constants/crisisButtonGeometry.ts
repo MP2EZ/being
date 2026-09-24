@@ -174,14 +174,15 @@ export const OVERLAY_ACTION_ROW_PADDING_RIGHT = CRISIS_BUTTON_EXCLUSION_RECT.lef
  * True when a control's rect (in screen coordinates) intersects the crisis
  * button's exclusion region.
  *
- * DEBUG-637: this docblock used to claim the predicate was "shared by the
- * `__DEV__` layout assertion and its unit tests". There is no such assertion and
- * there never was — this function has ZERO runtime callers, and every non-test
- * reference to it in the tree is a comment. Consumers are pinned by jest alone,
- * which is the whole detector for the DEBUG-547 family; each host in that family
- * was found by hand. Building the missing runtime assertion is DEBUG-643. Per the
- * standing rule at the head of this file, do not describe a consumer here that
- * does not import from this file.
+ * Runtime caller: `useCrisisExclusionAssertion` (core/hooks, DEBUG-643), a
+ * `__DEV__`-only check a host opts into from a control's `onLayout`. It is not the
+ * family's detector: Release binds a no-op, the Maestro gate runs Release, and it
+ * covers only adopted controls at whatever viewport and text size a developer is
+ * running. The per-host jest pins remain the falsifier, and are never to be
+ * weakened on its account. (DEBUG-637 had corrected an earlier docblock that
+ * claimed this assertion existed before it did.) Per the standing rule at the head
+ * of this file, do not describe a consumer here that does not import from this
+ * file.
  *
  * Half-open intervals: a control that ENDS exactly where the region begins does
  * not intersect. The clearance term already supplies the safety margin, so
