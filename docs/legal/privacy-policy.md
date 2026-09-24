@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.13
+**Version:** 1.14
 **Effective Date:** December 12, 2025
-**Last Updated:** September 13, 2026
+**Last Updated:** September 23, 2026
 
 ---
 
@@ -103,8 +103,8 @@ Enabling this backup also sends us **operational records of the backup itself** 
 
 - AES-256 encryption for data at rest
 - TLS 1.2+ encryption for data in transit
-- Regular security audits and penetration testing
-- Limited employee access to encrypted data
+- Automated dependency vulnerability scanning and automated safety and privacy test suites, enforced in continuous integration on every code change
+- Being is operated solely by its founder, with no additional employees or staff who access user data
 - A documented Data Protection Impact Assessment covering our processing of sensitive wellness data is maintained as an internal compliance artifact in accordance with applicable state privacy laws
 
 ### 4.4 Breach Notification
@@ -292,6 +292,8 @@ Being is based in the United States. If you access our Services from outside the
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 **Recent revisions**
+
+- **v1.14 (September 23, 2026):** Correction. §4.3 listed "Regular security audits and penetration testing" and "Limited employee access to encrypted data" among our security measures. Being has never had a security audit or a penetration test, so the first line described a practice that has not happened; and Being is operated by its founder alone, so the second implied a staff access-control programme that does not exist. They are replaced with what Being actually does, automated dependency vulnerability scanning and automated safety and privacy test suites enforced in continuous integration on every code change, and with a plain statement that no employees or staff access user data. This narrows what §4.3 claims and nothing else: what Being collects, keeps and shares is unchanged, and AES-256 encryption at rest, TLS 1.2+ encryption in transit and the Data Protection Impact Assessment are unaffected. Because the correction narrows a claim rather than changing what we collect, it is published with the next app release rather than separately.
 
 - **v1.13 (September 13, 2026):** Correction. §2.1 listed emergency contacts as information you provide, and §5.2 listed crisis contacts among the things analytics never collects. Being has never offered a way to enter or save personal emergency contacts, so neither entry described anything the app does, and both are removed. This narrows what the policy describes and nothing else: what Being collects, keeps and shares is unchanged, and the crisis resources the app points you to (988, the Crisis Text Line and 911) are unaffected. Because the correction only removes a description of more than we collect, it is published with the next app release rather than separately.
 
