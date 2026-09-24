@@ -450,9 +450,10 @@ rollback and as a re-measurable baseline after toolchain upgrades.
 > full record it destroys; it will clobber a genuinely running peer, so confirm first.
 
 ```bash
-# Sim suite (currently 8 flows tagged `safety`, ~12 min) — runnable on iOS sim.
-# The count is DESCRIPTIVE: the runner globs by tag, so adding a `safety`-tagged
-# flow silently changes it. Verify with `grep -c 'safety$' app/.maestro/*.yaml`.
+# Sim suite (currently 15 flows tagged `safety`) — runnable on iOS sim.
+# The runner globs by tag, so adding a `safety`-tagged flow changes it; a jest
+# tripwire in __tests__/scripts/e2e-dynamic-type.test.js pins the count (FEAT-457).
+# Verify with `grep -c 'safety$' app/.maestro/*.yaml`.
 # INFRA-220: runs each flow as a SEPARATE maestro invocation with an XCUITest-
 # driver reset between (scripts/e2e-safety.sh), NOT one batch
 # `maestro test .maestro/` session. A shared session degrades across the suite
@@ -858,19 +859,24 @@ host. Nine observations; the model explains all nine.
 | P | same-point `swipe` (a touch held for a stated duration) at 120 / 300 / 600 / 1200 ms | **all four fail** |
 | P-ctl | same 120 ms touch, but with the swallow already absorbed by a prior tap | **passes** — so the primitive is valid and P's result is real |
 
-**Which flows this can bite.** Only a flow that scrolls to a **mid-list** target and then taps
-it. The suite's other card scrolls are immune by construction, and it is worth knowing why
-rather than assuming they are lucky:
+**Which flows this can bite.** Any flow whose touch follows a scroll that can stop
+**mid-content**. A site is immune when its target is first (zero swipes) or last (the scroll
+ends at the boundary), and both properties are fragile: they move when content is added
+below, and with text size. The full population is registered in the next section; these are
+the cases worth knowing why:
 
 - `phq9-severe-completion` / `q9-single-alert` scroll to `take-phq9-button`, the **first**
   card, already 100% visible at offset 0 — **zero swipes**, so no swallowed touch.
-- `crisis-button-reachability` uses `centerElement: true` + `visibilityPercentage: 100`
-  throughout, which per DEBUG-453 drives those scrolls to **maximum scroll**, i.e. to a
-  boundary.
-- `journal-crisis-scan`'s `profile-card-voice-reflection` is the **last** card in the list, so
-  its DOWN scroll *usually* terminates at the bottom boundary and the swallow does not
-  reproduce — it passed 3/3 in isolation. **Do not read that as immunity.** The same site
-  then failed in the Phase 2.5 gate, by a *different* mechanism: the scroll stopped short
+- `crisis-button-reachability` is **not** immune throughout. DEBUG-453's argument — that
+  `centerElement: true` + `visibilityPercentage: 100` drives a scroll to **maximum scroll** —
+  holds only where both are present. The weekly-reflection and `profile-card-privacy`
+  scrolls carry `centerElement` without `visibilityPercentage: 100`, so they can stop
+  mid-content; the export and delete scrolls are covered by a conditional re-tap instead.
+- `journal-crisis-scan`'s `profile-card-voice-reflection` **was** the last card and passed 3/3
+  in isolation on that immunity. **FEAT-287 added `profile-card-journal-history` beneath it**,
+  so it is now mid-list and every navigation to it carries the absorbing tap. Its history
+  still teaches one thing: the same site once failed in the Phase 2.5 gate by a *different*
+  mechanism — the scroll stopped short
   with the card at `[24,463][351,666]` while Maestro logged `Visibility Percent: 1.0`,
   because the ScrollView clip ends at y=583 and XCUITest keeps elements that are merely
   clipped. That is DEBUG-465's shape, not this one, and `centerElement: true` is its fix.
@@ -878,13 +884,15 @@ rather than assuming they are lucky:
   before choosing a remedy, and do not let a handful of green runs stand in for that.
   **The bottom-boundary immunity is also TYPE-SIZE-DEPENDENT (DEBUG-507).** At
   `extra-extra-extra-large` the card measures 279pt against 203pt, the DOWN scroll no longer
-  terminates cleanly at the boundary, and the swallow reproduces on this last card too.
+  terminates cleanly at the boundary, and the swallow reproduces on a last card too. (The
+  y=583 clip and these bounds predate DEBUG-562's tab-bar change; DEBUG-653 re-measures them.)
 
-**Do not add the workaround to a flow that is green.** In particular do not add
-`waitToSettleTimeoutMs` to `crisis-button-reachability`: it is spent per swipe iteration
-*inside* the scroll's own timeout, and DEBUG-473 measured that flow's budget at 95% consumed
-on an idle machine. Hardening a structurally immune flow at the cost of turning the suite's
-most important flow red on a busy host is a net loss.
+**Do not add `waitToSettleTimeoutMs` to a flow that is green** — and time is not the remedy
+anyway (probe C). In particular not to `crisis-button-reachability`: it is spent per swipe
+iteration *inside* the scroll's own timeout, and DEBUG-473 measured that flow's budget at 95%
+consumed on an idle machine. Whether a green site needs any remedy is decided by classifying
+it (below), not by its colour — a site that asserts nothing after its tap is green whether or
+not the tap landed.
 
 **The remedy, where it is needed:** an absorbing `tapOn` on an element-anchored target
 *outside* the ScrollView, between the scroll and the real tap — `gad7-severe` re-taps
@@ -914,6 +922,67 @@ real finger. DEBUG-479's AC 2 was conditional on a device being available, and n
 exists on this machine. The gap is narrow — UIScrollView touch delivery is UIKit code common to
 both — but it is a residual, not a proof, and this defect has already burned one reassuring
 explanation that held right up until it was measured.
+
+### Three signatures, opposite remedies (DEBUG-640, DEBUG-642)
+
+A tap that "did nothing" after a scroll is one of three things, and **the remedies are
+opposite**. Classify the signature from `maestro hierarchy` bounds at the tap point before
+choosing a remedy; a green run is not evidence of a signature.
+
+| # | Signature | Status | Remedy |
+|---|---|---|---|
+| 1 | Swallowed touch after a scroll that stops **mid-content** (this section) | Harness artifact | Any intervening touch, or a scroll that ends at a content boundary. **Never** time, **never** `centerElement` |
+| 2 | Fold/clip: the target is outside the ScrollView's clip but still scores visible (DEBUG-465) | Harness artifact | `centerElement: true`, which forces a real scroll |
+| 3 | A **root-sibling overlay** outside every clip — the crisis FAB at `zIndex: 9999` | **Real crisis false positive** (the DEBUG-547 shape) | **File a defect.** Never "fix" it in the flow |
+
+Why 1 and 2 are harness-only: `UIScrollView` clips *painting* to its bounds and `hitTest:`
+returns nil outside them, so what a real finger can reach is exactly what is painted. Why 3 is
+not: a root-sibling overlay is outside every clip, so a real finger in the overlap does reach
+`CrisisResources`. Same geometry, opposite status. And because every site below carries
+`centerElement` (signature 2's remedy), which is also a common way to leave a scroll stopped
+mid-content (signature 1's trigger), the signatures can compound on one line.
+
+Tell 2 from 3 by the bounds, never by the outcome: both can end on `CrisisResources`.
+
+### The register: every tap after a `centerElement` scroll (DEBUG-642)
+
+**Counting method.** Count `centerElement: true` only as a YAML key inside a
+`scrollUntilVisible` step, with whole-line **and inline** comments stripped, and pair each
+with the first touch after it. A grep miscounts both ways: comments name the anti-pattern
+(`gad7-severe` mentions the remedy it refused), and `centerElement: true # …` hides real
+uses from a `\s*$` anchor.
+
+**The register is code**, not this list: `app/__tests__/scripts/e2e-tap-consequence.test.js`
+derives the population and fails when a site appears unregistered, disappears, or asserts
+something different from what the register says. On `31a4cd06` it is **9 files / 21 sites**:
+
+| Flow | Scroll target → first touch | Status | Asserted after the tap |
+|---|---|---|---|
+| `bug-report-crisis-reachability` (×2) | `profile-card-bug-report` → `tab-profile` | remedied — absorbing tap | `bug-report-overlay` |
+| `crisis-button-reachability` | `weekly-reflection-card` → `weekly-reflection-prompt` | **exposed, UNMEASURED** | `weekly-reflection-overlay` (a swallow reds) |
+| `crisis-button-reachability` (×2) | `profile-card-privacy` → same | **exposed, UNMEASURED** | **nothing** — a swallow surfaces ~48s later at the next scroll |
+| `crisis-button-reachability` | `profile-card-export` → same | remedied — conditional re-tap | `export-data-screen` |
+| `crisis-button-reachability` | `profile-card-delete` → same | remedied — conditional re-tap | `delete-account-screen` |
+| `daily-loop-ax5-entry`, `daily-loop-ax5-virtuous` | `checkin-card-daily-loop` → same | remedied — conditional re-tap (DEBUG-546) | `daily-loop-depth-select-screen` |
+| `daily-loop-ax5-entry` | `continue-button` → same | boundary — last node | `daily-loop-SphereSovereignty-screen` |
+| `daily-loop-ax5-virtuous` | `virtue-chip-temperance` → `daily-loop-exit` | **exposed, UNMEASURED** | `home-screen` (a swallow reds, but reads as the DEBUG-629 K9 regression) |
+| `daily-loop-quick-depth` | `continue-button` → same | boundary — last child (DEBUG-518) | `daily-loop-VirtuousResponse-screen` |
+| `export-share-sheet-occlusion` (×3) | privacy, export, `export-data-button` | debt pin — never scoped, recorded only | export: `export-data-screen`; others nothing |
+| `journal-crisis-scan` (×3), `journal-record-liveness`, `profile-voice-reflection-xxxl` | `profile-card-voice-reflection` → `tab-profile` | remedied — absorbing tap | `voice-reflection-screen` |
+| `journal-crisis-scan` | `profile-card-journal-history` → `tab-profile` | remedied — absorbing tap | `journal-history-screen` |
+
+"Exposed, UNMEASURED" is a prediction from the predicate, not a classification. Capturing
+those sites and applying their remedies is DEBUG-652, which also owns a gap **outside** this
+population: the five depth-1 segments of `crisis-button-reachability` (app settings,
+privacy, account, stoic, legal) scroll *without* `centerElement`, tap a card, then tap the
+FAB and assert `crisis-resources-screen` — which the Profile menu's own FAB satisfies, so a
+swallowed card tap still passes. A signature-3 candidate found alongside (Profile's last
+controls resting inside the FAB's hit rect since DEBUG-562) is DEBUG-653.
+
+The same suite pins one more tap class: every `daily-loop-skip-breath` tap must be followed by
+an app-state proof that it landed — `daily-loop-input-response` appearing, or the SkipLink
+unmounting (the DEBUG-632 shape, used at AX sizes). A bare skip lets the 30s breath expire on
+its own and the flow goes green without ever testing the tap.
 
 ## How a flow works
 
@@ -1319,10 +1388,12 @@ If anything matches (`app/src/features/(assessment|crisis)/`, `app/src/core/serv
 
 ## The flows + what each pins
 
-**8 flows tagged `safety`** run under `npm run e2e:safety`, plus 1 tagged
-`safety-device-only` that does not. (This table read "The 5 flows" until
-INFRA-317; it had drifted three behind — the count here and in CLAUDE.md is worth
-re-checking whenever a flow is added, since nothing enforces it.)
+**15 flows tagged `safety`** run under `npm run e2e:safety`; the `safety-device-only`,
+`safety-dynamic-type`, `safety-host-probe` and `safety-occlusion-measurement` flows do not.
+The count is pinned by a jest tripwire (`__tests__/scripts/e2e-dynamic-type.test.js`,
+FEAT-457). **This table lists only the original eight and has not been extended** —
+`grep -l 'safety$' app/.maestro/*.yaml` is the authoritative list, and each flow's header
+states its own contract.
 
 | Flow | What it pins | Source contract |
 |---|---|---|

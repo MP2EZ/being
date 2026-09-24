@@ -79,7 +79,6 @@ export function resolvePracticeRoute(
           moduleId,
           duration: practice.duration ?? DEFAULT_REFLECTION_SECONDS,
           title: practice.title,
-          prompt: practice.description,
           ...(practice.instructions && { instructions: practice.instructions }),
         },
       };
