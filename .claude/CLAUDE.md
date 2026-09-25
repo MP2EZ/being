@@ -123,7 +123,9 @@ same shape as `guidance/`. `core/hooks/` is gated as a DIRECTORY: three of its f
 decide crisis-affordance placement or visibility, and the fourth (`useBugReportShake.ts`)
 has one commit in its life. **That fourth file is not the benign member this once called it
 (corrected DEBUG-533):** it arms a shake gesture from the app root that opens a
-zero-988-affordance window on any screen. The directory clause was right and its stated
+zero-988-affordance window on any screen. A fifth member, `useCrisisExclusionAssertion.ts`
+(DEBUG-643), is a `__DEV__`-only layout check that binds a no-op in Release; reviewed and
+named here, so the directory clause still clears the standing rule below. The directory clause was right and its stated
 reason was wrong, which is the failure the standing rule below is meant to prevent — the
 commit-frequency half held, the "reviewed non-crisis member" half was never reviewed. The
 other three are gated as FILES because their directories
