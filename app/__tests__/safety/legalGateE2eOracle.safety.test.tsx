@@ -10,14 +10,15 @@
  * WHY IT EXISTS INDEPENDENTLY OF ANY MAESTRO FLOW. These testIDs were added by
  * FEAT-470 and removed again by its revert (`6ca5c71f`) as collateral when the flow
  * they served was dropped. Nothing noticed, because the only consumer went in the same
- * commit. INFRA-494's replacement flow is NOT landed either — it reached the gate and
- * proved the 988 footer on-device, but could not yet drive the checkboxes, so it is
- * back on the backlog (WIP recoverable at commit `7bd2f4cf`).
+ * commit. `legal-gate-art9-optional.yaml` has since landed and consumes them again —
+ * which is exactly when this file matters most, because a flow that CAN go red is also
+ * a flow someone can delete.
  *
  * That history is the argument for this file. Maestro is local-only (INFRA-171), so CI
  * can never guard these ids; a jest pin can, and it runs in `test:safety` — i.e. in
  * `precommit` AND the CI "Safety + privacy gates" job. It also makes the contract
- * itself CI-enforced rather than dependent on a flow that has now failed to land twice.
+ * itself CI-enforced rather than dependent on a flow the gate runs only when a safety
+ * path changes, on one developer's machine.
  *
  * Every assertion is written to fail in BOTH directions — absent when unticked,
  * present when ticked — because an id that silently stops existing must not read as a
@@ -91,11 +92,15 @@ describe('LegalGate Maestro oracle (INFRA-494)', () => {
   });
 
   it('counts the outstanding REQUIRED consents, and excludes the Art. 9 box', () => {
-    // The flow pins "the wellness disclaimer is still required" by asserting
-    // ".*1 remaining.*" with ToS and Privacy ticked — without tapping Continue
-    // in a state where the gate must not release. That assertion is only
-    // meaningful if the count covers the three required items and ignores the
-    // optional Art. 9 one, which is what this asserts.
+    // This is the ONLY place "the wellness disclaimer is still required" can be
+    // pinned, and that is a measured fact rather than a preference (INFRA-494).
+    // The contract lives on the Continue button's accessibilityHint, and iOS does
+    // not publish accessibilityHint to XCUITest: on the running Release build every
+    // node in this screen's hierarchy reports `hintText: ""`, including the four
+    // checkboxes that demonstrably set one. So the Maestro flow's intended
+    // `.*1 remaining.*` assertion was one that could never pass, and it is not in
+    // `legal-gate-art9-optional.yaml`. Deleting this test does not fall back to
+    // on-device coverage — it leaves the contract unpinned anywhere.
     const { getByTestId, getByLabelText } = renderScreen();
     const hintOf = () => getByLabelText('Continue').props.accessibilityHint as string | undefined;
 
@@ -108,17 +113,17 @@ describe('LegalGate Maestro oracle (INFRA-494)', () => {
     expect(hintOf()).toContain('1 remaining');
 
     // Ticking the OPTIONAL box must not move the counter — if it ever did, the
-    // flow's "1 remaining" assertion would no longer mean "wellness is required".
+    // count would no longer mean "wellness is required", which is the whole
+    // reason it is asserted.
     fireEvent.press(getByTestId('legal-consent-mh-processing'));
     expect(hintOf()).toContain('1 remaining');
 
     // The third REQUIRED tick clears the consent count — and the hint does NOT go
     // silent, it moves to the remaining blocker. No birth year is selected here, so
-    // it names that instead (CombinedLegalGateScreen.tsx:604-608). The flow selects
-    // a year FIRST, so at its own "1 remaining" assertion the count branch is the
-    // live one; asserting the transition here is what proves the count reaching zero
-    // is caused by the wellness tick rather than by the hint disappearing for some
-    // unrelated reason.
+    // it names that instead (CombinedLegalGateScreen.tsx:604-608). Asserting the
+    // transition rather than merely the absence of "1 remaining" is what proves the
+    // count reached zero BECAUSE of the wellness tick, rather than the hint having
+    // disappeared for some unrelated reason.
     fireEvent.press(getByTestId('legal-consent-wellness'));
     expect(hintOf()).toBe('Disabled until you select your birth year.');
   });
