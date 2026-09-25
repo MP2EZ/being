@@ -573,6 +573,9 @@ exactly where drift creeps in):
   `blocking_constraints`; combined `ambiguities` empty; not RED.
 - **AMBER (ask)** otherwise.
 
+RED sets the close tier, not the decision path: a RED item whose panel returned an open
+fork, ambiguities or non-high confidence still goes through the Step 2.3 round.
+
 **Re-check the RED quota here.** Step 0.1a.6 caps the slate from the *body*; this step
 decides the real tier from `files_touched`. An item can cross into RED between the two, so a
 slate can arrive carrying more REDs than it was selected under and nothing else looks. If the
