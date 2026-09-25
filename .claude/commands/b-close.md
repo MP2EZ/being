@@ -1852,6 +1852,10 @@ reads as MISMATCH on the next provenance verify and costs a rebuild (CLAUDE.md).
 free of runtime code, proceed and record that reasoning — re-gating would validate their
 changes, not yours. If your net diff still carries runtime code, re-merge and re-gate.
 
+**While `development` is moving, run CI and the gate on the same commit.** Push and open
+the PR as a draft when the gate launches; mark it ready and merge only when both are green
+on that commit.
+
 ---
 
 ## Phase 3: PR + Merge to Development

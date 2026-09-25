@@ -975,8 +975,9 @@ most needs to catch.
 - **RED-ATTENDED** — set `state: queued_red`, leave the worktree intact and the work
   committed, and **do NOT run `/b-close`**. Continue to the next item; Phase 4.1 surfaces it.
 - **RED-GATED** — **back-merge `origin/development` first.**
-  Before spending the build, check for a live peer suite
-  (`ps -axo pid=,args=` for `e2e-safety.sh`, never `pgrep -f`). A peer's install
+  Before spending the build, check for a live peer suite or a lease-less peer
+  `maestro` JVM (`ps -axo pid=,args=` for `e2e-safety.sh|maestro.cli`, never
+  `pgrep -f`) — a direct `maestro` run takes no lease. A peer's install
   clobbers the target between build and run, and the lease does not cover it —
   so a gate started against one is discarded work, not a verdict.
   It is Step 3.1's sync anyway,
