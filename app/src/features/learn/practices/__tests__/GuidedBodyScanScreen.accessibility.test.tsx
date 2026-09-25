@@ -46,6 +46,7 @@ import {
   intersectsCrisisButtonExclusion,
 } from '@/features/crisis/constants/crisisButtonGeometry';
 import { spacing } from '@/core/theme';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 jest.mock('@/features/practices/shared/components/ProgressiveBodyScanList', () => {
   const { View } = require('react-native');
@@ -250,5 +251,14 @@ describe('matcher integrity', () => {
 
   it('the slicer returns empty for a key the source does not declare', () => {
     expect(styleBlock(strippedSource(), 'noSuchStyleKey')).toBe('');
+  });
+});
+
+describe('DEBUG-643 — the __DEV__ crisis-exclusion check is wired to the cleared control', () => {
+  it('warns when the next button reaches the FAB column', async () => {
+    const { getByTestId } = render(
+      <GuidedBodyScanScreen practiceId="resistance-body-check" moduleId="radical-acceptance" title="Resistance Body Check" />
+    );
+    await expectExclusionCheckWired(getByTestId(NEXT_BUTTON), NEXT_BUTTON);
   });
 });

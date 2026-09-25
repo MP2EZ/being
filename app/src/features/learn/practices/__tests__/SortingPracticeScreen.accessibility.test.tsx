@@ -64,6 +64,7 @@ import {
   intersectsCrisisButtonExclusion,
 } from '@/features/crisis/constants/crisisButtonGeometry';
 import type { SortingScenario } from '@/features/learn/types/education';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 const SCENARIOS: SortingScenario[] = [
   {
@@ -385,5 +386,23 @@ describe('DEBUG-634 AC8 — the matchers can still fire', () => {
     const slice = sliceStyleEntry(strippedSource(), 'choiceButtonPressed');
     const mutated = slice.replace(/opacity/, 'marginRight: 0,\n    opacity');
     expect(mutated).toMatch(/margin/);
+  });
+});
+
+describe('DEBUG-643 — the __DEV__ crisis-exclusion check is wired to the cleared control', () => {
+  it('warns for both choice buttons', async () => {
+    const r = renderScreen();
+    for (const id of ['sorting-practice-screen-in-control-button', 'sorting-practice-screen-not-in-control-button']) {
+      await expectExclusionCheckWired(r.getByTestId(id), id);
+    }
+  });
+
+  it('warns for the next button once feedback shows', async () => {
+    const r = renderScreen();
+    fireEvent.press(r.getByTestId('sorting-practice-screen-in-control-button'));
+    await expectExclusionCheckWired(
+      r.getByTestId('sorting-practice-screen-next-button'),
+      'sorting-practice-screen-next-button'
+    );
   });
 });

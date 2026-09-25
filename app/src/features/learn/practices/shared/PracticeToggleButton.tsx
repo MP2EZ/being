@@ -14,7 +14,7 @@
  */
 
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle } from 'react-native';
+import { TouchableOpacity, Text, StyleSheet, ViewStyle, type LayoutChangeEvent } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 
 interface PracticeToggleButtonProps {
@@ -28,6 +28,8 @@ interface PracticeToggleButtonProps {
   };
   style?: ViewStyle;
   testID?: string;
+  /** Forwarded to the touchable; carries a host's DEBUG-643 __DEV__ exclusion check. */
+  onLayout?: ((event: LayoutChangeEvent) => void) | undefined;
 }
 
 const PracticeToggleButton: React.FC<PracticeToggleButtonProps> = ({
@@ -37,6 +39,7 @@ const PracticeToggleButton: React.FC<PracticeToggleButtonProps> = ({
   labels = {},
   style,
   testID = 'practice-toggle-button',
+  onLayout,
 }) => {
   const {
     begin = 'Begin Practice',
@@ -78,6 +81,7 @@ const PracticeToggleButton: React.FC<PracticeToggleButtonProps> = ({
   return (
     <TouchableOpacity
       style={[styles.button, style]}
+      onLayout={onLayout}
       onPress={handlePress}
       accessibilityRole="button"
       accessibilityLabel={accessibilityLabel}

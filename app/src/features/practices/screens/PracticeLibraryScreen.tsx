@@ -48,6 +48,10 @@ import {
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { semantic, colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import {
+  crisisExclusionOnLayout,
+  useCrisisExclusionAssertion,
+} from '@/core/hooks/useCrisisExclusionAssertion';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { PRINCIPLES } from '@/features/practices/shared/constants/principles';
 import { loadModuleContent } from '@/core/services/moduleContent';
@@ -109,6 +113,11 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
   const [entries, setEntries] = useState<ResolvedEntry[] | null>(null);
   const { fontScale } = useWindowDimensions();
   const axLayout = libraryHeaderStacks(fontScale);
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  // Rows are rendered in a .map, so they use the non-hook form below.
+  const principleLinkExclusionCheck = useCrisisExclusionAssertion('practice-library-principle-link', 'scrolls');
+  const featuredStartExclusionCheck = useCrisisExclusionAssertion('practice-library-featured-start', 'scrolls');
 
   useEffect(() => {
     let cancelled = false;
@@ -245,6 +254,7 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
               <Pressable
                 onPress={() => onOpenModule(featured.moduleId)}
                 style={styles.principleLinkTouch}
+                onLayout={principleLinkExclusionCheck}
                 accessibilityRole="link"
                 accessibilityLabel={`Read the full principle: ${featuredPrinciple.title}`}
                 accessibilityHint="Opens Module 3, Sphere Sovereignty"
@@ -257,6 +267,7 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
 
               <Pressable
                 style={styles.featuredButton}
+                onLayout={featuredStartExclusionCheck}
                 onPress={() => launch(featured)}
                 accessibilityRole="button"
                 accessibilityLabel={`Begin ${featured.practice.title}`}
@@ -282,6 +293,10 @@ const PracticeLibraryScreen: React.FC<PracticeLibraryScreenProps> = ({
                   >
                   <Pressable
                     style={styles.practiceRow}
+                    onLayout={crisisExclusionOnLayout(
+                      `practice-library-item-${entry.practice.id}`,
+                      'scrolls'
+                    )}
                     onPress={() => launch(entry)}
                     accessibilityRole="button"
                     accessibilityLabel={

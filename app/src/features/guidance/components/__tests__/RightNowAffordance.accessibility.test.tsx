@@ -33,6 +33,7 @@ jest.mock('@/core/analytics', () => ({
 
 import RightNowAffordance from '../RightNowAffordance';
 import { DOMAIN_BINDINGS } from '../../constants/domainBindings';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 beforeEach(() => {
   mockNavigate.mockClear();
@@ -201,5 +202,12 @@ describe('DEBUG-547: the guidance row clears the crisis FAB exclusion region', (
     expect(stripped).toMatch(/marginRight\s*:/);
     expect(stripped).not.toContain('Must NOT be');
     expect('  paddingRight: 72,').toMatch(/paddingRight\s*:/);
+  });
+});
+
+describe('DEBUG-643 — the __DEV__ crisis-exclusion check is wired to the cleared control', () => {
+  it('warns when the guidance row reaches the FAB column', async () => {
+    const { getByTestId } = render(<RightNowAffordance />);
+    await expectExclusionCheckWired(getByTestId('home-guidance-entry'), 'home-guidance-entry');
   });
 });
