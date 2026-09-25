@@ -26,6 +26,7 @@ const URL_PREFIXES = [
   'being://',
   'https://being.fyi',
   'https://www.being.fyi',
+  // Reserved, not live — see DEEP_LINK_CONFIG.ALLOWED_HOSTS (DEBUG-649).
   'https://app.being.fyi',
 ];
 

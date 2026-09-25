@@ -54,6 +54,7 @@ import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
 import { getModalPracticeEdges } from '@/features/learn/practices/shared/practiceSafeAreaEdges';
 import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
@@ -130,6 +131,10 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
   };
 
   // Show completion screen after all areas checked
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  const nextExclusionCheck = useCrisisExclusionAssertion(`${testID}-next-button`, 'scrolls');
+
   const completionScreen = renderCompletion();
   if (completionScreen) {
     return completionScreen;
@@ -180,6 +185,7 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
         {/* Next/Complete Button */}
         <TouchableOpacity
           style={styles.nextButton}
+          onLayout={nextExclusionCheck}
           onPress={handleNext}
           accessibilityRole="button"
           accessibilityLabel={isLastArea ? "Complete practice" : "Move to next area"}

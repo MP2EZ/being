@@ -1,8 +1,8 @@
 # FTC Health Breach Notification Rule — Operational Runbook
 
-**Version:** 1.0
+**Version:** 1.1
 **Effective Date:** May 24, 2026
-**Last Updated:** May 24, 2026
+**Last Updated:** September 23, 2026
 **Audience:** Internal — founder + counsel only (this is NOT a user-facing document)
 **Authority:** Operational procedure honoring `privacy-policy.md` §4.4 (Breach Notification)
 **Annual Review:** Required — next due May 24, 2027
@@ -19,7 +19,7 @@
 
 **Scope:** breaches of "unsecured PHR identifiable health information" as defined in 16 CFR §318.2 — including PHQ-9/GAD-7 wellness screening responses, check-in mood data, journal entries, crisis-resource interactions, and any identifiable wellness data that leaves AES-256-GCM encryption protection (see `docs/security/security-architecture.md` §1).
 
-**Out of scope:** Account-only breaches with no wellness data exposure (still report internally per `app/src/core/services/security/IncidentResponseService.ts`, but no FTC notification required).
+**Out of scope:** Account-only breaches with no wellness data exposure (still record it internally in the founder ops log — §2 step 3 — but no FTC notification required). **Corrected (MAINT-647):** this previously said to report "per `app/src/core/services/security/IncidentResponseService.ts`", a service that has never existed <!-- removed-code: IncidentResponseService.ts -->. The internal record is still required; only its destination was fictional.
 
 ---
 
@@ -30,7 +30,7 @@ A "breach of unsecured PHR identifiable health information" triggers the HBNR pr
 | Scenario | Triggers HBNR? | Notes |
 |---|---|---|
 | Unauthorized access to encrypted wellness data where encryption keys also exposed | ✅ YES | Keys exposed = data is no longer "secured" per 16 CFR §318.2 |
-| Unauthorized access to AES-256-GCM-encrypted data, keys intact | ❌ NO | Data remains "secured" — log internally per `IncidentResponseService.ts`, no FTC notification |
+| Unauthorized access to AES-256-GCM-encrypted data, keys intact | ❌ NO | Data remains "secured" — log internally in the founder ops log (§2 step 3), no FTC notification. **Corrected (MAINT-647):** previously "per `IncidentResponseService.ts`", which never existed <!-- removed-code: IncidentResponseService.ts --> |
 | Plaintext wellness data leaked (e.g., via misconfigured backup, logging accident, API leak) | ✅ YES | Plaintext is unsecured by definition |
 | Lost/stolen device with local AES-256-GCM-encrypted store, device PIN intact | ❌ NO | FBE + AES-256-GCM keeps data secured |
 | Lost/stolen device with local AES-256-GCM-encrypted store, device PIN compromised or known | ✅ YES | Compromised authentication = data effectively unsecured |
@@ -53,7 +53,7 @@ If unsure → **escalate to counsel (`legal@being.fyi`) within 24 hours** and tr
 Federal deadlines run from the **date of discovery**, defined as the day the breach is known or, by exercising reasonable diligence, would have been known. The clock starts on the calendar day discovery occurs — not the day investigation concludes.
 
 **Where to log the discovery timestamp:**
-1. Create an incident record via the detection hooks in `app/src/core/services/security/IncidentResponseService.ts` (auto-fired by SecurityMonitoringService for in-app triggers).
+1. **There is no automated detection.** Every discovery — in-app, vendor disclosure, researcher report, user complaint — is recognised by a person and recorded by hand in the ops log (step 3). Record the discovery date as defined above: the day the breach was known or, by exercising reasonable diligence, would have been known — not the day the entry happens to be written. **Corrected (MAINT-647):** this step previously said to create the record "via the detection hooks in `app/src/core/services/security/IncidentResponseService.ts` (auto-fired by SecurityMonitoringService for in-app triggers)" <!-- removed-code: IncidentResponseService.ts -->. Neither exists: `IncidentResponseService.ts` has never existed in this codebase, and SecurityMonitoringService was deleted in MAINT-597. The step was premised on machinery that was never built, so it is replaced rather than repointed.
 2. For out-of-band discoveries (vendor disclosure, researcher report, user complaint): manually create the incident record with the discovery timestamp matching the moment Being was notified or detected the issue.
 3. Record the discovery timestamp in the founder-only ops log alongside the incident ID: `~/dev/being/.config/incidents/{YYYY-MM-DD}-{incident-id}.md` (gitignored; back up to 1Password).
 
@@ -69,6 +69,8 @@ Federal deadlines run from the **date of discovery**, defined as the day the bre
 | **Affected-individual notification** | **60** | **16 CFR §318.5(a)** |
 | Post-incident review filed | 90 | This runbook §3 Step F |
 
+> **Under review (MAINT-651):** the FTC-notification deadline and the §318.4 / §318.5 section citations in this runbook have not been verified against the current text of 16 CFR Part 318. Confirm them with counsel before relying on them during an incident.
+
 > **The strictest applicable deadline wins.** If state law requires 30-day consumer notification and federal allows 60, you have 30 days. The runbook is structured so the 30-day state deadlines come first.
 
 ---
@@ -78,7 +80,7 @@ Federal deadlines run from the **date of discovery**, defined as the day the bre
 Execute in order. Each step has a checklist; tick before advancing.
 
 ### Step A — Detection (Day 0, hour 0)
-- [ ] Incident captured in `IncidentResponseService.ts` with severity, affected data classes, estimated user count
+- [ ] Incident captured in the founder ops log (§2 step 3) with severity, affected data classes, estimated user count. **Corrected (MAINT-647):** previously "captured in `IncidentResponseService.ts`", which never existed <!-- removed-code: IncidentResponseService.ts -->; capture is manual.
 - [ ] Discovery timestamp recorded in founder ops log
 - [ ] Incident ID assigned
 - [ ] Preliminary scope: which data sensitivity levels affected (see the `DataSensitivityLevel` taxonomy in `app/src/core/services/security/EncryptionService.ts`)
@@ -92,7 +94,7 @@ Execute in order. Each step has a checklist; tick before advancing.
 - [ ] Confirm trigger criteria match §1 (HBNR applies / does not apply)
 - [ ] Count affected individuals (exact, not estimate, before notifications go out)
 - [ ] Map affected individuals to state of residence (for state-law matrix in §7)
-- [ ] Classify breach severity per `BreachSeverity` enum
+- [ ] Classify breach severity and record the classification, with its reasoning, in the ops log; counsel reviews it in Step D. **Corrected (MAINT-647):** previously "per `BreachSeverity` enum" — no such enum has ever existed in this codebase, so the classification is a recorded judgement, not a lookup.
 
 ### Step D — Counsel Notification (Day 1, within 24 hours of discovery)
 - [ ] Email `legal@being.fyi` with: incident ID, discovery timestamp, scope summary, affected count by state, severity
@@ -117,7 +119,7 @@ Execute in order. Each step has a checklist; tick before advancing.
 
 **Form:** https://www.ftc.gov/HBNR (FTC Health Breach Notification Form — verify the URL still resolves before submitting; last confirmed May 2026. The FTC occasionally redesigns the submission portal; the annual review in §9 catches drift.)
 
-**Deadline:** 60 calendar days from discovery (16 CFR §318.4).
+**Deadline:** 60 calendar days from discovery (16 CFR §318.4). **Under review (MAINT-651):** the FTC-notification deadline and the §318.4 / §318.5 section citations in this runbook have not been verified against the current text of 16 CFR Part 318. Confirm them with counsel before relying on them during an incident.
 
 **Who files:** Founder files. Counsel reviews the submitted content before transmission for accuracy and privilege considerations.
 
@@ -212,7 +214,7 @@ We are sorry this happened. Your trust matters to us.
 
 ## 7. State-Specific Timelines
 
-This table is the **authoritative source** for Being's state breach-notification deadlines and thresholds — update it when statute changes. (These values were previously also encoded in `app/src/compliance/BreachResponseEngine.ts` as the `STATE_NOTIFICATION_MATRIX` constant; that module was never invoked at runtime and was removed as dead code in MAINT-236, with the operative values preserved here.)
+This table is the **authoritative source** for Being's state breach-notification deadlines and thresholds — update it when statute changes. (These values were previously also encoded in `app/src/compliance/BreachResponseEngine.ts` as the `STATE_NOTIFICATION_MATRIX` constant; that module was never invoked at runtime and was removed as dead code in MAINT-236, with the operative values preserved here.) <!-- removed-code: BreachResponseEngine.ts -->
 
 | State | Consumer deadline | AG threshold | AG deadline | Media threshold | Media deadline | Statute |
 |---|---|---|---|---|---|---|
@@ -235,8 +237,8 @@ This table is the **authoritative source** for Being's state breach-notification
 |---|---|
 | 60-day FTC enforcement, state matrix | §2 and §7 of this runbook (authoritative; the former `STATE_NOTIFICATION_MATRIX` code constant was removed as dead code in MAINT-236) |
 | Encryption state (determines "secured" vs "unsecured") | `app/src/core/services/security/EncryptionService.ts` |
-| Detection + incident creation hooks | `app/src/core/services/security/IncidentResponseService.ts` (`INCIDENT_RESPONSE_CONFIG`) |
-| Crisis-data special handling | **None in code (corrected MAINT-635).** `CrisisSecurityProtocol.ts` is deleted — it was never wired to a consumer and wrote no record this runbook could rely on. The crisis audit sink that DOES exist is `trackCrisisDetection` in `app/src/core/services/supabase/SupabaseService.ts` (INFRA-568), which writes `crisis_detected` to `analytics_events`. Step B's notification is manual. |
+| Detection + incident creation hooks | **None in code (corrected MAINT-647).** `app/src/core/services/security/IncidentResponseService.ts` and `INCIDENT_RESPONSE_CONFIG` have never existed <!-- removed-code: IncidentResponseService.ts -->. Detection and incident capture are manual, into the founder ops log at `~/dev/being/.config/incidents/{YYYY-MM-DD}-{incident-id}.md` (§2 step 3). |
+| Crisis-data special handling | **None in code (corrected MAINT-635).** `CrisisSecurityProtocol.ts` is deleted — it was never wired to a consumer and wrote no record this runbook could rely on. <!-- removed-code: CrisisSecurityProtocol.ts --> The crisis audit sink that DOES exist is `trackCrisisDetection` in `app/src/core/services/supabase/SupabaseService.ts` (INFRA-568), which writes `crisis_detected` to `analytics_events`. Step B's notification is manual. |
 | Key rotation procedure (containment step) | `docs/security/key-rotation.md` |
 
 ---
@@ -279,6 +281,7 @@ This table is the **authoritative source** for Being's state breach-notification
 | Version | Date | Changes |
 |---|---|---|
 | 1.0 | 2026-05-24 | Initial runbook (INFRA-152) |
+| 1.1 | 2026-09-23 | MAINT-647: every citation of `IncidentResponseService.ts` (§ Document Purpose, §1, §2 step 1, §3 Step A, §8) and of the `BreachSeverity` enum (§3 Step C) is corrected — neither has ever existed. Incident detection and capture are stated to be MANUAL, into the founder ops log. §2 step 1 is replaced rather than repointed, because it relied on automated detection that was never built. The FTC-notification deadline and its §318.x citations are flagged for verification (MAINT-651) and deliberately left unchanged. Also records MAINT-635 (2026-09-20), which corrected §3 Step B and the §8 crisis-data row without a version entry. A new pin, `legalDocCodePaths.privacy.test.ts`, fails if any `docs/legal/` document cites a code path that does not exist. |
 
 ---
 

@@ -14,6 +14,7 @@ import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import { colorSystem, semantic, getTheme, spacing, borderRadius, typography } from '@/core/theme';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';
@@ -158,6 +159,9 @@ const CheckInCard: React.FC<CheckInCardProps> = ({
 
 const CleanHomeScreen: React.FC = () => {
   const navigation = useNavigation<CleanHomeScreenNavigationProp>();
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  const practicesEntryExclusionCheck = useCrisisExclusionAssertion('home-practices-entry', 'scrolls');
   // PERF-03: selector instead of whole-store destructure — subscribe only to
   // this single function reference.
   const isCheckInCompletedToday = useStoicPracticeStore((s) => s.isCheckInCompletedToday);
@@ -320,6 +324,7 @@ const CleanHomeScreen: React.FC = () => {
             ScrollView", which is no longer true and was the defect. */}
         <Pressable
           style={styles.practicesEntry}
+          onLayout={practicesEntryExclusionCheck}
           onPress={() => navigation.navigate('PracticeLibrary')}
           accessibilityRole="button"
           accessibilityLabel="Practices"

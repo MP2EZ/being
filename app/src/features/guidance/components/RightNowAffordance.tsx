@@ -71,6 +71,7 @@ import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { colorSystem, semantic, spacing, typography } from '@/core/theme';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { useAnalytics } from '@/core/analytics';
 import { DOMAIN_BINDINGS } from '../constants/domainBindings';
@@ -89,6 +90,9 @@ type Nav = StackNavigationProp<RootStackParamList>;
 
 const RightNowAffordance: React.FC = () => {
   const navigation = useNavigation<Nav>();
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  const rowExclusionCheck = useCrisisExclusionAssertion('home-guidance-entry', 'scrolls');
   const { trackGuidanceOpened } = useAnalytics();
 
   // Situation-language, read from the binding table rather than hardcoded —
@@ -107,6 +111,7 @@ const RightNowAffordance: React.FC = () => {
   return (
     <Pressable
       style={styles.row}
+      onLayout={rowExclusionCheck}
       onPress={handlePress}
       accessibilityRole="button"
       // Parity with the visible text, not a reduction (compliance ruling).

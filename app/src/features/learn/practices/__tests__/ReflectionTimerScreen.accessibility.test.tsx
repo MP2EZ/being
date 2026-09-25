@@ -40,6 +40,7 @@ import {
   intersectsCrisisButtonExclusion,
 } from '@/features/crisis/constants/crisisButtonGeometry';
 import { spacing } from '@/core/theme';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 jest.mock('@/features/practices/shared/components/Timer', () => {
   const { View } = require('react-native');
@@ -233,5 +234,14 @@ describe('DEBUG-639 — the instructions label breaks between words', () => {
     expect(block.trim().length).toBeGreaterThan(0);
     expect(block).toMatch(/fontSize\s*:/);
     expect(block).not.toMatch(/textTransform\s*:/);
+  });
+});
+
+describe('DEBUG-643 — the __DEV__ crisis-exclusion check is wired to the cleared control', () => {
+  it('warns when the toggle reaches the FAB column', async () => {
+    const { getByTestId } = render(
+      <ReflectionTimerScreen practiceId="evening-reflection" moduleId="aware-presence" duration={180} title="Evening Reflection" />
+    );
+    await expectExclusionCheckWired(getByTestId(TOGGLE), TOGGLE);
   });
 });

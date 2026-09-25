@@ -81,6 +81,7 @@ jest.mock('../../components/IntroOverlay', () => ({
 }));
 
 import CleanHomeScreen from '../CleanHomeScreen';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 describe('CleanHomeScreen accessibility (MAINT-257)', () => {
   it('marks the "Being" brand title as a level-1 accessibility header', () => {
@@ -517,5 +518,12 @@ describe('DEBUG-547: the Practices row clears the crisis FAB exclusion region', 
         { width: 375, height: 667 }
       )
     ).toBe(true);
+  });
+});
+
+describe('DEBUG-643 — the __DEV__ crisis-exclusion check is wired to the cleared control', () => {
+  it('warns when the Practices row reaches the FAB column', async () => {
+    const { getByTestId } = render(<CleanHomeScreen />);
+    await expectExclusionCheckWired(getByTestId('home-practices-entry'), 'home-practices-entry');
   });
 });

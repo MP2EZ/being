@@ -47,13 +47,13 @@ import { HapticsOptInPrompt } from '@/features/practices/shared/components/Hapti
 import { intervalSchedule } from '@/features/practices/shared/haptics/cueScheduler';
 import { usePracticeSettings } from '@/core/stores/settingsStore';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 
 interface ReflectionTimerScreenProps {
   practiceId: string;
   moduleId: ModuleId;
   duration: number; // Duration in seconds
   title: string;
-  prompt?: string; // Optional brief reflection prompt
   instructions?: string[]; // Full instruction steps (always visible)
   onComplete?: () => void;
   onBack?: () => void;
@@ -65,7 +65,6 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
   moduleId,
   duration,
   title,
-  prompt,
   instructions,
   onComplete,
   onBack,
@@ -152,6 +151,10 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
   );
 
   // Show completion screen after timer finishes
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  const toggleExclusionCheck = useCrisisExclusionAssertion(`${testID}-toggle-button`, 'scrolls');
+
   const completionScreen = renderCompletion();
   if (completionScreen) {
     return completionScreen;
@@ -185,9 +188,14 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
         <View style={styles.contemplationIcon}>
           <Text style={styles.iconText}>🧘</Text>
         </View>
+        {/* DEBUG-650: names the instruction list above, which every reflection practice
+            ships (pinned by reflectionPracticeInstructions.contract.test.ts). The previous
+            copy pointed at "the prompt", which nothing rendered, and described open,
+            objectless noticing; these are directed examens. Wording ruled by `philosopher`. */}
         <Text style={styles.contemplationText}>
-          Take time to reflect. There's no need to write anything down—simply
-          contemplate the prompt and notice what arises.
+          Work through the steps above at your own pace. There's no need to write anything
+          down—simply hold each one in mind. If your attention wanders, returning to it is the
+          practice.
         </Text>
       </View>
 
@@ -213,6 +221,7 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
         onToggle={handleToggle}
+        onLayout={toggleExclusionCheck}
         style={styles.toggleButton}
         testID={`${testID}-toggle-button`}
       />
