@@ -79,6 +79,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/learn/practices/SortingPracticeScreen.tsx` | `crisis` + `philosopher` |
 | `app/src/features/learn/practices/shared/PracticeToggleButton.tsx` | `crisis` |
 | `app/src/features/practices/screens/PracticeLibraryScreen.tsx` | `crisis` + `philosopher` |
+| `app/assets/passages/` | `crisis` + `philosopher` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -357,6 +358,11 @@ DEBUG-653 cleared the in-band controls on `ProfileScreen`, `ExportDataScreen` an
 FILE-level: the directory's other crisis-bearing members are already listed, and the rest
 carry no crisis surface.
 `crisis-button-reachability` taps element centres, so the falsifier is the host's jest sweep.
+
+`app/assets/passages/` (added FEAT-581) is the first CONTENT row: it admits primary-source text
+read by PHQ-9 ≥15 users, from authors who hold that one may leave life by choice. Exit, method
+and abuse-tolerance spans are banned by `__tests__/safety/classicalCorpusCrisisAdmission.test.ts`;
+exempt from Phase 2.5, since no Maestro flow can falsify passage text.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
