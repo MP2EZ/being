@@ -1025,7 +1025,7 @@ Each flow under `app/.maestro/`:
      picker + 4 consent toggles) and the 5-screen Onboarding flow.
 4. Drives the safety surface (taps testIDs, asserts visible/notVisible).
 
-The `_legal-and-onboarding.yaml` traversal subflow uses text-based selectors for legal-gate consent text (more robust than testIDs for legal copy that may rotate). It uses `optional: true` for onboarding intermediate Next/Continue taps so minor copy changes don't break flows — if a button isn't found, Maestro skips that step and continues.
+The `_legal-and-onboarding.yaml` traversal subflow ticks the legal-gate consents by testID on each 24pt indicator (INFRA-181), and every one of those taps is guarded `above:` the pinned crisis footer's title with `point:` on the matched element (INFRA-656) — the derivation is in the helper. It uses `optional: true` for onboarding intermediate Next/Continue taps so minor copy changes don't break flows — if a button isn't found, Maestro skips that step and continues.
 
 ## Anatomy of one flow
 
