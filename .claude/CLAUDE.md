@@ -47,7 +47,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/consent/` | `crisis` + `compliance` |
 | `app/src/features/journal/` | `crisis` |
 | `app/src/core/services/security/` | `compliance` |
-| `app/src/core/stores/consentStore.ts` | `compliance` |
+| `app/src/core/stores/consentStore.ts` | `crisis` + `compliance` |
 | `app/src/core/hooks/` | `crisis` |
 | `app/src/core/components/ThresholdEducationModal.tsx` | `crisis` + `philosopher` |
 | `app/src/features/insights/components/` | `crisis` + `philosopher` |

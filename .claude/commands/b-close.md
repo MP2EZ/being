@@ -841,6 +841,7 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q '^app/patches/' && \
 # features/assessment/. Scoped to the two flows that exercise consent state end-to-end rather
 # than the full suite: unlike e2eSeed.ts it does not author the launch state, it classifies a
 # record that already exists.
+# FEAT-664: loadConsent fires the legal-gate mirror hydration on the boot path; a hung read is jest-only (never-resolve pin).
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/stores/consentStore\.ts' && \
   FLOWS+=("deeplink-consent-gate" "reconsent-stale" "reconsent-stale-ineligible")
 # INFRA-568 (crisis ruling): SupabaseService.ts owns the ONLY writer of `crisis_detected`
