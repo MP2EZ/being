@@ -67,8 +67,9 @@ src/
 ### Dependency Rules
 ```
 ✅ features/ → core/  (analytics: core/analytics, shared types: core/types, shared state: core/stores)
-❌ core/ → features/
+❌ core/ → features/  (lint-enforced; the one exception list: import-guidelines.md → Core → features boundary)
 ⚠️  features/ ↔ features/ (prefer route params, core/ hooks and stores, type-only imports)
+   Crisis consumption is REQUIRED, not discouraged: detectCrisis, crisis geometry, CrisisTextInput — by direct path
 ```
 
 ### Adding New Code Decision Tree

@@ -51,8 +51,10 @@ module.exports = [
       // just a deprecation warning.
       //
       // SCOPE, and why it is not widened. This block is `src/**/*.{ts,tsx}`, which covers
-      // all 8 migrated source sites (and, because the relaxed test-file block below never
-      // redefines this rule, src co-located tests too). It does NOT cover `app/__tests__`,
+      // all 8 migrated source sites. It does NOT reach co-located tests in practice:
+      // tsconfig excludes `*.test.*`, so `parserOptions.project` fails to parse them and no
+      // rule runs. The MAINT-659 core block at the end of this file redefines this rule for
+      // src/core and re-reads these `paths` from here. It does NOT cover `app/__tests__`,
       // and that gap is RECORDED rather than closed, for two reasons:
       //   1. `no-restricted-imports` structurally cannot see the shape that actually lived
       //      there — `SafeAreaView: RN.SafeAreaView` is an object property in a jest.mock
@@ -204,3 +206,127 @@ module.exports = [
     },
   },
 ];
+
+// ── MAINT-659: core/ must not import features/ ──────────────────────────────────────
+//
+// Appended rather than declared above the array so no line in the blocks above moves:
+// source comments cite this file by line number.
+//
+// CORE_FEATURE_IMPORT_EXCEPTIONS is THE list — the only place in the repo that names
+// which core files may import from features/. docs/architecture/import-guidelines.md
+// points here rather than repeating it. It is a LAYERING list, not a crisis ruling:
+// crisis status is decided by the Protected Paths table in .claude/CLAUDE.md and by
+// INFRA-531's /b-close import detector, and neither list is edited to satisfy the other.
+// If a file drops off because its crisis import vanished, do not just delete the entry:
+// find where the consumption went (a helper extracted out of a consumer is invisible to
+// INFRA-531). `__tests__/scripts/eslint-core-features-boundary.test.js` fails on an
+// entry whose file no longer exists or no longer imports from features.
+const CORE_FEATURE_IMPORT_EXCEPTIONS = [
+  // A — composition root: the navigators mount every feature's screens.
+  'src/core/navigation/CleanRootNavigator.tsx',
+  'src/core/navigation/CleanTabNavigator.tsx',
+  // B — single-source copy: WELLNESS_LABELS is compliance-pinned (MAINT-615).
+  'src/core/components/ThresholdEducationModal.tsx',
+  // C — recorded layering debt. Each is a real inversion, left in place because moving
+  // it touches gated code. Delete the entry in the change that moves the file.
+  'src/core/utils/timeOfDay.ts', // type-only DailyLoopMode (home, dailyloop)
+  'src/core/services/guidanceContent.ts', // type-only; sole consumer is features/guidance
+  'src/core/services/moduleContent.ts', // type-only; consumers are learn, practices
+  'src/core/services/passagesContent.ts', // sole consumer is features/library
+  'src/core/services/supabase/CloudBackupService.ts', // reads assessmentStore
+  'src/core/services/supabase/SyncCoordinator.ts', // reads assessmentStore
+  'src/core/services/privacy/DataExportService.ts', // reads journalEntryStore
+  'src/core/config/e2eSeed.ts', // seeds stoicPracticeStore; Protected Path
+  'src/core/components/subscription/PurchaseOptionsScreen.tsx', // profile's SubMenuHeader
+];
+
+// The leaf allowance: specifiers ANY core file may import, excepted or not. They are
+// INFRA-531's three anchors plus CrisisTextInput, and they are exactly what the crisis
+// guards prescribe as the fix — DEBUG-506's keyboard-accessory guard names
+// CrisisTextInput, DEBUG-406's modal-occlusion guard points at crisisButtonGeometry. A
+// boundary that errored on the prescribed fix would make a literal copy or a lazy import
+// the cheaper route, which is the harm. Only the `@/features/...` spelling is allowed,
+// because that is the spelling INFRA-531 anchors on.
+const CORE_FEATURE_LEAF_ALLOWANCE = [
+  'crisis/constants/[\\w-]+(?:/[\\w-]+)*',
+  'crisis/types/safety',
+  'assessment/types/scoring',
+  'crisis/components/CrisisTextInput',
+];
+
+const CORE_FEATURES_MESSAGE =
+  'MAINT-659: core/ must not import features/. For a genuine layering exception, add a reviewed entry to CORE_FEATURE_IMPORT_EXCEPTIONS in eslint.config.js — never an eslint-disable. Crisis values and components: import them statically by their direct @/features/crisis/... path. Never copy them as literals (DEBUG-586), move them into core or re-export them through core (INFRA-531), reach them by a relative path, or load them with require()/import()/React.lazy.';
+
+const CORE_FEATURES_REEXPORT_MESSAGE =
+  'MAINT-659 [re-export]: core must never re-export from features/, leaf modules included. One core re-export hides every later consumer from INFRA-531, which keys on the import line in each consumer. Import from the feature module directly at each call site.';
+
+// esquery cannot take a `/` inside a regex literal, so the separator is \x2F.
+const FEATURES_SEGMENT_RE = '/(^|\\x2F)features(\\x2F|$)/';
+
+const CORE_FEATURES_SYNTAX = [
+  {
+    // no-restricted-imports only sees import/export declarations.
+    selector: `CallExpression[callee.name="require"][arguments.0.value=${FEATURES_SEGMENT_RE}]`,
+    message: CORE_FEATURES_MESSAGE,
+  },
+  {
+    selector: `ImportExpression[source.value=${FEATURES_SEGMENT_RE}]`,
+    message: CORE_FEATURES_MESSAGE,
+  },
+  {
+    // Applies to leaf modules too.
+    selector: `ExportNamedDeclaration[source.value=${FEATURES_SEGMENT_RE}]`,
+    message: CORE_FEATURES_REEXPORT_MESSAGE,
+  },
+  {
+    selector: `ExportAllDeclaration[source.value=${FEATURES_SEGMENT_RE}]`,
+    message: CORE_FEATURES_REEXPORT_MESSAGE,
+  },
+];
+
+// Flat config REPLACES a rule's options per matching object, so this block must carry
+// MAINT-437's SafeAreaView `paths` and DEBUG-342's gray[500] selector or every core file
+// silently loses them. They are READ from the base block, not copied, so they cannot drift.
+const baseBlock = module.exports.find((c) => c.files && c.files[0] === 'src/**/*.{ts,tsx}');
+const [, baseRestrictedImports] = baseBlock.rules['no-restricted-imports'];
+const [, ...baseRestrictedSyntax] = baseBlock.rules['no-restricted-syntax'];
+
+// `ignores` sits INSIDE this object on purpose: excepted files and tests simply do not
+// match it and keep the base block's options. A standalone `{ ignores }` object would be
+// a GLOBAL ignore (no rule at all), and an exception object setting the rule 'off' would
+// drop MAINT-437 with it. Appended last; no block above sets either rule for src/core.
+module.exports.push({
+  name: 'being/core-features-boundary',
+  files: ['src/core/**/*.{ts,tsx}'],
+  ignores: [
+    ...CORE_FEATURE_IMPORT_EXCEPTIONS,
+    'src/core/**/__tests__/**',
+    'src/core/**/*.test.{ts,tsx}',
+    'src/core/**/*.spec.{ts,tsx}',
+  ],
+  rules: {
+    'no-restricted-imports': [
+      'error',
+      {
+        ...baseRestrictedImports,
+        patterns: [
+          {
+            // @/features and everything under it, except the leaf allowance.
+            regex: `^@/features(?:$|/(?!(?:${CORE_FEATURE_LEAF_ALLOWANCE.join('|')})$))`,
+            caseSensitive: true,
+            message: CORE_FEATURES_MESSAGE,
+          },
+          {
+            // Every other spelling of a path into features/: relative, baseUrl
+            // (`src/features`), or an alias that walks back out (`@/core/../features`).
+            // The allowance never applies — INFRA-531 cannot see these spellings.
+            regex: '^(?:\\.{1,2}/|src/|@/(?!features(?:/|$)))(?:[^/]+/)*features(?:/|$)',
+            caseSensitive: true,
+            message: CORE_FEATURES_MESSAGE,
+          },
+        ],
+      },
+    ],
+    'no-restricted-syntax': ['error', ...baseRestrictedSyntax, ...CORE_FEATURES_SYNTAX],
+  },
+});

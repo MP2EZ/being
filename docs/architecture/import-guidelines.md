@@ -157,18 +157,59 @@ import { logger } from '@/core/services/logging';
 ### Forbidden Import Patterns
 
 ```typescript
-// ❌ Core cannot import from features
-// core/services/logging/logger.ts
-import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton'; // FORBIDDEN
+// ❌ Core cannot import from features — type-only imports included
+// core/<name>.ts
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore'; // FORBIDDEN
+import type { ModuleId } from '@/features/learn/types/education'; // FORBIDDEN
 
-// ❌ Global types cannot import from features
-// types/index.ts
-import type { CrisisDetection } from '@/features/crisis/types/safety'; // FORBIDDEN
+// ⚠️ Features should avoid importing other features' stores and screens directly
+// features/<a>/...
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore'; // DISCOURAGED
 
-// ❌ Features should avoid importing other features directly
-// features/assessment/services/scoring.ts
-import { detectCrisis } from '@/features/crisis/types/safety'; // DISCOURAGED
+// ✅ REQUIRED — crisis consumption is the exception to the caution above
+// features/assessment/stores/assessmentStore.ts
+import { detectCrisis } from '@/features/crisis/types/safety';
 ```
+
+`detectCrisis()` in `@/features/crisis/types/safety` is the single source of truth for the
+PHQ-9/GAD-7 crisis thresholds and trigger taxonomy (DEBUG-229 / MAINT-226 Decision E), and it
+is where the score-path zero-false-negative contract lives. Code that decides whether a user
+is offered crisis support MUST import it by that exact module path. Never re-derive PHQ-9 ≥15
+support, ≥20 intervention, Q9 >0 at any total, or GAD-7 ≥15 as literals — a store's own copy
+was the DEBUG-229 bug. Never reach it through a barrel, a relative path or a re-export: it is
+one of the specifiers `/b-close`'s INFRA-531 import detector anchors on. One known literal copy
+exists, `SyncCoordinator.classifyAssessmentCrisis`; it sets backup priority only and is not the
+detection path. The same rule covers crisis geometry (`@/features/crisis/constants/…`) and
+`CrisisTextInput`: consume them by direct path, never by copying their values.
+
+### Core → features boundary (lint-enforced, MAINT-659)
+
+`core/` must not import from `features/`. The `being/core-features-boundary` block in
+`app/eslint.config.js` enforces it, and `CORE_FEATURE_IMPORT_EXCEPTIONS` in that file is the
+**only** list of core files allowed to cross it. The architecture docs point here and never
+repeat file names. The exceptions fall into three classes:
+
+- **Composition root** — the navigators, which mount every feature's screens.
+- **Single-source copy** — a core component rendering compliance-pinned feature copy.
+- **Recorded layering debt** — real inversions left in place because moving them touches
+  gated code. Delete the entry in the change that moves the file.
+
+**The leaf allowance.** Any core file may import four crisis modules without an entry:
+`@/features/crisis/constants/…`, `@/features/crisis/types/safety`,
+`@/features/assessment/types/scoring` and `@/features/crisis/components/CrisisTextInput`.
+They are what the crisis guards prescribe as the fix, so the boundary must never make a
+literal copy or a lazy import the cheaper route.
+
+**Never** satisfy the rule by:
+- copying crisis values into `core/` as literals (DEBUG-586);
+- moving `crisisButtonGeometry.ts` or `crisisInputAccessory.ts` into `core/`, or re-exporting
+  them through a core module — either blinds INFRA-531, which keys on the import line in each
+  consumer;
+- reaching a feature by a relative or `src/` path, or loading it with `require()`, `import()`
+  or `React.lazy` — the lint block rejects all of these;
+- an `eslint-disable` comment, or `npm run lint:baseline -- --update`. An exception is a
+  reviewed entry in the list; `__tests__/scripts/eslint-core-features-boundary.test.js` pins
+  the list, the leaf paths, and a hard zero over every other core file.
 
 ### Cross-Feature Communication
 
@@ -340,6 +381,11 @@ Configure VS Code to use path aliases:
 ```
 
 ## ESLint Rules
+
+The only import rules actually enforced live in `app/eslint.config.js`: MAINT-437's
+SafeAreaView ban and the [core → features boundary](#core--features-boundary-lint-enforced-maint-659).
+The configuration below is illustrative and is **not** configured (`eslint-plugin-import` is
+not a dependency).
 
 Enforce import patterns with ESLint:
 
