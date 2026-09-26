@@ -352,9 +352,10 @@ not gated.
 `features/profile/screens/PrivacyDataScreen.tsx` is the twentieth instance (added DEBUG-653):
 the DEBUG-547 shape on the account-deletion card, which clears the FAB with a
 `CRISIS_BUTTON_EXCLUSION_RECT` margin in its own style entry, never the shared `settingCard`.
-DEBUG-653 cleared the last control on `ProfileScreen`, `ExportDataScreen` and
-`DeleteAccountScreen` the same way, and those rows already existed. FILE-level: the directory's
-other crisis-bearing members are already listed, and the rest carry no crisis surface.
+DEBUG-653 cleared the in-band controls on `ProfileScreen`, `ExportDataScreen` and
+`DeleteAccountScreen` (its button and confirmation input) the same way; those rows existed.
+FILE-level: the directory's other crisis-bearing members are already listed, and the rest
+carry no crisis surface.
 `crisis-button-reachability` taps element centres, so the falsifier is the host's jest sweep.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
