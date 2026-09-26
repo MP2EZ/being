@@ -335,3 +335,22 @@ describe('INFRA-510 — the DETACHED close cannot bypass the refusal', () => {
     expect(src).toMatch(/b_close_uncertified_intersection/);
   });
 });
+
+describe('INFRA-657 — the detached close names a gate receipt for its flow stage', () => {
+  const src = fs.readFileSync(RUNNER, 'utf8').replace(/^\s*#.*$/gm, '');
+
+  it('exports it under RUN_DIR, never the worktree, after precommit and before the gate', () => {
+    const line = src.split('\n').find((l) => /E2E_GATE_RECEIPT_PATH=/.test(l));
+    expect(line).toBeDefined();
+    expect(line).toContain('RUN_DIR');
+    expect(line).not.toContain('WORKTREE');
+    expect(src).toMatch(/export\s+E2E_GATE_RECEIPT_PATH/);
+    const precommit = src.indexOf('stage precommit');
+    const set = src.indexOf('E2E_GATE_RECEIPT_PATH=');
+    const gate = src.indexOf('run e2e:safety:gate');
+    expect(precommit).toBeGreaterThan(-1);
+    expect(gate).toBeGreaterThan(-1);
+    expect(precommit).toBeLessThan(set);
+    expect(set).toBeLessThan(gate);
+  });
+});

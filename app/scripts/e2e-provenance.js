@@ -22,6 +22,8 @@
  * USAGE
  *   node scripts/e2e-provenance.js write  <containerPath>
  *   node scripts/e2e-provenance.js verify <containerPath>
+ *   node scripts/e2e-provenance.js receipt <containerPath> <receiptPath> --sim <udid>  (INFRA-657)
+ *   node scripts/e2e-provenance.js gated <receiptPath> --sim <udid>                    (INFRA-657)
  *
  * `verify` prints exactly one verdict word on stdout:
  *   MATCH_CLEAN  — binary built from this exact tree, and that tree was clean   (exit 0)
@@ -532,6 +534,127 @@ function attribute(containerPath) {
   return 0;
 }
 
+/**
+ * INFRA-657 — a GATE RECEIPT: evidence that this tree was verified on a simulator, which
+ * survives the app being uninstalled.
+ *
+ * The marker above cannot answer "was this tree gated a moment ago?" once the app is gone,
+ * because it lives inside the container and leaves with it — by design. So when a peer's
+ * activity uninstalls the app between our gate and our flows, e2e-safety.sh sees an absent
+ * app with nothing to distinguish "never built" (whose remedy is the first build, a human's
+ * call) from "built and verified, then removed under us" (contention, worth one automatic
+ * rebuild). The receipt is that distinction, written OUTSIDE the container.
+ *
+ * It licenses a rebuild and nothing else. The rebuilt container is re-attested by `verify`
+ * like any other, so a receipt can never stand in for provenance.
+ *
+ * `receipt` refuses (exit 1, writes nothing) unless the marker verifies MATCH_CLEAN from
+ * cwd — a receipt for a tree that did not verify would license a rebuild on no evidence —
+ * and refuses a path inside the repo, where it would move the fingerprint it records.
+ */
+const RECEIPT_SCHEMA = 1;
+
+function flag(args, name) {
+  const i = args.indexOf(name);
+  return i >= 0 && i + 1 < args.length ? args[i + 1] : '';
+}
+
+function insideRepo(repoRoot, target) {
+  const real = (p) => {
+    try {
+      return fs.realpathSync(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  const rel = path.relative(real(repoRoot), path.join(real(path.dirname(target)), path.basename(target)));
+  return !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+function writeReceipt(containerPath, receiptPath, args) {
+  const simUdid = flag(args, '--sim');
+  if (!receiptPath || !simUdid) {
+    console.error('usage: e2e-provenance.js receipt <containerPath> <receiptPath> --sim <udid> [--item X] [--gate PID]');
+    return 1;
+  }
+  const fp = fingerprint(process.cwd());
+  if (!fp) {
+    console.error('e2e-provenance: could not fingerprint the working tree; no receipt written.');
+    return 1;
+  }
+  if (insideRepo(fp.repoRoot, receiptPath)) {
+    console.error(`e2e-provenance: refusing a receipt inside the repo (${receiptPath}) — it would move the fingerprint it records.`);
+    return 1;
+  }
+  let marker;
+  try {
+    marker = JSON.parse(fs.readFileSync(markerPath(containerPath), 'utf8'));
+  } catch {
+    console.error('e2e-provenance: no readable marker; no receipt written.');
+    return 1;
+  }
+  if (
+    !marker ||
+    marker.schema !== SCHEMA ||
+    marker.bundleId !== BUNDLE_ID ||
+    marker.treeHash !== fp.treeHash ||
+    marker.dirty === true
+  ) {
+    console.error('e2e-provenance: the installed marker does not verify MATCH_CLEAN from this tree; no receipt written.');
+    return 1;
+  }
+  const receipt = {
+    schema: RECEIPT_SCHEMA,
+    verdict: VERDICT.MATCH_CLEAN,
+    treeHash: fp.treeHash,
+    head: fp.head,
+    bundleId: BUNDLE_ID,
+    simUdid,
+    buildId: typeof marker.ownerId === 'string' ? marker.ownerId : null,
+    verifiedAt: new Date().toISOString(),
+    gatePid: flag(args, '--gate') || null,
+    item: flag(args, '--item') || null,
+  };
+  const tmp = `${receiptPath}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(tmp, `${JSON.stringify(receipt, null, 2)}\n`);
+    fs.renameSync(tmp, receiptPath);
+  } catch (e) {
+    fs.rmSync(tmp, { force: true });
+    console.error(`e2e-provenance: could not write receipt: ${e.message}`);
+    return 1;
+  }
+  return 0;
+}
+
+/**
+ * Prints `GATED <buildId> <verifiedAt> <gatePid>` or `NONE <reason>`, and always exits 0 —
+ * the caller branches on the word, never on a status. GATED only on positive evidence;
+ * every other path is NONE, and NONE keeps today's refusal. It never reads a container.
+ */
+function gated(receiptPath, args) {
+  const none = (why) => {
+    console.log(`NONE ${why}`);
+    return 0;
+  };
+  const simUdid = flag(args, '--sim');
+  if (!receiptPath) return none('no-receipt-path');
+  if (!simUdid) return none('no-simulator');
+  let r;
+  try {
+    r = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+  } catch {
+    return none('unreadable');
+  }
+  if (!r || r.schema !== RECEIPT_SCHEMA) return none('schema');
+  if (r.verdict !== VERDICT.MATCH_CLEAN) return none('verdict');
+  if (r.simUdid !== simUdid) return none('other-simulator');
+  const fp = fingerprint(process.cwd());
+  if (!fp || typeof r.treeHash !== 'string' || r.treeHash !== fp.treeHash) return none('tree-moved');
+  console.log(`GATED ${r.buildId || '-'} ${r.verifiedAt || '-'} ${r.gatePid || '-'}`);
+  return 0;
+}
+
 function main(argv) {
   const [cmd, containerPath, ...rest] = argv;
   switch (cmd) {
@@ -569,8 +692,13 @@ function main(argv) {
         return 0;
       }
       return attribute(containerPath);
+    case 'receipt':
+      return writeReceipt(containerPath, rest[0], rest.slice(1));
+    // The second positional is the RECEIPT path here, not a container.
+    case 'gated':
+      return gated(containerPath, rest);
     default:
-      console.error('usage: e2e-provenance.js <write|verify|explain|attribute> <containerPath>');
+      console.error('usage: e2e-provenance.js <write|verify|explain|attribute|receipt|gated> <path>');
       return 2;
   }
 }

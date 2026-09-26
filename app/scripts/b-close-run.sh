@@ -110,6 +110,13 @@ RUN_FLOWS=0
 [ -n "$FLOWS$FULL_SUITE" ] && RUN_FLOWS=1
 
 if [ "$RUN_FLOWS" -eq 1 ]; then
+  # INFRA-657 — the gate writes a receipt here and the flow stage reads it: if a peer
+  # uninstalls the app between the two, e2e-safety.sh rebuilds once instead of exiting 2.
+  # Exported after precommit so jest never inherits it, and in the RUN DIR, never under
+  # $WORKTREE (the provenance fingerprint hashes untracked files repo-wide).
+  E2E_GATE_RECEIPT_PATH="$RUN_DIR/e2e-gate-receipt.json"
+  export E2E_GATE_RECEIPT_PATH
+
   # --- Step 2.5.4: the gate, with a BOUNDED queue on lease contention -------------------
   # Exit 4 says a peer holds the pair lease; nothing has been learned about this branch. A
   # blocked session had a human to re-run it, so parking was free. A detached run has
