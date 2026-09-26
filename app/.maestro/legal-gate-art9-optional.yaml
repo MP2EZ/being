@@ -100,6 +100,28 @@ name: "Legal gate: Art. 9 consent is refusable (FEAT-470 contract)"
 - assertVisible:
     id: "legal-gate-crisis-text"
 
+# ── INFRA-656: the helper's consent-tap GUARD discriminates on the real screen ───────
+# `_legal-and-onboarding.yaml` taps each consent only through
+# `above: { text: "Need support now.*" }` plus `point:`, and nothing can run that helper
+# (its callers are all device-class, DEBUG-589). This is where that primitive meets a real
+# hierarchy. At this landing offset `legal-consent-privacy` sits at y 643..667, BEHIND the
+# footer, and is still reported (DEBUG-465), while ToS's top (551) is above the footer
+# title's (~569, footer top 553 + paddingTop 16). So the guard must EXCLUDE the first and
+# ADMIT the second. The first line also settles the one premise jest cannot: iOS publishes
+# the footer title as a node of its own. Asserted before any gesture, like AC3 above.
+- assertVisible:
+    text: "Need support now.*"
+- assertVisible:
+    id: "legal-consent-privacy"
+- assertNotVisible:
+    id: "legal-consent-privacy"
+    above:
+      text: "Need support now.*"
+- assertVisible:
+    id: "legal-consent-tos"
+    above:
+      text: "Need support now.*"
+
 # ── Age: turn the DOB wheel ───────────────────────────────────────────────────────────
 # @react-native-picker/picker renders an inline UIPickerView. It is opaque to the
 # accessibility tree — one anonymous child, no row nodes — so there is nothing to tap and
@@ -219,6 +241,11 @@ name: "Legal gate: Art. 9 consent is refusable (FEAT-470 contract)"
 #
 # `optional: true` on the in-loop tap is load-bearing: without it a not-yet-tappable
 # element aborts the whole loop on its first pass instead of letting the guard re-test.
+#
+# The taps use the helper's guarded form (INFRA-656): `above` the footer title, `point:`
+# on the matched element. At this offset every box is 48..232pt clear of the footer, so the
+# tap location is unchanged, but the sim gate now exercises the exact selector the
+# device-only helper depends on.
 - repeat:
     times: 3
     while:
@@ -227,6 +254,9 @@ name: "Legal gate: Art. 9 consent is refusable (FEAT-470 contract)"
     commands:
       - tapOn:
           id: "legal-consent-tos"
+          above:
+            text: "Need support now.*"
+          point: "50%, 50%"
           optional: true
       - waitForAnimationToEnd
 - assertVisible:
@@ -240,6 +270,9 @@ name: "Legal gate: Art. 9 consent is refusable (FEAT-470 contract)"
     commands:
       - tapOn:
           id: "legal-consent-privacy"
+          above:
+            text: "Need support now.*"
+          point: "50%, 50%"
           optional: true
       - waitForAnimationToEnd
 - assertVisible:
@@ -258,6 +291,9 @@ name: "Legal gate: Art. 9 consent is refusable (FEAT-470 contract)"
     commands:
       - tapOn:
           id: "legal-consent-wellness"
+          above:
+            text: "Need support now.*"
+          point: "50%, 50%"
           optional: true
       - waitForAnimationToEnd
 - assertVisible:
