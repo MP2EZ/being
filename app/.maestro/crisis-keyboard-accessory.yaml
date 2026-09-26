@@ -73,9 +73,9 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 #      The simulator reproduces the layout; it does not reproduce the window server.
 #   2. It is the only on-hardware traversal of the NON-SEEDED LegalGate + onboarding path —
 #      the state a real install starts from — via `_legal-and-onboarding.yaml`, whose other
-#      callers (`crisis-988-dial.yaml`, `breathing-fps-budget.yaml`) are device-class too, and
-#      which carries INFRA-494's recorded, deliberately-unfixed clipped-`legal-gate-continue`
-#      hazard.
+#      callers (`crisis-988-dial.yaml`, `breathing-fps-budget.yaml`) are device-class too.
+#      Its Continue tap (INFRA-494) and its four consent taps (INFRA-656) are kept clear of
+#      the pinned 988 footer by derivation, because no device flow can run (DEBUG-589).
 # Keep the tag. Keep it out of `npm run e2e:safety`.
 #
 # On a real device, run:

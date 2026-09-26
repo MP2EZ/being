@@ -47,9 +47,9 @@ name: "Guidance caps the ladder at Tier 1 for a gentle-band reader"
 # This block first said the opposite, citing DEBUG-465: that XCUITest retains elements
 # outside a ScrollView's clip, so `assertNotVisible: guidance-tier2` at offset 0 would be
 # a real claim about whether the tier RENDERED. That dropped the qualifier the rest of
-# this suite states correctly — `_legal-and-onboarding.yaml:106` says "outside a
-# ScrollView's clip BUT STILL ON SCREEN". The retention is bounded by the SCREEN, not by
-# the clip, and Tier 2/3 sit far below it.
+# this suite states correctly — `legal-gate-art9-optional.yaml`'s header: XCUITest drops
+# elements outside the SCREEN and keeps those merely outside a ScrollView's CLIP. The
+# retention is bounded by the SCREEN, not by the clip, and Tier 2/3 sit far below it.
 #
 # MEASURED on the gate sim with the tier gate forced open, so Tier 2/3 really did render:
 #     at scroll offset 0   guidance-tier2: ABSENT   guidance-tier0/1: present
