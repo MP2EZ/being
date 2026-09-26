@@ -33,6 +33,61 @@
       "text": "I will set sail unless anything happens to prevent me, I shall be praetor, if nothing hinders me, my financial operations will succeed, unless anything goes wrong with them. This is why we say that nothing befals the wise man which he did not expect—we do not make him exempt from the chances of human life, but from its mistakes, nor does everything happen to him as he wished it would, but as he thought it would: now his first thought was that his purpose might meet with some resistance, and the pain of disappointed wishes must affect a man's mind less severely if he has not been at all events confident of success.",
       "context": "Seneca gives the reserve clause in its plainest form — three ordinary plans, each qualified — and draws the consequence: the wise man is not exempt from chance, only from surprise.",
       "order": 3
+    },
+    {
+      "id": "epictetus-discourses-1-1",
+      "principle": "sphere-sovereignty",
+      "author": "Epictetus",
+      "work": "Discourses",
+      "citation": "Discourses 1.1",
+      "translation": "Elizabeth Carter",
+      "text": "But now, when it is in our Power to take Care of one Thing, and to apply to one, we chuse rather to take Care of many, and to incumber ourselves with many; Body, Property, Brother, Friend, Child, and Slave; and, by this Multiplicity of Incumbrances, we are burdened and weighed down. Thus, when the Weather doth not happen to be fair for sailing, we sit screwing ourselves, and perpetually looking out.——Which Way is the Wind?——North.——What have we to do with that?——When will the West blow?——When itself, Friend, or Æolus pleases; for Jupiter has not made You Dispenser of the Winds, but Æolus. What then is to be done? To make the best of what is in our Power, and take the rest as it naturally happens.",
+      "context": "Screwing, in Carter's English, means fretting. Epictetus is not telling us to stop caring for brother, friend or child; elsewhere he insists on the duties each relation carries. The burden is resting our peace on all of them at once. The remedy is engagement, not withdrawal: do our best with what is ours, and leave the wind to Æolus.",
+      "order": 4
+    },
+    {
+      "id": "epictetus-discourses-2-5",
+      "principle": "sphere-sovereignty",
+      "author": "Epictetus",
+      "work": "Discourses",
+      "citation": "Discourses 2.5",
+      "translation": "Elizabeth Carter",
+      "text": "The Materials of Action are indifferent: but the Use of them is not indifferent. How, then, shall one preserve Intrepidity and Tranquillity; and at the same time be careful, and neither rash, nor indolent. By imitating those who play at Tables. The Dice are indifferent; the Pieces are indifferent. How do I know what will fall out? But it is my Business, to manage carefully and dextrously whatever doth fall out. Thus in Life too, this is the chief Business: distinguish, and separate Things; and say, \"Externals are not in my Power; Choice is. Where shall I seek Good and Evil? Within; in what is my own.\" But in what belongs to others, call nothing Good, or Evil, or Profit, or Hurt, or any thing of that Sort. What then, are we to treat these, in a careless Way? By no means: for this, on the other hand, is an evil Exercise of the Faculty of Choice; and on that account, against Nature. But we are to act with Care, because the Use of the Materials is not indifferent; and at the same time with Intrepidity and Tranquillity, because the Materials themselves are indifferent.",
+      "context": "Indifferent does not mean careless. In Stoic usage it means neither good nor bad in itself, not unimportant. Tables is a dice board game: the throw is not ours, the playing is, and Epictetus asks for care and calm at once. To play carelessly is, on his account, itself a misuse of choice.",
+      "order": 5
+    },
+    {
+      "id": "epictetus-discourses-2-13",
+      "principle": "sphere-sovereignty",
+      "author": "Epictetus",
+      "work": "Discourses",
+      "citation": "Discourses 2.13",
+      "translation": "Elizabeth Carter",
+      "text": "When I see any one solicitous, I say, What doth this Man mean? Unless he wanted something or other, not in his own Power, how could he still be solicitous? A Musician, for Instance, feels no Solicitude, while he is singing by himself: but when he appears upon the Stage he doth; even if his Voice be ever so good, or he plays ever so well. For what he wants is not only to sing well, but likewise to gain Applause. But this is not, in his own Power. In short, where his Skill lies, there is his Courage.",
+      "context": "Solicitude is Carter's word for anxiety, and the opening question is a diagnosis, not a rebuke. The musician is calm singing alone and trembles on stage, because now he wants the applause as well as the song. The cure is not to leave the stage but to want the singing, which is his. A lens for everyday nerves, not a verdict on anxiety that needs support.",
+      "order": 6
+    },
+    {
+      "id": "marcus-meditations-6-50",
+      "principle": "sphere-sovereignty",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 6.50",
+      "translation": "George Long",
+      "text": "Let us try to persuade them. But act even against their will, when the principles of justice lead that way. If however any man by using force stands in thy way, betake thyself to contentment and tranquillity, and at the same time employ the hindrance towards the exercise of some other virtue; and remember that thy attempt was with a reservation, that thou didst not desire to do impossibilities.",
+      "context": "Them means the people who disagree with us. Persuade first, then do what justice asks even without their agreement, holding the result with a reserve clause. The force here is someone blocking a just action, not harm done to you, and the effort turns to another virtue; it does not stop. Nothing here is a reason to endure harm rather than set limits or seek help.",
+      "order": 7
+    },
+    {
+      "id": "marcus-meditations-8-8",
+      "principle": "sphere-sovereignty",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 8.8",
+      "translation": "George Long",
+      "text": "Thou hast not leisure to read. But thou hast leisure to check arrogance: thou hast leisure to be superior to pleasure and pain: thou hast leisure to be superior to love of fame, and not to be vexed at stupid and ungrateful people, nay even to care for them.",
+      "context": "Marcus is kept from his books, yet the sphere of action is untouched: pride, temper, how we meet ingratitude. It ends on care, not distance, and superior to pain means not ruled by it, not numb to it.",
+      "order": 8
     }
   ]
 }
