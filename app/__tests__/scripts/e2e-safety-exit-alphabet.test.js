@@ -194,6 +194,9 @@ function runGate(sandbox, { flows = [], env = {} } = {}) {
       E2E_LOCK_INHERITED: '',
       E2E_SIM_UDID: '',
       E2E_DEVICE_UDID: '',
+      // INFRA-657: a receipt path inherited from an enclosing detached close would arm the
+      // missing-app recovery and change which exit the absent-app case reaches.
+      E2E_GATE_RECEIPT_PATH: '',
       ...env,
     },
   });

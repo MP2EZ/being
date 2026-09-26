@@ -261,6 +261,12 @@ e2e_lock_acquire() {
   # where it is stamped, below.
   local t0 wait_t0='' waited reclaimed=0 holder_pid='' holder_label='' forced=''
   E2E_LOCK_ACQUIRED_AT=''
+  # INFRA-657 — the first contender, published for a caller that must name contention
+  # (e2e-safety.sh's missing-app recovery). Correlation, not causation: it says who held the
+  # device while we waited, never who changed it. Reset per call so a stale value cannot leak.
+  E2E_LOCK_PRIOR_HOLDER_PID=''
+  E2E_LOCK_PRIOR_HOLDER_LABEL=''
+  E2E_LOCK_PRIOR_HOLDER_STATE=''
 
   # An empty key would collapse every resource onto a single lock path — the same "an empty
   # match string must never widen" rule INFRA-423 pins for the reaper.
@@ -368,6 +374,9 @@ e2e_lock_acquire() {
       if [ -z "$holder_pid" ] && [ -n "$pid" ]; then
         holder_pid="$pid"
         holder_label="$held"
+        E2E_LOCK_PRIOR_HOLDER_PID="$pid"
+        E2E_LOCK_PRIOR_HOLDER_LABEL="$held"
+        E2E_LOCK_PRIOR_HOLDER_STATE="$state"
       fi
       case "$state" in
         DEAD|RECYCLED)

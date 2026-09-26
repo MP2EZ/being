@@ -265,6 +265,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > measurement: 17 of 18 spans already overlap another session, median 14.5 min and worst 58.3,
 > so spanning would serialise every close on the machine to remove a failure that already
 > fails closed.
+>
+> **The same window can also leave the app uninstalled (INFRA-657).** There is then no marker
+> to attribute, so the arm above cannot fire. A detached close (`close:detached`) therefore
+> has `e2e-gate.sh` write a **gate receipt** to its run directory after `MATCH_CLEAN`, and
+> `e2e-safety.sh` rebuilds once if the app is missing, the simulator is still booted, and the
+> receipt names this tree and this simulator. The log says `CONTENTION`, names the lease holder
+> it waited on only as correlation (or says `not attributable`), and never claims a cause. The
+> rebuild shares one budget with the peer arm, so it can never loop. Attended `/b-close` and
+> hand runs name no receipt and keep exit 2 with the build instruction.
 
 > ⚠️ **The gate target is a Release build — `npm run ios` (Debug) will not do.**
 > The **configuration**, not the EAS profile, is what removes the dev launcher.

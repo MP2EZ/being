@@ -804,3 +804,28 @@ describe('every acquire records what it cost, so waits are a distribution not an
     expect(r.telemetry).toHaveLength(0);
   });
 });
+
+// --- INFRA-657: the first contender is published to the caller ----------------------
+// e2e-safety.sh's missing-app recovery names who held the device while it waited. The
+// value must come from THIS acquire, never a previous one.
+describe('INFRA-657 — e2e_lock_acquire publishes the first contender it observed', () => {
+  it('names a reclaimed stale holder, with its label and classified state', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra657-prior-'));
+    plantOwner(root, 'sim', UDID, { pid: 999001, start: START_A, comm: 'bash', label: 'DEBUG-650 @ abcd1234' });
+    const r = runHelper(
+      `e2e_lock_acquire "${UDID}" 1 && printf '%s|%s|%s' "$E2E_LOCK_PRIOR_HOLDER_PID" "$E2E_LOCK_PRIOR_HOLDER_LABEL" "$E2E_LOCK_PRIOR_HOLDER_STATE"`,
+      { table: psTable([]), lockRoot: root }
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('999001|DEBUG-650 @ abcd1234|DEAD');
+  });
+
+  it('is empty on an uncontended acquire, even if a stale value was already set', () => {
+    const r = runHelper(
+      `E2E_LOCK_PRIOR_HOLDER_PID=stale; E2E_LOCK_PRIOR_HOLDER_LABEL=stale; e2e_lock_acquire "${UDID}" 1 && printf '[%s][%s]' "$E2E_LOCK_PRIOR_HOLDER_PID" "$E2E_LOCK_PRIOR_HOLDER_LABEL"`,
+      { table: psTable([]) }
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('[][]');
+  });
+});

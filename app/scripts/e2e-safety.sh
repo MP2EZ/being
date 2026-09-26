@@ -457,6 +457,80 @@ if [ -n "$SIM_UDID" ]; then
   trap 'e2e_lock_release "$SIM_UDID"' EXIT INT TERM
 fi
 
+# Defined up here, not inside the pre-flight below, because the INFRA-657 arm just after
+# needs both. The DEBUG-505 table of who calls preflight_fail stays with the pre-flight.
+preflight_fail() {
+  echo "❌ e2e:safety pre-flight — $1" >&2
+  echo "   Rebuild the gate target: npm run e2e:safety:build" >&2
+  exit 2
+}
+# The ONE automatic rebuild (INFRA-484, reused by INFRA-657). The simulator lease is already
+# ours and is held across it, so the child must INHERIT it rather than contend — or it would
+# wait out E2E_LOCK_TIMEOUT against its own parent. APPEND rather than assign: under an
+# enclosing e2e-gate.sh we are not the recorded owner, and dropping its token would strand
+# the child. The caller re-resolves the container afterwards; a fresh install mints a new UUID.
+e2e_auto_regate_build() {
+  E2E_LOCK_INHERITED="${E2E_LOCK_INHERITED:-} sim:${SIM_UDID}:$$"
+  export E2E_LOCK_INHERITED
+  if ! bash scripts/e2e-sim-build.sh; then
+    preflight_fail "the automatic rebuild FAILED after $1. Its output is above. Rebuild by hand: npm run e2e:safety:build"
+  fi
+}
+# One rebuild per INVOCATION, shared by both recovery arms. Initialised here rather than in
+# the provenance loop, because a counter reset there would let absent -> rebuild -> PEER
+# mismatch spend a second rebuild.
+PROVENANCE_REGATED=0
+AUTO_REGATE_CAUSE=""
+
+# INFRA-657 — the app is ABSENT although this run's own gate verified this tree on this
+# simulator moments ago. That is contention (a peer's build or clearState uninstalled it in
+# the per-invocation gap between our gate and our flows), not a never-built target, so it
+# earns the same single rebuild a peer-attributed mismatch does. The evidence is the gate's
+# receipt, which lives outside the container precisely because the marker left with the app.
+# Only a caller that names the receipt (b-close-run.sh) opts in; with no receipt, or one that
+# does not qualify, the pre-flight below runs unchanged and exits 2 with the build instruction.
+if [ "$DEVICE_ONLY" != "1" ] && [ -n "${SIM_UDID:-}" ] && [ -n "${E2E_GATE_RECEIPT_PATH:-}" ] \
+   && ! { _i657_app="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)" \
+          && [ -d "$_i657_app" ]; }; then
+  # Absent vs lookup-failed, with the probe the mid-suite watch uses: a lookup fault says
+  # nothing about the binary and must never be logged as contention or rebuilt over.
+  # e2e_booted_devices prints `udid<TAB>name`, so match the UDID column, never the line.
+  if _i657_booted="$(e2e_booted_devices 2>/dev/null)" \
+     && [ -n "$(e2e_match_booted_udid "$SIM_UDID" "$_i657_booted")" ]; then
+    _i657_state="$(node scripts/e2e-provenance.js gated "$E2E_GATE_RECEIPT_PATH" --sim "$SIM_UDID" 2>/dev/null || true)"
+  else
+    _i657_state="NONE lookup-failed"
+  fi
+  case "${E2E_NO_AUTO_REGATE:-0}" in
+    ''|0|false|no) ;;
+    *) case "$_i657_state" in GATED\ *) _i657_state="NONE E2E_NO_AUTO_REGATE-set" ;; esac ;;
+  esac
+  case "$_i657_state" in
+    GATED\ *)
+      read -r _ _i657_build _i657_at _i657_gate <<< "$_i657_state"
+      echo ""
+      echo "🔁 CONTENTION: $BUNDLE_ID is not installed on $SIM_UDID, although this run's gate"
+      echo "   verified this tree on it at $_i657_at (build $_i657_build)."
+      echo "   OBSERVED: the app was removed after that; the cause is not observable from here."
+      if [ -n "${E2E_LOCK_PRIOR_HOLDER_PID:-}" ] && [ "$E2E_LOCK_PRIOR_HOLDER_PID" != "$_i657_gate" ]; then
+        echo "   This run's simulator lease first waited on pid $E2E_LOCK_PRIOR_HOLDER_PID" \
+             "(${E2E_LOCK_PRIOR_HOLDER_LABEL:-unlabelled}, ${E2E_LOCK_PRIOR_HOLDER_STATE:-unknown}) — correlation, not cause."
+      else
+        echo "   Prior holder: not attributable (this run's lease acquire waited on nobody)."
+      fi
+      echo "   Rebuilding once, then continuing. ~90s warm; a cold DerivedData cache can"
+      echo "   reach 21m31s. Set E2E_NO_AUTO_REGATE=1 to refuse instead."
+      echo ""
+      PROVENANCE_REGATED=1
+      AUTO_REGATE_CAUSE="absent-app"
+      e2e_auto_regate_build "the gate target went missing"
+      ;;
+    *)
+      echo "ℹ️  gate receipt did not qualify for automatic recovery (${_i657_state#NONE })." >&2
+      ;;
+  esac
+fi
+
 if [ "$DEVICE_ONLY" = "1" ]; then
   # The target is now RESOLVED and PINNED, so this no longer says "skipping the pre-flight"
   # wholesale — that conflated two separable claims and only one of them is still true.
@@ -494,14 +568,12 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
   #   marker verified then reads empty                 2        and explicitly NOT 3: 3 means
   #                                                             COMPLETED flows are VOID, and
   #                                                             here zero completed
+  #   an automatic rebuild failed, or did not converge 2        no flow ran; the recovery is
+  #   (INFRA-484 peer arm, INFRA-657 missing-app arm)            the gate's, not the branch's
   #
   # Deliberately NOT parameterised with an exit code. No caller wants a different one, and
-  # the parameter would invite a future 1 back into this file.
-  preflight_fail() {
-    echo "❌ e2e:safety pre-flight — $1" >&2
-    echo "   Rebuild the gate target: npm run e2e:safety:build" >&2
-    exit 2
-  }
+  # the parameter would invite a future 1 back into this file. (preflight_fail itself is
+  # defined above the INFRA-657 arm, which also calls it.)
   [ -f "$APP/main.jsbundle" ] \
     || preflight_fail "the installed app has no main.jsbundle — it is a Debug/dev-client build, not the Release gate target"
   if otool -L "$APP/Being" 2>/dev/null | grep -qiE 'EXDevLauncher|EXDevMenu|expo-dev-'; then
@@ -536,7 +608,8 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
   # refusal is still a refusal, and the recovery is reachable only from the `*)` arm. The
   # body keeps its original indentation on purpose, so the diff that added this loop shows
   # the loop rather than a re-indent of forty lines of load-bearing commentary.
-  PROVENANCE_REGATED=0
+  # PROVENANCE_REGATED is initialised ABOVE the INFRA-657 arm, never here: both recovery
+  # arms share one rebuild per invocation, and a reset here would grant a second.
   while :; do
   VERDICT="$(node scripts/e2e-provenance.js verify "$APP" 2>/dev/null)" || true
   case "$VERDICT" in
@@ -598,6 +671,7 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
           esac
 
           PROVENANCE_REGATED=1
+          AUTO_REGATE_CAUSE="peer-mismatch"
           echo ""
           echo "🔁 the gate target now carries a marker from a different tree:"
           echo "   ${REGATE_ATTRIB#PEER }"
@@ -609,17 +683,8 @@ elif APP="$(xcrun simctl get_app_container "$SIM_UDID" "$BUNDLE_ID" 2>/dev/null)
           echo "   E2E_NO_AUTO_REGATE=1 to refuse instead."
           echo ""
 
-          # The simulator lease is ALREADY ours and is held across the rebuild — that is
-          # what makes this safe to automate. The child's own `e2e_lock_acquire "gate build"`
-          # must inherit it rather than contend, or it would wait out E2E_LOCK_TIMEOUT
-          # against its own parent. APPEND rather than assign: under an enclosing e2e-gate.sh
-          # we are not the recorded owner, and dropping its token would strand the child.
-          E2E_LOCK_INHERITED="${E2E_LOCK_INHERITED:-} sim:${SIM_UDID}:$$"
-          export E2E_LOCK_INHERITED
-
-          if ! bash scripts/e2e-sim-build.sh; then
-            preflight_fail "the automatic rebuild FAILED after a peer replaced the gate target. Its output is above. Rebuild by hand: npm run e2e:safety:build"
-          fi
+          # Lease inheritance and the failure refusal live in the shared helper above.
+          e2e_auto_regate_build "a peer replaced the gate target"
 
           # Re-resolve, never reuse. A fresh install mints a NEW container UUID, so the
           # path captured before the rebuild names the directory the peer's binary was in.
@@ -1474,6 +1539,8 @@ SUITE_RECEIPT="${E2E_RECEIPT_PATH:-${SUITE_RECEIPT_DIR%/}/e2e-safety-receipt-$(d
   echo "host_at_start:   ${HOST_FACTS:-unknown}"
   echo "flows_ran:       ${ran} of ${FLOW_TOTAL}"
   echo "target_replaced: ${GATE_TARGET_REPLACED}"
+  # INFRA-484/657 — a durable record that this run rebuilt its own target, and why.
+  echo "auto_regate:     ${AUTO_REGATE_CAUSE:-none}"
   # INFRA-493 — the machine-readable verdict /b-close routes on. CERTIFIED means every
   # flow that ran certified its declared target; it is NOT a synonym for green. A flow can
   # be red and certifying (a real regression on the right device), and green and
