@@ -71,6 +71,57 @@ export interface LegalGateConsents {
   version: string;
 }
 
+/**
+ * In-memory mirror of the legal-gate record (FEAT-664) — the synchronous read that
+ * `decideWellnessWrite` needs for the `missing` window, where onboarding runs
+ * PHQ-9/GAD-7 before `grantConsent` has written a ConsentRecord.
+ *
+ * Module scope, NEVER zustand state (crisis ruling): CleanRootNavigator subscribes
+ * to the whole store with no selector and hosts RootCrisisButton, so a `set()`
+ * from hydration would be a new render trigger on the crisis host. Deliberately
+ * unexported — only the write-through, the boot hydration and `resetConsent` may
+ * move it.
+ */
+let legalGateMirror: LegalGateConsents | null = null;
+/** Bumped on every mirror write, so a slow hydration read cannot overwrite a newer value. */
+let legalGateMirrorGeneration = 0;
+/**
+ * Set once this process has written the record through. `recordLegalGateConsents`
+ * is the key's only writer and `resetConsent` its only deleter, so from then on
+ * disk can only be the same or older — and a null read is far likelier a
+ * transient Keychain fault (DEBUG-382) than a real absence.
+ */
+let legalGateMirrorWrittenThrough = false;
+
+const setLegalGateMirror = (record: LegalGateConsents | null): void => {
+  legalGateMirror = record;
+  legalGateMirrorGeneration += 1;
+};
+
+/**
+ * Refresh the mirror from SecureStore. Fired from `loadConsent`, never awaited:
+ * `loadConsent` sits on the cold-launch path under LoadingScreen, whose only 988
+ * affordance is Static988Button, and nothing bounds it — so a hung Keychain read
+ * here must not be able to hold that screen (DEBUG-559 class).
+ *
+ * Seeds the mirror only until the first write-through (compliance, revised ruling
+ * D). Before that, a null read clears it, so a corrupt or absent record at boot
+ * vouches for nothing. After it, hydration is a no-op: a transient read failure
+ * on one of `loadConsent`'s repeat calls must not discard a real gate pass and
+ * start dropping onboarding screenings. Never rejects.
+ */
+async function hydrateLegalGateMirror(): Promise<void> {
+  const generation = legalGateMirrorGeneration;
+  try {
+    const record = await getLegalGateConsents();
+    if (generation === legalGateMirrorGeneration && !legalGateMirrorWrittenThrough) {
+      setLegalGateMirror(record);
+    }
+  } catch {
+    // `getLegalGateConsents` catches its own read faults; this covers its logger.
+  }
+}
+
 export const recordLegalGateConsents = async (
   consents: Omit<LegalGateConsents, 'timestamp' | 'version'>,
 ): Promise<void> => {
@@ -80,6 +131,9 @@ export const recordLegalGateConsents = async (
     version: CONSENT_VERSION,
   };
   await SecureStore.setItemAsync(LEGAL_GATE_CONSENTS_KEY, JSON.stringify(record));
+  // Only after the write resolves: a failed write must never widen permission.
+  setLegalGateMirror(record);
+  legalGateMirrorWrittenThrough = true;
 };
 
 /**
@@ -920,6 +974,9 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
    * Load consent from SecureStore
    */
   loadConsent: async () => {
+    // FEAT-664: before the first await, so every branch (catch included) refreshes
+    // the legal-gate mirror. Fire-and-forget — see hydrateLegalGateMirror.
+    void hydrateLegalGateMirror();
     set({ isLoading: true, error: null });
 
     try {
@@ -1745,6 +1802,8 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
    * Reset consent (for testing/development)
    */
   resetConsent: async () => {
+    setLegalGateMirror(null);
+    legalGateMirrorWrittenThrough = false;
     try {
       await SecureStore.deleteItemAsync(CONSENT_SECURE_KEY);
       await SecureStore.deleteItemAsync(AGE_VERIFICATION_KEY);
@@ -1790,6 +1849,141 @@ export const canPerformCrisisIntervention = (): boolean => {
   // Emergency override - crisis access ALWAYS allowed
   // This is a Privacy vital interests exception
   return true;
+};
+
+/**
+ * How old a legal-gate record may be and still vouch for a write while the status is
+ * `missing` (compliance, 2026-09-26). The gate re-records on every pass and a
+ * relaunch mid-onboarding routes back through it, so this only has to span one
+ * foreground run from the gate to `grantConsent` at the privacy step. Anything
+ * looser lets an old record keep permitting writes for a user whose
+ * `grantConsent` failed, or on a device after erasure (the record is
+ * erasure-excluded).
+ */
+export const MISSING_CONSENT_MIRROR_BOUND_MS = 30 * 60 * 1000;
+
+export type WellnessWriteBlockReason = 'refused' | 'revoked' | 'under_age' | 'missing' | 'loading';
+
+export type WellnessWriteDecision =
+  | { allowed: true }
+  | { allowed: false; reason: WellnessWriteBlockReason };
+
+/** Breadcrumb keys already logged this process: once each, never per write. */
+const loggedWellnessWriteBreadcrumbs = new Set<string>();
+
+/**
+ * Content-free breadcrumb, at most once per key per process. The key is added
+ * BEFORE the call so a throwing logger is not retried on every write, and the
+ * call is caught so a logger fault can never change a verdict (crisis ruling).
+ */
+function logWellnessWriteBreadcrumb(
+  key: string,
+  severity: 'low' | 'high',
+  event: string,
+  context: { result: 'success' | 'failure'; reason: string; cause?: string },
+): void {
+  if (loggedWellnessWriteBreadcrumbs.has(key)) return;
+  loggedWellnessWriteBreadcrumbs.add(key);
+  try {
+    logSecurity(event, severity, {
+      component: 'consentStore',
+      action: 'decideWellnessWrite',
+      ...context,
+    });
+  } catch {
+    // Swallowed: the verdict is already decided.
+  }
+}
+
+/** The `missing` window: only an in-bound, current-version legal-gate record decides. */
+function decideFromLegalGateMirror(): WellnessWriteDecision {
+  const record = legalGateMirror;
+  if (!record || record.version !== CONSENT_VERSION) return { allowed: false, reason: 'missing' };
+  const age = Date.now() - record.timestamp;
+  // A future timestamp is outside the bound: a clock that moved back cannot vouch
+  // for freshness.
+  if (age < 0 || age > MISSING_CONSENT_MIRROR_BOUND_MS) return { allowed: false, reason: 'missing' };
+  return record.mentalHealthProcessingConsent
+    ? { allowed: true }
+    : { allowed: false, reason: 'refused' };
+}
+
+/**
+ * May wellness data be WRITTEN right now? (FEAT-664, GDPR Art. 9(2)(a))
+ *
+ * The one reading of the user's Art. 9 choice for every storage write (FEAT-318
+ * slices A2, B, C). Gate the WRITE with it, never the capture: Q9 detection,
+ * `handleCrisisDetection` and the journal's `scanOnSave` must keep running for a
+ * user who refused. Nothing crisis-owned may import it — pinned by
+ * `wellnessWriteConsentBoundary.test.ts`.
+ *
+ * Deliberately NOT `canPerformOperation('mental_health_processing')`, which fails
+ * closed on every status but `valid` — the store boots at `loading`, and
+ * onboarding writes screenings while the status is still `missing`.
+ *
+ * Disposition (founder-approved 2026-08-08):
+ *   valid            → the cached Art. 9 choice (`refused` when false)
+ *   revoked / under_age / loading → blocked
+ *   version_mismatch / expired / integrity_error → allowed, with a breadcrumb
+ *   missing          → the legal-gate mirror (see decideFromLegalGateMirror)
+ *
+ * Synchronous, zero I/O, never throws. An evaluation fault FAILS OPEN — blocking
+ * would silently discard what the user just entered.
+ */
+export const decideWellnessWrite = (): WellnessWriteDecision => {
+  let decision: WellnessWriteDecision;
+  let passedStatus: ConsentStatus | null = null;
+  try {
+    const { consentStatus, consentCache } = useConsentStore.getState();
+    switch (consentStatus) {
+      case 'valid':
+        decision = consentCache.canProcessMentalHealthData
+          ? { allowed: true }
+          : { allowed: false, reason: 'refused' };
+        break;
+      case 'revoked':
+      case 'under_age':
+      case 'loading':
+        decision = { allowed: false, reason: consentStatus };
+        break;
+      case 'version_mismatch':
+      case 'expired':
+      case 'integrity_error':
+        decision = { allowed: true };
+        passedStatus = consentStatus;
+        break;
+      case 'missing':
+        decision = decideFromLegalGateMirror();
+        break;
+      default: {
+        // A new ConsentStatus must be given a disposition here before it compiles.
+        const unhandled: never = consentStatus;
+        throw new Error(`unhandled consent status: ${String(unhandled)}`);
+      }
+    }
+  } catch (error) {
+    logWellnessWriteBreadcrumb(
+      'evaluation_threw',
+      'high',
+      'wellness-write consent could not be evaluated — failing open',
+      {
+        result: 'failure',
+        reason: 'evaluation_threw',
+        cause: error instanceof Error ? error.name : 'unknown',
+      },
+    );
+    return { allowed: true };
+  }
+
+  if (passedStatus) {
+    logWellnessWriteBreadcrumb(
+      passedStatus,
+      'low',
+      'wellness write allowed on a non-valid consent status',
+      { result: 'success', reason: passedStatus },
+    );
+  }
+  return decision;
 };
 
 /**

@@ -95,6 +95,7 @@
   "src/core/stores/__tests__/reConsent.privacy.test.ts": 1,
   "src/core/stores/__tests__/settingsStore.test.ts": 1,
   "src/core/stores/__tests__/subscriptionStore.test.ts": 1,
+  "src/core/stores/__tests__/wellnessWriteConsent.privacy.test.ts": 1,
   "src/core/stores/consentStore.ts": 5,
   "src/core/stores/subscriptionStore.ts": 2,
   "src/core/theme/__tests__/black-call-sites.accessibility.test.ts": 1,
