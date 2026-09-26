@@ -273,7 +273,8 @@ describe('classical corpus provenance (DEBUG-352)', () => {
    * outright fails four of five principles today, and a gate that cannot go green
    * is the shape that trains people to bypass gates. So the existing violations are
    * DECLARED below and may not worsen; anything not declared must comply. The debt
-   * is discharged by FEAT-569, which owns the content.
+   * is discharged by FEAT-581's per-principle slices, which own the content —
+   * FEAT-569 was scoped down to framing and moved no count.
    *
    * Rules (a) and (c) apply only at 4+ passages: below that the ratios are too
    * coarse to be meaningful — a 3-passage principle cannot have a work supply
@@ -288,12 +289,12 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       'passages-5-interconnected-living.json',
     ];
 
-    /** Declared, dischargeable debt — each entry is owed by FEAT-569. */
+    /** Declared, dischargeable debt — each entry is owed by the FEAT-581 slice named. */
     const BALANCE_DEBT: Readonly<Record<string, readonly string[]>> = {
-      'passages-1-aware-presence.json': ['Seneca'],
-      'passages-2-radical-acceptance.json': ['Seneca'],
-      'passages-4-virtuous-response.json': ['Epictetus'],
-      'passages-5-interconnected-living.json': ['Epictetus', 'Seneca'],
+      'passages-1-aware-presence.json': ['Seneca'], // FEAT-660
+      'passages-2-radical-acceptance.json': ['Seneca'], // FEAT-661
+      'passages-4-virtuous-response.json': ['Epictetus'], // FEAT-662
+      'passages-5-interconnected-living.json': ['Epictetus', 'Seneca'], // FEAT-663
     };
 
     const REQUIRED = ['Epictetus', 'Seneca'] as const;
@@ -578,6 +579,98 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       // Every passage carries a non-empty work key, so the field scan reads a
       // real value rather than a uniformly `undefined` one.
       expect(allPassages().every((p) => typeof p.work === 'string' && p.work.length > 0)).toBe(true);
+    });
+  });
+
+  /**
+   * THE OPENING TEST (FEAT-581, founder decision).
+   *
+   * `ClassicalLibraryScreen` previews `text` at two lines, under the principle
+   * label, with no `context` beside it — so as the corpus grows the opening IS
+   * the browse surface, and a trap stated there is read as the principle's own
+   * endorsement. Rule: a passage's first ~90 characters, read alone under its
+   * principle label, must not state that principle's trap. A failing locus gets
+   * an excerpt with a safe opening, or is rejected. Putting `context` on the row
+   * was considered and refused: a corrective cut at two lines stops mid-pivot.
+   *
+   * Whether an opening states a trap is a judgement, not a regex, so this is a
+   * RATCHET over recorded rulings, the shape BALANCE_DEBT established. Each
+   * opening below was read by `philosopher` at FEAT-581; a new passage, or an
+   * edited opening, fails here until someone reads it and records it.
+   */
+  describe('every opening has been read under its label (FEAT-581)', () => {
+    const OPENING_CHARS = 90;
+
+    const REVIEWED_OPENINGS: Readonly<Record<string, string>> = {
+      'marcus-meditations-8-36':
+        'Do not disturb thyself by thinking of the whole of thy life. Let not thy thoughts at once ',
+      'marcus-meditations-7-29':
+        'Wipe out the imagination. Stop the pulling of the strings. Confine thyself to the present.',
+      'epictetus-enchiridion-5':
+        'Men are disturbed, not by Things, but by the Principles and Notions, which they form conce',
+      'marcus-meditations-4-23':
+        'Everything harmonizes with me, which is harmonious to thee, O Universe. Nothing for me is ',
+      'epictetus-enchiridion-8':
+        'Require not Things to happen as you wish; but wish them to happen as they do happen; and y',
+      'epictetus-enchiridion-1':
+        'Of Things, some are in our Power, and others not. In our Power are Opinion, Pursuit, Desir',
+      'epictetus-enchiridion-2':
+        'Remember that Desire promises the Attainment of that of which you are desirous; and Aversi',
+      'seneca-on-tranquility-13':
+        'I will set sail unless anything happens to prevent me, I shall be praetor, if nothing hind',
+      'marcus-meditations-5-20':
+        'In one respect man is the nearest thing to me, so far as I must do good to men and endure ',
+      'marcus-meditations-10-16':
+        'No longer talk at all about the kind of man that a good man ought to be, but be such.',
+      'seneca-letters-13':
+        'There are more things, Lucilius, likely to frighten us than there are to crush us; we suff',
+      'seneca-letters-107':
+        'Lead me, O Master of the lofty heavens, My Father, whithersoever thou shalt wish. I shall ',
+      'marcus-meditations-2-1':
+        'Begin the morning by saying to thyself, I shall meet with the busybody, the ungrateful, ar',
+      'marcus-meditations-4-4':
+        'If our intellectual part is common, the reason also, in respect of which we are rational b',
+      'marcus-meditations-7-13':
+        'Just as it is with the members in those bodies which are united in one, so it is with rati',
+    };
+
+    /**
+     * Openings read and FAILED, declared rather than silently passed. 10.6 opens
+     * "Whatever may happen to thee, it was prepared for thee from all eternity"
+     * under Radical Acceptance — the fatalist reading, in the preview, with the
+     * FEAT-569 corrective one tap away. Retired for Meditations 4.49 by FEAT-661.
+     */
+    const OPENING_DEBT: Readonly<Record<string, string>> = {
+      'marcus-meditations-10-6': 'FEAT-661',
+    };
+
+    it('every opening is recorded as read, or declared as failing', () => {
+      const unread = allPassages()
+        .filter((p) => !(p.id in OPENING_DEBT))
+        .filter((p) => REVIEWED_OPENINGS[p.id] !== p.text.slice(0, OPENING_CHARS))
+        .map(({ file, id, text }) => `${file}:${id} — "${text.slice(0, OPENING_CHARS)}"`);
+
+      expect(unread).toEqual([]);
+    });
+
+    it('no recorded opening or declared failure is stale', () => {
+      // A retired passage must take its entry with it — otherwise the id is
+      // pre-cleared for whatever text lands under it next.
+      const ids = new Set(allPassages().map((p) => p.id));
+      const stale = [...Object.keys(REVIEWED_OPENINGS), ...Object.keys(OPENING_DEBT)].filter((id) => !ids.has(id));
+      expect(stale).toEqual([]);
+      // A declared failure that is also recorded as read is a contradiction.
+      expect(Object.keys(OPENING_DEBT).filter((id) => id in REVIEWED_OPENINGS)).toEqual([]);
+    });
+
+    it('the ratchet reads real openings (DEBUG-390)', () => {
+      // Both checks above pass vacuously over an empty corpus or an empty record.
+      expect(allPassages().length).toBeGreaterThan(10);
+      expect(Object.keys(REVIEWED_OPENINGS).length).toBeGreaterThan(10);
+      // And the comparison genuinely discriminates: a one-character edit to a
+      // recorded opening must read as unrecorded.
+      const [id, opening] = Object.entries(REVIEWED_OPENINGS)[0];
+      expect(REVIEWED_OPENINGS[id] === `${opening.slice(0, -1)}x`).toBe(false);
     });
   });
 

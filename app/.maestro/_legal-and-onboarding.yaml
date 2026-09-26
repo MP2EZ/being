@@ -52,132 +52,262 @@ name: "Helper: traverse LegalGate + Onboarding"
       id: "legal-dob-picker"
     timeout: 30000
 
-# ── Step 1: LegalGate — date-of-birth picker (INFRA-179, INFRA-181) ─
-# @react-native-picker/picker renders inline UIPickerView on iOS. Wheel
-# items aren't tappable as text in the accessibility tree, so swiping is
-# the only option. Years are sorted descending (newest first) — see
-# CombinedLegalGateScreen.tsx:69 `currentYear - i`. Placeholder (value=null)
-# at index 0. The specific year doesn't matter as long as it's ≥18.
+# ── Step 1: LegalGate — date-of-birth picker (INFRA-179, INFRA-181, INFRA-656) ─
+# @react-native-picker/picker renders an inline UIPickerView, opaque to the accessibility
+# tree (one anonymous child, no row nodes), so swiping is the only option. Years descend
+# from the current year with a null placeholder at index 0 (CombinedLegalGateScreen.tsx).
 #
-# INFRA-181: swipe coords must START AND END INSIDE the picker's y-range
-# (currently ~25%–48% of screen height — see bounds in hierarchy dump).
-# Earlier coords started at 70% (below the picker) so the parent ScrollView
-# claimed the gesture and the wheel never scrolled. Use the picker's id as
-# the swipe anchor so coords don't drift with layout changes.
-- tapOn:
-    id: "legal-dob-picker"
-- swipe:
-    from:
-      id: "legal-dob-picker"
-    direction: UP
-- swipe:
-    from:
-      id: "legal-dob-picker"
-    direction: UP
-- swipe:
-    from:
-      id: "legal-dob-picker"
-    direction: UP
-- swipe:
-    from:
-      id: "legal-dob-picker"
-    direction: UP
-- swipe:
-    from:
-      id: "legal-dob-picker"
-    direction: UP
-# Regression guard: fail fast if the wheel didn't actually scroll
-# (placeholder still visible = no year selected, Continue would stay
-# disabled and the downstream `assertVisible: text "Home"` failure
-# would take ~90s to surface).
+# THE ANCHOR IS THE TECHNIQUE — measured in `legal-gate-art9-optional.yaml`. Only
+# `swipe: from: { id: legal-dob-picker }` turns the wheel: a fixed-coordinate swipe with
+# both endpoints inside the picker scrolls the PAGE, and a point tap on a row does nothing.
+# The `tapOn: legal-dob-picker` that used to precede these swipes was therefore never a
+# focus step, just an unguarded touch-down at a point that moves with Dynamic Type, and
+# INFRA-656 removed it.
 #
-# INFRA-494: `assertNotVisible: "Select year..."` ALONE IS A FALSE GUARD, and it
-# passes in the failure case it was written to catch. The placeholder disappears
-# for two different reasons: the wheel turned (what we want), or the parent
-# ScrollView claimed the swipes and carried the picker off the top of the screen
-# with the placeholder still selected (what we fear). Both leave the placeholder
-# unmatched, so the guard greens either way.
+# ORIGIN CLEARANCE. Each swipe starts at the picker's centre. The helper text directly
+# BELOW the picker is asserted above the pinned footer's title first, so the picker ends
+# above that text and its centre is at least half the picker's height clear of the footer,
+# on any viewport. Picker swipes do not move the page (measured), and a gesture the page
+# steals carries content UP, away from the footer.
 #
-# Pairing it with `assertVisible: legal-dob-picker` discriminates, and does so in
-# the direction that can actually occur here: these swipes scroll the content UP,
-# so a stolen gesture carries the picker past the TOP of the screen, and XCUITest
-# DROPS elements outside the screen — the assert fails loudly. (It would NOT
-# discriminate for content pushed below the fold: XCUITest keeps elements that are
-# merely outside a ScrollView's clip but still on screen, which is the whole
-# INFRA-494 finding. Ordering matters: assert the picker is still there BEFORE
-# concluding anything from the placeholder's absence.)
+# THREE SWIPES, EACH SETTLED. Back-to-back, the wheel's deceleration drops the picker node
+# from the hierarchy (measured: the fifth of five failed "Element not found" against a
+# picker on screen). Each swipe advanced ten years at 375x667 (2017, 2007, 1997), so three
+# land ~29 years back — adult with an ~11-year margin, and far from the 100-entry list's
+# floor. An element-anchored UP swipe ends at 10% of screen height, so on a taller device
+# it is somewhat shorter and the margin smaller. Unmeasured on hardware: an under-18 year
+# routes to the under-age screen, where the first consent step below fails loudly on a
+# missing id, never silently.
+- assertVisible:
+    text: "We use your age only.*"
+    above:
+      text: "Need support now.*"
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- waitForAnimationToEnd
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- waitForAnimationToEnd
+- swipe:
+    from:
+      id: "legal-dob-picker"
+    direction: UP
+- waitForAnimationToEnd
+# Paired guard (INFRA-494). `assertNotVisible: "Select year..."` ALONE IS A FALSE GUARD:
+# the placeholder also vanishes when the page steals the swipes and carries the picker
+# off the top of the screen. Asserting the picker is still there FIRST discriminates,
+# because XCUITest drops what leaves the screen. The year assertion is the direct read:
+# iOS publishes the wheel's selected value as a `text` node.
 - assertVisible:
     id: "legal-dob-picker"
 - assertNotVisible:
     text: "Select year..."
+- assertVisible:
+    text: "[0-9]{4}"
 
-# Four consent checkboxes via testID. testIDs sit on the 24px indicator View,
-# NOT the outer Pressable (INFRA-181): the Pressable's bounding-box center
-# falls in the text region, where the inline `Linking.openURL` link substring
-# (e.g. "Terms of Service") would intercept the tap and navigate away.
-# Tapping the small indicator forces the touch into a link-free zone — the
-# parent Pressable still receives the event via RN tap propagation.
+# ── Step 1b: four consent checkboxes, every tap GUARDED against the crisis footer ────
+# INFRA-656 (crisis review). This helper runs only on physical iPhones, where
+# `canOpenURL('tel:')` is TRUE: a tap on `legal-gate-crisis-988` raises the system call
+# prompt for the live 988 line, and one on `legal-gate-crisis-text` opens Messages to
+# 741741. A mis-tap here is a harm to PREVENT, not a failure to detect, and it has to be
+# prevented by derivation because no Maestro can run this file (DEBUG-589).
 #
-# INFRA-494 (crisis review C7) — each tap is now VERIFIED, not assumed. Each `-check`
-# testID is on a glyph that renders only when its own consent state is true, so the id
-# existing IS the tick; `legalGateE2eOracle.safety.test.tsx` pins that it tracks state in
-# both directions, which is what makes a retry safe (a latching glyph would let a retry
-# silently untick a consent and still green).
+# testIDs sit on the 24pt indicator View, not the outer Pressable (INFRA-181): the
+# Pressable's centre falls in the label, whose inline `Linking.openURL` link would take the
+# tap. The indicator's centre is x ~60, INSIDE the 988 button's x 50..180, so only the
+# y axis can keep a tap clear, and on an unknown viewport y is unknown.
 #
-# This does NOT prevent a mis-tap, and must not be read as if it did — the checkbox
-# indicator's centre is x ~60, inside the 988 button's x 50..180, so a tap that lands in
-# the footer's y-band hits a crisis control squarely. What it does is BOUND one: the run
-# now reds at the box that missed, with the `Unable to Call` guard right after it, instead
-# of carrying a modal Alert forward into the Continue step. The positional fix — a
-# viewport-agnostic way to land these four taps in a helper that runs on unknown device
-# viewports — is deliberately NOT attempted here and is tracked separately; the clamp
-# theorem used at Continue below does not transfer to mid-content elements.
+# THE GUARD, and why it holds on any viewport and at any Dynamic Type size:
+#   D0  LegalGate is in RootCrisisButton's SUPPRESSED_ROUTES, so the footer's two buttons
+#       are the only crisis controls on this screen.
+#   D1  `above: X` keeps a candidate only if its TOP edge is strictly above X's top edge
+#       (Maestro 2.6.0 `Filters.above`). No anchor, or not above it: nothing matches and
+#       the `optional` tap never fires. The guard fails SAFE.
+#   D2  `point:` with a selector taps the SAME element the guard matched
+#       (Orchestra.tapOnElement → calculateElementRelativePoint). Without it,
+#       `Maestro.tap(UiElement)` settles, RE-RESOLVES the element through
+#       `ViewHierarchy.refreshElement` and taps bounds the guard never checked.
+#       `point:` is load-bearing, not styling.
+#   D3  The indicator is a fixed 24pt box, so a guarded tap lands at most 11pt below the
+#       footer title's top.
+#   D4  The footer is a column — the title, then the button row (988 first, wrapping
+#       downward) — so every crisis control's top is at least title top + title height + 8.
+#       A guarded tap therefore stays above every crisis control whenever the title has any
+#       height, at every viewport and type size.
+#   D5  The footer is a flex sibling OUTSIDE the ScrollView, so the anchor cannot move with
+#       the content between the match and the tap.
+# Never anchor `above:` on `legal-gate-crisis-988` itself: top-vs-top would admit a box
+# whose top is 1pt above the button's and put the tap ~11pt INSIDE it.
+#
+# POSITIONING is a separate concern: it only decides whether a tap lands ON the box or
+# harmlessly on the footer's padding. Each box is taken to its LANDING position (the element
+# structurally below it is above the footer title, so the whole box is inside the ScrollView)
+# by slow drags whose touch-down is itself a guarded, NON-interactive text node — a prompt or
+# a heading, never a checkbox and never the picker. No touch-down is a screen percentage, and
+# no scroll-percentage window is used (art9's 22..57% is a 375x667 constant). A box that
+# cannot be landed fails loudly at its landing assertion, before any tap. `waitForAnimationToEnd`
+# precedes every guarded tap: a rubber-band bounce moves content DOWN, toward the footer.
+#
+# THE ORACLE (INFRA-494, unchanged). Each `-check` testID renders only while its own consent
+# is true, and `legalGateE2eOracle.safety.test.tsx` pins that it tracks state both ways, so a
+# retry cannot silently untick a box. It proves a touch reached the RIGHT Pressable. It says
+# nothing about where a missed touch went: that is the guard's job, and `times: 3` is a cap
+# on attempts, never to be raised.
+#
+# PROVEN vs ASSUMED
+#   proven   D1, D2 — the pinned Maestro 2.6.0 bytecode (app/package.json
+#            `maestro.pinnedVersion`, enforced fail-closed by e2e-safety.sh)
+#   proven   D0, D3, D4, D5 and every text anchor below — pinned in CI by
+#            legalGateE2eOracle.safety.test.tsx and crisis-zero-988-windows.test.tsx
+#   proven   that the guard discriminates on the real screen: legal-gate-art9-optional.yaml
+#            asserts it EXCLUDES the box behind the footer and ADMITS the one above it
+#   assumed  that the drags land each box — liveness only, unmeasured at accessibility sizes
+#            and on any physical device; a miss reds at the landing assertion
+# RESIDUAL. Moving `maestro.pinnedVersion` invalidates D1 and D2, which must be re-derived.
+# LegalGate leaving SUPPRESSED_ROUTES invalidates D0: the FAB would be a third crisis
+# control this guard does not bound.
+
+# Reveal ToS if it is not yet above the footer title. Touch-down: the "What year were you
+# born?" prompt, which precedes the picker, so it is wholly inside the ScrollView whenever
+# the picker's top is above the title.
+- runFlow:
+    when:
+      notVisible:
+        id: "legal-consent-tos"
+        above:
+          text: "Need support now.*"
+    commands:
+      - swipe:
+          from:
+            text: "What year were you born.*"
+            above:
+              id: "legal-dob-picker"
+              above:
+                text: "Need support now.*"
+          direction: UP
+          duration: 1200
+      - waitForAnimationToEnd
+# Land the three required boxes. Touch-down: the "Required to continue" heading, which
+# precedes the ToS row, so it is wholly inside the ScrollView whenever ToS's top is above
+# the title. One slow drag carries the heading to ~10% of screen height and leaves all three
+# required boxes in the band together. Skipped when the band already holds them.
+- runFlow:
+    when:
+      notVisible:
+        id: "legal-consent-mh-processing"
+        above:
+          text: "Need support now.*"
+    commands:
+      - swipe:
+          from:
+            text: "Required to continue"
+            above:
+              id: "legal-consent-tos"
+              above:
+                text: "Need support now.*"
+          direction: UP
+          duration: 1200
+      - waitForAnimationToEnd
+- assertVisible:
+    id: "legal-consent-privacy"
+    above:
+      text: "Need support now.*"
 - repeat:
     times: 3
     while:
       notVisible:
         id: "legal-consent-tos-check"
     commands:
+      - waitForAnimationToEnd
       - tapOn:
           id: "legal-consent-tos"
+          above:
+            text: "Need support now.*"
+          point: "50%, 50%"
           optional: true
       - waitForAnimationToEnd
 - assertVisible:
     id: "legal-consent-tos-check"
+- assertVisible:
+    id: "legal-consent-wellness"
+    above:
+      text: "Need support now.*"
 - repeat:
     times: 3
     while:
       notVisible:
         id: "legal-consent-privacy-check"
     commands:
+      - waitForAnimationToEnd
       - tapOn:
           id: "legal-consent-privacy"
+          above:
+            text: "Need support now.*"
+          point: "50%, 50%"
           optional: true
       - waitForAnimationToEnd
 - assertVisible:
     id: "legal-consent-privacy-check"
+- assertVisible:
+    id: "legal-consent-mh-processing"
+    above:
+      text: "Need support now.*"
 - repeat:
     times: 3
     while:
       notVisible:
         id: "legal-consent-wellness-check"
     commands:
+      - waitForAnimationToEnd
       - tapOn:
           id: "legal-consent-wellness"
+          above:
+            text: "Need support now.*"
+          point: "50%, 50%"
           optional: true
       - waitForAnimationToEnd
 - assertVisible:
     id: "legal-consent-wellness-check"
-# Unlike `legal-gate-art9-optional.yaml`, this helper DOES tick the Art. 9 box: its job is
+# Land the Art. 9 box. Touch-down: the "Optional" heading, which precedes it. Unlike
+# `legal-gate-art9-optional.yaml`, this helper DOES tick the Art. 9 box: its job is
 # traversal, not FEAT-470's refusal contract.
+- runFlow:
+    when:
+      notVisible:
+        text: "This one is optional.*"
+        above:
+          text: "Need support now.*"
+    commands:
+      - swipe:
+          from:
+            text: "Optional"
+            above:
+              id: "legal-consent-mh-processing"
+              above:
+                text: "Need support now.*"
+          direction: UP
+          duration: 1200
+      - waitForAnimationToEnd
+- assertVisible:
+    text: "This one is optional.*"
+    above:
+      text: "Need support now.*"
 - repeat:
     times: 3
     while:
       notVisible:
         id: "legal-consent-mh-processing-check"
     commands:
+      - waitForAnimationToEnd
       - tapOn:
           id: "legal-consent-mh-processing"
+          above:
+            text: "Need support now.*"
+          point: "50%, 50%"
           optional: true
       - waitForAnimationToEnd
 - assertVisible:
@@ -218,6 +348,12 @@ name: "Helper: traverse LegalGate + Onboarding"
 # 65%→25% keeps both endpoints inside the ScrollView even at xxxLarge, where the footer
 # grows from ~114pt (top at 82.9% of a 667pt screen) to ~162pt (top at ~75.7%). A corridor
 # starting at 72% would eventually begin ON the footer and every swipe would be a no-op.
+# Recorded limit (INFRA-656, crisis review): beyond xxxLarge, at AX4/AX5 on a 667pt screen,
+# the 65% start is ESTIMATED to land on the footer — possibly on `legal-gate-crisis-988`.
+# That stays safe for a different reason, not by clearance: a 40%-of-screen flick releases
+# far outside a Pressable's retention rect, so no onPress fires. The flick is a no-op and
+# the `100%` assertion below reds. It is the one screen-percentage touch-down left in this
+# helper, kept because the clamp needs a flick and no element is guaranteed low enough.
 #
 # HONEST LIMIT, stated rather than implied. The technique is proven end-to-end on the
 # SIMULATOR at 375x667 by `legal-gate-art9-optional.yaml`. This helper's own invocation is
@@ -230,12 +366,13 @@ name: "Helper: traverse LegalGate + Onboarding"
 # residual is the flick COUNT, and the `100%` assertion below converts that from a silent
 # mis-tap into a loud, attributed failure.
 #
-# The two `Unable to (Call|Text)` guards below are attribution, not coverage. If a tap
-# lands on a footer control, `canOpenURL('tel:')` is unconditionally false on the
-# simulator (INFRA-184) so the manual-dial Alert appears — and it is MODAL, swallowing
-# every later tap. Unguarded, that surfaces ~90s later as "Home never appeared", pointing
-# at onboarding instead of at the stray tap. The first catches a miss from the consent
-# taps above, the second a miss by the Continue tap itself.
+# The two `Unable to (Call|Text)` guards below are SIMULATOR-ONLY attribution, and bound
+# nothing on the devices this helper actually runs on (corrected INFRA-656). On the
+# simulator `canOpenURL('tel:')` is unconditionally false (INFRA-184), so a stray footer tap
+# raises the modal manual-dial Alert and these lines name it instead of letting it surface
+# ~90s later as "Home never appeared". On a physical iPhone `canOpenURL` is TRUE: a stray
+# tap raises the system call prompt (988) or opens Messages (741741), and neither line can
+# match either. Prevention is the consent-tap guard above and the Continue clamp below.
 #
 # HONEST LIMIT on those two lines specifically: they are UNVERIFIED against a live Alert —
 # proving they can fire would mean deliberately tapping a 988 control, which no flow may
