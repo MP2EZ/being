@@ -887,14 +887,16 @@ the cases worth knowing why:
   still teaches one thing: the same site once failed in the Phase 2.5 gate by a *different*
   mechanism — the scroll stopped short
   with the card at `[24,463][351,666]` while Maestro logged `Visibility Percent: 1.0`,
-  because the ScrollView clip ends at y=583 and XCUITest keeps elements that are merely
+  because the ScrollView clip then ended at y=583 and XCUITest keeps elements that are merely
   clipped. That is DEBUG-465's shape, not this one, and `centerElement: true` is its fix.
   **Two different defects can wear the same red on one line of a flow** — check the bounds
   before choosing a remedy, and do not let a handful of green runs stand in for that.
   **The bottom-boundary immunity is also TYPE-SIZE-DEPENDENT (DEBUG-507).** At
   `extra-extra-extra-large` the card measures 279pt against 203pt, the DOWN scroll no longer
   terminates cleanly at the boundary, and the swallow reproduces on a last card too. (The
-  y=583 clip and these bounds predate DEBUG-562's tab-bar change; DEBUG-653 re-measures them.)
+  y=583 clip and these bounds predate DEBUG-562's tab-bar change. DEBUG-653 re-measured the
+  clip bottom at y=613 on 2026-09-25 — iPhone SE 3, 375x667, iOS 18.6; the stop-short card
+  bounds were not re-measured.)
 
 **Do not add `waitToSettleTimeoutMs` to a flow that is green** — and time is not the remedy
 anyway (probe C). In particular not to `crisis-button-reachability`: it is spent per swipe
@@ -986,7 +988,21 @@ population: the five depth-1 segments of `crisis-button-reachability` (app setti
 privacy, account, stoic, legal) scroll *without* `centerElement`, tap a card, then tap the
 FAB and assert `crisis-resources-screen` — which the Profile menu's own FAB satisfies, so a
 swallowed card tap still passes. A signature-3 candidate found alongside (Profile's last
-controls resting inside the FAB's hit rect since DEBUG-562) is DEBUG-653.
+controls resting inside the FAB's hit rect since DEBUG-562) was DEBUG-653. Measured at max
+scroll on iPhone SE 3, 375x667, iOS 18.6, 2026-09-25 — FAB `[331,523][375,567]`, exclusion
+rect x[303,375] y[491,595), clip bottom 613:
+
+| Screen | Control | Bounds | Outcome |
+|---|---|---|---|
+| Profile | Onboarding Setup footer (`profile-footer-onboarding`) | `[24,545][351,581]` | cleared — `marginLeft` + `marginRight` |
+| Profile | `profile-card-journal-history` | `[24,308][351,489]` | clear — unchanged |
+| Privacy & Data | `profile-card-delete` | `[24,415][351,533]` | cleared — `marginRight` |
+| Export | `export-data-button` | `[24,529][351,581]` | cleared — `marginLeft` + `marginRight` |
+| Delete account | `delete-account-button` | `[24,529][351,581]` | cleared — `marginLeft` + `marginRight` |
+| Delete account | `delete-confirm-input` | `[25,460][350,504]` | in the rect, not the raw hit band — cleared (founder ruling 2026-09-26) — `marginRight` |
+
+Each clearance is `CRISIS_BUTTON_EXCLUSION_RECT.left` on the element carrying the testID. The
+falsifier is each host's jest every-y sweep, not a flow: `tapOn: id:` hits element centres.
 
 The same suite pins one more tap class: every `daily-loop-skip-breath` tap must be followed by
 an app-state proof that it landed — `daily-loop-input-response` appearing, or the SkipLink

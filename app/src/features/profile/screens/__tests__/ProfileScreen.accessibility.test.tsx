@@ -14,8 +14,14 @@
  */
 
 import React from 'react';
+import path from 'path';
 import { render, fireEvent } from '@testing-library/react-native';
 import type { AssessmentSession } from '@/features/assessment/types';
+import {
+  expectEntryShape, expectLiveness, expectMarginClearance, expectModelFidelity,
+  expectSweepClear, flat, hostPad, readHost,
+} from '../../../../../__tests__/helpers/crisisFabClearance';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 // ── mocks ─────────────────────────────────────────────────────────────────────
 
@@ -151,5 +157,43 @@ describe('ProfileScreen — safety invariants preserved (audit §5.1)', () => {
 
     fireEvent.press(info);
     expect(queryByTestId('edu-modal-open')).toBeTruthy();
+  });
+});
+
+// DEBUG-653: since DEBUG-562 the footer link is the LAST control at max scroll, where the FAB
+// (zIndex 9999) would win an overlapping tap — the DEBUG-547 shape. See crisisFabClearance.ts.
+describe('DEBUG-653: the Onboarding Setup footer link clears the crisis FAB exclusion region', () => {
+  const TEST_ID = 'profile-footer-onboarding';
+  const HOST = readHost(path.join(__dirname, '../ProfileScreen.tsx'));
+  // Measured pre-fix: iPhone SE (3rd generation), 375x667, iOS 18.6, installed gate binary
+  // marker 184ab8af, 2026-09-25, max scroll — [24,545][351,581].
+  const MEASURED = { x: 24, y: 545, width: 327, height: 36 };
+  const renderHost = () => {
+    const api = render(<ProfileScreen />);
+    return { api, style: flat(api.getByTestId(TEST_ID).props.style), pad: hostPad(api) };
+  };
+
+  it('(a) carries the clearance as a MARGIN on the element with the testID', () => {
+    expectMarginClearance(renderHost().style, true);
+  });
+
+  it("(b) declares it from the derived constant, last, in the link's own bare entry", () => {
+    expectEntryShape(HOST, 'footerLink', true);
+    expect(HOST.source).toMatch(/style=\{styles\.footerLink\}/);
+    expect(HOST.source.match(/styles\.footerLink(?!\w)/g)).toHaveLength(1);
+  });
+
+  it('(c) never intersects the exclusion rect at any y, on any supported viewport', () => {
+    const { pad, style } = renderHost();
+    expectSweepClear(pad, style, [MEASURED.height, 200]);
+  });
+
+  it('(d) the model reproduces the measured frame; (e) at inset 0 everything goes red', () => {
+    expectModelFidelity(MEASURED, renderHost().pad);
+    expectLiveness(HOST, 'footerLink', MEASURED, renderHost().pad);
+  });
+
+  it('DEBUG-643: the __DEV__ crisis-exclusion check is wired to the footer link', async () => {
+    await expectExclusionCheckWired(renderHost().api.getByTestId(TEST_ID), TEST_ID);
   });
 });

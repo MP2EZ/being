@@ -35,7 +35,13 @@
  */
 
 import React from 'react';
+import path from 'path';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
+import {
+  expectEntryShape, expectInertMember, expectLiveness, expectMarginClearance,
+  expectModelFidelity, expectSweepClear, flat, hostPad, readHost,
+} from '../../../../../__tests__/helpers/crisisFabClearance';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
@@ -249,5 +255,51 @@ describe('FEAT-470 — withdrawal is announced, but only once it has actually pe
     expect(Object.keys(mockUpdateConsent.mock.calls[0][0])).toEqual([
       'mentalHealthProcessingConsent',
     ]);
+  });
+});
+
+// DEBUG-653: since DEBUG-562 the Delete account card is the LAST control at max scroll, where
+// the FAB (zIndex 9999) would win an overlapping tap — the DEBUG-547 shape. See crisisFabClearance.ts.
+describe('DEBUG-653: the Delete account card clears the crisis FAB exclusion region', () => {
+  const TEST_ID = 'profile-card-delete';
+  const HOST = readHost(path.join(__dirname, '../PrivacyDataScreen.tsx'));
+  // Measured pre-fix: iPhone SE (3rd generation), 375x667, iOS 18.6, installed gate binary
+  // marker 184ab8af, 2026-09-25, max scroll — [24,415][351,533].
+  const MEASURED = { x: 24, y: 415, width: 327, height: 118 };
+  const renderHost = async () => {
+    const api = await renderScreen();
+    return { api, style: flat(api.getByTestId(TEST_ID).props.style), pad: hostPad(api) };
+  };
+
+  it('(a) carries a right MARGIN on the card with the testID, and on no sibling card', async () => {
+    const { api, style } = await renderHost();
+    expectMarginClearance(style, false);
+    expect(flat(api.getByTestId('profile-card-export').props.style).marginRight).toBeUndefined();
+  });
+
+  it('(b) declares it in a dedicated entry applied LAST, never on the shared settingCard', () => {
+    expectEntryShape(HOST, 'deleteCardClearance', false);
+    expect(HOST.source).toMatch(/style=\{\[styles\.settingCard, styles\.deleteCardClearance\]\}/);
+    expect(HOST.source.match(/styles\.deleteCardClearance(?!\w)/g)).toHaveLength(1);
+    expectInertMember(HOST, 'settingCard');
+    // Rules of hooks: the check is declared above the isLoading early return.
+    const hook = HOST.source.indexOf("useCrisisExclusionAssertion('profile-card-delete', 'scrolls')");
+    expect(hook).toBeGreaterThan(-1);
+    expect(hook).toBeLessThan(HOST.source.indexOf('if (isLoading)'));
+  });
+
+  it('(c) never intersects the exclusion rect at any y, on any supported viewport', async () => {
+    const { pad, style } = await renderHost();
+    expectSweepClear(pad, style, [MEASURED.height, 200]);
+  });
+
+  it('(d) the model reproduces the measured frame; (e) at inset 0 everything goes red', async () => {
+    const { pad } = await renderHost();
+    expectModelFidelity(MEASURED, pad);
+    expectLiveness(HOST, 'deleteCardClearance', MEASURED, pad);
+  });
+
+  it('DEBUG-643: the __DEV__ crisis-exclusion check is wired to the delete card', async () => {
+    await expectExclusionCheckWired((await renderHost()).api.getByTestId(TEST_ID), TEST_ID);
   });
 });

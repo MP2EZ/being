@@ -32,6 +32,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { useAnalytics, useFeatureFlag } from '@/core/analytics';
 import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
 /**
@@ -164,6 +166,8 @@ const PrivacyDataScreen: React.FC = () => {
   // Runtime flag (INFRA-199): gates UI visibility of the cloud-backup entry.
   // PostHog promotes post-consent; build-time default is the fail-safe floor.
   const cloudSyncAvailable = useFeatureFlag('cloud_sync');
+  // DEBUG-653: __DEV__-only crisis-FAB exclusion check (DEBUG-643), above the early return.
+  const deleteCardExclusionCheck = useCrisisExclusionAssertion('profile-card-delete', 'scrolls');
 
   // Track screen view and settings opened for analytics
   useFocusEffect(
@@ -559,7 +563,8 @@ const PrivacyDataScreen: React.FC = () => {
           </TouchableOpacity>
 
           <TouchableOpacity
-            style={styles.settingCard}
+            style={[styles.settingCard, styles.deleteCardClearance]}
+            onLayout={deleteCardExclusionCheck}
             onPress={() => navigation.navigate('DeleteAccount')}
             testID="profile-card-delete"
             accessibilityRole="button"
@@ -629,6 +634,12 @@ const styles = StyleSheet.create({
     marginBottom: spacing[16],
     borderWidth: 1,
     borderColor: colorSystem.gray[200],
+  },
+  deleteCardClearance: {
+    // DEBUG-653: measured [24,415][351,533] vs crisis-button-root [331,523][375,567] (375x667,
+    // iOS 18.6). Margin, never padding: padding moves only the contents, not the frame under the
+    // FAB. Its own entry — settingCard is shared by eight cards. Left-aligned: right only.
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   settingRow: {
     flexDirection: 'row',

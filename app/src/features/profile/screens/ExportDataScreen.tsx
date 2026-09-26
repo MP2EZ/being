@@ -83,6 +83,8 @@ import type {
 } from '@/features/data-export/types';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 
 const INCLUDED_SECTIONS = [
   'Check-ins, reflections, and practice history',
@@ -153,6 +155,8 @@ function useExportStoresHydrated(): boolean {
 }
 
 const ExportDataScreen: React.FC = () => {
+  // DEBUG-653: __DEV__-only crisis-FAB exclusion check (DEBUG-643); undefined in Release.
+  const exportButtonExclusionCheck = useCrisisExclusionAssertion('export-data-button', 'scrolls');
   const [isExporting, setIsExporting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
@@ -299,6 +303,7 @@ const ExportDataScreen: React.FC = () => {
 
         <Pressable
           style={[styles.exportButton, isExporting && styles.exportButtonDisabled]}
+          onLayout={exportButtonExclusionCheck}
           onPress={handleExport}
           disabled={isExporting}
           accessibilityRole="button"
@@ -533,11 +538,17 @@ const styles = StyleSheet.create({
   exportButton: {
     backgroundColor: colorSystem.base.midnightBlue,
     paddingVertical: spacing[16],
-    paddingHorizontal: spacing[32],
+    // DEBUG-653: 16, not 32 — inside the FAB margins 32 leaves a 119pt label box, too tight.
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.large,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 52,
+    // DEBUG-653: measured [24,529][351,581] vs crisis-button-root [331,523][375,567] (375x667,
+    // iOS 18.6). Margin, never padding: padding moves only the label, not the frame under the
+    // FAB. marginLeft keeps it centred; exportButtonDisabled must never set a margin or width.
+    marginLeft: CRISIS_BUTTON_EXCLUSION_RECT.left,
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   exportButtonDisabled: {
     backgroundColor: colorSystem.gray[300],

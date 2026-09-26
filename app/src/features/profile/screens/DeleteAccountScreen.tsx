@@ -37,6 +37,8 @@ import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { AnalyticsIdentityResetTarget } from '@/core/analytics/analyticsIdentityReset';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
 import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 
 const CONFIRM_WORD = 'DELETE';
 
@@ -54,6 +56,9 @@ const DeleteAccountScreen: React.FC = () => {
   // Root navigation: Onboarding is a root-stack route (the post-erasure clean
   // state), not reachable from the local Profile stack.
   const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
+  // DEBUG-653: __DEV__-only crisis-FAB exclusion checks (DEBUG-643); undefined in Release.
+  const deleteButtonExclusionCheck = useCrisisExclusionAssertion('delete-account-button', 'scrolls');
+  const confirmInputExclusionCheck = useCrisisExclusionAssertion('delete-confirm-input', 'scrolls');
   const [confirmText, setConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -147,6 +152,7 @@ const DeleteAccountScreen: React.FC = () => {
           <Text style={styles.sectionTitle}>Type {CONFIRM_WORD} to confirm</Text>
           <CrisisTextInput
             style={styles.input}
+            onLayout={confirmInputExclusionCheck}
             value={confirmText}
             onChangeText={setConfirmText}
             autoCapitalize="characters"
@@ -168,6 +174,7 @@ const DeleteAccountScreen: React.FC = () => {
 
         <Pressable
           style={[styles.deleteButton, !canDelete && styles.deleteButtonDisabled]}
+          onLayout={deleteButtonExclusionCheck}
           onPress={handleDelete}
           disabled={!canDelete}
           accessibilityRole="button"
@@ -267,6 +274,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[16],
     fontSize: typography.bodyRegular.size,
     color: semantic.text.primary,
+    // DEBUG-653: measured [25,460][350,504] vs crisis-button-root [331,523][375,567] (375x667,
+    // iOS 18.6). Margin, never padding: padding moves only the text, not the frame under the
+    // FAB. Left-aligned field, so right only (founder ruling 2026-09-26).
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   errorText: {
     fontSize: typography.bodySmall.size,
@@ -278,11 +289,17 @@ const styles = StyleSheet.create({
   deleteButton: {
     backgroundColor: colorSystem.status.error,
     paddingVertical: spacing[16],
-    paddingHorizontal: spacing[32],
+    // DEBUG-653: 16, not 32 — inside the FAB margins a 119pt label box wraps "Delete my account".
+    paddingHorizontal: spacing[16],
     borderRadius: borderRadius.large,
     alignItems: 'center',
     justifyContent: 'center',
     minHeight: 52,
+    // DEBUG-653: measured [24,529][351,581] vs crisis-button-root [331,523][375,567] (375x667,
+    // iOS 18.6). Margin, never padding: padding moves only the label, not the frame under the
+    // FAB. marginLeft keeps it centred; deleteButtonDisabled must never set a margin or width.
+    marginLeft: CRISIS_BUTTON_EXCLUSION_RECT.left,
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   deleteButtonDisabled: {
     backgroundColor: colorSystem.gray[300],

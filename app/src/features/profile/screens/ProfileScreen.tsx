@@ -31,6 +31,8 @@ import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore
 import { WELLNESS_LABELS } from '@/features/assessment/types/wellnessLabels';
 import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
 import { useAnalytics } from '@/core/analytics';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 
 // Navigates within the Profile stack (Privacy, Account, …) AND up to root-stack
 // routes (Subscription, LegalGate, AssessmentFlow, CrisisResources).
@@ -54,6 +56,8 @@ const ABOUT_BEING_CONTENT_READY = false;
 
 const ProfileScreen: React.FC = () => {
   const navigation = useNavigation<ProfileScreenNavigationProp>();
+  // DEBUG-653: __DEV__-only crisis-FAB exclusion check (DEBUG-643); undefined in Release.
+  const footerLinkExclusionCheck = useCrisisExclusionAssertion('profile-footer-onboarding', 'scrolls');
   const subscriptionStore = useSubscriptionStore();
   const [showEducationModal, setShowEducationModal] = useState(false);
   // DEBUG-406: the education sheet is no longer an RN <Modal>, so nothing
@@ -437,7 +441,9 @@ const ProfileScreen: React.FC = () => {
               copy below must not promise one. The full ruling is recorded at
               `ExternalErrorReporter.showFeedbackForm()`; read it before adding a
               second entry point or moving this one onto a non-settings route.
-              This file is a Protected Path for that reason and no other. */}
+              This file is a Protected Path for that reason and one other: the
+              DEBUG-653 clearance on the Onboarding Setup footer link
+              (`styles.footerLink`), which keeps it out of the crisis FAB's column. */}
           {isFeatureEnabled('bug_reporting') && (
             <Pressable
               style={styles.profileCard}
@@ -504,10 +510,12 @@ const ProfileScreen: React.FC = () => {
         {/* FEAT-209 H3: Onboarding Setup demoted from a top card to a footer link. */}
         <Pressable
           style={styles.footerLink}
+          onLayout={footerLinkExclusionCheck}
           onPress={handleStartOnboarding}
           accessibilityRole="button"
           accessibilityLabel="Onboarding Setup"
           accessibilityHint="Complete your initial assessment and configure preferences"
+          testID="profile-footer-onboarding"
         >
           <Text style={styles.footerLinkText}>Onboarding Setup</Text>
         </Pressable>
@@ -712,6 +720,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: spacing[16],
     alignItems: 'center',
     marginTop: spacing[8],
+    // DEBUG-653: measured [24,545][351,581] vs crisis-button-root [331,523][375,567] (375x667,
+    // iOS 18.6). Margin, never padding: padding moves only the text, not the frame under the
+    // FAB. The matching marginLeft keeps the centred label centred.
+    marginLeft: CRISIS_BUTTON_EXCLUSION_RECT.left,
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   footerLinkText: {
     fontSize: typography.bodyRegular.size,
