@@ -133,6 +133,9 @@ Shared analytics live in `core/analytics/` and shared types in `core/types/`.
 ⚠️  features/[feature-a] → features/[feature-b]
 ```
 
+Crisis consumption is the exception: `detectCrisis`, crisis geometry and `CrisisTextInput` are
+REQUIRED imports, by their direct `@/features/crisis/…` path, never copied or re-derived.
+
 **When features need to communicate:**
 - Navigate with route params (typed by `RootStackParamList` in `core/navigation/CleanRootNavigator.tsx`)
 - Use shared hooks from `core/` (`core/hooks/`, `useAnalytics` in `core/analytics/`)
@@ -160,6 +163,9 @@ navigation.navigate('AssessmentFlow', {
 ❌ core/* → features/*
 ```
 
+Lint-enforced (MAINT-659). The one list of named exceptions, and the crisis leaf modules any
+core file may import, are in [import-guidelines.md](./import-guidelines.md#core--features-boundary-lint-enforced-maint-659).
+
 ## Domain Authority Features
 
 Some features have special domain authority status and override technical decisions:
@@ -167,7 +173,7 @@ Some features have special domain authority status and override technical decisi
 ### Crisis Feature (Domain Authority: crisis)
 - **Priority**: Highest (overrides ALL)
 - **Performance**: <200ms detection required
-- **Safety**: PHQ≥20, GAD≥15, Q9>0 detection
+- **Safety**: PHQ-9 ≥15 support resources, PHQ-9 ≥20 and Q9>0 intervention, GAD-7 ≥15
 - **Special Rules**:
   - Crisis code must be easily auditable
   - Performance never compromised
