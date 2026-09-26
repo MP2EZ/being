@@ -1255,12 +1255,10 @@ while IFS= read -r f; do
                 echo "   No sim flow includes $HELPER, so nothing here can observe this edit."
                 case "$HELPER" in
                   _legal-and-onboarding.yaml)
-                    echo "   ⚠️  This helper carries a RECORDED, NOT FIXED crisis mis-tap"
-                    echo "       (INFRA-494, its lines 133-180): legal-gate-continue sits INSIDE"
-                    echo "       the ScrollView while the 988 footer is pinned outside it, so the"
-                    echo "       tap can land on legal-gate-crisis-988. It runs ONLY on hardware."
-                    echo "       Attend a device session before merging:"
-                    echo "         npm run e2e:safety:988-dial   (with an iPhone connected)" ;;
+                    echo "   ⚠️  Its four CONSENT taps remain positionally blind on an unknown"
+                    echo "       device viewport (INFRA-656): tap centre x~60 sits inside the 988"
+                    echo "       button's x 50..180. The Continue tap was fixed in INFRA-494."
+                    echo "       No Maestro version can run its callers (DEBUG-589)." ;;
                 esac
                 echo "   The Step 2.5.3 net below still runs crisis-button-reachability."
               fi
