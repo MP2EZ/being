@@ -1278,10 +1278,10 @@ while IFS= read -r f; do
                 echo "   No sim flow includes $HELPER, so nothing here can observe this edit."
                 case "$HELPER" in
                   _legal-and-onboarding.yaml)
-                    echo "   ⚠️  Its four CONSENT taps remain positionally blind on an unknown"
-                    echo "       device viewport (INFRA-656): tap centre x~60 sits inside the 988"
-                    echo "       button's x 50..180. The Continue tap was fixed in INFRA-494."
-                    echo "       No Maestro version can run its callers (DEBUG-589)." ;;
+                    echo "   ⚠️  Its Continue tap (INFRA-494) and four consent taps (INFRA-656) clear"
+                    echo "       the 988 footer by DERIVATION only — re-read the helper's D0-D5"
+                    echo "       before changing any tap, anchor or point:. No Maestro version can"
+                    echo "       run its callers (DEBUG-589)." ;;
                 esac
                 echo "   The Step 2.5.3 net below still runs crisis-button-reachability."
               fi
