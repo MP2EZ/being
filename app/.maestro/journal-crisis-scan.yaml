@@ -82,6 +82,8 @@ name: "Voice journal crisis scan surfaces support"
 # named and DEBUG-453 measured ("stopped short of maximum scroll and reported
 # COMPLETED anyway"). On the runs that pass, the scroll happens to reach the bottom
 # boundary instead and the card lands at y~255 — which is why this is a coin flip.
+# (The 583 clip and 83pt overhang are pre-DEBUG-562; re-measured 2026-09-25 at
+# 375x667, iOS 18.6: clip bottom 613. The stop-short card bounds were not re-measured.)
 #
 # centerElement: true forces a REAL scroll, so the card ends up inside the clip and
 # the tap lands on it. This is the same remedy crisis-button-reachability already
@@ -383,6 +385,8 @@ name: "Voice journal crisis scan surfaces support"
 # but that immunity is exactly what FEAT-287 just falsified for its neighbour — it
 # holds only until someone adds a card below. Carried on precedent, per the XXXL
 # flow's note: do not remove it on the grounds that the flow is green without it.
+# (DEBUG-653: it is the last CARD, not the last control — the Onboarding Setup footer
+# link sits below it. Re-measured 2026-09-25 at max scroll, 375x667: [24,308][351,489].)
 - tapOn:
     id: "tab-profile"
 - tapOn:

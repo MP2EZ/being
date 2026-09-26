@@ -474,6 +474,10 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 #   profile-card-export         [24,425][378,542]    100% inside the fold at max scroll
 #   profile-card-delete         [24,558][378,676]    100% inside the fold, ~198pt trailing
 #
+# (These 402x874 figures were NOT re-measured after DEBUG-562, which moved a 34pt-inset
+# device's tab bar by ~4pt; nor was the 375x667 111pt centring figure below. DEBUG-653
+# re-measured 375x667 only — see the profile-card-delete step.)
+#
 # Neither card is ever clipped, so there is NO fold defect on this screen and
 # PrivacyDataScreen is not implicated — both data-rights affordances, export and
 # erasure, are reachable at this viewport. The two scrolls were simply sitting at the
@@ -625,8 +629,10 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # without it scrollUntilVisible stops short of maximum scroll and reports
 # COMPLETED anyway. Measured on iPhone SE 3 (DEBUG-453): it stopped at 87% with
 # the card at [24,623][351,740], entirely below the ScrollView's clip bottom of
-# 583, then tapped its centre at y=681.5 and hit nothing. At true maximum the
-# card sits at [24,385][351,503] — fully visible, 80pt of trailing padding below.
+# 583, then tapped its centre at y=681.5 and hit nothing (pre-DEBUG-562;
+# re-measured 2026-09-25: clip bottom 613). At true maximum the card sits at
+# [24,415][351,533] (re-measured 2026-09-25, 375x667, iOS 18.6) — fully visible,
+# 80pt of trailing padding below.
 # visibilityPercentage stays 60: the threshold was never the problem, so lowering
 # OR raising it would both miss the defect (DEBUG-432 rejected lowering it).
 # speed/timeout here are DEBUG-473's, sized above; DEBUG-453's account is unchanged —

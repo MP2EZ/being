@@ -25,6 +25,8 @@ name: "GAD-7 score >=15 shows crisis results"
 #
 #   take-gad7-button   bounds=[24,201][351,396]   visibility 100%, tap centre (187,298)
 #   ScrollView fold    [0,0][375,583]             the card cleared it by ~187pt
+#   (fold is pre-DEBUG-562; clip bottom now 613 on tab-hosted screens, re-measured
+#   2026-09-25. take-gad7-button was not re-measured.)
 #   tap                reported COMPLETED
 #   hierarchy at fail  still #profile-screen, scrolled to 100% — never navigated
 #

@@ -2,8 +2,8 @@
  * DEBUG-643 — which controls carry the __DEV__ crisis-exclusion check, and what must never.
  *
  * The check is opt-in, so its coverage is exactly the set of controls that adopt it. This
- * pins that set against the hosts DEBUG-643 AC4 names, so a host cannot quietly drop its
- * check. The per-host suites prove each check is wired to the right testID at render; this
+ * pins that set against the hosts DEBUG-643 AC4 names, plus the four Profile-family hosts
+ * DEBUG-653 cleared, so a host cannot quietly drop its check. The per-host suites prove each check is wired to the right testID at render; this
  * proves every declared check reaches an `onLayout`, so none is computed and dropped.
  *
  * It also pins the other direction: nothing on the crisis tap path may import the check.
@@ -37,6 +37,11 @@ const HOSTS: Record<string, number> = {
   'features/practices/screens/PracticeLibraryScreen.tsx': 3,
   'features/home/screens/CleanHomeScreen.tsx': 1,
   'features/guidance/components/RightNowAffordance.tsx': 1,
+  // DEBUG-653
+  'features/profile/screens/ProfileScreen.tsx': 1,
+  'features/profile/screens/PrivacyDataScreen.tsx': 1,
+  'features/profile/screens/ExportDataScreen.tsx': 1,
+  'features/profile/screens/DeleteAccountScreen.tsx': 2,
 };
 
 const TAP_PATH = [
