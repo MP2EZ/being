@@ -436,7 +436,7 @@ if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
 else
 SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
   grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|shared/PracticeToggleButton)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
+  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/components/|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|shared/PracticeToggleButton)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
 fi
 
 # INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
@@ -658,10 +658,11 @@ alone and the documented gate and the running gate disagree, with the running on
 | `src/core/hooks/` change | **`journal-crisis-scan`** + 2 printed notices | DEBUG-525. Gated as a DIRECTORY: 3 of 5 files decide crisis-affordance placement/visibility, the 5th (`useCrisisExclusionAssertion.ts`, DEBUG-643) is a `__DEV__`-only check that is a Release no-op; the 4th has one lifetime commit — and is NOT benign (corrected DEBUG-533: `useBugReportShake.ts` arms a root-mounted gesture opening a zero-988 window). `journal-crisis-scan` is the only keyboard-up flow in the suite. `useKeyboardOccludesCrisisButton` (device-only) and the dynamic-type inset get instructions — neither is sim-runnable. |
 | `core/components/ThresholdEducationModal.tsx` change | **`crisis-button-reachability`** | DEBUG-525. A DEBUG-406 conversion site: an RN `<Modal>` whose content tells the reader to seek help while occluding the route to it. The flow already taps through it, so the arm is free. |
 | `features/home/screens/CleanHomeScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-547. Consumes `crisisButtonGeometry` rather than owning crisis code. The FAB's `zIndex: 9999` makes any overlap a wrong-DESTINATION tap into `CrisisResources` — a crisis false POSITIVE. The flow already starts on Home and renders both rows, so the arm is free. **The flow is necessary and NOT sufficient**: Maestro taps element CENTRES, which never enter the contested column, so a point tap is required to falsify this. |
-| `features/profile/screens/DeleteAccountScreen.tsx` change | **`crisis-button-reachability`** + device-only notice | INFRA-531 (crisis ruling). Consumes `crisisInputAccessory`; the keyboard is necessarily up (the user types the confirmation word), so on iOS the accessory is the SOLE 988 affordance. FILE-level — the dir's other members carry no crisis surface and `ProfileStackNavigator` is already covered by `CRISIS_HOST_CHANGED`. **Necessary, not sufficient**: the flow never types into `delete-confirm-input`, so the keyboard-up half is pinned on the sim by `crisis-keyboard-reachability` — one runtime site; this screen is covered by construction via `CrisisTextInput` (DEBUG-590). |
-| `features/profile/screens/ExportDataScreen.tsx` change | **`crisis-button-reachability`** + printed notice | DEBUG-577 (crisis ruling). Owns `Sharing.shareAsync`, MEASURED to leave zero app-owned nodes in the hierarchy for the sheet's duration; a matched-pair coordinate tap reached `CrisisResources` with the sheet down and not with it up. Same shape as `ExternalErrorReporter`, and strictly MORE reachable: the JSON export path is always on and never flag-gated, where the bug-report surface is bounded by `bug_reporting`. (INFRA-571 argued this against Sentry's widget; FEAT-570 replaced it with the first-party overlay, and the flag bound still holds.) FILE-level — the dir's other members carry no crisis surface and its two that do are already listed. **Necessary, not sufficient**: no gate flow opens the share sheet, so the arm proves only that the route renders the overlay with the sheet DOWN. |
+| `features/profile/screens/DeleteAccountScreen.tsx` change | **`crisis-button-reachability`** + device-only notice | INFRA-531 (crisis ruling). Consumes `crisisInputAccessory`; the keyboard is necessarily up (the user types the confirmation word), so on iOS the accessory is the SOLE 988 affordance. FILE-level — the dir's other crisis-bearing members have their own rows and `ProfileStackNavigator` is already covered by `CRISIS_HOST_CHANGED`. Also DEBUG-653: `delete-account-button` clears the FAB with a `CRISIS_BUTTON_EXCLUSION_RECT` margin (the DEBUG-547 shape). **Necessary, not sufficient**: the flow never types into `delete-confirm-input`, so the keyboard-up half is pinned on the sim by `crisis-keyboard-reachability` — one runtime site; this screen is covered by construction via `CrisisTextInput` (DEBUG-590). It taps element CENTRES, so the clearance's falsifier is the jest every-y sweep. |
+| `features/profile/screens/ExportDataScreen.tsx` change | **`crisis-button-reachability`** + printed notice | DEBUG-577 (crisis ruling). Owns `Sharing.shareAsync`, MEASURED to leave zero app-owned nodes in the hierarchy for the sheet's duration; a matched-pair coordinate tap reached `CrisisResources` with the sheet down and not with it up. Same shape as `ExternalErrorReporter`, and strictly MORE reachable: the JSON export path is always on and never flag-gated, where the bug-report surface is bounded by `bug_reporting`. (INFRA-571 argued this against Sentry's widget; FEAT-570 replaced it with the first-party overlay, and the flag bound still holds.) FILE-level — the dir's other crisis-bearing members have their own rows. Also DEBUG-653: `export-data-button` clears the FAB with a `CRISIS_BUTTON_EXCLUSION_RECT` margin (the DEBUG-547 shape). **Necessary, not sufficient**: no gate flow opens the share sheet, so the arm proves only that the route renders the overlay with the sheet DOWN; the flow taps element CENTRES, so the clearance's falsifier is the jest every-y sweep. |
 | `.maestro/<flow>.yaml` tagged `safety-occlusion-measurement` edited | **no sim flow** — notice only, never scoped | DEBUG-577. `export-share-sheet-occlusion` PINS A DEBT STATE: its load-bearing assertion is that the 988 affordance is UNREACHABLE, so it stays green after a fix and must be DELETED, not repaired, if the occlusion is remedied. It also leaves an open share sheet — state Maestro does not reliably clear, which per DEBUG-422 reds later flows against a healthy app. Needs its own case arm; the `*)` catch-all would fire a full suite. |
-| `features/profile/screens/ProfileScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-533 (crisis ruling). Hosts the second entry to `showFeedbackForm()`, which opens a zero-988 window. The flow already walks the Profile tab and every subscreen depth, so the arm is free. **Necessary, not sufficient**: no flow opens the widget, so this proves only that Profile still renders the overlay. |
+| `features/profile/screens/ProfileScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-533 (crisis ruling). Hosts the second entry to `showFeedbackForm()`, which opens a zero-988 window. Also DEBUG-653: the Onboarding Setup footer link clears the FAB with a `CRISIS_BUTTON_EXCLUSION_RECT` margin (the DEBUG-547 shape). The flow already walks the Profile tab and every subscreen depth, so the arm is free. **Necessary, not sufficient**: no flow opens the widget, so this proves only that Profile still renders the overlay; the flow taps element CENTRES, so the clearance's falsifier is the jest every-y sweep. |
+| `features/profile/screens/PrivacyDataScreen.tsx` change | **`crisis-button-reachability`** + printed notice | DEBUG-653 (crisis ruling). The DEBUG-547 shape on `profile-card-delete`, the last control at max scroll since DEBUG-562: it clears the FAB with a `CRISIS_BUTTON_EXCLUSION_RECT` margin in its own style entry, never the shared `settingCard`. FILE-level — the dir's other crisis-bearing members have their own rows. The flow already walks Privacy & Data to that card, so the arm is free. **Necessary, not sufficient**: Maestro taps element CENTRES, so the falsifier is the host's jest every-y sweep. |
 | `core/services/logging/ExternalErrorReporter.ts` change | **`bug-report-crisis-reachability` + `bug-report-suppressed-route`** | FEAT-570 REPLACED THIS ROW'S REASONING. It used to be notice-only, because "no sim flow opens the widget, and authoring one would emit a real Sentry feedback event". The first half expired: the widget is gone, opening is first-party and emits NOTHING, so a flow can open it. The second half is still true and now binds the flows instead — **neither may tap `bug-report-send`**, because the gate build resolves a live production DSN from `.env.production` and there is no INFRA-411-style egress suppression on `captureFeedback`. That row also asserted "`feedbackIntegration` is what mounts the provider at all", which is FALSE — `Sentry.wrap` mounts `FeedbackWidgetProvider` unconditionally (`sdk.js:127-139`) and `feedbackIntegration()` has no `setupOnce`. **Necessary, not sufficient**: the shake entry is not sim-drivable (Maestro 2.6.0 has no shake command), so its verdict is an attended device session. |
 | `core/components/BugReportOverlay.tsx` / `core/stores/bugReportStore.ts` change | **`bug-report-crisis-reachability` + `bug-report-suppressed-route` + `crisis-button-reachability`** | FEAT-570 (crisis ruling). The overlay is armed at the app ROOT, so unlike the two `insights/` slot claimants it can be published while a FAB-suppressed route is active — a zero-988 state. The store is the sole gate on that and imports nothing of ours, so INFRA-531's rule cannot see it; the Protected Paths row is the only control. `bug-report-suppressed-route` is the one that proves the refusal, via an `e2eSeed` marker reproducing the real boot race. **Necessary, not sufficient**: same shake limitation as the row above. |
 | An UNGATED file imports a crisis constant | **hard close FAILURE** — no flow | INFRA-531. `I531_IMPORT_RE` over the diff, anchored on the import specifier. An ALARM demanding a ruling (Protected Paths row + arm, or a recorded `i531_exempt_reason()` entry), never a silent flow pick. Exempt from the inert filter: class (a) *inverts* here — a removed crisis import is the extraction case it exists to catch — and class (b) is already discharged by its own comment exclusion. Membership is tested against `SAFETY_CANDIDATES` (pre-inert), or an already-ruled file with a deletion-only diff raises a failure nobody can discharge. Exits before Step 2.5.2, so `--skip-e2e` cannot reach it. |
@@ -876,17 +877,20 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/home/screens/CleanHomeScree
 # (DEBUG-431 ruled the occluded state a defect against <3 taps from any screen). Dropping
 # that one prop spread is a silent keyboard-up 988 blackout on the surface where someone is
 # irreversibly ending their relationship with the app. FILE-level, not features/profile/:
-# the dir's 15 other non-test files carry no crisis surface, and ProfileStackNavigator — the
-# one that does — is already covered by CRISIS_HOST_CHANGED, so a directory clause would buy
-# nothing and charge a sim build to every Profile edit.
+# the dir's other crisis-bearing files each have their own clause, and ProfileStackNavigator
+# is already covered by CRISIS_HOST_CHANGED, so a directory clause would buy nothing and
+# charge a sim build to every Profile edit. It also carries DEBUG-653's FAB clearance on
+# delete-account-button (the DEBUG-547 shape); its falsifier is the host's jest sweep.
 if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/profile/screens/DeleteAccountScreen\.tsx'; then
   FLOWS+=("crisis-button-reachability")
-  echo "⌨️  DeleteAccountScreen changed — it consumes crisisInputAccessory. The flow arm is"
+  echo "⌨️  DeleteAccountScreen changed — it consumes crisisInputAccessory, and its"
+  echo "   delete-account-button carries DEBUG-653's FAB clearance. The flow arm is"
   echo "   NECESSARY BUT NOT SUFFICIENT: crisis-button-reachability reaches this screen and"
   echo "   taps through to CrisisResources, but never types into delete-confirm-input, so it"
   echo "   exercises the UNOCCLUDED overlay and cannot observe the accessory contract."
   echo "   The keyboard-up mechanism is pinned on the sim by crisis-keyboard-reachability"
   echo "   (one runtime site; this screen is covered by construction via CrisisTextInput)."
+  echo "   It taps element CENTRES, so the clearance's falsifier is the jest every-y sweep."
 fi
 # DEBUG-577 (crisis ruling E): ExportDataScreen owns a registered full-screen presenter
 # call — Sharing.shareAsync — MEASURED to remove every 988 affordance for as long as the
@@ -896,7 +900,8 @@ fi
 # site is STRICTLY MORE REACHABLE: the JSON export path is always on and never flag-gated,
 # where the Sentry path is bounded by bug_reporting being off in the public build.
 # FILE-level, not features/profile/screens/: the dir's legal/settings/account/backup
-# members carry no crisis surface, and its two that do are already listed individually.
+# members carry no crisis surface, and those that do are listed individually. It also
+# carries DEBUG-653's FAB clearance on export-data-button (the DEBUG-547 shape).
 if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/profile/screens/ExportDataScreen\.tsx'; then
   FLOWS+=("crisis-button-reachability")
   echo "📤 ExportDataScreen changed — it calls Sharing.shareAsync, a measured zero-988"
@@ -906,17 +911,33 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/profile/screens/ExportDa
   echo "   overlay with the sheet DOWN. The occlusion window itself is verified by DEBUG-577's"
   echo "   measurement and by nothing in the suite. Re-measure with:"
   echo "   maestro test app/.maestro/export-share-sheet-occlusion.yaml (booted 375x667)"
+  echo "   export-data-button also carries DEBUG-653's FAB clearance; the flow taps element"
+  echo "   CENTRES, so that clearance's falsifier is the jest every-y sweep."
 fi
 # DEBUG-533: ProfileScreen hosts the second entry to showFeedbackForm(). It gets a real arm
 # because crisis-button-reachability already walks the Profile tab and every subscreen
 # depth, so it costs nothing and proves the overlay still renders there.
 # ExternalErrorReporter is armed by the FEAT-570 block below. Since FEAT-570 the form is
-# first-party, so a sim flow can open it; it is no longer a notice.
+# first-party, so a sim flow can open it; it is no longer a notice. It also carries
+# DEBUG-653's FAB clearance on the Onboarding Setup footer link (the DEBUG-547 shape).
 if echo "$RENDER_BOOT_RELEVANT" | grep -q 'features/profile/screens/ProfileScreen\.tsx'; then
   FLOWS+=("crisis-button-reachability")
   echo "🪟 ProfileScreen changed — it hosts the second entry to showFeedbackForm(). The arm"
   echo "   is NECESSARY BUT NOT SUFFICIENT: the flow proves Profile still renders the root"
   echo "   overlay, but never opens the widget, so it cannot observe the occlusion itself."
+  echo "   Its footer link also carries DEBUG-653's FAB clearance; the flow taps element"
+  echo "   CENTRES, so that clearance's falsifier is the jest every-y sweep."
+fi
+# DEBUG-653: PrivacyDataScreen clears the FAB with a CRISIS_BUTTON_EXCLUSION_RECT margin on
+# profile-card-delete, its last control at max scroll — the DEBUG-547 shape. The flow already
+# walks Privacy & Data to that card, so the arm is free. FILE-level: the dir's other
+# crisis-bearing files each have their own clause.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/profile/screens/PrivacyDataScreen\.tsx'; then
+  FLOWS+=("crisis-button-reachability")
+  echo "🛡️  PrivacyDataScreen changed — profile-card-delete carries DEBUG-653's FAB clearance."
+  echo "   The arm is NECESSARY BUT NOT SUFFICIENT: Maestro taps element CENTRES, which never"
+  echo "   enter the FAB's column, so the falsifier is the jest every-y sweep in"
+  echo "   PrivacyDataScreen.accessibility.test.tsx."
 fi
 if echo "$RENDER_BOOT_RELEVANT" | grep -qE 'core/services/logging/ExternalErrorReporter\.ts|core/components/BugReportOverlay\.tsx|core/stores/bugReportStore\.ts'; then
   FLOWS+=("bug-report-crisis-reachability")

@@ -54,6 +54,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/home/screens/CleanHomeScreen.tsx` | `crisis` |
 | `app/src/features/profile/screens/DeleteAccountScreen.tsx` | `crisis` |
 | `app/src/features/profile/screens/ExportDataScreen.tsx` | `crisis` |
+| `app/src/features/profile/screens/PrivacyDataScreen.tsx` | `crisis` |
 | `app/src/core/services/logging/ExternalErrorReporter.ts` | `crisis` |
 | `app/src/features/profile/screens/ProfileScreen.tsx` | `crisis` |
 | `app/plugins/` | `crisis` |
@@ -150,7 +151,8 @@ INFRA-531), and the first found by a mechanism rather than by someone noticing. 
 `crisisInputAccessory` — `crisisAccessoryProps()` on the confirmation `TextInput` — and the
 keyboard is *necessarily* up there, because the user must type the confirmation word, so on
 iOS the accessory is the sole 988 affordance for the duration. Registered as a FILE: the
-directory's other members are legal, settings and backup screens with no crisis surface, and
+directory's other crisis-bearing screens each carry their own row, the rest are legal, settings
+and backup screens with no crisis surface, and
 `ProfileStackNavigator.tsx` — the one member that does host `CollapsibleCrisisButton` — is
 already covered by the `CRISIS_HOST_CHANGED` content detector, so a directory clause would
 buy nothing and charge a sim build to every Profile edit. Per DEBUG-390, the row stands on
@@ -168,8 +170,8 @@ directory-vs-file rule above is still what covers that gap.
 are the ninth instance (added DEBUG-533), and the first where the occluder is code we do not
 render. `showFeedbackForm()` opens Sentry's feedback widget, which paints a 90%-opaque
 inset-0 backdrop as a later sibling of our whole app — ruled a DEBUG-406 conversion site that
-cannot be converted in place. Both are FILES: the logging directory and the rest of Profile
-carry no crisis surface. **This is a new shape for the family and no detector reaches it** —
+cannot be converted in place. Both are FILES: the logging directory carries no other crisis
+surface, and Profile's other crisis-bearing screens carry rows of their own. **This is a new shape for the family and no detector reaches it** —
 INFRA-531's import rule matches nothing here because nothing on the path imports from
 `features/crisis/`, and `check-modal-occlusion-guard.js` scans `app/src`, so a `<Modal>` in
 `node_modules` is invisible to it. Not "consumes a crisis constant while matching no path
@@ -185,7 +187,7 @@ on a route absent from `SUPPRESSED_ROUTES`, reached by an always-on, never-flag-
 That is the `ExternalErrorReporter` shape, already gated, and this site is strictly MORE
 reachable: the export path is always on and never flag-gated, where the bug-report surface
 is bounded by `bug_reporting`. FILE-level: the directory's legal, settings, account and
-backup members carry no crisis surface, and its two that do are already listed. No detector
+backup members carry no crisis surface, and those that do are listed individually. No detector
 reaches it — the file imports `expo-sharing` and nothing from `features/crisis/`, so
 INFRA-531's import rule misses it, and `check-modal-occlusion-guard.js` rule 4 catches the
 CALL but produces no agent mapping and arms no gate. Note `IAPService.ts` is the same class
@@ -346,6 +348,14 @@ clearance lands, so a base-style `width`, `alignSelf` or margin key there defeat
 each host's pin, which reads only its own style, stays green. It imports nothing from
 `features/crisis/`, so INFRA-531 cannot see it. FILE-level; `practiceSafeAreaEdges.ts` stays named,
 not gated.
+
+`features/profile/screens/PrivacyDataScreen.tsx` is the twentieth instance (added DEBUG-653):
+the DEBUG-547 shape on the account-deletion card, which clears the FAB with a
+`CRISIS_BUTTON_EXCLUSION_RECT` margin in its own style entry, never the shared `settingCard`.
+DEBUG-653 cleared the last control on `ProfileScreen`, `ExportDataScreen` and
+`DeleteAccountScreen` the same way, and those rows already existed. FILE-level: the directory's
+other crisis-bearing members are already listed, and the rest carry no crisis surface.
+`crisis-button-reachability` taps element centres, so the falsifier is the host's jest sweep.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
