@@ -5,9 +5,9 @@
 ```yaml
 document:
   type: Security Architecture
-  version: 2.2.1
+  version: 2.2.2
   status: CURRENT
-  updated: 2026-09-24  # MAINT-627: §1/§2 corrected. MAINT-641: §5–§8, roadmap and checklist corrected. DEBUG-645: §5/§6 export residual closed
+  updated: 2026-09-25  # MAINT-627: §1/§2 corrected. MAINT-641: §5–§8, roadmap and checklist corrected. DEBUG-645: §5/§6 export residual closed. DEBUG-655: §5 launch sweep
   application: Being. Mental Health App
 
 # Being is a CONSUMER WELLNESS APP, not a HIPAA-covered entity.
@@ -202,7 +202,7 @@ Being ships **one export path**: a plain-JSON copy of the user's own wellness da
 
 **Corrected (DEBUG-645).** The exported file is written to the app cache directory and handed to the share sheet, and it is now deleted when the share settles. One `finally` covers every path — a completed share, a cancelled one (`shareAsync` resolves on cancel on both platforms), the sharing-unavailable early return, and a thrown error. Account deletion additionally sweeps the cache for export files (`exportArtifactSweeper.sweepExportArtifacts`, best-effort, before the wipe), because `clearAllWellnessData` walks storage keys rather than the filesystem. The writer and the sweeper share one filename definition, so the sweep cannot drift from what is written. Previously the file was never deleted, and an unencrypted copy of the export survived account deletion.
 
-**Residual (tracked: DEBUG-655).** A process killed while the share sheet is up never reaches the delete. Account deletion still sweeps that file, so deletion is complete; but for a user who never deletes their account, the stranded copy stays in the app cache until an export on the same day overwrites it, because nothing sweeps the cache at launch. The cache is on-device only and excluded from OS backup by default.
+**Corrected (DEBUG-655): the residual is narrowed, not closed.** A process killed while the share sheet is up never reaches the delete. Account deletion still sweeps that file, and `App.tsx` now also runs `exportArtifactSweeper.sweepExportArtifacts()` at every app launch, in the init effect that runs after the first commit (not before render). It sits beside the audio sweep, `audioArtifactSweeper.sweepStaleAudioArtifacts()`, which has run there since FEAT-283 and is now pinned by the same test. What remains: a stranded export persists until the next launch, and indefinitely for a user who never opens the app again and never deletes their account. Stranded raw audio can also survive a relaunch inside its 5-minute TTL, until a later launch. The cache is on-device only and excluded from OS backup by default. The OS purging its cache under storage pressure is not counted as a control.
 
 ### User-Facing Description
 No user-facing copy may say that exports are password-protected, encrypted, watermarked, expiring, logged, or delivered securely to a therapist. Being's export is a plain JSON file the user shares themselves. Copy may say that the file contains only the categories the user selected, and that Being does not receive it.

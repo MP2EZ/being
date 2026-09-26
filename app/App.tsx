@@ -19,6 +19,10 @@ import { useSubscriptionStore } from './src/core/stores/subscriptionStore';
 import EncryptionService from './src/core/services/security/EncryptionService';
 import { initializeExternalReporting, logSystem, logError, LogCategory } from './src/core/services/logging';
 import { sweepStaleAudioArtifacts } from './src/core/services/speech/audioArtifactSweeper';
+// DEBUG-655: imported DIRECTLY. The module imports only expo-file-system, already on the
+// boot graph via the audio sweeper; going through AccountDeletionService, DataExportService
+// or ExportDataScreen would drag Supabase or a screen onto the launch path.
+import { sweepExportArtifacts } from './src/core/services/privacy/exportArtifactSweeper';
 import { sweepLegacyPlaintextRecords } from './src/core/services/security/legacyPlaintextRecordSweeper';
 import { initializeCrisisMonitoring } from './src/core/services/monitoring';
 import { DataRetentionService } from './src/core/services/data-retention';
@@ -74,6 +78,22 @@ function App() {
           }
         } catch (err) {
           logError(LogCategory.SYSTEM, 'Audio artifact sweep failed (non-blocking)', err as Error);
+        }
+
+        // DEBUG-655: remove a data export stranded by a process killed while its share
+        // sheet was up. The share path deletes it when the share settles and account
+        // deletion sweeps it, but a user who does neither would otherwise keep a
+        // plaintext copy in the cache indefinitely. Its OWN try/catch so a throw cannot
+        // skip the sibling sweep or the init below. Synchronous and here, not deferred:
+        // no export or share can exist yet in this process, and a deferred run could
+        // land on a live share. Launch only; never re-run on AppState resume.
+        try {
+          const sweptExports = sweepExportArtifacts();
+          if (sweptExports > 0) {
+            logSystem(`Swept ${sweptExports} stranded data export(s) at launch`);
+          }
+        } catch (err) {
+          logError(LogCategory.SYSTEM, 'Export artifact sweep failed (non-blocking)', err as Error);
         }
 
         // DEBUG-305: purge plaintext crisis-intervention records written by
