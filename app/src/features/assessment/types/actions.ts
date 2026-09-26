@@ -8,7 +8,6 @@ import type {
   AssessmentType,
   AssessmentResponse,
   AssessmentSession,
-  AssessmentProgress,
   PHQ9Result,
   GAD7Result,
   CrisisDetection,
@@ -85,45 +84,6 @@ export interface ResetAssessmentAction extends BaseAssessmentAction {
     preserveAnswers?: boolean;
     /** Reason for reset */
     reason: 'user_initiated' | 'error' | 'timeout' | 'crisis_intervention';
-  };
-}
-
-/**
- * Crisis Intervention Actions - CRITICAL SAFETY
- */
-
-export interface TriggerCrisisInterventionAction extends BaseAssessmentAction {
-  type: 'TRIGGER_CRISIS_INTERVENTION';
-  payload: {
-    detection: CrisisDetection;
-    /** REQUIRED: Must be <200ms from trigger */
-    responseTimeMs: number;
-    /** Auto-trigger vs manual trigger */
-    triggerSource: 'auto_phq9_score' | 'auto_gad7_score' | 'auto_phq9_suicidal' | 'manual_override';
-    /** Assessment state when crisis was triggered */
-    assessmentSnapshot: AssessmentProgress;
-  };
-}
-
-export interface UpdateCrisisInterventionAction extends BaseAssessmentAction {
-  type: 'UPDATE_CRISIS_INTERVENTION';
-  payload: {
-    interventionId: string;
-    updates: Partial<CrisisIntervention>;
-    /** What was updated */
-    updateType: 'contact_support' | 'acknowledge_resources' | 'safety_plan_reviewed' | 'dismissed_safely';
-  };
-}
-
-export interface ResolveCrisisInterventionAction extends BaseAssessmentAction {
-  type: 'RESOLVE_CRISIS_INTERVENTION';
-  payload: {
-    interventionId: string;
-    resolution: 'support_contacted' | 'safety_plan_completed' | 'professional_referral' | 'user_safe';
-    /** Total intervention duration (ms) */
-    interventionDurationMs: number;
-    /** Follow-up required */
-    requiresFollowUp: boolean;
   };
 }
 
@@ -217,9 +177,6 @@ export type AssessmentAction =
   | NavigateQuestionAction
   | CompleteAssessmentAction
   | ResetAssessmentAction
-  | TriggerCrisisInterventionAction
-  | UpdateCrisisInterventionAction
-  | ResolveCrisisInterventionAction
   | SaveSessionAction
   | LoadSessionAction
   | DeleteSessionAction
@@ -270,11 +227,6 @@ export interface AssessmentStoreActions {
   completeAssessment: () => Promise<PHQ9Result | GAD7Result>;
   resetAssessment: (preserveAnswers?: boolean) => void;
   
-  // Crisis Intervention - CRITICAL SAFETY
-  triggerCrisisIntervention: (detection: CrisisDetection) => Promise<void>;
-  updateCrisisIntervention: (updates: Partial<CrisisIntervention>) => void;
-  resolveCrisisIntervention: (resolution: string) => Promise<void>;
-  
   // Session Management
   saveSession: (encrypt?: boolean) => Promise<void>;
   loadSession: (sessionId: string) => Promise<AssessmentSession | null>;
@@ -306,19 +258,6 @@ export type AssessmentThunkAction<T = void> = (
   get: () => AssessmentStoreState,
   set: (partial: Partial<AssessmentStoreState>) => void
 ) => Promise<T> | T;
-
-/**
- * Crisis Safety Type Guards
- */
-export function isCrisisAction(action: AssessmentAction): action is TriggerCrisisInterventionAction | UpdateCrisisInterventionAction | ResolveCrisisInterventionAction {
-  return action.type.includes('CRISIS');
-}
-
-export function requiresCrisisValidation(action: AssessmentAction): boolean {
-  return action.type === 'COMPLETE_ASSESSMENT' || 
-         action.type === 'ANSWER_QUESTION' ||
-         action.type === 'TRIGGER_CRISIS_INTERVENTION';
-}
 
 /**
  * Store Configuration Constants

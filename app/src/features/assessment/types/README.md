@@ -67,61 +67,6 @@ const AssessmentQuestion: React.FC<AssessmentQuestionProps> = ({
 };
 ```
 
-### Store Actions
-
-```typescript
-import { 
-  AssessmentStoreActions, 
-  TriggerCrisisInterventionAction,
-  CRISIS_SAFETY_THRESHOLDS 
-} from './types';
-
-// Store with comprehensive action typing
-const useAssessmentStore = create<AssessmentStoreState & AssessmentStoreActions>((set, get) => ({
-  // Crisis intervention with safety constraints
-  triggerCrisisIntervention: async (detection: CrisisDetection) => {
-    // Must respond within 200ms
-    const startTime = Date.now();
-    
-    // Type-safe crisis handling
-    if (detection.detectionResponseTimeMs > CRISIS_SAFETY_THRESHOLDS.MAX_CRISIS_RESPONSE_TIME_MS) {
-      throw new Error('Crisis response time exceeded safety threshold');
-    }
-    
-    // Implementation...
-  }
-}));
-```
-
-### Navigation with Crisis Safety
-
-```typescript
-import { AssessmentStackParamList, isCrisisNavigationParams } from './types';
-
-// Type-safe navigation with crisis checking
-const AssessmentNavigator = () => {
-  const navigation = useNavigation<NavigationProp<AssessmentStackParamList>>();
-  
-  const navigateToResults = (result: PHQ9Result | GAD7Result) => {
-    // Crisis detection with type safety
-    if (result.isCrisis) {
-      navigation.navigate('CrisisIntervention', {
-        detection: /* crisis detection object */,
-        triggeringResult: result,
-        sessionId: 'session_id',
-        canDismiss: false
-      });
-    } else {
-      navigation.navigate('AssessmentResults', {
-        type: result.type,
-        result,
-        context: 'standalone'
-      });
-    }
-  };
-};
-```
-
 ### Scoring with Clinical Validation
 
 ```typescript
