@@ -12,8 +12,10 @@
  *     time-inferred. Accepting them would hand an external party — a push payload, an
  *     email, another app — the power to choose the depth of someone's practice and skip
  *     the neutral choice.
- *  3. The three path->screen sources of truth agree. `linking.ts`, `ALLOWED_PATHS`, and
- *     the (test-only, drift-prone) `extractNavigationParams` screenMap must not diverge.
+ *  3. The path->screen sources of truth agree for `/daily`. This file only ever asserted
+ *     that one path; the all-routes reconciliation of `config.screens`, `ALLOWED_PATHS`,
+ *     `DEEP_LINK_REACHABILITY` and the screenMap is
+ *     `__tests__/safety/deepLinkReachability.drift.test.ts` (DEBUG-636).
  */
 
 import DeepLinkValidationService from '@/core/services/security/DeepLinkValidationService';

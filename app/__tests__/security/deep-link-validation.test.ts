@@ -51,10 +51,10 @@ describe('DeepLinkValidationService', () => {
 
   describe('Valid URL Handling', () => {
     it('should accept valid being:// scheme URLs', () => {
-      const result = service.validateDeepLink('being://main');
+      const result = service.validateDeepLink('being://daily');
 
       expect(result.isValid).toBe(true);
-      expect(result.sanitizedUrl).toBe('being://main');
+      expect(result.sanitizedUrl).toBe('being://daily');
       expect(result.errors).toHaveLength(0);
     });
 
@@ -75,23 +75,12 @@ describe('DeepLinkValidationService', () => {
     });
 
     it('should accept all allowed paths', () => {
-      const allowedPaths = [
-        'being://main',
-        'being://morning',
-        'being://midday',
-        'being://evening',
-        'being://crisis',
-        'being://assessment',
-        'being://learn',
-        'being://module',
-        'being://practice',
-        'being://profile',
-        'being://settings',
-        'being://subscription',
-      ];
-
-      for (const url of allowedPaths) {
-        const result = service.validateDeepLink(url);
+      // DEBUG-636: derived from the enforcing list rather than restated — /main,
+      // /learn, /profile and /settings were ruled out of it, and a hand-kept copy
+      // is how the two drifted in the first place.
+      expect(DEEP_LINK_CONFIG.ALLOWED_PATHS.length).toBeGreaterThan(5);
+      for (const allowed of DEEP_LINK_CONFIG.ALLOWED_PATHS) {
+        const result = service.validateDeepLink(`being://${allowed.slice(1)}`);
         expect(result.isValid).toBe(true);
       }
     });
@@ -317,11 +306,11 @@ describe('DeepLinkValidationService', () => {
     it('should block requests after rate limit exceeded', () => {
       // Make many requests quickly
       for (let i = 0; i < DEEP_LINK_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE; i++) {
-        service.validateDeepLink('being://main');
+        service.validateDeepLink('being://daily');
       }
 
       // Next request should be rate limited
-      const result = service.validateDeepLink('being://main');
+      const result = service.validateDeepLink('being://daily');
 
       expect(result.isValid).toBe(false);
       expect(result.errors.some((e) => e.code === 'RATE_LIMIT_EXCEEDED')).toBe(
@@ -332,12 +321,12 @@ describe('DeepLinkValidationService', () => {
     it('should reset rate limit after clear', () => {
       // Exhaust rate limit
       for (let i = 0; i < DEEP_LINK_CONFIG.RATE_LIMIT.MAX_REQUESTS_PER_MINUTE + 5; i++) {
-        service.validateDeepLink('being://main');
+        service.validateDeepLink('being://daily');
       }
 
       // Clear and try again
       service.clearSecurityEvents();
-      const result = service.validateDeepLink('being://main');
+      const result = service.validateDeepLink('being://daily');
 
       expect(result.isValid).toBe(true);
     });
@@ -353,7 +342,7 @@ describe('DeepLinkValidationService', () => {
 
     it('should track security metrics', () => {
       // Generate some events
-      service.validateDeepLink('being://main'); // valid
+      service.validateDeepLink('being://daily'); // valid
       service.validateDeepLink("being://module?moduleId=' OR 1=1--"); // attack
 
       const metrics = service.getSecurityMetrics();
@@ -394,7 +383,7 @@ describe('DeepLinkValidationService', () => {
 
     it('should map paths to correct screens', () => {
       const pathMappings = [
-        { path: 'being://main', expectedScreen: 'Main' },
+        { path: 'being://', expectedScreen: 'Main' },
         // FEAT-298 slice 6c: the three time-of-day routes are retired. Their PATHS stay
         // allow-listed (see below) so links in the wild validate and land softly on Main
         // rather than being logged as security-blocked — but they map to no screen.
