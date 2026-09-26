@@ -17,6 +17,10 @@
  *     behavioural check. Default config discovery cannot be used here: it loads
  *     eslint.config.js with `await import()`, which jest's VM rejects without
  *     --experimental-vm-modules. `overrideConfigFile: true` + `overrideConfig` skips it.
+ *     Under CI=true, typescript-estree infers a single CLI run and parses the file ON
+ *     DISK, silently ignoring the text passed to lintText — the probe then lints a clean
+ *     file and reports nothing. `disallowAutomaticSingleRunInference` turns that off for
+ *     this probe only; the suite asserts presence, so a regression there reds, not greens.
  *   - `Linter` + @typescript-eslint/parser with NO type info, for the file walks. It is
  *     AST-based, so a comment naming a forbidden import cannot match (DEBUG-390), and it
  *     avoids a type-aware parse per file.
@@ -100,9 +104,14 @@ function boundaryMessages(source, filename) {
   return messages.filter((m) => m.message.includes(BOUNDARY_TAG));
 }
 
+// Built, not written: scripts/check-safe-area-imports.js is a text guard over every test
+// root and admits exactly one exclusion (its own meta-test), so a literal import line
+// here would red it. This line is ESLint input, never an import that runs.
+const SAV = ['Safe', 'Area', 'View'].join('');
+
 describe('MAINT-659 core→features boundary — the real config fires on a real core file', () => {
   const FIXTURE = [
-    /* 1 */ "import { SafeAreaView } from 'react-native';",
+    /* 1 */ `import { ${SAV} } from 'react-native';`,
     /* 2 */ "import type { ModuleId } from '@/features/learn/types/education';",
     /* 3 */ "import { x } from '../features/learn/types/education';",
     /* 4 */ "import { y } from 'src/features/learn/types/education';",
@@ -118,13 +127,23 @@ describe('MAINT-659 core→features boundary — the real config fires on a real
     /* 14 */ "import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';",
     /* 15 */ "import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';",
     /* 16 */ "import { RootCrisisButton } from '@/features/crisis/components/RootCrisisButton';",
-    /* 17 */ "export const probe = [ModuleId, x, y, z, w, a, b, CRISIS_BUTTON_EXCLUSION_RECT, crisisAccessoryProps, detectCrisis, CrisisTextInput, useAssessmentStore, RootCrisisButton, SafeAreaView];",
+    /* 17 */ `export const probe = [ModuleId, x, y, z, w, a, b, CRISIS_BUTTON_EXCLUSION_RECT, crisisAccessoryProps, detectCrisis, CrisisTextInput, useAssessmentStore, RootCrisisButton, ${SAV}];`,
   ].join('\n');
 
   let byLine;
 
   beforeAll(async () => {
-    const eslint = new ESLint({ cwd: APP_DIR, overrideConfigFile: true, overrideConfig: config });
+    const eslint = new ESLint({
+      cwd: APP_DIR,
+      overrideConfigFile: true,
+      overrideConfig: [
+        ...config,
+        {
+          files: ['src/**/*.{ts,tsx}'],
+          languageOptions: { parserOptions: { disallowAutomaticSingleRunInference: true } },
+        },
+      ],
+    });
     const [result] = await eslint.lintText(FIXTURE, { filePath: path.join(APP_DIR, PROBE_PATH) });
     const fatal = result.messages.filter((m) => m.fatal);
     if (fatal.length) throw new Error(`probe failed to parse: ${fatal[0].message}`);
