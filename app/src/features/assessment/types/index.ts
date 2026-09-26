@@ -11,8 +11,6 @@
  * - Utility function types for 100% accurate scoring calculations
  */
 
-// Crisis types import
-import type { CrisisDetection } from '@/features/crisis/types/safety';
 
 // Base Assessment Types
 export type AssessmentType = 'phq9' | 'gad7';
@@ -144,7 +142,6 @@ export interface AssessmentActions {
   answerQuestion: (questionId: string, response: AssessmentResponse) => void;
   completeAssessment: () => void;
   resetAssessment: () => void;
-  triggerCrisisIntervention: (detection: CrisisDetection) => void;
 }
 
 // Legacy Navigation Types (see navigation/params.ts for comprehensive)
@@ -155,9 +152,6 @@ export type AssessmentStackParamList = {
   AssessmentResults: {
     type: AssessmentType;
     result: PHQ9Result | GAD7Result;
-  };
-  CrisisIntervention: {
-    detection: CrisisDetection;
   };
 };
 

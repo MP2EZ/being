@@ -73,7 +73,6 @@ const validEnv = {
   EXPO_PUBLIC_SUICIDE_RISK_DETECTION: 'true',
   EXPO_PUBLIC_SELF_HARM_DETECTION: 'true',
   EXPO_PUBLIC_CRISIS_INTERVENTION_AUTO: 'true',
-  EXPO_PUBLIC_EMERGENCY_CONTACT_ENABLED: 'true',
   EXPO_PUBLIC_PERFORMANCE_CRISIS_BUTTON_MAX_MS: '200',
   EXPO_PUBLIC_PERFORMANCE_APP_LAUNCH_MAX_MS: '2000',
   EXPO_PUBLIC_PERFORMANCE_ASSESSMENT_LOAD_MAX_MS: '300',
@@ -142,9 +141,26 @@ describe('env schema (INFRA-141, clinical safety)', () => {
       'EXPO_PUBLIC_SUICIDE_RISK_DETECTION',
       'EXPO_PUBLIC_SELF_HARM_DETECTION',
       'EXPO_PUBLIC_CRISIS_INTERVENTION_AUTO',
-      'EXPO_PUBLIC_EMERGENCY_CONTACT_ENABLED',
     ])('rejects %s=false', (key) => {
       expect(envSchema.safeParse({ ...validEnv, [key]: 'false' }).success).toBe(false);
+    });
+  });
+
+  // MAINT-616: EMERGENCY_CONTACT_ENABLED guarded no feature (none exists, DEBUG-608)
+  // and had zero consumers, so it left the schema. The key stays in the canonical
+  // .config files and the EAS env until the release carrying this reaches main
+  // (MAINT-658). That is only safe because zod strips an unknown key rather than
+  // rejecting it, which is what the second case pins.
+  describe('retired key: EXPO_PUBLIC_EMERGENCY_CONTACT_ENABLED (MAINT-616)', () => {
+    it('is not part of the schema', () => {
+      const keys = Object.keys(envSchema.shape);
+      expect(keys).toContain('EXPO_PUBLIC_CRISIS_DETECTION_ENABLED');
+      expect(keys).not.toContain('EXPO_PUBLIC_EMERGENCY_CONTACT_ENABLED');
+    });
+    it('a stale value left in an env source is stripped, not rejected', () => {
+      const result = envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_EMERGENCY_CONTACT_ENABLED: 'false' });
+      expect(result.success).toBe(true);
+      expect(result.success && 'EXPO_PUBLIC_EMERGENCY_CONTACT_ENABLED' in result.data).toBe(false);
     });
   });
 

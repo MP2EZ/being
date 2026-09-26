@@ -287,7 +287,6 @@ export type ClinicalRecommendationType =
   | 'SELF_CARE_STRATEGY'
   | 'MEDICATION_REVIEW'
   | 'FOLLOW_UP_ASSESSMENT'
-  | 'SAFETY_PLANNING'
   | 'EMERGENCY_SERVICES';
 
 /**

@@ -11,8 +11,6 @@ import type {
   AssessmentProgress,
   PHQ9Result,
   GAD7Result,
-  CrisisDetection,
-  CrisisIntervention,
   AssessmentType
 } from './index';
 
@@ -98,28 +96,6 @@ export interface AssessmentResultsProps extends BaseAssessmentProps {
   showTherapeuticGuidance?: boolean;
   /** Callback for result analytics */
   onResultViewed?: (result: PHQ9Result | GAD7Result, viewDuration: number) => void;
-}
-
-// Crisis Intervention Component Props
-export interface CrisisInterventionProps extends BaseAssessmentProps {
-  /** Crisis detection that triggered intervention */
-  detection: CrisisDetection;
-  /** Current intervention state */
-  intervention?: CrisisIntervention;
-  /** Callback when user contacts support */
-  onContactSupport: () => void;
-  /** Callback when user dismisses (with safety checks) */
-  onSafetyDismiss?: () => void;
-  /** Emergency contact information */
-  emergencyContacts?: Array<{
-    name: string;
-    phone: string;
-    type: '988' | 'emergency' | 'personal';
-  }>;
-  /** Whether to force display (cannot be dismissed) */
-  forcedDisplay?: boolean;
-  /** Response time requirement (must be <200ms) */
-  responseTimeMs: number;
 }
 
 // Assessment Start Screen Props

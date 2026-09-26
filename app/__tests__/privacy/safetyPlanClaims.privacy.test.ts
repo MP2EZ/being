@@ -62,12 +62,18 @@ const SOURCE_SURFACES = [
 ];
 
 /**
- * Entitlement and crisis type models that used to name the feature as if it
- * existed. Comment-stripped.
+ * Entitlement, crisis and assessment type models that used to name the feature
+ * as if it existed. Comment-stripped. The four assessment files joined in
+ * MAINT-616, which deleted the emergencyContacts / emergencyContactOverride /
+ * SAFETY_PLANNING members this guard had missed.
  */
 const MODEL_SURFACES = [
   'app/src/core/types/subscription/index.ts',
   'app/src/features/crisis/types/safety.ts',
+  'app/src/features/assessment/types/actions.ts',
+  'app/src/features/assessment/types/params.ts',
+  'app/src/features/assessment/types/props.ts',
+  'app/src/features/assessment/types/scoring.ts',
 ];
 
 /** Any safety-plan wording, including "Safety Planning". */
@@ -92,7 +98,7 @@ const MARKDOWN_CONTACT_CLAIMS: ReadonlyArray<[string, RegExp]> = [
 ];
 
 /** Model identifiers for the feature that never shipped. */
-const MODEL_FEATURE = /safetyPlan|crisisContacts|CrisisSafetyPlan|safety_plan/;
+const MODEL_FEATURE = /safetyPlan|crisisContacts|CrisisSafetyPlan|safety_plan|SAFETY_PLAN|emergencyContact/;
 
 /** Screen/store file names for the feature. */
 const FEATURE_FILE = /(?:safety_?plan|emergency_?contacts?|crisis_?plan)/i;
@@ -297,6 +303,9 @@ describe('DEBUG-608 (d): matcher integrity', () => {
     expect(MODEL_FEATURE.test('  safetyPlan: true;                    // ALWAYS true')).toBe(true);
     expect(MODEL_FEATURE.test("  | 'safety_plan_triggered';")).toBe(true);
     expect(MODEL_FEATURE.test('export interface CrisisSafetyPlan {')).toBe(true);
+    expect(MODEL_FEATURE.test("  | 'SAFETY_PLANNING'")).toBe(true);
+    expect(MODEL_FEATURE.test('  emergencyContacts?: Array<{')).toBe(true);
+    expect(MODEL_FEATURE.test('    emergencyContactOverride?: {')).toBe(true);
     expect(FEATURE_FILE.test('crisisPlanStore.ts')).toBe(true);
     expect(FEATURE_FILE.test('SafetyPlanScreen.tsx')).toBe(true);
     expect(FEATURE_FILE.test('EmergencyContactScreen.tsx')).toBe(true);
