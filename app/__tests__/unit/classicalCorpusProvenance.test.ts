@@ -98,7 +98,7 @@
  * CI's `--testPathPattern` values, so a pin there would never run. Recorded here
  * instead so the confirmation is at least auditable.
  *
- * THREE NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
+ * FOUR NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
  * auditable rather than invisible:
  *   1. Long-s: the 1759 print sets `ſ`; the corpus uses `s`.
  *   2. The transcription emits a space before punctuation where the print
@@ -111,6 +111,11 @@
  *      otherwise Gummere's. AC4's sweep CONFIRMED that locus rather than
  *      repairing it — it is pinned below anyway, because an unpinned
  *      confirmation is exactly the condition that let seneca-letters-13 survive.
+ *   4. Carter's apparatus (FEAT-581): her section numerals ("§. 5.") are dropped
+ *      where a span crosses one, and her bracketed supplements ("[of Action]")
+ *      are dropped exactly as Long's glosses are. Both are the translator's
+ *      editorial layer, not the text. Dialogue turns set as separate paragraphs
+ *      are joined with a single space, as prose paragraphs already were.
  *
  * ONE LOCUS CORRECTION, likewise recorded rather than silently applied:
  * Ench. 8 in the pinned transcription reads "as you with; but with them" — a
@@ -498,6 +503,75 @@ describe('classical corpus provenance (DEBUG-352)', () => {
   });
 
   /**
+   * FEAT-581 additions, pinned at admission rather than after a defect — every
+   * locus above was pinned only once it had been caught shipping the wrong text.
+   * Each span was extracted programmatically from the pinned digitization, not
+   * retyped, and is pinned at BOTH ends: the opening is what the list shows, the
+   * close is where a span boundary drifts when a later edit "tidies" it — and the
+   * boundaries here were drawn by `crisis`, so drift is not cosmetic.
+   */
+  describe('FEAT-581 loci are verbatim at both ends (sphere-sovereignty)', () => {
+    const SOVEREIGNTY = 'passages-3-sphere-sovereignty.json';
+    const byId = (id: string): Passage => {
+      const p = loadPassages(SOVEREIGNTY).find((x) => x.id === id);
+      if (!p) throw new Error(`${id} missing from ${SOVEREIGNTY}`);
+      return p;
+    };
+
+    it.each([
+      [
+        'epictetus-discourses-1-1',
+        'Elizabeth Carter',
+        'But now, when it is in our Power to take Care of one Thing',
+        // Ends two exchanges before the Lateranus execution (crisis boundary).
+        'To make the best of what is in our Power, and take the rest as it naturally happens.',
+      ],
+      [
+        'epictetus-discourses-2-5',
+        'Elizabeth Carter',
+        'The Materials of Action are indifferent: but the Use of them is not indifferent.',
+        // Runs past section 1 on purpose — section 1 alone ends in the withdrawal
+        // trap — and stops before the voyage (drowning) and the ball game (poison).
+        'because the Materials themselves are indifferent.',
+      ],
+      [
+        'epictetus-discourses-2-13',
+        'Elizabeth Carter',
+        'When I see any one solicitous, I say, What doth this Man mean?',
+        // Stops well before "hath Power to kill me" (crisis boundary).
+        'In short, where his Skill lies, there is his Courage.',
+      ],
+      [
+        'marcus-meditations-6-50',
+        'George Long',
+        'Let us try to persuade them. But act even against their will',
+        // Must end here: Long's next sentence turns on a bracketed "[not]", and
+        // this corpus drops Long's brackets, which would reverse its meaning.
+        'thou didst not desire to do impossibilities.',
+      ],
+      [
+        'marcus-meditations-8-8',
+        'George Long',
+        'Thou hast not leisure to read. But thou hast leisure to check arrogance',
+        'not to be vexed at stupid and ungrateful people, nay even to care for them.',
+      ],
+    ])('%s is %s, opening and close intact', (id, translator, opening, close) => {
+      const p = byId(id);
+      expect(p.translation).toBe(translator);
+      expect(p.text.startsWith(opening)).toBe(true);
+      expect(p.text.endsWith(close)).toBe(true);
+    });
+
+    it('Carter section numerals and bracketed supplements are dropped, not transcribed', () => {
+      // Normalisation 4 in this file's header. A span crossing a section break
+      // (Disc. 1.1 at section 5, Disc. 2.5 at section 2) must not carry "§".
+      expect(byId('epictetus-discourses-1-1').text).not.toMatch(/§/);
+      expect(byId('epictetus-discourses-2-5').text).not.toMatch(/§|\[of Action\]/);
+      expect(byId('epictetus-discourses-2-5').text).toContain('because the Use of the Materials is not indifferent');
+    });
+  });
+
+  /**
    * THE SAME DEFECT ONE LAYER UP (DEBUG-585). DEBUG-352, FEAT-567 and DEBUG-582
    * each found an edition's identity attached to text that edition did not
    * produce, and each found it in `text`. This is that class in the METADATA:
@@ -618,6 +692,16 @@ describe('classical corpus provenance (DEBUG-352)', () => {
         'Remember that Desire promises the Attainment of that of which you are desirous; and Aversi',
       'seneca-on-tranquility-13':
         'I will set sail unless anything happens to prevent me, I shall be praetor, if nothing hind',
+      'epictetus-discourses-1-1':
+        'But now, when it is in our Power to take Care of one Thing, and to apply to one, we chuse ',
+      'epictetus-discourses-2-5':
+        'The Materials of Action are indifferent: but the Use of them is not indifferent. How, then',
+      'epictetus-discourses-2-13':
+        'When I see any one solicitous, I say, What doth this Man mean? Unless he wanted something ',
+      'marcus-meditations-6-50':
+        'Let us try to persuade them. But act even against their will, when the principles of justi',
+      'marcus-meditations-8-8':
+        'Thou hast not leisure to read. But thou hast leisure to check arrogance: thou hast leisure',
       'marcus-meditations-5-20':
         'In one respect man is the nearest thing to me, so far as I must do good to men and endure ',
       'marcus-meditations-10-16':
@@ -818,6 +902,43 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       // And prove the note being read is real prose, not an empty string that would
       // satisfy every not.toContain above vacuously.
       expect(contextOf(VIRTUOUS, 'seneca-letters-107').length).toBeGreaterThan(40);
+    });
+
+    /**
+     * SPHERE SOVEREIGNTY — the FEAT-581 additions. The trap is withdrawal /
+     * learned helplessness: "not ours" heard as "not worth our effort", or as a
+     * reason to care about fewer people. Every added note carries a clause doing
+     * the opposite work, and that clause is what is pinned. There is no negative
+     * pin because no defective phrasing ever shipped here; the notes also NAME
+     * the trap in order to refuse it ("not withdrawal", "not to leave"), so a
+     * regex against withdrawal vocabulary would fire on the correctives.
+     */
+    const SOVEREIGNTY = 'passages-3-sphere-sovereignty.json';
+
+    it.each([
+      // "Brother, Friend, Child" are listed as Incumbrances — the note refuses
+      // the care-for-fewer-people reading, which crisis ruled a hazard in itself.
+      [SOVEREIGNTY, 'epictetus-discourses-1-1', 'engagement, not withdrawal'],
+      // Indifferent is a technical term; heard as "unimportant" it IS the trap.
+      [SOVEREIGNTY, 'epictetus-discourses-2-5', 'Indifferent does not mean careless'],
+      // Avoidance is the anxious reader's version of withdrawal.
+      [SOVEREIGNTY, 'epictetus-discourses-2-13', 'not to leave the stage'],
+      // When force blocks the way, the effort changes object; it does not end.
+      [SOVEREIGNTY, 'marcus-meditations-6-50', 'turns to another virtue; it does not stop'],
+      // The section closes on caring for difficult people, not on distance from them.
+      [SOVEREIGNTY, 'marcus-meditations-8-8', 'ends on care, not distance'],
+    ])('%s / %s keeps its anti-withdrawal clause', (file, id, anchor) => {
+      expect(contextOf(file, id)).toContain(anchor);
+    });
+
+    it('the two harm-adjacent sovereignty notes keep the harm clause (crisis)', () => {
+      // 6.50's "any man by using force stands in thy way" must not be heard as
+      // counsel to endure force aimed at the reader.
+      const note = contextOf(SOVEREIGNTY, 'marcus-meditations-6-50');
+      expect(note).toContain('not harm done to you');
+      expect(note).toContain('set limits or seek help');
+      // 2.13's diagnosis must not read, to a GAD-7 >= 15 reader, as a verdict on them.
+      expect(contextOf(SOVEREIGNTY, 'epictetus-discourses-2-13')).toContain('not a verdict on anxiety');
     });
 
     it('the matchers still fire (DEBUG-390)', () => {
