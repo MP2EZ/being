@@ -72,23 +72,23 @@ const MANIFEST: Record<string, Record<string, Row>> = {
   'src/features/practices/stores/stoicPracticeStore.ts': {
     'persistToSecureStore › setItemAsync': [
       1,
-      'pending: C',
-      'whole-blob chokepoint: check-ins, principle engagement, weekly reflection text, practice days. Erasure: resetStore.',
+      'gated',
+      'FEAT-667: whole-blob chokepoint (check-ins, principle engagement daily and learn, weekly reflection text). Skips the write when blocked; a record captured while blocked is never written; `loading` defers. Erasure: resetStore.',
     ],
   },
   'src/core/services/session/SessionStorageService.ts': {
     'SessionStorageService.saveSession › setItemAsync': [
       1,
-      'pending: C',
-      'daily-loop beat responses from DailyLoopNavigator; useFlowSessionResumption is a dormant caller — gate before reviving',
+      'gated',
+      'FEAT-667: daily-loop beat responses. A blocked save writes nothing and latches until clearSession. useFlowSessionResumption is a dormant caller.',
     ],
     'SessionStorageService.markSessionCompleted › setItemAsync': [1, DORMANT],
   },
   'src/features/learn/stores/educationStore.ts': {
     'useEducationStore.persistState › AsyncStorage.setItem': [
       1,
-      'pending: C',
-      'unclassified — FEAT-667 rules it. As reached today it stores learning progress only (the reflection/stage/opt-out setters have no production caller), in PLAINTEXT.',
+      'gated',
+      'FEAT-667: practiceCount is ruled Art. 9; off for the process once withheld. Still PLAINTEXT and never read back (DEBUG-672). The reflection/stage/opt-out setters stay dormant (pinned).',
     ],
   },
 
