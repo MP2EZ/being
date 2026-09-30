@@ -98,7 +98,7 @@
  * CI's `--testPathPattern` values, so a pin there would never run. Recorded here
  * instead so the confirmation is at least auditable.
  *
- * THREE NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
+ * FOUR NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
  * auditable rather than invisible:
  *   1. Long-s: the 1759 print sets `ſ`; the corpus uses `s`.
  *   2. The transcription emits a space before punctuation where the print
@@ -111,6 +111,11 @@
  *      otherwise Gummere's. AC4's sweep CONFIRMED that locus rather than
  *      repairing it — it is pinned below anyway, because an unpinned
  *      confirmation is exactly the condition that let seneca-letters-13 survive.
+ *   4. Carter's apparatus (FEAT-581): her section numerals ("§. 5.") are dropped
+ *      where a span crosses one, and her bracketed supplements ("[of Action]")
+ *      are dropped exactly as Long's glosses are. Both are the translator's
+ *      editorial layer, not the text. Dialogue turns set as separate paragraphs
+ *      are joined with a single space, as prose paragraphs already were.
  *
  * ONE LOCUS CORRECTION, likewise recorded rather than silently applied:
  * Ench. 8 in the pinned transcription reads "as you with; but with them" — a
@@ -273,7 +278,8 @@ describe('classical corpus provenance (DEBUG-352)', () => {
    * outright fails four of five principles today, and a gate that cannot go green
    * is the shape that trains people to bypass gates. So the existing violations are
    * DECLARED below and may not worsen; anything not declared must comply. The debt
-   * is discharged by FEAT-569, which owns the content.
+   * is discharged by FEAT-581's per-principle slices, which own the content —
+   * FEAT-569 was scoped down to framing and moved no count.
    *
    * Rules (a) and (c) apply only at 4+ passages: below that the ratios are too
    * coarse to be meaningful — a 3-passage principle cannot have a work supply
@@ -288,12 +294,12 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       'passages-5-interconnected-living.json',
     ];
 
-    /** Declared, dischargeable debt — each entry is owed by FEAT-569. */
+    /** Declared, dischargeable debt — each entry is owed by the FEAT-581 slice named. */
     const BALANCE_DEBT: Readonly<Record<string, readonly string[]>> = {
-      'passages-1-aware-presence.json': ['Seneca'],
-      'passages-2-radical-acceptance.json': ['Seneca'],
-      'passages-4-virtuous-response.json': ['Epictetus'],
-      'passages-5-interconnected-living.json': ['Epictetus', 'Seneca'],
+      'passages-1-aware-presence.json': ['Seneca'], // FEAT-660
+      'passages-2-radical-acceptance.json': ['Seneca'], // FEAT-661
+      'passages-4-virtuous-response.json': ['Epictetus'], // FEAT-662
+      'passages-5-interconnected-living.json': ['Epictetus', 'Seneca'], // FEAT-663
     };
 
     const REQUIRED = ['Epictetus', 'Seneca'] as const;
@@ -497,6 +503,75 @@ describe('classical corpus provenance (DEBUG-352)', () => {
   });
 
   /**
+   * FEAT-581 additions, pinned at admission rather than after a defect — every
+   * locus above was pinned only once it had been caught shipping the wrong text.
+   * Each span was extracted programmatically from the pinned digitization, not
+   * retyped, and is pinned at BOTH ends: the opening is what the list shows, the
+   * close is where a span boundary drifts when a later edit "tidies" it — and the
+   * boundaries here were drawn by `crisis`, so drift is not cosmetic.
+   */
+  describe('FEAT-581 loci are verbatim at both ends (sphere-sovereignty)', () => {
+    const SOVEREIGNTY = 'passages-3-sphere-sovereignty.json';
+    const byId = (id: string): Passage => {
+      const p = loadPassages(SOVEREIGNTY).find((x) => x.id === id);
+      if (!p) throw new Error(`${id} missing from ${SOVEREIGNTY}`);
+      return p;
+    };
+
+    it.each([
+      [
+        'epictetus-discourses-1-1',
+        'Elizabeth Carter',
+        'But now, when it is in our Power to take Care of one Thing',
+        // Ends two exchanges before the Lateranus execution (crisis boundary).
+        'To make the best of what is in our Power, and take the rest as it naturally happens.',
+      ],
+      [
+        'epictetus-discourses-2-5',
+        'Elizabeth Carter',
+        'The Materials of Action are indifferent: but the Use of them is not indifferent.',
+        // Runs past section 1 on purpose — section 1 alone ends in the withdrawal
+        // trap — and stops before the voyage (drowning) and the ball game (poison).
+        'because the Materials themselves are indifferent.',
+      ],
+      [
+        'epictetus-discourses-2-13',
+        'Elizabeth Carter',
+        'When I see any one solicitous, I say, What doth this Man mean?',
+        // Stops well before "hath Power to kill me" (crisis boundary).
+        'In short, where his Skill lies, there is his Courage.',
+      ],
+      [
+        'marcus-meditations-6-50',
+        'George Long',
+        'Let us try to persuade them. But act even against their will',
+        // Must end here: Long's next sentence turns on a bracketed "[not]", and
+        // this corpus drops Long's brackets, which would reverse its meaning.
+        'thou didst not desire to do impossibilities.',
+      ],
+      [
+        'marcus-meditations-8-8',
+        'George Long',
+        'Thou hast not leisure to read. But thou hast leisure to check arrogance',
+        'not to be vexed at stupid and ungrateful people, nay even to care for them.',
+      ],
+    ])('%s is %s, opening and close intact', (id, translator, opening, close) => {
+      const p = byId(id);
+      expect(p.translation).toBe(translator);
+      expect(p.text.startsWith(opening)).toBe(true);
+      expect(p.text.endsWith(close)).toBe(true);
+    });
+
+    it('Carter section numerals and bracketed supplements are dropped, not transcribed', () => {
+      // Normalisation 4 in this file's header. A span crossing a section break
+      // (Disc. 1.1 at section 5, Disc. 2.5 at section 2) must not carry "§".
+      expect(byId('epictetus-discourses-1-1').text).not.toMatch(/§/);
+      expect(byId('epictetus-discourses-2-5').text).not.toMatch(/§|\[of Action\]/);
+      expect(byId('epictetus-discourses-2-5').text).toContain('because the Use of the Materials is not indifferent');
+    });
+  });
+
+  /**
    * THE SAME DEFECT ONE LAYER UP (DEBUG-585). DEBUG-352, FEAT-567 and DEBUG-582
    * each found an edition's identity attached to text that edition did not
    * produce, and each found it in `text`. This is that class in the METADATA:
@@ -578,6 +653,108 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       // Every passage carries a non-empty work key, so the field scan reads a
       // real value rather than a uniformly `undefined` one.
       expect(allPassages().every((p) => typeof p.work === 'string' && p.work.length > 0)).toBe(true);
+    });
+  });
+
+  /**
+   * THE OPENING TEST (FEAT-581, founder decision).
+   *
+   * `ClassicalLibraryScreen` previews `text` at two lines, under the principle
+   * label, with no `context` beside it — so as the corpus grows the opening IS
+   * the browse surface, and a trap stated there is read as the principle's own
+   * endorsement. Rule: a passage's first ~90 characters, read alone under its
+   * principle label, must not state that principle's trap. A failing locus gets
+   * an excerpt with a safe opening, or is rejected. Putting `context` on the row
+   * was considered and refused: a corrective cut at two lines stops mid-pivot.
+   *
+   * Whether an opening states a trap is a judgement, not a regex, so this is a
+   * RATCHET over recorded rulings, the shape BALANCE_DEBT established. Each
+   * opening below was read by `philosopher` at FEAT-581; a new passage, or an
+   * edited opening, fails here until someone reads it and records it.
+   */
+  describe('every opening has been read under its label (FEAT-581)', () => {
+    const OPENING_CHARS = 90;
+
+    const REVIEWED_OPENINGS: Readonly<Record<string, string>> = {
+      'marcus-meditations-8-36':
+        'Do not disturb thyself by thinking of the whole of thy life. Let not thy thoughts at once ',
+      'marcus-meditations-7-29':
+        'Wipe out the imagination. Stop the pulling of the strings. Confine thyself to the present.',
+      'epictetus-enchiridion-5':
+        'Men are disturbed, not by Things, but by the Principles and Notions, which they form conce',
+      'marcus-meditations-4-23':
+        'Everything harmonizes with me, which is harmonious to thee, O Universe. Nothing for me is ',
+      'epictetus-enchiridion-8':
+        'Require not Things to happen as you wish; but wish them to happen as they do happen; and y',
+      'epictetus-enchiridion-1':
+        'Of Things, some are in our Power, and others not. In our Power are Opinion, Pursuit, Desir',
+      'epictetus-enchiridion-2':
+        'Remember that Desire promises the Attainment of that of which you are desirous; and Aversi',
+      'seneca-on-tranquility-13':
+        'I will set sail unless anything happens to prevent me, I shall be praetor, if nothing hind',
+      'epictetus-discourses-1-1':
+        'But now, when it is in our Power to take Care of one Thing, and to apply to one, we chuse ',
+      'epictetus-discourses-2-5':
+        'The Materials of Action are indifferent: but the Use of them is not indifferent. How, then',
+      'epictetus-discourses-2-13':
+        'When I see any one solicitous, I say, What doth this Man mean? Unless he wanted something ',
+      'marcus-meditations-6-50':
+        'Let us try to persuade them. But act even against their will, when the principles of justi',
+      'marcus-meditations-8-8':
+        'Thou hast not leisure to read. But thou hast leisure to check arrogance: thou hast leisure',
+      'marcus-meditations-5-20':
+        'In one respect man is the nearest thing to me, so far as I must do good to men and endure ',
+      'marcus-meditations-10-16':
+        'No longer talk at all about the kind of man that a good man ought to be, but be such.',
+      'seneca-letters-13':
+        'There are more things, Lucilius, likely to frighten us than there are to crush us; we suff',
+      'seneca-letters-107':
+        'Lead me, O Master of the lofty heavens, My Father, whithersoever thou shalt wish. I shall ',
+      'marcus-meditations-2-1':
+        'Begin the morning by saying to thyself, I shall meet with the busybody, the ungrateful, ar',
+      'marcus-meditations-4-4':
+        'If our intellectual part is common, the reason also, in respect of which we are rational b',
+      'marcus-meditations-7-13':
+        'Just as it is with the members in those bodies which are united in one, so it is with rati',
+    };
+
+    /**
+     * Openings read and FAILED, declared rather than silently passed. 10.6 opens
+     * "Whatever may happen to thee, it was prepared for thee from all eternity"
+     * under Radical Acceptance — the fatalist reading, in the preview, with the
+     * FEAT-569 corrective one tap away. Retired for Meditations 4.49 by FEAT-661.
+     */
+    const OPENING_DEBT: Readonly<Record<string, string>> = {
+      'marcus-meditations-10-6': 'FEAT-661',
+    };
+
+    it('every opening is recorded as read, or declared as failing', () => {
+      const unread = allPassages()
+        .filter((p) => !(p.id in OPENING_DEBT))
+        .filter((p) => REVIEWED_OPENINGS[p.id] !== p.text.slice(0, OPENING_CHARS))
+        .map(({ file, id, text }) => `${file}:${id} — "${text.slice(0, OPENING_CHARS)}"`);
+
+      expect(unread).toEqual([]);
+    });
+
+    it('no recorded opening or declared failure is stale', () => {
+      // A retired passage must take its entry with it — otherwise the id is
+      // pre-cleared for whatever text lands under it next.
+      const ids = new Set(allPassages().map((p) => p.id));
+      const stale = [...Object.keys(REVIEWED_OPENINGS), ...Object.keys(OPENING_DEBT)].filter((id) => !ids.has(id));
+      expect(stale).toEqual([]);
+      // A declared failure that is also recorded as read is a contradiction.
+      expect(Object.keys(OPENING_DEBT).filter((id) => id in REVIEWED_OPENINGS)).toEqual([]);
+    });
+
+    it('the ratchet reads real openings (DEBUG-390)', () => {
+      // Both checks above pass vacuously over an empty corpus or an empty record.
+      expect(allPassages().length).toBeGreaterThan(10);
+      expect(Object.keys(REVIEWED_OPENINGS).length).toBeGreaterThan(10);
+      // And the comparison genuinely discriminates: a one-character edit to a
+      // recorded opening must read as unrecorded.
+      const [id, opening] = Object.entries(REVIEWED_OPENINGS)[0];
+      expect(REVIEWED_OPENINGS[id] === `${opening.slice(0, -1)}x`).toBe(false);
     });
   });
 
@@ -725,6 +902,43 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       // And prove the note being read is real prose, not an empty string that would
       // satisfy every not.toContain above vacuously.
       expect(contextOf(VIRTUOUS, 'seneca-letters-107').length).toBeGreaterThan(40);
+    });
+
+    /**
+     * SPHERE SOVEREIGNTY — the FEAT-581 additions. The trap is withdrawal /
+     * learned helplessness: "not ours" heard as "not worth our effort", or as a
+     * reason to care about fewer people. Every added note carries a clause doing
+     * the opposite work, and that clause is what is pinned. There is no negative
+     * pin because no defective phrasing ever shipped here; the notes also NAME
+     * the trap in order to refuse it ("not withdrawal", "not to leave"), so a
+     * regex against withdrawal vocabulary would fire on the correctives.
+     */
+    const SOVEREIGNTY = 'passages-3-sphere-sovereignty.json';
+
+    it.each([
+      // "Brother, Friend, Child" are listed as Incumbrances — the note refuses
+      // the care-for-fewer-people reading, which crisis ruled a hazard in itself.
+      [SOVEREIGNTY, 'epictetus-discourses-1-1', 'engagement, not withdrawal'],
+      // Indifferent is a technical term; heard as "unimportant" it IS the trap.
+      [SOVEREIGNTY, 'epictetus-discourses-2-5', 'Indifferent does not mean careless'],
+      // Avoidance is the anxious reader's version of withdrawal.
+      [SOVEREIGNTY, 'epictetus-discourses-2-13', 'not to leave the stage'],
+      // When force blocks the way, the effort changes object; it does not end.
+      [SOVEREIGNTY, 'marcus-meditations-6-50', 'turns to another virtue; it does not stop'],
+      // The section closes on caring for difficult people, not on distance from them.
+      [SOVEREIGNTY, 'marcus-meditations-8-8', 'ends on care, not distance'],
+    ])('%s / %s keeps its anti-withdrawal clause', (file, id, anchor) => {
+      expect(contextOf(file, id)).toContain(anchor);
+    });
+
+    it('the two harm-adjacent sovereignty notes keep the harm clause (crisis)', () => {
+      // 6.50's "any man by using force stands in thy way" must not be heard as
+      // counsel to endure force aimed at the reader.
+      const note = contextOf(SOVEREIGNTY, 'marcus-meditations-6-50');
+      expect(note).toContain('not harm done to you');
+      expect(note).toContain('set limits or seek help');
+      // 2.13's diagnosis must not read, to a GAD-7 >= 15 reader, as a verdict on them.
+      expect(contextOf(SOVEREIGNTY, 'epictetus-discourses-2-13')).toContain('not a verdict on anxiety');
     });
 
     it('the matchers still fire (DEBUG-390)', () => {
