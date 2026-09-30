@@ -697,6 +697,11 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
   But NOT for the whole `__tests__/scripts` run: `e2e-host-contention.test.js` *tests* the
   settle, so the override reds 3 of its cases against healthy code. Exclude that file, or
   run it separately — it is 44/44 green without the variable.
+- **Under `CI=true`, type-aware ESLint lints the file ON DISK, not the text you pass.**
+  typescript-estree infers a single CLI run from `CI=true` and builds its program from
+  disk, so `ESLint#lintText` silently lints the real file. A jest probe that lints via
+  `lintText` needs `parserOptions.disallowAutomaticSingleRunInference: true`, and must
+  assert a message is PRESENT, or it passes vacuously in CI.
 - **A new `app/scripts/*` file needs `git add` before the npm script naming it will pass
   (DEBUG-389).** `check-workflow-scripts.js` resolves every `npm run` target against the git
   INDEX, not the working tree, so an unstaged new script fails `test:scripts` as an

@@ -69,10 +69,11 @@ APP_DIR=app; [ -d app ] || APP_DIR=/Users/max/dev/being/development/app
 # `npm run test:integration` (~1min). Also absent from precommit, and a changed hook
 # return or component prop leaves the wholesale mocks under __tests__/integration/
 # stale — a break invisible to every local chain.
-# Fifth, same shape: if the diff touches app/scripts/, run
-# `npx jest __tests__/scripts/` (~50s). No precommit pattern matches that
-# directory, so CI's "Script guard tests" job is the first thing to run it —
-# and on a safety-path branch the fix commit then invalidates provenance.
+# Fifth, same shape: if the diff touches app/scripts/ or app/__tests__/scripts/, run
+# `CI=true npx jest __tests__/scripts/ --ci` (~50s). No precommit pattern matches that
+# directory, so CI's "Script guard tests" job is the first thing to run it, and
+# CI=true changes tool behaviour there, so run it the way CI does. On a safety-path
+# branch the fix commit then invalidates provenance.
 # All four conditional checks read the WORKING TREE, so on a branch that is behind
 # they test a tree that will not merge — and a back-merge landing mid-run can add
 # suites the run never saw. Check `git rev-list --count HEAD..origin/development`
