@@ -98,7 +98,22 @@
  * CI's `--testPathPattern` values, so a pin there would never run. Recorded here
  * instead so the confirmation is at least auditable.
  *
- * FOUR NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
+ * CANONICAL DIGITIZATION — Seneca, dialogues (FEAT-660). Project Gutenberg ebook
+ * #64576, "Minor Dialogues, Together With the Dialogue on Clemency", trans.
+ * Aubrey Stewart, London: George Bell and Sons, 1889. Stewart was allowlisted
+ * with NO pinned text until here — the DEBUG-582 condition exactly, a name with
+ * nothing to check it against. The ebook itself never says "Bohn": the Bohn's
+ * Classical Library identity rests on the title pages of Internet Archive scans
+ * `minordialoguesto00seneuoft` and `cu31924026554281`, which also settle print
+ * readings where a digitization might silently correct one. Public domain by
+ * PRE-1929 US PUBLICATION, the sole basis, for the reason given for Gummere.
+ * Stewart prints chapter numerals only, so a finer locator ("§4") is checked
+ * against the Latin, never against this text. Work keys name the work, not
+ * Stewart's titles: `On Tranquility` is his "Of Peace of Mind", `On Anger` his
+ * "Of Anger" (Book II is PG's "Fourth Book of the Dialogues"), `On the Shortness
+ * of Life` his "Of the Shortness of Life".
+ *
+ * SIX NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
  * auditable rather than invisible:
  *   1. Long-s: the 1759 print sets `ſ`; the corpus uses `s`.
  *   2. The transcription emits a space before punctuation where the print
@@ -116,12 +131,27 @@
  *      are dropped exactly as Long's glosses are. Both are the translator's
  *      editorial layer, not the text. Dialogue turns set as separate paragraphs
  *      are joined with a single space, as prose paragraphs already were.
+ *   5. Digitization apparatus (FEAT-660): PG page markers ("{80}") and footnote
+ *      anchors ("[3]"), Wikisource zero-width page-join characters (U+200B) and
+ *      Gummere's inline section numerals are dropped; hard line wraps and double
+ *      spaces collapse to one space. Already live, unrecorded, at Tranquility 13
+ *      ("{279}" dropped), which is why that locus is now pinned at both ends.
+ *   6. Typographic quotes and apostrophes become ASCII ("man’s" -> "man's").
+ *      Applied corpus-wide since the first passage; recorded here at last.
  *
- * ONE LOCUS CORRECTION, likewise recorded rather than silently applied:
- * Ench. 8 in the pinned transcription reads "as you with; but with them" — a
- * long-s OCR error for "wiſh". The corpus carries the corrected reading and the
- * assertion below pins it, so the correction is falsifiable rather than folklore.
- * Do NOT "fix" the corpus back to the transcription's literal text.
+ * PRINT READINGS ARE KEPT, never modernised: Stewart's "befals", and "temping us
+ * to yawn" at On Anger 2.4, which is the 1889 print's own reading (IA
+ * `minordialoguesto00seneuoft`), not a transcription slip.
+ *
+ * TWO LOCUS CORRECTIONS, likewise recorded rather than silently applied:
+ *   - Ench. 8 in the pinned transcription reads "as you with; but with them" — a
+ *     long-s OCR error for "wiſh".
+ *   - Disc. 4.12 in the pinned transcription reads "still more advantageous but,"
+ *     where the 1759 print (IA `allworksofepicte00epic`) sets "advantageous: but,"
+ *     — a dropped colon (FEAT-660).
+ * The corpus carries the corrected readings and the assertions below pin each in
+ * both directions, so the correction is falsifiable rather than folklore. Do NOT
+ * "fix" the corpus back to the transcription's literal text.
  *
  * LOCATION: `app/__tests__/unit/` on purpose — the sibling provenance suites
  * under `app/src/features/<feature>/__tests__/` match none of CI's
@@ -296,7 +326,6 @@ describe('classical corpus provenance (DEBUG-352)', () => {
 
     /** Declared, dischargeable debt — each entry is owed by the FEAT-581 slice named. */
     const BALANCE_DEBT: Readonly<Record<string, readonly string[]>> = {
-      'passages-1-aware-presence.json': ['Seneca'], // FEAT-660
       'passages-2-radical-acceptance.json': ['Seneca'], // FEAT-661
       'passages-4-virtuous-response.json': ['Epictetus'], // FEAT-662
       'passages-5-interconnected-living.json': ['Epictetus', 'Seneca'], // FEAT-663
@@ -461,7 +490,10 @@ describe('classical corpus provenance (DEBUG-352)', () => {
     it('On Tranquility of Mind 13 is actually Aubrey Stewart', () => {
       const p = findPassage('passages-3-sphere-sovereignty.json', 'On Tranquility of Mind 13');
       expect(p.translation).toBe('Aubrey Stewart');
-      expect(p.text).toContain('I will set sail unless anything happens to prevent me');
+      // Both ends, now that PG #64576 is pinned (FEAT-660): collated byte-exact
+      // against the digitization under normalisations 5 and 6.
+      expect(p.text.startsWith('I will set sail unless anything happens to prevent me')).toBe(true);
+      expect(p.text.endsWith('less severely if he has not been at all events confident of success.')).toBe(true);
       expect(p.text).toContain('I shall be praetor, if nothing hinders me');
       // 'befals' is Stewart's own spelling — do not silently modernise it.
       expect(p.text).toContain('befals');
@@ -571,6 +603,86 @@ describe('classical corpus provenance (DEBUG-352)', () => {
     });
   });
 
+  describe('FEAT-581 loci are verbatim at both ends (aware-presence)', () => {
+    const AWARE = 'passages-1-aware-presence.json';
+    const byId = (id: string): Passage => {
+      const p = loadPassages(AWARE).find((x) => x.id === id);
+      if (!p) throw new Error(`${id} missing from ${AWARE}`);
+      return p;
+    };
+
+    it.each([
+      [
+        'seneca-letters-5',
+        'Richard Mott Gummere',
+        'Beasts avoid the dangers which they see',
+        // 5.9 alone (crisis): 5.8's "both these ills" leans on 5.7's banned maxim.
+        'The present alone can make no man wretched.',
+      ],
+      [
+        'seneca-letters-57',
+        'Richard Mott Gummere',
+        'The gloom, however, furnished me with some food for thought',
+        // 57.3 alone (crisis): 57.4 carries the precipice, 57.5 the blood.
+        'Even such a man\'s mind will be smitten with a thrill and he will change colour.',
+      ],
+      [
+        'seneca-on-anger-2-4',
+        'Aubrey Stewart',
+        'Furthermore, that you may know in what manner passions begin',
+        'not if it be its duty, but whether or no.',
+      ],
+      [
+        'seneca-on-the-shortness-of-life-9',
+        'Aubrey Stewart',
+        'They live laboriously, in order that they may live better',
+        // Stops before the Virgil verse, old age and the journey's end.
+        'everything future is uncertain: live now straightway.',
+      ],
+      [
+        'epictetus-discourses-4-12',
+        'Elizabeth Carter',
+        'When you let go your Attention for a little while',
+        // Stops before "no longer in your Power to call it back" (crisis).
+        'For there is no Part of Life exempted, to which Attention doth not extend.',
+      ],
+    ])('%s is %s, opening and close intact', (id, translator, opening, close) => {
+      const p = byId(id);
+      expect(p.translation).toBe(translator);
+      expect(p.text.startsWith(opening)).toBe(true);
+      expect(p.text.endsWith(close)).toBe(true);
+    });
+
+    it('On Anger 2.4 ships the whole chapter behind the excerpt, with the print reading kept', () => {
+      const p = byId('seneca-on-anger-2-4');
+      // The excerpt ends on "already beyond our control"; only the full chapter
+      // resolves it ("brought to an end by a deliberate mental act").
+      expect(p.fullText?.endsWith('brought to an end by a deliberate mental act.')).toBe(true);
+      expect(p.fullText).toContain('yawns temping us to yawn');
+      expect(p.fullText).not.toContain('tempting');
+    });
+
+    it('Disc. 4.12 carries the RECORDED colon correction, not the transcription slip', () => {
+      const t = byId('epictetus-discourses-4-12').text;
+      expect(t).toContain('still more advantageous: but, if it be not advantageous');
+      expect(t).not.toContain('advantageous but,');
+    });
+
+    it('digitization apparatus and typographic quotes are dropped (normalisations 5 and 6)', () => {
+      for (const p of loadPassages(AWARE)) {
+        const rendered = `${p.text} ${p.fullText ?? ''}`;
+        expect({ id: p.id, residue: rendered.match(/[​‘’“”§]|\{\d+\}|\[\d+\]| {2}/g) }).toEqual({
+          id: p.id,
+          residue: null,
+        });
+      }
+      // DEBUG-390: the residue matcher fires on each apparatus form it names.
+      for (const bad of ['a {80} b', 'yawn:[3] we', 'when ​we', 'man’s', '§. 1.', 'two  spaces']) {
+        expect(bad).toMatch(/[​‘’“”§]|\{\d+\}|\[\d+\]| {2}/);
+      }
+    });
+  });
+
   /**
    * THE SAME DEFECT ONE LAYER UP (DEBUG-585). DEBUG-352, FEAT-567 and DEBUG-582
    * each found an edition's identity attached to text that edition did not
@@ -612,11 +724,16 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       expect(offending).toEqual([]);
     });
 
-    it('both Seneca Letters loci name the Loeb edition Gummere translated', () => {
+    it('every Seneca Letters locus names the Loeb edition Gummere translated', () => {
       const seneca = allPassages().filter((p) => p.citation.startsWith('Letters '));
-      // Non-vacuity: the filter must actually select the two known loci, or the
+      // Non-vacuity: the filter must actually select the known loci, or the
       // work assertion below passes over an empty list.
-      expect(seneca.map((p) => p.citation).sort()).toEqual(['Letters 107.11', 'Letters 13.4']);
+      expect(seneca.map((p) => p.citation).sort()).toEqual([
+        'Letters 107.11',
+        'Letters 13.4',
+        'Letters 5.9',
+        'Letters 57.3',
+      ]);
       for (const p of seneca) expect(p.work).toBe(LOEB_WORK);
     });
 
@@ -716,6 +833,17 @@ describe('classical corpus provenance (DEBUG-352)', () => {
         'If our intellectual part is common, the reason also, in respect of which we are rational b',
       'marcus-meditations-7-13':
         'Just as it is with the members in those bodies which are united in one, so it is with rati',
+      // FEAT-660, read by philosopher under "Aware Presence".
+      'seneca-letters-5':
+        'Beasts avoid the dangers which they see, and when they have escaped them are free from car',
+      'seneca-letters-57':
+        'The gloom, however, furnished me with some food for thought; I felt a certain mental thril',
+      'seneca-on-anger-2-4':
+        'Furthermore, that you may know in what manner passions begin and swell and gain spirit, le',
+      'seneca-on-the-shortness-of-life-9':
+        'They live laboriously, in order that they may live better; they fit themselves out for lif',
+      'epictetus-discourses-4-12':
+        'When you let go your Attention for a little while, do not fancy you may recover it when-ev',
     };
 
     /**
@@ -939,6 +1067,44 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       expect(note).toContain('set limits or seek help');
       // 2.13's diagnosis must not read, to a GAD-7 >= 15 reader, as a verdict on them.
       expect(contextOf(SOVEREIGNTY, 'epictetus-discourses-2-13')).toContain('not a verdict on anxiety');
+    });
+
+    /**
+     * AWARE PRESENCE — the FEAT-660 additions. The working trap is presentism:
+     * "live only now, stop planning", which the framework itself rules out
+     * (01-aware-presence.md: present perception "doesn't mean never reflecting on
+     * the past or planning for the future"). The secondary traps are
+     * mind-wandering heard as failure, and attention-to-self heard as
+     * self-absorption. As with sovereignty there is no negative pin: the notes
+     * name the trap in order to refuse it ("not to stop thinking ahead").
+     */
+    const AWARE = 'passages-1-aware-presence.json';
+
+    it.each([
+      // Memory and foresight are named blessings in 5.9 itself.
+      [AWARE, 'seneca-letters-5', 'planning is not the fault here'],
+      // The sage still changes colour: the first jolt is not a lapse.
+      [AWARE, 'seneca-letters-57', 'not a failure of courage or of practice'],
+      // The first movement answers both "feeling is failure" and suppression.
+      [AWARE, 'seneca-on-anger-2-4', 'involuntary and no fault of ours'],
+      // Deferral is the target, not foresight.
+      [AWARE, 'seneca-on-the-shortness-of-life-9', 'postponing life, not planning for it'],
+      // Mind-wandering, and attention-to-self as self-absorption.
+      [AWARE, 'epictetus-discourses-4-12', 'The practice is returning, not never wandering'],
+      [AWARE, 'epictetus-discourses-4-12', 'your own conduct, not self-preoccupation'],
+    ])('%s / %s keeps its anti-presentism clause', (file, id, anchor) => {
+      expect(contextOf(file, id).toLowerCase()).toContain(anchor.toLowerCase());
+    });
+
+    it('the harm-adjacent aware-presence notes keep their crisis clauses', () => {
+      // On Anger's second movement is a judgement of being wronged; the pause
+      // declines the striking back, never the recognition of the wrong.
+      const anger = contextOf(AWARE, 'seneca-on-anger-2-4');
+      expect(anger).toContain('without doubting the wrong');
+      expect(anger).toContain('not about staying in or excusing ongoing harm');
+      expect(anger).toContain('seeking help or reporting it');
+      // Disc. 4.12's "Fault of To-day" must not read as a verdict on the reader.
+      expect(contextOf(AWARE, 'epictetus-discourses-4-12')).toContain('not a verdict on you');
     });
 
     it('the matchers still fire (DEBUG-390)', () => {

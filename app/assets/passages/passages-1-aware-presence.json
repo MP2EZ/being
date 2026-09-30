@@ -33,6 +33,62 @@
       "text": "Men are disturbed, not by Things, but by the Principles and Notions, which they form concerning Things. Death, for Instance, is not terrible, else it would have appeared so to Socrates. But the Terror consists in our Notion of Death, that it is terrible. When therefore we are hindered, or disturbed, or grieved, let us never impute it to others, but to ourselves; that is, to our own Principles. It is the Action of an uninstructed Person to lay the Fault of his own bad Condition upon others; of one entering upon Instruction, to lay the Fault on himself, and of one perfectly instructed, neither on others, nor on himself.",
       "context": "From the Handbook; Epictetus separates the bare impression of an event from the judgment we add to it.",
       "order": 3
+    },
+    {
+      "id": "seneca-letters-5",
+      "principle": "aware-presence",
+      "author": "Seneca",
+      "work": "Moral Letters to Lucilius",
+      "citation": "Letters 5.9",
+      "translation": "Richard Mott Gummere",
+      "text": "Beasts avoid the dangers which they see, and when they have escaped them are free from care; but we men torment ourselves over that which is to come as well as over that which is past. Many of our blessings bring bane to us; for memory recalls the tortures of fear, while foresight anticipates them. The present alone can make no man wretched.",
+      "context": "Seneca counts memory and foresight among our blessings, so planning is not the fault here. The trouble is thought sent so far ahead, or back, that it torments us over what is not happening now. The last line does not deny that the present can hurt; it says much of the weight is carried in from the past and the future.",
+      "order": 4
+    },
+    {
+      "id": "seneca-on-the-shortness-of-life-9",
+      "principle": "aware-presence",
+      "author": "Seneca",
+      "work": "On the Shortness of Life",
+      "citation": "On the Shortness of Life 9",
+      "translation": "Aubrey Stewart",
+      "text": "They live laboriously, in order that they may live better; they fit themselves out for life at the expense of life itself, and cast their thoughts a long way forwards: yet postponement is the greatest waste of life: it wrings day after day from us, and takes away the present by promising something hereafter: there is no such obstacle to true living as waiting, which loses to-day while it is depending on the morrow. You dispose of that which is in the hand of Fortune, and you let go that which is in your own. Whither are you looking, whither are you stretching forward? everything future is uncertain: live now straightway.",
+      "context": "They are the busy, forever getting ready to live. Seneca's target is postponing life, not planning for it: a plan made now is itself a present act. The instruction is to stop deferring what matters, not to stop thinking ahead.",
+      "order": 5
+    },
+    {
+      "id": "epictetus-discourses-4-12",
+      "principle": "aware-presence",
+      "author": "Epictetus",
+      "work": "Discourses",
+      "citation": "Discourses 4.12",
+      "translation": "Elizabeth Carter",
+      "text": "When you let go your Attention for a little while, do not fancy you may recover it when-ever you please: but remember this, That, by means of the Fault of To-day, your Affairs must necessarily be in a worse Condition for the future. First, what is the saddest Thing of all, a Habit arises of not attending; and then a Habit of deferring the Attention, and always driving off from time to time, and procrastinating a prosperous Life, a Propriety of Behaviour, and the Thinking and Acting conformably to Nature. Now, if the Procrastination of any thing is advantageous, the absolute Omission of it is still more advantageous: but, if it be not advantageous, why do not you preserve a constant Attention?——\"I would play To-day.\"——What then? Ought you not to do it, with proper Attention to yourself?——\"I would sing.\"——Well: and what forbids but that you may sing, with Attention to yourself? For there is no Part of Life exempted, to which Attention doth not extend.",
+      "context": "Attention to yourself means attention to your own conduct, not self-preoccupation. The warning is about habit, not a verdict on you: a lapse makes returning harder, not impossible, and Epictetus himself calls being faultless impracticable. The practice is returning, not never wandering, and play and song are not excluded: they too can be done attentively.",
+      "order": 6
+    },
+    {
+      "id": "seneca-on-anger-2-4",
+      "principle": "aware-presence",
+      "author": "Seneca",
+      "work": "On Anger",
+      "citation": "On Anger 2.4",
+      "translation": "Aubrey Stewart",
+      "text": "Furthermore, that you may know in what manner passions begin and swell and gain spirit, learn that the first emotion is involuntary, and is, as it were, a preparation for a passion, and a threatening of one. The next is combined with a wish, though not an obstinate one, as, for example, \"It is my duty to avenge myself, because I have been injured,\" or \"It is right that this man should be punished, because he has committed a crime.\" The third emotion is already beyond our control, because it overrides reason, and wishes to avenge itself, not if it be its duty, but whether or no.",
+      "fullText": "Furthermore, that you may know in what manner passions begin and swell and gain spirit, learn that the first emotion is involuntary, and is, as it were, a preparation for a passion, and a threatening of one. The next is combined with a wish, though not an obstinate one, as, for example, \"It is my duty to avenge myself, because I have been injured,\" or \"It is right that this man should be punished, because he has committed a crime.\" The third emotion is already beyond our control, because it overrides reason, and wishes to avenge itself, not if it be its duty, but whether or no. We are not able by means of reason to escape from that first impression on the mind, any more than we can escape from those things which we have mentioned as occurring to the body: we cannot prevent other people's yawns temping us to yawn: we cannot help winking when fingers are suddenly darted at our eyes. Reason is unable to overcome these habits, which perhaps might be weakened by practice and constant watchfulness: they differ from an emotion which is brought into existence and brought to an end by a deliberate mental act.",
+      "context": "Seneca separates three movements. The first stir is involuntary and no fault of ours. The second is a judgement, that I was wronged so I should strike back, and the pause belongs there: it can decline the striking back without doubting the wrong. Only past that point does anger run on its own. This is about how we hold a wrong, not about staying in or excusing ongoing harm; naming it, setting limits, seeking help or reporting it all remain open.",
+      "order": 7
+    },
+    {
+      "id": "seneca-letters-57",
+      "principle": "aware-presence",
+      "author": "Seneca",
+      "work": "Moral Letters to Lucilius",
+      "citation": "Letters 57.3",
+      "translation": "Richard Mott Gummere",
+      "text": "The gloom, however, furnished me with some food for thought; I felt a certain mental thrill, and a transformation unaccompanied by fear, due to the novelty and the unpleasantness of an unusual occurrence. Of course I am not speaking to you of myself at this point, because I am far from being a perfect person, or even a man of middling qualities; I refer to one over whom fortune has lost her control. Even such a man's mind will be smitten with a thrill and he will change colour.",
+      "context": "The gloom is literal: Seneca has just come through the Naples tunnel in the dark. Even the wisest person, he says, feels the first jolt: a startle, a change of colour. Feeling it is not a failure of courage or of practice; what matters is what we do with it next.",
+      "order": 8
     }
   ]
 }
