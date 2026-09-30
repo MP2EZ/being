@@ -976,9 +976,9 @@ fi
 # WeeklyReflectionCard's MIN_CHECK_INS_TO_SHOW gate. SessionNoteComposer stays notice-only —
 # it is flag-dark in the gate build, and an arm that cannot be satisfied is the shape that
 # trains --skip-e2e.
-echo "$RENDER_BOOT_RELEVANT" | grep -q 'insights/components/WeeklyReflectionComposer\.tsx' && {
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/insights/components/' && {
   FLOWS+=("crisis-button-reachability")
-  echo "🪟 WeeklyReflectionComposer changed — a DEBUG-406 conversion site. The Insights block"
+  echo "🪟 insights/components changed — WeeklyReflectionComposer is a DEBUG-406 conversion site. The Insights block"
   echo "   of crisis-button-reachability taps through it (occlusion arm + mis-tap arm)."
   echo "   NECESSARY, NOT SUFFICIENT: Maestro taps element CENTRES, which never enter the"
   echo "   crisis button's contested column, so a marginal action-row geometry regression is"
