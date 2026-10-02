@@ -1506,6 +1506,9 @@ task: a killed run takes the XCUITest driver with it and reports `Unknown error`
 `ConnectException` only in `maestro.log`, indistinguishable from a regression (CLAUDE.md).
 Never launch the suite itself with `&`, and never re-detach the runner.
 
+**The runner's sync does not reinstall.** If `development` moved `app/package.json` or the
+lockfile, back-merge and `npm ci` in the worktree before launching, so its sync is a no-op.
+
 Then **stop** — do not fall through to 2.5.4. Report the run directory, tell the operator
 to read `npm run close:status`, leave Notion `In progress`, and end the session. Phase 4
 belongs to whoever acknowledges the result.
