@@ -113,7 +113,7 @@
  * "Of Anger" (Book II is PG's "Fourth Book of the Dialogues"), `On the Shortness
  * of Life` his "Of the Shortness of Life".
  *
- * SEVEN NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
+ * EIGHT NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
  * auditable rather than invisible:
  *   1. Long-s: the 1759 print sets `ſ`; the corpus uses `s`.
  *   2. The transcription emits a space before punctuation where the print
@@ -141,6 +141,10 @@
  *   7. Long's double hyphen (FEAT-661): PG #15877's plain text sets a dash as "--"
  *      ("bitter--Throw it away"); the corpus sets the unspaced em dash "—" that
  *      the same ebook's HTML edition prints.
+ *   8. Carter's display capitals (FEAT-662): a chapter opening set as a drop
+ *      initial plus a word in capitals ("EVERY Habit", Disc. 2.18) is sentence-
+ *      cased ("Every Habit"), as every other Carter opening in the corpus already
+ *      reads. It is the 1759 printing's typography, not Carter's spelling.
  *
  * PRINT READINGS ARE KEPT, never modernised: Stewart's "befals", and "temping us
  * to yawn" at On Anger 2.4, which is the 1889 print's own reading (IA
@@ -329,7 +333,6 @@ describe('classical corpus provenance (DEBUG-352)', () => {
 
     /** Declared, dischargeable debt — each entry is owed by the FEAT-581 slice named. */
     const BALANCE_DEBT: Readonly<Record<string, readonly string[]>> = {
-      'passages-4-virtuous-response.json': ['Epictetus'], // FEAT-662
       'passages-5-interconnected-living.json': ['Epictetus', 'Seneca'], // FEAT-663
     };
 
@@ -422,11 +425,11 @@ describe('classical corpus provenance (DEBUG-352)', () => {
     // alone cannot catch this class — those entries did declare an allowlisted
     // translator, they simply were not that translator's words.
     it('the modernised revision does not come back', () => {
-      const all = [
-        ...loadPassages('passages-1-aware-presence.json'),
-        ...loadPassages('passages-2-radical-acceptance.json'),
-        ...loadPassages('passages-3-sphere-sovereignty.json'),
-      ].filter((x) => x.author === 'Epictetus');
+      // Every Epictetus passage in the corpus, not a hand-listed set of files: the
+      // list once covered files 1-3, so passages-4's first Epictetus (FEAT-662) would
+      // have sat outside the Carter-not-modernised gate.
+      const all = allPassages().filter((x) => x.author === 'Epictetus');
+      expect(all.length).toBeGreaterThanOrEqual(12);
 
       for (const p of all) {
         // Contractions are impossible in a 1758/59 setting and are the cheapest
@@ -754,6 +757,58 @@ describe('classical corpus provenance (DEBUG-352)', () => {
     });
   });
 
+  describe('FEAT-581 loci are verbatim at both ends (virtuous-response)', () => {
+    const VIRTUOUS_FILE = 'passages-4-virtuous-response.json';
+    const byId = (id: string): Passage => {
+      const p = loadPassages(VIRTUOUS_FILE).find((x) => x.id === id);
+      if (!p) throw new Error(`${id} missing from ${VIRTUOUS_FILE}`);
+      return p;
+    };
+
+    it.each([
+      [
+        'epictetus-enchiridion-10',
+        'Upon every Accident, remember to turn towards yourself',
+        'And thus habituated, the Appearances of Things will not hurry you away along with them.',
+      ],
+      [
+        'epictetus-discourses-2-18',
+        'Every Habit and Faculty is preserved, and increased, by correspondent Actions',
+        // Section 1 only (crisis): section 2 opens the lapse-as-verdict sequence.
+        'but habituate yourself to something else.',
+      ],
+      [
+        'epictetus-discourses-3-20',
+        'In Appearances that are merely Objects of Contemplation',
+        // Ends before "a Gainer, even by Sickness", the premise of the omitted
+        // "Gainer by Dying" (crisis).
+        'A right Use of Health is a Good; a wrong one, an Evil.',
+      ],
+      [
+        'epictetus-discourses-1-24',
+        'Difficulties are the Things that shew what Men are.',
+        'That you may be a Conqueror, like one in the Olympic Games: and it cannot be without Toil.',
+      ],
+    ])('%s is Elizabeth Carter, opening and close intact', (id, opening, close) => {
+      const p = byId(id);
+      expect(p.translation).toBe('Elizabeth Carter');
+      expect(p.text.startsWith(opening)).toBe(true);
+      expect(p.text.endsWith(close)).toBe(true);
+    });
+
+    it('Carter\'s display capitals are sentence-cased (normalisation 8)', () => {
+      const t = byId('epictetus-discourses-2-18').text;
+      expect(t).not.toMatch(/^EVERY/);
+      expect(t).toMatch(/^Every Habit/);
+    });
+
+    it('none of the four carries a fullText (crisis)', () => {
+      for (const id of ['epictetus-enchiridion-10', 'epictetus-discourses-2-18', 'epictetus-discourses-3-20', 'epictetus-discourses-1-24']) {
+        expect({ id, fullText: byId(id).fullText }).toEqual({ id, fullText: undefined });
+      }
+    });
+  });
+
   /**
    * THE SAME DEFECT ONE LAYER UP (DEBUG-585). DEBUG-352, FEAT-567 and DEBUG-582
    * each found an edition's identity attached to text that edition did not
@@ -928,6 +983,15 @@ describe('classical corpus provenance (DEBUG-352)', () => {
         'Call good sense to your aid against difficulties: it is possible to soften what is harsh, ',
       'seneca-letters-63':
         'I am grieved to hear that your friend Flaccus is dead, but I would not have you sorrow mor',
+      // FEAT-662, read by philosopher under "Virtuous Response".
+      'epictetus-enchiridion-10':
+        'Upon every Accident, remember to turn towards yourself, and enquire, what Powers you have ',
+      'epictetus-discourses-2-18':
+        'Every Habit and Faculty is preserved, and increased, by correspondent Actions: as the Habi',
+      'epictetus-discourses-3-20':
+        'In Appearances that are merely Objects of Contemplation, almost all Persons have allowed G',
+      'epictetus-discourses-1-24':
+        'Difficulties are the Things that shew what Men are. For the future, on any Difficulty, rem',
     };
 
     /**
@@ -1094,6 +1158,22 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       // The premeditatio mis-aim AC1 names as the likeliest drift. Ep. 107.11 is
       // fatum/prohairesis; the anticipation passage in this file is seneca-letters-13.
       expect(note).not.toMatch(/\b(premeditatio|rehears\w*|anticipat\w*|foresee|expect the worst)\b/i);
+    });
+
+    /**
+     * VIRTUOUS RESPONSE — the FEAT-662 additions. Four Carter loci, each carrying
+     * the affective complement the Stoic-as-unfeeling trap needs (the 107.11 "not at
+     * feeling" model). 1.24 and Ench. 10 also carry the harm clause (crisis).
+     */
+    it.each([
+      [VIRTUOUS, 'epictetus-enchiridion-10', 'acting well while pain is still pain'],
+      [VIRTUOUS, 'epictetus-discourses-2-18', 'acts and judgements, not feelings to stamp out'],
+      [VIRTUOUS, 'epictetus-discourses-3-20', 'illness hurts and deserves care'],
+      [VIRTUOUS, 'epictetus-discourses-1-24', 'and the toil is real'],
+      // Answers the preview's "shew what Men are" read as a verdict (PHQ-9 item 6).
+      [VIRTUOUS, 'epictetus-discourses-1-24', 'not a verdict on you'],
+    ])('%s / %s keeps its affective complement', (file, id, anchor) => {
+      expect(contextOf(file, id)).toContain(anchor);
     });
 
     it('the virtuous-response matchers still fire (DEBUG-390)', () => {

@@ -5,6 +5,8 @@
  * by choice — the Stoic "open door". It is not confined to chapters a curator
  * would avoid: it sits three-quarters through Discourses 1.24, at the end of
  * Meditations 8.47, inside Discourses 1.9 — chapters otherwise worth quoting.
+ * Discourses 3.20 is a de facto exit chapter too (FEAT-662): one sentence past a
+ * passage on gaining even by sickness, Menoeceus is "a Gainer by Dying".
  * Readers of this corpus include people screening at PHQ-9 >= 15 or Q9 > 0.
  *
  * `crisis` ruled the admission rule at FEAT-581, and ruled it REQUIRED rather
@@ -129,6 +131,11 @@ const BANNED: ReadonlyArray<readonly [label: string, pattern: RegExp]> = [
     'life without value',
     /\b(consider|count|reckon|deem|hold)\w*\s+life\s+(to\s+be\s+)?(a\s+thing\s+)?of\s+(any|no|little|small)\s+(value|worth|account)\b|\blife\s+(is\s+)?worth\s+having\b/i,
   ],
+  // FEAT-662: three Carter 3.20 lines the tables missed, found at co-review.
+  ['gain by death', /\bgain\w*\W+(even\s+)?by\s+(death|dying)\b/i],
+  ['disparaged love of life', /\b(wretched|base|mean|slavish|cowardly|shameful|vile)\s+love\s+of\s+life\b/i],
+  // The Ench. 30 father-clause class, in 3.20's wording.
+  ['bad to himself, not to me', /\bto\s+himself\W+but\s+(not\s+to\s+me|a\s+good\s+one,?\s+to\s+me)\b/i],
 ];
 
 /** A match fails unless allowlisted with a ruling. Common in non-exit senses. */
@@ -143,11 +150,30 @@ const REVIEW: ReadonlyArray<readonly [label: string, pattern: RegExp]> = [
   ['own hand', /\bown\s+hands?\b/i],
   ['means', /\b(sword|dagger|knife|blade|poison\w*|hemlock|throat|precipice)\b/i],
   ['Cato', /\bCato\b/i],
-  ['bad relation', /\b(bad|unjust|cruel)\s+(father|mother|parent|husband|wife|brother)\b/i],
+  // Both word orders (FEAT-662): Carter writes "Is my Father bad?", which the
+  // adjective-first form never matched.
+  [
+    'bad relation',
+    /\b(bad|unjust|cruel)\s+(father|mother|parent|husband|wife|brother|sister|neighbou?r)\b|\b(father|mother|parent|husband|wife|brother|sister|neighbou?r)\s+(is\s+|be\s+)?(so\s+)?(a\s+|an\s+)?(bad|unjust|cruel)\b/i,
+  ],
   ['rejoin the dead', /\b(join|follow|rejoin)\w*\s+(him|her|them)\b/i],
   // In this corpus "door" carries the open-door doctrine even when idiomatic
   // ("one door closes… stays open" was struck from a FEAT-581 note for it).
   ['door', /\bdoors?\b/i],
+  // FEAT-662: Carter 3.20 sets life itself against the exit ("a wretched Love of Life").
+  ['love of life', /\blove\s+of\s+life\b/i],
+];
+
+/**
+ * REVIEW controls (FEAT-662). REVIEW rows had none, so a narrowed pattern could
+ * stop matching with nothing going red. Each fixture is source text.
+ */
+const REVIEW_CONTROLS: ReadonlyArray<readonly [label: string, fixture: string]> = [
+  ['bad relation', 'Is my Father bad?'], // Carter, Disc. 3.20
+  ['bad relation', 'Is my Neighbour a bad one?'], // Carter, Disc. 3.20
+  ['bad relation', 'But he is a bad Father.'], // Carter, Ench. 30
+  ['bad relation', 'Is a Brother unjust?'], // Carter, Ench. 30
+  ['love of life', 'and a wretched Love of Life, have been his Portion?'], // Carter, Disc. 3.20
 ];
 
 /**
@@ -201,12 +227,23 @@ const CONTROLS: ReadonlyArray<readonly [label: string, fixture: string]> = [
   ['life without value', 'Do not then consider life a thing of any value.'], // Long, Med. 4.50
   ['life without value', 'Is life worth having, if so many must perish to prevent my losing it?'], // Stewart, On Clemency 1.9
   ['life without value', 'Whether life is worth having at such a price, we shall see hereafter;'], // Stewart, On Anger 3.15
+  ['gain by death', 'Do you think Menœceus an inconsiderable Gainer by Death?'], // Carter, Disc. 3.20
+  ['gain by death', 'do not you think him a considerable Gainer, by dying?'], // Carter, Disc. 3.20
+  ['disparaged love of life', 'and a wretched Love of Life, have been his Portion?'], // Carter, Disc. 3.20
+  ['bad to himself, not to me', 'Is my Father bad? To himself; but not to me.'], // Carter, Disc. 3.20
+  ['bad to himself, not to me', 'He is so, to himself; but a good one, to me.'], // Carter, Disc. 3.20
 ];
 
+/**
+ * EVERY match per pattern, deduped by term (FEAT-662). A first-match-only scan let
+ * one cleared term hide every later term of the same pattern in that field, so a
+ * clearance for "dying" silently admitted a "die" beside it.
+ */
 const hits = (patterns: typeof BANNED, value: string) =>
   patterns.flatMap(([label, pattern]) => {
-    const m = value.match(pattern);
-    return m ? [{ label, term: m[0].toLowerCase() }] : [];
+    const global = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
+    const terms = new Set([...value.matchAll(global)].map((m) => m[0].toLowerCase()));
+    return [...terms].map((term) => ({ label, term }));
   });
 
 const isCleared = (r: Rendered, term: string) =>
@@ -217,9 +254,12 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
     const rendered = renderedStrings();
     // Every passage renders `text`; every module renders a quote. A scan over
     // an empty set would pass every assertion below vacuously. Floors track the
-    // corpus (30 at FEAT-661), so a dropped file cannot pass quietly.
-    expect(rendered.filter((r) => r.field === 'text').length).toBeGreaterThanOrEqual(30);
-    expect(rendered.filter((r) => r.field === 'context').length).toBeGreaterThanOrEqual(30);
+    // corpus (34 at FEAT-662), so a dropped file cannot pass quietly.
+    expect(rendered.filter((r) => r.field === 'text').length).toBeGreaterThanOrEqual(34);
+    expect(rendered.filter((r) => r.field === 'context').length).toBeGreaterThanOrEqual(34);
+    // Per file as well: growth elsewhere must not hide a dropped virtuous-response passage.
+    const virtuous = JSON.parse(readFileSync(join(PASSAGES_DIR, 'passages-4-virtuous-response.json'), 'utf8')).passages;
+    expect(virtuous.length).toBeGreaterThanOrEqual(8);
     expect(rendered.filter((r) => r.field === 'classicalQuote.text').length).toBe(MODULE_FILES.length);
   });
 
@@ -252,6 +292,18 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
 
   it.each(CONTROLS)('BANNED "%s" still fires on its source (DEBUG-390)', (label, fixture) => {
     expect(hits(BANNED, normalise(fixture)).map((h) => h.label)).toContain(label);
+  });
+
+  it.each(REVIEW_CONTROLS)('REVIEW "%s" still fires on its source (DEBUG-390)', (label, fixture) => {
+    expect(hits(REVIEW, normalise(fixture)).map((h) => h.label)).toContain(label);
+  });
+
+  it('hits() reports every term of a pattern, not just the first (DEBUG-390)', () => {
+    // Carter 3.20: one field, two terms of the same REVIEW pattern.
+    const terms = hits(REVIEW, 'a considerable Gainer, by dying? Why: did not he die at last?')
+      .filter((h) => h.label === 'death / mortal')
+      .map((h) => h.term);
+    expect(terms.sort()).toEqual(['die', 'dying']);
   });
 
   it('every BANNED pattern has a control', () => {
@@ -312,6 +364,9 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
       'marcus-meditations-4-49',
       'seneca-on-tranquility-10',
       'seneca-letters-16',
+      // FEAT-662: patience with ill-language, and a God-sent "rough Antagonist".
+      'epictetus-enchiridion-10',
+      'epictetus-discourses-1-24',
     ];
 
     it.each(HARM_CLAUSE_REQUIRED)('%s carries the harm clause', (id) => {
@@ -405,6 +460,52 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
       expect('everything within her which appears to decay and to grow old and to be useless').toMatch(RECYCLED_850); // Long, Med. 8.50
       expect('All life is slavery: let each man therefore reconcile himself to his lot').toMatch(TRAPPED_T10); // Stewart, Tranq. 10
       expect('if a chain of fated events drags us along in its clutches').toMatch(FATED_166); // Gummere, Ep. 16.6
+    });
+  });
+
+  /**
+   * FEAT-662 span rulings (crisis co-review). Each close stops one step before an
+   * omitted line the pattern tables cannot fully see: 3.20's "Gainer by Dying",
+   * 1.24's "remember the principal thing", 2.18's lapse-as-verdict sequence.
+   */
+  describe('FEAT-662 virtuous-response boundaries', () => {
+    const fieldsOf = (id: string) => renderedStrings().filter((r) => r.id === id);
+    const textOf = (id: string) => {
+      const r = fieldsOf(id).find((x) => x.field === 'text');
+      if (!r) throw new Error(`${id} has no rendered text`);
+      return r.value;
+    };
+
+    const BOUNDARIES: ReadonlyArray<readonly [id: string, close: string, omitted: RegExp]> = [
+      ['epictetus-discourses-3-20', 'a wrong one, an Evil.', /\bgain\w*|Men(œ|oe)ceus|love of life|Admetus/i],
+      ['epictetus-discourses-1-24', 'it cannot be without Toil.', /principal thing|advantageous Difficulty/i],
+      ['epictetus-discourses-2-18', 'habituate yourself to something else.', /Operations of the Soul|former State|callous|single Defeat|weak and wretched/i],
+    ];
+
+    it.each(BOUNDARIES)('%s stops at its ruled close and carries none of the omitted lines', (id, close, omitted) => {
+      expect(textOf(id).endsWith(close)).toBe(true);
+      for (const r of fieldsOf(id)) {
+        expect({ field: r.field, hit: r.value.match(omitted) }).toEqual({ field: r.field, hit: null });
+      }
+    });
+
+    it('3.20 and 1.24 carry no fullText (a chapter would reach the exit material)', () => {
+      for (const id of ['epictetus-discourses-3-20', 'epictetus-discourses-1-24']) {
+        expect(fieldsOf(id).some((r) => r.field === 'fullText')).toBe(false);
+      }
+    });
+
+    it('the FEAT-662 boundary matchers still fire (DEBUG-390)', () => {
+      // Carter source text from the omitted neighbours, never corpus state.
+      const [[, , g320], [, , g124], [, , g218]] = BOUNDARIES;
+      expect('So that, in truth, it is possible to be a Gainer, even by Sickness.').toMatch(g320);
+      expect('Do you think Menœceus an inconsiderable Gainer by Death?').toMatch(g320);
+      expect('and a wretched Love of Life, have been his Portion?').toMatch(g320);
+      expect('But, remember the principal thing; That the Door is open.').toMatch(g124);
+      expect('No Man, in my Opinion, has a more advantageous Difficulty on his Hands than you have').toMatch(g124);
+      expect('It is the same with regard to the Operations of the Soul.').toMatch(g218);
+      expect('if you apply no Remedy, it returns no more to its former State').toMatch(g218);
+      expect('you will at last be reduced to so weak and wretched a Condition').toMatch(g218);
     });
   });
 
