@@ -58,7 +58,8 @@ reach here too: another repo, no diff at all, blocked, waiting on a release.
    Any other `Batch Route`, and every `Blocked` / `Batched` row, is never a candidate.
 4. Drop from both tiers, naming each drop:
    - `Effort` `XL` / `XXL` — one worktree cannot carry it; it needs slicing via `/b-create`.
-   - A `Blocked by` target still in the view — every row there is not `Done`.
+   - A `Blocked by` target that is not `Done`. The view lists only Not started/Blocked/
+     Batched, so a target absent from it may be `In progress` or `Testing` — fetch it.
    - An ID in a live `/Users/max/dev/being/.config/.b-batch-state.*.json` with
      `state ∉ {done, deferred}` — a `claiming` stub lands before its Notion `Batched` write.
    - An open PR on its branch (`gh pr list --head <branch>`) — a plain `/b-work` session leaves
