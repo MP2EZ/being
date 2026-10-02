@@ -12,6 +12,7 @@ import { LinkingOptions, getStateFromPath } from '@react-navigation/native';
 import * as Linking from 'expo-linking';
 import DeepLinkValidationService, {
   DEEP_LINK_CONFIG,
+  pathForSecurityLog,
 } from '@/core/services/security/DeepLinkValidationService';
 import { logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { useConsentStore } from '@/core/stores/consentStore';
@@ -116,10 +117,11 @@ let coldStartCrisisLinkPending = false;
  *
  * 🚫 `ReConsent` (FEAT-417) is deliberately absent from `config.screens` below
  * and from `DeepLinkValidationService.ALLOWED_PATHS`: nothing external may
- * summon a consent prompt. There is exactly ONE place to keep it out of —
- * `PRE_CONSENT_CRISIS_CONFIG` spreads the SAME `screens` object reference, so
- * adding a path there would also make it reachable from a cold-start
- * `being://crisis` link.
+ * summon a consent prompt. Both absences now hold independently — the allowlist
+ * only started enforcing in DEBUG-636, so before that the first was the whole
+ * control. Keep it out of `config.screens` regardless: `PRE_CONSENT_CRISIS_CONFIG`
+ * spreads the SAME `screens` object reference, and a new entry there must be
+ * ruled in `DEEP_LINK_REACHABILITY` or the drift test fails.
  *
  * Safe to read synchronously: NavigationContainer only mounts after
  * `loadConsent()` settles (CleanRootNavigator gates on `initialRoute`), so the
@@ -180,6 +182,19 @@ function isRateLimitedCrisisIntent(
 }
 
 /**
+ * DEBUG-636: blocked by the path allowlist and by nothing else — a benign link to
+ * a route no one ruled reachable, not an attack. It is logged by base segment and
+ * code only, never the URL: it can arrive pre-consent, and the consent-drop branch
+ * below already holds that line. A result carrying any other code keeps the full
+ * blocked log.
+ */
+function isPathOnlyBlock(
+  validation: ReturnType<typeof DeepLinkValidationService.validateDeepLink>,
+): boolean {
+  return validation.errors.length === 1 && validation.errors[0]?.code === 'DISALLOWED_PATH';
+}
+
+/**
  * SECURE GET INITIAL URL
  * Validates the initial URL before allowing navigation
  */
@@ -208,6 +223,13 @@ async function getSecureInitialURL(): Promise<string | null> {
         });
         coldStartCrisisLinkPending = true; // DEBUG-372
         return CRISIS_FALLBACK_URL;
+      }
+      if (isPathOnlyBlock(validation)) {
+        logSecurity('DeepLink: Initial URL blocked, path not allowlisted', 'medium', {
+          basePath: pathForSecurityLog(validation.metadata.path),
+          errors: ['DISALLOWED_PATH'],
+        });
+        return null;
       }
       logSecurity('DeepLink: Initial URL blocked', 'high', {
         originalUrl: url.substring(0, 100),
@@ -287,6 +309,13 @@ function secureSubscribe(
           listener(CRISIS_FALLBACK_URL);
           return;
         }
+        if (isPathOnlyBlock(validation)) {
+          logSecurity('DeepLink: Runtime URL blocked, path not allowlisted', 'medium', {
+            basePath: pathForSecurityLog(validation.metadata.path),
+            errors: ['DISALLOWED_PATH'],
+          });
+          return;
+        }
         logSecurity('DeepLink: Runtime URL blocked', 'high', {
           originalUrl: url.substring(0, 100),
           errors: validation.errors.map(e => e.code),
@@ -344,6 +373,113 @@ function secureSubscribe(
     subscription.remove();
   };
 }
+
+/**
+ * EXTERNAL REACHABILITY — one ruling per base path token (DEBUG-636)
+ *
+ * `config.screens` below decides what a path CAN resolve to; the consent gate
+ * decides WHEN a non-crisis link may resolve; `DEEP_LINK_CONFIG.ALLOWED_PATHS`
+ * decides which resolvable routes the outside world may target AT ALL. It makes
+ * external reachability an explicit ruling rather than a side-effect of
+ * registering a screen: a new route stays unreachable from a URL until it is
+ * ruled here and allowlisted. It also bounds the shape that reaches
+ * `getStateFromPath` (≤3 segments, `[A-Za-z0-9_-]{1,64}` per parameter
+ * segment; only the crisis subtree skips that shape check). It does NOT defend
+ * an allowlisted route against hostile params — every reachable route must
+ * tolerate arbitrary allowed params on its own.
+ *
+ *   EXTERNALLY_REACHABLE — served here AND in ALLOWED_PATHS
+ *   NOT_REACHABLE        — served here, deliberately absent from ALLOWED_PATHS;
+ *                          an external link is blocked as DISALLOWED_PATH
+ *   LEGACY_NO_SCREEN     — in ALLOWED_PATHS, served by no screen: validates and
+ *                          resolves to nothing, so the app opens where it was
+ *
+ * Ruled out of ALLOWED_PATHS entirely, so they have no row: `/main`, `/learn`,
+ * `/profile`, `/settings` — none was ever wired to a root route, so no shipped
+ * link depends on them, and a dead entry would pre-authorise whatever later
+ * claims the token.
+ *
+ * `__tests__/safety/deepLinkReachability.drift.test.ts` fails when this table,
+ * `config.screens`, `ALLOWED_PATHS`, the validator's screenMap or the Android
+ * App Links capture disagree.
+ */
+export type DeepLinkReachability = 'EXTERNALLY_REACHABLE' | 'NOT_REACHABLE' | 'LEGACY_NO_SCREEN';
+
+export const DEEP_LINK_REACHABILITY: Readonly<
+  Record<string, { ruling: DeepLinkReachability; reason: string }>
+> = {
+  '/': {
+    ruling: 'EXTERNALLY_REACHABLE',
+    reason: 'The canonical "open the app" link; lands where a normal launch lands, so it adds no capability.',
+  },
+  '/crisis': {
+    ruling: 'EXTERNALLY_REACHABLE',
+    reason: 'The 988 path. Consent-exempt, rate-limit carved out, captured by Android at /crisis and /crisis/.',
+  },
+  '/daily': {
+    ruling: 'EXTERNALLY_REACHABLE',
+    reason: 'The daily ritual. Every param is optional so a bare link renders; mode/depth are refused (FEAT-298 slice 4).',
+  },
+  '/assessment': {
+    ruling: 'EXTERNALLY_REACHABLE',
+    reason: 'assessment/<type> is coerced to PHQ9 or GAD7 by parse; crisis detection does not depend on the entry context.',
+  },
+  '/module': {
+    ruling: 'EXTERNALLY_REACHABLE',
+    reason: 'moduleId is sanitised by parse and ModuleDetail handles an unknown id by failing the load.',
+  },
+  '/practice': {
+    ruling: 'EXTERNALLY_REACHABLE',
+    reason: 'practiceId/duration/title are sanitised by parse. Captured by Android and driven by Maestro (practice/probe).',
+  },
+  '/subscription': {
+    ruling: 'EXTERNALLY_REACHABLE',
+    reason: 'Subscription and subscription/status are captured by Android App Links (DEBUG-649); store surfaces, no wellness data.',
+  },
+  '/legal': {
+    ruling: 'NOT_REACHABLE',
+    reason: 'A consent surface (same precedent as ReConsent): nothing external may summon one, and LegalGate is FAB-suppressed.',
+  },
+  '/onboarding': {
+    ruling: 'NOT_REACHABLE',
+    reason: 'Writes onboarding state with gestures disabled; an outside party must not push a consented user back through it.',
+  },
+  '/reflection': {
+    ruling: 'NOT_REACHABLE',
+    reason: 'No parse and a required practiceId: a bare link renders route.params undefined and throws into RootCrisisBoundary.',
+  },
+  '/sorting': {
+    ruling: 'NOT_REACHABLE',
+    reason: 'No parse and a required practiceId: a bare link renders route.params undefined and throws into RootCrisisBoundary.',
+  },
+  '/bodyscan': {
+    ruling: 'NOT_REACHABLE',
+    reason: 'No parse and a required practiceId: a bare link renders route.params undefined and throws into RootCrisisBoundary.',
+  },
+  '/guidedbodyscan': {
+    ruling: 'NOT_REACHABLE',
+    reason: 'No parse and a required practiceId: a bare link renders route.params undefined and throws into RootCrisisBoundary.',
+  },
+  '/wellness-trends': {
+    ruling: 'NOT_REACHABLE',
+    reason: 'Full PHQ-9/GAD-7 history: no product need for a third party to put it on screen.',
+  },
+  // FEAT-298 slice 6c, preserved: "An old being://morning link therefore still
+  // validates and lands softly on Main … rather than being logged as a blocked
+  // security event. Nothing dead-ends."
+  '/morning': {
+    ruling: 'LEGACY_NO_SCREEN',
+    reason: 'Retired check-in flow (FEAT-298 6c): an old link still validates and lands softly rather than dead-ending.',
+  },
+  '/midday': {
+    ruling: 'LEGACY_NO_SCREEN',
+    reason: 'Retired check-in flow (FEAT-298 6c): an old link still validates and lands softly rather than dead-ending.',
+  },
+  '/evening': {
+    ruling: 'LEGACY_NO_SCREEN',
+    reason: 'Retired check-in flow (FEAT-298 6c): an old link still validates and lands softly rather than dead-ending.',
+  },
+};
 
 /**
  * SECURE LINKING CONFIGURATION
