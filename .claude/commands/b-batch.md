@@ -1103,6 +1103,9 @@ to it, and **halt the batch** rather than continuing to the next item — every 
 would hit the same wall and park identically, each burning a full implement-plus-CI cycle to
 rediscover it. Report the blocker as the headline finding, not as a footnote under a parked
 item.
+When the fix is small and mechanical (an audit advisory with a same-major override, or an
+allowlist entry a `security` ruling clears), offer to run it in-batch as its own chore PR,
+then back-merge and resume. Halt only if that's declined or the fix isn't small.
 
 Two cheap habits that came out of the same run: a gate reporting an unclassified error
 (`audit-ci`'s bare `code undefined:`) is **not** a finding — re-run the underlying command
