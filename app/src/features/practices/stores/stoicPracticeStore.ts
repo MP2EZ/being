@@ -67,6 +67,7 @@ import { AppState } from 'react-native';
 import { generateInternalId } from '@/core/utils/id';
 import { getIsoWeekStart } from '@/core/utils/isoWeek';
 import { logError, logSystem, LogCategory } from '@/core/services/logging';
+import { decideWellnessWrite } from '@/core/stores/consentStore';
 import type { StoicPrinciple } from '@/features/practices/types/stoic';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -291,6 +292,48 @@ const PERSIST_DEBOUNCE_MS = 500;
 let pendingPersistTimeout: ReturnType<typeof setTimeout> | null = null;
 let pendingPersistPromise: Promise<void> | null = null;
 
+// ──────────────────────────────────────────────────────────────────────────────
+// ART. 9 WRITE GATE (FEAT-667, FEAT-318 slice C)
+//
+// Founder ruling 2026-09-29: every live field of this blob — check-ins, principle
+// engagements (daily AND learn) and weekly reflection text — is withheld while
+// `decideWellnessWrite()` blocks. The counters have no production writer and
+// follow the blob. Gate the WRITE, never the capture: the setters below still
+// update memory, so the practice and today's UI keep working.
+//
+// Skip-the-write, not read-modify-write: nothing is read, so a Keychain fault can
+// never become an empty overwrite, and what is on disk from before a withdrawal
+// is left exactly as it was.
+//
+// A record captured while blocked is never written — not even by the first
+// permitted write after a re-grant in this process — because the user was told
+// it would not be kept. Tracked by identity, not timestamp, so a moved clock
+// cannot misfile a record. `loading` is the exception: it DEFERS, so a consenting
+// user's check-in during boot is not lost.
+// ──────────────────────────────────────────────────────────────────────────────
+
+const LOADING_RETRY_MS = 1000;
+
+type PersistOutcome = 'written' | 'withheld' | 'deferred' | 'failed';
+
+/** Records known to be on disk: loaded at boot, or written by a permitted persist. */
+const persistedRecords = new WeakSet<object>();
+/** Records captured while writes were blocked. Never written in this process. */
+const withheldRecords = new WeakSet<object>();
+
+const gatedRecordsOf = (state: Partial<StoicPracticeState>): object[] => [
+  ...(state.checkInCompletions ?? []),
+  ...(state.principleEngagements ?? []),
+  ...(state.weeklyReflections ?? []),
+];
+
+const notWithheld = <T extends object>(records: T[] | undefined): T[] =>
+  (records ?? []).filter((record) => !withheldRecords.has(record));
+
+const markPersisted = (state: Partial<StoicPracticeState>): void => {
+  for (const record of gatedRecordsOf(state)) persistedRecords.add(record);
+};
+
 /** Unref the handle when running in Node (Jest) so a pending timer
  * doesn't keep the runtime alive past test completion. */
 function unrefTimeout(handle: ReturnType<typeof setTimeout>): void {
@@ -304,26 +347,37 @@ function unrefTimeout(handle: ReturnType<typeof setTimeout>): void {
  * Errors are logged but never throw — persistence failure shouldn't
  * crash a mutation that already updated in-memory state.
  */
-function schedulePersist(): void {
+function schedulePersist(delayMs: number = PERSIST_DEBOUNCE_MS): void {
   if (pendingPersistTimeout) {
     clearTimeout(pendingPersistTimeout);
   }
   pendingPersistTimeout = setTimeout(() => {
     pendingPersistTimeout = null;
-    const snapshot = useStoicPracticeStore.getState();
-    pendingPersistPromise = persistToSecureStore(snapshot)
-      .catch((err) => {
-        logError(
-          LogCategory.SYSTEM,
-          'stoicPracticeStore.schedulePersist failed',
-          err instanceof Error ? err : new Error(String(err))
-        );
-      })
-      .finally(() => {
-        pendingPersistPromise = null;
-      });
-  }, PERSIST_DEBOUNCE_MS);
+    pendingPersistPromise = runPersist().finally(() => {
+      pendingPersistPromise = null;
+    });
+  }, delayMs);
   unrefTimeout(pendingPersistTimeout);
+}
+
+/**
+ * Persist the latest snapshot, re-arming while consent is still `loading`
+ * (FEAT-667). Never rejects: the AppState flush awaits this on a 988 handoff.
+ */
+async function runPersist(): Promise<void> {
+  try {
+    const outcome = await persistToSecureStore(useStoicPracticeStore.getState());
+    // A mutation since the snapshot has already re-armed the timer; it will retry.
+    if (outcome === 'deferred' && !pendingPersistTimeout) {
+      schedulePersist(LOADING_RETRY_MS);
+    }
+  } catch (err) {
+    logError(
+      LogCategory.SYSTEM,
+      'stoicPracticeStore.schedulePersist failed',
+      err instanceof Error ? err : new Error(String(err))
+    );
+  }
 }
 
 /**
@@ -337,8 +391,7 @@ export async function flushStoicPracticePersist(): Promise<void> {
   if (pendingPersistTimeout) {
     clearTimeout(pendingPersistTimeout);
     pendingPersistTimeout = null;
-    const snapshot = useStoicPracticeStore.getState();
-    pendingPersistPromise = persistToSecureStore(snapshot);
+    pendingPersistPromise = runPersist();
   }
   if (pendingPersistPromise) {
     await pendingPersistPromise;
@@ -413,31 +466,47 @@ const migratePersistedBlob = (parsed: any): any => {
 };
 
 /**
- * Persist state to SecureStore (encrypted)
+ * Persist state to SecureStore (encrypted), behind the Art. 9 write gate (FEAT-667).
+ * The decision is read here, at write time, not when the mutation was scheduled.
  */
-const persistToSecureStore = async (state: Partial<StoicPracticeState>): Promise<void> => {
+const persistToSecureStore = async (state: Partial<StoicPracticeState>): Promise<PersistOutcome> => {
   try {
+    const decision = decideWellnessWrite();
+    if (!decision.allowed) {
+      if (decision.reason === 'loading') return 'deferred';
+      for (const record of gatedRecordsOf(state)) {
+        if (!persistedRecords.has(record)) withheldRecords.add(record);
+      }
+      return 'withheld';
+    }
+
+    const checkInCompletions = notWithheld(state.checkInCompletions);
+    const principleEngagements = notWithheld(state.principleEngagements);
+    const weeklyReflections = notWithheld(state.weeklyReflections);
     const dataToStore = {
       version: STOIC_PRACTICE_SCHEMA_VERSION,
       practiceStartDate: state.practiceStartDate?.toISOString() ?? null,
       totalPracticeDays: state.totalPracticeDays,
       currentStreak: state.currentStreak,
       longestStreak: state.longestStreak,
-      checkInCompletions: state.checkInCompletions?.map(c => ({
+      checkInCompletions: checkInCompletions.map(c => ({
         ...c,
         completedAt: c.completedAt.toISOString(),
-      })) ?? [],
-      principleEngagements: state.principleEngagements?.map(pe => ({
+      })),
+      principleEngagements: principleEngagements.map(pe => ({
         ...pe,
         timestamp: pe.timestamp.toISOString(),
-      })) ?? [],
-      weeklyReflections: state.weeklyReflections ?? [],
+      })),
+      weeklyReflections,
     };
 
     await SecureStore.setItemAsync(SECURE_STORE_KEY, JSON.stringify(dataToStore));
+    markPersisted({ checkInCompletions, principleEngagements, weeklyReflections });
+    return 'written';
   } catch (error) {
     console.error('Error persisting to SecureStore:', error);
     // Don't throw - allow state to update locally even if persistence fails
+    return 'failed';
   }
 };
 
@@ -554,6 +623,8 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
     const persistedState = await loadFromSecureStore();
 
     if (persistedState) {
+      // FEAT-667: loaded records are already on disk, so a block never withholds them.
+      markPersisted(persistedState);
       set({ ...persistedState, isLoading: false });
     } else {
       set({ isLoading: false });
@@ -565,7 +636,9 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
    */
   persistState: async () => {
     const state = get();
-    await persistToSecureStore(state);
+    if ((await persistToSecureStore(state)) === 'deferred') {
+      schedulePersist(LOADING_RETRY_MS);
+    }
   },
 
   /**

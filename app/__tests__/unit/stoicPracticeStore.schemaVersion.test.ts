@@ -26,6 +26,7 @@
 import * as SecureStore from 'expo-secure-store';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { STOIC_PRACTICE_SCHEMA_VERSION } from '@/features/practices/stores/stoicPracticeStore';
+import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
 
 jest.mock('expo-secure-store', () => ({
   setItemAsync: jest.fn(() => Promise.resolve()),
@@ -70,6 +71,10 @@ const legacyBlob = (overrides: Record<string, unknown> = {}) =>
     domainProgress,
     ...overrides,
   });
+
+// FEAT-667: consent boots at `loading`, which the Art. 9 write gate defers. This suite
+// is about persistence, not consent, so it runs as a consenting user.
+beforeEach(() => seedWellnessWriteConsent('granted'));
 
 describe('StoicPracticeStore — schema version + forward-only migration (FEAT-298 slice 2)', () => {
   beforeEach(async () => {

@@ -34,6 +34,7 @@ jest.mock('@/core/constants/devMode', () => ({
 }));
 
 import { useEducationStore } from '../educationStore';
+import { seedWellnessWriteConsent } from '../../../../../__tests__/helpers/wellnessWriteConsent';
 
 const STORAGE_KEY = '@education:state';
 const state = () => useEducationStore.getState();
@@ -65,6 +66,10 @@ function defaultModuleProgress() {
     optOutFlags: [],
   };
 }
+
+// FEAT-667: consent boots at `loading`, which the Art. 9 write gate defers. This suite
+// is about persistence, not consent, so it runs as a consenting user.
+beforeEach(() => seedWellnessWriteConsent('granted'));
 
 describe('educationStore', () => {
   beforeEach(() => {
