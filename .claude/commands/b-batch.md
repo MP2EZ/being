@@ -690,6 +690,7 @@ dated `## RE-SCOPE REQUIRED` section, then leave a SHORT comment (< 500 characte
 at it. Two reasons, both measured: comments truncate at ~4,000 rendered characters (Step
 0.1a.5) and a long finding loses its tail silently; and a comment does not move
 `Last edited time`, so a body-cached reader never sees it. The body is what `/b-work` reads.
+`/b-create --sweep` finds these sections and applies the rescope.
 
 **Scoped upgrade (partial green).** Often an amber can only be *partially* upgraded:
 part is auto-runnable, part is blocked / cross-repo / out-of-scope (a design-system

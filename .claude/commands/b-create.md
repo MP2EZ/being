@@ -1,6 +1,8 @@
 # Create Work Item in Notion
 
-**ARGUMENTS**: `[TYPE] - [Name] [--depth auto|quick|design|full] [--blocked-by ID[,ID...]]`
+**ARGUMENTS**: `[TYPE] - [Name] [--depth auto|quick|design|full] [--blocked-by ID[,ID...]]` | `--sweep`
+
+`--sweep` takes no other arguments: it rescopes every open item waiting on one — see **Sweep Mode**.
 
 **Types**: FEAT | DEBUG | INFRA | MAINT | AGENT
 
@@ -33,6 +35,7 @@ Parse `$ARGUMENTS` using pattern: `[TYPE] - [Name] [--depth <level>]`
 - DEPTH: value of `--depth` (accepts `--depth design` or `--depth=design`); default `auto`
 
 **Parsing logic**:
+0. `--sweep` present → go to **Sweep Mode**; any other argument alongside it is an error.
 1. Detect a depth flag anywhere in the arguments:
    - `--depth <level>` or `--depth=<level>` → DEPTH = `<level>` (an explicit `quick|design|full` **forces** and skips Phase 2.6)
    - `--review` (deprecated) → DEPTH = `full` (forced)
@@ -501,6 +504,125 @@ A forced `--depth` flag is **not** a signal — forcing expresses preference, no
 
 ---
 
+## Sweep Mode (`--sweep`)
+
+Finds every open item waiting on a rescope, plans them together, applies after one review.
+Phases 2–8 do not run as a pipeline; S3 and S6 reuse Phase 2.6, 3–5 and 7–7.6 per item.
+
+### S1: Find candidates
+
+Two sources, unioned — neither alone is complete:
+
+1. **Body marker.** `notion-search` for `RE-SCOPE REQUIRED` in `collection://${NOTION_WORK_DB}`
+   (`page_size: 50`) — the heading `/b-batch` Step 2.3 writes when it defers on a re-scope
+   finding. Nothing retires that heading when the work lands, so hits include closed items: keep
+   one only if its row is in the view below.
+2. **Comment-only requests.** Search indexes bodies, **not comments** (measured 2026-10-02).
+   Read the `Batched` view (`view://3b7a1108-c208-8055-bc9b-000cfccdb28e`, `mode: "view"`, never
+   SQL — `/b-batch` Step 0.1a) and hand every row to **one subagent**: `notion-get-comments`
+   (`include_all_blocks: true`) per row, returning only rows where an unresolved comment asks for
+   a rescope, re-slice, split, scope-down or cancel decision — ID, page URL, comment datetime,
+   the request quoted verbatim. Tell it to include borderline rows: S2 drops a false hit cheaply,
+   a miss is silent.
+
+Keep each candidate's view row — Status, Effort, Batch Route and both relations come with it.
+
+**Drop, naming each:**
+- Owned by a live session — `Status: Batched`, an ID in a live
+  `/Users/max/dev/being/.config/.b-batch-state.*.json` (`state ∉ {done, deferred}`), or an open
+  PR on its branch.
+- Already resolved — a later comment or body section settles the request (a scope-down, a ruling
+  that answers it, a follow-up that took the remainder).
+
+    🔎 Rescope candidates: <ID> (marker) · <ID> (comment, <date>)
+       Dropped: <ID> (owned: Batched) · <ID> (resolved by <date> scope-down)
+
+None left → say so and stop.
+
+### S2: Load and re-verify
+
+Per candidate, `notion-fetch` the body and `notion-get-comments` (`include_all_blocks: true`).
+Read newest-last, comments override the body, and apply `/b-work` Step 1.3's truncation rule.
+Record each page's `Last edited time` for S6.
+
+**Re-verify before carrying a finding.** A rescope section usually pins `development @ <sha>`:
+run `git log --oneline <sha>..origin/development -- <cited paths>`, and for any path that moved,
+re-read the cited lines and mark the finding `holds` or `stale`. Resolve every item ID the findings
+name against the view rows in hand (fallback: `/b-work`'s lookup) — a split the rescope asks for
+may already exist.
+
+### S3: Plan each item
+
+| Verdict | When | Writes |
+|---|---|---|
+| `rewrite` | ACs or notes change; still one PR | sections amended in place, same ID |
+| `split` | too large, or parts with different gates or routes | original narrowed to the first slice; new items for the rest |
+| `cancel` | the premise is retired | `Status: Cancelled` + comment naming why and any successor |
+| `resolved` | settled by a merge, comment or existing item | marker retired only |
+| `decision` | turns on a call only the founder can make | nothing until S5 answers it |
+
+Author `rewrite` and `split` with the normal pipeline: Phase 2.6 per item and per new slice,
+then 3A, or 3B → (4) → 5. The brief is body + comments + rescope section. **Recorded rulings are
+constraints, not proposals** — pass them as fixed; one the agent disputes becomes a `decision`,
+never an AC change. Run each wave (all 3B passes, then all Phase 4 critiques) as parallel Agent
+calls in one message. Every slice gets its own scores and edges, and its Technical Notes carry the
+rulings that bind it — `/b-work` reads only that slice's body.
+
+### S4: Reconcile across the set
+
+1. **AC ledger.** One row per AC in every original body: `kept` · `moved → <item>` ·
+   `dropped — <reason>`. An AC with no row blocks S5 — a narrowed item still closes `Done`, so an
+   AC that fell off is lost work nobody sees.
+2. **Dedupe** proposed new items against each other and the view rows; reuse an existing item
+   rather than create a twin.
+3. **Overlap.** Two items claiming the same AC or file path → one owner, recorded in both.
+4. **Edges.** Rewire across the whole set: a downstream `Blocked by` points at the slice that
+   actually unblocks it. No cycles.
+5. **Batch Route.** Re-derive per item and slice (Phase 2 rules); a rescope often changes it.
+
+### S5: One review
+
+```
+♻️  <ID> <Name> — <verdict>  (depth: <level> — <reason>)
+   AC ledger: n kept · n moved · n dropped   [each moved/dropped AC with destination or reason]
+   New: <TYPE> - <Name>  (I/V/SF/U/E/R)  · Blocked by <IDs>
+   Edges: <+/- changes>   Batch Route: <old → new>   Status: <old → new>
+   Stale findings: <list, or "none">
+```
+
+Then `AskUserQuestion`, four questions per call: every `decision` question first (answers change
+the plan), then the items to apply as multiSelect questions of up to four items each. An answered
+`decision` re-enters S3 alone and is shown again before it applies. Unselected items are left
+untouched, marker included.
+
+### S6: Apply
+
+Per approved item, prerequisites before the items that point at them:
+
+1. **Clobber guard.** Re-fetch; if `Last edited time` moved since S2, skip the item and report
+   it — a peer wrote it, and S3 planned against the old body.
+2. **Body.** `notion-update-page` `update_content`, section by section; never `replace_content`,
+   which erases whatever the plan did not read.
+3. **Retire the marker.** Retitle the `RE-SCOPE REQUIRED` heading to
+   `Re-scope applied — <today> (/b-create --sweep): <verdict>, <new IDs>`, keeping the rulings
+   beneath it as provenance. A comment-only candidate gets that section added — the body is what
+   `/b-work` reads.
+4. **New items** via Phase 7 → 7.5 → 7.6.
+5. **Properties.** `Name` if the scope moved, scores, `Effort`, `Batch Route` (set or clear),
+   edges; `Status` `Blocked → Not started` when the rescope was the only blocker, `Cancelled`
+   for `cancel`.
+6. **Comment** on the original, under 500 characters: verdict, new IDs, where the detail lives.
+
+A failed write warns and moves on; never retry blindly.
+
+```
+✅ Sweep: N applied · N skipped
+   <ID> rewrite · <ID> split → <ID>, <ID> · <ID> cancelled · <ID> resolved
+   ⚠️ <ID> skipped — edited since planning (re-run --sweep)
+```
+
+---
+
 ## Error Handling
 
 **Invalid TYPE**:
@@ -517,7 +639,7 @@ Valid levels: auto, quick, design, full
 
 **Missing Name**:
 ```
-❌ Invalid format. Use: /b-create [TYPE] - [Name] [--depth auto|quick|design|full]
+❌ Invalid format. Use: /b-create [TYPE] - [Name] [--depth auto|quick|design|full]  |  /b-create --sweep
 Example: /b-create FEAT - Simple subscription flow
 ```
 
