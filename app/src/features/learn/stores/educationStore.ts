@@ -23,6 +23,7 @@ import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUserId } from '@/core/constants/devMode';
 import { logSecurity } from '@/core/services/logging';
+import { decideWellnessWrite } from '@/core/stores/consentStore';
 import type {
   ModuleId,
   ModuleStatus,
@@ -33,6 +34,21 @@ import type {
 } from '@/features/learn/types/education';
 
 const STORAGE_KEY = '@education:state';
+
+/**
+ * Art. 9 write gate (FEAT-667, FEAT-318 slice C). Founder ruling 2026-09-29:
+ * `practiceCount` records the same fact as a Learn principle engagement and is
+ * withheld with it. This blob is never read back (`initializeEducationStore` has
+ * no production caller), so it only ever holds this process's state; once a write
+ * is withheld, that state carries a count the user was told would not be kept, so
+ * writes stay off for the rest of the process. `loading` skips without latching.
+ *
+ * Crisis ruling: `optOutFlags` is a protective safety preference and must ALWAYS
+ * persist. It has no writer today. Reviving `addOptOut`/`removeOptOut` needs an
+ * ungated write path for it first — pinned dormant by
+ * `educationStore.wellnessWriteGate.privacy.test.ts`.
+ */
+let writesWithheldThisProcess = false;
 
 /**
  * Insight tip IDs that can be dismissed
@@ -365,6 +381,10 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
    */
   persistState: async () => {
     try {
+      const decision = decideWellnessWrite();
+      if (!decision.allowed && decision.reason !== 'loading') writesWithheldThisProcess = true;
+      if (!decision.allowed || writesWithheldThisProcess) return;
+
       const state = get();
       const userId = getCurrentUserId();
       const dataToStore = {

@@ -5,6 +5,8 @@
  * by choice — the Stoic "open door". It is not confined to chapters a curator
  * would avoid: it sits three-quarters through Discourses 1.24, at the end of
  * Meditations 8.47, inside Discourses 1.9 — chapters otherwise worth quoting.
+ * Discourses 3.20 is a de facto exit chapter too (FEAT-662): one sentence past a
+ * passage on gaining even by sickness, Menoeceus is "a Gainer by Dying".
  * Readers of this corpus include people screening at PHQ-9 >= 15 or Q9 > 0.
  *
  * `crisis` ruled the admission rule at FEAT-581, and ruled it REQUIRED rather
@@ -123,6 +125,17 @@ const BANNED: ReadonlyArray<readonly [label: string, pattern: RegExp]> = [
   ['patiently receive correction', /\bpatiently\s+receiv\w*\s+(his|her|their)\s+(reproaches|correction|blows)\b/i],
   ['not hurt unless you please', /\bwill\s+not\s+hurt\s+you,?\s+unless\s+you\s+please\b|\bhurt,?\s+when\s+you\s+think\s+you\s+are\s+hurt\b/i],
   ['delivered up your body', /\bdeliver\w*\s+up\s+(your|thy|his|her)\s+body\b/i],
+  // FEAT-661: Long's Med. 4.50 follows the admitted 4.49, and "not worth living"
+  // misses every phrasing of the sentiment in the four translations.
+  [
+    'life without value',
+    /\b(consider|count|reckon|deem|hold)\w*\s+life\s+(to\s+be\s+)?(a\s+thing\s+)?of\s+(any|no|little|small)\s+(value|worth|account)\b|\blife\s+(is\s+)?worth\s+having\b/i,
+  ],
+  // FEAT-662: three Carter 3.20 lines the tables missed, found at co-review.
+  ['gain by death', /\bgain\w*\W+(even\s+)?by\s+(death|dying)\b/i],
+  ['disparaged love of life', /\b(wretched|base|mean|slavish|cowardly|shameful|vile)\s+love\s+of\s+life\b/i],
+  // The Ench. 30 father-clause class, in 3.20's wording.
+  ['bad to himself, not to me', /\bto\s+himself\W+but\s+(not\s+to\s+me|a\s+good\s+one,?\s+to\s+me)\b/i],
 ];
 
 /** A match fails unless allowlisted with a ruling. Common in non-exit senses. */
@@ -137,11 +150,30 @@ const REVIEW: ReadonlyArray<readonly [label: string, pattern: RegExp]> = [
   ['own hand', /\bown\s+hands?\b/i],
   ['means', /\b(sword|dagger|knife|blade|poison\w*|hemlock|throat|precipice)\b/i],
   ['Cato', /\bCato\b/i],
-  ['bad relation', /\b(bad|unjust|cruel)\s+(father|mother|parent|husband|wife|brother)\b/i],
+  // Both word orders (FEAT-662): Carter writes "Is my Father bad?", which the
+  // adjective-first form never matched.
+  [
+    'bad relation',
+    /\b(bad|unjust|cruel)\s+(father|mother|parent|husband|wife|brother|sister|neighbou?r)\b|\b(father|mother|parent|husband|wife|brother|sister|neighbou?r)\s+(is\s+|be\s+)?(so\s+)?(a\s+|an\s+)?(bad|unjust|cruel)\b/i,
+  ],
   ['rejoin the dead', /\b(join|follow|rejoin)\w*\s+(him|her|them)\b/i],
   // In this corpus "door" carries the open-door doctrine even when idiomatic
   // ("one door closes… stays open" was struck from a FEAT-581 note for it).
   ['door', /\bdoors?\b/i],
+  // FEAT-662: Carter 3.20 sets life itself against the exit ("a wretched Love of Life").
+  ['love of life', /\blove\s+of\s+life\b/i],
+];
+
+/**
+ * REVIEW controls (FEAT-662). REVIEW rows had none, so a narrowed pattern could
+ * stop matching with nothing going red. Each fixture is source text.
+ */
+const REVIEW_CONTROLS: ReadonlyArray<readonly [label: string, fixture: string]> = [
+  ['bad relation', 'Is my Father bad?'], // Carter, Disc. 3.20
+  ['bad relation', 'Is my Neighbour a bad one?'], // Carter, Disc. 3.20
+  ['bad relation', 'But he is a bad Father.'], // Carter, Ench. 30
+  ['bad relation', 'Is a Brother unjust?'], // Carter, Ench. 30
+  ['love of life', 'and a wretched Love of Life, have been his Portion?'], // Carter, Disc. 3.20
 ];
 
 /**
@@ -155,6 +187,9 @@ const REVIEW_CLEARED: ReadonlyArray<{ id: string; field: string; term: string; r
   { id: 'epictetus-enchiridion-5', field: 'text', term: 'death', ruling: 'FEAT-581' },
   // "the last hour" — mortality as a spur to attention, no exit framing.
   { id: 'marcus-meditations-7-29', field: 'text', term: 'last hour', ruling: 'FEAT-581' },
+  // "your friend Flaccus is dead" — the bereavement the letter answers. Whole
+  // 63.1 only: no exit or reunion framing, and it ends before 63.2's one-day quota.
+  { id: 'seneca-letters-63', field: 'text', term: 'dead', ruling: 'FEAT-661' },
 ];
 
 /**
@@ -189,12 +224,26 @@ const CONTROLS: ReadonlyArray<readonly [label: string, fixture: string]> = [
   ['not hurt unless you please', 'For another will not hurt you, unless you please.'], // Carter, Ench. 30
   ['not hurt unless you please', 'You will then be hurt, when you think you are hurt.'], // Carter, Ench. 30
   ['delivered up your body', 'If a Person had delivered up your Body to any one, whom he met in his Way'], // Carter, Ench. 28
+  ['life without value', 'Do not then consider life a thing of any value.'], // Long, Med. 4.50
+  ['life without value', 'Is life worth having, if so many must perish to prevent my losing it?'], // Stewart, On Clemency 1.9
+  ['life without value', 'Whether life is worth having at such a price, we shall see hereafter;'], // Stewart, On Anger 3.15
+  ['gain by death', 'Do you think Menœceus an inconsiderable Gainer by Death?'], // Carter, Disc. 3.20
+  ['gain by death', 'do not you think him a considerable Gainer, by dying?'], // Carter, Disc. 3.20
+  ['disparaged love of life', 'and a wretched Love of Life, have been his Portion?'], // Carter, Disc. 3.20
+  ['bad to himself, not to me', 'Is my Father bad? To himself; but not to me.'], // Carter, Disc. 3.20
+  ['bad to himself, not to me', 'He is so, to himself; but a good one, to me.'], // Carter, Disc. 3.20
 ];
 
+/**
+ * EVERY match per pattern, deduped by term (FEAT-662). A first-match-only scan let
+ * one cleared term hide every later term of the same pattern in that field, so a
+ * clearance for "dying" silently admitted a "die" beside it.
+ */
 const hits = (patterns: typeof BANNED, value: string) =>
   patterns.flatMap(([label, pattern]) => {
-    const m = value.match(pattern);
-    return m ? [{ label, term: m[0].toLowerCase() }] : [];
+    const global = new RegExp(pattern.source, pattern.flags.includes('g') ? pattern.flags : `${pattern.flags}g`);
+    const terms = new Set([...value.matchAll(global)].map((m) => m[0].toLowerCase()));
+    return [...terms].map((term) => ({ label, term }));
   });
 
 const isCleared = (r: Rendered, term: string) =>
@@ -204,9 +253,13 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
   it('reads every rendered field it claims to (non-vacuity)', () => {
     const rendered = renderedStrings();
     // Every passage renders `text`; every module renders a quote. A scan over
-    // an empty set would pass every assertion below vacuously.
-    expect(rendered.filter((r) => r.field === 'text').length).toBeGreaterThanOrEqual(16);
-    expect(rendered.filter((r) => r.field === 'context').length).toBeGreaterThanOrEqual(16);
+    // an empty set would pass every assertion below vacuously. Floors track the
+    // corpus (34 at FEAT-662), so a dropped file cannot pass quietly.
+    expect(rendered.filter((r) => r.field === 'text').length).toBeGreaterThanOrEqual(34);
+    expect(rendered.filter((r) => r.field === 'context').length).toBeGreaterThanOrEqual(34);
+    // Per file as well: growth elsewhere must not hide a dropped virtuous-response passage.
+    const virtuous = JSON.parse(readFileSync(join(PASSAGES_DIR, 'passages-4-virtuous-response.json'), 'utf8')).passages;
+    expect(virtuous.length).toBeGreaterThanOrEqual(8);
     expect(rendered.filter((r) => r.field === 'classicalQuote.text').length).toBe(MODULE_FILES.length);
   });
 
@@ -241,11 +294,219 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
     expect(hits(BANNED, normalise(fixture)).map((h) => h.label)).toContain(label);
   });
 
+  it.each(REVIEW_CONTROLS)('REVIEW "%s" still fires on its source (DEBUG-390)', (label, fixture) => {
+    expect(hits(REVIEW, normalise(fixture)).map((h) => h.label)).toContain(label);
+  });
+
+  it('hits() reports every term of a pattern, not just the first (DEBUG-390)', () => {
+    // Carter 3.20: one field, two terms of the same REVIEW pattern.
+    const terms = hits(REVIEW, 'a considerable Gainer, by dying? Why: did not he die at last?')
+      .filter((h) => h.label === 'death / mortal')
+      .map((h) => h.term);
+    expect(terms.sort()).toEqual(['die', 'dying']);
+  });
+
   it('every BANNED pattern has a control', () => {
     // The table above is the only proof a pattern still fires. A pattern added
     // without one is unproven, which is the DEBUG-390 failure exactly.
     const controlled = new Set(CONTROLS.map(([label]) => label));
     expect(BANNED.map(([label]) => label).filter((l) => !controlled.has(l))).toEqual([]);
+  });
+
+  /**
+   * FEAT-660 span rulings (crisis co-review). Each pins a boundary the pattern
+   * tables cannot see, because the hazard is an OMITTED line or a word that is
+   * only dangerous in this corpus's preview position.
+   */
+  describe('FEAT-660 aware-presence boundaries', () => {
+    const fieldsOf = (id: string) => renderedStrings().filter((r) => r.id === id);
+    const textOf = (id: string) => {
+      const r = fieldsOf(id).find((x) => x.field === 'text');
+      if (!r) throw new Error(`${id} has no rendered text`);
+      return r.value;
+    };
+
+    it('Letters 5 is 5.9 alone — nothing that leans on the banned 5.7 maxim', () => {
+      // 5.8's "both these ills" has hope and fear as its antecedent, so the span
+      // was a premise the omitted "Cease to hope" answers (ruling condition b).
+      expect(textOf('seneca-letters-5').startsWith('Beasts avoid')).toBe(true);
+      for (const r of fieldsOf('seneca-letters-5')) {
+        expect({ field: r.field, hit: r.value.match(/both these ills|\bhop(e|ing)\b/i) }).toEqual({
+          field: r.field,
+          hit: null,
+        });
+      }
+    });
+
+    it('On Anger 2.4 may end on "beyond our control" only while its full chapter resolves it', () => {
+      const full = fieldsOf('seneca-on-anger-2-4').find((r) => r.field === 'fullText');
+      expect(full?.value.endsWith('deliberate mental act.')).toBe(true);
+    });
+
+    it('Shortness 9 keeps "insane" out of the list preview', () => {
+      expect(textOf('seneca-on-the-shortness-of-life-9')).not.toMatch(/\binsane\b/i);
+    });
+
+    it('Disc. 4.12 stops before a lapse is called unrecoverable', () => {
+      // textOf throws on a missing id, so the loop below cannot pass over nothing.
+      expect(textOf('epictetus-discourses-4-12').length).toBeGreaterThan(0);
+      for (const r of fieldsOf('epictetus-discourses-4-12')) {
+        expect(r.value).not.toMatch(/no longer in your Power/i);
+      }
+    });
+
+    // Notes on holding a wrong carry every arm of the harm clause. Keyword
+    // checks, not an exact sentence, so the clause can be phrased to its passage.
+    const HARM_CLAUSE_REQUIRED = [
+      'marcus-meditations-6-50',
+      'seneca-on-anger-2-4',
+      // FEAT-661: standing firm, a narrowed room, and enduring Chance.
+      'marcus-meditations-4-49',
+      'seneca-on-tranquility-10',
+      'seneca-letters-16',
+      // FEAT-662: patience with ill-language, and a God-sent "rough Antagonist".
+      'epictetus-enchiridion-10',
+      'epictetus-discourses-1-24',
+    ];
+
+    it.each(HARM_CLAUSE_REQUIRED)('%s carries the harm clause', (id) => {
+      const note = fieldsOf(id).find((r) => r.field === 'context')?.value ?? '';
+      expect(note).toMatch(/\bharm\b/);
+      expect(note).toMatch(/\blimits\b/);
+      expect(note).toMatch(/\bhelp\b/);
+    });
+
+    it('the boundary matchers still fire (DEBUG-390)', () => {
+      // Literal fixtures from the excluded source text, never corpus state.
+      expect('But the chief cause of both these ills').toMatch(/both these ills|\bhop(e|ing)\b/i);
+      expect('Cease to hope').toMatch(/both these ills|\bhop(e|ing)\b/i);
+      expect('Can anything be mentioned which is more insane').toMatch(/\binsane\b/i);
+      expect('it is no longer in your Power to call it back').toMatch(/no longer in your Power/i);
+      expect('A reason to endure it.').not.toMatch(/\blimits\b/);
+    });
+  });
+
+  /**
+   * FEAT-661 span rulings (crisis co-review). Each pins an omitted neighbour the
+   * pattern tables cannot see: 63.2's quota, 4.49's closing verdict, 8.50's
+   * "useless" returning to nature, Tranquility 10's chains, and 16.6's fated chain.
+   */
+  describe('FEAT-661 radical-acceptance boundaries', () => {
+    const fieldsOf = (id: string) => renderedStrings().filter((r) => r.id === id);
+    const fieldOf = (id: string, field: string) => fieldsOf(id).find((r) => r.field === field)?.value;
+    const textOf = (id: string) => {
+      const v = fieldOf(id, 'text');
+      if (!v) throw new Error(`${id} has no rendered text`);
+      return v;
+    };
+    const noneMatch = (id: string, pattern: RegExp) => {
+      for (const r of fieldsOf(id)) {
+        expect({ id, field: r.field, hit: r.value.match(pattern) }).toEqual({ id, field: r.field, hit: null });
+      }
+    };
+
+    const GRIEF_QUOTA = /\bone day\b|\bNiobe\b|\bsent on ahead\b|\blimit for mourning\b|\breplace your friend\b|\bas soon as possible\b/i;
+    const GRIEF_NOTE = /timetable|timeline|deadline|quota|988|crisis|hotline|helpline|lifeline|seek help/i;
+    const VERDICT_449 = /bear it nobly|not that this is a misfortune|contempt of death|any value/i;
+    const RECYCLED_850 = /\buseless\b|\bdecay/i;
+    const TRAPPED_T10 = /\bsnare\b|\bfetter|\bchain|\bslavery\b|\bhabitable\b|empty within|locked up/i;
+    const FATED_166 = /chain of fated events|play the tyrant|drags us along/i;
+
+    it('Letters 63 is whole 63.1 — tears affirmed, no quota, no reunion, no resource line', () => {
+      expect(textOf('seneca-letters-63').endsWith('We may weep, but we must not wail.')).toBe(true);
+      expect(textOf('seneca-letters-63')).toContain('Let not the eyes be dry');
+      expect(fieldOf('seneca-letters-63', 'fullText')).toBeUndefined();
+      noneMatch('seneca-letters-63', GRIEF_QUOTA);
+      expect(fieldOf('seneca-letters-63', 'context')).not.toMatch(GRIEF_NOTE);
+    });
+
+    it('Letters 63 is never the auto-expanded first card', () => {
+      // FromTheSourceSection expands the first passage by order, which would push a
+      // bereavement letter, unasked, at every reader of the module.
+      const ps = JSON.parse(readFileSync(join(PASSAGES_DIR, 'passages-2-radical-acceptance.json'), 'utf8')).passages;
+      const first = [...ps].sort((a: { order: number }, b: { order: number }) => a.order - b.order)[0];
+      expect(first.id).not.toBe('seneca-letters-63');
+    });
+
+    it('Meditations 4.49 stops at the virtue question', () => {
+      expect(textOf('marcus-meditations-4-49').endsWith('obtains all that is its own?')).toBe(true);
+      noneMatch('marcus-meditations-4-49', VERDICT_449);
+    });
+
+    it('Meditations 8.50 stops before nature reclaims the useless', () => {
+      expect(textOf('marcus-meditations-8-50').endsWith('from the things which they make.')).toBe(true);
+      expect(fieldOf('marcus-meditations-8-50', 'fullText')).toBeUndefined();
+      noneMatch('marcus-meditations-8-50', RECYCLED_850);
+    });
+
+    it('Tranquility 10 opens on good sense, never on the chapter\'s chains', () => {
+      expect(textOf('seneca-on-tranquility-10').startsWith('Call good sense')).toBe(true);
+      noneMatch('seneca-on-tranquility-10', TRAPPED_T10);
+    });
+
+    it('Letters 16 renders the objection only with its answer, and stops before 16.6', () => {
+      const full = fieldOf('seneca-letters-16', 'fullText');
+      expect(full?.startsWith('Perhaps someone will say')).toBe(true);
+      expect(full?.endsWith(textOf('seneca-letters-16'))).toBe(true);
+      noneMatch('seneca-letters-16', FATED_166);
+    });
+
+    it('the FEAT-661 boundary matchers still fire (DEBUG-390)', () => {
+      // Source-literal fixtures from the excluded neighbours, never corpus state.
+      expect('allowed the privilege of weeping to one day only').toMatch(GRIEF_QUOTA); // Gummere, Ep. 63.2
+      expect('he whom we think we have lost has only been sent on ahead').toMatch(GRIEF_QUOTA); // Gummere, Ep. 63.16
+      expect('In this passage he sets no timetable for grief.').toMatch(GRIEF_NOTE); // the rejected draft note
+      expect('not that this is a misfortune, but that to bear it nobly is good fortune').toMatch(VERDICT_449); // Long, Med. 4.49
+      expect('everything within her which appears to decay and to grow old and to be useless').toMatch(RECYCLED_850); // Long, Med. 8.50
+      expect('All life is slavery: let each man therefore reconcile himself to his lot').toMatch(TRAPPED_T10); // Stewart, Tranq. 10
+      expect('if a chain of fated events drags us along in its clutches').toMatch(FATED_166); // Gummere, Ep. 16.6
+    });
+  });
+
+  /**
+   * FEAT-662 span rulings (crisis co-review). Each close stops one step before an
+   * omitted line the pattern tables cannot fully see: 3.20's "Gainer by Dying",
+   * 1.24's "remember the principal thing", 2.18's lapse-as-verdict sequence.
+   */
+  describe('FEAT-662 virtuous-response boundaries', () => {
+    const fieldsOf = (id: string) => renderedStrings().filter((r) => r.id === id);
+    const textOf = (id: string) => {
+      const r = fieldsOf(id).find((x) => x.field === 'text');
+      if (!r) throw new Error(`${id} has no rendered text`);
+      return r.value;
+    };
+
+    const BOUNDARIES: ReadonlyArray<readonly [id: string, close: string, omitted: RegExp]> = [
+      ['epictetus-discourses-3-20', 'a wrong one, an Evil.', /\bgain\w*|Men(œ|oe)ceus|love of life|Admetus/i],
+      ['epictetus-discourses-1-24', 'it cannot be without Toil.', /principal thing|advantageous Difficulty/i],
+      ['epictetus-discourses-2-18', 'habituate yourself to something else.', /Operations of the Soul|former State|callous|single Defeat|weak and wretched/i],
+    ];
+
+    it.each(BOUNDARIES)('%s stops at its ruled close and carries none of the omitted lines', (id, close, omitted) => {
+      expect(textOf(id).endsWith(close)).toBe(true);
+      for (const r of fieldsOf(id)) {
+        expect({ field: r.field, hit: r.value.match(omitted) }).toEqual({ field: r.field, hit: null });
+      }
+    });
+
+    it('3.20 and 1.24 carry no fullText (a chapter would reach the exit material)', () => {
+      for (const id of ['epictetus-discourses-3-20', 'epictetus-discourses-1-24']) {
+        expect(fieldsOf(id).some((r) => r.field === 'fullText')).toBe(false);
+      }
+    });
+
+    it('the FEAT-662 boundary matchers still fire (DEBUG-390)', () => {
+      // Carter source text from the omitted neighbours, never corpus state.
+      const [[, , g320], [, , g124], [, , g218]] = BOUNDARIES;
+      expect('So that, in truth, it is possible to be a Gainer, even by Sickness.').toMatch(g320);
+      expect('Do you think Menœceus an inconsiderable Gainer by Death?').toMatch(g320);
+      expect('and a wretched Love of Life, have been his Portion?').toMatch(g320);
+      expect('But, remember the principal thing; That the Door is open.').toMatch(g124);
+      expect('No Man, in my Opinion, has a more advantageous Difficulty on his Hands than you have').toMatch(g124);
+      expect('It is the same with regard to the Operations of the Soul.').toMatch(g218);
+      expect('if you apply no Remedy, it returns no more to its former State').toMatch(g218);
+      expect('you will at last be reduced to so weak and wretched a Condition').toMatch(g218);
+    });
   });
 
   it('the required harm clause trips nothing (negative control)', () => {

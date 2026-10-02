@@ -24,15 +24,60 @@
       "order": 2
     },
     {
-      "id": "marcus-meditations-10-6",
+      "id": "marcus-meditations-4-49",
       "principle": "radical-acceptance",
       "author": "Marcus Aurelius",
       "work": "Meditations",
-      "citation": "Meditations 10.6",
+      "citation": "Meditations 4.49",
       "translation": "George Long",
-      "text": "Whatever may happen to thee, it was prepared for thee from all eternity; and the implication of causes was from eternity spinning the thread of thy being, and of that which is incident to it.",
-      "context": "Marcus describes the causal order, not a reason to sit still. A choice is one of those causes, fated along with what it brings — so this speaks to what befalls us, not what we do about it.",
+      "text": "Be like the promontory against which the waves continually break, but it stands firm and tames the fury of the water around it. Unhappy am I because this has happened to me? Not so, but happy am I, though this has happened to me, because I continue free from pain, neither crushed by the present nor fearing the future. For such a thing as this might have happened to every man; but every man would not have continued free from pain on such an occasion. Why then is that rather a misfortune than this a good fortune? And dost thou in all cases call that a man's misfortune which is not a deviation from man's nature? And does a thing seem to thee to be a deviation from man's nature, when it is not contrary to the will of man's nature? Well, thou knowest the will of nature. Will then this which has happened prevent thee from being just, magnanimous, temperate, prudent, secure against inconsiderate opinions and falsehood; will it prevent thee from having modesty, freedom, and everything else, by the presence of which man's nature obtains all that is its own?",
+      "context": "Marcus is writing to himself. He does not deny that something hard has happened; his 'Not so' answers the because, the idea that what happened must settle how he fares, and it is not a rule for how anyone should feel. His closing question turns toward action: whatever has happened, being just, magnanimous, temperate and prudent is still open to us. Standing firm is about how we hold hardship, not staying in or excusing ongoing harm, and no reason not to set limits or seek help.",
       "order": 3
+    },
+    {
+      "id": "marcus-meditations-8-50",
+      "principle": "radical-acceptance",
+      "author": "Marcus Aurelius",
+      "work": "Meditations",
+      "citation": "Meditations 8.50",
+      "translation": "George Long",
+      "text": "A cucumber is bitter—Throw it away.—There are briers in the road—Turn aside from them.—This is enough. Do not add, And why were such things made in the world? For thou wilt be ridiculed by a man who is acquainted with nature, as thou wouldst be ridiculed by a carpenter and shoemaker if thou didst find fault because thou seest in their workshop shavings and cuttings from the things which they make.",
+      "context": "Marcus declines one question, why were such things made, when it is asked as a grievance against the world. He is not ruling out grief, inquiry, or telling someone what is hard. The opening verbs are the pivot: throw the cucumber away, turn aside from the briers. It is not a promise that every obstacle can be discarded or avoided.",
+      "order": 4
+    },
+    {
+      "id": "seneca-letters-16",
+      "principle": "radical-acceptance",
+      "author": "Seneca",
+      "work": "Moral Letters to Lucilius",
+      "citation": "Letters 16.5",
+      "translation": "Richard Mott Gummere",
+      "text": "Whether the truth, Lucilius, lies in one or in all of these views, we must be philosophers; whether Fate binds us down by an inexorable law, or whether God as arbiter of the universe has arranged everything, or whether Chance drives and tosses human affairs without method, philosophy ought to be our defence. She will encourage us to obey God cheerfully, but Fortune defiantly; she will teach us to follow God and endure Chance.",
+      "fullText": "Perhaps someone will say: \"How can philosophy help me, if Fate exists? Of what avail is philosophy, if God rules the universe? Of what avail is it, if Chance governs everything? For not only is it impossible to change things that are determined, but it is also impossible to plan beforehand against what is undetermined; either God has forestalled my plans, and decided what I am to do, or else Fortune gives no free play to my plans.\" Whether the truth, Lucilius, lies in one or in all of these views, we must be philosophers; whether Fate binds us down by an inexorable law, or whether God as arbiter of the universe has arranged everything, or whether Chance drives and tosses human affairs without method, philosophy ought to be our defence. She will encourage us to obey God cheerfully, but Fortune defiantly; she will teach us to follow God and endure Chance.",
+      "context": "Seneca answers an old objection, that philosophy cannot help if everything is fixed: whatever the truth about fate, he says, philosophy is our defence. Meeting Fortune defiantly is not resignation. Enduring Chance concerns how we hold ordinary hardship, not staying in or excusing ongoing harm, and is no reason not to set limits or seek help.",
+      "order": 5
+    },
+    {
+      "id": "seneca-on-tranquility-10",
+      "principle": "radical-acceptance",
+      "author": "Seneca",
+      "work": "On Tranquility",
+      "citation": "On Tranquility of Mind 10",
+      "translation": "Aubrey Stewart",
+      "text": "Call good sense to your aid against difficulties: it is possible to soften what is harsh, to widen what is too narrow, and to make heavy burdens press less severely upon one who bears them skilfully.",
+      "context": "Seneca's verbs are active: soften, widen, lighten. This is about how we hold ordinary hardship, not about staying in or excusing ongoing harm, and no reason not to set limits or seek help.",
+      "order": 6
+    },
+    {
+      "id": "seneca-letters-63",
+      "principle": "radical-acceptance",
+      "author": "Seneca",
+      "work": "Moral Letters to Lucilius",
+      "citation": "Letters 63.1",
+      "translation": "Richard Mott Gummere",
+      "text": "I am grieved to hear that your friend Flaccus is dead, but I would not have you sorrow more than is fitting. That you should not mourn at all I shall hardly dare to insist; and yet I know that it is the better way. But what man will ever be so blessed with that ideal steadfastness of soul, unless he has already risen far above the reach of Fortune? Even such a man will be stung by an event like this, but it will be only a sting. We, however, may be forgiven for bursting into tears, if only our tears have not flowed to excess, and if we have checked them by our own efforts. Let not the eyes be dry when we have lost a friend, nor let them overflow. We may weep, but we must not wail.",
+      "context": "Seneca begins with his own grief at the news. He will not insist that Lucilius feel nothing, he admits that even the steadiest person is stung, and he says outright: let not the eyes be dry when we have lost a friend.",
+      "order": 7
     }
   ]
 }

@@ -29,7 +29,9 @@ export type ClassicalWork =
   | 'Enchiridion'
   | 'Discourses'
   | 'Moral Letters to Lucilius'
-  | 'On Tranquility';
+  | 'On Tranquility'
+  | 'On Anger'
+  | 'On the Shortness of Life';
 
 /**
  * A single curated primary-source passage.
@@ -103,4 +105,6 @@ export const CLASSICAL_WORKS: readonly ClassicalWork[] = [
   'Discourses',
   'Moral Letters to Lucilius',
   'On Tranquility',
+  'On Anger',
+  'On the Shortness of Life',
 ] as const;
