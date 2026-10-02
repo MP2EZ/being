@@ -26,6 +26,7 @@ import {
 // FEAT-298 slice 3b: sessions are keyed by PRACTICE IDENTITY ('daily-loop'), not by the
 // persisted record type ('daily'). See the token-split note in core/types/session.ts.
 import type { PracticeIdentity } from '@/core/types/practice-identity';
+import { decideWellnessWrite } from '@/core/stores/consentStore';
 import EncryptionService from '../security/EncryptionService';
 
 /**
@@ -34,7 +35,21 @@ import EncryptionService from '../security/EncryptionService';
  */
 export class SessionStorageService {
   /**
-   * Save session data to encrypted storage
+   * Flows whose session was withheld this process (FEAT-667). Every save writes the
+   * whole cumulative session, so once one is withheld each later save of it carries
+   * answers the user was told would not be kept. Cleared when the session ends.
+   */
+  private static withheldFlows = new Set<PracticeIdentity>();
+
+  /**
+   * Save session data to encrypted storage.
+   *
+   * FEAT-667 (FEAT-318 slice C): the daily loop's typed beat answers are Art. 9
+   * wellness data. A blocked save writes NOTHING — no envelope-only session, so
+   * ResumeSessionModal never offers a hollow resume — and the loop still advances,
+   * because callers do not await this. `loading` skips without latching: the next
+   * beat's save carries the whole session anyway.
+   *
    * @param flowType - Type of flow (morning/midday/evening)
    * @param currentScreen - Screen name where user left off
    * @param flowState - Optional flow-specific state to preserve
@@ -45,6 +60,10 @@ export class SessionStorageService {
     flowState?: Record<string, any>
   ): Promise<void> {
     try {
+      const decision = decideWellnessWrite();
+      if (!decision.allowed && decision.reason !== 'loading') this.withheldFlows.add(flowType);
+      if (!decision.allowed || this.withheldFlows.has(flowType)) return;
+
       const now = Date.now();
       const sessionData: SessionData = {
         flowType,
@@ -137,6 +156,8 @@ export class SessionStorageService {
    * @param flowType - Type of flow to clear session for
    */
   static async clearSession(flowType: PracticeIdentity): Promise<void> {
+    // Ungated erasure (FEAT-667). The session has ended, so a new one starts clean.
+    this.withheldFlows.delete(flowType);
     try {
       const key = this.getStorageKey(flowType);
       await SecureStore.deleteItemAsync(key);

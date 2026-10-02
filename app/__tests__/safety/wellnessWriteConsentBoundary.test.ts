@@ -70,6 +70,15 @@ const NAMED_FILES = [
   'src/features/assessment/components/EnhancedAssessmentFlow.tsx',
   'src/features/assessment/components/EnhancedAssessmentQuestion.tsx',
   'src/features/assessment/components/AssessmentResults.tsx',
+  // FEAT-667 (crisis ruling 2026-09-29): the daily loop's capture path, which hosts
+  // SUPPORT_LINE, and the weekly-reflection composer. Slice C gates below them, at
+  // SessionStorageService and stoicPracticeStore. WeeklyReflectionCard may read the
+  // predicate as a display-only notice host and hands the composer a prop.
+  'src/features/practices/dailyloop/DailyLoopNavigator.tsx',
+  'src/features/practices/dailyloop/screens/DailyLoopStepScreen.tsx',
+  'src/features/practices/dailyloop/screens/DailyLoopCompleteScreen.tsx',
+  'src/features/practices/dailyloop/config/tenseMode.ts',
+  'src/features/insights/components/WeeklyReflectionComposer.tsx',
 ].map((file) => join(APP, file));
 
 const GUARDED_FILES = [...CRISIS_FEATURE_FILES, ...NAVIGATION_FILES, ...NAMED_FILES];

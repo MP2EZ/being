@@ -59,8 +59,13 @@ jest.mock('@/core/utils/isoWeek', () => ({
   getIsoWeekStartFor: jest.fn(),
 }));
 import { getIsoWeekStart } from '@/core/utils/isoWeek';
+import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
 
 const mockStore = SecureStore as jest.Mocked<typeof SecureStore>;
+
+// FEAT-667: consent boots at `loading`, which the Art. 9 write gate defers. This suite
+// is about persistence, not consent, so it runs as a consenting user.
+beforeEach(() => seedWellnessWriteConsent('granted'));
 
 describe('StoicPracticeStore — behavior (MAINT-242)', () => {
   beforeEach(async () => {
