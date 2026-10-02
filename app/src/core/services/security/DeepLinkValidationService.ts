@@ -43,10 +43,14 @@ export const DEEP_LINK_CONFIG = {
    */
   ALLOWED_HOSTS: ['being.fyi', 'www.being.fyi', 'app.being.fyi'] as const,
 
-  /** Allowed navigation paths (must match RootStackParamList routes) */
+  /**
+   * Base paths an external link may target. ENFORCING since DEBUG-636: a miss is
+   * a blocked DISALLOWED_PATH. Every entry is ruled, with its reason, in
+   * `DEEP_LINK_REACHABILITY` (linking.ts); a drift test keeps the two in step.
+   */
   ALLOWED_PATHS: [
     '/',
-    '/main',
+    // FEAT-298 slice 6c: retired flows, kept so an old link lands softly.
     '/morning',
     '/midday',
     '/evening',
@@ -55,11 +59,8 @@ export const DEEP_LINK_CONFIG = {
     '/daily',
     '/crisis',
     '/assessment',
-    '/learn',
     '/module',
     '/practice',
-    '/profile',
-    '/settings',
     '/subscription',
   ] as const,
 
@@ -100,6 +101,23 @@ export const DEEP_LINK_CONFIG = {
   /** Validation timeouts */
   VALIDATION_TIMEOUT_MS: 50,
 } as const;
+
+/**
+ * DEBUG-636: the only form of a blocked-path link that a log or security event may
+ * carry — its first path segment, never the rest of the path, the query or the raw
+ * URL (matching linking.ts's consent-drop log). The segment is attacker-supplied, so
+ * it is reduced to `[A-Za-z0-9_-]` and 20 chars (the id-sanitiser idiom in
+ * linking.ts's parsers), with a fixed marker if nothing survives. Total: never
+ * throws, including on null or ''.
+ */
+export function pathForSecurityLog(path: string | null | undefined): string {
+  const first = (path ?? '').split('/').filter(Boolean)[0];
+  if (first === undefined) {
+    return '/';
+  }
+  const safe = first.replace(/[^a-zA-Z0-9_-]/g, '').substring(0, 20);
+  return safe ? `/${safe}` : '/<unlisted>';
+}
 
 /**
  * MALICIOUS PATTERN DEFINITIONS
@@ -338,11 +356,12 @@ class DeepLinkValidationService {
         }
       }
 
-      // Validate path
+      // Validate path. Blocking, but NOT here — see the DEBUG-636 return below.
+      // The message deliberately omits the path: it is stored in securityEvents.
       if (!this.isAllowedPath(path)) {
         errors.push({
           code: 'DISALLOWED_PATH',
-          message: `Path '${path}' is not a valid navigation target`,
+          message: 'Path is not a valid navigation target',
           severity: 'medium',
           field: 'path',
         });
@@ -380,6 +399,20 @@ class DeepLinkValidationService {
 
       if (hasBlockingErrors) {
         this.logSecurityEvent(url, 'attack_detected', errors);
+        return this.buildResult(false, null, url, errors, warnings, {
+          scheme, host, path, params,
+          validationTimeMs: performance.now() - startTime,
+        });
+      }
+
+      // DEBUG-636: the path allowlist blocks. This return must stay AFTER the
+      // attack-class block above, never inline at the DISALLOWED_PATH push: an
+      // inline return would skip param validation, the path pattern scan and the
+      // original-URL traversal sweep, downgrading real traversal from
+      // attack_detected/critical to a medium block. Severity stays `medium` — an
+      // unlisted link is not an attack — and the event carries no URL content.
+      if (errors.some(e => e.code === 'DISALLOWED_PATH')) {
+        this.logSecurityEvent(pathForSecurityLog(path), 'validation_failed', errors);
         return this.buildResult(false, null, url, errors, warnings, {
           scheme, host, path, params,
           validationTimeMs: performance.now() - startTime,
@@ -438,19 +471,14 @@ class DeepLinkValidationService {
     // Map path to screen name
     const screenMap: Record<string, string> = {
       '/': 'Main',
-      '/main': 'Main',
-      // FEAT-298 slice 4: kept in sync with ALLOWED_PATHS and linking.ts. This map is a
-      // THIRD source of truth for path->screen and currently has no production callers
-      // (test-only), so it drifts silently; omitting '/daily' would hand a future caller
-      // `screen: null` and navigate nowhere.
+      // A fourth path->screen source with no production callers (test-only). It no
+      // longer drifts silently: deepLinkReachability.drift.test.ts pins it to
+      // config.screens for every EXTERNALLY_REACHABLE token (DEBUG-636).
       '/daily': 'DailyLoop',
       '/crisis': 'CrisisResources',
       '/assessment': 'AssessmentFlow',
-      '/learn': 'Main',
       '/module': 'ModuleDetail',
       '/practice': 'PracticeTimer',
-      '/profile': 'Main',
-      '/settings': 'Main',
       '/subscription': 'Subscription',
     };
 
@@ -536,8 +564,19 @@ class DeepLinkValidationService {
     // Check if base path is allowed
     const baseAllowed = (DEEP_LINK_CONFIG.ALLOWED_PATHS as readonly string[]).includes(basePath);
 
-    if (!baseAllowed && basePath !== '/') {
+    // No special case for '/': the root is admitted only by its allowlist entry.
+    if (!baseAllowed) {
       return false;
+    }
+
+    // DEBUG-636: the crisis subtree skips the depth and charset checks below,
+    // and nothing else. linking.ts promises that any route added under `crisis/`
+    // inherits the 988 exemption, and DEBUG-649 captures `/crisis/` on Android;
+    // armed depth/charset checks would hard-block such a route before that
+    // exemption runs. Attack-class detection is untouched — validateDeepLink
+    // scans the path and the original URL whatever this returns.
+    if (basePath === '/crisis') {
+      return true;
     }
 
     // Limit path depth to prevent access to unintended nested routes (max 3 segments)

@@ -168,9 +168,19 @@ export const VIRTUE_REFERENCE: ReadonlyArray<{ key: CardinalVirtue; label: strin
 ];
 
 /**
- * Premeditatio malorum — step 4, MORNING-tensed ONLY. Optional + skippable +
- * coping-clause paired (crisis-reviewed). Never shown in flat or evening mode, and
- * never on any acute-distress entry.
+ * Premeditatio malorum — step 4, MORNING tense, deep loop only. Optional, skippable,
+ * brief and coping-paired (crisis-reviewed): one SETBACK scoped to today, never loss,
+ * illness or death, with the coping clause written into the hint. Copy that moves
+ * toward loss needs philosopher + crisis.
+ *
+ * WITHHELD — absent, nothing in its place — while useGuidanceGate() is pending or its
+ * decision is 'suppressed' (Q9 > 0, PHQ-9 ≥ 20, GAD-7 ≥ 15), DEBUG-670. That reads
+ * the latest screening, not the user's state now; it cannot see unrecorded distress.
+ * Not the guidance loss-visualization: never read `allowPremeditatio` here. Accepted
+ * deviation: a suppressed reader cannot choose the practice (a prohairesis cost).
+ *
+ * Its gratitude complement, CLOSING.gratitudeLine, is NOT gated with it: the pairing
+ * runs one way (contemplated loss requires gratitude, not the reverse).
  */
 export const PREMEDITATIO = {
   label: 'If today brings a setback, how do you want to meet it?',

@@ -125,6 +125,10 @@ import {
 } from '../config/stageNotes';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
+// Direct path, never a features/guidance barrel (FEAT-376). Adds nothing to the eager
+// graph: CleanRootNavigator already imports DomainGuidanceScreen, which imports this.
+import { useGuidanceGate } from '@/features/guidance/hooks/useGuidanceGate';
+import type { GuidanceAccessLevel } from '@/features/guidance/types/guidance';
 
 /**
  * DEBUG-518 — horizontal inset reserving the floating crisis button's touch band.
@@ -189,6 +193,17 @@ export const virtueChipsAreSingleColumn = (fontScale: number): boolean =>
 const BREATH_DURATION_MS = 30 * 1000;
 
 /**
+ * DEBUG-670 — the guidance-gate levels at which premeditatio may be offered. An
+ * ALLOWLIST, so a level added later is withheld until someone rules on it.
+ *
+ * `gentle` is in by crisis ruling: it covers PHQ-9 15-19, GAD-7 10-14 and readers
+ * never assessed, for whom the guardrail is the coping-paired copy plus optionality.
+ * Never key this on `allowPremeditatio` — that field gates the guidance loss
+ * visualization on developmental stage, which is null for every user today.
+ */
+const PREMEDITATIO_ACCESS_LEVELS: ReadonlySet<GuidanceAccessLevel> = new Set(['full', 'gentle']);
+
+/**
  * Module scope, not an inline `??` fallback at the call site (DEBUG-468).
  * `guidanceItems` feeds a `React.memo`'d component, so a literal written inline
  * would mint a new array identity on every parent render — DEBUG-394's failure
@@ -237,10 +252,18 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   const config = getStepConfig(mode, stepKey);
   const title = STEP_TITLES[stepKey];
   const themeColors = getTheme('midday');
-  // Premeditatio (morning-tensed negative visualization on Virtuous Response) is
-  // EXCLUDED from the quick pass — a fast micro-arc is not the container for it. Its
-  // morning-only + acute-distress gating is otherwise unchanged for the deep loop.
-  const showPremeditatio = stepKey === 'VirtuousResponse' && mode === 'morning' && depth !== 'quick';
+  // Premeditatio (morning-tensed negative visualization on Virtuous Response): never
+  // on the quick pass — a fast micro-arc is not its container — and WITHHELD while
+  // useGuidanceGate() is pending or its decision is 'suppressed' (DEBUG-670; contract
+  // on PREMEDITATIO in tenseMode.ts). That reads the latest screening, not the user's
+  // state now. Withheld means absent: nothing replaces it, no verdict is logged or
+  // persisted, and text typed before it was withheld is never saved. The gate is ANDed
+  // onto the tense/depth terms, not nested in them, so any widening inherits it.
+  const guidanceGate = useGuidanceGate();
+  const distressAllowsPremeditatio =
+    guidanceGate.status === 'ready' && PREMEDITATIO_ACCESS_LEVELS.has(guidanceGate.decision.level);
+  const showPremeditatio =
+    stepKey === 'VirtuousResponse' && mode === 'morning' && depth !== 'quick' && distressAllowsPremeditatio;
   // Crisis support line placement is resolved at the DATA level (tenseMode.ts) so the
   // "exactly once, per depth" invariant is config-testable — deep: Radical Acceptance;
   // quick: Sphere Sovereignty (a no-breath-gate beat). Never a screen-level decision.
@@ -297,9 +320,11 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
     if (values.notMine.trim()) data.notMine = values.notMine.trim();
     if (values.mine.trim()) data.mine = values.mine.trim();
     if (selectedVirtues.length) data.virtues = selectedVirtues;
-    if (adversityRehearsal.trim()) data.adversityRehearsal = adversityRehearsal.trim();
+    // Only what is on screen at Continue is saved: a prompt withheld mid-beat
+    // (DEBUG-670) takes whatever was typed into it with it.
+    if (showPremeditatio && adversityRehearsal.trim()) data.adversityRehearsal = adversityRehearsal.trim();
     onSave(data);
-  }, [values, selectedVirtues, adversityRehearsal, onSave]);
+  }, [values, selectedVirtues, showPremeditatio, adversityRehearsal, onSave]);
 
   const renderField = (key: LoopFieldKey, label: string, hint: string | undefined, placeholder: string) => (
     <View style={styles.inputSection} key={key}>

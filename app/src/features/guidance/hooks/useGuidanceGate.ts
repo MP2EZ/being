@@ -2,9 +2,11 @@
  * Reads assessment state and asks the gate how much of the guidance ladder this
  * reader may see (FEAT-433, slice 3a).
  *
- * This hook is the FIRST production consumer of `decideGuidanceAccess`. Everything
- * below exists because a wrong answer here is a false negative on a safety gate —
- * not a rendering bug.
+ * This hook is the production consumer of `decideGuidanceAccess`, and has two callers:
+ * `DomainGuidanceScreen`, and since DEBUG-670 `DailyLoopStepScreen`, which withholds
+ * premeditatio unless the gate is `ready` at `full` or `gentle`. Everything below
+ * exists because a wrong answer here is a false negative on a safety gate — not a
+ * rendering bug — and that now holds on both screens.
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * ⚠️ WHY THIS GATES ON HYDRATION, AND WHY THAT IS NOT OPTIONAL
