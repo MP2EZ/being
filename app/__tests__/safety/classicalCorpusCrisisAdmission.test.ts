@@ -123,6 +123,12 @@ const BANNED: ReadonlyArray<readonly [label: string, pattern: RegExp]> = [
   ['patiently receive correction', /\bpatiently\s+receiv\w*\s+(his|her|their)\s+(reproaches|correction|blows)\b/i],
   ['not hurt unless you please', /\bwill\s+not\s+hurt\s+you,?\s+unless\s+you\s+please\b|\bhurt,?\s+when\s+you\s+think\s+you\s+are\s+hurt\b/i],
   ['delivered up your body', /\bdeliver\w*\s+up\s+(your|thy|his|her)\s+body\b/i],
+  // FEAT-661: Long's Med. 4.50 follows the admitted 4.49, and "not worth living"
+  // misses every phrasing of the sentiment in the four translations.
+  [
+    'life without value',
+    /\b(consider|count|reckon|deem|hold)\w*\s+life\s+(to\s+be\s+)?(a\s+thing\s+)?of\s+(any|no|little|small)\s+(value|worth|account)\b|\blife\s+(is\s+)?worth\s+having\b/i,
+  ],
 ];
 
 /** A match fails unless allowlisted with a ruling. Common in non-exit senses. */
@@ -155,6 +161,9 @@ const REVIEW_CLEARED: ReadonlyArray<{ id: string; field: string; term: string; r
   { id: 'epictetus-enchiridion-5', field: 'text', term: 'death', ruling: 'FEAT-581' },
   // "the last hour" — mortality as a spur to attention, no exit framing.
   { id: 'marcus-meditations-7-29', field: 'text', term: 'last hour', ruling: 'FEAT-581' },
+  // "your friend Flaccus is dead" — the bereavement the letter answers. Whole
+  // 63.1 only: no exit or reunion framing, and it ends before 63.2's one-day quota.
+  { id: 'seneca-letters-63', field: 'text', term: 'dead', ruling: 'FEAT-661' },
 ];
 
 /**
@@ -189,6 +198,9 @@ const CONTROLS: ReadonlyArray<readonly [label: string, fixture: string]> = [
   ['not hurt unless you please', 'For another will not hurt you, unless you please.'], // Carter, Ench. 30
   ['not hurt unless you please', 'You will then be hurt, when you think you are hurt.'], // Carter, Ench. 30
   ['delivered up your body', 'If a Person had delivered up your Body to any one, whom he met in his Way'], // Carter, Ench. 28
+  ['life without value', 'Do not then consider life a thing of any value.'], // Long, Med. 4.50
+  ['life without value', 'Is life worth having, if so many must perish to prevent my losing it?'], // Stewart, On Clemency 1.9
+  ['life without value', 'Whether life is worth having at such a price, we shall see hereafter;'], // Stewart, On Anger 3.15
 ];
 
 const hits = (patterns: typeof BANNED, value: string) =>
@@ -205,9 +217,9 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
     const rendered = renderedStrings();
     // Every passage renders `text`; every module renders a quote. A scan over
     // an empty set would pass every assertion below vacuously. Floors track the
-    // corpus (26 at FEAT-660), so a dropped file cannot pass quietly.
-    expect(rendered.filter((r) => r.field === 'text').length).toBeGreaterThanOrEqual(26);
-    expect(rendered.filter((r) => r.field === 'context').length).toBeGreaterThanOrEqual(26);
+    // corpus (30 at FEAT-661), so a dropped file cannot pass quietly.
+    expect(rendered.filter((r) => r.field === 'text').length).toBeGreaterThanOrEqual(30);
+    expect(rendered.filter((r) => r.field === 'context').length).toBeGreaterThanOrEqual(30);
     expect(rendered.filter((r) => r.field === 'classicalQuote.text').length).toBe(MODULE_FILES.length);
   });
 
@@ -293,7 +305,14 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
 
     // Notes on holding a wrong carry every arm of the harm clause. Keyword
     // checks, not an exact sentence, so the clause can be phrased to its passage.
-    const HARM_CLAUSE_REQUIRED = ['marcus-meditations-6-50', 'seneca-on-anger-2-4'];
+    const HARM_CLAUSE_REQUIRED = [
+      'marcus-meditations-6-50',
+      'seneca-on-anger-2-4',
+      // FEAT-661: standing firm, a narrowed room, and enduring Chance.
+      'marcus-meditations-4-49',
+      'seneca-on-tranquility-10',
+      'seneca-letters-16',
+    ];
 
     it.each(HARM_CLAUSE_REQUIRED)('%s carries the harm clause', (id) => {
       const note = fieldsOf(id).find((r) => r.field === 'context')?.value ?? '';
@@ -309,6 +328,83 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
       expect('Can anything be mentioned which is more insane').toMatch(/\binsane\b/i);
       expect('it is no longer in your Power to call it back').toMatch(/no longer in your Power/i);
       expect('A reason to endure it.').not.toMatch(/\blimits\b/);
+    });
+  });
+
+  /**
+   * FEAT-661 span rulings (crisis co-review). Each pins an omitted neighbour the
+   * pattern tables cannot see: 63.2's quota, 4.49's closing verdict, 8.50's
+   * "useless" returning to nature, Tranquility 10's chains, and 16.6's fated chain.
+   */
+  describe('FEAT-661 radical-acceptance boundaries', () => {
+    const fieldsOf = (id: string) => renderedStrings().filter((r) => r.id === id);
+    const fieldOf = (id: string, field: string) => fieldsOf(id).find((r) => r.field === field)?.value;
+    const textOf = (id: string) => {
+      const v = fieldOf(id, 'text');
+      if (!v) throw new Error(`${id} has no rendered text`);
+      return v;
+    };
+    const noneMatch = (id: string, pattern: RegExp) => {
+      for (const r of fieldsOf(id)) {
+        expect({ id, field: r.field, hit: r.value.match(pattern) }).toEqual({ id, field: r.field, hit: null });
+      }
+    };
+
+    const GRIEF_QUOTA = /\bone day\b|\bNiobe\b|\bsent on ahead\b|\blimit for mourning\b|\breplace your friend\b|\bas soon as possible\b/i;
+    const GRIEF_NOTE = /timetable|timeline|deadline|quota|988|crisis|hotline|helpline|lifeline|seek help/i;
+    const VERDICT_449 = /bear it nobly|not that this is a misfortune|contempt of death|any value/i;
+    const RECYCLED_850 = /\buseless\b|\bdecay/i;
+    const TRAPPED_T10 = /\bsnare\b|\bfetter|\bchain|\bslavery\b|\bhabitable\b|empty within|locked up/i;
+    const FATED_166 = /chain of fated events|play the tyrant|drags us along/i;
+
+    it('Letters 63 is whole 63.1 — tears affirmed, no quota, no reunion, no resource line', () => {
+      expect(textOf('seneca-letters-63').endsWith('We may weep, but we must not wail.')).toBe(true);
+      expect(textOf('seneca-letters-63')).toContain('Let not the eyes be dry');
+      expect(fieldOf('seneca-letters-63', 'fullText')).toBeUndefined();
+      noneMatch('seneca-letters-63', GRIEF_QUOTA);
+      expect(fieldOf('seneca-letters-63', 'context')).not.toMatch(GRIEF_NOTE);
+    });
+
+    it('Letters 63 is never the auto-expanded first card', () => {
+      // FromTheSourceSection expands the first passage by order, which would push a
+      // bereavement letter, unasked, at every reader of the module.
+      const ps = JSON.parse(readFileSync(join(PASSAGES_DIR, 'passages-2-radical-acceptance.json'), 'utf8')).passages;
+      const first = [...ps].sort((a: { order: number }, b: { order: number }) => a.order - b.order)[0];
+      expect(first.id).not.toBe('seneca-letters-63');
+    });
+
+    it('Meditations 4.49 stops at the virtue question', () => {
+      expect(textOf('marcus-meditations-4-49').endsWith('obtains all that is its own?')).toBe(true);
+      noneMatch('marcus-meditations-4-49', VERDICT_449);
+    });
+
+    it('Meditations 8.50 stops before nature reclaims the useless', () => {
+      expect(textOf('marcus-meditations-8-50').endsWith('from the things which they make.')).toBe(true);
+      expect(fieldOf('marcus-meditations-8-50', 'fullText')).toBeUndefined();
+      noneMatch('marcus-meditations-8-50', RECYCLED_850);
+    });
+
+    it('Tranquility 10 opens on good sense, never on the chapter\'s chains', () => {
+      expect(textOf('seneca-on-tranquility-10').startsWith('Call good sense')).toBe(true);
+      noneMatch('seneca-on-tranquility-10', TRAPPED_T10);
+    });
+
+    it('Letters 16 renders the objection only with its answer, and stops before 16.6', () => {
+      const full = fieldOf('seneca-letters-16', 'fullText');
+      expect(full?.startsWith('Perhaps someone will say')).toBe(true);
+      expect(full?.endsWith(textOf('seneca-letters-16'))).toBe(true);
+      noneMatch('seneca-letters-16', FATED_166);
+    });
+
+    it('the FEAT-661 boundary matchers still fire (DEBUG-390)', () => {
+      // Source-literal fixtures from the excluded neighbours, never corpus state.
+      expect('allowed the privilege of weeping to one day only').toMatch(GRIEF_QUOTA); // Gummere, Ep. 63.2
+      expect('he whom we think we have lost has only been sent on ahead').toMatch(GRIEF_QUOTA); // Gummere, Ep. 63.16
+      expect('In this passage he sets no timetable for grief.').toMatch(GRIEF_NOTE); // the rejected draft note
+      expect('not that this is a misfortune, but that to bear it nobly is good fortune').toMatch(VERDICT_449); // Long, Med. 4.49
+      expect('everything within her which appears to decay and to grow old and to be useless').toMatch(RECYCLED_850); // Long, Med. 8.50
+      expect('All life is slavery: let each man therefore reconcile himself to his lot').toMatch(TRAPPED_T10); // Stewart, Tranq. 10
+      expect('if a chain of fated events drags us along in its clutches').toMatch(FATED_166); // Gummere, Ep. 16.6
     });
   });
 

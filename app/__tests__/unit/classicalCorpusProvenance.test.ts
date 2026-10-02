@@ -113,7 +113,7 @@
  * "Of Anger" (Book II is PG's "Fourth Book of the Dialogues"), `On the Shortness
  * of Life` his "Of the Shortness of Life".
  *
- * SIX NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
+ * SEVEN NORMALISATIONS ARE APPLIED TO THE PINNED TEXT, all recorded so they are
  * auditable rather than invisible:
  *   1. Long-s: the 1759 print sets `ſ`; the corpus uses `s`.
  *   2. The transcription emits a space before punctuation where the print
@@ -138,6 +138,9 @@
  *      ("{279}" dropped), which is why that locus is now pinned at both ends.
  *   6. Typographic quotes and apostrophes become ASCII ("man’s" -> "man's").
  *      Applied corpus-wide since the first passage; recorded here at last.
+ *   7. Long's double hyphen (FEAT-661): PG #15877's plain text sets a dash as "--"
+ *      ("bitter--Throw it away"); the corpus sets the unspaced em dash "—" that
+ *      the same ebook's HTML edition prints.
  *
  * PRINT READINGS ARE KEPT, never modernised: Stewart's "befals", and "temping us
  * to yawn" at On Anger 2.4, which is the 1889 print's own reading (IA
@@ -326,7 +329,6 @@ describe('classical corpus provenance (DEBUG-352)', () => {
 
     /** Declared, dischargeable debt — each entry is owed by the FEAT-581 slice named. */
     const BALANCE_DEBT: Readonly<Record<string, readonly string[]>> = {
-      'passages-2-radical-acceptance.json': ['Seneca'], // FEAT-661
       'passages-4-virtuous-response.json': ['Epictetus'], // FEAT-662
       'passages-5-interconnected-living.json': ['Epictetus', 'Seneca'], // FEAT-663
     };
@@ -683,6 +685,75 @@ describe('classical corpus provenance (DEBUG-352)', () => {
     });
   });
 
+  describe('FEAT-581 loci are verbatim at both ends (radical-acceptance)', () => {
+    const RADICAL_FILE = 'passages-2-radical-acceptance.json';
+    const byId = (id: string): Passage => {
+      const p = loadPassages(RADICAL_FILE).find((x) => x.id === id);
+      if (!p) throw new Error(`${id} missing from ${RADICAL_FILE}`);
+      return p;
+    };
+
+    it.each([
+      [
+        'marcus-meditations-4-49',
+        'George Long',
+        'Be like the promontory against which the waves continually break',
+        // Cut at the virtue question (crisis): the section's last sentence calls the
+        // event no misfortune, and 4.50 follows with "contempt of death".
+        'by the presence of which man\'s nature obtains all that is its own?',
+      ],
+      [
+        'marcus-meditations-8-50',
+        'George Long',
+        'A cucumber is bitter\u2014Throw it away.',
+        // Stops before nature taking back what "appears to decay and to be useless".
+        'shavings and cuttings from the things which they make.',
+      ],
+      [
+        'seneca-letters-16',
+        'Richard Mott Gummere',
+        'Whether the truth, Lucilius, lies in one or in all of these views, we must be philosophers',
+        'she will teach us to follow God and endure Chance.',
+      ],
+      [
+        'seneca-on-tranquility-10',
+        'Aubrey Stewart',
+        'Call good sense to your aid against difficulties',
+        'press less severely upon one who bears them skilfully.',
+      ],
+      [
+        'seneca-letters-63',
+        'Richard Mott Gummere',
+        'I am grieved to hear that your friend Flaccus is dead',
+        // Whole 63.1, ending before 63.2's one-day quota (crisis).
+        'We may weep, but we must not wail.',
+      ],
+    ])('%s is %s, opening and close intact', (id, translator, opening, close) => {
+      const p = byId(id);
+      expect(p.translation).toBe(translator);
+      expect(p.text.startsWith(opening)).toBe(true);
+      expect(p.text.endsWith(close)).toBe(true);
+    });
+
+    it('Long\'s double hyphen is set as an em dash (normalisation 7)', () => {
+      const t = byId('marcus-meditations-8-50').text;
+      expect(t).toContain('bitter\u2014Throw it away.\u2014There are briers');
+      expect(t).not.toContain('--');
+    });
+
+    it('Letters 16 carries the objection only alongside its answer', () => {
+      const p = byId('seneca-letters-16');
+      // 16.4 states the fixity objection; 16.5 answers it. The full text must end
+      // with the excerpt, so the objection can never render without the reply.
+      expect(p.fullText?.startsWith('Perhaps someone will say')).toBe(true);
+      expect(p.fullText?.endsWith(p.text)).toBe(true);
+    });
+
+    it('Meditations 10.6 is retired', () => {
+      expect(loadPassages(RADICAL_FILE).some((p) => p.id === 'marcus-meditations-10-6')).toBe(false);
+    });
+  });
+
   /**
    * THE SAME DEFECT ONE LAYER UP (DEBUG-585). DEBUG-352, FEAT-567 and DEBUG-582
    * each found an edition's identity attached to text that edition did not
@@ -731,8 +802,10 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       expect(seneca.map((p) => p.citation).sort()).toEqual([
         'Letters 107.11',
         'Letters 13.4',
+        'Letters 16.5',
         'Letters 5.9',
         'Letters 57.3',
+        'Letters 63.1',
       ]);
       for (const p of seneca) expect(p.work).toBe(LOEB_WORK);
     });
@@ -844,17 +917,26 @@ describe('classical corpus provenance (DEBUG-352)', () => {
         'They live laboriously, in order that they may live better; they fit themselves out for lif',
       'epictetus-discourses-4-12':
         'When you let go your Attention for a little while, do not fancy you may recover it when-ev',
+      // FEAT-661, read by philosopher under "Radical Acceptance".
+      'marcus-meditations-4-49':
+        'Be like the promontory against which the waves continually break, but it stands firm and t',
+      'marcus-meditations-8-50':
+        'A cucumber is bitter\u2014Throw it away.\u2014There are briers in the road\u2014Turn aside from them.\u2014Thi',
+      'seneca-letters-16':
+        'Whether the truth, Lucilius, lies in one or in all of these views, we must be philosophers',
+      'seneca-on-tranquility-10':
+        'Call good sense to your aid against difficulties: it is possible to soften what is harsh, ',
+      'seneca-letters-63':
+        'I am grieved to hear that your friend Flaccus is dead, but I would not have you sorrow mor',
     };
 
     /**
-     * Openings read and FAILED, declared rather than silently passed. 10.6 opens
-     * "Whatever may happen to thee, it was prepared for thee from all eternity"
-     * under Radical Acceptance — the fatalist reading, in the preview, with the
-     * FEAT-569 corrective one tap away. Retired for Meditations 4.49 by FEAT-661.
+     * Openings read and FAILED, declared rather than silently passed. Empty since
+     * FEAT-661 retired its only entry: 10.6 opened "Whatever may happen to thee, it
+     * was prepared for thee from all eternity" under Radical Acceptance, the
+     * fatalist reading in the preview. Kept as the ledger a future failure lands in.
      */
-    const OPENING_DEBT: Readonly<Record<string, string>> = {
-      'marcus-meditations-10-6': 'FEAT-661',
-    };
+    const OPENING_DEBT: Readonly<Record<string, string>> = {};
 
     it('every opening is recorded as read, or declared as failing', () => {
       const unread = allPassages()
@@ -927,8 +1009,15 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       [RADICAL, 'marcus-meditations-4-23', 'from inside the order'],
       // The maxim governs desire and aversion — not action.
       [RADICAL, 'epictetus-enchiridion-8', 'desire and aversion'],
-      // A choice is one of the causes, so fixity is not a reason for inaction.
-      [RADICAL, 'marcus-meditations-10-6', 'one of those causes'],
+      // FEAT-661: the fixity objection named and answered, taking 10.6's slot.
+      [RADICAL, 'seneca-letters-16', 'whatever the truth about fate'],
+      [RADICAL, 'seneca-letters-16', 'Meeting Fortune defiantly is not resignation'],
+      // The 'Not so' answers the inference, and the close turns to action.
+      [RADICAL, 'marcus-meditations-4-49', 'His closing question turns toward action'],
+      [RADICAL, 'marcus-meditations-8-50', 'The opening verbs are the pivot'],
+      [RADICAL, 'seneca-on-tranquility-10', "Seneca's verbs are active: soften, widen, lighten"],
+      // The grief note guards the principle's second trap, suppression.
+      [RADICAL, 'seneca-letters-63', 'will not insist that Lucilius feel nothing'],
     ])('%s / %s keeps its action pivot', (file, id, anchor) => {
       expect(contextOf(file, id)).toContain(anchor);
     });
@@ -943,14 +1032,12 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       expect(contextOf(RADICAL, 'epictetus-enchiridion-8')).not.toContain(
         'stating non-resistance to events directly',
       );
-      expect(contextOf(RADICAL, 'marcus-meditations-10-6')).not.toContain(
-        'a ground for welcoming what comes',
-      );
     });
 
     // The corrective may not overcorrect into denying what the passage says.
-    // Meditations 10.6 DOES assert causal fixity; a note implying outcomes are
-    // ours breaks sphere-sovereignty while purporting to fix this principle.
+    // Letters 16.4-5 keeps causal fixity a live possibility and answers it without
+    // denying it; a note implying outcomes are ours breaks sphere-sovereignty
+    // while purporting to fix this principle.
     // Corpus-wide since FEAT-580: its own note turns on "consent changes the man,
     // not the outcome", which is one careless rewording away from the very claim
     // this guard forbids. Verified zero violators corpus-wide when widened.
@@ -1096,6 +1183,16 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       expect(contextOf(file, id).toLowerCase()).toContain(anchor.toLowerCase());
     });
 
+    it('the radical-acceptance notes on holding hardship keep the harm clause (crisis)', () => {
+      // 4.49's promontory, Tranquility 10's narrowing and 16.5's enduring Chance can
+      // each be heard as counsel to stay under ongoing harm (FEAT-661 crisis ruling).
+      for (const id of ['marcus-meditations-4-49', 'seneca-on-tranquility-10', 'seneca-letters-16']) {
+        const note = contextOf(RADICAL, id);
+        expect({ id, holds: note.includes('staying in or excusing ongoing harm') }).toEqual({ id, holds: true });
+        expect({ id, limits: note.includes('set limits or seek help') }).toEqual({ id, limits: true });
+      }
+    });
+
     it('the harm-adjacent aware-presence notes keep their crisis clauses', () => {
       // On Anger's second movement is a judgement of being wronged; the pause
       // declines the striking back, never the recognition of the wrong.
@@ -1120,7 +1217,7 @@ describe('classical corpus provenance (DEBUG-352)', () => {
 
       // And prove the notes being read are real prose, not empty strings that
       // would satisfy every not.toContain above vacuously.
-      for (const id of ['marcus-meditations-4-23', 'epictetus-enchiridion-8', 'marcus-meditations-10-6']) {
+      for (const id of ['marcus-meditations-4-23', 'epictetus-enchiridion-8', 'marcus-meditations-4-49']) {
         expect(contextOf(RADICAL, id).length).toBeGreaterThan(40);
       }
     });
