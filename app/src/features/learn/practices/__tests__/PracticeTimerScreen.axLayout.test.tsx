@@ -14,9 +14,8 @@
  * reduce-motion phase cue is never hidden: under reduce-motion it is the pacing.
  *
  * Jest has no layout engine, so this pins STRUCTURE — what sits between the disc and the
- * toggle — plus an arithmetic budget. The budget's measured inputs are PROVISIONAL: they
- * come from DEBUG-633's 402x874 capture, taken with a deep-link title, and 390x844 was never
- * measured. DEBUG-654 replaces them with an on-device capture.
+ * toggle — plus an arithmetic budget whose inputs DEBUG-654 measured on device, at both
+ * viewports, with the live title.
  */
 
 import React from 'react';
@@ -300,17 +299,39 @@ describe('a text-size change mid-practice moves the toggle and remounts nothing'
 });
 
 /**
- * PROVISIONAL budget, DEBUG-633 AC5's 402x874 capture: viewport 338..840 (502pt), toggle
- * 185pt at 'Begin Practice' and 116pt at 'Pause'. That capture used the deep-link title
- * 'Breathing Space'; the live title stacks a taller header, and 390x844 has no capture at
- * all. DEBUG-654 measures both and replaces these numbers.
+ * DEBUG-654 capture: Release build of 2b183fd8, iOS 18.6 simulators, content size
+ * accessibility-extra-extra-extra-large, live title '3-Minute Breathing Space', `maestro
+ * hierarchy` at several scroll offsets before Begin, running and paused, with and without
+ * reduce-motion.
  *
- * The gap between the disc and the toggle is read from the rendered styles, so a margin
- * added to that path moves the arithmetic. Only fixed, non-text elements may sit in it —
- * asserted above — which is what lets a constant-height sum stand in for a layout engine.
+ *   viewport     the scroll view below the stacked header (402: 431..840, 390: 416..810)
+ *   toggle*      the toggle's frame at each label. At 390 'Begin Practice' wraps to three
+ *                lines and 'Resume' breaks mid-word onto two
+ *   phaseCue     the cue's line box. It is hidden from the accessibility tree, so it is the
+ *                container's growth on Begin (227 / 228) less guidanceContainer's marginTop and
+ *                the cue's marginBottom
+ *
+ * Contract (accessibility ruling, DEBUG-654), keyed on whether pacing runs, not on the label:
+ * - Pause is the only label shown while the disc paces, so the whole disc at full inhale and
+ *   the whole toggle fit.
+ * - Begin and Resume sit on a static disc with nothing to follow, so a fully visible toggle
+ *   must leave at least half the disc in view. The whole disc does not fit at 390. The floor
+ *   also covers the 300ms ease-back on pause: expansion only adds disc above the gap.
+ * - Under reduce-motion the cue is the pacing, so while it paces the cue and the whole Pause
+ *   toggle fit, without the disc. Paused under reduce-motion is exempt: the cue is not
+ *   cleared on pause, but it is stale and nothing paces, and no disc floor can hold there
+ *   either, since the cue puts ~292pt between the disc and the toggle.
+ * - The live title is the only in-app header here. A deep-link title is free text, so no
+ *   fixed number bounds it, and it is not an input to this budget.
+ *
+ * The gaps are read from the rendered styles, so a margin added to either path moves the
+ * arithmetic. Only the cue may sit between disc and toggle (asserted above), which is what
+ * lets a constant-height sum stand in for a layout engine.
  */
-describe('the co-visible span fits the measured viewport (provisional)', () => {
-  const MEASURED = { viewport: 502, toggleBegin: 185, togglePause: 116, worstHeaderViewport: 315 };
+describe.each([
+  { device: '402x874', width: 402, height: 874, viewport: 409, toggleBegin: 185, togglePause: 117, toggleResume: 117, phaseCue: 187 },
+  { device: '390x844', width: 390, height: 844, viewport: 394, toggleBegin: 253, togglePause: 116, toggleResume: 184, phaseCue: 188 },
+])('at AX5 on $device the measured viewport holds the breath guide and the control', (m) => {
   const DISC_PT = 120;
   const EXPANSION_PT = 0.25 * DISC_PT; // 1.5x scale about the centre adds 30pt each side
 
@@ -321,28 +342,62 @@ describe('the co-visible span fits the measured viewport (provisional)', () => {
     while (p && typeof p.type !== 'string') p = p.parent as typeof p;
     return p;
   };
+  const bottomOf = (style: unknown) => (flat(style).paddingBottom ?? flat(style).paddingVertical ?? 0);
 
-  it('fits disc (at full inhale) plus toggle, at both labels, and keeps a sliver at the worst header', () => {
-    setWindow(SCALES.ax5);
-    render(screenElement());
+  /** Container padding below its last child, plus the section margin before the toggle. */
+  const containerToToggle = () => {
     const container = screen.getByTestId(CIRCLE);
-    const section = hostParent(container as never);
-    // At AX nothing follows the disc inside its container, so the container's own padding
-    // is all that separates the disc from what comes next.
+    return bottomOf(container.props.style) + (flat(hostParent(container as never)?.props.style).marginBottom ?? 0);
+  };
+  /** A node whose subtree ends where the container's does: nothing follows it inside. */
+  const isLastInContainer = (testID: string) => {
     const nodes = preorder(screen.toJSON() as never);
     const c = nodes.findIndex((e) => e.node.props.testID === CIRCLE);
-    const d = nodes.findIndex((e) => e.node.props.testID === DISC);
-    expect(d).toBeGreaterThan(c);
-    expect(nodes[d].end).toBe(nodes[c].end);
-    const gap =
-      (flat(container.props.style).paddingBottom ?? flat(container.props.style).paddingVertical ?? 0) +
-      (flat(section?.props.style).marginBottom ?? 0);
+    const n = nodes.findIndex((e) => e.node.props.testID === testID);
+    return n > c && nodes[n].end === nodes[c].end;
+  };
 
-    // The expansion below the disc must stay inside its own padding, not on the toggle.
+  beforeEach(() => setWindow(SCALES.ax5, { width: m.width, height: m.height }));
+
+  it('before Begin, a fully visible toggle leaves at least half the static disc in view', () => {
+    render(screenElement());
+    expect(isLastInContainer(DISC)).toBe(true);
+    expect(DISC_PT / 2 + containerToToggle() + m.toggleBegin).toBeLessThanOrEqual(m.viewport);
+  });
+
+  it('while pacing, the whole disc at full inhale and the whole Pause toggle fit', () => {
+    render(screenElement());
+    startPractice();
+    expect(screen.getByTestId(TOGGLE).props.accessibilityLabel).toBe('Pause practice');
+    expect(isLastInContainer(DISC)).toBe(true);
+    const gap = containerToToggle();
+    // The expansion below the disc must stay inside the gap, not on the toggle.
     expect(gap).toBeGreaterThanOrEqual(EXPANSION_PT);
-    for (const toggle of [MEASURED.toggleBegin, MEASURED.togglePause]) {
-      expect(EXPANSION_PT + DISC_PT + gap + toggle).toBeLessThanOrEqual(MEASURED.viewport);
-      expect(gap + toggle + 1).toBeLessThanOrEqual(MEASURED.worstHeaderViewport);
-    }
+    expect(EXPANSION_PT + DISC_PT + gap + m.togglePause).toBeLessThanOrEqual(m.viewport);
+  });
+
+  it('paused, a fully visible Resume toggle leaves at least half the disc in view', () => {
+    render(screenElement());
+    startPractice();
+    fireEvent.press(screen.getByTestId(TOGGLE));
+    expect(screen.getByTestId(TOGGLE).props.accessibilityLabel).toBe('Resume practice');
+    expect(isLastInContainer(DISC)).toBe(true);
+    expect(DISC_PT / 2 + containerToToggle() + m.toggleResume).toBeLessThanOrEqual(m.viewport);
+  });
+
+  it('under reduce-motion, while pacing, the phase cue and the whole Pause toggle fit', async () => {
+    setReduceMotion(true);
+    render(screenElement());
+    startPractice();
+    const cue = await screen.findByTestId(`${CIRCLE}-phase-cue`, { includeHiddenElements: true });
+    expect(screen.getByTestId(TOGGLE).props.accessibilityLabel).toBe('Pause practice');
+    expect(isLastInContainer(`${CIRCLE}-phase-cue`)).toBe(true);
+    const guidance = hostParent(cue as never);
+    const cueToToggle =
+      (flat(cue.props.style).marginBottom ?? 0) +
+      bottomOf(guidance?.props.style) +
+      (flat(guidance?.props.style).marginBottom ?? 0) +
+      containerToToggle();
+    expect(m.phaseCue + cueToToggle + m.togglePause).toBeLessThanOrEqual(m.viewport);
   });
 });
