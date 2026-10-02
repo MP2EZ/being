@@ -204,9 +204,10 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
   it('reads every rendered field it claims to (non-vacuity)', () => {
     const rendered = renderedStrings();
     // Every passage renders `text`; every module renders a quote. A scan over
-    // an empty set would pass every assertion below vacuously.
-    expect(rendered.filter((r) => r.field === 'text').length).toBeGreaterThanOrEqual(16);
-    expect(rendered.filter((r) => r.field === 'context').length).toBeGreaterThanOrEqual(16);
+    // an empty set would pass every assertion below vacuously. Floors track the
+    // corpus (26 at FEAT-660), so a dropped file cannot pass quietly.
+    expect(rendered.filter((r) => r.field === 'text').length).toBeGreaterThanOrEqual(26);
+    expect(rendered.filter((r) => r.field === 'context').length).toBeGreaterThanOrEqual(26);
     expect(rendered.filter((r) => r.field === 'classicalQuote.text').length).toBe(MODULE_FILES.length);
   });
 
@@ -246,6 +247,69 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
     // without one is unproven, which is the DEBUG-390 failure exactly.
     const controlled = new Set(CONTROLS.map(([label]) => label));
     expect(BANNED.map(([label]) => label).filter((l) => !controlled.has(l))).toEqual([]);
+  });
+
+  /**
+   * FEAT-660 span rulings (crisis co-review). Each pins a boundary the pattern
+   * tables cannot see, because the hazard is an OMITTED line or a word that is
+   * only dangerous in this corpus's preview position.
+   */
+  describe('FEAT-660 aware-presence boundaries', () => {
+    const fieldsOf = (id: string) => renderedStrings().filter((r) => r.id === id);
+    const textOf = (id: string) => {
+      const r = fieldsOf(id).find((x) => x.field === 'text');
+      if (!r) throw new Error(`${id} has no rendered text`);
+      return r.value;
+    };
+
+    it('Letters 5 is 5.9 alone — nothing that leans on the banned 5.7 maxim', () => {
+      // 5.8's "both these ills" has hope and fear as its antecedent, so the span
+      // was a premise the omitted "Cease to hope" answers (ruling condition b).
+      expect(textOf('seneca-letters-5').startsWith('Beasts avoid')).toBe(true);
+      for (const r of fieldsOf('seneca-letters-5')) {
+        expect({ field: r.field, hit: r.value.match(/both these ills|\bhop(e|ing)\b/i) }).toEqual({
+          field: r.field,
+          hit: null,
+        });
+      }
+    });
+
+    it('On Anger 2.4 may end on "beyond our control" only while its full chapter resolves it', () => {
+      const full = fieldsOf('seneca-on-anger-2-4').find((r) => r.field === 'fullText');
+      expect(full?.value.endsWith('deliberate mental act.')).toBe(true);
+    });
+
+    it('Shortness 9 keeps "insane" out of the list preview', () => {
+      expect(textOf('seneca-on-the-shortness-of-life-9')).not.toMatch(/\binsane\b/i);
+    });
+
+    it('Disc. 4.12 stops before a lapse is called unrecoverable', () => {
+      // textOf throws on a missing id, so the loop below cannot pass over nothing.
+      expect(textOf('epictetus-discourses-4-12').length).toBeGreaterThan(0);
+      for (const r of fieldsOf('epictetus-discourses-4-12')) {
+        expect(r.value).not.toMatch(/no longer in your Power/i);
+      }
+    });
+
+    // Notes on holding a wrong carry every arm of the harm clause. Keyword
+    // checks, not an exact sentence, so the clause can be phrased to its passage.
+    const HARM_CLAUSE_REQUIRED = ['marcus-meditations-6-50', 'seneca-on-anger-2-4'];
+
+    it.each(HARM_CLAUSE_REQUIRED)('%s carries the harm clause', (id) => {
+      const note = fieldsOf(id).find((r) => r.field === 'context')?.value ?? '';
+      expect(note).toMatch(/\bharm\b/);
+      expect(note).toMatch(/\blimits\b/);
+      expect(note).toMatch(/\bhelp\b/);
+    });
+
+    it('the boundary matchers still fire (DEBUG-390)', () => {
+      // Literal fixtures from the excluded source text, never corpus state.
+      expect('But the chief cause of both these ills').toMatch(/both these ills|\bhop(e|ing)\b/i);
+      expect('Cease to hope').toMatch(/both these ills|\bhop(e|ing)\b/i);
+      expect('Can anything be mentioned which is more insane').toMatch(/\binsane\b/i);
+      expect('it is no longer in your Power to call it back').toMatch(/no longer in your Power/i);
+      expect('A reason to endure it.').not.toMatch(/\blimits\b/);
+    });
   });
 
   it('the required harm clause trips nothing (negative control)', () => {
