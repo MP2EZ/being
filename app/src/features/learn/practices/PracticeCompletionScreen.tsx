@@ -11,6 +11,14 @@
  * - <500ms launch time
  * - Minimal re-renders
  * - Optimized animations
+ *
+ * TEXT SCALING (DEBUG-678, accessibility ruling):
+ * Content text on this screen (the quote, the attribution, the practice name and the
+ * educational message) wraps, and is never capped, shrunk or truncated. The house bar is
+ * whole words through AX2 (2.143×, the first iOS step at or above WCAG 1.4.4's 200%) on the
+ * 375pt viewport. Above AX2, mid-word breaks in content are accepted: they lose no content,
+ * so they cost legibility but do not fail 1.4.4. Only the fixed-string title is capped
+ * (`PRACTICE_COMPLETION_TITLE_MAX_FONT_SCALE`), and that cap sets no precedent for content.
  */
 
 import React from 'react';

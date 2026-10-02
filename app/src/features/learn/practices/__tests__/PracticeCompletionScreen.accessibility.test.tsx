@@ -95,10 +95,7 @@ describe('PracticeCompletionScreen title', () => {
   });
 
   it('wraps rather than shrinking or truncating', () => {
-    const { props } = renderScreen().getByText(TITLE);
-    expect(props.numberOfLines).toBeUndefined();
-    expect(props.adjustsFontSizeToFit).toBeUndefined();
-    expect(props.minimumFontScale).toBeUndefined();
+    expectWrapsAndScales(renderScreen().getByText(TITLE).props);
   });
 
   it('is still the screen\'s header, with its wording unchanged', () => {
@@ -106,7 +103,7 @@ describe('PracticeCompletionScreen title', () => {
   });
 });
 
-describe('nothing else on the screen is capped', () => {
+describe('content text wraps and is never capped, shrunk or truncated (ruling in the screen header)', () => {
   it('the practice name, quote, attribution, copy and Continue label all scale freely', () => {
     const { UNSAFE_getAllByType } = renderScreen();
     const others = UNSAFE_getAllByType(Text).filter((node) => node.props.children !== TITLE);
@@ -119,6 +116,28 @@ describe('nothing else on the screen is capped', () => {
 
     for (const node of others) {
       expect(node.props.maxFontSizeMultiplier).toBeUndefined();
+      expectWrapsAndScales(node.props);
     }
   });
+
+  it('no quote word is longer than 13 characters, the width the AX2 bar was measured for', () => {
+    // The bar is whole words through AX2 on 375pt. The quote box there is 291pt
+    // (327 − 2·16 padding − 4 border) and quote text is bodyLarge italic × 2.143 ≈ 38.6pt, so
+    // a word may be up to 7.54em. Jest has no font metrics, so this guards by length:
+    // "perturbations" is 5.82em, and the widest realistic 13-character word tried,
+    // "commonwealths", is 7.04em. A longer word in a new quote must be re-measured.
+    const tokens = Object.values(PRACTICE_QUOTES).flatMap((q) => `"${q.text}"`.split(/\s+/));
+    expect(tokens.length).toBeGreaterThan(100); // control: the sweep reached the corpus
+    const tooLong = tokens.filter((t) => t.length > 13);
+    expect(tooLong).toEqual([]);
+  });
 });
+
+/** Wraps and follows the user's text size: no truncation, no shrink, no opt-out. */
+function expectWrapsAndScales(props: Record<string, unknown>) {
+  expect(props.numberOfLines).toBeUndefined();
+  expect(props.ellipsizeMode).toBeUndefined();
+  expect(props.adjustsFontSizeToFit).toBeUndefined();
+  expect(props.minimumFontScale).toBeUndefined();
+  expect(props.allowFontScaling).not.toBe(false);
+}
