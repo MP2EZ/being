@@ -650,7 +650,10 @@ alone and the documented gate and the running gate disagree, with the running on
 | Crisis-dir UI / screen / component change | **trigger** crisis-button | Added executable line under `features/crisis/`. |
 | `CollapsibleCrisisButton` re-host in ANY dir | **trigger** crisis-button | Content detection (`CRISIS_HOST_CHANGED`), exempt from inert filter. |
 | Comment merely NAMING the overlay, in any file | **skip** | Not a re-host; changes no rendered output, so no flow can see it. Citing its 44pt decision as a precedent is normal. |
-| `core/services/security` (non-encryption) / `core/navigation` change | **full suite** | Cross-cutting; existing override in Step 2.5.3. |
+| `core/navigation` change | **full suite** | Cross-cutting; existing override in Step 2.5.3. |
+| `core/services/security/(EncryptionService\|SecureStorageService).ts` change | **`crisis-button-reachability`** | Boot/render-critical: wellness data decrypts at assessment render and encryption init gates boot. |
+| `core/services/security/DeepLinkValidationService.ts` change | **`deeplink-consent-gate` + `daily-loop-deeplink`** | DEBUG-636 (crisis ruling). The enforcing allowlist decides whether an external link, `being://crisis` included, is delivered. **Necessary, not sufficient**: the blocked case is a pure function, pinned by `deepLinkPathEnforcement.test.ts`. |
+| Any other `core/services/security` change | **no sim flow** (jest-owned) | MAINT-237 service-layer carve-out. This row used to read "full suite", which the carve-out never did. |
 | `features/consent/` change | **`deeplink-consent-gate` + `reconsent-stale` + `reconsent-stale-ineligible`** | INFRA-416. Hosts the pre-consent 988 footer (`LegalGate` is in `SUPPRESSED_ROUTES`). The dir hosts TWO gated screens: `reconsent-stale` is the only flow rendering `ReConsentScreen`, and mapping it under `consentStore.ts` alone left screen-level edits gated by a flow that never renders them. |
 | Unrouted screen ADDED under a gated feature dir | **trigger** | INFRA-428. Render-unreachable is not module-unreachable: a barrel re-export puts the new module on the importer's eager graph, and `CleanRootNavigator` imports `@/features/consent` (the barrel), not the screen file. Keying the gate on "is this screen routed?" would have UNDER-triggered on the branch that raised the question. |
 | `features/journal/` change | **`journal-crisis-scan`** | DEBUG-480. Hosts `scanOnSave`, the only crisis scan of typed/corrected text, plus the in-page banner and 988 action. |
@@ -757,10 +760,11 @@ DYNAMIC_TYPE_FLOWS=()
 # recorded opportunity only:
 #   1. features/crisis/services/**  — crisis BACKEND services (e.g. CrisisSecurityProtocol),
 #      not the overlay / screens / components the crisis-button flow renders.
-#   2. core/services/security/** EXCEPT EncryptionService / SecureStorageService —
-#      monitoring / metrics / network / protocol layer. Encryption + SecureStorage ARE
-#      boot/render-critical (wellness data decrypts at assessment render; encryption init
-#      gates app boot), so they STAY in the sim-relevant set.
+#   2. core/services/security/** EXCEPT EncryptionService / SecureStorageService /
+#      DeepLinkValidationService — monitoring / metrics / network / protocol layer.
+#      Encryption + SecureStorage ARE boot/render-critical (wellness data decrypts at
+#      assessment render; encryption init gates app boot), and DeepLinkValidationService
+#      decides deep-link delivery, 988 included (DEBUG-636), so all three STAY.
 # If you ever wire a NEW security/crisis service into app boot or the crisis overlay's
 # import graph, DROP it from the carve-out so its changes re-arm the smoke test.
 RENDER_BOOT_RELEVANT=$(echo "$SAFETY_CHANGED" | awk '
@@ -772,6 +776,9 @@ RENDER_BOOT_RELEVANT=$(echo "$SAFETY_CHANGED" | awk '
   # the first matching rule.
   /src\/features\/crisis\/services\/crisisTapTrace\.ts/ { print; next }
   /src\/features\/crisis\/services\// { next }
+  # DEBUG-636 (crisis ruling): the enforcing allowlist decides whether being://crisis is
+  # delivered — not monitoring. Keep this ahead of the security carve-out below.
+  /src\/core\/services\/security\/DeepLinkValidationService\.ts/ { print; next }
   /src\/core\/services\/security\// {
     # Bare regex, NOT `$0 ~ …`: the harness substitutes $0 with the run’s arguments when
     # rendering this file, so a copied `$0` matches nothing and drops every security file
@@ -845,6 +852,13 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q '^app/patches/' && \
 # FEAT-664: loadConsent fires the legal-gate mirror hydration on the boot path; a hung read is jest-only (never-resolve pin).
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/stores/consentStore\.ts' && \
   FLOWS+=("deeplink-consent-gate" "reconsent-stale" "reconsent-stale-ineligible")
+# DEBUG-636 (crisis ruling): DeepLinkValidationService's allowlist decides whether an
+# external link — being://crisis included — is delivered, and holds the single-code
+# invariant isRateLimitedCrisisIntent needs. These are the flows that open a deep link cold
+# (crisis, then daily). NECESSARY, NOT SUFFICIENT: the blocked case is a pure-function
+# contract no flow observes; deepLinkPathEnforcement.test.ts pins it.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/services/security/DeepLinkValidationService\.ts' && \
+  FLOWS+=("deeplink-consent-gate" "daily-loop-deeplink")
 # INFRA-568 (crisis ruling): SupabaseService.ts owns the ONLY writer of `crisis_detected`
 # to analytics_events, and trackCrisisDetection runs inside the synchronous frame
 # handleCrisisDetection awaits. These four are exactly INFRA-411's own enumeration of the
@@ -1106,14 +1120,15 @@ fi
 # test (lsApplicationQueriesSchemes.config.test.ts); no Maestro flow runs here. The device-
 # only crisis-988-dial.yaml is tagged safety-device-only and not part of the sim suite.
 #
-# Boot/render-critical security service: only EncryptionService / SecureStorageService
-# survive the RENDER_BOOT_RELEVANT carve-out above (wellness data decrypts at assessment
-# render; encryption init gates app boot) → crisis-button boot/render smoke. Every OTHER
+# Boot/render-critical security service: EncryptionService / SecureStorageService survive
+# the RENDER_BOOT_RELEVANT carve-out above (wellness data decrypts at assessment render;
+# encryption init gates app boot) → crisis-button boot/render smoke. DeepLinkValidationService
+# survives it too but has its own arm above, so this match names the two files. Every OTHER
 # core/services/security change (monitoring / metrics / network / protocol) was stripped
 # from RENDER_BOOT_RELEVANT and is jest-owned — see the MAINT-237 narrowing note above.
 # TRADEOFF (unchanged): if such a change ALSO touches assessment persistence, run
 # `npm run e2e:safety` (full suite) manually.
-echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/services/security' && \
+echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/services/security/(EncryptionService|SecureStorageService)' && \
   FLOWS+=("crisis-button-reachability")
 # --- `.maestro/` flow edits + e2eSeed.ts: this gate's OWN contract surface ---
 # An edited flow is validated by running that flow. Three cases the obvious mapping

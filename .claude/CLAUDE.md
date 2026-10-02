@@ -80,6 +80,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/learn/practices/shared/PracticeToggleButton.tsx` | `crisis` |
 | `app/src/features/practices/screens/PracticeLibraryScreen.tsx` | `crisis` + `philosopher` |
 | `app/assets/passages/` | `crisis` + `philosopher` |
+| `app/src/core/services/security/DeepLinkValidationService.ts` | `crisis` + `compliance` |
 
 `features/guidance/` is here despite owning no assessment or crisis code of its own:
 `services/guidanceGate.ts` **consumes** the PHQ-9/GAD-7 thresholds to decide whether a
@@ -363,6 +364,13 @@ carry no crisis surface.
 read by PHQ-9 ≥15 users, from authors who hold that one may leave life by choice. Exit, method
 and abuse-tolerance spans are banned by `__tests__/safety/classicalCorpusCrisisAdmission.test.ts`;
 exempt from Phase 2.5, since no Maestro flow can falsify passage text.
+
+`core/services/security/DeepLinkValidationService.ts` is the twenty-first instance (added
+DEBUG-636). Once `ALLOWED_PATHS` enforced, the validator decides whether `being://crisis` is
+delivered at all and holds the single-code invariant `isRateLimitedCrisisIntent` needs — yet
+Step 2.5.3's security carve-out stripped it as service-layer, so a validator-only diff closed
+with zero flows. FILE-level: its siblings (encryption, secure storage, pinning, the plaintext
+sweeper) carry no crisis surface. The directory row keeps `compliance`; this row adds `crisis`.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
