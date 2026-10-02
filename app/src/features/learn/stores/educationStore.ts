@@ -16,7 +16,10 @@
  * - All modules unlocked (no forced progression)
  * - No performance metrics (no accuracy scores)
  * - User-determined completion (respects agency)
- * - Safety opt-outs preserved (negative-visualization for GAD ≥15)
+ * - Negative-visualization safety is NOT enforced here (DEBUG-670). `optOutFlags` and
+ *   add/removeOptOut have no caller, and this store is never hydrated. The daily
+ *   loop's premeditatio is withheld at its call site by useGuidanceGate()'s
+ *   'suppressed' arm (Q9 > 0, PHQ-9 ≥ 20, GAD-7 ≥ 15) — read that, never this.
  */
 
 import { create } from 'zustand';

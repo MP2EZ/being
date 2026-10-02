@@ -178,7 +178,7 @@ export interface ModuleProgress {
   developmentalStage: DevelopmentalStage; // Self-assessed stage
   practiceCount: number; // How many times user completed practices
   reflectionResponses: string[]; // Journal entry IDs (links to journalStore)
-  optOutFlags: string[]; // Safety opt-outs: ['negative-visualization'], etc.
+  optOutFlags: string[]; // Unused, never read or written (DEBUG-670). Not a safety gate — see useGuidanceGate.
   completedAt?: Date; // When user marked module complete
 }
 
