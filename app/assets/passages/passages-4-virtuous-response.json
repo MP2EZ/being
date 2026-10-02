@@ -45,6 +45,50 @@
       "text": "Lead me, O Master of the lofty heavens, My Father, whithersoever thou shalt wish. I shall not falter, but obey with speed. And though I would not, I shall go, and suffer, in sin and sorrow what I might have done in noble virtue. Aye, the willing soul Fate leads, but the unwilling drags along.",
       "context": "Seneca's Latin of a prayer of Cleanthes; the closing line has no counterpart in the Greek Epictetus preserves. Both are led and both arrive — consent changes the man, not the outcome. The sternness is aimed at assent, not at feeling: elsewhere Seneca lets the tears fall for a friend.",
       "order": 4
+    },
+    {
+      "id": "epictetus-enchiridion-10",
+      "principle": "virtuous-response",
+      "author": "Epictetus",
+      "work": "Enchiridion",
+      "citation": "Enchiridion 10",
+      "translation": "Elizabeth Carter",
+      "text": "Upon every Accident, remember to turn towards yourself, and enquire, what Powers you have for making a proper Use of it. If you see a handsome Person, you will find Continence a Power against this: if Pain be presented to you, you will find Fortitude: if Ill-Language, you will find Patience. And thus habituated, the Appearances of Things will not hurry you away along with them.",
+      "context": "Accident here means anything that befalls us. Epictetus asks what we can bring to it, not that we feel nothing: fortitude is acting well while pain is still pain, and one power we can find is asking for help. Patience with harsh words concerns ordinary friction, not staying in or excusing ongoing harm, and is no reason not to set limits or seek help.",
+      "order": 5
+    },
+    {
+      "id": "epictetus-discourses-2-18",
+      "principle": "virtuous-response",
+      "author": "Epictetus",
+      "work": "Discourses",
+      "citation": "Discourses 2.18",
+      "translation": "Elizabeth Carter",
+      "text": "Every Habit and Faculty is preserved, and increased, by correspondent Actions: as the Habit of Walking, by walking; of Running, by running. If you would be a Reader, read: if a Writer, write. But if you do not read for a Month together, but do somewhat else; you will see what will be the Consequence. So, after sitting still for ten Days, get up and attempt to take a long Walk; and you will find how your Legs are weakened. Upon the whole then, whatever you would make habitual, practise it: and, if you would not make a Thing habitual, do not practise it; but habituate yourself to something else.",
+      "context": "The point is acts and judgements, not feelings to stamp out. It runs forward, to what you practise next, not backward as a verdict on days that lapsed: a habit weakened by disuse comes back by use.",
+      "order": 6
+    },
+    {
+      "id": "epictetus-discourses-3-20",
+      "principle": "virtuous-response",
+      "author": "Epictetus",
+      "work": "Discourses",
+      "citation": "Discourses 3.20",
+      "translation": "Elizabeth Carter",
+      "text": "In Appearances that are merely Objects of Contemplation, almost all Persons have allowed Good and Evil to be in ourselves, and not in Externals. No one says, it is good, to be Day; evil, to be Night; and the greatest Evil, that Three should be Four: but what? That Knowlege is good, and Error evil. So that, concerning Falshood itself, there exists one good Thing; the Knowledge, that it is Falshood. Thus then, should it be, in Life also. Health is a Good; Sickness, an Evil. No, Sir. But what? A right Use of Health is a Good; a wrong one, an Evil.",
+      "context": "Evil is Epictetus's technical term here: good and evil lie in how we use things, not in the things. Health stays preferred and worth seeking, and illness hurts and deserves care; seeking that care is itself a right use.",
+      "order": 7
+    },
+    {
+      "id": "epictetus-discourses-1-24",
+      "principle": "virtuous-response",
+      "author": "Epictetus",
+      "work": "Discourses",
+      "citation": "Discourses 1.24",
+      "translation": "Elizabeth Carter",
+      "text": "Difficulties are the Things that shew what Men are. For the future, on any Difficulty, remember, That God, like a Master of Exercise, has engaged you with a rough Antagonist. For what End? That you may be a Conqueror, like one in the Olympic Games: and it cannot be without Toil.",
+      "context": "Carter's Master of Exercise is a trainer readying a fighter. Difficulty here is practice, not a verdict on you or something you deserve, and the toil is real. It concerns ordinary hardship, not staying in or excusing ongoing harm, and is no reason not to set limits or seek help.",
+      "order": 8
     }
   ]
 }
