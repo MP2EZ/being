@@ -276,7 +276,7 @@ These five questions become your touchstones throughout each day.
 
 FEAT-298 slice 5 retired the three time-of-day flows and the mode picker. The product now ships **one** daily loop of five beats in canonical order — Aware Presence → Radical Acceptance → Sphere Sovereignty → Virtuous Response → Interconnected Living — plus a `CLOSING` coda. The **tense** (morning-prospective / flat / evening-retrospective) is inferred from the device clock and **never surfaced to the user**: there is no mode label and no picker.
 
-Critically, the two classical exercises are *not* collapsed in the implementation either. `MORNING` and `EVENING` are separately authored configurations that differ materially at every beat — Radical Acceptance reads *"What might today ask you to accept"* in the morning and *"Where did you resist reality today"* in the evening — and `PREMEDITATIO` is **morning-only**, never rendered in flat or evening tense.
+Critically, the two classical exercises are *not* collapsed in the implementation either. `MORNING` and `EVENING` are separately authored configurations that differ materially at every beat — Radical Acceptance reads *"What might today ask you to accept"* in the morning and *"Where did you resist reality today"* in the evening — and `PREMEDITATIO` is **morning-only**, never rendered in flat or evening tense, and withheld when the guidance gate reads `suppressed` (DEBUG-670).
 
 ### Time → tense
 
