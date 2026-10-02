@@ -439,6 +439,8 @@ function runScript(opts = {}) {
     `echo "npx $@" >> "${trace}"`,
     'SUB=""',
     'for a in "$@"; do case "$a" in prebuild) SUB=prebuild ;; run:ios) SUB=run ;; esac; done',
+    // INFRA-676: the locale `pod install` inherits — it runs inside both subcommands.
+    `echo "npx-locale \${SUB:-other} LC_ALL=\${LC_ALL:-unset} LC_CTYPE=\${LC_CTYPE:-unset} LANG=\${LANG:-unset}" >> "${trace}"`,
     'if [ "$SUB" = "prebuild" ]; then',
     `  mkdir -p "${path.join(root, PRODUCT_REL)}"`,
     '  exit 0',
@@ -2356,6 +2358,81 @@ describe('e2e-sim-build.sh — INFRA-435 disk-headroom pre-flight', () => {
     expect(built.status).toBe(0);
     expect(built.buildRan).toBe(true);
   }, 60000);
+});
+
+/**
+ * INFRA-676 — CocoaPods dies in `pod install` without a UTF-8 locale.
+ *
+ * Homebrew Ruby derives Encoding.default_external from LC_CTYPE; with none set it is
+ * US-ASCII, and Pod::Config#installation_root raises `Encoding::CompatibilityError: Unicode
+ * Normalization not appropriate for ASCII-8BIT`. The shells the gate is launched from —
+ * Claude Code's Bash tool and the detached /b-close runner — carry no locale, and only the
+ * post-regeneration tier runs `pod install`, so warm builds never showed it. Every case
+ * here forces a regeneration (`cngStamp: 'stale'`) so the prebuild stage is exercised.
+ */
+describe('e2e-sim-build.sh — INFRA-676 UTF-8 locale for CocoaPods', () => {
+  // `undefined` drops the key from the child env (spawnSync skips it), so these are
+  // genuinely unset rather than empty — the shape the Bash tool hands a detached run.
+  const UNSET = { LANG: undefined, LC_ALL: undefined, LC_CTYPE: undefined };
+
+  /** The locale each npx subcommand saw, keyed by subcommand ('prebuild' | 'run'). */
+  const localeSeen = (trace) => {
+    const seen = {};
+    for (const m of trace.matchAll(/^npx-locale (\S+) LC_ALL=(\S+) LC_CTYPE=(\S+) LANG=(\S+)$/gm)) {
+      seen[m[1]] = { LC_ALL: m[2], LC_CTYPE: m[3], LANG: m[4] };
+    }
+    return seen;
+  };
+
+  it.each([
+    ['no locale at all', {}],
+    // LC_ALL outranks LANG, so exporting LANG alone would leave Ruby on US-ASCII here.
+    ['LC_ALL=C over a UTF-8 LANG', { LC_ALL: 'C', LANG: 'en_US.UTF-8' }],
+  ])('exports en_US.UTF-8 to prebuild and run:ios given %s', (_label, env) => {
+    const r = runScript({ cngStamp: 'stale', extraEnv: { ...UNSET, ...env } });
+    expect(r.status).toBe(0);
+    const seen = localeSeen(r.trace);
+    // Control: both stages ran and recorded, so the per-stage match cannot pass vacuously.
+    expect(Object.keys(seen).sort()).toEqual(['prebuild', 'run']);
+    for (const stage of ['prebuild', 'run']) {
+      expect(seen[stage]).toMatchObject({ LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8' });
+    }
+    expect(r.output).toMatch(/en_US\.UTF-8/);
+  }, 60000);
+
+  it.each([
+    ['LANG=C.UTF-8 (a login zsh)', { LANG: 'C.UTF-8' }],
+    ['LC_CTYPE=UTF-8 (Terminal.app)', { LC_CTYPE: 'UTF-8' }],
+  ])('leaves a caller-supplied UTF-8 locale untouched: %s', (_label, env) => {
+    const r = runScript({ cngStamp: 'stale', extraEnv: { ...UNSET, ...env } });
+    expect(r.status).toBe(0);
+    const seen = localeSeen(r.trace);
+    expect(Object.keys(seen).sort()).toEqual(['prebuild', 'run']);
+    const expected = { LC_ALL: 'unset', LC_CTYPE: 'unset', LANG: 'unset', ...env };
+    for (const stage of ['prebuild', 'run']) {
+      expect(seen[stage]).toEqual(expected);
+    }
+    expect(r.output).not.toMatch(/en_US\.UTF-8/);
+  }, 60000);
+
+  it('pins the export ahead of both build invocations, in code rather than prose', () => {
+    // DEBUG-390: the header comments name `expo run:ios` and the guard's own comment
+    // explains the export, so match comment-stripped source only.
+    const code = fs.readFileSync(REAL_SCRIPT, 'utf8').replace(/^\s*#.*$/gm, '');
+    const exportAt = code.search(/\bexport LANG=en_US\.UTF-8 LC_ALL=en_US\.UTF-8\b/);
+    const prebuildAt = code.search(/\bnpx expo prebuild\b/);
+    const runAt = code.search(/\bBUILD_CMD=\(npx expo run:ios\b/);
+    // Controls: every anchor is found in the stripped slice, so no ordering below compares
+    // against -1.
+    expect(exportAt).toBeGreaterThan(-1);
+    expect(prebuildAt).toBeGreaterThan(-1);
+    expect(runAt).toBeGreaterThan(-1);
+    expect(exportAt).toBeLessThan(prebuildAt);
+    expect(exportAt).toBeLessThan(runAt);
+    // Step 7e's bundle byte-matches keep their per-command LC_ALL=C override: they must stay
+    // byte-wise under the UTF-8 locale this script now exports.
+    expect(code.match(/\bLC_ALL=C grep -aqF\b/g)).toHaveLength(2);
+  });
 });
 
 // =====================================================================================
