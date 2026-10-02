@@ -333,3 +333,28 @@ describe('DEBUG-426: capability disclosure on the haptics row', () => {
     });
   });
 });
+
+// DEBUG-652 — crisis-button-reachability proves its card tap LANDED by asserting this
+// root before tapping the FAB. The Profile menu carries its own FAB, so without a
+// destination-unique fact a swallowed card tap still goes green. The root must render in
+// every branch: a loading or error screen IS the destination, and a fact that only some
+// branches carry turns a slow store into a flaky red.
+describe('DEBUG-652 — the destination root testID renders in every branch', () => {
+  it('main branch', () => {
+    expect(render(<AppSettingsScreen />).queryByTestId('app-settings-screen')).not.toBeNull();
+  });
+
+  it('loading branch', () => {
+    useSettingsStore.setState({ settings: null, isLoading: true, error: null } as never);
+    const { queryByTestId, queryByText } = render(<AppSettingsScreen />);
+    expect(queryByText('Loading settings...')).not.toBeNull();
+    expect(queryByTestId('app-settings-screen')).not.toBeNull();
+  });
+
+  it('error branch', () => {
+    useSettingsStore.setState({ isLoading: false, error: 'boom' } as never);
+    const { queryByTestId, queryByText } = render(<AppSettingsScreen />);
+    expect(queryByText('Failed to load settings')).not.toBeNull();
+    expect(queryByTestId('app-settings-screen')).not.toBeNull();
+  });
+});

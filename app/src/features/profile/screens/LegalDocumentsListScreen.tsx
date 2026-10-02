@@ -34,8 +34,10 @@ import type { ProfileStackParamList } from '../ProfileStackNavigator';
 const LegalDocumentsListScreen: React.FC = () => {
   const navigation = useNavigation<StackNavigationProp<ProfileStackParamList>>();
 
+  // DEBUG-652: the root testID is crisis-button-reachability's proof that the card tap
+  // landed before it taps the FAB (the Profile menu has its own FAB).
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="legal-documents-screen">
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}

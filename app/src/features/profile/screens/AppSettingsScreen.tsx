@@ -142,10 +142,12 @@ const AppSettingsScreen: React.FC = () => {
     );
   };
 
+  // DEBUG-652: the root testID is crisis-button-reachability's proof that the card tap
+  // landed before it taps the FAB (the Profile menu has its own FAB). Every branch carries it.
   // Render loading state
   if (settingsStore.isLoading && !settingsStore.settings) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} testID="app-settings-screen">
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colorSystem.base.midnightBlue} />
           <Text style={styles.loadingText}>Loading settings...</Text>
@@ -157,7 +159,7 @@ const AppSettingsScreen: React.FC = () => {
   // Render error state
   if (settingsStore.error) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} testID="app-settings-screen">
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>Failed to load settings</Text>
           <Pressable
@@ -177,7 +179,7 @@ const AppSettingsScreen: React.FC = () => {
   if (!settings) return null;
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="app-settings-screen">
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Notifications Section */}
         <View style={styles.section}>

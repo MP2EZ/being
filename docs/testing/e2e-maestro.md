@@ -965,29 +965,47 @@ uses from a `\s*$` anchor.
 
 **The register is code**, not this list: `app/__tests__/scripts/e2e-tap-consequence.test.js`
 derives the population and fails when a site appears unregistered, disappears, or asserts
-something different from what the register says. On `31a4cd06` it is **9 files / 21 sites**:
+something different from what the register says. On `31a4cd06` it is **9 files / 21 sites**
+(rows updated by DEBUG-652's captures, 2026-10-02):
 
 | Flow | Scroll target → first touch | Status | Asserted after the tap |
 |---|---|---|---|
 | `bug-report-crisis-reachability` (×2) | `profile-card-bug-report` → `tab-profile` | remedied — absorbing tap | `bug-report-overlay` |
-| `crisis-button-reachability` | `weekly-reflection-card` → `weekly-reflection-prompt` | **exposed, UNMEASURED** | `weekly-reflection-overlay` (a swallow reds) |
-| `crisis-button-reachability` (×2) | `profile-card-privacy` → same | **exposed, UNMEASURED** | **nothing** — a swallow surfaces ~48s later at the next scroll |
+| `crisis-button-reachability` | `weekly-reflection-card` → `tab-insights` | remedied — absorbing tap (DEBUG-652) | `weekly-reflection-overlay` |
+| `crisis-button-reachability` (×2) | `profile-card-privacy` → `tab-profile` | remedied — absorbing tap (DEBUG-652) | `privacy-data-screen` |
 | `crisis-button-reachability` | `profile-card-export` → same | remedied — conditional re-tap | `export-data-screen` |
 | `crisis-button-reachability` | `profile-card-delete` → same | remedied — conditional re-tap | `delete-account-screen` |
 | `daily-loop-ax5-entry`, `daily-loop-ax5-virtuous` | `checkin-card-daily-loop` → same | remedied — conditional re-tap (DEBUG-546) | `daily-loop-depth-select-screen` |
 | `daily-loop-ax5-entry` | `continue-button` → same | boundary — last node | `daily-loop-SphereSovereignty-screen` |
-| `daily-loop-ax5-virtuous` | `virtue-chip-temperance` → `daily-loop-exit` | **exposed, UNMEASURED** | `home-screen` (a swallow reds, but reads as the DEBUG-629 K9 regression) |
+| `daily-loop-ax5-virtuous` | `virtue-chip-temperance` → `daily-loop-exit` | measured-clear (DEBUG-652) — no retry, by crisis ruling | `home-screen` |
 | `daily-loop-quick-depth` | `continue-button` → same | boundary — last child (DEBUG-518) | `daily-loop-VirtuousResponse-screen` |
 | `export-share-sheet-occlusion` (×3) | privacy, export, `export-data-button` | debt pin — never scoped, recorded only | export: `export-data-screen`; others nothing |
 | `journal-crisis-scan` (×3), `journal-record-liveness`, `profile-voice-reflection-xxxl` | `profile-card-voice-reflection` → `tab-profile` | remedied — absorbing tap | `voice-reflection-screen` |
 | `journal-crisis-scan` | `profile-card-journal-history` → `tab-profile` | remedied — absorbing tap | `journal-history-screen` |
 
-"Exposed, UNMEASURED" is a prediction from the predicate, not a classification. Capturing
-those sites and applying their remedies is DEBUG-652, which also owns a gap **outside** this
-population: the five depth-1 segments of `crisis-button-reachability` (app settings,
-privacy, account, stoic, legal) scroll *without* `centerElement`, tap a card, then tap the
-FAB and assert `crisis-resources-screen` — which the Profile menu's own FAB satisfies, so a
-swallowed card tap still passes. A signature-3 candidate found alongside (Profile's last
+"Exposed, unmeasured" was a prediction from the predicate, not a classification; no site
+carries it now. **DEBUG-652's captures** (`maestro hierarchy` before and after each tap, iPhone
+SE 3 / iOS 18.6 / 375x667, Release `e2e-sim`, 2026-10-02) classified them:
+
+- **Profile menu, all seven card sites** (the five depth-1 segments plus the two centred
+  privacy scrolls): every stop is mid-content (clip y 104–613), every tap centre is inside the
+  clip and at x 187.5, clear of the FAB — so signatures 2 and 3 are excluded and signature 1 is
+  exposed. Four of the seven swipe zero times only because of where the previous segment left
+  the offset, so all seven take the absorbing `tab-profile` tap. Each card tap is also followed
+  by an `assertVisible` of a **screen-root testID unique to the destination**, as the last step
+  before the FAB tap: the menu root carries its own FAB, so before this the depth-1 segments
+  were false greens. Not `profile-back-button` (every pushed route has one) and not the header
+  title (the menu card carries the same label).
+- **Weekly reflection**: the centring clamped at the content boundary, but only because the
+  seeded content below the card is short — more seed data re-arms a mid-content stop — so it
+  takes the absorbing `tab-insights` tap, not `boundary`.
+- **`measured-clear`** is a status for a target **outside** the ScrollView where a capture
+  measured no swallow against a matched control, and no remedy is applied because a retry
+  would mask the regression the tap tests. The AX5 exit: 6/6 baseline taps landed after a
+  mid-content Temperance stop, 5/5 with a boundary clamp.
+
+The Legal depth-2 segment (a document tap, then the FAB) is the same false-green shape and is
+DEBUG-680's. A signature-3 candidate found alongside (Profile's last
 controls resting inside the FAB's hit rect since DEBUG-562) was DEBUG-653. Measured at max
 scroll on iPhone SE 3, 375x667, iOS 18.6, 2026-09-25 — FAB `[331,523][375,567]`, exclusion
 rect x[303,375] y[491,595), clip bottom 613:
@@ -1008,6 +1026,11 @@ The same suite pins one more tap class: every `daily-loop-skip-breath` tap must 
 an app-state proof that it landed — `daily-loop-input-response` appearing, or the SkipLink
 unmounting (the DEBUG-632 shape, used at AX sizes). A bare skip lets the 30s breath expire on
 its own and the flow goes green without ever testing the tap.
+
+**Both proofs can still be satisfied by the timer (DEBUG-652, measured; fix is DEBUG-694).**
+Removing the skip tap from `daily-loop-quick-depth` still goes green 3/3: the wait outlasts
+the breath (10.6–16.1s waited, resolved at mount + 30s), and SkipLink and the Timer share
+`handleBreathComplete`, so nothing on screen tells a skip from an expiry.
 
 ## How a flow works
 

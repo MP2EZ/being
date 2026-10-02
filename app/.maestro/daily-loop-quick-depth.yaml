@@ -284,6 +284,9 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #   • assertNotVisible pins that the gate is actually GONE — if the conditional skipped
 #     while the breath was still running, the SkipLink would still be mounted and this
 #     goes red.
+#     ⚠️ DEBUG-652 MEASURED THIS FALSE: with the skip tap removed, the wait below outlasts
+#     the breath (10.6-16.1s waited, resolved at mount + 30s) and the step goes GREEN 3/3.
+#     The timer's own expiry satisfies both assertions. Fix owned by DEBUG-694.
 #   • assertVisible pins that the reflection phase actually RENDERED. It is deliberately
 #     NOT `continue-button`: that element is the one under suspicion in this defect, so
 #     it must not double as the thing that proves the step. `daily-loop-input-response`

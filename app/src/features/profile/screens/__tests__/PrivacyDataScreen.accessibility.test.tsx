@@ -303,3 +303,19 @@ describe('DEBUG-653: the Delete account card clears the crisis FAB exclusion reg
     await expectExclusionCheckWired((await renderHost()).api.getByTestId(TEST_ID), TEST_ID);
   });
 });
+
+// DEBUG-652 — the destination fact crisis-button-reachability asserts after each
+// profile-card-privacy tap, before the FAB or the next scroll. It must render while the
+// consent load is still pending too: that loading screen IS the destination.
+describe('DEBUG-652 — the destination root testID renders in every branch', () => {
+  it('loaded branch', async () => {
+    expect((await renderScreen()).queryByTestId('privacy-data-screen')).not.toBeNull();
+  });
+
+  it('loading branch', () => {
+    mockLoadConsent.mockReturnValue(new Promise(() => {}));
+    const { queryByTestId, queryByText } = render(<PrivacyDataScreen />);
+    expect(queryByText('Loading settings...')).not.toBeNull();
+    expect(queryByTestId('privacy-data-screen')).not.toBeNull();
+  });
+});
