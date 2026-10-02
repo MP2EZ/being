@@ -3,7 +3,7 @@
 **ARGUMENTS**: $ARGUMENTS
 
 **Format**: `[Work Item ID] - [Additional context]` — or **no arguments**, which auto-selects
-the top item of the attended queue (Step 0.2)
+the top executable item, work `/b-batch` cannot reach first (Step 0.2)
 
 **Always print all three decision blocks** — 🚩 Feature-Flag (3.2), 📊 Analytics (3.2a),
 🧪 Test Strategy (3.3) — including when every answer is the default (No flag / No event /
@@ -36,10 +36,11 @@ Parse `$ARGUMENTS` to extract two components:
 
 ### Step 0.2: Auto-select (only when `$ARGUMENTS` is empty)
 
-A bare `/b-work` runs the top of the **attended queue** — the one pool `/b-batch` structurally
-cannot execute. `Batch Route: Attended-only` is the only one of its six values meaning
-*`/b-work` could produce a diff*; the other five are out of reach for this skill too (another
-repo, `.claude/`-only, no diff at all, blocked, waiting on a release).
+A bare `/b-work` runs the highest-ranked item this skill can execute, **preferring the work
+`/b-batch` cannot reach**. Two of the six `Batch Route` values mean exactly that:
+`Attended-only` (a diff is producible, but the ACs demand human observation) and
+`Tooling (_bare)` (`.claude/`-only — Step 2.0's no-worktree path). The other four are out of
+reach here too: another repo, no diff at all, blocked, waiting on a release.
 
 1. Read `view://3b7a1108-c208-8055-bc9b-000cfccdb28e` via `notion-query-data-sources`
    `mode: "view"`. **Never SQL** — `Priority` is in `notAvailableInQuerySql`, and SQL mode is
@@ -48,23 +49,35 @@ repo, `.claude/`-only, no diff at all, blocked, waiting on a release).
    `Batched`}, STOP: the view's Status filter is gone, and Priority-sorted-unfiltered puts
    `Done` rows on top. Same assertion as `/b-batch` Step 0.1a.1 — the filter is hand-maintained
    and this API silently drops `status` filter leaves, so it cannot be repaired from here.
-3. Pool = `Batch Route` is `Attended-only` **and** `Status` is `Not started`. **Rank is row
-   order**; `Priority` returns an opaque `formulaResult://` handle — never parse or compare it.
-   Rebuild each ID as `{Type}-{userDefined:ID}`.
-4. Drop any whose branch already has an open PR (`gh pr list --head <branch>`). A plain
-   `/b-work` session leaves no manifest, so the PR is the only evidence it exists.
-5. **Empty pool → stop and say so. Never widen the criteria** — falling back to unstamped items
-   makes a bare `/b-work` a worse `/b-batch`, and can pull an item out from under a slate about
-   to be batched.
-6. **Propose, never auto-run.** Offer the pick via `AskUserQuestion` with a one-line reason and
-   the next two alternates. On accept, set WORK_ITEM_ID and continue to Phase 1 as though it had
-   been typed; ADDITIONAL_CONTEXT stays null.
+3. Split the `Not started` rows into two tiers, each kept in row order. **Rank is row order**;
+   `Priority` returns an opaque `formulaResult://` handle — never parse or compare it. Rebuild
+   each ID as `{Type}-{userDefined:ID}`.
+   - **Tier 1** — `Batch Route` is `Attended-only` or `Tooling (_bare)`. Nothing else executes
+     these, so any tier-1 item outranks every tier-2 item.
+   - **Tier 2** — `Batch Route` empty. `/b-batch` can drain these unattended.
+   Any other `Batch Route`, and every `Blocked` / `Batched` row, is never a candidate.
+4. Drop from both tiers, naming each drop:
+   - `Effort` `XL` / `XXL` — one worktree cannot carry it; it needs slicing via `/b-create`.
+   - A `Blocked by` target still in the view — every row there is not `Done`.
+   - An ID in a live `/Users/max/dev/being/.config/.b-batch-state.*.json` with
+     `state ∉ {done, deferred}` — a `claiming` stub lands before its Notion `Batched` write.
+   - An open PR on its branch (`gh pr list --head <branch>`) — a plain `/b-work` session leaves
+     no manifest, so the PR is the only evidence it exists.
+5. **Both tiers empty → stop and say so.** Never fall back to the excluded routes or `Blocked`.
+6. **Propose, never auto-run.** Offer via `AskUserQuestion`, one-line reason each: the pick, the
+   next tier-1 item, and the top tier-2 item labelled "batchable — `/b-batch` could run this
+   unattended" (omit any that does not exist). On accept, set WORK_ITEM_ID and continue to
+   Phase 1 as though it had been typed; ADDITIONAL_CONTEXT stays null.
 
-Set `ATTENDED = true` for Phase 5. **Step 1.3's comment read is what validates the stamp** —
-`Batch Route` is a cached verdict, and a rescope retiring the device requirement lands in
-comments. Selecting on a stale stamp sends a human to do work that no longer exists, which is
-the one place this property can do harm; if the body no longer demands human observation, say so
-and stop rather than proceeding on the stamp.
+Set `AUTO_SELECTED = true`, and `ATTENDED = true` only on an `Attended-only` pick (Phase 5).
+
+**The stamp is a cached verdict, and Phase 1 validates it.** Comments carry the rescope that
+retires a device requirement, and Step 2.0's `git ls-tree` check settles `.claude/`-only.
+Selecting on a stale stamp sends a human to do work that no longer exists, so when Step 1.3
+disagrees with the stamp, write the corrected `Batch Route` (or clear it) and return to Step 0.2
+— the item now ranks in another tier. A tier-2 pick is unjudged: if its body shows a route per
+`/b-batch` Step 0.1a.5, stamp it, continue on `Attended-only` (set `ATTENDED`) or
+`Tooling (_bare)`, and return to Step 0.2 on any other.
 
 ---
 
@@ -109,6 +122,10 @@ Parse WORK_ITEM_ID into components:
 ---
 
 ### Step 1.2: Look Up Work Item (exact, one call)
+
+**On the `AUTO_SELECTED` path, leave the item itself out of this query** — the view row already
+carries its page id and properties, and Step 1.3's fetch is the fresher read. Run the call only
+for its related items (below), and skip it when there are none; SQL mode is metered.
 
 The unique key is `userDefined:ID` — "Work Item ID" is a display formula `Type-ID`, so
 MAINT-168 → `userDefined:ID = 168`. Query the data source directly in **SQL mode**:
@@ -281,6 +298,10 @@ carry that the merge has since made due.
 Here, not after the worktree — Phase 2 can hand off to a 20-minute cold build, and Step 2.0
 skips Phase 2 entirely for items that need no worktree, so marking it there leaves those
 items reading `Not started` to every other session for the whole run.
+
+**On the `AUTO_SELECTED` path, claim only from `Not started`** (read from Step 1.3's fetch).
+Anything else means a batch or another session claimed it while you were proposing it — stop
+and return to Step 0.2.
 
 ```
 mcp__notion__notion-update-page
@@ -888,6 +909,10 @@ Display summary of changed files for user awareness.
 ---
 
 ### Step 4.2: Stage All Changes
+
+**Not on a Step 2.0 `.claude/`-only item.** That commit lands on `_bare` from the bare-repo
+root, where `.` sweeps in untracked root files and peer sessions' uncommitted edits — stage the
+named files only, and use `chore(.claude): …` (ID in the subject) instead of Step 4.3's mapping.
 
 ```
 mcp__git__git_add

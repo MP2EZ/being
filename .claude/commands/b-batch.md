@@ -488,7 +488,14 @@ and never claims an ID that turns out not to resolve. Report the result once, af
 sweep:
 
     🔖 Claimed in Notion (→ Batched): FEAT-130, MAINT-191
-       Left as-is: DEBUG-44 (In progress)
+       Owned elsewhere: DEBUG-44 (In progress)
+
+**An item resolving `In progress` or `Testing` belongs to a live session — defer it before the
+panel spends.** A plain `/b-work` claims from `Not started` with no manifest, so Step 0.1c cannot
+see it; a bare `/b-work` can take one between this command proposing the slate and you approving
+it. Mark it `deferred` (`blocked_by: owned by a concurrent session`), the same verdict Phase 5
+gives an open PR, and leave its status as found — it was never claimed, so the `deferred` release
+write does not apply. To batch a stalled one deliberately, set it back to `Not started` first.
 
 **Unattended-miss rule:** if an ID still won't resolve after b-work's
 one recency-biased retry, do **not** stop to ask for a link (no human in this loop) — record
@@ -1319,6 +1326,10 @@ Reconstruct state from disk + Notion + manifest — no in-context memory require
      implement-plus-CI cycle to rediscover the same wall. Notion status is a projection;
      the manifest is the record. Check `state` first: if it is `parked`, surface it and
      re-assert `Blocked`, whatever the row said.
+   - **Likewise `deferred` with `blocked_by: owned by a concurrent session`.** Its `In progress`
+     or `Testing` is that session's, so the row above would resume someone else's work. Leave it
+     deferred; `Done` → `done`; `Not started` → re-enter **Phase 1** for it, since it was
+     deferred before the panel and has no approach.
    - `git worktree list` → confirms what's mid-flight on disk.
    - `gh pr list` → confirms what's awaiting/failed CI.
    - `gh pr list --head <branch>` → **an open PR on an item's own head branch means another
