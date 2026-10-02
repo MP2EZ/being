@@ -910,6 +910,9 @@ Display summary of changed files for user awareness.
 
 ### Step 4.2: Stage All Changes
 
+Before staging, assert `git rev-parse --show-toplevel` equals this worktree, and stage changed
+files by name, never `.` — a leaked shared `core.worktree` silently repoints every worktree.
+
 **Not on a Step 2.0 `.claude/`-only item.** That commit lands on `_bare` from the bare-repo
 root, where `.` sweeps in untracked root files and peer sessions' uncommitted edits — stage the
 named files only, and use `chore(.claude): …` (ID in the subject) instead of Step 4.3's mapping.
