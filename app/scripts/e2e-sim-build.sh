@@ -56,6 +56,24 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
 
+# INFRA-676 — CocoaPods needs a UTF-8 locale. Homebrew Ruby derives Encoding.default_external
+# from LC_CTYPE; with none set it is US-ASCII, Dir.pwd comes back ASCII-8BIT, and
+# `pod install` dies in Pod::Config#installation_root with `Encoding::CompatibilityError:
+# Unicode Normalization not appropriate for ASCII-8BIT`. A login shell sets LANG, but Claude
+# Code's Bash tool — and so the detached /b-close runner — inherits none, and only the
+# post-regeneration tier runs pod install, which is why warm builds never showed it.
+# Set HERE rather than in e2e-gate.sh so every entry point gets it. Keyed on the EFFECTIVE
+# LC_CTYPE (LC_ALL > LC_CTYPE > LANG): a caller's UTF-8 locale is kept, and LC_ALL is set
+# too because a non-UTF-8 LC_ALL would outrank an exported LANG. Step 7e's per-command
+# `LC_ALL=C grep` byte-matches still override this, deliberately.
+case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+  *[Uu][Tt][Ff]-8* | *[Uu][Tt][Ff]8*) ;;
+  *)
+    echo "🌐 No UTF-8 locale inherited — exporting en_US.UTF-8 (CocoaPods requires it)."
+    export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+    ;;
+esac
+
 # INFRA-405 — shared device resolution, used identically by e2e-safety.sh. Sourced, so it
 # must not set shell options (this script runs under `set -euo pipefail`, that one under a
 # bare `set -u`).
