@@ -63,6 +63,20 @@ interface PracticeCompletionScreenProps {
 }
 
 /**
+ * DEBUG-678 — cap on the "Practice Complete" title ONLY. Uncapped, headline2 reaches
+ * ~100pt at AX5 and both words are wider than the title box on every iPhone, so iOS
+ * broke them mid-word ("Practic / e Comple / te"). This is the AX5 endpoint of iOS's own
+ * Title 1 ramp (28 → 58pt), and it is ≥ 2.0, so WCAG 1.4.4's 200% holds.
+ *
+ * A literal ratio, deliberately not `58 / typography.headline2.size`: a token change would
+ * then move the cap, and at 34pt it would drop below 2.0. Capping is allowed here because
+ * the title is a fixed string carrying no state (DEBUG-629's category), not an
+ * information-bearing title like PracticeScreenHeader's practice name (DEBUG-619). It is no
+ * precedent for this screen's quote, practice name or educational copy, which are content.
+ */
+export const PRACTICE_COMPLETION_TITLE_MAX_FONT_SCALE = 58 / 28;
+
+/**
  * Stoic quotes — public-domain translations only, MUST be used exactly as
  * provided. No paraphrasing, no modernising, no splicing across non-adjacent
  * sentences.
@@ -361,6 +375,7 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
       <Text
         style={styles.title}
         accessibilityRole="header"
+        maxFontSizeMultiplier={PRACTICE_COMPLETION_TITLE_MAX_FONT_SCALE}
       >
         Practice Complete
       </Text>
