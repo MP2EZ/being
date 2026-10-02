@@ -78,6 +78,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/learn/practices/GuidedBodyScanScreen.tsx` | `crisis` |
 | `app/src/features/learn/practices/SortingPracticeScreen.tsx` | `crisis` + `philosopher` |
 | `app/src/features/learn/practices/shared/PracticeToggleButton.tsx` | `crisis` |
+| `app/src/features/learn/practices/PracticeCompletionScreen.tsx` | `crisis` + `philosopher` |
 | `app/src/features/practices/screens/PracticeLibraryScreen.tsx` | `crisis` + `philosopher` |
 | `app/assets/passages/` | `crisis` + `philosopher` |
 | `app/src/core/services/security/DeepLinkValidationService.ts` | `crisis` + `compliance` |
@@ -371,6 +372,12 @@ delivered at all and holds the single-code invariant `isRateLimitedCrisisIntent`
 Step 2.5.3's security carve-out stripped it as service-layer, so a validator-only diff closed
 with zero flows. FILE-level: its siblings (encryption, secure storage, pinning, the plaintext
 sweeper) carry no crisis surface. The directory row keeps `compliance`; this row adds `crisis`.
+
+`features/learn/practices/PracticeCompletionScreen.tsx` is the twenty-second instance (added
+DEBUG-678, founder ruling) and retires the DEBUG-634 paragraph's remaining unreviewed name. All
+five gated practice hosts return it IN PLACE of their own tree on IMMERSIVE routes, so none of
+their FAB clearances carry over; its Continue overlaps the exclusion rect by 48pt at every width
+(DEBUG-682, gated ahead of its fix). FILE-level; `philosopher` co-owns `PRACTICE_QUOTES`.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
