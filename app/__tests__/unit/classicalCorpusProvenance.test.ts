@@ -65,7 +65,9 @@
  * identifiers, not one, and that is load-bearing: the corpus's two Seneca
  * *Letters* loci fall in DIFFERENT Loeb volumes (13.4 in Vol. I, 107.11 in
  * Vol. III), so a single-volume pin would leave 107.11 unpinned while appearing
- * to cover it. Public domain by PRE-1929 US PUBLICATION — and that is the SOLE
+ * to cover it. FEAT-663's 47.10 and 48.2-3 sit in Vol. I and its 95.51-52 in
+ * Vol. III, under the same two-volume pin. Public domain by PRE-1929 US
+ * PUBLICATION — and that is the SOLE
  * basis, not the safer of two. Life+70 is the wrong legal theory outright for
  * a pre-1978 published work: the US term for works published 1923-1977 runs
  * from publication (+ renewal, 95 years max), never from the author's life,
@@ -150,12 +152,15 @@
  * to yawn" at On Anger 2.4, which is the 1889 print's own reading (IA
  * `minordialoguesto00seneuoft`), not a transcription slip.
  *
- * TWO LOCUS CORRECTIONS, likewise recorded rather than silently applied:
+ * THREE LOCUS CORRECTIONS, likewise recorded rather than silently applied:
  *   - Ench. 8 in the pinned transcription reads "as you with; but with them" — a
  *     long-s OCR error for "wiſh".
  *   - Disc. 4.12 in the pinned transcription reads "still more advantageous but,"
  *     where the 1759 print (IA `allworksofepicte00epic`) sets "advantageous: but,"
  *     — a dropped colon (FEAT-660).
+ *   - Ench. 43 in the pinned transcription reads "brought up with you and thus",
+ *     where the 1759 print sets "up with you: and thus" — a colon dropped at the
+ *     page join (FEAT-663).
  * The corpus carries the corrected readings and the assertions below pin each in
  * both directions, so the correction is falsifiable rather than folklore. Do NOT
  * "fix" the corpus back to the transcription's literal text.
@@ -331,10 +336,12 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       'passages-5-interconnected-living.json',
     ];
 
-    /** Declared, dischargeable debt — each entry is owed by the FEAT-581 slice named. */
-    const BALANCE_DEBT: Readonly<Record<string, readonly string[]>> = {
-      'passages-5-interconnected-living.json': ['Epictetus', 'Seneca'], // FEAT-663
-    };
+    /**
+     * Declared, dischargeable debt — each entry is owed by the FEAT-581 slice named.
+     * Empty since FEAT-663 discharged the last entry (interconnected-living's
+     * Epictetus and Seneca). Kept as the ledger a future debt lands in.
+     */
+    const BALANCE_DEBT: Readonly<Record<string, readonly string[]>> = {};
 
     const REQUIRED = ['Epictetus', 'Seneca'] as const;
 
@@ -417,6 +424,8 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       ['passages-3-sphere-sovereignty.json', 'epictetus-enchiridion-2', 'Remember that Desire promises the Attainment'],
       ['passages-1-aware-presence.json', 'epictetus-enchiridion-5', 'Men are disturbed, not by Things, but by the Principles and Notions'],
       ['passages-2-radical-acceptance.json', 'epictetus-enchiridion-8', 'Require not Things to happen as you wish'],
+      // The header's own discriminator: the modernised revision reads "may be carried".
+      ['passages-5-interconnected-living.json', 'epictetus-enchiridion-43', 'Every Thing hath two Handles; the one, by which it may be borne'],
     ])('%s / %s opens with the 1759 Carter wording', (file, id, opening) => {
       expect(findById(file, id).text).toContain(opening);
     });
@@ -429,7 +438,7 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       // list once covered files 1-3, so passages-4's first Epictetus (FEAT-662) would
       // have sat outside the Carter-not-modernised gate.
       const all = allPassages().filter((x) => x.author === 'Epictetus');
-      expect(all.length).toBeGreaterThanOrEqual(12);
+      expect(all.length).toBeGreaterThanOrEqual(14);
 
       for (const p of all) {
         // Contractions are impossible in a 1758/59 setting and are the cheapest
@@ -441,6 +450,15 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       expect(byId['epictetus-enchiridion-1']).not.toContain('Some things are in our control');
       expect(byId['epictetus-enchiridion-5']).not.toContain('Someone just starting instruction');
       expect(byId['epictetus-enchiridion-8']).not.toContain('demand that things happen');
+      expect(byId['epictetus-enchiridion-43']).toContain('by which it may be borne');
+      expect(byId['epictetus-enchiridion-43']).not.toContain('may be carried');
+    });
+
+    it('Ench. 43 carries the RECORDED colon correction, not the transcription slip', () => {
+      // The pinned transcription drops the print's colon at a page join.
+      const t = findById('passages-5-interconnected-living.json', 'epictetus-enchiridion-43').text;
+      expect(t).toContain('that he was brought up with you: and thus you will lay hold on it');
+      expect(t).not.toContain('up with you and thus');
     });
 
     it('Ench. 8 carries the RECORDED locus correction, not the OCR defect', () => {
@@ -809,6 +827,110 @@ describe('classical corpus provenance (DEBUG-352)', () => {
     });
   });
 
+  describe('FEAT-581 loci are verbatim at both ends (interconnected-living)', () => {
+    const INTERCONNECTED = 'passages-5-interconnected-living.json';
+    const byId = (id: string): Passage => {
+      const p = loadPassages(INTERCONNECTED).find((x) => x.id === id);
+      if (!p) throw new Error(`${id} missing from ${INTERCONNECTED}`);
+      return p;
+    };
+    const FEAT_663_IDS = [
+      'seneca-letters-95',
+      'seneca-letters-48',
+      'seneca-letters-47',
+      'seneca-on-anger-2-31',
+      'epictetus-discourses-1-13',
+      'epictetus-enchiridion-43',
+    ];
+
+    it.each([
+      [
+        'seneca-letters-95',
+        'Richard Mott Gummere',
+        'Then comes the second problem,—how to deal with men.',
+        // Ends before 95.52's injury line and 95.53's verse (philosopher, crisis).
+        'She engendered in us mutual affection, and made us prone to friendships.',
+      ],
+      [
+        'seneca-letters-48',
+        'Richard Mott Gummere',
+        'But the fact is, the same thing is advantageous to me which is advantageous to you',
+        // Ends before 48.4 turns to the dialecticians.
+        'For he that has much in common with a fellow-man will have all things in common with a friend.',
+      ],
+      [
+        'seneca-letters-47',
+        'Richard Mott Gummere',
+        'Kindly remember that he whom you call your slave sprang from the same stock',
+        // The first two sentences of 47.10 only: stops before Gummere's "massacres
+        // in Marius's day" and the reversal-of-fortune turn.
+        'It is just as possible for you to see in him a free-born man as for him to see in you a slave.',
+      ],
+      [
+        'seneca-on-anger-2-31',
+        'Aubrey Stewart',
+        'What, if the hands were to wish to hurt the feet?',
+        // Ends before the vipers and the punishment turn (crisis).
+        'The bond of society, however, cannot exist unless it guards and loves all its members.',
+      ],
+      [
+        'epictetus-discourses-1-13',
+        'Elizabeth Carter',
+        // Opens at the hot water (crisis): the chapter's eating question would sit in
+        // the list preview as moralised eating, a PHQ-9 appetite item.
+        'And when you call for hot Water, and your Servant doth not hear you',
+        // Ends before the slaveholder's "Right of Purchase" retort and the "Laws of
+        // dead Men" (philosopher, crisis).
+        'That they are by Nature your Relations, your Brothers; that they are the Offspring of God?',
+      ],
+      [
+        'epictetus-enchiridion-43',
+        'Elizabeth Carter',
+        'Every Thing hath two Handles; the one, by which it may be borne; the other, by which it cannot.',
+        'and thus you will lay hold on it, as it is to be borne.',
+      ],
+    ])('%s is %s, opening and close intact', (id, translator, opening, close) => {
+      const p = byId(id);
+      expect(p.translation).toBe(translator);
+      expect(p.text.startsWith(opening)).toBe(true);
+      expect(p.text.endsWith(close)).toBe(true);
+    });
+
+    it('Carter\'s bracketed supplement is dropped (normalisation 4)', () => {
+      const t = byId('epictetus-discourses-1-13').text;
+      expect(t).not.toMatch(/\[with yourself\]/);
+      expect(t).toContain('and of the same high Descent? But, if you chance');
+    });
+
+    it('digitization apparatus and typographic quotes are dropped (normalisations 5 and 6)', () => {
+      for (const p of loadPassages(INTERCONNECTED)) {
+        const rendered = `${p.text} ${p.fullText ?? ''}`;
+        expect({ id: p.id, residue: rendered.match(/[​‘’“”§]|\{\d+\}|\[\d+\]| {2}/g) }).toEqual({
+          id: p.id,
+          residue: null,
+        });
+      }
+      // DEBUG-390: the residue matcher fires on each apparatus form it names.
+      for (const bad of ['every one {108} who', 'help.[25] Let', 'brought ​up', 'man’s lot', '§. 1.', 'two  spaces']) {
+        expect(bad).toMatch(/[​‘’“”§]|\{\d+\}|\[\d+\]| {2}/);
+      }
+    });
+
+    it('none of the six carries a fullText (crisis)', () => {
+      for (const id of FEAT_663_IDS) {
+        expect({ id, fullText: byId(id).fullText }).toEqual({ id, fullText: undefined });
+      }
+    });
+
+    it('Meditations 2.1 stays the first card, so no FEAT-663 locus is auto-expanded (crisis)', () => {
+      // FromTheSourceSection expands the first passage by order; that must never
+      // be Ench. 43 or a passage about slavery.
+      const ps = JSON.parse(readFileSync(join(PASSAGES_DIR, INTERCONNECTED), 'utf8')).passages as Array<{ id: string; order: number }>;
+      const first = [...ps].sort((a, b) => a.order - b.order)[0];
+      expect(first.id).toBe('marcus-meditations-2-1');
+    });
+  });
+
   /**
    * THE SAME DEFECT ONE LAYER UP (DEBUG-585). DEBUG-352, FEAT-567 and DEBUG-582
    * each found an edition's identity attached to text that edition did not
@@ -858,9 +980,12 @@ describe('classical corpus provenance (DEBUG-352)', () => {
         'Letters 107.11',
         'Letters 13.4',
         'Letters 16.5',
+        'Letters 47.10',
+        'Letters 48.2-3',
         'Letters 5.9',
         'Letters 57.3',
         'Letters 63.1',
+        'Letters 95.51-52',
       ]);
       for (const p of seneca) expect(p.work).toBe(LOEB_WORK);
     });
@@ -992,6 +1117,19 @@ describe('classical corpus provenance (DEBUG-352)', () => {
         'In Appearances that are merely Objects of Contemplation, almost all Persons have allowed G',
       'epictetus-discourses-1-24':
         'Difficulties are the Things that shew what Men are. For the future, on any Difficulty, rem',
+      // FEAT-663, read by philosopher under "Interconnected Living".
+      'seneca-letters-95':
+        'Then comes the second problem,—how to deal with men. What is our purpose? What precepts do',
+      'seneca-letters-48':
+        'But the fact is, the same thing is advantageous to me which is advantageous to you; for I ',
+      'seneca-letters-47':
+        'Kindly remember that he whom you call your slave sprang from the same stock, is smiled upo',
+      'seneca-on-anger-2-31':
+        'What, if the hands were to wish to hurt the feet? or the eyes to hurt the hands? As all th',
+      'epictetus-discourses-1-13':
+        'And when you call for hot Water, and your Servant doth not hear you; or, if he doth, bring',
+      'epictetus-enchiridion-43':
+        'Every Thing hath two Handles; the one, by which it may be borne; the other, by which it ca',
     };
 
     /**
@@ -1282,6 +1420,45 @@ describe('classical corpus provenance (DEBUG-352)', () => {
       expect(anger).toContain('seeking help or reporting it');
       // Disc. 4.12's "Fault of To-day" must not read as a verdict on the reader.
       expect(contextOf(AWARE, 'epictetus-discourses-4-12')).toContain('not a verdict on you');
+    });
+
+    /**
+     * INTERCONNECTED LIVING — the FEAT-663 additions. The trap is impersonal
+     * collectivism: worth derived from "the whole", care as duty to an abstraction.
+     * Every note grounds the bond in the kinship or affection the text itself
+     * states. As with sovereignty there is no negative pin on the trap's own
+     * vocabulary beyond crisis's: the notes name the reading in order to refuse it.
+     */
+    const INTERCONNECTED = 'passages-5-interconnected-living.json';
+
+    it.each([
+      // Gummere's "parts" is membra, the living member 7.13 prefers to "part".
+      [INTERCONNECTED, 'seneca-letters-95', 'renders the Latin membra'],
+      [INTERCONNECTED, 'seneca-letters-95', 'not a duty owed to an abstraction'],
+      // Neither instrumental nor self-erasing.
+      [INTERCONNECTED, 'seneca-letters-48', 'not a technique for one\'s own benefit'],
+      [INTERCONNECTED, 'seneca-letters-48', 'What befalls one friend befalls both'],
+      // Refuses the abolitionist reading.
+      [INTERCONNECTED, 'seneca-letters-47', 'did not oppose slavery as an institution'],
+      // Answers "the interest of the whole body" with the passage's own last word.
+      [INTERCONNECTED, 'seneca-on-anger-2-31', 'guards and loves each of its members'],
+      // Carter's Servant is enslaved, and the forbearance runs downward.
+      [INTERCONNECTED, 'epictetus-discourses-1-13', 'an enslaved person'],
+      [INTERCONNECTED, 'epictetus-discourses-1-13', 'runs from the more powerful toward the less'],
+      // The handle is a judgement, not a denial: the wrong stays named.
+      [INTERCONNECTED, 'epictetus-enchiridion-43', 'the injustice is real'],
+    ])('%s / %s grounds the bond in kinship', (file, id, anchor) => {
+      expect(contextOf(file, id)).toContain(anchor);
+    });
+
+    it('the two forbearance notes keep the harm clause (crisis)', () => {
+      // Ench. 43's handle and 1.13's "bear with your own Brother" can each be heard,
+      // from the weaker position, as counsel to put up with an abusive relative.
+      for (const id of ['epictetus-enchiridion-43', 'epictetus-discourses-1-13']) {
+        const note = contextOf(INTERCONNECTED, id);
+        expect({ id, holds: note.includes('staying in or excusing ongoing harm') }).toEqual({ id, holds: true });
+        expect({ id, limits: note.includes('set limits or seek help') }).toEqual({ id, limits: true });
+      }
     });
 
     it('the matchers still fire (DEBUG-390)', () => {
