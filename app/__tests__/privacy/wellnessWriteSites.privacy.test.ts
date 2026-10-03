@@ -84,13 +84,6 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     ],
     'SessionStorageService.markSessionCompleted › setItemAsync': [1, DORMANT],
   },
-  'src/features/learn/stores/educationStore.ts': {
-    'useEducationStore.persistState › AsyncStorage.setItem': [
-      1,
-      'gated',
-      'FEAT-667: practiceCount is ruled Art. 9; off for the process once withheld. Still PLAINTEXT and never read back (DEBUG-672). The reflection/stage/opt-out setters stay dormant (pinned).',
-    ],
-  },
 
   // ── Exempt by rule ───────────────────────────────────────────────────────
   'src/features/profile/screens/ExportDataScreen.tsx': {
