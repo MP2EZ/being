@@ -169,7 +169,7 @@ export interface ModuleContent {
 
 /**
  * User's progress for a single module
- * Stored in Zustand + persisted to AsyncStorage (encrypted)
+ * Held in Zustand memory only; never persisted (DEBUG-672)
  */
 export interface ModuleProgress {
   status: ModuleStatus;
@@ -205,10 +205,6 @@ export interface EducationState {
   getRecommendedModule: () => ModuleId | null;
   setCurrentModule: (moduleId: ModuleId | null) => void;
   resetModule: (moduleId: ModuleId) => void; // Reset progress for a module
-
-  // Persistence
-  persistState: () => Promise<void>; // Save state to AsyncStorage (encrypted)
-  loadState: () => Promise<void>; // Load state from AsyncStorage
 }
 
 // ============================================================================

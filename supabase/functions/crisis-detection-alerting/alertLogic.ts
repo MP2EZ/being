@@ -309,9 +309,40 @@ export interface BackfillInput {
   spikeMultiplier: number;
   /** Absolute floor a grown day must clear to page (never page on 1-vs-0). */
   minAbsoluteForSpike: number;
+  /**
+   * Whether the run that wrote the watermark PAGED a spike on its own today — which is the
+   * partial day. Read from that row via priorRunPagedSpike, never recomputed. Absent =
+   * not paged, so a missing input fails toward paging.
+   */
+  priorPaged?: boolean;
 }
 
-export type BackfillStatus = 'cold_start' | 'none' | 'backfill';
+export type BackfillStatus =
+  | 'cold_start'
+  | 'none'
+  | 'backfill'
+  | 'partial_day'
+  | 'backfill+partial_day';
+
+/**
+ * The day the previous run counted while it was still open (DEBUG-684). Day precision and
+ * counts only — never the run's timestamp.
+ */
+export interface PartialDayReading {
+  day: string;
+  /** Its count as the previous run saw it, part-way through the day. */
+  priorCount: number;
+  /** Its full count now; null when the day has left the window and cannot be evaluated. */
+  currentCount: number | null;
+  delta: number | null;
+  evaluable: boolean;
+  /** The previous run already paged this day as a VOLUME spike. */
+  priorPaged: boolean;
+  /** FULL-DAY SPIKE page: the full count newly clears the spike test. */
+  alert: boolean;
+  /** Counted into backfill_status as `partial_day`. */
+  reported: boolean;
+}
 
 /** A closed day whose count grew. Day precision only — never a sub-day timestamp. */
 export interface GrownDay {
@@ -322,14 +353,47 @@ export interface GrownDay {
 }
 
 export interface BackfillVerdict {
+  /** CLOSED-day page only. The partial day pages through `partialDay.alert`. */
   alert: boolean;
   status: BackfillStatus;
+  /** Closed days only — the partial day never appears here. */
   grownDays: GrownDay[];
+  partialDay: PartialDayReading | null;
   detail: string;
 }
 
 /**
- * Decide whether any CLOSED day grew since the last evaluated run.
+ * Did the run that wrote the watermark page a spike? Read from its own row rather than
+ * recomputed. Any other value, null included, reads as not paged.
+ */
+export function priorRunPagedSpike(
+  row: { spike_status?: unknown; status?: unknown } | null,
+): boolean {
+  return row?.spike_status === 'spike' && row?.status === 'alerted';
+}
+
+const DATE_KEY = /^\d{4}-\d{2}-\d{2}$/;
+
+/**
+ * The partial day: the watermark's latest date-shaped key, if it is earlier than today.
+ * By construction that key IS the previous run's own today — the day its `spike_status`
+ * describes. Deliberately not `dayString(ran_at)` (crisis AC0 ruling R5): `ran_at` is the DB
+ * clock at insert, and a run straddling midnight or an edge/DB skew would apply day D's
+ * verdict to D-1. A later key than today is degenerate → no partial day, every other key
+ * is read as closed (over-reports, never under-reports). Non-date keys are ignored, so a
+ * future map format cannot become the partial day.
+ */
+function partialDayOf(watermark: DayCounts, today: string): string | null {
+  let latest: string | null = null;
+  for (const k of Object.keys(watermark)) {
+    if (DATE_KEY.test(k) && (latest === null || k > latest)) latest = k;
+  }
+  return latest !== null && latest < today ? latest : null;
+}
+
+/**
+ * Decide whether any CLOSED day grew since the last evaluated run, and read the partial day
+ * separately (DEBUG-684).
  *
  * Why this exists at all: the cron is daily and the spike test reads only the current day,
  * so once event-time attribution lands, every backfilled detection arrives into a day that
@@ -354,6 +418,22 @@ export interface BackfillVerdict {
  *
  * The per-day ratio is computed from CURRENT neighbour counts, excluding the day itself —
  * never from the stored watermark, which is by definition the stale view.
+ *
+ * THE PARTIAL DAY (DEBUG-684). The previous run counted its own today part-way through, so
+ * that day's ordinary later traffic is growth on a day that was never closed. It is NOT
+ * excluded (crisis ruling, INFRA-613 (b)): its full count is the only full-day check of the
+ * window after the run, and back-dated rows can land on it too. Instead it is read on its
+ * own: never in `grownDays`, never `backfill`, and it pages as a FULL-DAY SPIKE when its full
+ * count clears evaluateSpike against current neighbours, the day itself moved, and the
+ * previous run did not already page it — a verdict READ from that run's row, never
+ * recomputed, since a neighbour that shrank (erasure) or a changed env would make a
+ * recompute suppress a page that was never sent. Independent of minGrowthToReport: a day at
+ * 4 when counted that ends at 6 against a zero baseline pages here and nowhere else.
+ *
+ * REMAINING GAP: count diffs cannot tell back-dated rows landing on the partial day from its
+ * ordinary later traffic, so both are labelled partial-day. The full-day spike test still
+ * covers them, which is the ruled reason not to exclude the day. Splitting them needs a
+ * per-day arrival-vs-event view — a migration, out of scope here.
  */
 export function evaluateBackfill(input: BackfillInput): BackfillVerdict {
   const {
@@ -363,6 +443,7 @@ export function evaluateBackfill(input: BackfillInput): BackfillVerdict {
     minGrowthToReport,
     spikeMultiplier,
     minAbsoluteForSpike,
+    priorPaged = false,
   } = input;
 
   if (watermark === null) {
@@ -370,6 +451,7 @@ export function evaluateBackfill(input: BackfillInput): BackfillVerdict {
       alert: false,
       status: 'cold_start',
       grownDays: [],
+      partialDay: null,
       detail:
         'No usable watermark from a prior run (first run, or the previous run predates ' +
         'DEBUG-541) — recording this run’s counts as the baseline. Deliberately NOT a page: ' +
@@ -378,9 +460,12 @@ export function evaluateBackfill(input: BackfillInput): BackfillVerdict {
     };
   }
 
+  const partialDay = partialDayOf(watermark, today);
+
   const grownDays: GrownDay[] = [];
   for (const day of Object.keys(watermark)) {
     if (day === today) continue; // today is still open; the spike axis owns it
+    if (day === partialDay) continue; // never closed; read separately below
     const priorCount = watermark[day] ?? 0;
     const currentCount = currentCounts[day] ?? priorCount;
     const delta = currentCount - priorCount;
@@ -389,15 +474,6 @@ export function evaluateBackfill(input: BackfillInput): BackfillVerdict {
     }
   }
   grownDays.sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0));
-
-  if (grownDays.length === 0) {
-    return {
-      alert: false,
-      status: 'none',
-      grownDays: [],
-      detail: 'No closed day grew since the last evaluated run.',
-    };
-  }
 
   // Page only if a grown day also looks anomalous against its CURRENT neighbours.
   const pageWorthy = grownDays.filter((g) => {
@@ -410,19 +486,71 @@ export function evaluateBackfill(input: BackfillInput): BackfillVerdict {
     return g.currentCount >= mean * spikeMultiplier;
   });
 
+  let partial: PartialDayReading | null = null;
+  if (partialDay !== null) {
+    const priorCount = watermark[partialDay] ?? 0;
+    const currentCount = currentCounts[partialDay];
+    if (currentCount === undefined) {
+      // Left the window (prior clean run 8+ days back). Defaulting to the prior would read
+      // as "unchanged" — a silent none. Say it could not be evaluated instead.
+      partial = {
+        day: partialDay, priorCount, currentCount: null, delta: null, evaluable: false,
+        priorPaged, alert: false, reported: false,
+      };
+    } else {
+      const delta = currentCount - priorCount;
+      // The 7 days before it: exactly the baseline the previous run's spike test used, at
+      // CURRENT values. A neighbour that slid out of this run's window keeps its watermark
+      // value — never 0.
+      const neighbours = Object.keys(watermark)
+        .filter((d) => DATE_KEY.test(d) && d !== partialDay && d !== today)
+        .map((d) => currentCounts[d] ?? watermark[d]);
+      const fullDaySpike = evaluateSpike({
+        todayCount: currentCount,
+        baselineCounts: neighbours,
+        spikeMultiplier,
+        minAbsoluteForSpike,
+      }).alert;
+      const alert = delta > 0 && fullDaySpike && !priorPaged;
+      partial = {
+        day: partialDay, priorCount, currentCount, delta, evaluable: true, priorPaged, alert,
+        reported: (delta > 0 && delta >= minGrowthToReport) || alert,
+      };
+    }
+  }
+
+  const closedGrew = grownDays.length > 0;
+  const partialReported = partial?.reported ?? false;
+  const status: BackfillStatus = closedGrew && partialReported
+    ? 'backfill+partial_day'
+    : closedGrew
+      ? 'backfill'
+      : partialReported
+        ? 'partial_day'
+        : 'none';
+
   const summary = grownDays
     .map((g) => `${g.day} ${g.priorCount}→${g.currentCount} (+${g.delta})`)
     .join(', ');
+  const closedDetail = closedGrew
+    ? `${grownDays.length} closed day(s) grew since the last evaluated run: ${summary}. ` +
+      (pageWorthy.length > 0
+        ? `${pageWorthy.length} of them also clear the spike test against current neighbours.`
+        : 'None clear the spike test against current neighbours — reported, not paged.')
+    : 'No closed day grew since the last evaluated run.';
+  const partialDetail = partial === null
+    ? ''
+    : !partial.evaluable
+      ? ` Partial day ${partial.day} is not evaluable: it has left the evaluated window.`
+      : ` Partial day ${partial.day}: ${partial.priorCount}→${partial.currentCount}` +
+        (partial.alert ? ' — FULL-DAY SPIKE: its full count newly clears the spike test.' : '.');
 
   return {
     alert: pageWorthy.length > 0,
-    status: 'backfill',
+    status,
     grownDays,
-    detail:
-      `${grownDays.length} closed day(s) grew since the last evaluated run: ${summary}. ` +
-      (pageWorthy.length > 0
-        ? `${pageWorthy.length} of them also clear the spike test against current neighbours.`
-        : 'None clear the spike test against current neighbours — reported, not paged.'),
+    partialDay: partial,
+    detail: closedDetail + partialDetail,
   };
 }
 
@@ -459,13 +587,90 @@ export function composeReason(
   spikeAlert: boolean,
   probeAlert: boolean,
   backfillAlert: boolean,
+  partialDayAlert = false,
 ): AlertReason {
   const axes: string[] = [];
   if (livenessAlert) axes.push('liveness');
   if (spikeAlert) axes.push('spike');
   if (probeAlert) axes.push('probe');
   if (backfillAlert) axes.push('backfill');
+  if (partialDayAlert) axes.push('partial_day');
   return axes.join('+');
+}
+
+/** Which axes PAGE this run. Reported-but-not-paged readings never appear here. */
+export interface AxisAlerts {
+  liveness: boolean;
+  spike: boolean;
+  probe: boolean;
+  /** A CLOSED day grew and cleared the spike test. */
+  backfill: boolean;
+  /** The partial day's full count newly cleared the spike test (FULL-DAY SPIKE). */
+  partialDay: boolean;
+}
+
+export function alertAxes(input: {
+  liveness: { alert: boolean };
+  spike: { alert: boolean };
+  probe: { alert: boolean };
+  backfill: BackfillVerdict;
+}): AxisAlerts {
+  return {
+    liveness: input.liveness.alert,
+    spike: input.spike.alert,
+    probe: input.probe.alert,
+    backfill: input.backfill.alert,
+    partialDay: input.backfill.partialDay?.alert ?? false,
+  };
+}
+
+/** The send decision. Every axis is OR'd — no axis can suppress another. */
+export function anyAxisTripped(a: AxisAlerts): boolean {
+  return a.liveness || a.spike || a.probe || a.backfill || a.partialDay;
+}
+
+export const LIVENESS_ONLY_SUBJECT =
+  '[Being] Crisis-detection LIVENESS alert — possible dead pipeline';
+
+/**
+ * Lead order (crisis AC0 rulings R3/R4): a dead probe makes every other number suspect, so it
+ * leads; LIVENESS is habituated (it has paged daily since 2026-09-28), so it goes last. The
+ * founder triages from a possibly truncated inbox subject.
+ */
+const SUBJECT_ORDER: Array<[keyof AxisAlerts, string]> = [
+  ['probe', 'PROBE DEAD (ingest leg)'],
+  ['spike', 'VOLUME SPIKE'],
+  ['partialDay', 'FULL-DAY SPIKE'],
+  ['backfill', 'BACKFILL SPIKE'],
+  ['liveness', 'LIVENESS'],
+];
+
+/**
+ * The email subject, naming every PAGING axis in lead order. Liveness alone keeps its
+ * legacy string verbatim — the one special case. A reported-but-not-paged reading never
+ * reaches the subject. The partial day is a FULL-DAY SPIKE and is never called backfill.
+ */
+export function composeSubject(a: AxisAlerts): string {
+  const labels = SUBJECT_ORDER.filter(([k]) => a[k]).map(([, label]) => label);
+  if (labels.length === 0) return '[Being] Crisis-detection alert'; // unreachable: no send
+  if (labels.length === 1 && a.liveness) return LIVENESS_ONLY_SUBJECT;
+  return `[Being] Crisis-detection ${labels.join(' + ')}`;
+}
+
+/** Keep only TODAY's crisis_detection_daily rows for the Detection mix. */
+export function selectTodayBuckets(
+  rows: Array<Partial<BucketRow> & { event_date?: unknown }>,
+  today: string,
+): BucketRow[] {
+  return rows
+    // A row without event_date cannot be attributed to a day, so it is dropped, not passed.
+    .filter((r) => typeof r.event_date === 'string' && r.event_date.slice(0, 10) === today)
+    .map((r) => ({
+      assessment_type: r.assessment_type as string,
+      trigger_type: r.trigger_type as string,
+      severity_bucket: r.severity_bucket as string,
+      detection_count: r.detection_count as number,
+    }));
 }
 
 /**
@@ -520,7 +725,12 @@ export interface AlertPayload {
   probe: { status: ProbeStatus; alert: boolean; ageHours: number | null };
   /** Backfill axis (DEBUG-541). `cold_start` is stated explicitly, never rendered as
    *  "no backfill" — an absent watermark is not evidence that nothing grew. */
-  backfill: { status: BackfillStatus; alert: boolean; grownDays: GrownDay[] };
+  backfill: {
+    status: BackfillStatus;
+    alert: boolean;
+    grownDays: GrownDay[];
+    partialDay: PartialDayReading | null;
+  };
   /** Counts only. `fallbackShare` is 0..1 over the window; null when the window is empty
    *  (a share of "0 of 0" would read as fully trustworthy, which is the wrong direction). */
   provenance: ProvenanceCounts & { fallbackShare: number | null };
@@ -589,6 +799,7 @@ export function buildAlertPayload(input: AlertPayloadInput): AlertPayload {
       status: backfill.status,
       alert: backfill.alert,
       grownDays: backfill.grownDays,
+      partialDay: backfill.partialDay,
     },
     provenance: { ...provenance, fallbackShare },
     buckets: included,
@@ -597,6 +808,46 @@ export function buildAlertPayload(input: AlertPayloadInput): AlertPayload {
     bucketFloor,
     lastDetectionDate,
   };
+}
+
+/** The backfill block of the email body. Day-level dates and counts only. */
+export function composeBackfillLines(b: AlertPayload['backfill']): string[] {
+  // Not "Backfill axis": a partial_day status under that heading is the misreading DEBUG-684 removes.
+  const lines: string[] = ['', `Backfill / partial-day axis: ${b.status}.`];
+  if (b.status === 'cold_start') {
+    lines.push(
+      '  No watermark from a prior run — this run recorded the baseline. This is NOT a ' +
+        'statement that nothing was backfilled; it is a statement that we could not tell.',
+    );
+  } else if (b.grownDays.length > 0) {
+    lines.push('  Closed days that grew since the last evaluated run:');
+    for (const g of b.grownDays) {
+      lines.push(`    - ${g.day}: ${g.priorCount} -> ${g.currentCount} (+${g.delta})`);
+    }
+    if (!b.alert) {
+      lines.push('  Reported, not paged: none cleared the spike test against current neighbours.');
+    }
+  }
+  const p = b.partialDay;
+  if (p !== null && !p.evaluable) {
+    lines.push(
+      `  Partial day ${p.day}: not evaluable — it has left the evaluated window, so its full ` +
+        'count was never checked.',
+    );
+  } else if (p !== null && p.currentCount !== null && p.delta !== null) {
+    lines.push(
+      '  Partial day completed since the last evaluated run (that run counted it before the ' +
+        'day ended, so growth here is the day\'s own later traffic plus any back-dated rows ' +
+        'landing on it):',
+      `    - ${p.day}: ${p.priorCount} -> ${p.currentCount} (${p.delta >= 0 ? '+' : ''}${p.delta})` +
+        (p.alert
+          ? ' — FULL-DAY SPIKE: its full count clears the spike test against current neighbours.'
+          : p.priorPaged
+            ? ' (already paged as a VOLUME spike by the last evaluated run)'
+            : ''),
+    );
+  }
+  return lines;
 }
 
 // ---------------------------------------------------------------------------
