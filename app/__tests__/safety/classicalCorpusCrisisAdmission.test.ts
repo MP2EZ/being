@@ -136,6 +136,11 @@ const BANNED: ReadonlyArray<readonly [label: string, pattern: RegExp]> = [
   ['disparaged love of life', /\b(wretched|base|mean|slavish|cowardly|shameful|vile)\s+love\s+of\s+life\b/i],
   // The Ench. 30 father-clause class, in 3.20's wording.
   ['bad to himself, not to me', /\bto\s+himself\W+but\s+(not\s+to\s+me|a\s+good\s+one,?\s+to\s+me)\b/i],
+  // FEAT-663: the part/whole body frame's next Stoic move is that the part is cut
+  // off, or dies, for the whole — perceived burdensomeness. Carter 2.5 and 2.10.
+  ['cut off for the whole', /\bcut\s*off\b[^.;:]{0,30}\b(good|sake|account)\s+of\s+(the|that)\s+whole\b/i],
+  ['die before your time', /\bdie\s+before\s+(your|thy|his|her|my|our|their)\s+time\b/i],
+  ['help forward death', /\bhelp\w*\s+forward\b[^.;]{0,40}\b(death|dying|mutilation)\b/i],
 ];
 
 /** A match fails unless allowlisted with a ruling. Common in non-exit senses. */
@@ -151,10 +156,11 @@ const REVIEW: ReadonlyArray<readonly [label: string, pattern: RegExp]> = [
   ['means', /\b(sword|dagger|knife|blade|poison\w*|hemlock|throat|precipice)\b/i],
   ['Cato', /\bCato\b/i],
   // Both word orders (FEAT-662): Carter writes "Is my Father bad?", which the
-  // adjective-first form never matched.
+  // adjective-first form never matched. FEAT-663 adds verb + adverb: Ench. 43's
+  // "If your Brother acts unjustly" passed the tier silently.
   [
     'bad relation',
-    /\b(bad|unjust|cruel)\s+(father|mother|parent|husband|wife|brother|sister|neighbou?r)\b|\b(father|mother|parent|husband|wife|brother|sister|neighbou?r)\s+(is\s+|be\s+)?(so\s+)?(a\s+|an\s+)?(bad|unjust|cruel)\b/i,
+    /\b(bad|unjust|cruel)\s+(father|mother|parent|husband|wife|brother|sister|neighbou?r)\b|\b(father|mother|parent|husband|wife|brother|sister|neighbou?r)\s+(is\s+|be\s+)?(so\s+)?(a\s+|an\s+)?(bad|unjust|cruel)\b|\b(father|mother|parent|husband|wife|brother|sister|neighbou?r)\s+(acts?|behaves?|deals?|treats?\s+(you|thee)|uses?\s+(you|thee))\s+(so\s+|very\s+)?(unjustly|badly|cruelly|ill)\b/i,
   ],
   ['rejoin the dead', /\b(join|follow|rejoin)\w*\s+(him|her|them)\b/i],
   // In this corpus "door" carries the open-door doctrine even when idiomatic
@@ -173,6 +179,7 @@ const REVIEW_CONTROLS: ReadonlyArray<readonly [label: string, fixture: string]> 
   ['bad relation', 'Is my Neighbour a bad one?'], // Carter, Disc. 3.20
   ['bad relation', 'But he is a bad Father.'], // Carter, Ench. 30
   ['bad relation', 'Is a Brother unjust?'], // Carter, Ench. 30
+  ['bad relation', 'If your Brother acts unjustly'], // Carter, Ench. 43
   ['love of life', 'and a wretched Love of Life, have been his Portion?'], // Carter, Disc. 3.20
 ];
 
@@ -190,6 +197,12 @@ const REVIEW_CLEARED: ReadonlyArray<{ id: string; field: string; term: string; r
   // "your friend Flaccus is dead" — the bereavement the letter answers. Whole
   // 63.1 only: no exit or reunion framing, and it ends before 63.2's one-day quota.
   { id: 'seneca-letters-63', field: 'text', term: 'dead', ruling: 'FEAT-661' },
+  // "breathes, lives, and dies" — shared mortality IS the kinship argument (aeque
+  // mori). First two sentences of 47.10 only, no fullText, no exit framing.
+  { id: 'seneca-letters-47', field: 'text', term: 'dies', ruling: 'FEAT-663' },
+  // The wrong Ench. 43 asks us to hold by the handle of kinship. Text only: a note
+  // that echoes the phrase fails, and the note carries the harm clause.
+  { id: 'epictetus-enchiridion-43', field: 'text', term: 'brother acts unjustly', ruling: 'FEAT-663' },
 ];
 
 /**
@@ -232,6 +245,9 @@ const CONTROLS: ReadonlyArray<readonly [label: string, fixture: string]> = [
   ['disparaged love of life', 'and a wretched Love of Life, have been his Portion?'], // Carter, Disc. 3.20
   ['bad to himself, not to me', 'Is my Father bad? To himself; but not to me.'], // Carter, Disc. 3.20
   ['bad to himself, not to me', 'He is so, to himself; but a good one, to me.'], // Carter, Disc. 3.20
+  ['cut off for the whole', 'and sometimes that it should even be cut off, for the Good of the Whole: otherwise it is no longer a Foot.'], // Carter, Disc. 2.5
+  ['die before your time', 'sometimes be in Want; and possibly it may happen, die before your Time.'], // Carter, Disc. 2.5
+  ['help forward death', 'he would help forward Sickness, and Death, and Mutilation, to himself;'], // Carter, Disc. 2.10
 ];
 
 /**
@@ -254,12 +270,14 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
     const rendered = renderedStrings();
     // Every passage renders `text`; every module renders a quote. A scan over
     // an empty set would pass every assertion below vacuously. Floors track the
-    // corpus (34 at FEAT-662), so a dropped file cannot pass quietly.
-    expect(rendered.filter((r) => r.field === 'text').length).toBeGreaterThanOrEqual(34);
-    expect(rendered.filter((r) => r.field === 'context').length).toBeGreaterThanOrEqual(34);
-    // Per file as well: growth elsewhere must not hide a dropped virtuous-response passage.
+    // corpus (40 at FEAT-663), so a dropped file cannot pass quietly.
+    expect(rendered.filter((r) => r.field === 'text').length).toBeGreaterThanOrEqual(40);
+    expect(rendered.filter((r) => r.field === 'context').length).toBeGreaterThanOrEqual(40);
+    // Per file as well: growth elsewhere must not hide a dropped passage in a slice's file.
     const virtuous = JSON.parse(readFileSync(join(PASSAGES_DIR, 'passages-4-virtuous-response.json'), 'utf8')).passages;
     expect(virtuous.length).toBeGreaterThanOrEqual(8);
+    const interconnected = JSON.parse(readFileSync(join(PASSAGES_DIR, 'passages-5-interconnected-living.json'), 'utf8')).passages;
+    expect(interconnected.length).toBeGreaterThanOrEqual(9);
     expect(rendered.filter((r) => r.field === 'classicalQuote.text').length).toBe(MODULE_FILES.length);
   });
 
@@ -367,6 +385,10 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
       // FEAT-662: patience with ill-language, and a God-sent "rough Antagonist".
       'epictetus-enchiridion-10',
       'epictetus-discourses-1-24',
+      // FEAT-663: holding a brother's wrong by the handle of kinship, and "bear with
+      // your own Brother", which the weaker party can hear as counsel to endure.
+      'epictetus-enchiridion-43',
+      'epictetus-discourses-1-13',
     ];
 
     it.each(HARM_CLAUSE_REQUIRED)('%s carries the harm clause', (id) => {
@@ -509,6 +531,136 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
     });
   });
 
+  /**
+   * FEAT-663 span rulings (crisis co-review). Each close stops one step before an
+   * omitted line the pattern tables cannot see: On Anger's vipers and punishment
+   * turn, 47.10's reversal-of-fortune tail, 95.52's "more wretched to commit than to
+   * suffer injury", and 1.13's "Right of Purchase" exchange.
+   */
+  describe('FEAT-663 interconnected-living boundaries', () => {
+    const fieldsOf = (id: string) => renderedStrings().filter((r) => r.id === id);
+    const textOf = (id: string) => {
+      const r = fieldsOf(id).find((x) => x.field === 'text');
+      if (!r) throw new Error(`${id} has no rendered text`);
+      return r.value;
+    };
+
+    // Each [id, opening, close, omitted]: the omitted pattern covers the excluded
+    // head as well as the tail where the neighbour is a hazard.
+    const BOUNDARIES: ReadonlyArray<readonly [id: string, opening: string, close: string, omitted: RegExp]> = [
+      // Head: hypervigilance ("mischief is not absent, but only asleep"), a GAD-7
+      // hazard. Tail: the vipers, and "no one would escape punishment".
+      [
+        'seneca-on-anger-2-31',
+        'What, if the hands were to wish to hurt the feet?',
+        'guards and loves all its members.',
+        /\bvipers?\b|water-snakes?|\bpunish\w*|done wrong|offend you|mischief|expect everything/i,
+      ],
+      // Tail: mass violence, then a fall-in-status threat aimed at "you".
+      [
+        'seneca-letters-47',
+        'Kindly remember that he whom you call your slave',
+        'see in you a slave.',
+        /massacre|Marius|humbled|despis\w*|\bdescend\b/i,
+      ],
+      // Tail: ranks a harm the reader suffers as the lesser evil.
+      ['seneca-letters-95', 'Then comes the second problem', 'made us prone to friendships.', /more wretched|suffer\w*\s+injur\w*/i],
+      // Head: moralised eating in the list preview (a PHQ-9 appetite item). Tail: the
+      // slaveholder's retort and the "Laws of dead Men".
+      [
+        'epictetus-discourses-1-13',
+        'And when you call for hot Water',
+        'the Offspring of God?',
+        /\beat(s|ing)?\b|temperately|Right of Purchase|Earth and Mire|dead Men/i,
+      ],
+      // Head: Ench. 42's "meekly bear a Person who reviles you" is victim-minimising.
+      [
+        'epictetus-enchiridion-43',
+        'Every Thing hath two Handles',
+        'as it is to be borne.',
+        /meekly bear|reviles|Person hurt|seemed so to him/i,
+      ],
+    ];
+
+    it.each(BOUNDARIES)('%s opens and closes at its ruled bounds, carrying none of the omitted lines', (id, opening, close, omitted) => {
+      expect(textOf(id).startsWith(opening)).toBe(true);
+      expect(textOf(id).endsWith(close)).toBe(true);
+      for (const r of fieldsOf(id)) {
+        expect({ field: r.field, hit: r.value.match(omitted) }).toEqual({ field: r.field, hit: null });
+      }
+    });
+
+    it('none of the five carries a fullText (a fuller span would reach the omitted lines)', () => {
+      for (const [id] of BOUNDARIES) {
+        expect({ id, fullText: fieldsOf(id).some((r) => r.field === 'fullText') }).toEqual({ id, fullText: false });
+      }
+    });
+
+    const noteOf = (id: string) => {
+      const r = fieldsOf(id).find((x) => x.field === 'context');
+      if (!r) throw new Error(`${id} has no context note`);
+      return r.value;
+    };
+
+    // No forgive / reconcile / tolerate prescription on a note about a relative's
+    // wrong. Bare "stay" is NOT banned: the harm clause itself says "staying in".
+    const NOTE_PRESCRIPTION =
+      /\bforgiv\w*|\breconcil\w*|\btolerat\w*|\bput\s+up\s+with\b|\bkeep\s+the\s+peace\b|\bfamily\s+first\b|\bstay\s+(close|with|together)\b|\b(he|she|they)('s|\s+is|\s+are)\s+(still\s+)?family\b/i;
+    const BURDEN_FRAME = /\bthe whole\b|\bsacrific\w*|\bexpendab\w*|\bburden\w*/i;
+
+    it('On Anger 2.31\'s note never frames the passage as a response to being wronged', () => {
+      // The waiver of the harm clause holds only while the note stays on not hurting others.
+      expect(noteOf('seneca-on-anger-2-31')).not.toMatch(/\binjur\w*|\bwrong\w*|\boffen[cd]\w*/i);
+    });
+
+    it('Disc. 1.13\'s note places "Wretch" on the master and names the power gradient', () => {
+      const note = noteOf('epictetus-discourses-1-13');
+      expect(note).toMatch(/\bWretch\b/);
+      expect(note).toMatch(/\bmaster\b/i);
+      expect(note).toMatch(/\bpower\b/i);
+    });
+
+    it('Ench. 43\'s note names the wrong as real (a judgement, not a denial)', () => {
+      expect(noteOf('epictetus-enchiridion-43')).toMatch(/\b(injustice|wrong)\b[^.;]*\breal\b|\breal\b[^.;]*\b(injustice|wrong)\b/i);
+    });
+
+    it.each(['epictetus-enchiridion-43', 'epictetus-discourses-1-13'])('%s prescribes no forgiveness or toleration', (id) => {
+      expect(noteOf(id)).not.toMatch(NOTE_PRESCRIPTION);
+    });
+
+    it('no interconnected-living note grounds worth in the whole', () => {
+      const ps = JSON.parse(readFileSync(join(PASSAGES_DIR, 'passages-5-interconnected-living.json'), 'utf8')).passages;
+      expect(ps.length).toBeGreaterThanOrEqual(9);
+      for (const p of ps) {
+        expect({ id: p.id, hit: (p.context ?? '').match(BURDEN_FRAME) }).toEqual({ id: p.id, hit: null });
+      }
+    });
+
+    it('neither forbearance passage is the auto-expanded first card', () => {
+      const ps = JSON.parse(readFileSync(join(PASSAGES_DIR, 'passages-5-interconnected-living.json'), 'utf8')).passages;
+      const first = [...ps].sort((a: { order: number }, b: { order: number }) => a.order - b.order)[0];
+      expect(['epictetus-enchiridion-43', 'epictetus-discourses-1-13']).not.toContain(first.id);
+    });
+
+    it('the FEAT-663 matchers still fire (DEBUG-390)', () => {
+      // Source text from the omitted neighbours, never corpus state.
+      const [[, , , anger], [, , , l47], [, , , l95], [, , , d113], [, , , e43]] = BOUNDARIES;
+      expect('We should not even destroy vipers and water-snakes and other creatures').toMatch(anger); // Stewart, On Anger 2.31
+      expect('be sure that mischief is not absent, but only asleep').toMatch(anger); // Stewart, On Anger 2.31
+      expect('for if everyone who has a crooked and vicious disposition were to be punished, no one would escape punishment.').toMatch(anger); // Stewart, On Anger 2.31, {108} dropped
+      expect('As a result of the massacres in Marius’s day').toMatch(l47); // Gummere, Ep. 47.10
+      expect('Despise, then, if you dare, those to whose estate you may at any time descend').toMatch(l47); // Gummere, Ep. 47.10
+      expect('according to her ruling, it is more wretched to commit than to suffer injury.').toMatch(l95); // Gummere, Ep. 95.52
+      expect('How any one might eat acceptably to the Gods').toMatch(d113); // Carter, Disc. 1.13
+      expect('But I have them by Right of Purchase, and not they me.').toMatch(d113); // Carter, Disc. 1.13
+      expect('you will meekly bear a Person who reviles you').toMatch(e43); // Carter, Ench. 42
+      // Note-level predicates: literal known-bad fixtures.
+      expect('Forgive him; he is still family.').toMatch(NOTE_PRESCRIPTION);
+      expect('Each part is cut away for the whole.').toMatch(BURDEN_FRAME);
+      expect('A note about how a wrong done to us is answered.').toMatch(/\binjur\w*|\bwrong\w*|\boffen[cd]\w*/i);
+    });
+  });
+
   it('the required harm clause trips nothing (negative control)', () => {
     // `crisis` requires this clause on passages about holding a wrong. If a
     // future pattern starts catching it, this fails — rather than pushing an
@@ -517,5 +669,9 @@ describe('classical corpus crisis admission (FEAT-581)', () => {
       'This is about how we hold an ordinary wrong, not about staying in or excusing ongoing harm, and no reason not to set limits or seek help.';
     expect(hits(BANNED, harmClause)).toEqual([]);
     expect(hits(REVIEW, harmClause)).toEqual([]);
+    // FEAT-663's note-prescription ban must not catch the clause it sits beside.
+    expect(harmClause).not.toMatch(
+      /\bforgiv\w*|\breconcil\w*|\btolerat\w*|\bput\s+up\s+with\b|\bkeep\s+the\s+peace\b|\bfamily\s+first\b|\bstay\s+(close|with|together)\b|\b(he|she|they)('s|\s+is|\s+are)\s+(still\s+)?family\b/i,
+    );
   });
 });
