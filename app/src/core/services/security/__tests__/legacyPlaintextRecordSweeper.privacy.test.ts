@@ -69,6 +69,21 @@ describe('removes the DEBUG-305 legacy plaintext records', () => {
     expect(await AsyncStorage.getAllKeys()).not.toContain('assessment_audit_trail');
   });
 
+  it('removes the DEBUG-672 plaintext @education:state blob, by exact name', async () => {
+    // educationStore wrote this as plaintext JSON — including practiceCount, ruled
+    // Art. 9 by FEAT-667 — and never read it back. DEBUG-672 removed the writer.
+    mockMemoryStore.set('@education:state', JSON.stringify({ modules: { 'aware-presence': { practiceCount: 4 } } }));
+    mockMemoryStore.set('@education:state_backup', 'keep me');
+    mockMemoryStore.set('@being/supabase/crisis_analytics_queue', '[]');
+
+    expect(await sweepLegacyPlaintextRecords()).toBe(1);
+
+    const after = await AsyncStorage.getAllKeys();
+    expect(after).not.toContain('@education:state');
+    expect(after).toContain('@education:state_backup');
+    expect(after).toContain('@being/supabase/crisis_analytics_queue');
+  });
+
   it('leaves no residual plaintext trigger value behind', async () => {
     mockMemoryStore.set(
       'crisis_intervention_s1',
