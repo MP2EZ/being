@@ -51,6 +51,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/core/hooks/` | `crisis` |
 | `app/src/core/components/ThresholdEducationModal.tsx` | `crisis` + `philosopher` |
 | `app/src/features/insights/components/` | `crisis` + `philosopher` |
+| `app/src/features/insights/screens/InsightsScreen.tsx` | `crisis` |
 | `app/src/features/home/screens/CleanHomeScreen.tsx` | `crisis` |
 | `app/src/features/profile/screens/DeleteAccountScreen.tsx` | `crisis` |
 | `app/src/features/profile/screens/ExportDataScreen.tsx` | `crisis` |
@@ -378,6 +379,12 @@ DEBUG-678, founder ruling) and retires the DEBUG-634 paragraph's remaining unrev
 five gated practice hosts return it IN PLACE of their own tree on IMMERSIVE routes, so none of
 their FAB clearances carry over; its Continue overlaps the exclusion rect by 48pt at every width
 (DEBUG-682, gated ahead of its fix). FILE-level; `philosopher` co-owns `PRACTICE_QUOTES`.
+
+`features/insights/screens/InsightsScreen.tsx` is the twenty-third instance (added FEAT-669, crisis
+ruling): the DEBUG-620 trailing-spacer shape on a tab screen. Its scroll content ends in a
+`CRISIS_BUTTON_EXCLUSION_RECT.top` spacer, because the old 32pt padding left the last control in the
+FAB's band at maximum scroll. FILE-level: `WellnessTrendsDetailScreen.tsx` is unreviewed.
+`crisis-button-reachability` taps element centres, so the falsifier is the jest spacer pin.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
