@@ -3,8 +3,9 @@
  * Zustand store for Educational Modules (FEAT-49)
  *
  * STORAGE:
- * - AsyncStorage with encryption (contains learning progress, reflections)
- * - Encrypted because reflection data may contain sensitive wellness content
+ * - In-memory only, never persisted (DEBUG-672). It used to write a plaintext
+ *   `@education:state` blob that nothing read back; the legacy key is purged at
+ *   launch (`legacyPlaintextRecordSweeper`) and on account erasure.
  *
  * PHILOSOPHER VALIDATION:
  * - 9.5/10 philosophical integrity rating
@@ -23,10 +24,6 @@
  */
 
 import { create } from 'zustand';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getCurrentUserId } from '@/core/constants/devMode';
-import { logSecurity } from '@/core/services/logging';
-import { decideWellnessWrite } from '@/core/stores/consentStore';
 import type {
   ModuleId,
   ModuleStatus,
@@ -36,22 +33,17 @@ import type {
   MODULE_ORDER,
 } from '@/features/learn/types/education';
 
-const STORAGE_KEY = '@education:state';
-
 /**
- * Art. 9 write gate (FEAT-667, FEAT-318 slice C). Founder ruling 2026-09-29:
- * `practiceCount` records the same fact as a Learn principle engagement and is
- * withheld with it. This blob is never read back (`initializeEducationStore` has
- * no production caller), so it only ever holds this process's state; once a write
- * is withheld, that state carries a count the user was told would not be kept, so
- * writes stay off for the rest of the process. `loading` skips without latching.
+ * Art. 9 disposition (FEAT-667 founder ruling 2026-09-29): `practiceCount` records
+ * the same fact as a Learn principle engagement. Since DEBUG-672 that ruling is met
+ * by never writing it, under any consent state; memory still counts.
  *
  * Crisis ruling: `optOutFlags` is a protective safety preference and must ALWAYS
- * persist. It has no writer today. Reviving `addOptOut`/`removeOptOut` needs an
- * ungated write path for it first — pinned dormant by
+ * persist if it is ever revived. It has no writer today. Reviving
+ * `addOptOut`/`removeOptOut` needs a NEW persistence path that writes it ungated,
+ * plus a fresh crisis/compliance pass — pinned dormant by
  * `educationStore.wellnessWriteGate.privacy.test.ts`.
  */
-let writesWithheldThisProcess = false;
 
 /**
  * Insight tip IDs that can be dismissed
@@ -87,9 +79,9 @@ const initializeModules = (): Record<ModuleId, ModuleProgress> => ({
  * Extended Education State with FEAT-133 additions
  */
 interface ExtendedEducationState extends EducationState {
-  /** Permanently dismissed insight tips (FEAT-133) */
+  /** Insight tips dismissed this session (FEAT-133); in-memory like the rest of the store */
   dismissedInsightTips: InsightTipId[];
-  /** Dismiss an insight tip permanently */
+  /** Dismiss an insight tip for the session */
   dismissInsightTip: (tipId: InsightTipId) => void;
   /** Check if a tip is dismissed */
   isInsightTipDismissed: (tipId: InsightTipId) => boolean;
@@ -122,9 +114,6 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         },
       },
     }));
-
-    // Persist to AsyncStorage
-    get().persistState();
   },
 
   /**
@@ -153,9 +142,6 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         },
       };
     });
-
-    // Persist to AsyncStorage
-    get().persistState();
   },
 
   /**
@@ -172,9 +158,6 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         },
       },
     }));
-
-    // Persist to AsyncStorage
-    get().persistState();
   },
 
   /**
@@ -194,9 +177,6 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         },
       },
     }));
-
-    // Persist to AsyncStorage
-    get().persistState();
   },
 
   /**
@@ -216,9 +196,6 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         },
       },
     }));
-
-    // Persist to AsyncStorage
-    get().persistState();
   },
 
   /**
@@ -244,9 +221,6 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         },
       };
     });
-
-    // Persist to AsyncStorage
-    get().persistState();
   },
 
   /**
@@ -265,9 +239,6 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         },
       },
     }));
-
-    // Persist to AsyncStorage
-    get().persistState();
   },
 
   /**
@@ -333,10 +304,6 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         },
       }));
     }
-
-    // Persist so the user's last-viewed module survives reload.
-    // Bug pre-fix surfaced by TEST-19b.
-    get().persistState();
   },
 
   /**
@@ -349,13 +316,10 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         [moduleId]: createDefaultProgress(),
       },
     }));
-
-    // Persist to AsyncStorage
-    get().persistState();
   },
 
   /**
-   * Dismiss an insight tip permanently (FEAT-133)
+   * Dismiss an insight tip for the session (FEAT-133)
    */
   dismissInsightTip: (tipId: InsightTipId) => {
     set((state) => {
@@ -366,9 +330,6 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
         dismissedInsightTips: [...state.dismissedInsightTips, tipId],
       };
     });
-
-    // Persist to AsyncStorage
-    get().persistState();
   },
 
   /**
@@ -377,76 +338,5 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
   isInsightTipDismissed: (tipId: InsightTipId): boolean => {
     return get().dismissedInsightTips.includes(tipId);
   },
-
-  /**
-   * Persist state to AsyncStorage (encrypted)
-   * Private method (not in interface)
-   */
-  persistState: async () => {
-    try {
-      const decision = decideWellnessWrite();
-      if (!decision.allowed && decision.reason !== 'loading') writesWithheldThisProcess = true;
-      if (!decision.allowed || writesWithheldThisProcess) return;
-
-      const state = get();
-      const userId = getCurrentUserId();
-      const dataToStore = {
-        userId,
-        modules: state.modules,
-        currentModule: state.currentModule,
-        recommendedNext: state.recommendedNext,
-        dismissedInsightTips: state.dismissedInsightTips, // FEAT-133
-        updatedAt: Date.now(),
-      };
-
-      // TODO: Use encryption service for sensitive data (currently stored as JSON)
-      await AsyncStorage.setItem(
-        STORAGE_KEY,
-        JSON.stringify(dataToStore)
-      );
-    } catch (error) {
-      console.error('[EducationStore] Failed to persist state:', error);
-    }
-  },
-
-  /**
-   * Load state from AsyncStorage (encrypted)
-   * Called on app init
-   */
-  loadState: async () => {
-    try {
-      const storedData = await AsyncStorage.getItem(STORAGE_KEY);
-
-      if (!storedData) {
-        // No stored data, use defaults
-        return;
-      }
-
-      const parsed = JSON.parse(storedData);
-
-      // Validate userId matches current user
-      const currentUserId = getCurrentUserId();
-      if (parsed.userId !== currentUserId) {
-        logSecurity('[EducationStore] UserId mismatch, ignoring stored data', 'medium');
-        return;
-      }
-
-      // Restore state
-      set({
-        modules: parsed.modules,
-        currentModule: parsed.currentModule,
-        recommendedNext: parsed.recommendedNext,
-        dismissedInsightTips: parsed.dismissedInsightTips || [], // FEAT-133
-      });
-    } catch (error) {
-      console.error('[EducationStore] Failed to load state:', error);
-    }
-  },
 }));
 
-/**
- * Initialize store on app load
- */
-export const initializeEducationStore = async () => {
-  await useEducationStore.getState().loadState();
-};

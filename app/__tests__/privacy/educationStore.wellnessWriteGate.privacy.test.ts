@@ -1,18 +1,19 @@
 /**
- * Art. 9 write gate on `@education:state` (FEAT-667, FEAT-318 slice C).
+ * `educationStore` never writes storage (DEBUG-672; was FEAT-667's Art. 9 write gate).
  *
- * Founder ruling 2026-09-29: Learn's `practiceCount` records the same fact as a
- * Learn principle engagement, so it shares that engagement's disposition and is
- * withheld while `decideWellnessWrite()` blocks. The blob is never read back
- * (`initializeEducationStore` has no production caller), so it only ever holds
- * this process's state — once a write is withheld, writes stay off for the rest
- * of the process rather than carry a count the user was told would not be kept.
+ * The store wrote `@education:state` as plaintext AsyncStorage and never read it
+ * back, so persistence served no user and held `practiceCount` — ruled Art. 9 by
+ * FEAT-667 — unencrypted at rest. Compliance ruled it removed outright (data
+ * minimisation) rather than moved to encrypted storage. That meets FEAT-667's
+ * founder ruling strictly: the count is never written, under any consent state,
+ * while memory still counts. The legacy key is purged at launch and on erasure.
  *
  * The dormant-setter pin: crisis ruled `optOutFlags` a protective safety
  * preference that must ALWAYS persist. It has no writer today, so the rule binds
- * a revival — and nothing else would notice one, because the write site is
- * already classified in the ratchet. Reviving any of these setters needs a fresh
- * crisis/compliance pass and an ungated write path for the opt-out.
+ * a revival — and with no write site left in the store, the ratchet in
+ * `wellnessWriteSites.privacy.test.ts` would flag a new one as unlisted. Reviving
+ * any of these setters needs a NEW persistence path, ungated for the opt-out, and a
+ * fresh crisis/compliance pass.
  *
  * `.privacy.` so the `Safety + privacy gates` CI job runs it (INFRA-368).
  */
@@ -42,7 +43,6 @@ type EducationModule = typeof import('@/features/learn/stores/educationStore');
 let education: EducationModule;
 let seed: (state: SeededWellnessWriteConsent) => void;
 
-const practice = () => education.useEducationStore.getState().incrementPracticeCount('aware-presence');
 const flush = () => new Promise((resolve) => setImmediate(resolve));
 
 beforeEach(() => {
@@ -53,41 +53,56 @@ beforeEach(() => {
   seed = require('../helpers/wellnessWriteConsent').seedWellnessWriteConsent;
 });
 
-describe('the write gate', () => {
-  it('granted: practiceCount is written', async () => {
-    seed('granted');
-    practice();
+describe('educationStore never writes storage', () => {
+  // Every mutator the store exposes, including the dormant ones: a write from any of
+  // them is the defect, whoever calls it.
+  const MUTATORS: ReadonlyArray<readonly [name: string, run: () => void]> = [
+    ['setModuleStatus', () => education.useEducationStore.getState().setModuleStatus('aware-presence', 'completed')],
+    ['completeSection', () => education.useEducationStore.getState().completeSection('aware-presence', 'introduction')],
+    ['incrementPracticeCount', () => education.useEducationStore.getState().incrementPracticeCount('aware-presence')],
+    ['setDevelopmentalStage', () => education.useEducationStore.getState().setDevelopmentalStage('aware-presence', 'integrated')],
+    ['saveReflection', () => education.useEducationStore.getState().saveReflection('aware-presence', 'entry-1')],
+    ['addOptOut', () => education.useEducationStore.getState().addOptOut('aware-presence', 'flag')],
+    ['removeOptOut', () => education.useEducationStore.getState().removeOptOut('aware-presence', 'flag')],
+    ['setCurrentModule', () => education.useEducationStore.getState().setCurrentModule('aware-presence')],
+    ['resetModule', () => education.useEducationStore.getState().resetModule('aware-presence')],
+    ['dismissInsightTip', () => education.useEducationStore.getState().dismissInsightTip('principle-engagement-beginner')],
+  ];
+  const STATES: SeededWellnessWriteConsent[] = ['granted', 'refused', 'revoked', 'under_age', 'missing', 'loading'];
+
+  it.each(STATES)('%s: no mutator writes anything', async (state) => {
+    seed(state);
+    for (const [, run] of MUTATORS) run();
     await flush();
-    expect(mockCounts.writes).toBe(1);
+    expect(mockCounts.writes).toBe(0);
+    expect(mockStorage).toEqual({});
   });
 
-  it.each<SeededWellnessWriteConsent>(['refused', 'revoked', 'under_age', 'missing'])(
-    'blocked (%s): nothing is written, but memory still counts',
-    async (reason) => {
-      seed(reason);
-      practice();
-      await flush();
-      expect(mockCounts.writes).toBe(0);
-      expect(education.useEducationStore.getState().modules['aware-presence'].practiceCount).toBe(1);
-    },
-  );
-
-  it('stays off for the rest of the process once a write is withheld', async () => {
-    seed('refused');
-    practice();
+  it('memory still counts — the store works in-session', async () => {
     seed('granted');
-    practice();
+    const store = education.useEducationStore;
+    store.getState().incrementPracticeCount('aware-presence');
+    store.getState().incrementPracticeCount('aware-presence');
+    store.getState().completeSection('aware-presence', 'introduction');
     await flush();
+    expect(store.getState().modules['aware-presence'].practiceCount).toBe(2);
+    expect(store.getState().modules['aware-presence'].completedSections).toEqual(['introduction']);
     expect(mockCounts.writes).toBe(0);
   });
 
-  it('loading skips without latching', async () => {
-    seed('loading');
-    practice();
-    seed('granted');
-    practice();
-    await flush();
+  it('exposes no persistence entry point to revive', () => {
+    const state = education.useEducationStore.getState() as unknown as Record<string, unknown>;
+    expect(state.persistState).toBeUndefined();
+    expect(state.loadState).toBeUndefined();
+    expect((education as unknown as Record<string, unknown>).initializeEducationStore).toBeUndefined();
+  });
+
+  it('the write counter still fires (DEBUG-390)', async () => {
+    // Prove the mock counts a write, or every zero above is vacuous.
+    const AsyncStorage = require('@react-native-async-storage/async-storage').default;
+    await AsyncStorage.setItem('probe', 'x');
     expect(mockCounts.writes).toBe(1);
+    expect(MUTATORS.length).toBeGreaterThanOrEqual(10);
   });
 });
 
