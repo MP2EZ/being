@@ -2126,6 +2126,10 @@ fails in this bare-repo setup (`'development' is already used by worktree`, Step
 the verdict from `gh pr view [PR_NUMBER] --json state` — never from the exit code. Aborting a
 close on an already-merged PR is the expensive misread.
 
+It can also remove the item's worktree and local branch along with the remote one (observed
+with gh 2.100.0). If `[worktree-dir]` is gone after the merge, skip Step 5.1's question and
+Step 3.8, but still run 5.1's DerivedData orphan sweep.
+
 **Display**:
 ```
 ✅ Merged PR #[PR_NUMBER] to development
