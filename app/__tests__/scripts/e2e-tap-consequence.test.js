@@ -101,6 +101,12 @@ function sitesIn(file, opts) {
 // conditional re-tap of the same card, both stay inside the window.
 function consequencesAfter(steps, tapIndex) {
   const own = new Set([targetOf(steps[tapIndex])]);
+  // An absorbing tab tap is not the site's real tap — the next touch is (DEBUG-652: the
+  // weekly-reflection site scrolls to the card but taps the prompt inside it).
+  if (/^tab-/.test(targetOf(steps[tapIndex]) || '')) {
+    const next = steps.slice(tapIndex + 1).find((s) => TOUCH.has(s.command));
+    if (next) own.add(targetOf(next));
+  }
   for (let j = tapIndex - 1; j >= 0; j--) {
     if (steps[j].command === 'scrollUntilVisible') {
       own.add(targetOf(steps[j]));
@@ -135,6 +141,9 @@ const keyOf = (s) => `${s.file} | ${s.scroll} -> ${s.tap}`;
  *   boundary            the scroll ends at the content boundary by construction, so the
  *                       swallow cannot fire; the destination is asserted
  *   exposed-unmeasured  a mid-content stop is possible and no capture has classified it
+ *   measured-clear      the target sits OUTSIDE the ScrollView and a capture measured no
+ *                       swallow against a matched control; no remedy, so a retry cannot
+ *                       mask the regression the tap tests. Cites the item holding the capture
  *   debt-pin            export-share-sheet-occlusion pins a known debt state, is never
  *                       scoped by /b-close, and is recorded only
  *
@@ -145,15 +154,15 @@ const keyOf = (s) => `${s.file} | ${s.scroll} -> ${s.tap}`;
 const REGISTER = [
   { key: 'bug-report-crisis-reachability.yaml | profile-card-bug-report -> tab-profile', status: 'remedied', consequence: 'bug-report-overlay' },
   { key: 'bug-report-crisis-reachability.yaml | profile-card-bug-report -> tab-profile', status: 'remedied', consequence: 'bug-report-overlay' },
-  { key: 'crisis-button-reachability.yaml | weekly-reflection-card -> weekly-reflection-prompt', status: 'exposed-unmeasured', consequence: 'weekly-reflection-overlay', owner: 'DEBUG-652' },
-  { key: 'crisis-button-reachability.yaml | profile-card-privacy -> profile-card-privacy', status: 'exposed-unmeasured', consequence: null, owner: 'DEBUG-652' },
+  { key: 'crisis-button-reachability.yaml | weekly-reflection-card -> tab-insights', status: 'remedied', consequence: 'weekly-reflection-overlay' },
+  { key: 'crisis-button-reachability.yaml | profile-card-privacy -> tab-profile', status: 'remedied', consequence: 'privacy-data-screen' },
   { key: 'crisis-button-reachability.yaml | profile-card-export -> profile-card-export', status: 'remedied', consequence: 'export-data-screen' },
-  { key: 'crisis-button-reachability.yaml | profile-card-privacy -> profile-card-privacy', status: 'exposed-unmeasured', consequence: null, owner: 'DEBUG-652' },
+  { key: 'crisis-button-reachability.yaml | profile-card-privacy -> tab-profile', status: 'remedied', consequence: 'privacy-data-screen' },
   { key: 'crisis-button-reachability.yaml | profile-card-delete -> profile-card-delete', status: 'remedied', consequence: 'delete-account-screen' },
   { key: 'daily-loop-ax5-entry.yaml | checkin-card-daily-loop -> checkin-card-daily-loop', status: 'remedied', consequence: 'daily-loop-depth-select-screen' },
   { key: 'daily-loop-ax5-entry.yaml | continue-button -> continue-button', status: 'boundary', consequence: 'daily-loop-SphereSovereignty-screen' },
   { key: 'daily-loop-ax5-virtuous.yaml | checkin-card-daily-loop -> checkin-card-daily-loop', status: 'remedied', consequence: 'daily-loop-depth-select-screen' },
-  { key: 'daily-loop-ax5-virtuous.yaml | virtue-chip-temperance -> daily-loop-exit', status: 'exposed-unmeasured', consequence: 'home-screen', owner: 'DEBUG-652' },
+  { key: 'daily-loop-ax5-virtuous.yaml | virtue-chip-temperance -> daily-loop-exit', status: 'measured-clear', consequence: 'home-screen', capture: 'DEBUG-652' },
   { key: 'daily-loop-quick-depth.yaml | continue-button -> continue-button', status: 'boundary', consequence: 'daily-loop-VirtuousResponse-screen' },
   { key: 'export-share-sheet-occlusion.yaml | profile-card-privacy -> profile-card-privacy', status: 'debt-pin', consequence: null },
   { key: 'export-share-sheet-occlusion.yaml | profile-card-export -> profile-card-export', status: 'debt-pin', consequence: 'export-data-screen' },
@@ -207,11 +216,16 @@ describe('DEBUG-642 — the post-centring tap population', () => {
   });
 
   test('a site is only called handled when its landing is asserted, and every open site has an owner', () => {
-    const STATUSES = new Set(['remedied', 'boundary', 'exposed-unmeasured', 'debt-pin']);
+    const STATUSES = new Set(['remedied', 'boundary', 'exposed-unmeasured', 'measured-clear', 'debt-pin']);
     REGISTER.forEach((e) => {
       expect(STATUSES.has(e.status)).toBe(true);
       if (e.status === 'remedied' || e.status === 'boundary') expect(e.consequence).not.toBeNull();
-      if (e.status === 'exposed-unmeasured') expect(e.owner).toBe('DEBUG-652');
+      if (e.status === 'exposed-unmeasured') expect(e.owner).toBeTruthy();
+      if (e.status === 'measured-clear') {
+        expect(e.consequence).not.toBeNull();
+        expect(e.capture).toMatch(/^[A-Z]+-\d+$/);
+        expect(e.owner).toBeUndefined();
+      }
     });
   });
 });
@@ -242,5 +256,88 @@ describe('DEBUG-642 — a breath skip must prove it landed', () => {
     expect(proven({ visible: ['daily-loop-breathing-circle'], gone: ['daily-loop-breathing-circle'] })).toBe(false);
 
     expect(taps.filter((t) => !proven(t)).map((t) => t.at)).toEqual([]);
+  });
+});
+
+describe('DEBUG-652 — a Profile card tap must prove it landed before the FAB', () => {
+  // The Profile menu root carries its own FAB, so `tap card → tap FAB → assert
+  // crisis-resources-screen` passes whether or not the card tap landed. The proof is a
+  // screen-root testID unique to the destination. Not `profile-back-button` (every pushed
+  // route has one, so a tap that lands on the WRONG card passes) and not the header title
+  // (the menu card carries the same label, so it is still on screen after a swallow).
+  const FLOW = 'crisis-button-reachability.yaml';
+  const DEST = {
+    'profile-card-appsettings': 'app-settings-screen',
+    'profile-card-privacy': 'privacy-data-screen',
+    'profile-card-account': 'account-settings-screen',
+    'profile-card-stoic': 'about-stoic-mindfulness-screen',
+    'profile-card-legal': 'legal-documents-screen',
+    'profile-card-export': 'export-data-screen',
+    'profile-card-delete': 'delete-account-screen',
+  };
+  const steps = stepsOf(fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8'));
+  const isCard = (s) => TOUCH.has(s.command) && /^profile-card-/.test(targetOf(s) || '');
+  const optional = (s) => /^\s*optional:\s*true\s*$/m.test(s.body);
+
+  // The Legal depth-2 segment's card tap is followed by a document tap, then the FAB. That
+  // whole segment is DEBUG-680's — exempt here by shape, and exactly once, so the exemption
+  // cannot quietly absorb a second site.
+  const nextTouch = (i) => steps.slice(i + 1).find((s) => TOUCH.has(s.command));
+  const isDepth2Legal = ({ s, i }) =>
+    targetOf(s) === 'profile-card-legal' && /^profile-legal-doc-/.test(targetOf(nextTouch(i)) || '');
+
+  test('every Profile card tap asserts its own destination before the flow moves on', () => {
+    const all = steps.map((s, i) => ({ s, i })).filter(({ s }) => isCard(s));
+    expect(all.filter(isDepth2Legal)).toHaveLength(1); // owner: DEBUG-680
+    const taps = all.filter((t) => !isDepth2Legal(t));
+    // Control: the population is found, so an empty result cannot pass. Seven cards, three
+    // of them privacy, plus the export and delete conditional re-taps.
+    expect(taps.length).toBeGreaterThanOrEqual(11);
+
+    const failures = taps
+      .filter(({ s, i }) => !consequencesAfter(steps, i).visible.includes(DEST[targetOf(s)]))
+      .map(({ s }) => `${FLOW}:${s.line} ${targetOf(s)} → ${DEST[targetOf(s)] || 'UNMAPPED'}`);
+    expect(failures).toEqual([]);
+  });
+
+  test('every Profile-menu card scroll is followed by the absorbing tab-profile tap, then the card', () => {
+    // Signature 1 (docs/testing/e2e-maestro.md): the first touch after a mid-content scroll
+    // can be swallowed. All seven menu-root sites stop mid-content (DEBUG-652 captures); four
+    // of them swipe zero times today only because of where the previous segment left the
+    // offset. The absorbing tap makes the card tap the SECOND touch regardless. Export and
+    // delete scroll a pushed screen, where a tab tap would pop the stack — they keep their
+    // conditional re-taps instead.
+    const PUSHED = new Set(['profile-card-export', 'profile-card-delete']);
+    const sites = steps
+      .map((s, i) => ({ s, i }))
+      .filter(({ s }) => s.command === 'scrollUntilVisible' && /^profile-card-/.test(targetOf(s) || '') && !PUSHED.has(targetOf(s)))
+      .filter(({ i }) => !(targetOf(steps[i]) === 'profile-card-legal'
+        && steps.slice(i + 1, i + 4).some((x) => /^profile-legal-doc-/.test(targetOf(x) || '')))); // DEBUG-680
+    expect(sites).toHaveLength(7);
+    const failures = sites
+      .filter(({ s, i }) => !(steps[i + 1].command === 'tapOn' && targetOf(steps[i + 1]) === 'tab-profile'
+        && steps[i + 2].command === 'tapOn' && targetOf(steps[i + 2]) === targetOf(s)))
+      .map(({ s }) => `${FLOW}:${s.line} ${targetOf(s)}`);
+    expect(failures).toEqual([]);
+  });
+
+  test('the destination is the last step before every FAB tap that follows a card', () => {
+    const fabs = steps
+      .map((s, i) => ({ s, i }))
+      .filter(({ s }) => s.command === 'tapOn' && targetOf(s) === 'crisis-button-root');
+    const afterCard = fabs
+      .map(({ s, i }) => {
+        let j = i - 1;
+        while (j >= 0 && !(TOUCH.has(steps[j].command) && targetOf(steps[j]) !== 'crisis-button-root')) j--;
+        return { fab: s, prev: steps[i - 1], card: j >= 0 && isCard(steps[j]) ? targetOf(steps[j]) : null };
+      })
+      .filter((f) => f.card);
+    // Control: appsettings, privacy, export, delete, account, stoic, legal.
+    expect(afterCard.map((f) => f.card).sort()).toEqual(Object.keys(DEST).sort());
+
+    const failures = afterCard
+      .filter(({ prev, card }) => !(prev.command === 'assertVisible' && targetOf(prev) === DEST[card] && !optional(prev)))
+      .map(({ fab, card }) => `${FLOW}:${fab.line} FAB after ${card} lacks assertVisible ${DEST[card]} as its last step`);
+    expect(failures).toEqual([]);
   });
 });

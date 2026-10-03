@@ -237,6 +237,13 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     centerElement: true # DEBUG-465: the card is inside InsightsScreen's ScrollView
                         # while the crisis FAB is pinned outside it, so a card left
                         # at the bottom edge shares coordinates with the FAB.
+# DEBUG-652 ABSORBING TAP — LOAD-BEARING, NOT A COPY-PASTE SLIP. tab-insights is the active
+# tab; it absorbs the touch a scroll can swallow, so the prompt tap is the SECOND touch. The
+# centring clamped at the content boundary in the 2026-10-02 capture only because the seeded
+# content below the card is short — WellnessScreeningTrends and "See full history" follow it
+# (InsightsScreen.tsx), so more seed data re-arms a mid-content stop.
+- tapOn:
+    id: "tab-insights"
 - tapOn:
     id: "weekly-reflection-prompt"
 - assertVisible:
@@ -409,8 +416,24 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     element:
       id: "profile-card-appsettings"
     direction: DOWN
+# DEBUG-652 ABSORBING TAP — LOAD-BEARING, NOT A COPY-PASTE SLIP (the DEBUG-477 shape).
+# tab-profile is DELIBERATELY re-tapped while already the active tab, on the menu root. It
+# absorbs the one touch an XCUITest tap can lose after a scroll that stops mid-content
+# (signature 1, docs/testing/e2e-maestro.md), so the card tap below is the SECOND touch.
+# Captured 2026-10-02 on iPhone SE 3 / 375x667: every menu-root card scroll here stops
+# mid-content. Four of the seven swipe zero times today only because of where the previous
+# segment left the offset, so the tap goes on all seven. COUPLING: the app has no
+# scroll-to-top on active-tab re-press; adding one turns this RED (the safe direction).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-appsettings"
+# DEBUG-652: the Profile menu carries its own FAB, so the FAB tap below proves nothing
+# about the card tap unless the destination is asserted first. A screen-root testID,
+# not `profile-back-button` (every pushed route has one) and not the header title (the
+# card carries the same label). It stays the LAST step before the FAB tap.
+- assertVisible:
+    id: "app-settings-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
@@ -428,8 +451,13 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     element:
       id: "profile-card-privacy"
     direction: DOWN
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-privacy"
+- assertVisible:
+    id: "privacy-data-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
@@ -451,8 +479,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # otherwise stops with the card at the screen's bottom edge (near the floating
 # crisis button), where the subsequent tap doesn't land cleanly enough to fire
 # navigation — it silently stays on the menu. Centering the card before the tap
-# makes the push reliable. (The existing depth-1 segments don't need this only
-# because their crisis assertion is satisfiable by the menu's own overlay.)
+# makes the push reliable. (The depth-1 segments above never needed it to go green
+# only because their crisis assertion was satisfiable by the menu's own FAB, which
+# made them false greens. DEBUG-652 asserts each one's destination before the FAB.)
 - tapOn:
     id: "tab-profile"
 - scrollUntilVisible:
@@ -460,8 +489,15 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
       id: "profile-card-privacy"
     direction: DOWN
     centerElement: true
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-privacy"
+# DEBUG-652: arrival is asserted before the next scroll, or a swallowed tap surfaces
+# ~48s later as the wrong element.
+- assertVisible:
+    id: "privacy-data-screen"
 # ── DEBUG-473: BUDGET, NOT GEOMETRY — and not device-specific ────────────────────
 # This flow was reported RED at 402x874. It is not: it passes 5/5 there on an idle
 # machine, unmodified. What it was, was one second away from failing.
@@ -622,8 +658,15 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
       id: "profile-card-privacy"
     direction: DOWN
     centerElement: true
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-privacy"
+# DEBUG-652: arrival is asserted before the next scroll, or a swallowed tap surfaces
+# ~48s later as the wrong element.
+- assertVisible:
+    id: "privacy-data-screen"
 # profile-card-delete is the BOTTOM-MOST element on the Privacy screen. It needs
 # centerElement:true for the same reason every other card scroll here does —
 # without it scrollUntilVisible stops short of maximum scroll and reports
@@ -685,8 +728,13 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     element:
       id: "profile-card-account"
     direction: DOWN
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-account"
+- assertVisible:
+    id: "account-settings-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
@@ -704,8 +752,13 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     element:
       id: "profile-card-stoic"
     direction: DOWN
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-stoic"
+- assertVisible:
+    id: "about-stoic-mindfulness-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
@@ -723,8 +776,13 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     element:
       id: "profile-card-legal"
     direction: DOWN
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-legal"
+- assertVisible:
+    id: "legal-documents-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:

@@ -257,11 +257,12 @@ name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility t
       # DEBUG-632 — CONFIRM the tap took. Do not delete this and do not simplify it into a
       # fixed wait; both are how the flow becomes a coin flip again.
       #
-      # `timeout: 5000` is a SETTLE FLOOR, not slack. The re-tap below is issued only after
-      # this wait has polled, so it lands in a list that stopped decelerating seconds ago —
-      # that is the mechanism by which DEBUG-546's swallow cannot apply to the second tap.
-      # On the happy path it costs one sub-second poll, because it exits the moment the
-      # link is gone. Shrink it and the defect is silently re-armed.
+      # `timeout: 5000` only has to outlast a LANDED tap's unmount, which took <=743ms across
+      # 10 AX5 runs of daily-loop-ax5-virtuous (DEBUG-652, iPhone SE 3), where a 3000ms settle
+      # separated landed from swallowed every time. The re-tap below recovered 4/4 swallowed
+      # first taps because it is the SECOND touch, not because the list had stopped
+      # decelerating — so this is not a floor that re-arms the defect if shrunk. On the
+      # happy path it costs one sub-second poll.
       - extendedWaitUntil:
           notVisible:
             id: "daily-loop-skip-breath"

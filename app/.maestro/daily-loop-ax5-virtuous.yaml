@@ -288,6 +288,10 @@ name: "DailyLoop AX5 VirtuousResponse (DEBUG-629): quick depth reaches beat 3 at
 #
 # Free to run here: we are already on the last beat, and every flow's `launchApp
 # { clearState: true }` means the resumable session this abandons cannot poison the next one.
+# DEBUG-652 MEASURED, NO RETRY: the exit sits OUTSIDE the ScrollView (header, y 30-138), and
+# 6/6 baseline taps landed after a mid-content Temperance stop vs 5/5 with a boundary clamp
+# (iPhone SE 3, AX5). A retry here would turn "the first press exits" into "one of two
+# presses exits" and hide any non-static K9 variant (crisis ruling) — do not add one.
 - tapOn:
     id: "daily-loop-exit"
 - extendedWaitUntil:
