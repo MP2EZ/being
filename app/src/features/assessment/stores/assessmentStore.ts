@@ -25,6 +25,7 @@ import { logSecurity, logPerformance, logError, LogCategory } from '@/core/servi
 import { generateTimestampedId } from '@/core/utils/id';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import supabaseService from '@/core/services/supabase/SupabaseService';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -1052,6 +1053,24 @@ export const useAssessmentStore = create<AssessmentStore>()(
     )
   )
 );
+
+/**
+ * Drop every in-memory field so the next persist cannot write erased history
+ * back (DEBUG-671). Without it, `completedAssessments` survived account deletion
+ * in memory and the first `set()` after re-onboarding re-wrote all of it.
+ *
+ * `replace` is safe only because persist's `getInitialState()` is the creator's
+ * result, actions included. Persist's `setState` returns its `setItem` promise, so
+ * awaiting it makes the empty write land BEFORE the wipe that follows. Memory and
+ * persistence only (crisis ruling): no detection, alert or crisis telemetry runs
+ * here. A live assessment cannot overlap deletion — the flow is a root route the
+ * user must leave to reach Profile — so the crisis fields only hold leftovers.
+ */
+export async function resetAssessmentStoreForErasure(): Promise<void> {
+  await useAssessmentStore.setState(useAssessmentStore.getInitialState(), true);
+}
+
+registerErasureReset('assessmentStore', resetAssessmentStoreForErasure);
 
 // DEBUG-549 — the module-level autosave subscription was REMOVED, not repaired.
 //

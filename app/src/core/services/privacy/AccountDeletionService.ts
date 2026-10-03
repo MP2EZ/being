@@ -10,7 +10,7 @@
  * ungated consentStore.exportConsentRecords().)
  *
  * NON-NEGOTIABLE ORDERING (compliance + crisis sign-off):
- *   server delete → (true) → audit attestation → local wipe.
+ *   server delete → (true) → audit attestation → in-memory reset → local wipe.
  * A `false` from the server delete ABORTS without touching local data so the
  * user can retry with their data intact.
  */
@@ -24,6 +24,7 @@ import {
 import { useConsentStore } from '@/core/stores/consentStore';
 import { clearLogAuditTrail, logError, logSecurity, LogCategory } from '@/core/services/logging';
 import { sweepExportArtifacts } from './exportArtifactSweeper';
+import { resetInMemoryStateForErasure } from './erasureResetRegistry';
 
 export type AccountDeletionResult =
   | { ok: true }
@@ -110,13 +111,33 @@ export async function deleteAccountAndWipe({
     );
   }
 
-  // 5. On-device wipe incl. master key. Non-retryable once reached: if this
+  // 5. In-memory store reset (DEBUG-671). Stores still holding pre-erasure
+  //    records would write them back on their next persist, so each registered
+  //    store drops its state here. IMMEDIATELY BEFORE the wipe, so a persist
+  //    already in flight lands on disk that is about to be cleared rather than
+  //    after it. Best-effort like steps 2-4: the registry never rejects, and a
+  //    store that fails to reset must not gate the wipe. Never runs on the abort
+  //    path above, so a failed server delete leaves memory and timers untouched.
+  try {
+    const failed = await resetInMemoryStateForErasure();
+    if (failed.length > 0) {
+      logSecurity('[AccountDeletion] in-memory reset failed (continuing with wipe)', 'high', {
+        owners: failed.join(','),
+      });
+    }
+  } catch (error) {
+    logSecurity('[AccountDeletion] in-memory reset failed (continuing with wipe)', 'high', {
+      error: error instanceof Error ? error.message : 'Unknown error',
+    });
+  }
+
+  // 6. On-device wipe incl. master key. Non-retryable once reached: if this
   //    throws, do NOT loop back to the server call — the account is already
   //    gone server-side and a retry of the whole sequence remains safe.
   await SecureStorageService.clearAllWellnessData({ deleteMasterKey: true });
   logSecurity('[AccountDeletion] local wellness data wiped after server erasure', 'low');
 
-  // 6. Drop the in-memory log audit trail LAST (DEBUG-355), so the entry the
+  // 7. Drop the in-memory log audit trail LAST (DEBUG-355), so the entry the
   //    line above just pushed goes with it. Synchronous and structurally
   //    non-throwing by design — a rejection here, after both erasures have
   //    already succeeded, would be caught by DeleteAccountScreen and reported to

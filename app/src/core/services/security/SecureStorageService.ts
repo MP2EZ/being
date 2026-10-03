@@ -202,6 +202,7 @@ export const WELLNESS_SECURE_STORE_KEYS = [
   'stoic_session_morning',       // SessionStorageService — per-flow session blobs
   'stoic_session_midday',
   'stoic_session_evening',
+  'stoic_session_daily_loop',    // DEBUG-671: every SESSION_STORAGE_KEYS value, pinned
 ] as const;
 
 /**

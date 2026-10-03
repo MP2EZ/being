@@ -13,6 +13,10 @@
  *
  * DEBUG-645 added a fourth: the export-file sweep, also best-effort and also
  * before the wipe, so a failing wipe cannot strand the plaintext export copy.
+ *
+ * DEBUG-671 added a fifth: the in-memory store reset, after the sweep and
+ * IMMEDIATELY before the wipe, so a persist in flight lands on disk the wipe then
+ * clears. Best-effort, and never on the abort path.
  */
 
 import { deleteAccountAndWipe } from '../AccountDeletionService';
@@ -21,9 +25,20 @@ import SecureStorageService from '@/core/services/security/SecureStorageService'
 import { useConsentStore } from '@/core/stores/consentStore';
 import { resetAnalyticsIdentity } from '@/core/analytics/analyticsIdentityReset';
 import { sweepExportArtifacts } from '../exportArtifactSweeper';
+import { resetInMemoryStateForErasure } from '../erasureResetRegistry';
+import { logSecurity } from '@/core/services/logging';
 
 jest.mock('../exportArtifactSweeper', () => ({
   sweepExportArtifacts: jest.fn(() => 0),
+}));
+
+jest.mock('../erasureResetRegistry', () => ({
+  resetInMemoryStateForErasure: jest.fn(async () => []),
+}));
+
+jest.mock('@/core/services/logging', () => ({
+  ...jest.requireActual('@/core/services/logging'),
+  logSecurity: jest.fn(),
 }));
 
 jest.mock('@/core/analytics/analyticsIdentityReset', () => ({
@@ -49,12 +64,15 @@ const mockClearAllWellnessData = SecureStorageService.clearAllWellnessData as je
 const mockRecordAttestation = jest.fn();
 const mockResetAnalyticsIdentity = resetAnalyticsIdentity as jest.Mock;
 const mockSweepExportArtifacts = sweepExportArtifacts as jest.Mock;
+const mockResetInMemory = resetInMemoryStateForErasure as jest.Mock;
+const mockLogSecurity = logSecurity as jest.Mock;
 
 describe('AccountDeletionService — deleteAccountAndWipe ordering invariant', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockClearAllWellnessData.mockResolvedValue(undefined);
     mockRecordAttestation.mockResolvedValue(undefined);
+    mockResetInMemory.mockResolvedValue([]);
     (useConsentStore.getState as jest.Mock).mockReturnValue({
       recordAccountDeletionAttestation: mockRecordAttestation,
     });
@@ -197,5 +215,60 @@ describe('AccountDeletionService — deleteAccountAndWipe ordering invariant', (
     await deleteAccountAndWipe({ posthog: null });
 
     expect(mockSweepExportArtifacts).not.toHaveBeenCalled();
+  });
+
+  it('DEBUG-671: resets in-memory state AFTER the sweep and IMMEDIATELY BEFORE the wipe', async () => {
+    mockDeleteAccount.mockResolvedValue(true);
+    let resetFinishedBeforeWipe = false;
+    mockResetInMemory.mockImplementationOnce(async () => {
+      await Promise.resolve();
+      resetFinishedBeforeWipe = !mockClearAllWellnessData.mock.calls.length;
+      return [];
+    });
+
+    await deleteAccountAndWipe({ posthog: null });
+
+    const sweepOrder = mockSweepExportArtifacts.mock.invocationCallOrder[0];
+    const resetOrder = mockResetInMemory.mock.invocationCallOrder[0];
+    const wipeOrder = mockClearAllWellnessData.mock.invocationCallOrder[0];
+    expect(mockResetInMemory).toHaveBeenCalledTimes(1);
+    expect(sweepOrder).toBeLessThan(resetOrder);
+    expect(resetOrder).toBeLessThan(wipeOrder);
+    // Awaited, not just started: the wipe waits for the reset to settle.
+    expect(resetFinishedBeforeWipe).toBe(true);
+  });
+
+  it('DEBUG-671: does NOT reset memory when the server delete failed', async () => {
+    mockDeleteAccount.mockResolvedValue(false);
+
+    await deleteAccountAndWipe({ posthog: null });
+
+    expect(mockResetInMemory).not.toHaveBeenCalled();
+  });
+
+  it('DEBUG-671: failed owners are logged and still reach the wipe', async () => {
+    mockDeleteAccount.mockResolvedValue(true);
+    mockResetInMemory.mockResolvedValueOnce(['assessmentStore']);
+
+    const result = await deleteAccountAndWipe({ posthog: null });
+
+    expect(result).toEqual({ ok: true });
+    expect(mockClearAllWellnessData).toHaveBeenCalledWith({ deleteMasterKey: true });
+    expect(mockLogSecurity).toHaveBeenCalledWith(
+      '[AccountDeletion] in-memory reset failed (continuing with wipe)',
+      'high',
+      { owners: 'assessmentStore' },
+    );
+  });
+
+  it('DEBUG-671: a rejecting reset does NOT gate the wipe or fail the deletion', async () => {
+    // The registry never rejects by contract; the service must not rely on that.
+    mockDeleteAccount.mockResolvedValue(true);
+    mockResetInMemory.mockRejectedValueOnce(new Error('registry exploded'));
+
+    const result = await deleteAccountAndWipe({ posthog: null });
+
+    expect(mockClearAllWellnessData).toHaveBeenCalledWith({ deleteMasterKey: true });
+    expect(result).toEqual({ ok: true });
   });
 });

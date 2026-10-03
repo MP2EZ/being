@@ -24,6 +24,7 @@
  */
 
 import { create } from 'zustand';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
 import type {
   ModuleId,
   ModuleStatus,
@@ -340,3 +341,17 @@ export const useEducationStore = create<ExtendedEducationState>((set, get) => ({
   },
 }));
 
+/**
+ * Account erasure drops Learn progress from memory (DEBUG-671). Nothing persists
+ * it since DEBUG-672, but a session that outlived deletion still showed it.
+ */
+export function resetEducationStoreForErasure(): void {
+  useEducationStore.setState({
+    modules: initializeModules(),
+    currentModule: null,
+    recommendedNext: 'aware-presence',
+    dismissedInsightTips: [],
+  });
+}
+
+registerErasureReset('educationStore', resetEducationStoreForErasure);
