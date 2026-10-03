@@ -41,6 +41,7 @@
 import { logSecurity, logPerformance, logError, logSystem, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
+import { isLegacyPlaintextRecord } from './legacyPlaintextRecordSweeper';
 import * as FileSystem from 'expo-file-system';
 import EncryptionService, { 
   EncryptedDataPackage, 
@@ -1297,9 +1298,9 @@ export class SecureStorageService {
       SECURE_STORAGE_CONFIG.SWEPT_EXACT_KEYS.includes(k) ||
       // Legacy plaintext records from shipped builds. `legacyPlaintextRecordSweeper`
       // purges these at launch; sweeping them here too covers the user who
-      // deletes their account without relaunching first (DEBUG-305).
-      k.startsWith('crisis_intervention_') ||
-      k === 'assessment_audit_trail'
+      // deletes their account without relaunching first (DEBUG-305). Same
+      // predicate as the sweeper, so the two lists cannot drift (DEBUG-672).
+      isLegacyPlaintextRecord(k)
     );
     if (toRemove.length > 0) {
       await AsyncStorage.multiRemove(toRemove);

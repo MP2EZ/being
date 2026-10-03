@@ -16,6 +16,10 @@
  * under `ASSESSMENT_ASYNC_PREFIX` in the same change for the same reason
  * (content-free, so not a disclosure defect, but the same erasure gap).
  *
+ * And `@education:state` (DEBUG-672): `educationStore` wrote it as plaintext
+ * JSON — including `practiceCount`, ruled Art. 9 by FEAT-667 — and never read it
+ * back. DEBUG-672 removed the writer; this purges the blob on shipped installs.
+ *
  * WHY THE PATTERNS ARE THIS NARROW
  *
  * The keys being removed share a namespace prefix with keys this module must
@@ -57,15 +61,20 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 /**
  * Legacy keys to purge. Anchored at the start; `crisis_intervention_` cannot
- * collide with `crisis_async_` / `crisis_secure_`, and the audit-trail entry is
- * an exact match rather than a prefix.
+ * collide with `crisis_async_` / `crisis_secure_`, and the audit-trail and
+ * education entries are exact matches rather than prefixes.
  */
 const LEGACY_PLAINTEXT_PATTERNS: readonly RegExp[] = [
   /^crisis_intervention_/,
   /^assessment_audit_trail$/,
+  /^@education:state$/,
 ];
 
-function isLegacyPlaintextRecord(key: string): boolean {
+/**
+ * Exported so `SecureStorageService.clearAllWellnessData` sweeps the same keys on
+ * erasure from this one list, rather than a hand-copied mirror that can drift.
+ */
+export function isLegacyPlaintextRecord(key: string): boolean {
   return LEGACY_PLAINTEXT_PATTERNS.some((pattern) => pattern.test(key));
 }
 

@@ -192,12 +192,15 @@ describe('erasure covers keys that cannot use a swept prefix (DEBUG-305)', () =>
     // matches them too so erasure does not depend on launch ordering.
     mockMemoryStore.set('crisis_intervention_s1', JSON.stringify({ triggerValue: 3 }));
     mockMemoryStore.set('assessment_audit_trail', '[]');
+    // DEBUG-672: the plaintext education blob from shipped builds.
+    mockMemoryStore.set('@education:state', JSON.stringify({ modules: { 'aware-presence': { practiceCount: 4 } } }));
 
     await SecureStorageService.clearAllWellnessData();
 
     const after = await AsyncStorage.getAllKeys();
     expect(after).not.toContain('crisis_intervention_s1');
     expect(after).not.toContain('assessment_audit_trail');
+    expect(after).not.toContain('@education:state');
   });
 
   it('removes the pending crisis-telemetry queue', async () => {
@@ -226,12 +229,14 @@ describe('erasure covers keys that cannot use a swept prefix (DEBUG-305)', () =>
     // merely share the `crisis_`/`assessment_` stem.
     mockMemoryStore.set('crisis_unrelated_feature_state', 'keep me');
     mockMemoryStore.set('assessment_audit_trail_backup', 'keep me too');
+    mockMemoryStore.set('@education:state_backup', 'and me');
 
     await SecureStorageService.clearAllWellnessData();
 
     const after = await AsyncStorage.getAllKeys();
     expect(after).toContain('crisis_unrelated_feature_state');
     expect(after).toContain('assessment_audit_trail_backup');
+    expect(after).toContain('@education:state_backup');
   });
 });
 
