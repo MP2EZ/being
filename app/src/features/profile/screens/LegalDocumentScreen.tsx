@@ -30,16 +30,18 @@ const LegalDocumentScreen: React.FC = () => {
   const route = useRoute<RouteProp<ProfileStackParamList, 'LegalDocument'>>();
   const document = getLegalDocument(route.params.documentType);
 
+  // DEBUG-680: the root testID is crisis-button-reachability's proof that the document tap
+  // landed before it taps the FAB (the Legal list has the same root FAB). Both branches.
   if (!document) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} testID="legal-document-screen">
         <Text style={styles.notFoundText}>Document not found.</Text>
       </SafeAreaView>
     );
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="legal-document-screen">
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}

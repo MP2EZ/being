@@ -346,7 +346,8 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # NOTE: the Privacy → CloudBackup depth-2 route is gated by the cloud_sync feature
 # flag (dark by default), so its entry row is not present in this default-build
 # run; that route's overlay hosting is pinned by ProfileStackNavigator.test.tsx.
-# Legal → LegalDocument (ungated) provides the on-device depth-2 assertion here.
+# Legal → LegalDocument (ungated) is the on-device depth-2 check: it asserts
+# legal-document-screen before the FAB tap (DEBUG-680).
 
 # menu route (Profile tab landing)
 - tapOn:
@@ -421,8 +422,8 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # absorbs the one touch an XCUITest tap can lose after a scroll that stops mid-content
 # (signature 1, docs/testing/e2e-maestro.md), so the card tap below is the SECOND touch.
 # Captured 2026-10-02 on iPhone SE 3 / 375x667: every menu-root card scroll here stops
-# mid-content. Four of the seven swipe zero times today only because of where the previous
-# segment left the offset, so the tap goes on all seven. COUPLING: the app has no
+# mid-content. Five of the eight (DEBUG-680 added Legal depth-2) swipe zero times today only
+# because of where the previous segment left the offset, so the tap goes on all eight. COUPLING: the app has no
 # scroll-to-top on active-tab re-press; adding one turns this RED (the safe direction).
 - tapOn:
     id: "tab-profile"
@@ -795,17 +796,27 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 
 # depth-2: Legal Documents → an individual document (real push, depth 2).
 # Re-navigate menu → legal → legal-doc from scratch so the depth-2 assertion
-# never depends on where the prior nav-back-button landed.
+# never depends on where the prior nav-back-button landed — navigation state only: the
+# menu's scroll offset survives, which is why the absorbing tap below is needed.
 - tapOn:
     id: "tab-profile"
 - scrollUntilVisible:
     element:
       id: "profile-card-legal"
     direction: DOWN
+# DEBUG-680 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-legal"
+- assertVisible:
+    id: "legal-documents-screen"
 - tapOn:
     id: "profile-legal-doc-privacy-policy"
+# DEBUG-680: the Legal list carries the same root FAB, so assert the document landed. One
+# route serves all six documents. It stays the LAST step before the FAB tap.
+- assertVisible:
+    id: "legal-document-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:

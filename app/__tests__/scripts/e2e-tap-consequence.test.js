@@ -278,21 +278,18 @@ describe('DEBUG-652 — a Profile card tap must prove it landed before the FAB',
   const steps = stepsOf(fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8'));
   const isCard = (s) => TOUCH.has(s.command) && /^profile-card-/.test(targetOf(s) || '');
   const optional = (s) => /^\s*optional:\s*true\s*$/m.test(s.body);
-
-  // The Legal depth-2 segment's card tap is followed by a document tap, then the FAB. That
-  // whole segment is DEBUG-680's — exempt here by shape, and exactly once, so the exemption
-  // cannot quietly absorb a second site.
-  const nextTouch = (i) => steps.slice(i + 1).find((s) => TOUCH.has(s.command));
-  const isDepth2Legal = ({ s, i }) =>
-    targetOf(s) === 'profile-card-legal' && /^profile-legal-doc-/.test(targetOf(nextTouch(i)) || '');
+  // DEBUG-680: the Legal depth-2 segment's document tap lands on a pushed route whose
+  // parent (the Legal list) carries the same root FAB, so it needs a destination proof of
+  // its own. Every document shares one route, so one root testID serves them all.
+  const isDoc = (s) => TOUCH.has(s.command) && /^profile-legal-doc-/.test(targetOf(s) || '');
+  const destOf = (s) => (isDoc(s) ? 'legal-document-screen' : DEST[targetOf(s)]);
 
   test('every Profile card tap asserts its own destination before the flow moves on', () => {
-    const all = steps.map((s, i) => ({ s, i })).filter(({ s }) => isCard(s));
-    expect(all.filter(isDepth2Legal)).toHaveLength(1); // owner: DEBUG-680
-    const taps = all.filter((t) => !isDepth2Legal(t));
+    const taps = steps.map((s, i) => ({ s, i })).filter(({ s }) => isCard(s));
     // Control: the population is found, so an empty result cannot pass. Seven cards, three
-    // of them privacy, plus the export and delete conditional re-taps.
-    expect(taps.length).toBeGreaterThanOrEqual(11);
+    // of them privacy, plus the Legal depth-2 card and the export and delete conditional
+    // re-taps.
+    expect(taps.length).toBeGreaterThanOrEqual(12);
 
     const failures = taps
       .filter(({ s, i }) => !consequencesAfter(steps, i).visible.includes(DEST[targetOf(s)]))
@@ -310,10 +307,9 @@ describe('DEBUG-652 — a Profile card tap must prove it landed before the FAB',
     const PUSHED = new Set(['profile-card-export', 'profile-card-delete']);
     const sites = steps
       .map((s, i) => ({ s, i }))
-      .filter(({ s }) => s.command === 'scrollUntilVisible' && /^profile-card-/.test(targetOf(s) || '') && !PUSHED.has(targetOf(s)))
-      .filter(({ i }) => !(targetOf(steps[i]) === 'profile-card-legal'
-        && steps.slice(i + 1, i + 4).some((x) => /^profile-legal-doc-/.test(targetOf(x) || '')))); // DEBUG-680
-    expect(sites).toHaveLength(7);
+      .filter(({ s }) => s.command === 'scrollUntilVisible' && /^profile-card-/.test(targetOf(s) || '') && !PUSHED.has(targetOf(s)));
+    // The seven DEBUG-652 sites plus DEBUG-680's Legal depth-2 card scroll.
+    expect(sites).toHaveLength(8);
     const failures = sites
       .filter(({ s, i }) => !(steps[i + 1].command === 'tapOn' && targetOf(steps[i + 1]) === 'tab-profile'
         && steps[i + 2].command === 'tapOn' && targetOf(steps[i + 2]) === targetOf(s)))
@@ -321,7 +317,7 @@ describe('DEBUG-652 — a Profile card tap must prove it landed before the FAB',
     expect(failures).toEqual([]);
   });
 
-  test('the destination is the last step before every FAB tap that follows a card', () => {
+  test('the destination is the last step before every FAB tap that follows a card or document', () => {
     const fabs = steps
       .map((s, i) => ({ s, i }))
       .filter(({ s }) => s.command === 'tapOn' && targetOf(s) === 'crisis-button-root');
@@ -329,15 +325,17 @@ describe('DEBUG-652 — a Profile card tap must prove it landed before the FAB',
       .map(({ s, i }) => {
         let j = i - 1;
         while (j >= 0 && !(TOUCH.has(steps[j].command) && targetOf(steps[j]) !== 'crisis-button-root')) j--;
-        return { fab: s, prev: steps[i - 1], card: j >= 0 && isCard(steps[j]) ? targetOf(steps[j]) : null };
+        const hit = j >= 0 && (isCard(steps[j]) || isDoc(steps[j])) ? steps[j] : null;
+        return { fab: s, prev: steps[i - 1], card: hit && targetOf(hit), dest: hit && destOf(hit) };
       })
       .filter((f) => f.card);
-    // Control: appsettings, privacy, export, delete, account, stoic, legal.
-    expect(afterCard.map((f) => f.card).sort()).toEqual(Object.keys(DEST).sort());
+    // Control: appsettings, privacy, export, delete, account, stoic, legal — and the Legal
+    // depth-2 document, whose FAB follows the document tap rather than a card.
+    expect(afterCard.map((f) => f.card).sort()).toEqual([...Object.keys(DEST), 'profile-legal-doc-privacy-policy'].sort());
 
     const failures = afterCard
-      .filter(({ prev, card }) => !(prev.command === 'assertVisible' && targetOf(prev) === DEST[card] && !optional(prev)))
-      .map(({ fab, card }) => `${FLOW}:${fab.line} FAB after ${card} lacks assertVisible ${DEST[card]} as its last step`);
+      .filter(({ prev, dest }) => !(prev.command === 'assertVisible' && targetOf(prev) === dest && !optional(prev)))
+      .map(({ fab, card, dest }) => `${FLOW}:${fab.line} FAB after ${card} lacks assertVisible ${dest} as its last step`);
     expect(failures).toEqual([]);
   });
 });
