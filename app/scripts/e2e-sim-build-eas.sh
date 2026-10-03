@@ -106,9 +106,30 @@ echo "🎯 Target simulator: $SIM_UDID"
 # tarball to the extract+install stages below and report success (DEBUG-315).
 rm -f "$OUT"
 
+# INFRA-691 — pin EAS's working dir so this run can reap the CocoaPods cache entries it keys
+# to it. RN 0.85's podspecs embed the absolute project path, and EAS builds in a fresh dir
+# every run, so those entries (~825 MB) can never be hit again — pass or fail. Scoped with
+# `--pods-under`: a worktree's entries are reused by its own rebuilds and are left to the
+# orphan sweep. `pwd -P` matters: $TMPDIR ends in `/` and sits behind /var -> /private/var,
+# and a scope spelled differently from what CocoaPods records would reap nothing, silently.
+WORK=""
+EAS_WORKDIR=""
+on_exit() {
+  [ -z "$WORK" ] || rm -rf "$WORK"
+  [ -n "$EAS_WORKDIR" ] || return 0
+  bash "$(dirname "$0")/e2e-sim-clean.sh" --pods-under "$EAS_WORKDIR" --yes >&2 ||
+    echo "⚠️  Could not reap this build's CocoaPods cache entries (keyed under $EAS_WORKDIR)." >&2
+  # EAS deletes its working dir itself; this only catches a run that died before using it.
+  rmdir "$EAS_WORKDIR" 2>/dev/null || true
+}
+trap on_exit EXIT
+EAS_TMP="$(mktemp -d "${TMPDIR:-/tmp}/eas-build-local-nodejs.XXXXXX")" || fail "EAS working-dir creation"
+EAS_WORKDIR="$(cd "$EAS_TMP" && pwd -P)" || fail "EAS working-dir resolution"
+
 echo "🏗  Building no-dev-client Release simulator build via EAS (local, ~10–15 min)…"
-echo "    profile: e2e-sim  ·  output: $OUT"
-if ! eas build --local --profile e2e-sim --platform ios --non-interactive --output "$OUT"; then
+echo "    profile: e2e-sim  ·  output: $OUT  ·  workingdir: $EAS_WORKDIR"
+if ! EAS_LOCAL_BUILD_WORKINGDIR="$EAS_WORKDIR" \
+  eas build --local --profile e2e-sim --platform ios --non-interactive --output "$OUT"; then
   fail "EAS local build (profile e2e-sim). The clean-tree pre-flight above already rules out the dirty-tree abort, so read the EAS output for the real cause (credentials, provisioning, Xcode/CocoaPods state)."
 fi
 
@@ -117,8 +138,7 @@ fi
 # it reported. Refusing here is what stops the gate testing a stale binary.
 [ -f "$OUT" ] || fail "EAS build reported success but wrote no artifact to $OUT — refusing to install a possibly stale build"
 
-WORK="$(mktemp -d)" || fail "scratch directory creation"
-trap 'rm -rf "$WORK"' EXIT
+WORK="$(mktemp -d)" || fail "scratch directory creation" # removed by on_exit
 
 if ! tar -xzf "$OUT" -C "$WORK"; then
   fail "artifact extraction ($OUT)"
