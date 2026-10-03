@@ -2309,7 +2309,7 @@ git worktree remove [worktree-dir] --force
 # recreated mid-delete). The merge is already confirmed by Step 3.5, so:
 [ -d "[worktree-dir]" ] && rm -rf "[worktree-dir]" && git worktree prune
 
-# INFRA-435 — reap the DerivedData this removal just orphaned. Only on "y":
+# reap the DerivedData and CocoaPods cache entries this removal just orphaned (INFRA-435/691). Only on "y":
 # on n/later the worktree is still live and its root still resolves, so the
 # sweep could not touch it anyway.
 bash /Users/max/dev/being/development/app/scripts/e2e-sim-clean.sh --orphans --yes
@@ -2326,6 +2326,7 @@ machine, not just this worktree's. Say so when reporting it.
 ```
 🗑️  Worktree removed: [worktree-dir]
 ♻️  DerivedData: ~N GB reclaimed across M orphaned cache(s) (machine-wide)
+♻️  CocoaPods cache: ~N GB reclaimed across M orphaned entr(ies) (machine-wide)
 ```
 
 **If user chooses "later"**:
