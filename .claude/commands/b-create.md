@@ -400,15 +400,18 @@ Risk: [score] - [rationale]
 
 After page creation, insert the Work Item ID header so `/b-work` can find it via semantic search.
 
-**Extract from response**: `page_id`; Work Item ID from `properties["Work Item ID"]` (formula, e.g. "MAINT-140").
+**Read the ID back.** `create-pages` returns only `page_id`, and `properties["Work Item ID"]` is a
+formula that reads back as a `formulaResult://` sentinel, never the value. `notion-fetch` the new
+page and build the ID from `userDefined:ID`: `[TYPE]-[userDefined:ID]` (e.g. `MAINT` + `437` →
+`MAINT-437`). Never predict it from the last ID seen — peer sessions create items concurrently.
 
 ```
 mcp__notion__notion-update-page
 data: {
   "page_id": "[page_id]",
-  "command": "insert_content_after",
-  "selection_with_ellipsis": "",
-  "new_str": "## Work Item ID: [WORK_ITEM_ID]\n\n"
+  "command": "insert_content",
+  "position": {"type": "start"},
+  "content": "## Work Item ID: [WORK_ITEM_ID]\n"
 }
 ```
 
@@ -456,10 +459,11 @@ created): "⚠️ Could not set Blocked by relation (page created; link manually
 
 ## Phase 8: Extract & Display Result
 
-From the response, extract **Work Item Name** (`properties["Work Item Name"]`).
+Display `[WORK_ITEM_ID]: [Name]` from Phase 7.5's ID and Phase 1's Name — `Work Item Name` is a
+formula too and reads back as a sentinel.
 
 ```
-✅ Created [Work Item Name]  (depth: [quick|design|full])
+✅ Created [WORK_ITEM_ID]: [Name]  (depth: [quick|design|full])
 Suggested agents: [AGENTS REQUIRED or "none"]
 [if depth ≥ design: "Segments & jobs captured · "]Dimension scores captured for prioritization
 
