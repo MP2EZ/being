@@ -433,6 +433,10 @@ cd /Users/max/dev/being
 git worktree add [dir-name] -b [branch-name] origin/development
 ```
 
+**Worktrees live at `/Users/max/dev/being/[dir-name]`, even when this session started inside an
+app-made `.claude/worktrees/` worktree.** If a hook then blocks Edit/Write there, edit via Bash in
+that worktree and say so once — never relocate the work into the session's own worktree.
+
 Base on `origin/development`, never the local ref — it can lag the remote, and the
 remote-tracking ref satisfies the up-to-date-branch requirement by construction.
 
