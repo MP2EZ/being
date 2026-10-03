@@ -18,7 +18,11 @@
 -- covered: the alerter's own arithmetic over these columns, which is unit-tested in deno at
 -- supabase/functions/_tests/crisis-alert-logic.test.ts.
 --
--- Last validated: NOT YET RUN — requires a local stack (see close-out).
+-- Last validated: 2026-10-02 (INFRA-613), on LIVE rather than a local stack, by a
+-- founder-approved forced-rollback rehearsal: the migration and this suite ran verbatim inside
+-- one DO block ending in RAISE 'REHEARSAL_OK', so nothing persisted. Control (suite with no
+-- migration): `FAIL: public.crisis_event_day does not exist`. Rehearsal:
+-- `ERROR:  P0001: REHEARSAL_OK`. All 7 persistence checks read true afterwards.
 
 \set ON_ERROR_STOP on
 
