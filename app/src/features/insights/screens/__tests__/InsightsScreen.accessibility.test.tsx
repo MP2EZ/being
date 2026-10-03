@@ -78,7 +78,9 @@ jest.mock('@/features/learn/stores/educationStore', () => ({
   }),
 }));
 
+import { ScrollView } from 'react-native';
 import InsightsScreen from '../InsightsScreen';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 
 describe('InsightsScreen accessibility', () => {
   it('marks the screen title as a level-1 accessibility header', () => {
@@ -86,5 +88,27 @@ describe('InsightsScreen accessibility', () => {
     const title = getByText('Insights');
     expect(title.props.accessibilityRole).toBe('header');
     expect(title.props.accessibilityLevel).toBe(1);
+  });
+});
+
+/**
+ * FEAT-669 (crisis ruling): the scroll content ends in a spacer at least
+ * CRISIS_BUTTON_EXCLUSION_RECT.top tall, so at maximum scroll no control's bottom sits in
+ * the crisis FAB's band (zIndex 9999 — an overlap is a wrong-destination tap). It must be
+ * the LAST child: anything after it reopens the gap. Maestro taps element centres and
+ * cannot see this; this pin is the falsifier.
+ */
+describe('InsightsScreen FAB clearance', () => {
+  it('ends the scroll content with a spacer of the exclusion rect\'s height', () => {
+    const screen = render(<InsightsScreen />);
+    const spacer = screen.getByTestId('insights-fab-clearance');
+    const flat = Object.assign({}, ...[spacer.props.style].flat());
+    expect(flat.height).toBe(CRISIS_BUTTON_EXCLUSION_RECT.top);
+    expect(flat.height).toBeGreaterThan(100);
+
+    const content = screen.UNSAFE_getByType(ScrollView).props.children as React.ReactNode[];
+    const rendered = React.Children.toArray(content);
+    const last = rendered[rendered.length - 1] as React.ReactElement<{ testID?: string }>;
+    expect(last.props.testID).toBe('insights-fab-clearance');
   });
 });

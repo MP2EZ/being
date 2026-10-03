@@ -79,6 +79,14 @@ const NAMED_FILES = [
   'src/features/practices/dailyloop/screens/DailyLoopCompleteScreen.tsx',
   'src/features/practices/dailyloop/config/tenseMode.ts',
   'src/features/insights/components/WeeklyReflectionComposer.tsx',
+  // FEAT-669 (crisis ruling 2026-10-03): DailyLoopDepthSelectScreen, DotCalendar and
+  // PrincipleEngagementChart join WeeklyReflectionCard as display-only notice hosts.
+  // These three may NOT read the predicate: WellnessScreeningTrends hosts the inline
+  // 988 link and publishes SessionNoteComposer into the root slot; SessionNoteComposer
+  // is a write surface on CrisisTextInput; InsightsScreen is a render ancestor of both.
+  'src/features/insights/components/WellnessScreeningTrends.tsx',
+  'src/features/insights/components/SessionNoteComposer.tsx',
+  'src/features/insights/screens/InsightsScreen.tsx',
 ].map((file) => join(APP, file));
 
 const GUARDED_FILES = [...CRISIS_FEATURE_FILES, ...NAVIGATION_FILES, ...NAMED_FILES];

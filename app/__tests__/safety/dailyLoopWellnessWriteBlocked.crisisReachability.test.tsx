@@ -18,9 +18,10 @@
  */
 
 import React from 'react';
-import { ScrollView } from 'react-native';
+import { ScrollView, useWindowDimensions } from 'react-native';
 import { fireEvent, render, within } from '@testing-library/react-native';
 import DailyLoopStepScreen from '@/features/practices/dailyloop/screens/DailyLoopStepScreen';
+import DailyLoopDepthSelectScreen from '@/features/practices/dailyloop/screens/DailyLoopDepthSelectScreen';
 import { DAILY_LOOP_STEP_KEYS, showsSupportLine } from '@/features/practices/dailyloop/config/tenseMode';
 import { IMMERSIVE_ROUTES, SUPPRESSED_ROUTES } from '@/features/crisis/components/RootCrisisButton';
 import { decideWellnessWrite, type WellnessWriteBlockReason } from '@/core/stores/consentStore';
@@ -78,6 +79,32 @@ describe.each(BLOCKED)('with the write gate blocked (%s)', (reason) => {
       expect(onSave).toHaveBeenCalledTimes(1);
     },
   );
+});
+
+/**
+ * FEAT-669 (crisis ruling): the depth picker now READS the gate, to show its notice.
+ * The decision may toggle that note and nothing else — block the write, never entry
+ * to the loop. Both choices must fire for every reason, at default type and at AX5.
+ */
+describe.each([1, 3.1])('the depth picker at font scale %s', (fontScale) => {
+  beforeEach(() => {
+    (useWindowDimensions as unknown as jest.Mock).mockReturnValue({ width: 375, height: 667, scale: 2, fontScale });
+  });
+  afterEach(() => {
+    (useWindowDimensions as unknown as jest.Mock).mockReturnValue({ width: 375, height: 812, scale: 2, fontScale: 1 });
+  });
+
+  it.each(BLOCKED)('blocked (%s): both choices still enter the loop', (reason) => {
+    seedWellnessWriteConsent(reason);
+    const onSelect = jest.fn();
+    const screen = render(<DailyLoopDepthSelectScreen onSelect={onSelect} />);
+    for (const depth of DEPTHS) {
+      const card = screen.getByTestId(`daily-loop-depth-${depth}`);
+      expect(card.props.accessibilityRole).toBe('button');
+      fireEvent.press(card);
+    }
+    expect(onSelect.mock.calls).toEqual([['quick'], ['deep']]);
+  });
 });
 
 describe('the root crisis button on the DailyLoop route', () => {

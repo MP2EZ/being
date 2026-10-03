@@ -39,6 +39,8 @@ import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { getModuleIdForPrinciple } from '@/features/learn/utils/principleMapping';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
+import { decideWellnessWrite, useConsentStore } from '@/core/stores/consentStore';
+import { PRACTICE_PATTERNS_NOT_RECORDED } from './practicePatternsNotice';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -384,7 +386,7 @@ const BeginnerTip: React.FC<BeginnerTipProps> = ({ onDismiss }) => (
 // MAIN COMPONENT
 // ──────────────────────────────────────────────────────────────────────────────
 
-const PrincipleEngagementChart: React.FC<PrincipleEngagementChartProps> = ({
+const PrincipleEngagementChartBody: React.FC<PrincipleEngagementChartProps> = ({
   engagements,
   initialTimeRange = 'month',
 }) => {
@@ -488,6 +490,27 @@ const PrincipleEngagementChart: React.FC<PrincipleEngagementChartProps> = ({
       )}
     </View>
   );
+};
+
+// FEAT-669: the exported component is a thin consent wrapper. It renders either the
+// static "not recorded" card or the chart, so a consent change swaps the child rather
+// than changing this component's hook count (a hook-count mismatch would throw into
+// RootCrisisBoundary). The two selectors only re-render on a consent change; the
+// decision is decideWellnessWrite(). `loading` is not a withdrawal. The blocked card
+// has no touchables at all.
+const PrincipleEngagementChart: React.FC<PrincipleEngagementChartProps> = (props) => {
+  useConsentStore((s) => s.consentStatus);
+  useConsentStore((s) => s.consentCache.canProcessMentalHealthData);
+  const writeDecision = decideWellnessWrite();
+  if (!writeDecision.allowed && writeDecision.reason !== 'loading') {
+    return (
+      <View style={styles.container} testID="principle-engagement-not-recorded">
+        <Text style={styles.title}>Principle Embodiment</Text>
+        <Text style={styles.notRecordedText}>{PRACTICE_PATTERNS_NOT_RECORDED}</Text>
+      </View>
+    );
+  }
+  return <PrincipleEngagementChartBody {...props} />;
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -646,6 +669,11 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyLarge.size,
     color: semantic.text.muted,
     fontWeight: typography.fontWeight.light,
+  },
+  notRecordedText: {
+    fontSize: typography.bodySmall.size,
+    color: semantic.text.muted,
+    lineHeight: typography.bodySmall.size * 1.5,
   },
 });
 
