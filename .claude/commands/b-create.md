@@ -545,6 +545,11 @@ Per candidate, `notion-fetch` the body and `notion-get-comments` (`include_all_b
 Read newest-last, comments override the body, and apply `/b-work` Step 1.3's truncation rule.
 Record each page's `Last edited time` for S6.
 
+**Fan this out** to parallel read-only subagents grouped by item family (shared epic, shared
+panel), each returning per item: properties, `Last edited time`, the request quoted, every AC
+numbered, each finding `holds`/`stale`, recorded rulings, open questions and a proposed verdict.
+Bodies loaded here crowd out S3–S5.
+
 **Re-verify before carrying a finding.** A rescope section usually pins `development @ <sha>`:
 run `git log --oneline <sha>..origin/development -- <cited paths>`, and for any path that moved,
 re-read the cited lines and mark the finding `holds` or `stale`. Resolve every item ID the findings
@@ -559,14 +564,20 @@ may already exist.
 | `split` | too large, or parts with different gates or routes | original narrowed to the first slice; new items for the rest |
 | `cancel` | the premise is retired | `Status: Cancelled` + comment naming why and any successor |
 | `resolved` | settled by a merge, comment or existing item | marker retired only |
-| `decision` | turns on a call only the founder can make | nothing until S5 answers it |
+| `decision` | turns on a call only the founder can make | nothing until answered (below) |
 
-Author `rewrite` and `split` with the normal pipeline: Phase 2.6 per item and per new slice,
-then 3A, or 3B → (4) → 5. The brief is body + comments + rescope section. **Recorded rulings are
-constraints, not proposals** — pass them as fixed; one the agent disputes becomes a `decision`,
-never an AC change. Run each wave (all 3B passes, then all Phase 4 critiques) as parallel Agent
-calls in one message. Every slice gets its own scores and edges, and its Technical Notes carry the
-rulings that bind it — `/b-work` reads only that slice's body.
+**Ask every `decision` before authoring** — one `AskUserQuestion` round, four per call, covering
+each `decision` and any fork S2 exposed. Answers change what gets written; asking after
+authoring costs a second review.
+
+Run the normal pipeline — Phase 2.6, then 3A, or 3B → (4) → 5 — for every **new** item and
+slice, and for a `rewrite` that changes what the item delivers. A `rewrite` that only corrects
+stale facts is authored from S2's re-verified findings. The brief is body + comments + rescope
+section. **Recorded rulings are constraints, not proposals** — pass them as fixed; one the agent
+disputes becomes a `decision`, never an AC change. Run each wave (all 3B passes, then all
+Phase 4 critiques) as parallel Agent calls in one message. Every slice gets its own scores and
+edges, and its Technical Notes carry the rulings that bind it — `/b-work` reads only that slice's
+body.
 
 ### S4: Reconcile across the set
 
@@ -579,6 +590,11 @@ rulings that bind it — `/b-work` reads only that slice's body.
 4. **Edges.** Rewire across the whole set: a downstream `Blocked by` points at the slice that
    actually unblocks it. No cycles.
 5. **Batch Route.** Re-derive per item and slice (Phase 2 rules); a rescope often changes it.
+6. **Found defects.** A defect verified in code that belongs to no candidate goes to S5 as an
+   optional new item — never folded into a candidate's ACs.
+7. **Owned items.** When a finding changes the premise of an item S1 dropped as owned, offer in
+   S5 to append a dated `RE-SCOPE REQUIRED` section and a short comment — never its ACs or
+   properties. Its owner's next run reads both.
 
 ### S5: One review
 
@@ -590,19 +606,24 @@ rulings that bind it — `/b-work` reads only that slice's body.
    Stale findings: <list, or "none">
 ```
 
-Then `AskUserQuestion`, four questions per call: every `decision` question first (answers change
-the plan), then the items to apply as multiSelect questions of up to four items each. An answered
-`decision` re-enters S3 alone and is shown again before it applies. Unselected items are left
-untouched, marker included.
+Then `AskUserQuestion`: the items to apply, as multiSelect questions of up to four items each. A
+fork that authoring surfaced goes first in the same round; its item re-enters S3 alone and is
+shown again before it applies. Unselected items are left untouched, marker included.
 
 ### S6: Apply
 
-Per approved item, prerequisites before the items that point at them:
+Create new items first, then read every new `userDefined:ID` back (one SQL
+`WHERE "userDefined:ID" >= <last known>` call) before writing a header or a pointer — peer
+sessions create items concurrently, so IDs are never sequential or predictable. A reciprocal
+`Blocking` fill does not move the original's `Last edited time` (measured), so the guard holds.
+Then, per approved item, prerequisites before the items that point at them:
 
 1. **Clobber guard.** Re-fetch; if `Last edited time` moved since S2, skip the item and report
    it — a peer wrote it, and S3 planned against the old body.
 2. **Body.** `notion-update-page` `update_content`, section by section; never `replace_content`,
-   which erases whatever the plan did not read.
+   which erases whatever the plan did not read. Replacing ACs strands the rest of the body: add
+   a `Superseded where it conflicts with the <date> ACs` line at the top of Technical Notes, and
+   bring the Dimension Scores text and any slice map in line with the properties.
 3. **Retire the marker.** Retitle the `RE-SCOPE REQUIRED` heading to
    `Re-scope applied — <today> (/b-create --sweep): <verdict>, <new IDs>`, keeping the rulings
    beneath it as provenance. A comment-only candidate gets that section added — the body is what
