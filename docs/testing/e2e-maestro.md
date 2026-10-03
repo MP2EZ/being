@@ -362,7 +362,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   `prebuild --clean`, so a leaf-keyed sweep would reap the shared gate worktree's own cache
   mid-build. A cache whose `WorkspacePath` is unreadable is reported as unknown and never
   reaped. `e2e-sim-build.sh` also refuses up front below `E2E_MIN_FREE_GB` (default 10)
-  with a message naming **disk space**, so this never again presents as a linker error.
+  with a message naming **disk space**, so this never again presents as a linker error —
+  and since INFRA-691 it runs the orphan sweep itself and re-checks before refusing.
+- **The CocoaPods cache leaks the same way (INFRA-691)** — ~825 MB per worktree, measured
+  at 70 GB in `~/Library/Caches/CocoaPods`. RN 0.85 and Expo's prebuilt xcframeworks embed
+  the absolute worktree path in their podspecs (hermes-engine via `HERMES_CLI_PATH`), so no
+  two worktrees share an entry. The same `--orphans` sweep reaps an entry once every root
+  its spec records is gone, and reports it on its own `CocoaPods cache:` line; a spec with
+  no worktree path, or one it cannot parse, is never reaped. The EAS fallback reaps its own
+  entries after every build, pass or fail, since its working dir is new each run.
 - The EAS fallback (`npm run e2e:safety:build:eas`) *does* still need `eas-cli` logged in
   (`npx eas whoami`), `fastlane`, and a clean tree, and takes 10–15 min every run.
 - **eas-cli version (INFRA-351).** That fallback calls the **bare global** `eas`, whose
