@@ -44,8 +44,10 @@ const AccountSettingsScreen: React.FC = () => {
   const userCreatedAt = getUserCreatedAt();
   const devMode = isDevMode();
 
+  // DEBUG-652: the root testID is crisis-button-reachability's proof that the card tap
+  // landed before it taps the FAB (the Profile menu has its own FAB).
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="account-settings-screen">
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Account Information Section */}
         <View style={styles.section}>

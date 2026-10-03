@@ -260,10 +260,12 @@ const PrivacyDataScreen: React.FC = () => {
     }
   };
 
+  // DEBUG-652: the root testID is crisis-button-reachability's proof that the card tap
+  // landed before it taps the FAB (the Profile menu has its own FAB). Every branch carries it.
   // Render loading state
   if (isLoading) {
     return (
-      <SafeAreaView style={styles.container}>
+      <SafeAreaView style={styles.container} testID="privacy-data-screen">
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color={colorSystem.base.midnightBlue} />
           <Text style={styles.loadingText}>Loading settings...</Text>
@@ -273,7 +275,7 @@ const PrivacyDataScreen: React.FC = () => {
   }
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} testID="privacy-data-screen">
       <ScrollView style={styles.scrollContainer} contentContainerStyle={styles.scrollContent}>
         {/* Universal Opt-Out Section (INFRA-151) */}
         <View style={styles.section}>

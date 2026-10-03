@@ -44,3 +44,12 @@ describe('AboutStoicMindfulnessScreen — accessibility (FEAT-211 / FEAT-76)', (
     });
   });
 });
+
+// DEBUG-652 — the destination fact crisis-button-reachability asserts after the
+// profile-card-stoic tap, before the FAB. The header title cannot serve: the menu card
+// carries the same label, so it is still on screen after a swallowed tap.
+describe('DEBUG-652 — destination root testID', () => {
+  it('renders the screen root testID', () => {
+    expect(render(<AboutStoicMindfulnessScreen />).queryByTestId('about-stoic-mindfulness-screen')).not.toBeNull();
+  });
+});
