@@ -164,46 +164,63 @@ fi
 #     before step 2b's lock acquisition, and decisively before step 3's `simctl uninstall` —
 #     the first mutation. `cleanup` only reinstalls nothing; a refusal after step 3 leaves
 #     the simulator with no fyi.being.app, having also taken and released a peer-visible
-#     lock. Refusing here costs nothing and mutates nothing.
+#     lock. Refusing here costs nothing and touches no simulator or lock; the orphan sweep
+#     it may run deletes only caches whose worktree root is gone (INFRA-691).
 #
 #     Why it exists: out of disk, `xcodebuild` fails as
 #     `lipo: can't write to output file ... (No space left on device)` + error 65, which
 #     names the linker rather than the disk and sends the reader diagnosing the wrong
-#     subsystem. The dominant consumer is orphaned DerivedData from removed worktrees, so
-#     the message points at the sweep that reclaims it.
+#     subsystem. The dominant consumers are orphaned DerivedData and CocoaPods cache
+#     entries from removed worktrees, so below the floor it runs the sweep that reclaims
+#     them and re-checks before refusing.
 #
 #     Fails OPEN on an unreadable probe. This check is advisory plumbing; it must never be
 #     the reason the gate cannot run. `df -P` forces single-line POSIX output so a long
 #     device name cannot shift the column that `awk` reads.
 # ---------------------------------------------------------------------------------------
 MIN_FREE_GB="${E2E_MIN_FREE_GB:-10}"
-AVAIL_KB="$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print $4}' || true)"
-case "$AVAIL_KB" in
-  '' | *[!0-9]*)
-    echo "⚠️  Could not read free disk space — skipping the headroom check." >&2
-    ;;
-  *)
-    AVAIL_GB=$((AVAIL_KB / 1048576))
-    if [ "$MIN_FREE_GB" -gt 0 ] && [ "$AVAIL_GB" -lt "$MIN_FREE_GB" ]; then
-      echo "❌ Not enough DISK SPACE to build." >&2
-      echo "   Free: ${AVAIL_GB} GB · required: ${MIN_FREE_GB} GB" >&2
-      echo "   A cold build writes ~5-8 GB of DerivedData. Out of space, xcodebuild fails" >&2
-      echo "   as a 'lipo: No space left on device' linker error, which names the wrong" >&2
-      echo "   subsystem — hence this check." >&2
-      echo "" >&2
-      echo "   Reclaim caches whose worktree no longer exists:" >&2
-      echo "     npm run e2e:safety:clean:orphans            # list" >&2
-      echo "     npm run e2e:safety:clean:orphans -- --yes   # reap" >&2
-      echo "" >&2
-      echo "   Override with E2E_MIN_FREE_GB=0 if you know the build fits." >&2
-      exit 1
-    fi
-    if [ "$MIN_FREE_GB" -gt 0 ] && [ "$AVAIL_GB" -lt $((MIN_FREE_GB * 2)) ]; then
-      echo "⚠️  DISK SPACE is tight: ${AVAIL_GB} GB free. A cold build wants ~5-8 GB." >&2
-      echo "    npm run e2e:safety:clean:orphans   # see what is reclaimable" >&2
-    fi
-    ;;
-esac
+# Whole GB free on $HOME's filesystem, or nothing when `df` cannot be read.
+free_gb() {
+  local kb
+  kb="$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print $4}' || true)"
+  case "$kb" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  echo $((kb / 1048576))
+}
+AVAIL_GB="$(free_gb)"
+if [ -z "$AVAIL_GB" ]; then
+  echo "⚠️  Could not read free disk space — skipping the headroom check." >&2
+elif [ "$MIN_FREE_GB" -gt 0 ]; then
+  # INFRA-691: reclaim BEFORE refusing. The sweep reaps only DerivedData and CocoaPods cache
+  # entries whose worktree root is gone, so nothing a live worktree or a peer's in-flight
+  # build depends on is touched. A failed sweep is not fatal — the re-check decides.
+  if [ "$AVAIL_GB" -lt "$MIN_FREE_GB" ]; then
+    echo "⚠️  Only ${AVAIL_GB} GB free (need ${MIN_FREE_GB} GB) — reaping orphaned caches first." >&2
+    bash "$(dirname "$0")/e2e-sim-clean.sh" --orphans --yes >&2 ||
+      echo "⚠️  The orphan sweep failed; re-checking free space anyway." >&2
+    AFTER_GB="$(free_gb)"
+    [ -z "$AFTER_GB" ] || AVAIL_GB="$AFTER_GB"
+  fi
+  if [ "$AVAIL_GB" -lt "$MIN_FREE_GB" ]; then
+    echo "❌ Not enough DISK SPACE to build." >&2
+    echo "   Free: ${AVAIL_GB} GB · required: ${MIN_FREE_GB} GB" >&2
+    echo "   A cold build writes ~5-8 GB of DerivedData. Out of space, xcodebuild fails" >&2
+    echo "   as a 'lipo: No space left on device' linker error, which names the wrong" >&2
+    echo "   subsystem — hence this check." >&2
+    echo "" >&2
+    echo "   The orphan sweep (npm run e2e:safety:clean:orphans -- --yes) has already run;" >&2
+    echo "   what remains belongs to live worktrees. Remove the ones you are done with, or" >&2
+    echo "   run 'npm run e2e:safety:clean -- --yes' inside one to drop its DerivedData." >&2
+    echo "" >&2
+    echo "   Override with E2E_MIN_FREE_GB=0 if you know the build fits." >&2
+    exit 1
+  fi
+  if [ "$AVAIL_GB" -lt $((MIN_FREE_GB * 2)) ]; then
+    echo "⚠️  DISK SPACE is tight: ${AVAIL_GB} GB free. A cold build wants ~5-8 GB." >&2
+    echo "    npm run e2e:safety:clean:orphans   # see what is reclaimable" >&2
+  fi
+fi
 
 # ---------------------------------------------------------------------------------------
 # 2. Resolve the target simulator — ONCE, here, before anything is mutated.

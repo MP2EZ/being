@@ -207,6 +207,23 @@ function makeProject(opts = {}) {
   // cannot touch the shared /tmp log or change a verdict.
   fs.copyFileSync(REAL_TELEMETRY, path.join(root, 'scripts', 'e2e-telemetry.sh'));
   fs.copyFileSync(REAL_CNG_FINGERPRINT, path.join(root, 'scripts', 'cng-fingerprint.js'));
+  // INFRA-691: the disk pre-flight RUNS the orphan sweep. The real sweep reads the real
+  // $HOME — this harness does not sandbox it — and deletes caches, so a stub is staged
+  // UNCONDITIONALLY: the real one must never be reachable from this suite. It records the
+  // call, can stand in for space freed (see runScript's `disk`), and can fail on request.
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'e2e-sim-clean.sh'),
+    [
+      '#!/usr/bin/env bash',
+      'here="$(cd "$(dirname "$0")/.." && pwd)"',
+      'echo "e2e-sim-clean $*" >> "$here/trace.log"',
+      '[ -f "$here/.sweep-fails" ] && exit 1',
+      '[ -f "$here/.df-after-sweep-kb" ] && cp "$here/.df-after-sweep-kb" "$here/.df-avail-kb"',
+      'echo "DerivedData: Reaped 0 orphaned cache(s), ~0 MB reclaimed."',
+      'exit 0',
+    ].join('\n'),
+    { mode: 0o755 }
+  );
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
@@ -354,6 +371,10 @@ function runScript(opts = {}) {
     // INFRA-435: override env for a single run. Added so the disk-headroom pre-flight,
     // which is disabled for every other case, can be switched on for its own test.
     extraEnv = {},
+    // INFRA-691: shim `df` so free space is scripted rather than read off the real disk.
+    // { availGb, afterSweepGb, sweepFails } — afterSweepGb is what `df` reports once the
+    // staged sweep stub has run with --yes; omit it and the sweep frees nothing.
+    disk = null,
   } = opts;
 
   const root = makeProject({ iosExists, cngStamp });
@@ -366,6 +387,23 @@ function runScript(opts = {}) {
   const containerFor = (udid) => path.join(containersRoot, udid, `${BUNDLE_ID}.app`);
   const container = containerFor(bootedDevices[0] ? bootedDevices[0].udid : 'NONE');
   const trace = path.join(root, 'trace.log');
+
+  if (disk) {
+    const kb = (gb) => String(gb * 1048576);
+    fs.writeFileSync(path.join(root, '.df-avail-kb'), kb(disk.availGb));
+    if (disk.afterSweepGb !== undefined) {
+      fs.writeFileSync(path.join(root, '.df-after-sweep-kb'), kb(disk.afterSweepGb));
+    }
+    if (disk.sweepFails) fs.writeFileSync(path.join(root, '.sweep-fails'), '');
+    writeStub(
+      stubs,
+      'df',
+      [
+        'echo "Filesystem 1024-blocks Used Available Capacity Mounted on"',
+        `echo "/dev/disk3s5 999999999 1 $(cat "${root}/.df-avail-kb") 1% /System/Volumes/Data"`,
+      ].join('\n')
+    );
+  }
 
   // Booted-device state lives in a FILE so the build stub can mutate it mid-run.
   const bootedStatePath = path.join(root, 'booted-devices.json');
@@ -2357,6 +2395,56 @@ describe('e2e-sim-build.sh — INFRA-435 disk-headroom pre-flight', () => {
     const built = runScript({ extraEnv: { E2E_MIN_FREE_GB: '0' } });
     expect(built.status).toBe(0);
     expect(built.buildRan).toBe(true);
+  }, 60000);
+
+  /**
+   * INFRA-691: below the floor, the pre-flight reclaims before it refuses. The sweep only
+   * ever reaps caches whose worktree root is gone, so running it unattended costs nothing
+   * a live worktree depends on — and printing the commands instead left a 70 GB pod cache
+   * and a refusal standing between the operator and a build.
+   */
+  it('runs the orphan sweep below the floor, then refuses if it was not enough', () => {
+    const built = runScript({
+      extraEnv: { E2E_MIN_FREE_GB: '10' },
+      disk: { availGb: 2, afterSweepGb: 3 },
+    });
+
+    expect(built.trace).toMatch(/e2e-sim-clean --orphans --yes/);
+    expect(built.status).not.toBe(0);
+    expect(built.output).toMatch(/DISK SPACE/);
+    expect(built.output).toMatch(/Free: 3 GB/);
+    expect(built.trace).not.toMatch(/uninstall/);
+    expect(built.buildRan).toBe(false);
+  }, 60000);
+
+  it('re-checks after the sweep and builds when it freed enough', () => {
+    const built = runScript({
+      extraEnv: { E2E_MIN_FREE_GB: '10' },
+      disk: { availGb: 2, afterSweepGb: 50 },
+    });
+
+    expect(built.trace).toMatch(/e2e-sim-clean --orphans --yes/);
+    expect(built.status).toBe(0);
+    expect(built.buildRan).toBe(true);
+  }, 60000);
+
+  it('does not sweep when there is already room', () => {
+    const built = runScript({ extraEnv: { E2E_MIN_FREE_GB: '10' }, disk: { availGb: 50 } });
+
+    expect(built.trace).not.toMatch(/e2e-sim-clean/);
+    expect(built.buildRan).toBe(true);
+  }, 60000);
+
+  it('a failing sweep still ends in the DISK SPACE refusal, not a bare set -e death', () => {
+    const built = runScript({
+      extraEnv: { E2E_MIN_FREE_GB: '10' },
+      disk: { availGb: 2, sweepFails: true },
+    });
+
+    expect(built.trace).toMatch(/e2e-sim-clean --orphans --yes/);
+    expect(built.status).not.toBe(0);
+    expect(built.output).toMatch(/DISK SPACE/);
+    expect(built.buildRan).toBe(false);
   }, 60000);
 });
 
