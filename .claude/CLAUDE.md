@@ -79,6 +79,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/learn/practices/GuidedBodyScanScreen.tsx` | `crisis` |
 | `app/src/features/learn/practices/SortingPracticeScreen.tsx` | `crisis` + `philosopher` |
 | `app/src/features/learn/practices/shared/PracticeToggleButton.tsx` | `crisis` |
+| `app/src/features/learn/practices/shared/usePracticeCompletion.tsx` | `crisis` |
 | `app/src/features/learn/practices/PracticeCompletionScreen.tsx` | `crisis` + `philosopher` |
 | `app/src/features/practices/screens/PracticeLibraryScreen.tsx` | `crisis` + `philosopher` |
 | `app/assets/passages/` | `crisis` + `philosopher` |
@@ -385,6 +386,14 @@ ruling): the DEBUG-620 trailing-spacer shape on a tab screen. Its scroll content
 `CRISIS_BUTTON_EXCLUSION_RECT.top` spacer, because the old 32pt padding left the last control in the
 FAB's band at maximum scroll. FILE-level: `WellnessTrendsDetailScreen.tsx` is unreviewed.
 `crisis-button-reachability` taps element centres, so the falsifier is the jest spacer pin.
+
+`features/learn/practices/shared/usePracticeCompletion.tsx` is the twenty-fourth instance (added
+DEBUG-695, crisis ruling): the completion path all five gated practice hosts share. It owns both
+"degrade, never throw" contracts (DEBUG-344 practiceId, DEBUG-695 moduleId) on a timer callback no
+error boundary covers, so a throw there is process death with 988 lost. It imports nothing from
+`features/crisis/`, so INFRA-531 cannot see it. FILE-level: `useTimerPractice.ts` and the other
+`shared/` members are unreviewed. No sim flow completes a practice; the falsifiers are the jest
+degrade contracts.
 
 Specialist agents live in `.claude/agents/{crisis,compliance,philosopher}.md` and self-describe via frontmatter.
 
