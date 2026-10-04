@@ -1986,6 +1986,168 @@ export const decideWellnessWrite = (): WellnessWriteDecision => {
   return decision;
 };
 
+/** Site + reason keys already logged by `logWellnessWriteBlocked` this process. */
+const loggedWellnessWriteBlocks = new Set<string>();
+
+/**
+ * Record that a wellness write was withheld (FEAT-665, slice A2a-i; FEAT-685 wires it).
+ *
+ * Content-free: exactly `{component, action, site, reason, result}`, never an answer or
+ * a score, and never PostHog. At most once per site and reason per process. Same
+ * contract as `logWellnessWriteBreadcrumb`: the key is added before the call so a
+ * throwing logger is not retried, and a logger fault is swallowed. It will run inside
+ * `answerQuestion`'s try, ahead of the Q9 check, so it must never throw.
+ */
+export function logWellnessWriteBlocked(
+  where: { component: string; action: string; site: string },
+  reason: WellnessWriteBlockReason,
+): void {
+  const key = `${where.site}|${reason}`;
+  if (loggedWellnessWriteBlocks.has(key)) return;
+  loggedWellnessWriteBlocks.add(key);
+  try {
+    logSecurity('wellness write withheld: Art. 9 consent not in force', 'low', {
+      component: where.component,
+      action: where.action,
+      site: where.site,
+      reason,
+      result: 'blocked',
+    });
+  } catch {
+    // Swallowed: a logging fault must never reach the write path.
+  }
+}
+
+/** What the history walk found, before it is reconciled with live state. */
+interface WellnessWriteBlockWalk {
+  /** Start of the latest interval that blocked writes, open or closed, or null if none. */
+  latestOpening: number | null;
+  /** Whether the walk ends inside a blocked interval. */
+  endsBlocked: boolean;
+  /** A granted or renewed entry that explicitly granted Art. 9. */
+  sawGrantAnchor: boolean;
+}
+
+/**
+ * Walk the consent history in append order. An interval OPENS at a `revoked` entry or
+ * at a granted / renewed / updated entry whose changes carry an explicit Art. 9 `false`,
+ * and CLOSES at one carrying an explicit `true`. `declined` and updates that do not
+ * carry the key are no-ops, so a pre-1.1.0 entry opens nothing. Each opening is
+ * clamped to the latest timestamp at or before it, so a backward clock step can only
+ * move the answer later. Returns null when any timestamp is not a finite number.
+ */
+function walkWellnessWriteBlocks(
+  history: readonly ConsentHistoryEntry[],
+): WellnessWriteBlockWalk | null {
+  let latestSeen = Number.NEGATIVE_INFINITY;
+  let latestOpening: number | null = null;
+  let endsBlocked = false;
+  let sawGrantAnchor = false;
+  for (const entry of history) {
+    if (!Number.isFinite(entry.timestamp)) return null;
+    latestSeen = Math.max(latestSeen, entry.timestamp);
+    const art9 = entry.changes?.mentalHealthProcessingConsent;
+    const carriesChoice =
+      entry.action === 'granted' || entry.action === 'renewed' || entry.action === 'updated';
+    if (entry.action === 'revoked' || (carriesChoice && art9 === false)) {
+      latestOpening = latestSeen;
+      endsBlocked = true;
+    } else if (carriesChoice && art9 === true) {
+      endsBlocked = false;
+      if (entry.action !== 'updated') sawGrantAnchor = true;
+    }
+  }
+  return { latestOpening, endsBlocked, sawGrantAnchor };
+}
+
+const finiteOrNull = (value: number | undefined): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+/**
+ * Since when has the user's Art. 9 choice blocked wellness writes? (FEAT-665, slice A2a-i)
+ *
+ * FEAT-673 consumes it: a screening counts toward guidance only if it was completed at
+ * or after this instant, so stale pre-withdrawal history can never answer `full`.
+ * Unwired in this slice; that is pinned in wellnessWriteConsentBoundary.test.ts.
+ *
+ * A PRIMITIVE, never an object (crisis ruling, founder-chosen 2026-10-03): the screens
+ * that will subscribe need a stable zustand 5 snapshot.
+ *   finite number             blocked since then (the latest interval, open or closed)
+ *   Number.NEGATIVE_INFINITY  provably never blocked
+ *   null                      unknown, so every reading is inadmissible
+ *
+ * A LATER answer is always the safe error, because an inadmissible reading still
+ * suppresses. So every approximation here errs later:
+ *   - `loading` never opens an interval: every relaunch boots through it.
+ *   - `missing`, `under_age`, `integrity_error` → null. The legal-gate mirror is never
+ *     read.
+ *   - `version_mismatch` → null. `staleConsent` is never read to widen admissibility.
+ *   - `expired` → the retained record's `updatedAt`. Its history is not loaded, so an
+ *     earlier refuse → re-grant cycle is invisible, which rules out -Infinity.
+ *   - `revoked` → the later of `revokedAt` and the walk in-session. After a relaunch
+ *     `loadConsent` nulls the record and loads no history, so it is null.
+ *   - `valid` → the walk. -Infinity needs positive proof: Art. 9 granted now, a granted
+ *     or renewed entry that granted it, and no opening. Otherwise, or when the walk
+ *     ends allowed while live state is blocked, the record's `updatedAt` stands in.
+ * Note `grantConsent` replaces the history with one entry, so a re-grant through it
+ * erases the record of an earlier block.
+ *
+ * Pure and synchronous: no I/O, no `set()`, no logging, no `decideWellnessWrite`.
+ * Any fault answers null.
+ */
+export function selectWellnessWriteBlockStart(
+  state: Pick<ConsentStore, 'consentStatus' | 'consentHistory' | 'currentConsent' | 'consentCache'>,
+): number | null {
+  try {
+    switch (state.consentStatus) {
+      case 'loading':
+      case 'missing':
+      case 'under_age':
+      case 'integrity_error':
+      case 'version_mismatch':
+        return null;
+      case 'expired':
+        return finiteOrNull(state.currentConsent?.updatedAt);
+      case 'revoked': {
+        if (!state.currentConsent) return null;
+        const walk = walkWellnessWriteBlocks(state.consentHistory);
+        if (!walk) return null;
+        const candidates = [walk.latestOpening, state.currentConsent.revokedAt].filter(
+          (value): value is number => typeof value === 'number',
+        );
+        if (candidates.length === 0) return finiteOrNull(state.currentConsent.updatedAt);
+        return finiteOrNull(Math.max(...candidates));
+      }
+      case 'valid': {
+        const walk = walkWellnessWriteBlocks(state.consentHistory);
+        if (!walk) return null;
+        const art9Now = state.consentCache.canProcessMentalHealthData === true;
+        if (!art9Now && !walk.endsBlocked) {
+          // The walk disagrees with live state: take the later of the two.
+          const updatedAt = finiteOrNull(state.currentConsent?.updatedAt);
+          if (updatedAt === null) return null;
+          return walk.latestOpening === null ? updatedAt : Math.max(walk.latestOpening, updatedAt);
+        }
+        if (walk.latestOpening !== null) return walk.latestOpening;
+        if (walk.sawGrantAnchor) return Number.NEGATIVE_INFINITY;
+        return finiteOrNull(state.currentConsent?.updatedAt);
+      }
+      default: {
+        // A new ConsentStatus must be given a disposition here before it compiles.
+        const unhandled: never = state.consentStatus;
+        void unhandled;
+        return null;
+      }
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** `selectWellnessWriteBlockStart` over the store's current state. */
+export const getWellnessWriteBlockStart = (): number | null =>
+  selectWellnessWriteBlockStart(useConsentStore.getState());
+
 /**
  * The age-verification and (optional) preference values a forged stale record
  * should carry. Deliberately a parameter rather than a frozen constant: the

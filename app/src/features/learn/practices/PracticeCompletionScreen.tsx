@@ -19,6 +19,16 @@
  * 375pt viewport. Above AX2, mid-word breaks in content are accepted: they lose no content,
  * so they cost legibility but do not fail 1.4.4. Only the fixed-string title is capped
  * (`PRACTICE_COMPLETION_TITLE_MAX_FONT_SCALE`), and that cap sets no precedent for content.
+ *
+ * CRISIS FAB CLEARANCE (DEBUG-682, crisis ruling):
+ * This screen replaces the whole tree of five IMMERSIVE practice hosts, so none of their own
+ * FAB clearances carry over, and the root crisis button sits over it. Continue clears the
+ * exclusion region with `marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left` on its own frame:
+ * right margin only, declared last, never on `buttonContainer`, whose `width: '100%'` would
+ * shift the button instead of shrinking it. The Pressable merges `[primaryButton, pressed &&
+ * primaryButtonPressed]` as a real array, so last-key-wins governs: the pressed member may
+ * declare no margin, width or alignSelf, and its transform may only scale by ≤ 1. The label
+ * fits at AX5 on 375 because the button's INTERNAL padding was trimmed, never by capping text.
  */
 
 import React from 'react';
@@ -32,6 +42,8 @@ import {
 } from 'react-native';
 import { semantic, colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import type { ModuleId } from '@/features/learn/types/education';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 
 /**
  * DEBUG-339 added `translation`. It is REQUIRED, not optional, and that is the
@@ -365,6 +377,10 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
     );
   }, [practiceTitle, quote]);
 
+  // DEBUG-682: __DEV__-only check that Continue really is clear of the crisis FAB's
+  // exclusion region on the running device (DEBUG-643); undefined in Release.
+  const continueExclusionCheck = useCrisisExclusionAssertion(`${testID}-continue-button`, 'scrolls');
+
   return (
     <ScrollView
       style={styles.container}
@@ -436,6 +452,7 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
             pressed && styles.primaryButtonPressed,
           ]}
           onPress={onContinue}
+          onLayout={continueExclusionCheck}
           accessibilityRole="button"
           accessibilityLabel="Continue"
           accessibilityHint="Continue from practice completion"
@@ -536,10 +553,14 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: colorSystem.navigation.learn,
     paddingVertical: spacing[16],
-    paddingHorizontal: spacing[24],
+    // DEBUG-682: internal, so it moves no frame. At AX5 "Continue" is ~233pt and the box
+    // inside the clearance at 375 is 239pt at this padding; spacing[12] would break mid-word.
+    paddingHorizontal: spacing[8],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     minHeight: 48, // WCAG touch target
+    // DEBUG-682 (DEBUG-653 shape): clear the crisis FAB's exclusion region. Right only, last.
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   primaryButtonPressed: {
     backgroundColor: colorSystem.navigation.learn + 'DD', // Slightly darker

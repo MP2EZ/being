@@ -141,3 +141,38 @@ describe('the legal-gate mirror has one owner', () => {
     expect(offenders).toEqual([]);
   });
 });
+
+describe('no crisis-path file reads the Art. 9 block start (FEAT-665)', () => {
+  // Same rule as the predicate: FEAT-673 reads it in features/guidance, below the
+  // screens listed here, never in them.
+  const BLOCK_START = /\b(?:selectWellnessWriteBlockStart|getWellnessWriteBlockStart)\b/;
+
+  it('the matcher fires on the stripped source of the module that defines it', () => {
+    expect(stripped(CONSENT_STORE)).toMatch(BLOCK_START);
+  });
+
+  it.each(GUARDED_FILES.map((f) => [label(f), f]))('%s', (_label, file) => {
+    expect(stripped(file)).not.toMatch(BLOCK_START);
+  });
+});
+
+describe('FEAT-665 slice A2a-i ships unwired', () => {
+  // Inert by AC1. FEAT-673 wires the block start and FEAT-685 the blocked log;
+  // each deletes its own name from this list in the PR that wires it.
+  const UNWIRED =
+    /\b(?:selectWellnessWriteBlockStart|getWellnessWriteBlockStart|logWellnessWriteBlocked)\b/;
+
+  it('the matcher fires on consentStore itself', () => {
+    expect(stripped(CONSENT_STORE)).toMatch(UNWIRED);
+  });
+
+  it('no other file in app/src or App.tsx names them', () => {
+    const files = [...sourceFiles(SRC), join(APP, 'App.tsx')];
+    expect(files.length).toBeGreaterThan(100);
+    const offenders = files
+      .filter((f) => f !== CONSENT_STORE)
+      .filter((f) => UNWIRED.test(stripped(f)))
+      .map(label);
+    expect(offenders).toEqual([]);
+  });
+});

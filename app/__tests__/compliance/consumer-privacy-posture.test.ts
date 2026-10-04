@@ -25,6 +25,7 @@ import { PHQ9Result, GAD7Result } from '../../src/features/assessment/types/inde
 import { generateAnswersForScore, waitForStoreUpdate, resetAssessmentStore } from '../utils/AssessmentTestUtils';
 import * as SecureStore from 'expo-secure-store';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
 
 // Mirror the established assessment-store test harness (see
 // comprehensive-scoring-validation.test.ts): the store persists wellness data
@@ -84,6 +85,7 @@ async function runAssessment(type: 'phq9' | 'gad7', score: number) {
 
 describe('Consumer Privacy Compliance Posture (FTC / state privacy / GDPR — NOT HIPAA)', () => {
   beforeEach(async () => {
+    seedWellnessWriteConsent('loading'); // FEAT-665: back to the default, so a seed never leaks into the next test
     resetAssessmentStore();
     await useAssessmentStore.getState().clearHistory();
     useAssessmentStore.getState().enableAutoSave();
@@ -95,6 +97,9 @@ describe('Consumer Privacy Compliance Posture (FTC / state privacy / GDPR — NO
   });
 
   it('persists wellness data through the AES-256 encryption service, not plaintext keystore (voluntary AES-256 standard)', async () => {
+    // FEAT-665: asserts a persisted write, so it runs as a consenting user. FEAT-685 gates
+    // the save, and the store's default `loading` status would block it.
+    seedWellnessWriteConsent('granted');
     await runAssessment('phq9', 6);
 
     // Wellness data is routed through the encrypted-blob service at the
@@ -111,6 +116,8 @@ describe('Consumer Privacy Compliance Posture (FTC / state privacy / GDPR — NO
   });
 
   it('clearHistory erases completed assessments from the persisted wellness blob (CCPA / TDPSA / GDPR erasure right)', async () => {
+    // FEAT-665: deliberately NOT seeded. Erasure must stay ungated (a refusing user can
+    // still delete), so once FEAT-685 gates the save this must stay green at `loading`.
     await runAssessment('phq9', 6);
     expect(useAssessmentStore.getState().completedAssessments.length).toBeGreaterThan(0);
 
