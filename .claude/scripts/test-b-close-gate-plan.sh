@@ -31,7 +31,7 @@
 
 if [ -z "${BASH_VERSION:-}" ]; then echo "run with bash" >&2; exit 2; fi
 
-EXPECTED_CASES=108
+EXPECTED_CASES=109
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/b-close-gate-plan.sh"
 VERBOSE=""; NO_CACHE=""
@@ -127,6 +127,7 @@ case_patches()              { w app/patches/expo-modules-jsi+56.0.7.patch; expec
 case_consent_store()        { w $C/stores/consentStore.ts; expect 0 1 "" "$CONSENT3" ""; }
 case_deeplink_validation()  { w $C/services/security/DeepLinkValidationService.ts; expect 0 1 "" "daily-loop-deeplink deeplink-consent-gate" ""; }
 case_supabase_service()     { w $C/services/supabase/SupabaseService.ts; expect 0 1 "" "gad7-severe journal-crisis-scan phq9-severe-completion q9-single-alert" "" "SupabaseService changed"; }
+case_data_retention()       { w $C/services/data-retention/DataRetentionService.ts; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "" "data-retention changed"; }
 case_threshold_modal()      { w $C/components/ThresholdEducationModal.tsx; expect 0 1 "" "$CBR" ""; }
 case_clean_home()           { w $F/home/screens/CleanHomeScreen.tsx; expect 0 1 "" "$CBR" "daily-loop-ax5-entry"; }
 case_delete_account()       { w $F/profile/screens/DeleteAccountScreen.tsx; expect 0 1 "" "$CBR" "" "DeleteAccountScreen changed"; }

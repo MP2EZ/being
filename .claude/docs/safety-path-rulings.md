@@ -322,3 +322,14 @@ error boundary covers, so a throw there is process death with 988 lost. It impor
 `shared/` members are unreviewed. No sim flow completes a practice; the falsifiers are the jest
 degrade contracts.
 
+
+`core/services/data-retention/` is the twenty-fifth instance (added DEBUG-705, crisis ruling),
+gated as a DIRECTORY: its three members — `DataRetentionService.ts`, `assessmentRetention.ts`
+and the `index.ts` barrel — are all named and reviewed. It decides which PHQ-9 / GAD-7 records
+survive, and the guidance gate reads the latest surviving record to decide suppression, so a
+retention tier that drops a Q9 > 0 record silently moves a suppressed reader to `gentle`. Its
+launch sweep also rewrites the screening blob at boot, concurrently with assessment flows. It
+consumes `isInterventionTierScore` from `features/crisis/types/safety`, which is how INFRA-531
+surfaced it. The three armed flows witness only a boot-time prune breaking or hanging a live
+screening: every flow launches with `clearState`, so tier selection and no-resurrection are
+jest-owned.

@@ -58,7 +58,7 @@ if [ -z "${BASH_VERSION:-}" ]; then
   exit 2
 fi
 
-SAFETY_PATH_RE='^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)'
+SAFETY_PATH_RE='^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|src/core/services/data-retention/|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)'
 
 die() { echo "🛑 b-close-gate-plan: $*" >&2; exit 2; }
 
@@ -636,6 +636,18 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/services/supabase/SupabaseSe
   echo "   these four DO cover is the one gate-visible failure mode: new synchronous work in"
   echo "   the awaited frame shows up as the intervention failing to surface or a timeout."
   echo "   Delivery is INFRA-412's attended .env.production measurement."
+fi
+# DEBUG-705 (crisis ruling): core/services/data-retention/ decides which PHQ-9 / GAD-7 records
+# the guidance gate's suppression can still read, and its launch sweep rewrites the screening
+# blob at boot, concurrently with assessment flows. DIRECTORY-level: DataRetentionService.ts,
+# assessmentRetention.ts and the index.ts barrel, all reviewed.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/services/data-retention/'; then
+  FLOWS+=("q9-single-alert" "phq9-severe-completion" "gad7-severe")
+  echo "🗂️  data-retention changed — NECESSARY, NOT SUFFICIENT: every flow launches with"
+  echo "   clearState, so no flow seeds an aged screening. Tier selection and no-resurrection"
+  echo "   are jest-owned (assessmentRetention.livePath.privacy, interventionTierScore,"
+  echo "   retentionNoResurrection). These flows witness only a boot-time prune breaking or"
+  echo "   hanging a live screening."
 fi
 # DEBUG-525: four entries that CONSUME crisisButtonGeometry rather than owning crisis code.
 # ThresholdEducationModal is an RN <Modal> DEBUG-406 conversion site — a zero-988-affordance
