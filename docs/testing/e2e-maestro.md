@@ -995,11 +995,12 @@ something different from what the register says. On `31a4cd06` it is **9 files /
 carries it now. **DEBUG-652's captures** (`maestro hierarchy` before and after each tap, iPhone
 SE 3 / iOS 18.6 / 375x667, Release `e2e-sim`, 2026-10-02) classified them:
 
-- **Profile menu, all seven card sites** (the five depth-1 segments plus the two centred
-  privacy scrolls): every stop is mid-content (clip y 104–613), every tap centre is inside the
-  clip and at x 187.5, clear of the FAB — so signatures 2 and 3 are excluded and signature 1 is
-  exposed. Four of the seven swipe zero times only because of where the previous segment left
-  the offset, so all seven take the absorbing `tab-profile` tap. Each card tap is also followed
+- **Profile menu, all eight card sites** (the five depth-1 segments, the two centred
+  privacy scrolls, and DEBUG-680's Legal depth-2 card): every stop is mid-content (clip y
+  104–613), every tap centre is inside the clip and at x 187.5, clear of the FAB — so
+  signatures 2 and 3 are excluded and signature 1 is exposed. Five of the eight swipe zero
+  times only because of where the previous segment left the offset, so all eight take the
+  absorbing `tab-profile` tap. Each card tap is also followed
   by an `assertVisible` of a **screen-root testID unique to the destination**, as the last step
   before the FAB tap: the menu root carries its own FAB, so before this the depth-1 segments
   were false greens. Not `profile-back-button` (every pushed route has one) and not the header
@@ -1011,9 +1012,15 @@ SE 3 / iOS 18.6 / 375x667, Release `e2e-sim`, 2026-10-02) classified them:
   measured no swallow against a matched control, and no remedy is applied because a retry
   would mask the regression the tap tests. The AX5 exit: 6/6 baseline taps landed after a
   mid-content Temperance stop, 5/5 with a boundary clamp.
+- **Legal depth-2 document tap** (DEBUG-680, same capture setup, 2026-10-02): the list was
+  freshly pushed, nothing scrolls before the tap, and the card tap before it landed; the
+  centre (187.5, 257.5) is inside the list's clip and clear of the FAB. No signature applies,
+  so no remedy, but the Legal list carries the same root FAB, so the segment was a false green
+  until it asserted `legal-document-screen` (route-level: one route serves all six documents)
+  as the last step before the FAB tap. The card tap (menu at 65%, centre y 573.5 inside the
+  clip although the card is clipped 51pt) is the eighth menu site above.
 
-The Legal depth-2 segment (a document tap, then the FAB) is the same false-green shape and is
-DEBUG-680's. A signature-3 candidate found alongside (Profile's last
+A signature-3 candidate found alongside (Profile's last
 controls resting inside the FAB's hit rect since DEBUG-562) was DEBUG-653. Measured at max
 scroll on iPhone SE 3, 375x667, iOS 18.6, 2026-09-25 — FAB `[331,523][375,567]`, exclusion
 rect x[303,375] y[491,595), clip bottom 613:
