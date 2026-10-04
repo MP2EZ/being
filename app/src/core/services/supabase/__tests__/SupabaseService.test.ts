@@ -69,6 +69,11 @@ const mockAuth: any = {
     Promise.resolve({ data: { user: { id: 'user_123' }, session: {} }, error: null }),
   ),
   signOut: jest.fn(() => Promise.resolve({ error: null })),
+  // DEBUG-704: deleteAccount() reconciles a failed invoke via getUser(<access token>) and
+  // pauses the background refresher while it erases.
+  getUser: jest.fn(() => Promise.resolve({ data: { user: { id: 'user_123' } }, error: null })),
+  stopAutoRefresh: jest.fn(() => Promise.resolve()),
+  startAutoRefresh: jest.fn(() => Promise.resolve()),
 };
 // INFRA-260 PR3: deleteAccount() invokes the delete-account edge function.
 const mockFunctions: any = {
@@ -81,7 +86,10 @@ jest.mock('@supabase/supabase-js', () => ({
 }));
 
 // Import service after mocks
+import * as SecureStore from 'expo-secure-store';
+import { createClient } from '@supabase/supabase-js';
 import SupabaseService from '../SupabaseService';
+import { createSecureStoreSessionAdapter } from '../secureStoreSessionAdapter';
 
 /**
  * Run an async op under fake timers, flushing the resilience layer's setTimeout
@@ -140,6 +148,8 @@ beforeEach(() => {
   });
   mockAuth.signOut.mockReset();
   mockAuth.signOut.mockResolvedValue({ error: null });
+  mockAuth.getUser.mockReset();
+  mockAuth.getUser.mockResolvedValue({ data: { user: { id: 'user_123' } }, error: null });
   mockFunctions.invoke.mockReset();
   mockFunctions.invoke.mockResolvedValue({ data: { success: true }, error: null });
 
@@ -299,28 +309,73 @@ describe('SupabaseService', () => {
     });
   });
 
-  describe('Account deletion — DSR erasure (INFRA-260 PR3)', () => {
+  // DEBUG-704: this block used to `await service.initialize()` in its beforeEach, so a
+  // client ALWAYS existed and the "no session" case only nulled `userId`. That is exactly
+  // why the no-client fast path (deletion reporting success without reaching the server)
+  // was never caught. These now start from a fresh, never-initialised instance — the
+  // deletion route's real shape — with the account's existence decided by what is
+  // persisted in the Keychain. The real-client version of these contracts is
+  // deleteAccountServerReach.unit.test.ts.
+  describe('Account deletion — DSR erasure (INFRA-260 PR3, DEBUG-704)', () => {
+    const KEY = 'sb-test-auth-token';
+    const liveSession = { access_token: 'at-user_123', user: { id: 'user_123' } };
+    let keychain: Map<string, string>;
+
     beforeEach(async () => {
-      await service.initialize(); // establishes session → userId = 'user_123'
+      keychain = new Map();
+      (SecureStore.setItemAsync as jest.Mock).mockImplementation(async (k: any, v: any) => {
+        keychain.set(k, v);
+      });
+      (SecureStore.getItemAsync as jest.Mock).mockImplementation(async (k: any) =>
+        keychain.has(k) ? keychain.get(k)! : null,
+      );
+      (SecureStore.deleteItemAsync as jest.Mock).mockImplementation(async (k: any) => {
+        keychain.delete(k);
+      });
+      // An account holder: auth-js persisted the session; getSession restores it.
+      await createSecureStoreSessionAdapter().setItem(KEY, JSON.stringify(liveSession));
+      mockAuth.getSession.mockResolvedValue({ data: { session: liveSession }, error: null });
     });
 
-    it('invokes delete-account, signs out, clears userId, returns true on success', async () => {
+    afterEach(() => {
+      (SecureStore.setItemAsync as jest.Mock).mockImplementation(() => Promise.resolve());
+      (SecureStore.getItemAsync as jest.Mock).mockImplementation(() => Promise.resolve(null));
+      (SecureStore.deleteItemAsync as jest.Mock).mockImplementation(() => Promise.resolve());
+    });
+
+    it('with no client built: builds one WITHOUT minting, invokes delete-account, returns true', async () => {
+      expect(service.client).toBeNull();
+
       const ok = await service.deleteAccount();
 
       expect(ok).toBe(true);
+      expect(createClient).toHaveBeenCalledTimes(1);
+      expect(mockAuth.signInAnonymously).not.toHaveBeenCalled();
       expect(mockFunctions.invoke).toHaveBeenCalledWith('delete-account', { body: {} });
-      expect(mockAuth.signOut).toHaveBeenCalled();
       expect(service.userId).toBeNull();
     });
 
-    it('returns false and PRESERVES the session when the edge function errors', async () => {
+    it('on success removes the persisted session and fires a local signOut it never awaits', async () => {
+      mockAuth.signOut.mockReturnValue(new Promise(() => {}));
+
+      const ok = await service.deleteAccount();
+
+      expect(ok).toBe(true);
+      expect(mockAuth.signOut).toHaveBeenCalledWith({ scope: 'local' });
+      expect([...keychain.keys()].filter((k) => k.startsWith(KEY))).toEqual([]);
+    });
+
+    it('returns false and PRESERVES the session when the edge function errors and the user still exists', async () => {
       mockFunctions.invoke.mockResolvedValueOnce({ data: null, error: { message: 'boom' } });
 
       const ok = await service.deleteAccount();
 
       expect(ok).toBe(false);
+      expect(mockAuth.getUser).toHaveBeenCalledWith('at-user_123');
       expect(mockAuth.signOut).not.toHaveBeenCalled(); // data may still exist server-side
       expect(service.userId).toBe('user_123');
+      expect(keychain.has(KEY)).toBe(true);
+      expect(mockAuth.startAutoRefresh).toHaveBeenCalled();
     });
 
     it('returns false when the function resolves without success:true', async () => {
@@ -330,12 +385,14 @@ describe('SupabaseService', () => {
       expect(mockAuth.signOut).not.toHaveBeenCalled();
     });
 
-    it('is a no-op (true) when there is no established session', async () => {
-      service.userId = null;
+    it('is a no-op (true) with nothing persisted and no session — no client, no mint, no invoke', async () => {
+      keychain.clear();
 
       const ok = await service.deleteAccount();
 
       expect(ok).toBe(true);
+      expect(createClient).not.toHaveBeenCalled();
+      expect(mockAuth.signInAnonymously).not.toHaveBeenCalled();
       expect(mockFunctions.invoke).not.toHaveBeenCalled();
     });
   });

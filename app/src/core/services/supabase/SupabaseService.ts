@@ -28,14 +28,19 @@
 
 import { logSecurity, logError, LogCategory } from '../logging';
 import { generateSessionId } from '@/core/utils/id';
-import { createClient, SupabaseClient } from '@supabase/supabase-js';
+import { createClient, isAuthApiError, SupabaseClient } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   createSupabasePinnedFetch,
   validatePinningConfiguration,
 } from '../security/pinned-fetch';
-import { createSecureStoreSessionAdapter } from './secureStoreSessionAdapter';
+import {
+  createSecureStoreSessionAdapter,
+  readPersistedSession,
+  removePersistedSession,
+  supabaseAuthStorageKey,
+} from './secureStoreSessionAdapter';
 import { env } from '@/core/config/env';
 import { useConsentStore } from '@/core/stores/consentStore';
 
@@ -298,6 +303,13 @@ class SupabaseService {
   /** DEBUG-335: a durable write failed; retry it on the next flush rather than lose it. */
   private crisisPersistDirty = false;
   /**
+   * Bumped when an erasure drops the queue (DEBUG-704). A flush that snapshotted
+   * `pending` under an older epoch must not truncate the queue on success: every
+   * entry now in it was enqueued after the erasure, for the fresh identity, and
+   * `slice(pending.length)` would silently drop them.
+   */
+  private crisisQueueEpoch = 0;
+  /**
    * DEBUG-409: single-flight guard for client construction. `null` means idle.
    *
    * Load-bearing, not defensive polish. Once a client can be created off the crisis
@@ -391,8 +403,15 @@ class SupabaseService {
    * `handleCrisisDetection` is awaited by answerQuestion/completeAssessment under a
    * STRICT <200ms CI gate, so construction must never execute inside the synchronous
    * `trackCrisisDetection` frame.
+   *
+   * DEBUG-704 — `mint: false` restores a persisted session but never signs in
+   * anonymously. Only `deleteAccount()` passes it: the deletion path must never create
+   * the account it is asked to erase. It applies to the construction this call starts; a
+   * caller that joins a construction already in flight gets that one's choice, which is
+   * why the crisis flush keeps its own `!userId` mint fallback and why `deleteAccount()`
+   * checks the restored uid against the persisted one rather than trusting `userId`.
    */
-  private async ensureClient(): Promise<void> {
+  private async ensureClient({ mint = true }: { mint?: boolean } = {}): Promise<void> {
     if (this.client) return;
     if (this.clientInitPromise) return this.clientInitPromise;
 
@@ -442,7 +461,7 @@ class SupabaseService {
       // Establish (or restore) the anonymous session BEFORE anything that writes —
       // crisis telemetry flushes into analytics_events under auth.uid() RLS and
       // needs a non-null principal to satisfy WITH CHECK.
-      await this.ensureAnonymousSession();
+      await this.ensureAnonymousSession({ mint });
     })();
 
     try {
@@ -530,13 +549,16 @@ class SupabaseService {
    * and a later flush / AppState-active retry establishes the session. We must NOT
    * throw here — initialization continuing is what keeps the offline-first
    * never-drop guarantees intact.
+   *
+   * DEBUG-704: `mint: false` (deletion only) skips `signInAnonymously`, leaving `userId`
+   * null when nothing could be restored.
    */
-  private async ensureAnonymousSession(): Promise<void> {
+  private async ensureAnonymousSession({ mint = true }: { mint?: boolean } = {}): Promise<void> {
     try {
       const { data: existing } = await this.client!.auth.getSession();
       let user = existing.session?.user ?? null;
 
-      if (!user) {
+      if (!user && mint) {
         const { data, error } = await this.client!.auth.signInAnonymously();
         if (error) throw error;
         user = data.user ?? null;
@@ -1115,6 +1137,7 @@ class SupabaseService {
       }
 
       const pending = [...this.crisisAnalyticsQueue];
+      const epoch = this.crisisQueueEpoch;
       const rows: AnalyticsEvent[] = pending.map((e) => {
         // DEBUG-541: project the detection day HERE, at flush, never at enqueue.
         //
@@ -1157,8 +1180,12 @@ class SupabaseService {
       );
 
       if (result.success) {
-        // Drop the flushed prefix; keep anything enqueued during the flight.
-        this.crisisAnalyticsQueue = this.crisisAnalyticsQueue.slice(pending.length);
+        // Drop the flushed prefix; keep anything enqueued during the flight. If an
+        // erasure dropped the queue mid-flight, the prefix is already gone and what
+        // remains belongs to the fresh identity — keep all of it (DEBUG-704).
+        if (epoch === this.crisisQueueEpoch) {
+          this.crisisAnalyticsQueue = this.crisisAnalyticsQueue.slice(pending.length);
+        }
         // DEBUG-335: through the same chain as the enqueue write. A raw setItem here
         // races an in-flight enqueue write and can resurrect an already-flushed event.
         await this.persistCrisisQueue();
@@ -1392,55 +1419,209 @@ class SupabaseService {
   }
 
   /**
-   * Data-subject right to erasure (INFRA-260 PR3): delete the server-side account.
+   * Data-subject right to erasure (INFRA-260 PR3; corrected DEBUG-704).
    *
    * Invokes the `delete-account` edge function, which (service-role) hard-deletes
    * the caller's auth.users row; the FK ON DELETE CASCADE removes every uid-keyed
    * row (encrypted_backups, analytics_events, subscriptions, subscription_events).
-   * On success the local session is torn down so the next boot mints a fresh
-   * anonymous identity rather than reusing a deleted uid.
    *
-   * Returns true if the server account was erased (or there was none to erase).
-   * Returns false on failure WITHOUT tearing down the session — the caller must
-   * NOT proceed to wipe local data if the server copy still exists. The caller
-   * pairs a true result with SecureStorageService.clearAllWellnessData({
-   * deleteMasterKey: true }) for the on-device half of erasure.
+   * Returns `true` ONLY when the server account is confirmed erased, or provably never
+   * existed. Returns `false` for "unconfirmed" — the caller must NOT wipe local data,
+   * and the session is kept so a retry can reach the server. The caller pairs `true`
+   * with SecureStorageService.clearAllWellnessData({ deleteMasterKey: true }).
+   *
+   * DEBUG-704 — what decides "is there an account?" is the session auth-js PERSISTED,
+   * not whether this run happened to build a client. The old fast path
+   * (`!this.client || !this.userId → true`) reported erasure with no network call for
+   * every account holder who deleted in a run that built no client, and never removed
+   * the session, so the next client build restored the "deleted" uid.
+   *
+   *  1. Probe the Keychain strictly. Nothing persisted and nothing in memory → no
+   *     account exists → `true`, with no client built and no session minted (DEBUG-409:
+   *     an install that never crossed a threshold never opens a backend session). A
+   *     probe that throws, or a session that is present but unidentifiable → `false`.
+   *  2. Build/restore the client with `mint: false` — never `signInAnonymously` here; an
+   *     offline, expired session would otherwise mint a NEW account and delete that.
+   *  3. The live session must exist and belong to the persisted uid, else `false`.
+   *  4. Invoke. On any failure, reconcile with `auth.getUser(<that access token>)`: ONLY
+   *     an `AuthApiError` with code `user_not_found` for the caller's own sub counts as
+   *     erased (a retry after a timed-out-but-successful erasure). Anything else → `false`.
+   *  5. On confirmation, tear the session down without waiting on the network
+   *     (`teardownErasedSession`).
    */
   async deleteAccount(): Promise<boolean> {
-    // No established session → no server-side account exists to erase.
-    if (!this.client || !this.userId) {
-      return true;
+    let persisted: { present: boolean; uid: string | null };
+    try {
+      persisted = await readPersistedSession(supabaseAuthStorageKey(SUPABASE_URL));
+    } catch (error) {
+      logSecurity('[SupabaseService] Account deletion: session probe failed — unconfirmed', 'high', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
     }
 
+    if (!persisted.present && !this.userId) {
+      // Nothing persisted and no session in memory: no server account exists to erase.
+      return true;
+    }
+    if (persisted.present && !persisted.uid) {
+      logSecurity('[SupabaseService] Account deletion: persisted session unreadable — unconfirmed', 'high');
+      return false;
+    }
+    if (persisted.uid && this.userId && persisted.uid !== this.userId) {
+      logSecurity('[SupabaseService] Account deletion: persisted and live identities differ — unconfirmed', 'high');
+      return false;
+    }
+    const expectedUid = persisted.uid ?? this.userId;
+
     try {
-      // The client's session JWT is auto-attached; the function reads auth.uid()
-      // from it and deletes only that principal.
-      const { data, error } = await this.client.functions.invoke<{ success?: boolean }>(
+      await this.ensureClient({ mint: false });
+    } catch (error) {
+      logSecurity('[SupabaseService] Account deletion: client unavailable — unconfirmed', 'high', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+    const client = this.client;
+    if (!client) return false;
+
+    let accessToken: string;
+    try {
+      const { data, error } = await client.auth.getSession();
+      const session = data?.session ?? null;
+      if (error || !session?.access_token || session.user?.id !== expectedUid) {
+        logSecurity('[SupabaseService] Account deletion: session not verifiable — unconfirmed', 'medium', {
+          error: error ? error.message : session ? 'identity mismatch' : 'no session',
+        });
+        return false;
+      }
+      accessToken = session.access_token;
+    } catch (error) {
+      logSecurity('[SupabaseService] Account deletion: session check failed — unconfirmed', 'medium', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+
+    // Stop the background refresher for the duration, so it cannot rotate or re-persist
+    // the session while it is being erased. Restarted below if erasure is unconfirmed.
+    try {
+      await client.auth.stopAutoRefresh();
+    } catch {
+      // Best-effort; a refresh racing the erasure fails once the user is gone.
+    }
+
+    let confirmed = false;
+    try {
+      // The session JWT is auto-attached; the function reads the gateway-verified `sub`
+      // and deletes only that principal.
+      const { data, error } = await client.functions.invoke<{ success?: boolean }>(
         'delete-account',
         { body: {} },
       );
-      if (error || !data?.success) {
+      confirmed = !error && data?.success === true;
+      if (!confirmed) {
         logError(
           LogCategory.SYSTEM,
-          '[SupabaseService] Account deletion failed',
+          '[SupabaseService] Account deletion request failed — reconciling',
           error instanceof Error ? error : new Error(String(error ?? 'no success flag')),
         );
-        return false;
       }
-
-      // Server data gone — clear the local session (removes the secure-store
-      // session chunks) so we don't reuse the now-deleted uid.
-      await this.client.auth.signOut();
-      this.userId = null;
-      logSecurity('[SupabaseService] Account erased (server cascade + session cleared)', 'low');
-      return true;
     } catch (error) {
       logError(
         LogCategory.SYSTEM,
-        '[SupabaseService] Account deletion error',
+        '[SupabaseService] Account deletion request error — reconciling',
         error instanceof Error ? error : new Error(String(error)),
       );
+    }
+
+    if (!confirmed) {
+      confirmed = await this.isAccountAlreadyErased(client, accessToken);
+    }
+
+    if (!confirmed) {
+      try {
+        await client.auth.startAutoRefresh();
+      } catch {
+        // Best-effort; getSession still refreshes an expired token on demand.
+      }
       return false;
+    }
+
+    await this.teardownErasedSession(client);
+    logSecurity('[SupabaseService] Account erased (server cascade confirmed, session removed)', 'low');
+    return true;
+  }
+
+  /**
+   * DEBUG-704 — convergent retry. After a request that erased the account but whose
+   * reply was lost, the retry's `admin.deleteUser` finds no user and the function
+   * answers 500. Ask GoTrue directly with the same access token: it looks the JWT's
+   * `sub` up BEFORE the session and answers 403 `user_not_found` when it is gone
+   * (supabase/auth `maybeLoadUserOrSession`). That, and only that, confirms erasure —
+   * `bad_jwt`, `session_not_found`, a network failure or a live user are all unconfirmed.
+   */
+  private async isAccountAlreadyErased(client: SupabaseClient, accessToken: string): Promise<boolean> {
+    try {
+      const { data, error } = await client.auth.getUser(accessToken);
+      if (error && isAuthApiError(error) && error.code === 'user_not_found') {
+        logSecurity('[SupabaseService] Account deletion: user already erased (user_not_found)', 'low');
+        return true;
+      }
+      logSecurity('[SupabaseService] Account deletion: erasure not confirmed', 'medium', {
+        error: error ? (error.code ?? error.message) : data?.user ? 'user still exists' : 'no user',
+      });
+      return false;
+    } catch (error) {
+      logSecurity('[SupabaseService] Account deletion: reconciliation failed', 'medium', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    }
+  }
+
+  /**
+   * DEBUG-704 — make the erased identity unrecoverable on this device, without ever
+   * waiting on the network.
+   *
+   * auth-js `signOut` returns `{ error }` on a transport failure and then SKIPS its own
+   * session removal, so it cannot be the control. Instead:
+   *  - `userId` is cleared and every crisis event queued under the erased identity is
+   *    dropped, synchronously, before any await. Events enqueued after this point stay
+   *    and flush under the fresh identity the next flush mints. The dirty flag is reset
+   *    so a retry write cannot resurrect the dropped events; the disk copy is swept by
+   *    the local wipe (`SWEPT_EXACT_KEYS`).
+   *  - the persisted session is removed directly from the Keychain (one retry). If both
+   *    attempts fail the server erasure still stands, so this still returns normally.
+   *  - `signOut({ scope: 'local' })` runs fire-and-forget to clear auth-js's own state,
+   *    after the removal, so it has no token to send. Never awaited.
+   * The client object is kept: the next crisis flush finds no session and mints a new one.
+   */
+  private async teardownErasedSession(client: SupabaseClient): Promise<void> {
+    this.userId = null;
+    this.crisisAnalyticsQueue = [];
+    this.crisisQueueEpoch += 1;
+    this.crisisPersistDirty = false;
+
+    const key = supabaseAuthStorageKey(SUPABASE_URL);
+    try {
+      await removePersistedSession(key);
+    } catch {
+      try {
+        await removePersistedSession(key);
+      } catch (error) {
+        logSecurity('[SupabaseService] Erased session could not be removed from secure store', 'high', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+      }
+    }
+
+    try {
+      void client.auth.signOut({ scope: 'local' }).catch(() => {
+        // The session is already removed above; a failed local sign-out changes nothing.
+      });
+    } catch {
+      // A synchronous throw from signOut must not turn a confirmed erasure into a failure.
     }
   }
 
