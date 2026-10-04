@@ -1497,6 +1497,31 @@ The marker must reach `Linking.getInitialURL()`, which only carries a URL on a c
 start, and an intervening `launchApp` would seed consent before the marker is ever
 seen — making every later assertion vacuous.
 
+## XCTest screen recordings (INFRA-692)
+
+Every flow leaves a QuickTime movie (UUID name, no extension) in the simulator's
+`com.apple.testmanagerd` container, under `…/InternalDaemon/<uuid>/Attachments`. Maestro 2.6.0's
+`maestro-ios-driver.jar` ships `driver-iPhoneSimulator/maestro-driver-ios-config.xctestrun` with
+`PreferredScreenCaptureFormat=screenRecording` and `SystemAttachmentLifetime=deleteOnSuccess`. The
+driver test is killed at teardown, so it never "succeeds" and nothing is ever deleted. On the gate
+simulator that measured roughly 450 MB a day. Nothing in this repo can switch it off: there is no flag
+or env var, and patching the Cellar jar is invisible to the version pin.
+
+`e2e-safety.sh` therefore sweeps its own recordings (`scripts/e2e-sim-attachments.sh`):
+
+- It snapshots the testmanagerd Attachments when it takes the simulator lease.
+- At exit, still holding the lease, it deletes only the files that are new since the snapshot, pass or fail.
+- It touches only that UDID's container, by exact match.
+- `E2E_KEEP_XCTEST_RECORDINGS=1` keeps and lists them, for watching a failing flow.
+- `E2E_ATTACHMENTS_REAP_DRY_RUN=1` lists without deleting.
+
+**Not covered:** recordings from ad-hoc `maestro` runs outside the gate, other simulators, and anything
+left from before the sweep existed. Those are a follow-up.
+
+**When the Maestro pin moves**, re-read those two keys in the new jar
+(`unzip -p … driver-iPhoneSimulator/maestro-driver-ios-config.xctestrun`). If they change, the sweep
+may have nothing to do.
+
 ## Out of scope (deferred)
 
 - CI macOS-runner integration (cost vs. flake risk not justified)
