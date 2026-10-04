@@ -57,6 +57,9 @@ them once just resets the clock, so the reconciliation is enforced:
 
 ```bash
 bash /Users/max/dev/being/.claude/scripts/check-safety-paths.sh || exit 1
+# INFRA-727: the gate plan's fixture suite. A pass is cached per script + fixtures, so this is
+# ~0.1 s unless one of them changed since the last pass (~20 s cold).
+bash /Users/max/dev/being/.claude/scripts/test-b-close-gate-plan.sh || exit 1
 # No app/ here means a no-worktree item (Step 1.1) closing from the bare root — run the
 # ledger from the development worktree rather than aborting the close on a missing dir.
 APP_DIR=app; [ -d app ] || APP_DIR=/Users/max/dev/being/development/app
@@ -85,11 +88,12 @@ that matches no CI `--testPathPattern` runs on nobody's PR, and this gate is in
 neither `precommit` nor any hook, so it surfaces only as a red `Safety + privacy
 gates` after the PR exists. Fix by pattern, never by renaming a file toward one.
 
-It fails when a Protected Path is neither matched by Phase 2.5's grep nor listed
+It fails when a Protected Path is neither matched by the gate's `SAFETY_PATH_RE` nor listed
 in the script's `EXEMPT_PATHS` with a recorded reason. ~1s, no network, no build.
 
-**If it fails, fix the lists — do not skip it.** Either add the path to the
-`SAFETY_CANDIDATES` grep in Step 2.5.1 *and* map it to a flow in Step 2.5.3, or
+**If it fails, fix the lists — do not skip it.** Either add the path to
+`SAFETY_PATH_RE` *and* give it a Step 2.5.3 clause — both in
+`.claude/scripts/b-close-gate-plan.sh`, with a case in `test-b-close-gate-plan.sh` — or
 add it to `EXEMPT_PATHS` with a written reason. Both are seconds of work, and a
 hole here means a 988-affordance change merges unverified.
 
@@ -368,285 +372,52 @@ Run Step 3.1's merge now, before classifying. Classification and the gate must b
 the diff that will actually merge — otherwise you classify twice and may build twice.
 Step 3.1 stays as the idempotent re-check for work that lands while the gate runs.
 
-### Step 2.5.1: Detect safety-surface changes
+### Step 2.5.1: Detect safety-surface changes, and map them to flows
+
+Steps 2.5.1 and 2.5.3 run as ONE script (INFRA-727). Never re-type, abbreviate or excerpt its
+logic into a Bash call: that is the defect class it exists to remove (transcription drift,
+the harness substituting dollar-zero when it renders this file, shell state lost between calls). The rationale for every
+pattern, carve-out and clause is in its comments.
 
 ```bash
-# Path-based: dirs/files that obviously host safety contracts. Navigation is
-# matched at the whole-dir level (not just CleanRootNavigator) so tab/stack
-# re-points like CleanTabNavigator and feature-level navigators are caught.
-# Exclude test-only files: a jest-test-only change (under __tests__/ or *.test.* /
-# *.spec.*) cannot affect what the Maestro flows exercise (they drive the running
-# app), so it must not trip the sim gate. The clinical/crisis jest suites still run
-# in precommit/CI regardless. (A test-assertion repair under features/assessment/ —
-# e.g. assessmentStore.test.ts — was otherwise mis-triggering the assessment flows.)
-#
-# Two entries are not feature paths and are easy to omit on sight, but both reach
-# this gate's own subject matter — and both are UNDER-trigger risks, the
-# high-severity direction:
-#   - `.maestro/` — a diff that adds or edits a flow IS a safety-surface change by
-#     definition. The flow is the contract; it cannot be validated without running
-#     it, and a flow that has never run is not coverage. Without this, a brand-new
-#     safety flow merges having never executed once.
-#   - `src/core/config/e2eSeed.ts` — it decides the launch state EVERY flow starts
-#     from, so a regression there changes what all of them see while touching no
-#     feature path. Nothing else in the tree has that reach.
-#
-# INFRA-416 added `consent` and `guidance` to the features alternation, reconciling
-# this grep with CLAUDE.md's Protected Paths table. Both were under-triggers of the
-# same shape — a directory whose safety relevance comes from what it HOSTS or
-# CONSUMES, not from its name:
-#   - `features/consent/` — CombinedLegalGateScreen.tsx hosts the PRE-consent 988
-#     footer, the only crisis affordance before a user accepts anything. `LegalGate`
-#     is in RootCrisisButton's SUPPRESSED_ROUTES, so the root overlay deliberately
-#     does NOT cover for it. DEBUG-390 fixed that footer and this gate fired only
-#     because the branch also touched two .maestro flows; the fix file matched
-#     nothing on its own.
-#   - `features/guidance/` — guidanceGate.ts consumes the PHQ-9/GAD-7 thresholds to
-#     route a distressed user to Stoic content or to crisis resources. FEAT-55
-#     slice 1 shipped it classifying GREEN because a brand-new feature dir matches
-#     no existing pattern.
-# `features/practices/` is a Protected Path but is deliberately NOT here: it is
-# protected for `philosopher` (classical accuracy), the Validation Matrix gives
-# "Therapeutic content (Stoic)" no safety-e2e cell, and no flow pins practice
-# content — gating it would charge a sim build for a philosophy review, the
-# over-trigger that trains the --skip-e2e reflex. That exemption is RECORDED, not
-# implicit: `.claude/scripts/check-safety-paths.sh` fails if a Protected Path is
-# neither matched here nor in its EXEMPT_PATHS list. Run it after editing either.
-#
-# `practices/dailyloop` IS carved back in (DEBUG-465) — the exemption above is
-# scoped to the rest of practices, not to this subtree. DailyLoopStepScreen hosts
-# SUPPORT_LINE, a crisis affordance routing to CrisisResources, and crisis review
-# ruled the root overlay does NOT discharge its above-the-fold obligation. It is a
-# fourth instance of the guidance/consent shape: the fix file matched nothing, and
-# the gate fired only because the same branch edited a `.maestro` flow.
-#
-# "Could not compute the diff" is NOT "there is no diff", and a bare `|| true`
-# renders them identically. On `_bare` — a true ORPHAN branch (its root commit
-# differs from development's; it holds only .claude/, .gitignore, README.md) —
-# `origin/development...HEAD` dies with `fatal: no merge base`, the pipeline
-# yields empty, and the gate announces "no safety-surface changes detected".
-# The verdict happens to be right there (nothing under app/ can change on that
-# branch) but it is right by accident, and a safety gate reading green because
-# it could not see is the exact shape INFRA-416 was filed to remove. Resolve the
-# base explicitly and branch on it, so an inapplicable gate says so.
-if ! MERGE_BASE=$(git merge-base origin/development HEAD 2>/dev/null); then
-  echo "ℹ️  No merge base with origin/development — this branch shares no history"
-  echo "    with the app tree (e.g. _bare, which carries only .claude/ tooling)."
-  echo "    Phase 2.5 is INAPPLICABLE, not passing: there is no app diff to classify."
-  SAFETY_CANDIDATES=""
-else
-SAFETY_CANDIDATES=$(git diff --name-only "$MERGE_BASE" HEAD | \
-  grep -vE '(__tests__/|\.test\.|\.spec\.)' | \
-  grep -E '^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
-fi
-
-# INFRA-256: drop INERT candidates — diffs that cannot change runtime behavior, so
-# the Maestro flows (which drive the running app) have nothing to validate. Discovered
-# closing MAINT-254: a 7-line deletion of a zero-call-site function under
-# features/assessment/types/scoring.ts tripped q9/phq9/gad7 even though it provably
-# cannot affect runtime — friction that trains the --skip-e2e reflex this gate exists
-# to prevent. The path grep above is intentionally coarse (file PATH only); this loop
-# refines it by INSPECTING each candidate's diff.
-#
-# Two inert classes are skipped (see the decision table below); EVERYTHING ELSE stays
-# gated. The failure modes are asymmetric — UNDER-triggering (a real safety change
-# merges ungated) is high-severity; over-triggering (a pointless build) is just
-# friction — so every ambiguity biases toward KEEPING the file gated:
-#   (a) deletion-only      — ≥1 removed line, 0 added lines (pure dead-code removal).
-#   (b) comment/whitespace — every changed (+/-) content line is blank or a comment.
-# NOT auto-skipped (consciously, to stay safe): pure type-only edits (bash can't
-# distinguish a type annotation from a value without parsing TS) and config files
-# app.json / Info.plist (their contracts are pinned elsewhere — the INFRA-184 jest
-# static-config test — but a key removal IS a real regression, so keep them gated as
-# today). A mixed comment+code line (e.g. `const x = 1 // note`) stays gated.
-SAFETY_CHANGED=""
-INERT_SKIPS=()
-while IFS= read -r f; do
-  [ -z "$f" ] && continue
-  # Config files bypass the inert filter — always gated if they changed at all.
-  # `.maestro/` flows and e2eSeed.ts bypass it too, and for a sharper reason: the
-  # inert filter's two classes INVERT on them. A deletion-only diff to a flow is
-  # assertions being REMOVED — the contract weakening, the single change class this
-  # gate most needs to catch — and the filter would score it inert and skip. (Its
-  # comment regex is JS-style too, so it cannot read YAML `#` comments anyway;
-  # do NOT teach it `#`, which is a valid TS private-field sigil.)
-  case "$f" in
-    *app.json|*Info.plist|*/.maestro/*.yaml|*e2eSeed.ts) SAFETY_CHANGED+="${f}"$'\n'; continue ;;
-  esac
-  # Changed content lines (added + removed), excluding the +++/--- file headers.
-  CHANGED_LINES=$(git diff "$MERGE_BASE" HEAD -- "$f" \
-    | grep -E '^[+-]' | grep -vE '^(\+\+\+|---)' || true)
-  ADD_CT=$(printf '%s\n' "$CHANGED_LINES" | grep -cE '^\+' || true)
-  DEL_CT=$(printf '%s\n' "$CHANGED_LINES" | grep -cE '^-'  || true)
-  # (a) deletion-only: at least one removal, zero additions.
-  if [ "$ADD_CT" -eq 0 ] && [ "$DEL_CT" -gt 0 ]; then
-    INERT_SKIPS+=("$f — deletion-only ($DEL_CT line(s) removed, 0 added)")
-    continue
-  fi
-  # (b) comment/whitespace-only: there ARE changed lines, and stripping blanks +
-  # whole-line comments (//…, /*…, /**…, * …, exact */, single-line /*…*/) leaves
-  # nothing. A line bearing any executable code survives and keeps the file gated.
-  if [ -n "$CHANGED_LINES" ]; then
-    NONCOMMENT=$(printf '%s\n' "$CHANGED_LINES" \
-      | sed -E 's/^[+-]//' \
-      | sed -E 's/^[[:space:]]+//; s/[[:space:]]+$//' \
-      | grep -vE '^$' \
-      | grep -vE '^//' \
-      | grep -vE '^\*([[:space:]].*)?$' \
-      | grep -vE '^/\*\*?([[:space:]].*)?$' \
-      | grep -vE '^\*/$' \
-      | grep -vE '^/\*.*\*/$' \
-      || true)
-    if [ -z "$NONCOMMENT" ]; then
-      INERT_SKIPS+=("$f — comment/whitespace-only (no executable line changed)")
-      continue
-    fi
-  fi
-  # Live (or ambiguous) change → keep gated.
-  SAFETY_CHANGED+="${f}"$'\n'
-done <<< "$SAFETY_CANDIDATES"
-SAFETY_CHANGED=$(printf '%s' "$SAFETY_CHANGED" | grep -vE '^$' || true)
-
-# A skipped gate is NEVER silent (AC): log every inert-skip decision with its reason.
-if [ ${#INERT_SKIPS[@]} -gt 0 ]; then
-  echo "ℹ️  INFRA-256: ${#INERT_SKIPS[@]} safety-path file(s) skipped as inert (cannot affect runtime):"
-  printf '      • %s\n' "${INERT_SKIPS[@]}"
-fi
-
-# Content-based (FEAT-212 gap fix): the crisis overlay (CollapsibleCrisisButton)
-# can be re-hosted from ANY feature dir — FEAT-212 moved it into features/profile's
-# ProfileStackNavigator, which the path grep above did not match, silently skipping
-# the reachability gate on a crisis-surface change. If the diff adds/removes a line
-# referencing the overlay anywhere, treat it as a crisis-surface change. NOTE: this
-# is deliberately NOT subject to the INFRA-256 inert filter — it is an independent,
-# paranoid over-trigger signal; a CODE line referencing the overlay moving at all
-# re-arms the reachability flow regardless of how "inert" the surrounding diff looks.
-# It IS subject to two exclusions, which are a different question from inertness:
-# the overlay can be re-hosted in any SOURCE dir (hence content, not paths), but
-# neither excluded class can change what a flow sees, because Maestro drives the
-# running app.
-#   1. TEST FILES — not in the app bundle at all. Without this, a deleted test that
-#      merely RENDERED the overlay gates a sim-attended close on no runtime code.
-#   2. COMMENT LINES, INCLUDING IN SOURCE FILES. Naming the overlay in a comment is
-#      not a re-host; it changes no rendered output. Citing it as a precedent — its
-#      44pt-visible-target decision is the canonical touch-target reference in this
-#      repo — is a normal thing for a comment elsewhere in the tree to do, and must
-#      not cost a full EAS build plus flow run. Charging one trains exactly the
-#      `--skip-e2e` reflex this gate exists to prevent (same reasoning as INFRA-256).
-# A line bearing executable code still trips the gate — that is the whole point.
-# Guarded on MERGE_BASE for the same reason as SAFETY_CANDIDATES above: with no
-# merge base this diff dies too, and an unguarded `|| true` would report "the
-# crisis overlay did not move" on a branch where the question is unanswerable.
-if [ -n "${MERGE_BASE:-}" ]; then
-  CRISIS_HOST_CHANGED=$(git diff "$MERGE_BASE" HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
-    ':(exclude)app/**/__tests__/**' ':(exclude)app/**/*.test.*' ':(exclude)app/**/*.spec.*' \
-    | grep -E '^[+-].*CollapsibleCrisisButton' \
-    | grep -vE '^[+-][[:space:]]*(//|\*|/\*)' || true)
-else
-  CRISIS_HOST_CHANGED=""
-fi
-
-# INFRA-531 — Layer 1 import-graph detector. An ALARM, never a scope: when a file
-# OUTSIDE the Protected Paths set imports a crisis constant, this FAILS the close and
-# demands a ruling on that file. It is what makes the "consumes but matches no path
-# pattern" class self-closing — five instances were each found by someone happening to
-# notice. It SUPPLEMENTS the hand-maintained list and cannot replace it (DEBUG-525,
-# settled — do not re-argue): it inverts on the pair that motivated it, produces no
-# agent mapping, and is a diff signal rather than a set.
-#
-# ANCHOR SET — exactly three specifiers (crisis ruling, INFRA-531). The broad
-# `@/features/assessment/types` barrel is EXCLUDED although it does re-export the
-# thresholds: its ungated importers pull `AssessmentType`/`PHQ9Result` for chart axes
-# and export plumbing, so arming it would hard-fail four closes on day one and spend
-# the detector's base rate before it caught anything. A binding-qualified barrel arm is
-# rejected too — in-tree importers write multi-line imports a line-grep cannot see, and
-# that misses SILENTLY, the high-severity direction. Recorded blind spot, bounded:
-# `assessment/types/index.ts` is itself inside a gated dir, so what it re-exports cannot
-# change ungated; only a NEW ungated consumer of an existing re-export escapes.
-#
-# Matches BOTH `+` and `-` lines on purpose. A REMOVED crisis import is the
-# `useKeyboardFrameHeight.ts` extraction that DEBUG-525 recorded as this detector's own
-# miss, and the ruling it demands is "does the new home need a row".
-I531_IMPORT_RE="^[+-].*from '(@/features/crisis/constants/|@/features/crisis/types/safety|@/features/assessment/types/scoring)"
-i531_hit() { printf '%s\n' "$1" | grep -E "$I531_IMPORT_RE" | grep -vE '^[+-][[:space:]]*(//|\*|/\*)'; }
-# Self-test, per DEBUG-390 and check-safety-paths.sh: a source-shape matcher that can no
-# longer go red reads as a pass. Each case isolates ONE mechanism — a negative that is
-# also a comment would let the comment exclusion mask a broken anchor, and a control that
-# conflates two mechanisms stays green while either survives.
-i531_matcher_ok() {
-  i531_hit "+import { CRISIS_BUTTON_SIZE } from '@/features/crisis/constants/crisisButtonGeometry';" >/dev/null || return 1
-  i531_hit "-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';" >/dev/null || return 1
-  i531_hit "+import { detectCrisis } from '@/features/crisis/types/safety';" >/dev/null || return 1
-  i531_hit "+import type { PHQ9ScoringResult } from '@/features/assessment/types/scoring';" >/dev/null || return 1
-  i531_hit "+import { spread } from '@/features/tarot/constants/spread';" >/dev/null && return 1
-  i531_hit "+import type { AssessmentType } from '@/features/assessment/types';" >/dev/null && return 1
-  i531_hit "+  // ported from '@/features/crisis/constants/crisisButtonGeometry' in DEBUG-525" >/dev/null && return 1
-  i531_hit "+ * see crisisButtonGeometry for the 44pt visible-target decision" >/dev/null && return 1
-  i531_hit "+const crisisButtonGeometryFixture = { bottom: 100 };" >/dev/null && return 1
-  i531_hit " import { CRISIS_BUTTON_SIZE } from '@/features/crisis/constants/crisisButtonGeometry';" >/dev/null && return 1
-  return 0
-}
-# A ruled-and-recorded exemption. Empty today. Same contract as check-safety-paths.sh's
-# EXEMPT_PATHS: an entry is how you say "ruled: not a crisis surface", and it needs a
-# reason. Silence is not a ruling.
-i531_exempt_reason() {
-  case "$1" in
-    *) return 1 ;;
-  esac
-}
-I531_ALARM=""
-if [ -n "${MERGE_BASE:-}" ]; then
-  if ! i531_matcher_ok; then
-    echo "🛡️  INFRA-531: the crisis-import matcher failed its own self-test — refusing to close." >&2
-    echo "    A matcher that has stopped firing is indistinguishable from a clean tree" >&2
-    echo "    (DEBUG-390). Fix the matcher; do not proceed on an unproven detector." >&2
-    exit 1
-  fi
-  while IFS= read -r f; do
-    [ -z "$f" ] && continue
-    case "$f" in *__tests__/*|*.test.*|*.spec.*) continue ;; esac
-    case "$f" in app/src/*.ts|app/src/*.tsx) ;; *) continue ;; esac
-    # Membership is tested against SAFETY_CANDIDATES (PRE-inert), never SAFETY_CHANGED,
-    # and as an EXACT whole-path match. The two filters answer different questions: this
-    # one asks "is the path KNOWN to the Protected Paths list", which no property of this
-    # branch's diff can change. Against the post-inert set, an already-ruled file with a
-    # deletion-only diff that drops its crisis import reads as ungated and raises a hard
-    # failure the developer cannot discharge — the row is already there — so the only exit
-    # is --skip-e2e. Verified: swapping in the post-inert set fires on CleanHomeScreen.tsx.
-    printf '%s\n' "$SAFETY_CANDIDATES" | grep -qxF "$f" && continue
-    i531_exempt_reason "$f" >/dev/null && continue
-    I531_HIT=$(git diff "$MERGE_BASE" HEAD -- "$f" \
-      | grep -E "$I531_IMPORT_RE" | grep -vE '^[+-][[:space:]]*(//|\*|/\*)' || true)
-    [ -n "$I531_HIT" ] && I531_ALARM="${I531_ALARM}      ${f}"$'\n'"$(printf '%s\n' "$I531_HIT" | sed 's/^/          /')"$'\n'
-  done <<< "$(git diff --name-only "$MERGE_BASE" HEAD)"
-fi
-# Prints the path AND the verbatim matched line, and names BOTH legal resolutions. The
-# false-fire cost here is a human ruling, not a self-clearing flow run, so a message that
-# states only the expensive resolution is the one people learn to bypass. It exits before
-# Step 2.5.2, so --skip-e2e cannot reach it: this is a ruling, not a gate run.
-if [ -n "$I531_ALARM" ]; then
-  echo "❌ INFRA-531: a file OUTSIDE the Protected Paths set imports a crisis constant." >&2
-  printf '%s' "$I531_ALARM" >&2
-  echo "    Rule on each file above before this close proceeds. Two legal resolutions:" >&2
-  echo "      (1) EXEMPT — add the path to i531_exempt_reason() with a recorded reason," >&2
-  echo "          if the import carries no 988 affordance or placement decision." >&2
-  echo "      (2) GATE — add a Protected Paths row to .claude/CLAUDE.md, add the path to" >&2
-  echo "          Step 2.5.1's SAFETY_CANDIDATES grep AND b-batch Step 3.2's copy, and give" >&2
-  echo "          it a Step 2.5.3 flow arm plus a decision-table row. Record the ruling's" >&2
-  echo "          prose in /Users/max/dev/being/.claude/docs/safety-path-rulings.md (INFRA-726)." >&2
-  exit 1
-fi
-# INFRA-723 — Steps 2.5.3–2.5.5 live in a separate file so a gate-less close never loads
-# them. This line is the only pointer an agent reading top-down is guaranteed to see.
-if [ -n "$SAFETY_CHANGED" ] || [ -n "$CRISIS_HOST_CHANGED" ]; then
-  echo "🔒 GATE REQUIRED — Read /Users/max/dev/being/.claude/docs/b-close-gate.md"
-fi
+bash /Users/max/dev/being/.claude/scripts/b-close-gate-plan.sh --worktree /Users/max/dev/being/[worktree-dir]
+GATE_PLAN_RC=$?; echo "gate-plan rc=$GATE_PLAN_RC"; [ "$GATE_PLAN_RC" -eq 0 ] || exit "$GATE_PLAN_RC"
 ```
 
-**INFRA-256 decision table** — which safety-path change classes skip the gate vs. trigger it (the implementer/maintainer's quick reference; the bash above is the source of truth).
-**Adding or changing a row here changes NOTHING on its own.** The mapping executes in Step
-2.5.3 — a feature-path clause, plus a `.maestro` case arm for a new flow file. Edit the table
-alone and the documented gate and the running gate disagree, with the running one winning.
+Run it exactly so: `bash` explicitly (it refuses zsh), unpiped, no `|| true`, and the absolute
+worktree root. A no-worktree item (Step 1.1) passes `/Users/max/dev/being` itself, which
+reads INAPPLICABLE. **Route on the exit code, and refuse anything not listed:**
+
+| rc | Meaning | Do |
+|---|---|---|
+| 0 | A plan, written to the result file it names (`📄 Gate plan:`) | Read the output, below |
+| 1 | **INFRA-531 alarm** — a file OUTSIDE the Protected Paths set imports a crisis constant | Rule on each printed file before this close proceeds |
+| 2, 127, any other | The plan could not be computed: script missing, wrong worktree, broken or unfetched ref, a failed self-test, unwritable `$TMPDIR` | **STOP.** A crashed gate is not "no safety changes". Fix the cause and re-run |
+
+The INFRA-531 alarm has two legal resolutions. **(1) EXEMPT** — add the path to
+`i531_exempt_reason()` in the script with a recorded reason, if the import carries no 988
+affordance or placement decision. **(2) GATE** — add a Protected Paths row to
+`.claude/CLAUDE.md`, the path to the script's `SAFETY_PATH_RE` and a Step 2.5.3 clause with a
+fixture case, and the ruling's prose to `safety-path-rulings.md`. The alarm fires before
+Step 2.5.2, so `--skip-e2e` cannot reach it: it is a ruling, not a gate run.
+
+On rc 0 the output names the path:
+- `🔒 GATE REQUIRED — Read …/b-close-gate.md` — the gate is active (`GATE_REQUIRED=1`). The
+  Step 2.5.3 mapping already ran in the same process; its notices follow that line.
+- `ℹ️  No safety-surface changes detected` — see below the table.
+- `Phase 2.5 is INAPPLICABLE, not passing` — no merge base and no `app/` (`_bare`). Report it as
+  INAPPLICABLE in the close-out, never as passed.
+- `INFRA-256: … skipped as inert` — every inert skip is logged with its reason; quote them.
+
+No later step recomputes any of this. Each loads the plan with
+`GATE_PLAN="$(bash /Users/max/dev/being/.claude/scripts/b-close-gate-plan.sh --worktree /Users/max/dev/being/[worktree-dir] --check-plan)" && . "$GATE_PLAN" || exit 2` — which refuses a missing plan, or one computed for another HEAD or merge base.
+Re-run this step whenever the tree moves.
+
+**INFRA-256 decision table** — which safety-path change classes skip the gate vs. trigger it (a maintainer's quick reference; `.claude/scripts/b-close-gate-plan.sh` is the source of truth).
+**Adding or changing a row here changes NOTHING on its own.** The mapping executes in the
+script's Step 2.5.3 section — a feature-path clause, plus a `.maestro` case arm for a new flow
+file — and needs a case in `test-b-close-gate-plan.sh`. Edit the table alone and the
+documented gate and the running gate disagree, with the running one winning.
 
 | Change class under a safety path | Gate? | Why |
 |---|---|---|
@@ -670,11 +441,11 @@ alone and the documented gate and the running gate disagree, with the running on
 | `features/home/screens/CleanHomeScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-547. Consumes `crisisButtonGeometry` rather than owning crisis code. The FAB's `zIndex: 9999` makes any overlap a wrong-DESTINATION tap into `CrisisResources` — a crisis false POSITIVE. The flow already starts on Home and renders both rows, so the arm is free. **The flow is necessary and NOT sufficient**: Maestro taps element CENTRES, which never enter the contested column, so a point tap is required to falsify this. |
 | `features/profile/screens/DeleteAccountScreen.tsx` change | **`crisis-button-reachability`** + device-only notice | INFRA-531 (crisis ruling). Consumes `crisisInputAccessory`; the keyboard is necessarily up (the user types the confirmation word), so on iOS the accessory is the SOLE 988 affordance. FILE-level — the dir's other crisis-bearing members have their own rows and `ProfileStackNavigator` is already covered by `CRISIS_HOST_CHANGED`. Also DEBUG-653: `delete-account-button` and `delete-confirm-input` clear the FAB with a `CRISIS_BUTTON_EXCLUSION_RECT` margin (the DEBUG-547 shape). **Necessary, not sufficient**: the flow never types into `delete-confirm-input`, so the keyboard-up half is pinned on the sim by `crisis-keyboard-reachability` — one runtime site; this screen is covered by construction via `CrisisTextInput` (DEBUG-590). It taps element CENTRES, so the clearance's falsifier is the jest every-y sweep. |
 | `features/profile/screens/ExportDataScreen.tsx` change | **`crisis-button-reachability`** + printed notice | DEBUG-577 (crisis ruling). Owns `Sharing.shareAsync`, MEASURED to leave zero app-owned nodes in the hierarchy for the sheet's duration; a matched-pair coordinate tap reached `CrisisResources` with the sheet down and not with it up. Same shape as `ExternalErrorReporter`, and strictly MORE reachable: the JSON export path is always on and never flag-gated, where the bug-report surface is bounded by `bug_reporting`. (INFRA-571 argued this against Sentry's widget; FEAT-570 replaced it with the first-party overlay, and the flag bound still holds.) FILE-level — the dir's other crisis-bearing members have their own rows. Also DEBUG-653: `export-data-button` clears the FAB with a `CRISIS_BUTTON_EXCLUSION_RECT` margin (the DEBUG-547 shape). **Necessary, not sufficient**: no gate flow opens the share sheet, so the arm proves only that the route renders the overlay with the sheet DOWN; the flow taps element CENTRES, so the clearance's falsifier is the jest every-y sweep. |
-| `.maestro/<flow>.yaml` tagged `safety-occlusion-measurement` edited | **no sim flow** — notice only, never scoped | DEBUG-577. `export-share-sheet-occlusion` PINS A DEBT STATE: its load-bearing assertion is that the 988 affordance is UNREACHABLE, so it stays green after a fix and must be DELETED, not repaired, if the occlusion is remedied. It also leaves an open share sheet — state Maestro does not reliably clear, which per DEBUG-422 reds later flows against a healthy app. Needs its own case arm; the `*)` catch-all would fire a full suite. |
+| `.maestro/<flow>.yaml` tagged `safety-occlusion-measurement` edited | **no scoped flow** — notice only; `crisis-button-reachability` via the Step 2.5.3 fail-safe | DEBUG-577. `export-share-sheet-occlusion` PINS A DEBT STATE: its load-bearing assertion is that the 988 affordance is UNREACHABLE, so it stays green after a fix and must be DELETED, not repaired, if the occlusion is remedied. It also leaves an open share sheet — state Maestro does not reliably clear, which per DEBUG-422 reds later flows against a healthy app. Needs its own case arm; the `*)` catch-all would fire a full suite. |
 | `features/profile/screens/ProfileScreen.tsx` change | **`crisis-button-reachability`** | DEBUG-533 (crisis ruling). Hosts the second entry to `showFeedbackForm()`, which opens a zero-988 window. Also DEBUG-653: the Onboarding Setup footer link clears the FAB with a `CRISIS_BUTTON_EXCLUSION_RECT` margin (the DEBUG-547 shape). The flow already walks the Profile tab and every subscreen depth, so the arm is free. **Necessary, not sufficient**: no flow opens the widget, so this proves only that Profile still renders the overlay; the flow taps element CENTRES, so the clearance's falsifier is the jest every-y sweep. |
 | `features/profile/screens/PrivacyDataScreen.tsx` change | **`crisis-button-reachability`** + printed notice | DEBUG-653 (crisis ruling). The DEBUG-547 shape on `profile-card-delete`, the last control at max scroll since DEBUG-562: it clears the FAB with a `CRISIS_BUTTON_EXCLUSION_RECT` margin in its own style entry, never the shared `settingCard`. FILE-level — the dir's other crisis-bearing members have their own rows. The flow already walks Privacy & Data to that card, so the arm is free. **Necessary, not sufficient**: Maestro taps element CENTRES, so the falsifier is the host's jest every-y sweep. |
 | `core/services/logging/ExternalErrorReporter.ts` change | **`bug-report-crisis-reachability` + `bug-report-suppressed-route`** | FEAT-570 REPLACED THIS ROW'S REASONING. It used to be notice-only, because "no sim flow opens the widget, and authoring one would emit a real Sentry feedback event". The first half expired: the widget is gone, opening is first-party and emits NOTHING, so a flow can open it. The second half is still true and now binds the flows instead — **neither may tap `bug-report-send`**, because the gate build resolves a live production DSN from `.env.production` and there is no INFRA-411-style egress suppression on `captureFeedback`. That row also asserted "`feedbackIntegration` is what mounts the provider at all", which is FALSE — `Sentry.wrap` mounts `FeedbackWidgetProvider` unconditionally (`sdk.js:127-139`) and `feedbackIntegration()` has no `setupOnce`. **Necessary, not sufficient**: the shake entry is not sim-drivable (Maestro 2.6.0 has no shake command), so its verdict is an attended device session. |
-| `core/components/BugReportOverlay.tsx` / `core/stores/bugReportStore.ts` change | **`bug-report-crisis-reachability` + `bug-report-suppressed-route` + `crisis-button-reachability`** | FEAT-570 (crisis ruling). The overlay is armed at the app ROOT, so unlike the two `insights/` slot claimants it can be published while a FAB-suppressed route is active — a zero-988 state. The store is the sole gate on that and imports nothing of ours, so INFRA-531's rule cannot see it; the Protected Paths row is the only control. `bug-report-suppressed-route` is the one that proves the refusal, via an `e2eSeed` marker reproducing the real boot race. **Necessary, not sufficient**: same shake limitation as the row above. |
+| `core/components/BugReportOverlay.tsx` / `core/stores/bugReportStore.ts` change | **`bug-report-crisis-reachability` + `bug-report-suppressed-route`** | FEAT-570 (crisis ruling). The overlay is armed at the app ROOT, so unlike the two `insights/` slot claimants it can be published while a FAB-suppressed route is active — a zero-988 state. The store is the sole gate on that and imports nothing of ours, so INFRA-531's rule cannot see it; the Protected Paths row is the only control. `bug-report-suppressed-route` is the one that proves the refusal, via an `e2eSeed` marker reproducing the real boot race. **Necessary, not sufficient**: same shake limitation as the row above. |
 | An UNGATED file imports a crisis constant | **hard close FAILURE** — no flow | INFRA-531. `I531_IMPORT_RE` over the diff, anchored on the import specifier. An ALARM demanding a ruling (Protected Paths row + arm, or a recorded `i531_exempt_reason()` entry), never a silent flow pick. Exempt from the inert filter: class (a) *inverts* here — a removed crisis import is the extraction case it exists to catch — and class (b) is already discharged by its own comment exclusion. Membership is tested against `SAFETY_CANDIDATES` (pre-inert), or an already-ruled file with a deletion-only diff raises a failure nobody can discharge. Exits before Step 2.5.2, so `--skip-e2e` cannot reach it. |
 | An ungated file imports the broad `@/features/assessment/types` barrel | **not detected** (recorded blind spot) | INFRA-531. The barrel re-exports the thresholds, but its ungated importers pull `AssessmentType`/`PHQ9Result` for chart axes and export plumbing — arming it would hard-fail four closes on day one. A binding-qualified arm is rejected: multi-line imports are invisible to a line-grep, and that misses silently. Bounded: `assessment/types/index.ts` is itself gated, so only a NEW ungated consumer of an existing re-export escapes. |
 | `app/plugins/` change | **`crisis-button-reachability`** + printed notice | FEAT-522. A config plugin injects native code that can occlude every 988 affordance, and iOS is CNG so no AppDelegate diff is ever reviewed. No sim flow can observe it — Maestro drives an ACTIVE app and the shield exists only while inactive — so the arm proves the surrounding crisis paths still render and the notice points at the attended device script. |
@@ -691,16 +462,17 @@ alone and the documented gate and the running gate disagree, with the running on
 | `app.json` / `Info.plist` change (incl. deletions) | **gated as today** | Bypasses inert filter; contracts pinned by the INFRA-184 jest test, but keep the coarse net. |
 | `.maestro/<flow>.yaml` added or edited | **trigger** that flow | The flow IS the contract; one that has never run is not coverage. Bypasses the inert filter — a deletion-only diff here is assertions being removed. |
 | `.maestro/_<helper>.yaml` edited | **its transitive `runFlow:` callers** | INFRA-517. `runFlow:` is a static per-file include, so a helper reaches exactly its callers — measured on INFRA-494, where a `_legal-and-onboarding.yaml` diff ran 12 sim flows and all THREE of its callers are device-class (`crisis-988-dial` + `crisis-keyboard-accessory` `safety-device-only`, `breathing-fps-budget` `perf-device-only`), so none is sim-runnable — the count was two when INFRA-494 measured it. Callers that cannot run in the sim get a NOT-VERIFIED notice; the Step 2.5.3 net then still runs `crisis-button-reachability`, so this is one flow, never zero. Falls back to the full suite on any of: a `config.yaml`, matcher self-test failure, unreconciled residue, a depth-capped closure, or zero callers. |
-| `.maestro/crisis-988-dial.yaml` edited | **no sim flow** — hardware notice | `safety-device-only`; sim `canOpenURL` is unconditionally false, so it cannot pass here. Run `e2e:safety:988-dial` on a real iPhone. |
+| `.maestro/crisis-988-dial.yaml` edited | **no scoped flow** — hardware notice; `crisis-button-reachability` via the Step 2.5.3 fail-safe | `safety-device-only`; sim `canOpenURL` is unconditionally false, so it cannot pass here. Run `e2e:safety:988-dial` on a real iPhone. |
 | A screen carrying `CRISIS_FAB_CLEARANCE` changed, or `CollapsibleCrisisButton` | **notice only** — never scoped | INFRA-510. `reconsent-stale-ineligible-fab-clearance` is `safety-bottom-inset` and declares 393x852; 375x667 has a zero bottom inset, so the collision cannot occur there at any clearance value. Scoping it beside a 375x667 flow is unsatisfiable on one device — the shape that trains `--skip-e2e`. |
-| `.maestro/<flow>.yaml` tagged `safety-dynamic-type` edited | **no sim flow** — instruction (except `daily-loop-ax5-entry`, AX5 row) | DEBUG-469 / DEBUG-507. The suite selects on an exact `- safety` tag at the DEFAULT content size, so it can neither select nor validly run these. `e2e:safety:ax5` (AX5) and `e2e:safety:xxxl` (largest non-accessibility step) own them. Each needs its own case arm; the `*)` catch-all would fire a pointless full suite. |
+| `.maestro/<flow>.yaml` tagged `safety-dynamic-type` edited | **no scoped flow** — instruction; `crisis-button-reachability` via the Step 2.5.3 fail-safe (except the two `daily-loop-ax5-*` flows, AX5 rows) | DEBUG-469 / DEBUG-507. The suite selects on an exact `- safety` tag at the DEFAULT content size, so it can neither select nor validly run these. `e2e:safety:ax5` (AX5) and `e2e:safety:xxxl` (largest non-accessibility step) own them. Each needs its own case arm; the `*)` catch-all would fire a pointless full suite. |
 | `dailyloop/`, `CleanHomeScreen.tsx`, `CrisisResourcesScreen.tsx` or `daily-loop-ax5-entry.yaml` changed | **`daily-loop-ax5-entry`** at AX5, in its own invocation after the suite | DEBUG-546. The only flow walking Home → depth picker → beat 1 → Sphere Sovereignty → CrisisResources at AX5. As an instruction nobody ran it, and DEBUG-518 merged with it red. Runs through `e2e-dynamic-type.sh`, which sets and restores the content size, so it never joins `FLOWS`. The flow taps Skip inside a 30s app timer (measured 6-16s in, host load up to 2.65x): read the host load before reading a red as the app. |
 | `src/core/stores/consentStore.ts` | **`deeplink-consent-gate` + `reconsent-stale` + `reconsent-stale-ineligible`** | INFRA-482. File-level, not `src/core/stores/`. Owns the consent-record writes, `canPerformOperation`, the forging seam, and the safety-critical `loadConsent` branch order. Siblings in that dir have no safety surface. |
 | `src/core/config/e2eSeed.ts` | **full suite** | Sets the launch state every flow starts from; no narrower scope is valid. |
 | `src/core/services/supabase/SupabaseService.ts` | **`q9-single-alert` + `phq9-severe-completion` + `gad7-severe` + `journal-crisis-scan`** + printed notice | INFRA-568 (crisis ruling). FILE-level: owns the sole `crisis_detected` writer and runs inside the frame `handleCrisisDetection` awaits, but the directory's other members (CloudBackupService, SyncCoordinator, secureStoreSessionAdapter, hooks/, index.ts) carry no crisis surface. INFRA-531's import rule cannot see it — nothing here imports from `features/crisis/`. **Necessary, not sufficient**: the gate build suppresses egress (INFRA-411), so these cover the awaited frame not throwing or blocking, never delivery. |
 | Mixed comment + code on one line / pure type-only edit | **trigger** | Bash can't safely prove inert → bias safe. |
 
-If BOTH `SAFETY_CHANGED` and `CRISIS_HOST_CHANGED` are empty → skip the gate:
+If the plan's `GATE_REQUIRED` is empty — neither `SAFETY_CHANGED` nor `CRISIS_HOST_CHANGED` —
+the gate is skipped and the script printed:
 ```
 ℹ️  No safety-surface changes detected — skipping Maestro e2e gate
 ```
@@ -710,9 +482,10 @@ and a gate-less one is the case with least reason to hold a session. `FLOWS` is 
 
 ### Step 2.5.2: Honor `--skip-e2e` flag (hotfix-only)
 
-If the gate is active (`SAFETY_CHANGED` OR `CRISIS_HOST_CHANGED` non-empty) AND `SKIP_E2E=true`:
+If the plan's `GATE_REQUIRED=1` AND `SKIP_E2E=true`:
 
 ```bash
+GATE_PLAN="$(bash /Users/max/dev/being/.claude/scripts/b-close-gate-plan.sh --worktree /Users/max/dev/being/[worktree-dir] --check-plan)" && . "$GATE_PLAN" || exit 2
 CURRENT_BRANCH=$(git branch --show-current)
 case "$CURRENT_BRANCH" in
   hotfix/*)
@@ -732,7 +505,8 @@ esac
 
 ### Step 2.5.3: Map changed paths to scoped flow(s) — in the gate file
 
-Steps 2.5.3, 2.5.4 and 2.5.5 live in `/Users/max/dev/being/.claude/docs/b-close-gate.md`
+The mapping already ran inside Step 2.5.1's script (INFRA-727). How to read its output, and
+Steps 2.5.4 and 2.5.5, live in `/Users/max/dev/being/.claude/docs/b-close-gate.md`
 (INFRA-723), so a close that needs no gate never loads them. Read it now if Step 2.5.1
 printed `🔒 GATE REQUIRED` and Step 2.5.2 took no hotfix bypass; Step 2.5.3 ends by
 returning you to Step 2.5.3a below.
@@ -753,7 +527,7 @@ entry points, so the INFRA-436/463/472 leases still queue it.
 | The branch is `hotfix/*` | The one branch class where `--skip-e2e` and `--no-verify` are permitted; a hotfix is by definition being watched. |
 | A multi-slice item's non-final slice | Step 4.1/5.1 would misreport state anyway (see this file's header). |
 | The worktree is dirty | The runner does not commit. Phase 2 must have landed everything first. |
-| `DYNAMIC_TYPE_FLOWS` is non-empty | The runner takes `--flows` for the tagged suite only; it cannot run `e2e-dynamic-type.sh` (DEBUG-546). |
+| The plan's `DYNAMIC_TYPE_FLOWS` is non-empty | The runner takes `--flows` for the tagged suite only; it cannot run `e2e-dynamic-type.sh` (DEBUG-546). |
 
 Otherwise offer the handoff — but only if **this worktree** has the runner. Same
 capability gate as Step 0.0 and for the same reason: this file is shared instantly,
@@ -763,6 +537,7 @@ The item's Notion `Batch Route` is read in Phase 1 — if it was not, read it no
 than assuming.
 
 ```bash
+GATE_PLAN="$(bash /Users/max/dev/being/.claude/scripts/b-close-gate-plan.sh --worktree /Users/max/dev/being/[worktree-dir] --check-plan)" && . "$GATE_PLAN" || exit 2
 cd /Users/max/dev/being/[worktree-dir]/app
 # The PR body must exist as a file BEFORE launching, and must NOT live in the worktree:
 # e2e-provenance.js fingerprints untracked file contents repo-wide, so a draft there reads
@@ -778,8 +553,9 @@ nohup npm run --silent close:detached -- \
 disown
 ```
 
-Pass `--full-suite` instead of `--flows` for a cross-cutting change, and `--no-flows` for
-the service-layer-only skip Step 2.5.3 logs. One of the three is required — an omitted
+Read the flow argument off the plan: `FULL_SUITE=1` → `--full-suite` instead of `--flows`;
+`FLOWS` empty (a gate-less close, or the service-layer-only skip Step 2.5.3 logs) →
+`--no-flows`. One of the three is required — an omitted
 flow argument is refused rather than silently treated as "no flows".
 
 **The `nohup` is the whole detachment, and it happens exactly once.** Inside the runner

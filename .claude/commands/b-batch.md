@@ -591,7 +591,7 @@ Apply per item — this is a mechanical rule, not a judgment call (judgment in-c
 exactly where drift creeps in):
 
 - **RED** if any agent's `files_touched` hits a safety path — the same set as
-  Step 3.2's grep, which is the authority; do not maintain a second list here —
+  Step 3.2's `--candidates-only` check, which is the authority; do not maintain a second list here —
   or mentions `CollapsibleCrisisButton`. Decided first,
   overrides confidence. Step 3.2 re-decides the tier against the real diff:
   - **RED-ATTENDED** — non-test diff under `features/crisis/` or `features/assessment/`,
@@ -957,44 +957,16 @@ it as a failure. Applies here and to the `git fetch origin` in Step 3.3's close 
 
 ```bash
 git -C /Users/max/dev/being/<worktree-dir> fetch origin   # retry-on-lock per B2 above
-# Exclude test-only files: a jest-test-only change cannot affect what the Maestro
-# gate exercises (Maestro drives the running app), so a change confined to
-# __tests__/.test./.spec. is NOT a safety-surface change for gate purposes — the
-# clinical/crisis jest suites still run in precommit/CI regardless. Without it, a
-# test-assertion repair under features/assessment/ is mis-queued for a sim-attended
-# run. `/b-close` Step 2.5.1 carries the same exclusion — keep the two in step; this
-# re-check exists to TIER the item, and it is not the authority on whether the gate
-# runs. `/b-close` is.
-# `check-safety-paths.sh` reconciles this copy against `/b-close`'s too, literally then
-# semantically — it is not hand-maintained. Run it after moving either list.
-# Two entries in the path set are NOT feature paths and are easy to omit on sight,
-# but both reach the gate's own subject matter:
-#   - `.maestro/` — a diff that adds or edits a safety flow IS a safety-surface
-#     change by definition. The flow is the contract; it cannot be validated
-#     without running it, and a flow that has never run is not coverage.
-#   - `e2eSeed.ts` — it decides the launch state every flow starts from, so a
-#     regression there changes what all of them see while touching no feature
-#     path. Nothing else in the tree has that reach.
-# Both are UNDER-trigger risks, which is the high-severity direction: a missed
-# safety change merges unattended, whereas an unnecessary sim run is only friction.
-SAFETY=$(git -C /Users/max/dev/being/<worktree-dir> diff --name-only origin/development...HEAD \
-  | grep -vE '(__tests__/|\.test\.|\.spec\.)' \
-  | grep -E 'app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)' || true)
-# Two exclusions apply to the crisis content detector. The overlay can be re-hosted
-# in any SOURCE dir, which is why this check greps content rather than paths — but
-# neither excluded class can change what a flow sees, because Maestro drives the
-# running app:
-#   1. Test files — not in the app bundle at all.
-#   2. Comment lines, INCLUDING in source files. Naming the overlay in a comment is
-#      not a re-host; it changes no rendered output. Referencing it as a precedent
-#      (e.g. its 44pt-visible-target decision) is a normal thing for a comment
-#      elsewhere in the tree to do, and must not cost a sim-attended close.
-# A line bearing executable code still trips the gate — that is the whole point.
-CRISIS=$(git -C /Users/max/dev/being/<worktree-dir> diff origin/development...HEAD -- 'app/**/*.tsx' 'app/**/*.ts' \
-  ':(exclude)app/**/__tests__/**' ':(exclude)app/**/*.test.*' ':(exclude)app/**/*.spec.*' \
-  | grep -E '^[+-].*CollapsibleCrisisButton' \
-  | grep -vE '^[+-][[:space:]]*(//|\*|/\*)' || true)
+bash /Users/max/dev/being/.claude/scripts/b-close-gate-plan.sh --worktree /Users/max/dev/being/<worktree-dir> --candidates-only
 ```
+
+`--candidates-only` prints the two signals `/b-close` Step 2.5.1 starts from, computed by the
+same script (INFRA-727), so there is no second list here to drift: `SAFETY_CANDIDATES` (the
+gate's path regex, test files excluded) and `CRISIS_HOST_CHANGED` (a code line naming
+`CollapsibleCrisisButton`, comment lines and test files excluded). Either non-empty → RED
+candidate. It omits the inert filter and the flow mapping on purpose: this re-check TIERS the
+item, and `/b-close` re-runs the full plan as the authority on whether the gate runs. A
+non-zero exit is not "clear" — stop and report it.
 
 The same test-file exclusion applies to the **Phase 1 prediction** (Step 2.1's RED
 rule): a predicted `files_touched` set that hits a safety path *only* via test files

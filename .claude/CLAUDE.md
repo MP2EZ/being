@@ -91,9 +91,9 @@ NOT gated (`IAPService.ts`, `practiceSafeAreaEdges.ts`) — live in
 before ruling on a new one or changing a file already in the table. **New ruling prose goes in the rulings file, never here.**
 
 **The two lists are reconciled mechanically** — `.claude/scripts/check-safety-paths.sh`
-(INFRA-416) fails when a Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep
-nor in its declared exemption list. Run it after editing either list; `/b-close` Phase 0
-runs it too. It is deliberately **not** a CI job: both files are tracked only on `_bare` and
+(INFRA-416) fails when a Protected Path is neither in Phase 2.5's `SAFETY_PATH_RE`
+(`.claude/scripts/b-close-gate-plan.sh`, INFRA-727) nor in its declared exemption list. Run it
+after editing either list; `/b-close` Phase 0 runs it too. It is deliberately **not** a CI job: both files are tracked only on `_bare` and
 gitignored on `development`, so a CI checkout cannot read them — and Phase 2.5's Maestro gate
 is itself local-only, so a CI guard would go green on a list for flows CI never runs.
 Adding a row to the table above without doing one or the other will fail that check.

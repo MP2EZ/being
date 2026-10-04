@@ -470,8 +470,8 @@ if [ -n "$I531_ALARM" ]; then
   echo "      (1) EXEMPT — add the path to i531_exempt_reason() with a recorded reason," >&2
   echo "          if the import carries no 988 affordance or placement decision." >&2
   echo "      (2) GATE — add a Protected Paths row to .claude/CLAUDE.md, add the path to" >&2
-  echo "          Step 2.5.1's SAFETY_CANDIDATES grep AND b-batch Step 3.2's copy, and give" >&2
-  echo "          it a Step 2.5.3 flow arm plus a decision-table row. Record the ruling's" >&2
+  echo "          SAFETY_PATH_RE in this script and give it a Step 2.5.3 flow arm, a case in" >&2
+  echo "          test-b-close-gate-plan.sh and a decision-table row. Record the ruling's" >&2
   echo "          prose in /Users/max/dev/being/.claude/docs/safety-path-rulings.md (INFRA-726)." >&2
   exit 1
 fi
@@ -1215,7 +1215,7 @@ if [ ${#FLOWS[@]} -eq 0 ] && [ -z "$FULL_SUITE" ] && [ ${#DYNAMIC_TYPE_FLOWS[@]}
     # exactly like a deliberate scope. This arm is the fail-safe for a render/boot path
     # that reached Step 2.5.1's grep but matched no Step 2.5.3 clause — the shape a newly
     # added Protected Path takes before anyone writes it an arm. check-safety-paths.sh
-    # cannot catch it: it reconciles the 2.5.1 grep and b-batch's copy, never the arm set,
+    # cannot catch it: it reconciles SAFETY_PATH_RE against CLAUDE.md, never the arm set,
     # and the drift printer above is flow-side (it only runs when .maestro files changed).
     # Unannounced, the operator sees an ordinary scoped run and the generic flow reads as
     # the mapped one.

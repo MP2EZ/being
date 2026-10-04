@@ -22,7 +22,8 @@
 # RUNTIME. ~20 s cold: every case is one full script run (~0.5 s — the moved 2.5.1/2.5.3
 # code forks ~100 short greps, and it stays verbatim so crisis can word-diff it against
 # the skill blocks it replaced). A PASS is therefore cached under $TMPDIR, keyed on the
-# sha256 of this file, the script, and the bash/zsh/git versions — the only inputs, since
+# sha256 of this file, the script, the bash/zsh/git versions, the OS build (BSD grep/sed/awk
+# ship with it) and global git config — the only inputs, since
 # the fixtures are built from this file. Any edit to either file re-runs it in full.
 #
 # Usage: bash .claude/scripts/test-b-close-gate-plan.sh [--script <path>] [--no-cache] [-v]
@@ -47,7 +48,7 @@ command -v zsh >/dev/null || { echo "🛑 zsh not found — the plan's zsh round
 
 SELF="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/$(basename "${BASH_SOURCE[0]}")"
 CACHE_KEY="$( { shasum -a 256 "$SELF" "$SCRIPT" | cut -d' ' -f1; bash --version | head -1;
-  zsh --version; git --version; } | shasum -a 256 | cut -c1-24)"
+  zsh --version; git --version; uname -rv; git config --global --list 2>/dev/null; } | shasum -a 256 | cut -c1-24)"
 CACHE_DIR="${TMPDIR:-/tmp}/b-close-gate-plan-test-pass"
 if [ -z "$NO_CACHE" ] && [ -f "$CACHE_DIR/$CACHE_KEY" ]; then
   echo "✅ b-close-gate-plan fixtures: $(cat "$CACHE_DIR/$CACHE_KEY") — cached pass for this exact script + fixtures ($CACHE_KEY); --no-cache to re-run"

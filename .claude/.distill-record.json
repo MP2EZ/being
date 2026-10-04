@@ -94,6 +94,12 @@
    "from": "after the table in CLAUDE.md",
    "to": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md",
    "authority": "INFRA-726 AC2; founder-approved plan 2026-10-04"
+  },
+  {
+   "probe": "SPR-R1",
+   "from": "Phase 2.5's `SAFETY_CANDIDATES` grep (b-close.md Step 2.5.1, with a reconciled copy in b-batch Step 3.2)",
+   "to": "`SAFETY_PATH_RE` in /Users/max/dev/being/.claude/scripts/b-close-gate-plan.sh (one copy; b-batch calls --candidates-only)",
+   "authority": "INFRA-727 AC6; founder-approved plan 2026-10-04"
   }
  ],
  "crisis_amendments": "crisis signed off APPROVE WITH AMENDMENTS (AC7): detector-blind line widened (SupabaseService, haptics/BreathingCircle, speech/, useIsFocusedSafe, DeepLinkValidationService carve-out, DEBUG-390 stand-alone row); agent read scope widened to include changes to already-gated files; one bracketed note on the DEBUG-525 stale 1-of-10/2-of-12 count. All applied before the final closed-book re-probe.",
@@ -103,7 +109,7 @@
  ],
  "verbatim_check": "rulings body with its 7 bracketed annotations stripped == base prose, byte-for-byte",
  "methodology_note": "Subagents receive the session-start CLAUDE.md injected into context, so post-edit closed-book agents could answer from the OLD text. Resident probes were therefore re-answered with mandatory verbatim quotes, each verified as a substring of the new file (17/17). Gen 2: same mitigation; the final closed-book pass ran against the post-amendment text and every resident quote was verified as a substring of it (6/6).",
- "next_generation_baseline": "use each probe's `post` as the gen-2 baseline",
+ "next_generation_baseline": "use each probe's `post` as the gen-2 baseline, except where a probe carries `rebaseline`: its `rebaseline.baseline` supersedes `post` (INFRA-727, SPR-R1)",
  "history": [
   {
    "generation": 1,
@@ -1479,7 +1485,16 @@
    "post": "`.claude/scripts/check-safety-paths.sh` (INFRA-416) fails, because the new Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep nor in its declared exemption list. Run it yourself after editing either list; `/b-close` Phase 0 also runs it. The two legal fixes are to add the path to the `SAFETY_CANDIDATES` grep or to the exemption list. It is deliberately not a CI job: both files are tracked only on `_bare` and gitignored on `development`, so a CI checkout cannot read them, and the Maestro gate is local-only anyway, so a CI guard would go green for flows CI never runs.",
    "post_source": "Adding a row to the table above without doing one or the other will fail that check.",
    "verdict": "same",
-   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md"
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md",
+   "rebaseline": {
+    "date": "2026-10-04",
+    "work_item": "INFRA-727",
+    "reason": "INFRA-727 moved the safety-path regex out of b-close Step 2.5.1's SAFETY_CANDIDATES grep into SAFETY_PATH_RE in .claude/scripts/b-close-gate-plan.sh, deleted b-batch Step 3.2's copy, and pointed check-safety-paths.sh at the script's --print-regex. The answer's location changed by design; its behaviour (fails, runs at /b-close Phase 0, two legal fixes, not CI) did not.",
+    "superseded_post": "`.claude/scripts/check-safety-paths.sh` (INFRA-416) fails, because the new Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep nor in its declared exemption list. Run it yourself after editing either list; `/b-close` Phase 0 also runs it. The two legal fixes are to add the path to the `SAFETY_CANDIDATES` grep or to the exemption list. It is deliberately not a CI job: both files are tracked only on `_bare` and gitignored on `development`, so a CI checkout cannot read them, and the Maestro gate is local-only anyway, so a CI guard would go green for flows CI never runs.",
+    "baseline": "`.claude/scripts/check-safety-paths.sh` (INFRA-416) fails, because the new Protected Path is in neither Phase 2.5's `SAFETY_PATH_RE` (in `.claude/scripts/b-close-gate-plan.sh`, INFRA-727) nor the declared exemption list. Run it after editing either list; `/b-close` Phase 0 runs it too. The two fixes are to add the path to `SAFETY_PATH_RE` or to the exemption list. It is not a CI job because both files are tracked only on `_bare` and gitignored on `development`, so a CI checkout cannot read them, and Phase 2.5's Maestro gate is local-only, so a CI guard would go green on a list for flows CI never runs.",
+    "baseline_source": "CLAUDE.md 'The two lists are reconciled mechanically' paragraph (INFRA-727 wording)",
+    "method": "re-answered by a fresh agent against the switched-over text (closed-book: CLAUDE.md only; open-book: .claude/)"
+   }
   },
   {
    "id": "SPR-R1:open",
@@ -1495,7 +1510,16 @@
    "post": "`.claude/scripts/check-safety-paths.sh` fails, because the new Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep nor in its declared exemption list; it runs when you invoke it after editing either list and in `/b-close` Phase 0. The two legal fixes are to add a matching `SAFETY_CANDIDATES` clause or a declared exemption. It is not CI because both files are tracked only on `_bare` and gitignored on `development` (a CI checkout cannot read them), and the Maestro gate is local-only, so a CI guard would go green on a list for flows CI never runs.",
    "post_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths section, paragraph 'The two lists are reconciled mechanically' (pp-section-new.md:58-64); /Users/max/dev/being/.claude/scripts/check-safety-paths.sh",
    "verdict": "same",
-   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md"
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md",
+   "rebaseline": {
+    "date": "2026-10-04",
+    "work_item": "INFRA-727",
+    "reason": "INFRA-727 moved the safety-path regex out of b-close Step 2.5.1's SAFETY_CANDIDATES grep into SAFETY_PATH_RE in .claude/scripts/b-close-gate-plan.sh, deleted b-batch Step 3.2's copy, and pointed check-safety-paths.sh at the script's --print-regex. The answer's location changed by design; its behaviour (fails, runs at /b-close Phase 0, two legal fixes, not CI) did not.",
+    "superseded_post": "`.claude/scripts/check-safety-paths.sh` fails, because the new Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep nor in its declared exemption list; it runs when you invoke it after editing either list and in `/b-close` Phase 0. The two legal fixes are to add a matching `SAFETY_CANDIDATES` clause or a declared exemption. It is not CI because both files are tracked only on `_bare` and gitignored on `development` (a CI checkout cannot read them), and the Maestro gate is local-only, so a CI guard would go green on a list for flows CI never runs.",
+    "baseline": "`check-safety-paths.sh` exits 1 with `UNGATED PROTECTED PATH: app/src/features/foo/Bar.tsx`; it runs when invoked by hand and in `/b-close` Phase 0 (`|| exit 1`), never in a hook or CI. The two legal fixes: add the path to `SAFETY_PATH_RE` AND give it a Step 2.5.3 clause, both in `.claude/scripts/b-close-gate-plan.sh`, with a case in `test-b-close-gate-plan.sh`; or add it to `EXEMPT_PATHS` with a recorded reason in `exempt_reason()`. Ruling prose goes in `.claude/docs/safety-path-rulings.md`. Not CI: `.claude/` is tracked only on `_bare` and gitignored on `development`, and the Maestro gate is local-only.",
+    "baseline_source": "check-safety-paths.sh UNGATED PROTECTED PATH fix message (INFRA-727 wording)",
+    "method": "re-answered by a fresh agent against the switched-over text (closed-book: CLAUDE.md only; open-book: .claude/)"
+   }
   },
   {
    "id": "SPR-R2:closed",
