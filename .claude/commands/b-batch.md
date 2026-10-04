@@ -889,7 +889,9 @@ report for a decision after the batch. The same applies to anything `/b-close` r
 **Load each wrapped skill once per batch, not once per item.** `/b-work` and `/b-close`
 are large files that load in full on every invocation, and their procedures do not change
 between items. Invoke each via the Skill tool for the FIRST item that needs it, then follow
-the loaded procedure directly for the rest (say so, so the run stays auditable).
+the loaded procedure directly for the rest (say so, so the run stays auditable). The same
+holds for `/b-close`'s gate file, `/Users/max/dev/being/.claude/docs/b-close-gate.md`:
+Read it the first time Step 2.5.1 prints `GATE REQUIRED`, not once per gated item.
 
 Keep the approach string free of stray safety keywords (`crisis`, `encryption`, `PHQ`,
 …) for non-safety stories — `/b-work` Step 3.1 scans `ADDITIONAL_CONTEXT` and would
@@ -1126,7 +1128,7 @@ testable locally before pushing it, since a CI-only fix costs a full round-trip 
 
 **Exit 4 from the gate is a THIRD thing, and it is neither (a) nor (b).** INFRA-472 returns
 it when a peer holds the gate slot, which says nothing about this item. `/b-close` Step 2.5.4
-reports it as contention; never park it as CI-red, never tier it as a safety regression, and
+(in its gate file) reports it as contention; never park it as CI-red, never tier it as a safety regression, and
 never `--skip-e2e` past it. Re-run the item once the named holder finishes.
 While a close waits on a peer's lease or on CI, run /b-work for the next item that
 has no hard edge to the waiting one, stopping before its close. Only the simulator
@@ -1169,7 +1171,8 @@ warm — the verdict is re-paid, not wrong.
    own back-merge but runs no precommit after it, so a break the incoming change introduces
    would otherwise first surface at CI.
 2. Follow `/b-close` through Step 2.5.5 — it invokes `e2e:safety:gate` and the scoped flows
-   itself (Step 2.5.4). Do not run either here.
+   itself (Step 2.5.4). Do not run either here. Steps 2.5.3–2.5.5 live in
+   `/Users/max/dev/being/.claude/docs/b-close-gate.md`, which Step 2.5.1's `GATE REQUIRED` line points to.
 3. **Show the evidence, then ask — never a bare green.** This approval is the only thing
    separating RED-ATTENDED from RED-GATED, and `/b-close` has no gate of its own: Step 3.5
    merges mechanically. A prompt offering a checkmark and a y/N is a rubber stamp, and
