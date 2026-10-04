@@ -2318,8 +2318,9 @@ Worktree: ~/being/[worktree-dir]/
 ```bash
 cd /Users/max/dev/being
 git worktree remove [worktree-dir] --force
-# `remove` refuses on leftover untracked files (node_modules, a Finder .DS_Store
-# recreated mid-delete). The merge is already confirmed by Step 3.5, so:
+# Run `remove` as its OWN call: the harness refuses any command containing an rm -rf of a
+# worktree dir, so chaining the fallback blocks the remove too. Only if the dir survives
+# (untracked leftovers), run this separately — it needs a human's approval:
 [ -d "[worktree-dir]" ] && rm -rf "[worktree-dir]" && git worktree prune
 
 # reap the DerivedData and CocoaPods cache entries this removal just orphaned (INFRA-435/691). Only on "y":
