@@ -29,6 +29,7 @@ jest.mock('@/core/services/security/SecureStorageService', () => ({
   },
 }));
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import { seedWellnessWriteConsent } from '../../../../../__tests__/helpers/wellnessWriteConsent';
 const mockStoreWellnessBlob = SecureStorageService.storeWellnessBlob as jest.Mock;
 
 function session(id: string, type: AssessmentType = 'phq9'): AssessmentSession {
@@ -49,6 +50,7 @@ function session(id: string, type: AssessmentType = 'phq9'): AssessmentSession {
 
 describe('Assessment Store — Your note annotations (FEAT-195)', () => {
   beforeEach(() => {
+    seedWellnessWriteConsent('loading'); // FEAT-665: back to the default, so a seed never leaks into the next test
     jest.clearAllMocks();
     for (const k of Object.keys(mockWellnessBlobs)) delete mockWellnessBlobs[k];
     useAssessmentStore.getState().resetAssessment();
@@ -86,6 +88,9 @@ describe('Assessment Store — Your note annotations (FEAT-195)', () => {
   });
 
   it('persists the note through the encrypted saveProgress() path', async () => {
+    // FEAT-665: asserts a persisted write, so it runs as a consenting user. FEAT-685 gates
+    // the save, and the store's default `loading` status would block it.
+    seedWellnessWriteConsent('granted');
     const { result } = renderHook(() => useAssessmentStore());
 
     await act(async () => {
