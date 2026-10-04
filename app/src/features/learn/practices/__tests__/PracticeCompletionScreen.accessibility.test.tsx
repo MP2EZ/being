@@ -23,8 +23,22 @@ import PracticeCompletionScreen, {
   PRACTICE_COMPLETION_TITLE_MAX_FONT_SCALE,
   PRACTICE_QUOTES,
 } from '@/features/learn/practices/PracticeCompletionScreen';
+import path from 'path';
 import { spacing, typography } from '@/core/theme';
 import type { ModuleId } from '@/features/learn/types/education';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import {
+  expectEntryShape,
+  expectInertMember,
+  expectLiveness,
+  expectMarginClearance,
+  expectModelFidelity,
+  expectSweepClear,
+  flat,
+  hostPad,
+  readHost,
+} from '../../../../../__tests__/helpers/crisisFabClearance';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 const MODULE: ModuleId = 'interconnected-living';
 const TITLE = 'Practice Complete';
@@ -244,6 +258,130 @@ describe('DEBUG-683: Continue is its own accessibility element', () => {
     );
     fireEvent.press(getByTestId(CONTINUE_ID));
     expect(onContinue).toHaveBeenCalledTimes(1);
+  });
+});
+
+/**
+ * DEBUG-682 — Continue clears the crisis FAB's exclusion region.
+ *
+ * Continue is a stretch child of `buttonContainer { width: '100%' }` inside the padded column,
+ * so before the fix it spanned x 24–351 at 375 and overlapped the region (left edge W − 72) by
+ * 48pt at every width. A tap on its right end was a wrong-destination tap into CrisisResources
+ * (the DEBUG-547 family). This screen replaces five immersive practice hosts' trees, so none of
+ * their own clearances carried over.
+ *
+ * MEASURED by DEBUG-683's hierarchy capture (375x667, iOS 18.6, default text size):
+ * `[24,653][351,705]`, so x 24, width 327, height 52. That capture was at scroll offset 0,
+ * below the band; y below is the derived scroll-end position (H − paddingVertical 32 − h).
+ */
+const HOST = readHost(path.join(__dirname, '..', 'PracticeCompletionScreen.tsx'));
+const MEASURED_PRE_FIX = { x: 24, y: 667 - 32 - 52, width: 327, height: 52 };
+/** Continue at one line, one AX5 line, two AX5 lines, and a margin above that. */
+const CONTINUE_HEIGHTS = [48, 100, 168, 200];
+/** RN's iOS AX5 content-size multiplier, as used for the title above. */
+const AX5 = AX5_FONT_SCALE;
+/** "Continue" in em at SF Pro semibold: measured 4.076 (CoreText), rounded up for headroom. */
+const CONTINUE_EM_UPPER = 4.1;
+
+type StyleFn = (state: { pressed: boolean }) => unknown;
+type PressableNode = { props: { testID?: string; style: StyleFn }; parent: { props: { style?: unknown } } };
+
+function pressables(): PressableNode[] {
+  return renderScreen().UNSAFE_root.findAll(
+    (node) => typeof node.type !== 'string' && typeof node.props.style === 'function'
+  ) as unknown as PressableNode[];
+}
+
+function continueNode(): PressableNode {
+  const node = pressables().find((n) => n.props.testID === CONTINUE_ID);
+  if (!node) throw new Error('Continue Pressable not found');
+  return node;
+}
+
+const continueStyle = (pressed: boolean) => flat(continueNode().props.style({ pressed }));
+
+/** A transform entry that could move a frame's right edge outward. */
+function expandsOutward(transform: unknown): boolean {
+  if (!Array.isArray(transform)) return transform !== undefined;
+  return transform.some((entry: Record<string, unknown>) => {
+    const keys = Object.keys(entry);
+    if (keys.length !== 1 || keys[0] !== 'scale') return true;
+    return typeof entry.scale !== 'number' || entry.scale > 1;
+  });
+}
+
+describe('DEBUG-682: Continue clears the crisis FAB exclusion region', () => {
+  it('(a) carries the clearance as a right margin, idle AND pressed', () => {
+    const idle = continueStyle(false);
+    const pressed = continueStyle(true);
+    // Control: the pressed member really merged, so this is not the idle style twice.
+    expect(pressed.backgroundColor).not.toEqual(idle.backgroundColor);
+    expectMarginClearance(idle, false);
+    expectMarginClearance(pressed, false);
+  });
+
+  it('(b) declares it last in primaryButton, from the imported constant, with no literal 72', () => {
+    expectEntryShape(HOST, 'primaryButton', false);
+    expectInertMember(HOST, 'primaryButtonPressed');
+  });
+
+  it('pins no width-type key that could push the frame back into the region', () => {
+    for (const style of [continueStyle(false), continueStyle(true)]) {
+      for (const k of ['width', 'minWidth', 'maxWidth', 'flexBasis', 'alignSelf']) {
+        expect(style[k]).toBeUndefined();
+      }
+    }
+  });
+
+  it('the pressed transform only shrinks the button', () => {
+    expect(expandsOutward(continueStyle(true).transform)).toBe(false);
+    // Controls: the checker fires on an outward move and on growth.
+    expect(expandsOutward([{ translateX: 4 }])).toBe(true);
+    expect(expandsOutward([{ scale: 1.02 }])).toBe(true);
+    expect(expandsOutward([{ scale: 0.98 }])).toBe(false);
+  });
+
+  it('the stretch-child model holds: buttonContainer is full width with no horizontal inset', () => {
+    const container = flat(continueNode().parent.props.style);
+    expect(container.width).toBe('100%');
+    for (const k of ['padding', 'paddingHorizontal', 'paddingLeft', 'paddingRight', 'margin', 'marginHorizontal', 'marginLeft', 'marginRight']) {
+      expect(container[k]).toBeUndefined();
+    }
+  });
+
+  it('(c) every pressable on the screen sweeps clear at every y, viewport and height', () => {
+    const all = pressables();
+    expect(all.length).toBeGreaterThanOrEqual(1);
+    expect(all.some((n) => n.props.testID === CONTINUE_ID)).toBe(true);
+    const pad = hostPad(renderScreen());
+    for (const node of all) {
+      for (const pressed of [false, true]) {
+        expectSweepClear(pad, flat(node.props.style({ pressed })), CONTINUE_HEIGHTS);
+      }
+    }
+  });
+
+  it('(d) the model reproduces the measured pre-fix frame, which intersects', () => {
+    expectModelFidelity(MEASURED_PRE_FIX, hostPad(renderScreen()));
+  });
+
+  it('(e) at inset 0 the predicate and every viewport\'s sweep go red', () => {
+    expectLiveness(HOST, 'primaryButton', MEASURED_PRE_FIX, hostPad(renderScreen()));
+  });
+
+  it('keeps a 48pt target and fits "Continue" whole at AX5 on 375', () => {
+    const idle = continueStyle(false);
+    expect(idle.minHeight as number).toBeGreaterThanOrEqual(48);
+    const pad = hostPad(renderScreen());
+    const labelPt = typography.bodyRegular.size * AX5 * CONTINUE_EM_UPPER;
+    const box = (p: number) => 375 - pad.left - pad.right - CRISIS_BUTTON_EXCLUSION_RECT.left - 2 * p;
+    expect(labelPt).toBeLessThanOrEqual(box(idle.paddingHorizontal as number));
+    // Control: the old internal padding would not fit.
+    expect(labelPt).toBeGreaterThan(box(spacing[24]));
+  });
+
+  it('wires the __DEV__ crisis-exclusion check to Continue (DEBUG-643 parity)', async () => {
+    await expectExclusionCheckWired(renderScreen().getByTestId(CONTINUE_ID), CONTINUE_ID);
   });
 });
 
