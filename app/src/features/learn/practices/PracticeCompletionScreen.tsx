@@ -65,7 +65,8 @@ interface PracticeCompletionScreenProps {
    * same tree, so a throw here would white-screen the 988 path.
    */
   quote?: ClassicalQuote;
-  moduleId: ModuleId;
+  /** DEBUG-695: omitted when a deep link supplied no authored moduleId. Not read here. */
+  moduleId?: ModuleId | undefined;
   onContinue: () => void;
   testID?: string;
 }

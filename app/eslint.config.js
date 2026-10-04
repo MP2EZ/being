@@ -225,6 +225,9 @@ const CORE_FEATURE_IMPORT_EXCEPTIONS = [
   // A — composition root: the navigators mount every feature's screens.
   'src/core/navigation/CleanRootNavigator.tsx',
   'src/core/navigation/CleanTabNavigator.tsx',
+  // DEBUG-695 (founder-approved): validates practice moduleIds with isModuleId from the
+  // import-free features/learn/types/education.ts leaf, so the parse pulls in no store.
+  'src/core/navigation/linking.ts',
   // B — single-source copy: WELLNESS_LABELS is compliance-pinned (MAINT-615).
   'src/core/components/ThresholdEducationModal.tsx',
   // C — recorded layering debt. Each is a real inversion, left in place because moving

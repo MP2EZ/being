@@ -17,13 +17,14 @@ import PracticeCompletionScreen, {
 import { useEducationStore } from '../../stores/educationStore';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { getPrincipleForModuleId } from '@/features/learn/utils/principleMapping';
-import { logError, LogCategory } from '@/core/services/logging';
-import type { ModuleId } from '@/features/learn/types/education';
+import { logError, logger, LogCategory } from '@/core/services/logging';
+import { isModuleId, type ModuleId } from '@/features/learn/types/education';
 import { useAnalytics } from '@/core/analytics';
 
 interface UsePracticeCompletionOptions {
   practiceId: string;
-  moduleId: ModuleId;
+  /** DEBUG-695: undefined, or anything unauthored, when a deep link supplied none or a bad one. */
+  moduleId?: ModuleId | undefined;
   title: string;
   onComplete?: (() => void) | undefined;
   testID?: string;
@@ -83,11 +84,37 @@ export function usePracticeCompletion({
    */
   const markComplete = useCallback(() => {
     setIsComplete(true);
-    incrementPracticeCount(moduleId);
 
-    // Record engagement for Insights dashboard (FEAT-133)
-    const principle = getPrincipleForModuleId(moduleId);
-    recordPrincipleEngagement(principle, 'learn', 'practiced');
+    // DEBUG-695: degrade, never throw (DEBUG-344's contract, for moduleId). A deep link
+    // supplies moduleId, absent or arbitrary, and an unguarded write threw inside the timer
+    // callback, which RootCrisisBoundary never sees: in Release the process died, taking the
+    // 988 affordance with it. A prototype key such as `constructor` threw nothing and wrote
+    // garbage instead. So validity is decided BEFORE either write, and an invalid id writes
+    // neither. One fixed warning; the id itself is never logged.
+    if (isModuleId(moduleId)) {
+      // Defence in depth on a path no error boundary covers. The engagement write is
+      // async, so a try/catch alone could never catch its rejection.
+      try {
+        incrementPracticeCount(moduleId);
+      } catch {
+        /* Progress must never take the completion screen down. */
+      }
+      try {
+        // Record engagement for Insights dashboard (FEAT-133)
+        void Promise.resolve(
+          recordPrincipleEngagement(getPrincipleForModuleId(moduleId), 'learn', 'practiced'),
+        ).catch(() => {
+          /* Same: a failed persist must not surface as an unhandled rejection. */
+        });
+      } catch {
+        /* A synchronous throw from the action, likewise. */
+      }
+    } else {
+      logger.warn(
+        LogCategory.SYSTEM,
+        'Practice completed without an authored moduleId; progress and engagement not recorded',
+      );
+    }
 
     // DEBUG-536: emit LAST, after the store writes above, and swallow. There is no
     // outer catch on the screens that call this, so this is the only thing between a
@@ -158,7 +185,7 @@ export function usePracticeCompletion({
         // exactOptionalPropertyTypes is on, so the prop must be OMITTED rather
         // than passed as undefined.
         {...(quote ? { quote } : {})}
-        moduleId={moduleId}
+        {...(isModuleId(moduleId) ? { moduleId } : {})}
         onContinue={onComplete || (() => {})}
         testID={`${testID}-completion`}
       />

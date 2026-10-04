@@ -17,6 +17,28 @@ export type ModuleId =
   | 'virtuous-response'
   | 'interconnected-living';
 
+/**
+ * DEBUG-695: every authored module id, as an own-key table. A `Record<ModuleId, true>` makes
+ * the compiler reject a ModuleId added without an entry here.
+ */
+const AUTHORED_MODULE_IDS: Readonly<Record<ModuleId, true>> = {
+  'aware-presence': true,
+  'radical-acceptance': true,
+  'sphere-sovereignty': true,
+  'virtuous-response': true,
+  'interconnected-living': true,
+};
+
+/**
+ * DEBUG-695: is `value` an authored module id? Own keys only, never `in` or a bare index: a
+ * prototype key such as `constructor` resolves on any plain object, and a URL can supply one.
+ * Lives in this import-free module so linking.ts, which also resolves being://crisis, gains no
+ * store import. Pinned equal to the education store's modules and MODULE_TO_PRINCIPLE_MAP.
+ */
+export function isModuleId(value: unknown): value is ModuleId {
+  return typeof value === 'string' && Object.hasOwn(AUTHORED_MODULE_IDS, value);
+}
+
 export type ModuleStatus = 'not_started' | 'in_progress' | 'completed';
 
 export type DevelopmentalStage =

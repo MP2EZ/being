@@ -127,7 +127,9 @@ export type RootStackParamList = {
   PassageReader: { passageId: string };
   PracticeTimer: {
     practiceId: string;
-    moduleId: ModuleId;
+    // DEBUG-695: optional. linking.ts's parse returns undefined for an absent or unauthored id,
+    // and usePracticeCompletion degrades rather than writing for it.
+    moduleId?: ModuleId | undefined;
     duration: number;
     title: string;
     // DEBUG-353: optional so the deep-link path (which cannot carry authored
