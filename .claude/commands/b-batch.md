@@ -777,7 +777,11 @@ Both are tunable defaults reflecting the context ceiling, not hard limits of the
 
 ### Step 2.5: Complete the manifest
 Upgrade the Step 0.2 stub at `$MANIFEST` in place — same file, same slug, now carrying
-everything the classify-and-decide pass produced. Path from Step 0.1b:
+everything the classify-and-decide pass produced.
+**Re-run Step 0.1c first.** A batch idle past Step 0.0's 60-minute bound can be reaped
+while it plans. If any of its IDs is live in a sibling manifest, this batch was reaped:
+mark them `deferred` and stop, with no Notion writes.
+Path from Step 0.1b:
 `/Users/max/dev/being/.config/.b-batch-state.<slug>.json` — gitignored, survives `/clear`.
 The per-batch slug is what lets two concurrent batches coexist without clobbering each
 other's `approach` strings + dependency graph (the parts Notion can't reconstruct):
