@@ -918,7 +918,8 @@ are large files that load in full on every invocation, and their procedures do n
 between items. Invoke each via the Skill tool for the FIRST item that needs it, then follow
 the loaded procedure directly for the rest (say so, so the run stays auditable). The same
 holds for `/b-close`'s gate file, `/Users/max/dev/being/.claude/docs/b-close-gate.md`:
-Read it the first time Step 2.5.1 prints `GATE REQUIRED`, not once per gated item.
+Read it the first time Step 2.5.1 prints `GATE REQUIRED`, not once per gated item — and
+`/Users/max/dev/being/.claude/docs/e2e-gotchas.md` with it, once per batch.
 
 Keep the approach string free of stray safety keywords (`crisis`, `encryption`, `PHQ`,
 …) for non-safety stories — `/b-work` Step 3.1 scans `ADDITIONAL_CONTEXT` and would
@@ -1185,6 +1186,9 @@ harmless: never resolve this from the error text or from `--watch`.
 For every `queued_red` item: `/b-work` + headless tests have run and the work is
 committed in its worktree, stopped before close. This step **drives** those closes with the
 human present; it does not print a checklist for them to retype.
+
+**Read `/Users/max/dev/being/.claude/docs/e2e-gotchas.md` before the pre-warm** (once per batch, if not already loaded): its build,
+provenance, background-run and abort rules decide whether any gate result here means anything.
 
 **Pre-warm before you prompt — still unattended.** The first gate build in a cold gate
 worktree is ~21 min against ~90 s warm, so back-merge the first queued item and run

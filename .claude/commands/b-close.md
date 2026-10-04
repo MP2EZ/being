@@ -784,7 +784,8 @@ flow argument is refused rather than silently treated as "no flows".
 **The `nohup` is the whole detachment, and it happens exactly once.** Inside the runner
 every child is foreground, because the safety suite must never be a reap-able background
 task: a killed run takes the XCUITest driver with it and reports `Unknown error` with
-`ConnectException` only in `maestro.log`, indistinguishable from a regression (CLAUDE.md).
+`ConnectException` only in `maestro.log`, indistinguishable from a regression
+(`/Users/max/dev/being/.claude/docs/e2e-gotchas.md`).
 Never launch the suite itself with `&`, and never re-detach the runner.
 
 **The runner's sync does not reinstall.** If `development` moved `app/package.json` or the

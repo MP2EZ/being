@@ -7,6 +7,10 @@ every other step they name lives in `/Users/max/dev/being/.claude/commands/b-clo
 Order on an active gate: Step 2.5.3 here → Step 2.5.3a in `b-close.md` → Steps 2.5.4–2.5.5
 here, unless 2.5.3a detached → Step 3.1 in `b-close.md`.
 
+**Read `/Users/max/dev/being/.claude/docs/e2e-gotchas.md` before running or debugging anything below.** The build, provenance,
+background-run and abort rules these steps assume live there (moved from `CLAUDE.md`,
+INFRA-725); `CLAUDE.md` keeps only one line per rule.
+
 ---
 
 ### Step 2.5.3: Map changed paths to scoped flow(s)
@@ -1135,7 +1139,7 @@ Proceed to Step 3.1 only on success.
 time on the critical path, and everything downstream is already knowable: draft Step 3.3's
 PR body and Step 4.2's Notion comment while they run, so both paste straight in when the
 gate goes green. Draft in the scratchpad, never the worktree — an untracked file there
-reads as MISMATCH on the next provenance verify and costs a rebuild (CLAUDE.md).
+reads as MISMATCH on the next provenance verify and costs a rebuild (`e2e-gotchas.md`).
 
 **`development` can advance while the gate runs.** After Phase 2.5 completes, re-check
 `git rev-list --count HEAD..origin/development`. If the new commits leave your NET diff
