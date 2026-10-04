@@ -101,6 +101,8 @@ it('runs no alert, emergency response or crisis telemetry itself', async () => {
 });
 
 it('persists the empty state before it resolves', async () => {
+  // FEAT-665: deliberately NOT seeded. Erasure must stay ungated, so once FEAT-685 gates
+  // the save this must stay green at the store's default `loading` status.
   await seedCrisisSession();
 
   await resetAssessmentStoreForErasure();

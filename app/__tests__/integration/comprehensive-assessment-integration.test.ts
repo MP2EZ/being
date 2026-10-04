@@ -49,6 +49,7 @@ import {
   CRISIS_THRESHOLDS
 } from '../../src/features/assessment/types/index';
 import { resetEncryptionMocks } from '../helpers/mockEncryption';
+import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
 import { Alert, Linking } from 'react-native';
 
 // Mock React Native components for integration testing
@@ -167,6 +168,7 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
   const state = () => useAssessmentStore.getState();
 
   beforeEach(async () => {
+    seedWellnessWriteConsent('loading'); // FEAT-665: back to the default, so a seed never leaks into the next test
     // MAINT-204: resetEncryptionMocks() clears the cipher registry and the
     // wellness-blob AsyncStorage map per test, but PRESERVES the master key in
     // the mock Keychain — mirroring real hardware, where the key survives app
@@ -437,6 +439,12 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
   }
 
   describe('DATA INTEGRITY AND PERSISTENCE INTEGRATION', () => {
+    beforeEach(() => {
+      // FEAT-665: asserts a persisted write, so it runs as a consenting user. FEAT-685 gates
+      // the save, and the store's default `loading` status would block it.
+      seedWellnessWriteConsent('granted');
+    });
+
     // MAINT-204: un-skipped. Fixed the two-layer round-trip blocker MAINT-192
     // diagnosed: (1) the AsyncStorage mock is now functional + in-memory (the
     // hybrid SecureStorageService blob round-trips), and (2) resetEncryptionMocks
