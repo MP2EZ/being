@@ -29,6 +29,7 @@
 import { create } from 'zustand';
 import { generateInternalId } from '@/core/utils/id';
 import * as SecureStore from 'expo-secure-store';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
 import {
   SubscriptionStore,
   SubscriptionMetadata,
@@ -157,6 +158,26 @@ const logger = {
 const CRISIS_FEATURE_SET = new Set<string>(CRISIS_FEATURES);
 
 /**
+ * Account-erasure guard (DEBUG-697). Every writer persists BEFORE it sets memory,
+ * and the record it writes is spread from memory, so a reset alone is undone by a
+ * writer suspended across it. Each writer captures `erasureGeneration` at entry and
+ * drops its write, its trailing `set()` and its success path once the generation
+ * has moved. Writes already dispatched are tracked so the reset can await them:
+ * they must land before the wipe, never after it.
+ */
+let erasureGeneration = 0;
+const inFlightWrites = new Set<Promise<void>>();
+
+function trackWrite(write: Promise<void>): Promise<void> {
+  inFlightWrites.add(write);
+  const settled = () => {
+    inFlightWrites.delete(write);
+  };
+  write.then(settled, settled);
+  return write;
+}
+
+/**
  * Subscription Zustand Store
  */
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
@@ -171,11 +192,14 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    */
   loadSubscription: async () => {
     const startTime = performance.now();
+    const generation = erasureGeneration;
     set({ isLoading: true, error: null });
 
     try {
       // Try to load from secure storage
       const secureData = await SecureStore.getItemAsync(SECURE_STORAGE_KEY);
+      // Read before an erasure: what it read is erased, and the reset already ran.
+      if (generation !== erasureGeneration) return;
 
       if (secureData) {
         const subscription = JSON.parse(secureData) as SubscriptionMetadata;
@@ -205,6 +229,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * Create trial subscription
    */
   createTrial: async () => {
+    const generation = erasureGeneration;
     set({ isLoading: true, error: null });
 
     try {
@@ -215,7 +240,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       const featureAccess = calculateFeatureAccess(subscription.status);
 
       // Save to secure storage
-      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(subscription));
+      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(subscription)));
+      if (generation !== erasureGeneration) return;
 
       set({
         subscription,
@@ -237,6 +263,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * Update subscription status
    */
   updateSubscriptionStatus: async (status: SubscriptionStatus) => {
+    const generation = erasureGeneration;
     const { subscription } = get();
     if (!subscription) {
       set({ error: 'No subscription to update' });
@@ -253,7 +280,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       const featureAccess = calculateFeatureAccess(status);
 
       // Save to secure storage
-      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription));
+      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
+      if (generation !== erasureGeneration) return;
 
       set({
         subscription: updatedSubscription,
@@ -311,6 +339,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * catches them so it can stay fire-and-forget.
    */
   processVerifiedPurchase: async (purchase: unknown, interval: SubscriptionInterval) => {
+    const generation = erasureGeneration;
     set({ isVerifyingReceipt: true });
 
     try {
@@ -341,6 +370,15 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
       if (!verification.valid) {
         throw new Error(verification.error || 'Receipt verification failed');
+      }
+
+      // The account was erased while the receipt was being verified. Abandon the
+      // write AND the acknowledgement (DEBUG-697, founder ruling): an unfinished
+      // transaction is re-emitted by the platform at next launch, so a paying user
+      // gets a fresh post-erasure record instead of one built from erased memory.
+      if (generation !== erasureGeneration) {
+        logger.info('Purchase abandoned: account erased during verification');
+        return;
       }
 
       const { subscription } = get();
@@ -374,7 +412,11 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
       const featureAccess = calculateFeatureAccess('active');
 
-      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription));
+      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
+      if (generation !== erasureGeneration) {
+        logger.info('Purchase abandoned: account erased during verification');
+        return;
+      }
 
       set({
         subscription: updatedSubscription,
@@ -473,6 +515,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * Called when payment fails
    */
   enterGracePeriod: async () => {
+    const generation = erasureGeneration;
     const { subscription } = get();
     if (!subscription) return;
 
@@ -490,7 +533,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
       const featureAccess = calculateFeatureAccess('grace');
 
-      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription));
+      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
+      if (generation !== erasureGeneration) return;
 
       set({
         subscription: updatedSubscription,
@@ -512,6 +556,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * Called when payment succeeds or grace period expires
    */
   exitGracePeriod: async () => {
+    const generation = erasureGeneration;
     const { subscription } = get();
     if (!subscription) return;
 
@@ -527,7 +572,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
       const featureAccess = calculateFeatureAccess('active');
 
-      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription));
+      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
+      if (generation !== erasureGeneration) return;
 
       set({
         subscription: updatedSubscription,
@@ -598,6 +644,31 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     }
   }
 }));
+
+/**
+ * Drop the entitlement cache so nothing pre-erasure can be persisted again
+ * (DEBUG-697). Memory only: the disk is the wipe's job, and this runs just before it.
+ *
+ * The result is the fresh-install "no subscription loaded" state, which is what
+ * `loadSubscription` reads on the next launch once the wipe has removed the key.
+ * Always-available features never read this state, so they are unaffected. Never
+ * reloads or starts a trial: either would write a record back. One merging
+ * `setState`, never `replace`, so the actions survive. Writes already dispatched
+ * are awaited so they land before the wipe.
+ */
+export async function resetSubscriptionStoreForErasure(): Promise<void> {
+  erasureGeneration += 1;
+  useSubscriptionStore.setState({
+    subscription: null,
+    featureAccess: null,
+    isLoading: false,
+    isVerifyingReceipt: false,
+    error: null,
+  });
+  await Promise.allSettled([...inFlightWrites]);
+}
+
+registerErasureReset('subscriptionStore', resetSubscriptionStoreForErasure);
 
 /**
  * Subscription Store Hooks (convenience)
