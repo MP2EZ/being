@@ -120,3 +120,76 @@ export function createSecureStoreSessionAdapter(): SecureStoreSessionAdapter {
     },
   };
 }
+
+/**
+ * DEBUG-704 — the secure-store key auth-js persists the session under.
+ *
+ * Mirrors supabase-js's default exactly (`sb-${hostname.split('.')[0]}-auth-token`,
+ * `SupabaseClient` constructor). `SupabaseService` deliberately passes NO explicit
+ * `storageKey`, so the default IS the key; setting one now would strand every session
+ * already persisted under the default on shipped installs. A drift pin in
+ * `secureStoreSessionAdapter.unit.test.ts` compares this against the storageKey the real
+ * `createClient` derives, so a supabase-js upgrade that changes the scheme fails there.
+ */
+export function supabaseAuthStorageKey(supabaseUrl: string): string {
+  return `sb-${new URL(supabaseUrl.trim()).hostname.split('.')[0]}-auth-token`;
+}
+
+/** What the deletion probe found at the session key. */
+export interface PersistedSessionProbe {
+  /** Something is stored at the session key — a session, or the remains of one. */
+  present: boolean;
+  /** The persisted session's user id, or null when absent OR unidentifiable. */
+  uid: string | null;
+}
+
+/**
+ * DEBUG-704 — STRICT read of the persisted auth session, for `deleteAccount()`.
+ *
+ * The opposite contract to `getItem` above, on purpose. `getItem` fails soft so client
+ * init can never brick; that same softness is what let deletion read a session it could
+ * not decode as "no account" and report an erasure that never reached the server. Here:
+ *  - an IO failure THROWS (the caller treats it as unconfirmed, never as absent);
+ *  - anything at the base key is `present`, and a manifest whose chunks are missing, a
+ *    value that does not parse, or a foreign value yields `uid: null` — present but
+ *    unidentifiable, which the caller also treats as unconfirmed.
+ * Only a genuinely empty base key reads as `{ present: false }`.
+ */
+export async function readPersistedSession(key: string): Promise<PersistedSessionProbe> {
+  const raw = await SecureStore.getItemAsync(key, OPTIONS);
+  if (raw === null) return { present: false, uid: null };
+
+  const manifest = readManifest(raw);
+  if (!manifest) return { present: true, uid: null };
+
+  let value = '';
+  for (let i = 0; i < manifest.n; i++) {
+    const part = await SecureStore.getItemAsync(chunkKey(key, i), OPTIONS);
+    if (part === null) return { present: true, uid: null };
+    value += part;
+  }
+
+  try {
+    const parsed = JSON.parse(value) as { user?: { id?: unknown } } | null;
+    const uid = parsed?.user?.id;
+    return { present: true, uid: typeof uid === 'string' && uid.length > 0 ? uid : null };
+  } catch {
+    return { present: true, uid: null };
+  }
+}
+
+/**
+ * DEBUG-704 — remove every secure-store entry auth-js keeps for a session: the session
+ * itself, `-user` and `-code-verifier` (the three keys auth-js `_removeSession` and
+ * `signOut` clear), each with its chunks. Throws on an IO failure so the caller can retry;
+ * it does not depend on `signOut`, whose transport failure skips auth-js's own removal.
+ */
+export async function removePersistedSession(key: string): Promise<void> {
+  for (const k of [key, `${key}-user`, `${key}-code-verifier`]) {
+    const manifest = readManifest(await SecureStore.getItemAsync(k, OPTIONS));
+    for (let i = 0; i < (manifest?.n ?? 0); i++) {
+      await SecureStore.deleteItemAsync(chunkKey(k, i), OPTIONS);
+    }
+    await SecureStore.deleteItemAsync(k, OPTIONS);
+  }
+}

@@ -33,10 +33,16 @@ export type AccountDeletionResult =
 /**
  * Erase the account everywhere. Returns `{ ok: true }` once the server account
  * is gone and local wellness data has been wiped (master key included), or
- * `{ ok: false, retryable: true }` if the server delete failed — in which case
- * NO local data was touched and the caller may safely retry the full sequence
- * (a second deleteAccount() on an already-erased account returns true via the
- * no-account fast path).
+ * `{ ok: false, retryable: true }` if the server erasure is unconfirmed — in which
+ * case NO local data was touched and the caller may safely retry the full sequence.
+ *
+ * DEBUG-704 — a retry converges through the server, not through a client-side fast
+ * path. If an earlier attempt erased the account but its reply was lost, the session is
+ * still persisted, so the retry reaches the edge function again; that call fails on the
+ * missing user, and `deleteAccount()` then confirms erasure only from GoTrue answering
+ * `user_not_found` for the session's own `sub`. The previous wording here ("returns
+ * true via the no-account fast path") described the defect: that path returned true
+ * whenever this run had built no client, without contacting the server at all.
  */
 export async function deleteAccountAndWipe({
   posthog,

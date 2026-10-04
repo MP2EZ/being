@@ -227,8 +227,10 @@ export interface SubscriptionStore {
    * the platform transaction. Idempotent: safe to call repeatedly with the
    * same purchase (verifyReceipt server side will dedupe on orderId).
    */
-  processVerifiedPurchase: (purchase: unknown, interval: SubscriptionInterval) => Promise<void>;
-  restorePurchases: () => Promise<void>;
+  /** True once the purchase is persisted and acknowledged; false if an erasure abandoned it. */
+  processVerifiedPurchase: (purchase: unknown, interval: SubscriptionInterval) => Promise<boolean>;
+  /** `restored` counts only purchases actually applied (DEBUG-720). */
+  restorePurchases: () => Promise<{ found: number; restored: number }>;
   cancelSubscription: () => Promise<void>;
 
   // Receipt Verification

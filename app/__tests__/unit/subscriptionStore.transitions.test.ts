@@ -9,10 +9,11 @@
  * IAPService (purchase/verify/finish). MAINT-635 removed the
  * AuthenticationService mock along with the service itself.
  *
- * NOT-YET-IMPLEMENTED STUBS: restorePurchases / cancelSubscription are
- * asserted at their CURRENT contract — they throw 'not yet implemented'
- * INTERNALLY but the store catches and routes to state.error. Pinned
- * explicitly below with TODO follow-up notes — NOT pretended to work.
+ * NOT-YET-IMPLEMENTED STUB: cancelSubscription is asserted at its CURRENT
+ * contract — it throws 'not yet implemented' INTERNALLY but the store catches
+ * and routes to state.error. Pinned explicitly below with a TODO follow-up
+ * note — NOT pretended to work. restorePurchases was implemented under
+ * DEBUG-720 and is pinned in its own block.
  * verifyReceipt was removed outright under INFRA-84; its absence is pinned.
  *
  * PLACEMENT: under __tests__/unit/ so it is gated by `npm run test:unit`.
@@ -23,6 +24,7 @@ import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import * as SecureStore from 'expo-secure-store';
 import {
   calculateFeatureAccess,
+  DEFAULT_SUBSCRIPTION_CONFIG,
   type SubscriptionMetadata,
 } from '@/core/types/subscription';
 
@@ -38,6 +40,7 @@ const mockIAP = {
   purchaseSubscription: jest.fn(),
   verifyReceipt: jest.fn(),
   finishTransaction: jest.fn(() => Promise.resolve()),
+  restorePurchases: jest.fn(),
 };
 jest.mock('@/core/services/subscription/IAPService', () => ({
   __esModule: true,
@@ -353,17 +356,156 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
   });
 
   // ──────────────────────────────────────────────────────────────────
+  // restorePurchases (DEBUG-720)
+  //
+  // The screen used to call updateSubscriptionStatus('active'), which no-ops
+  // on a null subscription, then acknowledged the purchase and showed success
+  // anyway. A restore now goes through processVerifiedPurchase, so the record
+  // is built from the verification and acknowledged only after it persists.
+  // ──────────────────────────────────────────────────────────────────
+  describe('restorePurchases (DEBUG-720)', () => {
+    const { apple } = DEFAULT_SUBSCRIPTION_CONFIG.products;
+    const restored = (productId: string, n = 1) => ({
+      productId,
+      transactionReceipt: `receipt-restore-${n}`,
+      orderId: `order-restore-${n}`,
+    });
+    const validVerification = () => ({
+      valid: true,
+      subscriptionId: 'verified-restore-1',
+      expiresDate: Date.now() + 365 * 24 * 60 * 60 * 1000,
+    });
+
+    it('from subscription: null, a valid restore persists and holds an active subscription', async () => {
+      mockIAP.restorePurchases.mockResolvedValue([restored(apple.yearly)]);
+      mockIAP.verifyReceipt.mockResolvedValue(validVerification());
+
+      const result = await useSubscriptionStore.getState().restorePurchases();
+
+      expect(result).toEqual({ found: 1, restored: 1 });
+      const state = useSubscriptionStore.getState();
+      expect(state.subscription?.status).toBe('active');
+      expect(state.subscription?.interval).toBe('yearly');
+      expect(state.featureAccess).toEqual(calculateFeatureAccess('active'));
+      expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(1);
+      const [key, json] = (mockSecureStore.setItemAsync as jest.Mock).mock.calls[0];
+      expect(key).toBe('subscription_secure_v1');
+      expect(JSON.parse(json)).toMatchObject({ status: 'active', interval: 'yearly' });
+      expect(state.isLoading).toBe(false);
+      expect(state.error).toBeNull();
+    });
+
+    it('acknowledges the purchase only after the record is persisted', async () => {
+      mockIAP.restorePurchases.mockResolvedValue([restored(apple.monthly)]);
+      mockIAP.verifyReceipt.mockResolvedValue(validVerification());
+
+      await useSubscriptionStore.getState().restorePurchases();
+
+      expect(mockIAP.finishTransaction).toHaveBeenCalledTimes(1);
+      const persistedAt = (mockSecureStore.setItemAsync as jest.Mock).mock.invocationCallOrder[0];
+      const acknowledgedAt = mockIAP.finishTransaction.mock.invocationCallOrder[0];
+      expect(persistedAt).toBeLessThan(acknowledgedAt);
+    });
+
+    it('passes the purchase token through, so the Google path can verify at all', async () => {
+      mockIAP.getPlatform.mockReturnValue('google');
+      mockIAP.restorePurchases.mockResolvedValue([
+        { ...restored(DEFAULT_SUBSCRIPTION_CONFIG.products.google.yearly), purchaseToken: 'token-1' },
+      ]);
+      mockIAP.verifyReceipt.mockResolvedValue(validVerification());
+
+      await useSubscriptionStore.getState().restorePurchases();
+
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith('receipt-restore-1', 'google', 'token-1', undefined);
+    });
+
+    it('an invalid verification restores nothing and acknowledges nothing', async () => {
+      mockIAP.restorePurchases.mockResolvedValue([restored(apple.yearly)]);
+      mockIAP.verifyReceipt.mockResolvedValue({ valid: false, error: 'Receipt verification failed' });
+
+      const result = await useSubscriptionStore.getState().restorePurchases();
+
+      expect(result).toEqual({ found: 1, restored: 0 });
+      expect(useSubscriptionStore.getState().subscription).toBeNull();
+      expect(mockSecureStore.setItemAsync).not.toHaveBeenCalled();
+      expect(mockIAP.finishTransaction).not.toHaveBeenCalled();
+    });
+
+    it('a write that fails is not counted and not acknowledged', async () => {
+      mockIAP.restorePurchases.mockResolvedValue([restored(apple.yearly)]);
+      mockIAP.verifyReceipt.mockResolvedValue(validVerification());
+      (mockSecureStore.setItemAsync as jest.Mock).mockRejectedValueOnce(new Error('keychain locked'));
+
+      const result = await useSubscriptionStore.getState().restorePurchases();
+
+      expect(result).toEqual({ found: 1, restored: 0 });
+      expect(useSubscriptionStore.getState().subscription).toBeNull();
+      expect(mockIAP.finishTransaction).not.toHaveBeenCalled();
+    });
+
+    it('skips an unknown product without verifying or acknowledging it', async () => {
+      mockIAP.restorePurchases.mockResolvedValue([restored('com.example.unknown')]);
+
+      const result = await useSubscriptionStore.getState().restorePurchases();
+
+      expect(result).toEqual({ found: 1, restored: 0 });
+      expect(mockIAP.verifyReceipt).not.toHaveBeenCalled();
+      expect(mockIAP.finishTransaction).not.toHaveBeenCalled();
+    });
+
+    it('one bad entitlement does not stop the rest from restoring', async () => {
+      mockIAP.restorePurchases.mockResolvedValue([restored(apple.monthly, 1), restored(apple.yearly, 2)]);
+      mockIAP.verifyReceipt
+        .mockResolvedValueOnce({ valid: false, error: 'expired' })
+        .mockResolvedValueOnce(validVerification());
+
+      const result = await useSubscriptionStore.getState().restorePurchases();
+
+      expect(result).toEqual({ found: 2, restored: 1 });
+      expect(useSubscriptionStore.getState().subscription?.interval).toBe('yearly');
+      expect(mockIAP.finishTransaction).toHaveBeenCalledTimes(1);
+    });
+
+    it('returns found: 0 when there is nothing to restore', async () => {
+      mockIAP.restorePurchases.mockResolvedValue([]);
+
+      await expect(useSubscriptionStore.getState().restorePurchases()).resolves.toEqual({
+        found: 0,
+        restored: 0,
+      });
+      expect(mockIAP.verifyReceipt).not.toHaveBeenCalled();
+    });
+
+    it('routes a failed lookup to state.error and rethrows', async () => {
+      mockIAP.restorePurchases.mockRejectedValue(new Error('store unavailable'));
+
+      await expect(useSubscriptionStore.getState().restorePurchases()).rejects.toThrow('store unavailable');
+      expect(useSubscriptionStore.getState().error).toBe('Failed to restore purchases');
+      expect(useSubscriptionStore.getState().isLoading).toBe(false);
+    });
+
+    it('throws the literal platform error when IAP is unavailable', async () => {
+      mockIAP.getPlatform.mockReturnValue('none');
+
+      await expect(useSubscriptionStore.getState().restorePurchases()).rejects.toThrow(
+        'IAP not available on this platform'
+      );
+      expect(mockIAP.restorePurchases).not.toHaveBeenCalled();
+    });
+
+    it('processVerifiedPurchase reports true once the purchase is applied', async () => {
+      mockIAP.verifyReceipt.mockResolvedValue(validVerification());
+
+      await expect(
+        useSubscriptionStore.getState().processVerifiedPurchase(restored(apple.yearly), 'yearly')
+      ).resolves.toBe(true);
+    });
+  });
+
+  // ──────────────────────────────────────────────────────────────────
   // NOT-YET-IMPLEMENTED STUBS — pin the CURRENT contract explicitly.
   // ──────────────────────────────────────────────────────────────────
   describe('not-yet-implemented stubs (current contract)', () => {
-    // TODO(MAINT-242 follow-up): implement restorePurchases. The action
-    // currently throws 'Restore purchases not yet implemented' internally,
-    // catches it, and routes to state.error. Pin that exact behavior.
-    it('restorePurchases routes the not-implemented failure to state.error', async () => {
-      await useSubscriptionStore.getState().restorePurchases();
-      expect(useSubscriptionStore.getState().error).toBe('Failed to restore purchases');
-    });
-
     // TODO(MAINT-242 follow-up): implement cancelSubscription. Currently
     // throws 'Cancellation not yet implemented' internally → state.error.
     it('cancelSubscription routes the not-implemented failure to state.error', async () => {
