@@ -77,7 +77,8 @@ const CONTEMPLATIVE_FALLBACK_INSTRUCTION =
 
 interface PracticeTimerScreenProps {
   practiceId: string;
-  moduleId: ModuleId;
+  /** DEBUG-695: optional, because a deep link may carry none; `| undefined` for exactOptionalPropertyTypes. */
+  moduleId?: ModuleId | undefined;
   duration: number; // Duration in seconds
   title: string;
   /**

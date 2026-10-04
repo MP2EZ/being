@@ -17,6 +17,7 @@ import DeepLinkValidationService, {
 import { logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { useConsentStore } from '@/core/stores/consentStore';
 import type { RootStackParamList } from './CleanRootNavigator';
+import { isModuleId } from '@/features/learn/types/education';
 
 /**
  * URL PREFIXES
@@ -430,7 +431,7 @@ export const DEEP_LINK_REACHABILITY: Readonly<
   },
   '/practice': {
     ruling: 'EXTERNALLY_REACHABLE',
-    reason: 'practiceId/duration/title are sanitised by parse. Captured by Android and driven by Maestro (practice/probe).',
+    reason: 'practiceId/duration/title are sanitised by parse, and moduleId is validated against the authored module set (DEBUG-695): an absent or unknown one reaches the screen as undefined and completion degrades. Captured by Android and driven by Maestro (practice/probe).',
   },
   '/subscription': {
     ruling: 'EXTERNALLY_REACHABLE',
@@ -544,7 +545,13 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
         path: 'practice/:practiceId',
         parse: {
           practiceId: (id: string) => id.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 50),
-          moduleId: (id: string) => id.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 50),
+          // DEBUG-695: an unauthored id (prototype keys included) becomes undefined here, the
+          // one choke point for links. usePracticeCompletion re-checks, because parse never
+          // runs for an ABSENT key.
+          moduleId: (id: string) => {
+            const sanitised = id.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 50);
+            return isModuleId(sanitised) ? sanitised : undefined;
+          },
           duration: (d: string) => {
             const num = parseInt(d, 10);
             return isNaN(num) ? 60 : Math.min(Math.max(num, 10), 3600);
