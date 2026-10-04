@@ -68,6 +68,7 @@ import { generateInternalId } from '@/core/utils/id';
 import { getIsoWeekStart } from '@/core/utils/isoWeek';
 import { logError, logSystem, LogCategory } from '@/core/services/logging';
 import { decideWellnessWrite } from '@/core/stores/consentStore';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
 import type { StoicPrinciple } from '@/features/practices/types/stoic';
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -784,21 +785,45 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
   },
 
   /**
-   * Reset store to initial state
+   * Reset store to initial state. Memory first (DEBUG-671): deleting the key while
+   * memory still held the records let the next persist write them straight back.
    */
   resetStore: async () => {
+    await resetStoicPracticeStoreForErasure();
     try {
       await SecureStore.deleteItemAsync(SECURE_STORE_KEY);
     } catch (error) {
       console.error('Error clearing SecureStore:', error);
     }
-
-    set({
-      ...getInitialState(),
-      isLoading: false,
-    });
   },
 }));
+
+/**
+ * Drop every in-memory record so nothing pre-erasure can be persisted again
+ * (DEBUG-671). Memory only: the disk is the wipe's job, and this runs just before it.
+ *
+ * Cancels the pending debounce, then awaits a persist already in flight so that
+ * write lands BEFORE the wipe rather than after it. A deferred persist can re-arm
+ * the timer while awaited, so it is cancelled again. One merging `setState`, never
+ * `replace`: `getInitialState` carries no actions, and the root navigator
+ * destructures them.
+ */
+export async function resetStoicPracticeStoreForErasure(): Promise<void> {
+  if (pendingPersistTimeout) {
+    clearTimeout(pendingPersistTimeout);
+    pendingPersistTimeout = null;
+  }
+  useStoicPracticeStore.setState({ ...getInitialState(), isLoading: false });
+  if (pendingPersistPromise) {
+    await pendingPersistPromise;
+  }
+  if (pendingPersistTimeout) {
+    clearTimeout(pendingPersistTimeout);
+    pendingPersistTimeout = null;
+  }
+}
+
+registerErasureReset('stoicPracticeStore', resetStoicPracticeStoreForErasure);
 
 // Auto-load persisted state on first import
 useStoicPracticeStore.getState().loadPersistedState();
