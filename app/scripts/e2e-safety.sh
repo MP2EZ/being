@@ -92,6 +92,11 @@ cd "$(dirname "$0")/.." || exit 2 # -> app/ (npm already sets cwd=app; belt + su
 # shellcheck source=scripts/e2e-sim-lock.sh
 . "$(dirname "$0")/e2e-sim-lock.sh"
 
+# INFRA-692 — sweep this run's XCTest screen recordings off the simulator. Same sourced-helper
+# contract: no `set` options, every function returns 0, so it cannot move the exit code.
+# shellcheck source=scripts/e2e-sim-attachments.sh
+. "$(dirname "$0")/e2e-sim-attachments.sh"
+
 # INFRA-476 — host contention is ADVISORY reporting, not exclusion. The lock above decides
 # whether a run may start on this DEVICE; this only says whether the MACHINE is quiet
 # enough for the result to mean anything. It warns and never refuses.
@@ -454,7 +459,10 @@ if [ -n "$SIM_UDID" ]; then
   # gate cannot take means a peer holds the device (or the lock root is unwritable): no
   # flow ran, so this is 2. Reporting 1 blamed the branch for a machine that was busy.
   e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "safety flows" || exit 2
-  trap 'e2e_lock_release "$SIM_UDID"' EXIT INT TERM
+  # INFRA-692: ONE trap, sweep first, so the recordings are deleted while the lease is still
+  # held. A second `trap … EXIT` would replace this one and drop the release.
+  trap 'e2e_attachments_reap_run "$SIM_UDID"; e2e_lock_release "$SIM_UDID"' EXIT INT TERM
+  e2e_attachments_snapshot "$SIM_UDID"
 fi
 
 # Defined up here, not inside the pre-flight below, because the INFRA-657 arm just after

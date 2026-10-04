@@ -82,6 +82,7 @@ const TWO_DEVICES = [
 ];
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
 const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
+const REAL_SIM_ATTACHMENTS = path.resolve(__dirname, '../../scripts/e2e-sim-attachments.sh');
 const REAL_HOST_CONTENTION = path.resolve(__dirname, '../../scripts/e2e-host-contention.sh');
 const REAL_CONTENT_SIZE = path.resolve(__dirname, '../../scripts/e2e-content-size.sh');
 const REAL_TELEMETRY = path.resolve(__dirname, '../../scripts/e2e-telemetry.sh');
@@ -190,6 +191,9 @@ function makeProject(opts = {}) {
   // reasoning as the device resolver — a stub that always grants the lock would hide a
   // wiring mistake that wedges the gate on a real machine.
   fs.copyFileSync(REAL_SIM_LOCK, path.join(root, 'scripts', 'e2e-sim-lock.sh'));
+  // INFRA-692: e2e-safety.sh sources the recording sweep. Real file: it returns 0 on every
+  // path, and without the sandbox's simctl reporting a dataPath it disables itself.
+  fs.copyFileSync(REAL_SIM_ATTACHMENTS, path.join(root, 'scripts', 'e2e-sim-attachments.sh'));
   // INFRA-476: e2e-safety.sh sources the host-contention reporter, so the sandbox must
   // stage it or every test here dies on the source line before reaching anything under
   // test. Real file: it warns and never exits, so staging it cannot change a verdict.
