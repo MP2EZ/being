@@ -1,111 +1,239 @@
 {
- "generation": 1,
+ "generation": 2,
  "date": "2026-10-04",
- "work_item": "INFRA-725",
- "scope": "/Users/max/dev/being/.claude/CLAUDE.md — Known Gotchas e2e cluster + operational narratives",
- "base_commit": "03f0cc014d06c7a4f3c4651f3bd44227f63c1612",
- "revert_rule_amendment": "Approved by INFRA-725 AC4: class=resident probes must match baseline closed-book; class=relocated probes must name the absolute target path closed-book and match baseline open-book. Any failing probe reverts its span.",
- "files": {
+ "work_item": "INFRA-726",
+ "scope": "/Users/max/dev/being/.claude/CLAUDE.md — Protected Paths per-row rulings relocated to .claude/docs/safety-path-rulings.md",
+ "base_commit": "8778cce0082f0d2f8712177da2bb0047af1068bb",
+ "revert_rule_amendment": "Approved by INFRA-725 AC4: class=resident probes must match baseline closed-book; class=relocated probes must name the absolute target path closed-book and match baseline open-book. Any failing probe reverts its span. Reused unchanged by INFRA-726 (AC3).",
+ "files": [
+  ".claude/CLAUDE.md",
+  ".claude/docs/safety-path-rulings.md",
+  ".claude/agents/crisis.md",
+  ".claude/agents/compliance.md",
+  ".claude/scripts/check-safety-paths.sh",
+  ".claude/commands/b-close.md"
+ ],
+ "bytes": {
   ".claude/CLAUDE.md": {
-   "before_words": 13220,
-   "after_words": 9419,
-   "before_bytes": 93166,
-   "after_bytes": 68020
+   "before": 68020,
+   "after": 46289
   },
-  ".claude/docs/e2e-gotchas.md": {
-   "words": 3121
-  },
-  ".claude/docs/gotcha-history.md": {
-   "words": 2483
+  ".claude/docs/safety-path-rulings.md": {
+   "after": 25613
   }
  },
  "protected_spans": [
   {
-   "span": "Validation Matrix telemetry: 'What the safety gate does NOT cover'",
-   "op": "COMPRESS (named)",
+   "span": "dailyloop carve-in (DEBUG-465)",
+   "op": "RELOCATE (verbatim)",
    "probes": [
-    "T1",
-    "T2"
+    "SPR-L3"
    ]
   },
   {
-   "span": "Validation Matrix telemetry: 'Read a zero-row analytics_events against the BUILD' (used-to-say correction)",
-   "op": "COMPRESS, polarity kept ('NOT the expected reading in every build, though it once was')",
+   "span": "core/hooks correction + standing rule (DEBUG-525/533)",
+   "op": "RELOCATE (verbatim)",
    "probes": [
-    "T1",
-    "T2"
+    "SPR-R2",
+    "SPR-L4"
    ]
   },
   {
-   "span": "Validation Matrix telemetry: INFRA-412 measurement",
-   "op": "RELOCATE gotcha-history.md; 576 ms fact kept in table",
+   "span": "INFRA-531 supplement not replacement",
+   "op": "RELOCATE (verbatim)",
    "probes": [
-    "T2",
-    "T3",
-    "T4"
+    "SPR-R5"
    ]
   },
   {
-   "span": "Hotfix: 'Why a PR and not git push origin development'",
-   "op": "RELOCATE + resident 'Never git push origin development'",
+   "span": "ExportDataScreen / IAPService not gated (DEBUG-577)",
+   "op": "RELOCATE (verbatim)",
    "probes": [
-    "H1",
-    "H2"
+    "SPR-L7"
    ]
   },
   {
-   "span": "Known Gotchas: LSApplicationQueriesSchemes",
-   "op": "COMPRESS (named, crisis APPROVE)",
+   "span": "SupabaseService gate proves no delivery (INFRA-568)",
+   "op": "RELOCATE (verbatim)",
    "probes": [
-    "L1",
-    "L2",
-    "L3",
-    "L4"
+    "SPR-L9"
    ]
   },
   {
-   "span": "Known Gotchas: Maestro safety-e2e (INFRA-171)",
-   "op": "RELOCATE e2e-gotchas.md + 5 resident lines",
+   "span": "Haptics/Resume consumption did not exist (DEBUG-586)",
+   "op": "RELOCATE (verbatim)",
    "probes": [
-    "E1a",
-    "E1b",
-    "E1c",
-    "E1d",
-    "E1e",
-    "E1f",
-    "E1g",
-    "E1h",
-    "E1i"
+    "SPR-L20"
    ]
   },
   {
-   "span": "Known Gotchas: single-device gate",
-   "op": "RELOCATE + resident line",
+   "span": "five practice screens: last-key-wins correction, overlap derivable",
+   "op": "RELOCATE (verbatim)",
    "probes": [
-    "E2"
+    "SPR-L13",
+    "SPR-L21"
    ]
   },
   {
-   "span": "Known Gotchas: INFRA-434 mid-suite watch",
-   "op": "RELOCATE + resident line",
+   "span": "practiceSafeAreaEdges named not gated",
+   "op": "RELOCATE (verbatim)",
    "probes": [
-    "E7"
+    "SPR-L8"
    ]
+  }
+ ],
+ "approved_corrections": [
+  {
+   "probe": "E4",
+   "from": "refuses with exit 3",
+   "to": "refuses; the gate reports exit 2 (no verdict), never 3",
+   "authority": "crisis ruling (AC8) + e2e-safety.sh:401-418 (DEBUG-496); founder-approved plan 2026-10-04"
   },
   {
-   "span": "Known Gotchas: Yargs INFRA-180",
-   "op": "COMPRESS (named) + RELOCATE history",
-   "probes": [
-    "Y1",
-    "Y2"
-   ]
-  },
+   "probe": "SPR-R4",
+   "from": "after the table in CLAUDE.md",
+   "to": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md",
+   "authority": "INFRA-726 AC2; founder-approved plan 2026-10-04"
+  }
+ ],
+ "crisis_amendments": "crisis signed off APPROVE WITH AMENDMENTS (AC7): detector-blind line widened (SupabaseService, haptics/BreathingCircle, speech/, useIsFocusedSafe, DeepLinkValidationService carve-out, DEBUG-390 stand-alone row); agent read scope widened to include changes to already-gated files; one bracketed note on the DEBUG-525 stale 1-of-10/2-of-12 count. All applied before the final closed-book re-probe.",
+ "frozen_verified_byte_identical": [
+  "Protected Paths table + heading",
+  "everything outside the Protected Paths section"
+ ],
+ "verbatim_check": "rulings body with its 7 bracketed annotations stripped == base prose, byte-for-byte",
+ "methodology_note": "Subagents receive the session-start CLAUDE.md injected into context, so post-edit closed-book agents could answer from the OLD text. Resident probes were therefore re-answered with mandatory verbatim quotes, each verified as a substring of the new file (17/17). Gen 2: same mitigation; the final closed-book pass ran against the post-amendment text and every resident quote was verified as a substring of it (6/6).",
+ "next_generation_baseline": "use each probe's `post` as the gen-2 baseline",
+ "history": [
   {
-   "span": "Known Gotchas: E2E_HOST_SETTLE_MAX_S anti-rule",
-   "op": "RELOCATE + resident line keeps the NOT",
-   "probes": [
-    "E12"
-   ]
+   "generation": 1,
+   "date": "2026-10-04",
+   "work_item": "INFRA-725",
+   "scope": "/Users/max/dev/being/.claude/CLAUDE.md — Known Gotchas e2e cluster + operational narratives",
+   "base_commit": "03f0cc014d06c7a4f3c4651f3bd44227f63c1612",
+   "revert_rule_amendment": "Approved by INFRA-725 AC4: class=resident probes must match baseline closed-book; class=relocated probes must name the absolute target path closed-book and match baseline open-book. Any failing probe reverts its span.",
+   "files": {
+    ".claude/CLAUDE.md": {
+     "before_words": 13220,
+     "after_words": 9419,
+     "before_bytes": 93166,
+     "after_bytes": 68020
+    },
+    ".claude/docs/e2e-gotchas.md": {
+     "words": 3121
+    },
+    ".claude/docs/gotcha-history.md": {
+     "words": 2483
+    }
+   },
+   "protected_spans": [
+    {
+     "span": "Validation Matrix telemetry: 'What the safety gate does NOT cover'",
+     "op": "COMPRESS (named)",
+     "probes": [
+      "T1",
+      "T2"
+     ]
+    },
+    {
+     "span": "Validation Matrix telemetry: 'Read a zero-row analytics_events against the BUILD' (used-to-say correction)",
+     "op": "COMPRESS, polarity kept ('NOT the expected reading in every build, though it once was')",
+     "probes": [
+      "T1",
+      "T2"
+     ]
+    },
+    {
+     "span": "Validation Matrix telemetry: INFRA-412 measurement",
+     "op": "RELOCATE gotcha-history.md; 576 ms fact kept in table",
+     "probes": [
+      "T2",
+      "T3",
+      "T4"
+     ]
+    },
+    {
+     "span": "Hotfix: 'Why a PR and not git push origin development'",
+     "op": "RELOCATE + resident 'Never git push origin development'",
+     "probes": [
+      "H1",
+      "H2"
+     ]
+    },
+    {
+     "span": "Known Gotchas: LSApplicationQueriesSchemes",
+     "op": "COMPRESS (named, crisis APPROVE)",
+     "probes": [
+      "L1",
+      "L2",
+      "L3",
+      "L4"
+     ]
+    },
+    {
+     "span": "Known Gotchas: Maestro safety-e2e (INFRA-171)",
+     "op": "RELOCATE e2e-gotchas.md + 5 resident lines",
+     "probes": [
+      "E1a",
+      "E1b",
+      "E1c",
+      "E1d",
+      "E1e",
+      "E1f",
+      "E1g",
+      "E1h",
+      "E1i"
+     ]
+    },
+    {
+     "span": "Known Gotchas: single-device gate",
+     "op": "RELOCATE + resident line",
+     "probes": [
+      "E2"
+     ]
+    },
+    {
+     "span": "Known Gotchas: INFRA-434 mid-suite watch",
+     "op": "RELOCATE + resident line",
+     "probes": [
+      "E7"
+     ]
+    },
+    {
+     "span": "Known Gotchas: Yargs INFRA-180",
+     "op": "COMPRESS (named) + RELOCATE history",
+     "probes": [
+      "Y1",
+      "Y2"
+     ]
+    },
+    {
+     "span": "Known Gotchas: E2E_HOST_SETTLE_MAX_S anti-rule",
+     "op": "RELOCATE + resident line keeps the NOT",
+     "probes": [
+      "E12"
+     ]
+    }
+   ],
+   "approved_corrections": [
+    {
+     "probe": "E4",
+     "from": "refuses with exit 3",
+     "to": "refuses; the gate reports exit 2 (no verdict), never 3",
+     "authority": "crisis ruling (AC8) + e2e-safety.sh:401-418 (DEBUG-496); founder-approved plan 2026-10-04"
+    }
+   ],
+   "frozen_verified_byte_identical": [
+    "Protected Paths",
+    "Safety Facts",
+    "Performance Budgets",
+    "Validation Matrix work-type table",
+    "budget-enforcement table",
+    "Branch Model",
+    "Git Hooks"
+   ],
+   "methodology_note": "Subagents receive the session-start CLAUDE.md injected into context, so post-edit closed-book agents could answer from the OLD text. Resident probes were therefore re-answered with mandatory verbatim quotes, each verified as a substring of the new file (17/17).",
+   "next_generation_baseline": "use each probe's `post` as the gen-2 baseline"
   }
  ],
  "probes": [
@@ -1336,25 +1464,872 @@
    "post": "No, the finding is unverified (INFRA-84). `app/` has two test roots: `app/src/**/__tests__/` and `app/__tests__/` (14 suite dirs that npm scripts glob by name, e.g. test:unit). Also grep `supabase/functions` for edge-function callers. Delete only if all three are empty.",
    "verdict": "same",
    "post_source": "/Users/max/dev/being/.claude/CLAUDE.md line 685; /Users/max/dev/being/.claude/docs/gotcha-history.md § Two test roots"
-  }
- ],
- "approved_corrections": [
+  },
   {
-   "probe": "E4",
-   "from": "refuses with exit 3",
-   "to": "refuses; the gate reports exit 2 (no verdict), never 3",
-   "authority": "crisis ruling (AC8) + e2e-safety.sh:401-418 (DEBUG-496); founder-approved plan 2026-10-04"
+   "id": "SPR-R1:closed",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": false,
+   "span": "reconciliation-script paragraph",
+   "scenario": "You add a new row for `app/src/features/foo/Bar.tsx` to the Protected Paths table and change nothing else. What fails, when does it run, what are the two legal fixes, and why is that check deliberately not a CI job?",
+   "mode": "closed",
+   "baseline": "`.claude/scripts/check-safety-paths.sh` (INFRA-416) fails, because the new Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep nor in its declared exemption list. Run it yourself after editing either list; `/b-close` Phase 0 also runs it. The two fixes are to add the path to the `SAFETY_CANDIDATES` grep or to the declared exemption list. It is not a CI job because both files are tracked only on `_bare` and gitignored on `development`, so a CI checkout cannot read them, and Phase 2.5's Maestro gate is local-only anyway, so a CI guard would go green for flows CI never runs.",
+   "baseline_source": "paragraph 'The two lists are reconciled mechanically'; script .claude/scripts/check-safety-paths.sh",
+   "baseline_run_b": "`.claude/scripts/check-safety-paths.sh` (INFRA-416) fails, because the new Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep nor in its declared exemption list. It should be run after editing either list, and `/b-close` Phase 0 runs it too. The two legal fixes are to add the path to the grep or to the exemption list. It is deliberately not a CI job: both files are tracked only on `_bare` and gitignored on `development`, so a CI checkout cannot read them, and the Maestro gate is local-only anyway, so a CI guard would go green for flows CI never runs.",
+   "post": "`.claude/scripts/check-safety-paths.sh` (INFRA-416) fails, because the new Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep nor in its declared exemption list. Run it yourself after editing either list; `/b-close` Phase 0 also runs it. The two legal fixes are to add the path to the `SAFETY_CANDIDATES` grep or to the exemption list. It is deliberately not a CI job: both files are tracked only on `_bare` and gitignored on `development`, so a CI checkout cannot read them, and the Maestro gate is local-only anyway, so a CI guard would go green for flows CI never runs.",
+   "post_source": "Adding a row to the table above without doing one or the other will fail that check.",
+   "verdict": "same",
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md"
+  },
+  {
+   "id": "SPR-R1:open",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": false,
+   "span": "reconciliation-script paragraph",
+   "scenario": "You add a new row for `app/src/features/foo/Bar.tsx` to the Protected Paths table and change nothing else. What fails, when does it run, what are the two legal fixes, and why is that check deliberately not a CI job?",
+   "mode": "open",
+   "baseline": "`.claude/scripts/check-safety-paths.sh` fails (drift, exit 1), because the new Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep nor in its declared exemption list; it runs when you run it after editing either list and at `/b-close` Phase 0. The two legal fixes are adding the path to the `SAFETY_CANDIDATES` grep or adding it to the declared exemption list. It is not a CI job because both files are tracked only on `_bare` and gitignored on `development`, so a CI checkout cannot read them, and Phase 2.5's Maestro gate is local-only, so a CI guard would go green on a list for flows CI never runs.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, 'The two lists are reconciled mechanically' paragraph; /Users/max/dev/being/.claude/scripts/check-safety-paths.sh, header lines 1-40 (WHY THIS EXISTS, AND WHY IT IS NOT A CI JOB)",
+   "baseline_run_b": "`.claude/scripts/check-safety-paths.sh` (INFRA-416) fails, because the new Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep nor in its declared exemption list (`EXEMPT_PATHS`). It runs when you invoke it after editing either list, and `/b-close` Phase 0 runs it too. The two legal fixes are to add the path to the Phase 2.5 grep (gate it) or to declare it exempt with a reason. It is deliberately not a CI job for two reasons: both files are tracked only on `_bare` and gitignored on `development`, so a CI checkout cannot read them, and the Maestro gate is itself local-only, so a CI guard would go green on a list for flows CI never runs.",
+   "post": "`.claude/scripts/check-safety-paths.sh` fails, because the new Protected Path is neither in Phase 2.5's `SAFETY_CANDIDATES` grep nor in its declared exemption list; it runs when you invoke it after editing either list and in `/b-close` Phase 0. The two legal fixes are to add a matching `SAFETY_CANDIDATES` clause or a declared exemption. It is not CI because both files are tracked only on `_bare` and gitignored on `development` (a CI checkout cannot read them), and the Maestro gate is local-only, so a CI guard would go green on a list for flows CI never runs.",
+   "post_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths section, paragraph 'The two lists are reconciled mechanically' (pp-section-new.md:58-64); /Users/max/dev/being/.claude/scripts/check-safety-paths.sh",
+   "verdict": "same",
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md"
+  },
+  {
+   "id": "SPR-R2:closed",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": true,
+   "span": "standing directory-vs-file rule (DEBUG-525)",
+   "scenario": "A crisis ruling finds `app/src/features/widgets/` holds one crisis-bearing file and six members nobody has reviewed. Does the Protected Paths row name the directory or the file? State the rule and the asymmetry that justifies it.",
+   "mode": "closed",
+   "baseline": "Name the file. The standing rule says to gate the directory only when every non-crisis member can be named in the justification prose and each one has been reviewed; otherwise name the files. The asymmetry is that a directory clause that over-fires costs a build that announces itself, while a file list that under-fires is silent.",
+   "baseline_source": "paragraph on the fifth instance (DEBUG-525), 'Standing rule for the next instance'",
+   "baseline_run_b": "Name the file. The standing rule is to gate the directory only when every non-crisis member can be named in the justification prose and each has been reviewed, and here six members are unreviewed. The asymmetry: a directory clause that over-fires costs a build that announces itself, while a file list that under-fires is silent.",
+   "post": "Name the file. The standing rule is to gate the directory only when every non-crisis member can be named in the justification prose and each has been reviewed; here six members are unreviewed, so the row names the file. The asymmetry is that a directory clause that over-fires costs a build that announces itself, while a file list that under-fires fails silently.",
+   "post_source": "otherwise name the files. A directory clause that over-fires costs a build that announces",
+   "verdict": "same",
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md"
+  },
+  {
+   "id": "SPR-R2:open",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": true,
+   "span": "standing directory-vs-file rule (DEBUG-525)",
+   "scenario": "A crisis ruling finds `app/src/features/widgets/` holds one crisis-bearing file and six members nobody has reviewed. Does the Protected Paths row name the directory or the file? State the rule and the asymmetry that justifies it.",
+   "mode": "open",
+   "baseline": "Name the file. The standing rule says to gate the directory only when every non-crisis member can be named in the justification prose and each has been reviewed, and to name the files otherwise. Six unreviewed members fail that test. The asymmetry: a directory clause that over-fires costs a build that announces itself, while a file list that under-fires is silent, which is how five instances accumulated.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, DEBUG-525 paragraph ('Standing rule for the next instance')",
+   "baseline_run_b": "Name the file, not the directory. The standing rule (DEBUG-525) is to gate the directory only when every non-crisis member can be named in the justification prose and each one has been reviewed, and six unreviewed members fail that test. The asymmetry: a directory clause that over-fires costs a build that announces itself, while a file list that under-fires fails silently, which is how five instances accumulated.",
+   "post": "Name the file. The standing rule is to gate the directory only when every non-crisis member can be named in the justification prose and each has been reviewed, and to name the files otherwise, so six unreviewed members rule the directory out. The asymmetry: a directory clause that over-fires costs a build that announces itself, while a file list that under-fires is silent, which is how five instances accumulated.",
+   "post_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths section, 'Standing rule for the next instance' (pp-section-new.md:66-69); /Users/max/dev/being/.claude/docs/safety-path-rulings.md:52-67",
+   "verdict": "same",
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md"
+  },
+  {
+   "id": "SPR-R3:closed",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": false,
+   "span": "detector-blind shapes / table is the only control",
+   "scenario": "A new screen calls a third-party presenter (a native sheet) that leaves no app-owned nodes on screen while it is up; the file imports nothing from `features/crisis/`. The INFRA-531 alarm stays silent and `check-safety-paths.sh` passes. Is that silence evidence the file needs no Protected Paths row? What catches this shape?",
+   "mode": "closed",
+   "baseline": "No, the silence is not evidence. This is the ExternalErrorReporter/ExportDataScreen third-party-presenter shape, and no detector reaches it: INFRA-531's import rule misses it because nothing imports from `features/crisis/`, and `check-modal-occlusion-guard.js` rule 4 catches the call but produces no agent mapping and arms no gate. The hand-maintained table is the only control, so a human ruling has to add the row.",
+   "baseline_source": "paragraphs on the ninth instance (ExternalErrorReporter/ProfileScreen) and sixteenth instance (ExportDataScreen)",
+   "baseline_run_b": "No, the silence is not evidence. This is the ExternalErrorReporter/ExportDataScreen shape: a third-party occluder or presenter that imports nothing from `features/crisis/`. INFRA-531's import rule misses it and `check-modal-occlusion-guard.js` scans only `app/src` (rule 4 catches the call but maps no agent and arms no gate), so the hand-maintained table is the only control and the file needs a row on a human ruling.",
+   "post": "No. INFRA-531 cannot see a file that imports nothing from `features/crisis/`, such as a third-party occluder or presenter call, and the silence of a detector never means a path needs no row. No detector reaches this shape, so the hand-maintained Protected Paths table is the only control.",
+   "post_source": "No detector reaches every shape, so for these the table is the only control.",
+   "verdict": "same",
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md"
+  },
+  {
+   "id": "SPR-R3:open",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": false,
+   "span": "detector-blind shapes / table is the only control",
+   "scenario": "A new screen calls a third-party presenter (a native sheet) that leaves no app-owned nodes on screen while it is up; the file imports nothing from `features/crisis/`. The INFRA-531 alarm stays silent and `check-safety-paths.sh` passes. Is that silence evidence the file needs no Protected Paths row? What catches this shape?",
+   "mode": "open",
+   "baseline": "No, the silence is not evidence. This is the third-party-occluder / presenter-call shape (ExternalErrorReporter, ExportDataScreen `Sharing.shareAsync`), and no detector gates it. INFRA-531 matches only crisis imports, and `check-safety-paths.sh` only reconciles the two lists. `check-modal-occlusion-guard.js` rule 4 may catch the CALL, but it produces no agent mapping and arms no gate. The hand-maintained Protected Paths row, added on a crisis ruling, is the only control.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, DEBUG-533 ExternalErrorReporter paragraph ('The hand-maintained table is the only control') and DEBUG-577 ExportDataScreen paragraph",
+   "baseline_run_b": "No, the silence is not evidence. This is the ExternalErrorReporter/ExportDataScreen shape (a third-party occluder or presenter that imports nothing from `features/crisis/`), and no detector reaches it. INFRA-531's import rule matches nothing, `check-safety-paths.sh` only reconciles the two lists, and `check-modal-occlusion-guard.js` scans only `app/src` (at most rule 4 catches the CALL, without producing an agent mapping or arming a gate). The hand-maintained Protected Paths table is the only control, so the file needs a `crisis` ruling and a FILE-level row.",
+   "post": "No. The INFRA-531 alarm cannot see a file that imports nothing from `features/crisis/`, and a third-party occluder or presenter call (like `ExternalErrorReporter.ts` or `ExportDataScreen.tsx`) is exactly that blind shape; `check-modal-occlusion-guard.js` arms no gate either. Nothing automated catches it: a crisis ruling plus a hand-maintained Protected Paths row is the only control, and the docs say outright that neither silence means a path needs no row.",
+   "post_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths section, 'No detector reaches every shape' paragraph (pp-section-new.md:71-79); /Users/max/dev/being/.claude/docs/safety-path-rulings.md:100-128 (ExternalErrorReporter, ExportDataScreen)",
+   "verdict": "same",
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md"
+  },
+  {
+   "id": "SPR-R4:closed",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": false,
+   "span": "where new ruling prose goes (new sentence, AC2)",
+   "scenario": "You have just ruled a new safety path and added its table row. Where do you write the long-form justification paragraph for that row?",
+   "mode": "closed",
+   "baseline": "The text does not say this explicitly. By the section's pattern, the justification goes in a new paragraph below the table in this same Protected Paths section, next to the other numbered-instance paragraphs. Strictly, this is not answerable from the text as an instruction.",
+   "baseline_source": "structure of the section (instance paragraphs following the table); no explicit instruction",
+   "baseline_run_b": "Not answerable from the text as an explicit rule. By the section's own convention, each ruled row's justification is a prose paragraph placed after the table in this Protected Paths section, numbered as the next instance.",
+   "post": "In the rulings file, `/Users/max/dev/being/.claude/docs/safety-path-rulings.md`, never in the Protected Paths section of CLAUDE.md. Per-row rulings (why each row exists and its FILE-vs-DIRECTORY call) belong there.",
+   "post_source": "New ruling prose goes in the rulings file, never here.",
+   "verdict": "same",
+   "rule": "approved correction (INFRA-726 AC2): new ruling prose goes in the rulings file"
+  },
+  {
+   "id": "SPR-R4:open",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": false,
+   "span": "where new ruling prose goes (new sentence, AC2)",
+   "scenario": "You have just ruled a new safety path and added its table row. Where do you write the long-form justification paragraph for that row?",
+   "mode": "open",
+   "baseline": "In CLAUDE.md's Protected Paths section, as a new paragraph below the table, following the existing 'Nth instance (added <ID>)' pattern. It should say why the path is crisis-bearing, give the FILE- vs DIRECTORY-level ruling (naming every non-crisis member if it is a directory), and say which detectors miss it and what the falsifier is. The text names no other location for ruling prose; the standing rule itself refers to members being named 'in the justification prose' there.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, prose paragraphs following the table (e.g. DEBUG-525 standing rule, 'twenty-fourth instance' paragraph); no alternate location in /Users/max/dev/being/.claude/docs/ or commands/b-close.md",
+   "baseline_run_b": "Write it in `.claude/CLAUDE.md`'s Protected Paths section, as a new paragraph below the table. Following the existing pattern, it names the instance number and the work item that added it, gives the crisis shape, says whether it is FILE- or DIRECTORY-level per the standing rule, and states which detectors can or cannot see it. The current text names no other home for ruling prose; long-form history otherwise goes to `.claude/docs/gotcha-history.md`, but every existing row's justification lives inline under the table.",
+   "post": "Write it in `/Users/max/dev/being/.claude/docs/safety-path-rulings.md`, never in CLAUDE.md. CLAUDE.md keeps only the table row, plus the standing rule and the reconciliation paragraph. New ruling prose goes in the rulings file.",
+   "post_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths section, 'Per-row rulings ... New ruling prose goes in the rulings file, never here.' (pp-section-new.md:53-56); /Users/max/dev/being/.claude/docs/safety-path-rulings.md:1-7",
+   "verdict": "same",
+   "rule": "approved correction (INFRA-726 AC2): new ruling prose goes in the rulings file"
+  },
+  {
+   "id": "SPR-R5:closed",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": true,
+   "span": "INFRA-531 detector is a supplement, not a replacement",
+   "scenario": "The INFRA-531 crisis-import alarm did not fire on your diff. Can you conclude that every crisis-bearing file the diff touched is already gated? Why or why not?",
+   "mode": "closed",
+   "baseline": "No. The INFRA-531 detector is a supplement, not a replacement: it is a diff signal rather than a set, it produces no agent mapping, and it inverts on extracted primitives (it catches `useOverlayBottomInset.ts` but misses `useKeyboardFrameHeight.ts`). Many gated shapes import nothing from `features/crisis/` and are invisible to it, so the standing directory-vs-file rule and the table remain the control.",
+   "baseline_source": "paragraph on the INFRA-531 detector ('It is a supplement, not a replacement')",
+   "baseline_run_b": "No. The INFRA-531 detector is a supplement, not a replacement. It is a diff signal rather than a set, produces no agent mapping, and inverts on extracted primitives (`useOverlayBottomInset.ts` is caught, `useKeyboardFrameHeight.ts` is missed), and many gated shapes import nothing from `features/crisis/` at all; the directory-vs-file standing rule is what covers that gap.",
+   "post": "No. The INFRA-531 alarm is a supplement, not a replacement. It is a diff signal rather than a set, it maps no agent, it inverts on extracted primitives, and it cannot see files that import nothing from `features/crisis/`. Its silence does not mean every crisis-bearing file is gated.",
+   "post_source": "crisis-import alarm is a supplement, not a replacement — a diff signal, not a set; it maps no",
+   "verdict": "same",
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md"
+  },
+  {
+   "id": "SPR-R5:open",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": true,
+   "span": "INFRA-531 detector is a supplement, not a replacement",
+   "scenario": "The INFRA-531 crisis-import alarm did not fire on your diff. Can you conclude that every crisis-bearing file the diff touched is already gated? Why or why not?",
+   "mode": "open",
+   "baseline": "No. The INFRA-531 detector is a supplement, not a replacement: it is a diff signal rather than a set, it produces no agent mapping, and it inverts on extracted primitives (`useOverlayBottomInset.ts` is caught, `useKeyboardFrameHeight.ts` is missed). Many gated shapes import nothing from `features/crisis/` (SupabaseService, bugReportStore, PostHogProvider, haptics, usePracticeCompletion, third-party occluders). The standing directory-vs-file rule and the hand-maintained table are what cover that gap.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, INFRA-531 detector paragraph ('It is a supplement, not a replacement')",
+   "baseline_run_b": "No. INFRA-531 is a supplement, not a replacement: it is a diff signal rather than a set, it produces no agent mapping, and it inverts on extracted primitives (`useOverlayBottomInset.ts` is caught, `useKeyboardFrameHeight.ts` is missed). Many gated shapes import nothing from `features/crisis/` and are invisible to it, for example `bugReportStore`, `SupabaseService`, `PostHogProvider` and `usePracticeCompletion`. The standing directory-vs-file rule and the hand-maintained table are what cover that gap.",
+   "post": "No. The INFRA-531 alarm is a supplement, not a replacement: it is a diff signal rather than a set, it produces no agent mapping, it inverts on extracted primitives (`useOverlayBottomInset.ts` is caught, `useKeyboardFrameHeight.ts` is missed), and it cannot see any file that imports nothing from `features/crisis/`. Silence is therefore no evidence of coverage; the table and the standing directory-vs-file rule are what cover the gap.",
+   "post_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths section, 'No detector reaches every shape' (pp-section-new.md:71-79); /Users/max/dev/being/.claude/docs/safety-path-rulings.md:92-98 (INFRA-531 paragraph)",
+   "verdict": "same",
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md"
+  },
+  {
+   "id": "SPR-L1:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "guidance/",
+   "scenario": "A branch edits only `features/guidance/services/guidanceGate.ts`. Why is that a safety path although guidance/ owns no crisis or assessment code, and what failure would an unlisted gate there produce?",
+   "mode": "closed",
+   "baseline": "It is a safety path because `guidanceGate.ts` consumes the PHQ-9/GAD-7 thresholds to decide whether a distressed user sees Stoic content or is routed to crisis resources. A wrong edit there is a false negative on a safety gate. A path-based detector does not catch it by name: FEAT-55 slice 1 shipped that gate classifying GREEN because a brand-new feature directory matched no pattern.",
+   "baseline_source": "paragraph on features/guidance/",
+   "baseline_run_b": "It is a safety path because `guidanceGate.ts` consumes the PHQ-9/GAD-7 thresholds to decide whether a distressed user sees Stoic content or is routed to crisis resources. A wrong or unlisted edit there is a false negative on a safety gate. FEAT-55 slice 1 shipped that gate classified GREEN because a brand-new feature dir matched no existing pattern.",
+   "post": "It is a safety path: `app/src/features/guidance/` has a `crisis` + `philosopher` row. This text does not say why guidance/ is gated despite owning no crisis code, or what failure an unlisted gate would produce. That ruling lives in the rulings file.",
+   "post_source": "Per-row rulings — why each row exists, its FILE-vs-DIRECTORY call, and what is deliberately",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L1:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "guidance/",
+   "scenario": "A branch edits only `features/guidance/services/guidanceGate.ts`. Why is that a safety path although guidance/ owns no crisis or assessment code, and what failure would an unlisted gate there produce?",
+   "mode": "open",
+   "baseline": "It is a safety path because `guidanceGate.ts` consumes the PHQ-9/GAD-7 thresholds to decide whether a distressed user sees Stoic content or is routed to crisis resources. A wrong edit there is a false negative on a safety gate. Unlisted, a path-based detector does not catch it by name, which is how FEAT-55 slice 1 shipped that gate classified GREEN: a brand-new feature dir matched no existing pattern.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, `features/guidance/` paragraph",
+   "baseline_run_b": "It is a safety path because `guidanceGate.ts` consumes the PHQ-9/GAD-7 thresholds to decide whether a distressed user sees Stoic content or is routed to crisis resources. If the gate there is unlisted, a wrong edit becomes a silent false negative on a safety gate. FEAT-55 slice 1 shipped exactly that way: the gate classified GREEN because a brand-new feature directory matched no existing path pattern.",
+   "post": "It is a safety path because `guidanceGate.ts` consumes the PHQ-9/GAD-7 thresholds to decide whether a distressed user sees Stoic content or is routed to crisis resources. A wrong edit there is a false negative on a safety gate. A brand-new dir matches no path pattern, and FEAT-55 slice 1 shipped that gate classifying GREEN for exactly that reason.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:14-20 (features/guidance/ paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L2:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "consent/ + DEBUG-390 lesson",
+   "scenario": "A fix to the pre-consent 988 footer in `CombinedLegalGateScreen.tsx` ships on a branch that also edits a `.maestro` flow, and that co-edit is what arms Phase 2.5. Is relying on the co-edited file to arm the gate acceptable? Why does the root crisis overlay not cover this screen?",
+   "mode": "closed",
+   "baseline": "No. DEBUG-390's lesson is that a registration must stand on its own and not lean on a co-edited file to arm the gate: Phase 2.5 fired only because of the `.maestro` co-edits, and the fix file itself matched nothing. The root overlay does not cover this screen because `LegalGate` is in `RootCrisisButton`'s `SUPPRESSED_ROUTES`, which makes the pre-consent footer the only crisis affordance there.",
+   "baseline_source": "paragraph on features/consent/ (second instance, INFRA-416); reinforced in the seventh-instance (CleanHomeScreen) paragraph",
+   "baseline_run_b": "No. DEBUG-390's lesson is that the fix file itself must arm the gate, and a co-edited file should not be what arms it (the home paragraph restates this). The root overlay does not cover the screen because `LegalGate` is in `RootCrisisButton`'s `SUPPRESSED_ROUTES`, so the pre-consent 988 footer is the only crisis affordance there.",
+   "post": "No. A row must stand on its own; never rely on a co-edited gated file to arm the gate (DEBUG-390). This text does not say why the root crisis overlay does not cover this screen; see the rulings file.",
+   "post_source": "row. A row stands on its own: never rely on a co-edited gated file or `CRISIS_HOST_CHANGED` to",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L2:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "consent/ + DEBUG-390 lesson",
+   "scenario": "A fix to the pre-consent 988 footer in `CombinedLegalGateScreen.tsx` ships on a branch that also edits a `.maestro` flow, and that co-edit is what arms Phase 2.5. Is relying on the co-edited file to arm the gate acceptable? Why does the root crisis overlay not cover this screen?",
+   "mode": "open",
+   "baseline": "No. DEBUG-390's lesson is that the fix file itself must arm the gate. Phase 2.5 firing only because co-edited `.maestro` flows matched is the failure class `features/consent/` was registered to close, so a registration must stand on its own. The root overlay does not cover this screen because `LegalGate` is in `RootCrisisButton`'s `SUPPRESSED_ROUTES`, which makes the pre-consent footer the only crisis affordance before acceptance.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, `features/consent/` paragraph (INFRA-416/DEBUG-390); CleanHomeScreen paragraph restating DEBUG-390's lesson",
+   "baseline_run_b": "No. DEBUG-390's lesson is that the fix file must arm the gate on its own row: Phase 2.5 fired only because two `.maestro` flows were co-edited, and the fix file itself matched nothing. The root overlay does not cover the screen because `LegalGate` is in `RootCrisisButton`'s `SUPPRESSED_ROUTES`, so the footer is the only crisis affordance a user has before consenting.",
+   "post": "No. DEBUG-390 is the cautionary case: Phase 2.5 fired only because the `.maestro` flows were co-edited while the fix file itself matched nothing, which is why `features/consent/` got its own row. The root overlay does not cover this screen because `LegalGate` is in `RootCrisisButton`'s `SUPPRESSED_ROUTES`, which makes the pre-consent footer the only crisis affordance there.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:22-28 (features/consent/ paragraph); also :77-78 (DEBUG-390 lesson restated for home)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L3:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "dailyloop carve-in from practices/ exemption",
+   "scenario": "One diff touches `features/practices/morning/MorningFlowNavigator.tsx`; another touches `features/practices/dailyloop/screens/DailyLoopStepScreen.tsx`. Which arms Phase 2.5, and why — does the floating root overlay discharge the screen's obligation?",
+   "mode": "closed",
+   "baseline": "Only the dailyloop diff arms Phase 2.5. Phase 2.5 gates `practices/dailyloop` only, and the rest of `practices/` stays exempt. Crisis review ruled that the floating root overlay does not discharge the above-the-fold obligation of `DailyLoopStepScreen`'s `SUPPORT_LINE`.",
+   "baseline_source": "paragraph on features/practices/dailyloop/ (third instance, DEBUG-465)",
+   "baseline_run_b": "Only the dailyloop diff arms Phase 2.5. Phase 2.5 gates `practices/dailyloop` only, and the rest of `practices/` stays exempt, so `morning/` does not arm it. `DailyLoopStepScreen.tsx` hosts `SUPPORT_LINE`, and crisis review ruled that the floating root overlay does not discharge its above-the-fold obligation.",
+   "post": "The `dailyloop/` diff is the crisis-gated one: `practices/dailyloop/` maps to `crisis` + `philosopher`, while `practices/` maps only to `philosopher`. This text does not spell out the Phase 2.5 exemption or whether the floating root overlay discharges the screen's obligation; see the rulings file.",
+   "post_source": "Per-row rulings — why each row exists, its FILE-vs-DIRECTORY call, and what is deliberately",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L3:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "dailyloop carve-in from practices/ exemption",
+   "scenario": "One diff touches `features/practices/morning/MorningFlowNavigator.tsx`; another touches `features/practices/dailyloop/screens/DailyLoopStepScreen.tsx`. Which arms Phase 2.5, and why — does the floating root overlay discharge the screen's obligation?",
+   "mode": "open",
+   "baseline": "Only the `dailyloop/` diff arms Phase 2.5. `dailyloop/` is a carve-in from the `practices/` exemption, and the rest of `practices/` stays exempt, so `morning/MorningFlowNavigator.tsx` does not arm it. `DailyLoopStepScreen.tsx` hosts `SUPPORT_LINE`, a crisis affordance routing to `CrisisResources`, and crisis review ruled the floating root overlay does NOT discharge its above-the-fold obligation.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, `features/practices/dailyloop/` paragraph (DEBUG-465)",
+   "baseline_run_b": "Only the `dailyloop/DailyLoopStepScreen.tsx` diff arms Phase 2.5. `practices/` is exempt, and `practices/dailyloop` is a carve-in from that exemption. The floating root overlay does not discharge the screen's obligation: crisis review ruled that `SUPPORT_LINE`, the crisis affordance shown on the beat `showsSupportLine()` selects, carries its own above-the-fold obligation.",
+   "post": "Only the `dailyloop/` diff arms it. Phase 2.5 gates `practices/dailyloop` as a carve-in from the `practices/` exemption, and the rest of `practices/` stays exempt. The floating root overlay does not discharge the screen's obligation: crisis review ruled that `DailyLoopStepScreen`'s `SUPPORT_LINE` must be above the fold.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:38-44 (dailyloop paragraph); /Users/max/dev/being/.claude/scripts/check-safety-paths.sh EXEMPT_PATHS",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L4:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "core/hooks correction (DEBUG-533)",
+   "scenario": "Someone describes `core/hooks/useBugReportShake.ts` as the benign non-crisis member of `core/hooks/`. Is that right?",
+   "mode": "closed",
+   "baseline": "No. DEBUG-533 corrected that description: `useBugReportShake.ts` arms a shake gesture from the app root that opens a window with no 988 affordance on any screen. The directory clause was right but its stated reason was wrong.",
+   "baseline_source": "paragraph on the fifth instance (DEBUG-525), DEBUG-533 correction",
+   "baseline_run_b": "No. That description was corrected in DEBUG-533: `useBugReportShake.ts` arms a shake gesture from the app root that opens a zero-988-affordance window on any screen. The reviewed non-crisis-affordance member is `useCrisisExclusionAssertion.ts`, a `__DEV__`-only check that is a no-op in Release.",
+   "post": "This text does not say. It only shows that `app/src/core/hooks/` is gated as a whole directory for `crisis`. Read the paragraph naming the path in the rulings file before accepting that description.",
+   "post_source": "Read the paragraph naming a path",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L4:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "core/hooks correction (DEBUG-533)",
+   "scenario": "Someone describes `core/hooks/useBugReportShake.ts` as the benign non-crisis member of `core/hooks/`. Is that right?",
+   "mode": "open",
+   "baseline": "No. DEBUG-533 corrected exactly that claim: `useBugReportShake.ts` arms a shake gesture from the app root that opens a zero-988-affordance window on any screen. The directory clause was right but its stated reason was wrong, because the 'reviewed non-crisis member' half was never reviewed. The reviewed benign member is `useCrisisExclusionAssertion.ts` (a `__DEV__`-only no-op in Release).",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, DEBUG-525 paragraph ('corrected DEBUG-533')",
+   "baseline_run_b": "No. DEBUG-533 corrected that description: `useBugReportShake.ts` arms a shake gesture from the app root that opens a zero-988-affordance window on any screen. The directory clause was right, but its stated reason was wrong, because the 'reviewed non-crisis member' half was never actually reviewed. The reviewed non-crisis member is `useCrisisExclusionAssertion.ts` (DEBUG-643), a `__DEV__`-only check that binds a no-op in Release.",
+   "post": "No. DEBUG-533 corrected this: `useBugReportShake.ts` arms a shake gesture from the app root that opens a window with zero 988 affordances on any screen. The directory clause was right but its stated reason was wrong, because that member had never actually been reviewed.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:52-62 (DEBUG-525 paragraph, DEBUG-533 correction)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L5:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "home FILE-level",
+   "scenario": "Why is `CleanHomeScreen.tsx` registered as a file rather than `features/home/`, and what crisis failure does its inset prevent — a false negative or a false positive?",
+   "mode": "closed",
+   "baseline": "It is registered as a file because the directory's other members carry no crisis surface, and a directory clause would charge a sim build to every future Home edit (the standing rule). Its `CRISIS_BUTTON_EXCLUSION_RECT` inset prevents a crisis false positive: the FAB sits at `zIndex: 9999`, so any overlap becomes a wrong-destination tap into `CrisisResources`.",
+   "baseline_source": "paragraph on the seventh instance (CleanHomeScreen, DEBUG-547)",
+   "baseline_run_b": "It is a file because the other members of `features/home/` carry no crisis surface, so a directory clause would charge a sim build to every Home edit (standing rule). Its `CRISIS_BUTTON_EXCLUSION_RECT` inset prevents a crisis false positive: at the FAB's `zIndex: 9999`, any overlap is a wrong-destination tap into `CrisisResources`.",
+   "post": "A file row is consistent with the standing rule: name the files unless every non-crisis member of the directory can be named and reviewed. This text does not state the home-specific reasoning, or whether the inset prevents a false negative or a false positive; see the rulings file.",
+   "post_source": "every non-crisis member can be named in the justification prose and each has been reviewed;",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L5:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "home FILE-level",
+   "scenario": "Why is `CleanHomeScreen.tsx` registered as a file rather than `features/home/`, and what crisis failure does its inset prevent — a false negative or a false positive?",
+   "mode": "open",
+   "baseline": "It is a FILE because the standing rule gates a directory only when every non-crisis member is named and reviewed, and `features/home/`'s other members carry no crisis surface. A directory clause would charge a sim build to every Home edit. Its `CRISIS_BUTTON_EXCLUSION_RECT` inset prevents a crisis FALSE POSITIVE: with the FAB at `zIndex: 9999`, an overlap turns a tap meant for a Home control into a wrong-destination tap into `CrisisResources`.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, `CleanHomeScreen.tsx` paragraph (DEBUG-547)",
+   "baseline_run_b": "It is a FILE row because the standing rule allows a directory clause only when every non-crisis member is named and reviewed, and Home's other members carry no crisis surface, so a directory row would charge a sim build to every Home edit. The inset prevents a false positive, not a false negative: at `zIndex: 9999` any overlap with the FAB becomes a wrong-destination tap into `CrisisResources`. The row must also stand on its own rather than relying on the co-edited `guidance/` file to arm the gate (DEBUG-390).",
+   "post": "It is a file because the standing rule allows a directory clause only when every non-crisis member is named and reviewed; home's other members carry no crisis surface, and a directory clause would charge a sim build to every Home edit. The inset prevents a crisis false positive: with the FAB at `zIndex: 9999`, any overlap turns a tap into a wrong-destination tap into `CrisisResources`.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:69-78 (CleanHomeScreen paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L6:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "ExternalErrorReporter / third-party occluder",
+   "scenario": "Why are `ExternalErrorReporter.ts` and `ProfileScreen.tsx` gated, and does `check-modal-occlusion-guard.js` or the INFRA-531 rule catch that shape?",
+   "mode": "closed",
+   "baseline": "Neither detector catches this shape. Both files are gated because `showFeedbackForm()` opens Sentry's feedback widget, which paints a 90%-opaque inset-0 backdrop over the whole app and occludes the 988 affordance. INFRA-531 matches nothing because nothing imports from `features/crisis/`, and `check-modal-occlusion-guard.js` scans only `app/src`, so a `<Modal>` in `node_modules` is invisible to it. The table is the only control, and the full ruling is recorded at `showFeedbackForm()`.",
+   "baseline_source": "paragraph on the ninth instance (DEBUG-533); full ruling at showFeedbackForm() in app/src/core/services/logging/ExternalErrorReporter.ts",
+   "baseline_run_b": "They are gated because `showFeedbackForm()` opens Sentry's feedback widget, which paints a 90%-opaque inset-0 backdrop over the whole app and occludes the 988 affordances. Neither detector catches it: INFRA-531 sees no import from `features/crisis/`, and `check-modal-occlusion-guard.js` scans only `app/src`, so a `<Modal>` in `node_modules` is invisible. The table is the only control, and the full ruling is recorded at `showFeedbackForm()`.",
+   "post": "`ExternalErrorReporter.ts` is the third-party occluder/presenter-call shape, and neither tool catches it: INFRA-531 cannot see a file that imports nothing from `features/crisis/`, and `check-modal-occlusion-guard.js` arms no gate. This text does not say why `ProfileScreen.tsx` is gated; see the rulings file.",
+   "post_source": "`features/crisis/`: a third-party occluder or presenter call (`ExternalErrorReporter.ts`,",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L6:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "ExternalErrorReporter / third-party occluder",
+   "scenario": "Why are `ExternalErrorReporter.ts` and `ProfileScreen.tsx` gated, and does `check-modal-occlusion-guard.js` or the INFRA-531 rule catch that shape?",
+   "mode": "open",
+   "baseline": "They are gated because `showFeedbackForm()` opens Sentry's feedback widget, which paints a 90%-opaque inset-0 backdrop over the whole app and occludes the 988 affordances; it was ruled a DEBUG-406 conversion site that cannot be converted in place. Neither detector catches it. INFRA-531 matches nothing because nothing imports from `features/crisis/`, and `check-modal-occlusion-guard.js` scans only `app/src`, so a `<Modal>` in `node_modules` is invisible. The hand-maintained table is the only control.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, ExternalErrorReporter/ProfileScreen paragraph (DEBUG-533)",
+   "baseline_run_b": "They are gated because `showFeedbackForm()` opens Sentry's feedback widget, which paints a 90%-opaque inset-0 backdrop over the whole app and occludes the 988 affordance with code we do not render. Neither tool catches that shape. INFRA-531's rule matches nothing because the path imports nothing from `features/crisis/`, and `check-modal-occlusion-guard.js` scans only `app/src`, so a `<Modal>` in `node_modules` is invisible; the hand-maintained table is the only control.",
+   "post": "They are gated because `showFeedbackForm()` opens Sentry's feedback widget, which paints a 90%-opaque inset-0 backdrop as a later sibling of the whole app and covers the 988 affordance with code we do not render. Neither detector catches it: nothing on the path imports from `features/crisis/`, so the INFRA-531 rule misses it, and `check-modal-occlusion-guard.js` scans only `app/src`, so a `<Modal>` in `node_modules` is invisible to it. The hand-maintained table is the only control.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:100-111 (ExternalErrorReporter/ProfileScreen paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L7:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "IAPService deliberately not gated",
+   "scenario": "`IAPService.ts` presents a StoreKit purchase sheet over the app. Should it get a Protected Paths row now? If not, why not, and when should it?",
+   "mode": "closed",
+   "baseline": "No, not yet. It is the same class, but DEBUG-577 ruled its measurement unsatisfiable in this environment (`mockMode = __DEV__`, no `.storekit` config, no Android harness), so a row would arm a build against a surface nothing can verify. This is a recorded carry, not an oversight; gate it the moment sandbox products exist.",
+   "baseline_source": "paragraph on the sixteenth instance (ExportDataScreen, DEBUG-577)",
+   "baseline_run_b": "No, not now. DEBUG-577 ruled its measurement unsatisfiable in this environment (`mockMode = __DEV__`, no `.storekit` config, no Android harness), so a row would arm a build against a surface nothing can verify. It is a recorded carry, not an oversight, and it should be gated the moment sandbox products exist.",
+   "post": "No, not now. `IAPService.ts` is named as deliberately NOT gated. Why, and when it should be gated, are recorded in the rulings file, not in this text.",
+   "post_source": "Per-row rulings — why each row exists, its FILE-vs-DIRECTORY call, and what is deliberately",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L7:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "IAPService deliberately not gated",
+   "scenario": "`IAPService.ts` presents a StoreKit purchase sheet over the app. Should it get a Protected Paths row now? If not, why not, and when should it?",
+   "mode": "open",
+   "baseline": "No, not yet. It is the same class as ExportDataScreen, but DEBUG-577 ruled its measurement unsatisfiable in this environment (`mockMode = __DEV__`, no `.storekit` config, no Android harness), so a row would arm a build against a surface nothing can verify. That is a recorded carry, not an oversight, and it should be gated the moment sandbox products exist.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, ExportDataScreen paragraph (DEBUG-577), closing sentences on `IAPService.ts`",
+   "baseline_run_b": "No, not yet. It is the same class as ExportDataScreen, but DEBUG-577 ruled its measurement unsatisfiable here (`mockMode = __DEV__`, no `.storekit` config, no Android harness), so a row would arm a build against a surface nothing can verify. This is a recorded carry, not an oversight: gate it the moment sandbox products exist.",
+   "post": "No, not yet. DEBUG-577 ruled its measurement unsatisfiable in this environment (`mockMode = __DEV__`, no `.storekit` config, no Android harness), so a row would arm a build against a surface nothing can verify. This is a recorded carry, not an oversight; gate it the moment sandbox products exist.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:124-128 (ExportDataScreen paragraph, IAPService note); /Users/max/dev/being/.claude/CLAUDE.md Protected Paths pointer (pp-section-new.md:53-55)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L8:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "practiceSafeAreaEdges named not gated",
+   "scenario": "Is `features/learn/practices/shared/practiceSafeAreaEdges.ts` gated? Has it been reviewed? Is its omission an oversight?",
+   "mode": "closed",
+   "baseline": "It is not gated and has not been reviewed. It is named as plausibly crisis-bearing (it decides the content bottom for four gated hosts), and it stays named, not gated, after PracticeToggleButton was gated. Naming it is deliberate, so the omission is not an unnoticed oversight.",
+   "baseline_source": "paragraphs on SortingPracticeScreen (DEBUG-634) and the nineteenth instance (PracticeToggleButton)",
+   "baseline_run_b": "No, it is not gated, and it has not been reviewed. It is deliberately named in the prose rather than gated, as plausibly crisis-bearing because it decides the content bottom for four gated hosts. That is a recorded decision, not an oversight; the nineteenth instance retired `PracticeToggleButton` and kept `practiceSafeAreaEdges.ts` named, not gated.",
+   "post": "No, it is not gated, and the omission is deliberate rather than an oversight. This text does not say whether it has been reviewed; see the rulings file.",
+   "post_source": "Per-row rulings — why each row exists, its FILE-vs-DIRECTORY call, and what is deliberately",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L8:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "practiceSafeAreaEdges named not gated",
+   "scenario": "Is `features/learn/practices/shared/practiceSafeAreaEdges.ts` gated? Has it been reviewed? Is its omission an oversight?",
+   "mode": "open",
+   "baseline": "No, it is not gated, and it has had no review. Its omission is deliberate, not an oversight: DEBUG-634 named it as plausibly crisis-bearing (it decides the content bottom for four gated hosts) instead of gating it, and the PracticeToggleButton ruling explicitly kept it 'named, not gated'. Naming it in prose is the standing rule's guard against an unnamed member.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, SortingPracticeScreen paragraph (DEBUG-634) and PracticeToggleButton paragraph (DEBUG-638/643)",
+   "baseline_run_b": "No, it is not gated, and it has had no review. Its omission is deliberate, not an oversight: DEBUG-634 flagged it as plausibly crisis-bearing, since it decides the content bottom for four gated hosts, and named it in the prose rather than gating it, because an unnamed non-crisis member is exactly what the standing rule exists to catch. DEBUG-638/643 gated its sibling `PracticeToggleButton.tsx` and explicitly kept `practiceSafeAreaEdges.ts` 'named, not gated'.",
+   "post": "No, it is not gated, and it has had no review even though it is plausibly crisis-bearing (it decides the content bottom for four gated hosts). The omission is deliberate, not an oversight: DEBUG-634 named it explicitly rather than leaving it unnamed, and DEBUG-638/643 confirmed that it stays named, not gated.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:266-273 (SortingPracticeScreen paragraph) and :280-281 (PracticeToggleButton paragraph); /Users/max/dev/being/.claude/CLAUDE.md Protected Paths pointer (pp-section-new.md:53-55)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L9:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "SupabaseService — gate does not prove delivery",
+   "scenario": "A change to `SupabaseService.ts` passes the four flows Phase 2.5 arms for it. Does that prove `crisis_detected` rows are delivered? Why is the file gated at all?",
+   "mode": "closed",
+   "baseline": "No. INFRA-411 suppresses egress in the gate build, so the four flows only prove the frame does not throw or block, never delivery; delivery is INFRA-412's attended `.env.production` measurement. The file is gated because it holds the only writer of `crisis_detected` to `analytics_events`, and `trackCrisisDetection` runs inside the synchronous frame `handleCrisisDetection` awaits. It still matches no path pattern and imports nothing from `features/crisis/`.",
+   "baseline_source": "paragraph on the twelfth instance (SupabaseService, INFRA-568)",
+   "baseline_run_b": "No. INFRA-411 suppresses egress in the gate build, so the four flows prove only that the frame does not throw or block, never delivery; delivery is INFRA-412's attended `.env.production` measurement. The file is gated because it owns the crisis audit sink: it holds the only writer of `crisis_detected` to `analytics_events`, and `trackCrisisDetection` runs inside the synchronous frame `handleCrisisDetection` awaits, yet no path pattern or import detector sees it.",
+   "post": "It is gated because it is the crisis audit sink, a shape no detector reaches. This text does not say whether the four flows prove `crisis_detected` delivery; see the rulings file.",
+   "post_source": "that alone gates an overlay (`bugReportStore.ts`), the crisis audit sink (`SupabaseService.ts`),",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L9:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "SupabaseService — gate does not prove delivery",
+   "scenario": "A change to `SupabaseService.ts` passes the four flows Phase 2.5 arms for it. Does that prove `crisis_detected` rows are delivered? Why is the file gated at all?",
+   "mode": "open",
+   "baseline": "No. INFRA-411 suppresses egress in the gate build, so the four flows prove only that the frame does not throw or block, never delivery. Delivery is INFRA-412's attended `.env.production` measurement. The file is gated because it holds the only writer of `crisis_detected` to `analytics_events`, and `trackCrisisDetection` runs inside the synchronous frame `handleCrisisDetection` awaits. It also matches no path pattern and imports nothing from `features/crisis/`.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, SupabaseService paragraph (INFRA-568)",
+   "baseline_run_b": "No. INFRA-411 suppresses egress in the gate build, so the four armed flows prove only that the frame does not throw or block, never that rows are delivered; delivery is proven by INFRA-412's attended `.env.production` measurement. The file is gated because it holds the only writer of `crisis_detected` to `analytics_events`, and `trackCrisisDetection` runs inside the synchronous frame `handleCrisisDetection` awaits. Yet the file matches no path pattern and imports nothing from `features/crisis/`, so no detector sees it.",
+   "post": "No. INFRA-411 suppresses egress in the gate build, so the four flows prove only that the frame does not throw or block, never delivery; delivery is INFRA-412's attended `.env.production` measurement. The file is gated because it holds the only writer of `crisis_detected`, and `trackCrisisDetection` runs inside the synchronous frame `handleCrisisDetection` awaits, yet the file matches no path pattern and imports nothing from `features/crisis/`.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:161-172 (SupabaseService paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L10:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "App.tsx / PostHogProvider render-withholding ancestor",
+   "scenario": "A provider mounted above `SafeAreaProvider` returns a bare fragment in one consent state and a wrapping provider in the other. What is the user-visible crisis risk when consent flips, and does any detector catch it?",
+   "mode": "closed",
+   "baseline": "The element-type swap destroys and recreates the whole crisis subtree. Because `SafeAreaProvider` (with no `initialMetrics`) renders nothing until its native insets land, the user sees a blank screen with every 988 affordance hidden, a render-withholding ancestor. No detector catches it: INFRA-531 matches nothing, and `check-modal-occlusion-guard.js` sees no `<Modal>`.",
+   "baseline_source": "paragraph on the thirteenth instance (App.tsx / PostHogProvider, DEBUG-559)",
+   "baseline_run_b": "The risk is that flipping consent swaps the element type and destroys and recreates the whole crisis subtree. Because `SafeAreaProvider` (mounted without `initialMetrics`) renders nothing until native insets land, the user sees a blank screen with every 988 affordance hidden. No detector catches it: nothing imports from `features/crisis/`, and there is no `<Modal>` for `check-modal-occlusion-guard.js`.",
+   "post": "No detector catches it: a render-withholding ancestor (`App.tsx`, `PostHogProvider.tsx`) imports nothing from `features/crisis/`, so the table is the only control. This text does not describe the user-visible risk when consent flips; see the rulings file.",
+   "post_source": "`ExportDataScreen.tsx`), a render-withholding ancestor (`App.tsx`, `PostHogProvider.tsx`), a store",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L10:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "App.tsx / PostHogProvider render-withholding ancestor",
+   "scenario": "A provider mounted above `SafeAreaProvider` returns a bare fragment in one consent state and a wrapping provider in the other. What is the user-visible crisis risk when consent flips, and does any detector catch it?",
+   "mode": "open",
+   "baseline": "The element-type swap destroys and recreates the whole crisis subtree when consent flips. Because `SafeAreaProvider` (mounted with no `initialMetrics`) renders nothing until native insets land, the user sees a blank screen with every 988 affordance hidden, and LoadingScreen's `Static988Button` does not cover it. No detector catches this render-withholding-ancestor shape: neither file imports from `features/crisis/`, and `check-modal-occlusion-guard.js` sees no `<Modal>`.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, App.tsx/PostHogProvider paragraph (DEBUG-559)",
+   "baseline_run_b": "When consent flips, the element-type swap destroys and recreates the whole crisis subtree. Because `SafeAreaProvider` (mounted with no `initialMetrics`) renders nothing until native insets land, the user sees a blank screen with every 988 affordance hidden. That is worse than a FAB gap, which LoadingScreen's `Static988Button` would cover. No detector catches it: neither file imports from `features/crisis/`, so INFRA-531's rule misses it, and `check-modal-occlusion-guard.js` sees no `<Modal>`.",
+   "post": "Flipping consent swaps the element type, which destroys and recreates the whole crisis subtree. `SafeAreaProvider`, mounted without `initialMetrics`, renders nothing until native insets land, so the user sees a blank screen with every 988 affordance hidden, not a FAB gap that `Static988Button` covers. No detector catches it: neither file imports from `features/crisis/`, and `check-modal-occlusion-guard.js` sees no `<Modal>`.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:174-187 (App.tsx/PostHogProvider paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L11:closed",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": false,
+   "span": "bugReportStore caught by nothing",
+   "scenario": "`bugReportStore.ts` imports only zustand. Does the INFRA-531 import rule catch a change to it, and why is it gated?",
+   "mode": "closed",
+   "baseline": "No, the store is caught by nothing because it imports only zustand. It is gated because it is the sole gate on whether `BugReportOverlay` opens, an overlay armed at the app root that can be raised on a FAB-suppressed route. The row is the only control.",
+   "baseline_source": "paragraph on the fourteenth instance (BugReportOverlay / bugReportStore, FEAT-570)",
+   "baseline_run_b": "No, nothing catches it, since it imports only zustand. It is gated because it is the sole gate on whether `BugReportOverlay` opens, and that overlay is a slot claimant armed at the app root that can be raised on a FAB-suppressed route. The row is the only control.",
+   "post": "No. INFRA-531 cannot see a file that imports nothing from `features/crisis/`. It is gated because it is a store that alone gates an overlay, so the table row is the only control.",
+   "post_source": "that alone gates an overlay (`bugReportStore.ts`), the crisis audit sink (`SupabaseService.ts`),",
+   "verdict": "same",
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md",
+   "reclassified": "relocated -> resident: the crisis-amended detector-blind line now carries the decision (bugReportStore named); closed-book gives the baseline decision without the pointer"
+  },
+  {
+   "id": "SPR-L11:open",
+   "component": "protected-paths",
+   "class": "resident",
+   "protected": false,
+   "span": "bugReportStore caught by nothing",
+   "scenario": "`bugReportStore.ts` imports only zustand. Does the INFRA-531 import rule catch a change to it, and why is it gated?",
+   "mode": "open",
+   "baseline": "No, the INFRA-531 import rule does not catch it; the store is caught by nothing. It is gated because it is the sole gate on whether `BugReportOverlay` opens. That overlay is a root-armed slot claimant that can be raised even on FAB-suppressed routes, so the table row is the only control.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, BugReportOverlay/bugReportStore paragraph (FEAT-570)",
+   "baseline_run_b": "No, the INFRA-531 rule does not catch it, because the store imports only zustand and nothing from `features/crisis/`. It is gated because it is the sole gate on whether `BugReportOverlay` opens. That overlay is armed at the app root, so it can be raised on a FAB-suppressed route (a zero-988 state), and the Protected Paths row is the only control.",
+   "post": "No. The store imports only zustand, so the INFRA-531 import rule catches nothing. It is gated because it alone decides whether `BugReportOverlay` opens, an overlay armed at the app root that can be raised even on FAB-suppressed routes, so the table row is the only control.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:189-198 (BugReportOverlay/bugReportStore paragraph)",
+   "verdict": "same",
+   "rule": "resident: matches baseline closed-book, quote verified in new CLAUDE.md",
+   "reclassified": "relocated -> resident: the crisis-amended detector-blind line now carries the decision (bugReportStore named); closed-book gives the baseline decision without the pointer"
+  },
+  {
+   "id": "SPR-L12:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "haptics / BreathingCircle / useIsFocusedSafe",
+   "scenario": "A change to `practices/shared/haptics/` arms Phase 2.5. Can the gate build observe a haptic or spoken cue? What is the real falsifier, and why is `useIsFocusedSafe.ts` gated?",
+   "mode": "closed",
+   "baseline": "No. The `e2e-sim` profile in `eas.json` carries `practice_haptics:false`, so the pipeline is dark in the gate build and the arm is notice-only; the real falsifier is jest at the `expo-haptics` and `announceForAccessibility` boundaries. `useIsFocusedSafe.ts` is gated because it is the sole focus signal both the haptics and BreathingCircle paths read: widening its default of `true`, or breaking its blur listener, silently fails both gates open.",
+   "baseline_source": "paragraph on the seventeenth instance (haptics / BreathingCircle, DEBUG-587)",
+   "baseline_run_b": "No. `eas.json`'s `e2e-sim` profile carries `practice_haptics:false`, so the pipeline is dark in the gate build; the arm is notice-only, and the real falsifier is jest at the `expo-haptics` and `announceForAccessibility` boundaries. `useIsFocusedSafe.ts` is gated because it is the sole focus signal both haptics and BreathingCircle read: widening its no-navigator default of `true`, or breaking the blur listener, fails both gates open at once, silently.",
+   "post": "This text only says `shared/haptics/` emits output toward a crisis surface, and that `useIsFocusedSafe.ts` is a focus signal that gated hosts route through. It does not say whether the gate build can observe a cue, or what the real falsifier is; see the rulings file.",
+   "post_source": "output emitted toward a crisis surface (`shared/haptics/`, `BreathingCircle.tsx`), process death",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L12:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "haptics / BreathingCircle / useIsFocusedSafe",
+   "scenario": "A change to `practices/shared/haptics/` arms Phase 2.5. Can the gate build observe a haptic or spoken cue? What is the real falsifier, and why is `useIsFocusedSafe.ts` gated?",
+   "mode": "open",
+   "baseline": "No. The `e2e-sim` profile in `eas.json` carries `practice_haptics:false`, so the pipeline is dark in the gate build and no flow can render a cue; the arm is notice-only. The real falsifier is jest at the `expo-haptics` and `announceForAccessibility` boundaries. `useIsFocusedSafe.ts` is gated because it is the SOLE focus signal both haptics and BreathingCircle read: widening its no-navigator `true` default, or breaking the blur listener, fails both gates open at once, silently.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, haptics/BreathingCircle paragraph (DEBUG-587)",
+   "baseline_run_b": "No, the gate build cannot observe a cue. `eas.json`'s `e2e-sim` profile sets `practice_haptics:false`, so the pipeline is dark and the arm is notice-only; the real falsifier is jest at the `expo-haptics` and `announceForAccessibility` boundaries. `useIsFocusedSafe.ts` is gated because it is the sole focus signal both haptics and `BreathingCircle` read: widening its no-navigator `true` default, or breaking its blur listener, silently fails both gates open at once.",
+   "post": "No. The `e2e-sim` profile in `eas.json` carries `practice_haptics:false`, so the pipeline is dark in the gate build, no flow can render a cue, and the arm is notice-only. The real falsifier is jest at the `expo-haptics` and `announceForAccessibility` boundaries. `useIsFocusedSafe.ts` is gated because it is the sole focus signal both the haptics and BreathingCircle paths read, so widening its `true` default or breaking the blur listener fails both gates open silently.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:217-233 (haptics/BreathingCircle/useIsFocusedSafe paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L13:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "last-key-wins correction (DEBUG-631)",
+   "scenario": "You are adding FAB clearance to a new host that passes a bare style object with both `marginHorizontal` and `marginRight`. Can you copy the 'last-key-wins' rationale used for the toggle hosts?",
+   "mode": "closed",
+   "baseline": "No. DEBUG-631 corrected this: last-key-wins governs an array merge via `PracticeToggleButton`, not two distinct margin keys in one object. Yoga resolves those by edge specificity regardless of order. Read the host before copying either shape.",
+   "baseline_source": "paragraph on the eighteenth instance (five practice screens), DEBUG-631 correction",
+   "baseline_run_b": "No. Corrected in DEBUG-631: 'last-key-wins' governs an array merge via `PracticeToggleButton`, not two distinct margin keys in one object. Yoga resolves those by edge specificity regardless of order, so read the host before copying either rationale.",
+   "post": "This text does not contain the answer. The last-key-wins ruling lives in the rulings file; read the paragraph naming the host before copying it.",
+   "post_source": "Read the paragraph naming a path",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L13:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "last-key-wins correction (DEBUG-631)",
+   "scenario": "You are adding FAB clearance to a new host that passes a bare style object with both `marginHorizontal` and `marginRight`. Can you copy the 'last-key-wins' rationale used for the toggle hosts?",
+   "mode": "open",
+   "baseline": "No. DEBUG-631 corrected this: 'last-key-wins' governs an ARRAY merge via `PracticeToggleButton`, not two distinct margin keys in one object. Yoga resolves those by edge specificity regardless of order, so `marginRight` beats `marginHorizontal` on the right edge whatever the order. Read the host before copying either shape.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, five-practice-screens paragraph (DEBUG-618/620/622/628/631), 'Do not copy the last-key-wins rationale'",
+   "baseline_run_b": "No. DEBUG-631 corrected that rationale: 'last-key-wins' governs an ARRAY merge via `PracticeToggleButton`, not two distinct margin keys in one object. Yoga resolves distinct keys by edge specificity regardless of order, so `marginRight` beats `marginHorizontal` for the right edge either way. Read the host before copying either shape.",
+   "post": "No. DEBUG-631 corrected this: last-key-wins governs an array merge via `PracticeToggleButton`, not two distinct margin keys in one object. In a bare object, Yoga resolves `marginHorizontal` and `marginRight` by edge specificity regardless of order, so read the host and reason from edge specificity, as `GuidedBodyScanScreen` does.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:249-257 (eighteenth-instance paragraph, DEBUG-631 correction)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L14:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "SortingPracticeScreen scale transform",
+   "scenario": "Someone proposes changing SortingPracticeScreen's card scale interpolate `outputRange` from `[0.9, 1]` to `[0.9, 1.05]` for a bounce. Is that safe for FAB clearance, and who must review it?",
+   "mode": "closed",
+   "baseline": "No, it is not safe. With an `outputRange` above 1 the overshoot pushes the right edge outward, W-dependently, which inverts the s ≤ 1 subset guarantee. The pin fixes the interpolate at `[0.9, 1]`, and any change to it comes back through `crisis`.",
+   "baseline_source": "paragraph on SortingPracticeScreen (DEBUG-634)",
+   "baseline_run_b": "No, it is not safe. An `outputRange` above 1 inverts the subset argument: the overshoot pushes the right edge outward, W-dependently, so the layout frame at s = 1 is no longer the supremum. The pin fixes the interpolate at `[0.9, 1]`, and any change to it comes back through `crisis`.",
+   "post": "This text does not contain the answer. It only shows `SortingPracticeScreen.tsx` mapped to `crisis` + `philosopher`; the scale-transform ruling lives in the rulings file.",
+   "post_source": "Read the paragraph naming a path",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L14:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "SortingPracticeScreen scale transform",
+   "scenario": "Someone proposes changing SortingPracticeScreen's card scale interpolate `outputRange` from `[0.9, 1]` to `[0.9, 1.05]` for a bounce. Is that safe for FAB clearance, and who must review it?",
+   "mode": "open",
+   "baseline": "No, it is not safe. The clearance relies on s ≤ 1 keeping the transformed frame a subset of the layout frame, and an `outputRange` above 1 inverts that: the overshoot pushes the right edge outward, W-dependently, into the FAB. The pin fixes the interpolate at `[0.9, 1]`, and any change to it must come back through the `crisis` agent.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, SortingPracticeScreen paragraph (DEBUG-634)",
+   "baseline_run_b": "No, it is not safe. For a scale s ≤ 1 the transformed frame stays a subset of the layout frame, so the s = 1 clearance is the supremum. An `outputRange` above 1 inverts that: the overshoot pushes the card's right edge outward, by an amount that depends on screen width, into the FAB band. The pin fixes the interpolate at `[0.9, 1]`, and any change to it must come back through `crisis` (with `philosopher`, who co-owns the file).",
+   "post": "No. Clearance is computed against the layout frame at s = 1, which is safe only because s ≤ 1 keeps the transformed frame inside the layout frame; an `outputRange` above 1 pushes the right edge outward, W-dependently, and inverts that guarantee. The pin fixes the interpolate at `[0.9, 1]`, and any change must come back through the `crisis` agent.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:259-267 (SortingPracticeScreen paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L15:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "passages/ exempt from Phase 2.5",
+   "scenario": "A diff edits only `app/assets/passages/`. Does Phase 2.5 run a Maestro flow? What is the control instead?",
+   "mode": "closed",
+   "baseline": "No. `passages/` is exempt from Phase 2.5 because no Maestro flow can falsify passage text. The control is `__tests__/safety/classicalCorpusCrisisAdmission.test.ts`, which bans exit, method and abuse-tolerance spans.",
+   "baseline_source": "paragraph on app/assets/passages/ (FEAT-581); test __tests__/safety/classicalCorpusCrisisAdmission.test.ts",
+   "baseline_run_b": "No. `passages/` is exempt from Phase 2.5 because no Maestro flow can falsify passage text. The control is `__tests__/safety/classicalCorpusCrisisAdmission.test.ts`, which bans exit, method and abuse-tolerance spans, plus `crisis` + `philosopher` review.",
+   "post": "This text does not say whether Phase 2.5 runs a flow for `app/assets/passages/` or what the control is instead. It only shows the row maps to `crisis` + `philosopher`; see the rulings file.",
+   "post_source": "Read the paragraph naming a path",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L15:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "passages/ exempt from Phase 2.5",
+   "scenario": "A diff edits only `app/assets/passages/`. Does Phase 2.5 run a Maestro flow? What is the control instead?",
+   "mode": "open",
+   "baseline": "No, no Maestro flow runs: `passages/` is exempt from Phase 2.5 because no Maestro flow can falsify passage text. The control is `__tests__/safety/classicalCorpusCrisisAdmission.test.ts`, which bans exit, method and abuse-tolerance spans. The `crisis` and `philosopher` agents still review it as a Protected Path.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, `app/assets/passages/` paragraph (FEAT-581)",
+   "baseline_run_b": "No. `app/assets/passages/` is exempt from Phase 2.5 because no Maestro flow can falsify passage text. The control instead is `__tests__/safety/classicalCorpusCrisisAdmission.test.ts`, which bans exit, method and abuse-tolerance spans, plus `crisis` and `philosopher` review via the table row.",
+   "post": "No. `passages/` is exempt from Phase 2.5 because no Maestro flow can falsify passage text. The control is `__tests__/safety/classicalCorpusCrisisAdmission.test.ts`, which bans exit, method and abuse-tolerance spans, plus `crisis` + `philosopher` review.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:292-295 (passages paragraph); /Users/max/dev/being/.claude/CLAUDE.md table row app/assets/passages/",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L16:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "plugins/ withPrivacyShield",
+   "scenario": "A change to `plugins/withPrivacyShield.js` arms Phase 2.5. Can any Maestro flow observe the shield? What is the real verification?",
+   "mode": "closed",
+   "baseline": "No. The shield covers the affordances only while the app is inactive, and the suite drives an active app. The gate arms the surrounding crisis paths, and the real verification is an attended device session.",
+   "baseline_source": "paragraph on plugins/ (sixth instance, FEAT-522)",
+   "baseline_run_b": "No. The shield covers affordances only while the app is inactive, and the suite drives an active app. The gate arms the surrounding crisis paths, and the real verification is an attended device session.",
+   "post": "This text only classes `plugins/` as native config that no detector reaches. It does not say whether a Maestro flow can observe the shield, or what the real verification is; see the rulings file.",
+   "post_source": "on the scan path (`speech/`), native config (`plugins/`, `patches/`), or a shared style, hook or",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L16:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "plugins/ withPrivacyShield",
+   "scenario": "A change to `plugins/withPrivacyShield.js` arms Phase 2.5. Can any Maestro flow observe the shield? What is the real verification?",
+   "mode": "open",
+   "baseline": "No. The shield covers every 988 affordance only while the app is inactive, and the Maestro suite drives an ACTIVE app. The gate arm exercises the surrounding crisis paths, and the real verification is an attended device session. iOS is CNG, so no AppDelegate diff is ever reviewed either.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, `plugins/` paragraph (FEAT-522)",
+   "baseline_run_b": "No. The shield covers the 988 affordances only while the app is inactive, and the Maestro suite drives an ACTIVE app, so no flow can observe it. The gate arms the surrounding crisis paths, but the real verification is an attended device session, and since iOS is CNG no AppDelegate diff is ever reviewed.",
+   "post": "No. The shield covers the app only while it is inactive, and the suite drives an active app, so no Maestro flow can observe it; the gate only arms the surrounding crisis paths. The real verification is an attended device session, and iOS is CNG, so no AppDelegate diff is ever reviewed.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:130-134 (plugins/ paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L17:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "DeepLinkValidationService",
+   "scenario": "A validator-only diff to `DeepLinkValidationService.ts` used to close with zero flows. Why, and why is the file now gated for crisis?",
+   "mode": "closed",
+   "baseline": "It closed with zero flows because Step 2.5.3's security carve-out stripped it as service-layer. It is now gated because, with `ALLOWED_PATHS` enforced, the validator decides whether `being://crisis` is delivered at all, and it holds the single-code invariant that `isRateLimitedCrisisIntent` needs.",
+   "baseline_source": "paragraph on the twenty-first instance (DeepLinkValidationService, DEBUG-636)",
+   "baseline_run_b": "It closed with zero flows because Step 2.5.3's security carve-out stripped it as service-layer. It is now gated for `crisis` because, with `ALLOWED_PATHS` enforced, the validator decides whether `being://crisis` is delivered at all and holds the single-code invariant `isRateLimitedCrisisIntent` needs.",
+   "post": "Because a Step 2.5.3 carve-out can strip a gated path (`DeepLinkValidationService.ts`), so a validator-only diff could close with zero flows. This text does not say why the file is crisis-bearing; see the rulings file.",
+   "post_source": "`useIsFocusedSafe.ts`). `check-modal-occlusion-guard.js` arms no gate, and a Step 2.5.3 carve-out",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L17:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "DeepLinkValidationService",
+   "scenario": "A validator-only diff to `DeepLinkValidationService.ts` used to close with zero flows. Why, and why is the file now gated for crisis?",
+   "mode": "open",
+   "baseline": "It closed with zero flows because Step 2.5.3's security carve-out stripped it as service-layer. It is now gated for crisis because, once `ALLOWED_PATHS` enforced, the validator decides whether `being://crisis` is delivered at all. It also holds the single-code invariant `isRateLimitedCrisisIntent` needs. The FILE row adds `crisis`, and the `security/` directory row keeps `compliance`.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, DeepLinkValidationService paragraph (DEBUG-636)",
+   "baseline_run_b": "It closed with zero flows because Step 2.5.3's security carve-out stripped `core/services/security/` changes as service-layer. It is now crisis-gated because, once `ALLOWED_PATHS` is enforced, the validator decides whether `being://crisis` is delivered at all, and it holds the single-code invariant that `isRateLimitedCrisisIntent` needs. The row is FILE-level and adds `crisis`, while the directory row keeps `compliance`.",
+   "post": "It closed with zero flows because Step 2.5.3's security carve-out stripped it as service-layer. It is now gated for crisis because, once `ALLOWED_PATHS` is enforced, the validator decides whether `being://crisis` is delivered at all, and it holds the single-code invariant that `isRateLimitedCrisisIntent` needs.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:297-302 (DeepLinkValidationService paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L18:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "core/navigation + e2eSeed",
+   "scenario": "A change narrows what `core/config/e2eSeed.ts` seeds. Why is that a safety concern even if every flow stays green?",
+   "mode": "closed",
+   "baseline": "Because `e2eSeed.ts` decides what the safety flows can reach. Narrowing it is coverage loss with nothing going red: before DEBUG-575's seed, `WeeklyReflectionCard` returned null and the composer did not exist in the gate build at all.",
+   "baseline_source": "paragraph on the eleventh instance (core/navigation + e2eSeed, DEBUG-575)",
+   "baseline_run_b": "`e2eSeed.ts` decides what the safety flows can reach, so narrowing it is a silent coverage loss with nothing going red. Before DEBUG-575's seed, `WeeklyReflectionCard` returned null and the composer did not exist in the gate build at all.",
+   "post": "This text does not contain the answer. It only shows `app/src/core/config/e2eSeed.ts` gated for `crisis`; see the rulings file.",
+   "post_source": "Read the paragraph naming a path",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L18:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "core/navigation + e2eSeed",
+   "scenario": "A change narrows what `core/config/e2eSeed.ts` seeds. Why is that a safety concern even if every flow stays green?",
+   "mode": "open",
+   "baseline": "`e2eSeed.ts` decides what the safety flows can REACH, so narrowing it is coverage loss with nothing going red: a flow cannot fail on a surface that no longer exists in the gate build. Before DEBUG-575's seed, `WeeklyReflectionCard` returned null and the composer did not exist in the gate build at all.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, core/navigation + e2eSeed paragraph (DEBUG-575)",
+   "baseline_run_b": "`e2eSeed.ts` decides what the safety flows can REACH. A narrowed seed silently removes surfaces from the gate build, so coverage is lost while nothing goes red. Before DEBUG-575's seed, for example, `WeeklyReflectionCard` returned null and the composer did not exist in the gate build at all.",
+   "post": "`e2eSeed.ts` decides what the safety flows can reach, so narrowing the seed silently removes surfaces from the gate build. Before DEBUG-575's seed, `WeeklyReflectionCard` returned null and the composer did not exist in the gate build at all. That is coverage loss with nothing going red, so green flows are not evidence.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:157-159 (core/navigation + e2eSeed paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L19:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "PracticeCompletionScreen",
+   "scenario": "Each of the five gated practice hosts already clears the FAB. Why does `PracticeCompletionScreen.tsx` need its own clearance?",
+   "mode": "closed",
+   "baseline": "All five hosts return `PracticeCompletionScreen` in place of their own tree on immersive routes, so none of their FAB clearances carry over. DEBUG-682 cleared its Continue button with a `primaryButton` right margin.",
+   "baseline_source": "paragraph on the twenty-second instance (PracticeCompletionScreen, DEBUG-678)",
+   "baseline_run_b": "All five hosts return `PracticeCompletionScreen` in place of their own tree on immersive routes, so none of their FAB clearances carry over. DEBUG-682 cleared its Continue with a `primaryButton` right margin.",
+   "post": "This text does not contain the answer. It only shows `PracticeCompletionScreen.tsx` mapped to `crisis` + `philosopher`; see the rulings file.",
+   "post_source": "Read the paragraph naming a path",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L19:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "PracticeCompletionScreen",
+   "scenario": "Each of the five gated practice hosts already clears the FAB. Why does `PracticeCompletionScreen.tsx` need its own clearance?",
+   "mode": "open",
+   "baseline": "All five gated hosts return `PracticeCompletionScreen` IN PLACE of their own tree on IMMERSIVE routes, so none of their FAB clearances carry over. DEBUG-682 therefore cleared its Continue with its own `primaryButton` right margin (right only, last, pressed member inert, transform scale ≤ 1).",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, PracticeCompletionScreen paragraph (DEBUG-678/682)",
+   "baseline_run_b": "On IMMERSIVE routes, all five gated practice hosts return `PracticeCompletionScreen` IN PLACE of their own tree, so none of their FAB clearances carry over. It therefore needs its own clearance: DEBUG-682 added a right margin on `primaryButton`'s Continue (right only, last, pressed member inert, transform scale ≤ 1).",
+   "post": "On immersive routes, all five hosts return `PracticeCompletionScreen` in place of their own tree, so none of the hosts' FAB clearances carry over. DEBUG-682 therefore cleared its Continue button with its own `primaryButton` right margin: right only, last, pressed member inert, transform scale ≤ 1.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:304-309 (PracticeCompletionScreen paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L20:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "HapticsOptInPrompt / ResumeSessionModal consumption did not exist",
+   "scenario": "`crisisButtonGeometry.ts`'s header named `HapticsOptInPrompt` and `ResumeSessionModal` as consumers. Before DEBUG-586, could the INFRA-531 import detector see them?",
+   "mode": "closed",
+   "baseline": "No. Both components re-derived the geometry as a literal and never actually imported it, so the import detector saw nothing while the module's header claimed coverage. DEBUG-586 made the import real, which put them in the detector's reach.",
+   "baseline_source": "paragraph on the fifteenth instance (HapticsOptInPrompt / ResumeSessionModal, DEBUG-586)",
+   "baseline_run_b": "No. Both components re-derived the geometry as a literal (`104 + TOUCH_TARGETS.minimum + 12 + spacing[16]`) and never imported `crisisButtonGeometry`, so the module's header claimed coverage the detector could not see. DEBUG-586 made the import real, which put them in the detector's reach.",
+   "post": "This text does not contain the answer; the history of those two files is in the rulings file.",
+   "post_source": "Read the paragraph naming a path",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L20:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "HapticsOptInPrompt / ResumeSessionModal consumption did not exist",
+   "scenario": "`crisisButtonGeometry.ts`'s header named `HapticsOptInPrompt` and `ResumeSessionModal` as consumers. Before DEBUG-586, could the INFRA-531 import detector see them?",
+   "mode": "open",
+   "baseline": "No. Both re-derived `104 + TOUCH_TARGETS.minimum + 12 + spacing[16]` as a literal and never imported the module, so the consumption the header claimed did not exist. Neither a reader nor INFRA-531 could find the gap. DEBUG-586 made the import real, which put them within the detector's reach.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, HapticsOptInPrompt/ResumeSessionModal paragraph (DEBUG-586)",
+   "baseline_run_b": "No. Both files re-derived the geometry as a literal (`104 + TOUCH_TARGETS.minimum + 12 + spacing[16]`) and never imported `crisisButtonGeometry.ts`, so the consumption the header claimed did not exist. The module claimed coverage while the import detector saw none, two oracles wrong in the same direction. Only DEBUG-586 made the import real, which put the two files within INFRA-531's reach.",
+   "post": "No. Both components re-derived the FAB geometry as a literal (`104 + TOUCH_TARGETS.minimum + 12 + spacing[16]`) and never imported `crisisButtonGeometry`, so the claimed consumption did not exist and INFRA-531 saw nothing. DEBUG-586 made the import real, and only that put them within the detector's reach.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:200-209 (HapticsOptInPrompt/ResumeSessionModal paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L21:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "five practice screens — overlap derivable",
+   "scenario": "You want to prove `PracticeTimerScreen`'s toggle clears the FAB across device widths and text sizes. Should you buy a device matrix? What is the falsifier?",
+   "mode": "closed",
+   "baseline": "No. The overlap is derivable: the control is a stretch child of a `paddingHorizontal: spacing[24]` column and the rect's `left` is 72, both offsets from screen-right, so W cancels and the 48pt overlap holds at every viewport and text size. The falsifier is the jest geometry pin, since `crisis-button-reachability` does not render these screens. On-device bounds belong to DEBUG-626.",
+   "baseline_source": "paragraph on the eighteenth instance (five practice screens)",
+   "baseline_run_b": "No. The overlap is derivable: the control is a stretch child of a `paddingHorizontal: spacing[24]` column, and the rect's `left` is 72, both measured from screen-right, so width cancels and the 48pt overlap holds at every viewport and text size. The falsifier is the jest geometry pin, because `crisis-button-reachability` renders none of these screens; on-device bounds are DEBUG-626's.",
+   "post": "This text does not contain the answer, either on the device matrix or on the falsifier; see the rulings file.",
+   "post_source": "Read the paragraph naming a path",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L21:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": true,
+   "span": "five practice screens — overlap derivable",
+   "scenario": "You want to prove `PracticeTimerScreen`'s toggle clears the FAB across device widths and text sizes. Should you buy a device matrix? What is the falsifier?",
+   "mode": "open",
+   "baseline": "No, don't buy a device matrix; the overlap is derivable. The control is a stretch child of a `paddingHorizontal: spacing[24]` column, and the rect's `left` is 72; both are offsets from screen-right, so W cancels and the 48pt overlap holds at every viewport and text size. The falsifier is the jest geometry pin, since `crisis-button-reachability` renders none of these screens; on-device bounds are DEBUG-626's.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, five-practice-screens paragraph ('The overlap is derivable, so do not buy a device matrix')",
+   "baseline_run_b": "No, the overlap is derivable, so no device matrix is needed. The control is a stretch child of a `paddingHorizontal: spacing[24]` column and the rect's `left` is 72; both are offsets from screen-right, so the width cancels and the 48pt overlap holds at every viewport and text size. The falsifier is the jest geometry pin, since `crisis-button-reachability` renders none of these screens and its arm proves only the FAB mount (on-device bounds are DEBUG-626's).",
+   "post": "No. The overlap is derivable: the toggle is a stretch child of a `paddingHorizontal: spacing[24]` column, and the rect's `left` is 72; both are offsets from screen-right, so W cancels and the 48pt overlap holds at every viewport and text size. The falsifier is the jest geometry pin, not `crisis-button-reachability`, which renders none of these screens; on-device bounds were DEBUG-626's.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:235-249 (eighteenth-instance paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L22:closed",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "usePracticeCompletion",
+   "scenario": "Why must `usePracticeCompletion.tsx` degrade rather than throw, and does any sim flow exercise it?",
+   "mode": "closed",
+   "baseline": "It must degrade because it runs on a timer callback that no error boundary covers, so a throw there is process death and the 988 affordance is lost; it owns the DEBUG-344 practiceId and DEBUG-695 moduleId 'degrade, never throw' contracts. No sim flow completes a practice; the falsifiers are the jest degrade contracts.",
+   "baseline_source": "paragraph on the twenty-fourth instance (usePracticeCompletion, DEBUG-695)",
+   "baseline_run_b": "It must degrade because it owns the 'degrade, never throw' contracts (DEBUG-344 practiceId, DEBUG-695 moduleId) on a timer callback that no error boundary covers. A throw there kills the process and 988 is lost. No sim flow completes a practice, so the falsifiers are the jest degrade contracts.",
+   "post": "This text only says `usePracticeCompletion.tsx` is a shared hook that gated hosts route through and that no detector reaches it. It does not give the degrade-not-throw rationale or say whether any sim flow exercises it; see the rulings file.",
+   "post_source": "focus signal gated hosts route through (`PracticeToggleButton.tsx`, `usePracticeCompletion.tsx`,",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
+  },
+  {
+   "id": "SPR-L22:open",
+   "component": "protected-paths",
+   "class": "relocated",
+   "protected": false,
+   "span": "usePracticeCompletion",
+   "scenario": "Why must `usePracticeCompletion.tsx` degrade rather than throw, and does any sim flow exercise it?",
+   "mode": "open",
+   "baseline": "It owns both 'degrade, never throw' contracts (DEBUG-344 practiceId, DEBUG-695 moduleId) on a timer callback that no error boundary covers. A throw there is process death, and 988 access is lost with it. No sim flow completes a practice, so the falsifiers are the jest degrade contracts.",
+   "baseline_source": "/Users/max/dev/being/.claude/CLAUDE.md, Protected Paths, usePracticeCompletion paragraph (DEBUG-695)",
+   "baseline_run_b": "It must degrade because it runs on a timer callback that no error boundary covers, so a throw there means process death and loss of 988 access. It owns both degrade-never-throw contracts (DEBUG-344 for practiceId, DEBUG-695 for moduleId). No sim flow completes a practice, so the falsifiers are the jest degrade contracts.",
+   "post": "It must degrade because it runs on a timer callback that no error boundary covers, so a throw is process death with 988 access lost; it owns both degrade contracts (DEBUG-344 practiceId, DEBUG-695 moduleId). No sim flow completes a practice, so none exercises it. The falsifiers are the jest degrade contracts.",
+   "post_source": "/Users/max/dev/being/.claude/docs/safety-path-rulings.md:317-324 (usePracticeCompletion paragraph)",
+   "verdict": "same",
+   "rule": "relocated: names absolute target path closed-book; matches baseline open-book"
   }
- ],
- "frozen_verified_byte_identical": [
-  "Protected Paths",
-  "Safety Facts",
-  "Performance Budgets",
-  "Validation Matrix work-type table",
-  "budget-enforcement table",
-  "Branch Model",
-  "Git Hooks"
- ],
- "methodology_note": "Subagents receive the session-start CLAUDE.md injected into context, so post-edit closed-book agents could answer from the OLD text. Resident probes were therefore re-answered with mandatory verbatim quotes, each verified as a substring of the new file (17/17).",
- "next_generation_baseline": "use each probe's `post` as the gen-2 baseline"
+ ]
 }

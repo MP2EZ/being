@@ -632,7 +632,8 @@ if [ -n "$I531_ALARM" ]; then
   echo "          if the import carries no 988 affordance or placement decision." >&2
   echo "      (2) GATE — add a Protected Paths row to .claude/CLAUDE.md, add the path to" >&2
   echo "          Step 2.5.1's SAFETY_CANDIDATES grep AND b-batch Step 3.2's copy, and give" >&2
-  echo "          it a Step 2.5.3 flow arm plus a decision-table row." >&2
+  echo "          it a Step 2.5.3 flow arm plus a decision-table row. Record the ruling's" >&2
+  echo "          prose in /Users/max/dev/being/.claude/docs/safety-path-rulings.md (INFRA-726)." >&2
   exit 1
 fi
 # INFRA-723 — Steps 2.5.3–2.5.5 live in a separate file so a gate-less close never loads

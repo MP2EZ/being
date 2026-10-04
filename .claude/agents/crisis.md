@@ -144,6 +144,12 @@ as part of the ruling. Do not defer it to a registry or a follow-up: five instan
 "consumes a crisis constant but matches no path pattern" were each found by hand, and the
 gate is the only artifact that stops the sixth.
 
+Only when ruling on a new safety path, or reviewing or planning a change to a file already in
+the Protected Paths table — not on every invocation — first read the paragraph(s) naming that
+path in `/Users/max/dev/being/.claude/docs/safety-path-rulings.md`: the precedent rulings, the
+FILE-vs-DIRECTORY calls, the detector-blind shapes, and what is deliberately NOT gated. Write
+the new ruling's prose there, never in `CLAUDE.md`, whose table row stays one line.
+
 ## Success Criteria
 
 ### Excellent Output Includes

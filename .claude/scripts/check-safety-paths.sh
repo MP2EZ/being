@@ -47,6 +47,7 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 CLAUDE_MD="$ROOT/.claude/CLAUDE.md"
 B_CLOSE="$ROOT/.claude/commands/b-close.md"
 B_BATCH="$ROOT/.claude/commands/b-batch.md"
+RULINGS="$ROOT/.claude/docs/safety-path-rulings.md"   # INFRA-726: per-row ruling prose
 
 # ---------------------------------------------------------------------------
 # Declared exemptions: a Protected Path deliberately NOT in the Phase 2.5 gate.
@@ -169,6 +170,7 @@ for p in "${PROTECTED[@]}"; do
       echo "      Fix by EITHER adding it to the SAFETY_CANDIDATES grep in" >&2
       echo "      b-close.md AND mapping it to a flow in Step 2.5.3, OR adding it" >&2
       echo "      to EXEMPT_PATHS here with a recorded reason." >&2
+      echo "      Record the ruling's prose in $RULINGS (INFRA-726)." >&2
       DRIFT=1
     fi
   fi
@@ -260,6 +262,7 @@ for g in "${GATE_ENTRIES[@]}"; do
     echo "      agent and no reviewer is named. Fix by EITHER adding a row to" >&2
     echo "      CLAUDE.md's Protected Paths table, OR adding it to GATE_ONLY here" >&2
     echo "      with a recorded reason." >&2
+    echo "      Record the ruling's prose in $RULINGS (INFRA-726)." >&2
     DRIFT=1
   fi
 done

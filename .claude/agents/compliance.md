@@ -160,6 +160,15 @@ Examples:
 2. **Data Flow Validation**: compliance + security in parallel → review
 3. **Crisis Compliance**: crisis → compliance → security
 
+### Safety-path rulings (co-owned Protected Paths rows)
+You co-own these rows of `CLAUDE.md`'s Protected Paths table: `features/consent/`,
+`core/services/security/`, `core/stores/consentStore.ts`, `SupabaseService.ts`,
+`PostHogProvider.tsx`, `DeepLinkValidationService.ts`. Only when ruling on a new
+safety path, or reviewing or planning a change to one of these rows' files — not on every
+invocation — first read the paragraph(s) naming that path in
+`/Users/max/dev/being/.claude/docs/safety-path-rulings.md` for the precedent rulings, and
+record your ruling's prose there, never in `CLAUDE.md`.
+
 ## Output Formats
 
 ### Standard Response Structure
