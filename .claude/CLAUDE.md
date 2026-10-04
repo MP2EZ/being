@@ -378,8 +378,9 @@ sweeper) carry no crisis surface. The directory row keeps `compliance`; this row
 `features/learn/practices/PracticeCompletionScreen.tsx` is the twenty-second instance (added
 DEBUG-678, founder ruling) and retires the DEBUG-634 paragraph's remaining unreviewed name. All
 five gated practice hosts return it IN PLACE of their own tree on IMMERSIVE routes, so none of
-their FAB clearances carry over; its Continue overlaps the exclusion rect by 48pt at every width
-(DEBUG-682, gated ahead of its fix). FILE-level; `philosopher` co-owns `PRACTICE_QUOTES`.
+their FAB clearances carry over. DEBUG-682 cleared its Continue with a `primaryButton` right margin
+(right only, last, pressed member inert, transform scale ≤ 1). FILE-level; `philosopher` co-owns
+`PRACTICE_QUOTES`.
 
 `features/insights/screens/InsightsScreen.tsx` is the twenty-third instance (added FEAT-669, crisis
 ruling): the DEBUG-620 trailing-spacer shape on a tab screen. Its scroll content ends in a
