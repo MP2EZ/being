@@ -12,6 +12,7 @@ import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
+import { dismissRouteThenNotify, removeOwnRoute } from './crisisDestinationGuard';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { semantic, spacing, typography } from '@/core/theme';
@@ -894,19 +895,22 @@ const CleanRootNavigator: React.FC = () => {
                   sessionId={generateTimestampedId('session')}
                   onComplete={(result) => {
                     logSystem(`Assessment ${route.params.assessmentType} completed`);
-                    // Always dismiss the modal first
-                    navigation.goBack();
-                    // Then notify parent after brief delay to allow modal dismissal animation
-                    setTimeout(() => {
-                      route.params.onComplete?.(result);
-                    }, 50);
+                    // DEBUG-706 (crisis ruling): remove THIS route, never the focused one —
+                    // a bare goBack() popped a CrisisResources the user opened while the last
+                    // answer saved. The parent's follow-on (onboarding's GAD-7) waits until no
+                    // crisis destination is focused, then runs after the dismissal delay.
+                    dismissRouteThenNotify({
+                      navigation,
+                      routeKey: route.key,
+                      notify: () => route.params.onComplete?.(result),
+                    });
                   }}
                   onCancel={() => {
                     // Handle skip for onboarding context
                     if (route.params.allowSkip && route.params.onSkip) {
                       route.params.onSkip();
                     }
-                    navigation.goBack();
+                    removeOwnRoute(navigation, route.key);
                   }}
                 />
               );
