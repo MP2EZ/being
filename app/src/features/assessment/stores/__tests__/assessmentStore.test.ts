@@ -49,6 +49,7 @@ jest.mock('@/core/services/security/SecureStorageService', () => ({
   },
 }));
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import { seedWellnessWriteConsent } from '../../../../../__tests__/helpers/wellnessWriteConsent';
 const mockStoreWellnessBlob = SecureStorageService.storeWellnessBlob as jest.Mock;
 
 // React Native is mocked globally by __tests__/setup/jest.setup.js with a FULL
@@ -69,6 +70,7 @@ const mockSecureStore = SecureStore as jest.Mocked<typeof SecureStore>;
 
 describe('Assessment Store - Clinical Validation', () => {
   beforeEach(() => {
+    seedWellnessWriteConsent('loading'); // FEAT-665: back to the default, so a seed never leaks into the next test
     jest.clearAllMocks();
     for (const k of Object.keys(mockWellnessBlobs)) delete mockWellnessBlobs[k];
     useAssessmentStore.getState().resetAssessment();
@@ -410,6 +412,12 @@ describe('Assessment Store - Clinical Validation', () => {
   });
 
   describe('Encrypted Storage and Persistence', () => {
+    beforeEach(() => {
+      // FEAT-665: asserts a persisted write, so it runs as a consenting user. FEAT-685 gates
+      // the save, and the store's default `loading` status would block it.
+      seedWellnessWriteConsent('granted');
+    });
+
     it('saves assessment data to encrypted storage (hybrid path, INFRA-144)', async () => {
       const { result } = renderHook(() => useAssessmentStore());
 
@@ -489,6 +497,9 @@ describe('Assessment Store - Clinical Validation', () => {
 
   describe('Auto-Save Functionality', () => {
     beforeEach(() => {
+      // FEAT-665: asserts a persisted write, so it runs as a consenting user. FEAT-685 gates
+      // the save, and the store's default `loading` status would block it.
+      seedWellnessWriteConsent('granted');
       jest.useFakeTimers();
     });
 
