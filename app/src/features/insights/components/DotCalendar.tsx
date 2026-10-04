@@ -27,6 +27,8 @@ import {
   semantic,
 } from '@/core/theme';
 import type { CheckInCompletion, CheckInType } from '@/features/practices/stores/stoicPracticeStore';
+import { decideWellnessWrite, useConsentStore } from '@/core/stores/consentStore';
+import { PRACTICE_PATTERNS_NOT_RECORDED } from './practicePatternsNotice';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -218,7 +220,7 @@ const Dot: React.FC<DotProps> = ({ state, isToday }) => {
 // MAIN COMPONENT
 // ──────────────────────────────────────────────────────────────────────────────
 
-const DotCalendar: React.FC<DotCalendarProps> = ({
+const DotCalendarChart: React.FC<DotCalendarProps> = ({
   checkInHistory,
   initialTimeRange = 'month',
 }) => {
@@ -290,6 +292,27 @@ const DotCalendar: React.FC<DotCalendarProps> = ({
       <Text style={styles.summaryText}>{getSummaryText()}</Text>
     </View>
   );
+};
+
+// FEAT-669: the exported component is a thin consent wrapper. It renders either the
+// static "not recorded" card or the chart, so a consent change swaps the child rather
+// than changing this component's hook count (a hook-count mismatch would throw into
+// RootCrisisBoundary). The two selectors only re-render on a consent change; the
+// decision is decideWellnessWrite(). `loading` is not a withdrawal. The blocked card
+// has no touchables at all.
+const DotCalendar: React.FC<DotCalendarProps> = (props) => {
+  useConsentStore((s) => s.consentStatus);
+  useConsentStore((s) => s.consentCache.canProcessMentalHealthData);
+  const writeDecision = decideWellnessWrite();
+  if (!writeDecision.allowed && writeDecision.reason !== 'loading') {
+    return (
+      <View style={styles.container} testID="dot-calendar-not-recorded">
+        <Text style={styles.title}>Your Practice Rhythm</Text>
+        <Text style={styles.notRecordedText}>{PRACTICE_PATTERNS_NOT_RECORDED}</Text>
+      </View>
+    );
+  }
+  return <DotCalendarChart {...props} />;
 };
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -393,6 +416,11 @@ const styles = StyleSheet.create({
     color: semantic.text.muted,
     textAlign: 'center',
     fontStyle: 'italic',
+  },
+  notRecordedText: {
+    fontSize: typography.bodySmall.size,
+    color: semantic.text.muted,
+    lineHeight: typography.bodySmall.size * 1.5,
   },
 });
 

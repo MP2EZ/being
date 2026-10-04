@@ -38,6 +38,7 @@ import { useAnalytics } from '@/core/analytics';
 import { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { colorSystem, semantic, spacing, borderRadius, typography } from '@/core/theme';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { BodyHeader } from '@/core/components/BodyHeader';
 import { getDailyQuote } from '../constants/marcusQuotes';
 
@@ -149,8 +150,13 @@ const InsightsScreen: React.FC = () => {
           </TouchableOpacity>
         )}
 
-        {/* Bottom Padding */}
-        <View style={styles.bottomPadding} />
+        {/* FEAT-669 (crisis ruling): a trailing spacer tall enough that, at maximum
+            scroll, every control's bottom rests at least CRISIS_BUTTON_EXCLUSION_RECT.top
+            above the screen edge, whatever the content height. The old 32pt padding left
+            the last control inside the FAB's band (zIndex 9999), a wrong-destination tap
+            into CrisisResources; the shorter blocked layout made that easier to hit.
+            Same shape as PracticeLibraryScreen (DEBUG-620). */}
+        <View style={styles.fabClearance} testID="insights-fab-clearance" />
       </ScrollView>
     </SafeAreaView>
   );
@@ -200,9 +206,7 @@ const styles = StyleSheet.create({
     color: semantic.text.muted,
     textAlign: 'right',
   },
-  bottomPadding: {
-    height: spacing[32],
-  },
+  fabClearance: { height: CRISIS_BUTTON_EXCLUSION_RECT.top },
   fullHistoryLink: {
     flexDirection: 'row',
     alignItems: 'center',
