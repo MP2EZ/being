@@ -18,7 +18,11 @@
  * - Principle engagements: 90-day auto-delete
  * - Assessment history: 90-day auto-delete (except crisis data)
  * - Crisis assessment data: 3-year retention (PHQ-9 ≥20, Item 9 > 0, GAD-7 ≥15)
- *   — enforced HERE, as a predicate inside the assessment_history sweep.
+ *   — enforced HERE on the live wellness blob, by the shared rules in
+ *   ./assessmentRetention (DEBUG-705). The stored `isCrisis` flag is NOT a
+ *   retention input: it fires at PHQ-9 ≥15, so PHQ-9 15–19 goes at 90 days.
+ *   The assessment store applies the same rules when it hydrates, so a
+ *   pruned record cannot be re-persisted from memory.
  * - Crisis intervention records: NOT swept by this service. There is no local
  *   crisis-intervention store for it to sweep; `DataCategory` has no such member
  *   by design. (DEBUG-340 corrected this line, which previously claimed a
@@ -41,6 +45,8 @@ import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { generateTimestampedId } from '@/core/utils/id';
+import SecureStorageService from '@/core/services/security/SecureStorageService';
+import { ASSESSMENT_RETENTION_PERIODS, pruneAssessmentBlob } from './assessmentRetention';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
@@ -85,6 +91,15 @@ export const DATA_RETENTION_CONFIG = {
   LAST_CLEANUP_KEY: 'data_retention_last_cleanup',
   DELETION_AUDIT_KEY: 'data_retention_audit_log',
 } as const;
+
+/**
+ * The live assessment-history blob (`wellness_async_assessment_store`). Read
+ * WITHOUT the legacy SecureStore key: migrating that key is the assessment
+ * store's hydration job, and a second concurrent migration can fail its
+ * verify step and hydrate the store empty. An unmigrated install is pruned on
+ * a later daily run, once hydration has moved it.
+ */
+const ASSESSMENT_BLOB_KEY = 'assessment_store';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // TYPES
@@ -555,17 +570,15 @@ class DataRetentionServiceImpl {
   }
 
   /**
-   * Clean up assessment history data
+   * Clean up assessment history data (DEBUG-705)
    *
-   * RETENTION POLICY:
+   * RETENTION POLICY (privacy policy §7.1 / §7.2):
    * - General assessments: 90 days
-   * - Crisis assessments: 3 years (liability protection)
+   * - Crisis tier — PHQ-9 total ≥ 20, PHQ-9 Item 9 > 0, GAD-7 total ≥ 15: 3 years
    *
-   * Crisis assessments are defined as:
-   * - PHQ-9 total score ≥ 20 (severe depression)
-   * - PHQ-9 Item 9 response > 0 (suicidal ideation)
-   * - GAD-7 total score ≥ 15 (severe anxiety)
-   * - Any assessment flagged as isCrisis
+   * The tier and age rules live in ./assessmentRetention, shared with the
+   * assessment store's hydration filter. Writes only when something expired, and
+   * never touches a blob it cannot parse. The audit entry carries counts only.
    */
   private async cleanupAssessmentData(): Promise<{
     success: boolean;
@@ -574,70 +587,42 @@ class DataRetentionServiceImpl {
     error?: string;
   }> {
     try {
-      const STORAGE_KEY = 'assessment_store_encrypted';
-      const storedData = await SecureStore.getItemAsync(STORAGE_KEY);
-
-      if (!storedData) {
+      const stored = await SecureStorageService.retrieveWellnessBlob<unknown>(ASSESSMENT_BLOB_KEY);
+      if (stored === null) {
         return { success: true, recordsDeleted: 0, auditEntry: null };
       }
 
-      const parsed = JSON.parse(storedData);
-      const defaultCutoffMs = getRetentionCutoffMs();
-      const crisisCutoffMs = Date.now() - DATA_RETENTION_CONFIG.CRISIS_RETENTION_MS;
-
-      // Clean completed assessments with tiered retention
-      const originalCount = parsed.completedAssessments?.length || 0;
-      const filteredAssessments = (parsed.completedAssessments || []).filter(
-        (assessment: {
-          progress?: { startedAt?: number };
-          result?: {
-            isCrisis?: boolean;
-            suicidalIdeation?: boolean;
-            totalScore?: number;
-          };
-          type?: string;
-        }) => {
-          const startedAt = assessment.progress?.startedAt;
-          if (!startedAt) return false;
-
-          // Check if this is crisis data (requires 3-year retention)
-          const result = assessment.result;
-          const isCrisisData =
-            result?.isCrisis === true ||
-            result?.suicidalIdeation === true ||
-            (assessment.type === 'phq9' && (result?.totalScore ?? 0) >= 20) ||
-            (assessment.type === 'gad7' && (result?.totalScore ?? 0) >= 15);
-
-          // Apply appropriate retention period
-          if (isCrisisData) {
-            return startedAt >= crisisCutoffMs; // 3-year retention
-          }
-          return startedAt >= defaultCutoffMs; // 90-day retention
-        }
-      );
-      const recordsDeleted = originalCount - filteredAssessments.length;
-
-      if (recordsDeleted > 0) {
-        parsed.completedAssessments = filteredAssessments;
-        await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(parsed));
-
-        const auditEntry: DeletionAuditEntry = {
-          id: generateAuditId(),
-          timestamp: Date.now(),
-          dataCategory: 'assessment_history',
-          recordCount: recordsDeleted,
-          deletionReason: 'retention_expiry',
-          oldestRecordDate: null,
-          newestRecordDate: defaultCutoffMs,
-          success: true,
-        };
-
-        await this.saveAuditEntry(auditEntry);
-
-        return { success: true, recordsDeleted, auditEntry };
+      const pruned = pruneAssessmentBlob(stored, Date.now(), ASSESSMENT_RETENTION_PERIODS);
+      if (pruned === null) {
+        throw new Error('unrecognised assessment blob shape; left untouched');
+      }
+      if (pruned.removed === 0) {
+        return { success: true, recordsDeleted: 0, auditEntry: null };
       }
 
-      return { success: true, recordsDeleted: 0, auditEntry: null };
+      const written = await SecureStorageService.storeWellnessBlob(
+        ASSESSMENT_BLOB_KEY,
+        pruned.blob,
+        'level_2_assessment_data'
+      );
+      if (!written.success) {
+        throw new Error(written.error || 'assessment blob write failed');
+      }
+
+      const auditEntry: DeletionAuditEntry = {
+        id: generateAuditId(),
+        timestamp: Date.now(),
+        dataCategory: 'assessment_history',
+        recordCount: pruned.removed,
+        deletionReason: 'retention_expiry',
+        oldestRecordDate: null,
+        newestRecordDate: getRetentionCutoffMs(),
+        success: true,
+      };
+
+      await this.saveAuditEntry(auditEntry);
+
+      return { success: true, recordsDeleted: pruned.removed, auditEntry };
     } catch (error) {
       const errorMessage = error instanceof Error ? error.message : String(error);
       return {
@@ -674,16 +659,24 @@ class DataRetentionServiceImpl {
         }
 
         case 'assessment_history': {
-          const STORAGE_KEY = 'assessment_store_encrypted';
-          const storedData = await SecureStore.getItemAsync(STORAGE_KEY);
-          if (!storedData) return { success: true, recordsDeleted: 0 };
-
-          const parsed = JSON.parse(storedData);
-          const recordsDeleted = parsed.completedAssessments?.length || 0;
-          parsed.completedAssessments = [];
-          await SecureStore.setItemAsync(STORAGE_KEY, JSON.stringify(parsed));
-
-          return { success: true, recordsDeleted };
+          // DEBUG-705: the live blob, not the pre-INFRA-144 SecureStore key this
+          // used to clear (which no current install has). DORMANT — no production
+          // caller. Reviving it needs an in-memory reset as well (the
+          // erasureResetRegistry pattern), or the hydrated store re-persists the
+          // history this clears on its next write.
+          const stored = await SecureStorageService.retrieveWellnessBlob<unknown>(ASSESSMENT_BLOB_KEY);
+          if (stored === null) return { success: true, recordsDeleted: 0 };
+          const cleared = pruneAssessmentBlob(stored, Date.now(), { defaultMs: -Infinity, crisisMs: -Infinity });
+          if (cleared === null) throw new Error('unrecognised assessment blob shape; left untouched');
+          if (cleared.removed > 0) {
+            const written = await SecureStorageService.storeWellnessBlob(
+              ASSESSMENT_BLOB_KEY,
+              cleared.blob,
+              'level_2_assessment_data'
+            );
+            if (!written.success) throw new Error(written.error || 'assessment blob write failed');
+          }
+          return { success: true, recordsDeleted: cleared.removed };
         }
 
         case 'practice_progress': {

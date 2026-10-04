@@ -131,17 +131,22 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     'SyncCoordinator.updateSyncMetadata › AsyncStorage.setItem': [1, DORMANT, 'sync counters today'],
   },
   'src/core/services/data-retention/DataRetentionService.ts': {
-    'DataRetentionServiceImpl.cleanupAssessmentData › setItemAsync': [
+    'DataRetentionServiceImpl.cleanupAssessmentData › storeWellnessBlob': [
       1,
       RETENTION,
-      'rewrites the LEGACY assessment key only, so it prunes nothing live',
+      'rewrites the live assessment_store blob minus expired screenings (DEBUG-705); was the legacy key, which pruned nothing live',
     ],
     'DataRetentionServiceImpl.cleanupStoicPracticeData › setItemAsync': [
       1,
       RETENTION,
       'rewrites the live stoic_practice_state blob minus expired entries — the key slice C gates at persistToSecureStore',
     ],
-    'DataRetentionServiceImpl.deleteDataCategory › setItemAsync': [3, DORMANT, 'erasure-shaped'],
+    'DataRetentionServiceImpl.deleteDataCategory › setItemAsync': [2, DORMANT, 'erasure-shaped'],
+    'DataRetentionServiceImpl.deleteDataCategory › storeWellnessBlob': [
+      1,
+      DORMANT,
+      'erasure-shaped: clears assessment history on the live blob (DEBUG-705)',
+    ],
     'DataRetentionServiceImpl.cleanupOldAuditLogs › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — retention audit metadata`],
     'DataRetentionServiceImpl.runRetentionCleanup › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — retention audit metadata`],
     'DataRetentionServiceImpl.saveAuditEntry › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — retention audit metadata`],
