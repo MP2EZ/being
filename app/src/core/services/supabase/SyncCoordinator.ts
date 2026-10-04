@@ -30,6 +30,7 @@
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import { SYNC_EVENT } from './operationalEvents';
 import { generateTimestampedId } from '@/core/utils/id';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import NetInfo from '@react-native-community/netinfo';
 
@@ -326,6 +327,26 @@ class SyncCoordinator {
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
     SyncCoordinator.instance = undefined as any;
+  }
+
+  /**
+   * Drop queued operations, retry bookkeeping and sync status on account erasure
+   * (DEBUG-697), so no later persist writes pre-erasure state back.
+   *
+   * MEMORY ONLY. Never `cleanup()`, which drains the queue through a backup and
+   * writes metadata, and never `__resetForTesting__`, which throws in production and
+   * drops UI listeners. Timers, subscriptions, listeners and `isInitialized` are left
+   * alone: this resets state, not wiring.
+   */
+  public resetForErasure(): void {
+    this.syncQueue = [];
+    this.conflictHistory = [];
+    this.retryAttempts.clear();
+    this.failureBackoff.clear();
+    this.performanceMetrics = [];
+    this.lastSuccessfulSync = 0;
+    this.currentSyncStatus = this.createInitialSyncStatus();
+    this.syncState = this.createInitialSyncStatus();
   }
 
   /**
@@ -1935,6 +1956,10 @@ class SyncCoordinator {
     }
   }
 }
+
+// DEBUG-697: dormant in production, registered anyway so a revival cannot reopen
+// the erasure gap. Resolved at call time, so a replaced singleton is still reset.
+registerErasureReset('syncCoordinator', () => SyncCoordinator.getInstance().resetForErasure());
 
 // Export singleton instance
 export default SyncCoordinator.getInstance();
