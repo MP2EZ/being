@@ -129,6 +129,7 @@ import { logSystem, logPerformance, logError, LogCategory } from '@/core/service
 // needs no lazy import — and taking it off the mocked module keeps suites that stub
 // IAPService from having to mirror every export the store destructures.
 import { appleTransactionIdentityFrom } from '@/core/services/subscription/appleTransactionIdentity';
+import { intervalFromProductId } from '@/core/services/subscription/subscriptionProductInterval';
 const logger = {
   info: (message: string, meta?: Record<string, unknown>) => {
     logSystem(`[Subscription] ${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`);
@@ -337,6 +338,10 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * subscription metadata, acknowledge the platform transaction, track
    * the event. Errors thrown here propagate to the caller — the listener
    * catches them so it can stay fire-and-forget.
+   *
+   * Resolves true only once the record is persisted, in memory and
+   * acknowledged; false when an erasure abandoned it (DEBUG-720 — restore
+   * counts only what was actually applied).
    */
   processVerifiedPurchase: async (purchase: unknown, interval: SubscriptionInterval) => {
     const generation = erasureGeneration;
@@ -378,7 +383,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       // gets a fresh post-erasure record instead of one built from erased memory.
       if (generation !== erasureGeneration) {
         logger.info('Purchase abandoned: account erased during verification');
-        return;
+        return false;
       }
 
       const { subscription } = get();
@@ -415,7 +420,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
       if (generation !== erasureGeneration) {
         logger.info('Purchase abandoned: account erased during verification');
-        return;
+        return false;
       }
 
       set({
@@ -433,31 +438,66 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       });
 
       logger.info('Purchase completed successfully', { subscriptionId: verification.subscriptionId });
+      return true;
     } finally {
       set({ isVerifyingReceipt: false });
     }
   },
 
   /**
-   * Restore purchases
-   * For users who subscribed on different device
+   * Restore purchases — for a subscriber on a fresh install, another device, or
+   * after an account deletion (DEBUG-720).
+   *
+   * Each restored entitlement goes through processVerifiedPurchase, the same
+   * path a new purchase takes: the record is built from the server
+   * verification (never from in-memory state, which is null on exactly the
+   * installs that need a restore), persisted, and only then acknowledged.
+   * `restored` counts purchases that were actually applied, so the caller can
+   * never report success for a no-op. With several entitlements each one
+   * rebuilds the single record and the last applied wins.
    */
   restorePurchases: async () => {
+    const generation = erasureGeneration;
     set({ isLoading: true, error: null });
 
     try {
       logger.info('Restoring purchases');
+      const { IAPService } = await import('@/core/services/subscription/IAPService');
+      if (IAPService.getPlatform() === 'none') {
+        throw new Error('IAP not available on this platform');
+      }
 
-      // TODO: Implement restore purchases
-      // 1. Call platform IAP restore API
-      // 2. Get all active subscriptions
-      // 3. Verify receipts server-side
-      // 4. Update subscription metadata
+      const purchases = await IAPService.restorePurchases();
+      let restored = 0;
 
-      throw new Error('Restore purchases not yet implemented');
+      for (const purchase of purchases) {
+        // An erasure mid-restore ends it: processVerifiedPurchase would abandon
+        // each remaining purchase anyway, and the platform re-emits them.
+        if (generation !== erasureGeneration) break;
+
+        const interval = intervalFromProductId(purchase.productId);
+        if (!interval) {
+          logger.info('Restore skipped an unknown product', { productId: purchase.productId });
+          continue;
+        }
+
+        try {
+          if (await get().processVerifiedPurchase(purchase, interval)) restored++;
+        } catch (error) {
+          // One unverifiable entitlement must not stop the rest. It stays
+          // unacknowledged, so the platform offers it again next time.
+          logger.error('Restore of one purchase failed', { error });
+        }
+      }
+
+      logger.info('Restore finished', { found: purchases.length, restored });
+      return { found: purchases.length, restored };
     } catch (error) {
       logger.error('Restore purchases failed', { error });
-      set({ error: 'Failed to restore purchases', isLoading: false });
+      set({ error: 'Failed to restore purchases' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
     }
   },
 

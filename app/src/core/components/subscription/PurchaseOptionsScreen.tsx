@@ -36,7 +36,6 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { IAPService, useIAPService } from '@/core/services/subscription/IAPService';
-import { appleTransactionIdentityFrom } from '@/core/services/subscription/appleTransactionIdentity';
 import SubMenuHeader from '@/features/profile/components/SubMenuHeader';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import {
@@ -156,9 +155,14 @@ export default function PurchaseOptionsScreen({
     try {
       console.log('[PurchaseOptions] Restoring purchases...');
 
-      const purchases = await service.restorePurchases();
+      // DEBUG-720: the store verifies, persists and acknowledges each purchase,
+      // and reports how many it actually applied. The screen used to do this
+      // itself through updateSubscriptionStatus, which no-ops on the null
+      // subscription every fresh install starts with — then acknowledged and
+      // announced success anyway.
+      const { found, restored } = await useSubscriptionStore.getState().restorePurchases();
 
-      if (purchases.length === 0) {
+      if (found === 0) {
         Alert.alert(
           'No Purchases Found',
           'We could not find any previous purchases to restore.',
@@ -167,37 +171,13 @@ export default function PurchaseOptionsScreen({
         return;
       }
 
-      // Verify each purchase
-      const platform = service.getPlatform();
+      // Read after the await, never the render-time snapshot. `restored` is the
+      // load-bearing half: an already-active record would otherwise turn a
+      // restore that applied nothing into a success.
+      const restoredActive =
+        restored > 0 && useSubscriptionStore.getState().subscription?.status === 'active';
 
-      if (platform === 'none') {
-        throw new Error('IAP not available on this platform');
-      }
-
-      let restoredCount = 0;
-
-      for (const purchase of purchases) {
-        const receiptData = purchase.transactionReceipt || '';
-        // Restore must carry the transaction identity too (INFRA-467). The App Store
-        // Server API is keyed on a transactionId, so once the server cuts over, a
-        // restore that sends only a receipt blob cannot be verified at all. This is
-        // the one call site the migration's fork analysis recorded as unchanged —
-        // true of the purchaseToken argument, not of this one.
-        const verification = await service.verifyReceipt(
-          receiptData,
-          platform,
-          undefined,
-          appleTransactionIdentityFrom(purchase)
-        );
-
-        if (verification.valid) {
-          await subscriptionStore.updateSubscriptionStatus('active');
-          await service.finishTransaction(purchase);
-          restoredCount++;
-        }
-      }
-
-      if (restoredCount > 0) {
+      if (restoredActive) {
         Alert.alert(
           'Purchases Restored',
           'Your subscription has been restored successfully!',

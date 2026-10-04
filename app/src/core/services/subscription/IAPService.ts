@@ -53,6 +53,7 @@ import { Platform } from 'react-native';
 import { supabaseService } from '../supabase/SupabaseService';
 import { logSystem, logPerformance } from '@/core/services/logging';
 import type { AppleTransactionIdentity } from './appleTransactionIdentity';
+import { intervalFromProductId } from './subscriptionProductInterval';
 
 // Re-exported so existing importers of this module keep working. New consumers should
 // import from './appleTransactionIdentity' directly — see that module's header for why.
@@ -93,21 +94,6 @@ export type AugmentedPurchase = Purchase & {
   transactionReceipt: string;
   orderId: string;
 };
-
-/**
- * Map a product ID (from a Purchase) back to its SubscriptionInterval.
- * Used by the async purchase listener (deferred purchases, restore, family
- * approval flows) to determine which subscription tier the user bought.
- */
-function intervalFromProductId(productId: string): SubscriptionInterval | null {
-  if (productId === PRODUCT_IDS.apple.monthly || productId === PRODUCT_IDS.google.monthly) {
-    return 'monthly';
-  }
-  if (productId === PRODUCT_IDS.apple.yearly || productId === PRODUCT_IDS.google.yearly) {
-    return 'yearly';
-  }
-  return null;
-}
 
 /**
  * Get platform-specific product IDs

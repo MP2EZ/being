@@ -80,6 +80,7 @@ jest.mock('@/core/services/subscription/IAPService', () => ({
     getPlatform: jest.fn(() => 'apple'),
     verifyReceipt: jest.fn(),
     finishTransaction: jest.fn(async () => undefined),
+    restorePurchases: jest.fn(async () => []),
   },
 }));
 
@@ -105,7 +106,7 @@ import {
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
-import { CRISIS_FEATURES, calculateFeatureAccess } from '@/core/types/subscription';
+import { CRISIS_FEATURES, DEFAULT_SUBSCRIPTION_CONFIG, calculateFeatureAccess } from '@/core/types/subscription';
 import { IAPService } from '@/core/services/subscription/IAPService';
 import { cloudBackupService } from '@/core/services/supabase/CloudBackupService';
 import syncCoordinator from '@/core/services/supabase/SyncCoordinator';
@@ -174,6 +175,7 @@ const PRIOR_SUBSCRIPTION = {
 const sub = () => useSubscriptionStore.getState();
 const mockVerifyReceipt = IAPService.verifyReceipt as jest.Mock;
 const mockFinishTransaction = IAPService.finishTransaction as jest.Mock;
+const mockRestorePurchases = IAPService.restorePurchases as jest.Mock;
 const mockCreateBackup = cloudBackupService.createBackup as jest.Mock;
 
 const SYNC_QUEUE_V2_KEY = '@being/sync_coordinator/queue_v2';
@@ -400,7 +402,8 @@ describe('subscriptionStore (DEBUG-697)', () => {
     await seedPreErasureState();
     await deleteAccountAndWipe({ posthog: null });
 
-    // updateSubscriptionStatus is the restore path; all three spread the in-memory record.
+    // All three spread the in-memory record. (Restore no longer goes through
+    // updateSubscriptionStatus — DEBUG-720; it is pinned in its own cases below.)
     await sub().updateSubscriptionStatus('active');
     await sub().enterGracePeriod();
     await sub().exitGracePeriod();
@@ -450,6 +453,60 @@ describe('subscriptionStore (DEBUG-697)', () => {
     expect(sub().subscription).toBeNull();
     // Founder ruling: left unacknowledged so the platform re-emits it at next launch.
     expect(mockFinishTransaction).not.toHaveBeenCalled();
+  });
+
+  // DEBUG-720: restore builds its record through processVerifiedPurchase, so the
+  // DEBUG-697 guard covers it. A verification held open across a deletion must
+  // write nothing and acknowledge nothing; one that starts after it builds a
+  // fresh record from the verification, never from erased memory.
+  it('a restore whose verification straddles deletion writes nothing and is not acknowledged', async () => {
+    await seedPreErasureState();
+    mockFinishTransaction.mockClear();
+    mockRestorePurchases.mockResolvedValueOnce([
+      {
+        productId: DEFAULT_SUBSCRIPTION_CONFIG.products.apple.yearly,
+        transactionReceipt: 'receipt_restore_inflight',
+        orderId: 'order_restore_inflight',
+      },
+    ]);
+    let resolveVerify: ((v: unknown) => void) | null = null;
+    mockVerifyReceipt.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveVerify = resolve;
+        }),
+    );
+    const restoring = sub().restorePurchases();
+    await settle();
+    expect(resolveVerify).not.toBeNull(); // verification really is pending
+
+    await expect(deleteAccountAndWipe({ posthog: null })).resolves.toEqual({ ok: true });
+    resolveVerify!({ valid: true, subscriptionId: 'sub_restore_inflight', expiresDate: null });
+
+    await expect(restoring).resolves.toEqual({ found: 1, restored: 0 });
+    expect(mockSecure.has(SUBSCRIPTION_KEY)).toBe(false);
+    expect(sub().subscription).toBeNull();
+    expect(mockFinishTransaction).not.toHaveBeenCalled();
+  });
+
+  it('a restore after deletion persists only a fresh record', async () => {
+    await seedPreErasureState();
+    await deleteAccountAndWipe({ posthog: null });
+    mockRestorePurchases.mockResolvedValueOnce([
+      {
+        productId: DEFAULT_SUBSCRIPTION_CONFIG.products.apple.monthly,
+        transactionReceipt: 'receipt_restore_after',
+        orderId: 'order_restore_after',
+      },
+    ]);
+    mockVerifyReceipt.mockResolvedValueOnce({ valid: true, subscriptionId: 'sub_restore_after', expiresDate: null });
+
+    await expect(sub().restorePurchases()).resolves.toEqual({ found: 1, restored: 1 });
+
+    const onDisk = JSON.parse(mockSecure.get(SUBSCRIPTION_KEY)!) as typeof PRIOR_SUBSCRIPTION;
+    expect(onDisk.id).not.toBe('sub_prior');
+    expect(onDisk.platformSubscriptionId).toBe('sub_restore_after');
+    expect(onDisk.status).toBe('active');
   });
 
   it('a trial started after deletion persists only a fresh record', async () => {
