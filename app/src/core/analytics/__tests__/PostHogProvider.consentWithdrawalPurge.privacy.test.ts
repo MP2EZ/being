@@ -187,6 +187,50 @@ async function settle(turns = 40): Promise<void> {
   }
 }
 
+/**
+ * The SDK's AppState and interval flushes are fire-and-forget (`void flush()`),
+ * and `/batch/` bodies are gzipped through `CompressionStream`, whose work lands
+ * on the libuv threadpool — WALL-CLOCK latency, not event-loop turns. A fixed
+ * number of turns is therefore not a bound: on a busy CI runner the flush was
+ * still in flight when the test asserted (control arm: "Received 0", and every
+ * purge arm's zero silently vacuous), and it completed during the NEXT test,
+ * where `persistQueueChange` re-serialised that stale client's whole cache over
+ * the shared mock file (`opted_out: true, queue: []`) and clobbered the new
+ * client's queue. So every client is tracked, and its in-flight work is awaited
+ * by identity rather than by counting turns.
+ */
+const liveClients = new Set<Client>();
+
+interface SdkInternals {
+  flushPromise?: Promise<unknown> | null;
+  _logs?: { _flushPromise?: Promise<unknown> | null };
+  _eventsStorage?: { waitForPersist?: () => Promise<void> };
+  _logsStorage?: { waitForPersist?: () => Promise<void> };
+  clearFlushTimer?: () => void;
+}
+
+/** Await one client's in-flight event flush, logs flush and storage persists. */
+async function drain(client: Client): Promise<void> {
+  const c = client as unknown as SdkInternals;
+  for (let i = 0; i < 100; i += 1) {
+    const pending = [c.flushPromise, c._logs?._flushPromise].filter(
+      (p): p is Promise<unknown> => Boolean(p),
+    );
+    if (pending.length === 0) break;
+    await Promise.allSettled(pending);
+    await settle(1); // the SDK nulls its flush handle one tick after settling
+  }
+  await c._eventsStorage?.waitForPersist?.();
+  await c._logsStorage?.waitForPersist?.();
+}
+
+/** Turn the loop, then wait for every live client's flush to actually finish. */
+async function quiesce(): Promise<void> {
+  await settle();
+  for (const client of liveClients) await drain(client);
+  await settle(5);
+}
+
 function releaseReads(): void {
   mockReadGate.held = false;
   const waiters = mockReadGate.waiters.splice(0);
@@ -235,6 +279,7 @@ function launch(): Launched {
   const addListener = AppState.addEventListener as unknown as jest.Mock;
   const before = addListener.mock.calls.length;
   const client = new PostHog(TEST_KEY, POSTHOG_OPTIONS);
+  liveClients.add(client);
   const handlerCall = addListener.mock.calls.slice(before).find((c) => c[0] === 'change');
   if (!handlerCall) throw new Error('harness: PostHog registered no AppState listener');
   const handler = handlerCall[1] as (s: string) => void;
@@ -374,17 +419,17 @@ async function fireTrigger(trigger: Trigger, launched: Launched): Promise<Client
   switch (trigger) {
     case 'interval':
       jest.advanceTimersByTime(POSTHOG_OPTIONS.flushInterval + 1);
-      await settle();
+      await quiesce();
       return launched.client;
     case 'appState':
       launched.appState('background');
-      await settle();
+      await quiesce();
       launched.appState('active');
-      await settle();
+      await quiesce();
       return launched.client;
     case 'flush':
       await launched.client.flush().catch(() => undefined);
-      await settle();
+      await quiesce();
       return launched.client;
     case 'relaunch': {
       // A new process: a new instance reading the same on-disk storage. No purge
@@ -392,9 +437,9 @@ async function fireTrigger(trigger: Trigger, launched: Launched): Promise<Client
       const next = launch();
       await next.client.ready();
       next.appState('background');
-      await settle();
+      await quiesce();
       await next.client.flush().catch(() => undefined);
-      await settle();
+      await quiesce();
       return next.client;
     }
     default: {
@@ -437,10 +482,23 @@ beforeEach(() => {
   jest.useFakeTimers({ doNotFake: ['nextTick', 'queueMicrotask', 'setImmediate'] });
 });
 
-afterEach(() => {
+afterEach(async () => {
   for (const u of uninstallers.splice(0)) u();
+  releaseReads(); // a test that failed mid-race must not leave a flush parked on init
+  for (const client of liveClients) await drain(client);
+  // Canary: no client from this test may carry in-flight work into the next one,
+  // where it would re-persist its cache over the shared disk. Checked as STATE
+  // (no flush handle outstanding), not as "no write within N turns" — the work
+  // runs on wall-clock time, so a turn-counted window proves nothing.
+  const inFlight = [...liveClients].filter((client) => {
+    const c = client as unknown as SdkInternals;
+    return Boolean(c.flushPromise) || Boolean(c._logs?._flushPromise);
+  }).length;
+  for (const client of liveClients) (client as unknown as SdkInternals).clearFlushTimer?.();
+  liveClients.clear();
   jest.useRealTimers();
   (global as unknown as { fetch: unknown }).fetch = realFetch;
+  expect(inFlight).toBe(0);
 });
 
 const TRIGGERS: Trigger[] = ['interval', 'appState', 'flush', 'relaunch'];
@@ -512,11 +570,11 @@ describe('DEBUG-686 AC2 — withdrawal while the storage preload is still pendin
     expect(mockReadGate.waiters.length).toBeGreaterThan(0); // the race was really held open
 
     releaseReads();
-    await settle();
+    await quiesce();
     launched.appState('active');
-    await settle();
+    await quiesce();
     await launched.client.flush().catch(() => undefined);
-    await settle();
+    await quiesce();
     return launched;
   }
 
@@ -570,7 +628,7 @@ describe('DEBUG-686 AC3 — re-grant starts with nothing queued', () => {
       expect(JSON.stringify(queueOf(client))).toContain(POST);
 
       await client.flush().catch(() => undefined);
-      await settle();
+      await quiesce();
 
       const bodies = await batchBodies();
       expect(bodies.length).toBeGreaterThan(0);
@@ -707,11 +765,11 @@ describe('DEBUG-686 AC4 — cold launch with a queue persisted by a consented se
     await settle(5);
 
     launched.appState('background');
-    await settle();
+    await quiesce();
     launched.appState('active');
-    await settle();
+    await quiesce();
     await launched.client.flush().catch(() => undefined);
-    await settle();
+    await quiesce();
 
     if (delivered) {
       expect(await batchesContaining(PRE)).toBeGreaterThan(0);
@@ -737,7 +795,7 @@ describe('DEBUG-686 AC4 — cold launch with a queue persisted by a consented se
     await hydrateStore();
     expect(useConsentStore.getState().consentStatus).toBe('revoked');
     await launched.client.flush().catch(() => undefined);
-    await settle();
+    await quiesce();
 
     expect(await batchesContaining(PRE)).toBe(0);
     expect(queueOf(launched.client)).toEqual([]);
@@ -756,7 +814,7 @@ describe('DEBUG-686 AC6 — a pending crisis_detected survives withdrawal', () =
     mockAsyncStorage[CRISIS_QUEUE_KEY] = crisisQueue;
 
     await withdraw(kind);
-    await settle();
+    await quiesce();
 
     expect(mockAsyncStorage[CRISIS_QUEUE_KEY]).toBe(crisisQueue);
   });
