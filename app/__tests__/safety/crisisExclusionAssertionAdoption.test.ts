@@ -34,6 +34,7 @@ const HOSTS: Record<string, number> = {
   'features/learn/practices/BodyScanScreen.tsx': 1,
   'features/learn/practices/GuidedBodyScanScreen.tsx': 1,
   'features/learn/practices/SortingPracticeScreen.tsx': 3,
+  'features/learn/practices/PracticeCompletionScreen.tsx': 1, // DEBUG-682
   'features/practices/screens/PracticeLibraryScreen.tsx': 3,
   'features/home/screens/CleanHomeScreen.tsx': 1,
   'features/guidance/components/RightNowAffordance.tsx': 1,
