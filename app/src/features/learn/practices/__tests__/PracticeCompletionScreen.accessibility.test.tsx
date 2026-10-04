@@ -17,8 +17,8 @@
  */
 
 import React from 'react';
-import { Text } from 'react-native';
-import { render } from '@testing-library/react-native';
+import { Pressable, Text, View } from 'react-native';
+import { fireEvent, render } from '@testing-library/react-native';
 import PracticeCompletionScreen, {
   PRACTICE_COMPLETION_TITLE_MAX_FONT_SCALE,
   PRACTICE_QUOTES,
@@ -130,6 +130,120 @@ describe('content text wraps and is never capped, shrunk or truncated (ruling in
     expect(tokens.length).toBeGreaterThan(100); // control: the sweep reached the corpus
     const tooLong = tokens.filter((t) => t.length > 13);
     expect(tooLong).toEqual([]);
+  });
+});
+
+/**
+ * DEBUG-683 — the root ScrollView was `accessible`, which collapses its whole subtree into one
+ * VoiceOver / XCUITest element. MEASURED 2026-10-02: `maestro hierarchy` showed the screen as a
+ * single node, with Continue absent. Continue is the only exit on five gestureEnabled:false
+ * routes, so the only other focusable control was the crisis button.
+ *
+ * RNTL's role queries do not model that collapse, so the pin walks the rendered tree instead.
+ * It starts above the Pressable COMPOSITE: the host Views under it are `accessible` by default
+ * and are Continue itself, not an ancestor that hides it. Every node carrying Continue's testID
+ * is Continue, so the walk begins at the first node that does not.
+ */
+type RenderedNode = {
+  parent: RenderedNode | null;
+  props: Record<string, unknown>;
+  type: unknown;
+};
+
+const CONTINUE_ID = 'practice-completion-screen-continue-button';
+
+function aboveControl(node: RenderedNode, testID: string): RenderedNode | null {
+  let current: RenderedNode | null = node;
+  while (current && current.props.testID === testID) current = current.parent;
+  return current;
+}
+
+/** Named, never the nodes themselves: a node's `parent` chain is circular and a failing
+ *  `toEqual` would try to print it whole, aborting the jest worker instead of reporting. */
+function accessibleAncestors(start: RenderedNode | null): string[] {
+  const hits: string[] = [];
+  for (let node = start; node; node = node.parent) {
+    if (node.props.accessible) hits.push(describeNode(node));
+  }
+  return hits;
+}
+
+function describeNode(node: RenderedNode): string {
+  const type = node.type as string | { displayName?: string; name?: string };
+  const name = typeof type === 'string' ? type : type.displayName ?? type.name ?? '?';
+  return `${name}#${String(node.props.testID ?? '')}`;
+}
+
+/** Props that remove a subtree from the accessibility tree outright. */
+function hidesSubtree(props: Record<string, unknown>): boolean {
+  return (
+    Boolean(props.accessibilityViewIsModal) ||
+    Boolean(props.accessibilityElementsHidden) ||
+    props.importantForAccessibility === 'no' ||
+    props.importantForAccessibility === 'no-hide-descendants'
+  );
+}
+
+describe('DEBUG-683: Continue is its own accessibility element', () => {
+  it('no ancestor of Continue is an accessibility element', () => {
+    const cont = renderScreen().getByTestId(CONTINUE_ID) as unknown as RenderedNode;
+    const start = aboveControl(cont, CONTINUE_ID);
+    expect(start).not.toBeNull(); // control: the walk has somewhere to start
+    expect(accessibleAncestors(start)).toEqual([]);
+  });
+
+  it('control: the same walker finds an accessible ancestor when one exists', () => {
+    const { getByTestId } = render(
+      <View accessible>
+        <View>
+          <Pressable testID="fixture" accessibilityRole="button" onPress={() => {}} />
+        </View>
+      </View>
+    );
+    const fixture = getByTestId('fixture') as unknown as RenderedNode;
+    expect(accessibleAncestors(aboveControl(fixture, 'fixture'))).not.toEqual([]);
+  });
+
+  it('hides no subtree from assistive technology', () => {
+    const { UNSAFE_root } = renderScreen();
+    const nodes = UNSAFE_root.findAll(() => true);
+    expect(nodes.length).toBeGreaterThan(10); // control: the sweep reached the screen
+    const hiding = nodes.filter((node) => hidesSubtree(node.props));
+    expect(hiding.map((node) => describeNode(node as unknown as RenderedNode))).toEqual([]);
+  });
+
+  it('control: the subtree check fires on a hiding prop', () => {
+    const { UNSAFE_root } = render(<View importantForAccessibility="no-hide-descendants" />);
+    expect(UNSAFE_root.findAll((node) => hidesSubtree(node.props)).length).toBeGreaterThan(0);
+  });
+
+  it('the root keeps its testID and no longer carries a label of its own', () => {
+    const root = renderScreen().getByTestId('practice-completion-screen');
+    expect(root.props.accessible).toBeFalsy();
+    expect(root.props.accessibilityLabel).toBeUndefined();
+  });
+
+  it('Continue keeps its role, label and hint, and the title stays a header', () => {
+    const screen = renderScreen();
+    const cont = screen.getByTestId(CONTINUE_ID);
+    expect(cont.props.accessibilityRole).toBe('button');
+    expect(cont.props.accessibilityLabel).toBe('Continue');
+    expect(cont.props.accessibilityHint).toBe('Continue from practice completion');
+    expect(screen.getByRole('header', { name: TITLE })).toBeTruthy();
+  });
+
+  it('pressing Continue calls onContinue exactly once', () => {
+    const onContinue = jest.fn();
+    const { getByTestId } = render(
+      <PracticeCompletionScreen
+        practiceTitle="Breathing Space"
+        quote={Object.values(PRACTICE_QUOTES)[0]}
+        moduleId={MODULE}
+        onContinue={onContinue}
+      />
+    );
+    fireEvent.press(getByTestId(CONTINUE_ID));
+    expect(onContinue).toHaveBeenCalledTimes(1);
   });
 });
 
