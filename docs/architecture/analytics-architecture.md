@@ -174,7 +174,9 @@ Wraps the app and provides PostHog context. Key behaviors:
 - **Consent-gated, by opt state rather than by mounting**: `ConsentSync` calls
   `optIn()`/`optOut()` on the existing client as consent changes, and every emit independently
   checks `useAnalyticsConsent()` in `useAnalytics.trackEvent`. Client presence is **not** a
-  consent signal and must never be treated as one.
+  consent signal and must never be treated as one. Revoking consent never unmounts
+  `<PHProvider>` — it opts the client out and purges its unsent queue (below).
+- **Withdrawal purges the queue (DEBUG-686)**: see *Consent-withdrawal queue purge* below.
 - **Silent before consent**: the client is constructed with `defaultOptIn: false` **plus**
   `disableRemoteConfig: true`, `preloadFeatureFlags: false` and `disableSurveys: true`.
   Those three are load-bearing, not belt-and-braces: the SDK's init sequence gates on
@@ -187,6 +189,33 @@ Wraps the app and provides PostHog context. Key behaviors:
 - **Batching**: 10 events or 30 seconds before transmission
 
 **Helper Hook:** `usePostHogConfigured()` - Returns true if PostHog API key is configured (for conditional UI rendering)
+
+### Consent-withdrawal queue purge (DEBUG-686)
+**Location:** `src/core/analytics/consentWithdrawalPurge.ts` (installed by `ConsentSync`),
+`analyticsQueuePurge.ts`, `analyticsConsentOutcome.ts`
+
+`optOut()` gates only capture. The SDK's `flush()` checks `disabled`, never `optedOut`, and it
+runs on every AppState change, on the 30 s timer and at the next launch from the persisted
+queue — so events captured while consented used to transmit after withdrawal. Now:
+
+- **Outcome per consent status** (`analyticsConsentOutcome`, exhaustive over `ConsentStatus`):
+  `valid` + analytics on + no universal opt-out → `emit`; `loading` → `hold`; every other
+  status, and `valid` with analytics off or universal opt-out → `purge`.
+- **Synchronous**: a consent-store subscription runs inside the store write, so no flush that
+  starts after the write can read a pre-withdrawal event. On `purge` it calls `optOut()`, then
+  nulls `Queue` and `LogsQueue` through the live client. Withdrawal edge only — the write that
+  flips to `emit` never purges, so a re-grant starts with an empty queue.
+- **Before init**: the purge is sequenced through the SDK's own `wrap()`, so it runs after the
+  storage preload has merged the persisted file and before any later flush reads the queue —
+  without writing over the file the preload is still reading.
+- **Not done**: no `flush()`, no `reset()` (a withdrawn-then-re-granted user keeps the same
+  `distinct_id` — compliance ruling 8(b)), no change to `POSTHOG_OPTIONS`. A batch already in
+  flight at the moment of withdrawal is not recalled (ruling 8(a), accepted as bounded).
+- **Crisis telemetry is untouched**: `crisis_detected` queues in Supabase's own AsyncStorage
+  queue under a vital-interest basis; the purge modules import nothing from
+  `core/services/supabase/` or `features/crisis/`.
+
+Pinned against the real SDK by `PostHogProvider.consentWithdrawalPurge.privacy.test.ts`.
 
 ### PHIFilter
 **Location:** `src/core/analytics/PHIFilter.ts`
@@ -326,12 +355,14 @@ and the local wipe. It is NOT a standalone user-facing analytics control:
 DEBUG-534 ruled the privacy policy's "Delete Analytics Data" wording is corrected
 in copy rather than built.
 
-**It resets THROUGH a live instance, never around one.** Revoking consent
-unmounts `<PHProvider>` but does not destroy the client, which keeps an in-memory
-cache that re-persists on its next write — so deleting the storage files under a
-live instance restores the pre-erasure id and reads as a fix. The client is
-registered at module scope so the reset can reach an instance that exists but is
-no longer rendered.
+**It resets THROUGH a live instance, never around one.** The client is never
+destroyed while the process lives — since DEBUG-559 `<PHProvider>` is always
+mounted and revoking consent never unmounts it — and it keeps an in-memory cache
+that re-persists on its next write, so deleting the storage files under a live
+instance restores the pre-erasure id and reads as a fix. The client is registered
+at module scope at launch so the reset reaches it from outside the render tree.
+The queue nulling is shared with the consent-withdrawal purge
+(`purgeAnalyticsQueues`, DEBUG-686).
 
 ---
 
