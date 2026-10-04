@@ -369,8 +369,11 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       testID={testID}
-      accessible
-      accessibilityLabel="Practice completion screen"
+      // DEBUG-683: never `accessible`, and nothing that hides the subtree either. An
+      // accessible root collapses the screen into ONE assistive-technology element, so
+      // Continue (the only exit on five gestureEnabled:false routes) was unreachable and
+      // the crisis button was the only other focusable control. The header role and the
+      // mount announcement already identify the screen.
     >
       {/* Completion Icon */}
       <View style={styles.iconContainer}>
