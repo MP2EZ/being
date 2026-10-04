@@ -28,6 +28,21 @@
  *
  * AUTH: X-Cron-Secret constant-time (mirrors grace-period-automation). verify_jwt=false
  *   (pg_net carries no user JWT) — the secret check is the sole compensating control.
+ *
+ * CORRECTIONS TO 20260913000000_crisis_event_time_attribution.sql (DEBUG-684). That migration
+ * is applied and stays unedited; these supersede three of its claims:
+ *   - Line 29, "Client-first would put event-time backfill in front of an alerter that cannot
+ *     see it": wrong. Client-first is inert — until the migration lands the views ignore
+ *     detected_on. The dangerous state is the migration live + an alerter older than v15 +
+ *     detected_on rows: backfilled rows then land on closed days that nothing re-reads. Never
+ *     roll this function back below v15 once the client half has shipped.
+ *   - Line 86, "matches the alerter's revisit horizon": it does not. This alerter looks back
+ *     8 days (today + CRISIS_ALERT_BASELINE_DAYS=7, persisted as evaluated_counts); the SQL
+ *     floor is 90.
+ *   - Line 191, "RECLASSIFIED, not deleted": only inside those 8 days. A backlog 8–90 days old
+ *     lands SILENTLY — the arrival view counts it as today's arrivals, but no axis pages on
+ *     it. A known limitation, not a fix: `crisis` ruled it acceptable during INFRA-613 because
+ *     it does not distort the 7-day baseline (finding (d), recorded on DEBUG-684).
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
@@ -41,6 +56,12 @@ import {
   buildAlertPayload,
   composeReason,
   shouldPingHealthcheck,
+  priorRunPagedSpike,
+  alertAxes,
+  anyAxisTripped,
+  composeSubject,
+  composeBackfillLines,
+  selectTodayBuckets,
   type BucketRow,
   type DayCounts,
 } from './alertLogic.ts';
@@ -163,20 +184,16 @@ serve(async (req) => {
   try {
     const { data, error } = await supabase
       .from('crisis_detection_daily')
-      .select('assessment_type, trigger_type, severity_bucket, detection_count')
+      .select('event_date, assessment_type, trigger_type, severity_bucket, detection_count')
       .order('event_date', { ascending: false })
       .limit(200);
     if (error) throw error;
-    // Keep only TODAY's bucket rows for the breakdown.
-    const today = dayString(startedMs);
-    bucketRows = ((data ?? []) as Array<BucketRow & { event_date?: string }>)
-      .filter((r) => typeof r.event_date !== 'string' || r.event_date.slice(0, 10) === today)
-      .map((r) => ({
-        assessment_type: r.assessment_type,
-        trigger_type: r.trigger_type,
-        severity_bucket: r.severity_bucket,
-        detection_count: r.detection_count,
-      }));
+    // Keep only TODAY's bucket rows for the breakdown. event_date MUST be selected: without
+    // it every row passed the filter and the mix was the latest 200 rows across all days.
+    bucketRows = selectTodayBuckets(
+      (data ?? []) as Array<BucketRow & { event_date?: string }>,
+      dayString(startedMs),
+    );
   } catch (e) {
     errors.push(`daily view read failed: ${errMsg(e)}`);
   }
@@ -223,11 +240,14 @@ serve(async (req) => {
   // Read only from a run that both completed cleanly AND persisted a map. A NULL map is a
   // run from the pre-deploy alerter; that is a COLD START, not an empty map, and the
   // distinction is what stops the first run after deploy paging the whole series.
+  // DEBUG-684: the same row's spike verdict says whether that run already paged the partial
+  // day. Read, never recomputed (see evaluateBackfill).
   let watermark: DayCounts | null = null;
+  let priorPaged = false;
   try {
     const { data, error } = await supabase
       .from('crisis_alert_runs')
-      .select('evaluated_counts')
+      .select('evaluated_counts, spike_status, status')
       .in('status', ['ok', 'alerted'])
       .not('evaluated_counts', 'is', null)
       .order('ran_at', { ascending: false })
@@ -236,6 +256,7 @@ serve(async (req) => {
     if (error) throw error;
     const raw = data?.evaluated_counts ?? null;
     watermark = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as DayCounts) : null;
+    priorPaged = priorRunPagedSpike(data ?? null);
   } catch (e) {
     errors.push(`backfill watermark read failed: ${errMsg(e)}`);
   }
@@ -256,6 +277,8 @@ serve(async (req) => {
   // watermark. Gap-filling is load-bearing, not tidiness: evaluateBackfill only considers
   // days that are KEYS in the watermark, so "present with count 0" and "absent" must mean
   // different things — otherwise a day sliding out of the window reads as growth-from-zero.
+  // Today's key is load-bearing even at 0 (DEBUG-684): the next run reads the latest key as
+  // this run's partial day.
   const currentCounts: DayCounts = {};
   for (let i = 0; i <= baselineDays; i++) {
     const d = dayString(startedMs - i * DAY_MS);
@@ -305,12 +328,20 @@ serve(async (req) => {
     minGrowthToReport: minAbsoluteForSpike,
     spikeMultiplier,
     minAbsoluteForSpike,
+    priorPaged,
   });
 
-  // STRICTLY ADDITIVE (crisis specialist C3/C4): the probe and backfill axes can RAISE a
-  // page but NEVER suppress a real verdict — four independent axes OR'd together.
-  const shouldAlert = liveness.alert || spike.alert || probe.alert || backfill.alert;
-  const reason = composeReason(liveness.alert, spike.alert, probe.alert, backfill.alert);
+  // STRICTLY ADDITIVE (crisis specialist C3/C4): the probe, backfill and partial-day axes can
+  // RAISE a page but NEVER suppress a real verdict — five independent axes OR'd together.
+  const axes = alertAxes({ liveness, spike, probe, backfill });
+  const shouldAlert = anyAxisTripped(axes);
+  const reason = composeReason(
+    axes.liveness,
+    axes.spike,
+    axes.probe,
+    axes.backfill,
+    axes.partialDay,
+  );
 
   const payload = buildAlertPayload({
     reason,
@@ -331,7 +362,7 @@ serve(async (req) => {
   let alertSent = false;
   if (shouldAlert && errors.length === 0) {
     try {
-      await sendResendAlert(payload);
+      await sendResendAlert(payload, composeSubject(axes));
       alertSent = true;
     } catch (e) {
       errors.push(`alert delivery failed: ${errMsg(e)}`);
@@ -350,6 +381,8 @@ serve(async (req) => {
       liveness_status: liveness.status,
       spike_status: spike.status,
       probe_status: probe.status,
+      // cold_start|none|backfill|partial_day|backfill+partial_day. The column COMMENT still
+      // lists the first three; a COMMENT is DDL, so it rides the next migration.
       backfill_status: backfill.status,
       today_volume: todayCount,
       alert_sent: alertSent,
@@ -387,6 +420,8 @@ serve(async (req) => {
       spike: spike.status,
       probe: probe.status,
       backfill: backfill.status,
+      // Day-level date and counts only — never the prior run's timestamp.
+      partialDay: backfill.partialDay,
       // Occurrence vs arrival, named so the basis of each number is never implicit.
       todayVolume: todayCount,
       arrivalToday,
@@ -439,7 +474,10 @@ async function pingExternalHealthcheck(): Promise<void> {
  * already-PII-free payload (no identifiers, day-level date only). Throws on non-2xx so
  * the caller records a delivery failure.
  */
-async function sendResendAlert(payload: ReturnType<typeof buildAlertPayload>): Promise<void> {
+async function sendResendAlert(
+  payload: ReturnType<typeof buildAlertPayload>,
+  subject: string,
+): Promise<void> {
   const apiKey = Deno.env.get('RESEND_API_KEY');
   const from = Deno.env.get('CRISIS_ALERT_FROM');
   const to = Deno.env.get('CRISIS_ALERT_TO');
@@ -468,7 +506,9 @@ async function sendResendAlert(payload: ReturnType<typeof buildAlertPayload>): P
     `Probe (INFRA-265, ingest/cron/edge leg only — NOT the on-device emit leg): ${payload.probe.status}` +
       (payload.probe.ageHours != null ? ` (last probe ~${payload.probe.ageHours}h ago)` : ' (no probe recorded)'),
     '',
-    'Detection mix (buckets at or above the reporting floor):',
+    // TODAY only: on a FULL-DAY SPIKE email the reader would otherwise attribute it to the
+    // completed day.
+    "Detection mix — TODAY's buckets only (at or above the reporting floor):",
     ...payload.buckets.map(
       (b) => `  - ${b.assessment_type} / ${b.trigger_type} / ${b.severity_bucket}: ${b.detection_count}`,
     ),
@@ -514,34 +554,8 @@ async function sendResendAlert(payload: ReturnType<typeof buildAlertPayload>): P
     );
   }
 
-  lines.push('', `Backfill axis: ${payload.backfill.status}.`);
-  if (payload.backfill.status === 'cold_start') {
-    lines.push(
-      '  No watermark from a prior run — this run recorded the baseline. This is NOT a ' +
-        'statement that nothing was backfilled; it is a statement that we could not tell.',
-    );
-  } else if (payload.backfill.grownDays.length > 0) {
-    lines.push('  Closed days that grew since the last evaluated run:');
-    for (const g of payload.backfill.grownDays) {
-      lines.push(`    - ${g.day}: ${g.priorCount} -> ${g.currentCount} (+${g.delta})`);
-    }
-    if (!payload.backfill.alert) {
-      lines.push(
-        '  Reported, not paged: none cleared the spike test against current neighbours.',
-      );
-    }
-  }
+  lines.push(...composeBackfillLines(payload.backfill));
   lines.push('', 'Monitoring-only. Confirm via the Supabase SQL editor; see crisis-analytics-runbook.md.');
-
-  // Subject derived from the tripped axes (reason is a '+'-composed string). Liveness and
-  // probe are both pipeline-dead-flavored; spike is volume.
-  const pipelineAlert = payload.liveness.alert || payload.probe.alert;
-  const subject =
-    pipelineAlert && payload.spike.alert
-      ? '[Being] Crisis-detection LIVENESS + VOLUME alert'
-      : payload.spike.alert
-        ? '[Being] Crisis-detection VOLUME spike alert'
-        : '[Being] Crisis-detection LIVENESS alert — possible dead pipeline';
 
   const res = await fetch('https://api.resend.com/emails', {
     method: 'POST',
