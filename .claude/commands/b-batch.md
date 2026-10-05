@@ -429,6 +429,10 @@ defer is the normal lifecycle here, and the expensive analysis is already in the
 fresh skeptic mostly re-derives it. Keep all three where the repair is older than the last
 release, since the tree has moved under it.
 
+**The harness caps concurrent subagents (20); excess launches are refused, not queued.**
+Launch in waves of whole items, and keep each Skeptic and its shadow in the same
+message — never split a pair across waves.
+
 **Skeptic shadow (INFRA-724 — temporary; delete this block when INFRA-724 records its
 decision).** `SHADOW=/Users/max/dev/being/.claude/eval/skeptic-shadow/shadowlog.py`. While
 `python3 $SHADOW count` prints under 15, shadow at most `15 − count` items whose Skeptic runs
