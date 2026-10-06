@@ -55,14 +55,6 @@ import type {
 } from '@/features/assessment/types';
 import type { CrisisDetection } from '@/features/crisis/types/safety';
 
-interface DataProtectionConsentStatus {
-  dataProcessingConsent: boolean;
-  clinicalDataConsent: boolean;
-  consentTimestamp: number;
-  consentVersion: string;
-}
-
-
 interface EnhancedAssessmentFlowProps {
   assessmentType: AssessmentType;
   onComplete: (result: PHQ9Result | GAD7Result) => void;
@@ -70,7 +62,6 @@ interface EnhancedAssessmentFlowProps {
   theme?: 'morning' | 'midday' | 'evening' | 'neutral';
   context?: 'standalone' | 'onboarding' | 'checkin';
   showIntroduction?: boolean;
-  consentStatus: DataProtectionConsentStatus;
   sessionId: string;
 }
 
@@ -104,7 +95,6 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
   theme = 'neutral',
   context = 'standalone',
   showIntroduction = true,
-  consentStatus,
   sessionId,
 }) => {
   // State management
@@ -185,7 +175,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
         if (flowState === 'questions' || flowState === 'results') {
           Alert.alert(
             'Exit Assessment?',
-            'Your progress will be saved and you can continue later.',
+            'If you exit now, this check-in will end. You can start a new one any time.',
             [
               { text: 'Continue Assessment', style: 'cancel' },
               { text: 'Exit', onPress: onCancel, style: 'destructive' },
@@ -354,7 +344,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
           // naming it would spotlight self-harm to someone who never answered it.
           Alert.alert(
             'Not quite finished',
-            "One answer didn't come through, so this check-in isn't complete. You're back at that question; your other answers are saved.",
+            "One answer didn't come through, so this check-in isn't complete. You're back at that question; your other answers are still here.",
             [{ text: 'OK' }]
           );
         } else {
@@ -366,7 +356,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
           );
           Alert.alert(
             'Completion Error',
-            'There was an issue completing your check-in. Your responses are safely stored.',
+            'There was an issue completing your check-in. Crisis support is still available.',
             [{ text: 'OK' }]
           );
         }
@@ -408,7 +398,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
       logError(LogCategory.SYSTEM, 'Assessment completion failed:', error instanceof Error ? error : new Error(String(error)));
       Alert.alert(
         'Completion Error',
-        'There was an issue completing your assessment. Your responses are safely stored.',
+        'There was an issue completing your check-in. Crisis support is still available.',
         [{ text: 'OK' }]
       );
     } finally {
@@ -480,7 +470,6 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
             currentStep={currentQuestionIndex + 1}
             totalSteps={questions.length}
             theme={theme}
-            consentStatus={consentStatus}
             onError={handleError}
           />
         )}
