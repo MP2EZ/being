@@ -40,7 +40,6 @@ import {
   ViewStyle,
 } from 'react-native';
 import { useCloudSync, useCloudBackupConfig } from '@/core/services/supabase/hooks/useCloudSync';
-import SyncStatusIndicator from '../sync/SyncStatusIndicator';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 
 interface CloudBackupSettingsProps {
@@ -242,40 +241,29 @@ export default function CloudBackupSettings({
       <View style={styles.section}>
         <Text style={styles.sectionTitle}>System Status</Text>
 
-        {/* Integrated Status Indicator */}
-        <SyncStatusIndicator
-          showDetailed={showAdvanced}
-          style={styles.statusIndicator}
-          onStatusChange={(syncStatus) => {
-            console.log('Overall system status:', syncStatus);
-          }}
-        />
+        {/* Rendered in both modes: it was the dormant SyncCoordinator indicator's
+            sibling, and it is the screen's only status reading (MAINT-702). */}
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>Connection:</Text>
+          <Text style={[styles.statusValue, { color: getStatusColor() }]}>
+            {getStatusText()}
+          </Text>
+        </View>
 
-        {!showAdvanced && (
-          <>
-            <View style={styles.statusRow}>
-              <Text style={styles.statusLabel}>Connection:</Text>
-              <Text style={[styles.statusValue, { color: getStatusColor() }]}>
-                {getStatusText()}
-              </Text>
-            </View>
+        <View style={styles.statusRow}>
+          <Text style={styles.statusLabel}>Last Backup:</Text>
+          <Text style={styles.statusValue}>
+            {formatDate(lastBackupTime)}
+          </Text>
+        </View>
 
-            <View style={styles.statusRow}>
-              <Text style={styles.statusLabel}>Last Backup:</Text>
-              <Text style={styles.statusValue}>
-                {formatDate(lastBackupTime)}
-              </Text>
-            </View>
-
-            {status.pendingOperations > 0 && (
-              <View style={styles.statusRow}>
-                <Text style={styles.statusLabel}>Pending Operations:</Text>
-                <Text style={styles.statusValue}>
-                  {status.pendingOperations}
-                </Text>
-              </View>
-            )}
-          </>
+        {status.pendingOperations > 0 && (
+          <View style={styles.statusRow}>
+            <Text style={styles.statusLabel}>Pending Operations:</Text>
+            <Text style={styles.statusValue}>
+              {status.pendingOperations}
+            </Text>
+          </View>
         )}
       </View>
 
