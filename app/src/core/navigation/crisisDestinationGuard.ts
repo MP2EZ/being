@@ -14,6 +14,10 @@
  * - The set is CRISIS_DESTINATION_ROUTES ("the user was sent here for 988;
  *   nothing may cover it"). Not SUPPRESSED_ROUTES or RECONSENT_DEFERRAL_ROUTES:
  *   both include AssessmentFlow and LegalGate, which mean something else.
+ *
+ * Consumers: CleanRootNavigator's AssessmentFlow completion (DEBUG-706,
+ * `dismissRouteThenNotify`) and DeleteAccountScreen's post-erasure reset
+ * (DEBUG-703, `runWhenNoCrisisDestinationFocused`).
  */
 import { CommonActions } from '@react-navigation/native';
 import { logSystem } from '@/core/services/logging';
@@ -92,4 +96,43 @@ export function dismissRouteThenNotify({
   };
 
   setTimeout(attempt, delayMs);
+}
+
+interface RunWhenNoCrisisDestinationFocused {
+  isCrisisFocused?: () => boolean;
+  subscribe?: (listener: () => void) => () => void;
+}
+
+/**
+ * Run `run` now if no crisis destination is focused; otherwise run it exactly once
+ * on the first root navigation state in which none is, then stop listening
+ * (DEBUG-703). Deferred, never dropped or redirected. No timer and no AppState
+ * branch: a 988 call that backgrounds the app changes nothing. Module-lifetime —
+ * the caller unmounting does not cancel it.
+ */
+export function runWhenNoCrisisDestinationFocused(
+  run: () => void,
+  {
+    isCrisisFocused = (): boolean => isCrisisDestinationFocused(),
+    subscribe = (listener): (() => void) => navigationRef.addListener('state', listener),
+  }: RunWhenNoCrisisDestinationFocused = {},
+): void {
+  if (!isCrisisFocused()) {
+    run();
+    return;
+  }
+
+  let done = false;
+  let unsubscribe: (() => void) | null = null;
+  const attempt = (): void => {
+    if (done || isCrisisFocused()) return;
+    done = true;
+    unsubscribe?.();
+    unsubscribe = null;
+    run();
+  };
+
+  const stop = subscribe(attempt);
+  if (done) stop();
+  else unsubscribe = stop;
 }
