@@ -243,10 +243,14 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       await useSubscriptionStore.getState().purchaseSubscription('yearly');
 
       const state = useSubscriptionStore.getState();
-      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith('receipt-xyz', 'apple', undefined, {
-        transactionId: '2000000847061713',
-        environment: 'Sandbox',
-      });
+      // 5th argument is the product id (DEBUG-713); this mock purchase carries none.
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith(
+        'receipt-xyz',
+        'apple',
+        undefined,
+        { transactionId: '2000000847061713', environment: 'Sandbox' },
+        undefined
+      );
       expect(mockIAP.finishTransaction).toHaveBeenCalledTimes(1);
       expect(state.subscription?.status).toBe('active');
       expect(state.subscription?.interval).toBe('yearly');
@@ -416,7 +420,15 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
 
       await useSubscriptionStore.getState().restorePurchases();
 
-      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith('receipt-restore-1', 'google', 'token-1', undefined);
+      // DEBUG-713: the Play product id is forwarded too — the server cannot look the
+      // purchase up without it, and receiptData is '' on a real Android purchase.
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith(
+        'receipt-restore-1',
+        'google',
+        'token-1',
+        undefined,
+        DEFAULT_SUBSCRIPTION_CONFIG.products.google.yearly
+      );
     });
 
     it('an invalid verification restores nothing and acknowledges nothing', async () => {

@@ -572,10 +572,14 @@ describe('Subscription Integration - Platform Specifics', () => {
       error: null,
     });
 
+    // DEBUG-713: the Play product id travels in its own argument. receiptData is ''
+    // on Android, so it can never carry it.
     const result = await IAPService.verifyReceipt(
-      'com.being.subscription.monthly',
+      '',
       'google',
-      'google-purchase-token'
+      'google-purchase-token',
+      undefined,
+      'subscription_monthly'
     );
 
     expect(mockInvoke).toHaveBeenCalledWith(
@@ -583,7 +587,7 @@ describe('Subscription Integration - Platform Specifics', () => {
       {
         body: {
           packageName: 'fyi.being.app',
-          subscriptionId: 'com.being.subscription.monthly',
+          subscriptionId: 'subscription_monthly',
           purchaseToken: 'google-purchase-token',
         },
       }
@@ -593,5 +597,138 @@ describe('Subscription Integration - Platform Specifics', () => {
     expect(result.subscriptionId).toBe('google-order-id');
 
     console.log('✅ GOOGLE FLOW VERIFIED: Receipt verified via Google Edge Function');
+  });
+
+  it('Google verification without a product id is refused before the network', async () => {
+    await IAPService.initialize();
+
+    const result = await IAPService.verifyReceipt('', 'google', 'google-purchase-token');
+
+    expect(result.valid).toBe(false);
+    expect(result.error).toBe('Product id required for Google verification');
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * DEBUG-713: Android verification identifiers, pinned at the CALLER boundary.
+ *
+ * The direct verifyReceipt tests above hand the function a product id, which is
+ * exactly how the bug hid: augmentPurchase sets transactionReceipt to '' on
+ * Android, processVerifiedPurchase forwarded that as receiptData, and the Google
+ * branch sent it as subscriptionId, so verify-google-receipt answered 400. These
+ * drive the real listener and the real store restore with a real-shaped Android
+ * Purchase and assert on the request the Edge Function receives.
+ *
+ * Mock mode cannot hide it: mockMode is on under jest (__DEV__), but its
+ * short-circuit keys on a `mock_receipt_` receipt, and an augmented Android
+ * purchase carries ''.
+ */
+describe('Subscription Integration - Google identifiers at the caller boundary (DEBUG-713)', () => {
+  const RN = require('react-native');
+
+  const androidPurchase = {
+    id: 'GPA.3312-4512-9934-21117',
+    productId: 'subscription_monthly',
+    purchaseToken: 'opaque-play-token-7f3a9c',
+    platform: 'android',
+    transactionDate: 1759600000000,
+    purchaseState: 'purchased',
+    isAutoRenewing: true,
+  };
+
+  /** The listener processes fire-and-forget; wait for it to reach the network. */
+  async function settle(predicate: () => boolean): Promise<void> {
+    for (let i = 0; i < 50 && !predicate(); i++) {
+      await new Promise(resolve => setImmediate(resolve));
+    }
+  }
+
+  function invokeCall(fnName: string): { body: Record<string, unknown> } | undefined {
+    const call = mockInvoke.mock.calls.find(([name]) => name === fnName);
+    return call?.[1] as { body: Record<string, unknown> } | undefined;
+  }
+
+  beforeEach(async () => {
+    useSubscriptionStore.setState({
+      subscription: null,
+      featureAccess: null,
+      isLoading: false,
+      error: null,
+    });
+    jest.clearAllMocks();
+    await IAPService.disconnect();
+
+    mockRNIap.initConnection.mockResolvedValue(true);
+    mockRNIap.endConnection.mockResolvedValue(true);
+    mockRNIap.fetchProducts.mockResolvedValue([]);
+    mockRNIap.getReceiptIOS.mockResolvedValue('mock-ios-receipt-blob');
+    mockRNIap.finishTransaction.mockResolvedValue(true as never);
+    mockSecureStore.setItemAsync.mockResolvedValue(undefined);
+    mockSecureStore.getItemAsync.mockResolvedValue(null);
+
+    mockInvoke.mockReset();
+    mockInvoke.mockResolvedValue({
+      data: { valid: true, subscriptionId: 'GPA.3312-4512-9934-21117', expiresDate: '2026-11-04T00:00:00Z' },
+      error: null,
+    });
+  });
+
+  afterEach(() => {
+    RN.Platform.OS = 'ios';
+  });
+
+  it('purchase: the listener sends the Play product id and the purchase token', async () => {
+    RN.Platform.OS = 'android';
+    await IAPService.initialize();
+    const onPurchase = mockRNIap.purchaseUpdatedListener.mock.calls[0][0] as (p: unknown) => void;
+
+    onPurchase(androidPurchase);
+    await settle(() => mockInvoke.mock.calls.length > 0);
+
+    const opts = invokeCall('verify-google-receipt');
+    expect(opts).toBeDefined();
+    expect(Object.keys(opts!.body).sort()).toEqual(['packageName', 'purchaseToken', 'subscriptionId']);
+    expect(opts!.body.subscriptionId).toBe(androidPurchase.productId);
+    expect(opts!.body.purchaseToken).toBe(androidPurchase.purchaseToken);
+    expect(opts!.body.packageName).toBe('fyi.being.app');
+  });
+
+  it('restore: the store sends the same identifiers and applies the entitlement', async () => {
+    RN.Platform.OS = 'android';
+    await IAPService.initialize();
+    mockRNIap.getAvailablePurchases.mockResolvedValue([androidPurchase] as never);
+
+    const result = await useSubscriptionStore.getState().restorePurchases();
+
+    const opts = invokeCall('verify-google-receipt');
+    expect(opts).toBeDefined();
+    expect(Object.keys(opts!.body).sort()).toEqual(['packageName', 'purchaseToken', 'subscriptionId']);
+    expect(opts!.body.subscriptionId).toBe(androidPurchase.productId);
+    expect(opts!.body.purchaseToken).toBe(androidPurchase.purchaseToken);
+    expect(result).toEqual({ found: 1, restored: 1 });
+  });
+
+  it('iOS: the Apple request is unchanged and the Google function is never called', async () => {
+    RN.Platform.OS = 'ios';
+    await IAPService.initialize();
+    const onPurchase = mockRNIap.purchaseUpdatedListener.mock.calls[0][0] as (p: unknown) => void;
+
+    onPurchase({
+      id: '2000000847061713',
+      transactionId: '2000000847061713',
+      environmentIOS: 'Sandbox',
+      productId: 'com.being.subscription.monthly',
+      platform: 'ios',
+      transactionDate: 1759600000000,
+    });
+    await settle(() => mockInvoke.mock.calls.length > 0);
+
+    const opts = invokeCall('verify-apple-receipt');
+    expect(opts).toBeDefined();
+    expect(Object.keys(opts!.body).sort()).toEqual(['environment', 'transactionId']);
+    expect(opts!.body.transactionId).toBe('2000000847061713');
+    expect('receiptData' in opts!.body).toBe(false);
+    expect(invokeCall('verify-google-receipt')).toBeUndefined();
   });
 });
