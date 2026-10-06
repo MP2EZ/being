@@ -234,7 +234,7 @@ const CORE_FEATURE_IMPORT_EXCEPTIONS = [
   // it touches gated code. Delete the entry in the change that moves the file.
   'src/core/utils/timeOfDay.ts', // type-only DailyLoopMode (home, dailyloop)
   'src/core/services/guidanceContent.ts', // type-only; sole consumer is features/guidance
-  'src/core/services/moduleContent.ts', // type-only; consumers are learn, practices
+  'src/core/services/moduleContent.ts', // ModuleId types + isModuleId leaf (DEBUG-719); consumers are learn, practices
   'src/core/services/passagesContent.ts', // sole consumer is features/library
   'src/core/services/supabase/CloudBackupService.ts', // reads assessmentStore
   'src/core/services/privacy/DataExportService.ts', // reads journalEntryStore
