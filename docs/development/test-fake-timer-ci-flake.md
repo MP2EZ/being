@@ -34,9 +34,9 @@ Total: **127 newly-passing tests on CI** (previously quarantined under this "fla
 
 These remain quarantined under `testPathIgnorePatterns` because the underlying issues are scenario-level, not a CLI flag bug:
 
-- `sync-coordinator-integration.test.ts` — 12 tests assert `status.isInitialized` on the SyncStatus shape; that field no longer exists (now `globalState`). Needs assertion shape rewrite. (MAINT-166 PR 5 docstring.)
+- `sync-coordinator-integration.test.ts` — 12 tests assert `status.isInitialized` on the SyncStatus shape; that field no longer exists (now `globalState`). Needs assertion shape rewrite. (MAINT-166 PR 5 docstring.) Since deleted with the sync coordinator (MAINT-702).
 - `analytics-service-integration.test.ts` — 8 tests assert AnalyticsService return-shape fields that drifted. Needs separate AnalyticsService API audit. (MAINT-166 PR 5.)
-- `sync-emergency-scenarios.test.ts` — 13 tests assert `Alert.alert` was called from sync code, but Alert is fired by UI components, not the SyncCoordinator subscription callback. Layer mismatch; right home is a Maestro flow. (MAINT-166 PR 5.)
+- `sync-emergency-scenarios.test.ts` — 13 tests assert `Alert.alert` was called from sync code, but Alert is fired by UI components, not the sync coordinator's subscription callback (since deleted, MAINT-702). Layer mismatch; right home is a Maestro flow. (MAINT-166 PR 5.)
 - `sync-performance-validation.test.ts` + `week3-analytics-performance.test.ts` — performance tests in Jest are flaky by construction; honest home is on-device measurement, not Jest. (MAINT-166 PR 5 + PR 7.)
 - `practices-flows-integration.test.tsx` — testID drift (`safety-button` → `collapsible-crisis-button`) + 8-second real-timer assertions. Needs per-assertion audit + fake-timer conversion. (MAINT-166 PR 4.)
 - `comprehensive-assessment-integration.test.ts` — fixed structurally in MAINT-166 PR 4 (state() helper, encryption mock, canonical CrisisDetection shape); 8/12 pass locally; remaining 4 skipped with TODOs. Re-quarantined because **this file was also misblamed on INFRA-180** — but its actual remaining failures are scenario-specific. Worth re-attempting now that the duplicate-flag bug is fixed.

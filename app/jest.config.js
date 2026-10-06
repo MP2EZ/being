@@ -85,16 +85,8 @@ module.exports = {
     //    out coverage, try replacing the IAP listener pattern with
     //    a direct callback registry). Re-quarantined.
     //  - sync-coordinator-integration.test.ts: UN-QUARANTINED in
-    //    MAINT-188 PR 4 (2026-05-29). The MAINT-166 PR 5 framing as
-    //    "12 tests assert isInitialized" was right on count but only
-    //    on one of three failure modes. Actual breakdown was 4
-    //    isInitialized shape drift + 4 prevState shape (mock
-    //    completedAssessments missing) + 4 behavior assertions that
-    //    didn't match impl. All three categories fixed; 25/26 tests
-    //    pass, 1 skipped with TODO (service-unavailability test
-    //    needs getBackupStatus mock plumbing). This file is THE only
-    //    SyncCoordinator test coverage so the file-level note at the
-    //    top has the full audit trail.
+    //    MAINT-188 PR 4 (2026-05-29); DELETED in MAINT-702 (2026-10-05)
+    //    together with the dormant sync coordinator it covered.
     //  - analytics-service-integration.test.ts: UN-QUARANTINED in
     //    MAINT-188 PR 5 (2026-05-29). Audit found two failure groups:
     //    (A) 4 aspirational security-integration tests spying on
@@ -156,7 +148,7 @@ module.exports = {
     //    (2026-05-29). Audit (vs the MAINT-188 AC's "migrate to
     //    Maestro flow" framing): the file's 15 tests broke down as
     //    9 wrong-layer (asserted Alert.alert from sync code, but
-    //    Alert is fired by UI components not SyncCoordinator), 5
+    //    Alert is fired by UI components not sync code), 5
     //    redundant with existing safety tests + Maestro flows
     //    (offline-crisis-management, crisis-intervention-safety,
     //    crisis-resources-integration, plus the 5 Maestro flows),
@@ -165,8 +157,9 @@ module.exports = {
     //    phq9-severe-completion, gad7-severe, crisis-button-
     //    reachability, and crisis-988-dial already pin the user-
     //    visible alert + dial contracts the file claimed to cover.
-    //    Sync-queue-specific assertions belong in
-    //    sync-coordinator-integration.test.ts (MAINT-188 PR 4).
+    //    Sync-queue-specific assertions went to
+    //    sync-coordinator-integration.test.ts (MAINT-188 PR 4), since
+    //    deleted with the sync coordinator in MAINT-702.
     // INFRA-180 follow-through: PracticeTimerScreen, ReflectionTimerScreen,
     // BodyScanScreen, and subscription.integration were quarantined for
     // the "fake-timer + coverage CI flake." The actual root cause turned

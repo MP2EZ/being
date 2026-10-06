@@ -313,6 +313,36 @@ describe('MAINT-398 — the exact band the deleted optimizer got wrong', () => {
   });
 });
 
+describe('MAINT-702 — ports from the deleted SyncCoordinator classifier suites', () => {
+  // SyncCoordinator.classifyAssessmentCrisis was a dormant second classifier; its
+  // suites were the only pins on two cases canonical detectCrisis had no direct
+  // assertion for. Translated to detectCrisis's own two tiers — its PHQ-9 ≥20
+  // crisis floor is deliberately NOT ported (canonical detects 15–19 as support).
+
+  // DEBUG-233: a GAD-7 total of 15–19 was the previously-missed band.
+  it.each([[16], [17], [18], [19]])(
+    'GAD-7 total=%i MUST detect as gad7_severe_score / intervention tier / gad7',
+    total => {
+      const detection = detectCrisis(gad7Result(total), 'test-user');
+
+      expect(detection).not.toBeNull();
+      expect(detection!.primaryTrigger).toBe('gad7_severe_score');
+      expect(isInterventionTier(detection!)).toBe(true);
+      expect(detection!.assessmentType).toBe('gad7');
+    },
+  );
+
+  it('PHQ-9 total=16 with Q9=0 detects as the support tier, labelled phq9', () => {
+    const detection = detectCrisis(phqResultWithQ9(16, 0), 'test-user');
+
+    expect(detection).not.toBeNull();
+    expect(detection!.primaryTrigger).toBe('phq9_moderate_severe_score');
+    expect(detection!.severityLevel).toBe('high');
+    expect(isInterventionTier(detection!)).toBe(false);
+    expect(detection!.assessmentType).toBe('phq9');
+  });
+});
+
 describe('MAINT-398 — structural guard: exactly one PHQ-9 crisis scorer in the tree', () => {
   // A file that PRODUCES a PHQ-9 crisis trigger is a scorer. A file that merely
   // COMPARES one (validation), declares the union type, or names one in a

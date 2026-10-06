@@ -12,20 +12,15 @@
  * construction, not a gap.
  *
  * Owners registered today: stoicPracticeStore, assessmentStore, educationStore,
- * subscriptionStore, syncCoordinator (DEBUG-697) and supabaseService (DEBUG-698 —
- * its backup retry queue; the key's sweep entry is inert without this reset).
+ * subscriptionStore (DEBUG-697) and supabaseService (DEBUG-698 — its backup
+ * retry queue; the key's sweep entry is inert without this reset).
  * Audited and NOT registered: consentStore (it holds the erasure-excluded consent
  * record, and `resetConsent` deletes excluded keys), the journal (no in-memory
  * cache — every read goes to storage) and SessionStorageService (stateless; its
  * blobs are in WELLNESS_SECURE_STORE_KEYS).
  *
- * syncCoordinator is DORMANT in production and registered anyway. Evidence
- * (2026-10-03): `initialize()` has no production caller, its only production
- * consumer is SyncStatusIndicator calling the read-only `getStatus()`, and its
- * queue entries carry no record content (`data: {}`). REVIVAL PRECONDITION: its
- * AsyncStorage keys (`@being/sync/*`, `@being/sync_coordinator/*`) match no
- * erasure sweep, and once initialized it re-queues on every assessmentStore
- * change, including this registry's own reset. Sweep those keys before reviving it.
+ * SyncCoordinator was deleted in MAINT-702; any successor must register an
+ * erasure reset and sweep its keys.
  *
  * Dependency-free on purpose: nothing here may import a store.
  */
