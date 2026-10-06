@@ -41,12 +41,14 @@ import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { loadModuleContent } from '@/core/services/moduleContent';
-import type { ModuleId, ModuleContent } from '@/features/learn/types/education';
+import { isModuleId, type ModuleId, type ModuleContent } from '@/features/learn/types/education';
 import OverviewTab from '@/features/learn/tabs/OverviewTab';
 import PracticeTab from '@/features/learn/tabs/PracticeTab';
 
+// DEBUG-719: params arrive from deep links, so they are read as untrusted and narrowed
+// below. RootStackParamList is deliberately left as declared.
 type ModuleDetailRouteProp = RouteProp<
-  { ModuleDetail: { moduleId: ModuleId } },
+  { ModuleDetail: { moduleId?: unknown } | undefined },
   'ModuleDetail'
 >;
 
@@ -57,26 +59,36 @@ type TabType = 'overview' | 'practice';
 const ModuleDetailScreen: React.FC = () => {
   const route = useRoute<ModuleDetailRouteProp>();
   const navigation = useNavigation<NavigationProp>();
-  const { moduleId } = route.params;
+  // DEBUG-719: anything that is not an authored module id (absent, unknown, or a
+  // prototype key such as 'constructor') is undefined from here on. Nothing is loaded,
+  // tracked or written for it, and the failed-load state renders.
+  const rawModuleId = route.params?.moduleId;
+  const moduleId: ModuleId | undefined = isModuleId(rawModuleId) ? rawModuleId : undefined;
 
   const { setCurrentModule, getModuleProgress } = useEducationStore();
   const { trackScreenView, trackLearnContentViewed } = useAnalytics();
   const [activeTab, setActiveTab] = useState<TabType>('overview');
   const [moduleContent, setModuleContent] = useState<ModuleContent | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(moduleId !== undefined);
 
-  const moduleProgress = getModuleProgress(moduleId);
+  const moduleProgress = moduleId !== undefined ? getModuleProgress(moduleId) : undefined;
 
   // Track screen view for analytics (FEAT-137)
   useFocusEffect(
     useCallback(() => {
       trackScreenView('ModuleDetailScreen');
-      trackLearnContentViewed(moduleId);
+      if (moduleId !== undefined) {
+        trackLearnContentViewed(moduleId);
+      }
     }, [trackScreenView, trackLearnContentViewed, moduleId])
   );
 
   // Load module content on mount
   useEffect(() => {
+    if (moduleId === undefined) {
+      return;
+    }
+
     const loadContent = async () => {
       try {
         setLoading(true);
@@ -103,7 +115,7 @@ const ModuleDetailScreen: React.FC = () => {
   };
 
   const renderTabContent = () => {
-    if (!moduleContent) return null;
+    if (!moduleContent || moduleId === undefined) return null;
 
     switch (activeTab) {
       case 'overview':
@@ -115,7 +127,7 @@ const ModuleDetailScreen: React.FC = () => {
     }
   };
 
-  if (loading) {
+  if (loading && moduleId !== undefined) {
     return (
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.loadingContainer}>
@@ -126,7 +138,7 @@ const ModuleDetailScreen: React.FC = () => {
     );
   }
 
-  if (!moduleContent) {
+  if (!moduleContent || moduleId === undefined) {
     return (
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.errorContainer}>
