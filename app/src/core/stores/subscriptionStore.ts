@@ -130,6 +130,7 @@ import { logSystem, logPerformance, logError, LogCategory } from '@/core/service
 // IAPService from having to mirror every export the store destructures.
 import { appleTransactionIdentityFrom } from '@/core/services/subscription/appleTransactionIdentity';
 import { intervalFromProductId } from '@/core/services/subscription/subscriptionProductInterval';
+import { ReceiptVerificationUnavailableError } from '@/core/services/subscription/receiptVerificationUnavailable';
 const logger = {
   info: (message: string, meta?: Record<string, unknown>) => {
     logSystem(`[Subscription] ${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`);
@@ -378,6 +379,12 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       );
 
       if (!verification.valid) {
+        // DEBUG-715: no session or no client means the receipt was never judged.
+        // Thrown as its own type so logs tell it from an invalid receipt; either
+        // way the transaction stays unfinished and the platform offers it again.
+        if (verification.reason) {
+          throw new ReceiptVerificationUnavailableError(verification.reason);
+        }
         throw new Error(verification.error || 'Receipt verification failed');
       }
 

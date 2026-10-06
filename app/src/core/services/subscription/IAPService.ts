@@ -18,14 +18,12 @@
  * - PCI DSS: N/A — Apple/Google handle payment data.
  * - We never send userId in the request body; the Edge Functions read
  *   identity from the request's JWT (`auth.uid()`).
- *   ⚠️ KNOWN GAP (INFRA-232 → tracked in INFRA-260): the client does NOT yet
- *   establish a per-user Supabase session — it runs with `persistSession`
- *   disabled and never calls `signInAnonymously`, so `functions.invoke`
- *   attaches only the anon publishable key. `auth.uid()` is therefore the
- *   shared anon role (or null), NOT a per-user principal — so receipt
- *   verification is not yet bound to a verified identity and the previous
- *   "Closes SEC-VERIFY-RECEIPT-ANON" claim does not hold. Establishing the
- *   anon session + auth.uid()-based RLS + receipt-replay binding is INFRA-260.
+ * - Identity (INFRA-260, DEBUG-715): that JWT belongs to the device's anonymous
+ *   Supabase session, persisted in expo-secure-store. verifyReceipt acquires it
+ *   through supabaseService.getAuthenticatedClient({ mint: true }), which restores
+ *   a persisted session or, for a real transaction only, creates one (founder
+ *   ruling 2026-10-04). Nothing else here — init, product listing, the paywall,
+ *   a restore that finds no purchases — acquires or creates a session.
  * - Persisted subscription metadata (incl. receipt strings) goes to
  *   expo-secure-store with AES-256 backing. Only fields with a verification
  *   need are propagated to the store — see `augmentPurchase` for the
@@ -53,6 +51,7 @@ import { Platform } from 'react-native';
 import { supabaseService } from '../supabase/SupabaseService';
 import { logSystem, logPerformance } from '@/core/services/logging';
 import type { AppleTransactionIdentity } from './appleTransactionIdentity';
+import type { ReceiptVerificationUnavailableReason } from './receiptVerificationUnavailable';
 import { intervalFromProductId } from './subscriptionProductInterval';
 
 // Re-exported so existing importers of this module keep working. New consumers should
@@ -465,6 +464,8 @@ class IAPServiceClass {
     subscriptionId?: string | undefined;
     expiresDate?: number | undefined;
     error?: string | undefined;
+    /** DEBUG-715: set only when the receipt could not be judged at all (no session / no client). */
+    reason?: ReceiptVerificationUnavailableReason | undefined;
   }> {
     try {
       logSystem(`[IAP] Verifying receipt: platform=${platform} mockMode=${this.mockMode}`);
@@ -495,24 +496,27 @@ class IAPServiceClass {
         };
       }
 
-      // We use functions.invoke() so that whatever auth token the Supabase
-      // client holds is auto-attached as the Bearer token, and the Edge
-      // Function reads identity from the JWT (auth.uid()) rather than trusting
-      // a userId from the body.
-      // ⚠️ KNOWN GAP (INFRA-232 → INFRA-260): no per-user session is
-      // established yet (no signInAnonymously; persistSession off), so the
-      // attached token is the anon publishable key and auth.uid() is the
-      // shared anon role, not a verified per-user principal. The status.userId
-      // guard below is a device-derived id, NOT auth.uid(). Binding the
-      // receipt to a verified identity is tracked in INFRA-260.
-      const status = supabaseService.getStatus();
-      if (!status.userId) {
-        throw new Error('User not authenticated');
+      // functions.invoke() auto-attaches the session JWT, and the Edge Function
+      // reads identity from it (auth.uid()) rather than trusting a userId from
+      // the body.
+      //
+      // DEBUG-715: acquire that session here, on the real path only. The old
+      // guards read getStatus().userId / getClient(), which exist only after a
+      // crisis flush or a Cloud Backup visit — so verification failed for every
+      // other user. mint:true may create the anonymous identity: this is a
+      // user-initiated purchase or restore of a real transaction (founder
+      // ruling 2026-10-04). Failure is returned, never thrown, with a reason the
+      // store keeps distinct from an invalid receipt.
+      const session = await supabaseService.getAuthenticatedClient({ mint: true });
+      if (!session.ok) {
+        logSystem(`[IAP] Receipt not verified yet: ${session.reason}`);
+        return {
+          valid: false,
+          reason: session.reason,
+          error: `Purchase not verified yet (${session.reason})`,
+        };
       }
-      const client = supabaseService.getClient();
-      if (!client) {
-        throw new Error('Supabase client not initialized');
-      }
+      const { client } = session;
 
       const startTime = performance.now();
 

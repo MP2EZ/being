@@ -41,11 +41,16 @@ jest.mock('react-native-iap', () => {
   };
 });
 
-// Mock SupabaseService. We expose a getClient() returning a stub whose
-// functions.invoke is a jest.fn — tests assert against that.
+// Mock SupabaseService. getAuthenticatedClient() (DEBUG-715) hands back a stub client
+// whose functions.invoke is a jest.fn — tests assert against that.
 const mockInvoke = jest.fn();
 jest.mock('../../supabase/SupabaseService', () => ({
   supabaseService: {
+    getAuthenticatedClient: jest.fn(async () => ({
+      ok: true,
+      client: { functions: { invoke: mockInvoke } },
+      userId: 'test-user-id',
+    })),
     getStatus: jest.fn(() => ({
       isInitialized: true,
       userId: 'test-user-id',
@@ -345,15 +350,59 @@ describe('IAPService - Receipt Verification', () => {
     console.log('✅ ERROR HANDLING VERIFIED: invoke errors handled gracefully');
   });
 
-  it('Receipt verification rejects when client is uninitialized', async () => {
-    const service = IAPService;
-    const { supabaseService } = jest.requireMock('../../supabase/SupabaseService') as { supabaseService: { getClient: jest.Mock } };
-    supabaseService.getClient.mockReturnValueOnce(null);
+  // DEBUG-715: the real path acquires its own session instead of reading getStatus() /
+  // getClient(), which are null for every user who never had a crisis flush or opened
+  // Cloud Backup.
+  it.each(['no_session', 'client_unavailable'] as const)(
+    'Receipt verification acquires a session with mint:true; %s is valid:false with that reason, no invoke, no throw',
+    async (reason) => {
+      const { supabaseService } = jest.requireMock('../../supabase/SupabaseService') as {
+        supabaseService: Record<string, jest.Mock>;
+      };
+      supabaseService['getAuthenticatedClient']!.mockResolvedValueOnce({ ok: false, reason });
 
-    const result = await service.verifyReceipt('base64-receipt', 'apple');
+      const result = await IAPService.verifyReceipt('base64-receipt', 'apple', undefined, {
+        transactionId: '2000000847061713',
+      });
 
-    expect(result.valid).toBe(false);
-    expect(result.error).toContain('not initialized');
+      expect(supabaseService['getAuthenticatedClient']).toHaveBeenCalledTimes(1);
+      expect(supabaseService['getAuthenticatedClient']).toHaveBeenCalledWith({ mint: true });
+      expect(result.valid).toBe(false);
+      expect(result.reason).toBe(reason);
+      expect(result.error).toEqual(expect.any(String));
+      expect(result.error).not.toMatch(/payment/i);
+      expect(mockInvoke).not.toHaveBeenCalled();
+      expect(supabaseService['getStatus']).not.toHaveBeenCalled();
+      expect(supabaseService['getClient']).not.toHaveBeenCalled();
+    }
+  );
+
+  it('Receipt verification invokes on the client the acquisition returned', async () => {
+    const { supabaseService } = jest.requireMock('../../supabase/SupabaseService') as {
+      supabaseService: Record<string, jest.Mock>;
+    };
+    const acquiredInvoke = jest.fn().mockResolvedValue({ data: { valid: true }, error: null });
+    supabaseService['getAuthenticatedClient']!.mockResolvedValueOnce({
+      ok: true,
+      client: { functions: { invoke: acquiredInvoke } },
+      userId: 'acquired-uid',
+    });
+
+    const result = await IAPService.verifyReceipt('base64-receipt', 'apple');
+
+    expect(result.valid).toBe(true);
+    expect(acquiredInvoke).toHaveBeenCalledWith('verify-apple-receipt', expect.anything());
+  });
+
+  it('a mock receipt never acquires a session', async () => {
+    const { supabaseService } = jest.requireMock('../../supabase/SupabaseService') as {
+      supabaseService: Record<string, jest.Mock>;
+    };
+
+    const result = await IAPService.verifyReceipt('mock_receipt_monthly_1', 'apple');
+
+    expect(result.valid).toBe(true);
+    expect(supabaseService['getAuthenticatedClient']).not.toHaveBeenCalled();
   });
 
   // TEST-06 audit: expand error matrix beyond happy path. The Edge Function
@@ -564,6 +613,11 @@ describe('IAPService - Restore Purchases', () => {
     const purchases = await service.restorePurchases();
 
     expect(purchases).toHaveLength(0);
+    // DEBUG-715: neither init, product listing nor a zero-purchase restore acquires a session.
+    const { supabaseService } = jest.requireMock('../../supabase/SupabaseService') as {
+      supabaseService: Record<string, jest.Mock>;
+    };
+    expect(supabaseService['getAuthenticatedClient']).not.toHaveBeenCalled();
 
     console.log('✅ RESTORE PURCHASES VERIFIED: Empty result handled correctly');
   });
