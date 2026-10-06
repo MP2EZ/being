@@ -45,6 +45,12 @@ jest.mock('expo-secure-store');
 const mockInvoke = jest.fn();
 jest.mock('../../supabase/SupabaseService', () => ({
   supabaseService: {
+    // DEBUG-715: receipt verification acquires its client here.
+    getAuthenticatedClient: jest.fn(async () => ({
+      ok: true,
+      client: { functions: { invoke: mockInvoke } },
+      userId: 'test-user-id',
+    })),
     getStatus: jest.fn(() => ({
       isInitialized: true,
       userId: 'test-user-id',

@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.14
+**Version:** 1.15
 **Effective Date:** December 12, 2025
-**Last Updated:** September 23, 2026
+**Last Updated:** October 5, 2026
 
 ---
 
@@ -87,7 +87,9 @@ We use your information solely to provide and improve the Being app:
 
 All your mental health data is stored locally on your device by default. We use AES-256 encryption to protect your data at rest.
 
-To keep any data that does reach our servers (optional settings backup; the PII-free crisis-detection event described in §3) isolated to you and to you alone, the app creates — at startup — an **anonymous account identifier** with our database provider (Supabase). This identifier is a randomly generated value — it contains **no** email address, name, phone number, or other personal information, and you are never asked to sign in. It exists only to enforce that one device's data cannot be read by another. It is removed when you delete your account or data (§7.4).
+To keep any data that does reach our servers isolated to you and to you alone, the app creates an **anonymous account identifier** with our database provider (Supabase). It is not created at startup: it is created the first time one is needed — when a crisis-detection event (§3) is recorded, when you use the optional settings backup (§4.2), or when you make or restore a purchase. This identifier is a randomly generated value — it contains **no** email address, name, phone number, or other personal information, and you are never asked to sign in. It exists only to enforce that one device's data cannot be read by another. It is removed when you delete your account or data (§7.4).
+
+**Purchases.** When you make or restore a purchase, the app sends the transaction identifier Apple or Google issued for it (on Android, the purchase token) to our servers, so we can confirm the purchase with the store. We store that identifier against your anonymous account identifier, together with your subscription's plan, status and dates and an encrypted copy of the store's signed transaction record, so the subscription is tied to you and cannot be claimed from another device's account. None of this is wellness data. It is deleted with your account (§7.4).
 
 ### 4.2 Optional Settings Backup
 
@@ -292,6 +294,8 @@ Being is based in the United States. If you access our Services from outside the
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 **Recent revisions**
+
+- **v1.15 (October 5, 2026):** Correction and addition to §4.1. §4.1 said the anonymous account identifier is created at startup, and named only the settings backup and the crisis-detection event as data tied to it. It is not created at startup: it is created the first time it is needed, and making or restoring a purchase is now one of those occasions, alongside a crisis-detection event and the optional settings backup. §4.1 now also discloses what purchase verification sends and keeps: the store's transaction identifier for the purchase, sent to our servers and stored against your anonymous account identifier with your subscription's plan, status and dates and an encrypted copy of the store's signed transaction record. No wellness data is involved, and it is deleted with your account as §7.4 already described for subscription records.
 
 - **v1.14 (September 23, 2026):** Correction. §4.3 listed "Regular security audits and penetration testing" and "Limited employee access to encrypted data" among our security measures. Being has never had a security audit or a penetration test, so the first line described a practice that has not happened; and Being is operated by its founder alone, so the second implied a staff access-control programme that does not exist. They are replaced with what Being actually does, automated dependency vulnerability scanning and automated safety and privacy test suites enforced in continuous integration on every code change, and with a plain statement that no employees or staff access user data. This narrows what §4.3 claims and nothing else: what Being collects, keeps and shares is unchanged, and AES-256 encryption at rest, TLS 1.2+ encryption in transit and the Data Protection Impact Assessment are unaffected. Because the correction narrows a claim rather than changing what we collect, it is published with the next app release rather than separately.
 
