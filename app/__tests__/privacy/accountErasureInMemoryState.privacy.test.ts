@@ -480,7 +480,10 @@ describe('what erasure must not reset', () => {
     expect(mockSecure.has(ACCOUNT_DELETION_ATTESTATION_KEY)).toBe(true);
   });
 
-  it('registers exactly the four in-memory owners', () => {
+  // The four STORE owners only. This suite mocks SupabaseService, so its
+  // registration ('supabaseService', DEBUG-698) never runs here; that owner is
+  // pinned against the real module in offlineQueueErasure.privacy.test.ts.
+  it('registers exactly the four in-memory store owners', () => {
     expect(registeredErasureResetOwners().sort()).toEqual([
       'assessmentStore',
       'educationStore',
