@@ -142,6 +142,16 @@ describe('PREFIX COLLISION GUARD — encrypted crisis data must survive', () => 
     expect(after).toContain('user_preferences');
     expect(after).toContain('crisis_analytics_queue');
   });
+
+  it('does NOT sweep the live config-backup retry queue at launch (DEBUG-698)', async () => {
+    // Swept at erasure (SWEPT_EXACT_KEYS), never at launch: it must survive
+    // ordinary restarts so a failed backup can retry.
+    mockMemoryStore.set('@being/supabase/offline_queue', '[{"operation":"saveBackup"}]');
+
+    await sweepLegacyPlaintextRecords();
+
+    expect(await AsyncStorage.getAllKeys()).toContain('@being/supabase/offline_queue');
+  });
 });
 
 describe('safe to run at app launch', () => {
