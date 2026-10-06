@@ -110,7 +110,7 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     'SupabaseService.queueOfflineOperation › AsyncStorage.setItem': [
       1,
       `${NOT_WELLNESS} — encrypted config-backup retry`,
-      'unverified: a pre-MAINT-117 queue on an old install could still hold a full-state blob',
+      'unverified: a pre-MAINT-117 queue on an old install could still hold a full-state blob; the key is swept at erasure (DEBUG-698: SWEPT_EXACT_KEYS + in-memory reset)',
     ],
     'SupabaseService.processOfflineQueue › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — encrypted config-backup retry`],
     'SupabaseService.cleanup › AsyncStorage.setItem': [1, DORMANT],

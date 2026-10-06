@@ -43,6 +43,7 @@ import {
 } from './secureStoreSessionAdapter';
 import { env } from '@/core/config/env';
 import { useConsentStore } from '@/core/stores/consentStore';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
 
 // Environment configuration
 const SUPABASE_URL = env.EXPO_PUBLIC_SUPABASE_URL;
@@ -1325,6 +1326,19 @@ class SupabaseService {
   }
 
   /**
+   * DEBUG-698 — drop the in-memory backup retry queue at account erasure.
+   *
+   * The erasure sweep removes `@being/supabase/offline_queue` (SWEPT_EXACT_KEYS), but
+   * `queueOfflineOperation`, `processOfflineQueue` and `cleanup` each re-serialise this
+   * whole array to that key, so the next one would restore every pre-erasure op. This
+   * and the list entry land and stay together. Synchronous, no I/O, and touches
+   * nothing else: the crisis queue's erasure is `teardownErasedSession`'s, not this.
+   */
+  resetOfflineQueueForErasure(): void {
+    this.offlineQueue = [];
+  }
+
+  /**
    * Process offline queue when connectivity is restored
    */
   async processOfflineQueue(): Promise<void> {
@@ -1644,4 +1658,8 @@ class SupabaseService {
 
 // Export singleton instance
 export const supabaseService = new SupabaseService();
+
+// DEBUG-698: also covers deleteAccount()'s no-account early return, which tears nothing down.
+registerErasureReset('supabaseService', () => supabaseService.resetOfflineQueueForErasure());
+
 export default supabaseService;

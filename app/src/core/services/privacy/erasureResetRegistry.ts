@@ -12,7 +12,8 @@
  * construction, not a gap.
  *
  * Owners registered today: stoicPracticeStore, assessmentStore, educationStore,
- * subscriptionStore and syncCoordinator (DEBUG-697).
+ * subscriptionStore, syncCoordinator (DEBUG-697) and supabaseService (DEBUG-698 —
+ * its backup retry queue; the key's sweep entry is inert without this reset).
  * Audited and NOT registered: consentStore (it holds the erasure-excluded consent
  * record, and `resetConsent` deletes excluded keys), the journal (no in-memory
  * cache — every read goes to storage) and SessionStorageService (stateless; its

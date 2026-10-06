@@ -183,6 +183,7 @@ jest.mock('@/core/services/privacy/exportArtifactSweeper', () => ({
 }));
 jest.mock('@/core/services/privacy/erasureResetRegistry', () => ({
   resetInMemoryStateForErasure: jest.fn(async () => []),
+  registerErasureReset: jest.fn(),
 }));
 
 import * as SecureStore from 'expo-secure-store';
