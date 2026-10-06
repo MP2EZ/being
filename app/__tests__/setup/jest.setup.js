@@ -131,14 +131,6 @@ global.performance = global.performance || {
   measure: () => {}
 };
 
-// Clinical safety test utilities
-global.CLINICAL_SAFETY = {
-  PHQ9_CRISIS_THRESHOLD: 20,
-  GAD7_CRISIS_THRESHOLD: 15,
-  CRISIS_RESPONSE_TIME_MS: 3000,
-  EMERGENCY_NUMBER: '988'
-};
-
 // Test performance tracking
 // MEMORY FIX (DEBUG-48): Limited results array to prevent unbounded growth
 const MAX_PERFORMANCE_RESULTS = 100;

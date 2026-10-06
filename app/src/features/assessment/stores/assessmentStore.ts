@@ -271,7 +271,7 @@ export class ClinicalScoringService {
     return {
       totalScore,
       severity,
-      isCrisis: isCrisis || suicidalIdeation, // Crisis if score ≥20 OR suicidal ideation
+      isCrisis: isCrisis || suicidalIdeation, // Any tier: score ≥15 OR suicidal ideation
       suicidalIdeation,
       completedAt: Date.now(),
       answers: phqAnswers

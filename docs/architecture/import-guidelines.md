@@ -177,8 +177,10 @@ is where the score-path zero-false-negative contract lives. Code that decides wh
 is offered crisis support MUST import it by that exact module path. Never re-derive PHQ-9 ≥15
 support, ≥20 intervention, Q9 >0 at any total, or GAD-7 ≥15 as literals — a store's own copy
 was the DEBUG-229 bug. Never reach it through a barrel, a relative path or a re-export: it is
-one of the specifiers `/b-close`'s INFRA-531 import detector anchors on. No literal threshold
-copy outside `detectCrisis` is documented. The same rule covers crisis geometry (`@/features/crisis/constants/…`) and
+one of the specifiers `/b-close`'s INFRA-531 import detector anchors on. Every literal threshold
+comparison that remains outside `detectCrisis` is listed, with a count and a reason, in
+`ALLOWED_THRESHOLD_SITES` in `app/src/features/crisis/types/__tests__/crisis-thresholds.test.ts`
+(MAINT-712); a new one fails that guard. The same rule covers crisis geometry (`@/features/crisis/constants/…`) and
 `CrisisTextInput`: consume them by direct path, never by copying their values.
 
 ### Core → features boundary (lint-enforced, MAINT-659)

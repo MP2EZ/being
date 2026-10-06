@@ -5,7 +5,8 @@
  * SAFETY CRITICAL:
  * - PHQ-9: 9 questions, 0-3 response range, 0-27 total score
  * - GAD-7: 7 questions, 0-3 response range, 0-21 total score
- * - Crisis thresholds: PHQ-9 ≥15 (support), ≥20 (intervention), GAD-7 ≥15
+ * - isCrisis is shape-checked only. Crisis classification is detectCrisis()'s
+ *   alone; MAINT-712 removed the refines that re-derived it from thresholds.
  * - 100% accuracy required for clinical validity
  *
  * @see validation.ts for runtime validation utilities
@@ -14,7 +15,6 @@
 
 import { z } from 'zod';
 import { PHQ9_SCORING_CONFIG, GAD7_SCORING_CONFIG } from './scoring';
-import { CRISIS_THRESHOLDS } from './index';
 
 // =============================================================================
 // BASE SCHEMAS
@@ -172,15 +172,6 @@ export const PHQ9ResultSchema = z
   )
   .refine(
     (result) => {
-      // Validate crisis detection
-      const expectedCrisis =
-        result.totalScore >= CRISIS_THRESHOLDS.PHQ9_CRISIS_SCORE || result.suicidalIdeation;
-      return result.isCrisis === expectedCrisis;
-    },
-    { message: 'Crisis flag does not match score threshold or suicidal ideation (CRITICAL)' }
-  )
-  .refine(
-    (result) => {
       // Validate score matches sum of answers
       const calculatedScore = result.answers.reduce((sum, a) => sum + a.response, 0);
       return result.totalScore === calculatedScore;
@@ -284,14 +275,6 @@ export const GAD7ResultSchema = z
       return severity === 'minimal';
     },
     { message: 'GAD-7 severity does not match score (clinical accuracy violation)' }
-  )
-  .refine(
-    (result) => {
-      // Validate crisis detection
-      const expectedCrisis = result.totalScore >= CRISIS_THRESHOLDS.GAD7_CRISIS_SCORE;
-      return result.isCrisis === expectedCrisis;
-    },
-    { message: 'Crisis flag does not match score threshold (CRITICAL)' }
   )
   .refine(
     (result) => {
