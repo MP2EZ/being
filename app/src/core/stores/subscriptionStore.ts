@@ -360,17 +360,21 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
         transactionReceipt?: string;
         purchaseToken?: string;
         orderId?: string;
+        productId?: string;
       };
       const receiptData = p.transactionReceipt || '';
       const purchaseToken = p.purchaseToken;
 
       logger.info('Verifying receipt', { platform, hasReceipt: !!receiptData });
 
+      // productId rides in its own argument, never in receiptData: on Android
+      // receiptData is '' and is persisted below as the record's receipt (DEBUG-713).
       const verification = await IAPService.verifyReceipt(
         receiptData,
         platform,
         purchaseToken,
-        appleTransactionIdentityFrom(purchase)
+        appleTransactionIdentityFrom(purchase),
+        p.productId
       );
 
       if (!verification.valid) {

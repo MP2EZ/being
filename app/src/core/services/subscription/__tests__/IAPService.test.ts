@@ -287,7 +287,8 @@ describe('IAPService - Receipt Verification', () => {
       error: null,
     });
 
-    const result = await service.verifyReceipt('subscription_monthly', 'google', 'purchase-token-123');
+    // DEBUG-713: the product id is its own argument; receiptData is '' on Android.
+    const result = await service.verifyReceipt('', 'google', 'purchase-token-123', undefined, 'subscription_monthly');
 
     expect(mockInvoke).toHaveBeenCalledWith(
       'verify-google-receipt',
