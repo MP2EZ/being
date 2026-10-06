@@ -119,17 +119,6 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     'CloudBackupService.createBackup › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — backup metadata {timestamp, hash, size}`],
     'CloudBackupService.saveConfig › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — backup config`],
   },
-  'src/core/services/supabase/SyncCoordinator.ts': {
-    'SyncCoordinator.logCrisisAssessment › AsyncStorage.setItem': [
-      1,
-      DORMANT,
-      'raw PHQ/GAD scores to PLAINTEXT AsyncStorage — not the crisis-telemetry lane. SyncCoordinator.initialize() has no production caller.',
-    ],
-    'SyncCoordinator.persistQueue › AsyncStorage.setItem': [1, DORMANT, 'sync bookkeeping today (data: {})'],
-    'SyncCoordinator.persistSyncQueue › AsyncStorage.setItem': [1, DORMANT],
-    'SyncCoordinator.persistSyncState › AsyncStorage.setItem': [1, DORMANT],
-    'SyncCoordinator.updateSyncMetadata › AsyncStorage.setItem': [1, DORMANT, 'sync counters today'],
-  },
   'src/core/services/data-retention/DataRetentionService.ts': {
     'DataRetentionServiceImpl.cleanupAssessmentData › setItemAsync': [
       1,

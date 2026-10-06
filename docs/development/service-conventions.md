@@ -74,7 +74,7 @@ Use sparingly — expect 0-2 usages across the entire codebase.
 **Why:** The interval guards above (INFRA-144/175/177) solved the *timer-leak* family of flakes — Jest no longer hangs. But the *state pollution* family persists because the `private static instance` survives across Jest test files within the same worker. Default-export evaluations (`export default X.getInstance()`) capture the reference at import time; any test that grabbed the reference before another test reset it sees stale state. Symptoms encountered:
 
 - `CrisisSecurityProtocol not initialized` (CI's Security + compliance job, observed repeatedly post-INFRA-175; that service is deleted — retained as the observed symptom)
-- `SyncCoordinator.lastSyncTime` carrying timestamps from a prior test (MAINT-188 PR 5 Group C)
+- `SyncCoordinator.lastSyncTime` carrying timestamps from a prior test (MAINT-188 PR 5 Group C; that service is deleted (MAINT-702) — retained as the observed symptom)
 - `crisis-intervention-safety` perf flake (MAINT-188 PR 8)
 
 All three trace to the same root: surviving singleton state, not surviving timers.
