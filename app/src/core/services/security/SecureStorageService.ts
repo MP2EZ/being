@@ -112,8 +112,18 @@ export const SECURE_STORAGE_CONFIG = {
    * provides none. The regression pin for the write-back specifically is
    * `storageMetadataIndexErasure.privacy.test.ts` → "does not COME BACK".
    *
-   * Note the two entries fail differently, which is why one comment cannot serve
-   * both: `crisis_analytics_queue` is a passive buffer that nothing rewrites
+   * 🔴 `@being/supabase/offline_queue` (DEBUG-698) IS INERT WITHOUT
+   * SupabaseService's registered erasure reset (`resetOfflineQueueForErasure`,
+   * via `erasureResetRegistry`). It is the config-backup retry buffer — its
+   * payloads are CloudBackupService ciphertext under the master key, so this is
+   * residue hygiene, not plaintext — and it is NOT passive: `queueOfflineOperation`,
+   * `processOfflineQueue` and `cleanup` each re-serialise the whole in-memory
+   * queue, so the key alone is restored by the next of them. Membership and the
+   * reset land and stay together. Pin: `offlineQueueErasure.privacy.test.ts`. Live,
+   * so it is not swept at launch (it must survive restarts to retry).
+   *
+   * Note the entries fail differently, which is why one comment cannot serve
+   * them all: `crisis_analytics_queue` is a passive buffer that nothing rewrites
    * after erasure, so for IT the list membership genuinely is the whole control.
    *
    * DEBUG-539 — do NOT add PostHog's residuals here. `.posthog-rn.json` and
@@ -131,6 +141,7 @@ export const SECURE_STORAGE_CONFIG = {
   SWEPT_EXACT_KEYS: [
     '@being/supabase/crisis_analytics_queue',
     STORAGE_METADATA_INDEX_KEY,
+    '@being/supabase/offline_queue',
   ] as readonly string[],
 
   /** Storage limits */

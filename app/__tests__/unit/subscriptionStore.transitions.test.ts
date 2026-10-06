@@ -21,6 +21,7 @@
  */
 
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
+import { ReceiptVerificationUnavailableError } from '@/core/services/subscription/receiptVerificationUnavailable';
 import * as SecureStore from 'expo-secure-store';
 import {
   calculateFeatureAccess,
@@ -282,6 +283,40 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       ).rejects.toThrow('bad receipt');
       // The finally block must clear the verifying flag.
       expect(useSubscriptionStore.getState().isVerifyingReceipt).toBe(false);
+    });
+
+    // DEBUG-715: "could not verify yet" must stay distinguishable from "receipt invalid" in
+    // the logs, must leave the transaction unfinished so the platform re-emits it, and its
+    // message must never claim the payment failed — the payment did not fail.
+    it.each(['no_session', 'client_unavailable'] as const)(
+      'processVerifiedPurchase throws ReceiptVerificationUnavailableError for %s and leaves the transaction unfinished',
+      async (reason) => {
+        mockIAP.verifyReceipt.mockResolvedValue({ valid: false, reason, error: `could not verify: ${reason}` });
+
+        const thrown = await useSubscriptionStore
+          .getState()
+          .processVerifiedPurchase({ transactionReceipt: 'r', orderId: 'o' }, 'monthly')
+          .then(() => null, (e: unknown) => e);
+
+        expect(thrown).toBeInstanceOf(ReceiptVerificationUnavailableError);
+        expect((thrown as ReceiptVerificationUnavailableError).reason).toBe(reason);
+        expect((thrown as Error).message).not.toMatch(/payment/i);
+        expect(mockIAP.finishTransaction).not.toHaveBeenCalled();
+        expect(mockSecureStore.setItemAsync).not.toHaveBeenCalled();
+        expect(useSubscriptionStore.getState().subscription).toBeNull();
+        expect(useSubscriptionStore.getState().isVerifyingReceipt).toBe(false);
+      }
+    );
+
+    it('an invalid receipt is NOT the unavailable error', async () => {
+      mockIAP.verifyReceipt.mockResolvedValue({ valid: false, error: 'bad receipt' });
+
+      const attempt = useSubscriptionStore
+        .getState()
+        .processVerifiedPurchase({ transactionReceipt: 'r', orderId: 'o' }, 'monthly');
+
+      await expect(attempt).rejects.toThrow('bad receipt');
+      await expect(attempt).rejects.not.toBeInstanceOf(ReceiptVerificationUnavailableError);
     });
 
     it('processVerifiedPurchase throws the literal platform error when IAP is unavailable', async () => {

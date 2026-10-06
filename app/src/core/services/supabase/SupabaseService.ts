@@ -43,6 +43,7 @@ import {
 } from './secureStoreSessionAdapter';
 import { env } from '@/core/config/env';
 import { useConsentStore } from '@/core/stores/consentStore';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
 
 // Environment configuration
 const SUPABASE_URL = env.EXPO_PUBLIC_SUPABASE_URL;
@@ -177,6 +178,10 @@ interface AnalyticsEvent {
   created_at?: string;
 }
 
+export type AuthenticatedClientResult =
+  | { ok: true; client: SupabaseClient; userId: string }
+  | { ok: false; reason: 'client_unavailable' | 'no_session' };
+
 // Service configuration
 interface SupabaseServiceConfig {
   circuitBreaker: CircuitBreakerConfig;
@@ -307,6 +312,8 @@ class SupabaseService {
    * `pending` under an older epoch must not truncate the queue on success: every
    * entry now in it was enqueued after the erasure, for the fresh identity, and
    * `slice(pending.length)` would silently drop them.
+   *
+   * DEBUG-715: also the erasure marker a mint checks before assigning `userId`.
    */
   private crisisQueueEpoch = 0;
   /**
@@ -331,6 +338,21 @@ class SupabaseService {
    * AND discards events enqueued during a concurrent flight.
    */
   private crisisFlushInFlight: Promise<void> | null = null;
+  /**
+   * DEBUG-715: single-flight for every anonymous-session mint made AFTER construction —
+   * the crisis flush's `!userId` fallback and getAuthenticatedClient(). `null` means idle.
+   *
+   * auth-js `signInAnonymously` takes no lock, so two lanes that each find no session
+   * both reach /signup: two accounts, `userId` set to whichever answers last, the crisis
+   * rows and a purchase bound to different identities. Every such mint joins this one.
+   */
+  private sessionMintInFlight: Promise<void> | null = null;
+  /**
+   * DEBUG-715: deleteAccount() calls in progress. While non-zero, getAuthenticatedClient()
+   * never mints and answers `no_session` — a purchase must not create, or bind to, the
+   * identity being erased.
+   */
+  private deletionsInFlight = 0;
   private sessionId: string;
   /** INFRA-568 — last instant `session_id` was WRITTEN, driving the idle clause. */
   private lastSessionUseMs: number = Date.now();
@@ -552,8 +574,17 @@ class SupabaseService {
    *
    * DEBUG-704: `mint: false` (deletion only) skips `signInAnonymously`, leaving `userId`
    * null when nothing could be restored.
+   *
+   * DEBUG-715: `epoch` is the `crisisQueueEpoch` the caller captured before this await. If
+   * an erasure bumped it meanwhile, the result is discarded and `userId` is left alone: a
+   * session read before the Keychain removal is the ERASED identity, and assigning it
+   * would resurrect it.
    */
-  private async ensureAnonymousSession({ mint = true }: { mint?: boolean } = {}): Promise<void> {
+  private async ensureAnonymousSession({
+    mint = true,
+    epoch,
+  }: { mint?: boolean; epoch?: number } = {}): Promise<void> {
+    const erasedMeanwhile = () => epoch !== undefined && epoch !== this.crisisQueueEpoch;
     try {
       const { data: existing } = await this.client!.auth.getSession();
       let user = existing.session?.user ?? null;
@@ -564,17 +595,57 @@ class SupabaseService {
         user = data.user ?? null;
       }
 
+      if (erasedMeanwhile()) {
+        logSecurity('[SupabaseService] Session result discarded: account erased while it was in flight', 'medium');
+        return;
+      }
       this.userId = user?.id ?? null;
       if (this.userId) {
         logSecurity('[SupabaseService] Anonymous session established', 'low');
       }
     } catch (error) {
       // Non-fatal: degrade to offline queues; a later flush retries the session.
-      this.userId = null;
+      if (!erasedMeanwhile()) this.userId = null;
       logSecurity('[SupabaseService] Anonymous session not yet established (will retry)', 'medium', {
         error: error instanceof Error ? error.message : String(error),
       });
     }
+  }
+
+  /**
+   * DEBUG-715 — mint an anonymous session through the one shared single-flight.
+   *
+   * Callers re-check `this.userId` after the await; this never rejects.
+   *
+   * A construction still in flight is joined first: ensureClient() assigns `this.client`
+   * BEFORE it establishes the session, so a later ensureClient() caller returns early with
+   * `userId` still null while that construction may itself be minting. Without the join,
+   * that caller would mint a second account beside it.
+   *
+   * The epoch is captured before the mint await (see ensureAnonymousSession).
+   */
+  private mintSessionOnce(): Promise<void> {
+    if (this.sessionMintInFlight) return this.sessionMintInFlight;
+
+    const flight = (async () => {
+      const constructing = this.clientInitPromise;
+      if (constructing) {
+        try {
+          await constructing;
+        } catch {
+          // A failed construction leaves no client; the check below handles it.
+        }
+      }
+      if (this.userId || !this.client) return;
+      await this.ensureAnonymousSession({ mint: true, epoch: this.crisisQueueEpoch });
+    })();
+
+    this.sessionMintInFlight = flight;
+    const clear = () => {
+      if (this.sessionMintInFlight === flight) this.sessionMintInFlight = null;
+    };
+    flight.then(clear, clear);
+    return flight;
   }
 
   /**
@@ -1131,8 +1202,11 @@ class SupabaseService {
       // (fire-and-forget), never blocking detection. Still no session → retain &
       // retry later (AppState-active / next flush); the durable queue means the
       // event is never dropped.
+      //
+      // DEBUG-715: through the shared mint single-flight, so a concurrent purchase
+      // verification cannot mint a second identity beside this one.
       if (!this.userId) {
-        await this.ensureAnonymousSession();
+        await this.mintSessionOnce();
         if (!this.userId) return;
       }
 
@@ -1325,6 +1399,19 @@ class SupabaseService {
   }
 
   /**
+   * DEBUG-698 — drop the in-memory backup retry queue at account erasure.
+   *
+   * The erasure sweep removes `@being/supabase/offline_queue` (SWEPT_EXACT_KEYS), but
+   * `queueOfflineOperation`, `processOfflineQueue` and `cleanup` each re-serialise this
+   * whole array to that key, so the next one would restore every pre-erasure op. This
+   * and the list entry land and stay together. Synchronous, no I/O, and touches
+   * nothing else: the crisis queue's erasure is `teardownErasedSession`'s, not this.
+   */
+  resetOfflineQueueForErasure(): void {
+    this.offlineQueue = [];
+  }
+
+  /**
    * Process offline queue when connectivity is restored
    */
   async processOfflineQueue(): Promise<void> {
@@ -1419,6 +1506,49 @@ class SupabaseService {
   }
 
   /**
+   * DEBUG-715 — a client that carries a per-user session, for a caller that must act AS
+   * the user (receipt verification), without bringing up anything else.
+   *
+   * Why it exists: `getClient()` returns null unless something else already built the
+   * client, and that happens only on a crisis flush or a Cloud Backup visit — so receipt
+   * verification failed for every other user (the old guard read `getStatus().userId`,
+   * set by the same two paths).
+   *
+   * What it does: ensureClient({ mint }) — the one createClient site, single-flight
+   * (DEBUG-409) — then, if no session was restored and `mint` is true, mints one through
+   * the shared mint single-flight. Founder ruling 2026-10-04: a user-initiated purchase or
+   * restore of a real transaction MAY create the anonymous identity. Only receipt
+   * verification passes `mint: true`.
+   *
+   * What it never does: set `isInitialized`, start the analytics timer, load the offline
+   * or crisis queues, flush, process the offline queue, start backup, read consent, or
+   * pass through executeWithResilience / the shared circuit breaker. Backup and sync stay
+   * behind MAINT-173's gate exactly as before; this provisions an identity, nothing more.
+   *
+   * During deleteAccount() it answers `no_session` and never mints (DEBUG-704: the
+   * deletion path must never create the account it is erasing). Never throws.
+   */
+  async getAuthenticatedClient({ mint }: { mint: boolean }): Promise<AuthenticatedClientResult> {
+    if (this.deletionsInFlight > 0) return { ok: false, reason: 'no_session' };
+    try {
+      await this.ensureClient({ mint });
+    } catch {
+      return { ok: false, reason: 'client_unavailable' };
+    }
+    const client = this.client;
+    if (!client) return { ok: false, reason: 'client_unavailable' };
+
+    // Also covers joining an in-flight mint:false construction, whose choice a joiner gets.
+    if (!this.userId && mint && this.deletionsInFlight === 0) {
+      await this.mintSessionOnce();
+    }
+
+    const userId = this.userId;
+    if (!userId || this.deletionsInFlight > 0) return { ok: false, reason: 'no_session' };
+    return { ok: true, client, userId };
+  }
+
+  /**
    * Data-subject right to erasure (INFRA-260 PR3; corrected DEBUG-704).
    *
    * Invokes the `delete-account` edge function, which (service-role) hard-deletes
@@ -1448,109 +1578,124 @@ class SupabaseService {
    *     erased (a retry after a timed-out-but-successful erasure). Anything else → `false`.
    *  5. On confirmation, tear the session down without waiting on the network
    *     (`teardownErasedSession`).
+   *
+   * DEBUG-715: for the whole call getAuthenticatedClient() refuses to mint, and a mint
+   * already in flight is awaited before step 1 so the probe sees the identity it creates.
    */
   async deleteAccount(): Promise<boolean> {
-    let persisted: { present: boolean; uid: string | null };
+    // DEBUG-715: for the whole call, getAuthenticatedClient() refuses to mint. A counter, not
+    // a boolean, so an overlapping second request cannot clear the first one's flag.
+    this.deletionsInFlight += 1;
     try {
-      persisted = await readPersistedSession(supabaseAuthStorageKey(SUPABASE_URL));
-    } catch (error) {
-      logSecurity('[SupabaseService] Account deletion: session probe failed — unconfirmed', 'high', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return false;
-    }
+      // DEBUG-715: a mint already in flight would otherwise land AFTER the probe below
+      // reported "no account", and the identity it creates would survive the erasure.
+      // Waiting lets the probe see it, so it is erased with the rest. Never rejects.
+      if (this.sessionMintInFlight) await this.sessionMintInFlight;
 
-    if (!persisted.present && !this.userId) {
-      // Nothing persisted and no session in memory: no server account exists to erase.
-      return true;
-    }
-    if (persisted.present && !persisted.uid) {
-      logSecurity('[SupabaseService] Account deletion: persisted session unreadable — unconfirmed', 'high');
-      return false;
-    }
-    if (persisted.uid && this.userId && persisted.uid !== this.userId) {
-      logSecurity('[SupabaseService] Account deletion: persisted and live identities differ — unconfirmed', 'high');
-      return false;
-    }
-    const expectedUid = persisted.uid ?? this.userId;
-
-    try {
-      await this.ensureClient({ mint: false });
-    } catch (error) {
-      logSecurity('[SupabaseService] Account deletion: client unavailable — unconfirmed', 'high', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return false;
-    }
-    const client = this.client;
-    if (!client) return false;
-
-    let accessToken: string;
-    try {
-      const { data, error } = await client.auth.getSession();
-      const session = data?.session ?? null;
-      if (error || !session?.access_token || session.user?.id !== expectedUid) {
-        logSecurity('[SupabaseService] Account deletion: session not verifiable — unconfirmed', 'medium', {
-          error: error ? error.message : session ? 'identity mismatch' : 'no session',
+      let persisted: { present: boolean; uid: string | null };
+      try {
+        persisted = await readPersistedSession(supabaseAuthStorageKey(SUPABASE_URL));
+      } catch (error) {
+        logSecurity('[SupabaseService] Account deletion: session probe failed — unconfirmed', 'high', {
+          error: error instanceof Error ? error.message : String(error),
         });
         return false;
       }
-      accessToken = session.access_token;
-    } catch (error) {
-      logSecurity('[SupabaseService] Account deletion: session check failed — unconfirmed', 'medium', {
-        error: error instanceof Error ? error.message : String(error),
-      });
-      return false;
-    }
 
-    // Stop the background refresher for the duration, so it cannot rotate or re-persist
-    // the session while it is being erased. Restarted below if erasure is unconfirmed.
-    try {
-      await client.auth.stopAutoRefresh();
-    } catch {
-      // Best-effort; a refresh racing the erasure fails once the user is gone.
-    }
+      if (!persisted.present && !this.userId) {
+        // Nothing persisted and no session in memory: no server account exists to erase.
+        return true;
+      }
+      if (persisted.present && !persisted.uid) {
+        logSecurity('[SupabaseService] Account deletion: persisted session unreadable — unconfirmed', 'high');
+        return false;
+      }
+      if (persisted.uid && this.userId && persisted.uid !== this.userId) {
+        logSecurity('[SupabaseService] Account deletion: persisted and live identities differ — unconfirmed', 'high');
+        return false;
+      }
+      const expectedUid = persisted.uid ?? this.userId;
 
-    let confirmed = false;
-    try {
-      // The session JWT is auto-attached; the function reads the gateway-verified `sub`
-      // and deletes only that principal.
-      const { data, error } = await client.functions.invoke<{ success?: boolean }>(
-        'delete-account',
-        { body: {} },
-      );
-      confirmed = !error && data?.success === true;
-      if (!confirmed) {
+      try {
+        await this.ensureClient({ mint: false });
+      } catch (error) {
+        logSecurity('[SupabaseService] Account deletion: client unavailable — unconfirmed', 'high', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return false;
+      }
+      const client = this.client;
+      if (!client) return false;
+
+      let accessToken: string;
+      try {
+        const { data, error } = await client.auth.getSession();
+        const session = data?.session ?? null;
+        if (error || !session?.access_token || session.user?.id !== expectedUid) {
+          logSecurity('[SupabaseService] Account deletion: session not verifiable — unconfirmed', 'medium', {
+            error: error ? error.message : session ? 'identity mismatch' : 'no session',
+          });
+          return false;
+        }
+        accessToken = session.access_token;
+      } catch (error) {
+        logSecurity('[SupabaseService] Account deletion: session check failed — unconfirmed', 'medium', {
+          error: error instanceof Error ? error.message : String(error),
+        });
+        return false;
+      }
+
+      // Stop the background refresher for the duration, so it cannot rotate or re-persist
+      // the session while it is being erased. Restarted below if erasure is unconfirmed.
+      try {
+        await client.auth.stopAutoRefresh();
+      } catch {
+        // Best-effort; a refresh racing the erasure fails once the user is gone.
+      }
+
+      let confirmed = false;
+      try {
+        // The session JWT is auto-attached; the function reads the gateway-verified `sub`
+        // and deletes only that principal.
+        const { data, error } = await client.functions.invoke<{ success?: boolean }>(
+          'delete-account',
+          { body: {} },
+        );
+        confirmed = !error && data?.success === true;
+        if (!confirmed) {
+          logError(
+            LogCategory.SYSTEM,
+            '[SupabaseService] Account deletion request failed — reconciling',
+            error instanceof Error ? error : new Error(String(error ?? 'no success flag')),
+          );
+        }
+      } catch (error) {
         logError(
           LogCategory.SYSTEM,
-          '[SupabaseService] Account deletion request failed — reconciling',
-          error instanceof Error ? error : new Error(String(error ?? 'no success flag')),
+          '[SupabaseService] Account deletion request error — reconciling',
+          error instanceof Error ? error : new Error(String(error)),
         );
       }
-    } catch (error) {
-      logError(
-        LogCategory.SYSTEM,
-        '[SupabaseService] Account deletion request error — reconciling',
-        error instanceof Error ? error : new Error(String(error)),
-      );
-    }
 
-    if (!confirmed) {
-      confirmed = await this.isAccountAlreadyErased(client, accessToken);
-    }
-
-    if (!confirmed) {
-      try {
-        await client.auth.startAutoRefresh();
-      } catch {
-        // Best-effort; getSession still refreshes an expired token on demand.
+      if (!confirmed) {
+        confirmed = await this.isAccountAlreadyErased(client, accessToken);
       }
-      return false;
-    }
 
-    await this.teardownErasedSession(client);
-    logSecurity('[SupabaseService] Account erased (server cascade confirmed, session removed)', 'low');
-    return true;
+      if (!confirmed) {
+        try {
+          await client.auth.startAutoRefresh();
+        } catch {
+          // Best-effort; getSession still refreshes an expired token on demand.
+        }
+        return false;
+      }
+
+      await this.teardownErasedSession(client);
+      logSecurity('[SupabaseService] Account erased (server cascade confirmed, session removed)', 'low');
+      return true;
+    } finally {
+      this.deletionsInFlight -= 1;
+    }
   }
 
   /**
@@ -1644,4 +1789,8 @@ class SupabaseService {
 
 // Export singleton instance
 export const supabaseService = new SupabaseService();
+
+// DEBUG-698: also covers deleteAccount()'s no-account early return, which tears nothing down.
+registerErasureReset('supabaseService', () => supabaseService.resetOfflineQueueForErasure());
+
 export default supabaseService;

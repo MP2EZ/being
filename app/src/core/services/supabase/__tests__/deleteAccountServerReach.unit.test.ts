@@ -38,6 +38,8 @@ const mockServer = {
   /** GoTrue answers in the 2024-01-01 shape when true, the legacy shape when false. */
   apiVersion2024: true,
   logoutHangs: false,
+  /** DEBUG-715: when set, every /signup response waits on it (the request is counted first). */
+  signupGate: null as Promise<void> | null,
   calls: [] as Array<{ url: string; method: string; body: any; bearer: string | null }>,
 };
 
@@ -151,6 +153,7 @@ jest.mock('@/core/services/security/pinned-fetch', () => ({
     if (url.includes('/auth/v1/signup')) {
       mockServer.minted += 1;
       const uid = `minted-${mockServer.minted}`;
+      if (mockServer.signupGate) await mockServer.signupGate;
       mockServer.users.add(uid);
       return mockJson(200, mockSessionFor(uid));
     }
@@ -183,6 +186,7 @@ jest.mock('@/core/services/privacy/exportArtifactSweeper', () => ({
 }));
 jest.mock('@/core/services/privacy/erasureResetRegistry', () => ({
   resetInMemoryStateForErasure: jest.fn(async () => []),
+  registerErasureReset: jest.fn(),
 }));
 
 import * as SecureStore from 'expo-secure-store';
@@ -245,6 +249,7 @@ beforeEach(() => {
   mockServer.userMode = 'ok';
   mockServer.apiVersion2024 = true;
   mockServer.logoutHangs = false;
+  mockServer.signupGate = null;
   mockServer.calls = [];
   // mockReset, not just clearAllMocks: a mockImplementationOnce a test queued but never
   // consumed (the old fast path built no client) must not leak into the next test.
@@ -575,5 +580,282 @@ describe('DEBUG-704 — the deleted identity never comes back', () => {
     await flushing;
 
     expect(service.crisisAnalyticsQueue.map((e: any) => e.session_id)).toEqual(['s-new']);
+  });
+});
+
+// ── DEBUG-715 ───────────────────────────────────────────────────────────────
+// Receipt verification acquires its own session through getAuthenticatedClient(). Same
+// harness on purpose: the real auth-js signInAnonymously takes no lock, so only the real
+// client shows whether two mint lanes collapse into one (`mockServer.minted` counts /signup).
+
+function deferred(): { promise: Promise<void>; release: () => void } {
+  let release: () => void = () => undefined;
+  const promise = new Promise<void>((resolve) => {
+    release = resolve;
+  });
+  return { promise, release };
+}
+
+async function settleUntil(predicate: () => boolean): Promise<void> {
+  for (let i = 0; i < 200 && !predicate(); i++) {
+    await new Promise((r) => setTimeout(r, 0));
+  }
+  expect(predicate()).toBe(true);
+}
+
+const crisisRows = () =>
+  callsTo('/rest/v1/analytics_events').flatMap((c) =>
+    (Array.isArray(c.body) ? c.body : [c.body]).map((row: any) => ({ row, sub: mockSubOf(c.bearer) })),
+  );
+
+describe('DEBUG-715 — getAuthenticatedClient on a fresh, never-initialised instance', () => {
+  it('a persisted session is restored with no mint, and the service stays uninitialised', async () => {
+    await seedPersistedSession();
+    const service = freshService();
+
+    const result = await service.getAuthenticatedClient({ mint: true });
+
+    expect(result.ok).toBe(true);
+    expect(result.userId).toBe(VICTIM);
+    expect(result.client).toBe(service.client);
+    expect(callsTo('/auth/v1/signup')).toHaveLength(0);
+    expect(service.isInitialized).toBe(false);
+  });
+
+  it('mint:false with nothing persisted: no_session and zero /signup', async () => {
+    const service = freshService();
+
+    const result = await service.getAuthenticatedClient({ mint: false });
+
+    expect(result).toEqual({ ok: false, reason: 'no_session' });
+    expect(callsTo('/auth/v1/signup')).toHaveLength(0);
+    expect(service.isInitialized).toBe(false);
+  });
+
+  it('mint:true with nothing persisted mints exactly once, and a second call reuses it', async () => {
+    const service = freshService();
+
+    const first = await service.getAuthenticatedClient({ mint: true });
+    const second = await service.getAuthenticatedClient({ mint: true });
+
+    expect(first.ok && first.userId).toBe('minted-1');
+    expect(second.ok && second.userId).toBe('minted-1');
+    expect(mockServer.minted).toBe(1);
+    expect(service.isInitialized).toBe(false);
+  });
+
+  it('joining an in-flight mint:false construction still mints when asked', async () => {
+    const service = freshService();
+
+    const construction = service.ensureClient({ mint: false });
+    const result = await service.getAuthenticatedClient({ mint: true });
+    await construction;
+
+    expect(result.ok && result.userId).toBe('minted-1');
+    expect(mockServer.minted).toBe(1);
+    expect(mockCreateClient).toHaveBeenCalledTimes(1);
+  });
+
+  it('touches no other lane: no queue loads, no inserts, no flush, no initialize side effects', async () => {
+    const service = freshService();
+
+    await service.getAuthenticatedClient({ mint: true });
+    await settle();
+
+    expect(AsyncStorage.getItem).not.toHaveBeenCalled();
+    expect(callsTo('/rest/v1/')).toHaveLength(0);
+    expect(service.analyticsFlushTimer).toBeNull();
+    expect(service.isInitialized).toBe(false);
+  });
+
+  it('never throws: a client that cannot be built is client_unavailable', async () => {
+    mockCreateClient.mockImplementationOnce(() => {
+      throw new Error('construction failed');
+    });
+    const service = freshService();
+
+    await expect(service.getAuthenticatedClient({ mint: true })).resolves.toEqual({
+      ok: false,
+      reason: 'client_unavailable',
+    });
+    expect(callsTo('/auth/v1/signup')).toHaveLength(0);
+  });
+
+  it('does not consult the shared circuit breaker', async () => {
+    const service = freshService();
+    service.circuitBreaker = { failures: 9, lastFailureTime: Date.now(), state: 'open' };
+
+    const result = await service.getAuthenticatedClient({ mint: true });
+
+    expect(result.ok).toBe(true);
+  });
+});
+
+describe('DEBUG-715 (H1) — the crisis flush fallback and getAuthenticatedClient share ONE mint', () => {
+  it('client built, no session: both lanes concurrently → one /signup, one uid, rows bound to it', async () => {
+    const service = freshService();
+    await service.ensureClient({ mint: false });
+    expect(service.client).not.toBeNull();
+    expect(service.userId).toBeNull();
+
+    const gate = deferred();
+    mockServer.signupGate = gate.promise;
+    service.trackCrisisDetection(payload);
+    const acquiring = service.getAuthenticatedClient({ mint: true });
+    await settle();
+    gate.release();
+    const result = await acquiring;
+    await settle();
+
+    expect(mockServer.minted).toBe(1);
+    expect(result.ok && result.userId).toBe('minted-1');
+    expect(service.userId).toBe('minted-1');
+    const rows = crisisRows();
+    expect(rows.length).toBeGreaterThan(0);
+    for (const { row, sub } of rows) {
+      expect(row.user_id).toBe('minted-1');
+      expect(sub).toBe(row.user_id);
+    }
+  });
+
+  it('fresh instance, both lanes in the same tick → one construction, one /signup', async () => {
+    const service = freshService();
+    const gate = deferred();
+    mockServer.signupGate = gate.promise;
+
+    service.trackCrisisDetection(payload);
+    const acquiring = service.getAuthenticatedClient({ mint: true });
+    await settle();
+    gate.release();
+    const result = await acquiring;
+    await settle();
+
+    expect(mockCreateClient).toHaveBeenCalledTimes(1);
+    expect(mockServer.minted).toBe(1);
+    expect(result.ok && result.userId).toBe(service.userId);
+    for (const { row, sub } of crisisRows()) {
+      expect(row.user_id).toBe(service.userId);
+      expect(sub).toBe(row.user_id);
+    }
+  });
+
+  it('a flush that arrives while a construction is still minting joins it instead of minting again', async () => {
+    const service = freshService();
+    const gate = deferred();
+    mockServer.signupGate = gate.promise;
+
+    const acquiring = service.getAuthenticatedClient({ mint: true });
+    // The construction has assigned the client and is waiting on /signup.
+    await settleUntil(() => service.client !== null && mockServer.minted === 1);
+    service.trackCrisisDetection(payload);
+    await settle();
+    gate.release();
+    const result = await acquiring;
+    await settle();
+
+    expect(mockServer.minted).toBe(1);
+    expect(result.ok && result.userId).toBe('minted-1');
+    expect(service.userId).toBe('minted-1');
+    for (const { row, sub } of crisisRows()) {
+      expect(row.user_id).toBe('minted-1');
+      expect(sub).toBe('minted-1');
+    }
+  });
+});
+
+describe('DEBUG-715 (H2) — getAuthenticatedClient during deleteAccount never mints', () => {
+  it('called mid-teardown: no_session, zero /signup, and the deletion still confirms', async () => {
+    await seedPersistedSession();
+    const service = freshService();
+    // Hold the Keychain removal so the erasure is caught between clearing userId and
+    // removing the persisted session.
+    const hold = deferred();
+    (SecureStore.deleteItemAsync as jest.Mock).mockImplementation(async (k: any) => {
+      await hold.promise;
+      keychain.delete(k);
+    });
+
+    const deleting = service.deleteAccount();
+    await settleUntil(() => (SecureStore.deleteItemAsync as jest.Mock).mock.calls.length > 0);
+    const result = await service.getAuthenticatedClient({ mint: true });
+    hold.release();
+
+    expect(await deleting).toBe(true);
+    expect(result).toEqual({ ok: false, reason: 'no_session' });
+    expect(callsTo('/auth/v1/signup')).toHaveLength(0);
+    expect(service.userId).not.toBe(VICTIM);
+  });
+
+  it('a mint already in flight when deletion starts is awaited, then erased with the rest', async () => {
+    const service = freshService();
+    await service.ensureClient({ mint: false });
+    const gate = deferred();
+    mockServer.signupGate = gate.promise;
+
+    const acquiring = service.getAuthenticatedClient({ mint: true });
+    await settleUntil(() => mockServer.minted === 1);
+    const deleting = service.deleteAccount();
+    await settle();
+    gate.release();
+
+    expect(await deleting).toBe(true);
+    await acquiring;
+    // The account the mint created did not survive the erasure that followed it.
+    expect(mockServer.users.size).toBe(0);
+    expect(callsTo('/functions/v1/delete-account')).toHaveLength(1);
+    expect(authKeys()).toEqual([]);
+  });
+});
+
+describe('DEBUG-715 (H3) — an erasure that lands while a mint awaits never resurrects the erased uid', () => {
+  /** A device whose boot-time restore failed: client built, session persisted, userId null. */
+  async function erasableServiceWithHeldRestore() {
+    await seedPersistedSession();
+    const service = freshService();
+    await service.ensureClient({ mint: false });
+    service.userId = null;
+    const gate = deferred();
+    let reads = 0;
+    const realGetSession = service.client.auth.getSession.bind(service.client.auth);
+    service.client.auth.getSession = async () => {
+      const res = await realGetSession(); // read BEFORE the erasure removes it
+      reads += 1;
+      await gate.promise;
+      return res;
+    };
+    return { service, gate, reads: () => reads };
+  }
+
+  it('via the crisis flush fallback', async () => {
+    const { service, gate, reads } = await erasableServiceWithHeldRestore();
+    service.crisisAnalyticsQueue = [
+      { event_type: 'crisis_detected', properties: payload, session_id: 's-old', enqueued_at: Date.now() },
+    ];
+
+    const flushing = service.flushCrisisAnalytics();
+    await settleUntil(() => reads() === 1);
+    await service.teardownErasedSession(service.client);
+    gate.release();
+    await flushing;
+    await settle();
+
+    expect(service.userId).not.toBe(VICTIM);
+    for (const { row, sub } of crisisRows()) {
+      expect(row.user_id).not.toBe(VICTIM);
+      expect(sub).not.toBe(VICTIM);
+    }
+  });
+
+  it('via getAuthenticatedClient', async () => {
+    const { service, gate, reads } = await erasableServiceWithHeldRestore();
+
+    const acquiring = service.getAuthenticatedClient({ mint: true });
+    await settleUntil(() => reads() === 1);
+    await service.teardownErasedSession(service.client);
+    gate.release();
+    const result = await acquiring;
+
+    expect(service.userId).not.toBe(VICTIM);
+    expect(result.ok ? result.userId : null).not.toBe(VICTIM);
   });
 });
