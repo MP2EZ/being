@@ -158,7 +158,13 @@ export function usePracticeCompletion({
     // advertised a failure mode that could not occur, which is precisely why the
     // gap stayed invisible. Missing entries are now caught statically by the
     // key-set guard in practiceQuotes.test.ts instead.
-    const quote = PRACTICE_QUOTES[practiceId];
+    //
+    // DEBUG-679: own keys only. A bare index resolved `constructor` (and every other
+    // Object.prototype key a link can carry) to a function, which rendered as an
+    // "undefined" quote with an empty attribution.
+    const quote = Object.hasOwn(PRACTICE_QUOTES, practiceId)
+      ? PRACTICE_QUOTES[practiceId]
+      : undefined;
 
     // Degrade, never throw. An unknown practiceId is reachable from OUTSIDE the
     // app: linking.ts accepts `practice/:practiceId` from an arbitrary URL and

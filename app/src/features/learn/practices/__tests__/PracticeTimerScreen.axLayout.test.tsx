@@ -29,6 +29,7 @@ import {
   PRACTICE_HEADER_STACKED_FONT_SCALE,
   practiceHeaderStacksTitle,
 } from '@/features/learn/practices/shared/practiceScreenHeaderLayout';
+import { DEBUG_654_MEASURED_TITLES } from '../../../../../__tests__/helpers/debug654MeasuredTitles';
 
 // useRef-backed so a shared value written by an effect survives to the next render, as on
 // device; see BreathingCircle.reducedMotion.accessibility.test.tsx for why that matters.
@@ -144,12 +145,15 @@ const setReduceMotion = (enabled: boolean) => {
   jest.spyOn(AccessibilityInfo, 'announceForAccessibility').mockImplementation();
 };
 
+// The title DEBUG-654 measured with, shared with DEBUG-679's AC3 pin so the two cannot drift.
+const MEASURED_TITLE = DEBUG_654_MEASURED_TITLES[0]!;
+
 const screenElement = () => (
   <PracticeTimerScreen
     practiceId="breathing-space"
     moduleId="aware-presence"
     duration={180}
-    title="3-Minute Breathing Space"
+    title={MEASURED_TITLE}
     testID={ID}
   />
 );

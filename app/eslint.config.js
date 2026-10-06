@@ -225,6 +225,10 @@ const CORE_FEATURE_IMPORT_EXCEPTIONS = [
   // A — composition root: the navigators mount every feature's screens.
   'src/core/navigation/CleanRootNavigator.tsx',
   'src/core/navigation/CleanTabNavigator.tsx',
+  // DEBUG-679 (founder-approved): CleanRootNavigator's PracticeTimer render, extracted so the
+  // link path is jest-testable (the navigator cannot mount in jest). Mounts
+  // PracticeTimerScreen and narrows the catalog moduleId with isModuleId.
+  'src/core/navigation/PracticeTimerRoute.tsx',
   // DEBUG-695 (founder-approved): validates practice moduleIds with isModuleId from the
   // import-free features/learn/types/education.ts leaf, so the parse pulls in no store.
   'src/core/navigation/linking.ts',
