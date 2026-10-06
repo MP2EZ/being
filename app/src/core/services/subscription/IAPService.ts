@@ -432,8 +432,8 @@ class IAPServiceClass {
    * per compliance pass).
    *
    * Android verification uses {productId + purchaseToken + packageName}
-   * server-side; `transactionReceipt` is empty for Android and ignored by
-   * the Google Edge Function path.
+   * server-side; `transactionReceipt` is empty for Android, so the caller
+   * passes `productId` to verifyReceipt in its own argument (DEBUG-713).
    */
   private async augmentPurchase(purchase: Purchase): Promise<AugmentedPurchase> {
     let transactionReceipt = '';
@@ -454,8 +454,13 @@ class IAPServiceClass {
   /**
    * Verify receipt server-side
    * Sends receipt to Supabase Edge Function for verification (or mocks in development)
+   *
+   * `productId` is the Play product id, required on the Google path: the server
+   * looks the purchase up as purchases/subscriptions/{productId}/tokens/{token}.
+   * It is a separate argument, not `receiptData`, because receiptData is '' on
+   * Android and is persisted as the record's receipt (DEBUG-713).
    */
-  async verifyReceipt(receiptData: string, platform: 'apple' | 'google', purchaseToken?: string, appleTransaction?: AppleTransactionIdentity): Promise<{
+  async verifyReceipt(receiptData: string, platform: 'apple' | 'google', purchaseToken?: string, appleTransaction?: AppleTransactionIdentity, productId?: string): Promise<{
     valid: boolean;
     subscriptionId?: string | undefined;
     expiresDate?: number | undefined;
@@ -524,8 +529,7 @@ class IAPServiceClass {
         // App Store Server API, which is keyed on a transactionId, and stopped reading
         // this field at slice 3 — so continuing to send it would ship a base64 app
         // receipt over the wire on every purchase for no consumer at all. Retiring it
-        // needed no adoption window: nothing server-side ever read it successfully, and
-        // the value is still available locally for the Google branch below.
+        // needed no adoption window: nothing server-side ever read it successfully.
         //
         // Conditional spread, NOT `transactionId: appleTransaction?.transactionId`.
         // An explicitly-undefined key is indistinguishable from an absent one under
@@ -567,13 +571,16 @@ class IAPServiceClass {
         if (!purchaseToken) {
           throw new Error('Purchase token required for Google verification');
         }
+        if (!productId) {
+          throw new Error('Product id required for Google verification');
+        }
 
         const { data, error } = await client.functions.invoke<VerifyReceiptResponse>(
           'verify-google-receipt',
           {
             body: {
               packageName: ANDROID_PACKAGE_NAME,
-              subscriptionId: receiptData, // For Google, this is the product ID
+              subscriptionId: productId,
               purchaseToken,
             },
           }
