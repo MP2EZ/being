@@ -427,7 +427,7 @@ export const DEEP_LINK_REACHABILITY: Readonly<
   },
   '/module': {
     ruling: 'EXTERNALLY_REACHABLE',
-    reason: 'moduleId is sanitised by parse and ModuleDetail handles an unknown id by failing the load.',
+    reason: 'moduleId is sanitised and validated against the authored module set by parse (DEBUG-719): an unknown or prototype-key id reaches ModuleDetail with no moduleId and the screen renders its failed-load state.',
   },
   '/practice': {
     ruling: 'EXTERNALLY_REACHABLE',
@@ -533,9 +533,11 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
       ModuleDetail: {
         path: 'module/:moduleId',
         parse: {
+          // DEBUG-719: an unauthored id (prototype keys included) becomes undefined here,
+          // and ModuleDetailScreen renders its failed-load state for it.
           moduleId: (id: string) => {
-            // Sanitize moduleId - alphanumeric and hyphens only
-            return id.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 50);
+            const sanitised = id.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 50);
+            return isModuleId(sanitised) ? sanitised : undefined;
           },
         },
       },
