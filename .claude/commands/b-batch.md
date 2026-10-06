@@ -423,6 +423,9 @@ construction and give false confidence. The panel must be able to actually disag
 
 **Panel scaling (cost control):** `MAINT-*` / `INFRA-*` with no domain match → 2 lenses
 (Architecture + Skeptic). `FEAT-*` / `DEBUG-*` or any domain match → 3 lenses.
+Pick constraint lenses from the Protected Paths table for every path the item's body or
+triage names, not only from story keywords — a gated file owned by two agents gets both.
+A specialist that first runs after Step 2.3 can only reopen a decision already made.
 **An item whose body already carries a dated panel repair needs the ARCHITECTURE lens
 only**, plus whichever constraint lens owns a ruling still open. Re-slating after an AMBER
 defer is the normal lifecycle here, and the expensive analysis is already in the body — a
