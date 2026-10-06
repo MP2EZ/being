@@ -54,8 +54,6 @@ const validEnv = {
   EXPO_PUBLIC_FEATURE_FLAGS: 'cloud_sync:false',
   EXPO_PUBLIC_CLINICAL_ACCURACY_MODE: 'true',
   EXPO_PUBLIC_ASSESSMENT_VALIDATION: 'strict',
-  EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD: '20',
-  EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD: '15',
   EXPO_PUBLIC_BREATHING_TIMER_PRECISION: '60000',
   EXPO_PUBLIC_THERAPEUTIC_TIMING_STRICT: 'true',
   EXPO_PUBLIC_WELLNESS_DATA_MODE: 'ready',
@@ -96,27 +94,17 @@ describe('env schema (INFRA-141, clinical safety)', () => {
     });
   });
 
-  describe('PHQ9 clinical threshold', () => {
-    it('accepts threshold within [15, 20]', () => {
-      expect(envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD: '17' }).success).toBe(true);
-      expect(envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD: '15' }).success).toBe(true);
-      expect(envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD: '20' }).success).toBe(true);
-    });
-    it('rejects threshold below 15 (would pathologize mild depression)', () => {
-      expect(envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD: '10' }).success).toBe(false);
-    });
-    it('rejects threshold above 20 (would miss severe cases)', () => {
-      expect(envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD: '25' }).success).toBe(false);
-    });
-  });
-
-  describe('GAD7 clinical threshold', () => {
-    it('accepts threshold within [10, 15]', () => {
-      expect(envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD: '12' }).success).toBe(true);
-    });
-    it('rejects threshold outside [10, 15]', () => {
-      expect(envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD: '5' }).success).toBe(false);
-      expect(envSchema.safeParse({ ...validEnv, EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD: '20' }).success).toBe(false);
+  describe('crisis thresholds are not env (MAINT-712)', () => {
+    // The keys may linger in a deployed env file; they must stay inert rather
+    // than refuse boot or reach the parsed env.
+    it('ignores a leftover PHQ-9 / GAD-7 threshold key, whatever its value', () => {
+      const parsed = envSchema.parse({
+        ...validEnv,
+        EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD: '10',
+        EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD: '99',
+      });
+      expect(parsed).not.toHaveProperty('EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD');
+      expect(parsed).not.toHaveProperty('EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD');
     });
   });
 

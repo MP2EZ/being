@@ -7,7 +7,7 @@ document:
   type: Security Architecture
   version: 2.2.2
   status: CURRENT
-  updated: 2026-09-25  # MAINT-627: §1/§2 corrected. MAINT-641: §5–§8, roadmap and checklist corrected. DEBUG-645: §5/§6 export residual closed. DEBUG-655: §5 launch sweep
+  updated: 2026-10-05  # MAINT-712: §1/§2 sensitivity-level wording corrected. MAINT-627: §1/§2 corrected. MAINT-641: §5–§8, roadmap and checklist corrected. DEBUG-645: §5/§6 export residual closed. DEBUG-655: §5 launch sweep
   application: Being. Mental Health App
 
 # Being is a CONSUMER WELLNESS APP, not a HIPAA-covered entity.
@@ -46,7 +46,7 @@ Record keys are derived with **PBKDF2-HMAC-SHA256 at 100,000 iterations** (`ENCR
 
 #### C. Data-at-Rest Encryption Implementation
 
-There is **one** generic encryption path. `encryptData` derives a key, generates a fresh 12-byte IV and a fresh 32-byte salt, and returns the ciphertext with its salt, IV and auth tag. Sensitivity level selects a key id, not a different cipher or a different rotation policy.
+There is **one** generic encryption path. `encryptData` derives a key, generates a fresh 12-byte IV and a fresh 32-byte salt, and returns the ciphertext with its salt, IV and auth tag. Sensitivity level is a metadata label and a performance-log threshold, not key material: derivation uses the master key and the per-record salt only, and the level selects no cipher and no rotation policy (MAINT-712).
 
 Record keys are **unique per record but do not rotate.** A single `KEY_ROTATION_INTERVAL_MS` of 30 days exists, and `rotateKey()` writes a `${keyId}_v2` entry to secure storage while updating an **in-memory-only** `keyMetadata` map. Nothing persists that map and no decryption path reads it, so the scheduler does not survive a relaunch and no key has ever actually been rotated in a shipped build.
 
@@ -138,7 +138,7 @@ class DataSandbox {
 **Corrected (MAINT-627).** Three claims in this section were withdrawn or narrowed:
 
 - **Keychain accessibility.** The block above previously specified an `access_group` of `fyi.being.app.keychain`, `kSecAttrAccessibleWhenUnlockedThisDeviceOnly`, and `synchronization: false // Never sync to iCloud`. `initializeMasterKey` calls `SecureStore.setItemAsync` with **no options object**, so the library default `WHEN_UNLOCKED` applies and `ThisDeviceOnly` is not set — meaning the item can migrate to another device via an encrypted backup. Being specifies no access group and no synchronization setting. The absence is meaningful rather than incidental: `secureStoreSessionAdapter` *does* pass `keychainAccessible` deliberately, so the option is understood and used elsewhere in this codebase. This also brought §2 into contradiction with §3, which DEBUG-624 had already corrected to state the real `WHEN_UNLOCKED` behaviour. DPIA control 2 is corrected in the same change.
-- **`DataSandbox` / `EncryptedContainer`.** No such classes exist. There are no per-category encrypted containers and no size caps; records are encrypted individually through the single path described in §1, and sensitivity level selects a key id rather than a container.
+- **`DataSandbox` / `EncryptedContainer`.** No such classes exist. There are no per-category encrypted containers and no size caps; records are encrypted individually through the single path described in §1, and sensitivity level is a metadata label and performance-log threshold, not key material and not a container.
 - **`protectMemory` / `preventMemoryDumps`.** **NOT IMPLEMENTED.** There is no `SecurityModule` native module, no memory-pressure handler and no memory-dump prevention anywhere in the codebase. The OS-level app sandbox and file protection described above are real; in-process memory hardening is not.
 
 ### User-Facing Description
