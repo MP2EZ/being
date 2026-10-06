@@ -6,7 +6,6 @@
 set -e
 
 FILES=(
-  "src/services/supabase/SyncCoordinator.ts"
   "src/services/supabase/SupabaseService.ts"
   "src/services/supabase/CloudBackupService.ts"
   "src/services/supabase/index.ts"

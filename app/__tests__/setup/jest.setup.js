@@ -503,7 +503,7 @@ jest.mock('expo-crypto', () => {
     // (EncryptionService.ts:948). Previously missing — caused
     // `Crypto.getRandomBytesAsync is not a function` failures in
     // sync-coordinator-integration.test.ts (one of the INFRA-143
-    // quarantined tests).
+    // quarantined tests; deleted in MAINT-702).
     getRandomBytesAsync: jest.fn(async (length) => generateBytes(length)),
     digestStringAsync: jest.fn(() => Promise.resolve('mockedhash123')),
     CryptoDigestAlgorithm: {

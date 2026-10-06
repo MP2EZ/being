@@ -227,10 +227,10 @@ describe('MAINT-659 core→features boundary — flat-config option replacement'
 describe('MAINT-659 core→features boundary — the exception list', () => {
   const list = exceptionList();
 
-  it('is the reviewed 13, with no duplicates', () => {
+  it('is the reviewed 12, with no duplicates', () => {
     // Changing this number is a reviewed two-file diff by design: a new entry is a new
     // core→features edge somebody chose to allow.
-    expect(list).toHaveLength(13); // DEBUG-695 added linking.ts
+    expect(list).toHaveLength(12); // DEBUG-695 added linking.ts, MAINT-702 removed a deleted file
     expect(new Set(list).size).toBe(list.length);
   });
 

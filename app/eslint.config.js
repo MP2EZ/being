@@ -237,7 +237,6 @@ const CORE_FEATURE_IMPORT_EXCEPTIONS = [
   'src/core/services/moduleContent.ts', // type-only; consumers are learn, practices
   'src/core/services/passagesContent.ts', // sole consumer is features/library
   'src/core/services/supabase/CloudBackupService.ts', // reads assessmentStore
-  'src/core/services/supabase/SyncCoordinator.ts', // reads assessmentStore
   'src/core/services/privacy/DataExportService.ts', // reads journalEntryStore
   'src/core/config/e2eSeed.ts', // seeds stoicPracticeStore; Protected Path
   'src/core/components/subscription/PurchaseOptionsScreen.tsx', // profile's SubMenuHeader
