@@ -286,6 +286,66 @@ export function evaluateSpike(input: SpikeInput): SpikeVerdict {
 }
 
 // ---------------------------------------------------------------------------
+// Count window (MAINT-740) — the gap-filled per-day series a run evaluates
+// ---------------------------------------------------------------------------
+
+export interface CountWindowRow {
+  event_date: string;
+  detection_count: number;
+}
+
+export interface CountWindow {
+  /** UTC 'YYYY-MM-DD' of nowMs. */
+  today: string;
+  todayCount: number;
+  /** Newest first: [today-1, …, today-baselineDays]. Excludes today. */
+  baselineCounts: number[];
+  /** today and the baselineDays before it, every day a PRESENT key (0 when quiet). */
+  currentCounts: DayCounts;
+}
+
+const DAY_MS = 86_400_000;
+
+/** YYYY-MM-DD (UTC). */
+function dayString(ms: number): string {
+  return new Date(ms).toISOString().slice(0, 10);
+}
+
+/**
+ * Build the gap-filled per-day count map a run evaluates (a quiet day is a real 0, not a
+ * missing row).
+ *
+ * Gap-filling is load-bearing, not tidiness (DEBUG-541): currentCounts is persisted as the
+ * next run's watermark, and evaluateBackfill only considers days that are KEYS in it — so
+ * "present with count 0" and "absent" must mean different things, or a day sliding out of
+ * the window reads as growth-from-zero. Today's key is load-bearing even at 0 (DEBUG-684):
+ * the next run reads the latest key as this run's partial day.
+ */
+export function buildCountWindow(input: {
+  volumeRows: CountWindowRow[];
+  nowMs: number;
+  baselineDays: number;
+}): CountWindow {
+  const { volumeRows, nowMs, baselineDays } = input;
+  const countByDay = new Map<string, number>();
+  for (const r of volumeRows) {
+    countByDay.set(r.event_date.slice(0, 10), r.detection_count);
+  }
+  const today = dayString(nowMs);
+  const todayCount = countByDay.get(today) ?? 0;
+  const baselineCounts: number[] = [];
+  for (let i = 1; i <= baselineDays; i++) {
+    baselineCounts.push(countByDay.get(dayString(nowMs - i * DAY_MS)) ?? 0);
+  }
+  const currentCounts: DayCounts = {};
+  for (let i = 0; i <= baselineDays; i++) {
+    const d = dayString(nowMs - i * DAY_MS);
+    currentCounts[d] = countByDay.get(d) ?? 0;
+  }
+  return { today, todayCount, baselineCounts, currentCounts };
+}
+
+// ---------------------------------------------------------------------------
 // Backfill (DEBUG-541) — did a day we already closed the books on grow?
 // ---------------------------------------------------------------------------
 

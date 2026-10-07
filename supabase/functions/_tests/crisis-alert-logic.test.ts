@@ -38,6 +38,7 @@ import {
   composeBackfillLines,
   selectTodayBuckets,
   LIVENESS_ONLY_SUBJECT,
+  buildCountWindow,
   type AxisAlerts,
   type BackfillVerdict,
   type BucketRow,
@@ -814,3 +815,108 @@ function payloadBase() {
 function buildPayload(backfill: BackfillVerdict) {
   return buildAlertPayload({ ...payloadBase(), backfill });
 }
+
+// ---------------------------------------------------------------------------
+// buildCountWindow (MAINT-740) — the gap-filled window, lifted out of index.ts
+// ---------------------------------------------------------------------------
+//
+// evaluateBackfill only considers days that are KEYS in the watermark, so "present with
+// count 0" and "absent" mean different things (DEBUG-541), and today's key is load-bearing
+// even at 0 (DEBUG-684). These pin that contract where it now lives.
+
+const WINDOW_NOW = Date.parse('2026-06-07T12:00:00.000Z');
+
+Deno.test('buildCountWindow: a missing day is a PRESENT key with 0, not an absent key', () => {
+  const w = buildCountWindow({
+    volumeRows: [
+      { event_date: '2026-06-07', detection_count: 4 },
+      { event_date: '2026-06-05', detection_count: 2 },
+    ],
+    nowMs: WINDOW_NOW,
+    baselineDays: 3,
+  });
+  assert(Object.prototype.hasOwnProperty.call(w.currentCounts, '2026-06-06'));
+  assertEquals(w.currentCounts['2026-06-06'], 0);
+  assertEquals(w.currentCounts['2026-06-05'], 2);
+});
+
+Deno.test('buildCountWindow: today is a key even when quiet, and is the day of nowMs (UTC)', () => {
+  const w = buildCountWindow({ volumeRows: [], nowMs: WINDOW_NOW, baselineDays: 7 });
+  assertEquals(w.today, '2026-06-07');
+  assertEquals(w.todayCount, 0);
+  assert(Object.prototype.hasOwnProperty.call(w.currentCounts, '2026-06-07'));
+  assertEquals(w.currentCounts['2026-06-07'], 0);
+});
+
+Deno.test('buildCountWindow: currentCounts holds exactly baselineDays+1 keys', () => {
+  const w = buildCountWindow({ volumeRows: [], nowMs: WINDOW_NOW, baselineDays: 7 });
+  assertEquals(Object.keys(w.currentCounts).sort(), [
+    '2026-05-31',
+    '2026-06-01',
+    '2026-06-02',
+    '2026-06-03',
+    '2026-06-04',
+    '2026-06-05',
+    '2026-06-06',
+    '2026-06-07',
+  ]);
+});
+
+Deno.test('buildCountWindow: baselineCounts is newest-first and excludes today', () => {
+  const w = buildCountWindow({
+    volumeRows: [
+      { event_date: '2026-06-07', detection_count: 9 },
+      { event_date: '2026-06-06', detection_count: 1 },
+      { event_date: '2026-06-05', detection_count: 2 },
+      { event_date: '2026-06-04', detection_count: 3 },
+    ],
+    nowMs: WINDOW_NOW,
+    baselineDays: 3,
+  });
+  assertEquals(w.todayCount, 9);
+  assertEquals(w.baselineCounts, [1, 2, 3]);
+});
+
+Deno.test('buildCountWindow: rows outside the window are ignored', () => {
+  const w = buildCountWindow({
+    volumeRows: [
+      { event_date: '2026-06-03', detection_count: 50 }, // today-4, outside a 3-day baseline
+      { event_date: '2026-06-08', detection_count: 70 }, // future day, outside too
+    ],
+    nowMs: WINDOW_NOW,
+    baselineDays: 3,
+  });
+  assertEquals(w.baselineCounts, [0, 0, 0]);
+  assertEquals(w.todayCount, 0);
+  assertFalse(Object.prototype.hasOwnProperty.call(w.currentCounts, '2026-06-03'));
+  assertFalse(Object.prototype.hasOwnProperty.call(w.currentCounts, '2026-06-08'));
+});
+
+Deno.test('buildCountWindow: an event_date carrying a time suffix is keyed by its day', () => {
+  const w = buildCountWindow({
+    volumeRows: [{ event_date: '2026-06-06T00:00:00+00:00', detection_count: 5 }],
+    nowMs: WINDOW_NOW,
+    baselineDays: 2,
+  });
+  assertEquals(w.currentCounts['2026-06-06'], 5);
+  assertEquals(w.baselineCounts[0], 5);
+});
+
+Deno.test('buildCountWindow: the day boundary is UTC', () => {
+  const lastMs = Date.parse('2026-06-07T23:59:59.999Z');
+  const firstMs = Date.parse('2026-06-08T00:00:00.000Z');
+  assertEquals(buildCountWindow({ volumeRows: [], nowMs: lastMs, baselineDays: 1 }).today, '2026-06-07');
+  assertEquals(buildCountWindow({ volumeRows: [], nowMs: firstMs, baselineDays: 1 }).today, '2026-06-08');
+});
+
+Deno.test('buildCountWindow: duplicate event_date rows keep the last one (existing behaviour)', () => {
+  const w = buildCountWindow({
+    volumeRows: [
+      { event_date: '2026-06-07', detection_count: 1 },
+      { event_date: '2026-06-07T00:00:00Z', detection_count: 6 },
+    ],
+    nowMs: WINDOW_NOW,
+    baselineDays: 1,
+  });
+  assertEquals(w.todayCount, 6);
+});
