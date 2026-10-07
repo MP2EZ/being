@@ -90,6 +90,34 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
     return options.findIndex(option => option.value === value);
   }, [options, value]);
 
+  // Handle option selection. Declared BEFORE handleKeyDown, which depends on it (MAINT-750):
+  // listing a const declared later in a deps array reads it during render — a TDZ
+  // ReferenceError on the PHQ-9 / GAD-7 answer control.
+  const handleOptionSelect = useCallback((optionValue: string | number, index: number) => {
+    if (disabled || options[index]?.disabled) return;
+
+    const startTime = performance.now();
+    onValueChange(optionValue);
+
+    // Announce selection to screen readers
+    const option = options[index];
+    if (!option) return;
+
+    AccessibilityInfo.announceForAccessibility(
+      `Selected: ${option.label}${showScores ? `, score ${optionValue}` : ''}`
+    );
+    
+    // Performance monitoring for clinical contexts
+    const responseTime = performance.now() - startTime;
+    if (clinicalContext !== 'general' && responseTime > 100) {
+      logSecurity('Radio selection response time exceeded', 'medium', {
+        responseTime,
+        threshold: 100,
+        context: 'clinical'
+      });
+    }
+  }, [disabled, options, onValueChange, showScores, clinicalContext]);
+
   // Handle keyboard navigation
   const handleKeyDown = useCallback((event: any, index: number) => {
     if (disabled) return;
@@ -140,33 +168,10 @@ const RadioGroup: React.FC<RadioGroupProps> = ({
         `${options[newIndex]!.label}${showScores ? `, score ${options[newIndex]!.value}` : ''}`
       );
     }
-  }, [disabled, options, showScores]);
-
-  // Handle option selection
-  const handleOptionSelect = useCallback((optionValue: string | number, index: number) => {
-    if (disabled || options[index]?.disabled) return;
-
-    const startTime = performance.now();
-    onValueChange(optionValue);
-
-    // Announce selection to screen readers
-    const option = options[index];
-    if (!option) return;
-
-    AccessibilityInfo.announceForAccessibility(
-      `Selected: ${option.label}${showScores ? `, score ${optionValue}` : ''}`
-    );
-    
-    // Performance monitoring for clinical contexts
-    const responseTime = performance.now() - startTime;
-    if (clinicalContext !== 'general' && responseTime > 100) {
-      logSecurity('Radio selection response time exceeded', 'medium', {
-        responseTime,
-        threshold: 100,
-        context: 'clinical'
-      });
-    }
-  }, [disabled, options, onValueChange, showScores, clinicalContext]);
+  // handleOptionSelect is a dependency: without it the handler kept the FIRST render's
+  // onValueChange, and an un-keyed question reused across PHQ-9 recorded a keyboard answer to
+  // Q9 through question 1's handler (MAINT-750).
+  }, [disabled, options, showScores, handleOptionSelect]);
 
   // Handle focus management
   const handleFocus = useCallback((index: number) => {
