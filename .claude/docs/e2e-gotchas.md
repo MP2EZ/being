@@ -53,3 +53,4 @@ residue in `CLAUDE.md`.
   But NOT for the whole `__tests__/scripts` run: `e2e-host-contention.test.js` *tests* the
   settle, so the override reds 3 of its cases against healthy code. Exclude that file, or
   run it separately — it is 44/44 green without the variable.
+- **A cold or regenerating gate build dying in `pod install` with `tapi error: … unknown architecture arm64e.x1-macos` is the macOS SDK skew (INFRA-754), not the diff.** `e2e-sim-build.sh` now pins `SDKROOT` to Xcode's macOS SDK and refuses if you export a different one; `e2e:safety:build:eas`, `npm run ios` and hand-run `pod install` bypass it — prefix them with `SDKROOT=$(xcrun --sdk macosx --show-sdk-path)`.
