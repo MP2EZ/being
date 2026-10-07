@@ -146,13 +146,19 @@ Deno.test('CONTROL: the validator is not a blanket accept and not a blanket reje
  * about it being REACHED. A correct validator that no call site invokes is the exact
  * shape of a control that reads as shipped and isn't — so these assert the wiring.
  *
- * Source-shape, because `subscription-webhook/index.ts` calls `serve()` at module scope
- * and cannot be imported without starting a server. Same technique, and same reason, as
- * `mock-receipt-gate.test.ts`. Per DEBUG-390, comments are stripped before matching (the
- * file deliberately explains this control in prose, which a bare substring check would
- * match) and each matcher is paired with a control proving it can still fire.
+ * Source-shape. Since DEBUG-739 the handlers live in `subscription-webhook/handlers.ts`
+ * (importable, and exercised behaviourally by subscription-webhook-handlers.test.ts,
+ * including a forged bundleId and an environment mismatch). These pins stay because a
+ * behavioural test proves the CURRENT wiring, while these name the property a refactor
+ * must not drop. Per DEBUG-390, comments are stripped before matching (the file
+ * deliberately explains this control in prose, which a bare substring check would match)
+ * and each matcher is paired with a control proving it can still fire.
  */
 const WEBHOOK_SRC = await Deno.readTextFile(
+  new URL('../subscription-webhook/handlers.ts', import.meta.url),
+);
+/** The deploy entry point: the only place production verifiers are bound. */
+const WEBHOOK_ENTRY_SRC = await Deno.readTextFile(
   new URL('../subscription-webhook/index.ts', import.meta.url),
 );
 
@@ -182,6 +188,26 @@ Deno.test('call site: the scope check precedes the database update', () => {
   assertEquals(firstAssert > -1, true);
   assertEquals(firstUpdate > -1, true);
   assertEquals(firstAssert < firstUpdate, true);
+});
+
+Deno.test('entry point: index.ts binds the REAL Apple and Google verifiers', () => {
+  // The handlers take their verifiers as dependencies (DEBUG-739), which makes the entry
+  // point the one place a stub could be wired into production. Pin that it is not.
+  const code = stripComments(WEBHOOK_ENTRY_SRC);
+  assertEquals(
+    /import\s*\{[^}]*\bverifyAppleJWS\b[^}]*\}\s*from\s*['"]\.\.\/_shared\/verifyAppleJWS\.ts['"]/.test(code),
+    true,
+  );
+  assertEquals(
+    /import\s*\{[^}]*\bverifyGoogleOIDC\b[^}]*\}\s*from\s*['"]\.\/verifyGoogleOIDC\.ts['"]/.test(code),
+    true,
+  );
+  assertEquals(/verifyAppleSignature\s*:[^,]*verifyAppleJWS\s*\(/.test(code), true);
+  assertEquals(/^\s*verifyGoogleOIDC\s*,/m.test(code), true);
+});
+
+Deno.test('handlers read no env, so no env value can select a verifier', () => {
+  assertEquals(/Deno\.env/.test(stripComments(WEBHOOK_SRC)), false);
 });
 
 Deno.test('CONTROL: the call-site matchers can go red, and comment-stripping is not vacuous', () => {

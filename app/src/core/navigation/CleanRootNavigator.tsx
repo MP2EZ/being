@@ -14,6 +14,7 @@ import { linkingConfig } from './linking';
 import PracticeTimerRoute from './PracticeTimerRoute';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { dismissRouteThenNotify, removeOwnRoute } from './crisisDestinationGuard';
+import { completeOnboarding } from './completeOnboarding';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { semantic, spacing, typography } from '@/core/theme';
@@ -394,17 +395,10 @@ const CleanRootNavigator: React.FC = () => {
 
   // FEAT-298 slice 6c: the "start practising now" destination is the daily loop. It was
   // 'morning' — the retired Morning flow — so leaving it would navigate to a deleted route.
-  const handleOnboardingComplete = async (destination?: 'home' | 'practice') => {
+  // Persistence only. The navigation that follows lives in completeOnboarding (DEBUG-711).
+  const handleOnboardingComplete = async () => {
     await markOnboardingComplete();
     setInitialRoute('Main');
-
-    // Navigate to destination after state update
-    if (destination === 'practice') {
-      // Small delay to ensure Main screen is mounted before modal presentation
-      setTimeout(() => {
-        // Navigation will be handled by the OnboardingScreen's navigation prop
-      }, 100);
-    }
   };
 
   /**
@@ -525,22 +519,16 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => (
+          {({ route }) => (
             <OnboardingScreen
-              onComplete={async (destination) => {
-                await handleOnboardingComplete(destination);
-                // Navigate based on destination
-                if (destination === 'practice') {
-                  navigation.replace('Main');
-                  // Enter the daily loop once Main is mounted. No mode param — the tense is
-                  // inferred from the clock (slice 5).
-                  setTimeout(() => {
-                    navigation.navigate('DailyLoop');
-                  }, 100);
-                } else {
-                  navigation.replace('Main');
-                }
-              }}
+              // DEBUG-711: persist, then replace THIS route (by key, at the root) with Main
+              // — deferred while a crisis destination is focused, never dropped.
+              onComplete={(destination) =>
+                completeOnboarding(destination, {
+                  onboardingRouteKey: route.key,
+                  markComplete: handleOnboardingComplete,
+                })
+              }
               isEmbedded={true}
             />
           )}

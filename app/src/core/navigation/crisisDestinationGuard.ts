@@ -16,8 +16,9 @@
  *   both include AssessmentFlow and LegalGate, which mean something else.
  *
  * Consumers: CleanRootNavigator's AssessmentFlow completion (DEBUG-706,
- * `dismissRouteThenNotify`) and DeleteAccountScreen's post-erasure reset
- * (DEBUG-703, `runWhenNoCrisisDestinationFocused`).
+ * `dismissRouteThenNotify`), DeleteAccountScreen's post-erasure reset
+ * (DEBUG-703, `runWhenNoCrisisDestinationFocused`), and onboarding completion
+ * (DEBUG-711, `completeOnboarding`, which defers its whole replace-then-push).
  */
 import { CommonActions } from '@react-navigation/native';
 import { logSystem } from '@/core/services/logging';
