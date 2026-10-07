@@ -1515,8 +1515,24 @@ or env var, and patching the Cellar jar is invisible to the version pin.
 - `E2E_KEEP_XCTEST_RECORDINGS=1` keeps and lists them, for watching a failing flow.
 - `E2E_ATTACHMENTS_REAP_DRY_RUN=1` lists without deleting.
 
-**Not covered:** recordings from ad-hoc `maestro` runs outside the gate, other simulators, and anything
-left from before the sweep existed. Those are a follow-up.
+That per-run sweep never reaches recordings from ad-hoc `maestro` runs outside the gate, other
+simulators, or anything left from before it existed. Reclaim those on demand (INFRA-718):
+
+```bash
+npm run e2e:safety:clean:recordings            # count and MB per simulator, deletes nothing
+npm run e2e:safety:clean:recordings -- --yes   # delete them
+```
+
+- It covers every simulator `xcrun simctl list devices -j` returns, booted or not. Data paths come
+  from simctl, never `$HOME`, and the container is chosen by `MCMMetadataIdentifier`, exactly as
+  the per-run sweep does.
+- A simulator whose INFRA-436 lease is held by a live process is skipped in both modes. With
+  `--yes` the sweep takes that simulator's lease itself (timeout 0) while it deletes, so a gate
+  cannot start mid-sweep. An inherited `E2E_LOCK_FORCE` is ignored.
+- A file `lsof` reports open is kept. If `lsof` is missing or errors, nothing in that directory is
+  deleted.
+- It is a separate mode on purpose. Plain `--yes` deletes this worktree's DerivedData, and
+  `--orphans --yes` runs unattended on low disk, so neither touches recordings.
 
 **When the Maestro pin moves**, re-read those two keys in the new jar
 (`unzip -p … driver-iPhoneSimulator/maestro-driver-ios-config.xctestrun`). If they change, the sweep

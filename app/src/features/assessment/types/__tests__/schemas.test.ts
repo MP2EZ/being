@@ -419,50 +419,36 @@ describe('PHQ9ResultSchema', () => {
     });
   });
 
-  describe('crisis threshold validation', () => {
-    it('should require crisis flag true when score >= 15', () => {
-      const answers = generatePHQ9Answers([2, 2, 2, 2, 2, 2, 1, 1, 0]);
+  describe('Crisis flag is shape-only (MAINT-712)', () => {
+    // The refine that re-derived isCrisis from a threshold was a second copy of
+    // detectCrisis's tiering, held in step only by convention. Classification is
+    // detectCrisis()'s alone; the schema checks only that the flag is a boolean.
+    it.each([
+      [[2, 2, 2, 2, 2, 2, 2, 1, 0], 15, 'moderately_severe', false],
+      [[3, 3, 3, 3, 3, 2, 2, 1, 0], 20, 'severe', false],
+      [[1, 1, 1, 1, 1, 0, 0, 0, 0], 5, 'mild', true],
+    ])('accepts either boolean (responses %j, total %i, %s, isCrisis=%s)', (responses, totalScore, severity, isCrisis) => {
       const result = {
-        totalScore: 15,
-        severity: 'moderately_severe',
-        isCrisis: false, // WRONG - should be true
+        totalScore,
+        severity,
+        isCrisis,
         suicidalIdeation: false,
         completedAt: Date.now(),
-        answers,
+        answers: generatePHQ9Answers(responses as number[]),
       };
-      const parseResult = PHQ9ResultSchema.safeParse(result);
-      expect(parseResult.success).toBe(false);
-      if (!parseResult.success) {
-        expect(parseResult.error.message).toContain('Crisis flag');
-      }
+      expect(PHQ9ResultSchema.safeParse(result).success).toBe(true);
     });
 
-    it('should require crisis flag true when score >= 20', () => {
-      const answers = generatePHQ9Answers([3, 3, 3, 3, 3, 2, 2, 1, 0]);
+    it('rejects a non-boolean isCrisis', () => {
       const result = {
         totalScore: 20,
         severity: 'severe',
-        isCrisis: false, // WRONG - should be true
+        isCrisis: 'true',
         suicidalIdeation: false,
         completedAt: Date.now(),
-        answers,
+        answers: generatePHQ9Answers([3, 3, 3, 3, 3, 2, 2, 1, 0]),
       };
-      const parseResult = PHQ9ResultSchema.safeParse(result);
-      expect(parseResult.success).toBe(false);
-    });
-
-    it('should require crisis flag false when score < 15 and no suicidal ideation', () => {
-      const answers = generatePHQ9Answers([1, 1, 1, 1, 1, 0, 0, 0, 0]);
-      const result = {
-        totalScore: 5,
-        severity: 'mild',
-        isCrisis: true, // WRONG - should be false
-        suicidalIdeation: false,
-        completedAt: Date.now(),
-        answers,
-      };
-      const parseResult = PHQ9ResultSchema.safeParse(result);
-      expect(parseResult.success).toBe(false);
+      expect(PHQ9ResultSchema.safeParse(result).success).toBe(false);
     });
   });
 
@@ -482,20 +468,6 @@ describe('PHQ9ResultSchema', () => {
       if (!parseResult.success) {
         expect(parseResult.error.message).toContain('Question 9');
       }
-    });
-
-    it('should require crisis flag true when suicidalIdeation is true (regardless of score)', () => {
-      const answers = generatePHQ9Answers([0, 0, 0, 0, 0, 0, 0, 0, 1]); // Q9 = 1, total = 1
-      const result = {
-        totalScore: 1,
-        severity: 'minimal',
-        isCrisis: false, // WRONG - suicidalIdeation triggers crisis
-        suicidalIdeation: true,
-        completedAt: Date.now(),
-        answers,
-      };
-      const parseResult = PHQ9ResultSchema.safeParse(result);
-      expect(parseResult.success).toBe(false);
     });
 
     it('should accept crisis flag true when suicidalIdeation is true with low score', () => {
@@ -722,31 +694,30 @@ describe('GAD7ResultSchema', () => {
     });
   });
 
-  describe('crisis threshold validation', () => {
-    it('should require crisis flag true when score >= 15', () => {
-      const answers = generateGAD7Answers([3, 3, 3, 3, 3, 0, 0]);
+  describe('Crisis flag is shape-only (MAINT-712)', () => {
+    it.each([
+      [[3, 3, 3, 3, 3, 0, 0], 15, 'severe', false],
+      [[2, 2, 2, 2, 2, 2, 2], 14, 'moderate', true],
+    ])('accepts either boolean (responses %j, total %i, %s, isCrisis=%s)', (responses, totalScore, severity, isCrisis) => {
+      const result = {
+        totalScore,
+        severity,
+        isCrisis,
+        completedAt: Date.now(),
+        answers: generateGAD7Answers(responses as number[]),
+      };
+      expect(GAD7ResultSchema.safeParse(result).success).toBe(true);
+    });
+
+    it('rejects a non-boolean isCrisis', () => {
       const result = {
         totalScore: 15,
         severity: 'severe',
-        isCrisis: false, // WRONG - should be true
+        isCrisis: 1,
         completedAt: Date.now(),
-        answers,
+        answers: generateGAD7Answers([3, 3, 3, 3, 3, 0, 0]),
       };
-      const parseResult = GAD7ResultSchema.safeParse(result);
-      expect(parseResult.success).toBe(false);
-    });
-
-    it('should require crisis flag false when score < 15', () => {
-      const answers = generateGAD7Answers([2, 2, 2, 2, 2, 2, 2]);
-      const result = {
-        totalScore: 14,
-        severity: 'moderate',
-        isCrisis: true, // WRONG - should be false
-        completedAt: Date.now(),
-        answers,
-      };
-      const parseResult = GAD7ResultSchema.safeParse(result);
-      expect(parseResult.success).toBe(false);
+      expect(GAD7ResultSchema.safeParse(result).success).toBe(false);
     });
   });
 });

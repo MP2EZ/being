@@ -216,21 +216,6 @@ export function isCrisisTriggered(result: PHQ9Result | GAD7Result): boolean {
 }
 
 /**
- * Crisis Safety Constraint Types
- */
-
-export interface CrisisSafetyConstraints {
-  /** PHQ-9 crisis threshold (≥20) - MUST NOT be modified */
-  readonly PHQ9_CRISIS_THRESHOLD: 20;
-  /** GAD-7 crisis threshold (≥15) - MUST NOT be modified */
-  readonly GAD7_CRISIS_THRESHOLD: 15;
-  /** Maximum response time for crisis intervention (ms) */
-  MAX_CRISIS_RESPONSE_TIME_MS: 200;
-  /** PHQ-9 Question 9 ID for suicidal ideation */
-  readonly PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9';
-}
-
-/**
  * Component Performance Requirements
  */
 

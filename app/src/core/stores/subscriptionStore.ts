@@ -130,6 +130,7 @@ import { logSystem, logPerformance, logError, LogCategory } from '@/core/service
 // IAPService from having to mirror every export the store destructures.
 import { appleTransactionIdentityFrom } from '@/core/services/subscription/appleTransactionIdentity';
 import { intervalFromProductId } from '@/core/services/subscription/subscriptionProductInterval';
+import { ReceiptVerificationUnavailableError } from '@/core/services/subscription/receiptVerificationUnavailable';
 const logger = {
   info: (message: string, meta?: Record<string, unknown>) => {
     logSystem(`[Subscription] ${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`);
@@ -360,20 +361,30 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
         transactionReceipt?: string;
         purchaseToken?: string;
         orderId?: string;
+        productId?: string;
       };
       const receiptData = p.transactionReceipt || '';
       const purchaseToken = p.purchaseToken;
 
       logger.info('Verifying receipt', { platform, hasReceipt: !!receiptData });
 
+      // productId rides in its own argument, never in receiptData: on Android
+      // receiptData is '' and is persisted below as the record's receipt (DEBUG-713).
       const verification = await IAPService.verifyReceipt(
         receiptData,
         platform,
         purchaseToken,
-        appleTransactionIdentityFrom(purchase)
+        appleTransactionIdentityFrom(purchase),
+        p.productId
       );
 
       if (!verification.valid) {
+        // DEBUG-715: no session or no client means the receipt was never judged.
+        // Thrown as its own type so logs tell it from an invalid receipt; either
+        // way the transaction stays unfinished and the platform offers it again.
+        if (verification.reason) {
+          throw new ReceiptVerificationUnavailableError(verification.reason);
+        }
         throw new Error(verification.error || 'Receipt verification failed');
       }
 

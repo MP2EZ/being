@@ -3,7 +3,7 @@
  * (react-native-aes-crypto, expo-crypto, expo-secure-store).
  *
  * Lets integration tests that touch any service hanging off
- * EncryptionService (SyncCoordinator, AnalyticsService, etc.) initialize
+ * EncryptionService (AnalyticsService, etc.) initialize
  * the master key without hitting the real Keychain. Pattern is extracted
  * from `src/core/services/security/__tests__/EncryptionService.test.ts`.
  *

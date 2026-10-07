@@ -138,8 +138,7 @@ describe('DEBUG-550 — completeAssessment refuses a malformed answer set', () =
     it('nulls currentResult so a previous assessment cannot render as this one', async () => {
       // recoverSession does not clear currentResult, so a second assessment
       // completed-then-refused in one app session could otherwise render the
-      // earlier banded result — and SyncCoordinator's null->non-null transition
-      // would re-evaluate it for crisis.
+      // earlier banded result.
       seedSession('phq9', [answer('phq9_1', 1)]);
       useAssessmentStore.setState({
         currentResult: { totalScore: 24, severity: 'severe' },

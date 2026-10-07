@@ -30,6 +30,10 @@
  *    and never completed. Allowing the two keys activates the sanitisers that
  *    were written for exactly this case.
  *
+ *    DEBUG-679 later removed `title` again, from both the allowlist and the
+ *    parse: a link's title rendered as Being's own copy. The route takes its
+ *    title from the catalog now; the duration half stands.
+ *
  *    Deliberately the MINIMAL fix. A larger narrowing (a validating launcher
  *    route, removing PracticeTimer from the linking config) was considered and
  *    rejected: the path is already consent-gated by INFRA-308, it hangs rather
@@ -139,22 +143,23 @@ describe('loving-kindness presentation (DEBUG-353)', () => {
   });
 
   describe('practice deep link can no longer build an unsatisfiable timer', () => {
-    it('allows the duration and title params the PracticeTimer route requires', () => {
+    // DEBUG-679 inverted the `title` half of DEBUG-353: a link's title rendered as Being's
+    // own copy, so the route now takes its title from the catalog and the key is neither
+    // allowed nor parsed. `duration` is unchanged.
+    it('allows duration, and no longer allows title (DEBUG-679)', () => {
       const allowed = DEEP_LINK_CONFIG.ALLOWED_PARAMS as readonly string[];
       expect(allowed).toContain('duration');
-      expect(allowed).toContain('title');
+      expect(allowed).not.toContain('title');
     });
 
     it('still allows only the known param set (no blanket passthrough)', () => {
-      // The fix widens the allowlist by exactly two keys. If this list grows
-      // silently, arbitrary URL params reach a wellness screen.
+      // If this list grows silently, arbitrary URL params reach a wellness screen.
       expect([...DEEP_LINK_CONFIG.ALLOWED_PARAMS].sort()).toEqual(
         [
           'duration',
           'moduleId',
           'practiceId',
           'source',
-          'title',
           'utm_campaign',
           'utm_medium',
           'utm_source',
@@ -162,25 +167,27 @@ describe('loving-kindness presentation (DEBUG-353)', () => {
       );
     });
 
-    it('linking.ts sanitises both newly-allowed params rather than passing them raw', () => {
-      // These sanitisers already existed and were unreachable. Pin that they are
-      // still present, so allowing the keys never becomes a raw passthrough.
+    it('linking.ts clamps duration and no longer parses title', () => {
+      // Comments stripped (DEBUG-390): the block's prose may name what it no longer does.
       const linking = readFileSync(
         resolve(__dirname, '../../../src/core/navigation/linking.ts'),
         'utf8'
-      );
+      )
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/^\s*\/\/.*$/gm, '');
       const practiceBlock = linking.slice(
         linking.indexOf('PracticeTimer: {'),
         linking.indexOf('ReflectionTimer')
       );
 
-      expect(practiceBlock).toContain('duration:');
-      expect(practiceBlock).toContain('title:');
+      // Control: the slice is the PracticeTimer config, and it still parses duration.
+      expect(practiceBlock).toContain("path: 'practice/:practiceId'");
+      expect(practiceBlock).toMatch(/\bduration\s*:/);
       // Clamp + default for duration; NaN must not survive.
       expect(practiceBlock).toMatch(/isNaN\(num\)\s*\?\s*60/);
       expect(practiceBlock).toMatch(/Math\.min\(Math\.max\(num/);
-      // Title is stripped of angle brackets and truncated.
-      expect(practiceBlock).toMatch(/replace\(\/\[<>\]\/g, ''\)/);
+      // No title parse: a parsed title is a title the route could be tempted to read.
+      expect(practiceBlock).not.toMatch(/\btitle\s*:/);
     });
   });
 });

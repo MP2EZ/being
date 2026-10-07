@@ -107,6 +107,7 @@
     "e2e:safety:gate": "bash scripts/e2e-gate.sh",
     "e2e:safety:clean": "bash scripts/e2e-sim-clean.sh",
     "e2e:safety:clean:orphans": "bash scripts/e2e-sim-clean.sh --orphans",
+    "e2e:safety:clean:recordings": "bash scripts/e2e-sim-clean.sh --xctest-recordings",
     "e2e:safety:q9": "bash scripts/e2e-safety.sh q9-single-alert",
     "e2e:safety:phq9": "bash scripts/e2e-safety.sh phq9-severe-completion",
     "e2e:safety:gad7": "bash scripts/e2e-safety.sh gad7-severe",
@@ -138,7 +139,7 @@
     "react": "19.2.3",
     "react-test-renderer": "19.2.3",
     "@types/react": "19.2.14",
-    "shell-quote": "^1.10.0",
+    "shell-quote": "^1.11.0",
     "brace-expansion@^1.1.7": "1.1.21",
     "brace-expansion@^5.0.5": "5.0.12",
     "postcss": "^8.5.18",
@@ -149,13 +150,15 @@
     "nanoid@^3.3.16": "3.3.18",
     "browserslist": "^4.28.7",
     "@xmldom/xmldom@^0.8.8": "0.8.15",
-    "@xmldom/xmldom@^0.9.10": "0.9.12"
+    "@xmldom/xmldom@^0.9.10": "0.9.12",
+    "compression": "1.8.2",
+    "source-map-js": "1.2.2"
   },
   "resolutions": {
     "react": "19.2.3",
     "react-test-renderer": "19.2.3",
     "@types/react": "19.2.14",
-    "shell-quote": "^1.10.0",
+    "shell-quote": "^1.11.0",
     "brace-expansion@^1.1.7": "1.1.21",
     "brace-expansion@^5.0.5": "5.0.12",
     "postcss": "^8.5.18",
@@ -166,7 +169,9 @@
     "nanoid@^3.3.16": "3.3.18",
     "browserslist": "^4.28.7",
     "@xmldom/xmldom@^0.8.8": "0.8.15",
-    "@xmldom/xmldom@^0.9.10": "0.9.12"
+    "@xmldom/xmldom@^0.9.10": "0.9.12",
+    "compression": "1.8.2",
+    "source-map-js": "1.2.2"
   },
   "dependencies": {
     "@mp2ez/being-design-system": "^1.10.0",

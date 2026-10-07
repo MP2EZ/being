@@ -11,8 +11,10 @@ import { whenE2ESeedComplete } from '@/core/config/e2eSeed';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
+import PracticeTimerRoute from './PracticeTimerRoute';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { dismissRouteThenNotify, removeOwnRoute } from './crisisDestinationGuard';
+import { completeOnboarding } from './completeOnboarding';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { semantic, spacing, typography } from '@/core/theme';
@@ -46,7 +48,6 @@ import WellnessTrendsDetailScreen from '@/features/insights/screens/WellnessTren
 import ClassicalLibraryScreen from '@/features/library/screens/ClassicalLibraryScreen';
 import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen';
 import {
-  PracticeTimerScreen,
   ReflectionTimerScreen,
   BodyScanScreen,
   GuidedBodyScanScreen
@@ -132,10 +133,10 @@ export type RootStackParamList = {
     // and usePracticeCompletion degrades rather than writing for it.
     moduleId?: ModuleId | undefined;
     duration: number;
-    title: string;
-    // DEBUG-353: optional so the deep-link path (which cannot carry authored
-    // content) still type-checks; resolvePracticeRoute supplies both when the
-    // practice is launched from the module JSON.
+    // DEBUG-679: title, instructions, visualMode and moduleId are IGNORED by the route.
+    // PracticeTimerRoute takes all four from the guided-timer catalog by practiceId, so
+    // a link cannot supply copy. resolvePracticeRoute still sends the catalog's values.
+    title?: string;
     instructions?: string[];
     visualMode?: PracticeVisualMode;
   };
@@ -394,17 +395,10 @@ const CleanRootNavigator: React.FC = () => {
 
   // FEAT-298 slice 6c: the "start practising now" destination is the daily loop. It was
   // 'morning' — the retired Morning flow — so leaving it would navigate to a deleted route.
-  const handleOnboardingComplete = async (destination?: 'home' | 'practice') => {
+  // Persistence only. The navigation that follows lives in completeOnboarding (DEBUG-711).
+  const handleOnboardingComplete = async () => {
     await markOnboardingComplete();
     setInitialRoute('Main');
-
-    // Navigate to destination after state update
-    if (destination === 'practice') {
-      // Small delay to ensure Main screen is mounted before modal presentation
-      setTimeout(() => {
-        // Navigation will be handled by the OnboardingScreen's navigation prop
-      }, 100);
-    }
   };
 
   /**
@@ -525,22 +519,16 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => (
+          {({ route }) => (
             <OnboardingScreen
-              onComplete={async (destination) => {
-                await handleOnboardingComplete(destination);
-                // Navigate based on destination
-                if (destination === 'practice') {
-                  navigation.replace('Main');
-                  // Enter the daily loop once Main is mounted. No mode param — the tense is
-                  // inferred from the clock (slice 5).
-                  setTimeout(() => {
-                    navigation.navigate('DailyLoop');
-                  }, 100);
-                } else {
-                  navigation.replace('Main');
-                }
-              }}
+              // DEBUG-711: persist, then replace THIS route (by key, at the root) with Main
+              // — deferred while a crisis destination is focused, never dropped.
+              onComplete={(destination) =>
+                completeOnboarding(destination, {
+                  onboardingRouteKey: route.key,
+                  markComplete: handleOnboardingComplete,
+                })
+              }
               isEmbedded={true}
             />
           )}
@@ -669,17 +657,10 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false, // Prevent accidental swipe during practice
           }}
         >
+          {/* DEBUG-679: a link's params are never copy. PracticeTimerRoute takes the title,
+              presentation and module from the guided-timer catalog by practiceId. */}
           {({ navigation, route }) => (
-            <PracticeTimerScreen
-              practiceId={route.params.practiceId}
-              moduleId={route.params.moduleId}
-              duration={route.params.duration}
-              title={route.params.title}
-              instructions={route.params.instructions}
-              visualMode={route.params.visualMode}
-              onComplete={() => navigation.goBack()}
-              onBack={() => navigation.goBack()}
-            />
+            <PracticeTimerRoute params={route.params} onDone={() => navigation.goBack()} />
           )}
         </Stack.Screen>
 
@@ -877,21 +858,12 @@ const CleanRootNavigator: React.FC = () => {
             }}
           >
             {({ navigation, route }) => {
-              // Create consent status for EnhancedAssessmentFlow
-              const consentStatus = {
-                dataProcessingConsent: true, // Assumed true if user reached assessment
-                clinicalDataConsent: true,
-                consentTimestamp: Date.now(),
-                consentVersion: '1.0.0'
-              };
-
               return (
                 <EnhancedAssessmentFlow
                   assessmentType={route.params.assessmentType}
                   context={route.params.context}
                   theme="neutral"
                   showIntroduction={route.params.context === 'standalone'}
-                  consentStatus={consentStatus}
                   sessionId={generateTimestampedId('session')}
                   onComplete={(result) => {
                     logSystem(`Assessment ${route.params.assessmentType} completed`);

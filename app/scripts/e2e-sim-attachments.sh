@@ -15,7 +15,8 @@
 # container whose metadata names com.apple.testmanagerd, only regular files at depth 1.
 #
 # What it does NOT reach: recordings from ad-hoc maestro runs outside e2e-safety.sh, other
-# simulators, and anything already there before the run. Those are a follow-up.
+# simulators, and anything already there before the run. INFRA-718 reaches those on demand:
+# `npm run e2e:safety:clean:recordings` (report) / `-- --yes` (delete), via _e2e_attach_sims.
 #
 # Overrides:
 #   E2E_KEEP_XCTEST_RECORDINGS=1    list this run's recordings and keep them (debugging a flow)
@@ -40,6 +41,35 @@ _e2e_attach_data_path() {
           for (const d of list) if (d.udid === process.env.UDID && d.dataPath) { process.stdout.write(d.dataPath); return; }
         }
       } catch (_) {}
+    });
+  ' 2>/dev/null
+  return 0
+}
+
+# INFRA-718 — every device in the default device set, booted or not, as one
+# `udid<TAB>state<TAB>name<TAB>dataPath` line each, sorted. Same source as above: data paths come
+# from simctl, never $HOME. A device whose dataPath does not end in /<udid>/data is dropped, never
+# guessed at, and so is any field carrying a tab or newline. Kept separate from
+# _e2e_attach_data_path on purpose: the gate's exact-booted-UDID behaviour must not widen.
+_e2e_attach_sims() {
+  xcrun simctl list devices -j 2>/dev/null | node -e '
+    let raw = "";
+    process.stdin.on("data", (c) => (raw += c));
+    process.stdin.on("end", () => {
+      const out = [];
+      try {
+        for (const list of Object.values(JSON.parse(raw).devices || {})) {
+          for (const d of Array.isArray(list) ? list : []) {
+            const f = [d && d.udid, d && d.state, d && d.name, d && d.dataPath];
+            if (!f.every((v) => typeof v === "string") || !f[0] || !f[3]) continue;
+            if (f.some((v) => /[\t\n\r]/.test(v))) continue;
+            if (!f[3].endsWith("/" + f[0] + "/data")) continue;
+            out.push(f.join("\t"));
+          }
+        }
+      } catch (_) {}
+      out.sort();
+      if (out.length) process.stdout.write(out.join("\n") + "\n");
     });
   ' 2>/dev/null
   return 0
