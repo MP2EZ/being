@@ -194,6 +194,51 @@ describe('INFRA-692 e2e-sim-attachments.sh', () => {
   });
 });
 
+describe('INFRA-718 _e2e_attach_sims — every simulator, booted or not', () => {
+  function sims(json, env = {}) {
+    fs.writeFileSync(path.join(root, 'all.json'), typeof json === 'string' ? json : JSON.stringify(json));
+    fs.writeFileSync(
+      path.join(root, 'bin', 'xcrun'),
+      `#!/bin/bash\necho "xcrun $*" >> "${trace}"\n[ "$XCRUN_FAIL" = "1" ] && exit 1\n` +
+        `case "$*" in "simctl list devices -j") cat "${path.join(root, 'all.json')}" ;; esac\n`,
+      { mode: 0o755 },
+    );
+    return spawnSync('/bin/bash', ['-c', `. "${HELPER}"; _e2e_attach_sims; echo "rc=$?"`], {
+      encoding: 'utf8',
+      env: { ...process.env, PATH: `${path.join(root, 'bin')}:${process.env.PATH}`, ...env },
+    });
+  }
+  const dev = (udid, state, name) => ({ udid, state, name, dataPath: path.join(root, 'Devices', udid, 'data') });
+
+  it('lists Booted and Shutdown devices across runtimes, sorted, with their simctl data paths', () => {
+    const r = sims({ devices: { 'iOS-18-6': [dev(OTHER, 'Shutdown', 'iPhone 16e')], 'iOS-26-0': [dev(UDID, 'Booted', 'iPhone SE (3rd generation)')] } });
+    expect(r.stdout.trim().split('\n')).toEqual([
+      `${UDID}\tBooted\tiPhone SE (3rd generation)\t${path.join(root, 'Devices', UDID, 'data')}`,
+      `${OTHER}\tShutdown\tiPhone 16e\t${path.join(root, 'Devices', OTHER, 'data')}`,
+      'rc=0',
+    ]);
+    expect(fs.readFileSync(trace, 'utf8').trim()).toBe('xcrun simctl list devices -j');
+  });
+
+  it('drops a device whose dataPath does not end in its own UDID, and one missing fields', () => {
+    const r = sims({
+      devices: {
+        rt: [
+          { ...dev(UDID, 'Shutdown', 'a'), dataPath: path.join(root, 'Devices', OTHER, 'data') },
+          { udid: OTHER, state: 'Shutdown', name: 'no path' },
+          { ...dev(OTHER, 'Shutdown', 'tab\tname') },
+        ],
+      },
+    });
+    expect(r.stdout.trim()).toBe('rc=0');
+  });
+
+  it('returns 0 and prints nothing when simctl fails or prints garbage', () => {
+    expect(sims({ devices: {} }, { XCRUN_FAIL: '1' }).stdout.trim()).toBe('rc=0');
+    expect(sims('not json').stdout.trim()).toBe('rc=0');
+  });
+});
+
 describe('INFRA-692 wiring in e2e-safety.sh', () => {
   const source = fs
     .readFileSync(SAFETY, 'utf8')

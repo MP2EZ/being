@@ -56,6 +56,12 @@ import {
 import { detectCrisis as detectCrisisPure } from '@/features/crisis/types/safety';
 import { showCrisisAlert } from '@/features/crisis/services/crisisAlert';
 import { validateSingleResponse } from '../types/schemas';
+import {
+  applyAssessmentErasureOp,
+  isPersistedAssessmentState,
+  normalizePersistedAssessmentBlob,
+  type AssessmentErasureOp,
+} from './persistedAssessmentBlob';
 
 // Clinical scoring algorithms (validated for 100% accuracy)
 const PHQ9_QUESTIONS = [
@@ -115,22 +121,12 @@ const GAD7_SEVERITY_THRESHOLDS = {
   severe: [15, 21]
 } as const;
 
-/**
- * Shape of state persisted by the assessment store. Used to narrow
- * EncryptedAssessmentStorage.load()'s `unknown` return at the recovery
- * call site (audit TS-01).
- */
-interface PersistedAssessmentState {
-  currentSession?: AssessmentSession | null;
-  currentQuestionIndex?: number;
-  answers?: AssessmentAnswer[];
-  completedAssessments?: AssessmentSession[];
-  lastSavedAt?: number;
-}
+type AssessmentErasureFailure = 'read_failed' | 'write_failed';
 
-function isPersistedAssessmentState(value: unknown): value is PersistedAssessmentState {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
-}
+/** Outcome of an on-disk assessment erasure (FEAT-717 AC1). */
+export type AssessmentErasureResult =
+  | { ok: true; wrote: boolean }
+  | { ok: false; reason: AssessmentErasureFailure };
 
 /**
  * Encrypted wellness-data storage for assessment state.
@@ -212,6 +208,72 @@ class EncryptedAssessmentStorage {
     } catch (error) {
       logError(LogCategory.SYSTEM, 'Assessment storage clear failed:', error instanceof Error ? error : new Error(String(error)));
     }
+  }
+
+  /**
+   * Apply one deletion to the blob ON DISK (FEAT-717 AC1, FEAT-665 slice A2a-ii).
+   * UNWIRED: FEAT-685 routes clearHistory / clearSessionNote / resetAssessment here
+   * while Art. 9 writes are withheld, so a deletion still lands without the write that
+   * carries it also persisting what memory captured during the block.
+   *
+   * It reads the blob itself, with exactly load()'s key, legacy key and options, and
+   * never memory: no store read, no load() (whose catch would turn a failed read into
+   * "absent"). Panel rulings (2026-10-03, 2026-10-05):
+   *   - read throws, or the shape is unrecognised → zero writes, `read_failed`
+   *   - absent → zero writes, success
+   *   - otherwise the envelope at persist's version, from its own storeWellnessBlob
+   *     call (ratchet row `exempt: erasure`); a failed store → `write_failed`
+   *   - failures log content-free at high severity; no logAccess
+   * Never falls back to memory, never writes an empty or partial envelope, and never
+   * widens to deleting the whole blob.
+   */
+  static async applyErasure(op: AssessmentErasureOp): Promise<AssessmentErasureResult> {
+    let raw: unknown;
+    try {
+      raw = await SecureStorageService.retrieveWellnessBlob<unknown>(
+        this.BLOB_KEY,
+        this.LEGACY_SECURE_STORE_KEY,
+        { legacyFormat: 'plaintext_json', sensitivityLevel: 'level_2_assessment_data' }
+      );
+    } catch {
+      return this.erasureFailed('read_failed');
+    }
+    if (raw === null || raw === undefined) return { ok: true, wrote: false };
+
+    const normalized = normalizePersistedAssessmentBlob(raw);
+    if (!normalized) return this.erasureFailed('read_failed');
+
+    const envelope = {
+      state: applyAssessmentErasureOp(normalized.state, op),
+      // Looked up at call time: the store is created after this class.
+      version: useAssessmentStore.persist.getOptions().version ?? 0,
+    };
+    try {
+      const result = await SecureStorageService.storeWellnessBlob(
+        this.BLOB_KEY,
+        envelope,
+        'level_2_assessment_data'
+      );
+      if (!result.success) return this.erasureFailed('write_failed');
+    } catch {
+      return this.erasureFailed('write_failed');
+    }
+    return { ok: true, wrote: true };
+  }
+
+  /** Content-free: never the op, the error text, or anything read from disk. */
+  private static erasureFailed(reason: AssessmentErasureFailure): AssessmentErasureResult {
+    try {
+      logSecurity('assessment erasure did not reach storage', 'high', {
+        component: 'EncryptedAssessmentStorage',
+        action: 'applyErasure',
+        result: 'failure',
+        reason,
+      });
+    } catch {
+      // Swallowed: the typed result already reports the failure.
+    }
+    return { ok: false, reason };
   }
 
   private static async logAccess(action: string, itemCount: number): Promise<void> {
@@ -1071,6 +1133,14 @@ export async function resetAssessmentStoreForErasure(): Promise<void> {
 }
 
 registerErasureReset('assessmentStore', resetAssessmentStoreForErasure);
+
+/**
+ * Apply one deletion to the persisted assessment blob, reading and writing disk only
+ * (FEAT-717 AC1). UNWIRED until FEAT-685; see EncryptedAssessmentStorage.applyErasure.
+ */
+export function writeAssessmentErasure(op: AssessmentErasureOp): Promise<AssessmentErasureResult> {
+  return EncryptedAssessmentStorage.applyErasure(op);
+}
 
 // DEBUG-549 — the module-level autosave subscription was REMOVED, not repaired.
 //

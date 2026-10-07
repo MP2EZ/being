@@ -435,6 +435,25 @@ e2e_lock_release() {
   return 0
 }
 
+# e2e_lock_peek <key> [namespace]
+#
+# INFRA-718 — READ-ONLY: `state<TAB>pid<TAB>label` for the record on disk, or nothing when no
+# lease directory exists. For a caller that must stay out of a held resource's way without
+# waiting on it (the recordings reaper's report mode). Never creates, reclaims or removes
+# anything, and classifies with the same PID + start-time rule as acquire, reading fields 1..4
+# only. A directory with no readable owner record reports RECYCLED, as acquire would treat it.
+e2e_lock_peek() {
+  local dir line pid
+  dir="$(e2e_lock_dir "${1:-}" "${2:-sim}")" || return 0
+  [ -d "$dir" ] || return 0
+  line="$(cat "$dir/owner" 2>/dev/null || true)"
+  pid="$(printf '%s' "$line" | cut -f1)"
+  printf '%s\t%s\t%s\n' \
+    "$(e2e_lock_holder_state "$pid" "$(printf '%s' "$line" | cut -f2)")" \
+    "$pid" "$(printf '%s' "$line" | cut -f4)"
+  return 0
+}
+
 # --- The pair (INFRA-472) ---------------------------------------------------------------
 
 # e2e_lock_pair_order <ns1> <key1> <ns2> <key2>

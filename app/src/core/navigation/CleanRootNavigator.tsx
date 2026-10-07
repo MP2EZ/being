@@ -870,21 +870,12 @@ const CleanRootNavigator: React.FC = () => {
             }}
           >
             {({ navigation, route }) => {
-              // Create consent status for EnhancedAssessmentFlow
-              const consentStatus = {
-                dataProcessingConsent: true, // Assumed true if user reached assessment
-                clinicalDataConsent: true,
-                consentTimestamp: Date.now(),
-                consentVersion: '1.0.0'
-              };
-
               return (
                 <EnhancedAssessmentFlow
                   assessmentType={route.params.assessmentType}
                   context={route.params.context}
                   theme="neutral"
                   showIntroduction={route.params.context === 'standalone'}
-                  consentStatus={consentStatus}
                   sessionId={generateTimestampedId('session')}
                   onComplete={(result) => {
                     logSystem(`Assessment ${route.params.assessmentType} completed`);

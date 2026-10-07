@@ -55,6 +55,11 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       'THE screening chokepoint: persist setItem, saveProgress, answerQuestion, completeAssessment, setSessionNote and handleCrisisDetection all land here. Erasure (clearHistory, clearSessionNote, resetAssessment) routes through it too and must stay ungated.',
     ],
     'useAssessmentStore › persist': [1, 'pending: A2', 'storage adapter is EncryptedAssessmentStorage.save'],
+    'EncryptedAssessmentStorage.applyErasure › storeWellnessBlob': [
+      1,
+      ERASURE,
+      'FEAT-717: rewrites the on-disk blob minus one deletion (clear_history, clear_session_note, reset_current_session); reads disk, never memory. Unwired until FEAT-685.',
+    ],
     'EncryptedAssessmentStorage.logAccess › AsyncStorage.setItem': [
       1,
       `${NOT_WELLNESS} — access metadata {timestamp, action, itemCount, source}`,
