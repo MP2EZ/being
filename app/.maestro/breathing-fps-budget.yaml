@@ -47,9 +47,12 @@ name: "UI frame delivery on the breathing path stays within the dropped-frame bu
     clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
 - runFlow: _legal-and-onboarding.yaml
 
-# Deep link rather than UI navigation: `visualMode` is not a link parameter and defaults
-# to 'breathing', so the circle — and therefore the probe — mounts. `duration` and `title`
-# are REQUIRED params of the PracticeTimer route (DEBUG-353).
+# Deep link rather than UI navigation: `probe` is no guided-timer catalog id, so the route
+# renders the fixed fallback, a breathing timer, and the circle — and therefore the probe —
+# mounts. On that path `duration` is clamped by linking.ts (DEBUG-353), and a link without
+# one runs 60s (DEBUG-679).
+# `title` is ignored since DEBUG-679: the validator strips it with a warning and the header
+# reads the fallback title, so the param here is inert.
 - openLink: being://practice/probe?duration=60&title=Frame+Probe
 - assertVisible:
     id: "practice-timer-screen"

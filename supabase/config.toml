@@ -58,13 +58,13 @@ verify_jwt = false
 
 # Crisis-Detection Alerting (INFRA-219, Cron Job)
 # verify_jwt=false is REQUIRED: pg_cron -> net.http_post carries no user JWT. The
-# X-Cron-Secret constant-time check inside index.ts is the sole compensating control.
+# X-Cron-Secret constant-time check in runAlerter.ts is the sole compensating control.
 [functions.crisis-detection-alerting]
 verify_jwt = false
 
 # Crisis-Detection Synthetic Liveness Probe (INFRA-265, Cron Job)
 # Same posture as the alerter: pg_cron -> net.http_post carries no user JWT, so
-# verify_jwt=false and the X-Cron-Secret constant-time check inside index.ts is the sole
+# verify_jwt=false and the X-Cron-Secret constant-time check in handleProbe.ts is the sole
 # compensating control. Shares CRON_SECRET with crisis-detection-alerting (same
 # crisis-monitoring trust domain). Writes a synthetic marker to crisis_liveness_probe only.
 [functions.crisis-liveness-probe]

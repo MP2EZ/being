@@ -45,25 +45,41 @@ function readsEnv(source: string, name: string): boolean {
   return new RegExp(`Deno\\.env\\.get\\(\\s*['"]${name}['"]\\s*\\)`).test(source);
 }
 
-async function loadStripped(relativePath: string): Promise<string> {
-  const raw = await Deno.readTextFile(new URL(relativePath, import.meta.url));
-  const stripped = stripComments(raw);
+/**
+ * Load a function's source as ONE stripped string. A function is a FILE SET, not just its
+ * index.ts: since MAINT-740 the crisis pair keep their handlers in sibling modules, and a
+ * pin that reads only index.ts would check a thin wrapper. Each file must exist and be
+ * non-empty; the floor below applies to the concatenation, at its original strength.
+ */
+async function loadStripped(...relativePaths: string[]): Promise<string> {
+  const parts: string[] = [];
+  for (const relativePath of relativePaths) {
+    const raw = await Deno.readTextFile(new URL(relativePath, import.meta.url));
+    const part = stripComments(raw);
+    assert(part.trim().length > 0, `${relativePath}: stripped source is empty.`);
+    parts.push(part);
+  }
+  const stripped = parts.join('\n');
   // A path typo or a moved file would otherwise make every `not-contains` assertion below
   // pass vacuously against an empty string.
   assert(
     stripped.length > 500,
-    `${relativePath}: stripped source is implausibly short (${stripped.length} chars) — ` +
-      'the file moved, or stripComments over-matched. Fix before trusting the assertions.',
+    `${relativePaths.join(' + ')}: stripped source is implausibly short (${stripped.length} ` +
+      'chars) — a file moved, or stripComments over-matched. Fix before trusting the assertions.',
   );
   return stripped;
 }
 
-const GRACE = '../grace-period-automation/index.ts';
-const ALERTER = '../crisis-detection-alerting/index.ts';
-const PROBE = '../crisis-liveness-probe/index.ts';
+const GRACE = ['../grace-period-automation/index.ts'];
+// Entry point first: that is where the literal env reads live (see the last test below).
+const ALERTER = [
+  '../crisis-detection-alerting/index.ts',
+  '../crisis-detection-alerting/runAlerter.ts',
+];
+const PROBE = ['../crisis-liveness-probe/index.ts', '../crisis-liveness-probe/handleProbe.ts'];
 
 Deno.test('grace-period-automation reads its OWN ops-domain cron bearer', async () => {
-  const source = await loadStripped(GRACE);
+  const source = await loadStripped(...GRACE);
   assert(
     readsEnv(source, 'GRACE_PERIOD_CRON_SECRET'),
     'grace-period-automation must authenticate against GRACE_PERIOD_CRON_SECRET. Both ends ' +
@@ -72,7 +88,7 @@ Deno.test('grace-period-automation reads its OWN ops-domain cron bearer', async 
 });
 
 Deno.test('grace-period-automation does NOT read the shared crisis bearer', async () => {
-  const source = await loadStripped(GRACE);
+  const source = await loadStripped(...GRACE);
   assertEquals(
     readsEnv(source, 'CRON_SECRET'),
     false,
@@ -87,8 +103,9 @@ Deno.test('the crisis pair still shares CRON_SECRET — same domain, by design',
   // side would stay green if someone "separated" the crisis functions from each other too,
   // which is a different (and unwanted) change: the probe exists to guarantee the alerter
   // has something to read, so they are one domain on purpose.
-  for (const path of [ALERTER, PROBE]) {
-    const source = await loadStripped(path);
+  for (const paths of [ALERTER, PROBE]) {
+    const path = paths.join(' + ');
+    const source = await loadStripped(...paths);
     assert(
       readsEnv(source, 'CRON_SECRET'),
       `${path} must keep reading CRON_SECRET (crisis trust domain).`,
@@ -98,6 +115,16 @@ Deno.test('the crisis pair still shares CRON_SECRET — same domain, by design',
       false,
       `${path} must never read the ops-domain bearer.`,
     );
+  }
+});
+
+Deno.test('the crisis handlers read no env — every bearer name stays in index.ts', async () => {
+  // MAINT-740 moved the handlers out of index.ts. If a handler ever read env itself, a
+  // bearer name could move somewhere this pin and the deploy-drift reconcile do not look
+  // first — the handlers take resolved values from their index.ts instead.
+  for (const handler of [ALERTER[1], PROBE[1]]) {
+    const source = await loadStripped(handler);
+    assertEquals(/Deno\.env/.test(source), false, `${handler} must not touch Deno.env.`);
   }
 });
 

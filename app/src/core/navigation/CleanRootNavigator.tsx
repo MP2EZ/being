@@ -11,6 +11,7 @@ import { whenE2ESeedComplete } from '@/core/config/e2eSeed';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
+import PracticeTimerRoute from './PracticeTimerRoute';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { dismissRouteThenNotify, removeOwnRoute } from './crisisDestinationGuard';
 import { completeOnboarding } from './completeOnboarding';
@@ -47,7 +48,6 @@ import WellnessTrendsDetailScreen from '@/features/insights/screens/WellnessTren
 import ClassicalLibraryScreen from '@/features/library/screens/ClassicalLibraryScreen';
 import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen';
 import {
-  PracticeTimerScreen,
   ReflectionTimerScreen,
   BodyScanScreen,
   GuidedBodyScanScreen
@@ -133,10 +133,10 @@ export type RootStackParamList = {
     // and usePracticeCompletion degrades rather than writing for it.
     moduleId?: ModuleId | undefined;
     duration: number;
-    title: string;
-    // DEBUG-353: optional so the deep-link path (which cannot carry authored
-    // content) still type-checks; resolvePracticeRoute supplies both when the
-    // practice is launched from the module JSON.
+    // DEBUG-679: title, instructions, visualMode and moduleId are IGNORED by the route.
+    // PracticeTimerRoute takes all four from the guided-timer catalog by practiceId, so
+    // a link cannot supply copy. resolvePracticeRoute still sends the catalog's values.
+    title?: string;
     instructions?: string[];
     visualMode?: PracticeVisualMode;
   };
@@ -657,17 +657,10 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false, // Prevent accidental swipe during practice
           }}
         >
+          {/* DEBUG-679: a link's params are never copy. PracticeTimerRoute takes the title,
+              presentation and module from the guided-timer catalog by practiceId. */}
           {({ navigation, route }) => (
-            <PracticeTimerScreen
-              practiceId={route.params.practiceId}
-              moduleId={route.params.moduleId}
-              duration={route.params.duration}
-              title={route.params.title}
-              instructions={route.params.instructions}
-              visualMode={route.params.visualMode}
-              onComplete={() => navigation.goBack()}
-              onBack={() => navigation.goBack()}
-            />
+            <PracticeTimerRoute params={route.params} onDone={() => navigation.goBack()} />
           )}
         </Stack.Screen>
 
