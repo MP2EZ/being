@@ -74,6 +74,41 @@ case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
     ;;
 esac
 
+# INFRA-754 — pin the macOS SDK `pod install` links its stub against. expo-modules-jsi's
+# create-stub-xcframework.sh runs a bare `clang` in every pod install's pre-install hook,
+# and a bare clang takes xcrun's DEFAULT macOS SDK. On a macOS 27 host with CommandLineTools
+# 27 installed, that default is the CLT's MacOSX27.0.sdk, while the linker comes from the
+# active Xcode (26.6), which cannot read it:
+#   tapi error: malformed file ... libSystem.B.tbd:4:20: error: unknown architecture arm64e.x1-macos
+# `xcode-select` does not help — it already points at Xcode; only the default SDK is skewed.
+# Only builds that run pod install (cold or regenerating) hit it; warm builds run none.
+# SDKROOT is honoured by bare `xcrun --show-sdk-path` (what clang uses) and ignored by
+# `xcrun --sdk macosx`, which is what makes the check below meaningful. Exported here, at top
+# level, so it reaches both `expo prebuild` and `expo run:ios` (which re-runs pod install when
+# Pods are out of sync), and placed before any lock, sweep or uninstall so a refusal changes
+# nothing. A caller-supplied SDKROOT is kept only if it already names Xcode's SDK; anything
+# else refuses — there is deliberately no override knob.
+XCODE_MACOS_SDK="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
+if [ -z "$XCODE_MACOS_SDK" ] || [ ! -d "$XCODE_MACOS_SDK" ]; then
+  echo "❌ e2e:safety:build refused: \`xcrun --sdk macosx --show-sdk-path\` did not resolve" >&2
+  echo "   the active Xcode's macOS SDK (got: '${XCODE_MACOS_SDK}'). Check \`xcode-select -p\`." >&2
+  exit 1
+fi
+if [ -z "${SDKROOT:-}" ]; then
+  export SDKROOT="$XCODE_MACOS_SDK"
+fi
+EFFECTIVE_MACOS_SDK="$(xcrun --show-sdk-path 2>/dev/null || true)"
+if [ "$EFFECTIVE_MACOS_SDK" != "$XCODE_MACOS_SDK" ]; then
+  echo "❌ e2e:safety:build refused: pod install would link against the wrong macOS SDK." >&2
+  echo "   A bare clang would use: ${EFFECTIVE_MACOS_SDK:-<nothing>}" >&2
+  echo "   The active Xcode's SDK: $XCODE_MACOS_SDK" >&2
+  echo "   Xcode's linker cannot read a newer CommandLineTools SDK (INFRA-754). Fix one of:" >&2
+  echo "     - unset SDKROOT (this script then pins it to Xcode's SDK), or" >&2
+  echo "     - remove or realign the CommandLineTools SDK so xcrun's default matches Xcode." >&2
+  exit 1
+fi
+echo "🧰 macOS SDK for pod install: $SDKROOT ($(xcrun --sdk macosx --show-sdk-version 2>/dev/null || echo 'version unknown'))"
+
 # INFRA-405 — shared device resolution, used identically by e2e-safety.sh. Sourced, so it
 # must not set shell options (this script runs under `set -euo pipefail`, that one under a
 # bare `set -u`).
