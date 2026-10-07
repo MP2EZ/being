@@ -333,3 +333,15 @@ consumes `isInterventionTierScore` from `features/crisis/types/safety`, which is
 surfaced it. The three armed flows witness only a boot-time prune breaking or hanging a live
 screening: every flow launches with `clearState`, so tier selection and no-resurrection are
 jest-owned.
+
+`core/components/accessibility/RadioGroup.tsx` and `FocusManager.tsx` are the twenty-sixth and
+twenty-seventh instances (added MAINT-750, crisis ruling), gated as FILES. RadioGroup is the PHQ-9
+/ GAD-7 answer control: its `onPress -> onValueChange` is the only path a Q9 answer takes to
+`answerQuestion`'s inline detection, and `q9-single-alert` taps its testIDs. MAINT-750 found its
+keyboard handler kept the first render's `onValueChange`; with `EnhancedAssessmentFlow` reusing
+one un-keyed question instance, a keyboard Q9 answer would have been recorded under `phq9_1`.
+That path is reachable only from jest today (RN does not emit `onKeyPress` on a Pressable), so
+the flows pin the tap path and the jest pins own the handler. FocusManager's `Focusable` wraps the
+answer group and both crisis banners on the gated assessment hosts. Neither imports from
+`features/crisis/`, so INFRA-531 cannot see them. FILE-level: `AccessibleButton.tsx` is consumed
+by dailyloop and unreviewed, and `index.ts` is a barrel.

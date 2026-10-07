@@ -85,6 +85,8 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/practices/screens/PracticeLibraryScreen.tsx` | `crisis` + `philosopher` |
 | `app/assets/passages/` | `crisis` + `philosopher` |
 | `app/src/core/services/security/DeepLinkValidationService.ts` | `crisis` + `compliance` |
+| `app/src/core/components/accessibility/RadioGroup.tsx` | `crisis` + `philosopher` |
+| `app/src/core/components/accessibility/FocusManager.tsx` | `crisis` + `philosopher` |
 
 Per-row rulings — why each row exists, its FILE-vs-DIRECTORY call, and what is deliberately
 NOT gated (`IAPService.ts`, `practiceSafeAreaEdges.ts`) — live in

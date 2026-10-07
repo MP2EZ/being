@@ -58,7 +58,7 @@ if [ -z "${BASH_VERSION:-}" ]; then
   exit 2
 fi
 
-SAFETY_PATH_RE='^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|src/core/services/data-retention/|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)'
+SAFETY_PATH_RE='^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/components/accessibility/(RadioGroup|FocusManager)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|src/core/services/data-retention/|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)'
 
 die() { echo "🛑 b-close-gate-plan: $*" >&2; exit 2; }
 
@@ -648,6 +648,19 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/services/data-retention/'; t
   echo "   are jest-owned (assessmentRetention.livePath.privacy, interventionTierScore,"
   echo "   retentionNoResurrection). These flows witness only a boot-time prune breaking or"
   echo "   hanging a live screening."
+fi
+# MAINT-750 (crisis ruling): RadioGroup is the PHQ-9 / GAD-7 answer control — its onPress ->
+# onValueChange is the only path a Q9 answer takes into answerQuestion's inline detection, and
+# q9-single-alert taps its testIDs. FocusManager's Focusable wraps that answer group and both
+# crisis banners on the gated assessment hosts. Both are shared primitives a gated host routes
+# through, which INFRA-531's import alarm cannot see. FILE-level: the rest of
+# core/components/accessibility/ (AccessibleButton, the barrel) is unreviewed.
+if echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/components/accessibility/(RadioGroup|FocusManager)\.tsx'; then
+  FLOWS+=("q9-single-alert" "phq9-severe-completion" "gad7-severe")
+  echo "🔘 RadioGroup/FocusManager changed — the flows pin the TAP path a Q9 answer takes."
+  echo "   NECESSARY, NOT SUFFICIENT: RadioGroup's keyboard handler is reachable only from jest"
+  echo "   (onKeyPress on a Pressable is not emitted on iOS/Android), so its stale-handler"
+  echo "   contract is jest-owned (accessibility/__tests__, EnhancedAssessmentQuestion.test)."
 fi
 # DEBUG-525: four entries that CONSUME crisisButtonGeometry rather than owning crisis code.
 # ThresholdEducationModal is an RN <Modal> DEBUG-406 conversion site — a zero-988-affordance

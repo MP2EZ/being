@@ -31,7 +31,7 @@
 
 if [ -z "${BASH_VERSION:-}" ]; then echo "run with bash" >&2; exit 2; fi
 
-EXPECTED_CASES=109
+EXPECTED_CASES=112
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/b-close-gate-plan.sh"
 VERBOSE=""; NO_CACHE=""
@@ -129,6 +129,9 @@ case_deeplink_validation()  { w $C/services/security/DeepLinkValidationService.t
 case_supabase_service()     { w $C/services/supabase/SupabaseService.ts; expect 0 1 "" "gad7-severe journal-crisis-scan phq9-severe-completion q9-single-alert" "" "SupabaseService changed"; }
 case_data_retention()       { w $C/services/data-retention/DataRetentionService.ts; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "" "data-retention changed"; }
 case_threshold_modal()      { w $C/components/ThresholdEducationModal.tsx; expect 0 1 "" "$CBR" ""; }
+case_radio_group()          { w $C/components/accessibility/RadioGroup.tsx; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "" "RadioGroup/FocusManager changed"; }
+case_focus_manager()        { w $C/components/accessibility/FocusManager.tsx; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" ""; }
+case_accessible_button_ungated() { w $C/components/accessibility/AccessibleButton.tsx; expect 0 "" "" "" ""; }
 case_clean_home()           { w $F/home/screens/CleanHomeScreen.tsx; expect 0 1 "" "$CBR" "daily-loop-ax5-entry"; }
 case_delete_account()       { w $F/profile/screens/DeleteAccountScreen.tsx; expect 0 1 "" "$CBR" "" "DeleteAccountScreen changed"; }
 case_export_data()          { w $F/profile/screens/ExportDataScreen.tsx; expect 0 1 "" "$CBR" "" "ExportDataScreen changed"; }
