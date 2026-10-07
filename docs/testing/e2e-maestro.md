@@ -304,6 +304,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 
 **Prereqs.** Since INFRA-383 the default path needs no `eas-cli`, no credentials and no
 `fastlane` — only Xcode and a booted simulator:
+- **Xcode's macOS SDK must be the one `pod install` links against** (INFRA-754). A cold or
+  regenerating build failing in `pod install` with `tapi error: ... unknown architecture
+  arm64e.x1-macos` means xcrun's default macOS SDK is a newer CommandLineTools SDK than the
+  active Xcode's linker can read. `xcode-select` is not the fix (it already points at Xcode).
+  The script now exports `SDKROOT` to Xcode's SDK itself and logs it as `🧰 macOS SDK for pod
+  install`; it refuses up front if you export a different `SDKROOT`. Unset it and re-run.
+  `e2e:safety:build:eas`, `npm run ios` and hand-run `pod install` do not go through this
+  script, so they can still hit the error; prefix those with
+  `SDKROOT=$(xcrun --sdk macosx --show-sdk-path)`.
 - **Exactly ONE booted iOS simulator** (the one prereq the script enforces by name).
 
   The count matters, and the script fails closed on it (INFRA-405). `xcrun simctl help`
