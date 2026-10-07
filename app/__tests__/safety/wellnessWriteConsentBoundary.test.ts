@@ -113,6 +113,10 @@ const PREDICATE_ALLOWLIST = [
   'src/features/insights/components/DotCalendar.tsx', // FEAT-669 notice host
   'src/features/insights/components/PrincipleEngagementChart.tsx', // FEAT-669 notice host
   'src/features/practices/dailyloop/screens/DailyLoopDepthSelectScreen.tsx', // FEAT-669 notice host
+  // DEBUG-699 (crisis + philosopher ruling 2026-10-06): the resume prompt is the only screen
+  // between a restored session and its first beat, so it hosts the same display-only note.
+  // DailyLoopNavigator stays in NAMED_FILES: it neither reads the predicate nor passes it down.
+  'src/features/practices/shared/components/ResumeSessionModal.tsx', // DEBUG-699 notice host
 ].map((file) => join(APP, file));
 
 /** Listed ahead of its reader. FEAT-685 removes this entry when it wires the gate. */
