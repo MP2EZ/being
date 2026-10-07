@@ -29,6 +29,14 @@ import type { PracticeIdentity } from '@/core/types/practice-identity';
 import { decideWellnessWrite } from '@/core/stores/consentStore';
 import EncryptionService from '../security/EncryptionService';
 
+/** Every practice that keeps a session. `satisfies` makes a new PracticeIdentity a compile error here. */
+const ALL_PRACTICES = {
+  morning: true,
+  midday: true,
+  evening: true,
+  'daily-loop': true,
+} as const satisfies Record<PracticeIdentity, true>;
+
 /**
  * Session Storage Service
  * Manages encrypted session data for practice flow resumption
@@ -238,14 +246,17 @@ export class SessionStorageService {
   }
 
   /**
-   * Clear all sessions (for testing or user logout)
+   * Clear every practice's session.
+   *
+   * No caller today. Account erasure does NOT come through here — it sweeps
+   * WELLNESS_SECURE_STORE_KEYS in SecureStorageService, which lists every session key
+   * itself. The set is derived from ALL_PRACTICES (exhaustive over PracticeIdentity) so a
+   * new practice cannot be silently skipped, which is how 'daily-loop' was (MAINT-746).
    */
   static async clearAllSessions(): Promise<void> {
-    await Promise.all([
-      this.clearSession('morning'),
-      this.clearSession('midday'),
-      this.clearSession('evening'),
-    ]);
+    await Promise.all(
+      (Object.keys(ALL_PRACTICES) as PracticeIdentity[]).map((flowType) => this.clearSession(flowType)),
+    );
     console.log(`[SessionStorage] All sessions cleared`);
   }
 }

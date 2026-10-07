@@ -431,7 +431,7 @@ export const DEEP_LINK_REACHABILITY: Readonly<
   },
   '/practice': {
     ruling: 'EXTERNALLY_REACHABLE',
-    reason: 'practiceId/duration/title are sanitised by parse, and moduleId is validated against the authored module set (DEBUG-695): an absent or unknown one reaches the screen as undefined and completion degrades. Captured by Android and driven by Maestro (practice/probe).',
+    reason: 'practiceId is a lookup key only: title, visualMode, instructions and moduleId come from the guided-timer catalog, otherwise a fixed Being-authored fallback, and the route never reads them from the link (DEBUG-679). duration is clamped by parse. Captured by Android and driven by Maestro (practice/probe).',
   },
   '/subscription': {
     ruling: 'EXTERNALLY_REACHABLE',
@@ -558,7 +558,6 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
             const num = parseInt(d, 10);
             return isNaN(num) ? 60 : Math.min(Math.max(num, 10), 3600);
           },
-          title: (t: string) => t.replace(/[<>]/g, '').substring(0, 100),
         },
       },
 

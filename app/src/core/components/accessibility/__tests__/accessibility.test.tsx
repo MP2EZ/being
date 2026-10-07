@@ -330,25 +330,9 @@ describe('FocusManager Accessibility', () => {
     });
   });
 
-  it('should handle focus trapping for modals', () => {
-    const { getByText } = render(
-      <FocusProvider trapFocus={true}>
-        <TestFocusComponent />
-      </FocusProvider>
-    );
-    
-    expect(getByText('First Button')).toBeTruthy();
-  });
-
-  it('should restore focus when enabled', () => {
-    const { getByText } = render(
-      <FocusProvider restoreFocus={true}>
-        <TestFocusComponent />
-      </FocusProvider>
-    );
-    
-    expect(getByText('First Button')).toBeTruthy();
-  });
+  // The render-only "trap" and "restore" cases that stood here asserted nothing about focus.
+  // Trapping, restore, order and wrap are pinned behaviourally in
+  // FocusManager.accessibility.test.tsx (MAINT-750).
 });
 
 describe('Focus Visual Indicators', () => {

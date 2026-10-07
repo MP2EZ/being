@@ -107,7 +107,9 @@ export const FocusProvider: React.FC<FocusProviderProps> = ({
   const focusPrevious = useCallback(() => {
     if (focusOrder.length === 0) return;
 
-    const prevIndex = currentFocusIndex === 0 ? focusOrder.length - 1 : currentFocusIndex - 1;
+    // `<= 0`, not `=== 0`: from the initial index (-1) the old form computed -2, an
+    // undefined id, and the call silently did nothing (MAINT-750).
+    const prevIndex = currentFocusIndex <= 0 ? focusOrder.length - 1 : currentFocusIndex - 1;
     const prevId = focusOrder[prevIndex]!;
     const element = focusableElements.get(prevId);
     
