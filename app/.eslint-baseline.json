@@ -124,6 +124,7 @@
   "src/features/assessment/stores/__tests__/assessmentErasureWriter.privacy.test.ts": 1,
   "src/features/assessment/stores/__tests__/assessmentStore.basic.test.ts": 1,
   "src/features/assessment/stores/__tests__/assessmentStore.notes.test.ts": 1,
+  "src/features/assessment/stores/__tests__/assessmentStore.persistShape.test.ts": 1,
   "src/features/assessment/stores/__tests__/assessmentStore.test.ts": 1,
   "src/features/assessment/stores/__tests__/blockedPeriodLedger.privacy.test.ts": 1,
   "src/features/assessment/stores/__tests__/crisisDetectionParity.unit.test.ts": 1,

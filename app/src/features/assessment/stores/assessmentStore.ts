@@ -58,7 +58,6 @@ import { showCrisisAlert } from '@/features/crisis/services/crisisAlert';
 import { validateSingleResponse } from '../types/schemas';
 import {
   applyAssessmentErasureOp,
-  isPersistedAssessmentState,
   normalizePersistedAssessmentBlob,
   type AssessmentErasureOp,
 } from './persistedAssessmentBlob';
@@ -569,7 +568,6 @@ export interface AssessmentStoreState {
 
   // Session recovery
   hasRecoverableSession: boolean;
-  lastSavedAt: number | null;
 
   // Performance tracking
   autoSaveEnabled: boolean;
@@ -622,6 +620,21 @@ export interface AssessmentStoreActions {
  */
 type AssessmentStore = AssessmentStoreState & AssessmentStoreActions;
 
+/**
+ * The slice persist writes, and the one saveProgress writes in the same envelope
+ * (MAINT-731). One function, so the two writers of the `assessment_store` blob cannot
+ * drift apart.
+ */
+function partializeAssessmentState(state: AssessmentStoreState) {
+  return {
+    completedAssessments: state.completedAssessments,
+    currentSession: state.currentSession,
+    answers: state.answers,
+    currentQuestionIndex: state.currentQuestionIndex,
+    autoSaveEnabled: state.autoSaveEnabled
+  };
+}
+
 export const useAssessmentStore = create<AssessmentStore>()(
   subscribeWithSelector(
     persist(
@@ -637,7 +650,6 @@ export const useAssessmentStore = create<AssessmentStore>()(
         crisisDetection: null,
         crisisIntervention: null,
         hasRecoverableSession: false,
-        lastSavedAt: null,
         autoSaveEnabled: true,
         completionBlocked: null,
 
@@ -778,9 +790,8 @@ export const useAssessmentStore = create<AssessmentStore>()(
                 isLoading: false,
                 // Explicitly null: `recoverSession` does not clear this, so a
                 // second assessment completed-then-refused in one app session
-                // could otherwise render the EARLIER banded result as this one —
-                // and SyncCoordinator's null -> non-null transition would
-                // re-evaluate it for crisis.
+                // could otherwise render the EARLIER banded result as this one
+                // (EnhancedAssessmentFlow reads `currentResult`).
                 currentResult: null,
                 completionBlocked: { reason: 'incomplete_answers', missingQuestionIds: missing },
                 error: `ASSESSMENT_INCOMPLETE: ${missing.length} unanswered`
@@ -865,10 +876,11 @@ export const useAssessmentStore = create<AssessmentStore>()(
 
         recoverSession: async (): Promise<boolean> => {
           try {
-            const savedData = await EncryptedAssessmentStorage.load();
-            // TS-01: load() returns unknown; narrow via type guard
-            // before reading fields.
-            if (!isPersistedAssessmentState(savedData) || !savedData.currentSession) {
+            // TS-01: load() returns unknown. MAINT-731: saveProgress now writes persist's
+            // envelope, so read the state from either shape — a top-level read would see
+            // `{state, version}` and never find a session.
+            const savedData = normalizePersistedAssessmentBlob(await EncryptedAssessmentStorage.load())?.state;
+            if (!savedData?.currentSession) {
               return false;
             }
 
@@ -966,15 +978,18 @@ export const useAssessmentStore = create<AssessmentStore>()(
         saveProgress: async () => {
           const state = get();
           try {
-            const dataToSave = {
-              currentSession: state.currentSession,
-              currentQuestionIndex: state.currentQuestionIndex,
-              answers: state.answers,
-              completedAssessments: state.completedAssessments,
-              lastSavedAt: Date.now()
-            };
-
-            await EncryptedAssessmentStorage.save(dataToSave);
+            // MAINT-731: write persist's OWN envelope, so the blob this awaited save leaves
+            // is the one persist hydrates from. This used to write a flat object and then
+            // `set({ lastSavedAt })`; nothing read that value, but the set fired persist's
+            // setItem and so was the only thing putting `{state, version}` back on disk.
+            // Without it the flat blob wins, hydration finds no `.state`, and screening
+            // history is gone on the next launch (assessmentStore.persistShape.test.ts).
+            // The version is looked up the way applyErasure does; never bump it here —
+            // persist discards a mismatched version when no `migrate` is given.
+            await EncryptedAssessmentStorage.save({
+              state: partializeAssessmentState(state),
+              version: useAssessmentStore.persist.getOptions().version ?? 0,
+            });
             // DEBUG-625 (compliance ruling): `lastSyncAt` was set HERE, on a purely LOCAL
             // encrypted save, despite its name. saveProgress is awaited by startAssessment,
             // answerQuestion, completeAssessment, clearHistory and setSessionNote, so the
@@ -986,7 +1001,8 @@ export const useAssessmentStore = create<AssessmentStore>()(
             // 90 days. That made screening cadence observable server-side from a feature
             // consented to as "back up a few app settings".
             // Removed rather than renamed: nothing read its VALUE anywhere in the repo.
-            set({ lastSavedAt: Date.now() });
+            // MAINT-731 removed `lastSavedAt` too, once SyncCoordinator (its only reader)
+            // was deleted in MAINT-702.
           } catch (error) {
             logError(LogCategory.SYSTEM, 'Save progress failed:', error instanceof Error ? error : new Error(String(error)));
             set({ error: 'Failed to save assessment progress' });
@@ -1104,13 +1120,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
             }
           }
         })),
-        partialize: (state) => ({
-          completedAssessments: state.completedAssessments,
-          currentSession: state.currentSession,
-          answers: state.answers,
-          currentQuestionIndex: state.currentQuestionIndex,
-          autoSaveEnabled: state.autoSaveEnabled
-        })
+        partialize: (state) => partializeAssessmentState(state)
       }
     )
   )
