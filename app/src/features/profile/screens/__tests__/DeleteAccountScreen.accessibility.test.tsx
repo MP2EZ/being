@@ -196,3 +196,136 @@ describe('DEBUG-653: the delete button and confirm input clear the crisis FAB ex
     await expectExclusionCheckWired(api.getByTestId(id), id);
   });
 });
+
+// FEAT-710 (compliance ruling 2026-10-06): store billing outlives erasure, so the screen says
+// so before the confirmation field. The strings are pinned literally, not imported, so a
+// rewording has to come back through compliance.
+describe('FEAT-710: the store-billing notice', () => {
+  const IOS =
+    'If you pay for Being through the App Store, deleting your account does not cancel billing. ' +
+    'To cancel, open Settings, tap your name, then Subscriptions.';
+  const ANDROID =
+    'If you pay for Being through Google Play, deleting your account does not cancel billing. ' +
+    'To cancel, open Play Store, then Payments & subscriptions, then Subscriptions.';
+  const PRESERVED = /minimal record of your consent/;
+
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { Platform } = require('react-native');
+
+  function noticeText(os: 'ios' | 'android'): string {
+    const original = Platform.OS;
+    Platform.OS = os;
+    try {
+      const { getByTestId } = render(<DeleteAccountScreen />);
+      const node = getByTestId('delete-subscription-notice');
+      return flatText(node);
+    } finally {
+      Platform.OS = original;
+    }
+  }
+
+  /** Every string under a host node, in order. */
+  function flatText(node: { children: unknown[] }): string {
+    return node.children
+      .map((c) => (typeof c === 'string' ? c : flatText(c as { children: unknown[] })))
+      .join('');
+  }
+
+  /** Depth-first order of testIDs and text strings in the rendered tree. */
+  function readingOrder(tree: unknown): string[] {
+    const out: string[] = [];
+    const walk = (n: unknown) => {
+      if (n == null) return;
+      if (typeof n === 'string') { out.push(n); return; }
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      const el = n as { props?: { testID?: string }; children?: unknown[] };
+      if (el.props?.testID) out.push(`#${el.props.testID}`);
+      (el.children || []).forEach(walk);
+    };
+    walk(tree);
+    return out;
+  }
+
+  it('shows the approved copy for the device platform only', () => {
+    expect(noticeText('ios')).toBe(IOS);
+    expect(noticeText('android')).toBe(ANDROID);
+  });
+
+  it.each([['ios', IOS], ['android', ANDROID]])('%s copy: about 30 words, conditional on paying, no restore or refund', (_os, copy) => {
+    expect(copy.split(/\s+/).filter(Boolean).length).toBeLessThanOrEqual(30);
+    expect(copy).toMatch(/^If you pay for Being through /);
+    expect(copy).toMatch(/does not cancel billing/);
+    expect(copy).not.toMatch(/restor|resubscri|refund|→|>/i);
+  });
+
+  it('is read after "What is removed" and the preserved-record note, and before the confirm field', () => {
+    const order = readingOrder(render(<DeleteAccountScreen />).toJSON());
+    const at = (pred: (s: string) => boolean) => order.findIndex(pred);
+    const removed = at((s) => s === 'What is removed');
+    const preserved = at((s) => PRESERVED.test(s));
+    const notice = at((s) => s === '#delete-subscription-notice');
+    const confirm = at((s) => s === '#delete-confirm-input');
+    expect([removed, preserved, notice, confirm].every((i) => i >= 0)).toBe(true);
+    expect(removed).toBeLessThan(preserved);
+    expect(preserved).toBeLessThan(notice);
+    expect(notice).toBeLessThan(confirm);
+  });
+
+  it('is inert: no role, no live region, no press handler, and no pressable is added', () => {
+    const { getByTestId, getAllByRole, toJSON } = render(<DeleteAccountScreen />);
+    const notice = getByTestId('delete-subscription-notice');
+    expect(notice.props.accessibilityRole).toBeUndefined();
+    expect(notice.props.accessibilityLiveRegion).toBeUndefined();
+    expect(notice.props.onPress).toBeUndefined();
+    expect(notice.props.onStartShouldSetResponder).toBeUndefined();
+    // The real falsifier: the adoption pin counts exclusion-hook wiring, not pressables.
+    // Every touchable host claims the responder, so counting those catches a Pressable,
+    // a Touchable* or a Text with onPress alike.
+    const touchables: unknown[] = [];
+    const walk = (n: unknown) => {
+      if (!n || typeof n !== 'object') return;
+      if (Array.isArray(n)) { n.forEach(walk); return; }
+      const el = n as { props?: Record<string, unknown>; children?: unknown[] };
+      if (typeof el.props?.['onStartShouldSetResponder'] === 'function' || typeof el.props?.['onPress'] === 'function') touchables.push(el);
+      (el.children || []).forEach(walk);
+    };
+    walk(toJSON());
+    // Exactly the two that existed before FEAT-710: the delete button, and the iOS keyboard
+    // crisis accessory CrisisTextInput mounts (INFRA-531).
+    const ids = (touchables as { props: { testID?: string } }[]).map((t) => t.props.testID).sort();
+    expect(ids).toEqual(['crisis-keyboard-accessory-button', 'delete-account-button']);
+    // The accessory sits outside the accessible tree (it is an input accessory), so the
+    // screen's own accessible buttons are just the one.
+    expect(getAllByRole('button').map((b) => b.props.testID)).toEqual(['delete-account-button']);
+  });
+
+  it('renders for everyone and stays visible while deleting and after a failed delete', async () => {
+    let finish: (v: unknown) => void = () => {};
+    mockDeleteAccountAndWipe.mockReturnValue(new Promise((r) => { finish = r; }));
+    const { getByTestId, queryByTestId } = render(<DeleteAccountScreen />);
+    expect(queryByTestId('delete-subscription-notice')).toBeTruthy();
+
+    fireEvent.changeText(getByTestId('delete-confirm-input'), 'DELETE');
+    fireEvent.press(getByTestId('delete-account-button'));
+    expect(queryByTestId('delete-subscription-notice')).toBeTruthy();
+
+    finish({ ok: false, retryable: true });
+    await waitFor(() => expect(getByTestId('delete-error')).toBeTruthy());
+    expect(queryByTestId('delete-subscription-notice')).toBeTruthy();
+  });
+
+  it('rewords the erased-items bullet per ruling (c)', () => {
+    const { getByText, queryByText } = render(<DeleteAccountScreen />);
+    expect(getByText('Your anonymous account and subscription records on our servers')).toBeTruthy();
+    expect(queryByText(/subscription details/)).toBeNull();
+  });
+
+  it('stays text-only: the screen opens no link and no store sheet', () => {
+    // readHost strips comments (DEBUG-390), so the header's own mention of a link is not code.
+    const code = readHost(path.resolve(__dirname, '../DeleteAccountScreen.tsx')).source;
+    // Positive control: the slice under test is the code that renders the notice.
+    expect(code).toMatch(/testID="delete-subscription-notice"/);
+    expect(code).not.toMatch(/\bLinking\b/);
+    expect(code).not.toMatch(/openURL|showManageSubscriptions|manageSubscriptions/);
+  });
+});
