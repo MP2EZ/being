@@ -433,32 +433,7 @@ fresh skeptic mostly re-derives it. Keep all three where the repair is older tha
 release, since the tree has moved under it.
 
 **The harness caps concurrent subagents (20); excess launches are refused, not queued.**
-Launch in waves of whole items, and keep each Skeptic and its shadow in the same
-message — never split a pair across waves.
-
-**Skeptic shadow (INFRA-724 — temporary; delete this block when INFRA-724 records its
-decision).** `SHADOW=/Users/max/dev/being/.claude/eval/skeptic-shadow/shadowlog.py`. While
-`python3 $SHADOW count` prints under 15, shadow at most `15 − count` items whose Skeptic runs
-as `general-purpose`:
-- Write the Skeptic prompt once to a scratchpad file and launch an `Explore` agent with that
-  exact text in the SAME parallel message as the real Skeptic (same `run_in_background`).
-  Record `origin/development`'s sha at launch. Re-ask once on a malformed reply, with the text
-  the real Skeptic would get; never relaunch a dead shadow.
-- The shadow is not a lens. Its verdict stays out of Step 2.1's panel, the Step 2.3 round,
-  `approach`, and every other prompt; a dead or malformed shadow never blocks an item or makes
-  it AMBER.
-- At Step 2.1, classify as normal, then again with the shadow's verdict in the Skeptic seat (a
-  dead or twice-malformed shadow is the dead-lens AMBER). Save each raw reply verbatim to a
-  scratchpad file and append before Step 2.3. Usage comes from each agent's completion usage
-  block, `-` where unreadable; `asks` is 1 when the item goes to the Step 2.3 round:
-  ```bash
-  python3 $SHADOW append --slug "$SLUG" --item <ID> --base-sha <sha> --prompt-file <prompt> \
-    --gp-reply <reply> [--gp-reply <re-ask reply>] --gp-usage <tokens>,<tool_uses>,<duration_ms> \
-    --ex-reply <reply> [--ex-reply <re-ask reply>] --ex-usage <…> [--ex-dead] \
-    --actual <TIER>:<0|1> --with-explore <TIER>:<0|1>
-  ```
-- At Step 4.2, run `python3 $SHADOW outcomes --manifest "$MANIFEST"`, and if any append printed
-  `SCORING READY`, say so in the report.
+Launch in waves of whole items.
 
 **Lenses share one worktree — scratch files are cross-visible.** A lens told not to edit will
 still write a probe when asked to verify a claim empirically, and that is worth keeping: it is
@@ -610,9 +585,6 @@ exactly where drift creeps in):
   `files_touched` sets substantially overlap (same problem, same place); zero
   `blocking_constraints`; combined `ambiguities` empty; not RED.
 - **AMBER (ask)** otherwise.
-
-The INFRA-724 shadow verdict is never a lens here: classify without it, then log it per
-Phase 1's Skeptic shadow block before Step 2.3.
 
 RED sets the close tier, not the decision path: a RED item whose panel returned an open
 fork, ambiguities or non-high confidence still goes through the Step 2.3 round.
@@ -1256,7 +1228,6 @@ producing a false green. That held during the incident above.
 
    Resume the rest:  /clear  then  /b-batch --resume
 ```
-While Phase 1's Skeptic shadow block exists, run its Step 4.2 bullet before this report.
 If any item collected `skill_lessons` (Step 3.1), list them here verbatim under
 `Skill lessons awaiting approval:` with the owning skill named. They are proposals for
 `/b-work` or `/b-close`, not this file — Step 4.3 covers lessons about the batch loop itself.
