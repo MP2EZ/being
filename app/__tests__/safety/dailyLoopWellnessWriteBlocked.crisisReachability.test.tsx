@@ -18,7 +18,7 @@
  */
 
 import React from 'react';
-import { ScrollView, useWindowDimensions } from 'react-native';
+import { BackHandler, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { fireEvent, render, within } from '@testing-library/react-native';
 import DailyLoopStepScreen from '@/features/practices/dailyloop/screens/DailyLoopStepScreen';
 import DailyLoopDepthSelectScreen from '@/features/practices/dailyloop/screens/DailyLoopDepthSelectScreen';
@@ -28,6 +28,10 @@ import { decideWellnessWrite, type WellnessWriteBlockReason } from '@/core/store
 import { navigationRef } from '@/core/navigation/navigationRef';
 import type { DailyLoopDepth, DailyLoopMode } from '@/features/practices/types/flows';
 import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
+import { ResumeSessionModal } from '@/features/practices/shared/components/ResumeSessionModal';
+import { CRISIS_BUTTON_RESERVED_BAND } from '@/features/crisis/constants/crisisButtonGeometry';
+import { colorSystem } from '@/core/theme';
+import type { SessionMetadata } from '@/core/types/session';
 
 jest.mock('@/core/navigation/navigationRef', () => ({
   navigationRef: { isReady: jest.fn(() => true), navigate: jest.fn() },
@@ -104,6 +108,62 @@ describe.each([1, 3.1])('the depth picker at font scale %s', (fontScale) => {
       fireEvent.press(card);
     }
     expect(onSelect.mock.calls).toEqual([['quick'], ['deep']]);
+  });
+});
+
+/**
+ * DEBUG-699 (crisis + philosopher ruling): the resume prompt now READS the gate too, to
+ * show the same note on the path that skips the picker. The decision may toggle that note
+ * and nothing else — both choices fire, hardware back still means Begin Fresh, and the
+ * overlay keeps the crisis button's reserved band and its white contrast surface.
+ */
+describe.each([1, 3.1])('the resume prompt at font scale %s', (fontScale) => {
+  const session: SessionMetadata = {
+    id: 'dl-resume',
+    flowType: 'daily-loop',
+    currentScreen: 'SphereSovereignty',
+    startedAt: Date.now(),
+    lastActiveAt: Date.now(),
+    completedScreens: ['AwarePresence'],
+    version: 1,
+  };
+
+  beforeEach(() => {
+    (useWindowDimensions as unknown as jest.Mock).mockReturnValue({ width: 375, height: 667, scale: 2, fontScale });
+  });
+  afterEach(() => {
+    (useWindowDimensions as unknown as jest.Mock).mockReturnValue({ width: 375, height: 812, scale: 2, fontScale: 1 });
+    jest.restoreAllMocks();
+  });
+
+  it.each(BLOCKED)('blocked (%s): both choices fire, back is Begin Fresh, the band holds', (reason) => {
+    seedWellnessWriteConsent(reason);
+    let backHandler: (() => boolean) | undefined;
+    jest.spyOn(BackHandler, 'addEventListener').mockImplementation(((_e: string, h: () => boolean) => {
+      backHandler = h;
+      return { remove: jest.fn() };
+    }) as unknown as typeof BackHandler.addEventListener);
+    const onResume = jest.fn();
+    const onBeginFresh = jest.fn();
+    const screen = render(
+      <ResumeSessionModal visible session={session} onResume={onResume} onBeginFresh={onBeginFresh} />,
+    );
+
+    for (const id of ['resume-session-button', 'begin-fresh-button']) {
+      const b = screen.getByTestId(id);
+      expect(b.props.accessibilityState?.disabled ?? false).toBe(false);
+    }
+    fireEvent.press(screen.getByTestId('resume-session-button'));
+    fireEvent.press(screen.getByTestId('begin-fresh-button'));
+    expect(onResume).toHaveBeenCalledTimes(1);
+    expect(onBeginFresh).toHaveBeenCalledTimes(1);
+
+    expect(backHandler?.()).toBe(true);
+    expect(onBeginFresh).toHaveBeenCalledTimes(2);
+
+    const overlay = StyleSheet.flatten(screen.getByTestId('resume-session-overlay').props.style);
+    expect(overlay.paddingBottom).toBe(CRISIS_BUTTON_RESERVED_BAND);
+    expect(overlay.backgroundColor).toBe(colorSystem.base.white);
   });
 });
 

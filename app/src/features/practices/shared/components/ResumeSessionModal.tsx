@@ -18,6 +18,18 @@
  * - Character over outcome focus
  * - Radical Acceptance: "Begin Fresh" = accepting the interruption
  * - No gamification or completion metrics
+ *
+ * DEBUG-699 (crisis + philosopher ruling 2026-10-06): a resumed daily loop restores its
+ * depth and skips the picker, so this prompt is the one screen between "session
+ * restored" and the first beat. It is therefore a DISPLAY-ONLY notice host for the
+ * FEAT-669 "won't be saved" note, the same class as DailyLoopDepthSelectScreen:
+ * - It reads the predicate itself. DailyLoopNavigator stays predicate-free.
+ * - The decision toggles the note and NOTHING else. Both choices, their labels and
+ *   hints, title focus and hardware-back = Begin Fresh are identical for every block
+ *   reason.
+ * - The note sits in the scrolling session-info block, never in the pinned button
+ *   row (DEBUG-403 geometry), and never in the Stoic copy, so it cannot read as
+ *   commentary on a consent decision.
  */
 
 import React, { useEffect, useRef, useState } from 'react';
@@ -33,6 +45,8 @@ import {
   findNodeHandle,
 } from 'react-native';
 import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
+import { decideWellnessWrite, useConsentStore } from '@/core/stores/consentStore';
+import { WELLNESS_WITHHELD_NOTE } from '@/features/practices/shared/wellnessWithheldNote';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { CRISIS_BUTTON_RESERVED_BAND } from '@/features/crisis/constants/crisisButtonGeometry';
 import { SessionMetadata } from '@/core/types/session';
@@ -171,6 +185,15 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
   const [showTooltip, setShowTooltip] = useState(false);
   const titleRef = useRef<Text>(null);
 
+  // DEBUG-699: same idiom as DailyLoopDepthSelectScreen. The two selectors only make a
+  // consent change re-render this prompt; the decision is decideWellnessWrite(). Called
+  // above the visibility guard (hooks rule), and never part of it. `loading` is not a
+  // withdrawal, so it shows nothing.
+  useConsentStore((s) => s.consentStatus);
+  useConsentStore((s) => s.consentCache.canProcessMentalHealthData);
+  const writeDecision = decideWellnessWrite();
+  const writesWithheld = !writeDecision.allowed && writeDecision.reason !== 'loading';
+
   // DEBUG-403: <Modal> gave us an OS focus trap for free; a plain overlay does not.
   // Move VoiceOver/TalkBack focus to the question, not to a choice — landing on a
   // button would skip what is being asked.
@@ -268,6 +291,15 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
                   </Text>
                 </View>
               </View>
+
+              {writesWithheld ? (
+                <Text
+                  style={styles.wellnessWithheldNote}
+                  testID="resume-session-wellness-withheld-note"
+                >
+                  {WELLNESS_WITHHELD_NOTE}
+                </Text>
+              ) : null}
             </View>
 
             {/* Stoic-validated message */}
@@ -322,7 +354,7 @@ export const ResumeSessionModal: React.FC<ResumeSessionModalProps> = ({
                 height. Putting them back inside the scroll would reintroduce DEBUG-403's
                 on-device failure: `begin-fresh-button` resolved in the hierarchy with its
                 centre 1.5pt inside the clipped band, so the tap silently missed. */}
-            <View style={styles.buttonSection}>
+            <View style={styles.buttonSection} testID="resume-session-actions">
               <Pressable
                 style={({ pressed }) => [
                   styles.primaryButton,
@@ -489,6 +521,13 @@ const styles = StyleSheet.create({
   screenBadgeText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.semibold,
+  },
+  // DEBUG-699: FEAT-669's muted note style, spaced off the badge above it.
+  wellnessWithheldNote: {
+    marginTop: spacing[16],
+    fontSize: typography.bodySmall.size,
+    color: semantic.text.muted,
+    lineHeight: typography.bodySmall.size * 1.5,
   },
   messageSection: {
     marginBottom: spacing[32],
