@@ -303,8 +303,10 @@ else
     0) echo "✅ All scoped Maestro safety flows passed" ;;
     1) echo "❌ A Maestro safety flow FAILED — this is a regression."
        echo "   Fix it, or — on a hotfix/* branch only — re-run with --skip-e2e."
-       echo "   If it reproduces intermittently, attribute before fixing: re-run the SAME"
-       echo "   binary for a rate, then the same flow on an origin/development control."
+       echo "   If it reproduces intermittently, read the kept evidence first (maestro.log,"
+       echo "   commands JSON, screenshot) and diff the failing step against older kept"
+       echo "   failures — a matching signature on pre-branch builds settles attribution."
+       echo "   Only then re-run the SAME binary for a rate against a development control."
        echo "   A tree yielding both a high and a zero rate is not the variable; record the"
        echo "   rate and the untested window rather than reading a later green as proof."
        echo "   Debug a single flow with: maestro test .maestro/<flow>.yaml --debug"
