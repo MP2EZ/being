@@ -21,15 +21,10 @@ import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } fr
 import { decideWellnessWrite, useConsentStore } from '@/core/stores/consentStore';
 import type { DailyLoopDepth } from '@/features/practices/types/flows';
 import { DEPTH_LABELS, DEPTH_PICKER_COPY } from '../config/tenseMode';
+import { WELLNESS_WITHHELD_NOTE } from '@/features/practices/shared/wellnessWithheldNote';
 
-/**
- * FEAT-669: shown while the Art. 9 write gate withholds this practice's writes. True
- * for every block reason — refused, revoked, under-age and a missing record alike —
- * so it never says the reader made a choice. No CTA and no 988 or safety wording
- * (crisis ruling): the loop runs exactly as it does for anyone else.
- */
-export const WELLNESS_WITHHELD_NOTE =
-  "Your answers and today's practice won't be saved while wellness data processing is off.";
+// DEBUG-699 moved the FEAT-669 copy to a shared leaf; re-exported so existing imports hold.
+export { WELLNESS_WITHHELD_NOTE };
 
 /**
  * DEBUG-469 — horizontal inset reserving the floating crisis button's touch band.
