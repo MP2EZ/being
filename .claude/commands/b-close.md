@@ -219,6 +219,9 @@ id: [page_id or URL from search result]
 **Validation**: confirm the candidate's `userDefined:ID` equals the parsed ID number and
 `Type` matches; the page content's `## Work Item ID: [WORK_ITEM_ID]` header is a secondary check.
 
+**`Status: Blocked` stops the close.** Read the `Blocked by` items and the latest comment, then
+ask: prep only (sync, CI, no gate, status unchanged), attempt anyway, or stop.
+
 **Error handling**:
 - If multiple results: fetch each and verify `userDefined:ID` matches exactly — do not pick by rank.
 - If no candidate matches: retry the search **once**, recency-biased (`content_search_mode: "ai_search"`,
