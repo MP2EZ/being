@@ -18,6 +18,8 @@
 #   npm run e2e:safety:clean -- --yes             # delete THIS worktree's cache
 #   npm run e2e:safety:clean:orphans              # list orphans + reclaimable total
 #   npm run e2e:safety:clean:orphans -- --yes     # reap the orphans
+#   npm run e2e:safety:clean:recordings           # XCTest recordings on every simulator (INFRA-718)
+#   npm run e2e:safety:clean:recordings -- --yes  # delete them
 #
 # ORPHANHOOD IS KEYED ON THE WORKTREE ROOT, NEVER THE .xcworkspace LEAF.
 # This is the whole correctness argument, and the obvious predicate is the wrong one.
@@ -39,6 +41,15 @@
 # A worktree reuses its own entry on rebuild, so reaping on build would only force a
 # re-extract — except under `eas build --local`, whose working dir is new every run; the EAS
 # fallback reaps its own entries with `--pods-under` (see e2e-sim-build-eas.sh).
+#
+# INFRA-718 — the XCTest screen recordings the gate's own per-run sweep (INFRA-692,
+# e2e-sim-attachments.sh) cannot reach: ad-hoc maestro runs, other simulators, and the backlog.
+# A SEPARATE mode on purpose: bare `--yes` deletes this worktree's DerivedData (a ~21 min cold
+# rebuild) and `--orphans --yes` runs unattended from e2e-sim-build.sh on low disk, so neither
+# may start deleting recordings across every simulator as a side effect. It skips a simulator
+# whose INFRA-436 lease is LIVE (report mode only peeks; `--yes` holds the lease while it
+# deletes, so a gate cannot start mid-sweep), skips any file `lsof` reports open, and deletes
+# nothing in a directory `lsof` cannot vouch for.
 set -euo pipefail
 
 SELF_APP="$(cd "$(dirname "$0")/.." && pwd)" # -> app/
@@ -48,13 +59,13 @@ THIS_WORKSPACE="$SELF_APP/ios/Being.xcworkspace"
 # CP_CACHE_DIR is CocoaPods' own override of its cache root.
 POD_ROOT="${CP_CACHE_DIR:-$HOME/Library/Caches/CocoaPods}/Pods"
 
-MODE="report" # report | orphans | pods-under
+MODE="report" # report | orphans | pods-under | recordings
 CONFIRM=0
 PODS_SCOPE=""
 
 usage() {
   cat <<'EOF'
-Usage: e2e-sim-clean.sh [--orphans | --pods-under DIR] [--yes]
+Usage: e2e-sim-clean.sh [--orphans | --pods-under DIR | --xctest-recordings] [--yes]
 
   (no flags)         Report every Being-* DerivedData cache. Deletes nothing.
   --yes              Delete THIS worktree's cache.
@@ -63,13 +74,37 @@ Usage: e2e-sim-clean.sh [--orphans | --pods-under DIR] [--yes]
   --orphans --yes    Reap those orphans.
   --pods-under DIR   CocoaPods cache entries keyed under DIR only, live or not (the EAS
                      fallback's own working dir). Reaped with --yes. DerivedData untouched.
+  --xctest-recordings
+                     XCTest screen recordings in every simulator's testmanagerd container:
+                     count and MB per simulator. Deletes only with --yes. Skips a simulator
+                     whose gate lease is held and any file still open. DerivedData and the
+                     CocoaPods cache untouched.
   -h, --help         This message.
 EOF
 }
 
+# The modes are mutually exclusive. Last-flag-wins would let `--xctest-recordings --orphans --yes`
+# silently run the orphan reaper, which is exactly the coupling INFRA-718 keeps apart.
+mode_flag() {
+  case "$1" in
+    recordings) printf -- '--xctest-recordings' ;;
+    *) printf -- '--%s' "$1" ;;
+  esac
+}
+set_mode() {
+  if [ "$MODE" != "report" ] && [ "$MODE" != "$1" ]; then
+    echo "$(mode_flag "$MODE") and $(mode_flag "$1") cannot be combined." >&2
+    echo "" >&2
+    usage >&2
+    exit 2
+  fi
+  MODE="$1"
+}
+
 while [ $# -gt 0 ]; do
   case "$1" in
-    --orphans) MODE="orphans" ;;
+    --orphans) set_mode orphans ;;
+    --xctest-recordings) set_mode recordings ;;
     --yes) CONFIRM=1 ;;
     --pods-under)
       if [ $# -lt 2 ] || [ -z "$2" ]; then
@@ -78,7 +113,7 @@ while [ $# -gt 0 ]; do
         usage >&2
         exit 2
       fi
-      MODE="pods-under"
+      set_mode pods-under
       PODS_SCOPE="$2"
       shift
       ;;
@@ -251,6 +286,180 @@ EOF
       ;;
   esac
 }
+
+# ---------------------------------------------------------------------------------------
+# INFRA-718 — XCTest recordings on every simulator
+# ---------------------------------------------------------------------------------------
+REC_HELD=""
+
+# Release whatever lease this sweep holds. Idempotent, and e2e_lock_release only ever removes a
+# record naming this pid, so a trap firing twice (INT then EXIT) cannot hand a peer's lease away.
+recordings_release() {
+  if [ -n "$REC_HELD" ]; then
+    e2e_lock_release "$REC_HELD" sim
+    REC_HELD=""
+  fi
+  return 0
+}
+
+recordings_mb() {
+  awk -v b="$1" 'BEGIN { printf "%.1f MB", b / 1048576 }'
+}
+
+recordings_sweep() {
+  local here sims udid state name data peek pstate ppid plabel dir errf out rc f size line
+  local blocked open_list sim_n sim_b sim_open sim_blocked note
+  local n_sims=0 n_leased=0 total_n=0 total_b=0 removed=0 removed_b=0 failed=0 kept_open=0 kept_blocked=0
+
+  here="$(cd "$(dirname "$0")" && pwd)"
+  # Sourced only in this mode, so every other mode keeps working from a lone copy of this file.
+  # Both are sourced-helper contracts that set no shell options and return 0 on every path.
+  # shellcheck source=scripts/e2e-sim-attachments.sh
+  . "$here/e2e-sim-attachments.sh"
+  # shellcheck source=scripts/e2e-sim-lock.sh
+  . "$here/e2e-sim-lock.sh"
+
+  # An inherited FORCE would let this reaper take a LIVE gate's lease, and an inherited token
+  # would let it treat a parent's lease as its own. Neither is ever wanted here.
+  unset E2E_LOCK_FORCE E2E_LOCK_INHERITED
+
+  trap recordings_release EXIT
+  trap 'recordings_release; exit 130' INT
+  trap 'recordings_release; exit 143' TERM
+
+  errf="$(mktemp "${TMPDIR:-/tmp}/being-e2e-lsof.XXXXXX")"
+  sims="$(_e2e_attach_sims)"
+  echo "Scanning every simulator's testmanagerd Attachments for XCTest recordings."
+  echo ""
+
+  while IFS=$'\t' read -r udid state name data; do
+    [ -n "$udid" ] || continue
+    case "$data" in
+      */"$udid"/data) ;;
+      *) continue ;;
+    esac
+    n_sims=$((n_sims + 1))
+
+    peek="$(e2e_lock_peek "$udid" sim)"
+    pstate="$(printf '%s' "$peek" | cut -f1)"
+    if [ "$pstate" = "LIVE" ]; then
+      ppid="$(printf '%s' "$peek" | cut -f2)"
+      plabel="$(printf '%s' "$peek" | cut -f3)"
+      n_leased=$((n_leased + 1))
+      echo "  ► $name ($udid, $state)   [leased by pid $ppid (${plabel:-unknown}) — skipped]"
+      continue
+    fi
+    if [ "$CONFIRM" = "1" ]; then
+      # Timeout 0: a peer that took the lease since the peek wins, and this simulator is skipped.
+      if ! e2e_lock_acquire "$udid" 0 xctest-reap sim 2>/dev/null; then
+        n_leased=$((n_leased + 1))
+        echo "  ► $name ($udid, $state)   [lease taken by another session — skipped]"
+        continue
+      fi
+      REC_HELD="$udid"
+    fi
+
+    # Which files a process still holds, per Attachments directory. FAIL CLOSED: a missing or
+    # erroring lsof blocks the whole directory. Exit 1 with nothing on stderr means none open.
+    blocked=""
+    open_list=""
+    while IFS= read -r dir; do
+      [ -n "$dir" ] || continue
+      if ! command -v lsof >/dev/null 2>&1; then
+        blocked="$blocked$dir"$'\n'
+        continue
+      fi
+      rc=0
+      out="$(lsof -w -Fn +d "$dir" 2>"$errf")" || rc=$?
+      if [ "$rc" = "0" ] || { [ "$rc" = "1" ] && [ ! -s "$errf" ]; }; then
+        open_list="$open_list$(printf '%s\n' "$out" | sed -n 's/^n//p')"$'\n'
+      else
+        blocked="$blocked$dir"$'\n'
+      fi
+    done <<EOF_DIRS
+$(_e2e_attach_dirs "$data")
+EOF_DIRS
+
+    sim_n=0
+    sim_b=0
+    sim_open=0
+    sim_blocked=0
+    while IFS= read -r f; do
+      [ -n "$f" ] || continue
+      size="$(wc -c <"$f" 2>/dev/null | tr -d ' ' || true)"
+      case "$size" in
+        '' | *[!0-9]*) size=0 ;;
+      esac
+      sim_n=$((sim_n + 1))
+      sim_b=$((sim_b + size))
+      if printf '%s' "$blocked" | grep -Fxq -- "$(dirname "$f")"; then
+        sim_blocked=$((sim_blocked + 1))
+        continue
+      fi
+      if printf '%s' "$open_list" | grep -Fxq -- "$f"; then
+        sim_open=$((sim_open + 1))
+        continue
+      fi
+      [ "$CONFIRM" = "1" ] || continue
+      # Re-assert the shape immediately before the only destructive call in this mode: one
+      # plain file, directly inside <dataPath>/Containers/Data/InternalDaemon/<seg>/Attachments.
+      line="${f#"$data"/Containers/Data/InternalDaemon/}"
+      case "$f" in
+        "$data"/Containers/Data/InternalDaemon/*/Attachments/*) ;;
+        *) continue ;;
+      esac
+      case "$line" in
+        */*/Attachments/* | */Attachments/*/* | .* | */.* | *..*) continue ;;
+      esac
+      if rm -f -- "$f" 2>/dev/null && [ ! -e "$f" ]; then
+        removed=$((removed + 1))
+        removed_b=$((removed_b + size))
+      else
+        failed=$((failed + 1))
+      fi
+    done <<EOF_FILES
+$(_e2e_attach_files "$data")
+EOF_FILES
+
+    note=""
+    [ "$sim_open" -gt 0 ] && note="$note, $sim_open open — kept"
+    [ "$sim_blocked" -gt 0 ] && note="$note, $sim_blocked in a directory lsof could not check — kept"
+    echo "  ► $name ($udid, $state)   $sim_n recording(s), $(recordings_mb "$sim_b")$note"
+    total_n=$((total_n + sim_n))
+    total_b=$((total_b + sim_b))
+    kept_open=$((kept_open + sim_open))
+    kept_blocked=$((kept_blocked + sim_blocked))
+
+    recordings_release
+  done <<EOF_SIMS
+$sims
+EOF_SIMS
+
+  rm -f "$errf" 2>/dev/null || true
+  echo ""
+  # Totals on EVERY path, including zero (INFRA-423): a sweep that silently stopped matching
+  # looks exactly like a clean machine.
+  if [ "$n_sims" = "0" ]; then
+    echo "XCTest recordings: no simulators resolved from \`xcrun simctl list devices -j\` — nothing scanned."
+    return 0
+  fi
+  echo "XCTest recordings: $n_sims simulator(s), $n_leased skipped (lease held); $total_n recording(s), $(recordings_mb "$total_b") found."
+  [ "$kept_open" -gt 0 ] && echo "  $kept_open still open — kept."
+  [ "$kept_blocked" -gt 0 ] && echo "  $kept_blocked kept: lsof is missing or failed for their directory, so nothing there was deleted."
+  if [ "$CONFIRM" = "1" ]; then
+    echo "XCTest recordings: removed $removed, $(recordings_mb "$removed_b") reclaimed."
+    [ "$failed" -gt 0 ] && echo "  $failed could not be removed; left in place."
+  elif [ $((total_n - kept_open - kept_blocked)) -gt 0 ]; then
+    echo "Nothing deleted. Re-run to reclaim:"
+    echo "  npm run e2e:safety:clean:recordings -- --yes"
+  fi
+  return 0
+}
+
+if [ "$MODE" = "recordings" ]; then
+  recordings_sweep
+  exit 0
+fi
 
 if [ "$MODE" = "pods-under" ]; then
   pod_sweep
