@@ -17,13 +17,11 @@
  *
  * Imports nothing from features/ (MAINT-659): `moduleId` is the module JSON's own `id`, and
  * PracticeTimerRoute narrows it with isModuleId before anything is credited.
+ *
+ * The module JSON is required on first resolve, never at module scope: CleanRootNavigator
+ * imports this file, so a top-level import would parse all five modules at app launch
+ * (the <2s budget). Same lazy-require shape as moduleContent.ts.
  */
-
-import awarePresence from '../../../assets/modules/module-1-aware-presence.json';
-import radicalAcceptance from '../../../assets/modules/module-2-radical-acceptance.json';
-import sphereSovereignty from '../../../assets/modules/module-3-sphere-sovereignty.json';
-import virtuousResponse from '../../../assets/modules/module-4-virtuous-response.json';
-import interconnectedLiving from '../../../assets/modules/module-5-interconnected-living.json';
 
 /**
  * The header for any id that does not resolve (crisis + philosopher ruling, DEBUG-679). No
@@ -109,11 +107,11 @@ function buildCatalog(): ReadonlyMap<string, LinkedPracticeParams> {
   try {
     const ambiguous = new Set<string>();
     const modules: unknown[] = [
-      awarePresence,
-      radicalAcceptance,
-      sphereSovereignty,
-      virtuousResponse,
-      interconnectedLiving,
+      require('../../../assets/modules/module-1-aware-presence.json'),
+      require('../../../assets/modules/module-2-radical-acceptance.json'),
+      require('../../../assets/modules/module-3-sphere-sovereignty.json'),
+      require('../../../assets/modules/module-4-virtuous-response.json'),
+      require('../../../assets/modules/module-5-interconnected-living.json'),
     ];
     for (const mod of modules) {
       if (!isRecord(mod)) continue;
@@ -136,7 +134,7 @@ function buildCatalog(): ReadonlyMap<string, LinkedPracticeParams> {
   return catalog;
 }
 
-const GUIDED_TIMER_CATALOG = buildCatalog();
+let guidedTimerCatalog: ReadonlyMap<string, LinkedPracticeParams> | null = null;
 
 /**
  * The presentation for a PracticeTimer route. A guided-timer catalog id gets its authored
@@ -145,7 +143,8 @@ const GUIDED_TIMER_CATALOG = buildCatalog();
 export function resolveLinkedPracticeParams(practiceId: unknown): LinkedPracticeParams {
   try {
     if (typeof practiceId !== 'string') return FALLBACK;
-    return GUIDED_TIMER_CATALOG.get(practiceId) ?? FALLBACK;
+    guidedTimerCatalog ??= buildCatalog();
+    return guidedTimerCatalog.get(practiceId) ?? FALLBACK;
   } catch {
     return FALLBACK;
   }
