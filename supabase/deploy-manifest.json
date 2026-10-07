@@ -76,7 +76,7 @@
     "GOOGLE_PUBSUB_SERVICE_ACCOUNT": {
       "required": false,
       "usedBy": ["subscription-webhook"],
-      "note": "Same Play Console dependency as GOOGLE_SERVICE_ACCOUNT."
+      "note": "Same Play Console dependency as GOOGLE_SERVICE_ACCOUNT. Optional project-wide only because Google is not live: since DEBUG-739 the webhook refuses every Google message while it is unset, exactly as for GOOGLE_PUBSUB_AUDIENCE."
     },
     "GOOGLE_PUBSUB_AUDIENCE": {
       "required": false,

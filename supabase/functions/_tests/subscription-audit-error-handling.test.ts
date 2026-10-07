@@ -46,10 +46,21 @@ const CALLERS = [
 
 const HELPER_PATH = new URL('../_shared/subscriptionAudit.ts', import.meta.url);
 
+/**
+ * A caller is its function DIRECTORY, not just index.ts: since DEBUG-739 the webhook's
+ * handlers live in handlers.ts beside a thin index.ts, and a pin reading only index.ts would
+ * check a file that no longer holds the logic. Every non-test .ts in the directory is read.
+ */
 function readCaller(name: string): string {
-  return stripComments(
-    Deno.readTextFileSync(new URL(`../${name}/index.ts`, import.meta.url)),
-  );
+  const dir = new URL(`../${name}/`, import.meta.url);
+  const files = [...Deno.readDirSync(dir)]
+    .filter((e) => e.isFile && e.name.endsWith('.ts') && !/\.test\.ts$/.test(e.name))
+    .map((e) => e.name)
+    .sort();
+  assert(files.includes('index.ts'), `${name}/ has no index.ts`);
+  return files
+    .map((f) => stripComments(Deno.readTextFileSync(new URL(f, dir))))
+    .join('\n');
 }
 
 /**
@@ -66,7 +77,7 @@ Deno.test('DEBUG-446: no caller calls log_subscription_event RPC directly', () =
     assertEquals(
       /supabase\s*\.\s*rpc\(\s*['"]log_subscription_event['"]/.test(src),
       false,
-      `${name}/index.ts calls the log_subscription_event RPC directly. Route it through ` +
+      `${name}/ calls the log_subscription_event RPC directly. Route it through ` +
         `logSubscriptionEvent() from _shared/subscriptionAudit.ts so the returned error is read.`,
     );
   }
@@ -79,11 +90,11 @@ Deno.test('DEBUG-446: every caller routes audit writes through the shared writer
     assert(
       /import\s*\{[^}]*\blogSubscriptionEvent\b[^}]*\}\s*from\s*['"]\.\.\/_shared\/subscriptionAudit\.ts['"]/
         .test(src),
-      `${name}/index.ts does not import logSubscriptionEvent from _shared/subscriptionAudit.ts`,
+      `${name}/ does not import logSubscriptionEvent from _shared/subscriptionAudit.ts`,
     );
     assert(
       /\blogSubscriptionEvent\s*\(/.test(src),
-      `${name}/index.ts imports logSubscriptionEvent but never calls it`,
+      `${name}/ imports logSubscriptionEvent but never calls it`,
     );
   }
 });
