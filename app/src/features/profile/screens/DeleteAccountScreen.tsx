@@ -26,6 +26,14 @@
  * local data intact (no wipe). DEBUG-539 inserted the analytics-identity reset
  * between that erasure and the local wipe. See AccountDeletionService for the
  * invariant.
+ *
+ * FEAT-710 (compliance ruling 2026-10-06): store billing outlives this erasure, so
+ * the screen says so before the confirmation field, in the device platform's copy
+ * only. Rendered for EVERYONE — the "If you pay" hinge is in the words, never a
+ * subscriptionStore read, because local subscription state cannot tell a billed user
+ * from an unbilled one (reinstall loses it). Text-only by ruling: a link or StoreKit
+ * sheet would background the app (DEBUG-577) and add a pressable in the FAB band, so
+ * one needs a new crisis presenter-class ruling first.
  */
 
 import React, { useState, useCallback } from 'react';
@@ -37,6 +45,7 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -59,8 +68,21 @@ const CONFIRM_WORD = 'DELETE';
 const ERASED_ITEMS = [
   'Your check-ins, reflections, and practice history',
   'Your PHQ-9 and GAD-7 wellness screening results',
-  'Your subscription details and account on our servers',
+  // FEAT-710 ruling (c): "details" read as if the subscription itself ended. Matches
+  // privacy policy §7.4's "subscription records".
+  'Your anonymous account and subscription records on our servers',
 ];
+
+// FEAT-710 ruling (b). Plain text, steps in words not glyphs (VoiceOver reads "→" badly),
+// about 30 words, and nothing about restoring, resubscribing or refunds.
+const SUBSCRIPTION_NOTICE = {
+  ios:
+    'If you pay for Being through the App Store, deleting your account does not cancel ' +
+    'billing. To cancel, open Settings, tap your name, then Subscriptions.',
+  android:
+    'If you pay for Being through Google Play, deleting your account does not cancel ' +
+    'billing. To cancel, open Play Store, then Payments & subscriptions, then Subscriptions.',
+} as const;
 
 const PRESERVED_NOTE =
   'For legal compliance, a minimal record of your consent and age verification is ' +
@@ -178,6 +200,13 @@ const DeleteAccountScreen: React.FC = () => {
 
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>{PRESERVED_NOTE}</Text>
+        </View>
+
+        {/* FEAT-710: non-interactive, unconditional, read just before the confirm field. */}
+        <View style={styles.infoBox} testID="delete-subscription-notice">
+          <Text style={styles.infoText}>
+            {Platform.OS === 'android' ? SUBSCRIPTION_NOTICE.android : SUBSCRIPTION_NOTICE.ios}
+          </Text>
         </View>
 
         <View style={styles.section}>
