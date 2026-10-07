@@ -283,7 +283,7 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
                 style={styles.privacyText}
                 accessibilityRole="text"
               >
-                • Your responses are confidentially stored and encrypted
+                • Any responses Being saves are encrypted
                 {'\n'}• This assessment may help identify when you need additional support
                 {'\n'}• You can access crisis support at any time using the crisis button
                 {'\n'}• You can pause or stop the assessment at any point

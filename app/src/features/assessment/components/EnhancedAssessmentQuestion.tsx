@@ -3,8 +3,8 @@
  *
  * Renders a single PHQ-9/GAD-7 question and forwards the selected response to
  * the parent via `onAnswer`. All wellness-data handling — AES-256 encryption,
- * consent enforcement, audit logging, and crisis detection (inline PHQ-9 Q9 and
- * score-based thresholds) — happens downstream in
+ * audit logging, and crisis detection (inline PHQ-9 Q9 and score-based
+ * thresholds) — happens downstream in
  * `assessmentStore.answerQuestion` → `SecureStorageService`, NOT in this
  * component. The component only renders the always-on crisis button and the
  * store-sourced crisis banner.
@@ -38,13 +38,6 @@ import type {
 } from '@/features/assessment/types';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 
-interface DataProtectionConsentStatus {
-  dataProcessingConsent: boolean;
-  clinicalDataConsent: boolean;
-  consentTimestamp: number;
-  consentVersion: string;
-}
-
 interface EnhancedAssessmentQuestionProps {
   question: AssessmentQuestionType;
   currentAnswer?: AssessmentResponse | undefined;
@@ -53,7 +46,6 @@ interface EnhancedAssessmentQuestionProps {
   currentStep: number;
   totalSteps: number;
   theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
-  consentStatus: DataProtectionConsentStatus;
   onError?: ((error: Error) => void) | undefined;
 }
 
@@ -81,7 +73,6 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
   currentStep,
   totalSteps,
   theme = 'neutral',
-  consentStatus,
   onError,
 }) => {
   // Navigation for crisis button
@@ -215,20 +206,6 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
           </Focusable>
         )}
 
-        {/* Privacy Consent Status */}
-        {!consentStatus.dataProcessingConsent && (
-          <Focusable
-            id="consent-warning"
-            priority={15}
-          >
-            <View style={styles.consentWarning}>
-              <Text style={styles.consentWarningText}>
-                ⚠️ Data processing consent required for secure response storage
-              </Text>
-            </View>
-          </Focusable>
-        )}
-
         {/* Enhanced Question text with clinical context */}
         <Focusable
           id="assessment-question-text"
@@ -358,19 +335,6 @@ const styles = StyleSheet.create({
   },
   securityText: {
     fontSize: typography.caption.size,
-    fontWeight: typography.fontWeight.medium,
-  },
-  consentWarning: {
-    backgroundColor: colorSystem.status.warningBackground,
-    padding: spacing[8],
-    borderRadius: borderRadius.medium,
-    marginBottom: spacing[16],
-    borderLeftWidth: spacing[4],
-    borderLeftColor: colorSystem.status.warning,
-  },
-  consentWarningText: {
-    fontSize: typography.caption.size,
-    color: colorSystem.status.warning,
     fontWeight: typography.fontWeight.medium,
   },
   questionContainer: {

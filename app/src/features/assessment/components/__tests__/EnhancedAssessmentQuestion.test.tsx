@@ -60,12 +60,6 @@ const baseProps = {
   onAnswer: jest.fn(),
   currentStep: 9,
   totalSteps: 9,
-  consentStatus: {
-    dataProcessingConsent: true,
-    clinicalDataConsent: true,
-    consentTimestamp: Date.now(),
-    consentVersion: '1.0',
-  },
 };
 
 const canonicalCrisisDetection: CrisisDetection = {
