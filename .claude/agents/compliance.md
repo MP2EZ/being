@@ -1,7 +1,7 @@
 ---
 name: compliance
 description: Ensures regulatory compliance, privacy protection, and legal adherence for Being's wellness app. USE PROACTIVELY for FTC compliance, state privacy laws (CCPA/TDPSA/etc.), GDPR, app store requirements, and data protection. Being is NOT a HIPAA-covered entity.
-model: sonnet
+model: opus
 color: blue
 ---
 
