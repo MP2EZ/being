@@ -506,7 +506,7 @@ describe('Assessment Store - Clinical Validation', () => {
     afterEach(() => {
       // DEBUG-515: CLEAR, do not RUN. `jest.runOnlyPendingTimers()` FIRES the
       // enabled test's leftover autosave callback, whose async tail
-      // (saveProgress -> set({lastSavedAt}) -> persist write) then resolves inside
+      // (saveProgress -> its persist-envelope write) then resolves inside
       // the NEXT test. Clearing drops nothing any assertion here depends on.
       jest.clearAllTimers();
       jest.useRealTimers();
@@ -594,6 +594,11 @@ describe('Assessment Store - Clinical Validation', () => {
 
     it('respects auto-save disabled state', async () => {
       const { result } = renderHook(() => useAssessmentStore());
+      // answerQuestion calls get().saveProgress(), so a stand-in installed on the store is
+      // what it reaches. Restored below so no later test inherits it.
+      const realSaveProgress = useAssessmentStore.getState().saveProgress;
+      const saveProgressSpy = jest.fn(async () => {});
+      useAssessmentStore.setState({ saveProgress: saveProgressSpy });
 
       // Clear any previous calls
       jest.clearAllMocks();
@@ -616,12 +621,26 @@ describe('Assessment Store - Clinical Validation', () => {
         await Promise.resolve();
       });
 
-      // Check that auto-save was not triggered by the answer
-      const autosaveCalls = mockStoreWellnessBlob.mock.calls.filter((call) => {
-        const data = call[1] as { answers?: Array<{ questionId?: string }> } | undefined;
-        return call[0] === 'assessment_store' && (data?.answers ?? []).some((a) => a.questionId === 'phq9_1');
+      // Auto-save is the saveProgress() call answerQuestion makes under the flag. Asserted
+      // on that call, not on storage: persist writes `answers` on every set() regardless of
+      // the flag, and since MAINT-731 saveProgress writes the same envelope persist does,
+      // so no blob shape tells the two apart any more.
+      const callsWhileDisabled = saveProgressSpy.mock.calls.length;
+
+      // Control (DEBUG-390): the stand-in IS reachable — with the flag on, the same answer
+      // path calls it. Without this, "not called" would also pass if answerQuestion stopped
+      // going through get().saveProgress() at all.
+      act(() => {
+        result.current.enableAutoSave();
       });
-      expect(autosaveCalls).toHaveLength(0);
+      await act(async () => {
+        await result.current.answerQuestion('phq9_2', 1);
+      });
+      const callsWhileEnabled = saveProgressSpy.mock.calls.length;
+      useAssessmentStore.setState({ saveProgress: realSaveProgress, autoSaveEnabled: false });
+
+      expect(callsWhileDisabled).toBe(0);
+      expect(callsWhileEnabled).toBeGreaterThan(0);
     });
   });
 

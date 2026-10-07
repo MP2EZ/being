@@ -4,7 +4,9 @@
  *
  * Two writers share the `assessment_store` blob, and whichever wrote last is on disk:
  *   - zustand `persist` writes the envelope `{state, version}` (its `partialize` slice)
- *   - `saveProgress` writes the flat object `{currentSession, answers, ...}`
+ *   - `saveProgress` writes that same envelope (MAINT-731). Before it, saveProgress wrote
+ *     the flat object `{currentSession, answers, ...}`, so a blob from an older install
+ *     can still be flat until its next save.
  * Anything else is unrecognised and normalises to null. The erasure writer treats null
  * as a failed read and writes nothing, so validation errs strict: a blob this module
  * cannot read is never rewritten.
@@ -24,6 +26,7 @@ export interface PersistedAssessmentState {
   currentQuestionIndex?: number;
   answers?: AssessmentAnswer[];
   completedAssessments?: AssessmentSession[];
+  /** Legacy flat blobs only: saveProgress wrote it until MAINT-731. Nothing reads it. */
   lastSavedAt?: number;
 }
 

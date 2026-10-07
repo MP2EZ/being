@@ -104,13 +104,13 @@ describe('Assessment Store — Your note annotations (FEAT-195)', () => {
       expect.any(Object),
       'level_2_assessment_data'
     );
-    // The persisted blob is the zustand-persist envelope ({ state, version });
-    // unwrap to the partialized slice.
+    // The persisted blob is the zustand-persist envelope ({ state, version }) — required,
+    // not tolerated: a flat blob here would not rehydrate (MAINT-731).
     const blob = mockWellnessBlobs['assessment_store'] as {
-      state?: { completedAssessments: AssessmentSession[] };
-      completedAssessments?: AssessmentSession[];
+      state: { completedAssessments: AssessmentSession[] };
     };
-    const persistedSessions = blob.state?.completedAssessments ?? blob.completedAssessments ?? [];
+    expect(blob).toEqual({ state: expect.any(Object), version: expect.any(Number) });
+    const persistedSessions = blob.state.completedAssessments;
     expect(persistedSessions.find((s) => s.id === 's1')?.note).toBe('context note');
   });
 
