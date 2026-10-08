@@ -59,6 +59,7 @@ import {
   resetInMemoryStateForErasure,
 } from '@/core/services/privacy/erasureResetRegistry';
 import supabaseService from '@/core/services/supabase/SupabaseService';
+import { useConsentStore } from '@/core/stores/consentStore';
 
 const OFFLINE_QUEUE_KEY = '@being/supabase/offline_queue';
 /** A recognisable stand-in for a queued backup's ciphertext. */
@@ -86,9 +87,12 @@ const wholeStoreDump = () => JSON.stringify([...mockMemoryStore.entries()]);
  * does not return early), with no live identity — the shape both a never-signed-in
  * device and a post-`teardownErasedSession` service have — and a backup that could
  * not be sent sitting in the queue. The op is enqueued through the real path
- * (`saveBackup` → `queueOfflineOperation`), which also persists it.
+ * (`saveBackup` → `queueOfflineOperation`), which also persists it. cloud_sync consent is
+ * granted for the scenario: since DEBUG-756 saveBackup refuses to enqueue without it, and a
+ * queued backup can only exist because consent was valid when it was queued.
  */
 async function seedQueuedBackup(): Promise<void> {
+  grantCloudSync();
   internals.isInitialized = true;
   internals.client = null;
   internals.userId = null;
@@ -96,7 +100,20 @@ async function seedQueuedBackup(): Promise<void> {
   await settle();
 }
 
+const INITIAL_CONSENT = {
+  consentStatus: useConsentStore.getState().consentStatus,
+  consentCache: useConsentStore.getState().consentCache,
+};
+
+function grantCloudSync(): void {
+  useConsentStore.setState({
+    consentStatus: 'valid',
+    consentCache: { ...INITIAL_CONSENT.consentCache, canSyncToCloud: true, honorUniversalOptOut: false },
+  });
+}
+
 beforeEach(() => {
+  useConsentStore.setState(INITIAL_CONSENT);
   mockMemoryStore.clear();
   internals.offlineQueue = [];
   internals.isInitialized = false;
