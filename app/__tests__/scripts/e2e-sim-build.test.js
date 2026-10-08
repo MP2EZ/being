@@ -126,6 +126,44 @@ function writeStub(dir, name, body) {
 }
 
 /**
+ * INFRA-754 — the macOS SDK arms every `xcrun` stub needs, modelled on the real tool
+ * (measured on macOS 27 / Xcode 26.6 / CLT 27.0):
+ *   * `xcrun --sdk macosx --show-sdk-path` resolves Xcode's SDK and IGNORES $SDKROOT;
+ *   * bare `xcrun --show-sdk-path` (what a bare `clang` uses) HONOURS $SDKROOT and
+ *     otherwise falls back to the CommandLineTools SDK — the skew the pin exists for.
+ * Without these arms the stubs' catch-all `exit 0` prints nothing, and the build script's
+ * guard would refuse in every spec in this file.
+ *
+ * @param root              sandbox root; both SDK dirs are created under it
+ * @param opts.xcodeSdk     'present' | 'missing' — whether Xcode's macOS SDK resolves
+ * @param opts.sdkrootIgnored  bare --show-sdk-path ignores $SDKROOT (the next skew)
+ * @returns {{lines: string[], xcodeSdk: string, cltSdk: string}}
+ */
+const XCODE_SDK_REL =
+  'sdks/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk';
+const CLT_SDK_REL = 'sdks/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk';
+function xcrunSdkArms(root, { xcodeSdk = 'present', sdkrootIgnored = false } = {}) {
+  const xcode = path.join(root, XCODE_SDK_REL);
+  const clt = path.join(root, CLT_SDK_REL);
+  fs.mkdirSync(xcode, { recursive: true });
+  fs.mkdirSync(clt, { recursive: true });
+  const lines = [
+    'if [ "$1" = "--sdk" ] && [ "$2" = "macosx" ] && [ "$3" = "--show-sdk-path" ]; then',
+    ...(xcodeSdk === 'missing'
+      ? ['  echo "xcrun: error: unable to lookup item \'Path\' in SDK \'macosx\'" >&2; exit 1']
+      : [`  echo "${xcode}"; exit 0`]),
+    'fi',
+    'if [ "$1" = "--sdk" ] && [ "$2" = "macosx" ] && [ "$3" = "--show-sdk-version" ]; then',
+    '  echo "26.5"; exit 0',
+    'fi',
+    'if [ "$1" = "--show-sdk-path" ]; then',
+    sdkrootIgnored ? `  echo "${clt}"; exit 0` : `  echo "\${SDKROOT:-${clt}}"; exit 0`,
+    'fi',
+  ];
+  return { lines, xcodeSdk: xcode, cltSdk: clt };
+}
+
+/**
  * A minimal but REAL eas.json carrying the `extends` chain the script must resolve.
  * e2e-sim declares 2 keys literally and inherits 3 more from production; a script that
  * reads `build.e2e-sim.env` without following `extends` silently loses the inherited ones.
@@ -344,6 +382,7 @@ function writeGitStub(stubs, root, mode = 'repo') {
  *                               reproducing the observed Simulator.app auto-boot. A check
  *                               performed before the build does not hold for its duration.
  * @param opts.simUdid           INFRA-405 — value for the E2E_SIM_UDID override env var.
+ * @param opts.sdk               INFRA-754 — {xcodeSdk, sdkrootIgnored}; see xcrunSdkArms.
  */
 function runScript(opts = {}) {
   const {
@@ -379,6 +418,8 @@ function runScript(opts = {}) {
     // { availGb, afterSweepGb, sweepFails } — afterSweepGb is what `df` reports once the
     // staged sweep stub has run with --yes; omit it and the sweep frees nothing.
     disk = null,
+    // INFRA-754: how the stubbed xcrun answers the macOS SDK queries (see xcrunSdkArms).
+    sdk = {},
   } = opts;
 
   const root = makeProject({ iosExists, cngStamp });
@@ -483,6 +524,8 @@ function runScript(opts = {}) {
     'for a in "$@"; do case "$a" in prebuild) SUB=prebuild ;; run:ios) SUB=run ;; esac; done',
     // INFRA-676: the locale `pod install` inherits — it runs inside both subcommands.
     `echo "npx-locale \${SUB:-other} LC_ALL=\${LC_ALL:-unset} LC_CTYPE=\${LC_CTYPE:-unset} LANG=\${LANG:-unset}" >> "${trace}"`,
+    // INFRA-754: the macOS SDK `pod install`'s bare clang inherits — same two subcommands.
+    `echo "npx-sdkroot \${SUB:-other} SDKROOT=\${SDKROOT:-unset}" >> "${trace}"`,
     'if [ "$SUB" = "prebuild" ]; then',
     `  mkdir -p "${path.join(root, PRODUCT_REL)}"`,
     '  exit 0',
@@ -550,10 +593,12 @@ function runScript(opts = {}) {
   //     the build installs to the FIRST, which is the divergence that produced the reported
   //     failure — deterministic here so CI can reproduce it without a simulator.
   //   * containers are per-device.
+  const sdkArms = xcrunSdkArms(root, sdk);
   writeStub(
     stubs,
     'xcrun',
     [
+      ...sdkArms.lines,
       `BOOTED_JSON="${bootedStatePath}"`,
       `DEVICE_JSON="${deviceStatePath}"`,
       `CONTAINERS="${containersRoot}"`,
@@ -714,6 +759,9 @@ function runScript(opts = {}) {
       // under test. The check gets its own opt-in test below.
       E2E_MIN_FREE_GB: '0',
       CI: '', // export:embed silently discards --reset-cache when CI is set
+      // INFRA-754: an operator's exported SDKROOT must not change results. Empty reads as
+      // unset to the script; a per-case extraEnv still overrides it.
+      SDKROOT: '',
       ...(simUdid ? { E2E_SIM_UDID: simUdid } : {}),
       ...extraEnv,
     },
@@ -748,6 +796,8 @@ function runScript(opts = {}) {
     deviceStatePath,
     stubs,
     root,
+    xcodeSdk: sdkArms.xcodeSdk,
+    cltSdk: sdkArms.cltSdk,
   };
 }
 
@@ -1660,6 +1710,8 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
       stubs,
       'xcrun',
       [
+        // INFRA-754: the same macOS SDK arms as the shared stub, or the guard refuses here.
+        ...xcrunSdkArms(root).lines,
         // INFRA-405: this second inline stub needed the same `-j` JSON treatment as the
         // shared one. It answered every `simctl list` with human-readable text, so device
         // resolution now fails and the script aborts at simulator selection — before it
@@ -1697,6 +1749,7 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
         ...process.env,
         PATH: `${stubs}:${process.env.PATH}`,
         E2E_SIM_UDID: '', // DEBUG-497, see runBuild — this site bypasses it, same as INFRA-490
+        SDKROOT: '', // INFRA-754, see runScript
         E2E_DEVICE_UDID: '', // DEBUG-497, see runBuild
         E2E_LOCK_ROOT: path.join(root, '.locks'),
         E2E_TELEMETRY_FILE: path.join(root, '.telemetry.jsonl'),
@@ -2524,6 +2577,123 @@ describe('e2e-sim-build.sh — INFRA-676 UTF-8 locale for CocoaPods', () => {
     // Step 7e's bundle byte-matches keep their per-command LC_ALL=C override: they must stay
     // byte-wise under the UTF-8 locale this script now exports.
     expect(code.match(/\bLC_ALL=C grep -aqF\b/g)).toHaveLength(2);
+  });
+});
+
+/**
+ * INFRA-754 — cold gate builds died in `pod install` with
+ * `tapi error: ... libSystem.B.tbd: unknown architecture arm64e.x1-macos`.
+ *
+ * expo-modules-jsi's create-stub-xcframework.sh runs a bare `clang`, which takes xcrun's
+ * DEFAULT macOS SDK. With CommandLineTools 27 installed on a macOS 27 host that default is
+ * the CLT's MacOSX27.0.sdk, while the linker is Xcode 26.6's, which cannot read it. The
+ * script now pins SDKROOT to Xcode's own macOS SDK and refuses, before touching anything,
+ * when the SDK a bare clang would use still differs. Every regeneration case here uses
+ * `cngStamp: 'stale'` so the prebuild stage — where pod install runs — is exercised.
+ */
+describe('e2e-sim-build.sh — INFRA-754 macOS SDK pin for pod install', () => {
+  /** The SDKROOT each npx subcommand saw, keyed by subcommand ('prebuild' | 'run'). */
+  const sdkrootSeen = (trace) => {
+    const seen = {};
+    for (const m of trace.matchAll(/^npx-sdkroot (\S+) SDKROOT=(.*)$/gm)) seen[m[1]] = m[2];
+    return seen;
+  };
+  /** Nothing that mutates simulator state or builds may have run. */
+  const expectUntouched = (r) => {
+    expect(r.prebuildRan).toBe(false);
+    expect(r.buildRan).toBe(false);
+    expect(r.trace).not.toMatch(/^uninstall /m);
+    expect(r.trace).not.toMatch(/^install /m);
+  };
+
+  it.each([
+    // `undefined` drops the key from the child env, so this is genuinely unset.
+    ['unset', { SDKROOT: undefined }],
+    ['empty', { SDKROOT: '' }],
+  ])("exports Xcode's macOS SDK to prebuild and run:ios when SDKROOT is %s", (_label, env) => {
+    const r = runScript({ cngStamp: 'stale', extraEnv: env });
+    expect(r.status).toBe(0);
+    const seen = sdkrootSeen(r.trace);
+    // Control: both stages ran and recorded, so the per-stage match cannot pass vacuously.
+    expect(Object.keys(seen).sort()).toEqual(['prebuild', 'run']);
+    expect(seen.prebuild).toBe(r.xcodeSdk);
+    expect(seen.run).toBe(r.xcodeSdk);
+    // The build log records which SDK pod install linked against.
+    expect(r.output).toContain(r.xcodeSdk);
+    expect(r.output).toMatch(/\b26\.5\b/);
+  }, 60000);
+
+  it("keeps a caller SDKROOT that already names Xcode's macOS SDK", () => {
+    const extraEnv = {};
+    const r = runScript({
+      cngStamp: 'stale',
+      extraEnv,
+      // The sandbox root only exists once runScript makes it; extraEnv is read after this.
+      beforeRun: (root) => {
+        extraEnv.SDKROOT = path.join(root, XCODE_SDK_REL);
+      },
+    });
+    expect(r.status).toBe(0);
+    const seen = sdkrootSeen(r.trace);
+    expect(Object.keys(seen).sort()).toEqual(['prebuild', 'run']);
+    expect(seen.prebuild).toBe(r.xcodeSdk);
+    expect(seen.run).toBe(r.xcodeSdk);
+  }, 60000);
+
+  it('refuses a caller SDKROOT naming the CommandLineTools SDK, before anything is touched', () => {
+    const extraEnv = {};
+    const r = runScript({
+      cngStamp: 'stale',
+      extraEnv,
+      beforeRun: (root) => {
+        extraEnv.SDKROOT = path.join(root, CLT_SDK_REL);
+      },
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/CommandLineTools/);
+    expect(r.output).toContain(r.cltSdk);
+    expect(r.output).toContain(r.xcodeSdk);
+    expectUntouched(r);
+  }, 60000);
+
+  it("refuses when Xcode's macOS SDK cannot be resolved", () => {
+    const r = runScript({ cngStamp: 'stale', sdk: { xcodeSdk: 'missing' } });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/xcrun --sdk macosx --show-sdk-path/);
+    expectUntouched(r);
+  }, 60000);
+
+  it('refuses when the SDK a bare clang would use still differs after the export', () => {
+    // The next skew: if xcrun ever stops honouring SDKROOT for the default SDK, the export
+    // alone no longer reaches clang. That must refuse, not build and fail in pod install.
+    const r = runScript({ cngStamp: 'stale', sdk: { sdkrootIgnored: true } });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toContain(r.cltSdk);
+    expect(r.output).toContain(r.xcodeSdk);
+    expectUntouched(r);
+  }, 60000);
+
+  it('pins the guard ahead of every mutation and both build invocations, in code rather than prose', () => {
+    // DEBUG-390: the guard's comment block names prebuild, run:ios and the lock, so match
+    // comment-stripped source only.
+    const code = fs.readFileSync(REAL_SCRIPT, 'utf8').replace(/^\s*#.*$/gm, '');
+    const exportAt = code.search(/\bexport SDKROOT=/);
+    const anchors = {
+      diskSweep: code.search(/\bE2E_MIN_FREE_GB\b/),
+      lock: code.search(/\be2e_lock_acquire "\$SIM_UDID"/),
+      uninstall: code.search(/^xcrun simctl uninstall "\$SIM_UDID"/m),
+      prebuild: code.search(/\bnpx expo prebuild\b/),
+      run: code.search(/\bBUILD_CMD=\(npx expo run:ios\b/),
+    };
+    // Controls: every anchor is found in the stripped slice, so no ordering below compares
+    // against -1.
+    expect(exportAt).toBeGreaterThan(-1);
+    for (const [name, at] of Object.entries(anchors)) {
+      expect([name, at > -1]).toEqual([name, true]);
+      expect([name, exportAt < at]).toEqual([name, true]);
+    }
+    // The resolution is its own assignment: `export X=$(...)` would mask xcrun's exit status.
+    expect(code).not.toMatch(/\bexport SDKROOT="?\$\(/);
   });
 });
 

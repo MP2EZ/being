@@ -31,6 +31,16 @@ import {
   isUsableTransactionIdentifier,
 } from '../_shared/receiptBinding.ts';
 import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
+import {
+  assertBeingPackageName,
+  assertValidPurchaseToken,
+  assertValidSubscriptionId,
+  fetchSubscriptionPurchase,
+  getGoogleAccessToken,
+  type GoogleSubscriptionPurchase,
+  InvalidGooglePurchaseError,
+  parseServiceAccountCredential,
+} from '../_shared/googlePlayDeveloperApi.ts';
 
 /**
  * Extract the authenticated user's id from the request's Authorization header.
@@ -61,31 +71,13 @@ function getAuthUidFromRequest(req: Request): string {
   return payload.sub;
 }
 
-// Google Play Developer API endpoint
-const GOOGLE_API_BASE = 'https://androidpublisher.googleapis.com/androidpublisher/v3/applications';
-
 interface GoogleReceiptRequest {
   packageName: string;
   subscriptionId: string;
   purchaseToken: string;
 }
 
-interface GoogleSubscriptionResponse {
-  kind: string;
-  startTimeMillis: string;
-  expiryTimeMillis: string;
-  autoRenewing: boolean;
-  priceCurrencyCode: string;
-  priceAmountMicros: string;
-  countryCode: string;
-  developerPayload?: string;
-  cancelReason?: number;
-  userCancellationTimeMillis?: string;
-  orderId: string;
-  linkedPurchaseToken?: string;
-  purchaseType?: number;
-  acknowledgementState?: number;
-}
+type GoogleSubscriptionResponse = GoogleSubscriptionPurchase;
 
 interface VerificationResult {
   valid: boolean;
@@ -97,80 +89,22 @@ interface VerificationResult {
 }
 
 /**
- * Get Google OAuth2 access token
- */
-async function getGoogleAccessToken(): Promise<string> {
-  const serviceAccount = Deno.env.get('GOOGLE_SERVICE_ACCOUNT');
-
-  if (!serviceAccount) {
-    throw new Error('GOOGLE_SERVICE_ACCOUNT not configured');
-  }
-
-  const credentials = JSON.parse(serviceAccount);
-
-  // Create JWT for service account
-  const now = Math.floor(Date.now() / 1000);
-  const payload = {
-    iss: credentials.client_email,
-    scope: 'https://www.googleapis.com/auth/androidpublisher',
-    aud: 'https://oauth2.googleapis.com/token',
-    exp: now + 3600,
-    iat: now,
-  };
-
-  // Sign JWT (simplified - in production, use proper JWT library)
-  const header = btoa(JSON.stringify({ alg: 'RS256', typ: 'JWT' }));
-  const payloadB64 = btoa(JSON.stringify(payload));
-  const signatureInput = `${header}.${payloadB64}`;
-
-  // Note: This is a simplified example. In production, you would use:
-  // - A proper JWT library for signing
-  // - The service account's private key
-  // For now, we'll use a placeholder that assumes proper signing
-
-  const response = await fetch('https://oauth2.googleapis.com/token', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({
-      grant_type: 'urn:ietf:params:oauth:grant-type:jwt-bearer',
-      assertion: `${signatureInput}.signature_placeholder`, // TODO: Implement proper JWT signing
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Failed to get Google access token: ${response.status}`);
-  }
-
-  const data = await response.json();
-  return data.access_token;
-}
-
-/**
- * Verify purchase token with Google Play
+ * Verify purchase token with Google Play (DEBUG-752).
+ *
+ * The service-account assertion is now really signed (it was a literal
+ * `signature_placeholder`), and the lookup URL is built and pinned inside
+ * `_shared/googlePlayDeveloperApi.ts`. Every error it throws carries a fixed message, so
+ * the audit row written by the caller's catch holds no credential, purchase token or
+ * Google response text. The secret is read here, inside the request path, so the INFRA-442
+ * reconcile keeps seeing a literal reader.
  */
 async function verifyWithGoogle(
-  packageName: string,
   subscriptionId: string,
   purchaseToken: string
 ): Promise<GoogleSubscriptionResponse> {
-  const accessToken = await getGoogleAccessToken();
-
-  const url = `${GOOGLE_API_BASE}/${packageName}/purchases/subscriptions/${subscriptionId}/tokens/${purchaseToken}`;
-
-  const response = await fetch(url, {
-    method: 'GET',
-    headers: {
-      'Authorization': `Bearer ${accessToken}`,
-      'Content-Type': 'application/json',
-    },
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`Google Play API error: ${response.status} - ${errorText}`);
-  }
-
-  return await response.json();
+  const credential = parseServiceAccountCredential(Deno.env.get('GOOGLE_SERVICE_ACCOUNT'));
+  const accessToken = await getGoogleAccessToken(credential);
+  return await fetchSubscriptionPurchase({ subscriptionId, purchaseToken }, accessToken);
 }
 
 /**
@@ -324,6 +258,24 @@ serve(async (req) => {
       );
     }
 
+    // DEBUG-752 — validate before any token is minted or any client is built. The package
+    // name is pinned to Being's (a purchase token for another app under the same developer
+    // account must not become a Being entitlement), and both identifiers are checked
+    // because they become path segments of an authenticated request.
+    try {
+      assertBeingPackageName(packageName);
+      assertValidSubscriptionId(subscriptionId);
+      assertValidPurchaseToken(purchaseToken);
+    } catch (err) {
+      if (err instanceof InvalidGooglePurchaseError) {
+        return new Response(
+          JSON.stringify({ error: 'Invalid purchase parameters' }),
+          { status: 400, headers: { 'Content-Type': 'application/json' } }
+        );
+      }
+      throw err;
+    }
+
     // Initialize Supabase client (service role for DB writes; bypasses RLS).
     const supabaseUrl = Deno.env.get('SUPABASE_URL')!;
     const supabaseKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
@@ -377,7 +329,7 @@ serve(async (req) => {
     // Verify with Google Play
     let googleResponse: GoogleSubscriptionResponse;
     try {
-      googleResponse = await verifyWithGoogle(packageName, subscriptionId, purchaseToken);
+      googleResponse = await verifyWithGoogle(subscriptionId, purchaseToken);
     } catch (error) {
       console.error('[Google Receipt Verification] Google API error:', error);
 
