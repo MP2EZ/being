@@ -12,6 +12,10 @@
  * verify-google-receipt write them (plaintext id in original_transaction_id, opaque
  * ciphertext in receipt_data_encrypted). That is what makes AC3 falsifiable: the old Google
  * lookup keyed on receipt_data_encrypted and could never find such a row.
+ *
+ * DEBUG-751 adds the monotonic guard (last_store_event_at), the optimistic write, Google
+ * voided-purchase revocation and the package check; fixtures carry a store event time by
+ * default (NOW - 60s) and rows carry a null watermark and an updated_at.
  */
 
 import { assert, assertEquals } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
@@ -19,6 +23,7 @@ import {
   createWebhookHandler,
   RTDN_MAX_AGE_MS,
   SubscriptionNotLinkedError,
+  SubscriptionWriteRaceError,
   WebhookPayloadRejectedError,
   type WebhookDeps,
   webhookFailureReason,
@@ -33,6 +38,13 @@ const APPLE_ROW_ID = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa';
 const GOOGLE_ROW_ID = 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb';
 const ORIGINAL_TXN = '2000000123456789';
 const PURCHASE_TOKEN = 'purchase-token-SENTINEL-opaque';
+const ORDER_ID = 'GPA.3333-4444-5555-SENTINELORDER';
+/** The store event time fixtures carry by default, and two ordered times for ordering tests. */
+const EVENT_MS = NOW - 60_000;
+const T1 = NOW - 3_600_000;
+const T2 = NOW - 1_800_000;
+const T3 = NOW - 900_000;
+const ROW_UPDATED_AT = '2026-10-05T00:00:00.000Z';
 
 /** A subscription row shaped the way the verify-*-receipt upserts write it. */
 function appleRow(status = 'active') {
@@ -44,6 +56,8 @@ function appleRow(status = 'active') {
     original_transaction_id: ORIGINAL_TXN,
     receipt_data_encrypted: 'AQ0xY2lwaGVydGV4dA==',
     status,
+    last_store_event_at: null as string | null,
+    updated_at: ROW_UPDATED_AT,
   };
 }
 function googleRow(status = 'active') {
@@ -55,6 +69,8 @@ function googleRow(status = 'active') {
     original_transaction_id: PURCHASE_TOKEN,
     receipt_data_encrypted: 'AQ1yYW5kb20taXYtY2lwaGVydGV4dA==',
     status,
+    last_store_event_at: null as string | null,
+    updated_at: ROW_UPDATED_AT,
   };
 }
 
@@ -75,12 +91,20 @@ function appleTransaction(over: Record<string, unknown> = {}) {
 
 function appleBody(
   notificationType: string,
-  opts: { subtype?: string; data?: Record<string, unknown>; uuid?: string } = {},
+  opts: {
+    subtype?: string;
+    data?: Record<string, unknown>;
+    uuid?: string;
+    /** Apple's outer signedDate; null omits it. Default: EVENT_MS. */
+    signedDate?: number | string | null;
+  } = {},
 ) {
+  const signedDate = opts.signedDate === undefined ? EVENT_MS : opts.signedDate;
   return {
     signedPayload: JSON.stringify({
       notificationType,
       ...(opts.subtype ? { subtype: opts.subtype } : {}),
+      ...(signedDate === null ? {} : { signedDate }),
       notificationUUID: opts.uuid ?? `uuid-${notificationType}-${opts.subtype ?? ''}`,
       data: opts.data ?? { ...SCOPE, signedTransactionInfo: appleTransaction() },
     }),
@@ -106,11 +130,37 @@ function googleBody(
   };
 }
 
-function rtdn(notificationType: number, purchaseToken: string | null = PURCHASE_TOKEN) {
+function rtdn(
+  notificationType: number,
+  purchaseToken: string | null = PURCHASE_TOKEN,
+  over: Record<string, unknown> = {},
+) {
   return {
     version: '1.0',
     packageName: 'fyi.being.app',
+    eventTimeMillis: String(EVENT_MS),
     subscriptionNotification: { version: '1.0', notificationType, purchaseToken, subscriptionId: 'being_monthly' },
+    ...over,
+  };
+}
+
+/** A voidedPurchaseNotification message. `notification` overrides fields of the inner object. */
+function voided(
+  notification: Record<string, unknown> = {},
+  over: Record<string, unknown> = {},
+) {
+  return {
+    version: '1.0',
+    packageName: 'fyi.being.app',
+    eventTimeMillis: String(EVENT_MS),
+    voidedPurchaseNotification: {
+      purchaseToken: PURCHASE_TOKEN,
+      orderId: ORDER_ID,
+      productType: 1,
+      refundType: 1,
+      ...notification,
+    },
+    ...over,
   };
 }
 
@@ -244,7 +294,8 @@ Deno.test('AC3: the purchase token never appears in a response body', async () =
 for (const [label, message] of [
   ['a testNotification', { version: '1.0', packageName: 'fyi.being.app', testNotification: { version: '1.0' } }],
   ['a oneTimeProductNotification', { packageName: 'fyi.being.app', oneTimeProductNotification: { purchaseToken: 'x' } }],
-  ['a voidedPurchaseNotification', { packageName: 'fyi.being.app', voidedPurchaseNotification: { purchaseToken: 'x' } }],
+  // DEBUG-751: a voided ONE-TIME product (productType 2) is not a subscription revocation.
+  ['a voidedPurchaseNotification for a one-time product', voided({ productType: 2 })],
   ['a subscriptionNotification with no purchaseToken', rtdn(2, null)],
   ['an unhandled notificationType (PRICE_CHANGE_CONFIRMED)', rtdn(8)],
 ] as Array<[string, Record<string, unknown>]>) {
@@ -505,6 +556,8 @@ const LOG_FORBIDDEN = [
   GOOGLE_ROW_ID,
   ORIGINAL_TXN,
   PURCHASE_TOKEN,
+  ORDER_ID,
+  'SENTINELORDER',
   NOTIFICATION_UUID,
   MESSAGE_ID,
   'google-oidc-token',
@@ -743,7 +796,7 @@ const LEAK_CASES: LeakCase[] = [
     name: 'google: non-subscription message',
     status: 200,
     build: () => ({
-      body: googleBody({ packageName: 'fyi.being.app', voidedPurchaseNotification: { purchaseToken: PURCHASE_TOKEN } }, { messageId: MESSAGE_ID }),
+      body: googleBody(voided({ productType: 2 }), { messageId: MESSAGE_ID }),
     }),
   },
   {
@@ -811,6 +864,120 @@ const LEAK_CASES: LeakCase[] = [
       db.failRpc('log_subscription_event', DB_LEAK);
       return { db, body: googleBody(rtdn(13), { messageId: MESSAGE_ID }) };
     },
+  },
+  // --- DEBUG-751: ordering, optimistic write, voided purchases, package check ---
+  {
+    name: 'google: CANCELED applied (status untouched)',
+    status: 200,
+    build: () => ({ db: fakeDb({ subscriptions: [googleRow()] }), body: googleBody(rtdn(3), { messageId: MESSAGE_ID }) }),
+  },
+  {
+    name: 'google: stale notification',
+    status: 200,
+    build: () => ({
+      db: fakeDb({ subscriptions: [{ ...googleRow('expired'), last_store_event_at: new Date(T3).toISOString() }] }),
+      body: googleBody(rtdn(4, PURCHASE_TOKEN, { eventTimeMillis: String(T1) }), { messageId: MESSAGE_ID }),
+    }),
+  },
+  {
+    name: 'google: optimistic write lost the race (503)',
+    status: 503,
+    build: () => {
+      const db = fakeDb({ subscriptions: [googleRow()] });
+      db.beforeUpdate('subscriptions', () => { db.tables.subscriptions[0].updated_at = '2026-10-05T00:00:09.000Z'; });
+      return { db, body: googleBody(rtdn(13), { messageId: MESSAGE_ID }) };
+    },
+  },
+  {
+    name: 'google: no usable eventTimeMillis',
+    status: 200,
+    build: () => ({
+      db: fakeDb({ subscriptions: [googleRow()] }),
+      body: googleBody(rtdn(13, PURCHASE_TOKEN, { eventTimeMillis: `x ${PURCHASE_TOKEN}` }), { messageId: MESSAGE_ID }),
+    }),
+  },
+  {
+    name: 'google: package mismatch on a subscriptionNotification',
+    status: 200,
+    build: () => ({
+      db: fakeDb({ subscriptions: [googleRow()] }),
+      body: googleBody(rtdn(13, PURCHASE_TOKEN, { packageName: `com.other.${PURCHASE_TOKEN}` }), { messageId: MESSAGE_ID }),
+    }),
+  },
+  {
+    name: 'google: voided purchase applied',
+    status: 200,
+    build: () => ({ db: fakeDb({ subscriptions: [googleRow()] }), body: googleBody(voided(), { messageId: MESSAGE_ID }) }),
+  },
+  {
+    name: 'google: voided purchase, stale',
+    status: 200,
+    build: () => ({
+      db: fakeDb({ subscriptions: [{ ...googleRow(), last_store_event_at: new Date(T3).toISOString() }] }),
+      body: googleBody(voided({}, { eventTimeMillis: String(T1) }), { messageId: MESSAGE_ID }),
+    }),
+  },
+  {
+    name: 'google: voided purchase, no row yet (503)',
+    status: 503,
+    build: () => ({ body: googleBody(voided(), { messageId: MESSAGE_ID }) }),
+  },
+  {
+    name: 'google: voided purchase, unresolved and abandoned',
+    status: 200,
+    build: () => ({
+      body: googleBody(voided(), { messageId: MESSAGE_ID, publishTime: new Date(NOW - RTDN_MAX_AGE_MS - 1000).toISOString() }),
+    }),
+  },
+  {
+    name: 'google: voided purchase with a malformed token carrying sentinel text',
+    status: 200,
+    build: () => ({
+      db: fakeDb({ subscriptions: [googleRow()] }),
+      body: googleBody(voided({ purchaseToken: `bad token ${PURCHASE_TOKEN}` }), { messageId: MESSAGE_ID }),
+    }),
+  },
+  {
+    name: 'google: voided purchase, package mismatch',
+    status: 200,
+    build: () => ({
+      db: fakeDb({ subscriptions: [googleRow()] }),
+      body: googleBody(voided({}, { packageName: `com.other.${PURCHASE_TOKEN}` }), { messageId: MESSAGE_ID }),
+    }),
+  },
+  {
+    name: 'google: voided purchase, update error with sentinel text',
+    status: 500,
+    build: () => {
+      const db = fakeDb({ subscriptions: [googleRow()] });
+      db.failOn('subscriptions', 'update', DB_LEAK);
+      return { db, body: googleBody(voided(), { messageId: MESSAGE_ID }) };
+    },
+  },
+  {
+    name: 'apple: stale notification',
+    status: 200,
+    build: () => ({
+      db: fakeDb({ subscriptions: [{ ...appleRow('expired'), last_store_event_at: new Date(T3).toISOString() }] }),
+      body: appleBody('SUBSCRIBED', { signedDate: T1, uuid: NOTIFICATION_UUID }),
+    }),
+  },
+  {
+    name: 'apple: optimistic write lost the race (503)',
+    status: 503,
+    build: () => {
+      const db = fakeDb({ subscriptions: [appleRow()] });
+      db.beforeUpdate('subscriptions', () => { db.tables.subscriptions[0].updated_at = '2026-10-05T00:00:09.000Z'; });
+      return { db, body: appleBody('EXPIRED', { uuid: NOTIFICATION_UUID }) };
+    },
+  },
+  {
+    name: 'apple: payload rejected, no signedDate',
+    status: 422,
+    build: () => ({
+      db: fakeDb({ subscriptions: [appleRow()] }),
+      body: appleBody('EXPIRED', { signedDate: null, uuid: NOTIFICATION_UUID }),
+    }),
   },
   // --- dispatch ---
   {
@@ -972,6 +1139,8 @@ Deno.test('webhookFailureReason: the table', () => {
     ['not linked (google)', new SubscriptionNotLinkedError('google'), { reason: 'subscription_not_linked' }],
     ['rejected: unusable_expires_date', new WebhookPayloadRejectedError('unusable_expires_date'), { reason: 'unusable_expires_date' }],
     ['rejected: app_account_token_mismatch', new WebhookPayloadRejectedError('app_account_token_mismatch'), { reason: 'app_account_token_mismatch' }],
+    ['rejected: missing_signed_date', new WebhookPayloadRejectedError('missing_signed_date'), { reason: 'missing_signed_date' }],
+    ['write race (DEBUG-751)', new SubscriptionWriteRaceError(), { reason: 'subscription_write_race' }],
     ['a PostgrestError-shaped plain object', { ...DB_LEAK, code: '23505' }, { reason: 'db_error', code: '23505' }],
     ['an Error carrying a SQLSTATE (checked before instanceof Error)', pgErrorLike, { reason: 'db_error', code: '23514' }],
     ['an alphabetic SQLSTATE', { code: '0A000', message: SENTINEL_TEXT }, { reason: 'db_error', code: '0A000' }],
@@ -1003,4 +1172,468 @@ Deno.test('WebhookPayloadRejectedError carries a closed reason and keeps a messa
   assertEquals(err.reason, 'missing_original_transaction_id');
   assertEquals(err.name, 'WebhookPayloadRejectedError');
   assert(err instanceof Error && err.message.length > 0);
+});
+
+// ---------------------------------------------------------------------------
+// DEBUG-751 - helpers
+// ---------------------------------------------------------------------------
+
+const iso = (ms: number) => new Date(ms).toISOString();
+const auditTypes = (db: FakeDb) => db.rpcCalls.map((c) => c.args.p_event_type);
+const watermarkOf = (db: FakeDb, id: string) => db.tables.subscriptions.find((r) => r.id === id)?.last_store_event_at;
+
+/** A Google subscription message at a given store event time. */
+const gmsg = (type: number, eventMs: number, messageId: string) =>
+  googleBody(rtdn(type, PURCHASE_TOKEN, { eventTimeMillis: String(eventMs) }), { messageId });
+/** An Apple notification at a given signedDate. */
+const amsg = (type: string, signedDate: number, uuid: string, subtype?: string) =>
+  appleBody(type, { signedDate, uuid, subtype });
+
+// ---------------------------------------------------------------------------
+// AC3 - the monotonic guard: an older store event never undoes a newer one
+// ---------------------------------------------------------------------------
+
+Deno.test('AC3: Google EXPIRED at T2 then a late PURCHASED from T1 is acknowledged as stale and not applied', async () => {
+  const db = fakeDb({ subscriptions: [googleRow('active')] });
+  const first = await run({ db, body: gmsg(13, T2, 'm-expired') });
+  assertEquals(first.res.status, 200);
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'expired');
+  assertEquals(watermarkOf(db, GOOGLE_ROW_ID), iso(T2));
+
+  const second = await run({ db, body: gmsg(4, T1, 'm-purchased-late') });
+  assertEquals(second.res.status, 200);
+  assertEquals(second.body, { success: true, ignored: 'stale_notification' });
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'expired');
+  assertEquals(watermarkOf(db, GOOGLE_ROW_ID), iso(T2));
+  assertEquals(db.updates.length, 1);
+  assertEquals(auditTypes(db), ['subscription_expired']);
+  // Acknowledged means marked: redelivering the same stale bytes cannot change the answer.
+  assertEquals(db.tables.webhook_replay_cache.map((r) => r.notification_id), ['m-expired', 'm-purchased-late']);
+});
+
+Deno.test('AC3: Apple EXPIRED at T2 then a late SUBSCRIBED from T1 is acknowledged as stale and not applied', async () => {
+  const db = fakeDb({ subscriptions: [appleRow('active')] });
+  assertEquals((await run({ db, body: amsg('EXPIRED', T2, 'u-expired') })).res.status, 200);
+  assertEquals(statusOf(db, APPLE_ROW_ID), 'expired');
+  assertEquals(watermarkOf(db, APPLE_ROW_ID), iso(T2));
+
+  const late = await run({ db, body: amsg('SUBSCRIBED', T1, 'u-subscribed-late') });
+  assertEquals(late.res.status, 200);
+  assertEquals(late.body, { success: true, ignored: 'stale_notification' });
+  assertEquals(statusOf(db, APPLE_ROW_ID), 'expired');
+  assertEquals(db.updates.length, 1);
+  assertEquals(auditTypes(db), ['subscription_expired']);
+  assertEquals(late.marked.length, 2);
+});
+
+// The converse is the one that matters for users: a late "bad" event must not downgrade a
+// subscriber who has since renewed.
+for (
+  const [platform, newer, olders] of [
+    ['google', [2, 4], [13, 5, 12, 10]],
+    ['apple', ['DID_RENEW', 'SUBSCRIBED'], ['EXPIRED', 'REVOKE', 'REFUND', 'GRACE_PERIOD_EXPIRED', 'DID_FAIL_TO_RENEW']],
+  ] as Array<[string, Array<number | string>, Array<number | string>]>
+) {
+  for (const n of newer) {
+    for (const o of olders) {
+      Deno.test(`AC3 (converse): ${platform} ${o} from T2 after ${n} from T3 does not downgrade`, async () => {
+        const db = fakeDb({ subscriptions: [platform === 'google' ? googleRow('expired') : appleRow('expired')] });
+        const id = platform === 'google' ? GOOGLE_ROW_ID : APPLE_ROW_ID;
+        const first = platform === 'google'
+          ? await run({ db, body: gmsg(n as number, T3, 'm-new') })
+          : await run({ db, body: amsg(n as string, T3, 'u-new') });
+        assertEquals(first.res.status, 200);
+        assertEquals(statusOf(db, id), 'active');
+        const late = platform === 'google'
+          ? await run({ db, body: gmsg(o as number, T2, 'm-old') })
+          : await run({ db, body: amsg(o as string, T2, 'u-old') });
+        assertEquals(late.res.status, 200);
+        assertEquals(late.body.ignored, 'stale_notification');
+        assertEquals(statusOf(db, id), 'active');
+        assertEquals(watermarkOf(db, id), iso(T3));
+        assertEquals(db.updates.length, 1);
+      });
+    }
+  }
+}
+
+Deno.test('AC3: an event at exactly the watermark is a redelivery and applies (strictly older only is stale)', async () => {
+  const db = fakeDb({ subscriptions: [{ ...googleRow('grace'), last_store_event_at: iso(T2) }] });
+  const r = await run({ db, body: gmsg(2, T2, 'm-same-instant') });
+  assertEquals(r.res.status, 200);
+  assertEquals(r.body, { success: true });
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'active');
+});
+
+Deno.test('AC3: deferred-then-ordered - an early PURCHASED is 503, a newer EXPIRED lands, the redelivered PURCHASED is stale (google)', async () => {
+  const db = fakeDb();
+  const early = await run({ db, body: gmsg(4, T1, 'm-purchased') });
+  assertEquals(early.res.status, 503);
+  assertEquals(early.marked.length, 0);
+
+  db.tables.subscriptions.push(googleRow('active'));
+  const newer = await run({ db, body: gmsg(13, T2, 'm-expired') });
+  assertEquals(newer.res.status, 200);
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'expired');
+
+  const redelivered = await run({ db, body: gmsg(4, T1, 'm-purchased') });
+  assertEquals(redelivered.res.status, 200);
+  assertEquals(redelivered.body.ignored, 'stale_notification');
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'expired');
+  assertEquals(db.tables.webhook_replay_cache.length, 2);
+});
+
+Deno.test('AC3: deferred-then-ordered - the same sequence on Apple', async () => {
+  const db = fakeDb();
+  assertEquals((await run({ db, body: amsg('SUBSCRIBED', T1, 'u-sub') })).res.status, 503);
+  db.tables.subscriptions.push(appleRow('active'));
+  assertEquals((await run({ db, body: amsg('EXPIRED', T2, 'u-exp') })).res.status, 200);
+  const redelivered = await run({ db, body: amsg('SUBSCRIBED', T1, 'u-sub') });
+  assertEquals(redelivered.body.ignored, 'stale_notification');
+  assertEquals(statusOf(db, APPLE_ROW_ID), 'expired');
+});
+
+Deno.test('AC3: a watermark an hour in the FUTURE is ignored and the event applies, replacing it', async () => {
+  const future = iso(NOW + 3_600_000);
+  for (const [db, body, id] of [
+    [fakeDb({ subscriptions: [{ ...googleRow('active'), last_store_event_at: future }] }), gmsg(13, T1, 'm-1'), GOOGLE_ROW_ID],
+    [fakeDb({ subscriptions: [{ ...appleRow('active'), last_store_event_at: future }] }), amsg('EXPIRED', T1, 'u-1'), APPLE_ROW_ID],
+  ] as Array<[FakeDb, unknown, string]>) {
+    const r = await run({ db, body });
+    assertEquals(r.res.status, 200);
+    assertEquals(r.body, { success: true });
+    assertEquals(statusOf(db, id), 'expired');
+    assertEquals(watermarkOf(db, id), iso(T1));
+  }
+});
+
+Deno.test('AC3: a stale notification logs only the sanitised type and writes no audit row', async () => {
+  const lines: string[] = [];
+  const db = fakeDb({ subscriptions: [{ ...googleRow('expired'), last_store_event_at: iso(T3) }] });
+  const r = await run({ db, body: gmsg(4, T1, 'm-stale'), capture: lines });
+  assertEquals(r.body.ignored, 'stale_notification');
+  assertEquals(db.rpcCalls.length, 0);
+  assert(lines.some((l) => l.includes('Stale notification') && /\b4\b/.test(l)), lines.join('\n'));
+});
+
+// ---------------------------------------------------------------------------
+// AC3 - the optimistic write
+// ---------------------------------------------------------------------------
+
+Deno.test('AC3: the update is conditioned on id AND the updated_at that was read', async () => {
+  const db = fakeDb({ subscriptions: [googleRow('active')] });
+  await run({ db, body: gmsg(13, T2, 'm-1') });
+  assertEquals(db.updates[0].filters, [['id', GOOGLE_ROW_ID], ['updated_at', ROW_UPDATED_AT]]);
+});
+
+Deno.test('AC3: a row whose updated_at is NULL is conditioned with IS NULL, not eq(null)', async () => {
+  const db = fakeDb({ subscriptions: [{ ...googleRow('active'), updated_at: null as unknown as string }] });
+  const r = await run({ db, body: gmsg(13, T2, 'm-1') });
+  assertEquals(r.res.status, 200);
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'expired');
+});
+
+for (
+  const [platform, body, id] of [
+    ['google', gmsg(13, T2, 'm-race'), GOOGLE_ROW_ID],
+    ['apple', amsg('EXPIRED', T2, 'u-race'), APPLE_ROW_ID],
+  ] as Array<[string, unknown, string]>
+) {
+  Deno.test(`AC3: ${platform}: a concurrent write between read and update is a retryable 503, not marked, no audit row`, async () => {
+    const db = fakeDb({ subscriptions: [platform === 'google' ? googleRow('active') : appleRow('active')] });
+    db.beforeUpdate('subscriptions', () => {
+      db.tables.subscriptions[0].updated_at = '2026-10-05T00:00:07.000Z';
+    });
+    const r = await run({ db, body });
+    assertEquals(r.res.status, 503);
+    assertEquals(r.body, { error: 'subscription_write_race', retry: true });
+    assertEquals(r.marked.length, 0);
+    assertEquals(statusOf(db, id), 'active');
+    assertEquals(db.rpcCalls.length, 0);
+
+    // The store redelivers; with no concurrent writer the same message now applies.
+    const again = await run({ db, body });
+    assertEquals(again.res.status, 200);
+    assertEquals(statusOf(db, id), 'expired');
+    assertEquals(again.marked.length, 1);
+  });
+}
+
+Deno.test('AC3: a lost race logs its closed reason', async () => {
+  const lines: string[] = [];
+  const db = fakeDb({ subscriptions: [googleRow('active')] });
+  db.beforeUpdate('subscriptions', () => {
+    db.tables.subscriptions[0].updated_at = '2026-10-05T00:00:07.000Z';
+  });
+  await run({ db, body: gmsg(13, T2, 'm-race'), capture: lines });
+  assert(lines.some((l) => l.includes('Deferred for redelivery') && l.includes('subscription_write_race')), lines.join('\n'));
+});
+
+// ---------------------------------------------------------------------------
+// AC3 - store event time is required to order anything
+// ---------------------------------------------------------------------------
+
+for (
+  const [label, signedDate] of [
+    ['missing', null],
+    ['a string', String(T2)],
+    ['not finite', 'NaN'],
+  ] as Array<[string, string | null]>
+) {
+  Deno.test(`AC3: a handled Apple type with a ${label} signedDate is a 422 (missing_signed_date), not marked, no write`, async () => {
+    const db = fakeDb({ subscriptions: [appleRow('active')] });
+    const r = await run({ db, body: appleBody('EXPIRED', { signedDate }) });
+    assertEquals(r.res.status, 422);
+    assertEquals(r.body, { error: 'payload_rejected', reason: 'missing_signed_date' });
+    assertEquals(r.marked.length, 0);
+    assertEquals(db.updates.length, 0);
+  });
+}
+
+Deno.test('AC3: an UNHANDLED Apple type or a TEST needs no signedDate', async () => {
+  const db = fakeDb({ subscriptions: [appleRow('active')] });
+  const a = await run({ db, body: appleBody('PRICE_INCREASE', { signedDate: null }) });
+  assertEquals(a.body.ignored, 'unhandled_notification_type');
+  const t = await run({ db, body: appleBody('TEST', { signedDate: null, data: { ...SCOPE } }) });
+  assertEquals(t.body.ignored, 'apple_test_notification');
+});
+
+for (
+  const [label, value] of [
+    ['absent', undefined],
+    ['not a number', 'yesterday'],
+    ['empty', ''],
+    ['zero', '0'],
+    ['more than five minutes in the future', String(NOW + 6 * 60_000)],
+  ] as Array<[string, string | undefined]>
+) {
+  Deno.test(`AC3: a Google message with an eventTimeMillis that is ${label} is acknowledged, marked, and writes nothing`, async () => {
+    const db = fakeDb({ subscriptions: [googleRow('active')] });
+    const r = await run({ db, body: googleBody(rtdn(13, PURCHASE_TOKEN, { eventTimeMillis: value }), { messageId: 'm-1' }) });
+    assertEquals(r.res.status, 200);
+    assertEquals(r.body.ignored, 'missing_required_fields');
+    assertEquals(r.marked.length, 1);
+    assertEquals(db.updates.length, 0);
+    assertEquals(statusOf(db, GOOGLE_ROW_ID), 'active');
+  });
+}
+
+Deno.test('AC3: a Google eventTimeMillis a little ahead of our clock (within 5 minutes) is accepted', async () => {
+  const db = fakeDb({ subscriptions: [googleRow('active')] });
+  const r = await run({ db, body: gmsg(13, NOW + 4 * 60_000, 'm-skew') });
+  assertEquals(r.res.status, 200);
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'expired');
+});
+
+// ---------------------------------------------------------------------------
+// AC2 - mappings, end to end through the handler
+// ---------------------------------------------------------------------------
+
+Deno.test('AC2: Google CANCELED on an active row leaves it active, audits subscription_cancelled, stamps the watermark', async () => {
+  const db = fakeDb({ subscriptions: [googleRow('active')] });
+  const r = await run({ db, body: gmsg(3, T2, 'm-cancel') });
+  assertEquals(r.res.status, 200);
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'active');
+  assertEquals('status' in db.updates[0].patch, false);
+  assertEquals(watermarkOf(db, GOOGLE_ROW_ID), iso(T2));
+  assertEquals(auditTypes(db), ['subscription_cancelled']);
+});
+
+Deno.test('AC2: Google ON_HOLD and PAUSED remove access (expired), with their audit types', async () => {
+  const onHold = fakeDb({ subscriptions: [googleRow('active')] });
+  await run({ db: onHold, body: gmsg(5, T2, 'm-hold') });
+  assertEquals(statusOf(onHold, GOOGLE_ROW_ID), 'expired');
+  assertEquals(auditTypes(onHold), ['payment_failed']);
+
+  const paused = fakeDb({ subscriptions: [googleRow('active')] });
+  await run({ db: paused, body: gmsg(10, T2, 'm-pause') });
+  assertEquals(statusOf(paused, GOOGLE_ROW_ID), 'expired');
+  assertEquals(auditTypes(paused), ['subscription_expired']);
+});
+
+Deno.test('AC2: Google RESTARTED does not touch status and audits subscription_restored', async () => {
+  const db = fakeDb({ subscriptions: [googleRow('active')] });
+  const r = await run({ db, body: gmsg(7, T2, 'm-restart') });
+  assertEquals(r.res.status, 200);
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'active');
+  assertEquals(auditTypes(db), ['subscription_restored']);
+});
+
+Deno.test('AC2: Apple DID_FAIL_TO_RENEW is grace only for the GRACE_PERIOD subtype, otherwise expired', async () => {
+  const plain = fakeDb({ subscriptions: [appleRow('active')] });
+  await run({ db: plain, body: amsg('DID_FAIL_TO_RENEW', T2, 'u-1') });
+  assertEquals(statusOf(plain, APPLE_ROW_ID), 'expired');
+  assertEquals(auditTypes(plain), ['payment_failed']);
+
+  const grace = fakeDb({ subscriptions: [appleRow('active')] });
+  await run({ db: grace, body: amsg('DID_FAIL_TO_RENEW', T2, 'u-2', 'GRACE_PERIOD') });
+  assertEquals(statusOf(grace, APPLE_ROW_ID), 'grace');
+  assertEquals(auditTypes(grace), ['payment_failed']);
+});
+
+Deno.test('AC2: a status-null transition stamps the watermark too', async () => {
+  const db = fakeDb({ subscriptions: [appleRow('active')] });
+  await run({ db, body: amsg('DID_CHANGE_RENEWAL_STATUS', T2, 'u-toggle', 'AUTO_RENEW_DISABLED') });
+  assertEquals(watermarkOf(db, APPLE_ROW_ID), iso(T2));
+  assertEquals('status' in db.updates[0].patch, false);
+});
+
+// ---------------------------------------------------------------------------
+// AC4 - Google voided purchases revoke
+// ---------------------------------------------------------------------------
+
+Deno.test('AC4: a voided subscription purchase on a bound row expires it, with one closed-key audit row', async () => {
+  const lines: string[] = [];
+  const db = fakeDb({ subscriptions: [{ ...googleRow('active'), crisis_access_enabled: true }] });
+  const r = await run({ db, body: googleBody(voided(), { messageId: 'm-void' }), capture: lines });
+  assertEquals(r.res.status, 200);
+  assertEquals(r.body, { success: true });
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'expired');
+  assertEquals(watermarkOf(db, GOOGLE_ROW_ID), iso(EVENT_MS));
+  assertEquals(r.marked.length, 1);
+  // Crisis access is never an entitlement this path can touch.
+  assertEquals('crisis_access_enabled' in db.updates[0].patch, false);
+  assertEquals(db.tables.subscriptions[0].crisis_access_enabled, true);
+
+  assertEquals(db.rpcCalls.length, 1);
+  const call = db.rpcCalls[0].args;
+  assertEquals(call.p_event_type, 'subscription_cancelled');
+  assertEquals(call.p_subscription_id, GOOGLE_ROW_ID);
+  const meta = call.p_metadata as Record<string, unknown>;
+  assertEquals(Object.keys(meta).sort(), ['notification_type', 'platform', 'product_type', 'refund_type', 'timestamp']);
+  assertEquals(meta.platform, 'google');
+  assertEquals(meta.notification_type, 'voided_purchase');
+  assertEquals(meta.product_type, 1);
+  assertEquals(meta.refund_type, 1);
+  assertEquals(typeof meta.timestamp, 'string');
+  assertNothingForbidden('the audit metadata', JSON.stringify(meta), [PURCHASE_TOKEN, ORDER_ID, 'SENTINEL']);
+  for (const line of lines) assertNothingForbidden('a log line', line);
+});
+
+Deno.test('AC4: refundType is recorded only when it is an integer', async () => {
+  for (const [refundType, present] of [[undefined, false], ['1', false], [1.5, false], [2, true]] as Array<[unknown, boolean]>) {
+    const db = fakeDb({ subscriptions: [googleRow('active')] });
+    await run({ db, body: googleBody(voided({ refundType }), { messageId: 'm-v' }) });
+    const meta = db.rpcCalls[0].args.p_metadata as Record<string, unknown>;
+    assertEquals('refund_type' in meta, present, `refundType ${String(refundType)}`);
+    if (present) assertEquals(meta.refund_type, refundType);
+  }
+});
+
+for (const productType of [2, 0, undefined, '1', null]) {
+  Deno.test(`AC4: a voided purchase with productType ${String(productType)} is acknowledged and writes nothing`, async () => {
+    const db = fakeDb({ subscriptions: [googleRow('active')] });
+    const r = await run({ db, body: googleBody(voided({ productType }), { messageId: 'm-v' }) });
+    assertEquals(r.res.status, 200);
+    assertEquals(r.body.ignored, 'voided_non_subscription');
+    assertEquals(r.marked.length, 1);
+    assertEquals(db.updates.length, 0);
+    assertEquals(db.rpcCalls.length, 0);
+    assertEquals(statusOf(db, GOOGLE_ROW_ID), 'active');
+  });
+}
+
+for (const token of [undefined, null, '', '   ', 'has a space', 'a/b', '...', 'x'.repeat(2049)]) {
+  Deno.test(`AC4: a voided subscription with an unusable purchaseToken (${JSON.stringify(token)?.slice(0, 20)}) is acknowledged as missing_required_fields`, async () => {
+    const db = fakeDb({ subscriptions: [googleRow('active')] });
+    const r = await run({ db, body: googleBody(voided({ purchaseToken: token }), { messageId: 'm-v' }) });
+    assertEquals(r.res.status, 200);
+    assertEquals(r.body.ignored, 'missing_required_fields');
+    assertEquals(r.marked.length, 1);
+    assertEquals(db.updates.length, 0);
+  });
+}
+
+Deno.test('AC4: a voided purchase with no usable eventTimeMillis is acknowledged and writes nothing', async () => {
+  const db = fakeDb({ subscriptions: [googleRow('active')] });
+  const r = await run({ db, body: googleBody(voided({}, { eventTimeMillis: undefined }), { messageId: 'm-v' }) });
+  assertEquals(r.body.ignored, 'missing_required_fields');
+  assertEquals(db.updates.length, 0);
+});
+
+Deno.test('AC4: a voided purchase for a token with no row yet is a 503 within the window, abandoned past it', async () => {
+  const within = await run({ body: googleBody(voided(), { messageId: 'm-v' }) });
+  assertEquals(within.res.status, 503);
+  assertEquals(within.marked.length, 0);
+
+  const past = await run({
+    body: googleBody(voided(), { messageId: 'm-v', publishTime: iso(NOW - RTDN_MAX_AGE_MS - 1000) }),
+  });
+  assertEquals(past.res.status, 200);
+  assertEquals(past.body.ignored, 'unresolved_rtdn_abandoned');
+  assertEquals(past.marked.length, 1);
+  assertEquals(past.db.updates.length, 0);
+});
+
+Deno.test('AC4: a voided purchase older than the watermark is stale, not applied', async () => {
+  const db = fakeDb({ subscriptions: [{ ...googleRow('active'), last_store_event_at: iso(T3) }] });
+  const r = await run({ db, body: googleBody(voided({}, { eventTimeMillis: String(T2) }), { messageId: 'm-v' }) });
+  assertEquals(r.body.ignored, 'stale_notification');
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'active');
+  assertEquals(db.updates.length, 0);
+});
+
+Deno.test('AC4: on the revocation path a lookup error, an update error and a lost race are all non-2xx and never marked', async () => {
+  const lookup = fakeDb({ subscriptions: [googleRow('active')] });
+  lookup.failOn('subscriptions', 'select', { code: '08006', message: 'x' });
+  const a = await run({ db: lookup, body: googleBody(voided(), { messageId: 'm-v' }) });
+  assertEquals(a.res.status, 500);
+  assertEquals(a.marked.length, 0);
+
+  const update = fakeDb({ subscriptions: [googleRow('active')] });
+  update.failOn('subscriptions', 'update', { code: '42501', message: 'x' });
+  const b = await run({ db: update, body: googleBody(voided(), { messageId: 'm-v' }) });
+  assertEquals(b.res.status, 500);
+  assertEquals(b.marked.length, 0);
+  assertEquals(statusOf(update, GOOGLE_ROW_ID), 'active');
+
+  const race = fakeDb({ subscriptions: [googleRow('active')] });
+  race.beforeUpdate('subscriptions', () => {
+    race.tables.subscriptions[0].updated_at = '2026-10-05T00:00:07.000Z';
+  });
+  const c = await run({ db: race, body: googleBody(voided(), { messageId: 'm-v' }) });
+  assertEquals(c.res.status, 503);
+  assertEquals(c.marked.length, 0);
+  assertEquals(statusOf(race, GOOGLE_ROW_ID), 'active');
+});
+
+Deno.test('AC4: a voided purchase is resolved by (platform google, purchase token), never an Apple row', async () => {
+  const db = fakeDb({ subscriptions: [{ ...appleRow('active'), original_transaction_id: PURCHASE_TOKEN }] });
+  const r = await run({ db, body: googleBody(voided(), { messageId: 'm-v' }) });
+  assertEquals(r.res.status, 503);
+  assertEquals(statusOf(db, APPLE_ROW_ID), 'active');
+});
+
+// ---------------------------------------------------------------------------
+// Package check - a message for another app never reaches a write
+// ---------------------------------------------------------------------------
+
+for (
+  const [label, message] of [
+    ['a voided purchase for another package', voided({}, { packageName: 'com.other.app' })],
+    ['a voided purchase with no packageName', voided({}, { packageName: undefined })],
+    ['a subscriptionNotification for another package', rtdn(13, PURCHASE_TOKEN, { packageName: 'com.other.app' })],
+    ['a subscriptionNotification with no packageName', rtdn(13, PURCHASE_TOKEN, { packageName: undefined })],
+  ] as Array<[string, Record<string, unknown>]>
+) {
+  Deno.test(`security: ${label} is acknowledged as package_mismatch, loudly, and writes nothing`, async () => {
+    const lines: string[] = [];
+    const db = fakeDb({ subscriptions: [googleRow('active')] });
+    const r = await run({ db, body: googleBody(message, { messageId: 'm-pkg' }), capture: lines });
+    assertEquals(r.res.status, 200);
+    assertEquals(r.body.ignored, 'package_mismatch');
+    assertEquals(r.marked.length, 1);
+    assertEquals(db.updates.length, 0);
+    assertEquals(db.rpcCalls.length, 0);
+    assertEquals(statusOf(db, GOOGLE_ROW_ID), 'active');
+    assert(lines.some((l) => /package/i.test(l)), lines.join('\n'));
+    // The foreign package name is attacker-chosen text; it is not logged.
+    for (const line of lines) assert(!line.includes('com.other.app'), line);
+  });
+}
+
+Deno.test('security: a test notification from another package is still just acknowledged (no entitlement path)', async () => {
+  const r = await run({ body: googleBody({ packageName: 'com.other.app', testNotification: { version: '1.0' } }) });
+  assertEquals(r.res.status, 200);
+  assert(typeof r.body.ignored === 'string');
 });
