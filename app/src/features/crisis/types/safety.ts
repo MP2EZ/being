@@ -348,42 +348,6 @@ export function detectCrisis(
 }
 
 /**
- * Validates crisis detection meets safety requirements
- */
-export function validateCrisisDetection(detection: CrisisDetection): boolean {
-  // Validate response time
-  if (detection.detectionResponseTimeMs > CRISIS_SAFETY_THRESHOLDS.MAX_CRISIS_RESPONSE_TIME_MS) {
-    return false;
-  }
-
-  // Validate trigger conditions
-  const validTriggers: CrisisTriggerType[] = [
-    'phq9_severe_score',
-    'phq9_suicidal_ideation',
-    'gad7_severe_score'
-  ];
-  
-  if (!validTriggers.includes(detection.primaryTrigger)) {
-    return false;
-  }
-
-  // Validate score thresholds
-  if (detection.assessmentType === 'phq9' && 
-      detection.primaryTrigger === 'phq9_severe_score' &&
-      detection.triggerValue < CRISIS_SAFETY_THRESHOLDS.PHQ9_CRISIS_SCORE) {
-    return false;
-  }
-
-  if (detection.assessmentType === 'gad7' && 
-      detection.primaryTrigger === 'gad7_severe_score' &&
-      detection.triggerValue < CRISIS_SAFETY_THRESHOLDS.GAD7_CRISIS_SCORE) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
  * Type Guards
  */
 export function isCriticalCrisis(detection: CrisisDetection): boolean {

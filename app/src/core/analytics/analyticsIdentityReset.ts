@@ -61,8 +61,9 @@
 
 import { Alert } from 'react-native';
 import { File, Paths } from 'expo-file-system';
-import { PostHogPersistedProperty } from 'posthog-react-native';
+import type { PostHogPersistedProperty } from 'posthog-react-native';
 import { logSecurity } from '@/core/services/logging';
+import { purgeAnalyticsQueues } from './analyticsQueuePurge';
 
 /**
  * Deletion request types for regulatory categorization.
@@ -148,9 +149,10 @@ export function resetAnalyticsIdentity({
       // `removeItem` -> `persist()`, which re-serialises the cache empty.
       //
       // Do NOT call flush() to drain them: that TRANSMITS the pre-erasure batch,
-      // which is strictly worse than the defect being fixed.
-      client.setPersistedProperty(PostHogPersistedProperty.Queue, null);
-      client.setPersistedProperty(PostHogPersistedProperty.LogsQueue, null);
+      // which is strictly worse than the defect being fixed. The nulling itself
+      // lives in `purgeAnalyticsQueues` (DEBUG-686), shared with the consent-
+      // withdrawal purge, and guards each key on its own.
+      purgeAnalyticsQueues(client);
     } catch (error) {
       logSecurity('[AnalyticsIdentity] reset through the live client failed', 'high', {
         error: error instanceof Error ? error.message : 'Unknown error',

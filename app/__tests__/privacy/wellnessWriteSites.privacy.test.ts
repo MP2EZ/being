@@ -55,6 +55,11 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       'THE screening chokepoint: persist setItem, saveProgress, answerQuestion, completeAssessment, setSessionNote and handleCrisisDetection all land here. Erasure (clearHistory, clearSessionNote, resetAssessment) routes through it too and must stay ungated.',
     ],
     'useAssessmentStore › persist': [1, 'pending: A2', 'storage adapter is EncryptedAssessmentStorage.save'],
+    'EncryptedAssessmentStorage.applyErasure › storeWellnessBlob': [
+      1,
+      ERASURE,
+      'FEAT-717: rewrites the on-disk blob minus one deletion (clear_history, clear_session_note, reset_current_session); reads disk, never memory. Unwired until FEAT-685.',
+    ],
     'EncryptedAssessmentStorage.logAccess › AsyncStorage.setItem': [
       1,
       `${NOT_WELLNESS} — access metadata {timestamp, action, itemCount, source}`,
@@ -110,7 +115,7 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     'SupabaseService.queueOfflineOperation › AsyncStorage.setItem': [
       1,
       `${NOT_WELLNESS} — encrypted config-backup retry`,
-      'unverified: a pre-MAINT-117 queue on an old install could still hold a full-state blob',
+      'unverified: a pre-MAINT-117 queue on an old install could still hold a full-state blob; the key is swept at erasure (DEBUG-698: SWEPT_EXACT_KEYS + in-memory reset)',
     ],
     'SupabaseService.processOfflineQueue › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — encrypted config-backup retry`],
     'SupabaseService.cleanup › AsyncStorage.setItem': [1, DORMANT],
@@ -118,17 +123,6 @@ const MANIFEST: Record<string, Record<string, Row>> = {
   'src/core/services/supabase/CloudBackupService.ts': {
     'CloudBackupService.createBackup › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — backup metadata {timestamp, hash, size}`],
     'CloudBackupService.saveConfig › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — backup config`],
-  },
-  'src/core/services/supabase/SyncCoordinator.ts': {
-    'SyncCoordinator.logCrisisAssessment › AsyncStorage.setItem': [
-      1,
-      DORMANT,
-      'raw PHQ/GAD scores to PLAINTEXT AsyncStorage — not the crisis-telemetry lane. SyncCoordinator.initialize() has no production caller.',
-    ],
-    'SyncCoordinator.persistQueue › AsyncStorage.setItem': [1, DORMANT, 'sync bookkeeping today (data: {})'],
-    'SyncCoordinator.persistSyncQueue › AsyncStorage.setItem': [1, DORMANT],
-    'SyncCoordinator.persistSyncState › AsyncStorage.setItem': [1, DORMANT],
-    'SyncCoordinator.updateSyncMetadata › AsyncStorage.setItem': [1, DORMANT, 'sync counters today'],
   },
   'src/core/services/data-retention/DataRetentionService.ts': {
     'DataRetentionServiceImpl.cleanupAssessmentData › storeWellnessBlob': [
@@ -198,6 +192,7 @@ const MANIFEST: Record<string, Record<string, Row>> = {
 
   // ── Not wellness data ────────────────────────────────────────────────────
   'src/core/stores/settingsStore.ts': {
+    'reassertCurrentSettings › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — app settings (DEBUG-755 stale-writer convergence)`],
     'useSettingsStore.loadSettings › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — app settings`],
     'useSettingsStore.markOnboardingComplete › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — app settings`],
     'useSettingsStore.resetSettings › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — app settings`],

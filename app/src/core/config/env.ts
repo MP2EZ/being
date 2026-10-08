@@ -18,8 +18,9 @@
  * refactor to `Object.entries(process.env)` or destructuring.
  *
  * Specialist constraints baked in:
- *   - Crisis (988/741741/911, PHQ/GAD thresholds, performance budgets):
- *     `.literal()` for hotlines + safety flags, ranges for thresholds.
+ *   - Crisis (988/741741/911, performance budgets): `.literal()` for
+ *     hotlines + safety flags, ranges for budgets. PHQ-9/GAD-7 crisis
+ *     thresholds are code constants, never env (MAINT-712).
  *   - Compliance (CCPA/TDPSA/GDPR): error messages never interpolate
  *     received values; USER_CONSENT_REQUIRED has no `.default('false')`
  *     escape; ALLOW_INSECURE_SSL refuses boot in production.
@@ -125,12 +126,11 @@ export const envSchema = z
     // ASSESSMENT_* is tracked in INFRA-142.
     EXPO_PUBLIC_CLINICAL_ACCURACY_MODE: booleanString,
     EXPO_PUBLIC_ASSESSMENT_VALIDATION: z.literal('strict'),
-    // PHQ-9: CLAUDE.md fixes ≥15 = support, ≥20 = active intervention. This
-    // var controls the active-intervention trigger. Range [15, 20] = the safe
-    // band; default 20 matches CLAUDE.md.
-    EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD: z.coerce.number().int().min(15).max(20).default(20),
-    // GAD-7: range [10, 15]; default 15 matches CLAUDE.md.
-    EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD: z.coerce.number().int().min(10).max(15).default(15),
+    // PHQ-9 / GAD-7 crisis thresholds are deliberately NOT env vars (MAINT-712).
+    // The two EXPO_PUBLIC_*_CRISIS_THRESHOLD keys this schema used to validate
+    // had no reader: detectCrisis() takes its floors from the code-level
+    // CRISIS_SAFETY_THRESHOLDS constant. A leftover key in an env file is inert
+    // (not mapped in readRawEnv, stripped by this non-strict schema).
     EXPO_PUBLIC_BREATHING_TIMER_PRECISION: z.coerce.number().int().positive(),
     EXPO_PUBLIC_THERAPEUTIC_TIMING_STRICT: booleanString,
 
@@ -281,8 +281,6 @@ function readRawEnv(): Record<string, string | undefined> {
     EXPO_PUBLIC_FEATURE_FLAGS: process.env['EXPO_PUBLIC_FEATURE_FLAGS'],
     EXPO_PUBLIC_CLINICAL_ACCURACY_MODE: process.env['EXPO_PUBLIC_CLINICAL_ACCURACY_MODE'],
     EXPO_PUBLIC_ASSESSMENT_VALIDATION: process.env['EXPO_PUBLIC_ASSESSMENT_VALIDATION'],
-    EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD: process.env['EXPO_PUBLIC_PHQ9_CRISIS_THRESHOLD'],
-    EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD: process.env['EXPO_PUBLIC_GAD7_CRISIS_THRESHOLD'],
     EXPO_PUBLIC_BREATHING_TIMER_PRECISION: process.env['EXPO_PUBLIC_BREATHING_TIMER_PRECISION'],
     EXPO_PUBLIC_THERAPEUTIC_TIMING_STRICT: process.env['EXPO_PUBLIC_THERAPEUTIC_TIMING_STRICT'],
     EXPO_PUBLIC_WELLNESS_DATA_MODE: process.env['EXPO_PUBLIC_WELLNESS_DATA_MODE'],

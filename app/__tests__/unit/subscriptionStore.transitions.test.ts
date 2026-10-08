@@ -21,6 +21,7 @@
  */
 
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
+import { ReceiptVerificationUnavailableError } from '@/core/services/subscription/receiptVerificationUnavailable';
 import * as SecureStore from 'expo-secure-store';
 import {
   calculateFeatureAccess,
@@ -243,10 +244,14 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       await useSubscriptionStore.getState().purchaseSubscription('yearly');
 
       const state = useSubscriptionStore.getState();
-      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith('receipt-xyz', 'apple', undefined, {
-        transactionId: '2000000847061713',
-        environment: 'Sandbox',
-      });
+      // 5th argument is the product id (DEBUG-713); this mock purchase carries none.
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith(
+        'receipt-xyz',
+        'apple',
+        undefined,
+        { transactionId: '2000000847061713', environment: 'Sandbox' },
+        undefined
+      );
       expect(mockIAP.finishTransaction).toHaveBeenCalledTimes(1);
       expect(state.subscription?.status).toBe('active');
       expect(state.subscription?.interval).toBe('yearly');
@@ -278,6 +283,40 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       ).rejects.toThrow('bad receipt');
       // The finally block must clear the verifying flag.
       expect(useSubscriptionStore.getState().isVerifyingReceipt).toBe(false);
+    });
+
+    // DEBUG-715: "could not verify yet" must stay distinguishable from "receipt invalid" in
+    // the logs, must leave the transaction unfinished so the platform re-emits it, and its
+    // message must never claim the payment failed — the payment did not fail.
+    it.each(['no_session', 'client_unavailable'] as const)(
+      'processVerifiedPurchase throws ReceiptVerificationUnavailableError for %s and leaves the transaction unfinished',
+      async (reason) => {
+        mockIAP.verifyReceipt.mockResolvedValue({ valid: false, reason, error: `could not verify: ${reason}` });
+
+        const thrown = await useSubscriptionStore
+          .getState()
+          .processVerifiedPurchase({ transactionReceipt: 'r', orderId: 'o' }, 'monthly')
+          .then(() => null, (e: unknown) => e);
+
+        expect(thrown).toBeInstanceOf(ReceiptVerificationUnavailableError);
+        expect((thrown as ReceiptVerificationUnavailableError).reason).toBe(reason);
+        expect((thrown as Error).message).not.toMatch(/payment/i);
+        expect(mockIAP.finishTransaction).not.toHaveBeenCalled();
+        expect(mockSecureStore.setItemAsync).not.toHaveBeenCalled();
+        expect(useSubscriptionStore.getState().subscription).toBeNull();
+        expect(useSubscriptionStore.getState().isVerifyingReceipt).toBe(false);
+      }
+    );
+
+    it('an invalid receipt is NOT the unavailable error', async () => {
+      mockIAP.verifyReceipt.mockResolvedValue({ valid: false, error: 'bad receipt' });
+
+      const attempt = useSubscriptionStore
+        .getState()
+        .processVerifiedPurchase({ transactionReceipt: 'r', orderId: 'o' }, 'monthly');
+
+      await expect(attempt).rejects.toThrow('bad receipt');
+      await expect(attempt).rejects.not.toBeInstanceOf(ReceiptVerificationUnavailableError);
     });
 
     it('processVerifiedPurchase throws the literal platform error when IAP is unavailable', async () => {
@@ -416,7 +455,15 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
 
       await useSubscriptionStore.getState().restorePurchases();
 
-      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith('receipt-restore-1', 'google', 'token-1', undefined);
+      // DEBUG-713: the Play product id is forwarded too — the server cannot look the
+      // purchase up without it, and receiptData is '' on a real Android purchase.
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledWith(
+        'receipt-restore-1',
+        'google',
+        'token-1',
+        undefined,
+        DEFAULT_SUBSCRIPTION_CONFIG.products.google.yearly
+      );
     });
 
     it('an invalid verification restores nothing and acknowledges nothing', async () => {

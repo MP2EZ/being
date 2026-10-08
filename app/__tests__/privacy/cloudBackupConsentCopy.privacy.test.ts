@@ -197,10 +197,11 @@ describe('DEBUG-614 (b) + DEBUG-625: whatWeCollect is exactly the UNION of both 
   /**
    * Matcher integrity (DEBUG-390): the two assertions above are only meaningful if the
    * event list is non-empty and the disclosure string is real. An empty const would make
-   * both vacuously true and look exactly like full coverage.
+   * both vacuously true and look exactly like full coverage. The floor is five since
+   * MAINT-702 deleted the sixth emitter (`sync_metadata_updated`).
    */
   it('the ops-event list and its disclosure are non-empty', () => {
-    expect(CLOUD_SYNC_OPERATIONAL_EVENTS.length).toBeGreaterThanOrEqual(6);
+    expect(CLOUD_SYNC_OPERATIONAL_EVENTS.length).toBeGreaterThanOrEqual(5);
     expect(OPERATIONAL_TELEMETRY_DISCLOSURE.trim().length).toBeGreaterThan(40);
   });
 

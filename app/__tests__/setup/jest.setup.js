@@ -131,14 +131,6 @@ global.performance = global.performance || {
   measure: () => {}
 };
 
-// Clinical safety test utilities
-global.CLINICAL_SAFETY = {
-  PHQ9_CRISIS_THRESHOLD: 20,
-  GAD7_CRISIS_THRESHOLD: 15,
-  CRISIS_RESPONSE_TIME_MS: 3000,
-  EMERGENCY_NUMBER: '988'
-};
-
 // Test performance tracking
 // MEMORY FIX (DEBUG-48): Limited results array to prevent unbounded growth
 const MAX_PERFORMANCE_RESULTS = 100;
@@ -503,7 +495,7 @@ jest.mock('expo-crypto', () => {
     // (EncryptionService.ts:948). Previously missing — caused
     // `Crypto.getRandomBytesAsync is not a function` failures in
     // sync-coordinator-integration.test.ts (one of the INFRA-143
-    // quarantined tests).
+    // quarantined tests; deleted in MAINT-702).
     getRandomBytesAsync: jest.fn(async (length) => generateBytes(length)),
     digestStringAsync: jest.fn(() => Promise.resolve('mockedhash123')),
     CryptoDigestAlgorithm: {

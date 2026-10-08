@@ -829,3 +829,46 @@ describe('INFRA-657 — e2e_lock_acquire publishes the first contender it observ
     expect(r.stdout).toBe('[][]');
   });
 });
+
+describe('INFRA-718 — e2e_lock_peek reads a lease without touching it', () => {
+  const START_B_ROW = { pid: 999002, start: START_B, comm: 'bash' };
+
+  it('prints nothing and creates nothing when no lease exists', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra718-peek-'));
+    const r = runHelper(`e2e_lock_peek "${UDID}"; echo "rc=$?"`, { lockRoot: root });
+    expect(r.stdout).toBe('rc=0');
+    expect(fs.readdirSync(root)).toEqual([]);
+  });
+
+  it('classifies LIVE, DEAD and RECYCLED with the same rule acquire uses, and leaves each record intact', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra718-peek-'));
+    const live = plantOwner(root, 'sim', UDID, { pid: 999001, start: START_A, label: 'safety flows' });
+    const dead = plantOwner(root, 'sim', OTHER_UDID, { pid: 999003, start: START_A, label: 'gate' });
+    const recycled = plantOwner(root, 'sim', 'RECYCLED-UDID', { pid: 999002, start: START_A, label: 'x' });
+    const before = [live, dead, recycled].map((d) => fs.readFileSync(path.join(d, 'owner'), 'utf8'));
+    const r = runHelper(
+      `e2e_lock_peek "${UDID}"; e2e_lock_peek "${OTHER_UDID}"; e2e_lock_peek RECYCLED-UDID`,
+      { table: psTable([LIVE_HOLDER, START_B_ROW]), lockRoot: root }
+    );
+    expect(r.stdout.split('\n')).toEqual(['LIVE\t999001\tsafety flows', 'DEAD\t999003\tgate', 'RECYCLED\t999002\tx']);
+    expect([live, dead, recycled].map((d) => fs.readFileSync(path.join(d, 'owner'), 'utf8'))).toEqual(before);
+  });
+
+  it('reads a lease directory with no owner record as RECYCLED, never LIVE', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra718-peek-'));
+    fs.mkdirSync(path.join(root, `sim-${UDID}.d`));
+    const r = runHelper(`e2e_lock_peek "${UDID}"`, { lockRoot: root });
+    expect(r.stdout.split('\t')[0]).toBe('RECYCLED');
+    expect(fs.existsSync(path.join(root, `sim-${UDID}.d`))).toBe(true);
+  });
+
+  it('peeks a non-default namespace', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra718-peek-'));
+    plantOwner(root, 'gatetree', 'KEY', { pid: 999001, start: START_A, label: 'g' });
+    const r = runHelper(`e2e_lock_peek KEY gatetree; e2e_lock_peek KEY`, {
+      table: psTable([LIVE_HOLDER]),
+      lockRoot: root,
+    });
+    expect(r.stdout).toBe('LIVE\t999001\tg');
+  });
+});

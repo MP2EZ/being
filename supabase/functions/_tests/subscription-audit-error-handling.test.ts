@@ -44,12 +44,32 @@ const CALLERS = [
   'grace-period-automation',
 ] as const;
 
+/** Callers whose logic lives in handler.ts (MAINT-753); the directory read must include it. */
+const HANDLER_CALLERS: readonly string[] = ['verify-apple-receipt', 'verify-google-receipt'];
+
 const HELPER_PATH = new URL('../_shared/subscriptionAudit.ts', import.meta.url);
 
+/**
+ * A caller is its function DIRECTORY, not just index.ts: since DEBUG-739 the webhook's
+ * handlers live in handlers.ts beside a thin index.ts, and a pin reading only index.ts would
+ * check a file that no longer holds the logic. Every non-test .ts in the directory is read.
+ */
 function readCaller(name: string): string {
-  return stripComments(
-    Deno.readTextFileSync(new URL(`../${name}/index.ts`, import.meta.url)),
-  );
+  const dir = new URL(`../${name}/`, import.meta.url);
+  const files = [...Deno.readDirSync(dir)]
+    .filter((e) => e.isFile && e.name.endsWith('.ts') && !/\.test\.ts$/.test(e.name))
+    .map((e) => e.name)
+    .sort();
+  assert(files.includes('index.ts'), `${name}/ has no index.ts`);
+  // MAINT-753 vacuity floor: the receipt verifiers' logic now lives in handler.ts. If the walk
+  // stopped reading it, the "no direct RPC" and "uses the shared writer" assertions below would
+  // be checking a thin entry point and passing for nothing.
+  if (HANDLER_CALLERS.includes(name)) {
+    assert(files.includes('handler.ts'), `${name}/ has no handler.ts — the walk would read only index.ts`);
+  }
+  return files
+    .map((f) => stripComments(Deno.readTextFileSync(new URL(f, dir))))
+    .join('\n');
 }
 
 /**
@@ -66,7 +86,7 @@ Deno.test('DEBUG-446: no caller calls log_subscription_event RPC directly', () =
     assertEquals(
       /supabase\s*\.\s*rpc\(\s*['"]log_subscription_event['"]/.test(src),
       false,
-      `${name}/index.ts calls the log_subscription_event RPC directly. Route it through ` +
+      `${name}/ calls the log_subscription_event RPC directly. Route it through ` +
         `logSubscriptionEvent() from _shared/subscriptionAudit.ts so the returned error is read.`,
     );
   }
@@ -79,11 +99,11 @@ Deno.test('DEBUG-446: every caller routes audit writes through the shared writer
     assert(
       /import\s*\{[^}]*\blogSubscriptionEvent\b[^}]*\}\s*from\s*['"]\.\.\/_shared\/subscriptionAudit\.ts['"]/
         .test(src),
-      `${name}/index.ts does not import logSubscriptionEvent from _shared/subscriptionAudit.ts`,
+      `${name}/ does not import logSubscriptionEvent from _shared/subscriptionAudit.ts`,
     );
     assert(
       /\blogSubscriptionEvent\s*\(/.test(src),
-      `${name}/index.ts imports logSubscriptionEvent but never calls it`,
+      `${name}/ imports logSubscriptionEvent but never calls it`,
     );
   }
 });

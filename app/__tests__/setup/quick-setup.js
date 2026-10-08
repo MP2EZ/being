@@ -10,12 +10,6 @@ global.performance = global.performance || {
   now: () => Date.now()
 };
 
-// Essential clinical constants only
-global.CLINICAL_SAFETY = {
-  PHQ9_CRISIS_THRESHOLD: 20,
-  GAD7_CRISIS_THRESHOLD: 15
-};
-
 // Quick test utilities (minimal set)
 global.quickUtils = {
   generateCrisisScore: () => ({

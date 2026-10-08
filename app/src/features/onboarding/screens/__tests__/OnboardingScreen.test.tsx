@@ -34,6 +34,7 @@ import { StyleSheet } from 'react-native';
 // render time), so the babel-jest-hoist whitelist + TDZ both stay happy.
 
 const mockNavigate = jest.fn();
+const mockReplace = jest.fn();
 // DEBUG-625: these suites pin the consent-DEFAULT contract (nothing pre-checked, every
 // control labelled) — not which preferences a given build offers. AC3 gates the Cloud
 // Backup card on the build-time `cloud_sync` flag, which is dark by default, so without
@@ -48,7 +49,7 @@ jest.mock('@/core/services/featureFlags', () => ({
 jest.mock('@react-navigation/native', () => ({
   // The screen reads navigation via the useNavigation() hook, not the
   // `navigation` prop — passing a prop (as the stale suite did) is ignored.
-  useNavigation: () => ({ navigate: mockNavigate }),
+  useNavigation: () => ({ navigate: mockNavigate, replace: mockReplace }),
   // useFocusEffect only drives analytics screen-view tracking here; no-op it.
   useFocusEffect: jest.fn(),
 }));
@@ -212,17 +213,20 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
       );
     });
 
-    it('still advances (consent is optional) when no age verification is stored', async () => {
+    // DEBUG-755 REVERSED this pin: it asserted that onboarding "still advances
+    // (consent is optional)" with no age verification — finishing onboarding with no
+    // consent recorded. Absent a usable age check (including one withheld because it
+    // belongs to an erased account), the screen now re-asks at the legal gate.
+    it('returns to the legal gate, granting nothing, when no age verification is stored', async () => {
       mockGetStoredAgeVerification.mockResolvedValue(null);
       const api = render(<OnboardingScreen />);
       await advanceToPrivacy(api);
 
       fireEvent.press(api.getByLabelText('Continue'));
 
-      // grantConsent is gated on stored age verification; absent it, the
-      // flow logs and proceeds without granting.
-      await waitFor(() => expect(api.getByText('Your Mindfulness Journey Begins')).toBeTruthy());
+      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('LegalGate'));
       expect(mockGrantConsent).not.toHaveBeenCalled();
+      expect(api.queryByText('Your Mindfulness Journey Begins')).toBeNull();
     });
   });
 

@@ -304,6 +304,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 
 **Prereqs.** Since INFRA-383 the default path needs no `eas-cli`, no credentials and no
 `fastlane` — only Xcode and a booted simulator:
+- **Xcode's macOS SDK must be the one `pod install` links against** (INFRA-754). A cold or
+  regenerating build failing in `pod install` with `tapi error: ... unknown architecture
+  arm64e.x1-macos` means xcrun's default macOS SDK is a newer CommandLineTools SDK than the
+  active Xcode's linker can read. `xcode-select` is not the fix (it already points at Xcode).
+  The script now exports `SDKROOT` to Xcode's SDK itself and logs it as `🧰 macOS SDK for pod
+  install`; it refuses up front if you export a different `SDKROOT`. Unset it and re-run.
+  `e2e:safety:build:eas`, `npm run ios` and hand-run `pod install` do not go through this
+  script, so they can still hit the error; prefix those with
+  `SDKROOT=$(xcrun --sdk macosx --show-sdk-path)`.
 - **Exactly ONE booted iOS simulator** (the one prereq the script enforces by name).
 
   The count matters, and the script fails closed on it (INFRA-405). `xcrun simctl help`
@@ -942,9 +951,9 @@ exists on this machine. The gap is narrow — UIScrollView touch delivery is UIK
 both — but it is a residual, not a proof, and this defect has already burned one reassuring
 explanation that held right up until it was measured.
 
-### Three signatures, opposite remedies (DEBUG-640, DEBUG-642)
+### Four signatures, opposite remedies (DEBUG-640, DEBUG-642, INFRA-729)
 
-A tap that "did nothing" after a scroll is one of three things, and **the remedies are
+A tap that "did nothing" after a scroll is one of four things, and **the remedies are
 opposite**. Classify the signature from `maestro hierarchy` bounds at the tap point before
 choosing a remedy; a green run is not evidence of a signature.
 
@@ -953,6 +962,7 @@ choosing a remedy; a green run is not evidence of a signature.
 | 1 | Swallowed touch after a scroll that stops **mid-content** (this section) | Harness artifact | Any intervening touch, or a scroll that ends at a content boundary. **Never** time, **never** `centerElement` |
 | 2 | Fold/clip: the target is outside the ScrollView's clip but still scores visible (DEBUG-465) | Harness artifact | `centerElement: true`, which forces a real scroll |
 | 3 | A **root-sibling overlay** outside every clip — the crisis FAB at `zIndex: 9999` | **Real crisis false positive** (the DEBUG-547 shape) | **File a defect.** Never "fix" it in the flow |
+| 4 | Momentum capture: the tap lands while the list is still **decelerating** after `scrollUntilVisible` reported COMPLETED (INFRA-729) | Harness artifact — RN's ScrollView spends a touch during momentum stopping the scroll | `waitForAnimationToEnd` (timeout 3000, ceiling 5000) **before** signature 1's absorbing tap. Never before a `crisis-button-root` tap |
 
 Why 1 and 2 are harness-only: `UIScrollView` clips *painting* to its bounds and `hitTest:`
 returns nil outside them, so what a real finger can reach is exactly what is painted. Why 3 is
@@ -962,6 +972,12 @@ not: a root-sibling overlay is outside every clip, so a real finger in the overl
 mid-content (signature 1's trigger), the signatures can compound on one line.
 
 Tell 2 from 3 by the bounds, never by the outcome: both can end on `CrisisResources`.
+
+**Tell 4 from 1 by drift** (INFRA-729): compare the target's y-bound at scroll-COMPLETED with
+its bound when the tap resolves. In 11 kept `crisis-button-reachability` failures every
+failed card tap had drifted 20–69pt; ~25 taps at 0–2pt all landed. Drift ≈0 on a failure
+means signature 1, not 4. The two compose: an absorbing tap outside the ScrollView clears 1
+but cannot stop momentum, which is why "time is not the variable" (probe C) and 4 both hold.
 
 ### The register: every tap after a `centerElement` scroll (DEBUG-642)
 
@@ -1515,8 +1531,24 @@ or env var, and patching the Cellar jar is invisible to the version pin.
 - `E2E_KEEP_XCTEST_RECORDINGS=1` keeps and lists them, for watching a failing flow.
 - `E2E_ATTACHMENTS_REAP_DRY_RUN=1` lists without deleting.
 
-**Not covered:** recordings from ad-hoc `maestro` runs outside the gate, other simulators, and anything
-left from before the sweep existed. Those are a follow-up.
+That per-run sweep never reaches recordings from ad-hoc `maestro` runs outside the gate, other
+simulators, or anything left from before it existed. Reclaim those on demand (INFRA-718):
+
+```bash
+npm run e2e:safety:clean:recordings            # count and MB per simulator, deletes nothing
+npm run e2e:safety:clean:recordings -- --yes   # delete them
+```
+
+- It covers every simulator `xcrun simctl list devices -j` returns, booted or not. Data paths come
+  from simctl, never `$HOME`, and the container is chosen by `MCMMetadataIdentifier`, exactly as
+  the per-run sweep does.
+- A simulator whose INFRA-436 lease is held by a live process is skipped in both modes. With
+  `--yes` the sweep takes that simulator's lease itself (timeout 0) while it deletes, so a gate
+  cannot start mid-sweep. An inherited `E2E_LOCK_FORCE` is ignored.
+- A file `lsof` reports open is kept. If `lsof` is missing or errors, nothing in that directory is
+  deleted.
+- It is a separate mode on purpose. Plain `--yes` deletes this worktree's DerivedData, and
+  `--orphans --yes` runs unattended on low disk, so neither touches recordings.
 
 **When the Maestro pin moves**, re-read those two keys in the new jar
 (`unzip -p … driver-iPhoneSimulator/maestro-driver-ios-config.xctestrun`). If they change, the sweep

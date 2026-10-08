@@ -9,8 +9,8 @@
  *
  * The fix is a registry each store joins at module scope; the service runs it
  * after the server delete and immediately before the wipe. DEBUG-697 added the
- * entitlement cache, whose writers spread memory into `subscription_secure_v1`,
- * and the dormant sync coordinator. This suite drives the
+ * entitlement cache, whose writers spread memory into `subscription_secure_v1`.
+ * This suite drives the
  * real service, registry, stores and SecureStorageService over in-memory disks,
  * and asserts on what is ON DISK afterwards — proof of absence, not proof of a
  * call. Only the server delete, the analytics reset and the export sweep are
@@ -84,12 +84,6 @@ jest.mock('@/core/services/subscription/IAPService', () => ({
   },
 }));
 
-// DEBUG-697: SyncCoordinator's reset must never drain its queue to the server.
-jest.mock('@/core/services/supabase/CloudBackupService', () => {
-  const service = { createBackup: jest.fn() };
-  return { __esModule: true, default: service, cloudBackupService: service };
-});
-
 import supabaseService from '@/core/services/supabase/SupabaseService';
 import SecureStorageService, {
   ACCOUNT_DELETION_ATTESTATION_KEY,
@@ -108,8 +102,6 @@ import { useEducationStore } from '@/features/learn/stores/educationStore';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
 import { CRISIS_FEATURES, DEFAULT_SUBSCRIPTION_CONFIG, calculateFeatureAccess } from '@/core/types/subscription';
 import { IAPService } from '@/core/services/subscription/IAPService';
-import { cloudBackupService } from '@/core/services/supabase/CloudBackupService';
-import syncCoordinator from '@/core/services/supabase/SyncCoordinator';
 import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
 
 const STOIC_KEY = 'stoic_practice_state';
@@ -147,7 +139,7 @@ const PRIOR_ASSESSMENT = {
 /** Lets the deletion run as far as it can get without the held write landing. */
 const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
 
-// ── DEBUG-697: the entitlement cache and the dormant sync coordinator ──────────
+// ── DEBUG-697: the entitlement cache ──────────
 const SUBSCRIPTION_KEY = 'subscription_secure_v1';
 const PRIOR_SUBSCRIPTION = {
   id: 'sub_prior',
@@ -176,39 +168,6 @@ const sub = () => useSubscriptionStore.getState();
 const mockVerifyReceipt = IAPService.verifyReceipt as jest.Mock;
 const mockFinishTransaction = IAPService.finishTransaction as jest.Mock;
 const mockRestorePurchases = IAPService.restorePurchases as jest.Mock;
-const mockCreateBackup = cloudBackupService.createBackup as jest.Mock;
-
-const SYNC_QUEUE_V2_KEY = '@being/sync_coordinator/queue_v2';
-const SYNC_QUEUE_KEY = '@being/sync/queue';
-const SYNC_STATUS_KEY = '@being/sync/status';
-const PRIOR_CRISIS_SYNC = 424242;
-/** SyncCoordinator keeps all of this private; the pin reaches past it on purpose. */
-type SyncInternals = {
-  syncQueue: { id: string }[];
-  retryAttempts: Map<string, number>;
-  failureBackoff: Map<string, number>;
-  currentSyncStatus: { pendingOperations: number; crisisOperationsPending: number; lastCrisisSync: number };
-  persistQueue: () => Promise<void>;
-  persistSyncQueue: () => Promise<void>;
-  persistSyncState: () => Promise<void>;
-};
-const sync = () => syncCoordinator as unknown as SyncInternals;
-
-/** The dormant coordinator has no production writer, so its state is planted directly. */
-function seedSyncCoordinatorState(): void {
-  sync().syncQueue = [{ id: 'op_prior' }];
-  sync().retryAttempts.set('op_prior', 2);
-  sync().failureBackoff.set('op_prior', 5000);
-  sync().currentSyncStatus.pendingOperations = 1;
-  sync().currentSyncStatus.crisisOperationsPending = 1;
-  sync().currentSyncStatus.lastCrisisSync = PRIOR_CRISIS_SYNC;
-}
-
-async function persistSyncCoordinator(): Promise<void> {
-  await sync().persistQueue();
-  await sync().persistSyncQueue();
-  await sync().persistSyncState();
-}
 
 async function seedPreErasureState(): Promise<void> {
   seedWellnessWriteConsent('granted');
@@ -243,12 +202,6 @@ beforeEach(async () => {
     isVerifyingReceipt: false,
     error: null,
   });
-  sync().syncQueue = [];
-  sync().retryAttempts.clear();
-  sync().failureBackoff.clear();
-  sync().currentSyncStatus.pendingOperations = 0;
-  sync().currentSyncStatus.crisisOperationsPending = 0;
-  sync().currentSyncStatus.lastCrisisSync = 0;
 
   const svc = SecureStorageService as unknown as {
     encryptionService: {
@@ -269,13 +222,6 @@ describe('the fixture is live', () => {
     expect(stoicOnDisk().weeklyReflections).toHaveLength(1);
     expect(assessmentOnDisk().completedAssessments).toHaveLength(1);
     expect(mockSecure.get(SUBSCRIPTION_KEY)).toContain('receipt_prior');
-  });
-
-  it('a seeded sync coordinator persists its pre-erasure queue', async () => {
-    seedSyncCoordinatorState();
-    await persistSyncCoordinator();
-    expect(mockAsync.get(SYNC_QUEUE_V2_KEY)).toContain('op_prior');
-    expect(mockAsync.get(SYNC_STATUS_KEY)).toContain(String(PRIOR_CRISIS_SYNC));
   });
 });
 
@@ -523,43 +469,42 @@ describe('subscriptionStore (DEBUG-697)', () => {
   });
 });
 
-describe('SyncCoordinator (DEBUG-697; dormant in production)', () => {
-  it('drops its queue, retry state and sync status, so a later persist carries nothing pre-erasure', async () => {
-    await seedPreErasureState();
-    seedSyncCoordinatorState();
-
-    await deleteAccountAndWipe({ posthog: null });
-    await persistSyncCoordinator();
-
-    expect(mockAsync.get(SYNC_QUEUE_V2_KEY)).not.toContain('op_prior');
-    expect(JSON.parse(mockAsync.get(SYNC_QUEUE_KEY)!)).toEqual([]);
-    expect(mockAsync.get(SYNC_STATUS_KEY)).not.toContain(String(PRIOR_CRISIS_SYNC));
-    expect(sync().retryAttempts.size).toBe(0);
-    expect(sync().failureBackoff.size).toBe(0);
-    expect(sync().currentSyncStatus.crisisOperationsPending).toBe(0);
-    // The reset is memory-only: it never drains the queue through a backup.
-    expect(mockCreateBackup).not.toHaveBeenCalled();
-  });
-});
-
 describe('what erasure must not reset', () => {
-  it('leaves consent state and the deletion attestation in place', async () => {
+  it('leaves the deletion attestation in place', async () => {
     await seedPreErasureState();
-    const consentBefore = useConsentStore.getState().consentStatus;
 
     await deleteAccountAndWipe({ posthog: null });
 
-    expect(useConsentStore.getState().consentStatus).toBe(consentBefore);
     expect(mockSecure.has(ACCOUNT_DELETION_ATTESTATION_KEY)).toBe(true);
   });
 
-  it('registers exactly the five in-memory owners', () => {
+  // DEBUG-755 REVERSED this pin. It used to assert that consent state survived erasure
+  // unchanged — which is the defect: the warm session went on answering
+  // canPerformOperation('cloud_sync') true on the deleted account's grant. Consent now
+  // resets in memory (only; the on-disk records are retired, not deleted — DEBUG-762);
+  // accountErasureConsentState.privacy.test.tsx pins the full behaviour.
+  it('drops in-memory consent to missing (DEBUG-755)', async () => {
+    await seedPreErasureState();
+    expect(useConsentStore.getState().consentStatus).toBe('valid');
+
+    await deleteAccountAndWipe({ posthog: null });
+
+    expect(useConsentStore.getState().consentStatus).toBe('missing');
+  });
+
+  // The in-memory STORE owners only. This suite mocks SupabaseService, so its
+  // registration ('supabaseService', DEBUG-698) never runs here; that owner is
+  // pinned against the real module in offlineQueueErasure.privacy.test.ts.
+  // consentStore and settingsStore joined in DEBUG-755.
+  it('registers exactly the six in-memory store owners', () => {
+    require('@/core/stores/settingsStore');
     expect(registeredErasureResetOwners().sort()).toEqual([
       'assessmentStore',
+      'consentStore',
       'educationStore',
+      'settingsStore',
       'stoicPracticeStore',
       'subscriptionStore',
-      'syncCoordinator',
     ]);
   });
 });

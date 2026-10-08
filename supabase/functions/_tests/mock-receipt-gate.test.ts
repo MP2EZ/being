@@ -11,9 +11,12 @@
  * gate it is the shape of the source: assert the branch is gated, that the
  * gate defaults to REJECT, and that it runs before any mock response is built.
  *
- * Why source-shape and not an import: index.ts calls Deno.serve at module
- * scope, so importing it starts a listener. Reading the file is the cheaper
- * and more direct way to pin the property that matters.
+ * Why source-shape as well as behaviour: a gate deleted from the source and one
+ * only described in prose both leave the file looking plausible. MAINT-753 moved
+ * the request handling out of index.ts into handler.ts (importable, and covered
+ * behaviourally by apple-receipt-handler.test.ts / google-receipt-handler.test.ts);
+ * this pins the gate's SHAPE in that one file, which is the cheaper and more direct
+ * way to pin the property that matters.
  *
  * DEBUG-390 discipline applies and is load-bearing here: the gate's own
  * explanatory comments contain the literal ALLOW_MOCK_RECEIPTS, so an
@@ -38,12 +41,12 @@ function stripComments(source: string): string {
 const TARGETS = [
   {
     name: 'verify-apple-receipt',
-    path: new URL('../verify-apple-receipt/index.ts', import.meta.url),
+    path: new URL('../verify-apple-receipt/handler.ts', import.meta.url),
     prefix: 'mock_receipt_',
   },
   {
     name: 'verify-google-receipt',
-    path: new URL('../verify-google-receipt/index.ts', import.meta.url),
+    path: new URL('../verify-google-receipt/handler.ts', import.meta.url),
     prefix: 'mock_token_',
   },
 ] as const;

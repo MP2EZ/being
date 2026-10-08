@@ -154,7 +154,7 @@ function x5cToPem(x5cEntry: string): string {
  * intermediate, root). A cap rejects pathological inputs that would force
  * us into a long verification loop.
  */
-const MAX_CHAIN_LENGTH = 5;
+export const MAX_CHAIN_LENGTH = 5;
 
 /**
  * Full cryptographic chain verification.
@@ -183,7 +183,11 @@ const MAX_CHAIN_LENGTH = 5;
  * third-party ASN.1 / X.509 library, which is the path the earlier
  * partial-implementation comment was anticipating.
  */
-async function verifyCertChain(x5c: string[]): Promise<void> {
+async function verifyCertChain(
+  x5c: string[],
+  trustAnchorSpki: string,
+  nowMs: number,
+): Promise<void> {
   if (x5c.length < 2) {
     throw new Error('Cert chain too short: need leaf + at least one CA');
   }
@@ -203,7 +207,7 @@ async function verifyCertChain(x5c: string[]): Promise<void> {
     }
   });
 
-  const now = new Date();
+  const now = new Date(nowMs);
 
   // Walk pairs: cert[i] must be signed by cert[i+1].
   for (let i = 0; i < certs.length - 1; i++) {
@@ -240,7 +244,7 @@ async function verifyCertChain(x5c: string[]): Promise<void> {
   const topSpkiBytes = new Uint8Array(
     topCert.publicKey.export({ type: 'spki', format: 'der' }) as Buffer
   );
-  const pinnedSpkiBytes = new Uint8Array(pemToArrayBuffer(APPLE_ROOT_CA_G3_SPKI));
+  const pinnedSpkiBytes = new Uint8Array(pemToArrayBuffer(trustAnchorSpki));
   if (!uint8ArraysEqual(topSpkiBytes, pinnedSpkiBytes)) {
     throw new Error(
       'Cert chain anchor mismatch: top-of-chain SPKI does not match pinned Apple Root CA - G3'
@@ -284,18 +288,39 @@ async function leafCertFingerprint(x5cLeaf: string): Promise<string> {
 }
 
 /**
+ * Test seams (MAINT-738). Both default to production behaviour, and NO production caller
+ * passes either — `_tests/verifier-seam-call-sites.test.ts` pins that. They exist so the
+ * chain walk can be proven against a throwaway test PKI, which is the only way to show each
+ * check rejects what it claims to (Apple publishes no stable signed fixtures).
+ */
+export interface VerifyAppleJWSOptions {
+  /** SPKI PEM the chain must terminate in. Default: the pinned Apple Root CA - G3. */
+  trustAnchorSpki?: string;
+  /** Clock for cert validity and signedDate freshness. Default: Date.now. */
+  now?: () => number;
+}
+
+/**
  * Verify an Apple-signed JWS payload and return the decoded payload.
  *
  * Throws if any step of verification fails. The thrown error message
  * names the failed check (cert chain, signature, claim validation).
  */
 export async function verifyAppleJWS(
-  signedPayload: string
+  signedPayload: string,
+  { trustAnchorSpki = APPLE_ROOT_CA_G3_SPKI, now = Date.now }: VerifyAppleJWSOptions = {},
 ): Promise<VerifiedApplePayload> {
+  // Fail closed on a present-but-empty anchor. `undefined` takes the pinned default above;
+  // anything else that is not a usable PEM must throw, never skip the comparison.
+  if (typeof trustAnchorSpki !== 'string' || trustAnchorSpki.trim() === '') {
+    throw new Error('Trust anchor must be a non-empty SPKI PEM');
+  }
+  const nowMs = now();
+
   const { header } = parseJWS(signedPayload);
 
   // Step 1: validate the cert chain anchors in Apple's pinned root.
-  await verifyCertChain(header.x5c!);
+  await verifyCertChain(header.x5c!, trustAnchorSpki, nowMs);
 
   // Step 2: import the leaf cert's public key (x5c[0]) and use it to verify
   // the JWS signature against the payload.
@@ -306,6 +331,7 @@ export async function verifyAppleJWS(
   // validate the signature; we add our own claim checks after.
   const { payload } = await jwtVerify(signedPayload, leafKey, {
     algorithms: ['ES256'],
+    currentDate: new Date(nowMs),
   }).catch((err: unknown) => {
     if (err instanceof errors.JWSSignatureVerificationFailed) {
       throw new Error('JWS signature verification failed');
@@ -319,7 +345,7 @@ export async function verifyAppleJWS(
   // enforce signedDate freshness to reject obviously-replayed payloads.
   const signedDateMs = (payload as { signedDate?: number }).signedDate;
   if (typeof signedDateMs === 'number') {
-    const ageMs = Date.now() - signedDateMs;
+    const ageMs = nowMs - signedDateMs;
     const MAX_AGE_MS = 24 * 60 * 60 * 1000; // 24h tolerance for retries
     if (ageMs > MAX_AGE_MS) {
       throw new Error(

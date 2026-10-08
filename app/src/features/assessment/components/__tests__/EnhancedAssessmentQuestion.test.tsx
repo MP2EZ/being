@@ -60,12 +60,6 @@ const baseProps = {
   onAnswer: jest.fn(),
   currentStep: 9,
   totalSteps: 9,
-  consentStatus: {
-    dataProcessingConsent: true,
-    clinicalDataConsent: true,
-    consentTimestamp: Date.now(),
-    consentVersion: '1.0',
-  },
 };
 
 const canonicalCrisisDetection: CrisisDetection = {
@@ -125,6 +119,30 @@ describe('EnhancedAssessmentQuestion', () => {
 
     await waitFor(() => expect(onAnswer).toHaveBeenCalledWith(2));
     expect(Alert.alert).not.toHaveBeenCalled();
+  });
+
+  // MAINT-750: EnhancedAssessmentFlow renders ONE un-keyed instance of this component for
+  // all nine questions, so the answer control must route each answer through the CURRENT
+  // question's handler. A stale handler records a Q9 answer under phq9_1, and the store's
+  // inline Q9 > 0 detection never sees it. Same instance, rerendered — never a remount,
+  // which would hide the defect.
+  it.each<[string, (el: Parameters<typeof fireEvent.press>[0]) => void]>([
+    ['a press', (el) => fireEvent.press(el)],
+    ['the Space key', (el) => fireEvent(el, 'keyPress', { nativeEvent: { key: 'Space' } })],
+  ])('advancing from phq9_1 to phq9_9 on one instance, %s answers Q9 through the Q9 handler', async (_how, answer) => {
+    const onAnswerQ1 = jest.fn();
+    const onAnswerQ9 = jest.fn();
+    const { getByTestId, rerender } = render(
+      <EnhancedAssessmentQuestion {...baseProps} question={q1} onAnswer={onAnswerQ1} currentStep={1} />
+    );
+    rerender(
+      <EnhancedAssessmentQuestion {...baseProps} question={q9} onAnswer={onAnswerQ9} currentStep={9} />
+    );
+
+    answer(getByTestId('assessment-response-group-option-1'));
+
+    await waitFor(() => expect(onAnswerQ9).toHaveBeenCalledWith(1));
+    expect(onAnswerQ1).not.toHaveBeenCalled();
   });
 
   it('Crisis banner is visible when the store has an active canonical CrisisDetection', () => {

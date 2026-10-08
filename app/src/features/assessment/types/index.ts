@@ -38,7 +38,7 @@ export interface PHQ9Question extends AssessmentQuestion {
 export interface PHQ9Result {
   totalScore: number; // 0-27
   severity: 'minimal' | 'mild' | 'moderate' | 'moderately_severe' | 'severe';
-  isCrisis: boolean; // Score ≥20
+  isCrisis: boolean; // Any tier: score ≥15 or Q9 >0 (equals detectCrisis() !== null)
   suicidalIdeation: boolean; // Question 9 response >0
   completedAt: number;
   answers: AssessmentAnswer[];

@@ -11,8 +11,10 @@ import { whenE2ESeedComplete } from '@/core/config/e2eSeed';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
+import PracticeTimerRoute from './PracticeTimerRoute';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { dismissRouteThenNotify, removeOwnRoute } from './crisisDestinationGuard';
+import { completeOnboarding } from './completeOnboarding';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { semantic, spacing, typography } from '@/core/theme';
@@ -46,7 +48,6 @@ import WellnessTrendsDetailScreen from '@/features/insights/screens/WellnessTren
 import ClassicalLibraryScreen from '@/features/library/screens/ClassicalLibraryScreen';
 import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen';
 import {
-  PracticeTimerScreen,
   ReflectionTimerScreen,
   BodyScanScreen,
   GuidedBodyScanScreen
@@ -61,7 +62,8 @@ import DomainGuidanceScreen from '@/features/guidance/screens/DomainGuidanceScre
 import type { GuidanceDomain } from '@/features/guidance/types/guidance';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
-import { useConsentStore } from '@/core/stores/consentStore';
+import { readErasureRetirement, useConsentStore } from '@/core/stores/consentStore';
+import { resolveInitialRoute } from './resolveInitialRoute';
 import { CombinedLegalGateScreen } from '@/features/consent';
 // FEAT-417: imported by direct path, not through the `@/features/consent`
 // barrel. The barrel is already in this file's eager graph via the line above,
@@ -132,10 +134,10 @@ export type RootStackParamList = {
     // and usePracticeCompletion degrades rather than writing for it.
     moduleId?: ModuleId | undefined;
     duration: number;
-    title: string;
-    // DEBUG-353: optional so the deep-link path (which cannot carry authored
-    // content) still type-checks; resolvePracticeRoute supplies both when the
-    // practice is launched from the module JSON.
+    // DEBUG-679: title, instructions, visualMode and moduleId are IGNORED by the route.
+    // PracticeTimerRoute takes all four from the guided-timer catalog by practiceId, so
+    // a link cannot supply copy. resolvePracticeRoute still sends the catalog's values.
+    title?: string;
     instructions?: string[];
     visualMode?: PracticeVisualMode;
   };
@@ -291,26 +293,25 @@ const CleanRootNavigator: React.FC = () => {
         // allSettled, not all: one rejected read must not take the other down with it.
         // Both loaders already swallow internally, so this is belt-and-braces against a
         // future refactor that stops doing so.
-        const [settingsResult, consentResult] = await Promise.allSettled([
+        //
+        // DEBUG-755: the erasure-retirement read joins the same allSettled — no serial
+        // await on the pre-route window. It never rejects; a rejection here would read
+        // as "not retired", today's routing.
+        const [settingsResult, consentResult, retiredResult] = await Promise.allSettled([
           loadSettings(),
           loadConsent(),
+          readErasureRetirement(),
         ]);
         const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : null;
         const consent = consentResult.status === 'fulfilled' ? consentResult.value : null;
+        const retired = retiredResult.status === 'fulfilled' && retiredResult.value;
 
         if (cancelled) return;
 
-        // Determine initial route based on onboarding and consent status
-        if (settings?.onboardingCompleted) {
-          // Already onboarded - go to main
-          setInitialRoute('Main');
-        } else if (!consent || consentStatus === 'missing' || consentStatus === 'under_age') {
-          // No consent or under age - start with legal gate (COPPA compliance)
-          setInitialRoute('LegalGate');
-        } else {
-          // Has consent but not onboarded - go to onboarding
-          setInitialRoute('Onboarding');
-        }
+        // The ordering (onboarded first, DEBUG-418/451) lives in resolveInitialRoute,
+        // with one added input: an onboarded state left by an erased account never
+        // reaches Main (DEBUG-755).
+        setInitialRoute(resolveInitialRoute({ settings, consent, consentStatus, retired }));
       } catch (error) {
         if (cancelled) return;
         // DEBUG-341: default to LegalGate, NOT Main. Routing an unconsented or under-age
@@ -394,17 +395,10 @@ const CleanRootNavigator: React.FC = () => {
 
   // FEAT-298 slice 6c: the "start practising now" destination is the daily loop. It was
   // 'morning' — the retired Morning flow — so leaving it would navigate to a deleted route.
-  const handleOnboardingComplete = async (destination?: 'home' | 'practice') => {
+  // Persistence only. The navigation that follows lives in completeOnboarding (DEBUG-711).
+  const handleOnboardingComplete = async () => {
     await markOnboardingComplete();
     setInitialRoute('Main');
-
-    // Navigate to destination after state update
-    if (destination === 'practice') {
-      // Small delay to ensure Main screen is mounted before modal presentation
-      setTimeout(() => {
-        // Navigation will be handled by the OnboardingScreen's navigation prop
-      }, 100);
-    }
   };
 
   /**
@@ -525,22 +519,16 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => (
+          {({ route }) => (
             <OnboardingScreen
-              onComplete={async (destination) => {
-                await handleOnboardingComplete(destination);
-                // Navigate based on destination
-                if (destination === 'practice') {
-                  navigation.replace('Main');
-                  // Enter the daily loop once Main is mounted. No mode param — the tense is
-                  // inferred from the clock (slice 5).
-                  setTimeout(() => {
-                    navigation.navigate('DailyLoop');
-                  }, 100);
-                } else {
-                  navigation.replace('Main');
-                }
-              }}
+              // DEBUG-711: persist, then replace THIS route (by key, at the root) with Main
+              // — deferred while a crisis destination is focused, never dropped.
+              onComplete={(destination) =>
+                completeOnboarding(destination, {
+                  onboardingRouteKey: route.key,
+                  markComplete: handleOnboardingComplete,
+                })
+              }
               isEmbedded={true}
             />
           )}
@@ -669,17 +657,10 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false, // Prevent accidental swipe during practice
           }}
         >
+          {/* DEBUG-679: a link's params are never copy. PracticeTimerRoute takes the title,
+              presentation and module from the guided-timer catalog by practiceId. */}
           {({ navigation, route }) => (
-            <PracticeTimerScreen
-              practiceId={route.params.practiceId}
-              moduleId={route.params.moduleId}
-              duration={route.params.duration}
-              title={route.params.title}
-              instructions={route.params.instructions}
-              visualMode={route.params.visualMode}
-              onComplete={() => navigation.goBack()}
-              onBack={() => navigation.goBack()}
-            />
+            <PracticeTimerRoute params={route.params} onDone={() => navigation.goBack()} />
           )}
         </Stack.Screen>
 
@@ -877,21 +858,12 @@ const CleanRootNavigator: React.FC = () => {
             }}
           >
             {({ navigation, route }) => {
-              // Create consent status for EnhancedAssessmentFlow
-              const consentStatus = {
-                dataProcessingConsent: true, // Assumed true if user reached assessment
-                clinicalDataConsent: true,
-                consentTimestamp: Date.now(),
-                consentVersion: '1.0.0'
-              };
-
               return (
                 <EnhancedAssessmentFlow
                   assessmentType={route.params.assessmentType}
                   context={route.params.context}
                   theme="neutral"
                   showIntroduction={route.params.context === 'standalone'}
-                  consentStatus={consentStatus}
                   sessionId={generateTimestampedId('session')}
                   onComplete={(result) => {
                     logSystem(`Assessment ${route.params.assessmentType} completed`);

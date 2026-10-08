@@ -427,11 +427,11 @@ export const DEEP_LINK_REACHABILITY: Readonly<
   },
   '/module': {
     ruling: 'EXTERNALLY_REACHABLE',
-    reason: 'moduleId is sanitised by parse and ModuleDetail handles an unknown id by failing the load.',
+    reason: 'moduleId is sanitised and validated against the authored module set by parse (DEBUG-719): an unknown or prototype-key id reaches ModuleDetail with no moduleId and the screen renders its failed-load state.',
   },
   '/practice': {
     ruling: 'EXTERNALLY_REACHABLE',
-    reason: 'practiceId/duration/title are sanitised by parse, and moduleId is validated against the authored module set (DEBUG-695): an absent or unknown one reaches the screen as undefined and completion degrades. Captured by Android and driven by Maestro (practice/probe).',
+    reason: 'practiceId is a lookup key only: title, visualMode, instructions and moduleId come from the guided-timer catalog, otherwise a fixed Being-authored fallback, and the route never reads them from the link (DEBUG-679). duration is clamped by parse. Captured by Android and driven by Maestro (practice/probe).',
   },
   '/subscription': {
     ruling: 'EXTERNALLY_REACHABLE',
@@ -533,9 +533,11 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
       ModuleDetail: {
         path: 'module/:moduleId',
         parse: {
+          // DEBUG-719: an unauthored id (prototype keys included) becomes undefined here,
+          // and ModuleDetailScreen renders its failed-load state for it.
           moduleId: (id: string) => {
-            // Sanitize moduleId - alphanumeric and hyphens only
-            return id.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 50);
+            const sanitised = id.replace(/[^a-zA-Z0-9-]/g, '').substring(0, 50);
+            return isModuleId(sanitised) ? sanitised : undefined;
           },
         },
       },
@@ -556,7 +558,6 @@ export const linkingConfig: LinkingOptions<RootStackParamList> = {
             const num = parseInt(d, 10);
             return isNaN(num) ? 60 : Math.min(Math.max(num, 10), 3600);
           },
-          title: (t: string) => t.replace(/[<>]/g, '').substring(0, 100),
         },
       },
 

@@ -26,7 +26,7 @@
  * Audit reference: SEC-01 in ~/dev/being/.audit-report.md (Apple+Google).
  */
 
-import { createRemoteJWKSet, jwtVerify, JWTPayload } from 'https://esm.sh/jose@5.9.6';
+import { createRemoteJWKSet, jwtVerify, JWTPayload, type JWTVerifyGetKey } from 'https://esm.sh/jose@5.9.6';
 
 const GOOGLE_JWKS_URL = new URL('https://www.googleapis.com/oauth2/v3/certs');
 
@@ -57,13 +57,26 @@ export interface VerifiedGoogleOIDCPayload {
 }
 
 /**
+ * Test seam (MAINT-738). Defaults to Google's published keys; no production caller passes
+ * it — `_tests/verifier-seam-call-sites.test.ts` pins that. The issuer and the RS256
+ * allowlist are deliberately NOT injectable.
+ */
+export interface VerifyGoogleOIDCOptions {
+  /** Key set the token must verify against. Default: Google's remote JWKS. */
+  jwks?: JWTVerifyGetKey;
+  /** Clock for exp/nbf/iat. Default: now. */
+  currentDate?: Date;
+}
+
+/**
  * Verify the OIDC token in the Authorization header of an incoming Pub/Sub
  * push request. Throws on any failure with a message naming the failed check.
  */
 export async function verifyGoogleOIDC(
   authorizationHeader: string | null,
   expectedAudience: string,
-  pinnedServiceAccountEmail?: string
+  pinnedServiceAccountEmail?: string,
+  { jwks = JWKS, currentDate }: VerifyGoogleOIDCOptions = {},
 ): Promise<VerifiedGoogleOIDCPayload> {
   if (!authorizationHeader) {
     throw new Error('Missing Authorization header on Google Pub/Sub push request');
@@ -77,10 +90,11 @@ export async function verifyGoogleOIDC(
     throw new Error('Authorization Bearer token is empty');
   }
 
-  const { payload } = await jwtVerify(token, JWKS, {
+  const { payload } = await jwtVerify(token, jwks, {
     issuer: EXPECTED_ISSUER,
     audience: expectedAudience,
     algorithms: ['RS256'],
+    ...(currentDate ? { currentDate } : {}),
   });
 
   // Google service-account OIDC tokens carry `email` + `email_verified`.

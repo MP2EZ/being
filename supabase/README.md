@@ -350,6 +350,16 @@ supabase secrets set GRACE_PERIOD_CRON_SECRET=a_different_random_secret
    https://your-project-ref.supabase.co/functions/v1/subscription-webhook
    ```
 3. Enable notifications for all subscription events
+4. The Pub/Sub push subscription must authenticate with a dedicated service account, and
+   **both** `GOOGLE_PUBSUB_AUDIENCE` and `GOOGLE_PUBSUB_SERVICE_ACCOUNT` must be set: the
+   webhook refuses Google messages when either is missing (DEBUG-739). Without the pin, any
+   Google-signed OIDC token for the audience — which any GCP account can mint — would pass.
+5. Give the push subscription an exponential retry policy and a **dead-letter topic**
+   (`max_delivery_attempts` ≈ 15–20). The webhook returns 503 for a notification whose
+   purchase token is not bound yet, so Pub/Sub redelivers it once the client's receipt
+   verification lands. The function also abandons (acknowledges, with a loud
+   `unresolved RTDN abandoned` log) a message older than 24h, but a dead-letter topic is
+   what keeps a token that will never bind from slowing push delivery for everything else.
 
 ## Testing
 

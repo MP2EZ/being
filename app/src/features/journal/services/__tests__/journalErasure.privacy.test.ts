@@ -222,6 +222,28 @@ describe('erasure covers keys that cannot use a swept prefix (DEBUG-305)', () =>
     );
   });
 
+  it('removes the config-backup retry queue, and only that key (DEBUG-698)', async () => {
+    // Live, so not swept at launch — it must survive restarts to retry. Its
+    // payloads are backup ciphertext under the master key; erasure removes the
+    // residue. SupabaseService's registered in-memory reset is the other half:
+    // the key alone would be re-persisted from memory (offlineQueueErasure suite).
+    mockMemoryStore.set(
+      '@being/supabase/offline_queue',
+      JSON.stringify([{ operation: 'saveBackup', data: { encryptedData: 'queued-ciphertext' } }])
+    );
+    mockMemoryStore.set('@being/supabase/last_sync', '2026-10-05T00:00:00.000Z');
+    mockMemoryStore.set('@being/supabase/offline_queue_backup', 'keep me');
+
+    expect(await AsyncStorage.getAllKeys()).toContain('@being/supabase/offline_queue');
+
+    await SecureStorageService.clearAllWellnessData();
+
+    const after = await AsyncStorage.getAllKeys();
+    expect(after).not.toContain('@being/supabase/offline_queue');
+    expect(after).toContain('@being/supabase/last_sync');
+    expect(after).toContain('@being/supabase/offline_queue_backup');
+  });
+
   it('matches the legacy names exactly rather than greedily', async () => {
     // The counterpart to the sweeper's collision guard. `crisis_async_*` is
     // swept here by design (it IS wellness data), so the risk this pins is
