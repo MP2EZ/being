@@ -32,11 +32,50 @@ import {
   assertBeingPackageName,
   assertValidPurchaseToken,
   assertValidSubscriptionId,
+  GoogleAuthError,
+  GooglePlayApiError,
   type GoogleServiceAccountCredential,
+  GoogleServiceAccountConfigError,
   type GoogleSubscriptionPurchase,
   InvalidGooglePurchaseError,
   parseServiceAccountCredential,
 } from '../_shared/googlePlayDeveloperApi.ts';
+
+/**
+ * What a failed Google call may put in an audit row or a log line (MAINT-759): a CLOSED reason
+ * and, for an upstream failure, its HTTP status (0 = no response). Never the error's message -
+ * a dependency's text can carry the purchase token (a fetch error quotes its URL) or key
+ * material, and anything over 2KB breaks the audit row's metadata_size CHECK. The reason is
+ * matched by class, not by `.name`, which any foreign error can set.
+ */
+export function googleFailureMetadata(err: unknown): { reason: string; upstream_status?: number } {
+  if (err instanceof GoogleAuthError || err instanceof GooglePlayApiError) {
+    return { reason: err.name, upstream_status: err.status };
+  }
+  if (err instanceof GoogleServiceAccountConfigError || err instanceof InvalidGooglePurchaseError) {
+    return { reason: err.name };
+  }
+  return { reason: 'unknown' };
+}
+
+const LOGGABLE_ERROR_NAMES = new Set([
+  'Error',
+  'SyntaxError',
+  'TypeError',
+  'RangeError',
+  'ReceiptReplayError',
+  'InvalidTransactionIdentifierError',
+  'GoogleAuthError',
+  'GooglePlayApiError',
+  'GoogleServiceAccountConfigError',
+  'InvalidGooglePurchaseError',
+]);
+
+/** An error's name if it is one we expect, else 'unknown'. Never the message or the stack:
+ *  a req.json() SyntaxError quotes the body around the fault, purchase token included. */
+function loggableErrorName(err: unknown): string {
+  return err instanceof Error && LOGGABLE_ERROR_NAMES.has(err.name) ? err.name : 'unknown';
+}
 
 export interface GoogleReceiptDeps {
   /** Called lazily, only after identity and the request validation pass. */
@@ -313,7 +352,8 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
     try {
       googleResponse = await verifyWithGoogle(subscriptionId, purchaseToken, deps);
     } catch (error) {
-      console.error('[Google Receipt Verification] Google API error:', error);
+      const failure = googleFailureMetadata(error);
+      console.error('[Google Receipt Verification] Google API error:', failure.reason, failure.upstream_status);
 
       // Log failed verification
       await logSubscriptionEvent(supabase, {
@@ -322,7 +362,7 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
         eventType: 'receipt_verification_failed',
         metadata: {
           platform: 'google',
-          error: error.message,
+          ...failure,
           timestamp: new Date(deps.now()).toISOString(),
         },
       });
@@ -400,7 +440,7 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
         eventType: 'receipt_verification_failed',
         metadata: {
           platform: 'google',
-          error: 'Receipt validation failed',
+          reason: 'receipt_invalid',
           timestamp: new Date(deps.now()).toISOString(),
         },
       });
@@ -411,7 +451,7 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
       );
     }
   } catch (error) {
-    console.error('[Google Receipt Verification] Unexpected error:', error);
+    console.error('[Google Receipt Verification] Unexpected error:', loggableErrorName(error));
 
     return new Response(
       JSON.stringify({

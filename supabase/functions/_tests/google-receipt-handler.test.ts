@@ -7,11 +7,11 @@
  * p_metadata (deep equality) per branch. Branches that write no audit row today are pinned as
  * writing none - a characterization, not an endorsement.
  *
- * ERROR TEXT. Since DEBUG-752 every error the shared Google module throws carries a FIXED
- * message (no key material, token, URL or response text), and the handler writes
- * `error.message` into the audit row. The rows below pin those exact strings. Whatever a
- * dependency throws is stored verbatim - one test names that as UNSANITIZED (MAINT-759): safety
- * today rests on the shared module, not on the handler.
+ * ERROR TEXT (MAINT-759). No error text reaches an audit row or a log line. A failed Google
+ * call is audited as a closed `reason` - the shared module's error class, matched by
+ * instanceof, else 'unknown' - plus a numeric `upstream_status` (0 = no response). Logs carry
+ * the same reason, or an allowlisted error name. Safety no longer rests on the shared module's
+ * messages staying fixed: whatever a dependency throws, the handler never forwards its text.
  *
  * KNOWN-DEFECTIVE BEHAVIOUR pinned AS-IS: the acknowledgementState and cancelReason rows
  * (DEBUG-758 is the open defect). They are a characterization of today's code, NOT a contract:
@@ -162,11 +162,13 @@ function assertNoGoogleCalls(h: Harness) {
   assertEquals(h.lookupCalls.length, 0, 'a purchase lookup was made');
 }
 
-const failureAudit = (error: string) => [{
+const failureAudit = (reason: string, upstream_status?: number) => [{
   p_user_id: JWT_SUB,
   p_subscription_id: null,
   p_event_type: 'receipt_verification_failed',
-  p_metadata: { platform: 'google', error, timestamp: iso(NOW) },
+  p_metadata: upstream_status === undefined
+    ? { platform: 'google', reason, timestamp: iso(NOW) }
+    : { platform: 'google', reason, upstream_status, timestamp: iso(NOW) },
 }];
 
 const reasonAudit = (reason: string) => [{
@@ -319,76 +321,83 @@ for (
 }
 
 // ---------------------------------------------------------------------------
-// Google failures: one 500 for every API/token failure; the audit row holds the fixed message
+// Google failures: one 500 for every API/token failure; the audit row holds a closed reason
 // ---------------------------------------------------------------------------
 
 const GOOGLE_FAILURES: Array<{
   name: string;
   opts: Parameters<typeof harness>[0];
   env?: Record<string, string | undefined>;
-  message: string;
+  reason: string;
+  upstream_status?: number;
   minted: boolean;
 }> = [
   {
     name: 'lookup 410',
     opts: { lookupThrows: new GooglePlayApiError(410) },
-    message: 'Google Play Developer API request failed (HTTP 410)',
+    reason: 'GooglePlayApiError',
+    upstream_status: 410,
     minted: true,
   },
   {
     name: 'lookup 503',
     opts: { lookupThrows: new GooglePlayApiError(503) },
-    message: 'Google Play Developer API request failed (HTTP 503)',
+    reason: 'GooglePlayApiError',
+    upstream_status: 503,
     minted: true,
   },
   {
     name: 'lookup unreachable',
     opts: { lookupThrows: new GooglePlayApiError(0) },
-    message: 'Google Play Developer API was unreachable',
+    reason: 'GooglePlayApiError',
+    upstream_status: 0,
     minted: true,
   },
   {
     name: 'lookup 401/403',
     opts: { lookupThrows: new GoogleAuthError(403) },
-    message: "Google rejected or could not issue this service's access token",
+    reason: 'GoogleAuthError',
+    upstream_status: 403,
     minted: true,
   },
   {
     name: 'token mint refused',
     opts: { tokenThrows: new GoogleAuthError(401) },
-    message: "Google rejected or could not issue this service's access token",
+    reason: 'GoogleAuthError',
+    upstream_status: 401,
     minted: true,
   },
   {
     name: 'token mint unreachable',
     opts: { tokenThrows: new GoogleAuthError(0) },
-    message: "Google rejected or could not issue this service's access token",
+    reason: 'GoogleAuthError',
+    upstream_status: 0,
     minted: true,
   },
   {
     name: 'GOOGLE_SERVICE_ACCOUNT unset (parsed inline, so no mint is attempted)',
     opts: {},
     env: { GOOGLE_SERVICE_ACCOUNT: undefined },
-    message: 'GOOGLE_SERVICE_ACCOUNT is not configured',
+    reason: 'GoogleServiceAccountConfigError',
     minted: false,
   },
   {
     name: 'GOOGLE_SERVICE_ACCOUNT not JSON (parsed inline, so no mint is attempted)',
     opts: {},
     env: { GOOGLE_SERVICE_ACCOUNT: '{"private_key": "SENTINEL_KEY_FRAGMENT' },
-    message: 'GOOGLE_SERVICE_ACCOUNT is not valid JSON',
+    reason: 'GoogleServiceAccountConfigError',
     minted: false,
   },
 ];
 
 for (const row of GOOGLE_FAILURES) {
-  t(`Google failure (${row.name}): one 500, the fixed message audited, nothing written`, async () => {
+  t(`Google failure (${row.name}): one 500, a closed reason audited, nothing written`, async () => {
     const h = harness(row.opts);
     const { res, text, json } = await call(h, req());
     assertEquals(res.status, 500);
     assertEquals(json, { valid: false, error: 'Failed to verify receipt with Google Play' });
     assert(!text.includes('SENTINEL_KEY_FRAGMENT'));
-    assertEquals(auditRows(h.db), failureAudit(row.message));
+    assertEquals(auditRows(h.db), failureAudit(row.reason, row.upstream_status));
     assertEquals(h.tokenCalls.length, row.minted ? 1 : 0);
     // A mint failure means the lookup is never attempted.
     assertEquals(h.lookupCalls.length, row.opts?.tokenThrows !== undefined || !row.minted ? 0 : 1);
@@ -396,16 +405,27 @@ for (const row of GOOGLE_FAILURES) {
   }, row.env ?? {});
 }
 
-t('UNSANITIZED characterization (MAINT-759): whatever message a dependency throws is audited VERBATIM', async () => {
-  // The handler does not scrub error.message. Safety today rests on the shared module's fixed
-  // messages (next test), not on this handler: a regression there, or a new dependency that
-  // throws a URL-bearing message, would put that text straight into subscription_audit.
-  const leaky = `connect ECONNREFUSED https://androidpublisher.googleapis.com/x/tokens/${TOKEN}`;
+t('a dependency throwing ANY other error is audited as reason "unknown": its text never forwarded (MAINT-759)', async () => {
+  // Was pinned UNSANITIZED: the handler stored error.message verbatim, so safety rested on the
+  // shared module's messages. 5KB also proves the row stays under the 2KB metadata_size CHECK,
+  // which a forwarded message would break - silently dropping the audit row.
+  const leaky = `connect ECONNREFUSED https://androidpublisher.googleapis.com/x/tokens/${TOKEN} `.repeat(60);
+  assert(leaky.length > 5000);
   const h = harness({ lookupThrows: new Error(leaky) });
   const { res, json } = await call(h, req());
   assertEquals(res.status, 500);
   assertEquals(json, { valid: false, error: 'Failed to verify receipt with Google Play' });
-  assertEquals(auditRows(h.db), failureAudit(leaky));
+  const audited = auditRows(h.db);
+  assertEquals(audited, failureAudit('unknown'));
+  assert(JSON.stringify(audited[0].p_metadata).length < 2048);
+});
+
+t('a foreign error borrowing a Google class NAME is still "unknown" - the reason is matched by class, not by name', async () => {
+  const impostor = new Error(`impostor ${TOKEN}`);
+  impostor.name = 'GooglePlayApiError';
+  const h = harness({ lookupThrows: impostor });
+  await call(h, req());
+  assertEquals(auditRows(h.db), failureAudit('unknown'));
 });
 
 t('end to end through the REAL lookup: a fetch that throws a URL-bearing message audits only the fixed text', async () => {
@@ -420,7 +440,7 @@ t('end to end through the REAL lookup: a fetch that throws a URL-bearing message
   assertEquals(res.status, 500);
   assertEquals(json, { valid: false, error: 'Failed to verify receipt with Google Play' });
   const audited = auditRows(h.db);
-  assertEquals(audited, failureAudit('Google Play Developer API was unreachable'));
+  assertEquals(audited, failureAudit('GooglePlayApiError', 0));
   const serialized = JSON.stringify(audited);
   assert(!serialized.includes(TOKEN) && !serialized.includes('androidpublisher.googleapis.com'));
 });
@@ -475,13 +495,13 @@ for (
     ['acknowledgementState absent (DEBUG-758 AS-IS)', { acknowledgementState: undefined }],
   ] as const
 ) {
-  t(`400 invalid receipt, audited as "Receipt validation failed", nothing written: ${label}`, async () => {
+  t(`400 invalid receipt, audited as reason "receipt_invalid", nothing written: ${label}`, async () => {
     const h = harness({ purchase: purchase(over) });
     const { res, json } = await call(h, req());
     assertEquals(res.status, 400);
     assertEquals(json.valid, false);
     assertEquals(json.subscriptionId, ORDER_ID);
-    assertEquals(auditRows(h.db), failureAudit('Receipt validation failed'));
+    assertEquals(auditRows(h.db), reasonAudit('receipt_invalid'));
     assertNoWrites(h);
   });
 }
@@ -656,4 +676,97 @@ t('an audit RPC error on a failure path does not change the failure answer', asy
   const { res, json } = await call(h, req());
   assertEquals(res.status, 500);
   assertEquals(json, { valid: false, error: 'Failed to verify receipt with Google Play' });
+});
+
+// ---------------------------------------------------------------------------
+// No token or credential in any audit row or log line (MAINT-759 AC3)
+// ---------------------------------------------------------------------------
+
+/** Everything a log line or audit row must never carry. The token is also checked as every
+ *  8-char window of its distinctive tail, so a truncated fragment (a JSON SyntaxError quotes
+ *  ~10 characters of the body) is caught too. */
+const TOKEN_TAIL = TOKEN.slice(TOKEN.indexOf('.') + 1);
+const FORBIDDEN = [
+  TOKEN,
+  ACCESS_TOKEN,
+  CREDENTIAL.clientEmail,
+  CREDENTIAL.privateKeyId,
+  CREDENTIAL.privateKeyPem,
+  'SENTINEL',
+  ...Array.from({ length: TOKEN_TAIL.length - 7 }, (_, i) => TOKEN_TAIL.slice(i, i + 8)),
+];
+
+function assertNothingForbidden(where: string, text: string) {
+  for (const f of FORBIDDEN) assert(!text.includes(f), `${where} carries ${JSON.stringify(f)}: ${text}`);
+}
+
+const LEAK_CASES: Array<{
+  name: string;
+  setup: () => Harness;
+  request?: () => Request;
+  env?: Record<string, string | undefined>;
+}> = [
+  ...GOOGLE_FAILURES.map((row) => ({ name: row.name, setup: () => harness(row.opts), env: row.env })),
+  {
+    name: 'a dependency throws an Error carrying the token and the key',
+    setup: () => harness({ lookupThrows: new Error(`${TOKEN} ${SERVICE_ACCOUNT} ${ACCESS_TOKEN} SENTINEL`) }),
+  },
+  { name: 'a dependency throws a non-Error string', setup: () => harness({ tokenThrows: `${TOKEN} SENTINEL` }) },
+  {
+    name: 'the REAL lookup with a fetch rejecting a URL-bearing TypeError',
+    setup: () =>
+      harness({
+        lookup: (ids, accessToken) =>
+          realFetchSubscriptionPurchase(ids, accessToken, {
+            fetchImpl: (() =>
+              Promise.reject(
+                new TypeError(`error sending request for url (https://androidpublisher.googleapis.com/x/tokens/${TOKEN})`),
+              )) as typeof fetch,
+          }),
+      }),
+  },
+  {
+    name: 'a malformed JSON body whose unquoted token reaches the SyntaxError message',
+    setup: () => harness(),
+    request: () => request(ANON_SESSION_TOKEN, `{"packageName":"${PACKAGE}","purchaseToken":${TOKEN_TAIL}}`),
+  },
+  {
+    name: 'an upsert error carrying sentinel database text',
+    setup: () => {
+      const h = harness();
+      h.db.failOn('subscriptions', 'upsert', { code: '42501', message: `SENTINEL_DB ${TOKEN}` });
+      return h;
+    },
+  },
+  {
+    name: 'a failing ownership lookup carrying sentinel database text',
+    setup: () => {
+      const h = harness();
+      h.db.failOn('subscriptions', 'select', { message: `SENTINEL_DB ${TOKEN}` });
+      return h;
+    },
+  },
+];
+
+for (const c of LEAK_CASES) {
+  Deno.test(`no token or credential in any audit row or log line: ${c.name}`, async () => {
+    const lines: string[] = [];
+    await scenario({ GOOGLE_SERVICE_ACCOUNT: SERVICE_ACCOUNT, ...(c.env ?? {}) }, async () => {
+      const h = c.setup();
+      await handle(c.request ? c.request() : req(), h.deps);
+      assertNothingForbidden('an audit row', JSON.stringify(h.db.rpcCalls));
+    }, lines);
+    // Non-vacuity: every one of these paths logs, so an empty capture cannot pass as clean.
+    assert(lines.length > 0, 'nothing was captured');
+    for (const line of lines) assertNothingForbidden('a log line', line);
+  });
+}
+
+Deno.test('control: the capture does see a token that is logged', async () => {
+  const lines: string[] = [];
+  await scenario({}, () => {
+    console.error('probe', new Error(`x ${TOKEN}`));
+    return Promise.resolve();
+  }, lines);
+  assert(lines.some((l) => l.includes(TOKEN)), 'capture missed a logged token - the leak tests would be vacuous');
 });
