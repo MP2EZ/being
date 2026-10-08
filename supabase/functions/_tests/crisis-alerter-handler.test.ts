@@ -360,3 +360,83 @@ Deno.test('alerter: the ping URL and Resend key appear in no response, heartbeat
   }
   assertEquals(printed.some((line) => line.includes('SENTINEL')), false);
 });
+
+// ---------------------------------------------------------------------------
+// DEBUG-700 — gap days through the deployed handler
+// ---------------------------------------------------------------------------
+
+/** A prior clean run's row whose watermark is a gap-filled map ending on `latest`. */
+function priorRun(latest: string, extra: Record<string, number> = {}): Scripted {
+  const counts: Record<string, number> = {};
+  const base = Date.parse(`${latest}T00:00:00.000Z`);
+  for (let i = 0; i <= 7; i++) counts[iso(base - i * 24 * HOUR).slice(0, 10)] = 0;
+  return { data: { evaluated_counts: { ...counts, ...extra }, spike_status: 'normal', status: 'ok' } };
+}
+
+async function withWarnings<T>(fn: () => Promise<T>): Promise<{ result: T; warned: string[] }> {
+  const warned: string[] = [];
+  const original = console.warn;
+  console.warn = (...args: unknown[]) => warned.push(args.map(String).join(' '));
+  try {
+    return { result: await fn(), warned };
+  } finally {
+    console.warn = original;
+  }
+}
+
+Deno.test('alerter (DEBUG-700): a gap day alone sends GAP-DAY SPIKE under reason gap_day', async () => {
+  const r = await run({
+    reads: {
+      ...cleanReads(),
+      crisis_alert_runs: priorRun('2026-06-04'),
+      crisis_detection_volume_daily: {
+        data: [
+          { event_date: '2026-06-07', detection_count: 1 },
+          { event_date: '2026-06-05', detection_count: 50 },
+        ],
+      },
+    },
+  });
+  assertEquals(r.res.status, 200);
+  assertEquals(r.resendCalls.length, 1);
+  const email = JSON.parse(String(r.resendCalls[0].init?.body));
+  assertEquals(email.subject, '[Being] Crisis-detection GAP-DAY SPIKE');
+  assert(email.text.includes('Days missed by earlier runs — checked now at full count:'));
+  assert(email.text.includes('2026-06-05: 50 vs baseline mean 0 over 7 day(s) — GAP-DAY SPIKE'));
+  assert(email.text.includes('2026-06-06: 0 vs baseline mean 7.1 over 7 day(s) — within 3x'));
+  const hb = r.heartbeats[0].row;
+  assertEquals([hb.status, hb.reason, hb.backfill_status], ['alerted', 'gap_day', 'gap_day']);
+  assertEquals(r.body.evaluated.gapDays.map((g: { day: string }) => g.day), ['2026-06-05', '2026-06-06']);
+});
+
+Deno.test('alerter (DEBUG-700): unchecked gap days are recorded when nothing pages', async () => {
+  const { result: r, warned } = await withWarnings(() =>
+    run({ reads: { ...cleanReads(), crisis_alert_runs: priorRun('2026-05-20') } })
+  );
+  assertEquals(r.resendCalls.length, 0, 'not evaluable never pages: the outage was already paged');
+  assertEquals(r.heartbeats[0].row.status, 'ok');
+  assertEquals(r.heartbeats[0].row.backfill_status, 'gap_day');
+  assertEquals(r.body.evaluated.gapRange, {
+    from: '2026-05-21', to: '2026-05-30', days: 10, reason: 'out_of_window',
+  });
+  assertEquals(r.pingCalls.length, 1, 'a clean run with gap days is still a clean run');
+  const line = warned.find((w) => w.includes('gap days'));
+  assert(line, 'one structured console line names the unchecked days');
+  assert(line.includes('2026-05-21 to 2026-05-30 (10 days)'), line);
+  assertEquals(/\d{2}:\d{2}/.test(line), false, 'no clock time');
+});
+
+Deno.test('alerter (DEBUG-700 AC2): an invalid watermark key cannot stop a VOLUME SPIKE', async () => {
+  const r = await run({
+    reads: {
+      ...cleanReads(),
+      crisis_alert_runs: { data: { evaluated_counts: { '2026-00-10': 1 }, spike_status: 'normal', status: 'ok' } },
+      crisis_detection_volume_daily: { data: [{ event_date: '2026-06-07', detection_count: 50 }] },
+    },
+  });
+  assertEquals(r.res.status, 200);
+  assertEquals(r.resendCalls.length, 1);
+  assertEquals(JSON.parse(String(r.resendCalls[0].init?.body)).subject, '[Being] Crisis-detection VOLUME SPIKE');
+  assertEquals(r.heartbeats[0].row.backfill_status, 'cold_start');
+  assertEquals(r.pingCalls.length, 1);
+});

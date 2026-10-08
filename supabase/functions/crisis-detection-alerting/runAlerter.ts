@@ -310,7 +310,22 @@ export async function runAlerter(req: Request, deps: AlerterDeps): Promise<Respo
     axes.probe,
     axes.backfill,
     axes.partialDay,
+    axes.gapDay,
   );
+
+  // DEBUG-700: gap days are recorded even when nothing pages (no email then). Dates and day
+  // counts only — never a detection count, never a clock time.
+  if (backfill.gapDays.length > 0 || backfill.gapRange !== null) {
+    const paged = backfill.gapDays.filter((g) => g.alert).map((g) => g.day);
+    const unchecked = backfill.gapDays.filter((g) => !g.evaluable).map((g) => g.day);
+    console.warn(
+      `[crisis-alerter] gap days since the last clean run: ${backfill.gapDays.length} in window` +
+        ` (GAP-DAY SPIKE: ${paged.join(', ') || 'none'}; not evaluable: ${unchecked.join(', ') || 'none'})` +
+        (backfill.gapRange
+          ? `; not checked, outside the window: ${backfill.gapRange.from} to ${backfill.gapRange.to} (${backfill.gapRange.days} days)`
+          : ''),
+    );
+  }
 
   const payload = buildAlertPayload({
     reason,
@@ -350,8 +365,9 @@ export async function runAlerter(req: Request, deps: AlerterDeps): Promise<Respo
       liveness_status: liveness.status,
       spike_status: spike.status,
       probe_status: probe.status,
-      // cold_start|none|backfill|partial_day|backfill+partial_day. The column COMMENT still
-      // lists the first three; a COMMENT is DDL, so it rides the next migration.
+      // cold_start|none, or '+'-joined backfill→partial_day→gap_day (9 strings). The column
+      // COMMENT still lists only cold_start|none|backfill; a COMMENT is DDL, so it rides the
+      // next migration.
       backfill_status: backfill.status,
       today_volume: todayCount,
       alert_sent: alertSent,
@@ -391,6 +407,9 @@ export async function runAlerter(req: Request, deps: AlerterDeps): Promise<Respo
       backfill: backfill.status,
       // Day-level date and counts only — never the prior run's timestamp.
       partialDay: backfill.partialDay,
+      // DEBUG-700: day-level gap readings and the out-of-window range (dates and day counts).
+      gapDays: backfill.gapDays,
+      gapRange: backfill.gapRange,
       // Occurrence vs arrival, named so the basis of each number is never implicit.
       todayVolume: todayCount,
       arrivalToday,
@@ -524,7 +543,7 @@ async function sendResendAlert(
     );
   }
 
-  lines.push(...composeBackfillLines(payload.backfill));
+  lines.push(...composeBackfillLines(payload.backfill, deps.env.spikeMultiplier));
   lines.push('', 'Monitoring-only. Confirm via the Supabase SQL editor; see crisis-analytics-runbook.md.');
 
   const res = await deps.fetch('https://api.resend.com/emails', {
