@@ -13,9 +13,10 @@
  * the same reason, or an allowlisted error name. Safety no longer rests on the shared module's
  * messages staying fixed: whatever a dependency throws, the handler never forwards its text.
  *
- * KNOWN-DEFECTIVE BEHAVIOUR pinned AS-IS: the acknowledgementState and cancelReason rows
- * (DEBUG-758 is the open defect). They are a characterization of today's code, NOT a contract:
- * when DEBUG-758 lands, these rows are expected to change with it.
+ * VALIDITY (DEBUG-758). Expiry is the time authority; payment, not acknowledgement, decides
+ * entitlement. The client acknowledges AFTER a valid verify (DEBUG-697), so an unacknowledged
+ * purchase is the normal first-verify state and this function never acknowledges. Each invalid
+ * cause is audited with its own reason (googleInvalidReason).
  *
  * The GOOGLE_SERVICE_ACCOUNT secret is parsed INLINE by the handler (not a dep), so scenarios
  * that reach Google set a synthetic service-account JSON. Nothing here is a real key; the token
@@ -27,7 +28,12 @@ import {
   assertEquals,
   assertNotEquals,
 } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
-import { handle, parseGoogleReceipt, type GoogleReceiptDeps } from '../verify-google-receipt/handler.ts';
+import {
+  googleInvalidReason,
+  handle,
+  parseGoogleReceipt,
+  type GoogleReceiptDeps,
+} from '../verify-google-receipt/handler.ts';
 import {
   fetchSubscriptionPurchase as realFetchSubscriptionPurchase,
   GoogleAuthError,
@@ -86,6 +92,7 @@ function purchase(over: Partial<GoogleSubscriptionPurchase> = {}): GoogleSubscri
     countryCode: 'US',
     orderId: ORDER_ID,
     acknowledgementState: 1,
+    paymentState: 1,
     ...over,
   };
 }
@@ -447,7 +454,6 @@ t('end to end through the REAL lookup: a fetch that throws a URL-bearing message
 
 // ---------------------------------------------------------------------------
 // parseGoogleReceipt boundaries under the injected clock
-// (acknowledgementState / cancelReason: DEBUG-758 is the open defect - AS-IS, not a contract)
 // ---------------------------------------------------------------------------
 
 Deno.test('parseGoogleReceipt: expiry is strictly greater than now (NOW-1 / NOW / NOW+1)', () => {
@@ -458,21 +464,75 @@ Deno.test('parseGoogleReceipt: expiry is strictly greater than now (NOW-1 / NOW 
   }
 });
 
-Deno.test('parseGoogleReceipt (DEBUG-758, AS-IS): ANY cancelReason, even 0, marks the purchase cancelled', () => {
-  assertEquals(parseGoogleReceipt(purchase({ cancelReason: undefined }), SUB_MONTHLY, NOW).valid, true);
-  for (const cancelReason of [0, 1, 2, 3]) {
-    assertEquals(parseGoogleReceipt(purchase({ cancelReason }), SUB_MONTHLY, NOW).valid, false, `cancelReason ${cancelReason}`);
+const validity = (over: Partial<GoogleSubscriptionPurchase>) =>
+  parseGoogleReceipt(purchase(over), SUB_MONTHLY, NOW).valid;
+
+Deno.test('DEBUG-758: an unacknowledged, active, paid purchase is VALID (the first verify precedes the ack)', () => {
+  for (const acknowledgementState of [0, undefined, 1]) {
+    assertEquals(validity({ acknowledgementState }), true, `acknowledgementState ${acknowledgementState}`);
   }
 });
 
-Deno.test('parseGoogleReceipt (DEBUG-758, AS-IS): only acknowledgementState === 1 is valid; 0 and absent are not', () => {
-  assertEquals(parseGoogleReceipt(purchase({ acknowledgementState: 1 }), SUB_MONTHLY, NOW).valid, true);
-  for (const acknowledgementState of [0, 2, undefined]) {
-    assertEquals(
-      parseGoogleReceipt(purchase({ acknowledgementState }), SUB_MONTHLY, NOW).valid,
-      false,
-      `acknowledgementState ${acknowledgementState}`,
+Deno.test('DEBUG-758: cancelled-but-paid keeps access until expiry (cancelReason 0/1/3, paymentState absent)', () => {
+  for (const cancelReason of [0, 1, 3]) {
+    const v = parseGoogleReceipt(
+      purchase({ cancelReason, paymentState: undefined, autoRenewing: false }),
+      SUB_MONTHLY,
+      NOW,
     );
+    assertEquals(v.valid, true, `cancelReason ${cancelReason}`);
+    assertEquals(v.autoRenewEnabled, false);
+    assertEquals(v.expiresDate, iso(EXPIRY));
+  }
+});
+
+Deno.test('DEBUG-758: an expired purchase is invalid in every ack / cancel / payment combination', () => {
+  const past = String(NOW - 1);
+  for (
+    const over of [
+      { acknowledgementState: 1 },
+      { acknowledgementState: 0 },
+      { cancelReason: 0, paymentState: undefined },
+      { paymentState: 2 },
+    ]
+  ) {
+    assertEquals(validity({ ...over, expiryTimeMillis: past }), false, JSON.stringify(over));
+  }
+});
+
+Deno.test('DEBUG-758: the payment truth table (paymentState x acknowledgementState x cancelReason)', () => {
+  const rows: Array<[string, Partial<GoogleSubscriptionPurchase>, boolean]> = [
+    ['received', { paymentState: 1 }, true],
+    ['free trial', { paymentState: 2 }, true],
+    ['pending first payment (unacknowledged)', { paymentState: 0, acknowledgementState: 0 }, false],
+    ['pending first payment (ack absent)', { paymentState: 0, acknowledgementState: undefined }, false],
+    ['grace-period renewal of an acknowledged subscription', { paymentState: 0, acknowledgementState: 1 }, true],
+    ['pending deferred replacement', { paymentState: 3 }, false],
+    ['replaced by upgrade/downgrade, even if paid', { cancelReason: 2, paymentState: 1 }, false],
+    ['replaced, paymentState absent', { cancelReason: 2, paymentState: undefined }, false],
+    ['paymentState absent and not cancelled (fail closed)', { paymentState: undefined }, false],
+    ['an unknown paymentState (fail closed)', { paymentState: 7 }, false],
+    ['a non-number paymentState reads as absent', { paymentState: '1' as unknown as number }, false],
+  ];
+  for (const [label, over, valid] of rows) assertEquals(validity(over), valid, label);
+});
+
+Deno.test('DEBUG-758: googleInvalidReason names each cause, and is null exactly when valid', () => {
+  const rows: Array<[Partial<GoogleSubscriptionPurchase>, string | null]> = [
+    [{}, null],
+    [{ acknowledgementState: 0 }, null],
+    [{ cancelReason: 0, paymentState: undefined }, null],
+    [{ expiryTimeMillis: String(NOW) }, 'receipt_expired'],
+    [{ cancelReason: 2 }, 'purchase_replaced'],
+    [{ paymentState: 0, acknowledgementState: 0 }, 'payment_pending'],
+    [{ paymentState: 3 }, 'replacement_pending'],
+    [{ paymentState: undefined }, 'payment_state_missing'],
+    [{ paymentState: 7 }, 'payment_state_unknown'],
+  ];
+  for (const [over, reason] of rows) {
+    const p = purchase(over);
+    assertEquals(googleInvalidReason(p, NOW), reason, JSON.stringify(over));
+    assertEquals(parseGoogleReceipt(p, SUB_MONTHLY, NOW).valid, reason === null, JSON.stringify(over));
   }
 });
 
@@ -487,24 +547,48 @@ Deno.test('parseGoogleReceipt: the result shape (orderId, productId from the REQ
 });
 
 for (
-  const [label, over] of [
-    ['expired a millisecond ago', { expiryTimeMillis: String(NOW - 1) }],
-    ['expiring exactly now', { expiryTimeMillis: String(NOW) }],
-    ['cancelled (cancelReason 0, DEBUG-758 AS-IS)', { cancelReason: 0 }],
-    ['unacknowledged (acknowledgementState 0, DEBUG-758 AS-IS)', { acknowledgementState: 0 }],
-    ['acknowledgementState absent (DEBUG-758 AS-IS)', { acknowledgementState: undefined }],
+  const [label, over, reason] of [
+    ['expired a millisecond ago', { expiryTimeMillis: String(NOW - 1) }, 'receipt_expired'],
+    ['expiring exactly now', { expiryTimeMillis: String(NOW) }, 'receipt_expired'],
+    ['replaced by upgrade/downgrade (cancelReason 2)', { cancelReason: 2 }, 'purchase_replaced'],
+    ['pending first payment', { paymentState: 0, acknowledgementState: 0 }, 'payment_pending'],
+    ['pending deferred replacement (paymentState 3)', { paymentState: 3 }, 'replacement_pending'],
+    ['paymentState absent and not cancelled', { paymentState: undefined }, 'payment_state_missing'],
   ] as const
 ) {
-  t(`400 invalid receipt, audited as reason "receipt_invalid", nothing written: ${label}`, async () => {
+  t(`400 invalid receipt, audited with its cause, nothing written: ${label}`, async () => {
     const h = harness({ purchase: purchase(over) });
     const { res, json } = await call(h, req());
     assertEquals(res.status, 400);
     assertEquals(json.valid, false);
     assertEquals(json.subscriptionId, ORDER_ID);
-    assertEquals(auditRows(h.db), reasonAudit('receipt_invalid'));
+    assertEquals(auditRows(h.db), reasonAudit(reason));
     assertNoWrites(h);
   });
 }
+
+t('DEBUG-758: a first, unacknowledged purchase verifies 200 and is written; the server makes NO other Google call', async () => {
+  // AC3 pin: verify-google-receipt never acknowledges. The client acknowledges after this
+  // verify (DEBUG-697), so exactly one mint and one lookup happen - no acknowledge request.
+  const h = harness({ purchase: purchase({ acknowledgementState: 0 }) });
+  const { res, json } = await call(h, req());
+  assertEquals(res.status, 200);
+  assertEquals(json.valid, true);
+  assertEquals(h.tokenCalls.length, 1);
+  assertEquals(h.lookupCalls.length, 1);
+  assertEquals(h.db.upserts.length, 1);
+  assertEquals(h.db.upserts[0].row.status, 'active');
+  assertEquals(auditRows(h.db)[0].p_event_type, 'receipt_verification_succeeded');
+});
+
+t('DEBUG-758: a cancelled-but-paid purchase verifies 200, written active until its expiry', async () => {
+  const h = harness({ purchase: purchase({ cancelReason: 0, paymentState: undefined, autoRenewing: false }) });
+  const { res, json } = await call(h, req());
+  assertEquals(res.status, 200);
+  assertEquals(json.autoRenewEnabled, false);
+  assertEquals(h.db.upserts[0].row.status, 'active');
+  assertEquals(h.db.upserts[0].row.subscription_end_date, iso(EXPIRY));
+});
 
 t('a lookup result with no expiryTimeMillis is a RangeError: 500 "Internal server error", no audit, no row (pinned)', async () => {
   // The REAL lookup rejects this shape before it gets here (googlePlayDeveloperApi: the

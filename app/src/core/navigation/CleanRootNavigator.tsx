@@ -40,7 +40,7 @@ import BugReportOverlay from '@/core/components/BugReportOverlay';
 import Static988Button from '@/features/crisis/components/Static988Button';
 import RootCrisisBoundary from '@/features/crisis/components/RootCrisisBoundary';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
-import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
+import SubscriptionStatusRoute from '@/core/components/subscription/SubscriptionStatusRoute';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '@/features/learn/screens/ModuleDetailScreen';
@@ -929,7 +929,7 @@ const CleanRootNavigator: React.FC = () => {
 
           <Stack.Screen
             name="SubscriptionStatus"
-            component={SubscriptionStatusCard}
+            component={SubscriptionStatusRoute}
             options={{
               title: 'Subscription Status',
               headerShown: true,

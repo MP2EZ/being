@@ -8,11 +8,10 @@
  *   - the one-minute countdown interval and its cleanup
  *   - the platform store URL fallback when `onManage` is not supplied
  *
- * Known gap, deliberately NOT pinned as a contract (DEBUG-760): the shipped route
- * mounts this card WITHOUT `onUpgrade` / `onManage`, so in production the
- * upgrade buttons are inert and "Manage" always takes the store-URL fallback.
  * This suite pins what the component does with the props it is given, not that
- * the route supplies them.
+ * the route supplies them. The shipped route is SubscriptionStatusRoute, which wires
+ * `onUpgrade` and leaves `onManage` to the store-URL fallback; that wiring is pinned
+ * by SubscriptionStatusRoute.test.tsx (DEBUG-760).
  *
  * The crisis-support note on the expired state is a wellness-safety message:
  * crisis access is never gated by subscription status, so it is asserted present
