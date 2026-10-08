@@ -33,12 +33,18 @@
  *     for this audience — which any GCP account can mint — passes verification, and once
  *     the lookup above works the Google path writes entitlements.
  *
- * Tokens never enter an error message or log line: the catch-all response echoes
- * error.message, and a purchase token is a bearer credential.
+ * LOGS AND RESPONSES (MAINT-765). Nothing identifying and no error text reaches a log line or
+ * a response body: no user id, transaction id, purchase token, subscription row id or
+ * per-notification id (notificationUUID, messageId), no whole error object, no error message.
+ * A failure is described by webhookFailureReason(): a closed reason plus, for a database error,
+ * a validated SQLSTATE. The 500 body is a fixed string and the 422 body carries only the closed
+ * reason. A purchase token is a bearer credential, and a constraint-violation message quotes
+ * row values, so this is not belt-and-braces.
  */
 
 import { assertAppleAppScope } from '../_shared/verifyAppleJWS.ts';
 import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
+import { safeStoreCode, stringCodeOf, sqlStateOf } from '../_shared/logSafe.ts';
 import { markProcessed, wasProcessed } from './replayCache.ts';
 import {
   mapAppleNotification,
@@ -62,12 +68,48 @@ export class SubscriptionNotLinkedError extends Error {
   }
 }
 
+/** Why a signed, in-scope notification was rejected. A closed set: it is logged and returned. */
+export type WebhookRejectReason =
+  | 'missing_signed_transaction_info'
+  | 'missing_original_transaction_id'
+  | 'unusable_expires_date'
+  | 'app_account_token_mismatch';
+
 /** A signed, in-scope notification missing what its type requires. Non-2xx, not marked. */
 export class WebhookPayloadRejectedError extends Error {
-  constructor(reason: string) {
+  constructor(public readonly reason: WebhookRejectReason) {
+    // The message is for a debugger holding the object; no log or response ever reads it.
     super(`Webhook payload rejected: ${reason}`);
     this.name = 'WebhookPayloadRejectedError';
   }
+}
+
+/**
+ * Error names a log may carry when nothing more specific applies. Built-ins only: a name any
+ * dependency could set is not evidence of anything, so an unlisted name is 'unknown'.
+ */
+const LOGGABLE_ERROR_NAMES = new Set(['Error', 'SyntaxError', 'TypeError', 'RangeError']);
+
+/**
+ * The closed description of a failure that a log line or a response may carry (MAINT-765):
+ *   - SubscriptionNotLinkedError / WebhookPayloadRejectedError: their own closed reason,
+ *     matched by class;
+ *   - anything with a string `code` (a PostgrestError may not extend Error, so this is
+ *     checked before instanceof Error): 'db_error', plus the code only when it is a valid
+ *     SQLSTATE;
+ *   - a built-in Error: its name;
+ *   - everything else: 'unknown'.
+ * Never the message, details, hint or stack.
+ */
+export function webhookFailureReason(err: unknown): { reason: string; code?: string } {
+  if (err instanceof SubscriptionNotLinkedError) return { reason: 'subscription_not_linked' };
+  if (err instanceof WebhookPayloadRejectedError) return { reason: err.reason };
+  if (stringCodeOf(err) !== null) {
+    const code = sqlStateOf(err);
+    return code === null ? { reason: 'db_error' } : { reason: 'db_error', code };
+  }
+  if (err instanceof Error && LOGGABLE_ERROR_NAMES.has(err.name)) return { reason: err.name };
+  return { reason: 'unknown' };
 }
 
 export type HandlerOutcome = { kind: 'applied' } | { kind: 'ignored'; reason: string };
@@ -140,13 +182,13 @@ export async function handleAppleWebhook(
 
   const transition = mapAppleNotification(notificationType, subtype);
   if (!transition) {
-    console.log('[Apple Webhook] Unhandled notification, no write:', notificationType, subtype ?? '');
+    console.log('[Apple Webhook] Unhandled notification, no write:', safeStoreCode(notificationType), safeStoreCode(subtype));
     return { kind: 'ignored', reason: 'unhandled_notification_type' };
   }
 
   const transactionInfo = data?.signedTransactionInfo;
   if (!transactionInfo) {
-    throw new WebhookPayloadRejectedError(`${notificationType} carries no signedTransactionInfo`);
+    throw new WebhookPayloadRejectedError('missing_signed_transaction_info');
   }
 
   // Decode transaction info (also JWS)
@@ -168,11 +210,11 @@ export async function handleAppleWebhook(
 
   const originalTransactionId = transaction?.originalTransactionId;
   if (!isUsableId(originalTransactionId)) {
-    throw new WebhookPayloadRejectedError(`${notificationType} transaction has no originalTransactionId`);
+    throw new WebhookPayloadRejectedError('missing_original_transaction_id');
   }
   const expiresMs = Number.parseInt(String(transaction?.expiresDate), 10);
   if (!Number.isFinite(expiresMs)) {
-    throw new WebhookPayloadRejectedError(`${notificationType} transaction has no usable expiresDate`);
+    throw new WebhookPayloadRejectedError('unusable_expires_date');
   }
 
   // Resolve the row the way verify-apple-receipt bound it.
@@ -189,10 +231,10 @@ export async function handleAppleWebhook(
   // the user the transaction is bound to; disagreeing is an incoherent payload, not a hint.
   const appAccountToken = transaction?.appAccountToken;
   if (isUsableId(appAccountToken) && appAccountToken !== subscription.user_id) {
-    throw new WebhookPayloadRejectedError('appAccountToken does not match the bound subscription');
+    throw new WebhookPayloadRejectedError('app_account_token_mismatch');
   }
 
-  console.log('[Apple Webhook] Processing:', notificationType, subtype ?? '');
+  console.log('[Apple Webhook] Processing:', safeStoreCode(notificationType), safeStoreCode(subtype));
 
   const { error: updateError } = await supabase
     .from('subscriptions')
@@ -202,7 +244,7 @@ export async function handleAppleWebhook(
     .eq('id', subscription.id);
 
   if (updateError) {
-    console.error('[Apple Webhook] Failed to update subscription:', updateError);
+    console.error('[Apple Webhook] Failed to update subscription:', webhookFailureReason(updateError));
     throw updateError;
   }
 
@@ -217,7 +259,7 @@ export async function handleAppleWebhook(
     },
   });
 
-  console.log('[Apple Webhook] Successfully processed:', notificationType);
+  console.log('[Apple Webhook] Successfully processed:', safeStoreCode(notificationType));
   return { kind: 'applied' };
 }
 
@@ -259,7 +301,7 @@ export async function handleGoogleWebhook(
 
   const transition = mapGoogleNotification(notificationType);
   if (!transition) {
-    console.log('[Google Webhook] Unhandled notification, no write:', notificationType);
+    console.log('[Google Webhook] Unhandled notification, no write:', safeStoreCode(notificationType));
     return { kind: 'ignored', reason: 'unhandled_notification_type' };
   }
 
@@ -281,14 +323,14 @@ export async function handleGoogleWebhook(
       console.error(
         '[Google Webhook] unresolved RTDN abandoned: no subscription bound within the redelivery ' +
           'window; acknowledged without a write. notificationType:',
-        notificationType,
+        safeStoreCode(notificationType),
       );
       return { kind: 'ignored', reason: 'unresolved_rtdn_abandoned' };
     }
     throw new SubscriptionNotLinkedError('google');
   }
 
-  console.log('[Google Webhook] Processing:', notificationType);
+  console.log('[Google Webhook] Processing:', safeStoreCode(notificationType));
 
   const { error: updateError } = await supabase
     .from('subscriptions')
@@ -296,7 +338,7 @@ export async function handleGoogleWebhook(
     .eq('id', subscription.id);
 
   if (updateError) {
-    console.error('[Google Webhook] Failed to update subscription:', updateError);
+    console.error('[Google Webhook] Failed to update subscription:', webhookFailureReason(updateError));
     throw updateError;
   }
 
@@ -311,7 +353,7 @@ export async function handleGoogleWebhook(
     },
   });
 
-  console.log('[Google Webhook] Successfully processed:', notificationType);
+  console.log('[Google Webhook] Successfully processed:', safeStoreCode(notificationType));
   return { kind: 'applied' };
 }
 
@@ -355,7 +397,7 @@ export function createWebhookHandler(deps: WebhookDeps): (req: Request) => Promi
         const payload = await deps.verifyAppleSignature(body.signedPayload);
         const notificationUUID = payload.notificationUUID;
         if (await wasProcessed(supabase, 'apple', notificationUUID)) {
-          console.log('[Apple Webhook] Replay detected, no-op:', notificationUUID);
+          console.log('[Apple Webhook] Replay detected, no-op');
           return json(200, { success: true, replay: true });
         }
         outcome = await handleAppleWebhook(supabase, payload, deps.verifyAppleSignature);
@@ -371,15 +413,15 @@ export function createWebhookHandler(deps: WebhookDeps): (req: Request) => Promi
         if (!serviceAccount) {
           throw new Error('GOOGLE_PUBSUB_SERVICE_ACCOUNT env var is not configured');
         }
-        const { serviceAccountEmail } = await deps.verifyGoogleOIDC(
+        await deps.verifyGoogleOIDC(
           req.headers.get('Authorization'),
           audience,
           serviceAccount,
         );
-        console.log('[Google Webhook] OIDC verified, sa:', serviceAccountEmail);
+        console.log('[Google Webhook] OIDC verified');
         const messageId = body.message.messageId;
         if (await wasProcessed(supabase, 'google', messageId)) {
-          console.log('[Google Webhook] Replay detected, no-op:', messageId);
+          console.log('[Google Webhook] Replay detected, no-op');
           return json(200, { success: true, replay: true });
         }
         outcome = await handleGoogleWebhook(supabase, body, deps.now());
@@ -395,19 +437,17 @@ export function createWebhookHandler(deps: WebhookDeps): (req: Request) => Promi
       );
     } catch (error) {
       if (error instanceof SubscriptionNotLinkedError) {
-        console.warn('[Webhook] Deferred for redelivery:', error.message);
+        console.warn('[Webhook] Deferred for redelivery:', webhookFailureReason(error));
         return json(503, { error: 'subscription_not_linked', retry: true });
       }
       if (error instanceof WebhookPayloadRejectedError) {
-        console.error('[Webhook] Rejected:', error.message);
-        return json(422, { error: 'payload_rejected', message: error.message });
+        console.error('[Webhook] Rejected:', webhookFailureReason(error));
+        return json(422, { error: 'payload_rejected', reason: error.reason });
       }
-      console.error('[Webhook] Error processing webhook:', error);
-      return json(500, {
-        error: 'Internal server error',
-        message: (error as { message?: string })?.message,
-      });
+      console.error('[Webhook] Error processing webhook:', webhookFailureReason(error));
+      // Fixed: error.message used to be echoed here, and a dependency's text can carry an
+      // identifier or a credential (MAINT-765). The store only needs the non-2xx.
+      return json(500, { error: 'internal_error' });
     }
   };
 }
-
