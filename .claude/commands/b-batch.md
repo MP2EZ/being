@@ -431,6 +431,8 @@ only**, plus whichever constraint lens owns a ruling still open. Re-slating afte
 defer is the normal lifecycle here, and the expensive analysis is already in the body — a
 fresh skeptic mostly re-derives it. Keep all three where the repair is older than the last
 release, since the tree has moved under it.
+Set `model` on every lens spawn to the session model: lenses are judgment work, and an
+agent type's frontmatter pin otherwise decides the tier silently.
 
 **The harness caps concurrent subagents (20); excess launches are refused, not queued.**
 Launch in waves of whole items.
@@ -899,6 +901,10 @@ the loaded procedure directly for the rest (say so, so the run stays auditable).
 holds for `/b-close`'s gate file, `/Users/max/dev/being/.claude/docs/b-close-gate.md`:
 Read it the first time Step 2.5.1 prints `GATE REQUIRED`, not once per gated item — and
 `/Users/max/dev/being/.claude/docs/e2e-gotchas.md` with it, once per batch.
+
+**Re-read what a predecessor landed before running its dependent.** The approach string
+predates that merge; a new pin or seam rule there can contradict the planned shape —
+correct the approach rather than building to it.
 
 Keep the approach string free of stray safety keywords (`crisis`, `encryption`, `PHQ`,
 …) for non-safety stories — `/b-work` Step 3.1 scans `ADDITIONAL_CONTEXT` and would
