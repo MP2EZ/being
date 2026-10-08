@@ -7,6 +7,8 @@
  *   deliberately NOT a dep: a test must not be able to inject an identity.
  * - the request body is never read; the caller can only delete itself.
  * - the client is built lazily, only after identity succeeds, inside the try.
+ * - no log line carries the uid or upstream error text (DEBUG-761), pinned by
+ *   _tests/delete-account-uid-log.test.ts.
  */
 
 import { getAuthUidFromRequest } from '../_shared/auth.ts';
@@ -18,7 +20,7 @@ export interface DeleteAccountClient {
       deleteUser(
         id: string,
         shouldSoftDelete: boolean,
-      ): Promise<{ error: { message: string } | null }>;
+      ): Promise<{ error: { message: string; name?: string; status?: number } | null }>;
     };
   };
 }
@@ -62,20 +64,24 @@ export async function handle(req: Request, deps: DeleteAccountDeps): Promise<Res
     // cascade fires and no PII/wellness data remains for this uid.
     const { error } = await supabase.auth.admin.deleteUser(authUid, false);
     if (error) {
-      console.error('[delete-account] admin.deleteUser failed:', error.message);
+      // Never error.message: a network failure's text carries the request URL, which ends in
+      // the uid being erased (DEBUG-761). The name/status is enough to triage.
+      console.error('[delete-account] admin.deleteUser failed:', error.name, error.status);
       return new Response(JSON.stringify({ success: false, error: 'Deletion failed' }), {
         status: 500,
         headers: { ...CORS, 'Content-Type': 'application/json' },
       });
     }
 
-    console.log('[delete-account] erased account + cascade for user:', authUid);
+    // No identifier: this line would outlive the erasure it reports (DEBUG-761).
+    console.log('[delete-account] erased account + cascade');
     return new Response(JSON.stringify({ success: true }), {
       status: 200,
       headers: { ...CORS, 'Content-Type': 'application/json' },
     });
   } catch (err) {
-    console.error('[delete-account] unexpected error:', err);
+    // The name only - a thrown error's message and stack can carry the uid (DEBUG-761).
+    console.error('[delete-account] unexpected error:', err instanceof Error ? err.name : typeof err);
     return new Response(JSON.stringify({ success: false, error: 'Internal server error' }), {
       status: 500,
       headers: { ...CORS, 'Content-Type': 'application/json' },
