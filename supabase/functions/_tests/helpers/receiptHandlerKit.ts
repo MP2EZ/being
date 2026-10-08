@@ -108,13 +108,26 @@ export async function withEnv<T>(vars: EnvVars, fn: () => Promise<T>): Promise<T
  * Run a scenario: base env plus overrides, console silenced (the handlers log on purpose),
  * and global fetch replaced by a tripwire - CI grants --allow-net, so a regression that
  * ignored an injected seam would otherwise reach a real host.
+ *
+ * Pass `capture` to record the console instead of discarding it (MAINT-759). Non-string
+ * arguments are rendered with Deno.inspect, the way a log sink records them, so an Error's
+ * message and stack are visible to the assertion.
  */
-export async function scenario<T>(overrides: EnvVars, fn: () => Promise<T>): Promise<T> {
+export async function scenario<T>(
+  overrides: EnvVars,
+  fn: () => Promise<T>,
+  capture?: string[],
+): Promise<T> {
   const { log, warn, error } = console;
   const realFetch = globalThis.fetch;
-  console.log = () => {};
-  console.warn = () => {};
-  console.error = () => {};
+  const sink = capture
+    ? (...args: unknown[]) => {
+      capture.push(args.map((a) => (typeof a === 'string' ? a : Deno.inspect(a))).join(' '));
+    }
+    : () => {};
+  console.log = sink;
+  console.warn = sink;
+  console.error = sink;
   globalThis.fetch = (() => {
     throw new Error('network call attempted in a unit test');
   }) as typeof fetch;
