@@ -22,6 +22,7 @@ import {
   assert,
 } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
 import { wasProcessed, markProcessed, type WebhookSource } from '../subscription-webhook/replayCache.ts';
+import { captureConsole } from './helpers/consoleCapture.ts';
 
 interface CacheRow {
   source: WebhookSource;
@@ -34,8 +35,8 @@ interface CacheRow {
  * .from(...).select() and .from(...).insert() calls.
  */
 function makeMockSupabase(opts?: {
-  selectError?: { message: string };
-  insertError?: { code?: string; message: string };
+  selectError?: { code?: string; message: string; details?: string };
+  insertError?: { code?: string; message: string; details?: string };
 }) {
   const rows: CacheRow[] = [];
 
@@ -158,4 +159,72 @@ Deno.test('integration: wasProcessed → markProcessed → wasProcessed flow', a
 
   // Replay (Apple retry): now seen
   assert(await wasProcessed(supabase, 'apple', 'flow-uuid'));
+});
+
+// ---------------------------------------------------------------------------
+// MAINT-765: no notification id and no database text in a log line or a thrown error
+// ---------------------------------------------------------------------------
+
+const NOTIFICATION = 'notif-id-7c1e9a2b-4d5f';
+const SENTINEL = 'SENTINEL_REPLAY_TEXT';
+
+/** Everything an error exposes to a log sink, at unlimited depth. */
+const inspected = (e: unknown) => Deno.inspect(e, { depth: Infinity, strAbbreviateSize: Infinity });
+
+async function rejection(fn: () => Promise<unknown>): Promise<Error & { code?: string }> {
+  try {
+    await fn();
+  } catch (e) {
+    return e as Error & { code?: string };
+  }
+  throw new Error('expected a rejection');
+}
+
+Deno.test('wasProcessed: a DB error throws a fixed message and the SQLSTATE, never the database text or the id', async () => {
+  const supabase = makeMockSupabase({
+    selectError: { code: '08006', message: `${SENTINEL} ${NOTIFICATION}`, details: `${SENTINEL} ${NOTIFICATION}` },
+  });
+  const err = await rejection(() => wasProcessed(supabase, 'apple', NOTIFICATION));
+  assertEquals(err.message, 'Replay-cache check failed');
+  assertEquals(err.code, '08006');
+  assert(!inspected(err).includes(SENTINEL) && !inspected(err).includes(NOTIFICATION), inspected(err));
+});
+
+Deno.test('markProcessed: a DB error throws a fixed message and the SQLSTATE, never the database text or the id', async () => {
+  const supabase = makeMockSupabase({
+    insertError: { code: '42501', message: `${SENTINEL} ${NOTIFICATION}`, details: `${SENTINEL} ${NOTIFICATION}` },
+  });
+  const err = await rejection(() => markProcessed(supabase, 'google', NOTIFICATION));
+  assertEquals(err.message, 'Replay-cache mark failed');
+  assertEquals(err.code, '42501');
+  assert(!inspected(err).includes(SENTINEL) && !inspected(err).includes(NOTIFICATION), inspected(err));
+});
+
+Deno.test('a code that is not a SQLSTATE is not attached to the thrown error', async () => {
+  for (const code of ['SENTINEL_CODE', '2350', '235050', undefined]) {
+    const select = await rejection(() =>
+      wasProcessed(makeMockSupabase({ selectError: { code, message: SENTINEL } }), 'apple', NOTIFICATION)
+    );
+    const insert = await rejection(() =>
+      markProcessed(makeMockSupabase({ insertError: { code, message: SENTINEL } }), 'apple', NOTIFICATION)
+    );
+    for (const err of [select, insert]) {
+      assertEquals(err.code, undefined, String(code));
+      assert(!inspected(err).includes(SENTINEL) && !inspected(err).includes('SENTINEL_CODE'), inspected(err));
+    }
+  }
+});
+
+Deno.test('markProcessed: the concurrent-insert log line names neither the source id nor the notification', async () => {
+  const supabase = makeMockSupabase();
+  await markProcessed(supabase, 'apple', NOTIFICATION);
+  const { lines } = await captureConsole(() => markProcessed(supabase, 'apple', NOTIFICATION));
+  assert(lines.length > 0, 'the concurrent insert must still be logged');
+  for (const line of lines) assert(!line.includes(NOTIFICATION), line);
+});
+
+Deno.test('wasProcessed: the missing-id warning names no id (there is none) and only the platform', async () => {
+  const { lines } = await captureConsole(() => wasProcessed(makeMockSupabase(), 'google', ''));
+  assertEquals(lines.length, 1);
+  assert(lines[0].includes('google'));
 });

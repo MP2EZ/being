@@ -780,9 +780,26 @@ const FORBIDDEN = [
   ...Array.from({ length: TOKEN_TAIL.length - 7 }, (_, i) => TOKEN_TAIL.slice(i, i + 8)),
 ];
 
-function assertNothingForbidden(where: string, text: string) {
-  for (const f of FORBIDDEN) assert(!text.includes(f), `${where} carries ${JSON.stringify(f)}: ${text}`);
+function assertNothingForbidden(where: string, text: string, forbidden: readonly string[] = FORBIDDEN) {
+  for (const f of forbidden) assert(!text.includes(f), `${where} carries ${JSON.stringify(f)}: ${text}`);
 }
+
+/**
+ * MAINT-765: identifiers a LOG LINE must never carry. Audit rows are exempt by design - the
+ * success row's p_user_id is the user and its p_subscription_id is the Google orderId - so
+ * these are checked against the captured console only, on top of FORBIDDEN.
+ */
+const MOCK_TOKEN = 'mock_token_abc123';
+const LOG_ONLY_FORBIDDEN = [
+  JWT_SUB,
+  OTHER_USER,
+  ANON_SESSION_TOKEN,
+  ANON_SESSION_TOKEN.split('.')[1],
+  ORDER_ID,
+  'mock_sub_',
+  MOCK_TOKEN,
+  SERVICE_ACCOUNT,
+];
 
 const LEAK_CASES: Array<{
   name: string;
@@ -830,6 +847,58 @@ const LEAK_CASES: Array<{
       return h;
     },
   },
+  // MAINT-765: the success and failure branches that log an identifier rather than an error.
+  { name: 'valid success', setup: () => harness() },
+  { name: 'invalid receipt (expired)', setup: () => harness({ purchase: purchase({ expiryTimeMillis: String(NOW - 1) }) }) },
+  {
+    name: 'replay: purchase token bound to another user',
+    setup: () =>
+      harness({
+        seed: {
+          subscriptions: [{ id: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd', user_id: OTHER_USER, platform: 'google', original_transaction_id: TOKEN }],
+        },
+      }),
+  },
+  {
+    name: 'upsert unique violation carrying sentinel text (TOCTOU replay)',
+    setup: () => {
+      const h = harness();
+      h.db.failOn('subscriptions', 'upsert', { code: '23505', message: `SENTINEL_DB ${TOKEN}`, details: `SENTINEL ${ORDER_ID}` });
+      return h;
+    },
+  },
+  {
+    name: 'mock branch accepted (ALLOW_MOCK_RECEIPTS=true)',
+    setup: () => harness(),
+    request: () => req(body({ purchaseToken: MOCK_TOKEN })),
+    env: { ALLOW_MOCK_RECEIPTS: 'true' },
+  },
+  {
+    name: 'mock branch rejected (ALLOW_MOCK_RECEIPTS unset)',
+    setup: () => harness(),
+    request: () => req(body({ purchaseToken: MOCK_TOKEN })),
+  },
+  {
+    name: 'audit RPC failure with sentinel message, hint and details (success path)',
+    setup: () => {
+      const h = harness();
+      h.db.failRpc('log_subscription_event', {
+        code: '23514',
+        message: `SENTINEL ${JWT_SUB} ${ORDER_ID}`,
+        details: `SENTINEL ${ORDER_ID}`,
+        hint: 'SENTINEL hint',
+      });
+      return h;
+    },
+  },
+  {
+    name: 'audit RPC failure with sentinel text (failure path)',
+    setup: () => {
+      const h = harness({ lookupThrows: new GooglePlayApiError(503) });
+      h.db.failRpc('log_subscription_event', { message: `SENTINEL ${JWT_SUB}`, hint: 'SENTINEL hint', details: 'SENTINEL' });
+      return h;
+    },
+  },
 ];
 
 for (const c of LEAK_CASES) {
@@ -842,9 +911,21 @@ for (const c of LEAK_CASES) {
     }, lines);
     // Non-vacuity: every one of these paths logs, so an empty capture cannot pass as clean.
     assert(lines.length > 0, 'nothing was captured');
-    for (const line of lines) assertNothingForbidden('a log line', line);
+    for (const line of lines) assertNothingForbidden('a log line', line, [...FORBIDDEN, ...LOG_ONLY_FORBIDDEN]);
   });
 }
+
+Deno.test('control: the log-only matcher throws on a user id, an orderId and a mock id', () => {
+  for (const leaky of [`user: ${JWT_SUB}`, `Success: ${ORDER_ID}`, 'mock_sub_1', `${OTHER_USER}`]) {
+    let threw = false;
+    try {
+      assertNothingForbidden('a log line', leaky, [...FORBIDDEN, ...LOG_ONLY_FORBIDDEN]);
+    } catch {
+      threw = true;
+    }
+    assert(threw, `matcher accepted ${JSON.stringify(leaky)}`);
+  }
+});
 
 Deno.test('control: the capture does see a token that is logged', async () => {
   const lines: string[] = [];
@@ -853,4 +934,18 @@ Deno.test('control: the capture does see a token that is logged', async () => {
     return Promise.resolve();
   }, lines);
   assert(lines.some((l) => l.includes(TOKEN)), 'capture missed a logged token - the leak tests would be vacuous');
+});
+
+Deno.test('control: the capture sees a user id in an Error and an orderId nested five levels deep (MAINT-765)', async () => {
+  const lines: string[] = [];
+  await scenario({}, () => {
+    console.error(
+      'probe',
+      new Error(`x ${JWT_SUB}`),
+      { nested: { a: { b: { c: { d: ORDER_ID } } } } },
+    );
+    return Promise.resolve();
+  }, lines);
+  assert(lines.some((l) => l.includes(JWT_SUB)), 'capture missed a logged user id');
+  assert(lines.some((l) => l.includes(ORDER_ID)), 'capture missed a deeply nested orderId');
 });
