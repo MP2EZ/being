@@ -25,4 +25,10 @@ e2e-gate/
 
 # Working scratchpad from /m:audit runs (not for version history;
 # move to docs/audits/ if a snapshot is worth preserving)
-.audit-report.md
+.audit-report*.md
+
+# Python bytecode (e.g. .claude/eval)
+__pycache__/
+
+# Supabase CLI link state (per-machine)
+supabase/.temp/
