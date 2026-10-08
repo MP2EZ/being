@@ -45,11 +45,12 @@ name: "Assessment AX5 reachability (DEBUG-722): every PHQ-9 answer and the crisi
     visible:
       id: "assessment-close-button" # the intro, not a swallowed tap left on Home
     timeout: 15000
-- scrollUntilVisible:
+- scrollUntilVisible: # the intro is roughly one word per line at AX5; 60s at speed 40 did not reach Begin
     element:
       id: "assessment-begin-button"
     direction: DOWN
-    timeout: 60000
+    timeout: 240000
+    speed: 70
 - tapOn:
     id: "assessment-begin-button"
 
@@ -225,11 +226,12 @@ name: "Assessment AX5 reachability (DEBUG-722): every PHQ-9 answer and the crisi
     visible:
       id: "assessment-close-button" # the intro, not a swallowed tap left on Home
     timeout: 15000
-- scrollUntilVisible:
+- scrollUntilVisible: # the intro is roughly one word per line at AX5; 60s at speed 40 did not reach Begin
     element:
       id: "assessment-begin-button"
     direction: DOWN
-    timeout: 60000
+    timeout: 240000
+    speed: 70
 - tapOn:
     id: "assessment-begin-button"
 - extendedWaitUntil:
