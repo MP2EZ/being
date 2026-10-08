@@ -14,6 +14,10 @@
  *   - the ALLOW_MOCK_RECEIPTS gate and the config reads (GOOGLE_SERVICE_ACCOUNT,
  *     RECEIPT_ENCRYPTION_KEY), including parseServiceAccountCredential.
  *
+ * Acknowledgement (DEBUG-758): this function NEVER acknowledges a purchase. The client
+ * acknowledges after a valid verify (DEBUG-697), so the service account stays read-only and an
+ * unacknowledged purchase is the normal first-verify state. Validity: googleInvalidReason.
+ *
  * Pinned by _tests/google-receipt-handler.test.ts. The structural guards (mock-receipt-gate,
  * receipt-binding-call-site-guard) read THIS file as a single file.
  */
@@ -129,26 +133,53 @@ async function verifyWithGoogle(
 }
 
 /**
- * Parse Google receipt response
+ * Why a Google subscription purchase grants NO access right now, or null when it does
+ * (DEBUG-758). Read against androidpublisher v3 purchases.subscriptions.get:
+ *
+ * - expiryTimeMillis is the time authority. Google moves it to the revocation time on a
+ *   refund/revoke and keeps it for a cancel that still has paid time, so a cancelled-but-paid
+ *   subscription (cancelReason 0 user, 1 system, 3 developer) keeps access until it passes.
+ * - cancelReason 2 means replaced by an upgrade/downgrade: the entitlement moved to the
+ *   linkedPurchaseToken, so this token grants nothing.
+ * - Payment decides entitlement: 1 received and 2 free trial are paid. 0 is pending - unpaid
+ *   on a first purchase, but on an already-acknowledged subscription it is a grace-period
+ *   renewal that keeps access. 3 is a pending deferred replacement. Google omits paymentState
+ *   on a cancelled subscription, so absent is accepted only alongside a cancelReason; anything
+ *   else fails closed.
+ * - acknowledgementState does NOT gate validity. This function never acknowledges: the client
+ *   acknowledges AFTER a valid verify (DEBUG-697), so an unacknowledged purchase is the normal
+ *   first-verify state. It is read only to tell a grace renewal from a pending first purchase.
+ *
+ * Fields are compared with ===, so a non-number reads as absent.
+ */
+export function googleInvalidReason(response: GoogleSubscriptionResponse, nowMs: number): string | null {
+  if (!(parseInt(response.expiryTimeMillis) > nowMs)) return 'receipt_expired';
+  if (response.cancelReason === 2) return 'purchase_replaced';
+
+  const payment = typeof response.paymentState === 'number' ? response.paymentState : undefined;
+  if (payment === 1 || payment === 2) return null;
+  if (payment === 0) return response.acknowledgementState === 1 ? null : 'payment_pending';
+  if (payment === 3) return 'replacement_pending';
+  if (payment === undefined) {
+    const cancelled = response.cancelReason === 0 || response.cancelReason === 1 ||
+      response.cancelReason === 3;
+    return cancelled ? null : 'payment_state_missing';
+  }
+  return 'payment_state_unknown';
+}
+
+/**
+ * Parse Google receipt response. Validity is googleInvalidReason's; this shapes the answer.
  */
 export function parseGoogleReceipt(
   response: GoogleSubscriptionResponse,
   subscriptionId: string,
   nowMs: number
 ): VerificationResult {
-  // Check if subscription is active (not expired)
   const expiresMs = parseInt(response.expiryTimeMillis);
-  const now = nowMs;
-  const isActive = expiresMs > now;
-
-  // Check if cancelled
-  const isCancelled = response.cancelReason !== undefined;
-
-  // Check acknowledgement
-  const isAcknowledged = response.acknowledgementState === 1;
 
   return {
-    valid: isActive && !isCancelled && isAcknowledged,
+    valid: googleInvalidReason(response, nowMs) === null,
     subscriptionId: response.orderId,
     productId: subscriptionId,
     expiresDate: new Date(expiresMs).toISOString(),
@@ -440,7 +471,7 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
         eventType: 'receipt_verification_failed',
         metadata: {
           platform: 'google',
-          reason: 'receipt_invalid',
+          reason: googleInvalidReason(googleResponse, deps.now()) ?? 'receipt_invalid',
           timestamp: new Date(deps.now()).toISOString(),
         },
       });
