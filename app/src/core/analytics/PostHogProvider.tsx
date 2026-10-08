@@ -14,6 +14,7 @@ import React from 'react';
 import { PostHogProvider as PHProvider, usePostHog } from 'posthog-react-native';
 import { registerAnalyticsClient } from './analyticsIdentityReset';
 import { AppLifecycleTracker } from './AppLifecycleTracker';
+import { installConsentWithdrawalPurge } from './consentWithdrawalPurge';
 import { useAnalyticsConsent } from './useAnalyticsConsent';
 import { env } from '@/core/config/env';
 
@@ -114,10 +115,18 @@ interface PostHogProviderProps {
  *
  * `optIn()`/`optOut()` mutate a persisted flag on the EXISTING instance, which is
  * both runtime-reactive and identity-preserving.
+ *
+ * `optOut()` alone does NOT stop what is already queued (DEBUG-686): it gates
+ * capture, not `flush()`, so events captured while consented still transmitted
+ * after withdrawal. The first effect installs a SYNCHRONOUS consent-store
+ * subscription that purges the queue on the withdrawal write itself — see
+ * consentWithdrawalPurge.ts. Once per client; the cleanup unsubscribes.
  */
 function ConsentSync(): null {
   const posthog = usePostHog();
   const mayEmit = useAnalyticsConsent();
+
+  React.useEffect(() => (posthog ? installConsentWithdrawalPurge(posthog) : undefined), [posthog]);
 
   React.useEffect(() => {
     if (!posthog) return;
@@ -147,19 +156,18 @@ function RegisterSurfaceProperty(): null {
   React.useEffect(() => {
     if (!posthog) return;
     // DEBUG-539: hand the instance to module scope so account erasure can reset
-    // it even after this provider stops rendering. Revoking consent unmounts
-    // <PHProvider> but does NOT destroy the client — it keeps AppState
-    // listeners and an in-memory cache that re-persists the pre-erasure
-    // distinct_id on the next write. Erasing by deleting the storage files
-    // under a live instance is therefore a fake control; the reset has to go
-    // THROUGH the instance, which means holding a reference that outlives the
-    // render tree.
+    // it from outside the render tree. The client is never destroyed while the
+    // process lives — it keeps AppState listeners and an in-memory cache that
+    // re-persists the pre-erasure distinct_id on the next write — so erasing by
+    // deleting the storage files under it is a fake control; the reset has to go
+    // THROUGH the instance.
     //
-    // DEBUG-559 note: since this provider is now always mounted, the reference is
-    // registered at launch rather than at first consent, so it is always current.
-    // That STRENGTHENS the erasure path — but it also means
-    // `resetAnalyticsIdentity`'s "no instance was ever built" fallback is now
-    // effectively unreachable in a configured build. See analyticsIdentityReset.ts.
+    // Since DEBUG-559 <PHProvider> is always mounted in a configured build and
+    // revoking consent NEVER unmounts it (it only drives optOut() and, since
+    // DEBUG-686, the queue purge in ConsentSync). The reference is registered at
+    // launch, so it is always current, and `resetAnalyticsIdentity`'s "no
+    // instance was ever built" fallback is effectively unreachable in a
+    // configured build. See analyticsIdentityReset.ts.
     registerAnalyticsClient(posthog);
   }, [posthog]);
 
