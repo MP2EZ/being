@@ -46,7 +46,7 @@ const TARGETS = [
   },
   {
     name: 'verify-google-receipt',
-    path: new URL('../verify-google-receipt/index.ts', import.meta.url),
+    path: new URL('../verify-google-receipt/handler.ts', import.meta.url),
     prefix: 'mock_token_',
   },
 ] as const;

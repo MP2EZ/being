@@ -45,7 +45,7 @@ const CALLERS = [
 ] as const;
 
 /** Callers whose logic lives in handler.ts (MAINT-753); the directory read must include it. */
-const HANDLER_CALLERS: readonly string[] = ['verify-apple-receipt'];
+const HANDLER_CALLERS: readonly string[] = ['verify-apple-receipt', 'verify-google-receipt'];
 
 const HELPER_PATH = new URL('../_shared/subscriptionAudit.ts', import.meta.url);
 

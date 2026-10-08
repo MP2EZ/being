@@ -34,7 +34,7 @@ const VERIFIERS = ['verify-apple-receipt', 'verify-google-receipt'] as const;
 /** The one file in each function directory that holds the verification logic. */
 const LOGIC_FILE: Record<(typeof VERIFIERS)[number], string> = {
   'verify-apple-receipt': 'handler.ts',
-  'verify-google-receipt': 'index.ts',
+  'verify-google-receipt': 'handler.ts',
 };
 
 function readVerifier(name: (typeof VERIFIERS)[number]): string {
