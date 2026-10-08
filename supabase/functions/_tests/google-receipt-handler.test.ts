@@ -1,0 +1,659 @@
+/**
+ * verify-google-receipt handler - behavioural tests (MAINT-753).
+ *
+ * Drives the DEPLOYED handler (handle, imported by index.ts) with injected Google calls
+ * (getGoogleAccessToken, fetchSubscriptionPurchase), the fakeSupabase tables and an injected
+ * clock. Pins status, body, headers, the exact subscriptions upsert and the FULL audit
+ * p_metadata (deep equality) per branch. Branches that write no audit row today are pinned as
+ * writing none - a characterization, not an endorsement.
+ *
+ * ERROR TEXT. Since DEBUG-752 every error the shared Google module throws carries a FIXED
+ * message (no key material, token, URL or response text), and the handler writes
+ * `error.message` into the audit row. The rows below pin those exact strings. Whatever a
+ * dependency throws is stored verbatim - one test names that as UNSANITIZED (MAINT-759): safety
+ * today rests on the shared module, not on the handler.
+ *
+ * KNOWN-DEFECTIVE BEHAVIOUR pinned AS-IS: the acknowledgementState and cancelReason rows
+ * (DEBUG-758 is the open defect). They are a characterization of today's code, NOT a contract:
+ * when DEBUG-758 lands, these rows are expected to change with it.
+ *
+ * The GOOGLE_SERVICE_ACCOUNT secret is parsed INLINE by the handler (not a dep), so scenarios
+ * that reach Google set a synthetic service-account JSON. Nothing here is a real key; the token
+ * mint is faked. Global fetch is a throwing tripwire for every scenario.
+ */
+
+import {
+  assert,
+  assertEquals,
+  assertNotEquals,
+} from 'https://deno.land/std@0.177.0/testing/asserts.ts';
+import { handle, parseGoogleReceipt, type GoogleReceiptDeps } from '../verify-google-receipt/handler.ts';
+import {
+  fetchSubscriptionPurchase as realFetchSubscriptionPurchase,
+  GoogleAuthError,
+  GooglePlayApiError,
+  type GoogleServiceAccountCredential,
+  type GoogleSubscriptionPurchase,
+} from '../_shared/googlePlayDeveloperApi.ts';
+import { decryptReceipt, receiptHash } from '../_shared/receiptCrypto.ts';
+import { fakeDb, type FakeDb } from './helpers/fakeSupabase.ts';
+import {
+  ANON_KEY_TOKEN,
+  ANON_SESSION_TOKEN,
+  assertCors,
+  auditRows,
+  bodyJson,
+  DAY,
+  ENC_KEY_B64,
+  iso,
+  JWT_SUB,
+  NOW,
+  OTHER_USER,
+  request,
+  scenario,
+} from './helpers/receiptHandlerKit.ts';
+
+const PACKAGE = 'fyi.being.app';
+const SUB_MONTHLY = 'com.being.subscription.monthly';
+const SUB_YEARLY = 'com.being.subscription.yearly';
+const TOKEN = 'purchasetoken.AbCdEf-0123456789_xyz';
+const ORDER_ID = 'GPA.3333-4444-5555-66666';
+const ACCESS_TOKEN = 'ya29.synthetic-access-token';
+const EXPIRY = NOW + 30 * DAY;
+
+/** A synthetic service-account key file. The private key is a placeholder, never a PEM. */
+const SERVICE_ACCOUNT = JSON.stringify({
+  type: 'service_account',
+  project_id: 'being-test',
+  private_key_id: 'kid-test-0001',
+  private_key: 'synthetic-private-key-placeholder',
+  client_email: 'receipts@being-test.iam.gserviceaccount.com',
+});
+const CREDENTIAL: GoogleServiceAccountCredential = {
+  clientEmail: 'receipts@being-test.iam.gserviceaccount.com',
+  privateKeyPem: 'synthetic-private-key-placeholder',
+  privateKeyId: 'kid-test-0001',
+};
+
+function purchase(over: Partial<GoogleSubscriptionPurchase> = {}): GoogleSubscriptionPurchase {
+  return {
+    kind: 'androidpublisher#subscriptionPurchase',
+    startTimeMillis: String(NOW - DAY),
+    expiryTimeMillis: String(EXPIRY),
+    autoRenewing: true,
+    priceCurrencyCode: 'USD',
+    priceAmountMicros: '4990000',
+    countryCode: 'US',
+    orderId: ORDER_ID,
+    acknowledgementState: 1,
+    ...over,
+  };
+}
+
+interface Harness {
+  db: FakeDb;
+  deps: GoogleReceiptDeps;
+  createSupabaseCalls: number;
+  tokenCalls: unknown[][];
+  lookupCalls: unknown[][];
+}
+
+function harness(opts: {
+  purchase?: unknown;
+  tokenThrows?: unknown;
+  lookupThrows?: unknown;
+  lookup?: GoogleReceiptDeps['fetchSubscriptionPurchase'];
+  seed?: Record<string, Record<string, unknown>[]>;
+} = {}): Harness {
+  const db = fakeDb(opts.seed);
+  const h: Harness = {
+    db,
+    createSupabaseCalls: 0,
+    tokenCalls: [],
+    lookupCalls: [],
+    deps: {
+      createSupabase: () => {
+        h.createSupabaseCalls++;
+        return db.client;
+      },
+      getGoogleAccessToken: (...args: unknown[]) => {
+        h.tokenCalls.push(args);
+        if (opts.tokenThrows !== undefined) return Promise.reject(opts.tokenThrows);
+        return Promise.resolve(ACCESS_TOKEN);
+      },
+      fetchSubscriptionPurchase: opts.lookup ?? ((...args: unknown[]) => {
+        h.lookupCalls.push(args);
+        if (opts.lookupThrows !== undefined) return Promise.reject(opts.lookupThrows);
+        return Promise.resolve((opts.purchase ?? purchase()) as GoogleSubscriptionPurchase);
+      }),
+      now: () => NOW,
+    },
+  };
+  return h;
+}
+
+const body = (over: Record<string, unknown> = {}) => ({
+  packageName: PACKAGE,
+  subscriptionId: SUB_MONTHLY,
+  purchaseToken: TOKEN,
+  ...over,
+});
+const req = (b: unknown = body()) => request(ANON_SESSION_TOKEN, b);
+
+function t(name: string, fn: () => Promise<void>, env: Record<string, string | undefined> = {}) {
+  Deno.test(name, () => scenario({ GOOGLE_SERVICE_ACCOUNT: SERVICE_ACCOUNT, ...env }, fn));
+}
+
+/** Call the handler; the purchase token must never appear in any response body. */
+async function call(h: Harness, r: Request, token: string = TOKEN) {
+  const res = await handle(r, h.deps);
+  const text = await res.text();
+  if (token.length >= 8) assert(!text.includes(token), 'the purchase token reached a response body');
+  return { res, text, json: text ? JSON.parse(text) : null };
+}
+
+function assertNoWrites(h: Harness) {
+  assertEquals(h.db.upserts, [], 'a subscriptions row was upserted');
+  assertEquals(h.db.tables.subscriptions.length, 0, 'a subscriptions row exists');
+}
+
+function assertNoGoogleCalls(h: Harness) {
+  assertEquals(h.tokenCalls.length, 0, 'an access token was minted');
+  assertEquals(h.lookupCalls.length, 0, 'a purchase lookup was made');
+}
+
+const failureAudit = (error: string) => [{
+  p_user_id: JWT_SUB,
+  p_subscription_id: null,
+  p_event_type: 'receipt_verification_failed',
+  p_metadata: { platform: 'google', error, timestamp: iso(NOW) },
+}];
+
+const reasonAudit = (reason: string) => [{
+  p_user_id: JWT_SUB,
+  p_subscription_id: null,
+  p_event_type: 'receipt_verification_failed',
+  p_metadata: { platform: 'google', reason, timestamp: iso(NOW) },
+}];
+
+// ---------------------------------------------------------------------------
+// Transport: OPTIONS / method / identity / body
+// ---------------------------------------------------------------------------
+
+t('OPTIONS: null body with CORS, no client, no auth required', async () => {
+  const h = harness();
+  const res = await handle(request(null, undefined, 'OPTIONS'), h.deps);
+  assertEquals(res.status, 200);
+  assertEquals(await res.text(), '');
+  assertCors(res);
+  assertEquals(h.createSupabaseCalls, 0);
+});
+
+t('GET: 405 {error} and, as of today, NO CORS headers (pinned, not endorsed)', async () => {
+  const h = harness();
+  const res = await handle(request(ANON_SESSION_TOKEN, undefined, 'GET'), h.deps);
+  assertEquals(res.status, 405);
+  assertEquals(res.headers.get('content-type'), 'application/json');
+  assertEquals(res.headers.get('access-control-allow-origin'), null);
+  assertEquals(await bodyJson(res), { error: 'Method not allowed' });
+  assertEquals(h.createSupabaseCalls, 0);
+});
+
+for (
+  const [label, tok, error] of [
+    ['no Authorization header', null, 'Missing or malformed Authorization header'],
+    ['anon-key token (role anon, no sub)', ANON_KEY_TOKEN, 'JWT missing or invalid sub claim'],
+    ['malformed token', 'abc', 'Malformed JWT'],
+  ] as const
+) {
+  t(`401 with no client built and no Google call: ${label}`, async () => {
+    const h = harness();
+    const { res, json } = await call(h, request(tok, body()));
+    assertEquals(res.status, 401);
+    assertEquals(res.headers.get('content-type'), 'application/json');
+    assertEquals(json, { error });
+    assertEquals(h.createSupabaseCalls, 0);
+    assertNoGoogleCalls(h);
+    assertEquals(h.db.rpcCalls.length, 0);
+    assertNoWrites(h);
+  });
+}
+
+t('an unparseable JSON body is a 500 {valid:false,error:"Internal server error"} (pinned)', async () => {
+  const h = harness();
+  const { res, json } = await call(h, request(ANON_SESSION_TOKEN, 'not json{'));
+  assertEquals(res.status, 500);
+  assertEquals(json, { valid: false, error: 'Internal server error' });
+  assertEquals(h.createSupabaseCalls, 0);
+  assertEquals(h.db.rpcCalls.length, 0);
+});
+
+for (const missing of ['packageName', 'subscriptionId', 'purchaseToken']) {
+  for (const value of [undefined, '']) {
+    t(`400 missing field with no client: ${missing}=${JSON.stringify(value)}`, async () => {
+      const h = harness();
+      const { res, json } = await call(h, req(body({ [missing]: value })));
+      assertEquals(res.status, 400);
+      assertEquals(json, { error: 'Missing required fields: packageName, subscriptionId, purchaseToken' });
+      assertEquals(h.createSupabaseCalls, 0);
+      assertNoGoogleCalls(h);
+      assertEquals(h.db.rpcCalls.length, 0);
+    });
+  }
+}
+
+// ---------------------------------------------------------------------------
+// DEBUG-752 validation: before any client is built or token minted
+// ---------------------------------------------------------------------------
+
+const INVALID_PARAMS: Array<[string, Record<string, unknown>]> = [
+  ['packageName for another app', { packageName: 'com.someone.else' }],
+  ['packageName with different case', { packageName: 'FYI.being.app' }],
+  ['packageName that is not a string', { packageName: 5 }],
+  ['subscriptionId "..": a path segment', { subscriptionId: '..' }],
+  ['subscriptionId with a slash', { subscriptionId: 'a/b' }],
+  ['subscriptionId with upper case', { subscriptionId: 'Com.Being.Monthly' }],
+  ['subscriptionId over 100 characters', { subscriptionId: 'a'.repeat(101) }],
+  ['purchaseToken ".."', { purchaseToken: '..' }],
+  ['purchaseToken with a slash', { purchaseToken: 'abc/def' }],
+  ['purchaseToken with a query', { purchaseToken: 'abc?x=1' }],
+  ['purchaseToken over 2048 characters', { purchaseToken: 'a'.repeat(2049) }],
+];
+
+for (const [label, over] of INVALID_PARAMS) {
+  t(`400 Invalid purchase parameters, no client, no token minted, no lookup: ${label}`, async () => {
+    const h = harness();
+    const { res, json } = await call(h, req(body(over)));
+    assertEquals(res.status, 400);
+    assertEquals(res.headers.get('content-type'), 'application/json');
+    assertEquals(json, { error: 'Invalid purchase parameters' });
+    assertEquals(h.createSupabaseCalls, 0);
+    assertNoGoogleCalls(h);
+    assertEquals(h.db.rpcCalls.length, 0);
+    assertNoWrites(h);
+  });
+}
+
+t('the validation runs BEFORE the mock gate: a mock token for another app is refused as invalid', async () => {
+  const h = harness();
+  const { res, json } = await call(h, req(body({ packageName: 'com.someone.else', purchaseToken: 'mock_token_abc123' })));
+  assertEquals(res.status, 400);
+  assertEquals(json, { error: 'Invalid purchase parameters' });
+  assertEquals(h.createSupabaseCalls, 0);
+}, { ALLOW_MOCK_RECEIPTS: 'true' });
+
+// ---------------------------------------------------------------------------
+// Mock gate: both ways
+// ---------------------------------------------------------------------------
+
+for (const value of [undefined, 'false', 'TRUE', '1', '', 'true ']) {
+  t(`mock token REJECTED unless ALLOW_MOCK_RECEIPTS is exactly "true": ${JSON.stringify(value)}`, async () => {
+    const h = harness();
+    const { res, json } = await call(h, req(body({ purchaseToken: 'mock_token_abc123' })));
+    assertEquals(res.status, 400);
+    assertEquals(json, { error: 'Invalid purchase token' });
+    assertNoGoogleCalls(h);
+    assertEquals(h.db.rpcCalls.length, 0, 'a rejected mock wrote an audit row');
+    assertNoWrites(h);
+  }, { ALLOW_MOCK_RECEIPTS: value });
+}
+
+for (
+  const [subscriptionId, days] of [[SUB_YEARLY, 365], [SUB_MONTHLY, 30]] as const
+) {
+  t(`mock token ACCEPTED when ALLOW_MOCK_RECEIPTS is "true": ${subscriptionId} writes no subscription and no audit row`, async () => {
+    const h = harness();
+    const { res, json } = await call(h, req(body({ subscriptionId, purchaseToken: 'mock_token_abc123' })));
+    assertEquals(res.status, 200);
+    assertEquals(json, {
+      valid: true,
+      subscriptionId: `mock_sub_${NOW}`,
+      productId: subscriptionId,
+      expiresDate: iso(NOW + days * DAY),
+      autoRenewEnabled: true,
+    });
+    assertNoGoogleCalls(h);
+    assertEquals(h.db.rpcCalls.length, 0, 'a mock token wrote an audit row');
+    assertNoWrites(h);
+  }, { ALLOW_MOCK_RECEIPTS: 'true' });
+}
+
+// ---------------------------------------------------------------------------
+// Google failures: one 500 for every API/token failure; the audit row holds the fixed message
+// ---------------------------------------------------------------------------
+
+const GOOGLE_FAILURES: Array<{
+  name: string;
+  opts: Parameters<typeof harness>[0];
+  env?: Record<string, string | undefined>;
+  message: string;
+  minted: boolean;
+}> = [
+  {
+    name: 'lookup 410',
+    opts: { lookupThrows: new GooglePlayApiError(410) },
+    message: 'Google Play Developer API request failed (HTTP 410)',
+    minted: true,
+  },
+  {
+    name: 'lookup 503',
+    opts: { lookupThrows: new GooglePlayApiError(503) },
+    message: 'Google Play Developer API request failed (HTTP 503)',
+    minted: true,
+  },
+  {
+    name: 'lookup unreachable',
+    opts: { lookupThrows: new GooglePlayApiError(0) },
+    message: 'Google Play Developer API was unreachable',
+    minted: true,
+  },
+  {
+    name: 'lookup 401/403',
+    opts: { lookupThrows: new GoogleAuthError(403) },
+    message: "Google rejected or could not issue this service's access token",
+    minted: true,
+  },
+  {
+    name: 'token mint refused',
+    opts: { tokenThrows: new GoogleAuthError(401) },
+    message: "Google rejected or could not issue this service's access token",
+    minted: true,
+  },
+  {
+    name: 'token mint unreachable',
+    opts: { tokenThrows: new GoogleAuthError(0) },
+    message: "Google rejected or could not issue this service's access token",
+    minted: true,
+  },
+  {
+    name: 'GOOGLE_SERVICE_ACCOUNT unset (parsed inline, so no mint is attempted)',
+    opts: {},
+    env: { GOOGLE_SERVICE_ACCOUNT: undefined },
+    message: 'GOOGLE_SERVICE_ACCOUNT is not configured',
+    minted: false,
+  },
+  {
+    name: 'GOOGLE_SERVICE_ACCOUNT not JSON (parsed inline, so no mint is attempted)',
+    opts: {},
+    env: { GOOGLE_SERVICE_ACCOUNT: '{"private_key": "SENTINEL_KEY_FRAGMENT' },
+    message: 'GOOGLE_SERVICE_ACCOUNT is not valid JSON',
+    minted: false,
+  },
+];
+
+for (const row of GOOGLE_FAILURES) {
+  t(`Google failure (${row.name}): one 500, the fixed message audited, nothing written`, async () => {
+    const h = harness(row.opts);
+    const { res, text, json } = await call(h, req());
+    assertEquals(res.status, 500);
+    assertEquals(json, { valid: false, error: 'Failed to verify receipt with Google Play' });
+    assert(!text.includes('SENTINEL_KEY_FRAGMENT'));
+    assertEquals(auditRows(h.db), failureAudit(row.message));
+    assertEquals(h.tokenCalls.length, row.minted ? 1 : 0);
+    // A mint failure means the lookup is never attempted.
+    assertEquals(h.lookupCalls.length, row.opts?.tokenThrows !== undefined || !row.minted ? 0 : 1);
+    assertNoWrites(h);
+  }, row.env ?? {});
+}
+
+t('UNSANITIZED characterization (MAINT-759): whatever message a dependency throws is audited VERBATIM', async () => {
+  // The handler does not scrub error.message. Safety today rests on the shared module's fixed
+  // messages (next test), not on this handler: a regression there, or a new dependency that
+  // throws a URL-bearing message, would put that text straight into subscription_audit.
+  const leaky = `connect ECONNREFUSED https://androidpublisher.googleapis.com/x/tokens/${TOKEN}`;
+  const h = harness({ lookupThrows: new Error(leaky) });
+  const { res, json } = await call(h, req());
+  assertEquals(res.status, 500);
+  assertEquals(json, { valid: false, error: 'Failed to verify receipt with Google Play' });
+  assertEquals(auditRows(h.db), failureAudit(leaky));
+});
+
+t('end to end through the REAL lookup: a fetch that throws a URL-bearing message audits only the fixed text', async () => {
+  const urlBearing = `error sending request for url (https://androidpublisher.googleapis.com/.../tokens/${TOKEN}): connection refused`;
+  const h = harness({
+    lookup: (ids, accessToken) =>
+      realFetchSubscriptionPurchase(ids, accessToken, {
+        fetchImpl: (() => Promise.reject(new TypeError(urlBearing))) as typeof fetch,
+      }),
+  });
+  const { res, json } = await call(h, req());
+  assertEquals(res.status, 500);
+  assertEquals(json, { valid: false, error: 'Failed to verify receipt with Google Play' });
+  const audited = auditRows(h.db);
+  assertEquals(audited, failureAudit('Google Play Developer API was unreachable'));
+  const serialized = JSON.stringify(audited);
+  assert(!serialized.includes(TOKEN) && !serialized.includes('androidpublisher.googleapis.com'));
+});
+
+// ---------------------------------------------------------------------------
+// parseGoogleReceipt boundaries under the injected clock
+// (acknowledgementState / cancelReason: DEBUG-758 is the open defect - AS-IS, not a contract)
+// ---------------------------------------------------------------------------
+
+Deno.test('parseGoogleReceipt: expiry is strictly greater than now (NOW-1 / NOW / NOW+1)', () => {
+  for (const [expiry, valid] of [[NOW - 1, false], [NOW, false], [NOW + 1, true]] as const) {
+    const v = parseGoogleReceipt(purchase({ expiryTimeMillis: String(expiry) }), SUB_MONTHLY, NOW);
+    assertEquals(v.valid, valid, `expiry ${expiry - NOW}ms from now`);
+    assertEquals(v.expiresDate, iso(expiry));
+  }
+});
+
+Deno.test('parseGoogleReceipt (DEBUG-758, AS-IS): ANY cancelReason, even 0, marks the purchase cancelled', () => {
+  assertEquals(parseGoogleReceipt(purchase({ cancelReason: undefined }), SUB_MONTHLY, NOW).valid, true);
+  for (const cancelReason of [0, 1, 2, 3]) {
+    assertEquals(parseGoogleReceipt(purchase({ cancelReason }), SUB_MONTHLY, NOW).valid, false, `cancelReason ${cancelReason}`);
+  }
+});
+
+Deno.test('parseGoogleReceipt (DEBUG-758, AS-IS): only acknowledgementState === 1 is valid; 0 and absent are not', () => {
+  assertEquals(parseGoogleReceipt(purchase({ acknowledgementState: 1 }), SUB_MONTHLY, NOW).valid, true);
+  for (const acknowledgementState of [0, 2, undefined]) {
+    assertEquals(
+      parseGoogleReceipt(purchase({ acknowledgementState }), SUB_MONTHLY, NOW).valid,
+      false,
+      `acknowledgementState ${acknowledgementState}`,
+    );
+  }
+});
+
+Deno.test('parseGoogleReceipt: the result shape (orderId, productId from the REQUEST, expiry, autoRenewing)', () => {
+  assertEquals(parseGoogleReceipt(purchase({ autoRenewing: false }), SUB_YEARLY, NOW), {
+    valid: true,
+    subscriptionId: ORDER_ID,
+    productId: SUB_YEARLY,
+    expiresDate: iso(EXPIRY),
+    autoRenewEnabled: false,
+  });
+});
+
+for (
+  const [label, over] of [
+    ['expired a millisecond ago', { expiryTimeMillis: String(NOW - 1) }],
+    ['expiring exactly now', { expiryTimeMillis: String(NOW) }],
+    ['cancelled (cancelReason 0, DEBUG-758 AS-IS)', { cancelReason: 0 }],
+    ['unacknowledged (acknowledgementState 0, DEBUG-758 AS-IS)', { acknowledgementState: 0 }],
+    ['acknowledgementState absent (DEBUG-758 AS-IS)', { acknowledgementState: undefined }],
+  ] as const
+) {
+  t(`400 invalid receipt, audited as "Receipt validation failed", nothing written: ${label}`, async () => {
+    const h = harness({ purchase: purchase(over) });
+    const { res, json } = await call(h, req());
+    assertEquals(res.status, 400);
+    assertEquals(json.valid, false);
+    assertEquals(json.subscriptionId, ORDER_ID);
+    assertEquals(auditRows(h.db), failureAudit('Receipt validation failed'));
+    assertNoWrites(h);
+  });
+}
+
+t('a lookup result with no expiryTimeMillis is a RangeError: 500 "Internal server error", no audit, no row (pinned)', async () => {
+  // The REAL lookup rejects this shape before it gets here (googlePlayDeveloperApi: the
+  // expiryTimeMillis must be a digit string), so this is reachable only through an injected
+  // dep. It pins what the handler itself does with a malformed purchase.
+  const h = harness({ purchase: purchase({ expiryTimeMillis: undefined as unknown as string }) });
+  const { res, json } = await call(h, req());
+  assertEquals(res.status, 500);
+  assertEquals(json, { valid: false, error: 'Internal server error' });
+  assertEquals(h.db.rpcCalls.length, 0);
+  assertNoWrites(h);
+});
+
+// ---------------------------------------------------------------------------
+// Success: the exact write
+// ---------------------------------------------------------------------------
+
+t('200: the exact subscriptions upsert and the receipt_verification_succeeded audit', async () => {
+  const h = harness({ purchase: purchase() });
+  const { res, json } = await call(h, req(body({ subscriptionId: SUB_YEARLY })));
+  assertEquals(res.status, 200);
+  assertEquals(res.headers.get('content-type'), 'application/json');
+  assertEquals(json, {
+    valid: true,
+    subscriptionId: ORDER_ID,
+    productId: SUB_YEARLY,
+    expiresDate: iso(EXPIRY),
+    autoRenewEnabled: true,
+  });
+
+  // The Google calls: the parsed credential in, then the identifiers and the minted token,
+  // with no fetch seam anywhere.
+  assertEquals(h.tokenCalls, [[CREDENTIAL]]);
+  assertEquals(h.lookupCalls, [[{ subscriptionId: SUB_YEARLY, purchaseToken: TOKEN }, ACCESS_TOKEN]]);
+
+  assertEquals(h.db.upserts.length, 1);
+  const { table, row, options } = h.db.upserts[0];
+  assertEquals(table, 'subscriptions');
+  assertEquals(options, { onConflict: 'user_id' });
+  const ciphertext = row.receipt_data_encrypted as string;
+  // No `environment` column for Google rows; the purchase token is original_transaction_id.
+  assertEquals(row, {
+    user_id: JWT_SUB,
+    platform: 'google',
+    platform_subscription_id: ORDER_ID,
+    original_transaction_id: TOKEN,
+    receipt_hash: await receiptHash(TOKEN),
+    status: 'active',
+    tier: 'standard',
+    interval: 'yearly',
+    subscription_start_date: iso(NOW),
+    subscription_end_date: iso(EXPIRY),
+    last_receipt_verified: iso(NOW),
+    receipt_data_encrypted: ciphertext,
+    updated_at: iso(NOW),
+  });
+  assertNotEquals(ciphertext, TOKEN);
+  assert(!ciphertext.includes(TOKEN));
+  assertEquals(await decryptReceipt(ciphertext, ENC_KEY_B64), TOKEN);
+
+  assertEquals(auditRows(h.db), [{
+    p_user_id: JWT_SUB,
+    p_subscription_id: ORDER_ID,
+    p_event_type: 'receipt_verification_succeeded',
+    p_metadata: { platform: 'google', verified_at: iso(NOW) },
+  }]);
+});
+
+t('a monthly product is written with interval "monthly"', async () => {
+  const h = harness();
+  assertEquals((await call(h, req())).res.status, 200);
+  assertEquals(h.db.upserts[0].row.interval, 'monthly');
+});
+
+t('a missing RECEIPT_ENCRYPTION_KEY fails loud: 500, no row, no audit', async () => {
+  const h = harness();
+  const { res, json } = await call(h, req());
+  assertEquals(res.status, 500);
+  assertEquals(json, { valid: false, error: 'Internal server error' });
+  assertNoWrites(h);
+  assertEquals(h.db.rpcCalls.length, 0);
+}, { RECEIPT_ENCRYPTION_KEY: undefined });
+
+// ---------------------------------------------------------------------------
+// Replay binding and upsert failures
+// ---------------------------------------------------------------------------
+
+t('REPLAY: a purchase token already bound to another user is a 409, audited, and writes nothing', async () => {
+  const bound = { user_id: OTHER_USER, platform: 'google', original_transaction_id: TOKEN, status: 'active' };
+  const h = harness({ seed: { subscriptions: [bound] } });
+  const { res, json } = await call(h, req());
+  assertEquals(res.status, 409);
+  assertEquals(json, { valid: false, error: 'Receipt already bound to another account' });
+  assertEquals(auditRows(h.db), reasonAudit('txn_bound_to_other_user'));
+  assertEquals(h.db.upserts, []);
+  assertEquals(h.db.tables.subscriptions, [bound], 'the victim row was modified');
+});
+
+t('REPLAY: the same user re-verifying (restore purchases) is an idempotent 200', async () => {
+  const mine = { user_id: JWT_SUB, platform: 'google', original_transaction_id: TOKEN, status: 'active' };
+  const h = harness({ seed: { subscriptions: [mine] } });
+  assertEquals((await call(h, req())).res.status, 200);
+  assertEquals(h.db.upserts.length, 1);
+  assertEquals(h.db.tables.subscriptions.length, 1);
+  assertEquals(auditRows(h.db).map((a) => a.p_event_type), ['receipt_verification_succeeded']);
+});
+
+t('REPLAY: the binding is per platform - an apple row with the same id does not block google', async () => {
+  const apple = { user_id: OTHER_USER, platform: 'apple', original_transaction_id: TOKEN };
+  const h = harness({ seed: { subscriptions: [apple] } });
+  assertEquals((await call(h, req())).res.status, 200);
+});
+
+t('a failing ownership lookup is a 500 with no write and no audit row', async () => {
+  const h = harness();
+  h.db.failOn('subscriptions', 'select', { message: 'SENTINEL_DB_DETAIL connection reset' });
+  const { res, text, json } = await call(h, req());
+  assertEquals(res.status, 500);
+  assertEquals(json, { valid: false, error: 'Internal server error' });
+  assert(!text.includes('SENTINEL_DB_DETAIL'));
+  assertNoWrites(h);
+  assertEquals(h.db.rpcCalls.length, 0);
+});
+
+for (
+  const [label, error] of [
+    ['code 23505', { code: '23505', message: 'duplicate key value violates unique constraint' }],
+    ['message only, no code', { message: 'duplicate key value violates unique constraint "uniq_txn_per_platform"' }],
+  ] as const
+) {
+  t(`UPSERT unique violation (${label}) is the TOCTOU backstop: 409 as a replay`, async () => {
+    const h = harness();
+    h.db.failOn('subscriptions', 'upsert', error);
+    const { res, json } = await call(h, req());
+    assertEquals(res.status, 409);
+    assertEquals(json, { valid: false, error: 'Receipt already bound to another account' });
+    assertEquals(h.db.upserts.length, 1);
+    assertEquals(auditRows(h.db), reasonAudit('txn_bound_to_other_user'));
+  });
+}
+
+t('UPSERT any other error: 500, upstream text withheld, and NO failure audit row (pinned as writing none)', async () => {
+  const h = harness();
+  h.db.failOn('subscriptions', 'upsert', { code: '42501', message: 'SENTINEL_DB_DETAIL permission denied' });
+  const { res, text, json } = await call(h, req());
+  assertEquals(res.status, 500);
+  assertEquals(json, { valid: false, error: 'Internal server error' });
+  assert(!text.includes('SENTINEL_DB_DETAIL'));
+  assertEquals(h.db.upserts.length, 1);
+  assertEquals(h.db.rpcCalls.length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Audit writes are non-fatal (DEBUG-446 ruling)
+// ---------------------------------------------------------------------------
+
+t('an audit RPC error on the success path still answers 200 with the row written', async () => {
+  const h = harness();
+  h.db.failRpc('log_subscription_event', { code: '23514', message: 'event_type check violation' });
+  const { res } = await call(h, req());
+  assertEquals(res.status, 200);
+  assertEquals(h.db.upserts.length, 1);
+  assertEquals(auditRows(h.db).length, 1, 'the audit write was attempted');
+});
+
+t('an audit RPC error on a failure path does not change the failure answer', async () => {
+  const h = harness({ lookupThrows: new GooglePlayApiError(503) });
+  h.db.failRpc('log_subscription_event', { message: 'down' });
+  const { res, json } = await call(h, req());
+  assertEquals(res.status, 500);
+  assertEquals(json, { valid: false, error: 'Failed to verify receipt with Google Play' });
+});

@@ -11,8 +11,11 @@
  * these very constructs in prose), and every matcher is proven here to fire on known-bad
  * source and to stay quiet on the same words in a comment.
  *
- * TARGETS lists delete-account only for now; the receipt functions join when their handlers
- * are extracted.
+ * TARGETS covers delete-account and both receipt verifiers. Beyond the shared shape, the
+ * receipt entry points carry BINDING pins (what productionDeps hands the handler), and every
+ * handler's *Deps interface is checked to name no env or mock key and none of the guards that
+ * must stay inline - a dep is a seam, and a seam on a trust boundary is where a test (or a
+ * later edit) could weaken the check.
  */
 
 import {
@@ -38,6 +41,8 @@ interface Target {
 
 const TARGETS: Target[] = [
   { index: 'delete-account/index.ts', envNames: ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] },
+  { index: 'verify-apple-receipt/index.ts', envNames: ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] },
+  { index: 'verify-google-receipt/index.ts', envNames: ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] },
 ];
 
 // The env-read call is spelled in pieces in the fixtures below: the INFRA-442 deploy-drift
@@ -133,4 +138,129 @@ Deno.test('control: the env-read matcher sees literal names and not computed one
   assertEquals([...`${ENV_GET}("A_B1")`.matchAll(ENV_READ)].map((m) => m[2]), ['A_B1']);
   assertEquals([...`${ENV_GET}(name)`.matchAll(ENV_READ)].length, 0);
   assertEquals([...stripComments(`// ${ENV_GET}('SUPABASE_URL')`).matchAll(ENV_READ)].length, 0);
+});
+
+// ---------------------------------------------------------------------------
+// Receipt entry points: what productionDeps binds (MAINT-753 b2)
+// ---------------------------------------------------------------------------
+
+/** The body of productionDeps(): from its declaration to the end of the function. */
+function productionDepsBody(src: string): string {
+  const at = src.indexOf('function productionDeps');
+  return at < 0 ? '' : src.slice(at);
+}
+
+/** `import { ..., name, ... } from '<module>'` (comments already stripped). */
+function importsFrom(name: string, module: string): RegExp {
+  return new RegExp(
+    String.raw`import\s*\{[^}]*\b${name}\b[^}]*\}\s*from\s*['"]${module.replace(/[./]/g, '\\$&')}['"]`,
+  );
+}
+
+/** A dep bound BY REFERENCE: `name,` or `name }` in the object, never `name(`. */
+function boundByReference(name: string): RegExp {
+  return new RegExp(String.raw`[{,]\s*${name}\s*(?=[,}])`);
+}
+
+/** Apple: verifyTransaction forwards exactly one argument to verifyAppleJWS. */
+const APPLE_ONE_ARG = /\bverifyTransaction\s*:\s*\(\s*(\w+)\s*\)\s*=>\s*verifyAppleJWS\s*\(\s*\1\s*\)/;
+
+Deno.test('verify-apple-receipt/index.ts binds the real Apple calls: one-argument verifyAppleJWS, fetch by reference', () => {
+  const src = read('verify-apple-receipt/index.ts');
+  const body = productionDepsBody(src);
+  assert(body.length > 0, 'productionDeps() not found');
+  assert(importsFrom('fetchSignedTransactionInfo', '../_shared/appStoreServerApi.ts').test(src));
+  assert(importsFrom('verifyAppleJWS', '../_shared/verifyAppleJWS.ts').test(src));
+  assert(boundByReference('fetchSignedTransactionInfo').test(body), 'fetchSignedTransactionInfo is not bound by reference');
+  assert(APPLE_ONE_ARG.test(body), 'verifyTransaction does not forward exactly one argument to verifyAppleJWS');
+  // The verifier's second parameter is a trust-anchor / clock seam; no option name may appear.
+  assertEquals(/\b(trustAnchorSpki|fetchImpl)\b/.test(src), false);
+});
+
+Deno.test('verify-google-receipt/index.ts binds the real Google calls by reference, with no fetch seam', () => {
+  const src = read('verify-google-receipt/index.ts');
+  const body = productionDepsBody(src);
+  assert(body.length > 0, 'productionDeps() not found');
+  for (const name of ['getGoogleAccessToken', 'fetchSubscriptionPurchase']) {
+    assert(importsFrom(name, '../_shared/googlePlayDeveloperApi.ts').test(src), `${name} not imported from the shared module`);
+    assert(boundByReference(name).test(body), `${name} is not bound by reference`);
+  }
+  // DEBUG-752: the only fetch seam lives in the two API-client modules.
+  assertEquals(/\bfetchImpl\b/.test(src), false);
+});
+
+Deno.test('CONTROL: the binding matchers accept the one shape and reject drift', () => {
+  assert(APPLE_ONE_ARG.test('verifyTransaction: (jws) => verifyAppleJWS(jws),'));
+  for (
+    const bad of [
+      'verifyTransaction: (jws) => verifyAppleJWS(jws, { trustAnchorSpki: pem }),',
+      'verifyTransaction: (jws) => verifyAppleJWS(other),',
+      'verifyTransaction: verifyAppleJWS,',
+      'verifyTransaction: (jws) => verifyAppleJWS(jws, undefined),',
+    ]
+  ) {
+    assertEquals(APPLE_ONE_ARG.test(bad), false, bad);
+  }
+  assert(boundByReference('fetchSignedTransactionInfo').test('{ createSupabase: f,\n fetchSignedTransactionInfo,\n now }'));
+  assert(boundByReference('fetchSignedTransactionInfo').test('{ fetchSignedTransactionInfo }'));
+  assertEquals(boundByReference('fetchSignedTransactionInfo').test('{ fetchSignedTransactionInfo: (a) => f(a, o), }'), false);
+  assertEquals(boundByReference('fetchSignedTransactionInfo').test('{ fetchSignedTransactionInfo(), }'), false);
+  assert(importsFrom('getGoogleAccessToken', '../_shared/googlePlayDeveloperApi.ts').test(
+    "import { fetchSubscriptionPurchase, getGoogleAccessToken } from '../_shared/googlePlayDeveloperApi.ts';",
+  ));
+  assertEquals(
+    importsFrom('getGoogleAccessToken', '../_shared/googlePlayDeveloperApi.ts').test(
+      "import { getGoogleAccessToken } from '../_shared/other.ts';",
+    ),
+    false,
+  );
+});
+
+// ---------------------------------------------------------------------------
+// Every handler's *Deps interface is a seam list, not a config bag
+// ---------------------------------------------------------------------------
+
+const HANDLERS = [
+  'delete-account/handler.ts',
+  'verify-apple-receipt/handler.ts',
+  'verify-google-receipt/handler.ts',
+];
+
+const DEPS_INTERFACE = /export\s+interface\s+(\w+Deps)\s*\{[\s\S]*?\n\}/g;
+
+/** Names a *Deps interface must never contain: env/mock keys and the inline-only guards. */
+const NOT_A_DEP: Array<{ name: string; re: RegExp; bad: string }> = [
+  { name: 'an env key', re: /\b(ALLOW_MOCK_RECEIPTS|RECEIPT_ENCRYPTION_KEY|GOOGLE_SERVICE_ACCOUNT|APPLE_[A-Z_]+|SUPABASE_[A-Z_]+)\b/, bad: 'ALLOW_MOCK_RECEIPTS: string;' },
+  { name: 'a mock switch', re: /\b\w*mock\w*\b/i, bad: 'allowMock: boolean;' },
+  { name: 'an env accessor', re: /\b(env|getEnv|readEnv)\b/, bad: 'env: (name: string) => string;' },
+  { name: 'an injectable identity', re: /\b(getAuthUid\w*|authUid|userId)\b/, bad: 'getAuthUidFromRequest: (r: Request) => string;' },
+  { name: 'an injectable guard', re: /\b(assertAppleAppScope|assertNoCrossIdentityReplay|isUsableTransactionIdentifier|assertBeingPackageName|assertValidSubscriptionId|assertValidPurchaseToken|parseServiceAccountCredential)\b/, bad: 'assertAppleAppScope: (c: unknown) => void;' },
+  { name: 'a fetch seam', re: /\bfetchImpl\b/, bad: 'fetchImpl: typeof fetch;' },
+];
+
+function depsInterfaces(src: string): Array<{ name: string; text: string }> {
+  return [...src.matchAll(DEPS_INTERFACE)].map((m) => ({ name: m[1], text: m[0] }));
+}
+
+for (const handler of HANDLERS) {
+  Deno.test(`${handler}: the *Deps interface names no env key, mock switch, identity or inline-only guard`, () => {
+    const found = depsInterfaces(read(handler));
+    assertEquals(found.length, 1, `expected exactly one exported *Deps interface in ${handler}`);
+    const { name, text } = found[0];
+    assert(text.includes('createSupabase'), `${name} lost createSupabase - extraction matched the wrong block`);
+    for (const f of NOT_A_DEP) {
+      assertEquals(f.re.test(text), false, `${name} contains ${f.name}`);
+    }
+  });
+}
+
+Deno.test('CONTROL: the Deps-interface extractor and its matchers fire on known-bad source, not on prose', () => {
+  for (const f of NOT_A_DEP) {
+    const src = stripComments(`export interface BadDeps {\n  createSupabase: () => unknown;\n  ${f.bad}\n}`);
+    const [bad] = depsInterfaces(src);
+    assert(bad, 'extractor found no interface in known-bad source');
+    assertEquals(f.re.test(bad.text), true, `${f.name} did not fire on known-bad source`);
+    const prose = stripComments(`export interface OkDeps {\n  createSupabase: () => unknown;\n  // ${f.bad}\n}`);
+    assertEquals(f.re.test(depsInterfaces(prose)[0].text), false, `${f.name} fired on a comment`);
+  }
 });
