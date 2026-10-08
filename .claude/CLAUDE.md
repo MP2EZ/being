@@ -429,6 +429,10 @@ Branch naming: `feat/*`, `fix/*`, `chore/*` (mapped from work item TYPE). Conven
   (DEBUG-389).** `check-workflow-scripts.js` resolves every `npm run` target against the git
   INDEX, not the working tree, so an unstaged new script fails `test:scripts` as an
   unrelated-looking red. Stage the file with the package.json edit.
+- **Every `supabase` command handed to the founder pins `--project-ref yliycxslzdsgjtpxggtf`.**
+  Worktrees are not `supabase link`ed, so the CLI prompts for a project and pre-selects
+  `campable-prod` (another account project) — Enter deploys Being's code there. The runbook's
+  deploy line (`crisis-analytics-runbook.md` §325) omits the flag too.
 
 ## Git Hooks (INFRA-155)
 
