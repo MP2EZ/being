@@ -22,6 +22,7 @@
   "src/core/components/accessibility/__tests__/RadioGroup.accessibility.test.tsx": 1,
   "src/core/components/accessibility/__tests__/accessibility.test.tsx": 1,
   "src/core/components/settings/CloudBackupSettings.tsx": 1,
+  "src/core/components/settings/__tests__/CloudBackupSettings.consent.privacy.test.tsx": 1,
   "src/core/components/settings/__tests__/CloudBackupSettings.test.tsx": 1,
   "src/core/components/subscription/PurchaseOptionsScreen.tsx": 6,
   "src/core/components/subscription/SubscriptionStatusCard.tsx": 4,
