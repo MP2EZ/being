@@ -57,6 +57,28 @@ Deno.test('no production file outside the defining module touches a verifier sea
   }
 });
 
+// DEBUG-752: the API clients' fetch/clock seams (`fetchImpl`, injected for tests that cannot
+// reach the network) are defined in two modules. A production call site passing one could
+// point a bearer token at an arbitrary fetch, so only the defining modules may name it.
+const FETCH_SEAM = /\bfetchImpl\b/;
+const FETCH_SEAM_DEFINED_IN = ['_shared/appStoreServerApi.ts', '_shared/googlePlayDeveloperApi.ts'];
+
+Deno.test('no production call site passes an API client fetch seam', () => {
+  const files = productionFiles();
+  assert(files.includes('verify-google-receipt/index.ts'), 'walk did not reach verify-google-receipt');
+  for (const f of FETCH_SEAM_DEFINED_IN) assert(files.includes(f), `walk did not reach ${f}`);
+  const offenders = files.filter((f) =>
+    !FETCH_SEAM_DEFINED_IN.includes(f) &&
+    FETCH_SEAM.test(stripComments(Deno.readTextFileSync(new URL(f, ROOT))))
+  );
+  assertEquals(offenders, []);
+});
+
+Deno.test('CONTROL: the fetch-seam matcher fires on code and not on prose', () => {
+  assert(FETCH_SEAM.test('getGoogleAccessToken(cred, { fetchImpl: f })'));
+  assertEquals(FETCH_SEAM.test(stripComments('// tests inject fetchImpl\nconst x = 1;')), false);
+});
+
 Deno.test('no production module imports from _tests/', () => {
   const offenders = productionFiles().filter((f) =>
     /from\s*['"][^'"]*_tests\//.test(stripComments(Deno.readTextFileSync(new URL(f, ROOT))))
