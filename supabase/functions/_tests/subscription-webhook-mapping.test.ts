@@ -1,10 +1,11 @@
 /**
- * subscription-webhook notification mapping — table test (DEBUG-739 AC2, AC5).
+ * subscription-webhook notification mapping — table test (DEBUG-739 AC2, AC5; DEBUG-751).
  *
  * Every handled Apple and Google notification type maps to an expected status and event
- * type, and every UNHANDLED type maps to no transition at all. The handled rows pin the
- * pre-existing mappings as they are; DEBUG-751 owns correcting the ones that do not match
- * store semantics, and will change this table when it does.
+ * type, and every UNHANDLED type maps to no transition at all. DEBUG-751 corrected the rows
+ * that did not match store semantics (Google CANCELED keeps access, ON_HOLD and PAUSED
+ * remove it, Apple DID_FAIL_TO_RENEW is grace only for the GRACE_PERIOD subtype); 'expired'
+ * is the no-access status, so no status value was added.
  *
  * The unhandled rows are the point of the second half. Both switches used to default to
  * status 'active', so any type outside them re-activated the row it matched — an expired,
@@ -17,13 +18,17 @@ import {
   GOOGLE_NOTIFICATION_TYPES,
   mapAppleNotification,
   mapGoogleNotification,
+  isStaleEvent,
+  mapGoogleVoidedPurchase,
   type StatusTransition,
 } from '../subscription-webhook/notificationMapping.ts';
 
 const APPLE_HANDLED: Array<[string, string | undefined, StatusTransition]> = [
   ['SUBSCRIBED', undefined, { status: 'active', eventType: 'subscription_started' }],
   ['DID_RENEW', undefined, { status: 'active', eventType: 'subscription_renewed' }],
-  ['DID_FAIL_TO_RENEW', undefined, { status: 'grace', eventType: 'payment_failed' }],
+  // DEBUG-751: grace only when Apple says the billing-retry grace period is on.
+  ['DID_FAIL_TO_RENEW', undefined, { status: 'expired', eventType: 'payment_failed' }],
+  ['DID_FAIL_TO_RENEW', 'BILLING_RETRY', { status: 'expired', eventType: 'payment_failed' }],
   ['DID_FAIL_TO_RENEW', 'GRACE_PERIOD', { status: 'grace', eventType: 'payment_failed' }],
   ['EXPIRED', undefined, { status: 'expired', eventType: 'subscription_expired' }],
   ['GRACE_PERIOD_EXPIRED', undefined, { status: 'expired', eventType: 'subscription_expired' }],
@@ -76,11 +81,12 @@ for (const type of APPLE_UNHANDLED) {
 const GOOGLE_HANDLED: Array<[number, StatusTransition]> = [
   [1, { status: 'active', eventType: 'subscription_renewed' }], // RECOVERED
   [2, { status: 'active', eventType: 'subscription_renewed' }], // RENEWED
-  [3, { status: 'expired', eventType: 'subscription_expired' }], // CANCELED — see DEBUG-751
+  [3, { status: null, eventType: 'subscription_cancelled' }], // CANCELED: access continues to period end
   [4, { status: 'active', eventType: 'subscription_started' }], // PURCHASED
-  [5, { status: 'grace', eventType: 'payment_failed' }], // ON_HOLD — see DEBUG-751
+  [5, { status: 'expired', eventType: 'payment_failed' }], // ON_HOLD: access suspended
   [6, { status: 'grace', eventType: 'grace_period_started' }], // IN_GRACE_PERIOD
-  [10, { status: 'grace', eventType: 'payment_failed' }], // PAUSED — see DEBUG-751
+  [7, { status: null, eventType: 'subscription_restored' }], // RESTARTED: auto-renew back on
+  [10, { status: 'expired', eventType: 'subscription_expired' }], // PAUSED: access suspended
   [12, { status: 'expired', eventType: 'subscription_expired' }], // REVOKED
   [13, { status: 'expired', eventType: 'subscription_expired' }], // EXPIRED
 ];
@@ -91,8 +97,8 @@ for (const [type, expected] of GOOGLE_HANDLED) {
   });
 }
 
-// RESTARTED, PRICE_CHANGE_CONFIRMED, DEFERRED, PAUSE_SCHEDULE_CHANGED, and codes Google adds.
-for (const type of [7, 8, 9, 11, 14, 20, 0, -1, undefined]) {
+// PRICE_CHANGE_CONFIRMED, DEFERRED, PAUSE_SCHEDULE_CHANGED, and codes Google adds.
+for (const type of [8, 9, 11, 14, 20, 0, -1, undefined]) {
   Deno.test(`google mapping: unhandled ${type} writes nothing`, () => {
     assertEquals(mapGoogleNotification(type), null);
   });
@@ -105,9 +111,57 @@ Deno.test('mapping tables are exhaustive over the exported type constants', () =
   }
   const googleCovered = new Set<number | undefined>([
     ...GOOGLE_HANDLED.map(([t]) => t),
-    7, 8, 9, 11,
+    8, 9, 11,
   ]);
   for (const t of Object.values(GOOGLE_NOTIFICATION_TYPES)) {
     assertEquals(googleCovered.has(t), true, `google ${t} has no row in the table`);
   }
 });
+
+Deno.test('google mapping: CANCELED never writes status (access continues to the paid-through date)', () => {
+  assertEquals(mapGoogleNotification(3)?.status, null);
+});
+
+// ---------------------------------------------------------------------------
+// DEBUG-751: voided purchases
+// ---------------------------------------------------------------------------
+
+Deno.test('google voided purchase: a subscription (productType 1) revokes access', () => {
+  assertEquals(mapGoogleVoidedPurchase(1), { status: 'expired', eventType: 'subscription_cancelled' });
+});
+
+for (const productType of [2, 0, -1, '1', null, undefined, 1.5, NaN]) {
+  Deno.test(`google voided purchase: productType ${String(productType)} is not a subscription`, () => {
+    assertEquals(mapGoogleVoidedPurchase(productType), null);
+  });
+}
+
+// ---------------------------------------------------------------------------
+// DEBUG-751: isStaleEvent - the monotonic guard
+// ---------------------------------------------------------------------------
+
+const NOW = Date.parse('2026-10-08T12:00:00.000Z');
+const iso = (ms: number) => new Date(ms).toISOString();
+const MIN = 60_000;
+
+const STALE_ROWS: Array<[string, number, string | null | undefined, boolean]> = [
+  ['no stored watermark', NOW - MIN, null, false],
+  ['an undefined watermark', NOW - MIN, undefined, false],
+  ['an unparseable watermark', NOW - MIN, 'not a date', false],
+  ['an empty watermark', NOW - MIN, '', false],
+  ['strictly older than the watermark', NOW - 2 * MIN, iso(NOW - MIN), true],
+  ['equal to the watermark (a redelivery of the newest applied)', NOW - MIN, iso(NOW - MIN), false],
+  ['newer than the watermark', NOW - MIN, iso(NOW - 2 * MIN), false],
+  ['one millisecond older', NOW - MIN - 1, iso(NOW - MIN), true],
+  // Defence in depth: a watermark far in the future would otherwise freeze the row forever.
+  ['a watermark more than 5 minutes in the future is treated as absent', NOW - MIN, iso(NOW + 6 * MIN), false],
+  ['a watermark an hour in the future is treated as absent', NOW - MIN, iso(NOW + 60 * MIN), false],
+  ['a watermark exactly 5 minutes ahead still counts', NOW - MIN, iso(NOW + 5 * MIN), true],
+  ['a watermark 4 minutes ahead still counts', NOW - MIN, iso(NOW + 4 * MIN), true],
+];
+
+for (const [label, eventMs, stored, expected] of STALE_ROWS) {
+  Deno.test(`isStaleEvent: ${label}`, () => {
+    assertEquals(isStaleEvent(eventMs, stored, NOW), expected);
+  });
+}
