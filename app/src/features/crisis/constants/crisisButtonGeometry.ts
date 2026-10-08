@@ -23,8 +23,9 @@
  * THE RAW GEOMETRY (mirrors CollapsibleCrisisButton.tsx:456, 471-477)
  * ==================================================================
  * The button is `position: 'absolute'`, `right: 0`, `zIndex: 9999`, sized
- * `TOUCH_TARGETS.minimum` square in `standard`/`immersive` mode, with a uniform
- * 12pt `hitSlop`, offset from the bottom by 100 (iOS) / 104 (Android).
+ * `TOUCH_TARGETS.minimum` square in `standard`/`immersive` mode and
+ * `CRISIS_BUTTON_SIZE_PROMINENT` in `prominent` mode, with a uniform 12pt
+ * `hitSlop`, offset from the bottom by 100 (iOS) / 104 (Android).
  *
  * `zIndex: 9999` is why any overlap matters: the button WINS an overlapping tap.
  * An overlay control underneath it does not merely become hard to press — the
@@ -109,6 +110,12 @@ export const CRISIS_BUTTON_BOTTOM_OFFSET_MAX = Math.max(
 /** The button's visible square in `standard` / `immersive` mode. */
 export const CRISIS_BUTTON_SIZE = TOUCH_TARGETS.minimum;
 
+/**
+ * The button's visible square in `prominent` mode (assessments). Imported by
+ * `CollapsibleCrisisButton`, so the rect below cannot drift from the button.
+ */
+export const CRISIS_BUTTON_SIZE_PROMINENT = 56;
+
 /** Uniform `hitSlop` on the button's Pressable. */
 export const CRISIS_BUTTON_HIT_SLOP = 12;
 
@@ -162,6 +169,30 @@ export const CRISIS_BUTTON_EXCLUSION_RECT = {
       CRISIS_BUTTON_HIT_SLOP -
       CRISIS_BUTTON_CLEARANCE,
   ),
+} as const;
+
+/**
+ * The contested region for the `prominent` button (DEBUG-722). Same derivation as
+ * `CRISIS_BUTTON_EXCLUSION_RECT` with the 56pt square in place of 44:
+ *
+ *   left   : 56 + 12 + 16               =  84
+ *   top    : 104 + 56 + 12 + 16         = 188
+ *   bottom : 100 − 12 − 16              =  72     (independent of size)
+ *
+ * The 44pt rect under-protects a prominent host by 12pt on both approach edges.
+ * Imported by `EnhancedAssessmentQuestion`, whose scrolling answer column clears
+ * the button's COLUMN (`left`): in a scroll host every row passes the button's
+ * height band, so only the horizontal extent is invariant.
+ */
+export const CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT = {
+  left:
+    CRISIS_BUTTON_SIZE_PROMINENT + CRISIS_BUTTON_HIT_SLOP + CRISIS_BUTTON_CLEARANCE,
+  top:
+    CRISIS_BUTTON_BOTTOM_OFFSET_MAX +
+    CRISIS_BUTTON_SIZE_PROMINENT +
+    CRISIS_BUTTON_HIT_SLOP +
+    CRISIS_BUTTON_CLEARANCE,
+  bottom: CRISIS_BUTTON_EXCLUSION_RECT.bottom,
 } as const;
 
 /**

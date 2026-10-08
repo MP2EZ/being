@@ -1,0 +1,247 @@
+appId: fyi.being.app
+tags:
+  - safety-dynamic-type
+name: "Assessment AX5 reachability (DEBUG-722): every PHQ-9 answer and the crisis button are reachable at AX5"
+# e2e-certifies: 375x667
+---
+# DEBUG-722. Run with `npm run e2e:safety:assessment-ax5`, NEVER a bare `maestro test`:
+# scripts/e2e-dynamic-type.sh sets AX5 and restores it in a trap (content size is
+# device-global and persistent; a bare run poisons the shared simulator).
+#
+# Tagged `safety-dynamic-type`, not `safety`, so the default suite keeps measuring the
+# shipped default size.
+#
+# WHAT IT PINS. Before DEBUG-722 the question screen had no scroll container: at AX5 on
+# 375x667 the fixed instruction text alone ran from y=138 to y=1281, no answer option was
+# in the hierarchy, and no PHQ-9 question could be answered. At XXXL, Q9's "Nearly every
+# day" sat below the clip. This flow answers EVERY question with option-3, the bottom row
+# and the hardest to reach, then asserts the crisis outcome. A regression to an unscrolled
+# screen fails at the first `scrollUntilVisible`.
+#
+# THE ABSORBING TAP. A scroll that stops mid-content swallows exactly one following touch
+# (docs/testing/e2e-maestro.md, signature 1; gad7-severe.yaml). The tap at 92%,15% lands in
+# the right-hand column the answer rows leave clear for the crisis button: the instruction
+# or question Text is there, which has no press handler, so it absorbs the swallowed touch
+# and answers nothing. `centerElement` handles the clip (signature 2, DEBUG-465).
+#
+# ENTRY. Home's assessment-status badge, not Profile's button and not the deep link: the
+# Profile list is far longer at AX5, and `being://assessment/PHQ9` currently opens GAD-7
+# (linking.ts parses 'PHQ9', AssessmentType is 'phq9').
+
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
+- runFlow: _seeded-home.yaml
+- scrollUntilVisible:
+    element:
+      text: "Assessment status: Recommended.*"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    id: "tab-home" # absorbing tap; Home is the active tab, so it navigates nowhere
+- tapOn: "Assessment status: Recommended.*"
+- extendedWaitUntil:
+    visible:
+      id: "assessment-close-button" # the intro, not a swallowed tap left on Home
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-begin-button"
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: "assessment-begin-button"
+
+# Q1
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 1 of 9.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-response-group-option-3"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    point: "92%,15%"
+- tapOn:
+    id: "assessment-response-group-option-3"
+
+# Q2
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 2 of 9.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-response-group-option-3"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    point: "92%,15%"
+- tapOn:
+    id: "assessment-response-group-option-3"
+
+# Q3
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 3 of 9.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-response-group-option-3"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    point: "92%,15%"
+- tapOn:
+    id: "assessment-response-group-option-3"
+
+# Q4
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 4 of 9.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-response-group-option-3"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    point: "92%,15%"
+- tapOn:
+    id: "assessment-response-group-option-3"
+
+# Q5
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 5 of 9.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-response-group-option-3"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    point: "92%,15%"
+- tapOn:
+    id: "assessment-response-group-option-3"
+
+# Q6
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 6 of 9.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-response-group-option-3"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    point: "92%,15%"
+- tapOn:
+    id: "assessment-response-group-option-3"
+
+# Q7
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 7 of 9.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-response-group-option-3"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    point: "92%,15%"
+- tapOn:
+    id: "assessment-response-group-option-3"
+
+# Q8
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 8 of 9.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-response-group-option-3"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    point: "92%,15%"
+- tapOn:
+    id: "assessment-response-group-option-3"
+
+# Q9
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 9 of 9.*"
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-response-group-option-3"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    point: "92%,15%"
+- tapOn:
+    id: "assessment-response-group-option-3"
+
+# Every answer is 3, so Q9 > 0 AND total 27 >= 20. The banner must be on screen with no
+# scroll in front of it: a crisis affordance reachable only by scrolling is the weaker
+# contract (DEBUG-477). If this fails at AX5, file it; do not add a scroll.
+- extendedWaitUntil:
+    visible:
+      id: "results-crisis-banner"
+    timeout: 10000
+
+# AC3: the prominent crisis button stays reachable over a scrolled question. It sits
+# outside the ScrollView, so a mid-content scroll cannot swallow its tap. No absorbing tap
+# and no waitForAnimationToEnd here, deliberately.
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- runFlow: _seeded-home.yaml
+- scrollUntilVisible:
+    element:
+      text: "Assessment status: Recommended.*"
+    direction: DOWN
+    timeout: 60000
+    centerElement: true
+- tapOn:
+    id: "tab-home" # absorbing tap; Home is the active tab, so it navigates nowhere
+- tapOn: "Assessment status: Recommended.*"
+- extendedWaitUntil:
+    visible:
+      id: "assessment-close-button" # the intro, not a swallowed tap left on Home
+    timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "assessment-begin-button"
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: "assessment-begin-button"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 1 of 9.*"
+    timeout: 15000
+- swipe:
+    direction: UP
+    duration: 600
+- tapOn:
+    id: "assessment-crisis-button"
+- extendedWaitUntil:
+    visible:
+      id: "crisis-resources-screen"
+    timeout: 10000
