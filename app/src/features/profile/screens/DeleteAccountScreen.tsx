@@ -85,9 +85,14 @@ const SUBSCRIPTION_NOTICE = {
     'billing. To cancel, open Play Store, then Payments & subscriptions, then Subscriptions.',
 } as const;
 
+// DEBUG-762: erasure now deletes the consent, legal-acceptance and age records, so this
+// names what is actually kept and gives a truthful category for the rest (DEBUG-763
+// enumerates them). Plain text, no glyphs; names no crisis record. Pinned literally in
+// DeleteAccountScreen.accessibility.test.tsx so a rewording comes back through compliance.
 const PRESERVED_NOTE =
-  'For legal compliance, a minimal record of your consent and age verification is ' +
-  'kept on this device. It contains no wellness data.';
+  'Kept on this device: a short record that this deletion happened, with its date and ' +
+  'your privacy choices at that moment, a note that the app was opened before, and some ' +
+  'app settings caches that hold no information about you. None of these identifies you.';
 
 /**
  * DEBUG-755 — where a successful erasure lands, on BOTH the immediate and the

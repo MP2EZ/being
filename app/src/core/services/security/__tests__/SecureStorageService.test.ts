@@ -125,7 +125,12 @@ jest.mock('react-native', () => ({
 // (`SecureStorageService.getInstance()`), not the class itself — call
 // methods directly on it.
 // eslint-disable-next-line @typescript-eslint/no-var-requires
-const { default: service, SECURE_STORAGE_CONFIG } = require('../SecureStorageService');
+const {
+  default: service,
+  SECURE_STORAGE_CONFIG,
+  ACCOUNT_ERASURE_SECURE_STORE_KEYS,
+  ERASURE_EXCLUDED_SECURE_STORE_KEYS,
+} = require('../SecureStorageService');
 
 beforeEach(() => {
   mockSecureStoreMap.clear();
@@ -577,25 +582,87 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
     expect(mockSecureStoreMap.has('stoic_session_evening')).toBe(false);
   });
 
-  // Consent audit-trail keys (lawful-basis evidence) and the device-identity
-  // anchor must SURVIVE erasure — deleting them is itself a compliance defect.
-  it('clearAllWellnessData preserves consent + identity keys (audit trail / identity anchor)', async () => {
+  // DEBUG-762 — reversed. The consent record, legal-gate acceptances, age check and
+  // device anchors belong to the account, so a FULL account-deletion wipe deletes them.
+  // Only the two keys that evidence the deletion itself survive.
+  const ACCOUNT_ERASURE_KEYS = [
+    'consent_record_v1',
+    'legal_gate_consents_v1',
+    'age_verification_v1',
+    'auth_device_id',
+    '@being/device_id',
+  ];
+
+  it('ACCOUNT_ERASURE_SECURE_STORE_KEYS is exactly the five account-scoped keys', () => {
+    expect([...ACCOUNT_ERASURE_SECURE_STORE_KEYS]).toEqual(ACCOUNT_ERASURE_KEYS);
+  });
+
+  it('the erasure-excluded list is only the attestation and the consent-history fallback', () => {
+    expect([...ERASURE_EXCLUDED_SECURE_STORE_KEYS].sort()).toEqual(
+      ['account_deletion_attestation_v1', 'consent_history_v1'].sort()
+    );
+    for (const key of ACCOUNT_ERASURE_KEYS) {
+      expect(ERASURE_EXCLUDED_SECURE_STORE_KEYS as readonly string[]).not.toContain(key);
+    }
+  });
+
+  it('clearAllWellnessData({deleteMasterKey:true}) deletes the five account keys; the attestation and history fallback survive', async () => {
     await service.initialize();
-    mockSecureStoreMap.set('consent_record_v1', 'consent');
+    for (const key of ACCOUNT_ERASURE_KEYS) mockSecureStoreMap.set(key, 'x');
     mockSecureStoreMap.set('consent_history_v1', 'history');
-    mockSecureStoreMap.set('legal_gate_consents_v1', 'legal');
-    mockSecureStoreMap.set('age_verification_v1', 'age');
-    mockSecureStoreMap.set('auth_device_id', 'device-anchor');
-    mockSecureStoreMap.set('stoic_practice_state', 'cipher'); // wellness key — SHOULD be swept
+    mockSecureStoreMap.set('account_deletion_attestation_v1', 'attestation');
+    mockSecureStoreMap.set('stoic_practice_state', 'cipher'); // wellness key — sanity
+
+    await service.clearAllWellnessData({ deleteMasterKey: true });
+
+    for (const key of ACCOUNT_ERASURE_KEYS) expect([key, mockSecureStoreMap.has(key)]).toEqual([key, false]);
+    expect(mockSecureStoreMap.has('consent_history_v1')).toBe(true);
+    expect(mockSecureStoreMap.get('account_deletion_attestation_v1')).toBe('attestation');
+    expect(mockSecureStoreMap.has('stoic_practice_state')).toBe(false); // sanity
+  });
+
+  it('a PARTIAL clear (no master-key deletion) leaves the account keys alone', async () => {
+    await service.initialize();
+    for (const key of ACCOUNT_ERASURE_KEYS) mockSecureStoreMap.set(key, 'x');
+    mockSecureStoreMap.set('stoic_practice_state', 'cipher');
 
     await service.clearAllWellnessData();
 
-    expect(mockSecureStoreMap.has('consent_record_v1')).toBe(true);
-    expect(mockSecureStoreMap.has('consent_history_v1')).toBe(true);
-    expect(mockSecureStoreMap.has('legal_gate_consents_v1')).toBe(true);
-    expect(mockSecureStoreMap.has('age_verification_v1')).toBe(true);
-    expect(mockSecureStoreMap.has('auth_device_id')).toBe(true);
+    for (const key of ACCOUNT_ERASURE_KEYS) expect([key, mockSecureStoreMap.has(key)]).toEqual([key, true]);
     expect(mockSecureStoreMap.has('stoic_practice_state')).toBe(false); // sanity
+  });
+
+  it('deletes the account keys BEFORE the master key', async () => {
+    await service.initialize();
+    const enc = jest.requireMock('../EncryptionService').default;
+    for (const key of ACCOUNT_ERASURE_KEYS) mockSecureStoreMap.set(key, 'x');
+    let presentAtMasterKeyDelete: string[] = [];
+    enc.deleteMasterKey.mockImplementationOnce(async () => {
+      presentAtMasterKeyDelete = ACCOUNT_ERASURE_KEYS.filter((k) => mockSecureStoreMap.has(k));
+    });
+
+    await service.clearAllWellnessData({ deleteMasterKey: true });
+
+    expect(presentAtMasterKeyDelete).toEqual([]);
+  });
+
+  it('a failed account-key delete THROWS (erasure reports failure) and the master key is not deleted', async () => {
+    await service.initialize();
+    const enc = jest.requireMock('../EncryptionService').default;
+    enc.deleteMasterKey.mockClear();
+    for (const key of ACCOUNT_ERASURE_KEYS) mockSecureStoreMap.set(key, 'x');
+    const SecureStore = jest.requireMock('expo-secure-store');
+    const original = SecureStore.deleteItemAsync.getMockImplementation();
+    SecureStore.deleteItemAsync.mockImplementation(async (key: string) => {
+      if (key === 'consent_record_v1') throw new Error('keychain locked');
+      mockSecureStoreMap.delete(key);
+    });
+    try {
+      await expect(service.clearAllWellnessData({ deleteMasterKey: true })).rejects.toThrow(/keychain locked/);
+    } finally {
+      SecureStore.deleteItemAsync.mockImplementation(original);
+    }
+    expect(enc.deleteMasterKey).not.toHaveBeenCalled();
   });
 
   // The master key destroys access to ALL wellness ciphertext, so it is only
