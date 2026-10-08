@@ -28,6 +28,7 @@
   "src/core/components/subscription/SubscriptionStatusCard.tsx": 4,
   "src/core/components/subscription/__tests__/PurchaseOptionsScreen.restore.unit.test.tsx": 1,
   "src/core/components/subscription/__tests__/SubscriptionStatusCard.test.tsx": 1,
+  "src/core/components/subscription/__tests__/SubscriptionStatusRoute.test.tsx": 1,
   "src/core/config/__tests__/env.quick.test.ts": 1,
   "src/core/config/env.test.ts": 1,
   "src/core/hooks/__tests__/useCrisisExclusionAssertion.test.tsx": 1,
