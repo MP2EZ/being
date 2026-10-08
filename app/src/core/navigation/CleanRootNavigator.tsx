@@ -571,7 +571,9 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => <ReConsentRoute onDismiss={() => navigation.goBack()} />}
+          {/* DEBUG-733 — dismisses after an await or an effect, so it removes ITSELF by key
+              (DEBUG-706 ruling); a bare goBack() would pop a CrisisResources opened above it. */}
+          {({ navigation, route }) => <ReConsentRoute onDismiss={() => removeOwnRoute(navigation, route.key)} />}
         </Stack.Screen>
 
         {/* DEBUG-451 — the explanation for the three fail-closed consent
@@ -607,7 +609,9 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => <ConsentBlockedRoute onDismiss={() => navigation.goBack()} />}
+          {/* DEBUG-733 — dismisses after an await or an effect, so it removes ITSELF by key
+              (DEBUG-706 ruling); a bare goBack() would pop a CrisisResources opened above it. */}
+          {({ navigation, route }) => <ConsentBlockedRoute onDismiss={() => removeOwnRoute(navigation, route.key)} />}
         </Stack.Screen>
 
         {/* Educational Module Detail */}
