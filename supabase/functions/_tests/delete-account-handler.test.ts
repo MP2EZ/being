@@ -93,17 +93,31 @@ function post(token: string | null, body?: BodyInit, method = 'POST'): Request {
   return new Request('https://example.test/delete-account', { method, headers, body });
 }
 
-/** The handler logs on purpose (DEBUG-761 owns the uid log); keep test output quiet. */
-async function quiet<T>(fn: () => Promise<T>): Promise<T> {
-  const { log, error } = console;
-  console.log = () => {};
-  console.error = () => {};
-  try {
-    return await fn();
-  } finally {
-    console.log = log;
-    console.error = error;
+const CONSOLE_LEVELS = ['log', 'info', 'warn', 'error', 'debug'] as const;
+
+/**
+ * Run `fn` with console output captured, not printed. Non-string arguments are rendered the
+ * way a log sink records them (Deno.inspect), so an Error's message and stack are visible to
+ * the assertions below.
+ */
+async function captureConsole<T>(fn: () => Promise<T>): Promise<{ result: T; lines: string[] }> {
+  const saved = CONSOLE_LEVELS.map((level) => console[level]);
+  const lines: string[] = [];
+  for (const level of CONSOLE_LEVELS) {
+    console[level] = (...args: unknown[]) => {
+      lines.push(args.map((a) => (typeof a === 'string' ? a : Deno.inspect(a))).join(' '));
+    };
   }
+  try {
+    return { result: await fn(), lines };
+  } finally {
+    CONSOLE_LEVELS.forEach((level, i) => (console[level] = saved[i]));
+  }
+}
+
+/** The handler logs a fixed line on success and failure; keep test output quiet. */
+async function quiet<T>(fn: () => Promise<T>): Promise<T> {
+  return (await captureConsole(fn)).result;
 }
 
 function assertCors(res: Response) {
@@ -286,4 +300,43 @@ Deno.test('no response body on any path contains the user id or upstream text', 
     assert(!text.includes(UPSTREAM_SENTINEL), `${name}: upstream text leaked`);
     assert(!text.includes(JWT_SUB), `${name}: user id echoed in the response`);
   }
+});
+
+// ---------------------------------------------------------------------------
+// Logs: the erased user's id never reaches the console (DEBUG-761)
+// ---------------------------------------------------------------------------
+
+/** What a network failure from the admin API looks like: Deno's fetch error carries the
+ *  request URL, and that URL ends in the uid being deleted. */
+const UID_BEARING = `error sending request for url (https://x.supabase.co/auth/v1/admin/users/${JWT_SUB})`;
+
+Deno.test('no log line on any path contains the user id', async () => {
+  const scenarios: Array<[string, Recorder]> = [
+    ['ok', recorder()],
+    ['delete error carrying the uid', recorder({ result: { error: { message: UID_BEARING } } })],
+    ['delete throws an Error carrying the uid', recorder({ deleteThrows: new TypeError(UID_BEARING) })],
+    ['delete throws a non-Error carrying the uid', recorder({ deleteThrows: UID_BEARING })],
+    ['create throws an Error carrying the uid', recorder({ createThrows: new Error(UID_BEARING) })],
+  ];
+  for (const [name, rec] of scenarios) {
+    const { lines } = await captureConsole(() => handle(post(ANON_SESSION_TOKEN), rec.deps));
+    // Non-vacuity: every path logs, so an empty capture cannot pass for a clean one.
+    assert(lines.some((l) => l.includes('[delete-account]')), `${name}: nothing was captured`);
+    for (const line of lines) {
+      assert(!line.includes(JWT_SUB), `${name}: user id reached the log: ${line}`);
+    }
+  }
+});
+
+Deno.test('the success log is the fixed identifier-free line', async () => {
+  const { lines } = await captureConsole(() => handle(post(ANON_SESSION_TOKEN), recorder().deps));
+  assertEquals(lines, ['[delete-account] erased account + cascade']);
+});
+
+Deno.test('control: the capture does see a uid that is logged', async () => {
+  const { lines } = await captureConsole(() => {
+    console.error('probe', new Error(UID_BEARING));
+    return Promise.resolve();
+  });
+  assert(lines.some((l) => l.includes(JWT_SUB)), 'capture missed a logged uid - the log tests would be vacuous');
 });
