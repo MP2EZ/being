@@ -370,7 +370,12 @@ function stripComments(source: string): string {
 const SHARED = stripComments(
   Deno.readTextFileSync(new URL('../_shared/googlePlayDeveloperApi.ts', import.meta.url)),
 );
+// MAINT-753: the request path lives in handler.ts; index.ts is the deploy entry that binds the
+// real Google calls into the handler's deps.
 const HANDLER = stripComments(
+  Deno.readTextFileSync(new URL('../verify-google-receipt/handler.ts', import.meta.url)),
+);
+const ENTRYPOINT = stripComments(
   Deno.readTextFileSync(new URL('../verify-google-receipt/index.ts', import.meta.url)),
 );
 
@@ -383,6 +388,12 @@ Deno.test('verify-google-receipt signs for real: no placeholder, no local token 
   assert(/Deno\.env\.get\(\s*'GOOGLE_SERVICE_ACCOUNT'\s*\)/.test(HANDLER));
   // The injected seams are test-only: production passes neither.
   assertEquals(/\bfetchImpl\b/.test(HANDLER), false);
+  // The entry point binds the REAL shared functions into the handler's deps, by reference.
+  assertEquals(/signature_placeholder|\bfetchImpl\b/.test(ENTRYPOINT), false);
+  assert(
+    /import\s*\{[^}]*\bgetGoogleAccessToken\b[^}]*\}\s*from\s*['"]\.\.\/_shared\/googlePlayDeveloperApi\.ts['"]/
+      .test(ENTRYPOINT),
+  );
 });
 
 Deno.test('verify-google-receipt validates the request before any token is minted', () => {
@@ -392,13 +403,15 @@ Deno.test('verify-google-receipt validates the request before any token is minte
   // The mint happens inside verifyWithGoogle, so the request-path anchor is its CALL in the
   // handler (its definition sits above the handler and would order trivially).
   const mint = HANDLER.search(/\bawait verifyWithGoogle\(/);
-  const client = HANDLER.search(/\bcreateClient\(/);
+  const client = HANDLER.search(/\bdeps\.createSupabase\(/);
   for (const at of [pkgCheck, idCheck, tokenCheck, mint, client]) assert(at > -1, 'anchor not found');
   assert(pkgCheck < mint && idCheck < mint && tokenCheck < mint);
   // No Supabase client is built for a request that fails validation.
   assert(pkgCheck < client && idCheck < client && tokenCheck < client);
   // verifyWithGoogle itself mints: the mint is reachable only through that call.
-  assert(/async function verifyWithGoogle[\s\S]*?getGoogleAccessToken\(/.test(HANDLER));
+  assert(/async function verifyWithGoogle[\s\S]*?deps\.getGoogleAccessToken\(/.test(HANDLER));
+  // The handler never builds a client itself: index.ts's productionDeps does.
+  assertEquals(/\bcreateClient\(/.test(HANDLER), false);
 });
 
 Deno.test('the shared module never reads env and never honours token_uri', () => {

@@ -20,67 +20,24 @@
  * The client pairs a 200 here with a local wipe
  * (SecureStorageService.clearAllWellnessData({ deleteMasterKey: true })) and a
  * session sign-out, so no identity or wellness data survives on-device either.
+ *
+ * LAYOUT (MAINT-753): the request handling lives in handler.ts so tests can import it. This
+ * file is the deploy entry point: it binds the real client by literal env name (the INFRA-442
+ * deploy-drift reconcile matches on those literals) and nothing else.
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { getAuthUidFromRequest } from '../_shared/auth.ts';
+import { type DeleteAccountDeps, handle } from './handler.ts';
 
-const CORS = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
-};
+function productionDeps(): DeleteAccountDeps {
+  return {
+    createSupabase: () =>
+      createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      ),
+  };
+}
 
-serve(async (req) => {
-  if (req.method === 'OPTIONS') {
-    return new Response(null, { headers: CORS });
-  }
-  if (req.method !== 'POST') {
-    return new Response(JSON.stringify({ error: 'Method not allowed' }), {
-      status: 405,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
-  }
-
-  // Identity from the gateway-verified JWT — the caller can only delete itself.
-  let authUid: string;
-  try {
-    authUid = getAuthUidFromRequest(req);
-  } catch (err) {
-    return new Response(
-      JSON.stringify({ error: err instanceof Error ? err.message : 'Unauthorized' }),
-      { status: 401, headers: { ...CORS, 'Content-Type': 'application/json' } },
-    );
-  }
-
-  try {
-    const supabase = createClient(
-      Deno.env.get('SUPABASE_URL')!,
-      Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-    );
-
-    // Hard delete (shouldSoftDelete=false): removes the auth.users row so the FK
-    // cascade fires and no PII/wellness data remains for this uid.
-    const { error } = await supabase.auth.admin.deleteUser(authUid, false);
-    if (error) {
-      console.error('[delete-account] admin.deleteUser failed:', error.message);
-      return new Response(JSON.stringify({ success: false, error: 'Deletion failed' }), {
-        status: 500,
-        headers: { ...CORS, 'Content-Type': 'application/json' },
-      });
-    }
-
-    console.log('[delete-account] erased account + cascade for user:', authUid);
-    return new Response(JSON.stringify({ success: true }), {
-      status: 200,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
-  } catch (err) {
-    console.error('[delete-account] unexpected error:', err);
-    return new Response(JSON.stringify({ success: false, error: 'Internal server error' }), {
-      status: 500,
-      headers: { ...CORS, 'Content-Type': 'application/json' },
-    });
-  }
-});
+serve((req) => handle(req, productionDeps()));
