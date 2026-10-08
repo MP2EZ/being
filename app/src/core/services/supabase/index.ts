@@ -56,6 +56,14 @@ let isInitialized = false;
 let initializationPromise: Promise<void> | null = null;
 
 /**
+ * Whether cloud_sync consent permits a cloud act right now. Read on every call and never
+ * memoised: consent is still 'loading' at import (DEBUG-409) and can be withdrawn mid-session.
+ */
+function hasCloudSyncConsent(): boolean {
+  return useConsentStore.getState().canPerformOperation('cloud_sync');
+}
+
+/**
  * Initialize all cloud services
  */
 async function initializeCloudServices(): Promise<void> {
@@ -122,6 +130,19 @@ function setupAppLifecycleHandlers(): void {
  */
 export async function getCloudSyncStatus(): Promise<CloudSyncStatus> {
   try {
+    // DEBUG-757: a passive status read (screen mount, 30s poll) may not start Supabase or read
+    // the backup without consent. Local-only status, and no `error`: the screen renders it as
+    // a fresh install rather than a failure banner.
+    if (!hasCloudSyncConsent()) {
+      const local = supabaseService.getStatus();
+      return {
+        isInitialized: false,
+        isOnline: false,
+        pendingOperations: local.offlineQueueSize,
+        circuitBreakerState: local.circuitBreakerState as any,
+      };
+    }
+
     // Ensure services are initialized (non-blocking)
     if (!isInitialized) {
       initializeCloudServices().catch(() => {
@@ -193,7 +214,7 @@ export async function forceSync(): Promise<{ success: boolean; error?: string | 
     // Consent gate (MAINT-173): defense in depth. createBackup() self-guards,
     // but bail before initializing/connecting to Supabase or processing the
     // offline queue when cloud sync is not consented.
-    if (!useConsentStore.getState().canPerformOperation('cloud_sync')) {
+    if (!hasCloudSyncConsent()) {
       logSecurity('[CloudServices] forceSync skipped — cloud_sync consent absent', 'low');
       return { success: false, error: 'cloud_sync_consent_absent' };
     }
@@ -230,6 +251,12 @@ export async function checkForCloudRestore(): Promise<{
   shouldPromptRestore: boolean;
 }> {
   try {
+    // DEBUG-757: its only caller is useCloudSync's mount effect - a passive read, not a user
+    // act - so it is gated like any other read. Without consent there is no backup to offer.
+    if (!hasCloudSyncConsent()) {
+      return { hasBackup: false, shouldPromptRestore: false };
+    }
+
     // Initialize services if needed
     await initializeCloudServices();
 
@@ -287,6 +314,11 @@ export async function configureCloudBackup(config: {
   autoBackupIntervalMs?: number;
 }): Promise<void> {
   try {
+    // DEBUG-757: toggling auto-backup sets a preference; it is not the consent grant.
+    if (!hasCloudSyncConsent()) {
+      logSecurity('[CloudServices] configureCloudBackup skipped — cloud_sync consent absent', 'low');
+      return;
+    }
     await initializeCloudServices();
     await cloudBackupService.updateConfig(config);
   } catch (error) {
@@ -322,6 +354,12 @@ export async function testCloudConnectivity(): Promise<{
   error?: string | undefined;
 }> {
   try {
+    // DEBUG-757: user-tapped, but its only network act is a cloud_sync-consented event, so
+    // without consent it would mint an identity for nothing and report a false success.
+    if (!hasCloudSyncConsent()) {
+      return { canConnect: false, error: 'cloud_sync_consent_absent' };
+    }
+
     const startTime = Date.now();
 
     // Try to initialize services
@@ -351,11 +389,15 @@ export { supabaseService, cloudBackupService };
 // Auto-initialize on module load (non-blocking).
 // Consent gate (MAINT-173): only eagerly connect to Supabase when the user
 // has consented to cloud sync. Without consent we skip the eager connection
-// entirely rather than silently opening a backend session. Services still
-// initialize lazily on demand for user-initiated recovery (checkForCloudRestore
-// / restoreFromCloud call initializeCloudServices() directly), which is exempt
-// from the cloud_sync egress gate.
-if (useConsentStore.getState().canPerformOperation('cloud_sync')) {
+// entirely rather than silently opening a backend session.
+//
+// Every cloud act checks consent at call time (DEBUG-757): this import-time
+// init, getCloudSyncStatus, checkForCloudRestore, configureCloudBackup,
+// testCloudConnectivity and forceSync. The ONE exemption is restoreFromCloud:
+// a Restore tap followed by a destructive confirm is user-initiated recovery.
+// checkForCloudRestore used to share that exemption, but its only caller is
+// useCloudSync's mount effect - a passive read - so it is gated like the rest.
+if (hasCloudSyncConsent()) {
   initializeCloudServices().catch(() => {
     // Ignore initialization errors - app should work offline
   });
