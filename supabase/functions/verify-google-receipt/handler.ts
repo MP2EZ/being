@@ -248,7 +248,8 @@ async function updateSubscription(
     if (isUniqueViolation(upsertError)) {
       throw new ReceiptReplayError('google', purchaseToken);
     }
-    throw new Error(`Failed to update subscription: ${upsertError.message}`);
+    // Fixed text (MAINT-765): the database's message can quote the row's values.
+    throw new Error('Failed to update subscription');
   }
 
   // Log verification event
@@ -333,7 +334,7 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
     // Initialize Supabase client (service role for DB writes; bypasses RLS).
     const supabase = deps.createSupabase();
 
-    console.log('[Google Receipt Verification] Starting verification for user:', authUid);
+    console.log('[Google Receipt Verification] Starting verification');
 
     // MOCK MODE: Handle mock purchase tokens for local development.
     //
@@ -370,7 +371,7 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
         autoRenewEnabled: true,
       };
 
-      console.log('[Google Receipt Verification] Mock verification successful:', mockVerification.subscriptionId);
+      console.log('[Google Receipt Verification] Mock verification successful');
 
       return new Response(
         JSON.stringify(mockVerification),
@@ -416,7 +417,7 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
         await updateSubscription(supabase, authUid, verification, purchaseToken, deps);
       } catch (err) {
         if (err instanceof ReceiptReplayError) {
-          console.warn('[Google Receipt Verification] Replay rejected for user:', authUid);
+          console.warn('[Google Receipt Verification] Replay rejected:', 'txn_bound_to_other_user');
           await logSubscriptionEvent(supabase, {
             userId: authUid,
             subscriptionId: null,
@@ -437,7 +438,7 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
           // generic outer catch and becomes an undifferentiated 500 with NO audit row —
           // technically fail-closed but indistinguishable from any other bug, which defeats
           // the point of failing closed at all.
-          console.error('[Google Receipt Verification] No stable transaction identifier for user:', authUid);
+          console.error('[Google Receipt Verification] No stable transaction identifier:', 'missing_txn_identifier');
           await logSubscriptionEvent(supabase, {
             userId: authUid,
             subscriptionId: null,
@@ -455,7 +456,7 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
         throw err;
       }
 
-      console.log('[Google Receipt Verification] Success:', verification.subscriptionId);
+      console.log('[Google Receipt Verification] Success');
 
       return new Response(
         JSON.stringify(verification),
