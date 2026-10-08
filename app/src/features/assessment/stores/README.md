@@ -18,8 +18,7 @@ Production-ready Zustand store for PHQ-9 and GAD-7 assessments with clinical acc
 
 ### ✅ Persistence & Recovery
 - **Encrypted Storage**: SecureStore with CLINICAL sensitivity
-- **Auto-save**: Real-time progress preservation
-- **Session Recovery**: Resume interrupted assessments
+- **Completed history**: Persisted on every completion; the in-progress slot is memory-only (DEBUG-769)
 - **Offline Support**: Works without network connectivity
 
 ### ✅ Performance
@@ -90,23 +89,12 @@ function AssessmentScreen() {
 // Response time guaranteed <200ms
 ```
 
-## Session Recovery
+## Interrupted Sessions
 
-```typescript
-// Automatic session recovery on app restart
-const { recoverSession, hasRecoverableSession } = useAssessmentStore();
-
-useEffect(() => {
-  if (hasRecoverableSession) {
-    recoverSession().then(recovered => {
-      if (recovered) {
-        // Session restored successfully
-        // User can continue where they left off
-      }
-    });
-  }
-}, []);
-```
+The in-progress slot (`currentSession`, `answers`, `currentQuestionIndex`) lives in memory
+only (DEBUG-769). It is never persisted and hydration never restores it: a screening the
+user leaves, or the app closing partway through, is gone at the next launch. Completed
+screenings persist in `completedAssessments`.
 
 ## Clinical Compliance
 
@@ -122,7 +110,6 @@ Comprehensive test suite validates:
 - All 21 GAD-7 scores (0-21)
 - Crisis thresholds and timing
 - Encryption and persistence
-- Session recovery
 - Auto-save functionality
 
 ```bash

@@ -101,15 +101,21 @@ it('the next write after hydration does not put a pruned record back on disk', a
   expect(idsIn(persisted)).toEqual(SURVIVORS);
 });
 
-it('recoverSession applies the same filter to the history it restores', async () => {
+it('a legacy in-progress slot in the blob is not restored, and the history is filtered the same way (DEBUG-769)', async () => {
   mockWellnessBlobs['assessment_store'] = {
-    completedAssessments: SEEDED,
-    currentSession: { id: 'live', type: 'phq9', progress: { startedAt: Date.now() } },
-    answers: [],
-    currentQuestionIndex: 0,
+    state: {
+      completedAssessments: SEEDED,
+      currentSession: { id: 'live', type: 'phq9', progress: { startedAt: Date.now() } },
+      answers: [{ questionId: 'phq9_9', response: 2, timestamp: Date.now() }],
+      currentQuestionIndex: 1,
+      autoSaveEnabled: true,
+    },
+    version: 0,
   };
 
-  await expect(useAssessmentStore.getState().recoverSession()).resolves.toBe(true);
+  await useAssessmentStore.persist.rehydrate();
 
   expect(idsIn(useAssessmentStore.getState().completedAssessments)).toEqual(SURVIVORS);
+  expect(useAssessmentStore.getState().currentSession).toBeNull();
+  expect(useAssessmentStore.getState().answers).toEqual([]);
 });

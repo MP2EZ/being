@@ -146,6 +146,21 @@ function withinRetention(history: AssessmentSession[]): AssessmentSession[] {
 }
 
 /**
+ * True when a hydrated blob still carries a non-default in-progress slot (DEBUG-769) —
+ * written by a build that persisted it. Detection only: the slot is never restored.
+ */
+function hasLegacySlot(restored: Partial<AssessmentStoreState>): boolean {
+  return (
+    (restored.currentSession !== undefined && restored.currentSession !== null) ||
+    (Array.isArray(restored.answers) && restored.answers.length > 0) ||
+    (typeof restored.currentQuestionIndex === 'number' && restored.currentQuestionIndex !== 0)
+  );
+}
+
+/** Set by `merge`, consumed by `onRehydrateStorage` (DEBUG-769): one post-hydration write. */
+let legacySlotSeenInHydration = false;
+
+/**
  * Encrypted wellness-data storage for assessment state.
  * Delegates to SecureStorageService.storeWellnessBlob — AES-256-GCM
  * ciphertext in AsyncStorage; master key in platform Keychain.
@@ -584,9 +599,6 @@ export interface AssessmentStoreState {
   crisisDetection: CrisisDetection | null;
   crisisIntervention: CrisisIntervention | null;
 
-  // Session recovery
-  hasRecoverableSession: boolean;
-
   // Performance tracking
   autoSaveEnabled: boolean;
 
@@ -607,7 +619,6 @@ export interface AssessmentStoreActions {
   answerQuestion: (questionId: string, response: AssessmentResponse) => Promise<void>;
   completeAssessment: () => Promise<void>;
   resetAssessment: () => void;
-  recoverSession: () => Promise<boolean>;
 
   // Crisis management
   handleCrisisDetection: (detection: CrisisDetection) => Promise<void>;
@@ -644,11 +655,17 @@ type AssessmentStore = AssessmentStoreState & AssessmentStoreActions;
  * drift apart.
  */
 function partializeAssessmentState(state: AssessmentStoreState) {
+  // DEBUG-769: the in-progress slot (`currentSession`, `answers`, `currentQuestionIndex`)
+  // is deliberately NOT here. It lives in memory for the length of one session and no
+  // slot content survives a cold launch, whatever its completeness. It used to be
+  // persisted, which kept a half-finished PHQ-9 (Q9 included) past the app closing and —
+  // because completeAssessment never clears the slot — a full copy of every completed
+  // screening's answers; `completedAssessments` is the authoritative record, at its own
+  // DEBUG-705 retention tier. A partial's crisis-relevant fact is carried by the
+  // `crisis_detected` event raised at answer time, which does not read the slot's
+  // persisted copy.
   return {
     completedAssessments: state.completedAssessments,
-    currentSession: state.currentSession,
-    answers: state.answers,
-    currentQuestionIndex: state.currentQuestionIndex,
     autoSaveEnabled: state.autoSaveEnabled
   };
 }
@@ -667,7 +684,6 @@ export const useAssessmentStore = create<AssessmentStore>()(
         currentResult: null,
         crisisDetection: null,
         crisisIntervention: null,
-        hasRecoverableSession: false,
         autoSaveEnabled: true,
         completionBlocked: null,
 
@@ -700,8 +716,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
               currentResult: null,
               crisisDetection: null,
               crisisIntervention: null,
-              isLoading: false,
-              hasRecoverableSession: true
+              isLoading: false
             });
 
             // Auto-save initial session
@@ -806,9 +821,9 @@ export const useAssessmentStore = create<AssessmentStore>()(
             if (missing.length > 0 || malformed) {
               set({
                 isLoading: false,
-                // Explicitly null: `recoverSession` does not clear this, so a
-                // second assessment completed-then-refused in one app session
-                // could otherwise render the EARLIER banded result as this one
+                // Explicitly null: nothing else clears this, so a second
+                // assessment completed-then-refused in one app session could
+                // otherwise render the EARLIER banded result as this one
                 // (EnhancedAssessmentFlow reads `currentResult`).
                 currentResult: null,
                 completionBlocked: { reason: 'incomplete_answers', missingQuestionIds: missing },
@@ -852,7 +867,6 @@ export const useAssessmentStore = create<AssessmentStore>()(
               currentResult: result,
               completedAssessments: updatedHistory,
               isLoading: false,
-              hasRecoverableSession: false,
               completionBlocked: null
             });
 
@@ -885,36 +899,10 @@ export const useAssessmentStore = create<AssessmentStore>()(
             currentResult: null,
             crisisDetection: null,
             crisisIntervention: null,
-            hasRecoverableSession: false,
             error: null,
             isLoading: false,
             completionBlocked: null
           });
-        },
-
-        recoverSession: async (): Promise<boolean> => {
-          try {
-            // TS-01: load() returns unknown. MAINT-731: saveProgress now writes persist's
-            // envelope, so read the state from either shape — a top-level read would see
-            // `{state, version}` and never find a session.
-            const savedData = normalizePersistedAssessmentBlob(await EncryptedAssessmentStorage.load())?.state;
-            if (!savedData?.currentSession) {
-              return false;
-            }
-
-            set({
-              currentSession: savedData.currentSession,
-              currentQuestionIndex: savedData.currentQuestionIndex || 0,
-              answers: savedData.answers || [],
-              completedAssessments: withinRetention(savedData.completedAssessments || []),
-              hasRecoverableSession: true
-            });
-
-            return true;
-          } catch (error) {
-            logError(LogCategory.SYSTEM, 'Session recovery failed:', error instanceof Error ? error : new Error(String(error)));
-            return false;
-          }
         },
 
         // Crisis management
@@ -1140,15 +1128,35 @@ export const useAssessmentStore = create<AssessmentStore>()(
         })),
         // DEBUG-705: hydration applies retention, so the next persist cannot
         // write back a record the launch sweep pruned (see withinRetention).
+        //
+        // DEBUG-769: hydration NEVER takes the in-progress slot from `restored`, whatever
+        // the blob holds — no slot content survives a cold launch. `current`'s values are
+        // kept, which also stops a late hydration clobbering a session already live in
+        // memory (this hydrate is async, and a screening can start before it resolves).
         merge: (persisted, current) => {
           const restored = (persisted ?? {}) as Partial<AssessmentStore>;
+          if (hasLegacySlot(restored)) legacySlotSeenInHydration = true;
           return {
             ...current,
             ...restored,
+            currentSession: current.currentSession,
+            answers: current.answers,
+            currentQuestionIndex: current.currentQuestionIndex,
             completedAssessments: withinRetention(
               Array.isArray(restored.completedAssessments) ? restored.completedAssessments : current.completedAssessments
             ),
           };
+        },
+        // DEBUG-769: when the blob just hydrated still carried a slot, write ONCE so disk
+        // matches memory at this same launch instead of waiting for the next set() (the
+        // launch sweep clears it too; this is the belt to its braces). A `setState({})`
+        // is persist's own write path — partialize no longer includes the slot — so there
+        // is no extra decrypt/encrypt beyond that single store. Nothing is written when
+        // the blob was already clean.
+        onRehydrateStorage: () => () => {
+          if (!legacySlotSeenInHydration) return;
+          legacySlotSeenInHydration = false;
+          useAssessmentStore.setState({});
         },
         partialize: (state) => partializeAssessmentState(state)
       }
@@ -1197,8 +1205,8 @@ export function writeAssessmentErasure(op: AssessmentErasureOp): Promise<Assessm
 //   • `completeAssessment`— always saves
 //   • `setSessionNote`    — always saves
 //   • `resetAssessment`   — nulls `currentSession`, which the guard excluded
-// The one mutation it uniquely covered is `recoverSession`, which has NO
-// production callers and in any case only writes back the blob it just read.
+// The one mutation it uniquely covered was `recoverSession` (deleted in DEBUG-769),
+// which had NO production callers and in any case only wrote back the blob it just read.
 // So every timer it ever scheduled was a duplicate encrypted write.
 //
 // `autoSaveEnabled` and both setters DELIBERATELY REMAIN. The flag is persisted
