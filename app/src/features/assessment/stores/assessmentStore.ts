@@ -26,6 +26,10 @@ import { generateTimestampedId } from '@/core/utils/id';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import supabaseService from '@/core/services/supabase/SupabaseService';
 import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
+import {
+  ASSESSMENT_RETENTION_PERIODS,
+  shouldRetainAssessment,
+} from '@/core/services/data-retention/assessmentRetention';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -126,6 +130,20 @@ type AssessmentErasureFailure = 'read_failed' | 'write_failed';
 export type AssessmentErasureResult =
   | { ok: true; wrote: boolean }
   | { ok: false; reason: AssessmentErasureFailure };
+
+/**
+ * Drop screenings past their retention period (DEBUG-705), by the same rules
+ * the daily sweep in DataRetentionService applies to the persisted blob.
+ *
+ * Memory can only acquire history through hydration (or a fresh completion),
+ * so filtering there is what stops a pruned record being re-persisted by the
+ * next set() — whichever of hydration and the launch sweep runs first. A record
+ * that ages out while the app stays open is dropped at the next launch.
+ */
+function withinRetention(history: AssessmentSession[]): AssessmentSession[] {
+  const now = Date.now();
+  return history.filter((record) => shouldRetainAssessment(record, now, ASSESSMENT_RETENTION_PERIODS));
+}
 
 /**
  * Encrypted wellness-data storage for assessment state.
@@ -888,7 +906,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
               currentSession: savedData.currentSession,
               currentQuestionIndex: savedData.currentQuestionIndex || 0,
               answers: savedData.answers || [],
-              completedAssessments: savedData.completedAssessments || [],
+              completedAssessments: withinRetention(savedData.completedAssessments || []),
               hasRecoverableSession: true
             });
 
@@ -1120,6 +1138,18 @@ export const useAssessmentStore = create<AssessmentStore>()(
             }
           }
         })),
+        // DEBUG-705: hydration applies retention, so the next persist cannot
+        // write back a record the launch sweep pruned (see withinRetention).
+        merge: (persisted, current) => {
+          const restored = (persisted ?? {}) as Partial<AssessmentStore>;
+          return {
+            ...current,
+            ...restored,
+            completedAssessments: withinRetention(
+              Array.isArray(restored.completedAssessments) ? restored.completedAssessments : current.completedAssessments
+            ),
+          };
+        },
         partialize: (state) => partializeAssessmentState(state)
       }
     )

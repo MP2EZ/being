@@ -30,6 +30,17 @@ jest.mock('expo-secure-store');
 // Mock async-storage
 jest.mock('@react-native-async-storage/async-storage');
 
+// DEBUG-705: assessment history is read and written through the live wellness
+// blob, not SecureStore. The real-storage proof is assessmentRetention.livePath;
+// here the blob API is a stub so each case controls what the sweep reads.
+jest.mock('@/core/services/security/SecureStorageService', () => ({
+  __esModule: true,
+  default: {
+    retrieveWellnessBlob: jest.fn(),
+    storeWellnessBlob: jest.fn(),
+  },
+}));
+
 // Mock logging service
 jest.mock('@/core/services/logging', () => ({
   logSecurity: jest.fn(),
@@ -37,7 +48,13 @@ jest.mock('@/core/services/logging', () => ({
   LogCategory: { SYSTEM: 'SYSTEM' },
 }));
 
+import SecureStorageService from '@/core/services/security/SecureStorageService';
+
 const mockSecureStore = SecureStore as jest.Mocked<typeof SecureStore>;
+const mockRetrieveBlob = SecureStorageService.retrieveWellnessBlob as jest.Mock;
+const mockStoreBlob = SecureStorageService.storeWellnessBlob as jest.Mock;
+/** The assessment blob the sweep last wrote. */
+const savedAssessments = () => (mockStoreBlob.mock.calls[0][1] as { completedAssessments: { id: string }[] }).completedAssessments;
 const mockAsyncStorage = AsyncStorage as jest.Mocked<typeof AsyncStorage>;
 
 // Helper: Create a date string N days ago
@@ -72,13 +89,15 @@ const createMockPracticeData = (
   // asserting against data the code cannot see.
 });
 
-// Helper: Create mock assessment data
+// Helper: Create mock assessment data — non-crisis PHQ-9s in the persisted shape.
+// (DEBUG-705: a record with no readable score is now KEPT as a fail-safe, so the
+// fixture carries a real result rather than the old top-level `score`.)
 const createMockAssessmentData = (timestamps: number[]) => ({
   completedAssessments: timestamps.map((ts, i) => ({
     id: `assessment-${i}`,
-    type: 'PHQ9',
+    type: 'phq9',
     progress: { startedAt: ts, completedAt: ts + 1000 },
-    score: 5,
+    result: { totalScore: 5, suicidalIdeation: false, isCrisis: false },
   })),
 });
 
@@ -88,6 +107,8 @@ describe('DataRetentionService', () => {
     // Reset the cleanup timestamp to allow tests to run
     mockAsyncStorage.getItem.mockResolvedValue(null);
     mockAsyncStorage.setItem.mockResolvedValue(undefined);
+    mockRetrieveBlob.mockResolvedValue(null);
+    mockStoreBlob.mockResolvedValue({ success: true });
   });
 
   describe('Configuration', () => {
@@ -165,18 +186,13 @@ describe('DataRetentionService', () => {
 
     it('CRITICAL: should delete assessments older than 90 days', async () => {
       // First call returns practice data (empty), second returns assessment data
-      mockSecureStore.getItemAsync
-        .mockResolvedValueOnce(JSON.stringify(createMockPracticeData([], [])))
-        .mockResolvedValueOnce(
-          JSON.stringify(
-            createMockAssessmentData([
+      mockSecureStore.getItemAsync.mockResolvedValue(JSON.stringify(createMockPracticeData([], [])));
+      mockRetrieveBlob.mockResolvedValue(createMockAssessmentData([
               daysAgoMs(100), // old
               daysAgoMs(95), // old
               daysAgoMs(50), // recent
               daysAgoMs(10), // recent
-            ])
-          )
-        );
+            ]));
       mockSecureStore.setItemAsync.mockResolvedValue(undefined);
 
       const result = await DataRetentionService.runRetentionCleanup();
@@ -202,11 +218,8 @@ describe('DataRetentionService', () => {
         result: { totalScore: 8, isCrisis: false },
       };
 
-      mockSecureStore.getItemAsync
-        .mockResolvedValueOnce(JSON.stringify(createMockPracticeData([], [])))
-        .mockResolvedValueOnce(
-          JSON.stringify({ completedAssessments: [crisisAssessment, normalAssessment] })
-        );
+      mockSecureStore.getItemAsync.mockResolvedValue(JSON.stringify(createMockPracticeData([], [])));
+      mockRetrieveBlob.mockResolvedValue({ completedAssessments: [crisisAssessment, normalAssessment] });
       mockSecureStore.setItemAsync.mockResolvedValue(undefined);
 
       const result = await DataRetentionService.runRetentionCleanup();
@@ -214,9 +227,26 @@ describe('DataRetentionService', () => {
       expect(result.success).toBe(true);
       expect(result.totalRecordsDeleted).toBe(1); // Only normal assessment deleted
 
-      const savedData = JSON.parse(mockSecureStore.setItemAsync.mock.calls[0][1]);
-      expect(savedData.completedAssessments).toHaveLength(1);
-      expect(savedData.completedAssessments[0].id).toBe('crisis-1');
+      expect(savedAssessments()).toHaveLength(1);
+      expect(savedAssessments()[0].id).toBe('crisis-1');
+    });
+
+    it('CRITICAL: PHQ-9 15-19 goes at 90 days even when its stored isCrisis is true (DEBUG-705)', async () => {
+      // isCrisis is set at the PHQ-9 >= 15 support floor; privacy policy §7.1/§7.2
+      // keeps only >= 20, Q9 > 0 and GAD-7 >= 15 for 3 years.
+      const supportTier = {
+        id: 'support-1',
+        type: 'phq9',
+        progress: { startedAt: daysAgoMs(100), completedAt: daysAgoMs(100) },
+        result: { totalScore: 17, isCrisis: true, suicidalIdeation: false },
+      };
+      mockSecureStore.getItemAsync.mockResolvedValue(JSON.stringify(createMockPracticeData([], [])));
+      mockRetrieveBlob.mockResolvedValue({ completedAssessments: [supportTier] });
+
+      const result = await DataRetentionService.runRetentionCleanup();
+
+      expect(result.totalRecordsDeleted).toBe(1);
+      expect(savedAssessments()).toEqual([]);
     });
 
     it('CRITICAL: should preserve suicidal ideation assessments for 3 years', async () => {
@@ -228,11 +258,8 @@ describe('DataRetentionService', () => {
         result: { totalScore: 12, suicidalIdeation: true },
       };
 
-      mockSecureStore.getItemAsync
-        .mockResolvedValueOnce(JSON.stringify(createMockPracticeData([], [])))
-        .mockResolvedValueOnce(
-          JSON.stringify({ completedAssessments: [suicidalIdeationAssessment] })
-        );
+      mockSecureStore.getItemAsync.mockResolvedValue(JSON.stringify(createMockPracticeData([], [])));
+      mockRetrieveBlob.mockResolvedValue({ completedAssessments: [suicidalIdeationAssessment] });
       mockSecureStore.setItemAsync.mockResolvedValue(undefined);
 
       const result = await DataRetentionService.runRetentionCleanup();
@@ -249,11 +276,8 @@ describe('DataRetentionService', () => {
         result: { totalScore: 18, isCrisis: false },
       };
 
-      mockSecureStore.getItemAsync
-        .mockResolvedValueOnce(JSON.stringify(createMockPracticeData([], [])))
-        .mockResolvedValueOnce(
-          JSON.stringify({ completedAssessments: [severeAnxietyAssessment] })
-        );
+      mockSecureStore.getItemAsync.mockResolvedValue(JSON.stringify(createMockPracticeData([], [])));
+      mockRetrieveBlob.mockResolvedValue({ completedAssessments: [severeAnxietyAssessment] });
       mockSecureStore.setItemAsync.mockResolvedValue(undefined);
 
       const result = await DataRetentionService.runRetentionCleanup();
@@ -436,8 +460,8 @@ describe('DataRetentionService', () => {
       mockSecureStore.getItemAsync
         .mockResolvedValueOnce(JSON.stringify(practiceData)) // check_in_completions
         .mockResolvedValueOnce(JSON.stringify(practiceData)) // principle_engagements
-        .mockResolvedValueOnce(JSON.stringify(assessmentData)) // assessment_history
         .mockResolvedValueOnce(JSON.stringify(practiceData)); // practice_progress
+      mockRetrieveBlob.mockResolvedValue(assessmentData); // assessment_history (live blob)
 
       mockSecureStore.setItemAsync.mockResolvedValue(undefined);
 
@@ -594,11 +618,8 @@ describe('DataRetentionService', () => {
 
     it('should continue processing other categories if one fails', async () => {
       // First call (practice data) fails, second (assessment) succeeds
-      mockSecureStore.getItemAsync
-        .mockRejectedValueOnce(new Error('Practice store error'))
-        .mockResolvedValueOnce(
-          JSON.stringify(createMockAssessmentData([daysAgoMs(100)]))
-        );
+      mockSecureStore.getItemAsync.mockRejectedValueOnce(new Error('Practice store error'));
+      mockRetrieveBlob.mockResolvedValue(createMockAssessmentData([daysAgoMs(100)]));
       mockSecureStore.setItemAsync.mockResolvedValue(undefined);
 
       const result = await DataRetentionService.runRetentionCleanup();

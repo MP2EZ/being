@@ -454,7 +454,7 @@ describe('MAINT-398 — structural guard: exactly one PHQ-9 crisis scorer in the
 //   - A regex literal containing a quote or comment marker can mis-strip the
 //     rest of its line.
 // NOT blind, though anticipated as one: the `(x.totalScore ?? 0) >= 20` shape
-// (DataRetentionService) — NULLISH_PAREN matches it, self-tested below.
+// (DataRetentionService before DEBUG-705) — NULLISH_PAREN matches it, self-tested below.
 // ---------------------------------------------------------------------------
 
 describe('MAINT-712 — structural guard: literal crisis-threshold comparisons are counted', () => {
@@ -462,8 +462,8 @@ describe('MAINT-712 — structural guard: literal crisis-threshold comparisons a
   // and why. A file absent here must have zero.
   const ALLOWED_THRESHOLD_SITES: Record<string, { count: number; why: string }> = {
     'features/crisis/types/safety.ts': {
-      count: 4,
-      why: 'canonical detectCrisis — the single source of truth',
+      count: 6,
+      why: 'canonical detectCrisis — the single source of truth; plus isInterventionTierScore (DEBUG-705 retention tier), pinned to detectCrisis by interventionTierScore.test.ts exhaustive parity',
     },
     'features/assessment/stores/assessmentStore.ts': {
       count: 4,
@@ -480,10 +480,6 @@ describe('MAINT-712 — structural guard: literal crisis-threshold comparisons a
     'core/services/supabase/SupabaseService.ts': {
       count: 4,
       why: 'retained scoreToSeverityBucket — privacy-preserving severity banding for telemetry',
-    },
-    'core/services/data-retention/DataRetentionService.ts': {
-      count: 2,
-      why: 'retained crisis-retention class (:608-609), ORed with isCrisis/suicidalIdeation — widens retention, never narrows detection',
     },
   };
 

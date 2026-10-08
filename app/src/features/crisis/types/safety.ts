@@ -377,6 +377,26 @@ export function isInterventionTier(detection: CrisisDetection): boolean {
          detection.primaryTrigger !== 'phq9_moderate_severe_score';
 }
 
+/**
+ * The same tier as `isInterventionTier(detectCrisis(result))`, from bare scores
+ * (DEBUG-705). PHQ-9: Q9 > 0 at any total, or total ≥ 20. GAD-7: total ≥ 15.
+ *
+ * For callers holding PERSISTED records, which may lack the fields detectCrisis
+ * needs (it reads `result.completedAt`). Pure and total, so it cannot throw.
+ * Its parity with detectCrisis is pinned exhaustively in
+ * `__tests__/interventionTierScore.test.ts`; never edit one without the other.
+ */
+export function isInterventionTierScore(
+  type: AssessmentType,
+  totalScore: number,
+  q9Positive: boolean
+): boolean {
+  if (type === 'phq9') {
+    return q9Positive || totalScore >= CRISIS_SAFETY_THRESHOLDS.PHQ9_SEVERE_THRESHOLD;
+  }
+  return totalScore >= CRISIS_SAFETY_THRESHOLDS.GAD7_SEVERE_THRESHOLD;
+}
+
 export function requiresImmediateIntervention(detection: CrisisDetection): boolean {
   return detection.primaryTrigger === 'phq9_suicidal_ideation' ||
          detection.severityLevel === 'emergency';
