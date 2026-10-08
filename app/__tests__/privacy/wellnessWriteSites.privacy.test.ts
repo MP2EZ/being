@@ -187,6 +187,7 @@ const MANIFEST: Record<string, Record<string, Row>> = {
 
   // ── Not wellness data ────────────────────────────────────────────────────
   'src/core/stores/settingsStore.ts': {
+    'reassertCurrentSettings › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — app settings (DEBUG-755 stale-writer convergence)`],
     'useSettingsStore.loadSettings › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — app settings`],
     'useSettingsStore.markOnboardingComplete › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — app settings`],
     'useSettingsStore.resetSettings › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — app settings`],

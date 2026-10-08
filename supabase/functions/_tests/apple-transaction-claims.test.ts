@@ -5,7 +5,9 @@
  * the extracted claim logic, then source-shape pins on the call site. The call site cannot
  * be imported — `verify-apple-receipt/index.ts` calls `serve()` at module top — which is
  * exactly why the decision logic was extracted to `_shared/appleTransactionClaims.ts`
- * rather than left inline where nothing could reach it.
+ * rather than left inline where nothing could reach it. MAINT-753 later moved the request
+ * handling into `verify-apple-receipt/handler.ts`; the call-site pins read that ONE file
+ * (ordering assertions must never span a directory concatenation), and index.ts separately.
  *
  * THE FAILURE THIS FILE EXISTS FOR. The legacy path derived trial status from
  * `latest_receipt_info[0].is_trial_period === 'true'`. The App Store Server API has no such
@@ -135,6 +137,13 @@ function stripComments(source: string): string {
 
 function verifierSource(): string {
   return stripComments(
+    Deno.readTextFileSync(new URL('../verify-apple-receipt/handler.ts', import.meta.url)),
+  );
+}
+
+/** The deploy entry point: it binds the real Apple calls (MAINT-753). */
+function entrypointSource(): string {
+  return stripComments(
     Deno.readTextFileSync(new URL('../verify-apple-receipt/index.ts', import.meta.url)),
   );
 }
@@ -142,24 +151,41 @@ function verifierSource(): string {
 Deno.test('call site: the legacy verifyReceipt machinery is GONE, not merely unused', () => {
   const src = verifierSource();
   assert(src.length > 500, 'stripped source implausibly short — stripper is over-matching');
+  assert(entrypointSource().length > 200, 'stripped entrypoint implausibly short');
 
   // Each of these is a piece of the deprecated path. A dead branch that cannot execute
   // (APPLE_SHARED_SECRET is never provisioned) reads to the next maintainer as a working
   // fallback, which is worse than no fallback at all.
   for (const gone of ['APPLE_SHARED_SECRET', 'verifyReceipt', '21007', 'buy.itunes.apple.com']) {
-    assertEquals(
-      src.includes(gone),
-      false,
-      `verify-apple-receipt still references the legacy path: ${gone}`,
-    );
+    for (const [file, text] of [['handler.ts', src], ['index.ts', entrypointSource()]]) {
+      assertEquals(
+        text.includes(gone),
+        false,
+        `verify-apple-receipt/${file} still references the legacy path: ${gone}`,
+      );
+    }
   }
 });
 
 Deno.test('call site: verification is Apple-signed, app-scoped, and environment-matched', () => {
   const src = verifierSource();
-  for (const required of ['fetchSignedTransactionInfo', 'verifyAppleJWS', 'assertAppleAppScope']) {
-    assert(src.includes(required), `verify-apple-receipt does not call ${required}`);
+  // The handler reaches Apple and the signature check through its injected deps; the entry
+  // point binds the real ones (and the one-argument verifyAppleJWS binding is pinned in
+  // entrypoint-wrapper.test.ts). assertAppleAppScope is NOT a dep: it is called inline.
+  for (
+    const required of [
+      'deps.fetchSignedTransactionInfo(',
+      'deps.verifyTransaction(',
+      'assertAppleAppScope(',
+    ]
+  ) {
+    assert(src.includes(required), `verify-apple-receipt/handler.ts does not call ${required}`);
   }
+  assert(
+    /fetchSignedTransactionInfo\s*,/.test(entrypointSource()) &&
+      /verifyAppleJWS\s*\(/.test(entrypointSource()),
+    'verify-apple-receipt/index.ts does not bind the real Apple calls',
+  );
 
   // THE CROSS-CHECK. Without it the client's environment hint is load-bearing rather than
   // advisory, and a "Sandbox" claim buys a free entitlement — the same hole the deleted

@@ -71,7 +71,7 @@
     "GOOGLE_SERVICE_ACCOUNT": {
       "required": false,
       "usedBy": ["verify-google-receipt"],
-      "note": "Blocked on business setup, not engineering: the founder is not enrolled in the Play Console, so this cannot be provisioned and verify-google-receipt cannot be exercised at all. Optional until enrolment."
+      "note": "Blocked on business setup, not engineering: the founder is not enrolled in the Play Console, so this cannot be provisioned and verify-google-receipt cannot be exercised at all. Optional until enrolment. Shape (DEBUG-752): the full service-account JSON key file (type service_account, client_email, private_key as a PKCS#8 PEM, private_key_id); its token_uri is ignored. Grant the service account read-only Play Console access (view orders and subscriptions), not refund/revoke/cancel."
     },
     "GOOGLE_PUBSUB_SERVICE_ACCOUNT": {
       "required": false,
