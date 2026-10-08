@@ -10,7 +10,8 @@
  * / <3s reachable throughout — including while the deletion spinner runs. The
  * confirmation gate is in-tree React — NOT a blocking Alert.alert — precisely so
  * the zIndex:9999 crisis overlay is never covered by a native alert window. On
- * success we reset to Onboarding, itself a crisis-bearing clean state.
+ * success we reset to LegalGate (DEBUG-755): the next person must pass the age gate
+ * and give consent themselves, and LegalGate's 988 footer is unconditional.
  *
  * DEBUG-703: the user can open CrisisResources (root button, or the keyboard
  * crisis accessory) while the erasure is in flight. If a crisis destination is
@@ -88,8 +89,18 @@ const PRESERVED_NOTE =
   'For legal compliance, a minimal record of your consent and age verification is ' +
   'kept on this device. It contains no wellness data.';
 
+/**
+ * DEBUG-755 — where a successful erasure lands, on BOTH the immediate and the
+ * DEBUG-703 deferred branch (one constant so they cannot drift). It was Onboarding,
+ * which skipped the age gate and re-granted from the deleted account's preserved
+ * legal-gate and age records. LegalGate is an existing root route, in
+ * SUPPRESSED_ROUTES, with an unconditional 988 footer; its onComplete replaces to
+ * Onboarding as on any first launch.
+ */
+const POST_ERASURE_ROUTE = 'LegalGate' as const;
+
 const DeleteAccountScreen: React.FC = () => {
-  // Root navigation: Onboarding is a root-stack route (the post-erasure clean
+  // Root navigation: LegalGate is a root-stack route (the post-erasure clean
   // state), not reachable from the local Profile stack.
   const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   // DEBUG-653: __DEV__-only crisis-FAB exclusion checks (DEBUG-643); undefined in Release.
@@ -134,13 +145,12 @@ const DeleteAccountScreen: React.FC = () => {
           // would destroy that screen, so the same reset runs, at the root, once
           // they leave it. Not cancelled by this screen unmounting.
           runWhenNoCrisisDestinationFocused(() =>
-            navigationRef.reset({ index: 0, routes: [{ name: 'Onboarding' }] }),
+            navigationRef.reset({ index: 0, routes: [{ name: POST_ERASURE_ROUTE }] }),
           );
           return;
         }
-        // Reset to the clean onboarding state in the same tick the wipe
-        // completes — Onboarding mounts its own crisis button + 988 line.
-        rootNavigation.reset({ index: 0, routes: [{ name: 'Onboarding' }] });
+        // Reset to the post-erasure root in the same tick the wipe completes.
+        rootNavigation.reset({ index: 0, routes: [{ name: POST_ERASURE_ROUTE }] });
         return;
       }
       // Server erasure failed — local data is intact; allow retry. Never announced

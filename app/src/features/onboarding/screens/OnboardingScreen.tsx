@@ -1022,19 +1022,26 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
         mentalHealthProcessingConsent: legalGate.mentalHealthProcessingConsent,
       };
 
-      if (ageVerification) {
-        await grantConsent(mergedPreferences, ageVerification);
-        logStateChange('handlePrivacyContinue', { consentPreferences: mergedPreferences });
-      } else {
-        // This shouldn't happen if flow is correct, but log it
-        logError(LogCategory.SECURITY, 'No age verification found during consent save');
+      // DEBUG-755: no age check this person passed — absent, unreadable, or one that
+      // belongs to an erased account (getStoredAgeVerification withholds those). This
+      // used to log and carry on, finishing onboarding with no grant at all. Same
+      // re-ask as the legal-gate branch above, for the same reason: return, not throw.
+      if (!ageVerification) {
+        logError(LogCategory.SECURITY, 'No usable age verification at onboarding — returning to the legal gate');
+        navigation.replace('LegalGate');
+        return;
       }
+
+      await grantConsent(mergedPreferences, ageVerification);
+      logStateChange('handlePrivacyContinue', { consentPreferences: mergedPreferences });
 
       navigateNext();
     } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to save consent preferences', error instanceof Error ? error : undefined);
-      // Still proceed - consent is optional
-      navigateNext();
+      // DEBUG-755: a failed grant used to fall through to navigateNext() ("consent is
+      // optional"), completing onboarding with no consent recorded. Wellness-data
+      // consent is not optional; re-ask at the gate, whose 988 footer is unconditional.
+      logError(LogCategory.SECURITY, 'Failed to save consent preferences — returning to the legal gate', error instanceof Error ? error : undefined);
+      navigation.replace('LegalGate');
     }
   };
 

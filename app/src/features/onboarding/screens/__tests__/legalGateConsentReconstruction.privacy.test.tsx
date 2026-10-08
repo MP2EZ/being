@@ -357,3 +357,44 @@ describe('a genuine recorded decision is passed through untouched', () => {
     expect(mockReplace).not.toHaveBeenCalled();
   });
 });
+
+/**
+ * DEBUG-755 — the two remaining fail-open branches of handlePrivacyContinue.
+ *
+ * With no usable age verification (absent, unreadable, or one getStoredAgeVerification
+ * withholds because it belongs to an erased account) the screen used to log and call
+ * navigateNext(), and a rejected grant fell into a catch that also called
+ * navigateNext() ("consent is optional"). Both finished onboarding with NO consent
+ * recorded. Both now re-ask at the legal gate, the same way the branch above does.
+ */
+describe('no age verification, or a failed grant, re-asks rather than finishing onboarding (DEBUG-755)', () => {
+  it('a missing age verification grants nothing and returns to the legal gate', async () => {
+    mockGetStoredAgeVerification.mockResolvedValue(null);
+    const api = render(<OnboardingScreen />);
+    await advanceToPrivacy(api);
+
+    await continueAndExpectReAsk(api);
+
+    expect(mockGrantConsent).not.toHaveBeenCalled();
+    expect(mockNavigate).not.toHaveBeenCalledWith('LegalGate', expect.anything());
+  });
+
+  it('a grant that rejects returns to the legal gate instead of advancing', async () => {
+    mockGrantConsent.mockRejectedValueOnce(new Error('keychain unavailable'));
+    const api = render(<OnboardingScreen />);
+    await advanceToPrivacy(api);
+
+    await continueAndExpectReAsk(api);
+
+    expect(mockGrantConsent).toHaveBeenCalledTimes(1);
+  });
+
+  it('control: a readable age verification and a successful grant still advance, with no re-ask', async () => {
+    const api = render(<OnboardingScreen />);
+    await advanceToPrivacy(api);
+
+    await continueThroughPrivacy(api);
+
+    expect(mockReplace).not.toHaveBeenCalled();
+  });
+});

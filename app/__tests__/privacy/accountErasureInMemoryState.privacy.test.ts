@@ -470,23 +470,39 @@ describe('subscriptionStore (DEBUG-697)', () => {
 });
 
 describe('what erasure must not reset', () => {
-  it('leaves consent state and the deletion attestation in place', async () => {
+  it('leaves the deletion attestation in place', async () => {
     await seedPreErasureState();
-    const consentBefore = useConsentStore.getState().consentStatus;
 
     await deleteAccountAndWipe({ posthog: null });
 
-    expect(useConsentStore.getState().consentStatus).toBe(consentBefore);
     expect(mockSecure.has(ACCOUNT_DELETION_ATTESTATION_KEY)).toBe(true);
   });
 
-  // The four STORE owners only. This suite mocks SupabaseService, so its
+  // DEBUG-755 REVERSED this pin. It used to assert that consent state survived erasure
+  // unchanged — which is the defect: the warm session went on answering
+  // canPerformOperation('cloud_sync') true on the deleted account's grant. Consent now
+  // resets in memory (only; the on-disk records are retired, not deleted — DEBUG-762);
+  // accountErasureConsentState.privacy.test.tsx pins the full behaviour.
+  it('drops in-memory consent to missing (DEBUG-755)', async () => {
+    await seedPreErasureState();
+    expect(useConsentStore.getState().consentStatus).toBe('valid');
+
+    await deleteAccountAndWipe({ posthog: null });
+
+    expect(useConsentStore.getState().consentStatus).toBe('missing');
+  });
+
+  // The in-memory STORE owners only. This suite mocks SupabaseService, so its
   // registration ('supabaseService', DEBUG-698) never runs here; that owner is
   // pinned against the real module in offlineQueueErasure.privacy.test.ts.
-  it('registers exactly the four in-memory store owners', () => {
+  // consentStore and settingsStore joined in DEBUG-755.
+  it('registers exactly the six in-memory store owners', () => {
+    require('@/core/stores/settingsStore');
     expect(registeredErasureResetOwners().sort()).toEqual([
       'assessmentStore',
+      'consentStore',
       'educationStore',
+      'settingsStore',
       'stoicPracticeStore',
       'subscriptionStore',
     ]);
