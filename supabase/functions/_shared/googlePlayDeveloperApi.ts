@@ -100,6 +100,9 @@ export interface GoogleSubscriptionPurchase {
   linkedPurchaseToken?: string;
   purchaseType?: number;
   acknowledgementState?: number;
+  /** 0 pending, 1 received, 2 free trial, 3 pending deferred upgrade/downgrade. Google omits
+   *  it on a cancelled subscription. */
+  paymentState?: number;
 }
 
 export interface GoogleFetchOptions {
