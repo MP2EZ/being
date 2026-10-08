@@ -951,9 +951,9 @@ exists on this machine. The gap is narrow — UIScrollView touch delivery is UIK
 both — but it is a residual, not a proof, and this defect has already burned one reassuring
 explanation that held right up until it was measured.
 
-### Three signatures, opposite remedies (DEBUG-640, DEBUG-642)
+### Four signatures, opposite remedies (DEBUG-640, DEBUG-642, INFRA-729)
 
-A tap that "did nothing" after a scroll is one of three things, and **the remedies are
+A tap that "did nothing" after a scroll is one of four things, and **the remedies are
 opposite**. Classify the signature from `maestro hierarchy` bounds at the tap point before
 choosing a remedy; a green run is not evidence of a signature.
 
@@ -962,6 +962,7 @@ choosing a remedy; a green run is not evidence of a signature.
 | 1 | Swallowed touch after a scroll that stops **mid-content** (this section) | Harness artifact | Any intervening touch, or a scroll that ends at a content boundary. **Never** time, **never** `centerElement` |
 | 2 | Fold/clip: the target is outside the ScrollView's clip but still scores visible (DEBUG-465) | Harness artifact | `centerElement: true`, which forces a real scroll |
 | 3 | A **root-sibling overlay** outside every clip — the crisis FAB at `zIndex: 9999` | **Real crisis false positive** (the DEBUG-547 shape) | **File a defect.** Never "fix" it in the flow |
+| 4 | Momentum capture: the tap lands while the list is still **decelerating** after `scrollUntilVisible` reported COMPLETED (INFRA-729) | Harness artifact — RN's ScrollView spends a touch during momentum stopping the scroll | `waitForAnimationToEnd` (timeout 3000, ceiling 5000) **before** signature 1's absorbing tap. Never before a `crisis-button-root` tap |
 
 Why 1 and 2 are harness-only: `UIScrollView` clips *painting* to its bounds and `hitTest:`
 returns nil outside them, so what a real finger can reach is exactly what is painted. Why 3 is
@@ -971,6 +972,12 @@ not: a root-sibling overlay is outside every clip, so a real finger in the overl
 mid-content (signature 1's trigger), the signatures can compound on one line.
 
 Tell 2 from 3 by the bounds, never by the outcome: both can end on `CrisisResources`.
+
+**Tell 4 from 1 by drift** (INFRA-729): compare the target's y-bound at scroll-COMPLETED with
+its bound when the tap resolves. In 11 kept `crisis-button-reachability` failures every
+failed card tap had drifted 20–69pt; ~25 taps at 0–2pt all landed. Drift ≈0 on a failure
+means signature 1, not 4. The two compose: an absorbing tap outside the ScrollView clears 1
+but cannot stop momentum, which is why "time is not the variable" (probe C) and 4 both hold.
 
 ### The register: every tap after a `centerElement` scroll (DEBUG-642)
 

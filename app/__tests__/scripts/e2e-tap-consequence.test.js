@@ -73,6 +73,16 @@ function targetOf(step) {
   return m ? m[1] : null;
 }
 
+// INFRA-729: a settle step with an explicit timeout within the crisis ruling's ceiling
+// (3000 ms chosen, never above 5000 ms). A bare `waitForAnimationToEnd` takes Maestro's
+// default, which is not a value anyone reviewed.
+const SETTLE_CEILING_MS = 5000;
+function settles(step) {
+  if (!step || step.command !== 'waitForAnimationToEnd') return false;
+  const m = `${step.inline}\n${step.body}`.match(/^\s*timeout:\s*(\d+)\s*$/m);
+  return !!m && Number(m[1]) <= SETTLE_CEILING_MS;
+}
+
 const CENTRED = /^\s*centerElement:\s*true\s*$/m;
 
 // The population: each centred scroll, paired with the first touch after it.
@@ -297,13 +307,14 @@ describe('DEBUG-652 — a Profile card tap must prove it landed before the FAB',
     expect(failures).toEqual([]);
   });
 
-  test('every Profile-menu card scroll is followed by the absorbing tab-profile tap, then the card', () => {
+  test('every Profile-menu card scroll settles, then takes the absorbing tab-profile tap, then the card', () => {
     // Signature 1 (docs/testing/e2e-maestro.md): the first touch after a mid-content scroll
     // can be swallowed. All seven menu-root sites stop mid-content (DEBUG-652 captures); four
     // of them swipe zero times today only because of where the previous segment left the
     // offset. The absorbing tap makes the card tap the SECOND touch regardless. Export and
     // delete scroll a pushed screen, where a tab tap would pop the stack — they keep their
-    // conditional re-taps instead.
+    // conditional re-taps instead. INFRA-729: the settle comes FIRST — a tap outside the
+    // ScrollView cannot stop momentum, so without it the card tap lands on a moving list.
     const PUSHED = new Set(['profile-card-export', 'profile-card-delete']);
     const sites = steps
       .map((s, i) => ({ s, i }))
@@ -311,8 +322,9 @@ describe('DEBUG-652 — a Profile card tap must prove it landed before the FAB',
     // The seven DEBUG-652 sites plus DEBUG-680's Legal depth-2 card scroll.
     expect(sites).toHaveLength(8);
     const failures = sites
-      .filter(({ s, i }) => !(steps[i + 1].command === 'tapOn' && targetOf(steps[i + 1]) === 'tab-profile'
-        && steps[i + 2].command === 'tapOn' && targetOf(steps[i + 2]) === targetOf(s)))
+      .filter(({ s, i }) => !(settles(steps[i + 1])
+        && steps[i + 2].command === 'tapOn' && targetOf(steps[i + 2]) === 'tab-profile'
+        && steps[i + 3].command === 'tapOn' && targetOf(steps[i + 3]) === targetOf(s)))
       .map(({ s }) => `${FLOW}:${s.line} ${targetOf(s)}`);
     expect(failures).toEqual([]);
   });
@@ -336,6 +348,42 @@ describe('DEBUG-652 — a Profile card tap must prove it landed before the FAB',
     const failures = afterCard
       .filter(({ prev, dest }) => !(prev.command === 'assertVisible' && targetOf(prev) === dest && !optional(prev)))
       .map(({ fab, card, dest }) => `${FLOW}:${fab.line} FAB after ${card} lacks assertVisible ${dest} as its last step`);
+    expect(failures).toEqual([]);
+  });
+});
+
+describe('INFRA-729 — a scroll settles before the tap that follows it, never before the FAB', () => {
+  const FLOW = 'crisis-button-reachability.yaml';
+  const steps = stepsOf(fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8'));
+
+  test('the settle helper rejects a missing or over-ceiling timeout', () => {
+    // Control: the predicate the menu-site pin rests on discriminates, so a green there means something.
+    const [ok, bare, slow] = stepsOf(
+      '---\n- waitForAnimationToEnd:\n    timeout: 3000\n- waitForAnimationToEnd\n- waitForAnimationToEnd:\n    timeout: 9000\n',
+    );
+    expect([settles(ok), settles(bare), settles(slow)]).toEqual([true, false, false]);
+  });
+
+  test('the Insights weekly-reflection scroll settles, then takes the absorbing tab-insights tap', () => {
+    const i = steps.findIndex((s) => s.command === 'scrollUntilVisible' && targetOf(s) === 'weekly-reflection-card');
+    expect(i).toBeGreaterThan(-1);
+    expect(settles(steps[i + 1])).toBe(true);
+    expect([steps[i + 2].command, targetOf(steps[i + 2])]).toEqual(['tapOn', 'tab-insights']);
+    expect([steps[i + 3].command, targetOf(steps[i + 3])]).toEqual(['tapOn', 'weekly-reflection-prompt']);
+  });
+
+  test('no settle wait precedes a crisis-button-root tap — the FAB answers its first touch', () => {
+    const fabs = steps.map((s, i) => ({ s, i })).filter(({ s }) => s.command === 'tapOn' && targetOf(s) === 'crisis-button-root');
+    // Control: the walk reaches every surface, so an empty set cannot pass.
+    expect(fabs.length).toBeGreaterThanOrEqual(15);
+    const failures = fabs
+      .filter(({ i }) => {
+        for (let j = i - 1; j >= 0 && !TOUCH.has(steps[j].command); j--) {
+          if (steps[j].command === 'waitForAnimationToEnd') return true;
+        }
+        return false;
+      })
+      .map(({ s }) => `${FLOW}:${s.line}`);
     expect(failures).toEqual([]);
   });
 });
