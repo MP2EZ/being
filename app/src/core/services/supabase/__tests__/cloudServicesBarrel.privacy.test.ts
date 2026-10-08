@@ -20,10 +20,13 @@
  *    and CloudBackupService.privacy.test.ts. Asserting "background skips createBackup
  *    without consent" with CloudBackupService mocked would need a mock that re-encodes
  *    the gate — a test of the mock.
- *  - getCloudSyncStatus / configureCloudBackup / testCloudConnectivity initialize
- *    Supabase without checking consent (DEBUG-757). Left unpinned on purpose.
  *  - The AppState listener count across cleanup + re-init (duplicate listeners are
  *    a known gap).
+ *
+ * Consent is read at the moment of every cloud act (DEBUG-757): getCloudSyncStatus,
+ * configureCloudBackup, testCloudConnectivity and checkForCloudRestore all refuse to
+ * initialize Supabase without cloud_sync consent. restoreFromCloud, a tap followed by a
+ * destructive confirm, is the only exemption.
  *
  * Terminology: "wellness data", not PHI — Being is not a HIPAA entity.
  */
@@ -268,6 +271,7 @@ describe('cloud services barrel — failed initialization', () => {
   it('a Supabase init failure is swallowed, registers no listener, and the next call retries', async () => {
     mockCanPerform.mockReturnValue(false);
     const { checkForCloudRestore } = loadBarrel();
+    mockCanPerform.mockReturnValue(true);
     mockSupabase.initialize.mockRejectedValueOnce(new Error('supabase down'));
 
     await expect(checkForCloudRestore()).resolves.toBeDefined();
@@ -284,6 +288,7 @@ describe('cloud services barrel — failed initialization', () => {
   it('a backup-service init failure is swallowed, registers no listener, and the next call retries', async () => {
     mockCanPerform.mockReturnValue(false);
     const { checkForCloudRestore } = loadBarrel();
+    mockCanPerform.mockReturnValue(true);
     mockBackup.initialize.mockRejectedValueOnce(new Error('backup init down'));
 
     await expect(checkForCloudRestore()).resolves.toBeDefined();
@@ -316,17 +321,36 @@ describe('cloud services barrel — failed initialization', () => {
 });
 
 describe('cloud services barrel — checkForCloudRestore', () => {
-  // checkForCloudRestore / restoreFromCloud are user-initiated recovery: they
-  // initialize services on demand and are documented as exempt from the
-  // cloud_sync egress gate (see the comment above the import-time `if`).
-  it('is exempt from the consent gate: it initializes services with consent absent', async () => {
+  // Its only caller is useCloudSync's mount effect: a passive read, not a user act. It used
+  // to be exempt from the cloud_sync gate on a "user-initiated recovery" premise that the
+  // call site did not match, and minted an anonymous session on every screen open (DEBUG-757).
+  it('without consent: no init, no backup read, resolves no backup and no prompt', async () => {
     mockCanPerform.mockReturnValue(false);
     const { checkForCloudRestore } = loadBarrel();
+    mockCanPerform.mockClear();
+
+    await expect(checkForCloudRestore()).resolves.toEqual({
+      hasBackup: false,
+      shouldPromptRestore: false,
+    });
+
+    expect(mockCanPerform).toHaveBeenCalledWith('cloud_sync');
+    expect(mockSupabase.initialize).not.toHaveBeenCalled();
+    expect(mockBackup.initialize).not.toHaveBeenCalled();
+    expect(mockBackup.getBackupStatus).not.toHaveBeenCalled();
+    expect(mockAddEventListener).not.toHaveBeenCalled();
+  });
+
+  it('with consent: initializes once and reads the backup status', async () => {
+    mockCanPerform.mockReturnValue(false);
+    const { checkForCloudRestore } = loadBarrel();
+    mockCanPerform.mockReturnValue(true);
 
     await checkForCloudRestore();
 
     expect(mockSupabase.initialize).toHaveBeenCalledTimes(1);
     expect(mockBackup.initialize).toHaveBeenCalledTimes(1);
+    expect(mockBackup.getBackupStatus).toHaveBeenCalledTimes(1);
   });
 
   it.each([
@@ -340,6 +364,7 @@ describe('cloud services barrel — checkForCloudRestore', () => {
     async (hasCloudBackup, hasLocalData, shouldPromptRestore) => {
       mockCanPerform.mockReturnValue(false);
       const { checkForCloudRestore } = loadBarrel();
+      mockCanPerform.mockReturnValue(true);
       mockBackup.getBackupStatus.mockResolvedValue({
         hasCloudBackup,
         hasLocalData,
@@ -357,12 +382,141 @@ describe('cloud services barrel — checkForCloudRestore', () => {
   it('resolves no backup and no prompt when reading backup status fails', async () => {
     mockCanPerform.mockReturnValue(false);
     const { checkForCloudRestore } = loadBarrel();
+    mockCanPerform.mockReturnValue(true);
     mockBackup.getBackupStatus.mockRejectedValue(new Error('status unavailable'));
 
     await expect(checkForCloudRestore()).resolves.toEqual({
       hasBackup: false,
       shouldPromptRestore: false,
     });
+  });
+});
+
+describe('cloud services barrel — restoreFromCloud stays exempt', () => {
+  // The one exemption left: a Restore tap followed by a destructive confirm is a
+  // user-initiated recovery act, so it may initialize services with consent absent.
+  it('initializes services and restores with consent absent', async () => {
+    mockCanPerform.mockReturnValue(false);
+    const { restoreFromCloud } = loadBarrel();
+    mockBackup.restoreFromBackup.mockResolvedValue({ success: true, restoredStores: ['settings'], errors: [] });
+
+    await expect(restoreFromCloud()).resolves.toEqual({
+      success: true,
+      restoredStores: ['settings'],
+      errors: [],
+    });
+    expect(mockSupabase.initialize).toHaveBeenCalledTimes(1);
+    expect(mockBackup.restoreFromBackup).toHaveBeenCalledTimes(1);
+  });
+});
+
+const LOCAL_STATUS = {
+  isInitialized: false,
+  offlineQueueSize: 2,
+  circuitBreakerState: 'closed',
+  lastSyncTime: undefined,
+};
+
+describe('cloud services barrel — getCloudSyncStatus consent gate', () => {
+  it('without consent: no init, no backup read, a local-only status with no error', async () => {
+    mockCanPerform.mockReturnValue(false);
+    const { getCloudSyncStatus } = loadBarrel();
+    mockSupabase.getStatus.mockReturnValue(LOCAL_STATUS);
+    mockCanPerform.mockClear();
+
+    await expect(getCloudSyncStatus()).resolves.toEqual({
+      isInitialized: false,
+      isOnline: false,
+      pendingOperations: 2,
+      circuitBreakerState: 'closed',
+    });
+    await flushMicrotasks();
+
+    expect(mockCanPerform).toHaveBeenCalledWith('cloud_sync');
+    expect(mockSupabase.initialize).not.toHaveBeenCalled();
+    expect(mockBackup.initialize).not.toHaveBeenCalled();
+    expect(mockBackup.getBackupStatus).not.toHaveBeenCalled();
+    expect(mockAddEventListener).not.toHaveBeenCalled();
+  });
+
+  it('with consent: kicks one initialization and reads the backup status', async () => {
+    mockCanPerform.mockReturnValue(false);
+    const { getCloudSyncStatus } = loadBarrel();
+    mockCanPerform.mockReturnValue(true);
+    mockSupabase.getStatus.mockReturnValue(LOCAL_STATUS);
+
+    await getCloudSyncStatus();
+    await flushMicrotasks();
+
+    expect(mockSupabase.initialize).toHaveBeenCalledTimes(1);
+    expect(mockBackup.getBackupStatus).toHaveBeenCalledTimes(1);
+  });
+
+  it('mid-session withdrawal: a later poll stops reading the backup status', async () => {
+    mockCanPerform.mockReturnValue(false);
+    const { getCloudSyncStatus } = loadBarrel();
+    mockSupabase.getStatus.mockReturnValue({ ...LOCAL_STATUS, isInitialized: true });
+
+    mockCanPerform.mockReturnValue(true);
+    await getCloudSyncStatus();
+    await flushMicrotasks();
+    expect(mockBackup.getBackupStatus).toHaveBeenCalledTimes(1);
+
+    mockCanPerform.mockReturnValue(false);
+    await expect(getCloudSyncStatus()).resolves.toMatchObject({ isInitialized: false, isOnline: false });
+    expect(mockBackup.getBackupStatus).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('cloud services barrel — configureCloudBackup consent gate', () => {
+  it('without consent: no init and no config write, and it does not throw', async () => {
+    mockCanPerform.mockReturnValue(false);
+    const { configureCloudBackup } = loadBarrel();
+
+    await expect(configureCloudBackup({ autoBackupEnabled: false })).resolves.toBeUndefined();
+
+    expect(mockCanPerform).toHaveBeenCalledWith('cloud_sync');
+    expect(mockSupabase.initialize).not.toHaveBeenCalled();
+    expect(mockBackup.initialize).not.toHaveBeenCalled();
+    expect(mockBackup.updateConfig).not.toHaveBeenCalled();
+  });
+
+  it('with consent: initializes and writes the config', async () => {
+    mockCanPerform.mockReturnValue(false);
+    const { configureCloudBackup } = loadBarrel();
+    mockCanPerform.mockReturnValue(true);
+
+    await configureCloudBackup({ autoBackupEnabled: false });
+
+    expect(mockSupabase.initialize).toHaveBeenCalledTimes(1);
+    expect(mockBackup.updateConfig).toHaveBeenCalledWith({ autoBackupEnabled: false });
+  });
+});
+
+describe('cloud services barrel — testCloudConnectivity consent gate', () => {
+  it('without consent: refuses before init and before any connectivity event', async () => {
+    mockCanPerform.mockReturnValue(false);
+    const { testCloudConnectivity } = loadBarrel();
+
+    await expect(testCloudConnectivity()).resolves.toEqual({
+      canConnect: false,
+      error: 'cloud_sync_consent_absent',
+    });
+
+    expect(mockCanPerform).toHaveBeenCalledWith('cloud_sync');
+    expect(mockSupabase.initialize).not.toHaveBeenCalled();
+    expect(mockSupabase.trackEvent).not.toHaveBeenCalled();
+  });
+
+  it('with consent: initializes and sends the connectivity event', async () => {
+    mockCanPerform.mockReturnValue(false);
+    const { testCloudConnectivity } = loadBarrel();
+    mockCanPerform.mockReturnValue(true);
+
+    await expect(testCloudConnectivity()).resolves.toMatchObject({ canConnect: true });
+
+    expect(mockSupabase.initialize).toHaveBeenCalledTimes(1);
+    expect(mockSupabase.trackEvent).toHaveBeenCalledTimes(1);
   });
 });
 
