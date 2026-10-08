@@ -62,7 +62,8 @@ import DomainGuidanceScreen from '@/features/guidance/screens/DomainGuidanceScre
 import type { GuidanceDomain } from '@/features/guidance/types/guidance';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
-import { useConsentStore } from '@/core/stores/consentStore';
+import { readErasureRetirement, useConsentStore } from '@/core/stores/consentStore';
+import { resolveInitialRoute } from './resolveInitialRoute';
 import { CombinedLegalGateScreen } from '@/features/consent';
 // FEAT-417: imported by direct path, not through the `@/features/consent`
 // barrel. The barrel is already in this file's eager graph via the line above,
@@ -292,26 +293,25 @@ const CleanRootNavigator: React.FC = () => {
         // allSettled, not all: one rejected read must not take the other down with it.
         // Both loaders already swallow internally, so this is belt-and-braces against a
         // future refactor that stops doing so.
-        const [settingsResult, consentResult] = await Promise.allSettled([
+        //
+        // DEBUG-755: the erasure-retirement read joins the same allSettled — no serial
+        // await on the pre-route window. It never rejects; a rejection here would read
+        // as "not retired", today's routing.
+        const [settingsResult, consentResult, retiredResult] = await Promise.allSettled([
           loadSettings(),
           loadConsent(),
+          readErasureRetirement(),
         ]);
         const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : null;
         const consent = consentResult.status === 'fulfilled' ? consentResult.value : null;
+        const retired = retiredResult.status === 'fulfilled' && retiredResult.value;
 
         if (cancelled) return;
 
-        // Determine initial route based on onboarding and consent status
-        if (settings?.onboardingCompleted) {
-          // Already onboarded - go to main
-          setInitialRoute('Main');
-        } else if (!consent || consentStatus === 'missing' || consentStatus === 'under_age') {
-          // No consent or under age - start with legal gate (COPPA compliance)
-          setInitialRoute('LegalGate');
-        } else {
-          // Has consent but not onboarded - go to onboarding
-          setInitialRoute('Onboarding');
-        }
+        // The ordering (onboarded first, DEBUG-418/451) lives in resolveInitialRoute,
+        // with one added input: an onboarded state left by an erased account never
+        // reaches Main (DEBUG-755).
+        setInitialRoute(resolveInitialRoute({ settings, consent, consentStatus, retired }));
       } catch (error) {
         if (cancelled) return;
         // DEBUG-341: default to LegalGate, NOT Main. Routing an unconsented or under-age

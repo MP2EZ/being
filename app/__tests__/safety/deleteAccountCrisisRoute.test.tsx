@@ -15,7 +15,7 @@
  * announces nothing over the crisis screen.
  *
  * HARNESS: a REAL NavigationContainer bound to the real `navigationRef`, real
- * `@react-navigation/stack` navigators shaped like CleanRootNavigator (Onboarding;
+ * `@react-navigation/stack` navigators shaped like CleanRootNavigator (Onboarding, LegalGate;
  * Main holding a nested Profile stack with DeleteAccount; a `presentation:'modal'`
  * group holding CrisisResources), the real DeleteAccountScreen, CrisisResourcesScreen
  * and RootCrisisButton. CleanRootNavigator itself cannot mount in jest (stores,
@@ -28,6 +28,10 @@
  * InputAccessoryView, a native window); its entry is exercised by calling
  * `navigateToCrisisResources('keyboard_accessory', …)`, which is all its tap does.
  * VoiceOver focus retention and the <3s half of the 988 contract are device-only.
+ *
+ * DEBUG-755: the reset target moved from Onboarding to LegalGate on both branches.
+ * LegalGate is the REAL CombinedLegalGateScreen here: the root FAB is suppressed
+ * there, so its own footer is the 988 path and is what (h) presses.
  */
 import React, { useEffect, useState } from 'react';
 import { readFileSync } from 'fs';
@@ -41,6 +45,8 @@ import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScre
 import { navigateToCrisisResources } from '@/features/crisis/utils/navigateToCrisisResources';
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
 import DeleteAccountScreen from '@/features/profile/screens/DeleteAccountScreen';
+import CombinedLegalGateScreen from '@/features/consent/screens/CombinedLegalGateScreen';
+import { SCREEN_OWNED_988_ROUTES } from '@/core/navigation/rootOverlaySlot';
 
 // The global react-native mock is an allow-list. A real stack navigator needs three
 // more modules and a Linking subscription; add them to THIS file's registry only.
@@ -52,6 +58,8 @@ Object.assign(RN, {
   InteractionManager: actualRN.InteractionManager,
   I18nManager: actualRN.I18nManager,
   PixelRatio: actualRN.PixelRatio,
+  // DEBUG-755: the real CombinedLegalGateScreen (the post-erasure root) needs it.
+  processColor: actualRN.processColor,
 });
 RN.Linking.addEventListener = jest.fn(() => ({ remove: jest.fn() }));
 
@@ -89,7 +97,11 @@ jest.mock('@/features/crisis/utils/openCrisisUrl', () => {
   return { ...actual, openCrisisUrl: jest.fn((...args: unknown[]) => actual.openCrisisUrl(...args)) };
 });
 
+// The pre-DEBUG-755 payload, kept only for control (a), which reproduces the pre-fix completion.
 const ONBOARDING_RESET = { index: 0, routes: [{ name: 'Onboarding' }] };
+// DEBUG-755: erasure now lands on LegalGate (both branches), so the next person passes the age
+// gate and gives consent themselves.
+const POST_ERASURE_RESET = { index: 0, routes: [{ name: 'LegalGate' }] };
 
 type Nav = StackNavigationProp<Record<string, object | undefined>>;
 let deleteAccountNavigation: Nav | null = null;
@@ -102,6 +114,11 @@ const Blank = () => null;
 
 function OnboardingStub() {
   return null;
+}
+
+/** The REAL legal gate: at LegalGate the root FAB is suppressed and its own footer is the 988 path. */
+function LegalGateHost() {
+  return <CombinedLegalGateScreen onComplete={() => {}} onUnderAge={() => {}} />;
 }
 
 /** Stands in for ProfileScreen; the test presses its "Delete account" card by navigating. */
@@ -141,6 +158,7 @@ function Harness() {
     <NavigationContainer ref={navigationRef} onReady={sync} onStateChange={sync}>
       <Root.Navigator initialRouteName="Main" screenOptions={{ headerShown: false, animation: 'none' }}>
         <Root.Screen name="Onboarding" component={OnboardingStub} />
+        <Root.Screen name="LegalGate" component={LegalGateHost} />
         <Root.Screen name="Main" component={ProfileStack} />
         <Root.Screen name="ReConsent" component={Blank} />
         <Root.Screen name="ConsentBlocked" component={Blank} />
@@ -223,6 +241,19 @@ function pressesTo988(ui: RenderAPI): number {
   return presses;
 }
 
+/**
+ * Taps to 988 on LegalGate (DEBUG-755). LegalGate is FAB-suppressed, so the root crisis
+ * button must be ABSENT and the screen's own unconditional footer is the one tap.
+ */
+function pressesTo988OnLegalGate(ui: RenderAPI): number {
+  (openCrisisUrl as jest.Mock).mockClear();
+  expect(SCREEN_OWNED_988_ROUTES).toContain('LegalGate');
+  expect(ui.queryByTestId('crisis-button-root')).toBeNull();
+  fireEvent.press(ui.getByTestId('legal-gate-crisis-988'));
+  expect(openCrisisUrl).toHaveBeenCalledWith('tel:988', expect.anything());
+  return 1;
+}
+
 let stateEvents = 0;
 let unsubscribeState: () => void = () => {};
 
@@ -270,7 +301,7 @@ describe('account deletion and a crisis screen opened mid-deletion (DEBUG-703)',
     ['crisis_button', 'background'],
     ['keyboard_accessory', 'background'],
   ])('opened via %s, deletion resolves ok with the app %s', (source, appState) => {
-    it('(b)/(c) leaves CrisisResources focused, same key and params, never remounted; no Onboarding beneath', async () => {
+    it('(b)/(c) leaves CrisisResources focused, same key and params, never remounted; no LegalGate beneath', async () => {
       const ui = mountOnDeleteAccount();
       const resolve = startDeletion(ui);
       const crisis = openCrisis(ui, source);
@@ -282,12 +313,12 @@ describe('account deletion and a crisis screen opened mid-deletion (DEBUG-703)',
       expect(focusedRoot()?.key).toBe(crisis.key);
       expect(focusedRoot()?.params).toEqual({ source });
       expect(crisisMounts).toBe(1);
-      expect(rootNames()).not.toContain('Onboarding');
+      expect(rootNames()).not.toContain('LegalGate');
       expect(ui.getByTestId('crisis-call-988-button')).toBeTruthy();
       ui.unmount();
     });
 
-    it('(d) dismissal settles on [Onboarding] — never DeleteAccount, Profile, ReConsent or ConsentBlocked', async () => {
+    it('(d) dismissal settles on [LegalGate] — never DeleteAccount, Profile, ReConsent or ConsentBlocked', async () => {
       const ui = mountOnDeleteAccount();
       const resolve = startDeletion(ui);
       openCrisis(ui, source);
@@ -297,15 +328,15 @@ describe('account deletion and a crisis screen opened mid-deletion (DEBUG-703)',
 
       dismissCrisis();
 
-      expect(rootNames()).toEqual(['Onboarding']);
-      expect(focusedRoot()?.name).toBe('Onboarding');
+      expect(rootNames()).toEqual(['LegalGate']);
+      expect(focusedRoot()?.name).toBe('LegalGate');
       expect(rootState().routes.some((r) => r.state !== undefined)).toBe(false);
       expect(ui.queryByTestId('delete-account-screen', all)).toBeNull();
       ui.unmount();
     });
   });
 
-  it('(d) dismissal by pop lands on Onboarding too, and the deferred reset runs once', async () => {
+  it('(d) dismissal by pop lands on LegalGate too, and the deferred reset runs once', async () => {
     const ui = mountOnDeleteAccount();
     const resolve = startDeletion(ui);
     openCrisis(ui, 'crisis_button');
@@ -317,12 +348,12 @@ describe('account deletion and a crisis screen opened mid-deletion (DEBUG-703)',
       navigationRef.dispatch(StackActions.pop());
     });
 
-    expect(rootNames()).toEqual(['Onboarding']);
+    expect(rootNames()).toEqual(['LegalGate']);
     // One for the pop, one for the reset — and nothing after it.
     expect(stateEvents).toBe(2);
     act(() => navigationRef.navigate('CrisisResources' as never, { source: 'crisis_button' } as never));
     dismissCrisis();
-    expect(rootNames()).toEqual(['Onboarding']);
+    expect(rootNames()).toEqual(['LegalGate']);
     ui.unmount();
   });
 
@@ -368,7 +399,7 @@ describe('account deletion and a crisis screen opened mid-deletion (DEBUG-703)',
     ui.unmount();
   });
 
-  it('(f) normal path: resets with exactly the Onboarding payload and lands there', async () => {
+  it('(f) normal path: resets with exactly the LegalGate payload and lands there (DEBUG-755)', async () => {
     const ui = mountOnDeleteAccount();
     const reset = jest.spyOn(deleteAccountNavigation!, 'reset');
     const resolve = startDeletion(ui);
@@ -376,8 +407,8 @@ describe('account deletion and a crisis screen opened mid-deletion (DEBUG-703)',
     await resolve({ ok: true });
 
     expect(reset).toHaveBeenCalledTimes(1);
-    expect(reset).toHaveBeenCalledWith(ONBOARDING_RESET);
-    expect(rootNames()).toEqual(['Onboarding']);
+    expect(reset).toHaveBeenCalledWith(POST_ERASURE_RESET);
+    expect(rootNames()).toEqual(['LegalGate']);
     ui.unmount();
   });
 
@@ -436,24 +467,24 @@ describe('account deletion and a crisis screen opened mid-deletion (DEBUG-703)',
       ui.unmount();
     });
 
-    it('the destination after dismissal (Onboarding)', async () => {
+    it('the destination after dismissal (LegalGate — its own footer, FAB suppressed)', async () => {
       const ui = mountOnDeleteAccount();
       const resolve = startDeletion(ui);
       openCrisis(ui, 'crisis_button');
       await resolve({ ok: true });
       expect(focusedRoot()?.name).toBe('CrisisResources');
       dismissCrisis();
-      expect(focusedRoot()?.name).toBe('Onboarding');
-      expect(pressesTo988(ui)).toBeLessThanOrEqual(2);
+      expect(focusedRoot()?.name).toBe('LegalGate');
+      expect(pressesTo988OnLegalGate(ui)).toBe(1);
       ui.unmount();
     });
 
-    it('the normal-path Onboarding', async () => {
+    it('the normal-path LegalGate', async () => {
       const ui = mountOnDeleteAccount();
       const resolve = startDeletion(ui);
       await resolve({ ok: true });
-      expect(focusedRoot()?.name).toBe('Onboarding');
-      expect(pressesTo988(ui)).toBeLessThanOrEqual(2);
+      expect(focusedRoot()?.name).toBe('LegalGate');
+      expect(pressesTo988OnLegalGate(ui)).toBe(1);
       ui.unmount();
     });
 

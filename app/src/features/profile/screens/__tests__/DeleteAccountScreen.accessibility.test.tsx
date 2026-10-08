@@ -62,7 +62,9 @@ describe('DeleteAccountScreen', () => {
     expect(mockDeleteAccountAndWipe).not.toHaveBeenCalled();
   });
 
-  it('resets to Onboarding on a successful erasure', async () => {
+  // DEBUG-755: the post-erasure root moved from Onboarding to LegalGate, so the next
+  // person passes the age gate and gives consent themselves.
+  it('resets to LegalGate on a successful erasure', async () => {
     mockDeleteAccountAndWipe.mockResolvedValue({ ok: true });
     const { getByTestId } = render(<DeleteAccountScreen />);
 
@@ -70,7 +72,7 @@ describe('DeleteAccountScreen', () => {
     fireEvent.press(getByTestId('delete-account-button'));
 
     await waitFor(() => expect(mockReset).toHaveBeenCalled());
-    expect(mockReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'Onboarding' }] });
+    expect(mockReset).toHaveBeenCalledWith({ index: 0, routes: [{ name: 'LegalGate' }] });
   });
 
   it('shows a retryable error and does NOT navigate when the server delete fails', async () => {

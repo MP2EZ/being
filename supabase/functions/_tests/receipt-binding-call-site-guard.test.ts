@@ -3,12 +3,11 @@
  *
  * AC2 requires the decision to be made "at the call site as well as in the helper", so that a
  * future edit to receiptBinding.ts alone cannot silently reopen the fail-open gap. That is a
- * property of the two verifiers, and it cannot be unit-tested: both index.ts files call
- * `Deno.serve` at module scope (importing one starts a listener — mock-receipt-gate.test.ts
- * documents the same constraint) and `updateSubscription` is not exported.
- *
- * So this pins the source shape, which is what the repo already does for index.ts-embedded
- * logic. Two properties, and the ORDER matters as much as the presence:
+ * property of the two verifiers, and `updateSubscription` is not exported, so the ordering is
+ * pinned on the source shape. MAINT-753 moved the request handling out of index.ts into
+ * handler.ts; each verifier is read as ONE file (never a directory concatenation, which would
+ * let an ordering assertion pass across a file boundary). Two properties, and the ORDER matters
+ * as much as the presence:
  *   1. each verifier checks the identifier itself, not only via the helper;
  *   2. that check appears BEFORE the `.upsert(` — AC2's "must not write a subscriptions row
  *      at all" is a statement about ordering, and a guard placed after the write satisfies
@@ -32,9 +31,15 @@ function stripComments(source: string): string {
 
 const VERIFIERS = ['verify-apple-receipt', 'verify-google-receipt'] as const;
 
-function readVerifier(name: string): string {
+/** The one file in each function directory that holds the verification logic. */
+const LOGIC_FILE: Record<(typeof VERIFIERS)[number], string> = {
+  'verify-apple-receipt': 'handler.ts',
+  'verify-google-receipt': 'handler.ts',
+};
+
+function readVerifier(name: (typeof VERIFIERS)[number]): string {
   return stripComments(
-    Deno.readTextFileSync(new URL(`../${name}/index.ts`, import.meta.url)),
+    Deno.readTextFileSync(new URL(`../${name}/${LOGIC_FILE[name]}`, import.meta.url)),
   );
 }
 
@@ -43,11 +48,11 @@ Deno.test('DEBUG-447: each verifier imports the guard primitives', () => {
     const src = readVerifier(name);
     assert(
       /\bisUsableTransactionIdentifier\b/.test(src),
-      `${name}/index.ts does not reference isUsableTransactionIdentifier`,
+      `${name}/${LOGIC_FILE[name]} does not reference isUsableTransactionIdentifier`,
     );
     assert(
       /\bInvalidTransactionIdentifierError\b/.test(src),
-      `${name}/index.ts does not reference InvalidTransactionIdentifierError`,
+      `${name}/${LOGIC_FILE[name]} does not reference InvalidTransactionIdentifierError`,
     );
   }
 });
@@ -57,14 +62,14 @@ Deno.test('DEBUG-447: each verifier guards the identifier BEFORE its upsert', ()
     const src = readVerifier(name);
 
     const guard = src.search(/if\s*\(\s*!\s*isUsableTransactionIdentifier\s*\(/);
-    assert(guard !== -1, `${name}/index.ts has no call-site identifier guard`);
+    assert(guard !== -1, `${name}/${LOGIC_FILE[name]} has no call-site identifier guard`);
 
     const upsert = src.search(/\.upsert\s*\(/);
-    assert(upsert !== -1, `${name}/index.ts has no .upsert( — has the write path moved?`);
+    assert(upsert !== -1, `${name}/${LOGIC_FILE[name]} has no .upsert( — has the write path moved?`);
 
     assert(
       guard < upsert,
-      `${name}/index.ts guards the identifier AFTER its upsert. AC2 requires no subscriptions ` +
+      `${name}/${LOGIC_FILE[name]} guards the identifier AFTER its upsert. AC2 requires no subscriptions ` +
         `row be written at all when the identifier is unusable; a guard after the write ` +
         `satisfies the letter of "a guard exists" and none of its purpose.`,
     );
@@ -76,13 +81,13 @@ Deno.test('DEBUG-447: each verifier has a dedicated catch arm that audits the re
     const src = readVerifier(name);
     assert(
       /err\s+instanceof\s+InvalidTransactionIdentifierError/.test(src),
-      `${name}/index.ts has no dedicated catch arm for InvalidTransactionIdentifierError — it ` +
+      `${name}/${LOGIC_FILE[name]} has no dedicated catch arm for InvalidTransactionIdentifierError — it ` +
         `would fall through to the generic outer catch and become an undifferentiated 500 ` +
         `with no audit row, which is fail-closed but undiagnosable.`,
     );
     assert(
       /missing_txn_identifier/.test(src),
-      `${name}/index.ts's catch arm does not write a distinguishable audit reason`,
+      `${name}/${LOGIC_FILE[name]}'s catch arm does not write a distinguishable audit reason`,
     );
   }
 });
@@ -112,7 +117,7 @@ Deno.test('DEBUG-447: the matchers fire on known-bad source', () => {
   for (const name of VERIFIERS) {
     assert(
       readVerifier(name).trim().length > 500,
-      `stripComments() reduced ${name}/index.ts to near-nothing — the assertions above would ` +
+      `stripComments() reduced ${name}/${LOGIC_FILE[name]} to near-nothing — the assertions above would ` +
         `be operating on an empty string`,
     );
   }
