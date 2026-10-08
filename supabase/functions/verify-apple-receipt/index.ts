@@ -50,6 +50,7 @@
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
+import { getAuthUidFromRequest } from '../_shared/auth.ts';
 import { encryptReceipt, receiptHash } from '../_shared/receiptCrypto.ts';
 import {
   assertNoCrossIdentityReplay,
@@ -73,35 +74,6 @@ import {
   parseTransaction,
   VerificationResult,
 } from '../_shared/appleTransactionClaims.ts';
-
-/**
- * Extract the authenticated user's id from the request's Authorization header.
- *
- * The function's verify_jwt=true config means Supabase's gateway has already
- * cryptographically verified this JWT against the project's auth secret
- * before invoking us. We just decode the payload and read `sub`. No
- * additional signature verification is needed — and crucially, no
- * userId-from-body trust is needed either.
- *
- * Closes SEC-VERIFY-RECEIPT-ANON: the prior contract trusted a userId field
- * in the request body, which any caller holding the project's public key
- * could forge.
- */
-function getAuthUidFromRequest(req: Request): string {
-  const authHeader = req.headers.get('Authorization');
-  if (!authHeader?.startsWith('Bearer ')) {
-    throw new Error('Missing or malformed Authorization header');
-  }
-  const jwt = authHeader.slice('Bearer '.length);
-  const [, payloadB64] = jwt.split('.');
-  if (!payloadB64) throw new Error('Malformed JWT: missing payload segment');
-  const padded = payloadB64.replace(/-/g, '+').replace(/_/g, '/');
-  const payload = JSON.parse(atob(padded));
-  if (typeof payload.sub !== 'string' || !payload.sub) {
-    throw new Error('JWT missing or invalid sub claim');
-  }
-  return payload.sub;
-}
 
 interface AppleReceiptRequest {
   transactionId?: string;
