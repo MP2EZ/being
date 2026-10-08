@@ -44,6 +44,9 @@ const CALLERS = [
   'grace-period-automation',
 ] as const;
 
+/** Callers whose logic lives in handler.ts (MAINT-753); the directory read must include it. */
+const HANDLER_CALLERS: readonly string[] = ['verify-apple-receipt'];
+
 const HELPER_PATH = new URL('../_shared/subscriptionAudit.ts', import.meta.url);
 
 /**
@@ -58,6 +61,12 @@ function readCaller(name: string): string {
     .map((e) => e.name)
     .sort();
   assert(files.includes('index.ts'), `${name}/ has no index.ts`);
+  // MAINT-753 vacuity floor: the receipt verifiers' logic now lives in handler.ts. If the walk
+  // stopped reading it, the "no direct RPC" and "uses the shared writer" assertions below would
+  // be checking a thin entry point and passing for nothing.
+  if (HANDLER_CALLERS.includes(name)) {
+    assert(files.includes('handler.ts'), `${name}/ has no handler.ts — the walk would read only index.ts`);
+  }
   return files
     .map((f) => stripComments(Deno.readTextFileSync(new URL(f, dir))))
     .join('\n');

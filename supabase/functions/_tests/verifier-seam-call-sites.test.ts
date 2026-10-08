@@ -48,6 +48,7 @@ Deno.test('no production file outside the defining module touches a verifier sea
   // Vacuity floor: the walk must actually see the functions it claims to police.
   assert(files.includes('subscription-webhook/handlers.ts'), 'walk did not reach handlers.ts');
   assert(files.includes('verify-apple-receipt/index.ts'), 'walk did not reach verify-apple-receipt');
+  assert(files.includes('verify-apple-receipt/handler.ts'), 'walk did not reach verify-apple-receipt/handler.ts');
   assert(files.includes('grace-period-automation/index.ts'), 'walk did not reach grace-period-automation');
   for (const { pattern, definedIn } of SEAMS) {
     const offenders = files.filter((f) =>
