@@ -383,7 +383,7 @@ describe('account deletion and a crisis screen opened mid-deletion (DEBUG-703)',
     dismissCrisis();
 
     expect(focusedRoot()?.name).toBe('Main');
-    expect(ui.getByTestId('delete-error').props.children).toMatch(/intact/i);
+    expect(ui.getByTestId('delete-error').props.children).toMatch(/couldn't confirm/i);
     // Retry stays available after a FAILED erasure.
     expect(ui.getByTestId('delete-account-button').props.accessibilityState.disabled).toBe(false);
     ui.unmount();
@@ -498,6 +498,63 @@ describe('account deletion and a crisis screen opened mid-deletion (DEBUG-703)',
       expect(pressesTo988(ui)).toBeLessThanOrEqual(2);
       ui.unmount();
     });
+  });
+});
+
+// DEBUG-707: SupabaseService.deleteAccount() answers `false` at ACCOUNT_DELETION_DEADLINE_MS,
+// so a timeout reaches this screen as the same `{ ok: false, retryable: true }` the (e)
+// cases settle with; the deadline itself is pinned in deleteAccountServerReach.unit.test.ts.
+describe('the deletion deadline at the screen (DEBUG-707)', () => {
+  it('dismisses the keyboard once, before the erasure starts, so the root FAB is uncovered', () => {
+    const ui = mountOnDeleteAccount();
+    const dismiss = RN.Keyboard.dismiss as jest.Mock;
+    dismiss.mockClear();
+    let dismissedBeforeErasure: boolean | null = null;
+    mockDeleteAccountAndWipe.mockImplementation(() => {
+      dismissedBeforeErasure = dismiss.mock.calls.length === 1;
+      return new Promise(() => {});
+    });
+
+    fireEvent.press(ui.getByTestId('delete-account-button'));
+
+    expect(dismissedBeforeErasure).toBe(true);
+    expect(dismiss).toHaveBeenCalledTimes(1);
+    expect(ui.getByTestId('crisis-button-root')).toBeTruthy();
+    ui.unmount();
+  });
+
+  it('does not dismiss the keyboard on a press the gate ignores', () => {
+    const ui = render(<Harness />);
+    act(() => profileMenuNavigation!.navigate('DeleteAccount'));
+    fireEvent.changeText(ui.getByTestId('delete-confirm-input'), 'DELET');
+    (RN.Keyboard.dismiss as jest.Mock).mockClear();
+
+    fireEvent.press(ui.getByTestId('delete-account-button'));
+
+    expect(RN.Keyboard.dismiss).not.toHaveBeenCalled();
+    expect(mockDeleteAccountAndWipe).not.toHaveBeenCalled();
+    ui.unmount();
+  });
+
+  it('an unconfirmed (timed-out) attempt leaves the spinner, keeps 988 one press away, and the retry runs the erasure again', async () => {
+    const ui = mountOnDeleteAccount();
+    const resolve = startDeletion(ui);
+    const reset = jest.spyOn(navigationRef, 'reset');
+
+    await resolve({ ok: false, retryable: true });
+
+    expect(reset).not.toHaveBeenCalled();
+    const button = ui.getByTestId('delete-account-button');
+    expect(button.props.accessibilityState).toEqual({ disabled: false, busy: false });
+    expect(ui.getByTestId('delete-confirm-input').props.editable).toBe(true);
+    expect(ui.getByTestId('delete-error').props.children).toMatch(/safe to try again/i);
+    reset.mockRestore();
+
+    mockDeleteAccountAndWipe.mockReturnValue(new Promise(() => {}));
+    fireEvent.press(button);
+    expect(mockDeleteAccountAndWipe).toHaveBeenCalledTimes(2);
+    expect(pressesTo988(ui)).toBeLessThanOrEqual(2);
+    ui.unmount();
   });
 });
 
