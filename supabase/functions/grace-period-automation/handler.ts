@@ -26,6 +26,15 @@
  * LAYOUT (MAINT-770): the request handling lives here so tests can import it; index.ts is the
  * deploy entry point and binds only the Supabase client (createSupabase). The cron-secret read,
  * the APPLE_* reads, the healthcheck ping and the Apple calls stay inline in this file.
+ *
+ * LOGS (MAINT-770): no console line, no `grace_period_automation_runs.errors` entry and no
+ * response body carries an error's message, details or hint, or any identifier. A Postgres
+ * error's text quotes the offending row, and these rows hold user ids and store transaction ids.
+ * A failure is described only by automationFailure(): a reason from a closed set and a
+ * validated five-character SQLSTATE. errors[] entries are failureEntry() strings of the form
+ * `step=<step> reason=<reason> code=<sqlstate|null>`. Pinned behaviourally by
+ * _tests/grace-period-automation-log-leak.test.ts and by source shape in
+ * _tests/subscription-log-identifiers.test.ts.
  */
 
 import { timingSafeEqual } from 'node:crypto';
@@ -38,6 +47,42 @@ import {
 import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
 import { fetchSubscriptionStatuses } from '../_shared/appStoreServerApi.ts';
 import { assertAppleAppScope, verifyAppleJWS } from '../_shared/verifyAppleJWS.ts';
+import { sqlStateOf, stringCodeOf } from '../_shared/logSafe.ts';
+
+/** Error names that are ours or the runtime's, and so safe to log. Never the message. */
+const LOGGABLE_ERROR_NAMES = new Set(['Error', 'TypeError', 'SyntaxError', 'RangeError']);
+
+/**
+ * A failure as a CLOSED description (MAINT-770): never the message, details, hint or stack.
+ *   - a PostgrestError (supabase-js returns a plain object with a string `code`) -> 'db_error'
+ *     with its code only when it is a well-formed SQLSTATE (a PostgREST 'PGRST116' -> null);
+ *   - an Error -> its name when it is one we expect, else 'unknown';
+ *   - anything else -> 'unknown'.
+ */
+export function automationFailure(err: unknown): { reason: string; code: string | null } {
+  if (err instanceof Error) {
+    return {
+      reason: LOGGABLE_ERROR_NAMES.has(err.name) ? err.name : 'unknown',
+      code: sqlStateOf(err),
+    };
+  }
+  if (stringCodeOf(err) !== null) return { reason: 'db_error', code: sqlStateOf(err) };
+  return { reason: 'unknown', code: null };
+}
+
+type AutomationStep =
+  | 'expire_trials'
+  | 'expire_grace_periods'
+  | 'notify_expiring_trials'
+  | 'notify_expiring_grace_periods'
+  | 'verify_stale_receipts'
+  | 'unexpected';
+
+/** One `errors[]` entry: closed step, closed reason, validated code. */
+function failureEntry(step: AutomationStep, err: unknown): string {
+  const { reason, code } = automationFailure(err);
+  return `step=${step} reason=${reason} code=${code ?? 'null'}`;
+}
 
 /**
  * Constant-time string comparison via node:crypto's timingSafeEqual.
@@ -104,12 +149,18 @@ async function recordRun(
       duration_ms: durationMs,
     });
     if (insErr) {
-      console.error('[Automation] Heartbeat run-record insert returned an error:', insErr);
+      console.error(
+        '[Automation] Heartbeat run-record insert returned an error:',
+        JSON.stringify(automationFailure(insErr)),
+      );
       return false;
     }
     return true;
   } catch (e) {
-    console.error('[Automation] Failed to write heartbeat run-record:', e);
+    console.error(
+      '[Automation] Failed to write heartbeat run-record:',
+      JSON.stringify(automationFailure(e)),
+    );
     return false;
   }
 }
@@ -170,7 +221,10 @@ async function expireTrials(supabase: any): Promise<number> {
   const { data, error } = await supabase.rpc('expire_old_trials');
 
   if (error) {
-    console.error('[Automation] Failed to expire trials:', error);
+    console.error(
+      '[Automation] Failed to expire trials:',
+      JSON.stringify(automationFailure(error)),
+    );
     throw error;
   }
 
@@ -188,7 +242,10 @@ async function expireGracePeriods(supabase: any): Promise<number> {
   const { data, error } = await supabase.rpc('expire_grace_periods');
 
   if (error) {
-    console.error('[Automation] Failed to expire grace periods:', error);
+    console.error(
+      '[Automation] Failed to expire grace periods:',
+      JSON.stringify(automationFailure(error)),
+    );
     throw error;
   }
 
@@ -208,7 +265,10 @@ async function notifyExpiringTrials(supabase: any): Promise<number> {
   });
 
   if (error) {
-    console.error('[Automation] Failed to get expiring trials:', error);
+    console.error(
+      '[Automation] Failed to get expiring trials:',
+      JSON.stringify(automationFailure(error)),
+    );
     throw error;
   }
 
@@ -250,7 +310,10 @@ async function notifyExpiringGracePeriods(supabase: any): Promise<number> {
   });
 
   if (error) {
-    console.error('[Automation] Failed to get expiring grace periods:', error);
+    console.error(
+      '[Automation] Failed to get expiring grace periods:',
+      JSON.stringify(automationFailure(error)),
+    );
     throw error;
   }
 
@@ -432,7 +495,10 @@ async function verifyStaleReceipts(supabase: any): Promise<StaleVerificationRepo
     .limit(BATCH_LIMIT);
 
   if (error) {
-    console.error('[Automation] Failed to get stale receipts:', error);
+    console.error(
+      '[Automation] Failed to get stale receipts:',
+      JSON.stringify(automationFailure(error)),
+    );
     throw error;
   }
 
@@ -740,28 +806,28 @@ export async function handle(req: Request, deps: AutomationDeps): Promise<Respon
     try {
       result.trialsExpired = await expireTrials(supabase);
     } catch (error) {
-      errors.push(`Expire trials failed: ${error.message}`);
+      errors.push(failureEntry('expire_trials', error));
     }
 
     // 2. Expire grace periods
     try {
       result.gracePeriodsExpired = await expireGracePeriods(supabase);
     } catch (error) {
-      errors.push(`Expire grace periods failed: ${error.message}`);
+      errors.push(failureEntry('expire_grace_periods', error));
     }
 
     // 3. Notify expiring trials
     try {
       result.trialsExpiringSoon = await notifyExpiringTrials(supabase);
     } catch (error) {
-      errors.push(`Notify expiring trials failed: ${error.message}`);
+      errors.push(failureEntry('notify_expiring_trials', error));
     }
 
     // 4. Notify expiring grace periods
     try {
       result.gracePeriodsExpiringSoon = await notifyExpiringGracePeriods(supabase);
     } catch (error) {
-      errors.push(`Notify expiring grace periods failed: ${error.message}`);
+      errors.push(failureEntry('notify_expiring_grace_periods', error));
     }
 
     // 5. Verify stale receipts
@@ -778,10 +844,11 @@ export async function handle(req: Request, deps: AutomationDeps): Promise<Respon
       result.receiptsVerified = staleReport.receiptsVerified;
       errors.push(...staleReport.errors);
     } catch (error) {
-      // A whole-step throw (the query itself failed). The message is OURS — a Postgres
-      // error string — never Apple's response text and never a per-row identifier; the
-      // per-row classes are aggregated inside the step and arrive via the line above.
-      errors.push(`Verify stale receipts failed: ${error.message}`);
+      // A whole-step throw (the stale-row query itself failed). Its message is Postgres
+      // text, which can quote row values, so only the closed failureEntry() reaches errors[]
+      // (MAINT-770); the per-row classes are aggregated inside the step and arrive via the
+      // line above.
+      errors.push(failureEntry('verify_stale_receipts', error));
     }
 
     const duration = Date.now() - startTime;
@@ -828,20 +895,22 @@ export async function handle(req: Request, deps: AutomationDeps): Promise<Respon
       { status: 200, headers: { 'Content-Type': 'application/json' } }
     );
   } catch (error) {
-    console.error('[Automation] Unexpected error:', error);
+    console.error('[Automation] Unexpected error:', JSON.stringify(automationFailure(error)));
 
     // Best-effort 'error' heartbeat for a top-level failure (e.g. an RPC threw before the
     // per-step try/catch). Skipped only when the client wasn't initialized (auth-fail path
     // returns 401 before this and writes no heartbeat — an unauthorized probe is not a run).
     if (supabase) {
-      await recordRun(supabase, 'error', result, Date.now() - startTime, [...errors, error.message]);
+      await recordRun(supabase, 'error', result, Date.now() - startTime, [
+        ...errors,
+        failureEntry('unexpected', error),
+      ]);
     }
 
     return new Response(
       JSON.stringify({
         success: false,
         error: 'Internal server error',
-        message: error.message,
       }),
       { status: 500, headers: { 'Content-Type': 'application/json' } }
     );
