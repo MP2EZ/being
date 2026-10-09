@@ -18,15 +18,17 @@
 
 
 import { logSecurity, logError, LogCategory } from '@/core/services/logging';
-import React, { useCallback, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useMemo, useState, useRef, useLayoutEffect } from 'react';
 import {
   View,
   Text,
+  ScrollView,
   StyleSheet,
   AccessibilityInfo,
 } from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -142,6 +144,15 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
     return ''; // Empty string to hide visual label
   }, []);
 
+  // DEBUG-722: EnhancedAssessmentFlow reuses this instance for every question (MAINT-750),
+  // so the offset would carry over and open the next question on its options. Driven by
+  // the question changing, never by the answer tap, and never animated: a tap landing
+  // while the list is still moving is spent stopping the scroll.
+  const scrollRef = useRef<ScrollView>(null);
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [question.id]);
+
   return (
     <>
       <FocusProvider
@@ -167,6 +178,15 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
             </Focusable>
           )}
 
+        {/* DEBUG-722: the only vertical scroller in the questions phase. At AX5 the
+            instruction alone outgrows a 667pt screen; with no scroller no answer was
+            reachable. The crisis banner above and the crisis button below stay outside
+            it so scrolling can never hide them. No font cap on anything in here. */}
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+        >
         {/* Enhanced Progress indicator with security status */}
         {showProgress && (
           <Focusable
@@ -270,6 +290,7 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
             </View>
           </Focusable>
         )}
+        </ScrollView>
 
         </View>
       </FocusProvider>
@@ -287,13 +308,19 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
+  scrollContent: {
     padding: spacing[16],
   },
   crisisAlertBanner: {
     backgroundColor: colorSystem.status.critical,
     padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing[24],
+    marginTop: spacing[16],
+    marginHorizontal: spacing[16],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -369,8 +396,13 @@ const styles = StyleSheet.create({
     lineHeight: typography.caption.size * 1.4,
   },
   responseContainer: {
-    flex: 1,
     marginBottom: spacing[16],
+    // DEBUG-722 / AC3: clear the prominent crisis button's COLUMN. Every row of a
+    // scroll host passes through the button's height band, so a bottom inset cannot
+    // protect it; at zIndex 9999 the button wins an overlapping tap and fires a crisis
+    // entry instead of the answer. A margin narrows the option Pressables' frames,
+    // which paddingRight would not. Mirror this if the button is ever `position="left"`.
+    marginRight: CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT.left,
   },
   processingContainer: {
     backgroundColor: colorSystem.gray[100],
