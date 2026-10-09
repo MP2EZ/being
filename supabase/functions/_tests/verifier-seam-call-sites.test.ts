@@ -51,6 +51,7 @@ Deno.test('no production file outside the defining module touches a verifier sea
   assert(files.includes('verify-apple-receipt/handler.ts'), 'walk did not reach verify-apple-receipt/handler.ts');
   assert(files.includes('verify-google-receipt/handler.ts'), 'walk did not reach verify-google-receipt/handler.ts');
   assert(files.includes('grace-period-automation/index.ts'), 'walk did not reach grace-period-automation');
+  assert(files.includes('grace-period-automation/handler.ts'), 'walk did not reach grace-period-automation/handler.ts');
   for (const { pattern, definedIn } of SEAMS) {
     const offenders = files.filter((f) =>
       f !== definedIn && pattern.test(stripComments(Deno.readTextFileSync(new URL(f, ROOT))))
