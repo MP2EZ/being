@@ -149,6 +149,7 @@
   "src/features/assessment/stores/__tests__/crisisTelemetryEmit.unit.test.ts": 1,
   "src/features/assessment/stores/__tests__/crisisTelemetryFields.regression.test.ts": 1,
   "src/features/assessment/stores/__tests__/erasureReset.unit.test.ts": 1,
+  "src/features/assessment/stores/__tests__/inProgressSlotNotPersisted.privacy.test.ts": 1,
   "src/features/assessment/stores/__tests__/persistedAssessmentBlob.unit.test.ts": 1,
   "src/features/assessment/stores/__tests__/retentionNoResurrection.unit.test.ts": 1,
   "src/features/assessment/stores/__tests__/screeningActivityNotBackedUp.privacy.test.ts": 1,

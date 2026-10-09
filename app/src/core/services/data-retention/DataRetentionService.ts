@@ -596,7 +596,7 @@ class DataRetentionServiceImpl {
       if (pruned === null) {
         throw new Error('unrecognised assessment blob shape; left untouched');
       }
-      if (pruned.removed === 0) {
+      if (pruned.removed === 0 && !pruned.slotCleared) {
         return { success: true, recordsDeleted: 0, auditEntry: null };
       }
 
@@ -668,7 +668,7 @@ class DataRetentionServiceImpl {
           if (stored === null) return { success: true, recordsDeleted: 0 };
           const cleared = pruneAssessmentBlob(stored, Date.now(), { defaultMs: -Infinity, crisisMs: -Infinity });
           if (cleared === null) throw new Error('unrecognised assessment blob shape; left untouched');
-          if (cleared.removed > 0) {
+          if (cleared.removed > 0 || cleared.slotCleared) {
             const written = await SecureStorageService.storeWellnessBlob(
               ASSESSMENT_BLOB_KEY,
               cleared.blob,

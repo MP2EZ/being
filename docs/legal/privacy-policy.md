@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.16
+**Version:** 1.17
 **Effective Date:** December 12, 2025
 **Last Updated:** October 8, 2026
 
@@ -251,7 +251,7 @@ This data is automatically deleted after 90 days to minimize data collection whi
 For your safety and our liability protection, we retain crisis-related data for 3 years:
 
 - **High-Severity Assessments:** PHQ-9 scores ≥ 20, GAD-7 scores ≥ 15
-- **Suicidal Ideation Responses:** Any non-zero response to PHQ-9 question 9
+- **Suicidal Ideation Responses:** Any non-zero response to PHQ-9 question 9 in a check-in you complete
 - **Crisis Detection Events:** An aggregate, PII-free record of when a crisis threshold was detected and support resources were surfaced (see §3, Safety Features) — this records that a threshold was met and resources were shown, not whether you tapped through to 988 or another resource
 
 This extended retention supports safety-monitoring continuity and protects both you and us in case of legal proceedings.
@@ -260,6 +260,7 @@ This extended retention supports safety-monitoring continuity and protects both 
 
 ### 7.3 Other Data
 
+- **Unfinished Check-Ins:** If you leave a PHQ-9 or GAD-7 check-in before finishing it, or the app closes partway through, the answers you gave are not kept. They are deleted on your device no later than the next time you open Being, whatever they were, including any answer to PHQ-9 question 9. If one of those answers led Being to show you crisis support resources, the Crisis Detection Event described in §7.2 is still recorded and kept for 3 years; it does not contain your answers.
 - **Local Data:** Stored on your device until you delete the app or clear data
 - **Settings Backup:** Retained until you disable backup or request deletion via in-app *Privacy & Data* settings
 - **Data Deletion Requests:** Honored within 30 days of request
@@ -294,6 +295,8 @@ Being is based in the United States. If you access our Services from outside the
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 **Recent revisions**
+
+- **v1.17 (October 8, 2026):** §7.2 now says the 3-year retention of answers to PHQ-9 question 9 applies to check-ins you complete, and §7.3 states that answers from an unfinished check-in are deleted on your device no later than the next time you open Being. This shortens how long some data is kept and changes nothing else: crisis detection events, completed check-ins and every other retention period are unchanged. Because it narrows what we keep, it is published with the next app release rather than separately.
 
 - **v1.16 (October 8, 2026):** Correction to §7.3 and §7.4. §7.3 said consent records are retained indefinitely, and §7.4 said the account-deletion record was the one thing kept when you delete your account. In fact your consent, age-check and legal-acceptance records also stayed on your device after deletion. They are now deleted when you delete your account, and §7.3 limits consent-record retention to the life of your account. §7.4 now lists everything that stays on the device after deletion. This reduces what we keep and changes nothing we collect or share, so it is published with the next app release rather than separately.
 

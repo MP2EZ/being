@@ -77,6 +77,7 @@ describe('pruneAssessmentBlob', () => {
     expect(pruneAssessmentBlob({ currentSession: null }, NOW, ASSESSMENT_RETENTION_PERIODS)).toEqual({
       blob: { currentSession: null },
       removed: 0,
+      slotCleared: false,
     });
   });
 
@@ -84,9 +85,114 @@ describe('pruneAssessmentBlob', () => {
     expect(pruneAssessmentBlob({ completedAssessments: [old, fresh], lastSavedAt: 9 }, NOW, ASSESSMENT_RETENTION_PERIODS)).toEqual({
       blob: { completedAssessments: [fresh], lastSavedAt: 9 },
       removed: 1,
+      slotCleared: false,
     });
     expect(
       pruneAssessmentBlob({ state: { completedAssessments: [old], autoSaveEnabled: true }, version: 0 }, NOW, ASSESSMENT_RETENTION_PERIODS)
-    ).toEqual({ blob: { state: { completedAssessments: [], autoSaveEnabled: true }, version: 0 }, removed: 1 });
+    ).toEqual({ blob: { state: { completedAssessments: [], autoSaveEnabled: true }, version: 0 }, removed: 1, slotCleared: false });
+  });
+});
+
+/**
+ * DEBUG-769 — the in-progress slot (`currentSession`, top-level `answers`,
+ * `currentQuestionIndex`) is cleared from a persisted blob regardless of its
+ * completeness, in both shapes, and the report is count-free (a boolean).
+ */
+describe('pruneAssessmentBlob — in-progress slot (DEBUG-769)', () => {
+  const partialSession = {
+    id: 'phq9_partial',
+    type: 'phq9',
+    context: 'standalone',
+    progress: { type: 'phq9', currentQuestionIndex: 9, totalQuestions: 9, startedAt: at(0), answers: [], isComplete: false },
+  };
+  const q9Answers = [
+    { questionId: 'phq9_1', response: 1, timestamp: 1 },
+    { questionId: 'phq9_9', response: 2, timestamp: 2 },
+  ];
+  const kept = { id: 'kept', type: 'gad7', progress: { startedAt: at(2) }, result: { totalScore: 2 } };
+  const prune = (blob: unknown) => pruneAssessmentBlob(blob, NOW, ASSESSMENT_RETENTION_PERIODS);
+
+  it('clears the slot from the flat shape and keeps everything else byte-identical', () => {
+    const out = prune({
+      completedAssessments: [kept],
+      currentSession: partialSession,
+      answers: q9Answers,
+      currentQuestionIndex: 2,
+      autoSaveEnabled: true,
+    });
+    expect(out).toEqual({
+      blob: {
+        completedAssessments: [kept],
+        currentSession: null,
+        answers: [],
+        currentQuestionIndex: 0,
+        autoSaveEnabled: true,
+      },
+      removed: 0,
+      slotCleared: true,
+    });
+  });
+
+  it('clears the slot from the {state, version} shape', () => {
+    const out = prune({
+      state: { completedAssessments: [kept], currentSession: partialSession, answers: q9Answers, currentQuestionIndex: 2 },
+      version: 0,
+    });
+    expect(out).toEqual({
+      blob: { state: { completedAssessments: [kept], currentSession: null, answers: [], currentQuestionIndex: 0 }, version: 0 },
+      removed: 0,
+      slotCleared: true,
+    });
+  });
+
+  it('clears orphan answers that have no currentSession', () => {
+    const out = prune({ completedAssessments: [], currentSession: null, answers: q9Answers, currentQuestionIndex: 0 });
+    expect(out?.slotCleared).toBe(true);
+    expect((out?.blob as { answers: unknown[] }).answers).toEqual([]);
+  });
+
+  it('clears a lone non-zero currentQuestionIndex', () => {
+    const out = prune({ completedAssessments: [], currentQuestionIndex: 4 });
+    expect(out?.slotCleared).toBe(true);
+    expect((out?.blob as { currentQuestionIndex: number }).currentQuestionIndex).toBe(0);
+  });
+
+  it('still cleans a slot-only blob that has no completedAssessments (both shapes)', () => {
+    const flat = prune({ currentSession: partialSession, answers: q9Answers, currentQuestionIndex: 3 });
+    expect(flat).toEqual({
+      blob: { currentSession: null, answers: [], currentQuestionIndex: 0 },
+      removed: 0,
+      slotCleared: true,
+    });
+    const wrapped = prune({ state: { currentSession: partialSession, answers: q9Answers }, version: 0 });
+    expect(wrapped).toEqual({
+      blob: { state: { currentSession: null, answers: [] }, version: 0 },
+      removed: 0,
+      slotCleared: true,
+    });
+  });
+
+  it('slotCleared is false for an already-default or absent slot, and the blob is untouched', () => {
+    const idle = { completedAssessments: [kept], currentSession: null, answers: [], currentQuestionIndex: 0 };
+    expect(prune(idle)).toEqual({ blob: idle, removed: 0, slotCleared: false });
+    const absent = { state: { completedAssessments: [kept], autoSaveEnabled: true }, version: 0 };
+    expect(prune(absent)).toEqual({ blob: absent, removed: 0, slotCleared: false });
+  });
+
+  it('reports expiry removals and the slot clear together', () => {
+    const old = { id: 'old', type: 'gad7', progress: { startedAt: at(200) }, result: { totalScore: 2 } };
+    const out = prune({ completedAssessments: [old, kept], currentSession: partialSession, answers: q9Answers });
+    expect(out?.removed).toBe(1);
+    expect(out?.slotCleared).toBe(true);
+    expect((out?.blob as { completedAssessments: unknown[] }).completedAssessments).toEqual([kept]);
+  });
+
+  it('never applies a retention tier to the slot: a Q9 > 0 partial is cleared, not kept for 3 years', () => {
+    const out = prune({
+      currentSession: { ...partialSession, progress: { ...partialSession.progress, startedAt: at(1) } },
+      answers: q9Answers,
+    });
+    expect(out?.slotCleared).toBe(true);
+    expect(JSON.stringify(out?.blob)).not.toContain('phq9_9');
   });
 });

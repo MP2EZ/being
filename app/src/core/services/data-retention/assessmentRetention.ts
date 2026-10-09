@@ -120,14 +120,48 @@ export interface AssessmentBlobPrune {
   /** The blob to write back, in the shape it was read; every other field intact. */
   blob: unknown;
   removed: number;
+  /**
+   * True when an in-progress slot field was present and non-default and has been
+   * cleared (DEBUG-769). A flag, never a count or content: the audit trail records
+   * nothing about the screening the slot belonged to.
+   */
+  slotCleared: boolean;
+}
+
+/** The in-progress screening slot: each field's idle test and the value it resets to. */
+const SLOT_FIELDS: Readonly<Record<'currentSession' | 'answers' | 'currentQuestionIndex', { isIdle: (v: unknown) => boolean; idle: unknown }>> = {
+  currentSession: { isIdle: (v) => v === null || v === undefined, idle: null },
+  answers: { isIdle: (v) => v === null || v === undefined || (Array.isArray(v) && v.length === 0), idle: [] },
+  currentQuestionIndex: { isIdle: (v) => v === null || v === undefined || v === 0, idle: 0 },
+};
+
+/**
+ * Clear the in-progress slot (`currentSession`, top-level `answers`,
+ * `currentQuestionIndex`) from one state object (DEBUG-769). The slot is memory-only
+ * now; this sweeps any legacy copy, UNCONDITIONALLY — no retention tier is applied, so
+ * a partial with a Q9 > 0 answer is cleared like any other. (`retentionTier` on a
+ * session would also mislead: its `progress.answers` is always [], which reads as
+ * three_year.) Keys that are absent are left absent; a present key is reset to its idle
+ * value.
+ */
+function clearSlot(state: Loose): { state: Loose; cleared: boolean } {
+  let cleared = false;
+  const next: Loose = { ...state };
+  for (const key of Object.keys(SLOT_FIELDS) as (keyof typeof SLOT_FIELDS)[]) {
+    if (!(key in state) || SLOT_FIELDS[key].isIdle(state[key])) continue;
+    cleared = true;
+    next[key] = Array.isArray(SLOT_FIELDS[key].idle) ? [] : SLOT_FIELDS[key].idle;
+  }
+  return { state: cleared ? next : state, cleared };
 }
 
 /**
- * Prune `completedAssessments` inside a persisted assessment blob. Handles both
- * shapes written to the same key: flat `{completedAssessments, ...}` from
- * saveProgress, and `{state: {completedAssessments, ...}, version}` from the
- * zustand persist middleware. Returns null for a shape it does not recognise —
- * the caller leaves such a blob untouched.
+ * Prune `completedAssessments` and clear the in-progress slot inside a persisted
+ * assessment blob. Handles both shapes written to the same key: flat
+ * `{completedAssessments, ...}` from saveProgress, and `{state: {completedAssessments,
+ * ...}, version}` from the zustand persist middleware. A blob with no history is still
+ * scanned for a slot. Returns null for a shape it does not recognise — the caller leaves
+ * such a blob untouched.
  */
 export function pruneAssessmentBlob(
   blob: unknown,
@@ -136,22 +170,28 @@ export function pruneAssessmentBlob(
 ): AssessmentBlobPrune | null {
   if (!isObject(blob)) return null;
 
-  const prune = (list: unknown[]): unknown[] => list.filter((r) => shouldRetainAssessment(r, nowMs, periods));
+  const sweep = (state: Loose): { state: Loose; removed: number; slotCleared: boolean } => {
+    const history = state['completedAssessments'];
+    let working = state;
+    let removed = 0;
+    if (Array.isArray(history)) {
+      const kept = history.filter((r) => shouldRetainAssessment(r, nowMs, periods));
+      removed = history.length - kept.length;
+      if (removed > 0) working = { ...state, completedAssessments: kept };
+    }
+    const slot = clearSlot(working);
+    return { state: slot.state, removed, slotCleared: slot.cleared };
+  };
 
   if (isObject(blob['state'])) {
-    const state = blob['state'];
-    if (!Array.isArray(state['completedAssessments'])) return { blob, removed: 0 };
-    const kept = prune(state['completedAssessments']);
+    const swept = sweep(blob['state']);
     return {
-      blob: { ...blob, state: { ...state, completedAssessments: kept } },
-      removed: state['completedAssessments'].length - kept.length,
+      blob: swept.state === blob['state'] ? blob : { ...blob, state: swept.state },
+      removed: swept.removed,
+      slotCleared: swept.slotCleared,
     };
   }
 
-  if (!Array.isArray(blob['completedAssessments'])) return { blob, removed: 0 };
-  const kept = prune(blob['completedAssessments']);
-  return {
-    blob: { ...blob, completedAssessments: kept },
-    removed: blob['completedAssessments'].length - kept.length,
-  };
+  const swept = sweep(blob);
+  return { blob: swept.state, removed: swept.removed, slotCleared: swept.slotCleared };
 }
