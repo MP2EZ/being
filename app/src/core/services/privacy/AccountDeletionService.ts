@@ -10,9 +10,14 @@
  * ungated consentStore.exportConsentRecords().)
  *
  * NON-NEGOTIABLE ORDERING (compliance + crisis sign-off):
- *   server delete → (true) → audit attestation → in-memory reset → local wipe.
+ *   server delete → (true) → erasure marker → audit attestation → in-memory reset
+ *   → local wipe → marker cleared.
  * A `false` from the server delete ABORTS without touching local data so the
  * user can retry with their data intact.
+ *
+ * DEBUG-763: the local half is `completeLocalErasure`, shared with
+ * `resumeInterruptedErasure`, which finishes it at the next launch when a kill or
+ * a throw left the marker behind. This module is launch-path safety code.
  */
 
 import supabaseService from '@/core/services/supabase/SupabaseService';
@@ -23,8 +28,16 @@ import {
 } from '@/core/analytics/analyticsIdentityReset';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { clearLogAuditTrail, logError, logSecurity, LogCategory } from '@/core/services/logging';
+import { env } from '@/core/config/env';
+import {
+  readPersistedSession,
+  removePersistedSession,
+  supabaseAuthStorageKey,
+} from '@/core/services/supabase/secureStoreSessionAdapter';
 import { sweepExportArtifacts } from './exportArtifactSweeper';
 import { resetInMemoryStateForErasure } from './erasureResetRegistry';
+import { clearErasurePending, markErasurePending, readErasurePendingAt } from './erasurePending';
+import { awaitErasureInFlight, trackErasureInFlight } from './erasureResumeGate';
 
 export type AccountDeletionResult =
   | { ok: true }
@@ -69,6 +82,40 @@ export async function deleteAccountAndWipe({
     return { ok: false, retryable: true };
   }
 
+  // 1b. DEBUG-763 — the marker, so a kill or a throw from here on is finished at the
+  //     next launch. Best-effort: a marker fault must not strand a confirmed server
+  //     erasure. Joins a resume in flight first, so the two never run concurrently.
+  const erasedAt = Date.now();
+  const prior = awaitErasureInFlight();
+  const local = (async () => {
+    await prior;
+    try {
+      await markErasurePending(erasedAt);
+    } catch (error) {
+      logSecurity('[AccountDeletion] erasure marker write failed (continuing with wipe)', 'high', {
+        error: error instanceof Error ? error.name : 'Unknown error',
+      });
+    }
+    await completeLocalErasure({ posthog, erasedAt });
+  })();
+  trackErasureInFlight(local);
+  await local;
+  return { ok: true };
+}
+
+/**
+ * DEBUG-763 — steps 2-7: everything after a confirmed server erasure. Idempotent, so
+ * a launch can re-run it over a partly wiped install. Rejects only when the wipe
+ * throws, which leaves the marker for the next launch.
+ */
+export async function completeLocalErasure({
+  posthog,
+  erasedAt,
+}: {
+  posthog: AnalyticsIdentityResetTarget | null;
+  /** The server-erasure time (the marker's value): the attestation's timestamp, never fabricated. */
+  erasedAt: number;
+}): Promise<void> {
   // 2. Terminal audit attestation BEFORE the wipe. It lands in the plaintext
   //    account_deletion_attestation_v1 key (and, for fallback, the legacy
   //    consent_history_v1 key), both in ERASURE_EXCLUDED_SECURE_STORE_KEYS
@@ -77,7 +124,9 @@ export async function deleteAccountAndWipe({
   //    an already-successful server erasure — and step 6's deletion of the consent,
   //    legal-gate, age and device keys does not depend on it (DEBUG-762).
   try {
-    await useConsentStore.getState().recordAccountDeletionAttestation();
+    // DEBUG-763: written only if this erasure's attestation is absent and a consent
+    //  record remains to attest (consentStore decides).
+    await useConsentStore.getState().recordAccountDeletionAttestation({ erasedAt });
   } catch (error) {
     logError(
       LogCategory.SYSTEM,
@@ -145,6 +194,26 @@ export async function deleteAccountAndWipe({
   await SecureStorageService.clearAllWellnessData({ deleteMasterKey: true });
   logSecurity('[AccountDeletion] local wellness data wiped after server erasure', 'low');
 
+  // 6b. DEBUG-763 — the erased session, if `deleteAccount`'s removal did not land (or
+  //     this is a resume). Best-effort.
+  try {
+    const key = supabaseAuthStorageKey(env.EXPO_PUBLIC_SUPABASE_URL ?? '');
+    if ((await readPersistedSession(key)).present) await removePersistedSession(key);
+  } catch (error) {
+    logSecurity('[AccountDeletion] persisted session removal failed', 'high', {
+      error: error instanceof Error ? error.name : 'Unknown error',
+    });
+  }
+
+  // 6c. DEBUG-763 — only now, after the wipe and master-key delete resolved.
+  try {
+    await clearErasurePending();
+  } catch (error) {
+    logSecurity('[AccountDeletion] erasure marker clear failed', 'medium', {
+      error: error instanceof Error ? error.name : 'Unknown error',
+    });
+  }
+
   // 7. Drop the in-memory log audit trail LAST (DEBUG-355), so the entry the
   //    line above just pushed goes with it. Synchronous and structurally
   //    non-throwing by design — a rejection here, after both erasures have
@@ -153,5 +222,38 @@ export async function deleteAccountAndWipe({
   //    durable erasure evidence is the attestation written in step 2, not this
   //    in-memory echo.
   clearLogAuditTrail();
-  return { ok: true };
+}
+
+let resumeInFlight: Promise<void> | null = null;
+
+/**
+ * DEBUG-763 — finish an erasure the server confirmed but the device did not, at launch.
+ *
+ * Triggered by the marker alone (never by the clock or the attestation); no server call.
+ * Single-flight, and joins a warm deletion in flight. Never rejects: on failure the
+ * marker stays for the next launch, with no in-session retry. Shows NO UI and dispatches
+ * NO navigation — any future post-wipe navigation must go through
+ * runWhenNoCrisisDestinationFocused.
+ */
+export function resumeInterruptedErasure(): Promise<void> {
+  if (resumeInFlight) return resumeInFlight;
+  const prior = awaitErasureInFlight();
+  const flight = (async () => {
+    try {
+      await prior;
+      const erasedAt = await readErasurePendingAt();
+      if (erasedAt === null) return;
+      await completeLocalErasure({ posthog: null, erasedAt });
+    } catch (error) {
+      logSecurity('[AccountDeletion] interrupted erasure not finished — retried next launch', 'high', {
+        error: error instanceof Error ? error.name : 'Unknown error',
+      });
+    }
+  })();
+  resumeInFlight = flight;
+  trackErasureInFlight(flight);
+  void flight.then(() => {
+    if (resumeInFlight === flight) resumeInFlight = null;
+  });
+  return flight;
 }

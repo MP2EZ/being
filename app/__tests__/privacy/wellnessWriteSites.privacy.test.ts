@@ -173,6 +173,9 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     'backfillDeletionAttestation › setItemAsync': [1, ERASURE, 'Art. 17(3)(b) attestation'],
     'backfillDeletionAttestationFromHistory › setItemAsync': [1, ERASURE, 'Art. 17(3)(b) attestation'],
   },
+  'src/core/services/privacy/erasurePending.ts': {
+    'markErasurePending › AsyncStorage.setItem': [1, ERASURE, 'DEBUG-763 marker: server-erasure epoch ms only, no identifier'],
+  },
   'src/core/services/security/SecureStorageService.ts': {
     'SecureStorageService.storeWellnessBlob › AsyncStorage.setItem': [1, STORAGE_LAYER],
     'SecureStorageService.storeAssessmentData › AsyncStorage.setItem': [1, STORAGE_LAYER, 'no production caller'],

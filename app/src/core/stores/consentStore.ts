@@ -30,6 +30,8 @@ import { ACCOUNT_DELETION_ATTESTATION_KEY } from '@/core/services/security/Secur
 import { getCurrentUserId } from '@/core/constants/devMode';
 import { logSecurity } from '@/core/services/logging';
 import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
+import { readErasurePending } from '@/core/services/privacy/erasurePending';
+import { awaitErasureInFlight } from '@/core/services/privacy/erasureResumeGate';
 // INFRA-377: read directly rather than importing `isE2EOnboardingSeedEnabled`
 // from `@/core/config/e2eSeed` — that module already imports THIS one, so the
 // back-import would be a cycle. `env` is a leaf config module with no dependency
@@ -128,6 +130,8 @@ async function hydrateLegalGateMirror(): Promise<void> {
 export const recordLegalGateConsents = async (
   consents: Omit<LegalGateConsents, 'timestamp' | 'version'>,
 ): Promise<void> => {
+  // DEBUG-763: a write made while an erasure's resume runs would be deleted by its wipe.
+  await awaitErasureInFlight();
   const record: LegalGateConsents = {
     ...consents,
     timestamp: Date.now(),
@@ -233,8 +237,16 @@ export const predatesErasure = (recordedAt: unknown, attestedAt: number | null):
  * Keyed on the record's GRANT time (`timestamp`), not `updatedAt`: a pre-erasure
  * record edited after the deletion (a warm-session settings toggle) is still the
  * deleted account's. Never rejects, and adds no await ahead of the status set.
+ *
+ * DEBUG-763: an erasure marker (server erased, local wipe unfinished) also retires the
+ * launch, read in parallel so the navigator's allSettled gains no serial await.
  */
 export const readErasureRetirement = async (): Promise<boolean> => {
+  const [pending, retired] = await Promise.all([readErasurePending(), readAttestationRetirement()]);
+  return pending || retired;
+};
+
+const readAttestationRetirement = async (): Promise<boolean> => {
   try {
     const attestedAt = await readDeletionAttestedAt();
     if (attestedAt === null) return false;
@@ -607,8 +619,12 @@ export interface ConsentStore {
    * the attestation (timestamp, action, prior-entry count, final consent
    * snapshot) is retained — not the full mutable history (Art. 5(1)(e)
    * minimization). Called by AccountDeletionService before the on-device wipe.
+   *
+   * DEBUG-763: with `erasedAt` (the server-erasure time) it is written at most once
+   * per erasure — skipped when an attestation at or after `erasedAt` exists, or when
+   * no consent record remains to attest — and stamped `erasedAt`, never the clock.
    */
-  recordAccountDeletionAttestation: () => Promise<void>;
+  recordAccountDeletionAttestation: (options?: { erasedAt?: number }) => Promise<void>;
 
   // Reset (for testing/development)
   resetConsent: () => Promise<void>;
@@ -1327,7 +1343,9 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
       // hasValidConsent() false, so linking.ts's cold-start crisis base resolves to
       // LegalGate rather than Main. No history is loaded on this branch, so the legacy
       // attestation copy is never migrated into a new chain from here.
-      if (predatesErasure(consent.timestamp, await readDeletionAttestedAt())) {
+      // DEBUG-763: so is any record while an erasure marker is present.
+      const [attestedAt, erasurePending] = await Promise.all([readDeletionAttestedAt(), readErasurePending()]);
+      if (erasurePending || predatesErasure(consent.timestamp, attestedAt)) {
         await clearPersistedConsentCache();
         set({
           currentConsent: null,
@@ -1489,6 +1507,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
+      await awaitErasureInFlight(); // DEBUG-763 — see recordLegalGateConsents
       const userId = getCurrentUserId();
       const now = Date.now();
       const oneYearFromNow = now + (365 * 24 * 60 * 60 * 1000);
@@ -1958,15 +1977,33 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
    * preserved by erasure AND independent of the master key (which the wipe
    * deletes). Minimized to a single attestation entry, not the full chain.
    */
-  recordAccountDeletionAttestation: async () => {
+  recordAccountDeletionAttestation: async ({ erasedAt } = {}) => {
     const { currentConsent, consentHistory } = get();
+    let snapshot = currentConsent?.preferences;
+    if (erasedAt !== undefined) {
+      const attestedAt = await readDeletionAttestedAt();
+      if (attestedAt !== null && attestedAt >= erasedAt) return;
+      const stored = await SecureStore.getItemAsync(CONSENT_SECURE_KEY);
+      if (stored === null && !currentConsent) return;
+      if (!snapshot && stored !== null) {
+        try {
+          snapshot = (JSON.parse(stored) as Partial<ConsentRecord>).preferences;
+        } catch {
+          // An unreadable record still evidences the erasure; its snapshot is empty.
+        }
+      }
+    }
     const attestation: ConsentHistoryEntry = {
       action: 'revoked',
       // Final consent-state snapshot (booleans only — no wellness content):
       // proves the lawful basis that existed at the moment of erasure.
-      changes: currentConsent?.preferences ?? {},
-      timestamp: Date.now(),
-      note: `account_deletion_requested; prior_entries=${consentHistory.length}`,
+      changes: snapshot ?? {},
+      timestamp: erasedAt ?? Date.now(),
+      // A launch's resume has no loaded history to count (DEBUG-763).
+      note:
+        erasedAt !== undefined && !currentConsent
+          ? 'account_deletion_requested; resumed_after_interruption'
+          : `account_deletion_requested; prior_entries=${consentHistory.length}`,
     };
     // DUAL-WRITE (DEBUG-545). Both writes are required and neither is redundant.
     //
@@ -2002,6 +2039,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
       throw new Error(`Birth year must be between 1900 and ${currentYear}`);
     }
 
+    await awaitErasureInFlight(); // DEBUG-763 — see recordLegalGateConsents
     const age = calculateAge(birthYear);
     const eligible = age >= MINIMUM_CONSENT_AGE;
 

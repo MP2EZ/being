@@ -64,6 +64,7 @@ import { useStoicPracticeStore } from '@/features/practices/stores/stoicPractice
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { readErasureRetirement, useConsentStore } from '@/core/stores/consentStore';
 import { resolveInitialRoute } from './resolveInitialRoute';
+import { resumeInterruptedErasure } from '@/core/services/privacy/AccountDeletionService';
 import { CombinedLegalGateScreen } from '@/features/consent';
 // FEAT-417: imported by direct path, not through the `@/features/consent`
 // barrel. The barrel is already in this file's eager graph via the line above,
@@ -213,6 +214,13 @@ const Stack = createStackNavigator<RootStackParamList>();
 const INITIAL_ROUTE_TIMEOUT_MS = 3000;
 
 /**
+ * DEBUG-763 — once per process: checkInitialRoute re-runs on every consentStatus
+ * change, and the resume itself can move consent state. Module scope, never state,
+ * so it is no render trigger on the crisis host (DEBUG-536).
+ */
+let erasureResumeStarted = false;
+
+/**
  * DEBUG-341 — LoadingScreen now carries a 988 control, and this is the single
  * highest-value change in the item.
  *
@@ -312,6 +320,13 @@ const CleanRootNavigator: React.FC = () => {
         // with one added input: an onboarded state left by an erased account never
         // reaches Main (DEBUG-755).
         setInitialRoute(resolveInitialRoute({ settings, consent, consentStatus, retired }));
+        // DEBUG-763: finish an interrupted erasure only AFTER the route is set — never
+        // under LoadingScreen, never awaited. It never rejects, shows no UI and
+        // dispatches no navigation; a launch it retires is already on LegalGate.
+        if (!erasureResumeStarted) {
+          erasureResumeStarted = true;
+          void resumeInterruptedErasure();
+        }
       } catch (error) {
         if (cancelled) return;
         // DEBUG-341: default to LegalGate, NOT Main. Routing an unconsented or under-age
