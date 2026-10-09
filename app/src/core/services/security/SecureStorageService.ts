@@ -217,16 +217,6 @@ export const WELLNESS_SECURE_STORE_KEYS = [
 ] as const;
 
 /**
- * Keys DELIBERATELY EXCLUDED from the erasure sweep (documented so the
- * exclusion is a reviewable decision, not an accidental omission):
- *  - consent_record_v1 / consent_history_v1 / legal_gate_consents_v1 /
- *    age_verification_v1 — consent audit trail (lawful-basis evidence;
- *    DataRetentionService already refuses to delete consent records).
- *  - auth_device_id — anonymous device-identity anchor; deleting it would
- *    de-authenticate the device with no recovery path and holds no wellness
- *    content.
- */
-/**
  * DEBUG-545 — the account-deletion attestation's own key.
  *
  * It exists as a SEPARATE key from `consent_history_v1` because that key is
@@ -245,13 +235,58 @@ export const WELLNESS_SECURE_STORE_KEYS = [
  */
 export const ACCOUNT_DELETION_ATTESTATION_KEY = 'account_deletion_attestation_v1';
 
+/**
+ * Keys DELIBERATELY EXCLUDED from the erasure sweep (documented so the
+ * exclusion is a reviewable decision, not an accidental omission). Like the
+ * manifest above this is DOCUMENTATION plus assertion coverage: `clearAllWellnessData`
+ * deletes only what it enumerates, so a key's ABSENCE from every deleting list
+ * is the real protection.
+ *
+ *  - `ACCOUNT_DELETION_ATTESTATION_KEY` — the Art. 17(3)(b) record that an
+ *    erasure happened. Carries no identifier (see its doc).
+ *  - `consent_history_v1` — NOT the history chain (that is an encrypted
+ *    `wellness_async_*` blob and is swept). It is the legacy plaintext key the
+ *    attestation was dual-written to (DEBUG-545), and it is excluded only so that
+ *    copy can serve as the single-entry fallback when the isolated key cannot
+ *    be read. `stripLegacyAttestationCopy` removes it as soon as the isolated key
+ *    verifies, and deletes it outright if it ever holds more than that one entry.
+ *
+ * DEBUG-762 moved the consent record, legal-gate acceptances, age check and the
+ * device anchors OUT of this list and into `ACCOUNT_ERASURE_SECURE_STORE_KEYS`:
+ * they belong to the account, and keeping them was never evidence of anything
+ * the attestation does not already prove.
+ */
 export const ERASURE_EXCLUDED_SECURE_STORE_KEYS = [
-  'consent_record_v1',
   'consent_history_v1',
+  ACCOUNT_DELETION_ATTESTATION_KEY,
+] as const;
+
+/**
+ * DEBUG-762 — fixed SecureStore keys that belong to the ACCOUNT and are deleted
+ * by a full account-deletion wipe (`clearAllWellnessData({ deleteMasterKey: true })`)
+ * only. NEVER by a logout or partial clear: the consent record and age check are
+ * what lets a signed-in user keep using the app.
+ *
+ *  - `consent_record_v1`, `legal_gate_consents_v1`, `age_verification_v1` — the
+ *    deleted account's consent, legal acceptances and age check. Until DEBUG-762
+ *    these survived (DEBUG-755 only retired them), so the next person on the device
+ *    inherited a stale record and the privacy policy said "retained indefinitely".
+ *  - `auth_device_id` — the pre-INFRA-260 device-identity anchor. Nothing reads it
+ *    since the anonymous Supabase session replaced it; deleting it cannot
+ *    de-authenticate anyone.
+ *  - `@being/device_id` — written only by `EncryptionService.generateSecureDeviceId`,
+ *    which has no caller. Listed so a build that ever wrote it cannot keep it.
+ *
+ * Deleted BEFORE the master key and NOT best-effort: a failed delete throws, so
+ * `deleteAccountAndWipe` reports failure and the user retries (the server account
+ * is already gone, which is why that retry is safe).
+ */
+export const ACCOUNT_ERASURE_SECURE_STORE_KEYS = [
+  'consent_record_v1',
   'legal_gate_consents_v1',
   'age_verification_v1',
   'auth_device_id',
-  ACCOUNT_DELETION_ATTESTATION_KEY,
+  '@being/device_id',
 ] as const;
 
 /**
@@ -1253,8 +1288,10 @@ export class SecureStorageService {
   /**
    * Wipe all wellness data on logout/account deletion. Sweeps AsyncStorage
    * (hybrid path) AND the fixed legacy SecureStore wellness keys
-   * (`WELLNESS_SECURE_STORE_KEYS`). Consent audit-trail + device-identity keys
-   * are deliberately preserved (`ERASURE_EXCLUDED_SECURE_STORE_KEYS`).
+   * (`WELLNESS_SECURE_STORE_KEYS`). On a full account-deletion wipe it also deletes
+   * the account-scoped consent/age/device keys (`ACCOUNT_ERASURE_SECURE_STORE_KEYS`,
+   * DEBUG-762); the deletion attestation is deliberately preserved
+   * (`ERASURE_EXCLUDED_SECURE_STORE_KEYS`).
    *
    * Required for CCPA/TDPSA right-to-delete + GDPR Art. 17 (right to erasure).
    *
@@ -1319,15 +1356,28 @@ export class SecureStorageService {
     }
 
     // SecureStore has no enumerate API: explicitly delete the fixed wellness
-    // keys from the manifest. Consent/identity keys are intentionally NOT in
-    // the manifest (see ERASURE_EXCLUDED_SECURE_STORE_KEYS) and are preserved.
+    // keys from the manifest. The deletion attestation is intentionally NOT in
+    // the manifest (see ERASURE_EXCLUDED_SECURE_STORE_KEYS) and is preserved.
     await Promise.all(
       WELLNESS_SECURE_STORE_KEYS.map((key) => SecureStore.deleteItemAsync(key))
     );
 
-    // Full account-deletion wipe only: delete the master key LAST, after all
-    // dependent wellness ciphertext above has been removed.
     if (options.deleteMasterKey) {
+      // DEBUG-762 — the account-scoped consent/age/device keys go with the account.
+      // Full wipe ONLY (a logout must keep the user consented), BEFORE the master key,
+      // and deliberately NOT best-effort: a failed delete must throw so erasure reports
+      // failure and the user retries, rather than reporting a deletion that left the
+      // previous subject's consent record for the next person. Every key is attempted
+      // before the first failure is rethrown. Independent of the attestation write
+      // (AccountDeletionService step 2, best-effort): this path never reads it.
+      const results = await Promise.allSettled(
+        ACCOUNT_ERASURE_SECURE_STORE_KEYS.map((key) => SecureStore.deleteItemAsync(key))
+      );
+      const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (failed) throw failed.reason;
+
+      // Delete the master key LAST, after all dependent wellness ciphertext
+      // above has been removed.
       await EncryptionService.deleteMasterKey();
     }
   }

@@ -23,6 +23,8 @@
  * transaction/purchase tokens already are).
  */
 
+import { databaseError } from '../_shared/logSafe.ts';
+
 export type WebhookSource = 'apple' | 'google';
 
 /**
@@ -54,7 +56,9 @@ export async function wasProcessed(
     .maybeSingle();
 
   if (error) {
-    throw new Error(`Replay-cache check failed: ${error.message}`);
+    // Fixed message + validated SQLSTATE only (MAINT-765): the database's text can quote the
+    // notification id, and this error reaches the log via webhookFailureReason.
+    throw databaseError('Replay-cache check failed', error);
   }
 
   return data !== null;
@@ -85,10 +89,10 @@ export async function markProcessed(
       // Postgres unique_violation: a concurrent insert won the race.
       // Idempotent outcome — log and proceed.
       console.log(
-        `[Replay Cache] Concurrent insert for ${source}/${notificationId}; treating as already-marked.`
+        `[Replay Cache] Concurrent insert for source=${source}; treating as already-marked.`
       );
       return;
     }
-    throw new Error(`Replay-cache mark failed: ${error.message}`);
+    throw databaseError('Replay-cache mark failed', error);
   }
 }

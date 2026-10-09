@@ -437,7 +437,8 @@ Deno.test('backfill: a day ABSENT from the watermark is not growth-from-zero', (
     currentCounts: { '2026-06-01': 50, '2026-06-02': 1 },
     watermark: { '2026-06-02': 1 },
   });
-  assertEquals(v.status, 'none');
+  // DEBUG-700: this sparse prior leaves 06-03..06-06 as gap days — still no closed-day growth.
+  assertEquals(v.status, 'gap_day');
   assertEquals(v.grownDays.length, 0);
 });
 
@@ -447,7 +448,7 @@ Deno.test('backfill: growth below the report threshold is ignored', () => {
     currentCounts: { '2026-06-01': 4 },
     watermark: { '2026-06-01': 1 }, // +3, below minGrowthToReport of 5
   });
-  assertEquals(v.status, 'none');
+  assertEquals(v.status, 'gap_day', 'DEBUG-700: gap days after 06-01, and no backfill');
 });
 
 Deno.test('backfill: a day that SHRANK is not reported as growth', () => {
@@ -457,7 +458,7 @@ Deno.test('backfill: a day that SHRANK is not reported as growth', () => {
     currentCounts: { '2026-06-01': 2 },
     watermark: { '2026-06-01': 10 },
   });
-  assertEquals(v.status, 'none');
+  assertEquals(v.status, 'gap_day', 'DEBUG-700: gap days after 06-01, and no backfill');
   assertEquals(v.grownDays.length, 0);
 });
 
@@ -618,9 +619,11 @@ Deno.test('partial day (AC2 v): prior clean run 2 days back → its day is the p
     priorPaged: NOT_PAGED,
   });
   assertEquals(v.partialDay?.day, P);
-  // The gap day was never evaluated by any run: neither backfill nor the partial day.
   assertEquals(v.grownDays.filter((g) => g.day === D).length, 0);
-  assertEquals(v.status, 'none');
+  // DEBUG-700 flipped this pin: D was a silent `none`; it is now a gap day, spike-tested at
+  // its full count against its own neighbours.
+  assertEquals(v.gapDays.map((g) => [g.day, g.alert]), [[D, true]]);
+  assertEquals(v.status, 'gap_day');
 });
 
 Deno.test('partial day (AC2 vi): a v15 flat map is a valid prior, never cold_start', () => {
@@ -683,7 +686,7 @@ const NO_AXIS = { alert: false };
 
 Deno.test('send decision: a FULL-DAY SPIKE alone sends, under its own reason token', () => {
   const a = alertAxes({ liveness: NO_AXIS, spike: NO_AXIS, probe: NO_AXIS, backfill: partial({ [D]: 4 }, { [D]: 6 }) });
-  assertEquals(a, { liveness: false, spike: false, probe: false, backfill: false, partialDay: true });
+  assertEquals(a, { liveness: false, spike: false, probe: false, backfill: false, partialDay: true, gapDay: false });
   assert(anyAxisTripped(a));
   assertEquals(composeReason(a.liveness, a.spike, a.probe, a.backfill, a.partialDay), 'partial_day');
 });
@@ -701,6 +704,7 @@ const SUBJECT_AXES: Array<[keyof AxisAlerts, string]> = [
   ['probe', 'PROBE DEAD (ingest leg)'],
   ['spike', 'VOLUME SPIKE'],
   ['partialDay', 'FULL-DAY SPIKE'],
+  ['gapDay', 'GAP-DAY SPIKE'],
   ['backfill', 'BACKFILL SPIKE'],
   ['liveness', 'LIVENESS'],
 ];
@@ -709,8 +713,8 @@ function occurrences(haystack: string, needle: string): number {
   return haystack.split(needle).length - 1;
 }
 
-Deno.test('subject: every one of the 31 paging combinations names exactly its axes', () => {
-  for (let mask = 1; mask < 32; mask++) {
+Deno.test('subject: every one of the 63 paging combinations names exactly its axes', () => {
+  for (let mask = 1; mask < 64; mask++) {
     const a = {} as AxisAlerts;
     SUBJECT_AXES.forEach(([k], i) => (a[k] = Boolean(mask & (1 << i))));
     const s = composeSubject(a);
@@ -730,7 +734,7 @@ Deno.test('subject: every one of the 31 paging combinations names exactly its ax
 });
 
 Deno.test('subject (R4): probe-only and probe + liveness name the dead ingest leg first', () => {
-  const none: AxisAlerts = { liveness: false, spike: false, probe: false, backfill: false, partialDay: false };
+  const none: AxisAlerts = { liveness: false, spike: false, probe: false, backfill: false, partialDay: false, gapDay: false };
   assertEquals(composeSubject({ ...none, probe: true }), '[Being] Crisis-detection PROBE DEAD (ingest leg)');
   assertEquals(
     composeSubject({ ...none, probe: true, liveness: true }),
@@ -919,4 +923,239 @@ Deno.test('buildCountWindow: duplicate event_date rows keep the last one (existi
     baselineDays: 1,
   });
   assertEquals(w.todayCount, 6);
+});
+
+// ---------------------------------------------------------------------------
+// DEBUG-700 — gap days: the dates strictly between the partial day P and today
+// ---------------------------------------------------------------------------
+// When the prior clean run is 2+ days back, no run ever spike-tested the days in between.
+// Each is now evaluated as its missed daily run would have been, but at full count:
+// neighbours G-7..G-1, current value first, watermark value second, absent excluded.
+// Rulings: crisis AC0 gate, 2026-10-07 (a)-(g).
+
+const T = (n: number) => dayMinus(TODAY, n);
+
+/** Evaluate with the prior clean run on `prior` (a gap-filled map) and this run's window. */
+function gap(
+  prior: string,
+  currentOverrides: Record<string, number> = {},
+  opts: { watermark?: Record<string, number>; priorPaged?: boolean; currentFill?: number } = {},
+): BackfillVerdict {
+  return evaluateBackfill({
+    ...BF,
+    watermark: opts.watermark ?? runMap(prior),
+    currentCounts: runMap(TODAY, currentOverrides, opts.currentFill ?? 0),
+    priorPaged: opts.priorPaged ?? NOT_PAGED,
+  });
+}
+
+/** Every date a verdict accounts for as a gap: individual readings plus the collapsed range. */
+function gapCoverage(v: BackfillVerdict): string[] {
+  const days = v.gapDays.map((g) => g.day);
+  if (v.gapRange) {
+    for (let d = v.gapRange.from; d <= v.gapRange.to; d = dayMinus(d, -1)) days.push(d);
+  }
+  return days;
+}
+
+Deno.test('gap day (AC1 i): two gap days — the earlier at 50 pages, the one at 4 is listed only', () => {
+  const v = gap(T(3), { [T(2)]: 50, [T(1)]: 4 });
+  assertEquals(v.gapDays.map((g) => [g.day, g.alert]), [[T(2), true], [T(1), false]]);
+  assertEquals(v.gapDays[1].evaluable, true, 'below the floor is evaluated, not skipped');
+  assertEquals(v.status, 'gap_day');
+  assertFalse(v.alert, 'the closed-day axis did not page');
+  assertEquals(v.partialDay?.day, T(3));
+  const a = alertAxes({ liveness: NO_AXIS, spike: NO_AXIS, probe: NO_AXIS, backfill: v });
+  assert(a.gapDay);
+  assert(anyAxisTripped(a));
+});
+
+Deno.test('gap day (AC1 ii): exactly the floor against zero pages; exactly 3x the mean pages', () => {
+  assert(gap(T(2), { [T(1)]: 5 }).gapDays[0].alert);
+  assertFalse(gap(T(2), { [T(1)]: 4 }).gapDays[0].alert);
+  // Neighbour mean 2 → threshold 6, alert-on-equal, the same verdict evaluateSpike gives.
+  const w = runMap(T(2), {}, 2);
+  const at = gap(T(2), { [T(1)]: 6 }, { watermark: w, currentFill: 2 }).gapDays[0];
+  const below = gap(T(2), { [T(1)]: 5 }, { watermark: w, currentFill: 2 }).gapDays[0];
+  assert(at.alert);
+  assertFalse(below.alert);
+  assertEquals(at.baselineMean, 2);
+  const spike = evaluateSpike({ todayCount: 6, baselineCounts: Array(7).fill(2), spikeMultiplier: SPIKE_X, minAbsoluteForSpike: SPIKE_MIN });
+  assertEquals([at.alert, at.baselineMean], [spike.alert, spike.baselineMean]);
+});
+
+Deno.test('gap day (AC1 iii): priorPaged=true never suppresses a gap-day page (it is P only)', () => {
+  const v = gap(T(3), { [T(2)]: 50 }, { priorPaged: true });
+  assert(v.gapDays[0].alert);
+});
+
+Deno.test('gap day (AC1 iv): a watermark-only neighbour takes its watermark value, never 0', () => {
+  // G = today-7: its neighbours today-8..today-14 are outside this run's window, so only the
+  // watermark has them. At 10 each the threshold is 30 and 20 does not page; read as 0 it would.
+  const v = gap(T(8), { [T(7)]: 20 }, { watermark: runMap(T(8), {}, 10) });
+  const g = v.gapDays.find((r) => r.day === T(7))!;
+  assertEquals(g.baselineMean, 10);
+  assertFalse(g.alert);
+});
+
+Deno.test('gap day (AC1 v): days older than today-7 are a range, not evaluable, never counted', () => {
+  const v = gap(T(10));
+  assertEquals(v.gapRange, { from: T(9), to: T(8), days: 2, reason: 'out_of_window' });
+  assertEquals(v.gapDays.map((g) => g.day), [T(7), T(6), T(5), T(4), T(3), T(2), T(1)]);
+  assertEquals(v.status, 'gap_day');
+  assertFalse(/count/i.test(JSON.stringify(v.gapRange)), 'a range carries no detection count');
+});
+
+Deno.test('gap day (AC1 vi + crisis 3): P 400 days back — no_baseline, thin baseline, bounded range', () => {
+  const v = gap(T(400));
+  const g7 = v.gapDays.find((r) => r.day === T(7))!;
+  assertFalse(g7.evaluable);
+  assertEquals(g7.notEvaluableReason, 'no_baseline');
+  assertEquals(g7.currentCount, null, 'not evaluable is shown by date, never with a count');
+  assertEquals(g7.baselineMean, null);
+  assertFalse(g7.alert);
+  const g6 = v.gapDays.find((r) => r.day === T(6))!;
+  assert(g6.evaluable, 'one neighbour (today-7 at a real 0) is a thin but valid baseline');
+  assertEquals(g6.neighbourDays, 1);
+  assertEquals(v.gapRange, { from: T(399), to: T(8), days: 392, reason: 'out_of_window' });
+});
+
+Deno.test('gap day (AC1 vii): completeness over prior-run offsets 0-12 and 400', () => {
+  for (const off of [0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 400]) {
+    const P = T(off);
+    const v = gap(P);
+    const expected: string[] = [];
+    for (let i = off - 1; i >= 1; i--) expected.push(T(i));
+    const covered = gapCoverage(v);
+    assertEquals([...covered].sort(), [...expected].sort(), `offset ${off}`);
+    assertEquals(new Set(covered).size, covered.length, `offset ${off}: a gap day appears twice`);
+    for (const g of v.grownDays) assertFalse(expected.includes(g.day), `offset ${off}: gap day in grownDays`);
+    assertEquals(v.partialDay?.day ?? null, off === 0 ? null : P, `offset ${off}`);
+  }
+  const nullWm = evaluateBackfill({ ...BF, watermark: null, currentCounts: runMap(TODAY) });
+  assertEquals([nullWm.gapDays.length, nullWm.gapRange], [0, null]);
+});
+
+Deno.test('gap day (crisis 9): a same-day or future latest key produces no gap days', () => {
+  for (const latest of [TODAY, dayMinus(TODAY, -1)]) {
+    const v = gap(latest);
+    assertEquals([v.gapDays.length, v.gapRange], [0, null], latest);
+  }
+});
+
+Deno.test('gap day (AC1 viii, regression guard — passes trivially pre-change): the next run is quiet', () => {
+  // Run 1 (AC1 i) paged today-2 as a gap day. Run 2 is tomorrow, on run 1's persisted map,
+  // where the former gap day is now a closed day.
+  const tomorrow = dayMinus(TODAY, -1);
+  const watermark = runMap(TODAY, { [T(2)]: 50 });
+  const quiet = evaluateBackfill({
+    ...BF, today: tomorrow, watermark,
+    currentCounts: runMap(tomorrow, { [T(2)]: 50 }), priorPaged: NOT_PAGED,
+  });
+  assertEquals([quiet.gapDays.length, quiet.gapRange, quiet.alert, quiet.status], [0, null, false, 'none']);
+  const grew = evaluateBackfill({
+    ...BF, today: tomorrow, watermark,
+    currentCounts: runMap(tomorrow, { [T(2)]: 55 }), priorPaged: NOT_PAGED,
+  });
+  assertEquals(grew.gapDays.length, 0);
+  assert(grew.alert);
+  assertEquals(grew.status, 'backfill');
+  const a = alertAxes({ liveness: NO_AXIS, spike: NO_AXIS, probe: NO_AXIS, backfill: grew });
+  assertEquals([a.backfill, a.gapDay], [true, false]);
+});
+
+Deno.test('gap day (AC1 ix): a gap-day-only page never says BACKFILL — subject or body', () => {
+  const v = gap(T(3), { [T(2)]: 50 });
+  const subject = composeSubject(alertAxes({ liveness: NO_AXIS, spike: NO_AXIS, probe: NO_AXIS, backfill: v }));
+  assertEquals(subject, '[Being] Crisis-detection GAP-DAY SPIKE');
+  const body = composeBackfillLines(buildPayload(v).backfill).join('\n');
+  assertFalse(/backfill/i.test(body), body);
+  assert(body.includes('Days missed by earlier runs — checked now at full count:'));
+  assert(body.includes(`${T(2)}: 50 vs baseline mean 0 over 7 day(s) — GAP-DAY SPIKE`), body);
+});
+
+Deno.test('gap day (AC1 x): backfill_status is pinned for all 8 combinations', () => {
+  const closed = T(4);
+  const cases: Array<[boolean, boolean, boolean, string]> = [];
+  for (const b of [false, true]) for (const p of [false, true]) for (const g of [false, true]) {
+    const P = g ? T(2) : T(1);
+    const v = evaluateBackfill({
+      ...BF,
+      watermark: runMap(P),
+      currentCounts: runMap(TODAY, { ...(b ? { [closed]: 9 } : {}), ...(p ? { [P]: 7 } : {}) }),
+      priorPaged: NOT_PAGED,
+    });
+    const want = [b && 'backfill', p && 'partial_day', g && 'gap_day'].filter(Boolean).join('+') || 'none';
+    cases.push([b, p, g, want]);
+    assertEquals(v.status, want, JSON.stringify({ b, p, g }));
+  }
+  assertEquals(new Set(cases.map((c) => c[3])).size, 8);
+});
+
+Deno.test('gap day (crisis 4): an absent neighbour is EXCLUDED — substituting 0 would page', () => {
+  // G = today-7, whose only present neighbour is P = today-8 at 3 → threshold 9, so 6 is
+  // within 3x. Read the six absent days as zeros and the mean is 3/7 — 6 would page.
+  const v = gap(T(8), { [T(7)]: 6 }, { watermark: { [T(8)]: 3 } });
+  const g = v.gapDays.find((r) => r.day === T(7))!;
+  assertEquals([g.baselineMean, g.neighbourDays, g.alert], [3, 1, false]);
+});
+
+Deno.test('gap day (crisis 6): a sustained surge masks itself after ~3 days, as daily runs would', () => {
+  // Accepted on the record (AC0 b): earlier gap days are neighbours of later ones.
+  const v = gap(T(5), { [T(4)]: 30, [T(3)]: 30, [T(2)]: 30, [T(1)]: 30 });
+  assertEquals(v.gapDays.filter((g) => g.alert).map((g) => g.day), [T(4), T(3), T(2)]);
+});
+
+Deno.test('gap day (AC2 + crisis 2): no date-shaped key can throw; invalid keys are ignored', () => {
+  // '2026-00-10' → Date.parse NaN → toISOString RangeError, outside any try/catch.
+  const allInvalid = evaluateBackfill({ ...BF, watermark: { '2026-00-10': 1 }, currentCounts: runMap(TODAY) });
+  assertEquals(allInvalid.status, 'cold_start', 'a watermark with no valid day key is no watermark');
+  assertEquals(evaluateBackfill({ ...BF, watermark: {}, currentCounts: runMap(TODAY) }).status, 'cold_start');
+  // An invalid key that sorts latest must not become P, nor hide the real P.
+  const feb = evaluateBackfill({
+    ...BF, watermark: { '2026-02-30': 1, '2026-02-28': 2 }, currentCounts: runMap(TODAY), priorPaged: NOT_PAGED,
+  });
+  assertEquals(feb.partialDay?.day, '2026-02-28');
+  assert(feb.gapRange !== null && feb.gapRange.days > 0);
+  const june31 = gap(D, {}, { watermark: { ...runMap(D), '2026-06-31': 4 } });
+  assertEquals(june31.partialDay?.day, D, 'previously an invalid "future" key erased the partial day');
+  // Bounded: a P 400 days back yields at most 7 readings and one range.
+  const far = gap(T(400));
+  assert(far.gapDays.length <= 7);
+});
+
+Deno.test('gap day (AC5): readings carry day-level fields only; denylist and no clock time', () => {
+  const v = gap(T(12), { [T(2)]: 50 });
+  for (const g of v.gapDays) {
+    assertEquals(
+      Object.keys(g).sort(),
+      ['alert', 'baselineMean', 'currentCount', 'day', 'evaluable', 'neighbourDays', 'notEvaluableReason'],
+    );
+  }
+  const p = buildPayload(v);
+  assert(p.backfill.gapDays.length > 0 && p.backfill.gapRange !== null);
+  const serialized = JSON.stringify(p);
+  for (const forbidden of PAYLOAD_DENYLIST) {
+    assertFalse(serialized.toLowerCase().includes(forbidden), `payload must not contain "${forbidden}"`);
+  }
+  assertFalse(/\d{2}:\d{2}/.test(serialized));
+  const body = composeBackfillLines(p.backfill).join('\n');
+  assertFalse(/\d{2}:\d{2}/.test(body));
+  assert(body.includes(`Not checked — outside the 7-day window: ${T(11)} to ${T(8)} (4 days).`), body);
+});
+
+Deno.test('gap day (AC5): the body heading is not "Backfill"; closed-day growth keeps its own line', () => {
+  const v = gap(T(2), { [T(4)]: 9 });
+  const body = composeBackfillLines(buildPayload(v).backfill).join('\n');
+  assert(body.includes(`Watermark checks: ${v.status}.`), body);
+  assertFalse(body.includes('Backfill / partial-day axis'));
+  assert(body.includes('Backfill — closed days that grew since the last evaluated run:'));
+  const gapSection = body.slice(body.indexOf('Days missed by earlier runs'));
+  assertFalse(/backfill/i.test(gapSection), 'the gap section never says backfill');
+});
+
+Deno.test('composeReason (AC4): gap_day is appended last and displaces nothing', () => {
+  assertEquals(composeReason(false, false, false, false, false, true), 'gap_day');
+  assertEquals(composeReason(true, true, true, true, true, true), 'liveness+spike+probe+backfill+partial_day+gap_day');
+  assertEquals(composeReason(true, false, false, true, false, true), 'liveness+backfill+gap_day');
 });
