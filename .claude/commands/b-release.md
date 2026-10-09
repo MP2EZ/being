@@ -209,60 +209,38 @@ introduced a `PHPhotoLibrary` call and got v1.2.0 rejected with ITMS-90683.
 the permission half of this in precommit and CI. This step is for the rest —
 anything else a native bump can change that no gate models yet.
 
-### 2.9 Attended crisis device checklist (INFRA-591)
+### 2.9 Device-check ceiling (INFRA-591, crisis ruling 2026-10-09)
 
-No Maestro can run a flow on a physical iPhone (DEBUG-589). That makes this the only
-hardware check of the 988 dial and the keyboard accessory. It runs here, before anything
-is bumped, because a failure after 6.3 would strand a merged bump on `development`.
-
-Follow `docs/testing/crisis-device-checklist.md` exactly. It owns the steps, the pass/fail
-rules and the result block. Do not restate them here.
+No Maestro can run a flow on a physical iPhone (DEBUG-589), so the checklist in
+`docs/testing/crisis-device-checklist.md` is the only hardware check of the 988 dial and the
+keyboard accessory. It no longer runs here. Each release ships unattended with a PENDING
+record (6.4); the operator runs the checklist's §5 against that release's TestFlight build
+later, and the build is not submitted for App Store review until a PASS bound to it is on the
+release PR. This step enforces the one part that is mechanical: **at most one unverified
+build at a time.**
 
 ```bash
 cd /Users/max/dev/being/development
-TESTED_SHA=$(git rev-parse origin/development)
-PREV_WAIVED=$(gh pr list --base main --head development --state merged --limit 1 --json body \
-  -q '(.[0].body // "") | test("Result:\\s+WAIVED")')
-echo "TESTED_SHA=${TESTED_SHA}  previous release waived: ${PREV_WAIVED}"
+gh pr list --base main --state merged --limit 100 \
+  --json number,mergedAt,mergeCommit,body,comments \
+  | python3 /Users/max/dev/being/.claude/scripts/release-device-check-ceiling.py
+CEILING_RC=$?; echo "ceiling rc=${CEILING_RC}"
 ```
 
-Stop and ask the operator to build `TESTED_SHA` for their iPhone and run the checklist's §2
-and §3. Wait for the device model, the iOS version and each step's result. Never ask the
-operator for the SHA.
+**Anything but `OK:` (rc 0) is an ABORT.** It reads the latest PR merged into `main` from any
+head, hotfixes included, picked by merge time. Terminal records are PASS, FAIL, EXEMPT and VOID,
+line-anchored, with PASS/EXEMPT bound to that PR's merge commit; PENDING and WAIVED never
+count. A `gh` error or an empty list refuses. There is no bypass: relay the refusal, and the
+operator clears it by posting the §5 result on the named PR. FAIL is terminal on purpose, so
+the release carrying the fix is not blocked.
 
-- **Any FAIL:** ABORT. Nothing has been bumped yet.
-- **WAIVED:** accept it only when no qualifying iPhone is available. ABORT if `PREV_WAIVED`
-  is `true`. A waived build is not promoted to the App Store until the checklist passes
-  against its TestFlight build, per the checklist's §5 — that run is not part of this release.
-- **Otherwise:** fill in the checklist's §6 block as `CHECKLIST_BLOCK` for 6.4, with
-  `Trigger: /b-release Phase 2.9` and the local-Release `Build:` literal. The block's
-  TestFlight-only lines belong to §5 runs; omit them here.
+**This gate does not replace the checklist's revert triggers** (§8): a TestFlight recipient
+other than the founder, a non-founder user on any channel, or a workflow that delivers a
+production binary without a manual promotion step puts the check back before the bump.
+Before the first public App Store availability, promotion needs mechanical enforcement or
+the same revert.
 
-**Binding check.** 6.4 and 6.6 re-run this block with `SHIP_SHA` set to the tree about to
-ship. It passes only when that tree differs from `TESTED_SHA` in version fields and nothing
-else. A filename allowlist is not enough, because `app/app.json` also carries
-`LSApplicationQueriesSchemes`.
-
-```bash
-cd /Users/max/dev/being/development && git fetch origin --quiet
-BIND=ok
-OTHERS=$(git diff --name-only "${TESTED_SHA}" "${SHIP_SHA}" | awk '!/^app\/(app|package|package-lock)\.json$/')
-[ -z "$OTHERS" ] || BIND="files beyond the bump changed: $(printf '%s' "$OTHERS" | tr '\n' ' ')"
-for spec in 'app/app.json|del(.expo.version, .expo.ios.buildNumber, .expo.android.versionCode)' \
-            'app/package.json|del(.version)' \
-            'app/package-lock.json|del(.version, .packages[""].version)'; do
-  f=${spec%%|*}; filt=${spec#*|}
-  [ "$BIND" = ok ] || break
-  [ "$(git show "${TESTED_SHA}:${f}" | jq -S "$filt")" = "$(git show "${SHIP_SHA}:${f}" | jq -S "$filt")" ] \
-    || BIND="${f} changed beyond its version fields"
-done
-echo "binding: ${BIND}"
-```
-
-**Anything but `binding: ok` is an ABORT.** That includes a fix pushed onto the bump branch
-to turn its CI green. Do not re-run `/b-release`, which would bump a second time. Instead,
-re-run the checklist against the new `origin/development`, set `TESTED_SHA` to it, and
-resume at the step that failed.
+Fixture cases: `python3 /Users/max/dev/being/.claude/scripts/test-release-device-check-ceiling.py`.
 
 ---
 
@@ -544,12 +522,27 @@ git pull --rebase origin development
 
 ### 6.4 Open release PR
 
-First re-run the Phase 2.9 binding check with `SHIP_SHA=$(git rev-parse origin/development)`,
-and ABORT unless it prints `binding: ok`.
+The body carries the PENDING device-check record (the checklist's §6 PENDING form). Its
+`Result:` line names PENDING alone, never the list of alternatives, or the Phase 2.9 parser
+could read a template line as a result. Create the PR, then write the body with its number.
 
 ```bash
-RELEASE_NOTES=$(cat <<'EOF'
-[CHECKLIST_BLOCK from Phase 2.9]
+PR_URL=$(gh pr create \
+  --base main \
+  --head development \
+  --title "Release v$NEXT_VERSION" \
+  --body "Release v$NEXT_VERSION (body follows)")
+
+PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+
+RELEASE_NOTES=$(cat <<EOF
+### Crisis device checklist (INFRA-591)
+
+Result: PENDING
+Trigger: release PR #${PR_NUMBER} v${NEXT_VERSION}
+
+The §5 result is posted as a comment after the TestFlight build installs.
+Do not submit this build for App Store review until that result is a PASS bound to it.
 
 [Generated release notes from Phase 6.1]
 
@@ -558,14 +551,7 @@ RELEASE_NOTES=$(cat <<'EOF'
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )
-
-PR_URL=$(gh pr create \
-  --base main \
-  --head development \
-  --title "Release v$NEXT_VERSION" \
-  --body "$RELEASE_NOTES")
-
-PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
+gh pr edit "$PR_NUMBER" --body "$RELEASE_NOTES"
 ```
 
 Display:
@@ -613,13 +599,16 @@ is the worst place to discover that from a misread `--watch`.
 ### 6.6 Merge with merge-commit strategy (decision #1)
 
 The release PR's head is the live `development` branch, so anything merged during 6.5 would
-ship untested. Pin the head, re-run the Phase 2.9 binding check with that `SHIP_SHA`, and
-ABORT unless it prints `binding: ok`. `--match-head-commit` refuses the merge if the head
-moves after the check.
+ship without the CI that just went green. Pin the head; `--match-head-commit` refuses the
+merge if it moves. Re-run the Phase 2.9 ceiling immediately before merging: a hotfix that
+merged into `main` during 6.5 would otherwise leave two unverified builds.
 
 ```bash
 SHIP_SHA=$(gh pr view $PR_NUMBER --json headRefOid -q .headRefOid)
-# ... Phase 2.9 binding check ...
+gh pr list --base main --state merged --limit 100 \
+  --json number,mergedAt,mergeCommit,body,comments \
+  | python3 /Users/max/dev/being/.claude/scripts/release-device-check-ceiling.py \
+  || { echo "❌ Ceiling refused at 6.6 — do not merge."; exit 1; }
 gh pr merge $PR_NUMBER --merge --admin --match-head-commit "$SHIP_SHA"
 ```
 
@@ -781,11 +770,20 @@ rejected v1.2.0 minutes after a fully green submit. Nothing here can gate that.
 ✅ Release v[PKG_VERSION] built and uploaded.
    Apple processing is pending and is reported only by email.
    Verify: https://appstoreconnect.apple.com/apps/6777579207/testflight/ios
+
+⏳ Device check PENDING for v[PKG_VERSION] (PR #[PR_NUMBER]). Do not submit ASC build
+   [appBuildVersion] for App Store review until a §5 PASS bound to it is on PR #[PR_NUMBER].
+   Procedure: docs/testing/crisis-device-checklist.md §5. The next /b-release refuses
+   until this PR carries a terminal result.
 ```
+
+Read `[appBuildVersion]` from `eas build:list` (8.2); it is EAS's remote counter, never
+`app/app.json`.
 
 If Apple rejects: the fix is a code/config change, so it needs a new patch
 version — the tagged tree cannot produce a valid binary and must not be the
-shipped one.
+shipped one. Post a VOID result on this PR citing the ITMS code, so the
+ceiling clears for the patch release.
 
 ---
 
