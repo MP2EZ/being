@@ -66,6 +66,8 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/core/services/supabase/SupabaseService.ts` | `crisis` + `compliance` |
 | `app/src/core/services/data-retention/` | `crisis` + `compliance` |
 | `app/src/core/services/privacy/AccountDeletionService.ts` | `crisis` + `compliance` |
+| `app/src/core/services/privacy/erasurePending.ts` | `crisis` + `compliance` |
+| `app/src/core/services/privacy/erasureResumeGate.ts` | `crisis` + `compliance` |
 | `app/App.tsx` | `crisis` |
 | `app/src/core/analytics/PostHogProvider.tsx` | `crisis` + `compliance` |
 | `app/src/core/components/BugReportOverlay.tsx` | `crisis` |

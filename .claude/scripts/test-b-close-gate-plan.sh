@@ -31,7 +31,7 @@
 
 if [ -z "${BASH_VERSION:-}" ]; then echo "run with bash" >&2; exit 2; fi
 
-EXPECTED_CASES=116
+EXPECTED_CASES=118
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/b-close-gate-plan.sh"
 VERBOSE=""; NO_CACHE=""
@@ -130,6 +130,8 @@ case_deeplink_validation()  { w $C/services/security/DeepLinkValidationService.t
 case_supabase_service()     { w $C/services/supabase/SupabaseService.ts; expect 0 1 "" "gad7-severe journal-crisis-scan phq9-severe-completion q9-single-alert" "" "SupabaseService changed"; }
 case_data_retention()       { w $C/services/data-retention/DataRetentionService.ts; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "" "data-retention changed"; }
 case_account_deletion()     { w $C/services/privacy/AccountDeletionService.ts; expect 0 1 "" "$CBR deeplink-consent-gate" "" "AccountDeletionService changed"; }
+case_erasure_pending()      { w $C/services/privacy/erasurePending.ts; expect 0 1 "" "$CBR deeplink-consent-gate" "" "erasurePending changed"; }
+case_erasure_resume_gate()  { w $C/services/privacy/erasureResumeGate.ts; expect 0 1 "" "legal-gate-art9-optional" "" "erasureResumeGate changed"; }
 case_erasure_registry_ungated() { w $C/services/privacy/erasureResetRegistry.ts; expect 0 "" "" "" ""; }
 case_threshold_modal()      { w $C/components/ThresholdEducationModal.tsx; expect 0 1 "" "$CBR" ""; }
 case_radio_group()          { w $C/components/accessibility/RadioGroup.tsx; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "assessment-ax5-reachability" "RadioGroup/FocusManager changed"; }

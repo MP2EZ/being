@@ -358,3 +358,35 @@ for crisis, and `erasureResetRegistry.ts` is deliberately NOT gated — it never
 caller here wraps it. `crisis` owns the launch path, `compliance` the erasure. Every flow launches
 with `clearState`, so none seeds an erasure-pending marker; resume behaviour is jest-owned
 (`interruptedErasureResume.privacy.test.ts`).
+
+`core/services/privacy/erasurePending.ts` is the twenty-ninth instance (added DEBUG-763, crisis
+ruling), the DEBUG-525 shape: it imports nothing from `features/crisis/`, yet the one function it
+exports for reading decides two crisis-path outcomes. (1) `SupabaseService.loadCrisisAnalyticsQueue`
+discards every persisted `crisis_analytics_queue` row before the boot flush. (2)
+`readErasureRetirement` returns `LegalGate` ahead of every other input to `resolveInitialRoute`,
+and `loadConsent`'s retired branch clears the consent cache. The validation (`MIN_EPOCH_MS`, the
+safe-integer check, catch→null) lives only here, so an edit to this file alone can drop real
+crisis telemetry and push an onboarded user back to `LegalGate` without touching any gated file.
+Its consumers are all gated, but they must never be what arms the gate (DEBUG-390). `crisis` owns
+the routing and the queue fence; `compliance` owns the other failure direction, where a missed
+marker re-creates the deleted account's rows under a fresh anonymous user. The armed flows
+(`crisis-button-reachability` + `deeplink-consent-gate`) catch a reader that fails toward
+"present": the seeded onboarded launch would resolve `LegalGate` and miss `_seeded-home`, and
+`deeplink-consent-gate` checks that a launch sent to `LegalGate` keeps its 988 footer and still
+opens `being://crisis` cold. NECESSARY, NOT SUFFICIENT: no flow can seed a marker or a persisted
+queue (`clearState`; the gate build suppresses egress), so discard, the corrupt-marker case and
+resume are jest-owned: `crisisTelemetryErasureFence.unit.test.ts` and
+`interruptedErasureResume.privacy.test.ts`.
+
+`core/services/privacy/erasureResumeGate.ts` is the thirtieth instance (added DEBUG-763, crisis
+ruling). It is a leaf with no imports, and its promise is awaited by every consent-grant writer in
+`consentStore` (`verifyAge`, `recordLegalGateConsents`, `grantConsent`). If `inFlight` never
+clears, or the no-erasure path stops resolving, `LegalGate` Continue hangs on every install: the
+988 footer still dials, but the user never reaches Main, leaving the footer as the only crisis
+affordance and every downstream detection surface (PHQ-9/GAD-7, journal scan) unreachable. It
+reads no crisis code and matches no pattern, so the table is the only control. `compliance` owns
+the other direction: a grant that skips the wait is deleted by the wipe. `legal-gate-art9-optional`
+is the witness: it is the only safety flow that taps `legal-gate-continue` and asserts the release
+(a 30s wait for "Begin Your Practice"), the exact path a wedged gate holds. NECESSARY, NOT
+SUFFICIENT: a wait during an actual resume needs a marker no flow can seed, so it is jest-owned:
+`CombinedLegalGateScreen.erasureWait.crisis.test.tsx` and `interruptedErasureResume.privacy.test.ts`.
