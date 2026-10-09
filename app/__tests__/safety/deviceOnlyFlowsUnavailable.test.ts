@@ -33,7 +33,7 @@
  *              records it as MIGRATED, and the block below pins that the record is still
  *              true. Its hardware residual stays unavailable.
  *   INFRA-591  done — docs/testing/crisis-device-checklist.md, run against each release and
- *              hotfix TestFlight build; /b-release Phase 2.9 enforces the ceiling.
+ *              hotfix TestFlight build before App Store submission; it is not a release gate.
  *              The block below pins that it exists exactly while the notice does, and that
  *              every on-screen label it tells a tester to look for still exists in source.
  *   INFRA-592  done — scripts/check-generated-infoplist.js, run on every PR by CI's
@@ -122,12 +122,12 @@ const CHECKLIST_MARKER =
   /^<!--\s*e2e-device-compensates:\s*DEBUG-589\s+flows=crisis-988-dial\.yaml,crisis-keyboard-accessory\.yaml\s*-->\s*$/m;
 
 /**
- * INFRA-605. The checklist has TWO triggers, both TestFlight builds: the release PR and the
- * hotfix PR. Neither has a skill that fires the run (`/b-release` Phase 2.9 only enforces a
- * ceiling), so this marker is the only thing that fails when a trigger is deleted.
+ * INFRA-605. The checklist has TWO triggers, both TestFlight builds: App Store submission of a
+ * release, and the hotfix PR. No skill fires either run (the founder decided on 2026-10-09 that
+ * it is not a release gate), so this marker is the only thing that fails when a trigger is deleted.
  */
 const CHECKLIST_TRIGGER_MARKER =
-  /^<!--\s*e2e-device-triggers:\s*release-pr,hotfix-pr\s*-->\s*$/m;
+  /^<!--\s*e2e-device-triggers:\s*app-store-submission,hotfix-pr\s*-->\s*$/m;
 
 /**
  * Every on-screen string the checklist tells a human to find, and the source that renders it.
@@ -473,18 +473,21 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
 
       it('the trigger marker fires on a known-GOOD literal and NOT on a one-trigger near-miss', () => {
         expect(
-          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: release-pr,hotfix-pr -->'),
+          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: app-store-submission,hotfix-pr -->'),
         ).toBe(true);
         // The whole point is that BOTH triggers are named. One is the state this pin exists to fail.
         expect(
-          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: release-pr -->'),
+          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: app-store-submission -->'),
         ).toBe(false);
         expect(
           CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: hotfix-pr -->'),
         ).toBe(false);
-        // The pre-ruling literal (pre-bump check) must no longer satisfy the pin.
+        // Earlier literals (the pre-bump check, then the per-release ceiling) must no longer satisfy it.
         expect(
           CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: b-release-phase-2.9,hotfix-pr -->'),
+        ).toBe(false);
+        expect(
+          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: release-pr,hotfix-pr -->'),
         ).toBe(false);
         expect(CHECKLIST_TRIGGER_MARKER.test('Triggered by /b-release and by hotfix PRs.')).toBe(false);
       });
@@ -523,7 +526,7 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
     });
 
     it('names its trigger, so it cannot drift into a document nobody runs', () => {
-      // Inside §5 specifically: the release path and the /b-release ceiling are named where
+      // Inside §5 specifically: the release path and its App Store review gate are named where
       // the run is defined, not anywhere in the file.
       const body = checklistSection(
         fs.readFileSync(CHECKLIST, 'utf8'),
@@ -531,7 +534,8 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
       );
       expect(body).not.toBeNull();
       expect(body as string).toMatch(/release PR/);
-      expect(body as string).toMatch(/refuses to start/);
+      expect(body as string).toMatch(/App Store review/);
+      expect(body as string).toMatch(/not a gate/);
     });
 
     describe('INFRA-605 — the hotfix trigger, which no skill fires', () => {
@@ -571,13 +575,10 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
         expect(block).not.toBeNull();
         const alternatives = (block as string).match(/^Result:[^\n]*\|[^\n]*$/gm);
         expect(alternatives).not.toBeNull();
-        // Exactly one alternatives line: PENDING's Result: line carries none.
         expect((alternatives as string[]).length).toBe(1);
         expect((alternatives as string[])[0]).toMatch(/\bVOID\b/);
         expect((alternatives as string[])[0]).not.toMatch(/WAIVED/);
-        // PENDING is a body-only form written by /b-release, never a result alternative.
         expect((alternatives as string[])[0]).not.toMatch(/PENDING/);
-        expect(block as string).toMatch(/^Result:\s+PENDING\s*$/m);
       });
 
       it('still concedes the unchecked TestFlight window rather than claiming hotfixes are covered', () => {
@@ -611,11 +612,11 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
       });
     });
 
-    describe('crisis ruling 2026-10-09 — the post-TestFlight check holds only while TestFlight is founder-only', () => {
+    describe('2026-10-09 — the device check is not a release gate only while TestFlight is founder-only', () => {
       const RULING =
-        'crisis ruling 2026-10-09: the release device check runs after TestFlight only while ' +
+        'decision 2026-10-09: the crisis device check is not a release gate only while ' +
         'TestFlight reaches the founder alone and every production binary needs a manual ' +
-        'promotion — revert to the attended pre-bump check ' +
+        'promotion — make it a release gate again ' +
         '(docs/testing/crisis-device-checklist.md §8) before changing this';
       const EAS_JSON = path.join(APP_ROOT, 'eas.json');
       const RELEASE_YML = path.join(APP_ROOT, '..', '.github', 'workflows', 'release.yml');
