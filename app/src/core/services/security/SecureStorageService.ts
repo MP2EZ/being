@@ -142,6 +142,8 @@ export const SECURE_STORAGE_CONFIG = {
     '@being/supabase/crisis_analytics_queue',
     STORAGE_METADATA_INDEX_KEY,
     '@being/supabase/offline_queue',
+    // DEBUG-764: holds the uid; SupabaseService.resetOfflineQueueForErasure drops its memory copy.
+    '@being/supabase/pending_backup_delete',
   ] as readonly string[],
 
   /** Storage limits */

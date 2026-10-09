@@ -45,6 +45,12 @@ import {
 import { env } from '@/core/config/env';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
+import {
+  LAST_BACKUP_KEY,
+  PENDING_BACKUP_DELETE_KEY,
+  isBackupConsentWithdrawal,
+  isConsentHydration,
+} from './backupWithdrawal';
 
 // Environment configuration
 const SUPABASE_URL = env.EXPO_PUBLIC_SUPABASE_URL;
@@ -144,7 +150,14 @@ const STORAGE_KEYS = {
   LAST_SYNC: '@being/supabase/last_sync',
   OFFLINE_QUEUE: '@being/supabase/offline_queue',
   CRISIS_ANALYTICS_QUEUE: '@being/supabase/crisis_analytics_queue',
+  PENDING_BACKUP_DELETE: PENDING_BACKUP_DELETE_KEY,
 } as const;
+
+/** DEBUG-764: a withdrawal's server-backup delete not yet confirmed. `uid: null` = resolve at execution. */
+interface PendingBackupDelete {
+  uid: string | null;
+  requestedAt: number;
+}
 
 // Circuit breaker configuration
 interface CircuitBreakerConfig {
@@ -280,6 +293,22 @@ export function isSessionIdStale(
   return nowMs - lastUseAtMs > SESSION_ID_IDLE_MS;
 }
 
+/** DEBUG-764: a corrupt record keeps the delete intent and resolves the uid at execution. */
+function parsePendingBackupDelete(raw: string | null): PendingBackupDelete | null {
+  if (raw === null) return null;
+  try {
+    const value = JSON.parse(raw);
+    if (value && typeof value === 'object') {
+      const uid = typeof value.uid === 'string' && value.uid.length > 0 ? value.uid : null;
+      const requestedAt = typeof value.requestedAt === 'number' ? value.requestedAt : 0;
+      return { uid, requestedAt };
+    }
+  } catch {
+    // fall through
+  }
+  return { uid: null, requestedAt: 0 };
+}
+
 class SupabaseService {
   private client: SupabaseClient | null = null;
   // INFRA-260: the Supabase anonymous session user id (== auth.uid() server-side).
@@ -354,6 +383,16 @@ class SupabaseService {
    * identity being erased.
    */
   private deletionsInFlight = 0;
+  /**
+   * DEBUG-764: the withdrawal delete awaiting server confirmation, mirrored to
+   * PENDING_BACKUP_DELETE. `loaded` is false until the disk copy has been read once.
+   */
+  private pendingBackupDelete: PendingBackupDelete | null = null;
+  private pendingBackupDeleteLoaded = false;
+  /** DEBUG-764: single-flight for drainPendingBackupDelete(). `null` means idle. */
+  private backupDeleteInFlight: Promise<boolean> | null = null;
+  /** DEBUG-764: told after a confirmed delete (CloudBackupService drops its in-memory hash). */
+  private serverBackupDeletedListener: (() => void) | null = null;
   private sessionId: string;
   /** INFRA-568 — last instant `session_id` was WRITTEN, driving the idle clause. */
   private lastSessionUseMs: number = Date.now();
@@ -838,6 +877,13 @@ class SupabaseService {
       return false;
     }
 
+    // DEBUG-764: a withdrawal's delete lands before any new upload. Not enqueued on failure:
+    // CloudBackupService re-creates the backup once the delete is confirmed.
+    if (!(await this.drainPendingBackupDelete())) {
+      logSecurity('[SupabaseService] saveBackup deferred — pending backup delete unconfirmed', 'low');
+      return false;
+    }
+
     if (!this.isInitialized || !this.client || !this.userId) {
       logSecurity('[SupabaseService] Not initialized, queuing backup for later', 'low');
       this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
@@ -887,6 +933,9 @@ class SupabaseService {
    * Retrieve encrypted backup from cloud
    */
   async getBackup(): Promise<EncryptedBackup | null> {
+    // DEBUG-764: never read back (or restore) a backup the user has asked to delete.
+    if (!(await this.drainPendingBackupDelete())) return null;
+
     if (!this.isInitialized || !this.client || !this.userId) {
       logSecurity('[SupabaseService] Not initialized, cannot retrieve backup', 'low');
       return null;
@@ -1437,6 +1486,132 @@ class SupabaseService {
    */
   resetOfflineQueueForErasure(): void {
     this.offlineQueue = [];
+    // DEBUG-764: the pending delete holds the erased uid; its key is on SWEPT_EXACT_KEYS.
+    // Marked loaded so no later drain re-reads a disk copy the sweep is about to remove.
+    this.pendingBackupDelete = null;
+    this.pendingBackupDeleteLoaded = true;
+  }
+
+  /** DEBUG-764: CloudBackupService registers here to drop its change-detection hash. */
+  setServerBackupDeletedListener(listener: () => void): void {
+    this.serverBackupDeletedListener = listener;
+  }
+
+  /**
+   * DEBUG-764 — cloud-backup consent was withdrawn (backupWithdrawal.ts states when): delete
+   * the server copy. Reads no consent (R3) and never throws into the consent store's set().
+   *
+   * Queued pre-withdrawal snapshots are dropped, so none can replay after a re-grant; the
+   * filtered queue is written to disk because before initialize() it is not in memory and
+   * loadOfflineQueue would restore it. The record is persisted BEFORE the attempt, so a
+   * process killed mid-request still retries; a failed write leaves the memory copy driving
+   * this process's retries.
+   */
+  async requestBackupDeletion(): Promise<void> {
+    this.offlineQueue = this.offlineQueue.filter((op) => op?.operation !== 'saveBackup');
+
+    let uid = this.userId;
+    if (!uid) {
+      try {
+        uid = (await readPersistedSession(supabaseAuthStorageKey(SUPABASE_URL))).uid;
+      } catch {
+        uid = null; // resolved from the restored session at execution
+      }
+    }
+    // Join a drain already running for an older record, then run one for this one.
+    if (this.backupDeleteInFlight) await this.backupDeleteInFlight;
+    this.pendingBackupDelete = { uid, requestedAt: Date.now() };
+    this.pendingBackupDeleteLoaded = true;
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.PENDING_BACKUP_DELETE, JSON.stringify(this.pendingBackupDelete));
+      await AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(this.offlineQueue));
+    } catch (error) {
+      logSecurity('[SupabaseService] pending backup delete not persisted', 'medium', { error });
+    }
+    await this.drainPendingBackupDelete();
+  }
+
+  /**
+   * DEBUG-764 — execute the pending delete, if any. Resolves true when nothing is pending or
+   * the server confirmed; false when it must be retried. Never rejects.
+   *
+   * Retried at consent hydration and on every foreground until confirmed, with no cap (R3).
+   * Through executeWithResilience WITH the shared breaker — never bypassCircuitBreaker, which
+   * is the crisis flush's alone — so a failing delete can never gate crisis delivery.
+   */
+  drainPendingBackupDelete(): Promise<boolean> {
+    if (this.backupDeleteInFlight) return this.backupDeleteInFlight;
+    const flight = this.runPendingBackupDelete().catch((error) => {
+      logSecurity('[SupabaseService] pending backup delete failed — retained for retry', 'medium', {
+        error: error instanceof Error ? error.message : String(error),
+      });
+      return false;
+    });
+    this.backupDeleteInFlight = flight;
+    const clear = () => {
+      if (this.backupDeleteInFlight === flight) this.backupDeleteInFlight = null;
+    };
+    flight.then(clear, clear);
+    return flight;
+  }
+
+  private async runPendingBackupDelete(): Promise<boolean> {
+    if (!this.pendingBackupDeleteLoaded) {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.PENDING_BACKUP_DELETE);
+      if (!this.pendingBackupDeleteLoaded) {
+        this.pendingBackupDelete = parsePendingBackupDelete(raw);
+        this.pendingBackupDeleteLoaded = true;
+      }
+    }
+    const pending = this.pendingBackupDelete;
+    if (!pending) return true;
+    // The account cascade (deleteAccount) removes the row; a request now could also reach
+    // for the identity being erased.
+    if (this.deletionsInFlight > 0) return false;
+
+    // R4: never mint to delete. No session in memory and none persisted: nothing to delete.
+    if (!this.userId) {
+      const persisted = await readPersistedSession(supabaseAuthStorageKey(SUPABASE_URL));
+      if (!persisted.present) return this.clearPendingBackupDelete(pending);
+      await this.ensureClient({ mint: false });
+    }
+    const uid = this.userId;
+    const client = this.client;
+    if (!uid || !client || this.deletionsInFlight > 0) return false;
+    if (pending.uid && pending.uid !== uid) {
+      logSecurity('[SupabaseService] pending backup delete belongs to another identity — cleared', 'medium');
+      return this.clearPendingBackupDelete(pending);
+    }
+
+    const result = await this.executeWithResilience(async () => {
+      const resp: any = await client.from('encrypted_backups').delete().eq('user_id', uid);
+      // DEBUG-255: a resolved { error } is a failure. Zero rows deleted is success.
+      if (resp?.error) throw resp.error;
+      return resp;
+    }, 'deleteBackup');
+    if (!result.success) return false;
+
+    await this.clearPendingBackupDelete(pending);
+    // A re-grant must upload a fresh backup, not skip it as unchanged.
+    await AsyncStorage.removeItem(STORAGE_KEYS.LAST_SYNC);
+    await AsyncStorage.removeItem(LAST_BACKUP_KEY);
+    try {
+      this.serverBackupDeletedListener?.();
+    } catch (error) {
+      logSecurity('[SupabaseService] backup-deleted listener failed', 'low', { error });
+    }
+    logSecurity('[SupabaseService] Server backup deleted after consent withdrawal', 'low', {
+      pendingForMs: Date.now() - pending.requestedAt,
+    });
+    return true;
+  }
+
+  /** Clears only the record it was handed: a newer withdrawal's record stays. Returns true. */
+  private async clearPendingBackupDelete(record: PendingBackupDelete): Promise<boolean> {
+    if (this.pendingBackupDelete !== record) return true;
+    this.pendingBackupDelete = null;
+    await AsyncStorage.removeItem(STORAGE_KEYS.PENDING_BACKUP_DELETE);
+    return true;
   }
 
   /**
@@ -1543,6 +1718,15 @@ class SupabaseService {
           logSecurity('[SupabaseService] Failed to process offline queue:', 'medium', { error });
         });
         void this.flushCrisisAnalytics();
+        // DEBUG-764: AFTER the crisis flush and separately guarded: a rejection or synchronous
+        // throw from the backup-delete retry cannot escape this handler or precede the flush.
+        try {
+          void this.drainPendingBackupDelete().catch((error) => {
+            logSecurity('[SupabaseService] Pending backup delete retry failed:', 'medium', { error });
+          });
+        } catch (error) {
+          logSecurity('[SupabaseService] Pending backup delete retry threw:', 'medium', { error });
+        }
       } else if (nextAppState === 'background' || nextAppState === 'inactive') {
         // DEBUG-335: the ONLY point where the real-device kill window actually narrows.
         // iOS grants time on `background`, so re-issue the durable write before the OS
@@ -1873,5 +2057,29 @@ export const supabaseService = new SupabaseService();
 
 // DEBUG-698: also covers deleteAccount()'s no-account early return, which tears nothing down.
 registerErasureReset('supabaseService', () => supabaseService.resetOfflineQueueForErasure());
+
+// DEBUG-764: delete the server backup on a cloud-backup consent withdrawal, and retry a pending
+// delete once consent hydrates. Module scope, never the constructor; guarded because suites
+// mock the store without `subscribe`, and a throw here would take down this module — and the
+// crisis audit sink with it — at import. The listener never throws into the store's set().
+try {
+  if (typeof useConsentStore?.subscribe === 'function') {
+    useConsentStore.subscribe((next, prev) => {
+      try {
+        if (isBackupConsentWithdrawal(prev, next)) {
+          void supabaseService.requestBackupDeletion().catch((error) => {
+            logSecurity('[SupabaseService] Backup delete on withdrawal failed', 'medium', { error });
+          });
+        } else if (isConsentHydration(prev, next)) {
+          void supabaseService.drainPendingBackupDelete();
+        }
+      } catch (error) {
+        logSecurity('[SupabaseService] Consent listener failed', 'medium', { error });
+      }
+    });
+  }
+} catch (error) {
+  logSecurity('[SupabaseService] Consent subscription not installed', 'medium', { error });
+}
 
 export default supabaseService;

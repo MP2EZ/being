@@ -1,5 +1,5 @@
 <!-- e2e-device-compensates: DEBUG-589 flows=crisis-988-dial.yaml,crisis-keyboard-accessory.yaml -->
-<!-- e2e-device-triggers: release-pr,hotfix-pr -->
+<!-- e2e-device-triggers: app-store-submission,hotfix-pr -->
 
 # Crisis device checklist: 988 dial + keyboard accessory (INFRA-591)
 
@@ -9,16 +9,15 @@ measured that no released Maestro can run a flow on a physical iPhone, so
 verifies these two contracts on real hardware. A green CI run, a green precommit and a green
 `npm run e2e:safety` are **not** evidence for anything below.
 
-**When it runs:** two triggers, both against the TestFlight binary. §5 owns the procedure.
+**When it runs:** it is not a release gate (founder decision 2026-10-09: the founder is the
+only user and the only TestFlight recipient). Releases ship unattended and the release PR
+records `Device check: not run`. The check is owed, against the TestFlight binary per §5:
 
-- **Each release build reaching TestFlight.** The release PR body carries a PENDING record
-  (§6). The result is posted as a comment on that PR once the build installs.
-- **Each hotfix build** (INFRA-605). The hotfix procedure is hand-run, so the trigger is the
-  hotfix PR itself.
+- **Before a build is submitted for App Store review**, the first submission included.
+- **Before anyone other than the founder receives TestFlight builds.**
+- **Each hotfix build** (INFRA-605), before App Store promotion of that build.
 
-`/b-release` Phase 2.9 enforces a ceiling: it refuses to start while the latest PR merged into
-`main` lacks a terminal record. Nothing prompts the run itself. The gate is App Store
-submit-for-review (§5).
+Nothing prompts the run; `/b-release` does not check for it.
 
 **Scope:**
 - **In:** the two runtime behaviours only hardware can show:
@@ -101,8 +100,6 @@ reports Cancel as a failure has never been measured.
   - Force-quit Being and run that half once more.
   - If it is still ambiguous, it is a FAIL.
   - There is no "PASS with notes" that describes a deviation.
-- **PENDING is not a result.** Only `/b-release` writes it, into the release PR body, until the
-  §5 comment is posted. It never clears the ceiling.
 - **VOID** means no installable build exists for that merge: Apple rejected it, or the
   TestFlight build expired. The record must cite the ITMS code or the expiry date. VOID is
   never valid for promotion.
@@ -113,20 +110,15 @@ reports Cancel as a failure has never been measured.
 
 Two paths land here and they run the same procedure:
 
-- **Every release build (the release PR).** `/b-release` ships unattended and writes a PENDING
-  record into the release PR body. The trigger is the release PR; the result is a comment on it.
+- **A release build about to be submitted for App Store review.** The release is not a gate,
+  so this runs whenever submission is planned; the result is a comment on the release PR.
 - **Every hotfix build** (INFRA-605). A `hotfix/* → main` merge fires `release.yml` on push and
   `--auto-submit` delivers the binary with no human in the loop, so there is no pre-build slot
   and no `/b-release` prompt. The trigger is the hotfix PR.
 
-`/b-release` Phase 2.9 refuses to start while the latest PR merged into `main` lacks a terminal
-record. It reads every PR merged into `main`, so hotfixes count toward the ceiling and are never
-refused by it. Nothing prompts the run itself.
-
 **The gate is App Store Connect submit-for-review.** Do not submit a build without a PASS or
 EXEMPT record bound to that exact ASC build number. A PASS authorizes promotion of exactly the
-ASC build it names. A hotfix PASS can clear the ceiling for an earlier pending release, because
-its tree contains it, but never authorizes promoting that release's own build. An approved
+ASC build it names, never an earlier or later one. An approved
 version set to auto-release goes live on approval, so submit-for-review is the last point to
 enforce this.
 
@@ -210,17 +202,17 @@ on an App Store promotion that is already a manual, indefinitely deferrable clic
 build on TestFlight meanwhile. A waiver buys nothing that "not promoted yet" does not already
 buy, and it would spend the one word that means *we knowingly shipped unverified*. Urgency and
 device-absence have the same answer: **promote later.** A legacy `WAIVED` record from the
-pre-bump check is not terminal; only a §5 comment clears it.
+pre-bump check is not a PASS.
 
 If a live emergency ever forces promotion anyway, that is an out-of-process decision, not a
 waiver. Record it on the PR with the words *promoted without hardware verification*. Do not
-spell it `WAIVED`. It is not a terminal record and does not clear the ceiling.
+spell it `WAIVED`.
 
 ---
 
 ## 6. Result block
 
-`/b-release` writes PENDING to the release PR body; a §5 run posts this block as a comment.
+A §5 run posts this block as a comment on the release or hotfix PR.
 
 Pick ONE literal per two-valued field. `Build:` must never contain `expo run:ios` — only a
 TestFlight build is recorded.
@@ -228,7 +220,7 @@ TestFlight build is recorded.
 ```
 ### Crisis device checklist (INFRA-591)
 Result:         PASS | FAIL | EXEMPT | VOID
-Trigger:        release PR #<N> v<X.Y.Z> | hotfix PR #<N> (INFRA-605)
+Trigger:        App Store submission of release PR #<N> v<X.Y.Z> | hotfix PR #<N> (INFRA-605)
 Build:          TestFlight (EAS <build-id>)
 Device:         <model>
 iOS:            <version>
@@ -246,16 +238,6 @@ ASC build:      <appVersion> (<appBuildVersion>)
 Installed:      <version (build)> exactly as TestFlight shows it
 Exempt:         <EXEMPT only (hotfix): "workflows-only vs <LAST_PASS_SHA>" + the diff command's output>
 Void:           <VOID only: the ITMS code (ITMS-90683) or "expired <YYYY-MM-DD>">
-```
-
-Body-only form, written by `/b-release` into the release PR body. PENDING is not a result, so
-its `Result:` line carries no alternatives:
-
-```
-### Crisis device checklist (INFRA-591)
-Result:         PENDING
-Trigger:        release PR #<N> v<X.Y.Z>
-The §5 result is posted as a comment after the TestFlight build installs.
 ```
 
 ---
@@ -281,7 +263,8 @@ The §5 result is posted as a comment after the TestFlight build installs.
   merge fires `release.yml` on push, and `--auto-submit` delivers the binary to App Store
   Connect with no human in the loop — so TestFlight testers can install a hotfix whose dial and
   accessory halves nobody has run, for an unbounded and uninstrumented window. The same holds
-  for every release. INFRA-605 gates only App Store **promotion** of that build, not its
+  for every release, by founder decision (2026-10-09): the check is not a release gate.
+  INFRA-605 gates only App Store **promotion** of that build, not its
   TestFlight distribution. There is no pre-build slot on either path to close the earlier
   window.
 - **The App Store promotion gate is prose.** App Store Connect does not enforce it, and ASC
@@ -292,8 +275,8 @@ The §5 result is posted as a comment after the TestFlight build installs.
 - **The automated dial flow can only assert that the fallback alert is absent.** It cannot see
   the iOS prompt, so removing this checklist gives up that observation.
 
-**Revert to the attended pre-bump check** (the check runs before the version bump, and a FAIL
-stops the release) when any of these holds:
+**Make it a release gate again** (the check runs before the version bump, and a FAIL stops the
+release) when any of these holds:
 
 1. A TestFlight recipient other than the founder: a `groups` key under `app/eas.json`
    `submit.production.ios`, an ASC external group, a second internal tester, or a public link.
@@ -326,7 +309,7 @@ Do it in one commit:
 - The matching entries in `app/__tests__/safety/deviceOnlyFlowsUnavailable.test.ts`, which
   fails if this file outlives the notices or the notices outlive it.
 - This file.
-- The `/b-release` Phase 2.9 ceiling, the PENDING record and the Phase 8.3 notice.
+- The `/b-release` Phase 2.9 note and the `Device check: not run` line it writes in 6.4.
 - The two revert-trigger pins in `deviceOnlyFlowsUnavailable.test.ts` (`eas.json` `groups`,
   `release.yml` `--platform ios`).
 - **The hotfix step in `.claude/CLAUDE.md`'s Hotfix Process** (INFRA-605), and the App Store

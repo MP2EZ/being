@@ -11,8 +11,10 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * ⚠️ WHY THIS GATES ON HYDRATION, AND WHY THAT IS NOT OPTIONAL
  *
- * `assessmentStore` is `persist`-wrapped over an ENCRYPTED, ASYNC storage adapter,
- * and declares no `onRehydrateStorage` hook. Before rehydration finishes,
+ * `assessmentStore` is `persist`-wrapped over an ENCRYPTED, ASYNC storage adapter.
+ * Its `onRehydrateStorage` hook (DEBUG-769) only rewrites a legacy in-progress slot
+ * after the fact; readiness still comes from `persist.hasHydrated()` /
+ * `onFinishHydration`, read below. Before rehydration finishes,
  * `completedAssessments` is `[]`, so `getLastResult` returns null on BOTH axes and
  * `decideGuidanceAccess(null, null, null)` answers `gentle`.
  *

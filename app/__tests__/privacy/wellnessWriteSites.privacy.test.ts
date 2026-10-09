@@ -119,6 +119,11 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     ],
     'SupabaseService.processOfflineQueue › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — encrypted config-backup retry`],
     'SupabaseService.cleanup › AsyncStorage.setItem': [1, DORMANT],
+    'SupabaseService.requestBackupDeletion › AsyncStorage.setItem': [
+      2,
+      ERASURE,
+      'DEBUG-764: the pending server-backup delete {uid, requestedAt} and the offline queue minus pre-withdrawal snapshots; the pending key is swept at erasure (SWEPT_EXACT_KEYS + in-memory reset)',
+    ],
   },
   'src/core/services/supabase/CloudBackupService.ts': {
     'CloudBackupService.createBackup › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — backup metadata {timestamp, hash, size}`],
