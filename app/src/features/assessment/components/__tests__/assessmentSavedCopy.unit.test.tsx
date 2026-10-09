@@ -83,7 +83,7 @@ describe('EnhancedAssessmentFlow alerts', () => {
     const ws = '\\s*';
     expect(FLOW).toMatch(
       new RegExp(
-        `'Exit Assessment\\?',${ws}'${lit(NEW_FLOW_STRINGS[0]!)}',${ws}\\[${ws}\\{ text: 'Continue Assessment', style: 'cancel' \\},${ws}\\{ text: 'Exit', onPress: onCancel, style: 'destructive' \\},`,
+        `'Exit Assessment\\?',${ws}'${lit(NEW_FLOW_STRINGS[0]!)}',${ws}\\[${ws}\\{ text: 'Continue Assessment', style: 'cancel' \\},${ws}\\{ text: 'Exit', onPress: \\w+, style: 'destructive' \\},`,
       ),
     );
     expect(FLOW).toMatch(
@@ -94,6 +94,19 @@ describe('EnhancedAssessmentFlow alerts', () => {
       'g',
     );
     expect(FLOW.match(completionError)).toHaveLength(2);
+  });
+});
+
+describe('DEBUG-771 · one exit confirm, shared by every exit path', () => {
+  const count = (source: string, needle: string): number => source.split(needle).length - 1;
+
+  it('positive control: the counter sees a duplicated literal', () => {
+    expect(count(`'Exit Assessment?', x; 'Exit Assessment?', y;`, "'Exit Assessment?'")).toBe(2);
+  });
+
+  it('the exit Alert title and body each appear exactly once in the flow', () => {
+    expect(count(FLOW, "'Exit Assessment?'")).toBe(1);
+    expect(count(FLOW, `'${NEW_FLOW_STRINGS[0]}'`)).toBe(1);
   });
 });
 

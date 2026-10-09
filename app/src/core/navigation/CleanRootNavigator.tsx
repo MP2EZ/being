@@ -882,9 +882,18 @@ const CleanRootNavigator: React.FC = () => {
                     });
                   }}
                   onCancel={() => {
-                    // Handle skip for onboarding context
+                    // Handle skip for onboarding context. DEBUG-771 (crisis ruling R5): the
+                    // questions-phase Exit makes this reachable mid-screening, and the parent's
+                    // skip opens the next screening — so it goes through the DEBUG-706 guard:
+                    // remove THIS route, and defer the follow-on while a crisis destination is
+                    // focused (never dropped, never redirected).
                     if (route.params.allowSkip && route.params.onSkip) {
-                      route.params.onSkip();
+                      dismissRouteThenNotify({
+                        navigation,
+                        routeKey: route.key,
+                        notify: route.params.onSkip,
+                      });
+                      return;
                     }
                     removeOwnRoute(navigation, route.key);
                   }}

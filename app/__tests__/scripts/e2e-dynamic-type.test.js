@@ -162,12 +162,14 @@ describe('DEBUG-469 — the class stays OUT of the default safety suite', () => 
   // 15 → 16: INFRA-494 added legal-gate-art9-optional. It is the first sim flow to drive
   //          CombinedLegalGateScreen's CONTROLS at all — deeplink-consent-gate reaches the
   //          screen but ticks nothing, and the helper's gate steps run only on hardware.
-  test('the exact-tag matcher the suite uses still selects exactly the sixteen safety flows', () => {
+  // 16 → 17: DEBUG-771 added assessment-exit — the questions-phase exit control, its
+  //          confirm, and the landing with the root crisis button.
+  test('the exact-tag matcher the suite uses still selects exactly the seventeen safety flows', () => {
     const files = fs.readdirSync(MAESTRO).filter((f) => f.endsWith('.yaml') && !f.startsWith('_'));
     const tagged = files.filter((f) =>
       /^\s*-\s+safety\s*$/m.test(fs.readFileSync(path.join(MAESTRO, f), 'utf8'))
     );
-    expect(tagged).toHaveLength(16);
+    expect(tagged).toHaveLength(17);
     expect(tagged).not.toContain('daily-loop-ax5-entry.yaml');
   });
 });

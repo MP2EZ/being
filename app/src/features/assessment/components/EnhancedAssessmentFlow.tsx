@@ -65,6 +65,8 @@ interface EnhancedAssessmentFlowProps {
   sessionId: string;
 }
 
+type FlowState = 'introduction' | 'questions' | 'results' | 'completing';
+
 // Mock assessment questions (in real app, these would come from clinical database)
 const PHQ9_QUESTIONS: AssessmentQuestion[] = [
   { id: 'phq9_1', text: 'Little interest or pleasure in doing things', type: 'phq9', order: 1 },
@@ -98,12 +100,30 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
   sessionId,
 }) => {
   // State management
-  const [flowState, setFlowState] = useState<'introduction' | 'questions' | 'results' | 'completing'>('introduction');
+  const [flowState, setFlowStateValue] = useState<FlowState>('introduction');
+  // DEBUG-771: mirrored synchronously, so an exit held behind an in-flight save reads where
+  // the save took the flow before React has re-rendered. Every caller passes a value.
+  const flowStateRef = useRef<FlowState>('introduction');
+  const setFlowState = useCallback((next: FlowState) => {
+    flowStateRef.current = next;
+    setFlowStateValue(next);
+  }, []);
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
   const [answers, setAnswers] = useState<Map<string, AssessmentResponse>>(new Map());
   const [result, setResult] = useState<PHQ9Result | GAD7Result | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [performanceMetrics, setPerformanceMetrics] = useState<any>({});
+
+  // DEBUG-771 exit race (crisis ruling, AC3). `inFlightRef` counts answer saves —
+  // answerQuestion and, on the last question, completeAssessment. `inFlightIdleRef`
+  // resolves when the count returns to zero, which is what an exit request waits on.
+  // `answerInFlight` is the render mirror: the exit control shows disabled + busy, and is
+  // never hidden. `terminalRef` makes onComplete / onCancel exactly-once per instance.
+  const inFlightRef = useRef(0);
+  const inFlightIdleRef = useRef<{ promise: Promise<void>; resolve: () => void } | null>(null);
+  const [answerInFlight, setAnswerInFlight] = useState(false);
+  const terminalRef = useRef(false);
+  const exitHeldRef = useRef(false);
 
   // Performance monitoring
   const flowStartTime = useRef<number>(Date.now());
@@ -161,26 +181,68 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     };
 
     initializeAssessment();
-  }, [assessmentType, context, showIntroduction, startAssessment]);
+  }, [assessmentType, context, showIntroduction, startAssessment, setFlowState]);
+
+  // DEBUG-771: the one terminal cancel. Silent: no copy, no analytics, no store write.
+  const confirmExit = useCallback(() => {
+    if (terminalRef.current) return;
+    terminalRef.current = true;
+    onCancel?.();
+  }, [onCancel]);
+
+  // DEBUG-771: the one exit confirm, shared by the exit control, the accessibility escape,
+  // Android hardware back and the results-phase back. Copy is unchanged from before.
+  const promptExit = useCallback(() => {
+    if (terminalRef.current) return;
+    Alert.alert(
+      'Exit Assessment?',
+      'If you exit now, this check-in will end. You can start a new one any time.',
+      [
+        { text: 'Continue Assessment', style: 'cancel' },
+        { text: 'Exit', onPress: confirmExit, style: 'destructive' },
+      ]
+    );
+  }, [confirmExit]);
+
+  // DEBUG-771 / AC3: an exit asked for while an answer is saving waits for the save. If the
+  // save took the flow out of the questions (a result was produced), completion wins: no
+  // confirm, no onCancel. Never resets or restarts the assessment — partial answers are
+  // left unscored and the crisis state is not touched.
+  const requestExit = useCallback(async () => {
+    if (terminalRef.current || exitHeldRef.current) return;
+    exitHeldRef.current = true;
+    try {
+      while (inFlightIdleRef.current) {
+        await inFlightIdleRef.current.promise;
+      }
+    } finally {
+      exitHeldRef.current = false;
+    }
+    if (terminalRef.current || flowStateRef.current !== 'questions') return;
+    promptExit();
+  }, [promptExit]);
+
+  const handleExitRequest = useCallback(() => {
+    void requestExit();
+  }, [requestExit]);
 
   // Handle back button for Android
   useFocusEffect(
     useCallback(() => {
       const onBackPress = () => {
+        // DEBUG-771: while an answer is saving, back is consumed and does nothing — it
+        // can neither step back under the save nor exit ahead of a completion.
+        if (flowState === 'questions' && inFlightRef.current > 0) {
+          return true;
+        }
+
         if (flowState === 'questions' && currentQuestionIndex > 0) {
           setCurrentQuestionIndex(prev => prev - 1);
           return true;
         }
         
         if (flowState === 'questions' || flowState === 'results') {
-          Alert.alert(
-            'Exit Assessment?',
-            'If you exit now, this check-in will end. You can start a new one any time.',
-            [
-              { text: 'Continue Assessment', style: 'cancel' },
-              { text: 'Exit', onPress: onCancel, style: 'destructive' },
-            ]
-          );
+          promptExit();
           return true;
         }
         
@@ -189,7 +251,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
       const subscription = BackHandler.addEventListener('hardwareBackPress', onBackPress);
       return () => subscription.remove();
-    }, [flowState, currentQuestionIndex, onCancel])
+    }, [flowState, currentQuestionIndex, promptExit])
   );
 
   // App state monitoring for persistence
@@ -229,11 +291,21 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
   // Enhanced answer handler
   const handleAnswer = useCallback(async (response: AssessmentResponse) => {
-    if (!currentQuestion) return;
-
-    const questionId = currentQuestion.id;
+    inFlightRef.current += 1;
+    if (!inFlightIdleRef.current) {
+      let resolve!: () => void;
+      const promise = new Promise<void>((r) => {
+        resolve = r;
+      });
+      inFlightIdleRef.current = { promise, resolve };
+    }
+    setAnswerInFlight(true);
 
     try {
+      if (!currentQuestion) return;
+
+      const questionId = currentQuestion.id;
+
       setIsProcessing(true);
 
       // Store answer (encryption + crisis detection happen in the store below)
@@ -275,8 +347,22 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
       );
     } finally {
       setIsProcessing(false);
+      inFlightRef.current -= 1;
+      if (inFlightRef.current === 0) {
+        const idle = inFlightIdleRef.current;
+        inFlightIdleRef.current = null;
+        setAnswerInFlight(false);
+        idle?.resolve();
+      }
     }
   }, [currentQuestion, currentQuestionIndex, questions.length, answerQuestion]);
+
+  // DEBUG-771: exactly one of onComplete / onCancel per flow instance.
+  const completeOnce = useCallback((completed: PHQ9Result | GAD7Result) => {
+    if (terminalRef.current) return;
+    terminalRef.current = true;
+    onComplete(completed);
+  }, [onComplete]);
 
   // Complete assessment with performance monitoring
   const handleCompleteAssessment = useCallback(async () => {
@@ -314,7 +400,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
           setFlowState('completing');
           setResult(storeState.currentResult);
           // Call onComplete to trigger parent navigation
-          onComplete(storeState.currentResult);
+          completeOnce(storeState.currentResult);
         } else {
           // Standalone: show results screen
           setResult(storeState.currentResult);
@@ -404,7 +490,7 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     } finally {
       setIsProcessing(false);
     }
-  }, [completeAssessment, crisisDetected, questions, answers.size, context, onComplete, trackAssessmentCompleted]);
+  }, [completeAssessment, crisisDetected, questions, answers.size, context, completeOnce, trackAssessmentCompleted, setFlowState]);
 
   // Begin assessment flow
   const handleBeginAssessment = useCallback(() => {
@@ -417,14 +503,14 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
     } catch {
       /* Telemetry must never affect the assessment flow. */
     }
-  }, [trackAssessmentStarted]);
+  }, [trackAssessmentStarted, setFlowState]);
 
   // Handle flow completion
   const handleFlowComplete = useCallback(() => {
     if (result) {
-      onComplete(result);
+      completeOnce(result);
     }
-  }, [result, onComplete]);
+  }, [result, completeOnce]);
 
   // Error handler
   const handleError = useCallback((error: Error) => {
@@ -436,10 +522,10 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
       'There was a technical issue, but crisis support remains available.',
       [
         { text: 'Continue', style: 'cancel' },
-        { text: 'Exit Safely', onPress: onCancel },
+        { text: 'Exit Safely', onPress: confirmExit },
       ]
     );
-  }, [onCancel]);
+  }, [confirmExit]);
 
   return (
     <CrisisErrorBoundary
@@ -461,17 +547,27 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
         )}
 
         {/* Questions Phase */}
+        {/* DEBUG-771: the escape (two-finger Z) is on the questions-phase root so it works
+            from any focused element; it only ever opens the confirm. */}
         {flowState === 'questions' && currentQuestion && (
-          <EnhancedAssessmentQuestion
-            question={currentQuestion}
-            currentAnswer={answers.get(currentQuestion.id)}
-            onAnswer={handleAnswer}
-            showProgress={true}
-            currentStep={currentQuestionIndex + 1}
-            totalSteps={questions.length}
-            theme={theme}
-            onError={handleError}
-          />
+          <View
+            style={styles.questionsRoot}
+            onAccessibilityEscape={handleExitRequest}
+            testID="assessment-questions-root"
+          >
+            <EnhancedAssessmentQuestion
+              question={currentQuestion}
+              currentAnswer={answers.get(currentQuestion.id)}
+              onAnswer={handleAnswer}
+              showProgress={true}
+              currentStep={currentQuestionIndex + 1}
+              totalSteps={questions.length}
+              theme={theme}
+              onError={handleError}
+              onExit={handleExitRequest}
+              exitInFlight={answerInFlight}
+            />
+          </View>
         )}
 
         {/* Results Phase */}
@@ -532,6 +628,9 @@ const EnhancedAssessmentFlow: React.FC<EnhancedAssessmentFlowProps> = ({
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  questionsRoot: {
     flex: 1,
   },
   completingContainer: {
