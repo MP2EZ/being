@@ -12,6 +12,7 @@
 -- stale supabase-rls-verification.md used. Each assertion RAISEs on failure.
 --
 -- Last validated: 2026-06-07 on the local stack — 6/6 PASS.
+-- Tests 6-7 (backups_delete own-row / cross-user) added by DEBUG-764; not yet run.
 
 \set ON_ERROR_STOP on
 
@@ -120,6 +121,49 @@ BEGIN;
     EXCEPTION WHEN insufficient_privilege THEN
       RAISE NOTICE 'PASS: client DELETE on analytics_events denied outright';
     END;
+  END $$;
+ROLLBACK;
+
+-- ============ Test 6: B CANNOT delete A's backup (backups_delete, cross-user) =====
+-- DEBUG-764: the client deletes its backup on consent withdrawal, keyed only by
+-- `.eq('user_id', uid)`; isolation rests on this policy, not on the client's filter.
+BEGIN;
+  SELECT _be_act_as(:'B');
+  DO $$
+  DECLARE deleted int;
+  BEGIN
+    DELETE FROM encrypted_backups WHERE user_id = '11111111-1111-1111-1111-111111111111';
+    GET DIAGNOSTICS deleted = ROW_COUNT;
+    IF deleted <> 0 THEN
+      RAISE EXCEPTION 'FAIL: B deleted % of A''s backup rows — backups_delete isolation broken', deleted;
+    END IF;
+    RAISE NOTICE 'PASS: B''s DELETE of A''s backup affected 0 rows';
+  END $$;
+  RESET ROLE;
+  DO $$ BEGIN
+    IF (SELECT count(*) FROM encrypted_backups
+          WHERE user_id = '11111111-1111-1111-1111-111111111111') <> 1 THEN
+      RAISE EXCEPTION 'FAIL: A''s backup row is gone after B''s DELETE';
+    END IF;
+    RAISE NOTICE 'PASS: A''s backup row survives B''s DELETE';
+  END $$;
+ROLLBACK;
+
+-- ============ Test 7: A CAN delete its OWN backup (backups_delete, own row) =======
+BEGIN;
+  SELECT _be_act_as(:'A');
+  DO $$
+  DECLARE deleted int;
+  BEGIN
+    DELETE FROM encrypted_backups WHERE user_id = '11111111-1111-1111-1111-111111111111';
+    GET DIAGNOSTICS deleted = ROW_COUNT;
+    IF deleted <> 1 THEN
+      RAISE EXCEPTION 'FAIL: A''s DELETE of its own backup affected % rows (expected 1)', deleted;
+    END IF;
+    IF (SELECT count(*) FROM encrypted_backups) <> 0 THEN
+      RAISE EXCEPTION 'FAIL: A still sees its backup after deleting it';
+    END IF;
+    RAISE NOTICE 'PASS: A deleted its own backup';
   END $$;
 ROLLBACK;
 
