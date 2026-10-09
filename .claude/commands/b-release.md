@@ -209,38 +209,13 @@ introduced a `PHPhotoLibrary` call and got v1.2.0 rejected with ITMS-90683.
 the permission half of this in precommit and CI. This step is for the rest —
 anything else a native bump can change that no gate models yet.
 
-### 2.9 Device-check ceiling (INFRA-591, crisis ruling 2026-10-09)
+### 2.9 Crisis device checklist — not a release gate (founder decision 2026-10-09)
 
-No Maestro can run a flow on a physical iPhone (DEBUG-589), so the checklist in
-`docs/testing/crisis-device-checklist.md` is the only hardware check of the 988 dial and the
-keyboard accessory. It no longer runs here. Each release ships unattended with a PENDING
-record (6.4); the operator runs the checklist's §5 against that release's TestFlight build
-later, and the build is not submitted for App Store review until a PASS bound to it is on the
-release PR. This step enforces the one part that is mechanical: **at most one unverified
-build at a time.**
-
-```bash
-cd /Users/max/dev/being/development
-gh pr list --base main --state merged --limit 100 \
-  --json number,mergedAt,mergeCommit,body,comments \
-  | python3 /Users/max/dev/being/.claude/scripts/release-device-check-ceiling.py
-CEILING_RC=$?; echo "ceiling rc=${CEILING_RC}"
-```
-
-**Anything but `OK:` (rc 0) is an ABORT.** It reads the latest PR merged into `main` from any
-head, hotfixes included, picked by merge time. Terminal records are PASS, FAIL, EXEMPT and VOID,
-line-anchored, with PASS/EXEMPT bound to that PR's merge commit; PENDING and WAIVED never
-count. A `gh` error or an empty list refuses. There is no bypass: relay the refusal, and the
-operator clears it by posting the §5 result on the named PR. FAIL is terminal on purpose, so
-the release carrying the fix is not blocked.
-
-**This gate does not replace the checklist's revert triggers** (§8): a TestFlight recipient
-other than the founder, a non-founder user on any channel, or a workflow that delivers a
-production binary without a manual promotion step puts the check back before the bump.
-Before the first public App Store availability, promotion needs mechanical enforcement or
-the same revert.
-
-Fixture cases: `python3 /Users/max/dev/being/.claude/scripts/test-release-device-check-ceiling.py`.
+Releases do not wait on `docs/testing/crisis-device-checklist.md`. The founder is the only
+user and the only TestFlight recipient, so nothing here blocks or prompts for it. The release
+PR records `Device check: not run` (6.4). The checklist is still the only hardware check of the
+988 dial and keyboard accessory (DEBUG-589); run it before the first App Store submission or
+before anyone else receives TestFlight builds, whichever comes first.
 
 ---
 
@@ -522,27 +497,9 @@ git pull --rebase origin development
 
 ### 6.4 Open release PR
 
-The body carries the PENDING device-check record (the checklist's §6 PENDING form). Its
-`Result:` line names PENDING alone, never the list of alternatives, or the Phase 2.9 parser
-could read a template line as a result. Create the PR, then write the body with its number.
-
 ```bash
-PR_URL=$(gh pr create \
-  --base main \
-  --head development \
-  --title "Release v$NEXT_VERSION" \
-  --body "Release v$NEXT_VERSION (body follows)")
-
-PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
-
-RELEASE_NOTES=$(cat <<EOF
-### Crisis device checklist (INFRA-591)
-
-Result: PENDING
-Trigger: release PR #${PR_NUMBER} v${NEXT_VERSION}
-
-The §5 result is posted as a comment after the TestFlight build installs.
-Do not submit this build for App Store review until that result is a PASS bound to it.
+RELEASE_NOTES=$(cat <<'EOF'
+Device check: not run (the crisis device checklist is not a release gate; see Phase 2.9)
 
 [Generated release notes from Phase 6.1]
 
@@ -551,7 +508,14 @@ Do not submit this build for App Store review until that result is a PASS bound 
 🤖 Generated with [Claude Code](https://claude.com/claude-code)
 EOF
 )
-gh pr edit "$PR_NUMBER" --body "$RELEASE_NOTES"
+
+PR_URL=$(gh pr create \
+  --base main \
+  --head development \
+  --title "Release v$NEXT_VERSION" \
+  --body "$RELEASE_NOTES")
+
+PR_NUMBER=$(echo "$PR_URL" | grep -oE '[0-9]+$')
 ```
 
 Display:
@@ -600,15 +564,10 @@ is the worst place to discover that from a misread `--watch`.
 
 The release PR's head is the live `development` branch, so anything merged during 6.5 would
 ship without the CI that just went green. Pin the head; `--match-head-commit` refuses the
-merge if it moves. Re-run the Phase 2.9 ceiling immediately before merging: a hotfix that
-merged into `main` during 6.5 would otherwise leave two unverified builds.
+merge if it moves.
 
 ```bash
 SHIP_SHA=$(gh pr view $PR_NUMBER --json headRefOid -q .headRefOid)
-gh pr list --base main --state merged --limit 100 \
-  --json number,mergedAt,mergeCommit,body,comments \
-  | python3 /Users/max/dev/being/.claude/scripts/release-device-check-ceiling.py \
-  || { echo "❌ Ceiling refused at 6.6 — do not merge."; exit 1; }
 gh pr merge $PR_NUMBER --merge --admin --match-head-commit "$SHIP_SHA"
 ```
 
@@ -770,21 +729,11 @@ rejected v1.2.0 minutes after a fully green submit. Nothing here can gate that.
 ✅ Release v[PKG_VERSION] built and uploaded.
    Apple processing is pending and is reported only by email.
    Verify: https://appstoreconnect.apple.com/apps/6777579207/testflight/ios
-
-⏳ Device check PENDING for v[PKG_VERSION] (PR #[PR_NUMBER]). Do not submit ASC build
-   [appBuildVersion] for App Store review until a §5 PASS bound to it is on PR #[PR_NUMBER].
-   Procedure: docs/testing/crisis-device-checklist.md §5. The next /b-release refuses
-   until this PR carries a terminal result.
 ```
-
-Read `[appBuildVersion]` from `eas build:list` (8.2); it is EAS's remote counter, never
-`app/app.json`.
 
 If Apple rejects: the fix is a code/config change, so it needs a new patch
 version — the tagged tree cannot produce a valid binary and must not be the
-shipped one. Post a VOID result on this PR citing the ITMS code, so the
-ceiling clears for the patch release.
-
+shipped one.
 ---
 
 ## Error recovery
