@@ -58,7 +58,7 @@ if [ -z "${BASH_VERSION:-}" ]; then
   exit 2
 fi
 
-SAFETY_PATH_RE='^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/components/accessibility/(RadioGroup|FocusManager)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|src/core/services/data-retention/|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)'
+SAFETY_PATH_RE='^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/components/accessibility/(RadioGroup|FocusManager)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|src/core/services/data-retention/|src/core/services/privacy/AccountDeletionService\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)'
 
 die() { echo "🛑 b-close-gate-plan: $*" >&2; exit 2; }
 
@@ -648,6 +648,27 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/services/data-retention/'; t
   echo "   are jest-owned (assessmentRetention.livePath.privacy, interventionTierScore,"
   echo "   retentionNoResurrection). These flows witness only a boot-time prune breaking or"
   echo "   hanging a live screening."
+fi
+# DEBUG-763 (crisis ruling, the DEBUG-525 shape): AccountDeletionService.ts is launch-path
+# code — an interrupted erasure resumes on launch, after setInitialRoute, and drives the
+# in-memory resets (assessmentStore's crisis fields, via the erasure reset registry) and the
+# wipe that sweeps @being/supabase/crisis_analytics_queue. It imports nothing from
+# features/crisis/, so INFRA-531 cannot see it, and its usual co-edit with core/navigation
+# must not be what arms this (DEBUG-390). FILE-level, not privacy/: DataExportService.ts and
+# exportArtifactSweeper.ts are unreviewed, and erasureResetRegistry.ts is deliberately NOT
+# gated (it never rejects; its caller here wraps it). deeplink-consent-gate, not
+# legal-gate-art9-optional: both land on LegalGate and assert its 988 footer, but this one
+# cold-starts twice through the launch sequence the resume joins — once into LegalGate (the
+# post-erasure destination: consent gone) and once on being://crisis, which must still land
+# on CrisisResources. art9-optional drives the consent checkboxes, which this file never
+# touches, on measured 375x667 drag offsets — a fragility with nothing to witness here.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/services/privacy/AccountDeletionService\.ts'; then
+  FLOWS+=("crisis-button-reachability" "deeplink-consent-gate")
+  echo "🧹 AccountDeletionService changed — erasure resumes on launch. NECESSARY, NOT SUFFICIENT:"
+  echo "   every flow launches with clearState, so NO flow seeds an erasure-pending marker and"
+  echo "   none can observe a resume. These flows witness only the launch path, LegalGate's 988"
+  echo "   footer and the cold-start crisis link surviving the change. Resume behaviour is"
+  echo "   jest-owned (interruptedErasureResume.privacy.test.ts once DEBUG-763 lands)."
 fi
 # MAINT-750 (crisis ruling): RadioGroup is the PHQ-9 / GAD-7 answer control — its onPress ->
 # onValueChange is the only path a Q9 answer takes into answerQuestion's inline detection, and

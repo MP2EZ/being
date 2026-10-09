@@ -345,3 +345,16 @@ the flows pin the tap path and the jest pins own the handler. FocusManager's `Fo
 answer group and both crisis banners on the gated assessment hosts. Neither imports from
 `features/crisis/`, so INFRA-531 cannot see them. FILE-level: `AccessibleButton.tsx` is consumed
 by dailyloop and unreviewed, and `index.ts` is a barrel.
+
+`core/services/privacy/AccountDeletionService.ts` is the twenty-eighth instance (added DEBUG-763,
+crisis ruling), the DEBUG-525 shape: it owns no crisis code but runs on a path that reaches it.
+DEBUG-763 makes it launch-path code — an interrupted erasure resumes on launch, after
+`setInitialRoute`, and drives the in-memory resets (`assessmentStore`'s crisis fields, via the
+erasure reset registry) and the wipe that sweeps `@being/supabase/crisis_analytics_queue`. It
+matches no other pattern and imports nothing from `features/crisis/`, so INFRA-531 cannot see it,
+and its usual co-edit with `core/navigation/` must never be what arms the gate (DEBUG-390).
+FILE-level, not `privacy/`: `DataExportService.ts` and `exportArtifactSweeper.ts` are unreviewed
+for crisis, and `erasureResetRegistry.ts` is deliberately NOT gated — it never rejects, and its
+caller here wraps it. `crisis` owns the launch path, `compliance` the erasure. Every flow launches
+with `clearState`, so none seeds an erasure-pending marker; resume behaviour is jest-owned
+(`interruptedErasureResume.privacy.test.ts`).
