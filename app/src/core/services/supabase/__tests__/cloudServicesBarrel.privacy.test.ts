@@ -540,7 +540,6 @@ describe('cloud services barrel — AppState lifecycle handler', () => {
     expect(mockSupabase.processOfflineQueue).not.toHaveBeenCalled();
   });
 
-  // Pinned only WITH consent. The no-consent case is a filed defect, not a contract.
   it("'active' processes the offline queue (consent given)", async () => {
     const handler = await consentedHandler();
 
@@ -550,9 +549,17 @@ describe('cloud services barrel — AppState lifecycle handler', () => {
     expect(mockBackup.createBackup).not.toHaveBeenCalled();
   });
 
-  it.todo(
-    'active with cloud_sync consent absent does not process the offline queue — DEBUG-756 (queued backups upload after consent is withdrawn)',
-  );
+  // DEBUG-756. Defence in depth: the authoritative gate (and the drop/hold decision) is in
+  // SupabaseService.processOfflineQueue, because the service's own AppState listener reaches it
+  // independently - pinned by offlineQueueConsentWithdrawal.privacy.test.ts.
+  it("'active' with cloud_sync consent withdrawn does not process the offline queue", async () => {
+    const handler = await consentedHandler();
+    mockCanPerform.mockReturnValue(false);
+
+    await handler('active');
+
+    expect(mockSupabase.processOfflineQueue).not.toHaveBeenCalled();
+  });
 
   it("'inactive' does neither", async () => {
     const handler = await consentedHandler();
