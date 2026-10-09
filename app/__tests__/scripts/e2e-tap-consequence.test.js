@@ -162,6 +162,17 @@ const keyOf = (s) => `${s.file} | ${s.scroll} -> ${s.tap}`;
  * register is updated.
  */
 const REGISTER = [
+  { key: 'assessment-ax5-reachability.yaml | Assessment status: Recommended.* -> tab-home', status: 'remedied', consequence: 'assessment-close-button' },
+  { key: 'assessment-ax5-reachability.yaml | Assessment status: Recommended.* -> tab-home', status: 'remedied', consequence: 'assessment-close-button' },
+  { key: 'assessment-ax5-reachability.yaml | assessment-response-group-option-3 -> null', status: 'remedied', consequence: '.*Question 2 of 9.*' },
+  { key: 'assessment-ax5-reachability.yaml | assessment-response-group-option-3 -> null', status: 'remedied', consequence: '.*Question 3 of 9.*' },
+  { key: 'assessment-ax5-reachability.yaml | assessment-response-group-option-3 -> null', status: 'remedied', consequence: '.*Question 4 of 9.*' },
+  { key: 'assessment-ax5-reachability.yaml | assessment-response-group-option-3 -> null', status: 'remedied', consequence: '.*Question 5 of 9.*' },
+  { key: 'assessment-ax5-reachability.yaml | assessment-response-group-option-3 -> null', status: 'remedied', consequence: '.*Question 6 of 9.*' },
+  { key: 'assessment-ax5-reachability.yaml | assessment-response-group-option-3 -> null', status: 'remedied', consequence: '.*Question 7 of 9.*' },
+  { key: 'assessment-ax5-reachability.yaml | assessment-response-group-option-3 -> null', status: 'remedied', consequence: '.*Question 8 of 9.*' },
+  { key: 'assessment-ax5-reachability.yaml | assessment-response-group-option-3 -> null', status: 'remedied', consequence: '.*Question 9 of 9.*' },
+  { key: 'assessment-ax5-reachability.yaml | assessment-response-group-option-3 -> null', status: 'remedied', consequence: 'results-crisis-banner' },
   { key: 'bug-report-crisis-reachability.yaml | profile-card-bug-report -> tab-profile', status: 'remedied', consequence: 'bug-report-overlay' },
   { key: 'bug-report-crisis-reachability.yaml | profile-card-bug-report -> tab-profile', status: 'remedied', consequence: 'bug-report-overlay' },
   { key: 'crisis-button-reachability.yaml | weekly-reflection-card -> tab-insights', status: 'remedied', consequence: 'weekly-reflection-overlay' },

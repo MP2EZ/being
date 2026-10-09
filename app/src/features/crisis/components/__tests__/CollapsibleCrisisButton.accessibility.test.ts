@@ -4,6 +4,7 @@ import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import { colorSystem, getContrastRatio } from '@/core/theme';
 import { CollapsibleCrisisButton } from '../CollapsibleCrisisButton';
+import { CRISIS_BUTTON_SIZE_PROMINENT } from '@/features/crisis/constants/crisisButtonGeometry';
 
 const COMPONENT_PATH = path.resolve(
   __dirname,
@@ -27,11 +28,11 @@ describe('CollapsibleCrisisButton WCAG 2.5.5 target size', () => {
     expect(value).toBeGreaterThanOrEqual(44);
   });
 
-  test('COLLAPSED_WIDTH_PROMINENT source constant meets 44pt minimum (regression guard)', () => {
-    const match = source.match(/const COLLAPSED_WIDTH_PROMINENT = (\d+);/);
-    expect(match).not.toBeNull();
-    const value = parseInt(match![1], 10);
-    expect(value).toBeGreaterThanOrEqual(44);
+  // DEBUG-722: the prominent width moved to crisisButtonGeometry so the assessment
+  // host's exclusion rect cannot drift from it; the guard follows the value there.
+  test('COLLAPSED_WIDTH_PROMINENT is the geometry constant, which meets 44pt minimum (regression guard)', () => {
+    expect(source).toMatch(/const COLLAPSED_WIDTH_PROMINENT = CRISIS_BUTTON_SIZE_PROMINENT;/);
+    expect(CRISIS_BUTTON_SIZE_PROMINENT).toBeGreaterThanOrEqual(44);
   });
 
   test('standard-variant renders with width and height >= 44pt', () => {
