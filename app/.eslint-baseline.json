@@ -88,6 +88,7 @@
   "src/core/services/supabase/__tests__/SupabaseService.test.ts": 1,
   "src/core/services/supabase/__tests__/SupabaseServiceResilience.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/analyticsGate.unit.test.ts": 1,
+  "src/core/services/supabase/__tests__/backupDeleteOnWithdrawal.privacy.test.ts": 1,
   "src/core/services/supabase/__tests__/cloudServicesBarrel.privacy.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisBacklogSuppression.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisDetectedOnProjection.unit.test.ts": 1,

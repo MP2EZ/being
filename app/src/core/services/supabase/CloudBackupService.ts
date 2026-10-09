@@ -58,6 +58,7 @@ import { AppState } from 'react-native';
 import EncryptionService, { EncryptedDataPackage } from '../security/EncryptionService';
 import supabaseService from './SupabaseService';
 import { BACKUP_EVENT } from './operationalEvents';
+import { LAST_BACKUP_KEY } from './backupWithdrawal';
 
 // Store imports
 import { useAssessmentStore as assessmentStore } from '@/features/assessment/stores/assessmentStore';
@@ -144,7 +145,7 @@ interface BackupConfig {
 
 // Storage keys
 const STORAGE_KEYS = {
-  LAST_BACKUP: '@being/cloud_backup/last_backup',
+  LAST_BACKUP: LAST_BACKUP_KEY,
   BACKUP_CONFIG: '@being/cloud_backup/config',
   BACKUP_STATS: '@being/cloud_backup/stats',
 } as const;
@@ -766,6 +767,14 @@ class CloudBackupService {
   }
 
   /**
+   * DEBUG-764: the server backup was deleted after a consent withdrawal, so the next backup
+   * must upload even if the data is unchanged. (SupabaseService clears LAST_BACKUP on disk.)
+   */
+  resetBackupTracking(): void {
+    this.lastBackupHash = null;
+  }
+
+  /**
    * Get current configuration
    */
   getConfig(): BackupConfig {
@@ -792,4 +801,10 @@ class CloudBackupService {
 
 // Export singleton instance
 export const cloudBackupService = new CloudBackupService();
+
+// DEBUG-764: guarded — suites mock SupabaseService without this method.
+if (typeof supabaseService?.setServerBackupDeletedListener === 'function') {
+  supabaseService.setServerBackupDeletedListener(() => cloudBackupService.resetBackupTracking());
+}
+
 export default cloudBackupService;
