@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.16
+**Version:** 1.17
 **Effective Date:** December 12, 2025
 **Last Updated:** October 8, 2026
 
@@ -265,14 +265,14 @@ This extended retention supports safety-monitoring continuity and protects both 
 - **Settings Backup:** Retained until you disable backup or request deletion via in-app *Privacy & Data* settings
 - **Data Deletion Requests:** Honored within 30 days of request
 - **Audit Logs:** 3 years (for security and compliance)
-- **Consent Records:** Retained indefinitely as proof of lawful data processing
-- **Account-Deletion Record:** 3 years, on your device only. When you delete your account we keep a small confirmation that the deletion happened — the date, and the privacy choices that were in effect at that moment. It contains **no identifier of any kind**: nothing that names you, your device, or your account, and nothing that could be used to re-link you to anything you did before. We keep it because we have to be able to show that a deletion request was honored, and it survives the wipe for that reason alone.
+- **Consent Records:** Kept for as long as your account exists, as proof of lawful data processing. When you delete your account they are deleted with it, along with your age check and legal acceptances; only the account-deletion record below is kept.
+- **Account-Deletion Record:** 3 years, on your device only. When you delete your account we keep a small confirmation that the deletion happened — the date, the privacy choices that were in effect at that moment, and a count of the consent changes recorded before it. It contains **no identifier of any kind**: nothing that names you, your device, or your account, and nothing that could be used to re-link you to anything you did before. We keep it because we have to be able to show that a deletion request was honored, and it survives the wipe for that reason alone.
 
 ### 7.4 Your Right to Delete
 
 You can delete your data at any time in Settings, including crisis-related data. Deletion removes your data both on your device and on our servers: it erases your anonymous account identifier (§4.1), which automatically and permanently deletes every record tied to it (any settings backup, subscription records, and crisis-detection events). We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
 
-Deletion also resets the analytics identity on your device and discards anything queued but not yet sent, so nothing captured before the deletion is transmitted afterward. The one thing deliberately kept is the non-identifying account-deletion record described in §7.3.
+Deletion also resets the analytics identity on your device and discards anything queued but not yet sent, so nothing captured before the deletion is transmitted afterward. Your consent, age-check and legal-acceptance records are deleted too. What stays on your device afterward is: the account-deletion record described in §7.3; a marker that records only that the app has been opened on this device before; and some app settings caches that hold no information about you. None of these identifies you. Anyone who uses Being on this device afterward is asked for their own age and consent, starts with an empty consent history, and sees nothing from your account in their data export.
 
 ---
 
@@ -296,7 +296,9 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
-- **v1.16 (October 8, 2026):** §7.2 now says the 3-year retention of answers to PHQ-9 question 9 applies to check-ins you complete, and §7.3 states that answers from an unfinished check-in are deleted on your device no later than the next time you open Being. This shortens how long some data is kept and changes nothing else: crisis detection events, completed check-ins and every other retention period are unchanged. Because it narrows what we keep, it is published with the next app release rather than separately.
+- **v1.17 (October 8, 2026):** §7.2 now says the 3-year retention of answers to PHQ-9 question 9 applies to check-ins you complete, and §7.3 states that answers from an unfinished check-in are deleted on your device no later than the next time you open Being. This shortens how long some data is kept and changes nothing else: crisis detection events, completed check-ins and every other retention period are unchanged. Because it narrows what we keep, it is published with the next app release rather than separately.
+
+- **v1.16 (October 8, 2026):** Correction to §7.3 and §7.4. §7.3 said consent records are retained indefinitely, and §7.4 said the account-deletion record was the one thing kept when you delete your account. In fact your consent, age-check and legal-acceptance records also stayed on your device after deletion. They are now deleted when you delete your account, and §7.3 limits consent-record retention to the life of your account. §7.4 now lists everything that stays on the device after deletion. This reduces what we keep and changes nothing we collect or share, so it is published with the next app release rather than separately.
 
 - **v1.15 (October 5, 2026):** Correction and addition to §4.1. §4.1 said the anonymous account identifier is created at startup, and named only the settings backup and the crisis-detection event as data tied to it. It is not created at startup: it is created the first time it is needed, and making or restoring a purchase is now one of those occasions, alongside a crisis-detection event and the optional settings backup. §4.1 now also discloses what purchase verification sends and keeps: the store's transaction identifier for the purchase, sent to our servers and stored against your anonymous account identifier with your subscription's plan, status and dates and an encrypted copy of the store's signed transaction record. No wellness data is involved, and it is deleted with your account as §7.4 already described for subscription records.
 

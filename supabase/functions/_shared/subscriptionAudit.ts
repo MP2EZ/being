@@ -25,10 +25,16 @@
  * boolean it may ignore. What changed versus the defect is that the failure is now VISIBLE in
  * function logs instead of silently absorbed.
  *
- * The error text is a Postgres error string — it carries no wellness content, and callers must
- * keep it that way by never putting user content into p_metadata (which is separately capped
- * at 2KB by the metadata_size CHECK).
+ * WHAT THE FAILURE LINE MAY SAY (MAINT-765). Not the Postgres error text. A constraint
+ * violation's message and details quote the offending row's values, and the row holds the
+ * user's id and the store's transaction id, so the text is not safe to log (nor is the
+ * subscription id this event was about). The line carries the event type and a validated
+ * five-character SQLSTATE, which is enough to find the failing constraint. Callers must also
+ * keep user content out of p_metadata, which is separately capped at 2KB by the metadata_size
+ * CHECK.
  */
+
+import { sqlStateOf } from './logSafe.ts';
 
 /**
  * The client's `rpc()` returns a PostgrestFilterBuilder — a THENABLE, not a Promise: it has
@@ -76,10 +82,7 @@ export async function logSubscriptionEvent(
       '[subscription-audit] log_subscription_event FAILED — the audit row was NOT written.',
       JSON.stringify({
         event_type: event.eventType,
-        subscription_id: event.subscriptionId,
-        code: (error as { code?: string }).code ?? null,
-        message: (error as { message?: string }).message ?? String(error),
-        hint: (error as { hint?: string }).hint ?? null,
+        code: sqlStateOf(error),
       }),
     );
     return false;

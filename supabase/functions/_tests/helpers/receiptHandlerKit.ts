@@ -13,6 +13,7 @@
  */
 
 import { assertStrictEquals } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
+import { captureConsole } from './consoleCapture.ts';
 import type { FakeDb } from './fakeSupabase.ts';
 
 export const JWT_SUB = '0b7f3c52-9d1e-4a6b-8f20-5c1d7e9a4b13';
@@ -109,34 +110,24 @@ export async function withEnv<T>(vars: EnvVars, fn: () => Promise<T>): Promise<T
  * and global fetch replaced by a tripwire - CI grants --allow-net, so a regression that
  * ignored an injected seam would otherwise reach a real host.
  *
- * Pass `capture` to record the console instead of discarding it (MAINT-759). Non-string
- * arguments are rendered with Deno.inspect, the way a log sink records them, so an Error's
- * message and stack are visible to the assertion.
+ * Pass `capture` to record the console instead of discarding it (MAINT-759). Delegates to
+ * helpers/consoleCapture.ts (MAINT-765): non-string arguments are rendered with an
+ * unlimited-depth Deno.inspect, the way a log sink records them, so an Error's message and
+ * stack and a deeply nested value are visible to the assertion.
  */
 export async function scenario<T>(
   overrides: EnvVars,
   fn: () => Promise<T>,
   capture?: string[],
 ): Promise<T> {
-  const { log, warn, error } = console;
   const realFetch = globalThis.fetch;
-  const sink = capture
-    ? (...args: unknown[]) => {
-      capture.push(args.map((a) => (typeof a === 'string' ? a : Deno.inspect(a))).join(' '));
-    }
-    : () => {};
-  console.log = sink;
-  console.warn = sink;
-  console.error = sink;
   globalThis.fetch = (() => {
     throw new Error('network call attempted in a unit test');
   }) as typeof fetch;
   try {
-    return await withEnv({ ...BASE_ENV, ...overrides }, fn);
+    const { result } = await captureConsole(() => withEnv({ ...BASE_ENV, ...overrides }, fn), capture);
+    return result;
   } finally {
-    console.log = log;
-    console.warn = warn;
-    console.error = error;
     globalThis.fetch = realFetch;
   }
 }

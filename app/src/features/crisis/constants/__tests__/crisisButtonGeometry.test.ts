@@ -23,8 +23,10 @@ import {
   CRISIS_BUTTON_CLEARANCE,
   CRISIS_BUTTON_EXCLUSION_RECT,
   CRISIS_BUTTON_HIT_SLOP,
+  CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT,
   CRISIS_BUTTON_RESERVED_BAND,
   CRISIS_BUTTON_SIZE,
+  CRISIS_BUTTON_SIZE_PROMINENT,
   OVERLAY_ACTION_ROW_PADDING_RIGHT,
   intersectsCrisisButtonExclusion,
   overlayBottomInset,
@@ -302,5 +304,53 @@ describe('DEBUG-586 · the centred-card consumers import the band', () => {
 
   it.each(CONSUMERS)('%s declares no band of its own', (f) => {
     expect(read(f)).not.toMatch(LOCAL_DECL);
+  });
+});
+
+describe('DEBUG-722 · prominent-mode geometry', () => {
+  it('pins the prominent visible size', () => {
+    expect(CRISIS_BUTTON_SIZE_PROMINENT).toBe(56);
+  });
+
+  it('contests 56 + 12 + 16 = 84 of width and 104 + 56 + 12 + 16 = 188 of height', () => {
+    expect(CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT).toEqual({ left: 84, top: 188, bottom: 72 });
+  });
+
+  it('is built from the raw geometry, not literals', () => {
+    expect(CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT.left).toBe(
+      CRISIS_BUTTON_SIZE_PROMINENT + CRISIS_BUTTON_HIT_SLOP + CRISIS_BUTTON_CLEARANCE,
+    );
+    expect(CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT.top).toBe(
+      CRISIS_BUTTON_BOTTOM_OFFSET.android +
+        CRISIS_BUTTON_SIZE_PROMINENT +
+        CRISIS_BUTTON_HIT_SLOP +
+        CRISIS_BUTTON_CLEARANCE,
+    );
+    // The bottom edge does not depend on the button's size.
+    expect(CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT.bottom).toBe(CRISIS_BUTTON_EXCLUSION_RECT.bottom);
+  });
+
+  it('is strictly larger than the standard rect on both approach edges', () => {
+    expect(CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT.left).toBeGreaterThan(CRISIS_BUTTON_EXCLUSION_RECT.left);
+    expect(CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT.top).toBeGreaterThan(CRISIS_BUTTON_EXCLUSION_RECT.top);
+  });
+
+  describe('CollapsibleCrisisButton takes its prominent size from this module', () => {
+    const stripComments = (src: string): string =>
+      src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+    const src = stripComments(
+      readFileSync(join(__dirname, '../../components/CollapsibleCrisisButton.tsx'), 'utf8'),
+    );
+
+    it('imports CRISIS_BUTTON_SIZE_PROMINENT via the alias specifier', () => {
+      expect(src.length).toBeGreaterThan(1000);
+      expect(src).toMatch(
+        /import\s*\{[^}]*\bCRISIS_BUTTON_SIZE_PROMINENT\b[^}]*\}\s*from\s*'@\/features\/crisis\/constants\/crisisButtonGeometry'/,
+      );
+    });
+
+    it('declares no prominent width literal of its own', () => {
+      expect(src).not.toMatch(/\bCOLLAPSED_WIDTH_PROMINENT\s*=\s*\d/);
+    });
   });
 });

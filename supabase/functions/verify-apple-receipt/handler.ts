@@ -41,6 +41,48 @@ import {
   VerificationResult,
 } from '../_shared/appleTransactionClaims.ts';
 
+/**
+ * What a failed Apple call may put in an audit row or a log line (MAINT-765): a CLOSED reason.
+ * The five Apple shared-module error classes map to their class name, matched by instanceof
+ * (not by `.name`, which any foreign error can set); any other Error is the literal 'Error';
+ * anything that is not an Error is 'unknown'. Never the error's message or stack: a
+ * dependency's text can carry the transaction id, a credential, or - for a req.json()
+ * SyntaxError - a quotation of the request body.
+ */
+export function appleFailureMetadata(err: unknown): { reason: string } {
+  if (
+    err instanceof TransactionNotFoundError ||
+    err instanceof InvalidTransactionIdError ||
+    err instanceof AppleUnavailableError ||
+    err instanceof AppleAuthError ||
+    err instanceof AppStoreConnectConfigError
+  ) {
+    return { reason: err.name };
+  }
+  if (err instanceof Error) return { reason: 'Error' };
+  return { reason: 'unknown' };
+}
+
+const LOGGABLE_ERROR_NAMES = new Set([
+  'Error',
+  'SyntaxError',
+  'TypeError',
+  'RangeError',
+  'ReceiptReplayError',
+  'InvalidTransactionIdentifierError',
+  'TransactionNotFoundError',
+  'InvalidTransactionIdError',
+  'AppleUnavailableError',
+  'AppleAuthError',
+  'AppStoreConnectConfigError',
+]);
+
+/** An error's name if it is one we expect, else 'unknown'. Never the message or the stack:
+ *  a req.json() SyntaxError quotes the body around the fault, transaction id included. */
+function loggableErrorName(err: unknown): string {
+  return err instanceof Error && LOGGABLE_ERROR_NAMES.has(err.name) ? err.name : 'unknown';
+}
+
 export interface AppleReceiptDeps {
   /** Called lazily, only after identity and the request fields pass. */
   // deno-lint-ignore no-explicit-any
@@ -142,7 +184,8 @@ async function updateSubscription(
     if (isUniqueViolation(upsertError)) {
       throw new ReceiptReplayError('apple', verification.subscriptionId ?? '');
     }
-    throw new Error(`Failed to update subscription: ${upsertError.message}`);
+    // Fixed text (MAINT-765): the database's message can quote the row's values.
+    throw new Error('Failed to update subscription');
   }
 
   // Log verification event
@@ -210,7 +253,7 @@ export async function handle(req: Request, deps: AppleReceiptDeps): Promise<Resp
     // Initialize Supabase client (service role for DB writes; bypasses RLS).
     const supabase = deps.createSupabase();
 
-    console.log('[Apple Receipt Verification] Starting verification for user:', authUid);
+    console.log('[Apple Receipt Verification] Starting verification');
 
     // MOCK MODE: Handle mock transactions for local development.
     //
@@ -257,7 +300,7 @@ export async function handle(req: Request, deps: AppleReceiptDeps): Promise<Resp
         environment: 'Sandbox',
       };
 
-      console.log('[Apple Receipt Verification] Mock verification successful:', mockVerification.subscriptionId);
+      console.log('[Apple Receipt Verification] Mock verification successful');
 
       return new Response(
         JSON.stringify(mockVerification),
@@ -300,7 +343,8 @@ export async function handle(req: Request, deps: AppleReceiptDeps): Promise<Resp
 
       verification = parseTransaction(payload as AppleTransactionClaims, scope.environment, deps.now());
     } catch (error) {
-      console.error('[Apple Receipt Verification] Verification failed:', error);
+      const failure = appleFailureMetadata(error);
+      console.error('[Apple Receipt Verification] Verification failed:', failure.reason);
 
       await logSubscriptionEvent(supabase, {
         userId: authUid,
@@ -308,7 +352,7 @@ export async function handle(req: Request, deps: AppleReceiptDeps): Promise<Resp
         eventType: 'receipt_verification_failed',
         metadata: {
           platform: 'apple',
-          reason: error instanceof Error ? error.name : 'unknown',
+          reason: failure.reason,
           timestamp: new Date(deps.now()).toISOString(),
         },
       });
@@ -348,7 +392,7 @@ export async function handle(req: Request, deps: AppleReceiptDeps): Promise<Resp
         if (err instanceof ReceiptReplayError) {
           // Cross-identity replay: the receipt's transaction is bound to another
           // account. Reject without mutating state; audit the attempt.
-          console.warn('[Apple Receipt Verification] Replay rejected for user:', authUid);
+          console.warn('[Apple Receipt Verification] Replay rejected:', 'txn_bound_to_other_user');
           await logSubscriptionEvent(supabase, {
             userId: authUid,
             subscriptionId: null,
@@ -369,7 +413,7 @@ export async function handle(req: Request, deps: AppleReceiptDeps): Promise<Resp
           // generic outer catch and becomes an undifferentiated 500 with NO audit row —
           // technically fail-closed but indistinguishable from any other bug, which defeats
           // the point of failing closed at all.
-          console.error('[Apple Receipt Verification] No stable transaction identifier for user:', authUid);
+          console.error('[Apple Receipt Verification] No stable transaction identifier:', 'missing_txn_identifier');
           await logSubscriptionEvent(supabase, {
             userId: authUid,
             subscriptionId: null,
@@ -387,14 +431,14 @@ export async function handle(req: Request, deps: AppleReceiptDeps): Promise<Resp
         throw err;
       }
 
-      console.log('[Apple Receipt Verification] Success:', verification.subscriptionId);
+      console.log('[Apple Receipt Verification] Success');
 
       return new Response(
         JSON.stringify(verification),
         { status: 200, headers: { 'Content-Type': 'application/json' } }
       );
     } else {
-      console.log('[Apple Receipt Verification] Transaction not active:', verification.subscriptionId);
+      console.log('[Apple Receipt Verification] Transaction not active:', 'expired_or_revoked');
 
       // Log failed verification
       await logSubscriptionEvent(supabase, {
@@ -414,7 +458,7 @@ export async function handle(req: Request, deps: AppleReceiptDeps): Promise<Resp
       );
     }
   } catch (error) {
-    console.error('[Apple Receipt Verification] Unexpected error:', error);
+    console.error('[Apple Receipt Verification] Unexpected error:', loggableErrorName(error));
 
     return new Response(
       JSON.stringify({
