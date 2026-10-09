@@ -27,6 +27,7 @@ import { resetAnalyticsIdentity } from '@/core/analytics/analyticsIdentityReset'
 import { sweepExportArtifacts } from '../exportArtifactSweeper';
 import { resetInMemoryStateForErasure } from '../erasureResetRegistry';
 import { logSecurity } from '@/core/services/logging';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 jest.mock('../exportArtifactSweeper', () => ({
   sweepExportArtifacts: jest.fn(() => 0),
@@ -270,5 +271,74 @@ describe('AccountDeletionService — deleteAccountAndWipe ordering invariant', (
 
     expect(mockClearAllWellnessData).toHaveBeenCalledWith({ deleteMasterKey: true });
     expect(result).toEqual({ ok: true });
+  });
+});
+
+describe('DEBUG-763 — the erasure marker brackets the local erasure', () => {
+  const MARKER = '@being/erasure_pending';
+  const setItem = AsyncStorage.setItem as jest.Mock;
+  const removeItem = AsyncStorage.removeItem as jest.Mock;
+  const markerWrites = () => setItem.mock.calls.filter(([k]) => k === MARKER);
+  const markerClears = () => removeItem.mock.calls.filter(([k]) => k === MARKER);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    setItem.mockResolvedValue(undefined);
+    removeItem.mockResolvedValue(undefined);
+    mockClearAllWellnessData.mockResolvedValue(undefined);
+    mockRecordAttestation.mockResolvedValue(undefined);
+    mockResetInMemory.mockResolvedValue([]);
+    (useConsentStore.getState as jest.Mock).mockReturnValue({
+      recordAccountDeletionAttestation: mockRecordAttestation,
+    });
+  });
+
+  it('is written after the server confirms and before the attestation, stamped with the erasure time', async () => {
+    mockDeleteAccount.mockResolvedValue(true);
+    jest.spyOn(Date, 'now').mockReturnValue(1_790_000_000_000);
+    await deleteAccountAndWipe({ posthog: null });
+    jest.restoreAllMocks();
+
+    expect(markerWrites()).toEqual([[MARKER, '1790000000000']]);
+    const markerOrder = setItem.mock.invocationCallOrder[setItem.mock.calls.findIndex(([k]) => k === MARKER)]!;
+    expect(mockDeleteAccount.mock.invocationCallOrder[0]).toBeLessThan(markerOrder);
+    expect(markerOrder).toBeLessThan(mockRecordAttestation.mock.invocationCallOrder[0]!);
+    expect(mockRecordAttestation).toHaveBeenCalledWith({ erasedAt: 1_790_000_000_000 });
+  });
+
+  it('is not written when the server delete fails', async () => {
+    mockDeleteAccount.mockResolvedValue(false);
+    await deleteAccountAndWipe({ posthog: null });
+    expect(markerWrites()).toHaveLength(0);
+  });
+
+  it('is cleared only after the wipe (master key included) resolves', async () => {
+    mockDeleteAccount.mockResolvedValue(true);
+    let clearedBeforeWipeResolved = false;
+    mockClearAllWellnessData.mockImplementationOnce(async () => {
+      await Promise.resolve();
+      clearedBeforeWipeResolved = markerClears().length > 0;
+    });
+    await deleteAccountAndWipe({ posthog: null });
+    expect(clearedBeforeWipeResolved).toBe(false);
+    expect(markerClears()).toHaveLength(1);
+  });
+
+  it('is kept when the wipe throws, so the next launch resumes', async () => {
+    mockDeleteAccount.mockResolvedValue(true);
+    mockClearAllWellnessData.mockRejectedValue(new Error('wipe failed mid-flight'));
+    await expect(deleteAccountAndWipe({ posthog: null })).rejects.toThrow(/wipe failed/);
+    expect(markerWrites()).toHaveLength(1);
+    expect(markerClears()).toHaveLength(0);
+  });
+
+  it('a failed marker write does not strand the confirmed server erasure', async () => {
+    mockDeleteAccount.mockResolvedValue(true);
+    setItem.mockImplementation(async (k: string) => {
+      if (k === MARKER) throw new Error('disk full');
+    });
+    await expect(deleteAccountAndWipe({ posthog: null })).resolves.toEqual({ ok: true });
+    expect(mockRecordAttestation).toHaveBeenCalledTimes(1);
+    expect(mockClearAllWellnessData).toHaveBeenCalledWith({ deleteMasterKey: true });
   });
 });
