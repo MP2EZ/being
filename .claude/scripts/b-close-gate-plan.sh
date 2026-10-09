@@ -855,6 +855,13 @@ echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/features/practices/dailyloop|src/fe
 # so nothing would have reconciled it.
 echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/features/practices/dailyloop|\.maestro/daily-loop-ax5-virtuous\.yaml' && \
   DYNAMIC_TYPE_FLOWS+=("daily-loop-ax5-virtuous")
+# DEBUG-722: assessment-ax5-reachability answers all nine PHQ-9 questions with the bottom
+# option at AX5 and taps the prominent crisis button over a scrolled question. Before
+# DEBUG-722 no answer was reachable at AX5 and nothing at an accessibility size covered the
+# screen. Armed by the assessment render surface (components/, not scoring or types), the
+# shared option control, and the prominent-button geometry the answer column clears.
+echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/features/assessment/components/|src/core/components/accessibility/RadioGroup\.tsx|src/features/crisis/constants/crisisButtonGeometry\.ts|src/features/crisis/components/CollapsibleCrisisButton\.tsx|\.maestro/assessment-ax5-reachability\.yaml' && \
+  DYNAMIC_TYPE_FLOWS+=("assessment-ax5-reachability")
 # DEBUG-586: the two centred-card overlays in practices/shared/components size their
 # paddingBottom from CRISIS_BUTTON_RESERVED_BAND, so an under-reserved band puts their
 # controls under a zIndex-9999 FAB — a crisis FALSE POSITIVE, the DEBUG-547 shape. They
@@ -1058,7 +1065,7 @@ mflow_tag() { awk '/^tags:/{f=1;next} /^[^ -]/{f=0} f{gsub(/[ -]/,"");print;exit
 EXCLUDED_FLOWS="crisis-988-dial reconsent-stale-ineligible-fab-clearance daily-loop-ax5-entry
 journal-record-liveness profile-voice-reflection-xxxl breathing-fps-budget
 crisis-keyboard-accessory export-share-sheet-occlusion tab-label-dynamic-type-capture
-daily-loop-ax5-virtuous"
+daily-loop-ax5-virtuous assessment-ax5-reachability"
 MAESTRO_CHANGED="$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
 while IFS= read -r f; do
   [ -z "$f" ] && continue
@@ -1133,6 +1140,10 @@ while IFS= read -r f; do
       # DYNAMIC_TYPE_FLOWS by its own clause. It is the ONLY flow reaching VirtuousResponse
       # at an accessibility size, and the only one asserting the ✕ actually exits at AX5.
       echo "🔠 daily-loop-ax5-virtuous.yaml changed — safety-dynamic-type, so NOT in the"
+      echo "   tagged suite. Step 2.5.5 runs it at AX5 through e2e-dynamic-type.sh." ;;
+    assessment-ax5-reachability.yaml)
+      # DEBUG-722: same carve-out as the AX5 flows above; armed by its own clause.
+      echo "🔠 assessment-ax5-reachability.yaml changed — safety-dynamic-type, so NOT in the"
       echo "   tagged suite. Step 2.5.5 runs it at AX5 through e2e-dynamic-type.sh." ;;
     journal-record-liveness.yaml)
       echo "🎙️  journal-record-liveness.yaml changed — safety-host-probe. It drives to"

@@ -31,7 +31,7 @@
 
 if [ -z "${BASH_VERSION:-}" ]; then echo "run with bash" >&2; exit 2; fi
 
-EXPECTED_CASES=112
+EXPECTED_CASES=114
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/b-close-gate-plan.sh"
 VERBOSE=""; NO_CACHE=""
@@ -76,6 +76,7 @@ flow crisis-988-dial safety-device-only '- runFlow: _device-helper.yaml'
 flow reconsent-stale-ineligible-fab-clearance safety-bottom-inset
 flow daily-loop-ax5-entry safety-dynamic-type
 flow daily-loop-ax5-virtuous safety-dynamic-type
+flow assessment-ax5-reachability safety-dynamic-type
 flow journal-record-liveness safety-host-probe
 flow profile-voice-reflection-xxxl safety-dynamic-type
 flow breathing-fps-budget perf-device-only
@@ -129,7 +130,8 @@ case_deeplink_validation()  { w $C/services/security/DeepLinkValidationService.t
 case_supabase_service()     { w $C/services/supabase/SupabaseService.ts; expect 0 1 "" "gad7-severe journal-crisis-scan phq9-severe-completion q9-single-alert" "" "SupabaseService changed"; }
 case_data_retention()       { w $C/services/data-retention/DataRetentionService.ts; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "" "data-retention changed"; }
 case_threshold_modal()      { w $C/components/ThresholdEducationModal.tsx; expect 0 1 "" "$CBR" ""; }
-case_radio_group()          { w $C/components/accessibility/RadioGroup.tsx; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "" "RadioGroup/FocusManager changed"; }
+case_radio_group()          { w $C/components/accessibility/RadioGroup.tsx; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "assessment-ax5-reachability" "RadioGroup/FocusManager changed"; }
+case_assessment_component() { w $F/assessment/components/EnhancedAssessmentQuestion.tsx; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "assessment-ax5-reachability"; }
 case_focus_manager()        { w $C/components/accessibility/FocusManager.tsx; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" ""; }
 case_accessible_button_ungated() { w $C/components/accessibility/AccessibleButton.tsx; expect 0 "" "" "" ""; }
 case_clean_home()           { w $F/home/screens/CleanHomeScreen.tsx; expect 0 1 "" "$CBR" "daily-loop-ax5-entry"; }
@@ -176,6 +178,7 @@ case_flow_988_dial()        { ap $M/crisis-988-dial.yaml "- back"; expect 0 1 ""
 case_flow_fab_clearance()   { ap $M/reconsent-stale-ineligible-fab-clearance.yaml "- back"; expect 0 1 "" "$CBR" "" "safety-bottom-inset"; }
 case_flow_ax5_entry()       { ap $M/daily-loop-ax5-entry.yaml "- back"; expect 0 1 "" "" "daily-loop-ax5-entry" "Step 2.5.5 runs it at AX5"; }
 case_flow_ax5_virtuous()    { ap $M/daily-loop-ax5-virtuous.yaml "- back"; expect 0 1 "" "" "daily-loop-ax5-virtuous"; }
+case_flow_assessment_ax5()  { ap $M/assessment-ax5-reachability.yaml "- back"; expect 0 1 "" "" "assessment-ax5-reachability" "Step 2.5.5 runs it at AX5"; }
 case_flow_record_liveness() { ap $M/journal-record-liveness.yaml "- back"; expect 0 1 "" "$CBR" "" "safety-host-probe"; }
 case_flow_breathing_fps()   { ap $M/breathing-fps-budget.yaml "- back"; expect 0 1 "" "$CBR" "" "perf-device-only"; }
 case_flow_xxxl()            { ap $M/profile-voice-reflection-xxxl.yaml "- back"; expect 0 1 "" "$CBR" "" "npm run e2e:safety:xxxl"; }
