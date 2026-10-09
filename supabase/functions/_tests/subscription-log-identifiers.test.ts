@@ -4,7 +4,8 @@
  * Compliance ruling: no console argument in the subscription functions may carry a user id, a
  * store transaction id, an order id, a purchase token, a per-notification id, a subscription
  * row id, a whole error object or any error text. Generalises delete-account-uid-log.test.ts
- * (DEBUG-761) from one function to the five files that log around subscriptions.
+ * (DEBUG-761) from one function to the six files that log around subscriptions
+ * (grace-period-automation/handler.ts joined in MAINT-770).
  *
  * WHAT THIS CATCHES. Every console call in every file below, in ANY argument position, is
  * sliced from its `(` to the matching `)`. String literals are blanked (their words are
@@ -29,6 +30,7 @@ const FILES = [
   'subscription-webhook/handlers.ts',
   'subscription-webhook/replayCache.ts',
   '_shared/subscriptionAudit.ts',
+  'grace-period-automation/handler.ts',
 ];
 
 /** Wrappers that turn a value into a closed reason or a validated code. Their argument is
@@ -40,6 +42,7 @@ const SAFE_WRAPPERS = [
   'webhookFailureReason',
   'sqlStateOf',
   'safeStoreCode',
+  'automationFailure',
 ];
 
 /** Identifiers that hold a person, a purchase, a notification or an error. */
@@ -70,6 +73,11 @@ const TAINTED = [
   'updateError',
   'lookupError',
   'upsertError',
+  'insErr',
+  'e',
+  'row',
+  'trial',
+  'grace',
 ];
 
 const TAINT_RE = new RegExp(`\\b(?:${TAINTED.join('|')})\\b`);
@@ -253,7 +261,7 @@ Deno.test('no console call in the subscription functions carries an identifier o
     total += calls.length;
     assertEquals(leakingCalls(src), [], `${file}: a console call carries an identifier or error text`);
   }
-  assert(total >= 25, `only ${total} console calls sliced across the five files - the pin is reading too little`);
+  assert(total >= 45, `only ${total} console calls sliced across the six files - the pin is reading too little`);
 });
 
 Deno.test('the approved wrappers still exist where the pin says they are', () => {
@@ -263,6 +271,7 @@ Deno.test('the approved wrappers still exist where the pin says they are', () =>
     ['verify-google-receipt/handler.ts', 'googleFailureMetadata'],
     ['verify-google-receipt/handler.ts', 'loggableErrorName'],
     ['subscription-webhook/handlers.ts', 'webhookFailureReason'],
+    ['grace-period-automation/handler.ts', 'automationFailure'],
   ];
   for (const [file, name] of where) {
     assert(
@@ -296,6 +305,10 @@ for (
     ['a wrapper that does not wrap the leak', "console.error('x', loggableErrorName(error), authUid);"],
     ['the service-account email', "console.log('[Google Webhook] OIDC verified, sa:', serviceAccountEmail);"],
     ['a nested template expression', 'console.log(`a ${`b ${userId}`}`);'],
+    ['the pre-fix grace heartbeat insert line', "console.error('[Automation] Heartbeat run-record insert returned an error:', insErr);"],
+    ['the pre-fix grace heartbeat catch line', "console.error('[Automation] Failed to write heartbeat run-record:', e);"],
+    ['the pre-fix grace stale-select line', "console.error('[Automation] Failed to get stale receipts:', error);"],
+    ['a grace row id', "console.log('[Automation] Skipping row', row.id);"],
   ] as const
 ) {
   Deno.test(`control fires: ${label}`, () => {
@@ -316,6 +329,7 @@ for (
     ['webhookFailureReason(updateError)', "const f = webhookFailureReason(updateError);\nconsole.error('x', f.reason, f.code ?? null);"],
     ['a validated code', "console.error('x', JSON.stringify({ event_type: event.eventType, code: sqlStateOf(error) }));"],
     ['a sanitised store code', "console.log('Processing:', safeStoreCode(notificationType), safeStoreCode(subtype));"],
+    ['automationFailure(insErr)', "console.error('[Automation] Heartbeat insert failed:', JSON.stringify(automationFailure(insErr)));"],
     ['a platform literal template', 'console.warn(`[Replay Cache] Missing notification_id for source=${source}`);'],
     ['an id outside the call', "console.log('x');\nawait deleteUser(authUid, false);"],
     ['URL string with //', "console.log('see https://example.test/a');"],
