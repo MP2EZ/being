@@ -31,6 +31,7 @@ import { generateSessionId } from '@/core/utils/id';
 import { createClient, isAuthApiError, SupabaseClient } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { readErasurePending } from '@/core/services/privacy/erasurePending';
 import {
   createSupabasePinnedFetch,
   validatePinningConfiguration,
@@ -1296,10 +1297,27 @@ class SupabaseService {
    */
   private async loadCrisisAnalyticsQueue(): Promise<void> {
     try {
-      const data = await AsyncStorage.getItem(STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE);
+      // DEBUG-763: the erasure marker is read in parallel (one read, never rejects), so a
+      // normal boot waits on nothing new.
+      const [data, erasurePending] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.CRISIS_ANALYTICS_QUEUE),
+        readErasurePending(),
+      ]);
       if (!data) return;
       const persisted = JSON.parse(data);
       if (!Array.isArray(persisted)) return;
+
+      // DEBUG-763 — the server erased the account but the local wipe did not finish, so
+      // every persisted row is the DELETED account's. Dropped at adoption, before any
+      // flush, or it is re-created under a fresh anonymous user. The in-memory queue holds
+      // only this session's detections and is kept; the rewrite persists exactly that.
+      if (erasurePending) {
+        logSecurity('[SupabaseService] crisis queue of an erased account discarded', 'medium', {
+          discarded: persisted.length,
+        });
+        void this.persistCrisisQueue();
+        return;
+      }
 
       // DEBUG-413 — drop the pre-fix backlog HERE, at adoption, before either branch
       // below. Doing it at adoption rather than at flush time is deliberate: a suppressed
