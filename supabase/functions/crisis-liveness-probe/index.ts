@@ -28,84 +28,24 @@
  * AUTH: X-Cron-Secret constant-time (mirrors crisis-detection-alerting). verify_jwt=false
  *   (pg_net carries no user JWT) — the secret check is the sole compensating control.
  *   Shares CRON_SECRET with crisis-detection-alerting (same crisis-monitoring trust domain).
+ *
+ * LAYOUT (MAINT-740): the handler lives in handleProbe.ts so tests can import it. This file
+ *   is the deploy entry point: it resolves env by LITERAL name — the trust-domain pin and the
+ *   deploy-drift reconcile match on those literals, so they must stay here — and builds the
+ *   client lazily, after the auth gate, exactly as before.
  */
 
 import { serve } from 'https://deno.land/std@0.177.0/http/server.ts';
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2.39.3';
-import { timingSafeEqual } from 'node:crypto';
+import { handleProbe } from './handleProbe.ts';
 
-/** Constant-time compare; false (without timing leak) when byte-lengths differ. */
-function constantTimeEqual(a: string, b: string): boolean {
-  const aBytes = new TextEncoder().encode(a);
-  const bBytes = new TextEncoder().encode(b);
-  if (aBytes.byteLength !== bBytes.byteLength) return false;
-  return timingSafeEqual(aBytes, bBytes);
-}
-
-/**
- * Extract a human message from any thrown value. Supabase JS client errors are plain
- * objects ({message, details, hint, code}), NOT Error instances, so `String(e)` yields
- * the useless "[object Object]" — pull `.message` (or the next-best field) first.
- */
-function errMsg(e: unknown): string {
-  if (e instanceof Error) return e.message;
-  if (e && typeof e === 'object') {
-    const o = e as Record<string, unknown>;
-    return String(o.message ?? o.error_description ?? o.error ?? JSON.stringify(e));
-  }
-  return String(e);
-}
-
-serve(async (req) => {
-  const startedMs = Date.now();
-
-  // --- Auth: reject before any work, fail-closed, POST-only. ---
-  if (req.method !== 'POST') {
-    return json(405, { error: 'Method Not Allowed' });
-  }
-  const providedSecret = req.headers.get('x-cron-secret');
-  const expectedSecret = Deno.env.get('CRON_SECRET');
-  if (!expectedSecret || !providedSecret || !constantTimeEqual(providedSecret, expectedSecret)) {
-    return json(401, { error: 'Unauthorized' });
-  }
-
-  const supabase = createClient(
-    Deno.env.get('SUPABASE_URL')!,
-    Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
-  );
-
-  // --- Drive the real write leg: insert a synthetic marker via PostgREST. ---
-  // The row is PII-free synthetic ops telemetry: probe_type defaults to the pinned
-  // 'synthetic_liveness' constant; we carry only a status + ops metadata. NEVER any
-  // user/session id, score, or wellness data. We deliberately do NOT call
-  // SupabaseService.trackCrisisDetection (that writes analytics_events) — R2 boundary.
-  try {
-    // .insert() returns { error } rather than throwing on a DB/permission failure — check
-    // it explicitly, or a failed write would look like success and no marker would land
-    // (the alerter would then page on staleness, which is fail-closed but mislabelled).
-    const { error: insErr } = await supabase.from('crisis_liveness_probe').insert({
-      status: 'ok',
-      source: 'edge',
-      duration_ms: Date.now() - startedMs,
-      detail: 'synthetic liveness probe — ingest/cron/edge write leg exercised',
-    });
-    if (insErr) throw insErr;
-  } catch (e) {
-    // Surface the failure in the response. No marker row lands, so the alerter sees a
-    // stale probe within the staleness window and raises the authoritative dead page.
-    return json(500, { success: false, error: `probe marker insert failed: ${errMsg(e)}` });
-  }
-
-  return json(200, {
-    success: true,
-    status: 'ok',
-    durationMs: Date.now() - startedMs,
-  });
-});
-
-function json(status: number, body: unknown): Response {
-  return new Response(JSON.stringify(body), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
+serve((req) =>
+  handleProbe(req, {
+    env: { CRON_SECRET: Deno.env.get('CRON_SECRET') },
+    client: () =>
+      createClient(
+        Deno.env.get('SUPABASE_URL')!,
+        Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
+      ),
+  })
+);

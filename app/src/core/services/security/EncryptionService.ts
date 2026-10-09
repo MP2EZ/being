@@ -78,7 +78,7 @@ export const ENCRYPTION_CONFIG = {
  * Different encryption policies based on data sensitivity
  */
 export type DataSensitivityLevel = 
-  | 'level_1_crisis_responses'      // PHQ-9 Q9, GAD-7 severe responses
+  | 'level_1_crisis_responses'      // Used only by encryptCrisisData (MAINT-712: assessments never elevate)
   | 'level_2_assessment_data'       // Complete PHQ-9/GAD-7 responses
   | 'level_3_intervention_metadata' // Crisis intervention actions
   | 'level_4_performance_data'      // System performance metrics
@@ -577,22 +577,14 @@ export class EncryptionService {
       // Use dedicated assessment key
       const assessmentKeyId = `${ENCRYPTION_CONFIG.ASSESSMENT_KEY_PREFIX}${assessmentId}`;
 
-      // Determine sensitivity level based on scores
-      let sensitivityLevel: DataSensitivityLevel = 'level_2_assessment_data';
-      
-      // Elevate to crisis level for high-risk responses
-      if (assessmentData.type === 'PHQ-9' && (assessmentData.responses[8] ?? 0) > 0) {
-        // Question 9 (suicidal ideation) - highest security
-        sensitivityLevel = 'level_1_crisis_responses';
-      } else if (assessmentData.totalScore >= 20 || 
-                 (assessmentData.type === 'GAD-7' && assessmentData.totalScore >= 15)) {
-        // High severity scores
-        sensitivityLevel = 'level_1_crisis_responses';
-      }
-
+      // MAINT-712: always level_2. This used to elevate Q9>0 / severe totals to
+      // level_1_crisis_responses — a third copy of the crisis thresholds. The
+      // tier selects no key material (derivation is master key + per-record
+      // salt), and the label sits in plaintext package metadata, so elevating
+      // would have published a crisis-band indicator for no protective gain.
       const encryptedPackage = await this.encryptData(
         assessmentData,
-        sensitivityLevel,
+        'level_2_assessment_data',
         assessmentKeyId
       );
 

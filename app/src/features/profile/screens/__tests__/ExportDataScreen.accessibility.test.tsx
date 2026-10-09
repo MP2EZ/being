@@ -15,8 +15,14 @@
  */
 
 import React from 'react';
+import path from 'path';
 import { render, fireEvent, waitFor } from '@testing-library/react-native';
 import { StyleSheet } from 'react-native';
+import {
+  expectEntryShape, expectInertMember, expectLiveness, expectMarginClearance,
+  expectModelFidelity, expectSweepClear, flat, hostPad, readHost,
+} from '../../../../../__tests__/helpers/crisisFabClearance';
+import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 import { TOUCH_TARGETS } from '@/core/theme';
 
 const mockGather = jest.fn();
@@ -374,6 +380,60 @@ describe('ExportDataScreen', () => {
       const hits = getAllByText(/clinical assessment/i);
       expect(hits).toHaveLength(1);
       expect(hits[0]).toBe(getByTestId('export-preview-disclaimer'));
+    });
+  });
+
+  // DEBUG-653: with the preview dark the button is the LAST control at max scroll, where the
+  // FAB (zIndex 9999) would win an overlapping tap — the DEBUG-547 shape. See crisisFabClearance.ts.
+  describe('DEBUG-653: the export button clears the crisis FAB exclusion region', () => {
+    const TEST_ID = 'export-data-button';
+    const HOST = readHost(path.join(__dirname, '../ExportDataScreen.tsx'));
+    // Measured pre-fix: iPhone SE (3rd generation), 375x667, iOS 18.6, installed gate binary
+    // marker 184ab8af, 2026-09-25, max scroll, data_export dark — [24,529][351,581].
+    const MEASURED = { x: 24, y: 529, width: 327, height: 52 };
+    const renderHost = () => {
+      const api = render(<ExportDataScreen />);
+      return { api, style: flat(api.getByTestId(TEST_ID).props.style), pad: hostPad(api) };
+    };
+
+    it('(a) keeps the MARGIN clearance idle and while exporting', async () => {
+      let release: (v: unknown) => void = () => {};
+      mockGather.mockReturnValue(new Promise((resolve) => { release = resolve; }));
+      const { api, style } = renderHost();
+      expectMarginClearance(style, true);
+
+      fireEvent.press(api.getByTestId(TEST_ID));
+      await waitFor(() => expect(api.getByTestId(TEST_ID).props.accessibilityState.busy).toBe(true));
+      const exporting = flatten(api.getByTestId(TEST_ID).props.style);
+      // The disabled member really was merged, so its survival is not vacuous.
+      expect(exporting.backgroundColor).not.toBe(style.backgroundColor);
+      expectMarginClearance(exporting, true);
+
+      release({ schemaVersion: '1' });
+      await waitFor(() => expect(api.getByTestId(TEST_ID).props.accessibilityState.busy).toBe(false));
+    });
+
+    it('(b) declares it in its own base entry, last, and the later member cannot clobber it', () => {
+      expectEntryShape(HOST, 'exportButton', true);
+      expect(HOST.source).toMatch(
+        /style=\{\[styles\.exportButton, isExporting && styles\.exportButtonDisabled\]\}/
+      );
+      expect(HOST.source.match(/styles\.exportButton(?!\w)/g)).toHaveLength(1);
+      expectInertMember(HOST, 'exportButtonDisabled');
+    });
+
+    it('(c) never intersects the exclusion rect at any y, on any supported viewport', () => {
+      const { pad, style } = renderHost();
+      expectSweepClear(pad, style, [MEASURED.height, 200]);
+    });
+
+    it('(d) the model reproduces the measured frame; (e) at inset 0 everything goes red', () => {
+      expectModelFidelity(MEASURED, renderHost().pad);
+      expectLiveness(HOST, 'exportButton', MEASURED, renderHost().pad);
+    });
+
+    it('DEBUG-643: the __DEV__ crisis-exclusion check is wired to the export button', async () => {
+      await expectExclusionCheckWired(renderHost().api.getByTestId(TEST_ID), TEST_ID);
     });
   });
 });

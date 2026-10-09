@@ -56,6 +56,59 @@ set -euo pipefail
 
 cd "$(dirname "$0")/.." || exit 1 # -> app/ (npm already sets cwd=app; belt + suspenders)
 
+# INFRA-676 — CocoaPods needs a UTF-8 locale. Homebrew Ruby derives Encoding.default_external
+# from LC_CTYPE; with none set it is US-ASCII, Dir.pwd comes back ASCII-8BIT, and
+# `pod install` dies in Pod::Config#installation_root with `Encoding::CompatibilityError:
+# Unicode Normalization not appropriate for ASCII-8BIT`. A login shell sets LANG, but Claude
+# Code's Bash tool — and so the detached /b-close runner — inherits none, and only the
+# post-regeneration tier runs pod install, which is why warm builds never showed it.
+# Set HERE rather than in e2e-gate.sh so every entry point gets it. Keyed on the EFFECTIVE
+# LC_CTYPE (LC_ALL > LC_CTYPE > LANG): a caller's UTF-8 locale is kept, and LC_ALL is set
+# too because a non-UTF-8 LC_ALL would outrank an exported LANG. Step 7e's per-command
+# `LC_ALL=C grep` byte-matches still override this, deliberately.
+case "${LC_ALL:-${LC_CTYPE:-${LANG:-}}}" in
+  *[Uu][Tt][Ff]-8* | *[Uu][Tt][Ff]8*) ;;
+  *)
+    echo "🌐 No UTF-8 locale inherited — exporting en_US.UTF-8 (CocoaPods requires it)."
+    export LANG=en_US.UTF-8 LC_ALL=en_US.UTF-8
+    ;;
+esac
+
+# INFRA-754 — pin the macOS SDK `pod install` links its stub against. expo-modules-jsi's
+# create-stub-xcframework.sh runs a bare `clang` in every pod install's pre-install hook,
+# and a bare clang takes xcrun's DEFAULT macOS SDK. On a macOS 27 host with CommandLineTools
+# 27 installed, that default is the CLT's MacOSX27.0.sdk, while the linker comes from the
+# active Xcode (26.6), which cannot read it:
+#   tapi error: malformed file ... libSystem.B.tbd:4:20: error: unknown architecture arm64e.x1-macos
+# `xcode-select` does not help — it already points at Xcode; only the default SDK is skewed.
+# Only builds that run pod install (cold or regenerating) hit it; warm builds run none.
+# SDKROOT is honoured by bare `xcrun --show-sdk-path` (what clang uses) and ignored by
+# `xcrun --sdk macosx`, which is what makes the check below meaningful. Exported here, at top
+# level, so it reaches both `expo prebuild` and `expo run:ios` (which re-runs pod install when
+# Pods are out of sync), and placed before any lock, sweep or uninstall so a refusal changes
+# nothing. A caller-supplied SDKROOT is kept only if it already names Xcode's SDK; anything
+# else refuses — there is deliberately no override knob.
+XCODE_MACOS_SDK="$(xcrun --sdk macosx --show-sdk-path 2>/dev/null || true)"
+if [ -z "$XCODE_MACOS_SDK" ] || [ ! -d "$XCODE_MACOS_SDK" ]; then
+  echo "❌ e2e:safety:build refused: \`xcrun --sdk macosx --show-sdk-path\` did not resolve" >&2
+  echo "   the active Xcode's macOS SDK (got: '${XCODE_MACOS_SDK}'). Check \`xcode-select -p\`." >&2
+  exit 1
+fi
+if [ -z "${SDKROOT:-}" ]; then
+  export SDKROOT="$XCODE_MACOS_SDK"
+fi
+EFFECTIVE_MACOS_SDK="$(xcrun --show-sdk-path 2>/dev/null || true)"
+if [ "$EFFECTIVE_MACOS_SDK" != "$XCODE_MACOS_SDK" ]; then
+  echo "❌ e2e:safety:build refused: pod install would link against the wrong macOS SDK." >&2
+  echo "   A bare clang would use: ${EFFECTIVE_MACOS_SDK:-<nothing>}" >&2
+  echo "   The active Xcode's SDK: $XCODE_MACOS_SDK" >&2
+  echo "   Xcode's linker cannot read a newer CommandLineTools SDK (INFRA-754). Fix one of:" >&2
+  echo "     - unset SDKROOT (this script then pins it to Xcode's SDK), or" >&2
+  echo "     - remove or realign the CommandLineTools SDK so xcrun's default matches Xcode." >&2
+  exit 1
+fi
+echo "🧰 macOS SDK for pod install: $SDKROOT ($(xcrun --sdk macosx --show-sdk-version 2>/dev/null || echo 'version unknown'))"
+
 # INFRA-405 — shared device resolution, used identically by e2e-safety.sh. Sourced, so it
 # must not set shell options (this script runs under `set -euo pipefail`, that one under a
 # bare `set -u`).
@@ -146,46 +199,63 @@ fi
 #     before step 2b's lock acquisition, and decisively before step 3's `simctl uninstall` —
 #     the first mutation. `cleanup` only reinstalls nothing; a refusal after step 3 leaves
 #     the simulator with no fyi.being.app, having also taken and released a peer-visible
-#     lock. Refusing here costs nothing and mutates nothing.
+#     lock. Refusing here costs nothing and touches no simulator or lock; the orphan sweep
+#     it may run deletes only caches whose worktree root is gone (INFRA-691).
 #
 #     Why it exists: out of disk, `xcodebuild` fails as
 #     `lipo: can't write to output file ... (No space left on device)` + error 65, which
 #     names the linker rather than the disk and sends the reader diagnosing the wrong
-#     subsystem. The dominant consumer is orphaned DerivedData from removed worktrees, so
-#     the message points at the sweep that reclaims it.
+#     subsystem. The dominant consumers are orphaned DerivedData and CocoaPods cache
+#     entries from removed worktrees, so below the floor it runs the sweep that reclaims
+#     them and re-checks before refusing.
 #
 #     Fails OPEN on an unreadable probe. This check is advisory plumbing; it must never be
 #     the reason the gate cannot run. `df -P` forces single-line POSIX output so a long
 #     device name cannot shift the column that `awk` reads.
 # ---------------------------------------------------------------------------------------
 MIN_FREE_GB="${E2E_MIN_FREE_GB:-10}"
-AVAIL_KB="$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print $4}' || true)"
-case "$AVAIL_KB" in
-  '' | *[!0-9]*)
-    echo "⚠️  Could not read free disk space — skipping the headroom check." >&2
-    ;;
-  *)
-    AVAIL_GB=$((AVAIL_KB / 1048576))
-    if [ "$MIN_FREE_GB" -gt 0 ] && [ "$AVAIL_GB" -lt "$MIN_FREE_GB" ]; then
-      echo "❌ Not enough DISK SPACE to build." >&2
-      echo "   Free: ${AVAIL_GB} GB · required: ${MIN_FREE_GB} GB" >&2
-      echo "   A cold build writes ~5-8 GB of DerivedData. Out of space, xcodebuild fails" >&2
-      echo "   as a 'lipo: No space left on device' linker error, which names the wrong" >&2
-      echo "   subsystem — hence this check." >&2
-      echo "" >&2
-      echo "   Reclaim caches whose worktree no longer exists:" >&2
-      echo "     npm run e2e:safety:clean:orphans            # list" >&2
-      echo "     npm run e2e:safety:clean:orphans -- --yes   # reap" >&2
-      echo "" >&2
-      echo "   Override with E2E_MIN_FREE_GB=0 if you know the build fits." >&2
-      exit 1
-    fi
-    if [ "$MIN_FREE_GB" -gt 0 ] && [ "$AVAIL_GB" -lt $((MIN_FREE_GB * 2)) ]; then
-      echo "⚠️  DISK SPACE is tight: ${AVAIL_GB} GB free. A cold build wants ~5-8 GB." >&2
-      echo "    npm run e2e:safety:clean:orphans   # see what is reclaimable" >&2
-    fi
-    ;;
-esac
+# Whole GB free on $HOME's filesystem, or nothing when `df` cannot be read.
+free_gb() {
+  local kb
+  kb="$(df -Pk "$HOME" 2>/dev/null | awk 'NR==2 {print $4}' || true)"
+  case "$kb" in
+    '' | *[!0-9]*) return 0 ;;
+  esac
+  echo $((kb / 1048576))
+}
+AVAIL_GB="$(free_gb)"
+if [ -z "$AVAIL_GB" ]; then
+  echo "⚠️  Could not read free disk space — skipping the headroom check." >&2
+elif [ "$MIN_FREE_GB" -gt 0 ]; then
+  # INFRA-691: reclaim BEFORE refusing. The sweep reaps only DerivedData and CocoaPods cache
+  # entries whose worktree root is gone, so nothing a live worktree or a peer's in-flight
+  # build depends on is touched. A failed sweep is not fatal — the re-check decides.
+  if [ "$AVAIL_GB" -lt "$MIN_FREE_GB" ]; then
+    echo "⚠️  Only ${AVAIL_GB} GB free (need ${MIN_FREE_GB} GB) — reaping orphaned caches first." >&2
+    bash "$(dirname "$0")/e2e-sim-clean.sh" --orphans --yes >&2 ||
+      echo "⚠️  The orphan sweep failed; re-checking free space anyway." >&2
+    AFTER_GB="$(free_gb)"
+    [ -z "$AFTER_GB" ] || AVAIL_GB="$AFTER_GB"
+  fi
+  if [ "$AVAIL_GB" -lt "$MIN_FREE_GB" ]; then
+    echo "❌ Not enough DISK SPACE to build." >&2
+    echo "   Free: ${AVAIL_GB} GB · required: ${MIN_FREE_GB} GB" >&2
+    echo "   A cold build writes ~5-8 GB of DerivedData. Out of space, xcodebuild fails" >&2
+    echo "   as a 'lipo: No space left on device' linker error, which names the wrong" >&2
+    echo "   subsystem — hence this check." >&2
+    echo "" >&2
+    echo "   The orphan sweep (npm run e2e:safety:clean:orphans -- --yes) has already run;" >&2
+    echo "   what remains belongs to live worktrees. Remove the ones you are done with, or" >&2
+    echo "   run 'npm run e2e:safety:clean -- --yes' inside one to drop its DerivedData." >&2
+    echo "" >&2
+    echo "   Override with E2E_MIN_FREE_GB=0 if you know the build fits." >&2
+    exit 1
+  fi
+  if [ "$AVAIL_GB" -lt $((MIN_FREE_GB * 2)) ]; then
+    echo "⚠️  DISK SPACE is tight: ${AVAIL_GB} GB free. A cold build wants ~5-8 GB." >&2
+    echo "    npm run e2e:safety:clean:orphans   # see what is reclaimable" >&2
+  fi
+fi
 
 # ---------------------------------------------------------------------------------------
 # 2. Resolve the target simulator — ONCE, here, before anything is mutated.

@@ -35,12 +35,18 @@ jest.mock('@react-navigation/native', () => ({
   useFocusEffect: (cb: () => void) => cb(),
 }));
 
-// Mock analytics (trackCrisisHotlineTapped is called on each dial)
+// Mock analytics (trackCrisisHotlineTapped is called on each dial).
+//
+// The tracker handle is HOISTED rather than minted inside the factory. A
+// `() => ({ trackCrisisHotlineTapped: jest.fn() })` factory returns a fresh spy
+// on every render, so nothing outside can inspect what it was called WITH --
+// which is precisely what FEAT-543's `primary_988` assertions need.
+const mockTrackCrisisHotlineTapped = jest.fn();
 jest.mock('@/core/analytics', () => ({
   useAnalytics: () => ({
     trackScreenView: jest.fn(),
     trackCrisisResourcesViewed: jest.fn(),
-    trackCrisisHotlineTapped: jest.fn(),
+    trackCrisisHotlineTapped: mockTrackCrisisHotlineTapped,
   }),
 }));
 
@@ -51,6 +57,9 @@ jest.spyOn(Linking, 'canOpenURL').mockResolvedValue(true);
 jest.spyOn(Alert, 'alert').mockImplementation(() => {});
 
 import CrisisResourcesScreen from '../CrisisResourcesScreen';
+
+// Shapes that must never reach the analytics sink from this screen.
+const FORBIDDEN_IN_PAYLOAD = /trevor|project|veterans|samhsa|1-8\d\d|988|http/i;
 
 describe('CrisisResourcesScreen', () => {
   beforeEach(() => {
@@ -231,6 +240,79 @@ describe('CrisisResourcesScreen', () => {
       // by the 988 dial path. Direct unit test of validateUrlProtocol would
       // require exposing it from the module — kept internal by design.
       expect(true).toBe(true);
+    });
+  });
+  /**
+   * FEAT-543 -- `primary_988` distinguishes a tap on the pinned footer 988
+   * button from a tap on a secondary listed resource, so the "988 in under
+   * three taps" commitment is validated from behaviour rather than assumed
+   * from layout.
+   *
+   * BOOLEAN BY RULING, never a resource id. `trevor_project` /
+   * `veterans_crisis_line` would each be a special-category inference about the
+   * user (LGBTQ+ youth, veteran status), and a numeric rank is a proxy for the
+   * same once section order is known.
+   */
+  describe('crisis_hotline_tapped primary_988 (FEAT-543)', () => {
+    test('the pinned footer 988 button reports true', async () => {
+      const { getByLabelText } = render(<CrisisResourcesScreen />);
+
+      await act(async () => {
+        fireEvent.press(getByLabelText('Call 988 Suicide & Crisis Lifeline'));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(mockTrackCrisisHotlineTapped).toHaveBeenCalledTimes(1);
+      expect(mockTrackCrisisHotlineTapped).toHaveBeenCalledWith(true);
+    });
+
+    test('a secondary listed resource reports false', async () => {
+      const { getByLabelText } = render(<CrisisResourcesScreen />);
+
+      await act(async () => {
+        fireEvent.press(getByLabelText('Call SAMHSA National Helpline'));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(mockTrackCrisisHotlineTapped).toHaveBeenCalledTimes(1);
+      expect(mockTrackCrisisHotlineTapped).toHaveBeenCalledWith(false);
+    });
+
+    test('a secondary resource that itself dials 988 still reports false', async () => {
+      // `veterans_crisis_line` carries phone '988'. The value is computed from
+      // the resource ID, never from the number, so a 988 dial made from a
+      // secondary card is correctly not the primary affordance.
+      const { getByLabelText } = render(<CrisisResourcesScreen />);
+
+      await act(async () => {
+        fireEvent.press(getByLabelText('Call Veterans Crisis Line'));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      expect(mockTrackCrisisHotlineTapped).toHaveBeenCalledWith(false);
+    });
+
+    test('no resource name, phone number or URL reaches the tracker', async () => {
+      const { getByLabelText } = render(<CrisisResourcesScreen />);
+
+      await act(async () => {
+        fireEvent.press(getByLabelText('Call Trevor Project'));
+        await Promise.resolve();
+        await Promise.resolve();
+      });
+
+      const args = mockTrackCrisisHotlineTapped.mock.calls.flat();
+      expect(args).toHaveLength(1);
+      expect(typeof args[0]).toBe('boolean');
+
+      // Anti-vacuity: prove the forbidden shapes are genuinely absent rather
+      // than merely untested. The matcher is asserted to fire below.
+      const serialized = JSON.stringify(args);
+      expect(serialized).not.toMatch(FORBIDDEN_IN_PAYLOAD);
+      expect(JSON.stringify(['trevor_project'])).toMatch(FORBIDDEN_IN_PAYLOAD);
     });
   });
 });

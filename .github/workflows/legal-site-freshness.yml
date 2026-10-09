@@ -5,9 +5,13 @@ name: Legal Site Freshness
 # The website does not read docs/legal/ at request time. Its deploy workflow
 # (being-website/.github/workflows/deploy.yml) sparse-checkouts this repo at
 # build time and the Next.js pages import that markdown as a raw module, so the
-# text is baked into the deployed bundle — only a rebuild can change it. That
-# workflow triggers on pushes to being-website's own branches and on manual
-# dispatch; nothing in THIS repo triggers it.
+# text is baked into the deployed bundle — only a rebuild can change it.
+# legal-site-redeploy.yml now dispatches that rebuild when docs/legal/ changes;
+# this check is what notices when that dispatch did not happen or did not land.
+#
+# Production builds its legal pages from `main` (INFRA-363), so this compares
+# being.fyi against `origin/main`. A docs/legal edit on `development` is not
+# expected on being.fyi until a release or hotfix carries it to `main`.
 #
 # On 2026-08-07 the live privacy policy was found 68 days and four versions
 # stale, publicly serving a crisis-data claim DEBUG-333 had removed as false.
@@ -53,7 +57,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
         with:
-          # The checker reads sources via `git show origin/development:...`,
+          # The checker reads sources via `git show origin/main:...`,
           # which needs the remote-tracking ref rather than the working tree —
           # on a pull_request run the working tree is the PR's merge commit,
           # not the ref the website deploys from.
@@ -62,15 +66,15 @@ jobs:
       - name: Ensure the deployed ref is available locally
         # Explicit rather than relying on checkout's ref bookkeeping. If this
         # is missing the checker fails loudly ("could not read ... at
-        # origin/development") instead of comparing against the wrong tree.
-        run: git fetch --no-tags origin development:refs/remotes/origin/development --force
+        # origin/main") instead of comparing against the wrong tree.
+        run: git fetch --no-tags origin main:refs/remotes/origin/main --force
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '24'
 
-      - name: Check being.fyi legal content against origin/development
+      - name: Check being.fyi legal content against origin/main
         # No dependencies: the script uses only node built-ins, so this needs
         # no npm install and cannot be broken by a lockfile change.
         run: node scripts/legal-site-freshness.js --verbose

@@ -22,6 +22,8 @@
  * USAGE
  *   node scripts/e2e-provenance.js write  <containerPath>
  *   node scripts/e2e-provenance.js verify <containerPath>
+ *   node scripts/e2e-provenance.js receipt <containerPath> <receiptPath> --sim <udid>  (INFRA-657)
+ *   node scripts/e2e-provenance.js gated <receiptPath> --sim <udid>                    (INFRA-657)
  *
  * `verify` prints exactly one verdict word on stdout:
  *   MATCH_CLEAN  — binary built from this exact tree, and that tree was clean   (exit 0)
@@ -67,6 +69,7 @@
 
 const crypto = require('crypto');
 const fs = require('fs');
+const os = require('os');
 const path = require('path');
 const { spawnSync } = require('child_process');
 
@@ -207,6 +210,34 @@ function write(containerPath, expected) {
     dirty: fp.dirty,
     builtAt: new Date().toISOString(),
     containerPath,
+    // DEBUG-640 instance 3 — OWNERSHIP, recorded separately from tree identity.
+    //
+    // `repoRoot`, `branch` and `head` answer "which TREE is this binary from". That is
+    // exactly their job as merge evidence, and it makes them ownership-blind BY
+    // CONSTRUCTION under the shared `e2e-gate` worktree: every session running
+    // `e2e:safety:gate` builds that tree and inherits the same three values, so reading
+    // any of them as "whose device is this" attributes a peer's build to whoever last
+    // held that SHA.
+    //
+    // `ownerId` is a fresh uuid PER BUILD, which is the narrow thing that actually fixes
+    // it: two builds of the same worktree at the same commit produce the same treeHash,
+    // the same repoRoot and the same branch, and different ownerIds — so "is this MY
+    // build?" becomes exactly answerable. It deliberately does not try to identify a
+    // person or a session; nothing on this machine is per-session, survives the build
+    // process and stays meaningful minutes later (see e2e-sim-lock.sh's header).
+    //
+    // Written ONCE, here, and never touched by verify/explain/attribute: INFRA-434
+    // compares this file's FULL BYTES before every flow, so a diagnostic that rewrote it
+    // would report `replaced` against our own binary and VOID every completed flow.
+    ownerId: crypto.randomUUID(),
+    ownerHost: os.hostname(),
+    ownerUser: os.userInfo().username,
+    // The shell that invoked us, i.e. e2e-sim-build.sh. A trace, not a liveness signal:
+    // it is dead by the time anyone reads it, and pids are recycled.
+    ownerPid: process.ppid,
+    // Self-declared, never verified, null when unset. Recorded verbatim so a wrapper can
+    // opt into a spanning id later without a schema change.
+    ownerSession: process.env.E2E_SESSION_ID || null,
   };
   try {
     fs.writeFileSync(markerPath(containerPath), `${JSON.stringify(marker, null, 2)}\n`);
@@ -305,6 +336,56 @@ function explainList(label, files) {
   }
 }
 
+/**
+ * DEBUG-640 — report what the marker OBSERVED, and say plainly what it cannot establish.
+ *
+ * Every line here is diagnostic. It cannot change a verdict, and must not: `verify`
+ * compares `treeHash` and `bundleId` only, and adding a second channel that can disagree
+ * with the first is the bug class `e2e-verdict.js` exists to prevent.
+ */
+function explainOwner(marker, containerPath) {
+  const id = marker && typeof marker.ownerId === 'string' ? marker.ownerId.trim() : '';
+
+  console.log('OWNER — who built and installed this binary:');
+  if (id) {
+    const who = [marker.ownerUser, marker.ownerHost].filter(Boolean).join('@');
+    console.log(`  build id:   ${id}`);
+    if (who) console.log(`  built by:   ${who}`);
+    if (marker.ownerPid) {
+      console.log(`  build pid:  ${marker.ownerPid} (dead by now; pids recycle — implies no liveness)`);
+    }
+    if (marker.ownerSession) {
+      console.log(`  session:    ${marker.ownerSession} (self-declared, never verified)`);
+    }
+    if (marker.builtAt) console.log(`  built at:   ${marker.builtAt}`);
+  } else {
+    // The markers already installed in the field have no owner keys, and they are exactly
+    // the ones where this misreading happens. Say so, and offer NO substitute: falling
+    // back to head or repoRoot here would re-commit the defect this block exists to fix.
+    console.log('  no owner recorded — this marker predates the owner field.');
+    console.log('  Nothing below identifies a session; rebuild to record one.');
+  }
+
+  // The disconfirming evidence that sat unread during the original misattribution: the
+  // marker's own containerPath named a different device than the one it was found on.
+  const recordedContainer =
+    marker && typeof marker.containerPath === 'string' ? marker.containerPath.trim() : '';
+  if (recordedContainer && containerPath && path.resolve(recordedContainer) !== path.resolve(containerPath)) {
+    console.log('  ⚠️  this marker records a DIFFERENT container than the one it was read from:');
+    console.log(`      recorded: ${recordedContainer}`);
+    console.log(`      read from: ${containerPath}`);
+    console.log('      It was copied, or you are looking at another device.');
+  }
+
+  console.log('TREE IDENTIFIERS (these CANNOT establish ownership):');
+  console.log(`  repoRoot / branch / head answer "which tree is this binary from", which is`);
+  console.log('  their job as merge evidence. The gate worktree /Users/max/dev/being/e2e-gate');
+  console.log('  is SHARED — every session running e2e:safety:gate builds it and inherits the');
+  console.log('  same values — so a matching head does not make a build yours, and a foreign');
+  console.log('  one does not make it a peer\'s.');
+  console.log('');
+}
+
 function explain(containerPath) {
   let marker;
   try {
@@ -327,14 +408,22 @@ function explain(containerPath) {
     return 0;
   }
 
+  // DEBUG-640 instance 3 — printed BEFORE the match/mismatch fork, deliberately.
+  //
+  // The misreading that produced this block happened with no mismatch in play at all: a
+  // human read `repoRoot` and `head` off a marker on a booted device and concluded whose
+  // device it was. Surfacing ownership only on the failure path would have corrected the
+  // one surface nobody was looking at.
+  explainOwner(marker, containerPath);
+
   if (fp.treeHash === marker.treeHash) {
     console.log('Provenance MATCHES: the installed binary was built from this exact tree.');
     return 0;
   }
 
   console.log('Provenance MISMATCH — the installed binary was not built from this tree.');
-  console.log(`  built in:  ${marker.repoRoot || '<unknown>'}`);
-  console.log(`  running in: ${fp.repoRoot}`);
+  console.log(`  built from tree:   ${marker.repoRoot || '<unknown>'}`);
+  console.log(`  running from tree: ${fp.repoRoot}`);
 
   if (marker.head !== fp.head) {
     console.log('');
@@ -398,6 +487,15 @@ function explain(containerPath) {
  * attribution, and INFRA-434 already settled that inventing one is worse than refusing
  * without it. So a markerless container never triggers an automatic rebuild.
  *
+ * DEBUG-640 — SELF and PEER are a TREE comparison, not a statement about a person. They
+ * answer "was this built from the worktree I am standing in", which is what decides whether
+ * a rebuild is automatic or the operator's call. Under the SHARED `e2e-gate` worktree a
+ * genuine peer's build resolves to the same repoRoot and therefore reads SELF — so a SELF
+ * verdict is not evidence that nobody else touched this device. `explain` carries the
+ * per-build `ownerId` for that question; deliberately NOT consumed here, because making
+ * ownership the predicate would read PEER on your own previous build after any edit and
+ * turn a keystroke into a rebuild of up to 21m31s — the inversion INFRA-484 refused.
+ *
  * Diagnostic, like `explain`: it always exits 0 and only ever prints. `verify` keeps the
  * refusal, so nothing here can turn a MISMATCH into a pass.
  */
@@ -433,6 +531,127 @@ function attribute(containerPath) {
   }
 
   console.log(`PEER ${recorded}`);
+  return 0;
+}
+
+/**
+ * INFRA-657 — a GATE RECEIPT: evidence that this tree was verified on a simulator, which
+ * survives the app being uninstalled.
+ *
+ * The marker above cannot answer "was this tree gated a moment ago?" once the app is gone,
+ * because it lives inside the container and leaves with it — by design. So when a peer's
+ * activity uninstalls the app between our gate and our flows, e2e-safety.sh sees an absent
+ * app with nothing to distinguish "never built" (whose remedy is the first build, a human's
+ * call) from "built and verified, then removed under us" (contention, worth one automatic
+ * rebuild). The receipt is that distinction, written OUTSIDE the container.
+ *
+ * It licenses a rebuild and nothing else. The rebuilt container is re-attested by `verify`
+ * like any other, so a receipt can never stand in for provenance.
+ *
+ * `receipt` refuses (exit 1, writes nothing) unless the marker verifies MATCH_CLEAN from
+ * cwd — a receipt for a tree that did not verify would license a rebuild on no evidence —
+ * and refuses a path inside the repo, where it would move the fingerprint it records.
+ */
+const RECEIPT_SCHEMA = 1;
+
+function flag(args, name) {
+  const i = args.indexOf(name);
+  return i >= 0 && i + 1 < args.length ? args[i + 1] : '';
+}
+
+function insideRepo(repoRoot, target) {
+  const real = (p) => {
+    try {
+      return fs.realpathSync(p);
+    } catch {
+      return path.resolve(p);
+    }
+  };
+  const rel = path.relative(real(repoRoot), path.join(real(path.dirname(target)), path.basename(target)));
+  return !rel.startsWith('..') && !path.isAbsolute(rel);
+}
+
+function writeReceipt(containerPath, receiptPath, args) {
+  const simUdid = flag(args, '--sim');
+  if (!receiptPath || !simUdid) {
+    console.error('usage: e2e-provenance.js receipt <containerPath> <receiptPath> --sim <udid> [--item X] [--gate PID]');
+    return 1;
+  }
+  const fp = fingerprint(process.cwd());
+  if (!fp) {
+    console.error('e2e-provenance: could not fingerprint the working tree; no receipt written.');
+    return 1;
+  }
+  if (insideRepo(fp.repoRoot, receiptPath)) {
+    console.error(`e2e-provenance: refusing a receipt inside the repo (${receiptPath}) — it would move the fingerprint it records.`);
+    return 1;
+  }
+  let marker;
+  try {
+    marker = JSON.parse(fs.readFileSync(markerPath(containerPath), 'utf8'));
+  } catch {
+    console.error('e2e-provenance: no readable marker; no receipt written.');
+    return 1;
+  }
+  if (
+    !marker ||
+    marker.schema !== SCHEMA ||
+    marker.bundleId !== BUNDLE_ID ||
+    marker.treeHash !== fp.treeHash ||
+    marker.dirty === true
+  ) {
+    console.error('e2e-provenance: the installed marker does not verify MATCH_CLEAN from this tree; no receipt written.');
+    return 1;
+  }
+  const receipt = {
+    schema: RECEIPT_SCHEMA,
+    verdict: VERDICT.MATCH_CLEAN,
+    treeHash: fp.treeHash,
+    head: fp.head,
+    bundleId: BUNDLE_ID,
+    simUdid,
+    buildId: typeof marker.ownerId === 'string' ? marker.ownerId : null,
+    verifiedAt: new Date().toISOString(),
+    gatePid: flag(args, '--gate') || null,
+    item: flag(args, '--item') || null,
+  };
+  const tmp = `${receiptPath}.${process.pid}.tmp`;
+  try {
+    fs.writeFileSync(tmp, `${JSON.stringify(receipt, null, 2)}\n`);
+    fs.renameSync(tmp, receiptPath);
+  } catch (e) {
+    fs.rmSync(tmp, { force: true });
+    console.error(`e2e-provenance: could not write receipt: ${e.message}`);
+    return 1;
+  }
+  return 0;
+}
+
+/**
+ * Prints `GATED <buildId> <verifiedAt> <gatePid>` or `NONE <reason>`, and always exits 0 —
+ * the caller branches on the word, never on a status. GATED only on positive evidence;
+ * every other path is NONE, and NONE keeps today's refusal. It never reads a container.
+ */
+function gated(receiptPath, args) {
+  const none = (why) => {
+    console.log(`NONE ${why}`);
+    return 0;
+  };
+  const simUdid = flag(args, '--sim');
+  if (!receiptPath) return none('no-receipt-path');
+  if (!simUdid) return none('no-simulator');
+  let r;
+  try {
+    r = JSON.parse(fs.readFileSync(receiptPath, 'utf8'));
+  } catch {
+    return none('unreadable');
+  }
+  if (!r || r.schema !== RECEIPT_SCHEMA) return none('schema');
+  if (r.verdict !== VERDICT.MATCH_CLEAN) return none('verdict');
+  if (r.simUdid !== simUdid) return none('other-simulator');
+  const fp = fingerprint(process.cwd());
+  if (!fp || typeof r.treeHash !== 'string' || r.treeHash !== fp.treeHash) return none('tree-moved');
+  console.log(`GATED ${r.buildId || '-'} ${r.verifiedAt || '-'} ${r.gatePid || '-'}`);
   return 0;
 }
 
@@ -473,8 +692,13 @@ function main(argv) {
         return 0;
       }
       return attribute(containerPath);
+    case 'receipt':
+      return writeReceipt(containerPath, rest[0], rest.slice(1));
+    // The second positional is the RECEIPT path here, not a container.
+    case 'gated':
+      return gated(containerPath, rest);
     default:
-      console.error('usage: e2e-provenance.js <write|verify|explain|attribute> <containerPath>');
+      console.error('usage: e2e-provenance.js <write|verify|explain|attribute|receipt|gated> <path>');
       return 2;
   }
 }

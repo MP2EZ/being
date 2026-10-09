@@ -21,12 +21,64 @@
  * otherwise inherited from the single root overlay (MAINT-290); no per-step button.
  * DEBUG-465 pinned the support line outside the ScrollView, inside the
  * KeyboardAvoidingView — see the block comment at its render site for the measurements.
+ *
+ * THE ARRIVING BREATH IS A GATE, NOT A PRACTICE (FEAT-588 — philosopher + ux, ruled
+ * independently, same verdict: NO CHANGE). Answer the next report from here rather
+ * than re-litigating it.
+ *
+ * The report was "Make haptics work in daily flow too" (JAVASCRIPT-REACT-B, tester
+ * feedback). FEAT-565 declined the literal request on content-accuracy grounds. This
+ * item ruled on the reading underneath it — that the beat presents as a diminished
+ * version of a practice the reporter already has, so its differences read as
+ * omissions. It does not. Five differences from the standalone practices are the
+ * load-bearing evidence that it is a threshold:
+ *   1. It STARTS ITSELF. `isBreathActive` initialises to `showBreath`, where all three
+ *      standalone practices gate on PracticeToggleButton's Begin/Pause/Resume. The
+ *      absence of a Begin button IS the gate — you do not enter a threshold, you are
+ *      already in it.
+ *   2. It carries NO NAME while it runs. The title is an instruction ("Take a moment
+ *      to arrive"); the principle name appears only once you are through it.
+ *   3. It ENDS IN THE NEXT BEAT — `breathCompleted` flips and the same ScrollView
+ *      re-renders. No completion screen, no quote, no Continue. A practice in this app
+ *      always ends in a bounded artefact; this one becomes the next thing.
+ *   4. NO HAPTICS AT ALL — not the scheduled breath cues and not the
+ *      `sessionStart`/`sessionEnd` anchors — because the opt-in promises eyes-closed
+ *      practice and this beat is eyes-open by construction (FEAT-565 declined the whole
+ *      hook; block comment at the render site).
+ *   5. It is NOT in STANDALONE_PRACTICES, because it is a doorway, not a room.
+ * The loop is the practice; this is its threshold. What it has that no standalone
+ * practice has is the paced grounding triad — body, environment, mind, one per breath
+ * (DEBUG-468). `SkipLink` stays, in flow and above the fold, because a gate a person
+ * cannot decline is coercion and prohairesis is non-negotiable.
+ *
+ * ONE PREMISE OF THE REPORT IS INVERTED, and it is the strongest item on its list.
+ * Timer's built-in Pause/Resume is NOT borrowed practice vocabulary — it is ORPHAN
+ * vocabulary. All three standalone practices pass `showControls={false}` ("using custom
+ * button below"); the only two live sites rendering Timer's own transport are this beat
+ * and DailyLoopCompleteScreen's coda. The practices REFUSED this control. So the beat is
+ * not a stripped-down practice — it is the raw Timer default, and the two Daily Loop
+ * breaths share one internally consistent idiom.
+ *
+ * DELIBERATELY NOT CHANGED, all considered and none owed by the ruling: dropping
+ * `showControls` (a real improvement both lenses liked, but it needs an `accessibility`
+ * sign-off on WCAG 2.2.2 — auto-starting motion over 5s — and it intersects DEBUG-468's
+ * ruling that Pause is this beat's stay-with-it affordance); `showProgress`; and
+ * 30000 -> 32000 ms for four clean cycles, which is a refinement rather than a defect,
+ * would invalidate three shipped rationales written around 3.75 cycles, and would leave
+ * the coda's 15000 ms (1.875 cycles) inconsistent unless carried too. Do not read that
+ * list as the whole bar: `BREATH_DURATION_MS` is load-bearing in a CRISIS ruling —
+ * `config/tenseMode.ts` re-hosted quick's SUPPORT_LINE onto Sphere Sovereignty precisely
+ * because Aware Presence's reflection phase sits behind this 30s gate, and crisis review
+ * rejected the alternative as making quick's crisis affordance strictly less available
+ * than deep's — so lengthening it, or ever moving the support line back onto this beat,
+ * is a `crisis` question and not only a content one. Above all, add
+ * NOTHING — least of all a Begin button, which would be the actual conversion of gate
+ * into practice.
  */
 import React, { useState, useCallback, useMemo } from 'react';
 import {
   View,
   Text,
-  TextInput,
   ScrollView,
   StyleSheet,
   KeyboardAvoidingView,
@@ -72,7 +124,11 @@ import {
   type StagesByStep,
 } from '../config/stageNotes';
 import { useEducationStore } from '@/features/learn/stores/educationStore';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
+// Direct path, never a features/guidance barrel (FEAT-376). Adds nothing to the eager
+// graph: CleanRootNavigator already imports DomainGuidanceScreen, which imports this.
+import { useGuidanceGate } from '@/features/guidance/hooks/useGuidanceGate';
+import type { GuidanceAccessLevel } from '@/features/guidance/types/guidance';
 
 /**
  * DEBUG-518 — horizontal inset reserving the floating crisis button's touch band.
@@ -137,6 +193,17 @@ export const virtueChipsAreSingleColumn = (fontScale: number): boolean =>
 const BREATH_DURATION_MS = 30 * 1000;
 
 /**
+ * DEBUG-670 — the guidance-gate levels at which premeditatio may be offered. An
+ * ALLOWLIST, so a level added later is withheld until someone rules on it.
+ *
+ * `gentle` is in by crisis ruling: it covers PHQ-9 15-19, GAD-7 10-14 and readers
+ * never assessed, for whom the guardrail is the coping-paired copy plus optionality.
+ * Never key this on `allowPremeditatio` — that field gates the guidance loss
+ * visualization on developmental stage, which is null for every user today.
+ */
+const PREMEDITATIO_ACCESS_LEVELS: ReadonlySet<GuidanceAccessLevel> = new Set(['full', 'gentle']);
+
+/**
  * Module scope, not an inline `??` fallback at the call site (DEBUG-468).
  * `guidanceItems` feeds a `React.memo`'d component, so a literal written inline
  * would mint a new array identity on every parent render — DEBUG-394's failure
@@ -185,10 +252,18 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   const config = getStepConfig(mode, stepKey);
   const title = STEP_TITLES[stepKey];
   const themeColors = getTheme('midday');
-  // Premeditatio (morning-tensed negative visualization on Virtuous Response) is
-  // EXCLUDED from the quick pass — a fast micro-arc is not the container for it. Its
-  // morning-only + acute-distress gating is otherwise unchanged for the deep loop.
-  const showPremeditatio = stepKey === 'VirtuousResponse' && mode === 'morning' && depth !== 'quick';
+  // Premeditatio (morning-tensed negative visualization on Virtuous Response): never
+  // on the quick pass — a fast micro-arc is not its container — and WITHHELD while
+  // useGuidanceGate() is pending or its decision is 'suppressed' (DEBUG-670; contract
+  // on PREMEDITATIO in tenseMode.ts). That reads the latest screening, not the user's
+  // state now. Withheld means absent: nothing replaces it, no verdict is logged or
+  // persisted, and text typed before it was withheld is never saved. The gate is ANDed
+  // onto the tense/depth terms, not nested in them, so any widening inherits it.
+  const guidanceGate = useGuidanceGate();
+  const distressAllowsPremeditatio =
+    guidanceGate.status === 'ready' && PREMEDITATIO_ACCESS_LEVELS.has(guidanceGate.decision.level);
+  const showPremeditatio =
+    stepKey === 'VirtuousResponse' && mode === 'morning' && depth !== 'quick' && distressAllowsPremeditatio;
   // Crisis support line placement is resolved at the DATA level (tenseMode.ts) so the
   // "exactly once, per depth" invariant is config-testable — deep: Radical Acceptance;
   // quick: Sphere Sovereignty (a no-breath-gate beat). Never a screen-level decision.
@@ -217,6 +292,11 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   const { fontScale } = useWindowDimensions();
   const singleColumnVirtueChips = virtueChipsAreSingleColumn(fontScale);
   const [adversityRehearsal, setAdversityRehearsal] = useState('');
+  // FEAT-588 ruled the arriving breath a GATE, not a diminished practice — no change.
+  // `breathCompleted` flipping in place, with no completion screen, is one of the five
+  // differences that ruling rests on. The full record, the inverted Pause premise, and
+  // what was considered and declined are in this module's header; answer the next
+  // report from there rather than re-litigating it.
   const [breathCompleted, setBreathCompleted] = useState(!showBreath);
   const [isBreathActive, setIsBreathActive] = useState(showBreath);
 
@@ -240,16 +320,17 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
     if (values.notMine.trim()) data.notMine = values.notMine.trim();
     if (values.mine.trim()) data.mine = values.mine.trim();
     if (selectedVirtues.length) data.virtues = selectedVirtues;
-    if (adversityRehearsal.trim()) data.adversityRehearsal = adversityRehearsal.trim();
+    // Only what is on screen at Continue is saved: a prompt withheld mid-beat
+    // (DEBUG-670) takes whatever was typed into it with it.
+    if (showPremeditatio && adversityRehearsal.trim()) data.adversityRehearsal = adversityRehearsal.trim();
     onSave(data);
-  }, [values, selectedVirtues, adversityRehearsal, onSave]);
+  }, [values, selectedVirtues, showPremeditatio, adversityRehearsal, onSave]);
 
   const renderField = (key: LoopFieldKey, label: string, hint: string | undefined, placeholder: string) => (
     <View style={styles.inputSection} key={key}>
       <Text style={styles.inputLabel}>{label}</Text>
       {hint ? <Text style={styles.inputHint}>{hint}</Text> : null}
-      <TextInput
-        {...crisisAccessoryProps()} /* DEBUG-450 */
+      <CrisisTextInput
         style={[styles.textInput, { borderColor: values[key] ? themeColors.primary : colorSystem.gray[300] }]}
         value={values[key]}
         onChangeText={(t) => setField(key, t)}
@@ -445,8 +526,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               <View style={styles.inputSection}>
                 <Text style={styles.inputLabel}>{PREMEDITATIO.label}</Text>
                 <Text style={styles.inputHint}>{PREMEDITATIO.hint}</Text>
-                <TextInput
-                  {...crisisAccessoryProps()} /* DEBUG-450 */
+                <CrisisTextInput
                   style={[
                     styles.textInput,
                     { borderColor: adversityRehearsal ? themeColors.primary : colorSystem.gray[300] },

@@ -141,6 +141,13 @@ jobs:
       - name: Typecheck
         run: cd app && npm run typecheck
 
+      # INFRA-601: every @/ import quoted in a docs/architecture code fence resolves
+      # under tsc's own module resolution — the same question this job answers for
+      # src. Deliberately no `paths:` filter: rot usually arrives with a src move or
+      # delete, not a doc edit. Paths only; exported identifiers are not checked.
+      - name: Documented import paths resolve (docs/architecture)
+        run: cd app && npm run check:doc-import-paths
+
   # ESLint job gates on the per-file baseline ratchet (W4 paydown).
   # The codebase carries ~955 errors of accumulated debt from 5+ months
   # of unguarded dev. Rather than blocking PRs on all of them, the
@@ -256,8 +263,8 @@ jobs:
         run: cd app && npm run validate:clinical-authority
 
   # Full unit + integration test suite — catches the regression tests added
-  # in Phase 0 (CollapsibleCrisisButton.a11y.test.ts and
-  # AuthenticationService.sec03.test.ts) via Jest auto-discovery.
+  # in Phase 0 (CollapsibleCrisisButton.a11y.test.ts) via Jest auto-discovery.
+  # AuthenticationService.sec03.test.ts was deleted with its subject in MAINT-635.
   #
   # Gating: as of the W1 debt paydown, broken-import failures are fixed and
   # the running suites enforce. 5 integration tests are temporarily ignored
@@ -345,12 +352,12 @@ jobs:
         # Wired by PATTERN, never by renaming files toward one — scripts/ci-uncovered
         # -tests.json records coverage-by-filename as the defect it exists to remove.
         #
-        # Scoped to src/features/practices/ deliberately, NOT widened to src/**: the
-        # ledger's own "wiring-them-is-deferred" note blocks the general case on
-        # src/features/assessment/stores/__tests__/assessmentStore.test.ts, which is
-        # load-dependent (3/3 solo, 2 of 6 failures under parallel load). `CI pass` is
-        # the sole required check on main and development with enforce_admins:true, so
-        # dragging a flaky suite in here would intermittently block every PR in the repo.
+        # Scoped to src/features/practices/. INFRA-595 added the broad `Co-located src
+        # tests` step below, which subsumes this one; it is KEPT because its failure line
+        # names the daily-loop suites instead of pointing at a 172-suite run. The blocker
+        # this comment used to cite is RETIRED: DEBUG-515 (cross-test real-timer leakage)
+        # and DEBUG-549 (deleted the autosave subscription's uncancellable timers) both
+        # landed after it was written; re-measured 10/10 green under parallel load.
         run: cd app && npm run test:practices -- --ci --testTimeout=20000
 
       - name: Navigation layout tests
@@ -394,6 +401,31 @@ jobs:
         #
         # Wired by PATTERN, never by renaming files toward one (DEBUG-468 precedent).
         run: cd app && npm run test:library -- --ci --testTimeout=20000
+
+      - name: Co-located src tests
+        # INFRA-595. The catch-all for app/src/**: every co-located suite, including the 41
+        # that scripts/ci-uncovered-tests.json recorded as running on NOBODY'S pull request.
+        # That ledger's `uncovered` list is now EMPTY, which is the real win here - a new
+        # ungated test file can no longer land silently, because check:ci-test-coverage
+        # fails the Safety + privacy job the moment one does.
+        #
+        # The four narrower src steps above are deliberately RETAINED. This step subsumes
+        # all of them, but each one records why its slice is gated and points a failure at
+        # one directory rather than at 172 suites. ~10s of duplicate runtime buys that.
+        #
+        # --forceExit was REMOVED here (DEBUG-596). The claim it carried was wrong twice:
+        # the flag never matched "all 24" sibling scripts (7 lack it), and the exit 1 it
+        # masked did not come from crisisTapTrace's open handle at all. jest computes its
+        # code from results.success alone and merely console.errors the open-handle report;
+        # the 1 came from jest-runner's freezeConsole, which sets process.exitCode = 1 on
+        # every "Cannot log after tests are done". Measured: a suite with 6 such logs and
+        # ZERO open handles exits 1, while one with neither exits 0.
+        #
+        # Running bare is now the point. A post-teardown write under app/src fails this job
+        # instead of hiding behind the flag — including a non-deterministic one, which is a
+        # deliberate tightening of a required check on both protected branches.
+        # No --verbose: 171 suites / 2637 tests would bury the log.
+        run: cd app && npm run test:src -- --ci --testTimeout=20000
 
       - name: Upload coverage
         if: always()
@@ -682,9 +714,8 @@ jobs:
   # UI-thread measurement is INFRA-373.
   # Deferred (testPathIgnorePatterns in jest.config.js):
   #   - sync-performance-validation + week3-analytics-performance:
-  #     tests reference older service APIs (new SyncCoordinator() when
-  #     it's a singleton, .shutdown() removed, crypto/auth mock shapes
-  #     changed). Need rewrite, not patching.
+  #     tests reference older service APIs (.shutdown() removed,
+  #     crypto/auth mock shapes changed). Need rewrite, not patching.
   performance:
     name: Performance regression
     runs-on: ubuntu-latest
@@ -807,6 +838,14 @@ jobs:
       # pass, which reads as flake rather than as the deterministic bug it is.
       - name: Safety pin suite
         run: cd app && npm run test:safety -- --ci --testTimeout=20000
+
+      # INFRA-592. The pin above reads app.json; this runs a fresh `expo prebuild` and reads
+      # the Info.plist it GENERATES, so a plugin or dependency bump that strips tel/sms is
+      # caught even while app.json still declares them. ~2s, no pod install. Exit 2 means no
+      # trustworthy reading — never treat it as flake. The script header records why ubuntu
+      # can generate the iOS project, and that moving this local-only needs a crisis ruling.
+      - name: Generated Info.plist keeps tel/sms
+        run: cd app && npm run check:generated-infoplist
 
       - name: Privacy contract suite
         run: cd app && npm run test:privacy -- --ci --testTimeout=20000

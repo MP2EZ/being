@@ -23,6 +23,11 @@
  *
  * The pattern may be asymmetric (`{ inhale: 4000, exhale: 6000 }`); nothing here
  * assumes the two phases are equal.
+ *
+ * SINCE DEBUG-587 THE ANIMATION CONSUMES THIS MODEL TOO, at activation, to decide
+ * which phase a resume re-enters. That is what keeps the two halves honest: the
+ * visuals and the cues now read one definition of "where in the breath are we"
+ * rather than each carrying their own arithmetic.
  */
 
 export type BreathPhase = 'inhale' | 'exhale';

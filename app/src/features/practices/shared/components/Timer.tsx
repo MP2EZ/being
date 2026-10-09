@@ -1,7 +1,7 @@
 /**
  * Timer Component - Millisecond Precision for 3-Minute Breathing Space
  * 
- * CLINICAL SPECIFICATIONS:
+ * PRACTICE SPECIFICATIONS:
  * - 60 seconds per screen (±50ms tolerance)
  * - Auto-advance functionality
  * - Pause capability for safety/accessibility

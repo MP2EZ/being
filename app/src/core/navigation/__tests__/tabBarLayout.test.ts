@@ -35,8 +35,16 @@
 
 import {
   MAX_IOS_BOTTOM_INSET,
+  TAB_BAR_BORDER_TOP_WIDTH,
+  TAB_BAR_CONTENT_BOX,
   TAB_BAR_CONTENT_HEIGHT,
+  TAB_ICON_BOX_HEIGHT,
+  TAB_ITEM_BOTTOM_PADDING,
+  TAB_ITEM_TOP_PADDING,
+  TAB_LABEL_GAP,
   TAB_LABEL_LINE_HEIGHT,
+  TAB_LABEL_MAX_FONT_SCALE,
+  TAB_LABEL_MAX_LINE_HEIGHT,
   getTabBarHeight,
 } from '../tabBarLayout';
 import {
@@ -69,17 +77,23 @@ describe('DEBUG-562 · getTabBarHeight', () => {
   });
 
   it('fits the real item stack that bottom-tabs lays out', () => {
-    // Measured from @react-navigation/bottom-tabs@7.16.2:
-    //   tabVerticalUiKit { padding: 5 }  (BottomTabItem)  → 5 top + 5 bottom
-    //   ICON_SIZE_TALL = 28              (TabBarIcon)
-    //   label gap + pinned label line box
+    // Measured from @react-navigation/bottom-tabs@7.16.2 and now IMPORTED rather
+    // than restated, so this case and DEBUG-579's cap cannot drift apart.
     // The label is load-bearing for WCAG 1.4.1 / 1.4.11 per DEBUG-342/356, so it
     // may not be clipped to make a smaller bar fit.
-    const ITEM_PADDING = 5 * 2;
-    const ICON_SIZE_TALL = 28;
-    const LABEL_GAP = 0; // spacing[0] — the scale has no 2, and 4 would overflow
-    const required = ITEM_PADDING + ICON_SIZE_TALL + LABEL_GAP + TAB_LABEL_LINE_HEIGHT;
-    expect(required).toBeLessThanOrEqual(TAB_BAR_CONTENT_HEIGHT);
+    //
+    // DEBUG-579 corrected the bound: the children's box is TAB_BAR_CONTENT_BOX
+    // (53), not TAB_BAR_CONTENT_HEIGHT (54). The bar's own borderTopWidth is set
+    // on the same style object as its height and RN/Yoga is border-box, so it
+    // comes out of the box the stack gets. 52 <= 53 held before and holds now;
+    // the slack is 1pt, not the 2pt this file and tabBarLayout.ts both claimed.
+    const required =
+      TAB_ITEM_TOP_PADDING +
+      TAB_ICON_BOX_HEIGHT +
+      TAB_LABEL_GAP +
+      TAB_LABEL_LINE_HEIGHT +
+      TAB_ITEM_BOTTOM_PADDING;
+    expect(required).toBeLessThanOrEqual(TAB_BAR_CONTENT_BOX);
   });
 });
 
@@ -120,5 +134,103 @@ describe('DEBUG-562 · the bar can never reach the crisis FAB touch band', () =>
 
   it('MAX_IOS_BOTTOM_INSET is the home-indicator inset the collision was measured at', () => {
     expect(MAX_IOS_BOTTOM_INSET).toBe(34);
+  });
+});
+
+/**
+ * DEBUG-579 — the tab label's Dynamic Type scale is capped, and the cap is real.
+ *
+ * These are arithmetic, not a render: CleanTabNavigator cannot mount under jest
+ * (react-native-svg via the icons, react-native-markdown-display via LearnScreen,
+ * both outside transformIgnorePatterns) and jest.setup.js pins useSafeAreaInsets
+ * to zero. That is the same reason tabBarLayout.ts exists at all.
+ *
+ * Arithmetic alone cannot prove the cap is APPLIED — a correct constant can ship
+ * unreferenced with every case below green. The wiring pin lives in
+ * CleanTabNavigator.accessibility.test.tsx and reads the file as source.
+ */
+describe('DEBUG-579 · the tab label cannot outgrow the bar', () => {
+  // iOS UIContentSizeCategory multipliers (RCTAccessibilityManager.mm /
+  // RCTUtils.mm). Named here because the interesting question is not "is the
+  // cap self-consistent" but "where does it bite".
+  const IOS_XL = 1.118;
+  const IOS_XXL = 1.235;
+  const IOS_XXXL = 1.353; // largest NON-accessibility step
+  const IOS_AX1 = 1.786; // first accessibility step
+  const IOS_AX5 = 3.571;
+
+  const cappedStack = (scale: number) =>
+    TAB_ITEM_TOP_PADDING +
+    TAB_ICON_BOX_HEIGHT +
+    TAB_LABEL_GAP +
+    TAB_LABEL_LINE_HEIGHT * Math.min(scale, TAB_LABEL_MAX_FONT_SCALE);
+
+  it('derives the box from the border, not from the declared height', () => {
+    expect(TAB_BAR_BORDER_TOP_WIDTH).toBe(1);
+    expect(TAB_BAR_CONTENT_BOX).toBe(TAB_BAR_CONTENT_HEIGHT - TAB_BAR_BORDER_TOP_WIDTH);
+    expect(TAB_BAR_CONTENT_BOX).toBe(53);
+  });
+
+  it('spends the bottom padding and nothing else', () => {
+    // The budget is the box less the pieces ABOVE the label. The bottom padding
+    // is deliberately absent: growth runs downward (tabVerticalUiKit is
+    // justifyContent: 'flex-start'), so it is the only slack available.
+    expect(TAB_LABEL_MAX_LINE_HEIGHT).toBe(20);
+    expect(TAB_LABEL_MAX_FONT_SCALE).toBeCloseTo(20 / 14, 5);
+    // The top padding and icon box are NOT spent — a fix that took either would
+    // move the icon, which ActiveTabIndicator's ruling forbids.
+    expect(TAB_LABEL_MAX_LINE_HEIGHT).toBe(
+      TAB_BAR_CONTENT_BOX - TAB_ITEM_TOP_PADDING - TAB_ICON_BOX_HEIGHT - TAB_LABEL_GAP,
+    );
+  });
+
+  it('fits the box at the cap, with the label flush to its bottom edge', () => {
+    // toBeCloseTo, not toBeLessThanOrEqual: 14 * (20/14) is 20 +/- 1 ULP.
+    expect(cappedStack(IOS_AX5)).toBeCloseTo(TAB_BAR_CONTENT_BOX, 5);
+    expect(cappedStack(IOS_AX5)).toBeLessThanOrEqual(TAB_BAR_CONTENT_BOX + 1e-9);
+  });
+
+  it('still scales — the cap is a ceiling, not a freeze', () => {
+    // iOS SILENTLY IGNORES maxFontSizeMultiplier < 1.0 (RCTTextAttributes.mm:250-251),
+    // and exactly 1.0 is allowFontScaling={false} in disguise, which AC4 forbids.
+    // Without this assertion a future geometry change could restore the defect
+    // with every other case in this file still green.
+    expect(TAB_LABEL_MAX_FONT_SCALE).toBeGreaterThan(1);
+    // Growth is untouched below the cap.
+    expect(cappedStack(IOS_XL)).toBeGreaterThan(cappedStack(1));
+  });
+
+  it('does not bite before the accessibility sizes', () => {
+    // The point of spending the bottom padding: xxxLarge is the largest size an
+    // ordinary user reaches from Settings without turning on accessibility text,
+    // and it must not regress. A 15pt budget would cap at ~1.07 and freeze the
+    // label from xLarge upward.
+    for (const scale of [IOS_XL, IOS_XXL, IOS_XXXL]) {
+      expect(scale).toBeLessThanOrEqual(TAB_LABEL_MAX_FONT_SCALE);
+    }
+    expect(IOS_AX1).toBeGreaterThan(TAB_LABEL_MAX_FONT_SCALE);
+  });
+
+  it('LIVENESS — the uncapped stacks really do overflow (DEBUG-390)', () => {
+    // A guard never observed failing is not a guard. Recompute the UNCAPPED
+    // stack at the sizes the defect was measured at and assert it exceeds the
+    // box, so this case goes red if the box, the icon, or the line height ever
+    // move far enough to make the cap unnecessary.
+    const uncapped = (scale: number) =>
+      TAB_ITEM_TOP_PADDING +
+      TAB_ICON_BOX_HEIGHT +
+      TAB_LABEL_GAP +
+      TAB_LABEL_LINE_HEIGHT * scale;
+    expect(uncapped(IOS_AX1)).toBeGreaterThan(TAB_BAR_CONTENT_BOX);
+    expect(uncapped(IOS_AX5)).toBeGreaterThan(TAB_BAR_CONTENT_BOX);
+    // And the clamp is what makes the difference, not a coincidence of values.
+    expect(Math.min(IOS_AX5, TAB_LABEL_MAX_FONT_SCALE)).toBe(TAB_LABEL_MAX_FONT_SCALE);
+  });
+
+  it('leaves the DEBUG-562 crisis-band invariant untouched', () => {
+    // The cap spends slack INSIDE the box. The bar's outer height is unchanged,
+    // so its top edge does not move and the flush 88 still holds.
+    expect(getTabBarHeight(MAX_IOS_BOTTOM_INSET)).toBe(88);
+    expect(TAB_BAR_CONTENT_HEIGHT).toBe(54);
   });
 });

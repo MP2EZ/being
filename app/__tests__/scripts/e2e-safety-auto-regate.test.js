@@ -45,6 +45,7 @@ const SOURCED = [
   'e2e-driver-ownership.sh',
   'e2e-content-size.sh',
   'e2e-sim-lock.sh',
+  'e2e-sim-attachments.sh', // INFRA-692
   'e2e-host-contention.sh',
   'e2e-telemetry.sh',
   'e2e-provenance.js',

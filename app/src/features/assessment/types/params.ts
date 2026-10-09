@@ -4,14 +4,14 @@
  * Supports crisis intervention routing and safety constraints
  */
 
-import { 
+import type { 
   AssessmentType, 
   PHQ9Result, 
   GAD7Result, 
   CrisisDetection, 
   CrisisIntervention,
   AssessmentSession 
-} from '../index';
+} from './index';
 
 /**
  * Root Assessment Stack Parameters
@@ -82,28 +82,6 @@ export type AssessmentStackParamList = {
     context: 'standalone' | 'onboarding' | 'checkin';
   };
 
-  /** Crisis Intervention Screen - CRITICAL SAFETY */
-  CrisisIntervention: {
-    /** Crisis detection that triggered intervention */
-    detection: CrisisDetection;
-    /** Current intervention state */
-    intervention?: CrisisIntervention;
-    /** Assessment result that triggered crisis */
-    triggeringResult: PHQ9Result | GAD7Result;
-    /** Session ID for tracking */
-    sessionId: string;
-    /** Whether intervention can be dismissed */
-    canDismiss: boolean;
-    /** Emergency contact override */
-    emergencyContactOverride?: {
-      name: string;
-      phone: string;
-      relationship: string;
-    };
-    /** Return route after intervention */
-    returnRoute?: keyof AssessmentStackParamList;
-  };
-
   /** Safety Resources Screen */
   SafetyResources: {
     /** How user arrived at resources */
@@ -154,19 +132,6 @@ export type AssessmentStackParamList = {
  * For overlays and modal screens
  */
 export type AssessmentModalParamList = {
-  /** Crisis Alert Modal - Cannot be dismissed */
-  CrisisAlert: {
-    detection: CrisisDetection;
-    /** Required response time (ms) */
-    responseTimeRequirement: number;
-    /** Emergency actions available */
-    emergencyActions: Array<{
-      id: string;
-      label: string;
-      action: 'call_988' | 'call_emergency' | 'contact_support' | 'safety_plan';
-    }>;
-  };
-
   /** Assessment Pause Modal */
   AssessmentPause: {
     /** Current session to pause */
@@ -305,39 +270,6 @@ export type AssessmentNavigationEvent =
         timestamp: number;
       };
     };
-
-/**
- * Type Guards for Navigation Parameters
- */
-export function isCrisisNavigationParams(
-  params: unknown
-): params is AssessmentStackParamList['CrisisIntervention'] {
-  return (
-    typeof params === 'object' &&
-    params !== null &&
-    'detection' in params &&
-    'triggeringResult' in params
-  );
-}
-
-export function isAssessmentParams(
-  params: unknown
-): params is AssessmentStackParamList['PHQ9Assessment'] | AssessmentStackParamList['GAD7Assessment'] {
-  return (
-    typeof params === 'object' &&
-    params !== null &&
-    'context' in params
-  );
-}
-
-export function requiresCrisisCheck(routeName: keyof AssessmentStackParamList): boolean {
-  const crisisSafetyRoutes: Array<keyof AssessmentStackParamList> = [
-    'AssessmentResults',
-    'CrisisIntervention',
-    'SafetyResources'
-  ];
-  return crisisSafetyRoutes.includes(routeName);
-}
 
 /**
  * Navigation Utilities

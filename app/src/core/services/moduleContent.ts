@@ -6,7 +6,7 @@
  * Type-safe content access with error handling.
  */
 
-import type { ModuleId, ModuleContent } from '@/features/learn/types/education';
+import { isModuleId, type ModuleId, type ModuleContent } from '@/features/learn/types/education';
 
 // Content cache (in-memory, persists for app session)
 const contentCache: Partial<Record<ModuleId, ModuleContent>> = {};
@@ -18,6 +18,13 @@ const contentCache: Partial<Record<ModuleId, ModuleContent>> = {};
 export async function loadModuleContent(
   moduleId: ModuleId
 ): Promise<ModuleContent> {
+  // DEBUG-719: refuse an unauthored id before the cache read. contentCache is a plain
+  // object, so a prototype key such as 'constructor' would read back as Object. The
+  // message is fixed: the id may come from a deep link.
+  if (!isModuleId(moduleId)) {
+    throw new Error('Failed to load module content: unknown module id');
+  }
+
   // Check cache first
   if (contentCache[moduleId]) {
     return contentCache[moduleId]!;

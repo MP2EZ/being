@@ -89,3 +89,12 @@ describe('AccountSettingsScreen — FEAT-210 honest screen', () => {
     });
   });
 });
+
+// DEBUG-652 — the destination fact crisis-button-reachability asserts after the
+// profile-card-account tap, before the FAB. The header title cannot serve: the menu card
+// carries the same label, so it is still on screen after a swallowed tap.
+describe('DEBUG-652 — destination root testID', () => {
+  it('renders the screen root testID', () => {
+    expect(render(<AccountSettingsScreen onReturn={jest.fn()} />).queryByTestId('account-settings-screen')).not.toBeNull();
+  });
+});

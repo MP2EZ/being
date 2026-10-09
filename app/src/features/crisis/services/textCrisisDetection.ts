@@ -95,10 +95,10 @@ export interface TextCrisisDetection {
  * "killmyself" are all plausible transcriptions of one utterance. Word
  * boundaries are precisely what cannot be trusted in STT output.
  *
- * This set is the single source of truth for free-text crisis vocabulary. The
- * legacy private list in `core/services/premeditationSafetyService.ts` is a
- * strict subset and should be refactored to consume this module; the parity
- * spec pins that no phrase is silently lost in the meantime.
+ * This set is the single source of truth for free-text crisis vocabulary, and
+ * since MAINT-598 it is the only one: the module-private list that used to live
+ * in `core/services/premeditationSafetyService.ts`, and the parity spec that
+ * pinned the two together, were deleted along with that unwired service.
  *
  * Deliberately NOT included: fuzzy/phonetic (Soundex, Levenshtein) matching.
  * It generates false positives on ordinary language ("dye" → "die"), its cost

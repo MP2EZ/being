@@ -134,7 +134,6 @@ describe('ReflectionTimerScreen Integration Tests', () => {
     moduleId: 'virtue' as const,
     duration: 300, // 5 minutes
     title: 'Virtue Reflection',
-    prompt: 'Consider how you practiced wisdom today',
     instructions: [
       'Find a quiet space and get comfortable',
       'Read the reflection prompt carefully',
@@ -235,7 +234,7 @@ describe('ReflectionTimerScreen Integration Tests', () => {
       const { getByText } = render(<ReflectionTimerScreen {...defaultProps} />);
       expect(
         getByText(
-          /Take time to reflect. There's no need to write anything down/
+          /Work through the steps above at your own pace\. There's no need to write anything down/
         )
       ).toBeTruthy();
     });
@@ -243,7 +242,7 @@ describe('ReflectionTimerScreen Integration Tests', () => {
     it('should render contemplation space with proper accessibility', () => {
       const { getByText } = render(<ReflectionTimerScreen {...defaultProps} />);
       const guidanceText = getByText(
-        /Take time to reflect. There's no need to write anything down/
+        /Work through the steps above at your own pace\. There's no need to write anything down/
       );
       expect(guidanceText).toBeTruthy();
     });
@@ -513,13 +512,19 @@ describe('ReflectionTimerScreen Integration Tests', () => {
       expect(getByText(customTitle)).toBeTruthy();
     });
 
-    it('should handle optional prompt prop', () => {
-      const { getByTestId } = render(
-        <ReflectionTimerScreen {...defaultProps} prompt={undefined} />
-      );
+    it('DEBUG-650: the contemplation copy names what is on screen, not an absent prompt', () => {
+      const { getByText, queryByText } = render(<ReflectionTimerScreen {...defaultProps} />);
 
-      // Should still render without error
-      expect(getByTestId('reflection-timer-screen')).toBeTruthy();
+      // The previous copy pointed attention at "the prompt", which no code ever
+      // rendered, and described open, objectless noticing. Every reflection
+      // practice is a directed examen whose object is the instruction list above.
+      expect(
+        getByText(
+          "Work through the steps above at your own pace. There's no need to write anything down—simply hold each one in mind. If your attention wanders, returning to it is the practice."
+        )
+      ).toBeTruthy();
+      expect(queryByText(/contemplate the prompt/)).toBeNull();
+      expect(queryByText(/notice what arises/)).toBeNull();
     });
   });
 

@@ -71,7 +71,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
   ScrollView,
   BackHandler,
   AccessibilityInfo,
@@ -87,15 +86,29 @@ import {
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useOverlayBottomInset } from '@/core/hooks/useOverlayBottomInset';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 
 const MAX_LEN = 5000;
 
 const TITLE = 'What did this week teach you?';
 
+/**
+ * FEAT-667: shown while wellness-data writes are withheld. Philosopher-reviewed —
+ * "you chose", no call to change it, no principle vocabulary for a data fact.
+ */
+export const WITHHELD_NOTE =
+  "Because you chose not to allow wellness data processing, this reflection won't be saved.";
+
 interface WeeklyReflectionComposerProps {
   visible: boolean;
   initialText: string;
+  /**
+   * FEAT-667: the host's reading of the Art. 9 write gate. Display only — this
+   * component must never read consent itself (wellnessWriteConsentBoundary.test.ts).
+   * When true, the note shows and the primary action reads "Done", because a
+   * "Save" that saves nothing would tell the user something false.
+   */
+  persistenceWithheld?: boolean;
   onSave: (text: string) => void | Promise<void>;
   onCancel: () => void;
   /**
@@ -111,6 +124,7 @@ interface WeeklyReflectionComposerProps {
 const WeeklyReflectionComposer: React.FC<WeeklyReflectionComposerProps> = ({
   visible,
   initialText,
+  persistenceWithheld = false,
   onSave,
   onCancel,
   onDraftChange,
@@ -201,8 +215,13 @@ const WeeklyReflectionComposer: React.FC<WeeklyReflectionComposerProps> = ({
             {TITLE}
           </Text>
 
-          <TextInput
-            {...crisisAccessoryProps()} /* DEBUG-450 */
+          {persistenceWithheld ? (
+            <Text style={styles.withheldNote} testID="weekly-reflection-withheld-note">
+              {WITHHELD_NOTE}
+            </Text>
+          ) : null}
+
+          <CrisisTextInput
             style={styles.input}
             value={text}
             onChangeText={(next) => {
@@ -249,11 +268,11 @@ const WeeklyReflectionComposer: React.FC<WeeklyReflectionComposerProps> = ({
             onPress={() => canSave && onSave(text.trim())}
             disabled={!canSave}
             accessibilityRole="button"
-            accessibilityLabel="Save reflection"
+            accessibilityLabel={persistenceWithheld ? 'Done' : 'Save reflection'}
             accessibilityState={{ disabled: !canSave }}
             testID="weekly-reflection-save"
           >
-            <Text style={styles.primaryButtonText}>Save</Text>
+            <Text style={styles.primaryButtonText}>{persistenceWithheld ? 'Done' : 'Save'}</Text>
           </Pressable>
         </View>
       </View>
@@ -313,6 +332,12 @@ const styles = StyleSheet.create({
     fontSize: typography.headline4.size,
     fontWeight: typography.fontWeight.semibold,
     color: semantic.text.primary,
+    marginBottom: spacing[12],
+  },
+  // Muted and non-interactive: not a warning (no amber/red) and not a reward (no teal).
+  withheldNote: {
+    fontSize: typography.bodySmall.size,
+    color: semantic.text.muted,
     marginBottom: spacing[12],
   },
   input: {

@@ -20,7 +20,12 @@ import { jest } from '@jest/globals';
 jest.mock('expo-secure-store');
 
 import * as SecureStore from 'expo-secure-store';
-import { createSecureStoreSessionAdapter } from '../secureStoreSessionAdapter';
+import {
+  createSecureStoreSessionAdapter,
+  readPersistedSession,
+  removePersistedSession,
+  supabaseAuthStorageKey,
+} from '../secureStoreSessionAdapter';
 
 /** In-memory fake of the SecureStore key/value space for deterministic assertions. */
 function installFakeStore() {
@@ -116,5 +121,92 @@ describe('secureStoreSessionAdapter (INFRA-260)', () => {
 
     expect(store.size).toBe(0);
     expect(await adapter.getItem(KEY)).toBeNull();
+  });
+});
+
+/**
+ * DEBUG-704 — the deletion probe. `deleteAccount()` decides "is there a server account to
+ * erase?" from what auth-js persisted, without building a client and without minting.
+ * Unlike `getItem`, the probe is STRICT: an IO failure throws and a corrupt session reads
+ * as present-but-unidentifiable, so the caller can fail closed instead of reading
+ * "no session" and reporting an erasure that never reached the server.
+ */
+describe('DEBUG-704 — persisted-session probe and removal', () => {
+  const KEY = 'sb-yliycxslzdsgjtpxggtf-auth-token';
+  let store: Map<string, string>;
+  const adapter = () => createSecureStoreSessionAdapter();
+  const session = (uid: string) =>
+    JSON.stringify({ access_token: 'a'.repeat(2500), refresh_token: 'r', expires_at: 1, user: { id: uid } });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    store = installFakeStore();
+  });
+
+  it('supabaseAuthStorageKey matches the storageKey the REAL createClient derives (drift pin)', () => {
+    const { createClient } = jest.requireActual('@supabase/supabase-js') as any;
+    for (const url of [
+      'https://yliycxslzdsgjtpxggtf.supabase.co',
+      'https://test.supabase.co',
+      'http://127.0.0.1:54321',
+      'http://localhost:54321/',
+    ]) {
+      // No explicit storageKey — exactly how SupabaseService constructs its client.
+      const client = createClient(url, 'k', {
+        auth: { persistSession: false, autoRefreshToken: false, storage: adapter() },
+      });
+      expect(supabaseAuthStorageKey(url)).toBe(client.storageKey);
+      expect(supabaseAuthStorageKey(url)).toBe((client.auth as any).storageKey);
+    }
+  });
+
+  it('absent: nothing at the base key reads as not present', async () => {
+    await expect(readPersistedSession(KEY)).resolves.toEqual({ present: false, uid: null });
+  });
+
+  it('present: a chunked session yields its user id', async () => {
+    await adapter().setItem(KEY, session('uid-1'));
+    expect([...store.keys()].length).toBeGreaterThan(2); // genuinely chunked
+    await expect(readPersistedSession(KEY)).resolves.toEqual({ present: true, uid: 'uid-1' });
+  });
+
+  it('corrupt: manifest present, chunk missing → present with no uid (never "absent")', async () => {
+    await adapter().setItem(KEY, session('uid-1'));
+    store.delete(`${KEY}.1`);
+    await expect(readPersistedSession(KEY)).resolves.toEqual({ present: true, uid: null });
+  });
+
+  it('corrupt: reassembled value is not a session → present with no uid', async () => {
+    await adapter().setItem(KEY, 'not json');
+    await expect(readPersistedSession(KEY)).resolves.toEqual({ present: true, uid: null });
+  });
+
+  it('a foreign value at the base key → present with no uid', async () => {
+    store.set(KEY, 'legacy-value');
+    await expect(readPersistedSession(KEY)).resolves.toEqual({ present: true, uid: null });
+  });
+
+  it('strict: a Keychain IO failure THROWS rather than reading as "no session"', async () => {
+    await adapter().setItem(KEY, session('uid-1'));
+    (SecureStore.getItemAsync as jest.Mock).mockRejectedValue(new Error('keychain unavailable'));
+    await expect(readPersistedSession(KEY)).rejects.toThrow('keychain unavailable');
+  });
+
+  it('removePersistedSession removes the session, its chunks, -user and -code-verifier', async () => {
+    await adapter().setItem(KEY, session('uid-1'));
+    await adapter().setItem(`${KEY}-user`, JSON.stringify({ user: { id: 'uid-1' } }));
+    await adapter().setItem(`${KEY}-code-verifier`, 'verifier');
+    store.set('unrelated-key', 'kept');
+
+    await removePersistedSession(KEY);
+
+    expect([...store.keys()]).toEqual(['unrelated-key']);
+    await expect(readPersistedSession(KEY)).resolves.toEqual({ present: false, uid: null });
+  });
+
+  it('removePersistedSession propagates a delete failure so the caller can retry', async () => {
+    await adapter().setItem(KEY, session('uid-1'));
+    (SecureStore.deleteItemAsync as jest.Mock).mockRejectedValueOnce(new Error('delete failed'));
+    await expect(removePersistedSession(KEY)).rejects.toThrow('delete failed');
   });
 });

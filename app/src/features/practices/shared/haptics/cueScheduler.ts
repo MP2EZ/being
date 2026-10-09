@@ -19,8 +19,28 @@
  * per-cue and non-accumulating, which is the whole reason `phaseAtElapsed`
  * exists.
  *
- * Late cues are DROPPED, not fired late. See MAX_CUE_LATENESS_MS.
+ * Late cues are DROPPED, not fired late. See MAX_CUE_LATENESS_MS. *
+ * THE SCHEDULER IS AUTHORITATIVE FOR CROSS-MODAL AGREEMENT (DEBUG-587).
+ *
+ * When the cue timeline and the visible breath disagreed across a pause, the
+ * ruling was that the VISUALS move to meet this module, not the other way round.
+ * `BreathingCircle` now derives its resume position from `phaseAtElapsed` on the
+ * same pause-excluding clock this module uses.
+ *
+ * Re-anchoring the scheduler to the visual restart was considered and REFUSED.
+ * This module is deliberately pattern-agnostic — it consumes an opaque sorted
+ * `ScheduledCue[]` and knows nothing about inhale or exhale — and it is shared
+ * with ReflectionTimerScreen's interval cadence and BodyScanScreen's region
+ * timeline, both correct precisely because their targets are absolute against a
+ * fixed origin. Snapping forward on resume would have: made the cue COUNT a
+ * function of how many times the practitioner paused, which is the "signature"
+ * the cue catalog forbids; left the tail of a fixed-length schedule undelivered,
+ * thinning an eyes-closed practitioner's pacing toward the end of a practice with
+ * no signal; and reintroduced the accumulating error `phaseAtElapsed` exists to
+ * eliminate. `__tests__/unit/practices/haptics/pauseResumeSync.test.tsx` pins the
+ * decision — it goes red if the scheduler is ever re-anchored.
  */
+
 
 import type { PracticeCue } from './cueCatalog';
 import { MAX_CUE_LATENESS_MS } from './constants';

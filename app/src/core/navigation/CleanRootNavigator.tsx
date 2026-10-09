@@ -11,7 +11,10 @@ import { whenE2ESeedComplete } from '@/core/config/e2eSeed';
 import { generateTimestampedId } from '@/core/utils/id';
 import { NavigationContainer } from '@react-navigation/native';
 import { linkingConfig } from './linking';
+import PracticeTimerRoute from './PracticeTimerRoute';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
+import { dismissRouteThenNotify, removeOwnRoute } from './crisisDestinationGuard';
+import { completeOnboarding } from './completeOnboarding';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { semantic, spacing, typography } from '@/core/theme';
@@ -23,7 +26,6 @@ import { JournalEntryDetailScreen } from '@/features/journal/screens/JournalEntr
 import CrisisResourcesScreen from '@/features/crisis/screens/CrisisResourcesScreen';
 import RootCrisisButton from '@/features/crisis/components/RootCrisisButton';
 // DEBUG-450 — eager import on the crisis path (CLAUDE.md rule), same as the button above.
-import CrisisKeyboardAccessory from '@/features/crisis/components/CrisisKeyboardAccessory';
 import {
   RootOverlaySlot,
   useIsRootOverlayOccupied,
@@ -38,7 +40,7 @@ import BugReportOverlay from '@/core/components/BugReportOverlay';
 import Static988Button from '@/features/crisis/components/Static988Button';
 import RootCrisisBoundary from '@/features/crisis/components/RootCrisisBoundary';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
-import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
+import SubscriptionStatusRoute from '@/core/components/subscription/SubscriptionStatusRoute';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '@/features/learn/screens/ModuleDetailScreen';
@@ -46,7 +48,6 @@ import WellnessTrendsDetailScreen from '@/features/insights/screens/WellnessTren
 import ClassicalLibraryScreen from '@/features/library/screens/ClassicalLibraryScreen';
 import PassageReaderScreen from '@/features/library/screens/PassageReaderScreen';
 import {
-  PracticeTimerScreen,
   ReflectionTimerScreen,
   BodyScanScreen,
   GuidedBodyScanScreen
@@ -61,7 +62,9 @@ import DomainGuidanceScreen from '@/features/guidance/screens/DomainGuidanceScre
 import type { GuidanceDomain } from '@/features/guidance/types/guidance';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore } from '@/core/stores/settingsStore';
-import { useConsentStore } from '@/core/stores/consentStore';
+import { readErasureRetirement, useConsentStore } from '@/core/stores/consentStore';
+import { resolveInitialRoute } from './resolveInitialRoute';
+import { resumeInterruptedErasure } from '@/core/services/privacy/AccountDeletionService';
 import { CombinedLegalGateScreen } from '@/features/consent';
 // FEAT-417: imported by direct path, not through the `@/features/consent`
 // barrel. The barrel is already in this file's eager graph via the line above,
@@ -128,12 +131,14 @@ export type RootStackParamList = {
   PassageReader: { passageId: string };
   PracticeTimer: {
     practiceId: string;
-    moduleId: ModuleId;
+    // DEBUG-695: optional. linking.ts's parse returns undefined for an absent or unauthored id,
+    // and usePracticeCompletion degrades rather than writing for it.
+    moduleId?: ModuleId | undefined;
     duration: number;
-    title: string;
-    // DEBUG-353: optional so the deep-link path (which cannot carry authored
-    // content) still type-checks; resolvePracticeRoute supplies both when the
-    // practice is launched from the module JSON.
+    // DEBUG-679: title, instructions, visualMode and moduleId are IGNORED by the route.
+    // PracticeTimerRoute takes all four from the guided-timer catalog by practiceId, so
+    // a link cannot supply copy. resolvePracticeRoute still sends the catalog's values.
+    title?: string;
     instructions?: string[];
     visualMode?: PracticeVisualMode;
   };
@@ -142,7 +147,6 @@ export type RootStackParamList = {
     moduleId: ModuleId;
     duration: number;
     title: string;
-    prompt?: string;
     instructions?: string[];
   };
   SortingPractice: {
@@ -208,6 +212,13 @@ const Stack = createStackNavigator<RootStackParamList>();
  * leaving `initialRoute` null forever.
  */
 const INITIAL_ROUTE_TIMEOUT_MS = 3000;
+
+/**
+ * DEBUG-763 — once per process: checkInitialRoute re-runs on every consentStatus
+ * change, and the resume itself can move consent state. Module scope, never state,
+ * so it is no render trigger on the crisis host (DEBUG-536).
+ */
+let erasureResumeStarted = false;
 
 /**
  * DEBUG-341 — LoadingScreen now carries a 988 control, and this is the single
@@ -290,25 +301,31 @@ const CleanRootNavigator: React.FC = () => {
         // allSettled, not all: one rejected read must not take the other down with it.
         // Both loaders already swallow internally, so this is belt-and-braces against a
         // future refactor that stops doing so.
-        const [settingsResult, consentResult] = await Promise.allSettled([
+        //
+        // DEBUG-755: the erasure-retirement read joins the same allSettled — no serial
+        // await on the pre-route window. It never rejects; a rejection here would read
+        // as "not retired", today's routing.
+        const [settingsResult, consentResult, retiredResult] = await Promise.allSettled([
           loadSettings(),
           loadConsent(),
+          readErasureRetirement(),
         ]);
         const settings = settingsResult.status === 'fulfilled' ? settingsResult.value : null;
         const consent = consentResult.status === 'fulfilled' ? consentResult.value : null;
+        const retired = retiredResult.status === 'fulfilled' && retiredResult.value;
 
         if (cancelled) return;
 
-        // Determine initial route based on onboarding and consent status
-        if (settings?.onboardingCompleted) {
-          // Already onboarded - go to main
-          setInitialRoute('Main');
-        } else if (!consent || consentStatus === 'missing' || consentStatus === 'under_age') {
-          // No consent or under age - start with legal gate (COPPA compliance)
-          setInitialRoute('LegalGate');
-        } else {
-          // Has consent but not onboarded - go to onboarding
-          setInitialRoute('Onboarding');
+        // The ordering (onboarded first, DEBUG-418/451) lives in resolveInitialRoute,
+        // with one added input: an onboarded state left by an erased account never
+        // reaches Main (DEBUG-755).
+        setInitialRoute(resolveInitialRoute({ settings, consent, consentStatus, retired }));
+        // DEBUG-763: finish an interrupted erasure only AFTER the route is set — never
+        // under LoadingScreen, never awaited. It never rejects, shows no UI and
+        // dispatches no navigation; a launch it retires is already on LegalGate.
+        if (!erasureResumeStarted) {
+          erasureResumeStarted = true;
+          void resumeInterruptedErasure();
         }
       } catch (error) {
         if (cancelled) return;
@@ -393,17 +410,10 @@ const CleanRootNavigator: React.FC = () => {
 
   // FEAT-298 slice 6c: the "start practising now" destination is the daily loop. It was
   // 'morning' — the retired Morning flow — so leaving it would navigate to a deleted route.
-  const handleOnboardingComplete = async (destination?: 'home' | 'practice') => {
+  // Persistence only. The navigation that follows lives in completeOnboarding (DEBUG-711).
+  const handleOnboardingComplete = async () => {
     await markOnboardingComplete();
     setInitialRoute('Main');
-
-    // Navigate to destination after state update
-    if (destination === 'practice') {
-      // Small delay to ensure Main screen is mounted before modal presentation
-      setTimeout(() => {
-        // Navigation will be handled by the OnboardingScreen's navigation prop
-      }, 100);
-    }
   };
 
   /**
@@ -524,22 +534,16 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => (
+          {({ route }) => (
             <OnboardingScreen
-              onComplete={async (destination) => {
-                await handleOnboardingComplete(destination);
-                // Navigate based on destination
-                if (destination === 'practice') {
-                  navigation.replace('Main');
-                  // Enter the daily loop once Main is mounted. No mode param — the tense is
-                  // inferred from the clock (slice 5).
-                  setTimeout(() => {
-                    navigation.navigate('DailyLoop');
-                  }, 100);
-                } else {
-                  navigation.replace('Main');
-                }
-              }}
+              // DEBUG-711: persist, then replace THIS route (by key, at the root) with Main
+              // — deferred while a crisis destination is focused, never dropped.
+              onComplete={(destination) =>
+                completeOnboarding(destination, {
+                  onboardingRouteKey: route.key,
+                  markComplete: handleOnboardingComplete,
+                })
+              }
               isEmbedded={true}
             />
           )}
@@ -582,7 +586,9 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => <ReConsentRoute onDismiss={() => navigation.goBack()} />}
+          {/* DEBUG-733 — dismisses after an await or an effect, so it removes ITSELF by key
+              (DEBUG-706 ruling); a bare goBack() would pop a CrisisResources opened above it. */}
+          {({ navigation, route }) => <ReConsentRoute onDismiss={() => removeOwnRoute(navigation, route.key)} />}
         </Stack.Screen>
 
         {/* DEBUG-451 — the explanation for the three fail-closed consent
@@ -618,7 +624,9 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => <ConsentBlockedRoute onDismiss={() => navigation.goBack()} />}
+          {/* DEBUG-733 — dismisses after an await or an effect, so it removes ITSELF by key
+              (DEBUG-706 ruling); a bare goBack() would pop a CrisisResources opened above it. */}
+          {({ navigation, route }) => <ConsentBlockedRoute onDismiss={() => removeOwnRoute(navigation, route.key)} />}
         </Stack.Screen>
 
         {/* Educational Module Detail */}
@@ -668,17 +676,10 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false, // Prevent accidental swipe during practice
           }}
         >
+          {/* DEBUG-679: a link's params are never copy. PracticeTimerRoute takes the title,
+              presentation and module from the guided-timer catalog by practiceId. */}
           {({ navigation, route }) => (
-            <PracticeTimerScreen
-              practiceId={route.params.practiceId}
-              moduleId={route.params.moduleId}
-              duration={route.params.duration}
-              title={route.params.title}
-              instructions={route.params.instructions}
-              visualMode={route.params.visualMode}
-              onComplete={() => navigation.goBack()}
-              onBack={() => navigation.goBack()}
-            />
+            <PracticeTimerRoute params={route.params} onDone={() => navigation.goBack()} />
           )}
         </Stack.Screen>
 
@@ -773,7 +774,6 @@ const CleanRootNavigator: React.FC = () => {
               moduleId={route.params.moduleId}
               duration={route.params.duration}
               title={route.params.title}
-              {...(route.params.prompt && { prompt: route.params.prompt })}
               {...(route.params.instructions && { instructions: route.params.instructions })}
               onComplete={() => navigation.goBack()}
               onBack={() => navigation.goBack()}
@@ -877,37 +877,31 @@ const CleanRootNavigator: React.FC = () => {
             }}
           >
             {({ navigation, route }) => {
-              // Create consent status for EnhancedAssessmentFlow
-              const consentStatus = {
-                dataProcessingConsent: true, // Assumed true if user reached assessment
-                clinicalDataConsent: true,
-                consentTimestamp: Date.now(),
-                consentVersion: '1.0.0'
-              };
-
               return (
                 <EnhancedAssessmentFlow
                   assessmentType={route.params.assessmentType}
                   context={route.params.context}
                   theme="neutral"
                   showIntroduction={route.params.context === 'standalone'}
-                  consentStatus={consentStatus}
                   sessionId={generateTimestampedId('session')}
                   onComplete={(result) => {
                     logSystem(`Assessment ${route.params.assessmentType} completed`);
-                    // Always dismiss the modal first
-                    navigation.goBack();
-                    // Then notify parent after brief delay to allow modal dismissal animation
-                    setTimeout(() => {
-                      route.params.onComplete?.(result);
-                    }, 50);
+                    // DEBUG-706 (crisis ruling): remove THIS route, never the focused one —
+                    // a bare goBack() popped a CrisisResources the user opened while the last
+                    // answer saved. The parent's follow-on (onboarding's GAD-7) waits until no
+                    // crisis destination is focused, then runs after the dismissal delay.
+                    dismissRouteThenNotify({
+                      navigation,
+                      routeKey: route.key,
+                      notify: () => route.params.onComplete?.(result),
+                    });
                   }}
                   onCancel={() => {
                     // Handle skip for onboarding context
                     if (route.params.allowSkip && route.params.onSkip) {
                       route.params.onSkip();
                     }
-                    navigation.goBack();
+                    removeOwnRoute(navigation, route.key);
                   }}
                 />
               );
@@ -954,7 +948,7 @@ const CleanRootNavigator: React.FC = () => {
 
           <Stack.Screen
             name="SubscriptionStatus"
-            component={SubscriptionStatusCard}
+            component={SubscriptionStatusRoute}
             options={{
               title: 'Subscription Status',
               headerShown: true,
@@ -1012,21 +1006,19 @@ const CleanRootNavigator: React.FC = () => {
           <RootCrisisButton routeName={activeRootRoute ?? initialRoute} />
         </RootCrisisBoundary>
 
-        {/* DEBUG-450 — the crisis affordance for when a software keyboard occludes the
-            root button. Mounted ONCE: RN registers InputAccessoryView content by
-            nativeID app-wide, so every TextInput spreading crisisAccessoryProps() reaches
-            this single instance.
+        {/* DEBUG-506 — the crisis keyboard accessory is NOT mounted here, and must not be.
 
-            ADDITIVE, and a SIBLING of RootCrisisButton rather than a replacement for it.
-            Neither control suppresses the other — coordinating them would be a fourth
-            instance of the two-list reconciliation failure CLAUDE.md names for
-            features/guidance/ and features/consent/.
+            It used to be, on the belief that RN registers InputAccessoryView content by
+            nativeID app-wide from one mount. That is false on Fabric: attachment happens
+            once, in didMoveToWindow, by a depth-first search of the window for a TextInput
+            carrying the id. From this mount that search ran at app launch, when no such
+            input existed, and could never re-run — so the control was inert for its whole
+            shipped life while every gate stayed green.
 
-            Deliberately OUTSIDE RootCrisisBoundary: that boundary's fallback renders
-            Static988Button, which dials directly and needs no keyboard. Nesting this
-            inside would tie a keyboard-only affordance to a crash-recovery surface that
-            has no TextInput. */}
-        <CrisisKeyboardAccessory />
+            It is now one instance per input, owned by CrisisTextInput. RootCrisisButton
+            above is unaffected: the two controls remain independently correct, neither
+            suppressing the other, which is what stops a bug in one silently removing the
+            other's coverage. */}
       </View>
     </NavigationContainer>
   );

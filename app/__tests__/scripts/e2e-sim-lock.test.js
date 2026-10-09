@@ -804,3 +804,71 @@ describe('every acquire records what it cost, so waits are a distribution not an
     expect(r.telemetry).toHaveLength(0);
   });
 });
+
+// --- INFRA-657: the first contender is published to the caller ----------------------
+// e2e-safety.sh's missing-app recovery names who held the device while it waited. The
+// value must come from THIS acquire, never a previous one.
+describe('INFRA-657 — e2e_lock_acquire publishes the first contender it observed', () => {
+  it('names a reclaimed stale holder, with its label and classified state', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra657-prior-'));
+    plantOwner(root, 'sim', UDID, { pid: 999001, start: START_A, comm: 'bash', label: 'DEBUG-650 @ abcd1234' });
+    const r = runHelper(
+      `e2e_lock_acquire "${UDID}" 1 && printf '%s|%s|%s' "$E2E_LOCK_PRIOR_HOLDER_PID" "$E2E_LOCK_PRIOR_HOLDER_LABEL" "$E2E_LOCK_PRIOR_HOLDER_STATE"`,
+      { table: psTable([]), lockRoot: root }
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('999001|DEBUG-650 @ abcd1234|DEAD');
+  });
+
+  it('is empty on an uncontended acquire, even if a stale value was already set', () => {
+    const r = runHelper(
+      `E2E_LOCK_PRIOR_HOLDER_PID=stale; E2E_LOCK_PRIOR_HOLDER_LABEL=stale; e2e_lock_acquire "${UDID}" 1 && printf '[%s][%s]' "$E2E_LOCK_PRIOR_HOLDER_PID" "$E2E_LOCK_PRIOR_HOLDER_LABEL"`,
+      { table: psTable([]) }
+    );
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('[][]');
+  });
+});
+
+describe('INFRA-718 — e2e_lock_peek reads a lease without touching it', () => {
+  const START_B_ROW = { pid: 999002, start: START_B, comm: 'bash' };
+
+  it('prints nothing and creates nothing when no lease exists', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra718-peek-'));
+    const r = runHelper(`e2e_lock_peek "${UDID}"; echo "rc=$?"`, { lockRoot: root });
+    expect(r.stdout).toBe('rc=0');
+    expect(fs.readdirSync(root)).toEqual([]);
+  });
+
+  it('classifies LIVE, DEAD and RECYCLED with the same rule acquire uses, and leaves each record intact', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra718-peek-'));
+    const live = plantOwner(root, 'sim', UDID, { pid: 999001, start: START_A, label: 'safety flows' });
+    const dead = plantOwner(root, 'sim', OTHER_UDID, { pid: 999003, start: START_A, label: 'gate' });
+    const recycled = plantOwner(root, 'sim', 'RECYCLED-UDID', { pid: 999002, start: START_A, label: 'x' });
+    const before = [live, dead, recycled].map((d) => fs.readFileSync(path.join(d, 'owner'), 'utf8'));
+    const r = runHelper(
+      `e2e_lock_peek "${UDID}"; e2e_lock_peek "${OTHER_UDID}"; e2e_lock_peek RECYCLED-UDID`,
+      { table: psTable([LIVE_HOLDER, START_B_ROW]), lockRoot: root }
+    );
+    expect(r.stdout.split('\n')).toEqual(['LIVE\t999001\tsafety flows', 'DEAD\t999003\tgate', 'RECYCLED\t999002\tx']);
+    expect([live, dead, recycled].map((d) => fs.readFileSync(path.join(d, 'owner'), 'utf8'))).toEqual(before);
+  });
+
+  it('reads a lease directory with no owner record as RECYCLED, never LIVE', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra718-peek-'));
+    fs.mkdirSync(path.join(root, `sim-${UDID}.d`));
+    const r = runHelper(`e2e_lock_peek "${UDID}"`, { lockRoot: root });
+    expect(r.stdout.split('\t')[0]).toBe('RECYCLED');
+    expect(fs.existsSync(path.join(root, `sim-${UDID}.d`))).toBe(true);
+  });
+
+  it('peeks a non-default namespace', () => {
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'infra718-peek-'));
+    plantOwner(root, 'gatetree', 'KEY', { pid: 999001, start: START_A, label: 'g' });
+    const r = runHelper(`e2e_lock_peek KEY gatetree; e2e_lock_peek KEY`, {
+      table: psTable([LIVE_HOLDER]),
+      lockRoot: root,
+    });
+    expect(r.stdout).toBe('LIVE\t999001\tg');
+  });
+});

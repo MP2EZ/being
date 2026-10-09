@@ -29,6 +29,16 @@ interface FlowProgressIndicatorProps {
   totalSteps: number;
   /** Practice identity for theme colouring */
   flowType: PracticeIdentity;
+  /**
+   * DEBUG-629: optional cap on the step counter's font growth, for a caller whose header
+   * band is finite. OPTIONAL and defaulted to undefined deliberately — this component has
+   * seven existing call sites and a required prop would red every one of them, and an
+   * uncapped counter is the correct default for any caller whose header grows with its
+   * content. The cap's value and its WCAG reasoning belong to the caller, not here; the
+   * daily loop's lives in `practices/dailyloop/config/headerLayout.ts` (which this file
+   * must never import — `practices/shared/` does not depend on a gated feature dir).
+   */
+  maxFontSizeMultiplier?: number;
 }
 
 /**
@@ -39,6 +49,7 @@ export const FlowProgressIndicator: React.FC<FlowProgressIndicatorProps> = ({
   currentStep,
   totalSteps,
   flowType,
+  maxFontSizeMultiplier,
 }) => {
   const progress = (currentStep / totalSteps) * 100;
   const themeColors = getTheme(themeKeyFor(flowType));
@@ -56,7 +67,7 @@ export const FlowProgressIndicator: React.FC<FlowProgressIndicatorProps> = ({
           ]}
         />
       </View>
-      <Text style={styles.progressText}>
+      <Text style={styles.progressText} maxFontSizeMultiplier={maxFontSizeMultiplier}>
         {currentStep} of {totalSteps}
       </Text>
     </View>

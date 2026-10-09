@@ -2,7 +2,7 @@
   "expo": {
     "name": "Being",
     "slug": "being",
-    "version": "1.3.0",
+    "version": "1.4.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "fyi.being.app",
-      "buildNumber": "6",
+      "buildNumber": "7",
       "icon": "./assets/icon.png",
       "deploymentTarget": "16.4",
       "config": {
@@ -26,7 +26,7 @@
           "tel",
           "sms"
         ],
-        "NSFaceIDUsageDescription": "Allow Being to use Face ID to protect your wellness data.",
+        "NSFaceIDUsageDescription": "Being does not lock the app or restrict access to your wellness data with Face ID. This notice is required because the secure on-device storage component references Apple's local authentication API.",
         "NSSpeechRecognitionUsageDescription": "Being transcribes spoken reflections entirely on this device. Nothing you say is sent to Apple or to Being.",
         "NSMicrophoneUsageDescription": "Being uses the microphone only to turn a spoken reflection into text on this device. The recording is discarded once transcribed and never leaves your phone.",
         "NSPhotoLibraryUsageDescription": "Being does not access your photo library. This notice is required because a bundled file-storage component references the system photo library API."
@@ -61,7 +61,7 @@
     },
     "android": {
       "package": "fyi.being.app",
-      "versionCode": 6,
+      "versionCode": 7,
       "icon": "./assets/icon.png",
       "intentFilters": [
         {
@@ -70,13 +70,35 @@
           "data": [
             {
               "scheme": "https",
-              "host": "being.fyi",
-              "pathPrefix": "/"
+              "host": "being.fyi"
             },
             {
               "scheme": "https",
-              "host": "www.being.fyi",
-              "pathPrefix": "/"
+              "host": "www.being.fyi"
+            },
+            {
+              "path": "/crisis"
+            },
+            {
+              "pathPrefix": "/crisis/"
+            },
+            {
+              "path": "/daily"
+            },
+            {
+              "pathPrefix": "/assessment/"
+            },
+            {
+              "pathPrefix": "/module/"
+            },
+            {
+              "pathPrefix": "/practice/"
+            },
+            {
+              "path": "/subscription"
+            },
+            {
+              "path": "/subscription/status"
             }
           ],
           "category": [
@@ -87,6 +109,9 @@
       ],
       "permissions": [
         "android.permission.RECORD_AUDIO"
+      ],
+      "blockedPermissions": [
+        "android.permission.ACTIVITY_RECOGNITION"
       ]
     },
     "web": {

@@ -3,10 +3,8 @@ import { View, StatusBar, ScrollView } from 'react-native';
 import { SafeAreaView, type Edge } from 'react-native-safe-area-context';
 import { sharedPracticeStyles } from './sharedPracticeStyles';
 import PracticeScreenHeader from './PracticeScreenHeader';
+import { getModalPracticeEdges } from './practiceSafeAreaEdges';
 import { colorSystem } from '@/core/theme';
-
-/** Module scope, so the default prop keeps a stable identity across renders. */
-const PRACTICE_LAYOUT_EDGES: readonly Edge[] = ['top', 'bottom'];
 
 interface PracticeScreenLayoutProps {
   title: string;
@@ -19,8 +17,8 @@ interface PracticeScreenLayoutProps {
    * container rather than inside it (FEAT-385).
    *
    * The distinction is load-bearing, not stylistic. `children` are nested inside the
-   * ScrollView whenever `scrollable` is true — which is the case for two of the three
-   * practice screens — and an `position:'absolute'` inset-0 backdrop placed there
+   * ScrollView whenever `scrollable` is true — which is the case for all three
+   * practice screens since DEBUG-618 — and an `position:'absolute'` inset-0 backdrop placed there
    * sizes to the SCROLL CONTENT box and scrolls away with it. Rendering here instead
    * puts the layer inside the `flex:1` SafeAreaView, where inset-0 means the screen.
    *
@@ -32,10 +30,13 @@ interface PracticeScreenLayoutProps {
   overlay?: React.ReactNode;
   testID?: string;
   /**
-   * MAINT-437. Which insets this layout claims. Defaults to both: all three hosts
+   * MAINT-437, corrected DEBUG-621. Which insets this layout claims. All three hosts
    * (PracticeTimer, ReflectionTimer, BodyScan) are modal-presented root-stack cards
-   * with headerShown:false, so nothing else supplies either edge. Portrait-locked,
-   * so left/right are never listed.
+   * with headerShown:false. The bottom edge is always claimed. The top edge is
+   * platform-dependent: on iOS the modal card's own `marginTop: insets.top` already
+   * supplies it, so claiming it here doubled the inset; Android's full-height
+   * BottomSheetAndroid still needs it. See `getModalPracticeEdges` for the premise.
+   * Portrait-locked, so left/right are never listed.
    *
    * A prop rather than a hardcoded value because this one component hosts three
    * screens: the deferred Android/iOS device pass (MAINT-437 ACs 5-6) can tune one
@@ -52,7 +53,7 @@ const PracticeScreenLayout: React.FC<PracticeScreenLayoutProps> = ({
   scrollable = true,
   overlay,
   testID = 'practice-screen',
-  edges = PRACTICE_LAYOUT_EDGES,
+  edges = getModalPracticeEdges(),
 }) => {
   const hasOverlay = overlay !== undefined && overlay !== null && overlay !== false;
 
@@ -77,6 +78,7 @@ const PracticeScreenLayout: React.FC<PracticeScreenLayoutProps> = ({
             style={sharedPracticeStyles.scrollView}
             contentContainerStyle={sharedPracticeStyles.content}
             showsVerticalScrollIndicator={false}
+            testID={`${testID}-scroll`}
           >
             {children}
           </ScrollView>

@@ -154,8 +154,6 @@ export interface GoogleReceipt {
 export interface FeatureAccess {
   // Crisis Features (ALWAYS accessible, regardless of subscription)
   crisisButton: true;                  // ALWAYS true (hardcoded)
-  crisisContacts: true;                // ALWAYS true
-  safetyPlan: true;                    // ALWAYS true
   nineEightEightAccess: true;          // ALWAYS true
 
   // Non-Crisis Features (gated by subscription status)
@@ -229,12 +227,13 @@ export interface SubscriptionStore {
    * the platform transaction. Idempotent: safe to call repeatedly with the
    * same purchase (verifyReceipt server side will dedupe on orderId).
    */
-  processVerifiedPurchase: (purchase: unknown, interval: SubscriptionInterval) => Promise<void>;
-  restorePurchases: () => Promise<void>;
+  /** True once the purchase is persisted and acknowledged; false if an erasure abandoned it. */
+  processVerifiedPurchase: (purchase: unknown, interval: SubscriptionInterval) => Promise<boolean>;
+  /** `restored` counts only purchases actually applied (DEBUG-720). */
+  restorePurchases: () => Promise<{ found: number; restored: number }>;
   cancelSubscription: () => Promise<void>;
 
   // Receipt Verification
-  verifyReceipt: () => Promise<boolean>;
 
   // Feature Access
   checkFeatureAccess: (feature: keyof FeatureAccess) => boolean;
@@ -330,8 +329,6 @@ export const SUBSCRIPTION_PRICING = {
  */
 export const CRISIS_FEATURES = [
   'crisisButton',
-  'crisisContacts',
-  'safetyPlan',
   'nineEightEightAccess'
 ] as const;
 
@@ -343,8 +340,6 @@ export function calculateFeatureAccess(status: SubscriptionStatus): FeatureAcces
   // Crisis features: ALWAYS accessible (hardcoded true)
   const crisisAccess = {
     crisisButton: true as const,
-    crisisContacts: true as const,
-    safetyPlan: true as const,
     nineEightEightAccess: true as const
   };
 

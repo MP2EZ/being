@@ -30,6 +30,7 @@ import {
   StoicPracticeState,
   flushStoicPracticePersist,
 } from '@/features/practices/stores/stoicPracticeStore';
+import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
 
 // Mock SecureStore
 jest.mock('expo-secure-store', () => ({
@@ -37,6 +38,10 @@ jest.mock('expo-secure-store', () => ({
   getItemAsync: jest.fn(() => Promise.resolve(null)),
   deleteItemAsync: jest.fn(() => Promise.resolve()),
 }));
+
+// FEAT-667: consent boots at `loading`, which the Art. 9 write gate defers. This suite
+// is about persistence, not consent, so it runs as a consenting user.
+beforeEach(() => seedWellnessWriteConsent('granted'));
 
 describe('StoicPracticeStore', () => {
   beforeEach(async () => {

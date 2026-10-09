@@ -20,7 +20,7 @@ there is **no dual-write**. (Verdict from the crisis + compliance + architect pl
 | Sink | Carries | Legal basis / gate | Sanitizer | Identity |
 |---|---|---|---|---|
 | **PostHog (EU)** | Consent-gated **product** analytics only (screen views, feature counts, lifecycle, errors). **Never** crisis or wellness-derived signal. | User opt-in (`analyticsEnabled` && !universalOptOut), read from the consent store at every emit via `useAnalyticsConsent()`. The SDK **is** initialized before consent (DEBUG-559) but is constructed opted-out and network-suppressed — see PostHogProvider below. | `PHIFilter` — whitelist **reject-gate** (drops anything score-shaped or PHI-keyworded). | device-persistent `distinct_id`; deletable on request. |
-| **Supabase `analytics_events`** | **Vital-interest** safety telemetry (the crisis-detection event) **+ operational** telemetry (backup/sync ops). | Crisis: GDPR Art. 6(1)(d) vital interests — fires regardless of analytics consent **and** universal opt-out. Ops: legitimate-interest + `canPerformOperation` (T4). | `sanitizeAnalyticsProperties` — **bucket-transform** (accepts severity, down-converts; never raw scores). | persistent anonymous `user_id` (`auth.uid()`) + a bounded-lifetime `session_id` rotating at the UTC day boundary and after 30 min idle (INFRA-568). |
+| **Supabase `analytics_events`** | **Vital-interest** safety telemetry (the crisis-detection event) **+ operational** telemetry (backup/sync ops). | Crisis: GDPR Art. 6(1)(d) vital interests — fires regardless of analytics consent **and** universal opt-out. Ops: recorded basis is legitimate interest, but the OPERATIVE control is a consent signal — `trackEvent` returns early unless `canPerformOperation('cloud_sync')` (T4/T5). DEBUG-625 records the consequence: where a consent toggle is what actually permits the processing, it must be informed and specific for it, so the six ops events are disclosed on the cloudSync consent card (`operationalEvents.ts` is the shared list the card is tested against). | `sanitizeAnalyticsProperties` — **bucket-transform** (accepts severity, down-converts; never raw scores). | persistent anonymous `user_id` (`auth.uid()`) + a bounded-lifetime `session_id` rotating at the UTC day boundary and after 30 min idle (INFRA-568). |
 | **Custom REST API (`api.being.fyi`)** | **REMOVED** (INFRA-214 T2). Was never deployed. | — | — | — |
 
 **Shared invariant (both sinks):** no raw PHQ-9/GAD-7 integer ever leaves the device — PostHog
@@ -30,7 +30,9 @@ unified: they enforce opposite contracts (reject-gate vs. accept-and-bucket).
 ### Current-state audit (what INFRA-214 found, verified 2026-06-01/02)
 
 1. **PostHog-direct — LIVE, the only working path.** Crisis events limited to
-   `crisis_resources_viewed` / `crisis_hotline_tapped` (no properties). No crisis-detection
+   `crisis_resources_viewed` / `crisis_hotline_tapped` (no properties — still true of
+   `crisis_resources_viewed`; `crisis_hotline_tapped` gained `primary_988` in FEAT-543,
+   see the ruling below). No crisis-detection
    event existed. PostHog project "Being" (111221) had zero product events (pre-launch + dev
    no-ops PostHog).
 2. **Supabase `analytics_events` — table live, crisis emitters orphaned.** Only backup/sync
@@ -117,8 +119,8 @@ Being's analytics follows a simple rule: **track feature usage, never health dat
 | Screen views | Assessment scores (PHQ-9, GAD-7) |
 | Feature usage counts | Mood values or selections |
 | Session duration | Journal content |
-| Performance metrics | Crisis contact details |
-| App version, platform | Any health outcomes |
+| Performance metrics | Any health outcomes |
+| App version, platform | |
 
 This eliminates the need for HIPAA Business Associate Agreements (BAAs). If no PHI is transmitted, no BAA is required.
 
@@ -172,7 +174,9 @@ Wraps the app and provides PostHog context. Key behaviors:
 - **Consent-gated, by opt state rather than by mounting**: `ConsentSync` calls
   `optIn()`/`optOut()` on the existing client as consent changes, and every emit independently
   checks `useAnalyticsConsent()` in `useAnalytics.trackEvent`. Client presence is **not** a
-  consent signal and must never be treated as one.
+  consent signal and must never be treated as one. Revoking consent never unmounts
+  `<PHProvider>` — it opts the client out and purges its unsent queue (below).
+- **Withdrawal purges the queue (DEBUG-686)**: see *Consent-withdrawal queue purge* below.
 - **Silent before consent**: the client is constructed with `defaultOptIn: false` **plus**
   `disableRemoteConfig: true`, `preloadFeatureFlags: false` and `disableSurveys: true`.
   Those three are load-bearing, not belt-and-braces: the SDK's init sequence gates on
@@ -185,6 +189,33 @@ Wraps the app and provides PostHog context. Key behaviors:
 - **Batching**: 10 events or 30 seconds before transmission
 
 **Helper Hook:** `usePostHogConfigured()` - Returns true if PostHog API key is configured (for conditional UI rendering)
+
+### Consent-withdrawal queue purge (DEBUG-686)
+**Location:** `src/core/analytics/consentWithdrawalPurge.ts` (installed by `ConsentSync`),
+`analyticsQueuePurge.ts`, `analyticsConsentOutcome.ts`
+
+`optOut()` gates only capture. The SDK's `flush()` checks `disabled`, never `optedOut`, and it
+runs on every AppState change, on the 30 s timer and at the next launch from the persisted
+queue — so events captured while consented used to transmit after withdrawal. Now:
+
+- **Outcome per consent status** (`analyticsConsentOutcome`, exhaustive over `ConsentStatus`):
+  `valid` + analytics on + no universal opt-out → `emit`; `loading` → `hold`; every other
+  status, and `valid` with analytics off or universal opt-out → `purge`.
+- **Synchronous**: a consent-store subscription runs inside the store write, so no flush that
+  starts after the write can read a pre-withdrawal event. On `purge` it calls `optOut()`, then
+  nulls `Queue` and `LogsQueue` through the live client. Withdrawal edge only — the write that
+  flips to `emit` never purges, so a re-grant starts with an empty queue.
+- **Before init**: the purge is sequenced through the SDK's own `wrap()`, so it runs after the
+  storage preload has merged the persisted file and before any later flush reads the queue —
+  without writing over the file the preload is still reading.
+- **Not done**: no `flush()`, no `reset()` (a withdrawn-then-re-granted user keeps the same
+  `distinct_id` — compliance ruling 8(b)), no change to `POSTHOG_OPTIONS`. A batch already in
+  flight at the moment of withdrawal is not recalled (ruling 8(a), accepted as bounded).
+- **Crisis telemetry is untouched**: `crisis_detected` queues in Supabase's own AsyncStorage
+  queue under a vital-interest basis; the purge modules import nothing from
+  `core/services/supabase/` or `features/crisis/`.
+
+Pinned against the real SDK by `PostHogProvider.consentWithdrawalPurge.privacy.test.ts`.
 
 ### PHIFilter
 **Location:** `src/core/analytics/PHIFilter.ts`
@@ -199,7 +230,7 @@ DEBUG-536 restored six of those twelve *with* emitters, which is the only way ba
   never a raw elapsed value), `app_backgrounded` (`duration_seconds` — FOREGROUND DWELL
   only, never time away)
 - Navigation: `screen_viewed`
-- Crisis: `crisis_resources_viewed`, `crisis_hotline_tapped`
+- Crisis: `crisis_resources_viewed` (no properties), `crisis_hotline_tapped` — `{primary_988: boolean}` only (FEAT-543)
 - Settings: `settings_opened`, `consent_changed`
 - Onboarding: `onboarding_started/completed/step_completed`
 - Learn: `learn_content_viewed`, `learn_module_started`
@@ -265,6 +296,28 @@ The four domain tokens are additionally in the blocklist below, so a future
 reintroduction of a `domain` property fails closed instead of shipping. Pinned by
 `app/__tests__/privacy/guidanceAnalyticsBoundary.contract.test.ts`.
 
+**`crisis_hotline_tapped` carries `primary_988` and nothing else — also a ruling.**
+The boolean is `true` only for the pinned footer 988 button and `false` for a phone tap
+on any other listed resource. It exists to validate the "988 in under three taps" safety
+commitment from behaviour rather than assume it from layout.
+
+*Not an engagement metric.* A rising count of crisis-hotline taps is **not** a success
+signal and must never be presented as one — more people reaching crisis resources is not
+a product win. The only supported reading is the primary-vs-secondary SPLIT: whether the
+affordance the safety design depends on is the one people actually use.
+
+*Never a resource identifier.* `trevor_project` / `veterans_crisis_line` and the like are
+special-category inferences about the user (LGBTQ+ youth, veteran status) on exactly the
+footing as `guidance_opened`'s `domain` above, and a numeric rank proxies the identifier
+once section order is known. Unlike the domain tokens, this one is **not** mechanically
+blocked — the resource-id strings are not in the keyword list — so it is a review-time
+constraint. Pinned by `app/__tests__/privacy/phiFilterScanSurface.privacy.test.ts`
+(the event validates WITH the boolean, and still rejects a resource name).
+
+*Scope.* Phone taps only. The Crisis Text Line SMS path injects no `onTap` and has
+emitted nothing since FEAT-137, so `false` means "a phone tap on a non-988 resource",
+not "every non-988 crisis contact". Do not read a `false` count as covering text.
+
 **Blocked PHI Keywords:**
 `score`, `phq`, `gad`, `severity`, `result`, `mood`, `feeling`, `emotion`, `anxious`, `depressed`, `crisis_contact`, `emergency_contact`, `hotline_number`, `suicid`, `harm`, `journal`, `note`, `entry`, `reflection`, `thought`, `email`, `phone`, `name`, `address`, `conflict`, `career`, `grief`, `pain`
 
@@ -302,12 +355,14 @@ and the local wipe. It is NOT a standalone user-facing analytics control:
 DEBUG-534 ruled the privacy policy's "Delete Analytics Data" wording is corrected
 in copy rather than built.
 
-**It resets THROUGH a live instance, never around one.** Revoking consent
-unmounts `<PHProvider>` but does not destroy the client, which keeps an in-memory
-cache that re-persists on its next write — so deleting the storage files under a
-live instance restores the pre-erasure id and reads as a fix. The client is
-registered at module scope so the reset can reach an instance that exists but is
-no longer rendered.
+**It resets THROUGH a live instance, never around one.** The client is never
+destroyed while the process lives — since DEBUG-559 `<PHProvider>` is always
+mounted and revoking consent never unmounts it — and it keeps an in-memory cache
+that re-persists on its next write, so deleting the storage files under a live
+instance restores the pre-erasure id and reads as a fix. The client is registered
+at module scope at launch so the reset reaches it from outside the render tree.
+The queue nulling is shared with the consent-withdrawal purge
+(`purgeAnalyticsQueues`, DEBUG-686).
 
 ---
 
@@ -486,7 +541,6 @@ Required disclosure for privacy policy:
 > - Assessment scores (PHQ-9, GAD-7)
 > - Mood check-in values or notes
 > - Journal entries
-> - Crisis contact information
 > - Any mental health data
 >
 > **Your Control:**

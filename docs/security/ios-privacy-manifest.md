@@ -15,7 +15,7 @@ This document describes the data collection declarations in `app/ios/Being/Priva
 - Practice completion status (meditation, breathing exercises)
 
 **Justification:**
-This data is classified as "Health" data per Apple's App Privacy Details categories because it relates to the user's mental health and medical state. PHQ-9 and GAD-7 are clinically validated screening instruments for depression and anxiety.
+This data is classified as "Health" data per Apple's App Privacy Details categories because it relates to the user's mental health and medical state. PHQ-9 and GAD-7 are widely used wellness self-screening questionnaires for mood and anxiety.
 
 **Privacy Configuration:**
 | Property | Value | Justification |

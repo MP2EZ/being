@@ -1,5 +1,13 @@
 # TypeScript Safety Guide for Being
 
+> ⚠️ **HISTORICAL DESIGN RECORD — not maintained against the code (MAINT-617, 2026-09-14).**
+> Most types and scripts named here (`PHQ9Answer`, `EncryptedData<T>`, `DataSensitivity`,
+> `validate:types`, `typecheck:strict`) do not exist. Use `npm run typecheck` and the types beside their features.
+>
+> **The emergency-contact and crisis-plan references here are NOT features of the app.** No emergency
+> contact system or crisis plan exists. 988 access and score-based crisis detection (PHQ-9 ≥15/≥20, Q9>0,
+> GAD-7 ≥15) are live and not covered by this notice.
+
 ## Overview
 
 This guide outlines the enhanced TypeScript implementation designed to ensure **clinical accuracy** and **user safety** in the Being mental health application. Type errors in mental health applications are not just bugs – they can be life-threatening failures in crisis situations.

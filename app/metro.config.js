@@ -16,22 +16,19 @@
  */
 
 const { getDefaultConfig } = require('expo/metro-config');
-const path = require('path');
 
 // Initialize default configuration with minimal customization
 const config = getDefaultConfig(__dirname);
 
-// Essential TypeScript path aliases only
-config.resolver.alias = {
-  '@': path.resolve(__dirname, 'src'),
-  '@/components': path.resolve(__dirname, 'src/components'),
-  '@/screens': path.resolve(__dirname, 'src/screens'),
-  '@/services': path.resolve(__dirname, 'src/services'),
-  '@/store': path.resolve(__dirname, 'src/store'),
-  '@/types': path.resolve(__dirname, 'src/types'),
-  '@/utils': path.resolve(__dirname, 'src/utils'),
-  '@/api': path.resolve(__dirname, 'src/api'),
-};
+// No `config.resolver.alias` block here, deliberately (MAINT-623).
+//
+// Metro does not implement that option: `alias` appears nowhere in
+// metro-resolver@0.84.4 or @expo/metro-config, so the block this file used to
+// carry resolved nothing and had never resolved anything. `@/` works at bundle
+// time because Expo CLI reads tsconfig.json's `compilerOptions.paths` via its
+// `tsconfigPaths` experiment, which defaults on and app.json does not disable.
+//
+// Add path aliases to app/tsconfig.json, not here.
 
 /**
  * Production Minification Configuration

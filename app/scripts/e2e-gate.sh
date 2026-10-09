@@ -305,6 +305,16 @@ if [ "$VERDICT" != "MATCH_CLEAN" ]; then
   exit 1
 fi
 
+# INFRA-657 — record that THIS tree verified on THIS simulator, outside the container, so a
+# flow stage that later finds the app uninstalled by a peer can rebuild once instead of
+# refusing. Only when a caller names the path (b-close-run.sh does, per run). Fails OPEN:
+# a missing receipt costs only the recovery, never this gate's verdict or exit code.
+if [ -n "${E2E_GATE_RECEIPT_PATH:-}" ]; then
+  ( cd "$CALLER_ROOT/app" && node scripts/e2e-provenance.js receipt "$APP" "$E2E_GATE_RECEIPT_PATH" \
+      --sim "$SIM_UDID" --item "$ITEM" --gate "$$" ) >&2 \
+    || echo "⚠️  e2e-gate: could not write the gate receipt — a later missing app will not auto-recover." >&2
+fi
+
 echo ""
 echo "✅ Gate artifact ready, and it verifies from $CALLER_ROOT."
 echo "   built in:  $GATE ($(echo "$SHA" | cut -c1-8))"

@@ -89,6 +89,7 @@ import {
 } from 'react-native';
 import { semantic, spacing, borderRadius, typography } from '@/core/theme';
 import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { WELLNESS_LABELS } from '@/features/assessment/types/wellnessLabels';
 
 interface ThresholdEducationModalProps {
   visible: boolean;
@@ -252,13 +253,13 @@ const ThresholdEducationModal: React.FC<ThresholdEducationModalProps> = ({
             accessibilityRole="header"
             accessible
           >
-            About Assessment Scoring
+            About Wellness Screening Scores
           </Text>
 
           <View style={styles.section}>
-            <Text style={styles.sectionTitle}>What Assessments Measure</Text>
+            <Text style={styles.sectionTitle}>What These Screenings Measure</Text>
             <Text style={styles.bodyText}>
-              The PHQ-9 and GAD-7 are scientifically-validated tools that help you notice patterns in your mood and anxiety over the past two weeks. They're a starting point for understanding your experience, not a diagnosis.
+              The PHQ-9 and GAD-7 are widely used wellness screening tools that help you notice patterns in your mood and anxiety over the past two weeks. They're a starting point for understanding your experience, not a diagnosis.
             </Text>
           </View>
 
@@ -268,10 +269,10 @@ const ThresholdEducationModal: React.FC<ThresholdEducationModalProps> = ({
               Scores fall into ranges like "minimal," "mild," "moderate," or "severe." These categories help you and your healthcare provider understand what level of support might be helpful.
             </Text>
             <Text style={styles.bodyText}>
-              <Text style={styles.bold}>PHQ-9 (Depression):</Text> Scores range from 0-27
+              <Text style={styles.bold}>{WELLNESS_LABELS.phq9}:</Text> Scores range from 0-27
             </Text>
             <Text style={styles.bodyText}>
-              <Text style={styles.bold}>GAD-7 (Anxiety):</Text> Scores range from 0-21
+              <Text style={styles.bold}>{WELLNESS_LABELS.gad7}:</Text> Scores range from 0-21
             </Text>
           </View>
 

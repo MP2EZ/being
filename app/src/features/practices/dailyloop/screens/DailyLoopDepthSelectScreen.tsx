@@ -18,8 +18,13 @@ import React from 'react';
 import { View, Text, Pressable, ScrollView, StyleSheet, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { colorSystem, spacing, borderRadius, typography, getTheme, semantic } from '@/core/theme';
+import { decideWellnessWrite, useConsentStore } from '@/core/stores/consentStore';
 import type { DailyLoopDepth } from '@/features/practices/types/flows';
 import { DEPTH_LABELS, DEPTH_PICKER_COPY } from '../config/tenseMode';
+import { WELLNESS_WITHHELD_NOTE } from '@/features/practices/shared/wellnessWithheldNote';
+
+// DEBUG-699 moved the FEAT-669 copy to a shared leaf; re-exported so existing imports hold.
+export { WELLNESS_WITHHELD_NOTE };
 
 /**
  * DEBUG-469 — horizontal inset reserving the floating crisis button's touch band.
@@ -66,6 +71,15 @@ const DailyLoopDepthSelectScreen: React.FC<DailyLoopDepthSelectScreenProps> = ({
   const { fontScale } = useWindowDimensions();
   // Evaluated ONCE, here — never inside the map, and never per depth.
   const blurbsOnCards = fontScale < BLURB_RELOCATION_FONT_SCALE;
+  // FEAT-669: this screen is the daily loop's display-only notice host (the capture
+  // screens below it are in wellnessWriteConsentBoundary's NAMED_FILES). The two
+  // selectors only re-render on a consent change; the decision is decideWellnessWrite(),
+  // so the note shows exactly when the stores withhold. `loading` is not a withdrawal.
+  // The decision toggles the note and nothing else: both choices behave identically.
+  useConsentStore((s) => s.consentStatus);
+  useConsentStore((s) => s.consentCache.canProcessMentalHealthData);
+  const writeDecision = decideWellnessWrite();
+  const writesWithheld = !writeDecision.allowed && writeDecision.reason !== 'loading';
   return (
     <View style={styles.container} testID="daily-loop-depth-select-screen">
       {/* DEBUG-469 — the intro SCROLLS, the choices are PINNED.
@@ -87,12 +101,21 @@ const DailyLoopDepthSelectScreen: React.FC<DailyLoopDepthSelectScreenProps> = ({
               {`${DEPTH_LABELS[depth].label} — ${DEPTH_LABELS[depth].blurb}`}
             </Text>
           ))}
+
+        {/* FEAT-669 — last in the intro, outside the blurb conditional so it renders at
+            every font scale, and never inside the pinned choices (DEBUG-469). Plain text:
+            no role, no live region. Absent entirely, with no wrapper, when writes are kept. */}
+        {writesWithheld ? (
+          <Text style={styles.wellnessWithheldNote} testID="daily-loop-wellness-withheld-note">
+            {WELLNESS_WITHHELD_NOTE}
+          </Text>
+        ) : null}
       </ScrollView>
 
       {/* A plain flex sibling — never `position: 'absolute'` (which re-introduces the RN
           parent-padding-box trap DEBUG-403 records) and never a native Modal or the root
           overlay slot, either of which would paint ABOVE the crisis button. */}
-      <SafeAreaView edges={['bottom']} style={styles.choices}>
+      <SafeAreaView edges={['bottom']} style={styles.choices} testID="daily-loop-depth-choices">
       {/* FEAT-301's guarantee travels WITH the controls (DEBUG-469). Unconditional at every
           font scale: it is the last element that may ever be dropped from this region. */}
       <Text style={styles.guarantee}>{DEPTH_PICKER_COPY.guarantee}</Text>
@@ -172,6 +195,12 @@ const styles = StyleSheet.create({
     fontSize: typography.bodyRegular.size,
     color: semantic.text.secondary,
     marginBottom: spacing[12],
+  },
+  // No margin of its own: the siblings above already carry their marginBottom.
+  wellnessWithheldNote: {
+    fontSize: typography.bodySmall.size,
+    color: semantic.text.muted,
+    lineHeight: typography.bodySmall.size * 1.5,
   },
 });
 

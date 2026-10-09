@@ -6,7 +6,6 @@
  * - Crisis detection accuracy: 100% precision required (PHQ-9≥15 moderate, ≥20 severe, GAD-7≥15)
  * - Crisis response time: <200ms maximum for life-saving features
  * - 988 hotline accessibility: Must work in all scenarios (offline, network issues)
- * - Emergency contact integration: Reliable access to support systems
  * - Crisis button accessibility: WCAG compliant for all users including disabilities
  * - Data preservation: Crisis state must survive app crashes/restarts
  * 
@@ -59,17 +58,9 @@ const mockCrisisServices = {
     call: jest.fn().mockResolvedValue({ connected: true, responseTime: 150 }),
     isAvailable: jest.fn().mockReturnValue(true)
   },
-  emergencyContacts: {
-    getContacts: jest.fn().mockResolvedValue([
-      { name: 'Emergency Contact 1', phone: '+1234567890' },
-      { name: 'Crisis Counselor', phone: '+0987654321' }
-    ]),
-    call: jest.fn().mockResolvedValue({ connected: true })
-  },
   crisisResources: {
     getOfflineResources: jest.fn().mockReturnValue([
-      { type: 'coping_strategy', content: 'Deep breathing exercise' },
-      { type: 'safety_plan', content: 'Personal safety plan steps' }
+      { type: 'coping_strategy', content: 'Deep breathing exercise' }
     ])
   }
 };
@@ -263,18 +254,6 @@ describe('Crisis Safety Testing Automation', () => {
       expect(crisisDetected).toBe(true);
     });
 
-    test('emergency contact access performance', async () => {
-      const timer = PERFORMANCE_MONITOR.startTimer('emergency-contacts');
-      
-      const contacts = await mockCrisisServices.emergencyContacts.getContacts();
-      
-      const duration = timer.end();
-      
-      expect(duration).toBeLessThan(150);
-      expect(contacts).toHaveLength(2);
-      expect(contacts[0]).toHaveProperty('phone');
-    });
-
     test('performance under high load simulation', async () => {
       // Simulate multiple concurrent crisis scenarios
       const concurrentTests = Array.from({ length: 10 }, async (_, i) => {
@@ -341,12 +320,6 @@ describe('Crisis Safety Testing Automation', () => {
       expect(offlineResources).toContainEqual(
         expect.objectContaining({
           type: 'coping_strategy'
-        })
-      );
-
-      expect(offlineResources).toContainEqual(
-        expect.objectContaining({
-          type: 'safety_plan'
         })
       );
     });
@@ -448,7 +421,6 @@ describe('Crisis Safety Testing Automation', () => {
         
         expect(offlineResources.length).toBeGreaterThan(0);
         expect(offlineResources.some(resource => resource.type === 'coping_strategy')).toBe(true);
-        expect(offlineResources.some(resource => resource.type === 'safety_plan')).toBe(true);
       }
     });
 
@@ -570,9 +542,7 @@ describe('Crisis Safety Testing Automation', () => {
   describe('📊 Crisis Analytics & Monitoring', () => {
     test('crisis intervention success tracking', () => {
       const crisisInterventions = [
-        { timestamp: Date.now(), action: '988_called', success: true, responseTime: 150 },
-        { timestamp: Date.now(), action: 'emergency_contact_notified', success: true, responseTime: 100 },
-        { timestamp: Date.now(), action: 'safety_plan_activated', success: true, responseTime: 50 }
+        { timestamp: Date.now(), action: '988_called', success: true, responseTime: 150 }
       ];
       
       const successRate = crisisInterventions.filter(i => i.success).length / crisisInterventions.length;

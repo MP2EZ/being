@@ -82,6 +82,7 @@ const TWO_DEVICES = [
 ];
 const REAL_DRIVER_OWNERSHIP = path.resolve(__dirname, '../../scripts/e2e-driver-ownership.sh');
 const REAL_SIM_LOCK = path.resolve(__dirname, '../../scripts/e2e-sim-lock.sh');
+const REAL_SIM_ATTACHMENTS = path.resolve(__dirname, '../../scripts/e2e-sim-attachments.sh');
 const REAL_HOST_CONTENTION = path.resolve(__dirname, '../../scripts/e2e-host-contention.sh');
 const REAL_CONTENT_SIZE = path.resolve(__dirname, '../../scripts/e2e-content-size.sh');
 const REAL_TELEMETRY = path.resolve(__dirname, '../../scripts/e2e-telemetry.sh');
@@ -122,6 +123,44 @@ function writeStub(dir, name, body) {
   const p = path.join(dir, name);
   fs.writeFileSync(p, `#!/usr/bin/env bash\n${body}\n`, { mode: 0o755 });
   return p;
+}
+
+/**
+ * INFRA-754 — the macOS SDK arms every `xcrun` stub needs, modelled on the real tool
+ * (measured on macOS 27 / Xcode 26.6 / CLT 27.0):
+ *   * `xcrun --sdk macosx --show-sdk-path` resolves Xcode's SDK and IGNORES $SDKROOT;
+ *   * bare `xcrun --show-sdk-path` (what a bare `clang` uses) HONOURS $SDKROOT and
+ *     otherwise falls back to the CommandLineTools SDK — the skew the pin exists for.
+ * Without these arms the stubs' catch-all `exit 0` prints nothing, and the build script's
+ * guard would refuse in every spec in this file.
+ *
+ * @param root              sandbox root; both SDK dirs are created under it
+ * @param opts.xcodeSdk     'present' | 'missing' — whether Xcode's macOS SDK resolves
+ * @param opts.sdkrootIgnored  bare --show-sdk-path ignores $SDKROOT (the next skew)
+ * @returns {{lines: string[], xcodeSdk: string, cltSdk: string}}
+ */
+const XCODE_SDK_REL =
+  'sdks/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX26.5.sdk';
+const CLT_SDK_REL = 'sdks/Library/Developer/CommandLineTools/SDKs/MacOSX.sdk';
+function xcrunSdkArms(root, { xcodeSdk = 'present', sdkrootIgnored = false } = {}) {
+  const xcode = path.join(root, XCODE_SDK_REL);
+  const clt = path.join(root, CLT_SDK_REL);
+  fs.mkdirSync(xcode, { recursive: true });
+  fs.mkdirSync(clt, { recursive: true });
+  const lines = [
+    'if [ "$1" = "--sdk" ] && [ "$2" = "macosx" ] && [ "$3" = "--show-sdk-path" ]; then',
+    ...(xcodeSdk === 'missing'
+      ? ['  echo "xcrun: error: unable to lookup item \'Path\' in SDK \'macosx\'" >&2; exit 1']
+      : [`  echo "${xcode}"; exit 0`]),
+    'fi',
+    'if [ "$1" = "--sdk" ] && [ "$2" = "macosx" ] && [ "$3" = "--show-sdk-version" ]; then',
+    '  echo "26.5"; exit 0',
+    'fi',
+    'if [ "$1" = "--show-sdk-path" ]; then',
+    sdkrootIgnored ? `  echo "${clt}"; exit 0` : `  echo "\${SDKROOT:-${clt}}"; exit 0`,
+    'fi',
+  ];
+  return { lines, xcodeSdk: xcode, cltSdk: clt };
 }
 
 /**
@@ -190,6 +229,9 @@ function makeProject(opts = {}) {
   // reasoning as the device resolver — a stub that always grants the lock would hide a
   // wiring mistake that wedges the gate on a real machine.
   fs.copyFileSync(REAL_SIM_LOCK, path.join(root, 'scripts', 'e2e-sim-lock.sh'));
+  // INFRA-692: e2e-safety.sh sources the recording sweep. Real file: it returns 0 on every
+  // path, and without the sandbox's simctl reporting a dataPath it disables itself.
+  fs.copyFileSync(REAL_SIM_ATTACHMENTS, path.join(root, 'scripts', 'e2e-sim-attachments.sh'));
   // INFRA-476: e2e-safety.sh sources the host-contention reporter, so the sandbox must
   // stage it or every test here dies on the source line before reaching anything under
   // test. Real file: it warns and never exits, so staging it cannot change a verdict.
@@ -207,6 +249,23 @@ function makeProject(opts = {}) {
   // cannot touch the shared /tmp log or change a verdict.
   fs.copyFileSync(REAL_TELEMETRY, path.join(root, 'scripts', 'e2e-telemetry.sh'));
   fs.copyFileSync(REAL_CNG_FINGERPRINT, path.join(root, 'scripts', 'cng-fingerprint.js'));
+  // INFRA-691: the disk pre-flight RUNS the orphan sweep. The real sweep reads the real
+  // $HOME — this harness does not sandbox it — and deletes caches, so a stub is staged
+  // UNCONDITIONALLY: the real one must never be reachable from this suite. It records the
+  // call, can stand in for space freed (see runScript's `disk`), and can fail on request.
+  fs.writeFileSync(
+    path.join(root, 'scripts', 'e2e-sim-clean.sh'),
+    [
+      '#!/usr/bin/env bash',
+      'here="$(cd "$(dirname "$0")/.." && pwd)"',
+      'echo "e2e-sim-clean $*" >> "$here/trace.log"',
+      '[ -f "$here/.sweep-fails" ] && exit 1',
+      '[ -f "$here/.df-after-sweep-kb" ] && cp "$here/.df-after-sweep-kb" "$here/.df-avail-kb"',
+      'echo "DerivedData: Reaped 0 orphaned cache(s), ~0 MB reclaimed."',
+      'exit 0',
+    ].join('\n'),
+    { mode: 0o755 }
+  );
 
   fs.writeFileSync(path.join(root, 'eas.json'), JSON.stringify(EAS_JSON, null, 2));
   fs.writeFileSync(
@@ -323,6 +382,7 @@ function writeGitStub(stubs, root, mode = 'repo') {
  *                               reproducing the observed Simulator.app auto-boot. A check
  *                               performed before the build does not hold for its duration.
  * @param opts.simUdid           INFRA-405 — value for the E2E_SIM_UDID override env var.
+ * @param opts.sdk               INFRA-754 — {xcodeSdk, sdkrootIgnored}; see xcrunSdkArms.
  */
 function runScript(opts = {}) {
   const {
@@ -354,6 +414,12 @@ function runScript(opts = {}) {
     // INFRA-435: override env for a single run. Added so the disk-headroom pre-flight,
     // which is disabled for every other case, can be switched on for its own test.
     extraEnv = {},
+    // INFRA-691: shim `df` so free space is scripted rather than read off the real disk.
+    // { availGb, afterSweepGb, sweepFails } — afterSweepGb is what `df` reports once the
+    // staged sweep stub has run with --yes; omit it and the sweep frees nothing.
+    disk = null,
+    // INFRA-754: how the stubbed xcrun answers the macOS SDK queries (see xcrunSdkArms).
+    sdk = {},
   } = opts;
 
   const root = makeProject({ iosExists, cngStamp });
@@ -366,6 +432,23 @@ function runScript(opts = {}) {
   const containerFor = (udid) => path.join(containersRoot, udid, `${BUNDLE_ID}.app`);
   const container = containerFor(bootedDevices[0] ? bootedDevices[0].udid : 'NONE');
   const trace = path.join(root, 'trace.log');
+
+  if (disk) {
+    const kb = (gb) => String(gb * 1048576);
+    fs.writeFileSync(path.join(root, '.df-avail-kb'), kb(disk.availGb));
+    if (disk.afterSweepGb !== undefined) {
+      fs.writeFileSync(path.join(root, '.df-after-sweep-kb'), kb(disk.afterSweepGb));
+    }
+    if (disk.sweepFails) fs.writeFileSync(path.join(root, '.sweep-fails'), '');
+    writeStub(
+      stubs,
+      'df',
+      [
+        'echo "Filesystem 1024-blocks Used Available Capacity Mounted on"',
+        `echo "/dev/disk3s5 999999999 1 $(cat "${root}/.df-avail-kb") 1% /System/Volumes/Data"`,
+      ].join('\n')
+    );
+  }
 
   // Booted-device state lives in a FILE so the build stub can mutate it mid-run.
   const bootedStatePath = path.join(root, 'booted-devices.json');
@@ -439,6 +522,10 @@ function runScript(opts = {}) {
     `echo "npx $@" >> "${trace}"`,
     'SUB=""',
     'for a in "$@"; do case "$a" in prebuild) SUB=prebuild ;; run:ios) SUB=run ;; esac; done',
+    // INFRA-676: the locale `pod install` inherits — it runs inside both subcommands.
+    `echo "npx-locale \${SUB:-other} LC_ALL=\${LC_ALL:-unset} LC_CTYPE=\${LC_CTYPE:-unset} LANG=\${LANG:-unset}" >> "${trace}"`,
+    // INFRA-754: the macOS SDK `pod install`'s bare clang inherits — same two subcommands.
+    `echo "npx-sdkroot \${SUB:-other} SDKROOT=\${SDKROOT:-unset}" >> "${trace}"`,
     'if [ "$SUB" = "prebuild" ]; then',
     `  mkdir -p "${path.join(root, PRODUCT_REL)}"`,
     '  exit 0',
@@ -506,10 +593,12 @@ function runScript(opts = {}) {
   //     the build installs to the FIRST, which is the divergence that produced the reported
   //     failure — deterministic here so CI can reproduce it without a simulator.
   //   * containers are per-device.
+  const sdkArms = xcrunSdkArms(root, sdk);
   writeStub(
     stubs,
     'xcrun',
     [
+      ...sdkArms.lines,
       `BOOTED_JSON="${bootedStatePath}"`,
       `DEVICE_JSON="${deviceStatePath}"`,
       `CONTAINERS="${containersRoot}"`,
@@ -670,6 +759,9 @@ function runScript(opts = {}) {
       // under test. The check gets its own opt-in test below.
       E2E_MIN_FREE_GB: '0',
       CI: '', // export:embed silently discards --reset-cache when CI is set
+      // INFRA-754: an operator's exported SDKROOT must not change results. Empty reads as
+      // unset to the script; a per-case extraEnv still overrides it.
+      SDKROOT: '',
       ...(simUdid ? { E2E_SIM_UDID: simUdid } : {}),
       ...extraEnv,
     },
@@ -704,6 +796,8 @@ function runScript(opts = {}) {
     deviceStatePath,
     stubs,
     root,
+    xcodeSdk: sdkArms.xcodeSdk,
+    cltSdk: sdkArms.cltSdk,
   };
 }
 
@@ -1616,6 +1710,8 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
       stubs,
       'xcrun',
       [
+        // INFRA-754: the same macOS SDK arms as the shared stub, or the guard refuses here.
+        ...xcrunSdkArms(root).lines,
         // INFRA-405: this second inline stub needed the same `-j` JSON treatment as the
         // shared one. It answered every `simctl list` with human-readable text, so device
         // resolution now fails and the script aborts at simulator selection — before it
@@ -1653,6 +1749,7 @@ describe('e2e-sim-build.sh — mid-build tree mutation (the marker must not atte
         ...process.env,
         PATH: `${stubs}:${process.env.PATH}`,
         E2E_SIM_UDID: '', // DEBUG-497, see runBuild — this site bypasses it, same as INFRA-490
+        SDKROOT: '', // INFRA-754, see runScript
         E2E_DEVICE_UDID: '', // DEBUG-497, see runBuild
         E2E_LOCK_ROOT: path.join(root, '.locks'),
         E2E_TELEMETRY_FILE: path.join(root, '.telemetry.jsonl'),
@@ -2356,6 +2453,248 @@ describe('e2e-sim-build.sh — INFRA-435 disk-headroom pre-flight', () => {
     expect(built.status).toBe(0);
     expect(built.buildRan).toBe(true);
   }, 60000);
+
+  /**
+   * INFRA-691: below the floor, the pre-flight reclaims before it refuses. The sweep only
+   * ever reaps caches whose worktree root is gone, so running it unattended costs nothing
+   * a live worktree depends on — and printing the commands instead left a 70 GB pod cache
+   * and a refusal standing between the operator and a build.
+   */
+  it('runs the orphan sweep below the floor, then refuses if it was not enough', () => {
+    const built = runScript({
+      extraEnv: { E2E_MIN_FREE_GB: '10' },
+      disk: { availGb: 2, afterSweepGb: 3 },
+    });
+
+    expect(built.trace).toMatch(/e2e-sim-clean --orphans --yes/);
+    expect(built.status).not.toBe(0);
+    expect(built.output).toMatch(/DISK SPACE/);
+    expect(built.output).toMatch(/Free: 3 GB/);
+    expect(built.trace).not.toMatch(/uninstall/);
+    expect(built.buildRan).toBe(false);
+  }, 60000);
+
+  it('re-checks after the sweep and builds when it freed enough', () => {
+    const built = runScript({
+      extraEnv: { E2E_MIN_FREE_GB: '10' },
+      disk: { availGb: 2, afterSweepGb: 50 },
+    });
+
+    expect(built.trace).toMatch(/e2e-sim-clean --orphans --yes/);
+    expect(built.status).toBe(0);
+    expect(built.buildRan).toBe(true);
+  }, 60000);
+
+  it('does not sweep when there is already room', () => {
+    const built = runScript({ extraEnv: { E2E_MIN_FREE_GB: '10' }, disk: { availGb: 50 } });
+
+    expect(built.trace).not.toMatch(/e2e-sim-clean/);
+    expect(built.buildRan).toBe(true);
+  }, 60000);
+
+  it('a failing sweep still ends in the DISK SPACE refusal, not a bare set -e death', () => {
+    const built = runScript({
+      extraEnv: { E2E_MIN_FREE_GB: '10' },
+      disk: { availGb: 2, sweepFails: true },
+    });
+
+    expect(built.trace).toMatch(/e2e-sim-clean --orphans --yes/);
+    expect(built.status).not.toBe(0);
+    expect(built.output).toMatch(/DISK SPACE/);
+    expect(built.buildRan).toBe(false);
+  }, 60000);
+});
+
+/**
+ * INFRA-676 — CocoaPods dies in `pod install` without a UTF-8 locale.
+ *
+ * Homebrew Ruby derives Encoding.default_external from LC_CTYPE; with none set it is
+ * US-ASCII, and Pod::Config#installation_root raises `Encoding::CompatibilityError: Unicode
+ * Normalization not appropriate for ASCII-8BIT`. The shells the gate is launched from —
+ * Claude Code's Bash tool and the detached /b-close runner — carry no locale, and only the
+ * post-regeneration tier runs `pod install`, so warm builds never showed it. Every case
+ * here forces a regeneration (`cngStamp: 'stale'`) so the prebuild stage is exercised.
+ */
+describe('e2e-sim-build.sh — INFRA-676 UTF-8 locale for CocoaPods', () => {
+  // `undefined` drops the key from the child env (spawnSync skips it), so these are
+  // genuinely unset rather than empty — the shape the Bash tool hands a detached run.
+  const UNSET = { LANG: undefined, LC_ALL: undefined, LC_CTYPE: undefined };
+
+  /** The locale each npx subcommand saw, keyed by subcommand ('prebuild' | 'run'). */
+  const localeSeen = (trace) => {
+    const seen = {};
+    for (const m of trace.matchAll(/^npx-locale (\S+) LC_ALL=(\S+) LC_CTYPE=(\S+) LANG=(\S+)$/gm)) {
+      seen[m[1]] = { LC_ALL: m[2], LC_CTYPE: m[3], LANG: m[4] };
+    }
+    return seen;
+  };
+
+  it.each([
+    ['no locale at all', {}],
+    // LC_ALL outranks LANG, so exporting LANG alone would leave Ruby on US-ASCII here.
+    ['LC_ALL=C over a UTF-8 LANG', { LC_ALL: 'C', LANG: 'en_US.UTF-8' }],
+  ])('exports en_US.UTF-8 to prebuild and run:ios given %s', (_label, env) => {
+    const r = runScript({ cngStamp: 'stale', extraEnv: { ...UNSET, ...env } });
+    expect(r.status).toBe(0);
+    const seen = localeSeen(r.trace);
+    // Control: both stages ran and recorded, so the per-stage match cannot pass vacuously.
+    expect(Object.keys(seen).sort()).toEqual(['prebuild', 'run']);
+    for (const stage of ['prebuild', 'run']) {
+      expect(seen[stage]).toMatchObject({ LC_ALL: 'en_US.UTF-8', LANG: 'en_US.UTF-8' });
+    }
+    expect(r.output).toMatch(/en_US\.UTF-8/);
+  }, 60000);
+
+  it.each([
+    ['LANG=C.UTF-8 (a login zsh)', { LANG: 'C.UTF-8' }],
+    ['LC_CTYPE=UTF-8 (Terminal.app)', { LC_CTYPE: 'UTF-8' }],
+  ])('leaves a caller-supplied UTF-8 locale untouched: %s', (_label, env) => {
+    const r = runScript({ cngStamp: 'stale', extraEnv: { ...UNSET, ...env } });
+    expect(r.status).toBe(0);
+    const seen = localeSeen(r.trace);
+    expect(Object.keys(seen).sort()).toEqual(['prebuild', 'run']);
+    const expected = { LC_ALL: 'unset', LC_CTYPE: 'unset', LANG: 'unset', ...env };
+    for (const stage of ['prebuild', 'run']) {
+      expect(seen[stage]).toEqual(expected);
+    }
+    expect(r.output).not.toMatch(/en_US\.UTF-8/);
+  }, 60000);
+
+  it('pins the export ahead of both build invocations, in code rather than prose', () => {
+    // DEBUG-390: the header comments name `expo run:ios` and the guard's own comment
+    // explains the export, so match comment-stripped source only.
+    const code = fs.readFileSync(REAL_SCRIPT, 'utf8').replace(/^\s*#.*$/gm, '');
+    const exportAt = code.search(/\bexport LANG=en_US\.UTF-8 LC_ALL=en_US\.UTF-8\b/);
+    const prebuildAt = code.search(/\bnpx expo prebuild\b/);
+    const runAt = code.search(/\bBUILD_CMD=\(npx expo run:ios\b/);
+    // Controls: every anchor is found in the stripped slice, so no ordering below compares
+    // against -1.
+    expect(exportAt).toBeGreaterThan(-1);
+    expect(prebuildAt).toBeGreaterThan(-1);
+    expect(runAt).toBeGreaterThan(-1);
+    expect(exportAt).toBeLessThan(prebuildAt);
+    expect(exportAt).toBeLessThan(runAt);
+    // Step 7e's bundle byte-matches keep their per-command LC_ALL=C override: they must stay
+    // byte-wise under the UTF-8 locale this script now exports.
+    expect(code.match(/\bLC_ALL=C grep -aqF\b/g)).toHaveLength(2);
+  });
+});
+
+/**
+ * INFRA-754 — cold gate builds died in `pod install` with
+ * `tapi error: ... libSystem.B.tbd: unknown architecture arm64e.x1-macos`.
+ *
+ * expo-modules-jsi's create-stub-xcframework.sh runs a bare `clang`, which takes xcrun's
+ * DEFAULT macOS SDK. With CommandLineTools 27 installed on a macOS 27 host that default is
+ * the CLT's MacOSX27.0.sdk, while the linker is Xcode 26.6's, which cannot read it. The
+ * script now pins SDKROOT to Xcode's own macOS SDK and refuses, before touching anything,
+ * when the SDK a bare clang would use still differs. Every regeneration case here uses
+ * `cngStamp: 'stale'` so the prebuild stage — where pod install runs — is exercised.
+ */
+describe('e2e-sim-build.sh — INFRA-754 macOS SDK pin for pod install', () => {
+  /** The SDKROOT each npx subcommand saw, keyed by subcommand ('prebuild' | 'run'). */
+  const sdkrootSeen = (trace) => {
+    const seen = {};
+    for (const m of trace.matchAll(/^npx-sdkroot (\S+) SDKROOT=(.*)$/gm)) seen[m[1]] = m[2];
+    return seen;
+  };
+  /** Nothing that mutates simulator state or builds may have run. */
+  const expectUntouched = (r) => {
+    expect(r.prebuildRan).toBe(false);
+    expect(r.buildRan).toBe(false);
+    expect(r.trace).not.toMatch(/^uninstall /m);
+    expect(r.trace).not.toMatch(/^install /m);
+  };
+
+  it.each([
+    // `undefined` drops the key from the child env, so this is genuinely unset.
+    ['unset', { SDKROOT: undefined }],
+    ['empty', { SDKROOT: '' }],
+  ])("exports Xcode's macOS SDK to prebuild and run:ios when SDKROOT is %s", (_label, env) => {
+    const r = runScript({ cngStamp: 'stale', extraEnv: env });
+    expect(r.status).toBe(0);
+    const seen = sdkrootSeen(r.trace);
+    // Control: both stages ran and recorded, so the per-stage match cannot pass vacuously.
+    expect(Object.keys(seen).sort()).toEqual(['prebuild', 'run']);
+    expect(seen.prebuild).toBe(r.xcodeSdk);
+    expect(seen.run).toBe(r.xcodeSdk);
+    // The build log records which SDK pod install linked against.
+    expect(r.output).toContain(r.xcodeSdk);
+    expect(r.output).toMatch(/\b26\.5\b/);
+  }, 60000);
+
+  it("keeps a caller SDKROOT that already names Xcode's macOS SDK", () => {
+    const extraEnv = {};
+    const r = runScript({
+      cngStamp: 'stale',
+      extraEnv,
+      // The sandbox root only exists once runScript makes it; extraEnv is read after this.
+      beforeRun: (root) => {
+        extraEnv.SDKROOT = path.join(root, XCODE_SDK_REL);
+      },
+    });
+    expect(r.status).toBe(0);
+    const seen = sdkrootSeen(r.trace);
+    expect(Object.keys(seen).sort()).toEqual(['prebuild', 'run']);
+    expect(seen.prebuild).toBe(r.xcodeSdk);
+    expect(seen.run).toBe(r.xcodeSdk);
+  }, 60000);
+
+  it('refuses a caller SDKROOT naming the CommandLineTools SDK, before anything is touched', () => {
+    const extraEnv = {};
+    const r = runScript({
+      cngStamp: 'stale',
+      extraEnv,
+      beforeRun: (root) => {
+        extraEnv.SDKROOT = path.join(root, CLT_SDK_REL);
+      },
+    });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/CommandLineTools/);
+    expect(r.output).toContain(r.cltSdk);
+    expect(r.output).toContain(r.xcodeSdk);
+    expectUntouched(r);
+  }, 60000);
+
+  it("refuses when Xcode's macOS SDK cannot be resolved", () => {
+    const r = runScript({ cngStamp: 'stale', sdk: { xcodeSdk: 'missing' } });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toMatch(/xcrun --sdk macosx --show-sdk-path/);
+    expectUntouched(r);
+  }, 60000);
+
+  it('refuses when the SDK a bare clang would use still differs after the export', () => {
+    // The next skew: if xcrun ever stops honouring SDKROOT for the default SDK, the export
+    // alone no longer reaches clang. That must refuse, not build and fail in pod install.
+    const r = runScript({ cngStamp: 'stale', sdk: { sdkrootIgnored: true } });
+    expect(r.status).not.toBe(0);
+    expect(r.output).toContain(r.cltSdk);
+    expect(r.output).toContain(r.xcodeSdk);
+    expectUntouched(r);
+  }, 60000);
+
+  it('pins the guard ahead of every mutation and both build invocations, in code rather than prose', () => {
+    // DEBUG-390: the guard's comment block names prebuild, run:ios and the lock, so match
+    // comment-stripped source only.
+    const code = fs.readFileSync(REAL_SCRIPT, 'utf8').replace(/^\s*#.*$/gm, '');
+    const exportAt = code.search(/\bexport SDKROOT=/);
+    const anchors = {
+      diskSweep: code.search(/\bE2E_MIN_FREE_GB\b/),
+      lock: code.search(/\be2e_lock_acquire "\$SIM_UDID"/),
+      uninstall: code.search(/^xcrun simctl uninstall "\$SIM_UDID"/m),
+      prebuild: code.search(/\bnpx expo prebuild\b/),
+      run: code.search(/\bBUILD_CMD=\(npx expo run:ios\b/),
+    };
+    // Controls: every anchor is found in the stripped slice, so no ordering below compares
+    // against -1.
+    expect(exportAt).toBeGreaterThan(-1);
+    for (const [name, at] of Object.entries(anchors)) {
+      expect([name, at > -1]).toEqual([name, true]);
+      expect([name, exportAt < at]).toEqual([name, true]);
+    }
+    // The resolution is its own assignment: `export X=$(...)` would mask xcrun's exit status.
+    expect(code).not.toMatch(/\bexport SDKROOT="?\$\(/);
+  });
 });
 
 // =====================================================================================

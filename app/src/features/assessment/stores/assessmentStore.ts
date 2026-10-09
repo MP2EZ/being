@@ -25,6 +25,11 @@ import { logSecurity, logPerformance, logError, LogCategory } from '@/core/servi
 import { generateTimestampedId } from '@/core/utils/id';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import supabaseService from '@/core/services/supabase/SupabaseService';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
+import {
+  ASSESSMENT_RETENTION_PERIODS,
+  shouldRetainAssessment,
+} from '@/core/services/data-retention/assessmentRetention';
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { persist, createJSONStorage } from 'zustand/middleware';
@@ -55,6 +60,11 @@ import {
 import { detectCrisis as detectCrisisPure } from '@/features/crisis/types/safety';
 import { showCrisisAlert } from '@/features/crisis/services/crisisAlert';
 import { validateSingleResponse } from '../types/schemas';
+import {
+  applyAssessmentErasureOp,
+  normalizePersistedAssessmentBlob,
+  type AssessmentErasureOp,
+} from './persistedAssessmentBlob';
 
 // Clinical scoring algorithms (validated for 100% accuracy)
 const PHQ9_QUESTIONS = [
@@ -114,22 +124,41 @@ const GAD7_SEVERITY_THRESHOLDS = {
   severe: [15, 21]
 } as const;
 
+type AssessmentErasureFailure = 'read_failed' | 'write_failed';
+
+/** Outcome of an on-disk assessment erasure (FEAT-717 AC1). */
+export type AssessmentErasureResult =
+  | { ok: true; wrote: boolean }
+  | { ok: false; reason: AssessmentErasureFailure };
+
 /**
- * Shape of state persisted by the assessment store. Used to narrow
- * EncryptedAssessmentStorage.load()'s `unknown` return at the recovery
- * call site (audit TS-01).
+ * Drop screenings past their retention period (DEBUG-705), by the same rules
+ * the daily sweep in DataRetentionService applies to the persisted blob.
+ *
+ * Memory can only acquire history through hydration (or a fresh completion),
+ * so filtering there is what stops a pruned record being re-persisted by the
+ * next set() — whichever of hydration and the launch sweep runs first. A record
+ * that ages out while the app stays open is dropped at the next launch.
  */
-interface PersistedAssessmentState {
-  currentSession?: AssessmentSession | null;
-  currentQuestionIndex?: number;
-  answers?: AssessmentAnswer[];
-  completedAssessments?: AssessmentSession[];
-  lastSavedAt?: number;
+function withinRetention(history: AssessmentSession[]): AssessmentSession[] {
+  const now = Date.now();
+  return history.filter((record) => shouldRetainAssessment(record, now, ASSESSMENT_RETENTION_PERIODS));
 }
 
-function isPersistedAssessmentState(value: unknown): value is PersistedAssessmentState {
-  return value !== null && typeof value === 'object' && !Array.isArray(value);
+/**
+ * True when a hydrated blob still carries a non-default in-progress slot (DEBUG-769) —
+ * written by a build that persisted it. Detection only: the slot is never restored.
+ */
+function hasLegacySlot(restored: Partial<AssessmentStoreState>): boolean {
+  return (
+    (restored.currentSession !== undefined && restored.currentSession !== null) ||
+    (Array.isArray(restored.answers) && restored.answers.length > 0) ||
+    (typeof restored.currentQuestionIndex === 'number' && restored.currentQuestionIndex !== 0)
+  );
 }
+
+/** Set by `merge`, consumed by `onRehydrateStorage` (DEBUG-769): one post-hydration write. */
+let legacySlotSeenInHydration = false;
 
 /**
  * Encrypted wellness-data storage for assessment state.
@@ -213,6 +242,72 @@ class EncryptedAssessmentStorage {
     }
   }
 
+  /**
+   * Apply one deletion to the blob ON DISK (FEAT-717 AC1, FEAT-665 slice A2a-ii).
+   * UNWIRED: FEAT-685 routes clearHistory / clearSessionNote / resetAssessment here
+   * while Art. 9 writes are withheld, so a deletion still lands without the write that
+   * carries it also persisting what memory captured during the block.
+   *
+   * It reads the blob itself, with exactly load()'s key, legacy key and options, and
+   * never memory: no store read, no load() (whose catch would turn a failed read into
+   * "absent"). Panel rulings (2026-10-03, 2026-10-05):
+   *   - read throws, or the shape is unrecognised → zero writes, `read_failed`
+   *   - absent → zero writes, success
+   *   - otherwise the envelope at persist's version, from its own storeWellnessBlob
+   *     call (ratchet row `exempt: erasure`); a failed store → `write_failed`
+   *   - failures log content-free at high severity; no logAccess
+   * Never falls back to memory, never writes an empty or partial envelope, and never
+   * widens to deleting the whole blob.
+   */
+  static async applyErasure(op: AssessmentErasureOp): Promise<AssessmentErasureResult> {
+    let raw: unknown;
+    try {
+      raw = await SecureStorageService.retrieveWellnessBlob<unknown>(
+        this.BLOB_KEY,
+        this.LEGACY_SECURE_STORE_KEY,
+        { legacyFormat: 'plaintext_json', sensitivityLevel: 'level_2_assessment_data' }
+      );
+    } catch {
+      return this.erasureFailed('read_failed');
+    }
+    if (raw === null || raw === undefined) return { ok: true, wrote: false };
+
+    const normalized = normalizePersistedAssessmentBlob(raw);
+    if (!normalized) return this.erasureFailed('read_failed');
+
+    const envelope = {
+      state: applyAssessmentErasureOp(normalized.state, op),
+      // Looked up at call time: the store is created after this class.
+      version: useAssessmentStore.persist.getOptions().version ?? 0,
+    };
+    try {
+      const result = await SecureStorageService.storeWellnessBlob(
+        this.BLOB_KEY,
+        envelope,
+        'level_2_assessment_data'
+      );
+      if (!result.success) return this.erasureFailed('write_failed');
+    } catch {
+      return this.erasureFailed('write_failed');
+    }
+    return { ok: true, wrote: true };
+  }
+
+  /** Content-free: never the op, the error text, or anything read from disk. */
+  private static erasureFailed(reason: AssessmentErasureFailure): AssessmentErasureResult {
+    try {
+      logSecurity('assessment erasure did not reach storage', 'high', {
+        component: 'EncryptedAssessmentStorage',
+        action: 'applyErasure',
+        result: 'failure',
+        reason,
+      });
+    } catch {
+      // Swallowed: the typed result already reports the failure.
+    }
+    return { ok: false, reason };
+  }
+
   private static async logAccess(action: string, itemCount: number): Promise<void> {
     try {
       const auditEntry = {
@@ -270,7 +365,7 @@ export class ClinicalScoringService {
     return {
       totalScore,
       severity,
-      isCrisis: isCrisis || suicidalIdeation, // Crisis if score ≥20 OR suicidal ideation
+      isCrisis: isCrisis || suicidalIdeation, // Any tier: score ≥15 OR suicidal ideation
       suicidalIdeation,
       completedAt: Date.now(),
       answers: phqAnswers
@@ -504,13 +599,8 @@ export interface AssessmentStoreState {
   crisisDetection: CrisisDetection | null;
   crisisIntervention: CrisisIntervention | null;
 
-  // Session recovery
-  hasRecoverableSession: boolean;
-  lastSavedAt: number | null;
-
   // Performance tracking
   autoSaveEnabled: boolean;
-  lastSyncAt: number | null;
 
   /**
    * DEBUG-550 — set when `completeAssessment` REFUSED to score. Distinct from
@@ -529,7 +619,6 @@ export interface AssessmentStoreActions {
   answerQuestion: (questionId: string, response: AssessmentResponse) => Promise<void>;
   completeAssessment: () => Promise<void>;
   resetAssessment: () => void;
-  recoverSession: () => Promise<boolean>;
 
   // Crisis management
   handleCrisisDetection: (detection: CrisisDetection) => Promise<void>;
@@ -560,6 +649,27 @@ export interface AssessmentStoreActions {
  */
 type AssessmentStore = AssessmentStoreState & AssessmentStoreActions;
 
+/**
+ * The slice persist writes, and the one saveProgress writes in the same envelope
+ * (MAINT-731). One function, so the two writers of the `assessment_store` blob cannot
+ * drift apart.
+ */
+function partializeAssessmentState(state: AssessmentStoreState) {
+  // DEBUG-769: the in-progress slot (`currentSession`, `answers`, `currentQuestionIndex`)
+  // is deliberately NOT here. It lives in memory for the length of one session and no
+  // slot content survives a cold launch, whatever its completeness. It used to be
+  // persisted, which kept a half-finished PHQ-9 (Q9 included) past the app closing and —
+  // because completeAssessment never clears the slot — a full copy of every completed
+  // screening's answers; `completedAssessments` is the authoritative record, at its own
+  // DEBUG-705 retention tier. A partial's crisis-relevant fact is carried by the
+  // `crisis_detected` event raised at answer time, which does not read the slot's
+  // persisted copy.
+  return {
+    completedAssessments: state.completedAssessments,
+    autoSaveEnabled: state.autoSaveEnabled
+  };
+}
+
 export const useAssessmentStore = create<AssessmentStore>()(
   subscribeWithSelector(
     persist(
@@ -574,10 +684,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
         currentResult: null,
         crisisDetection: null,
         crisisIntervention: null,
-        hasRecoverableSession: false,
-        lastSavedAt: null,
         autoSaveEnabled: true,
-        lastSyncAt: null,
         completionBlocked: null,
 
         // Session management actions
@@ -609,8 +716,7 @@ export const useAssessmentStore = create<AssessmentStore>()(
               currentResult: null,
               crisisDetection: null,
               crisisIntervention: null,
-              isLoading: false,
-              hasRecoverableSession: true
+              isLoading: false
             });
 
             // Auto-save initial session
@@ -715,11 +821,10 @@ export const useAssessmentStore = create<AssessmentStore>()(
             if (missing.length > 0 || malformed) {
               set({
                 isLoading: false,
-                // Explicitly null: `recoverSession` does not clear this, so a
-                // second assessment completed-then-refused in one app session
-                // could otherwise render the EARLIER banded result as this one —
-                // and SyncCoordinator's null -> non-null transition would
-                // re-evaluate it for crisis.
+                // Explicitly null: nothing else clears this, so a second
+                // assessment completed-then-refused in one app session could
+                // otherwise render the EARLIER banded result as this one
+                // (EnhancedAssessmentFlow reads `currentResult`).
                 currentResult: null,
                 completionBlocked: { reason: 'incomplete_answers', missingQuestionIds: missing },
                 error: `ASSESSMENT_INCOMPLETE: ${missing.length} unanswered`
@@ -762,7 +867,6 @@ export const useAssessmentStore = create<AssessmentStore>()(
               currentResult: result,
               completedAssessments: updatedHistory,
               isLoading: false,
-              hasRecoverableSession: false,
               completionBlocked: null
             });
 
@@ -795,35 +899,10 @@ export const useAssessmentStore = create<AssessmentStore>()(
             currentResult: null,
             crisisDetection: null,
             crisisIntervention: null,
-            hasRecoverableSession: false,
             error: null,
             isLoading: false,
             completionBlocked: null
           });
-        },
-
-        recoverSession: async (): Promise<boolean> => {
-          try {
-            const savedData = await EncryptedAssessmentStorage.load();
-            // TS-01: load() returns unknown; narrow via type guard
-            // before reading fields.
-            if (!isPersistedAssessmentState(savedData) || !savedData.currentSession) {
-              return false;
-            }
-
-            set({
-              currentSession: savedData.currentSession,
-              currentQuestionIndex: savedData.currentQuestionIndex || 0,
-              answers: savedData.answers || [],
-              completedAssessments: savedData.completedAssessments || [],
-              hasRecoverableSession: true
-            });
-
-            return true;
-          } catch (error) {
-            logError(LogCategory.SYSTEM, 'Session recovery failed:', error instanceof Error ? error : new Error(String(error)));
-            return false;
-          }
         },
 
         // Crisis management
@@ -905,16 +984,31 @@ export const useAssessmentStore = create<AssessmentStore>()(
         saveProgress: async () => {
           const state = get();
           try {
-            const dataToSave = {
-              currentSession: state.currentSession,
-              currentQuestionIndex: state.currentQuestionIndex,
-              answers: state.answers,
-              completedAssessments: state.completedAssessments,
-              lastSavedAt: Date.now()
-            };
-
-            await EncryptedAssessmentStorage.save(dataToSave);
-            set({ lastSavedAt: Date.now(), lastSyncAt: Date.now() });
+            // MAINT-731: write persist's OWN envelope, so the blob this awaited save leaves
+            // is the one persist hydrates from. This used to write a flat object and then
+            // `set({ lastSavedAt })`; nothing read that value, but the set fired persist's
+            // setItem and so was the only thing putting `{state, version}` back on disk.
+            // Without it the flat blob wins, hydration finds no `.state`, and screening
+            // history is gone on the next launch (assessmentStore.persistShape.test.ts).
+            // The version is looked up the way applyErasure does; never bump it here —
+            // persist discards a mismatched version when no `migrate` is given.
+            await EncryptedAssessmentStorage.save({
+              state: partializeAssessmentState(state),
+              version: useAssessmentStore.persist.getOptions().version ?? 0,
+            });
+            // DEBUG-625 (compliance ruling): `lastSyncAt` was set HERE, on a purely LOCAL
+            // encrypted save, despite its name. saveProgress is awaited by startAssessment,
+            // answerQuestion, completeAssessment, clearHistory and setSessionNote, so the
+            // field was a per-answer PHQ-9/GAD-7 activity clock. It was also one of only two
+            // fields in CloudBackupService's hashed backup payload, and the other
+            // (autoSaveEnabled) changes almost never — so it was effectively the sole
+            // entropy deciding whether a backup uploaded and emitted a timestamped
+            // `backup_completed` row to analytics_events, bound to auth.uid() and retained
+            // 90 days. That made screening cadence observable server-side from a feature
+            // consented to as "back up a few app settings".
+            // Removed rather than renamed: nothing read its VALUE anywhere in the repo.
+            // MAINT-731 removed `lastSavedAt` too, once SyncCoordinator (its only reader)
+            // was deleted in MAINT-702.
           } catch (error) {
             logError(LogCategory.SYSTEM, 'Save progress failed:', error instanceof Error ? error : new Error(String(error)));
             set({ error: 'Failed to save assessment progress' });
@@ -1032,17 +1126,69 @@ export const useAssessmentStore = create<AssessmentStore>()(
             }
           }
         })),
-        partialize: (state) => ({
-          completedAssessments: state.completedAssessments,
-          currentSession: state.currentSession,
-          answers: state.answers,
-          currentQuestionIndex: state.currentQuestionIndex,
-          autoSaveEnabled: state.autoSaveEnabled
-        })
+        // DEBUG-705: hydration applies retention, so the next persist cannot
+        // write back a record the launch sweep pruned (see withinRetention).
+        //
+        // DEBUG-769: hydration NEVER takes the in-progress slot from `restored`, whatever
+        // the blob holds — no slot content survives a cold launch. `current`'s values are
+        // kept, which also stops a late hydration clobbering a session already live in
+        // memory (this hydrate is async, and a screening can start before it resolves).
+        merge: (persisted, current) => {
+          const restored = (persisted ?? {}) as Partial<AssessmentStore>;
+          if (hasLegacySlot(restored)) legacySlotSeenInHydration = true;
+          return {
+            ...current,
+            ...restored,
+            currentSession: current.currentSession,
+            answers: current.answers,
+            currentQuestionIndex: current.currentQuestionIndex,
+            completedAssessments: withinRetention(
+              Array.isArray(restored.completedAssessments) ? restored.completedAssessments : current.completedAssessments
+            ),
+          };
+        },
+        // DEBUG-769: when the blob just hydrated still carried a slot, write ONCE so disk
+        // matches memory at this same launch instead of waiting for the next set() (the
+        // launch sweep clears it too; this is the belt to its braces). A `setState({})`
+        // is persist's own write path — partialize no longer includes the slot — so there
+        // is no extra decrypt/encrypt beyond that single store. Nothing is written when
+        // the blob was already clean.
+        onRehydrateStorage: () => () => {
+          if (!legacySlotSeenInHydration) return;
+          legacySlotSeenInHydration = false;
+          useAssessmentStore.setState({});
+        },
+        partialize: (state) => partializeAssessmentState(state)
       }
     )
   )
 );
+
+/**
+ * Drop every in-memory field so the next persist cannot write erased history
+ * back (DEBUG-671). Without it, `completedAssessments` survived account deletion
+ * in memory and the first `set()` after re-onboarding re-wrote all of it.
+ *
+ * `replace` is safe only because persist's `getInitialState()` is the creator's
+ * result, actions included. Persist's `setState` returns its `setItem` promise, so
+ * awaiting it makes the empty write land BEFORE the wipe that follows. Memory and
+ * persistence only (crisis ruling): no detection, alert or crisis telemetry runs
+ * here. A live assessment cannot overlap deletion — the flow is a root route the
+ * user must leave to reach Profile — so the crisis fields only hold leftovers.
+ */
+export async function resetAssessmentStoreForErasure(): Promise<void> {
+  await useAssessmentStore.setState(useAssessmentStore.getInitialState(), true);
+}
+
+registerErasureReset('assessmentStore', resetAssessmentStoreForErasure);
+
+/**
+ * Apply one deletion to the persisted assessment blob, reading and writing disk only
+ * (FEAT-717 AC1). UNWIRED until FEAT-685; see EncryptedAssessmentStorage.applyErasure.
+ */
+export function writeAssessmentErasure(op: AssessmentErasureOp): Promise<AssessmentErasureResult> {
+  return EncryptedAssessmentStorage.applyErasure(op);
+}
 
 // DEBUG-549 — the module-level autosave subscription was REMOVED, not repaired.
 //
@@ -1059,14 +1205,15 @@ export const useAssessmentStore = create<AssessmentStore>()(
 //   • `completeAssessment`— always saves
 //   • `setSessionNote`    — always saves
 //   • `resetAssessment`   — nulls `currentSession`, which the guard excluded
-// The one mutation it uniquely covered is `recoverSession`, which has NO
-// production callers and in any case only writes back the blob it just read.
+// The one mutation it uniquely covered was `recoverSession` (deleted in DEBUG-769),
+// which had NO production callers and in any case only wrote back the blob it just read.
 // So every timer it ever scheduled was a duplicate encrypted write.
 //
 // `autoSaveEnabled` and both setters DELIBERATELY REMAIN. The flag is persisted
-// via `partialize` AND is one of exactly two fields in CloudBackupService's
-// restore allowlist (`EXPECTED_SAFE_FIELDS = 2`, pinned in both directions by
-// CloudBackupService.privacy.test.ts), so removing it would break a cross-feature
+// via `partialize` AND is now the ONLY field in CloudBackupService's restore
+// allowlist (`EXPECTED_SAFE_FIELDS = 1`, pinned in both directions by
+// CloudBackupService.privacy.test.ts — DEBUG-625 removed `lastSyncAt`, which was
+// a screening-activity clock), so removing it would break a cross-feature
 // contract and its privacy suite. It still gates the inline saves above; only the
 // deferred duplicate is gone.
 //

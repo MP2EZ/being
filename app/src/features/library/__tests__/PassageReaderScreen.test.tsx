@@ -21,10 +21,6 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: mockRouteParams }),
 }));
 
-jest.mock('@/features/crisis/components', () => ({
-  CollapsibleCrisisButton: () => null,
-}));
-
 import PassageReaderScreen from '../screens/PassageReaderScreen';
 
 describe('PassageReaderScreen', () => {
@@ -61,13 +57,13 @@ describe('PassageReaderScreen', () => {
    * assertion still green.
    */
   it('renders the labelled Context box carrying the doctrinal corrective', () => {
-    mockRouteParams = { passageId: 'marcus-meditations-10-6' };
+    mockRouteParams = { passageId: 'marcus-meditations-4-49' };
     const { queryByText } = render(<PassageReaderScreen />);
     // The label is what marks the note as ours rather than the translator's.
     expect(queryByText('Context')).toBeTruthy();
     // The clause doing the doctrinal work, not the whole note — same short
     // anchor the provenance pin uses, so rewording moves both together.
-    expect(queryByText(/one of those causes/)).toBeTruthy();
+    expect(queryByText(/His closing question turns toward action/)).toBeTruthy();
   });
 
   /**

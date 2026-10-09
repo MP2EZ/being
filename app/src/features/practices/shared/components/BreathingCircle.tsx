@@ -48,8 +48,28 @@
  * `phaseText.hold` label. This component now paces exactly one shape: a
  * two-phase inhale/exhale pattern, symmetric (4-4) or asymmetric (4-6, the
  * extended-exhale shape). The full ruling — including what reintroducing
- * retention would require — lives in `../breathingPatterns`.
+ * retention would require — lives in `../breathingPatterns`. *
+ * THE BREATH RE-ENTERS AT ABSOLUTE ACTIVE-ELAPSED; IT DOES NOT RESTART (DEBUG-587).
+ *
+ * Activation used to rebuild a fresh `withRepeat(withSequence(inhale, exhale))`
+ * from the top of an inhale and announce "Breathe in", however far into the breath
+ * the practitioner had paused. One pause was enough to put the visible and spoken
+ * breath a phase away from the cue timeline, which excludes paused time. The
+ * scheduler was ruled authoritative (see `haptics/cueScheduler`), so the position
+ * is derived here from `phaseAtElapsed` on the same clock, and the activation
+ * announcement names the phase actually being resumed into.
+ *
+ * Two constraints on anything that touches this path. `scripts/check-breathing-worklet-purity.js`
+ * (CI) forbids `runOnJS` or a state setter inside `useAnimatedStyle` /
+ * `useDerivedValue` / `useAnimatedReaction` / `useFrameCallback`, forbids
+ * `requestAnimationFrame` anywhere in this file, and requires the default export to
+ * stay `React.memo`-wrapped with its module-scope prop constants intact — a
+ * `runOnJS` inside a `withTiming` COMPLETION callback is explicitly fine and is what
+ * the legs below use. And the resume seeds an eased position rather than a linear
+ * one, so the remainder is re-eased: the velocity is discontinuous at the resume
+ * instant, deliberately, because what has to be exact is the phase BOUNDARY.
  */
+
 
 import React, { useEffect, useCallback, useRef, useState } from 'react';
 import { View, Text, StyleSheet, AccessibilityInfo } from 'react-native';
@@ -66,6 +86,8 @@ import Animated, {
 import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { DEFAULT_PATTERN } from '../breathingPatterns';
 import { groundingItemForCycle } from '../breathingGuidance';
+import { phaseAtElapsed } from '../haptics/phaseAtElapsed';
+import { useIsFocusedSafe } from '../useIsFocusedSafe';
 
 interface BreathingPattern {
   inhale: number;  // milliseconds
@@ -95,6 +117,17 @@ interface BreathingCircleProps {
    * never write `items ?? [...]` at the call site.
    */
   guidanceItems?: readonly string[];
+  /**
+   * DEBUG-638 — OPT-IN, default true. False hides the generic guidance lines below the
+   * circle (both variants of the first line, and "Let your breath find its natural
+   * rhythm"), and drops their container when nothing else is in it. The reduce-motion
+   * phase cue and any grounding anchor still render: under reduce-motion the cue IS the
+   * pacing. Only PracticeTimerScreen passes false, and only from its AX threshold, where
+   * the copy repeats the screen's own instruction and would push the start/pause control
+   * a viewport away from the circle (philosopher-cleared for that screen and threshold).
+   * Render-only: it is not, and must not become, a dependency of the animation effect.
+   */
+  showGuidanceCopy?: boolean;
 }
 
 /**
@@ -121,6 +154,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   pattern = DEFAULT_PATTERN,
   phaseText = DEFAULT_PHASE_TEXT,
   guidanceItems,
+  showGuidanceCopy = true,
 }) => {
   // High-performance shared values for 60fps animations
   const scale = useSharedValue(1);
@@ -189,6 +223,37 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   // Last phase announced, recorded unconditionally (not only under reduced
   // motion) so the visible cue can be seeded the instant suppression turns on.
   const lastPhaseRef = useRef<string | null>(null);
+
+  /**
+   * Speech stops at the screen edge (DEBUG-587).
+   *
+   * This component announces every breath phase through
+   * `announceForAccessibility`, and did so with no idea whether it was still on
+   * screen. A VoiceOver practitioner who tapped the crisis button therefore kept
+   * hearing "Breathe in" / "Breathe out" over CrisisResources for as long as the
+   * practice screen stayed mounted behind it. That is flag-independent — this path
+   * has nothing to do with `practice_haptics` — so it reached every VoiceOver user
+   * on every one of the four screens that render this component.
+   *
+   * The visible reduced-motion cue and `lastPhaseRef` are deliberately still
+   * updated while blurred: they are on-screen state, not an interruption, and
+   * leaving them stale would strand a returning practitioner on the wrong label.
+   */
+  const isFocused = useIsFocusedSafe();
+  const focusedRef = useRef(isFocused);
+  focusedRef.current = isFocused;
+
+  /**
+   * Session position, paused time excluded — the same definition
+   * `cueScheduler.elapsedMs()` uses, on the same `performance.now()` clock.
+   *
+   * This is what lets the breath resume into the phase that was actually running
+   * instead of restarting at the top of an inhale. It is internal on purpose: the
+   * two Daily Loop screens that render this component sit on a Protected Path, and
+   * a new prop would drag them into the diff to buy nothing they need.
+   */
+  const accumulatedActiveMsRef = useRef(0);
+  const activeSinceRef = useRef<number | null>(null);
   useEffect(() => {
     const wasReduced = reducedMotionRef.current;
     reducedMotionRef.current = effectiveReducedMotion;
@@ -217,9 +282,11 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
   // practitioner gets pacing from the animation and, under reduced motion, from
   // the visible phase label below — never from a sound.
   const announcePhase = useCallback((phaseText: string) => {
-    AccessibilityInfo.announceForAccessibility(phaseText);
     lastPhaseRef.current = phaseText;
     if (reducedMotionRef.current) setPhaseCue(phaseText);
+    // DEBUG-587: never speak over a screen the practitioner has navigated to.
+    if (!focusedRef.current) return;
+    AccessibilityInfo.announceForAccessibility(phaseText);
   }, []);
 
   // Handle cycle completion on JS thread
@@ -279,6 +346,13 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
   useEffect(() => {
     if (!isActive) {
+      // Fold the closing stretch into the session position before the animation
+      // is torn down, so a resume knows where the breath actually is (DEBUG-587).
+      if (activeSinceRef.current !== null) {
+        accumulatedActiveMsRef.current += performance.now() - activeSinceRef.current;
+        activeSinceRef.current = null;
+      }
+
       // Stop all animations and reset to initial state
       activeRef.value = false;
       cancelAnimation(scale);
@@ -293,9 +367,43 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
 
     // When becoming active, ensure clean state by canceling any existing animations
     activeRef.value = true;
+    activeSinceRef.current = performance.now();
     cancelAnimation(scale);
     cancelAnimation(opacity);
     cancelAnimation(phase);
+
+    /**
+     * RE-ENTER THE BREATH WHERE IT LEFT OFF (DEBUG-587 AC1/AC2).
+     *
+     * This effect used to rebuild a fresh `withRepeat(withSequence(inhale, exhale))`
+     * and announce "Breathe in" on every activation, so one pause was enough to put
+     * the visible and spoken breath a phase away from the cue timeline — which
+     * resumes from `accumulatedMs` and excludes paused time.
+     *
+     * The ruling was that the SCHEDULER is authoritative and the visuals move to
+     * meet it. `cueScheduler` is pattern-agnostic and shared with the interval and
+     * body-region timelines, which are correct precisely because their targets are
+     * absolute against a fixed origin; snapping it on resume would have made the
+     * cue count a function of pause history. So the position is derived here from
+     * the same analytic model the cues use — `phaseAtElapsed`, imported rather than
+     * re-derived, because two copies of this arithmetic is how the two halves drift
+     * apart in the first place.
+     *
+     * On a genuine start elapsed is 0, which yields the opening inhale at full
+     * duration and a seed of exactly the resting scale — so cold-start behaviour is
+     * unchanged, including on the two Daily Loop screens that never pause.
+     */
+    const elapsedMs = accumulatedActiveMsRef.current;
+    const { phase: resumePhase, phaseStartedAtMs } = phaseAtElapsed(pattern, elapsedMs);
+    const phaseDurationMs = resumePhase === 'inhale' ? pattern.inhale : pattern.exhale;
+    const intoPhaseMs = elapsedMs - phaseStartedAtMs;
+    const remainingMs = Math.max(0, phaseDurationMs - intoPhaseMs);
+    // Seed at the EASED position, not the linear one, so the circle picks up where
+    // the eye left it. Re-easing the remainder puts a velocity discontinuity at the
+    // resume instant; that is accepted — motion resuming after a pause should ease
+    // in — and what has to be exact is the BOUNDARY, which `remainingMs` carries.
+    const easeFn = Easing.inOut(Easing.ease);
+    const easedProgress = phaseDurationMs > 0 ? easeFn(intoPhaseMs / phaseDurationMs) : 0;
 
     // Two-phase inhale/exhale pattern — the only engine (MAINT-391). Scale
     // expands over `inhale` then contracts over `exhale`, repeating seamlessly:
@@ -310,49 +418,68 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
     const inhaleLabel = phaseText.inhale || 'Breathe in';
     const exhaleLabel = phaseText.exhale || 'Breathe out';
 
-    scale.value = withRepeat(
-      withSequence(
-        withTiming(
-          1.5,
-          { duration: pattern.inhale, easing: Easing.inOut(Easing.ease) },
-          (finished) => {
-            'worklet';
-            // Contraction begins → announce exhale.
-            if (finished && activeRef.value) {
-              runOnJS(announcePhase)(exhaleLabel);
-            }
-          }
-        ),
-        withTiming(
-          1,
-          { duration: pattern.exhale, easing: Easing.inOut(Easing.ease) },
-          (finished) => {
-            'worklet';
-            // Cycle end → count it once, then cue the next inhale (the repeat
-            // loops straight into the next expansion).
-            if (finished && activeRef.value) {
-              runOnJS(handleCycleComplete)();
-              runOnJS(announcePhase)(inhaleLabel);
-            }
-          }
+    // Each leg is a factory so the partial resume leg and the steady-state legs
+    // stay one definition — the completion callbacks are the load-bearing part and
+    // must not be written twice.
+    const inhaleScaleLeg = (durationMs: number) =>
+      withTiming(1.5, { duration: durationMs, easing: Easing.inOut(Easing.ease) }, (finished) => {
+        'worklet';
+        // Contraction begins → announce exhale.
+        if (finished && activeRef.value) {
+          runOnJS(announcePhase)(exhaleLabel);
+        }
+      });
+    const exhaleScaleLeg = (durationMs: number) =>
+      withTiming(1, { duration: durationMs, easing: Easing.inOut(Easing.ease) }, (finished) => {
+        'worklet';
+        // Cycle end → count it once, then cue the next inhale (the repeat loops
+        // straight into the next expansion).
+        if (finished && activeRef.value) {
+          runOnJS(handleCycleComplete)();
+          runOnJS(announcePhase)(inhaleLabel);
+        }
+      });
+    const inhaleOpacityLeg = (durationMs: number) =>
+      withTiming(1, { duration: durationMs, easing: Easing.inOut(Easing.ease) });
+    const exhaleOpacityLeg = (durationMs: number) =>
+      withTiming(0.8, { duration: durationMs, easing: Easing.inOut(Easing.ease) });
+
+    if (resumePhase === 'inhale') {
+      scale.value = 1 + 0.5 * easedProgress;
+      opacity.value = 0.8 + 0.2 * easedProgress;
+      scale.value = withSequence(
+        inhaleScaleLeg(remainingMs),
+        withRepeat(withSequence(exhaleScaleLeg(pattern.exhale), inhaleScaleLeg(pattern.inhale)), -1, false)
+      );
+      opacity.value = withSequence(
+        inhaleOpacityLeg(remainingMs),
+        withRepeat(
+          withSequence(exhaleOpacityLeg(pattern.exhale), inhaleOpacityLeg(pattern.inhale)),
+          -1,
+          false
         )
-      ),
-      -1,
-      false
-    );
+      );
+    } else {
+      scale.value = 1.5 - 0.5 * easedProgress;
+      opacity.value = 1 - 0.2 * easedProgress;
+      scale.value = withSequence(
+        exhaleScaleLeg(remainingMs),
+        withRepeat(withSequence(inhaleScaleLeg(pattern.inhale), exhaleScaleLeg(pattern.exhale)), -1, false)
+      );
+      opacity.value = withSequence(
+        exhaleOpacityLeg(remainingMs),
+        withRepeat(
+          withSequence(inhaleOpacityLeg(pattern.inhale), exhaleOpacityLeg(pattern.exhale)),
+          -1,
+          false
+        )
+      );
+    }
 
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(1, { duration: pattern.inhale, easing: Easing.inOut(Easing.ease) }),
-        withTiming(0.8, { duration: pattern.exhale, easing: Easing.inOut(Easing.ease) })
-      ),
-      -1,
-      false
-    );
-
-    // Immediate first inhale cue on activation (subsequent inhale cues come
-    // from the exhale-leg completion callback above).
-    announcePhase(inhaleLabel);
+    // Announce the phase actually being entered. On a genuine start that is the
+    // opening inhale, exactly as before; on a resume it is whatever the session
+    // clock says is running, which is the half that was lying.
+    announcePhase(resumePhase === 'inhale' ? inhaleLabel : exhaleLabel);
 
     return () => {
       cancelAnimation(scale);
@@ -366,6 +493,7 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
       {/* Main breathing circle */}
       <Animated.View
         style={[styles.breathingCircle, animatedStyle]}
+        testID={testID ? `${testID}-disc` : undefined}
         accessibilityRole="image"
         accessibilityLabel="Breathing guide circle"
         accessibilityHint="Follow the expanding and contracting circle to guide your breathing. Each phase change is announced."
@@ -374,104 +502,108 @@ const BreathingCircle: React.FC<BreathingCircleProps> = ({
         <View style={styles.innerCircle} />
       </Animated.View>
 
-      {/* Guidance text */}
-      <View
-        style={styles.guidanceContainer}
-        /*
-          DEBUG-468. With paced anchors the visible text is a moving target, so the
-          container speaks the WHOLE triad as one label — the pre-sit read a screen
-          reader user would otherwise never assemble, since nothing here announces
-          and focus would catch whichever anchor happened to be up. Undefined when
-          no items are supplied, leaving the other three callers' tree untouched.
-        */
-        accessible={guidanceItems && guidanceItems.length > 0 ? true : undefined}
-        accessibilityLabel={
-          guidanceItems && guidanceItems.length > 0
-            ? `As you breathe, notice: ${guidanceItems.join('; ')}`
-            : undefined
-        }
-      >
-        {/*
-          Visible phase cue — the pacing that replaces suppressed motion
-          (MAINT-386). Rendered ONLY under reduced motion: with the circle
-          static, this label and the spoken announcement are the only things
-          carrying the rhythm, so without it a reduce-motion practitioner gets
-          an untimed sit. That is the defect the dead SharedBreathingScreen's
-          own treatment had, and the reason its branch was not copied verbatim.
+      {/* Guidance text. DEBUG-638: the container is dropped when the caller hides the
+          generic copy and neither the phase cue nor a grounding anchor is up, so an empty
+          block does not hold the start/pause control a margin further away. */}
+      {(showGuidanceCopy || groundingItem || (effectiveReducedMotion && phaseCue)) && (
+        <View
+          style={styles.guidanceContainer}
+          /*
+            DEBUG-468. With paced anchors the visible text is a moving target, so the
+            container speaks the WHOLE triad as one label — the pre-sit read a screen
+            reader user would otherwise never assemble, since nothing here announces
+            and focus would catch whichever anchor happened to be up. Undefined when
+            no items are supplied, leaving the other three callers' tree untouched.
+          */
+          accessible={guidanceItems && guidanceItems.length > 0 ? true : undefined}
+          accessibilityLabel={
+            guidanceItems && guidanceItems.length > 0
+              ? `As you breathe, notice: ${guidanceItems.join('; ')}`
+              : undefined
+          }
+        >
+          {/*
+            Visible phase cue — the pacing that replaces suppressed motion
+            (MAINT-386). Rendered ONLY under reduced motion: with the circle
+            static, this label and the spoken announcement are the only things
+            carrying the rhythm, so without it a reduce-motion practitioner gets
+            an untimed sit. That is the defect the dead SharedBreathingScreen's
+            own treatment had, and the reason its branch was not copied verbatim.
 
-          `accessibilityElementsHidden` / `importantForAccessibility="no-hide-
-          descendants"`: `announcePhase` already pushes each transition through
-          the screen-reader announcement queue, so exposing this text as well
-          would double every phase for a VoiceOver/TalkBack user.
+            `accessibilityElementsHidden` / `importantForAccessibility="no-hide-
+            descendants"`: `announcePhase` already pushes each transition through
+            the screen-reader announcement queue, so exposing this text as well
+            would double every phase for a VoiceOver/TalkBack user.
 
-          Colour is `semantic.text.primary` (base.black, 21:1 on white). The
-          dead screen tinted its equivalent text with the flow theme at 0.3
-          container opacity, which multiplied through to the glyphs and landed
-          at ~1.9:1 — a 1.4.3 failure that DEBUG-364 had to pin. Do not
-          reintroduce a themed colour or a container opacity here.
-        */}
-        {effectiveReducedMotion && phaseCue && (
-          <Text
-            style={styles.phaseCueText}
-            accessibilityElementsHidden
-            importantForAccessibility="no-hide-descendants"
-            testID={testID ? `${testID}-phase-cue` : undefined}
-          >
-            {phaseCue}
-          </Text>
-        )}
-        {/*
-          DEBUG-468 — the paced grounding anchor, when a caller supplies one.
-
-          IT STACKS BELOW THE PHASE CUE, NEVER REPLACES IT. Under reduce-motion the
-          cue above is the ONLY pacing a sighted vestibular-sensitive practitioner
-          receives (MAINT-386, DEBUG-394) — the circle is static and Being ships no
-          audio. This line is content, not pacing, so it may not take that slot.
-
-          IT REPLACES THE GENERIC COPY BELOW, and that is the point: "Follow the
-          circle as it expands and contracts" is instruction for the widget, where
-          these anchors are the principle's three capacities (Present Perception,
-          Metacognitive Space, Embodied Awareness — 01-aware-presence.md:12,66).
-          When the widget instruction and the authored content compete for one
-          viewport, the authored content wins.
-
-          NOT ANNOUNCED, and this is a decision rather than an omission. A 4-4
-          cycle already pushes two phase announcements through
-          `announceForAccessibility` every 8s, and the third would land on the same
-          instant as the next "Breathe in" — the cycle-end callback fires both.
-          Instead the container carries all three anchors as one label (below), so
-          a screen-reader user gets the triad whole on focus rather than a stream
-          racing the phase cues. Revisit only with an accessibility pass; do not
-          add a bare announcement here.
-        */}
-        {groundingItem ? (
-          <Text style={styles.groundingText} testID={testID ? `${testID}-grounding` : undefined}>
-            {groundingItem}
-          </Text>
-        ) : (
-          <>
-            <Text style={styles.guidanceText}>
-              {/*
-                DEBUG-394: this read 'Each phase change is announced as it happens'.
-                "Announced" describes `announceForAccessibility`, which only
-                VoiceOver/TalkBack speak — and Being ships no audio playback at all.
-                Reduce-motion is a vestibular/migraine setting, so the MODAL user of
-                this branch is sighted with no screen reader, and for them the
-                sentence was simply false: nothing is announced, they get the silent
-                text label above. Copy here must be true for every user regardless of
-                assistive tech; a screen-reader user additionally hears it.
-              */}
-              {effectiveReducedMotion
-                ? 'Each phase change is shown above as it happens'
-                : 'Follow the circle as it expands and contracts'
-              }
+            Colour is `semantic.text.primary` (base.black, 21:1 on white). The
+            dead screen tinted its equivalent text with the flow theme at 0.3
+            container opacity, which multiplied through to the glyphs and landed
+            at ~1.9:1 — a 1.4.3 failure that DEBUG-364 had to pin. Do not
+            reintroduce a themed colour or a container opacity here.
+          */}
+          {effectiveReducedMotion && phaseCue && (
+            <Text
+              style={styles.phaseCueText}
+              accessibilityElementsHidden
+              importantForAccessibility="no-hide-descendants"
+              testID={testID ? `${testID}-phase-cue` : undefined}
+            >
+              {phaseCue}
             </Text>
-            <Text style={styles.instructionText}>
-              Let your breath find its natural rhythm
+          )}
+          {/*
+            DEBUG-468 — the paced grounding anchor, when a caller supplies one.
+
+            IT STACKS BELOW THE PHASE CUE, NEVER REPLACES IT. Under reduce-motion the
+            cue above is the ONLY pacing a sighted vestibular-sensitive practitioner
+            receives (MAINT-386, DEBUG-394) — the circle is static and Being ships no
+            audio. This line is content, not pacing, so it may not take that slot.
+
+            IT REPLACES THE GENERIC COPY BELOW, and that is the point: "Follow the
+            circle as it expands and contracts" is instruction for the widget, where
+            these anchors are the principle's three capacities (Present Perception,
+            Metacognitive Space, Embodied Awareness — 01-aware-presence.md:12,66).
+            When the widget instruction and the authored content compete for one
+            viewport, the authored content wins.
+
+            NOT ANNOUNCED, and this is a decision rather than an omission. A 4-4
+            cycle already pushes two phase announcements through
+            `announceForAccessibility` every 8s, and the third would land on the same
+            instant as the next "Breathe in" — the cycle-end callback fires both.
+            Instead the container carries all three anchors as one label (below), so
+            a screen-reader user gets the triad whole on focus rather than a stream
+            racing the phase cues. Revisit only with an accessibility pass; do not
+            add a bare announcement here.
+          */}
+          {groundingItem ? (
+            <Text style={styles.groundingText} testID={testID ? `${testID}-grounding` : undefined}>
+              {groundingItem}
             </Text>
-          </>
-        )}
-      </View>
+          ) : showGuidanceCopy ? (
+            <>
+              <Text style={styles.guidanceText}>
+                {/*
+                  DEBUG-394: this read 'Each phase change is announced as it happens'.
+                  "Announced" describes `announceForAccessibility`, which only
+                  VoiceOver/TalkBack speak — and Being ships no audio playback at all.
+                  Reduce-motion is a vestibular/migraine setting, so the MODAL user of
+                  this branch is sighted with no screen reader, and for them the
+                  sentence was simply false: nothing is announced, they get the silent
+                  text label above. Copy here must be true for every user regardless of
+                  assistive tech; a screen-reader user additionally hears it.
+                */}
+                {effectiveReducedMotion
+                  ? 'Each phase change is shown above as it happens'
+                  : 'Follow the circle as it expands and contracts'
+                }
+              </Text>
+              <Text style={styles.instructionText}>
+                Let your breath find its natural rhythm
+              </Text>
+            </>
+          ) : null}
+        </View>
+      )}
     </View>
   );
 };

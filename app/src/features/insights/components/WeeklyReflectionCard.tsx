@@ -28,6 +28,7 @@ import {
   semantic,
 } from '@/core/theme';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
+import { decideWellnessWrite, useConsentStore } from '@/core/stores/consentStore';
 import { getIsoWeekStart } from '@/core/utils/isoWeek';
 import WeeklyReflectionComposer from './WeeklyReflectionComposer';
 import { useRootOverlay } from '@/core/navigation/rootOverlaySlot';
@@ -78,13 +79,24 @@ const WeeklyReflectionCard: React.FC = () => {
     [getWeeklyReflectionForWeek, weeklyReflections, weekStartIso]
   );
 
+  // FEAT-667: this card is the display-only notice host for the Art. 9 write gate;
+  // the composer only receives the result. The two selectors exist to re-render on a
+  // consent change — the decision itself is `decideWellnessWrite()`, so the notice
+  // shows exactly when the store would withhold. `loading` is not a withdrawal.
+  useConsentStore((s) => s.consentStatus);
+  useConsentStore((s) => s.consentCache.canProcessMentalHealthData);
+  const writeDecision = decideWellnessWrite();
+  const persistenceWithheld = !writeDecision.allowed && writeDecision.reason !== 'loading';
+
   const handleSave = useCallback(
     async (text: string) => {
-      await addWeeklyReflection(text);
+      // Withheld: "Done" closes the sheet and the text never enters the store, not
+      // even in memory — the card must not show it back as though it were kept.
+      if (!persistenceWithheld) await addWeeklyReflection(text);
       setDraft(null); // saved — the preserved draft is spent
       setComposerOpen(false);
     },
-    [addWeeklyReflection]
+    [addWeeklyReflection, persistenceWithheld]
   );
 
   // DEBUG-406: publish the composer into the root overlay slot. Declared before
@@ -96,6 +108,7 @@ const WeeklyReflectionCard: React.FC = () => {
       <WeeklyReflectionComposer
         visible
         initialText={draft ?? reflection?.text ?? ''}
+        persistenceWithheld={persistenceWithheld}
         onSave={handleSave}
         onCancel={() => {
           setDraft(null);

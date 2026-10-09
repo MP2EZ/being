@@ -572,3 +572,23 @@ describe('INFRA-472: a refusal names who to go and ask', () => {
     expect(r.out).toMatch(/exit 4/);
   });
 });
+
+describe('INFRA-657 — the gate receipt', () => {
+  const code = fs.readFileSync(SCRIPT, 'utf8').replace(/^\s*#.*$/gm, '');
+
+  it('is written only after the MATCH_CLEAN refusal, only when a caller names a path', () => {
+    const refusal = code.indexOf('if [ "$VERDICT" != "MATCH_CLEAN" ]');
+    const write = code.indexOf('e2e-provenance.js receipt');
+    expect(refusal).toBeGreaterThan(-1);
+    expect(write).toBeGreaterThan(refusal);
+    const guard = code.lastIndexOf('if [ -n "${E2E_GATE_RECEIPT_PATH:-}" ]', write);
+    expect(guard).toBeGreaterThan(refusal);
+  });
+
+  it('fails open: a receipt that cannot be written never changes the gate verdict', () => {
+    const write = code.indexOf('e2e-provenance.js receipt');
+    const tail = code.slice(write, code.indexOf('\nfi', write));
+    expect(tail).toMatch(/\|\|\s*echo/);
+    expect(tail).not.toMatch(/\|\|\s*(exit|die)\b/);
+  });
+});

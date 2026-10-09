@@ -33,7 +33,7 @@ flow cannot be validly run on the suite's target:
 | Tag | Excluded because | Run it with |
 |---|---|---|
 | `safety` | — (this is the suite) | `npm run e2e:safety` |
-| `safety-device-only` | sim `canOpenURL` is unconditionally false; sim raises no software keyboard | ⛔ **CANNOT RUN — see below.** `e2e:safety:988-dial`, `e2e:safety:keyboard-accessory` refuse with exit 5 |
+| `safety-device-only` | sim `canOpenURL` is unconditionally false (dial); real-device keyboard layering and the non-seeded preamble (accessory — its reachability half runs in the suite as `crisis-keyboard-reachability`) | ⛔ **CANNOT RUN — see below.** `e2e:safety:988-dial`, `e2e:safety:keyboard-accessory` refuse with exit 5 |
 | `safety-dynamic-type` | content size is device-global; a bare run poisons the shared sim | `e2e:safety:ax5`, `e2e:safety:xxxl` |
 | `safety-bottom-inset` | needs a non-zero bottom safe-area inset; the collision it adjudicates cannot occur at 375x667 at any clearance value | `npm run e2e:safety:reconsent-ineligible-fab` — booted 393x852 |
 
@@ -68,9 +68,9 @@ connected, and the runner Maestro installs launches by hand via
 anyone to check cables or Settings.
 
 Simulator flows are entirely unaffected: a simulator run uses a **prebuilt** driver from
-`maestro-ios-driver.jar` and never compiles. That asymmetry is the whole reason the 14
+`maestro-ios-driver.jar` and never compiles. That asymmetry is the whole reason the 15
 sim-runnable safety flows are green while both device flows cannot start. **Nothing here is
-an argument to loosen Phase 2.5, the `--skip-e2e` policy, or the 14-flow tripwire.**
+an argument to loosen Phase 2.5, the `--skip-e2e` policy, or the 15-flow tripwire.**
 
 **If your contract needs a device**, it cannot be automated today. Either express it on the
 simulator, or take it to the attended device checklist (INFRA-591). Do not tag a flow
@@ -213,9 +213,18 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > and narrower**:
 >
 > * `e2e-sim-build.sh` writes `.e2e-provenance.json` into the installed container: git
->   HEAD, a tree hash, and a dirty flag. It lives inside the container because `simctl`
->   mints a new container UUID on every fresh install, so any reinstall takes the marker
->   with it — that disappearance *is* the binding.
+>   HEAD, a tree hash, a dirty flag, and a per-build owner block. It lives inside the
+>   container because `simctl` mints a new container UUID on every fresh install, so any
+>   reinstall takes the marker with it — that disappearance *is* the binding.
+> * **`head` / `repoRoot` / `branch` are TREE identifiers and cannot establish ownership**
+>   (DEBUG-640). That is exactly their job as merge evidence, and it makes them
+>   ownership-blind by construction: `e2e-gate` is a SHARED worktree, so every session
+>   running `e2e:safety:gate` builds it and inherits the same three values. Reading a
+>   familiar head as "this device is mine" — or an unfamiliar one as "this is a peer's" —
+>   is the misattribution that produced this rule. `ownerId` is a fresh uuid per BUILD, so
+>   two builds of the same worktree at the same commit differ; that is what makes "is this
+>   MY build?" answerable. It is diagnostic only: `verify` compares `treeHash` and
+>   `bundleId` and nothing else, and `attribute`'s SELF/PEER stays a tree comparison.
 > * `e2e-safety.sh` verifies it before any flow and refuses on `MISMATCH` / `MISSING`.
 >   A `MATCH_DIRTY` run still executes, behind an unmissable "NOT MERGE EVIDENCE" banner.
 > * `/b-close` Phase 2.5 sets `E2E_REQUIRE_CLEAN_PROVENANCE=1`, which turns that same
@@ -246,7 +255,8 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > at 4 of 28 flow-run attempts over 19h.
 >
 > The pre-flight now **rebuilds once, automatically**, when the installed marker names a
-> *different* worktree, and says whose build it found. `E2E_NO_AUTO_REGATE=1` restores the
+> *different* worktree, and names the tree it found — not a session, which a shared gate
+> worktree cannot reveal (DEBUG-640). `E2E_NO_AUTO_REGATE=1` restores the
 > plain refusal. Two cases deliberately never auto-rebuild: a marker naming **your own**
 > worktree (your tree moved — that is your edit and your call) and **no marker at all**
 > (nothing to attribute, so nothing to act on).
@@ -255,6 +265,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 > measurement: 17 of 18 spans already overlap another session, median 14.5 min and worst 58.3,
 > so spanning would serialise every close on the machine to remove a failure that already
 > fails closed.
+>
+> **The same window can also leave the app uninstalled (INFRA-657).** There is then no marker
+> to attribute, so the arm above cannot fire. A detached close (`close:detached`) therefore
+> has `e2e-gate.sh` write a **gate receipt** to its run directory after `MATCH_CLEAN`, and
+> `e2e-safety.sh` rebuilds once if the app is missing, the simulator is still booted, and the
+> receipt names this tree and this simulator. The log says `CONTENTION`, names the lease holder
+> it waited on only as correlation (or says `not attributable`), and never claims a cause. The
+> rebuild shares one budget with the peer arm, so it can never loop. Attended `/b-close` and
+> hand runs name no receipt and keep exit 2 with the build instruction.
 
 > ⚠️ **The gate target is a Release build — `npm run ios` (Debug) will not do.**
 > The **configuration**, not the EAS profile, is what removes the dev launcher.
@@ -285,6 +304,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
 
 **Prereqs.** Since INFRA-383 the default path needs no `eas-cli`, no credentials and no
 `fastlane` — only Xcode and a booted simulator:
+- **Xcode's macOS SDK must be the one `pod install` links against** (INFRA-754). A cold or
+  regenerating build failing in `pod install` with `tapi error: ... unknown architecture
+  arm64e.x1-macos` means xcrun's default macOS SDK is a newer CommandLineTools SDK than the
+  active Xcode's linker can read. `xcode-select` is not the fix (it already points at Xcode).
+  The script now exports `SDKROOT` to Xcode's SDK itself and logs it as `🧰 macOS SDK for pod
+  install`; it refuses up front if you export a different `SDKROOT`. Unset it and re-run.
+  `e2e:safety:build:eas`, `npm run ios` and hand-run `pod install` do not go through this
+  script, so they can still hit the error; prefix those with
+  `SDKROOT=$(xcrun --sdk macosx --show-sdk-path)`.
 - **Exactly ONE booted iOS simulator** (the one prereq the script enforces by name).
 
   The count matters, and the script fails closed on it (INFRA-405). `xcrun simctl help`
@@ -343,7 +371,15 @@ npm run e2e:safety:build   # Release build (expo run:ios) + verify + install on 
   `prebuild --clean`, so a leaf-keyed sweep would reap the shared gate worktree's own cache
   mid-build. A cache whose `WorkspacePath` is unreadable is reported as unknown and never
   reaped. `e2e-sim-build.sh` also refuses up front below `E2E_MIN_FREE_GB` (default 10)
-  with a message naming **disk space**, so this never again presents as a linker error.
+  with a message naming **disk space**, so this never again presents as a linker error —
+  and since INFRA-691 it runs the orphan sweep itself and re-checks before refusing.
+- **The CocoaPods cache leaks the same way (INFRA-691)** — ~825 MB per worktree, measured
+  at 70 GB in `~/Library/Caches/CocoaPods`. RN 0.85 and Expo's prebuilt xcframeworks embed
+  the absolute worktree path in their podspecs (hermes-engine via `HERMES_CLI_PATH`), so no
+  two worktrees share an entry. The same `--orphans` sweep reaps an entry once every root
+  its spec records is gone, and reports it on its own `CocoaPods cache:` line; a spec with
+  no worktree path, or one it cannot parse, is never reaped. The EAS fallback reaps its own
+  entries after every build, pass or fail, since its working dir is new each run.
 - The EAS fallback (`npm run e2e:safety:build:eas`) *does* still need `eas-cli` logged in
   (`npx eas whoami`), `fastlane`, and a clean tree, and takes 10–15 min every run.
 - **eas-cli version (INFRA-351).** That fallback calls the **bare global** `eas`, whose
@@ -423,9 +459,11 @@ rollback and as a re-measurable baseline after toolchain upgrades.
 > exit 1 (a flow regression) and exit 2 (the harness could not complete). Every flow that
 > had already finished is reported `VOID`, not `PASS`: a marker change bounds a window
 > rather than an instant, so nothing that ran before it is evidence. When the marker was
-> replaced rather than deleted, the abort names the replacing worktree's `repoRoot` and
-> `branch`; an uninstall leaves no marker, so that case reports `VANISHED` with no
-> attribution.
+> replaced rather than deleted, the abort names the replacing worktree's `repoRoot`,
+> `branch` and — since DEBUG-640 — the replacing build's `ownerId`, which is the only one
+> of the three that distinguishes two builds of the SAME shared worktree. A tree path does
+> not identify a session. An uninstall leaves no marker, so that case reports `VANISHED`
+> with no attribution.
 >
 > **INFRA-472 — `npm run e2e:safety:gate` leases the worktree and the simulator together,
 > and exits 4 when a peer owns either.** The pair is taken before the gate re-points the
@@ -438,9 +476,10 @@ rollback and as a re-measurable baseline after toolchain upgrades.
 > full record it destroys; it will clobber a genuinely running peer, so confirm first.
 
 ```bash
-# Sim suite (currently 8 flows tagged `safety`, ~12 min) — runnable on iOS sim.
-# The count is DESCRIPTIVE: the runner globs by tag, so adding a `safety`-tagged
-# flow silently changes it. Verify with `grep -c 'safety$' app/.maestro/*.yaml`.
+# Sim suite (currently 15 flows tagged `safety`) — runnable on iOS sim.
+# The runner globs by tag, so adding a `safety`-tagged flow changes it; a jest
+# tripwire in __tests__/scripts/e2e-dynamic-type.test.js pins the count (FEAT-457).
+# Verify with `grep -c 'safety$' app/.maestro/*.yaml`.
 # INFRA-220: runs each flow as a SEPARATE maestro invocation with an XCUITest-
 # driver reset between (scripts/e2e-safety.sh), NOT one batch
 # `maestro test .maestro/` session. A shared session degrades across the suite
@@ -702,6 +741,17 @@ own tag class. An invariant the harness enforces needs no per-flow declaration, 
 declaring one would imply a variable the default suite does not have. Revisit only if that
 approach changes.
 
+**Before resetting the content size, check for a live run — and read the check correctly
+(DEBUG-640).** The refusal states what it observed: the size is non-default, and `simctl`
+records no owner for it. It cannot tell a leak from a run in progress, because
+`e2e-dynamic-type.sh` sets the size and restores it in an EXIT/INT/TERM trap, so a
+deliberate scaled-type run looks identical from outside. The refusal therefore reports live
+`maestro.cli.AppKt` JVMs — matched on the EXECUTABLE via `e2e_maestro_jvm_pids`, never
+`pgrep -f` (DEBUG-392) — and both directions are observations, not verdicts: a live JVM may
+be driving a DIFFERENT simulator, and an absent one proves nothing, since a peer between
+flows sits inside its `sleep 8` settle and shows none. Resetting a device-global out from
+under a live run is exactly the harm this wording exists to prevent.
+
 **Validation record — the first full-suite green at the declared target (INFRA-486,
 2026-08-19).** `npm run e2e:safety`, all **9** safety-tagged flows green in one uninterrupted
 invocation on **iPhone SE 3 / iOS 18.6 (375x667)**, `development` @ `93efef69`, Release,
@@ -835,33 +885,42 @@ host. Nine observations; the model explains all nine.
 | P | same-point `swipe` (a touch held for a stated duration) at 120 / 300 / 600 / 1200 ms | **all four fail** |
 | P-ctl | same 120 ms touch, but with the swallow already absorbed by a prior tap | **passes** — so the primitive is valid and P's result is real |
 
-**Which flows this can bite.** Only a flow that scrolls to a **mid-list** target and then taps
-it. The suite's other card scrolls are immune by construction, and it is worth knowing why
-rather than assuming they are lucky:
+**Which flows this can bite.** Any flow whose touch follows a scroll that can stop
+**mid-content**. A site is immune when its target is first (zero swipes) or last (the scroll
+ends at the boundary), and both properties are fragile: they move when content is added
+below, and with text size. The full population is registered in the next section; these are
+the cases worth knowing why:
 
 - `phq9-severe-completion` / `q9-single-alert` scroll to `take-phq9-button`, the **first**
   card, already 100% visible at offset 0 — **zero swipes**, so no swallowed touch.
-- `crisis-button-reachability` uses `centerElement: true` + `visibilityPercentage: 100`
-  throughout, which per DEBUG-453 drives those scrolls to **maximum scroll**, i.e. to a
-  boundary.
-- `journal-crisis-scan`'s `profile-card-voice-reflection` is the **last** card in the list, so
-  its DOWN scroll *usually* terminates at the bottom boundary and the swallow does not
-  reproduce — it passed 3/3 in isolation. **Do not read that as immunity.** The same site
-  then failed in the Phase 2.5 gate, by a *different* mechanism: the scroll stopped short
+- `crisis-button-reachability` is **not** immune throughout. DEBUG-453's argument — that
+  `centerElement: true` + `visibilityPercentage: 100` drives a scroll to **maximum scroll** —
+  holds only where both are present. The weekly-reflection and `profile-card-privacy`
+  scrolls carry `centerElement` without `visibilityPercentage: 100`, so they can stop
+  mid-content; the export and delete scrolls are covered by a conditional re-tap instead.
+- `journal-crisis-scan`'s `profile-card-voice-reflection` **was** the last card and passed 3/3
+  in isolation on that immunity. **FEAT-287 added `profile-card-journal-history` beneath it**,
+  so it is now mid-list and every navigation to it carries the absorbing tap. Its history
+  still teaches one thing: the same site once failed in the Phase 2.5 gate by a *different*
+  mechanism — the scroll stopped short
   with the card at `[24,463][351,666]` while Maestro logged `Visibility Percent: 1.0`,
-  because the ScrollView clip ends at y=583 and XCUITest keeps elements that are merely
+  because the ScrollView clip then ended at y=583 and XCUITest keeps elements that are merely
   clipped. That is DEBUG-465's shape, not this one, and `centerElement: true` is its fix.
   **Two different defects can wear the same red on one line of a flow** — check the bounds
   before choosing a remedy, and do not let a handful of green runs stand in for that.
   **The bottom-boundary immunity is also TYPE-SIZE-DEPENDENT (DEBUG-507).** At
   `extra-extra-extra-large` the card measures 279pt against 203pt, the DOWN scroll no longer
-  terminates cleanly at the boundary, and the swallow reproduces on this last card too.
+  terminates cleanly at the boundary, and the swallow reproduces on a last card too. (The
+  y=583 clip and these bounds predate DEBUG-562's tab-bar change. DEBUG-653 re-measured the
+  clip bottom at y=613 on 2026-09-25 — iPhone SE 3, 375x667, iOS 18.6; the stop-short card
+  bounds were not re-measured.)
 
-**Do not add the workaround to a flow that is green.** In particular do not add
-`waitToSettleTimeoutMs` to `crisis-button-reachability`: it is spent per swipe iteration
-*inside* the scroll's own timeout, and DEBUG-473 measured that flow's budget at 95% consumed
-on an idle machine. Hardening a structurally immune flow at the cost of turning the suite's
-most important flow red on a busy host is a net loss.
+**Do not add `waitToSettleTimeoutMs` to a flow that is green** — and time is not the remedy
+anyway (probe C). In particular not to `crisis-button-reachability`: it is spent per swipe
+iteration *inside* the scroll's own timeout, and DEBUG-473 measured that flow's budget at 95%
+consumed on an idle machine. Whether a green site needs any remedy is decided by classifying
+it (below), not by its colour — a site that asserts nothing after its tap is green whether or
+not the tap landed.
 
 **The remedy, where it is needed:** an absorbing `tapOn` on an element-anchored target
 *outside* the ScrollView, between the scroll and the real tap — `gad7-severe` re-taps
@@ -892,6 +951,118 @@ exists on this machine. The gap is narrow — UIScrollView touch delivery is UIK
 both — but it is a residual, not a proof, and this defect has already burned one reassuring
 explanation that held right up until it was measured.
 
+### Four signatures, opposite remedies (DEBUG-640, DEBUG-642, INFRA-729)
+
+A tap that "did nothing" after a scroll is one of four things, and **the remedies are
+opposite**. Classify the signature from `maestro hierarchy` bounds at the tap point before
+choosing a remedy; a green run is not evidence of a signature.
+
+| # | Signature | Status | Remedy |
+|---|---|---|---|
+| 1 | Swallowed touch after a scroll that stops **mid-content** (this section) | Harness artifact | Any intervening touch, or a scroll that ends at a content boundary. **Never** time, **never** `centerElement` |
+| 2 | Fold/clip: the target is outside the ScrollView's clip but still scores visible (DEBUG-465) | Harness artifact | `centerElement: true`, which forces a real scroll |
+| 3 | A **root-sibling overlay** outside every clip — the crisis FAB at `zIndex: 9999` | **Real crisis false positive** (the DEBUG-547 shape) | **File a defect.** Never "fix" it in the flow |
+| 4 | Momentum capture: the tap lands while the list is still **decelerating** after `scrollUntilVisible` reported COMPLETED (INFRA-729) | Harness artifact — RN's ScrollView spends a touch during momentum stopping the scroll | `waitForAnimationToEnd` (timeout 3000, ceiling 5000) **before** signature 1's absorbing tap. Never before a `crisis-button-root` tap |
+
+Why 1 and 2 are harness-only: `UIScrollView` clips *painting* to its bounds and `hitTest:`
+returns nil outside them, so what a real finger can reach is exactly what is painted. Why 3 is
+not: a root-sibling overlay is outside every clip, so a real finger in the overlap does reach
+`CrisisResources`. Same geometry, opposite status. And because every site below carries
+`centerElement` (signature 2's remedy), which is also a common way to leave a scroll stopped
+mid-content (signature 1's trigger), the signatures can compound on one line.
+
+Tell 2 from 3 by the bounds, never by the outcome: both can end on `CrisisResources`.
+
+**Tell 4 from 1 by drift** (INFRA-729): compare the target's y-bound at scroll-COMPLETED with
+its bound when the tap resolves. In 11 kept `crisis-button-reachability` failures every
+failed card tap had drifted 20–69pt; ~25 taps at 0–2pt all landed. Drift ≈0 on a failure
+means signature 1, not 4. The two compose: an absorbing tap outside the ScrollView clears 1
+but cannot stop momentum, which is why "time is not the variable" (probe C) and 4 both hold.
+
+### The register: every tap after a `centerElement` scroll (DEBUG-642)
+
+**Counting method.** Count `centerElement: true` only as a YAML key inside a
+`scrollUntilVisible` step, with whole-line **and inline** comments stripped, and pair each
+with the first touch after it. A grep miscounts both ways: comments name the anti-pattern
+(`gad7-severe` mentions the remedy it refused), and `centerElement: true # …` hides real
+uses from a `\s*$` anchor.
+
+**The register is code**, not this list: `app/__tests__/scripts/e2e-tap-consequence.test.js`
+derives the population and fails when a site appears unregistered, disappears, or asserts
+something different from what the register says. On `31a4cd06` it is **9 files / 21 sites**
+(rows updated by DEBUG-652's captures, 2026-10-02):
+
+| Flow | Scroll target → first touch | Status | Asserted after the tap |
+|---|---|---|---|
+| `bug-report-crisis-reachability` (×2) | `profile-card-bug-report` → `tab-profile` | remedied — absorbing tap | `bug-report-overlay` |
+| `crisis-button-reachability` | `weekly-reflection-card` → `tab-insights` | remedied — absorbing tap (DEBUG-652) | `weekly-reflection-overlay` |
+| `crisis-button-reachability` (×2) | `profile-card-privacy` → `tab-profile` | remedied — absorbing tap (DEBUG-652) | `privacy-data-screen` |
+| `crisis-button-reachability` | `profile-card-export` → same | remedied — conditional re-tap | `export-data-screen` |
+| `crisis-button-reachability` | `profile-card-delete` → same | remedied — conditional re-tap | `delete-account-screen` |
+| `daily-loop-ax5-entry`, `daily-loop-ax5-virtuous` | `checkin-card-daily-loop` → same | remedied — conditional re-tap (DEBUG-546) | `daily-loop-depth-select-screen` |
+| `daily-loop-ax5-entry` | `continue-button` → same | boundary — last node | `daily-loop-SphereSovereignty-screen` |
+| `daily-loop-ax5-virtuous` | `virtue-chip-temperance` → `daily-loop-exit` | measured-clear (DEBUG-652) — no retry, by crisis ruling | `home-screen` |
+| `daily-loop-quick-depth` | `continue-button` → same | boundary — last child (DEBUG-518) | `daily-loop-VirtuousResponse-screen` |
+| `export-share-sheet-occlusion` (×3) | privacy, export, `export-data-button` | debt pin — never scoped, recorded only | export: `export-data-screen`; others nothing |
+| `journal-crisis-scan` (×3), `journal-record-liveness`, `profile-voice-reflection-xxxl` | `profile-card-voice-reflection` → `tab-profile` | remedied — absorbing tap | `voice-reflection-screen` |
+| `journal-crisis-scan` | `profile-card-journal-history` → `tab-profile` | remedied — absorbing tap | `journal-history-screen` |
+
+"Exposed, unmeasured" was a prediction from the predicate, not a classification; no site
+carries it now. **DEBUG-652's captures** (`maestro hierarchy` before and after each tap, iPhone
+SE 3 / iOS 18.6 / 375x667, Release `e2e-sim`, 2026-10-02) classified them:
+
+- **Profile menu, all eight card sites** (the five depth-1 segments, the two centred
+  privacy scrolls, and DEBUG-680's Legal depth-2 card): every stop is mid-content (clip y
+  104–613), every tap centre is inside the clip and at x 187.5, clear of the FAB — so
+  signatures 2 and 3 are excluded and signature 1 is exposed. Five of the eight swipe zero
+  times only because of where the previous segment left the offset, so all eight take the
+  absorbing `tab-profile` tap. Each card tap is also followed
+  by an `assertVisible` of a **screen-root testID unique to the destination**, as the last step
+  before the FAB tap: the menu root carries its own FAB, so before this the depth-1 segments
+  were false greens. Not `profile-back-button` (every pushed route has one) and not the header
+  title (the menu card carries the same label).
+- **Weekly reflection**: the centring clamped at the content boundary, but only because the
+  seeded content below the card is short — more seed data re-arms a mid-content stop — so it
+  takes the absorbing `tab-insights` tap, not `boundary`.
+- **`measured-clear`** is a status for a target **outside** the ScrollView where a capture
+  measured no swallow against a matched control, and no remedy is applied because a retry
+  would mask the regression the tap tests. The AX5 exit: 6/6 baseline taps landed after a
+  mid-content Temperance stop, 5/5 with a boundary clamp.
+- **Legal depth-2 document tap** (DEBUG-680, same capture setup, 2026-10-02): the list was
+  freshly pushed, nothing scrolls before the tap, and the card tap before it landed; the
+  centre (187.5, 257.5) is inside the list's clip and clear of the FAB. No signature applies,
+  so no remedy, but the Legal list carries the same root FAB, so the segment was a false green
+  until it asserted `legal-document-screen` (route-level: one route serves all six documents)
+  as the last step before the FAB tap. The card tap (menu at 65%, centre y 573.5 inside the
+  clip although the card is clipped 51pt) is the eighth menu site above.
+
+A signature-3 candidate found alongside (Profile's last
+controls resting inside the FAB's hit rect since DEBUG-562) was DEBUG-653. Measured at max
+scroll on iPhone SE 3, 375x667, iOS 18.6, 2026-09-25 — FAB `[331,523][375,567]`, exclusion
+rect x[303,375] y[491,595), clip bottom 613:
+
+| Screen | Control | Bounds | Outcome |
+|---|---|---|---|
+| Profile | Onboarding Setup footer (`profile-footer-onboarding`) | `[24,545][351,581]` | cleared — `marginLeft` + `marginRight` |
+| Profile | `profile-card-journal-history` | `[24,308][351,489]` | clear — unchanged |
+| Privacy & Data | `profile-card-delete` | `[24,415][351,533]` | cleared — `marginRight` |
+| Export | `export-data-button` | `[24,529][351,581]` | cleared — `marginLeft` + `marginRight` |
+| Delete account | `delete-account-button` | `[24,529][351,581]` | cleared — `marginLeft` + `marginRight` |
+| Delete account | `delete-confirm-input` | `[25,460][350,504]` | in the rect, not the raw hit band — cleared (founder ruling 2026-09-26) — `marginRight` |
+
+Each clearance is `CRISIS_BUTTON_EXCLUSION_RECT.left` on the element carrying the testID. The
+falsifier is each host's jest every-y sweep, not a flow: `tapOn: id:` hits element centres.
+
+The same suite pins one more tap class: every `daily-loop-skip-breath` tap must be followed by
+an app-state proof that it landed — `daily-loop-input-response` appearing, or the SkipLink
+unmounting (the DEBUG-632 shape, used at AX sizes). A bare skip lets the 30s breath expire on
+its own and the flow goes green without ever testing the tap.
+
+**Both proofs can still be satisfied by the timer (DEBUG-652, measured; fix is DEBUG-694).**
+Removing the skip tap from `daily-loop-quick-depth` still goes green 3/3: the wait outlasts
+the breath (10.6–16.1s waited, resolved at mount + 30s), and SkipLink and the Timer share
+`handleBreathComplete`, so nothing on screen tells a skip from an expiry.
+
 ## How a flow works
 
 Each flow under `app/.maestro/`:
@@ -908,7 +1079,7 @@ Each flow under `app/.maestro/`:
      picker + 4 consent toggles) and the 5-screen Onboarding flow.
 4. Drives the safety surface (taps testIDs, asserts visible/notVisible).
 
-The `_legal-and-onboarding.yaml` traversal subflow uses text-based selectors for legal-gate consent text (more robust than testIDs for legal copy that may rotate). It uses `optional: true` for onboarding intermediate Next/Continue taps so minor copy changes don't break flows — if a button isn't found, Maestro skips that step and continues.
+The `_legal-and-onboarding.yaml` traversal subflow ticks the legal-gate consents by testID on each 24pt indicator (INFRA-181), and every one of those taps is guarded `above:` the pinned crisis footer's title with `point:` on the matched element (INFRA-656) — the derivation is in the helper. It uses `optional: true` for onboarding intermediate Next/Continue taps so minor copy changes don't break flows — if a button isn't found, Maestro skips that step and continues.
 
 ## Anatomy of one flow
 
@@ -1296,10 +1467,12 @@ If anything matches (`app/src/features/(assessment|crisis)/`, `app/src/core/serv
 
 ## The flows + what each pins
 
-**8 flows tagged `safety`** run under `npm run e2e:safety`, plus 1 tagged
-`safety-device-only` that does not. (This table read "The 5 flows" until
-INFRA-317; it had drifted three behind — the count here and in CLAUDE.md is worth
-re-checking whenever a flow is added, since nothing enforces it.)
+**15 flows tagged `safety`** run under `npm run e2e:safety`; the `safety-device-only`,
+`safety-dynamic-type`, `safety-host-probe` and `safety-occlusion-measurement` flows do not.
+The count is pinned by a jest tripwire (`__tests__/scripts/e2e-dynamic-type.test.js`,
+FEAT-457). **This table lists only the original eight and has not been extended** —
+`grep -l 'safety$' app/.maestro/*.yaml` is the authoritative list, and each flow's header
+states its own contract.
 
 | Flow | What it pins | Source contract |
 |---|---|---|
@@ -1339,6 +1512,47 @@ Use `stopApp` → `clearState` → `clearKeychain` → `openLink`, **not** `laun
 The marker must reach `Linking.getInitialURL()`, which only carries a URL on a cold
 start, and an intervening `launchApp` would seed consent before the marker is ever
 seen — making every later assertion vacuous.
+
+## XCTest screen recordings (INFRA-692)
+
+Every flow leaves a QuickTime movie (UUID name, no extension) in the simulator's
+`com.apple.testmanagerd` container, under `…/InternalDaemon/<uuid>/Attachments`. Maestro 2.6.0's
+`maestro-ios-driver.jar` ships `driver-iPhoneSimulator/maestro-driver-ios-config.xctestrun` with
+`PreferredScreenCaptureFormat=screenRecording` and `SystemAttachmentLifetime=deleteOnSuccess`. The
+driver test is killed at teardown, so it never "succeeds" and nothing is ever deleted. On the gate
+simulator that measured roughly 450 MB a day. Nothing in this repo can switch it off: there is no flag
+or env var, and patching the Cellar jar is invisible to the version pin.
+
+`e2e-safety.sh` therefore sweeps its own recordings (`scripts/e2e-sim-attachments.sh`):
+
+- It snapshots the testmanagerd Attachments when it takes the simulator lease.
+- At exit, still holding the lease, it deletes only the files that are new since the snapshot, pass or fail.
+- It touches only that UDID's container, by exact match.
+- `E2E_KEEP_XCTEST_RECORDINGS=1` keeps and lists them, for watching a failing flow.
+- `E2E_ATTACHMENTS_REAP_DRY_RUN=1` lists without deleting.
+
+That per-run sweep never reaches recordings from ad-hoc `maestro` runs outside the gate, other
+simulators, or anything left from before it existed. Reclaim those on demand (INFRA-718):
+
+```bash
+npm run e2e:safety:clean:recordings            # count and MB per simulator, deletes nothing
+npm run e2e:safety:clean:recordings -- --yes   # delete them
+```
+
+- It covers every simulator `xcrun simctl list devices -j` returns, booted or not. Data paths come
+  from simctl, never `$HOME`, and the container is chosen by `MCMMetadataIdentifier`, exactly as
+  the per-run sweep does.
+- A simulator whose INFRA-436 lease is held by a live process is skipped in both modes. With
+  `--yes` the sweep takes that simulator's lease itself (timeout 0) while it deletes, so a gate
+  cannot start mid-sweep. An inherited `E2E_LOCK_FORCE` is ignored.
+- A file `lsof` reports open is kept. If `lsof` is missing or errors, nothing in that directory is
+  deleted.
+- It is a separate mode on purpose. Plain `--yes` deletes this worktree's DerivedData, and
+  `--orphans --yes` runs unattended on low disk, so neither touches recordings.
+
+**When the Maestro pin moves**, re-read those two keys in the new jar
+(`unzip -p … driver-iPhoneSimulator/maestro-driver-ios-config.xctestrun`). If they change, the sweep
+may have nothing to do.
 
 ## Out of scope (deferred)
 

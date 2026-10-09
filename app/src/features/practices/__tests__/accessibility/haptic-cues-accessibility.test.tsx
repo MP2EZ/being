@@ -300,7 +300,7 @@ describe('practice screen overlay slot', () => {
     //      modality — Android has no accessibilityViewIsModal).
     //   2. The overlay is STILL reachable by the same query, which is only
     //      possible if it renders as a SIBLING of that subtree rather than
-    //      inside it. Two of the three hosts are scrollable={true}, and nested
+    //      inside it. All three hosts are scrollable={true} (DEBUG-618), and nested
     //      inside the ScrollView an inset-0 backdrop sizes to the content box
     //      and scrolls off with it.
     const { getByTestId, queryByTestId } = renderLayout(

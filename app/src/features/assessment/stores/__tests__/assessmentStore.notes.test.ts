@@ -29,6 +29,7 @@ jest.mock('@/core/services/security/SecureStorageService', () => ({
   },
 }));
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import { seedWellnessWriteConsent } from '../../../../../__tests__/helpers/wellnessWriteConsent';
 const mockStoreWellnessBlob = SecureStorageService.storeWellnessBlob as jest.Mock;
 
 function session(id: string, type: AssessmentType = 'phq9'): AssessmentSession {
@@ -49,6 +50,7 @@ function session(id: string, type: AssessmentType = 'phq9'): AssessmentSession {
 
 describe('Assessment Store — Your note annotations (FEAT-195)', () => {
   beforeEach(() => {
+    seedWellnessWriteConsent('loading'); // FEAT-665: back to the default, so a seed never leaks into the next test
     jest.clearAllMocks();
     for (const k of Object.keys(mockWellnessBlobs)) delete mockWellnessBlobs[k];
     useAssessmentStore.getState().resetAssessment();
@@ -86,6 +88,9 @@ describe('Assessment Store — Your note annotations (FEAT-195)', () => {
   });
 
   it('persists the note through the encrypted saveProgress() path', async () => {
+    // FEAT-665: asserts a persisted write, so it runs as a consenting user. FEAT-685 gates
+    // the save, and the store's default `loading` status would block it.
+    seedWellnessWriteConsent('granted');
     const { result } = renderHook(() => useAssessmentStore());
 
     await act(async () => {
@@ -99,13 +104,13 @@ describe('Assessment Store — Your note annotations (FEAT-195)', () => {
       expect.any(Object),
       'level_2_assessment_data'
     );
-    // The persisted blob is the zustand-persist envelope ({ state, version });
-    // unwrap to the partialized slice.
+    // The persisted blob is the zustand-persist envelope ({ state, version }) — required,
+    // not tolerated: a flat blob here would not rehydrate (MAINT-731).
     const blob = mockWellnessBlobs['assessment_store'] as {
-      state?: { completedAssessments: AssessmentSession[] };
-      completedAssessments?: AssessmentSession[];
+      state: { completedAssessments: AssessmentSession[] };
     };
-    const persistedSessions = blob.state?.completedAssessments ?? blob.completedAssessments ?? [];
+    expect(blob).toEqual({ state: expect.any(Object), version: expect.any(Number) });
+    const persistedSessions = blob.state.completedAssessments;
     expect(persistedSessions.find((s) => s.id === 's1')?.note).toBe('context note');
   });
 

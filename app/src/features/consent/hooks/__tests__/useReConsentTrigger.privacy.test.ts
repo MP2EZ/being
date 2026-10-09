@@ -284,7 +284,7 @@ describe('resolveReConsentPresentation — the six conditions', () => {
      * PUSHES the consent form on top of it (`navigationRef.ts:22-27` reads the
      * top of the root stack). 988 itself survives — `ReConsent` is not in
      * `SUPPRESSED_ROUTES`, so the overlay still renders — but the user is yanked
-     * off the resources list, the safety plan and the text-line option onto a
+     * off the resources list and the text-line option onto a
      * consent form. `RootCrisisButton.tsx:190-198` names that exact harm when
      * justifying its own single-flight guard.
      *

@@ -1,5 +1,14 @@
 # Being API Design and Architecture Documentation
 
+> ⚠️ **HISTORICAL DESIGN RECORD — not maintained against the code (MAINT-617, 2026-09-14).**
+> An early design for a storage and API layer that the app does not use. `SecureDataStore` existed
+> briefly and was removed in `25b6f9ed` (2025-09-27). Do not use this document to locate code.
+>
+> **The crisis-plan interfaces here are NOT features of the app.** `saveCrisisPlan`, `CrisisPlan` and the
+> `VIEW_CRISIS_PLAN` / `MODIFY_CRISIS_PLAN` permissions describe a safety plan that does not exist. 988 access
+> and score-based crisis detection (PHQ-9 ≥15/≥20, Q9>0, GAD-7 ≥15) are live and not covered by this notice.
+> Being is not a HIPAA-covered entity (`docs/legal/regulatory-applicability.md`).
+
 ## Overview
 
 This document details the current local-only API architecture and design patterns for Being's Stoic Mindfulness platform. The system is architected for seamless transition from local-only operation to connected backend integration while maintaining clinical-grade data integrity and therapeutic effectiveness.
@@ -39,7 +48,7 @@ App Layer (React Native)
 3. **Offline-First UX**: Full functionality without network connectivity
 4. **Progressive Enhancement**: Prepared for future backend sync capabilities
 5. **Zero Data Loss**: Robust session management and data persistence
-6. **HIPAA-Ready**: Encryption and privacy by design
+6. **Privacy by design**: Encryption at rest (AES-256)
 
 ## Service Layer Architecture
 
@@ -85,7 +94,7 @@ AsyncStorage (React Native)
     ↓
 EncryptedDataStore (AES-256 encryption)
     ↓ 
-SecureDataStore (HIPAA-compliant wrapper)
+SecureDataStore (encrypted storage wrapper, since removed)
     ↓
 Store Services (Business logic layer)
     ↓

@@ -11,8 +11,6 @@ import type {
   AssessmentProgress,
   PHQ9Result,
   GAD7Result,
-  CrisisDetection,
-  CrisisIntervention,
   AssessmentType
 } from './index';
 
@@ -98,28 +96,6 @@ export interface AssessmentResultsProps extends BaseAssessmentProps {
   showTherapeuticGuidance?: boolean;
   /** Callback for result analytics */
   onResultViewed?: (result: PHQ9Result | GAD7Result, viewDuration: number) => void;
-}
-
-// Crisis Intervention Component Props
-export interface CrisisInterventionProps extends BaseAssessmentProps {
-  /** Crisis detection that triggered intervention */
-  detection: CrisisDetection;
-  /** Current intervention state */
-  intervention?: CrisisIntervention;
-  /** Callback when user contacts support */
-  onContactSupport: () => void;
-  /** Callback when user dismisses (with safety checks) */
-  onSafetyDismiss?: () => void;
-  /** Emergency contact information */
-  emergencyContacts?: Array<{
-    name: string;
-    phone: string;
-    type: '988' | 'emergency' | 'personal';
-  }>;
-  /** Whether to force display (cannot be dismissed) */
-  forcedDisplay?: boolean;
-  /** Response time requirement (must be <200ms) */
-  responseTimeMs: number;
 }
 
 // Assessment Start Screen Props
@@ -217,41 +193,6 @@ export interface AssessmentAccessibilityProps {
   highContrastMode?: boolean;
   /** Font scaling support */
   supportsFontScaling?: boolean;
-}
-
-/**
- * Type guard functions for component props validation
- */
-
-export function isValidAssessmentResponse(value: unknown): value is AssessmentResponse {
-  return typeof value === 'number' && value >= 0 && value <= 3 && Number.isInteger(value);
-}
-
-export function isPHQ9Result(result: PHQ9Result | GAD7Result): result is PHQ9Result {
-  return 'suicidalIdeation' in result;
-}
-
-export function isGAD7Result(result: PHQ9Result | GAD7Result): result is GAD7Result {
-  return !('suicidalIdeation' in result);
-}
-
-export function isCrisisTriggered(result: PHQ9Result | GAD7Result): boolean {
-  return result.isCrisis;
-}
-
-/**
- * Crisis Safety Constraint Types
- */
-
-export interface CrisisSafetyConstraints {
-  /** PHQ-9 crisis threshold (≥20) - MUST NOT be modified */
-  readonly PHQ9_CRISIS_THRESHOLD: 20;
-  /** GAD-7 crisis threshold (≥15) - MUST NOT be modified */
-  readonly GAD7_CRISIS_THRESHOLD: 15;
-  /** Maximum response time for crisis intervention (ms) */
-  MAX_CRISIS_RESPONSE_TIME_MS: 200;
-  /** PHQ-9 Question 9 ID for suicidal ideation */
-  readonly PHQ9_SUICIDAL_QUESTION_ID: 'phq9_9';
 }
 
 /**

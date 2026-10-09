@@ -39,8 +39,8 @@ import { env } from '@/core/config/env';
  * `data_encryption`, `biometric_auth`, `offline_mode`, `widget_support`).
  *
  * NOTE — name collisions: several of those removed names still appear as string
- * literals elsewhere (`crisis_detection` in CircuitBreakerService /
- * CrisisSecurityProtocol, `performance_monitoring`, `biometric_auth`,
+ * literals elsewhere (`crisis_detection` in CircuitBreakerService,
+ * `performance_monitoring`, `biometric_auth`,
  * `offline_mode` in performance constraints, etc.). Those are independent
  * service / enum / constraint labels — NOT feature flags. Do not resurrect any
  * of them as a build-time flag here without first confirming there is a real

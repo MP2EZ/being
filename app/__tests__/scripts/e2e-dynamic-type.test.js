@@ -156,13 +156,179 @@ describe('DEBUG-469 — the class stays OUT of the default safety suite', () => 
   //          command, so the root-armed entry point cannot be driven by editing
   //          an existing flow. The second flow covers what the Profile entry
   //          structurally cannot — the form arriving on a FAB-suppressed route.
-  test('the exact-tag matcher the suite uses still selects exactly the fourteen safety flows', () => {
+  // 14 → 15: DEBUG-506 added crisis-keyboard-reachability — the sim half of a contract
+  //          whose only pin could not run where the gate runs. It served DEBUG-590's
+  //          AC 1–3; DEBUG-590 moved the device flow's record to MIGRATED.
+  // 15 → 16: INFRA-494 added legal-gate-art9-optional. It is the first sim flow to drive
+  //          CombinedLegalGateScreen's CONTROLS at all — deeplink-consent-gate reaches the
+  //          screen but ticks nothing, and the helper's gate steps run only on hardware.
+  test('the exact-tag matcher the suite uses still selects exactly the sixteen safety flows', () => {
     const files = fs.readdirSync(MAESTRO).filter((f) => f.endsWith('.yaml') && !f.startsWith('_'));
     const tagged = files.filter((f) =>
       /^\s*-\s+safety\s*$/m.test(fs.readFileSync(path.join(MAESTRO, f), 'utf8'))
     );
-    expect(tagged).toHaveLength(14);
+    expect(tagged).toHaveLength(16);
     expect(tagged).not.toContain('daily-loop-ax5-entry.yaml');
+  });
+});
+
+describe('DEBUG-546 — the skip-breath scroll must not centre an element that cannot centre', () => {
+  // The SkipLink is the last node in beat 1's scroll content. `centerElement` there costs
+  // five guaranteed extra swipes inside a scroll racing the 30s breath timer, which is what
+  // held this flow red. Nothing that gates on merge runs the flow, so this is the only
+  // thing that notices the neighbouring continue-button step's shape being copied back.
+  const stepsOf = (src, command) => {
+    const lines = src.split('\n').filter((l) => !/^\s*#/.test(l));
+    const steps = [];
+    lines.forEach((line, i) => {
+      const m = line.match(new RegExp(`^(\\s*)-\\s+${command}:\\s*$`));
+      if (!m) return;
+      const body = [];
+      for (let j = i + 1; j < lines.length; j++) {
+        if (lines[j].trim() === '') continue;
+        if (lines[j].match(/^\s*/)[0].length <= m[1].length) break;
+        body.push(lines[j]);
+      }
+      steps.push(body.join('\n'));
+    });
+    return steps;
+  };
+  const CENTRED = /^\s*centerElement:\s*true\s*$/m;
+
+  test('daily-loop-skip-breath is scrolled to WITHOUT centerElement', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, 'daily-loop-ax5-entry.yaml'), 'utf8');
+    const scrolls = stepsOf(src, 'scrollUntilVisible');
+    const skip = scrolls.filter((s) => /id:\s*"daily-loop-skip-breath"/.test(s));
+    const cont = scrolls.filter((s) => /id:\s*"continue-button"/.test(s));
+
+    // Controls against the file itself: the slicer found exactly the real step (it carries
+    // its timeout), and the centring matcher fires on this file's formatting.
+    expect(skip).toHaveLength(1);
+    expect(skip[0]).toMatch(/^\s*timeout:\s*\d+\s*$/m);
+    expect(cont.some((s) => CENTRED.test(s))).toBe(true);
+
+    expect(skip[0]).not.toMatch(CENTRED);
+  });
+});
+
+describe('DEBUG-629 — the AX5 VirtuousResponse flow joins the class, not the default suite', () => {
+  const FLOW = 'daily-loop-ax5-virtuous.yaml';
+
+  // Same carve-out and same reason as daily-loop-ax5-entry above. Note this flow does NOT
+  // move the fifteen-flow count asserted there, and that is the point of the class: it adds
+  // accessibility-size coverage without changing what the default suite runs.
+  test('is tagged safety-dynamic-type and NOT safety', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    expect(/^\s*-\s+safety-dynamic-type\s*$/m.test(src)).toBe(true);
+    expect(/^\s*-\s+safety\s*$/m.test(src)).toBe(false);
+  });
+
+  // The coverage gap this flow exists to close, pinned so it cannot be closed by accident
+  // and then silently reopened. `daily-loop-quick-depth` reaches this beat but runs at the
+  // default size by construction; `daily-loop-ax5-entry` runs at AX5 but stops one beat
+  // short. If either of those facts changes, this flow's justification changes with it.
+  test('is the only AX5 flow that reaches VirtuousResponse', () => {
+    const files = fs
+      .readdirSync(MAESTRO)
+      .filter((f) => f.endsWith('.yaml') && !f.startsWith('_'));
+    const ax5ReachingBeat3 = files.filter((f) => {
+      const src = fs.readFileSync(path.join(MAESTRO, f), 'utf8');
+      return (
+        /^\s*-\s+safety-dynamic-type\s*$/m.test(src) && src.includes('daily-loop-VirtuousResponse')
+      );
+    });
+    expect(ax5ReachingBeat3).toEqual([FLOW]);
+
+    const entry = fs.readFileSync(path.join(MAESTRO, 'daily-loop-ax5-entry.yaml'), 'utf8');
+    expect(entry.includes('daily-loop-VirtuousResponse')).toBe(false);
+  });
+
+  // The beat-2 advance must NOT use `centerElement`, and must carry the attribution guard.
+  // Crisis ruling (DEBUG-629): centring completed and the tap still landed 32pt inside the
+  // pinned crisis line, because a 169pt control cannot be centred in a 205pt viewport and
+  // the bar's top is band-independent at 344 while screen centre is 333.5. The remedy is a
+  // scroll terminating at the CONTENT BOUNDARY — deterministic tap point, and it clears the
+  // swallowed-touch class too (gad7-severe's predicate). Re-adding `centerElement` here
+  // silently restores a ~50% mis-tap into CrisisResources, so it is pinned.
+  test('advances beat 2 by swiping to the content boundary, never by centring', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    // Anchor BOTH ends on structural assertions. A slice that runs to EOF also swallows the
+    // virtue-chip scroll, whose `centerElement` is correct and required — so an unanchored
+    // slice reds against a healthy flow and tells you to remove the wrong thing.
+    const from = src.indexOf('assertVisible:\n    id: "daily-loop-support-line"');
+    const to = src.indexOf('assertVisible:\n    id: "daily-loop-VirtuousResponse-screen"');
+    expect(from).toBeGreaterThan(-1);
+    expect(to).toBeGreaterThan(from);
+    const beat2 = src.slice(from, to);
+    expect(beat2).not.toMatch(/^\s*centerElement:\s*true/m);
+    expect(beat2).toMatch(/swipe:/);
+    // The guard that makes a mis-tap name itself instead of reading as a missing element.
+    expect(beat2.indexOf('assertNotVisible:\n    id: "crisis-resources-screen"')).toBeGreaterThan(
+      beat2.indexOf('tapOn:\n    id: "continue-button"'),
+    );
+  });
+
+  // A swipe must start AND end inside the scroll viewport [138,343] on this 667pt device.
+  // Beat 1's `50%, 85%` (y=567) lands on the PINNED support bar and drives no scroll at all —
+  // which would look like a flow that scrolls and silently doesn't.
+  test('its beat-2 swipes stay inside the scroll viewport', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    const beat2 = src.slice(src.indexOf('daily-loop-support-line'));
+    const from = src.indexOf('assertVisible:\n    id: "daily-loop-support-line"');
+    const to = src.indexOf('assertVisible:\n    id: "daily-loop-VirtuousResponse-screen"');
+    const region = src.slice(from, to);
+    const ys = [...region.matchAll(/"50%,\s*(\d+)%"/g)].map((m) => Number(m[1]));
+    expect(ys.length).toBeGreaterThanOrEqual(2);
+    for (const pct of ys) {
+      const y = (pct / 100) * 667;
+      expect(y).toBeGreaterThan(138);
+      expect(y).toBeLessThan(343);
+    }
+  });
+
+  // MEASURED, not defensive. A `centerElement` scroll leaves the list coasting and RN's
+  // ScrollView claims a touch that starts mid-deceleration (`_isAnimating()` in
+  // `_handleStartShouldSetResponderCapture`), so the tap only STOPS the list: 1 of 2 AX5
+  // runs had `tapOn: continue-button` COMPLETED with VirtuousResponse never appearing.
+  // A longer timeout cannot fix a consumed tap, which is why the retry is pinned rather
+  // than left as a shape someone may "simplify" away.
+  test('retries the beat-2 advance, guarded on not having navigated', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    expect(src).toMatch(
+      /notVisible:\s*\n\s*id:\s*"daily-loop-VirtuousResponse-screen"[\s\S]*?tapOn:\s*\n\s*id:\s*"continue-button"/,
+    );
+  });
+
+  // DEBUG-632's general result, adopted rather than re-derived: Maestro reports a tap
+  // COMPLETED whenever the view hierarchy changed, and an animating screen changes it every
+  // frame — so on the breath beat a swallowed tap is indistinguishable from one that landed.
+  // The confirmation must therefore key on app state (the SkipLink unmounting), and the
+  // guard must NOT key on `daily-loop-breathing-circle`, whose testID is on a ~300pt
+  // component root that straddles the fold at AX5.
+  test('confirms the breath skip from app state, not from a tap verdict', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    expect(src).toMatch(/notVisible:\s*\n\s*id:\s*"daily-loop-skip-breath"/);
+    expect(src).not.toMatch(/(?:not)?[Vv]isible:\s*\n\s*id:\s*"daily-loop-breathing-circle"/);
+  });
+
+  // The crisis invariant the crisis ruling requires this flow to carry: the support line is
+  // asserted on the beat showsSupportLine() selects with NO scroll in front of it, and its
+  // absence on beat 3 is asserted only AFTER a positive assertion, so the negative can
+  // never be satisfied by an empty screen.
+  test('asserts the support line unscrolled on beat 2 and its absence after arriving on beat 3', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    const sphere = src.indexOf('daily-loop-SphereSovereignty-screen');
+    const supportAssert = src.indexOf('assertVisible:\n    id: "daily-loop-support-line"');
+    const beat3 = src.indexOf('assertVisible:\n    id: "daily-loop-VirtuousResponse-screen"');
+    // The SUPPORT-LINE negative specifically. A bare `assertNotVisible:` now finds the
+    // crisis-resources attribution guard, which sits earlier by design — so the loose
+    // matcher would report the ordering broken on a flow whose ordering is correct.
+    const notVisible = src.indexOf('assertNotVisible:\n    id: "daily-loop-support-line"');
+
+    expect(sphere).toBeGreaterThan(-1);
+    expect(supportAssert).toBeGreaterThan(sphere);
+    expect(src.slice(sphere, supportAssert)).not.toMatch(/scrollUntilVisible|swipe:/);
+    expect(notVisible).toBeGreaterThan(beat3);
   });
 });
 
@@ -191,5 +357,177 @@ describe('DEBUG-507 — the XXXL profile-entry flow joins the class, not the def
     const m = src.match(/timeout:\s*(\d+)/);
     expect(m).not.toBeNull();
     expect(Number(m[1])).toBeGreaterThanOrEqual(30000);
+  });
+});
+
+describe('DEBUG-579 — the tab-label capture harness joins the class, not the default suite', () => {
+  const FLOW = 'tab-label-dynamic-type-capture.yaml';
+  const PKG = JSON.parse(
+    fs.readFileSync(path.resolve(__dirname, '..', '..', 'package.json'), 'utf8')
+  );
+
+  // The same carve-out as the two above, and the case for it is stronger here: this flow
+  // CANNOT fail on its own subject. Maestro asserts presence, not clipping or truncation,
+  // so in the default suite it would contribute a green that discharges nothing while
+  // also mixing a second text size into a run whose reds must stay readable.
+  test('is tagged safety-dynamic-type and NOT safety', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    expect(/^\s*-\s+safety-dynamic-type\s*$/m.test(src)).toBe(true);
+    expect(/^\s*-\s+safety\s*$/m.test(src)).toBe(false);
+  });
+
+  // DEBUG-579 AC6 requires observation at AX1 *and* AX5, and the evidence is per-size
+  // screenshots. Two edits lose a size SILENTLY — both runners naming the same content
+  // size, or the same DEBUG579_LABEL, which makes the second run overwrite the first's
+  // images and leaves the operator adjudicating one size twice believing it was two.
+  test('the two runners request different sizes and different screenshot labels', () => {
+    const ax1 = PKG.scripts['e2e:capture:tabbar-ax1'];
+    const ax5 = PKG.scripts['e2e:capture:tabbar-ax5'];
+    expect(ax1).toContain('E2E_DYNAMIC_TYPE_SIZE=accessibility-medium');
+    expect(ax5).toContain('E2E_DYNAMIC_TYPE_SIZE=accessibility-extra-extra-extra-large');
+
+    const label = (s) => (s.match(/DEBUG579_LABEL=([A-Za-z0-9_-]+)/) || [])[1];
+    expect(label(ax1)).toBeDefined();
+    expect(label(ax5)).toBeDefined();
+    expect(label(ax1)).not.toBe(label(ax5));
+
+    // Both must go through the wrapper: a bare `maestro test` sets no size and, worse,
+    // restores none — the device-global leak the whole class exists to prevent.
+    for (const s of [ax1, ax5]) {
+      expect(s).toContain(`scripts/e2e-dynamic-type.sh ${FLOW.replace(/\.yaml$/, '')}`);
+    }
+  });
+
+  // Every capture path carries the label. A path that forgets it reintroduces the
+  // overwrite above one line at a time, and the loss is invisible in a green run.
+  test('every screenshot path carries the per-run label', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    const shots = src.match(/^-\s+takeScreenshot:.*$/gm) || [];
+    expect(shots.length).toBeGreaterThan(1);
+    for (const s of shots) expect(s).toContain('${DEBUG579_LABEL}');
+  });
+
+  // The flow asserts the label ARRIVED. Without it a dropped -e yields one silently
+  // overwritten set rather than a failure, which is the same loss by a different route.
+  test('the flow refuses to run without the label', () => {
+    const src = fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+    expect(/assertTrue:.*DEBUG579_LABEL/.test(src)).toBe(true);
+  });
+});
+
+describe('DEBUG-632 — the skip-breath tap must be CONFIRMED, not assumed', () => {
+  // Maestro calls a tap COMPLETED when the view hierarchy changed ("Something have changed
+  // in the UI judging by view hierarchy. Proceed."), and beat 1's hierarchy changes
+  // continuously — an animating BreathingCircle and a ticking countdown — so that heuristic
+  // cannot tell a tap that took from one the still-decelerating ScrollView swallowed. It is
+  // blind on ANY animating screen, not just this one.
+  //
+  // Measured 4/4 on the retained failing runs: the breath then ran its full 30s and
+  // `continue-button` — which renders only under `breathCompleted` — mounted at exactly
+  // mount+30s, ~22s into the NEXT step's 30s budget, leaving ~6s to fund a ~7s futile
+  // centring phase. The flow failed at `continue-button` for a cause two steps upstream,
+  // which is why it read as a centring defect and not as a swallowed tap.
+  //
+  // The discriminator is the SkipLink's own disappearance and deliberately NOT the
+  // BreathingCircle's: that testID sits on a ~300pt component root that STRADDLES the fold
+  // at AX5, so a predicate on it is decided by the visibility threshold and varies with how
+  // many swipes the run needed — nondeterministically vacuous, confounded with the exact
+  // variable the flow cannot control. The SkipLink is measured at 100% visibility at the
+  // instant it is tapped, so it cannot pass vacuously at t=0.
+  const FLOW = 'daily-loop-ax5-entry.yaml';
+
+  test('the AX5 flow proves the skip took, and recovers once if it did not', () => {
+    const src = fs
+      .readFileSync(path.join(MAESTRO, FLOW), 'utf8')
+      .replace(/^\s*#.*$/gm, '');
+
+    const tapIdx = src.search(/-\s+tapOn:\s*\n\s+id:\s*"daily-loop-skip-breath"/);
+    const contIdx = src.indexOf('id: "continue-button"');
+
+    // Anchors, asserted before anything is read from between them: a slice bounded by
+    // anchors that were never found is empty, and every negative over it would be vacuous.
+    expect(tapIdx).toBeGreaterThan(-1);
+    expect(contIdx).toBeGreaterThan(tapIdx);
+
+    const slice = src.slice(tapIdx, contIdx);
+
+    // Control that the matcher still discriminates ON THE SLICE rather than on a literal:
+    // the region must hold the skip tap it is anchored to plus the re-tap and the proof,
+    // i.e. three references, not the one a stripped-out block would leave.
+    expect((slice.match(/id:\s*"daily-loop-skip-breath"/g) || []).length).toBeGreaterThanOrEqual(3);
+
+    // The BARRIER, at column 0 — OUTSIDE the `when: visible: daily-loop-breathing-circle`
+    // block, mirroring daily-loop-quick-depth.yaml:327. Inside, it would be skipped by the
+    // same fold-straddling guard described above and the flow would revert to its
+    // coin-flip behaviour with nothing to say so.
+    //
+    // It is `extendedWaitUntil`, deliberately not `assertNotVisible`: measured, the step
+    // does NOT fail fast — it blocked 11.98s and then passed on the 30s breath timer
+    // unmounting the link. It holds until `breathCompleted` by either route so the scroll
+    // below never starts against an unmounted button. The explicit 20000 is derived from
+    // the worst-case residual breath; Maestro's own default is emergent from hierarchy-poll
+    // latency and moves with host load, which is exactly why it is written down here.
+    expect(slice).toMatch(
+      /^-\s+extendedWaitUntil:\s*\n\s+notVisible:\s*\n\s+id:\s*"daily-loop-skip-breath"\s*\n\s+timeout:\s*20000/m
+    );
+    // Non-optional: a genuine failure must still go red at the barrier.
+    expect(slice).not.toMatch(
+      /^-\s+extendedWaitUntil:[\s\S]{0,120}?timeout:\s*20000\s*\n\s+optional:\s*true/m
+    );
+
+    // The recovery is CONDITIONAL on the link still being there. Unconditional, the second
+    // tap would land on whatever the completed beat renders at those coordinates.
+    expect(slice).toMatch(
+      /runFlow:\s*\n\s+when:\s*\n\s+visible:\s*\n\s+id:\s*"daily-loop-skip-breath"/
+    );
+
+    // The settle the recovery depends on: the re-tap is issued only after this wait has
+    // polled, so it lands in a list that stopped decelerating seconds ago. A floor, not
+    // slack — shrink it and the DEBUG-546 swallow applies to the second tap too.
+    expect(slice).toMatch(
+      /extendedWaitUntil:\s*\n\s+notVisible:\s*\n\s+id:\s*"daily-loop-skip-breath"\s*\n\s+timeout:\s*5000/
+    );
+  });
+});
+
+describe('DEBUG-722 — the assessment AX5 reachability flow joins the class, not the default suite', () => {
+  const FLOW = 'assessment-ax5-reachability.yaml';
+  const src = () => fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+
+  // Same carve-out as daily-loop-ax5-entry: this flow asserts a NON-default text size.
+  test('is tagged safety-dynamic-type and NOT safety', () => {
+    expect(/^\s*-\s+safety-dynamic-type\s*$/m.test(src())).toBe(true);
+    expect(/^\s*-\s+safety\s*$/m.test(src())).toBe(false);
+  });
+
+  test('runs through the wrapper that sets and restores AX5', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
+    expect(pkg.scripts['e2e:safety:assessment-ax5']).toBe(
+      'bash scripts/e2e-dynamic-type.sh assessment-ax5-reachability',
+    );
+  });
+
+  // The defect is that option-3, the bottom row, was unreachable. Answering every one of
+  // the nine questions with it is what makes the flow fail on an unscrolled screen; a
+  // walk that answered option-0 would pass on the pre-fix layout at XXXL.
+  test('answers all nine PHQ-9 questions with the bottom option, each after a scroll', () => {
+    const body = src().replace(/^\s*#.*$/gm, '');
+    for (let n = 1; n <= 9; n++) {
+      expect(body).toContain(`Question ${n} of 9`);
+    }
+    expect(body.match(/tapOn:\s*\n\s*id: "assessment-response-group-option-3"/g)).toHaveLength(9);
+    expect(body.match(/scrollUntilVisible:\s*\n\s*element:\s*\n\s*id: "assessment-response-group-option-3"/g)).toHaveLength(9);
+    expect(body).not.toMatch(/assessment-response-group-option-[012]/);
+  });
+
+  test('asserts the crisis outcome and taps the crisis button over a scrolled question', () => {
+    const body = src().replace(/^\s*#.*$/gm, '');
+    expect(body).toContain('id: "results-crisis-banner"');
+    const swipe = body.lastIndexOf('- swipe:');
+    const fab = body.indexOf('id: "assessment-crisis-button"');
+    expect(swipe).toBeGreaterThan(-1);
+    expect(fab).toBeGreaterThan(swipe);
+    expect(body.slice(swipe, fab)).not.toMatch(/waitForAnimationToEnd|point:/);
+    expect(body.indexOf('id: "crisis-resources-screen"')).toBeGreaterThan(fab);
   });
 });

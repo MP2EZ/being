@@ -55,7 +55,7 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 #
 # This flow otherwise cannot tell "navigated" from "dialled, then recovered": it only
 # ever asserts the destination is present. Distinguishing them matters because the two
-# outcomes are not equivalent — dialling skips the resource list, the safety plan and
+# outcomes are not equivalent — dialling skips the resource list and
 # the text-line option that CrisisResources carries.
 #
 # Placed AFTER the assertVisible, never before. `extendedWaitUntil: notVisible` returns
@@ -237,6 +237,15 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     centerElement: true # DEBUG-465: the card is inside InsightsScreen's ScrollView
                         # while the crisis FAB is pinned outside it, so a card left
                         # at the bottom edge shares coordinates with the FAB.
+- waitForAnimationToEnd: # INFRA-729 settle — see the Notifications & Display segment
+    timeout: 3000
+# DEBUG-652 ABSORBING TAP — LOAD-BEARING, NOT A COPY-PASTE SLIP. tab-insights is the active
+# tab; it absorbs the touch a scroll can swallow, so the prompt tap is the SECOND touch. The
+# centring clamped at the content boundary in the 2026-10-02 capture only because the seeded
+# content below the card is short — WellnessScreeningTrends and "See full history" follow it
+# (InsightsScreen.tsx), so more seed data re-arms a mid-content stop.
+- tapOn:
+    id: "tab-insights"
 - tapOn:
     id: "weekly-reflection-prompt"
 - assertVisible:
@@ -339,7 +348,8 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # NOTE: the Privacy → CloudBackup depth-2 route is gated by the cloud_sync feature
 # flag (dark by default), so its entry row is not present in this default-build
 # run; that route's overlay hosting is pinned by ProfileStackNavigator.test.tsx.
-# Legal → LegalDocument (ungated) provides the on-device depth-2 assertion here.
+# Legal → LegalDocument (ungated) is the on-device depth-2 check: it asserts
+# legal-document-screen before the FAB tap (DEBUG-680).
 
 # menu route (Profile tab landing)
 - tapOn:
@@ -409,8 +419,36 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     element:
       id: "profile-card-appsettings"
     direction: DOWN
+# INFRA-729 SETTLE — LOAD-BEARING, AND IT GOES BEFORE THE ABSORBING TAP, NOT INSTEAD OF IT.
+# scrollUntilVisible reports COMPLETED while the list is still decelerating, and RN's
+# ScrollView spends a touch that lands during momentum on stopping the scroll — onPress never
+# fires. The absorbing tap below is outside the ScrollView, so it cannot stop momentum.
+# Measured from 11 kept failure logs (iPhone SE 3 / iOS 18.6, 10-04 and 10-06): every failed
+# card tap had the card still moving 20-69pt between scroll-COMPLETED and tap resolution;
+# ~25 taps with drift 0..2pt all landed. The two remedies compose: settle (momentum), then
+# absorb (signature 1). Crisis ruling: timeout 3000, never above 5000, and never raise it to
+# make a run pass — a wait that hits its timeout is a new animation to investigate. Never
+# put one before a crisis-button-root tap: the FAB must answer its first touch.
+- waitForAnimationToEnd:
+    timeout: 3000
+# DEBUG-652 ABSORBING TAP — LOAD-BEARING, NOT A COPY-PASTE SLIP (the DEBUG-477 shape).
+# tab-profile is DELIBERATELY re-tapped while already the active tab, on the menu root. It
+# absorbs the one touch an XCUITest tap can lose after a scroll that stops mid-content
+# (signature 1, docs/testing/e2e-maestro.md), so the card tap below is the SECOND touch.
+# Captured 2026-10-02 on iPhone SE 3 / 375x667: every menu-root card scroll here stops
+# mid-content. Five of the eight (DEBUG-680 added Legal depth-2) swipe zero times today only
+# because of where the previous segment left the offset, so the tap goes on all eight. COUPLING: the app has no
+# scroll-to-top on active-tab re-press; adding one turns this RED (the safe direction).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-appsettings"
+# DEBUG-652: the Profile menu carries its own FAB, so the FAB tap below proves nothing
+# about the card tap unless the destination is asserted first. A screen-root testID,
+# not `profile-back-button` (every pushed route has one) and not the header title (the
+# card carries the same label). It stays the LAST step before the FAB tap.
+- assertVisible:
+    id: "app-settings-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
@@ -428,8 +466,15 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     element:
       id: "profile-card-privacy"
     direction: DOWN
+- waitForAnimationToEnd: # INFRA-729 settle — see the Notifications & Display segment
+    timeout: 3000
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-privacy"
+- assertVisible:
+    id: "privacy-data-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
@@ -451,8 +496,9 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 # otherwise stops with the card at the screen's bottom edge (near the floating
 # crisis button), where the subsequent tap doesn't land cleanly enough to fire
 # navigation — it silently stays on the menu. Centering the card before the tap
-# makes the push reliable. (The existing depth-1 segments don't need this only
-# because their crisis assertion is satisfiable by the menu's own overlay.)
+# makes the push reliable. (The depth-1 segments above never needed it to go green
+# only because their crisis assertion was satisfiable by the menu's own FAB, which
+# made them false greens. DEBUG-652 asserts each one's destination before the FAB.)
 - tapOn:
     id: "tab-profile"
 - scrollUntilVisible:
@@ -460,8 +506,17 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
       id: "profile-card-privacy"
     direction: DOWN
     centerElement: true
+- waitForAnimationToEnd: # INFRA-729 settle — see the Notifications & Display segment
+    timeout: 3000
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-privacy"
+# DEBUG-652: arrival is asserted before the next scroll, or a swallowed tap surfaces
+# ~48s later as the wrong element.
+- assertVisible:
+    id: "privacy-data-screen"
 # ── DEBUG-473: BUDGET, NOT GEOMETRY — and not device-specific ────────────────────
 # This flow was reported RED at 402x874. It is not: it passes 5/5 there on an idle
 # machine, unmodified. What it was, was one second away from failing.
@@ -473,6 +528,10 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 #   scroll content view         [0,-1446][402,756]   2202pt -> 1608pt overflow (2.7x fold)
 #   profile-card-export         [24,425][378,542]    100% inside the fold at max scroll
 #   profile-card-delete         [24,558][378,676]    100% inside the fold, ~198pt trailing
+#
+# (These 402x874 figures were NOT re-measured after DEBUG-562, which moved a 34pt-inset
+# device's tab bar by ~4pt; nor was the 375x667 111pt centring figure below. DEBUG-653
+# re-measured 375x667 only — see the profile-card-delete step.)
 #
 # Neither card is ever clipped, so there is NO fold defect on this screen and
 # PrivacyDataScreen is not implicated — both data-rights affordances, export and
@@ -618,15 +677,26 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
       id: "profile-card-privacy"
     direction: DOWN
     centerElement: true
+- waitForAnimationToEnd: # INFRA-729 settle — see the Notifications & Display segment
+    timeout: 3000
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-privacy"
+# DEBUG-652: arrival is asserted before the next scroll, or a swallowed tap surfaces
+# ~48s later as the wrong element.
+- assertVisible:
+    id: "privacy-data-screen"
 # profile-card-delete is the BOTTOM-MOST element on the Privacy screen. It needs
 # centerElement:true for the same reason every other card scroll here does —
 # without it scrollUntilVisible stops short of maximum scroll and reports
 # COMPLETED anyway. Measured on iPhone SE 3 (DEBUG-453): it stopped at 87% with
 # the card at [24,623][351,740], entirely below the ScrollView's clip bottom of
-# 583, then tapped its centre at y=681.5 and hit nothing. At true maximum the
-# card sits at [24,385][351,503] — fully visible, 80pt of trailing padding below.
+# 583, then tapped its centre at y=681.5 and hit nothing (pre-DEBUG-562;
+# re-measured 2026-09-25: clip bottom 613). At true maximum the card sits at
+# [24,415][351,533] (re-measured 2026-09-25, 375x667, iOS 18.6) — fully visible,
+# 80pt of trailing padding below.
 # visibilityPercentage stays 60: the threshold was never the problem, so lowering
 # OR raising it would both miss the defect (DEBUG-432 rejected lowering it).
 # speed/timeout here are DEBUG-473's, sized above; DEBUG-453's account is unchanged —
@@ -679,8 +749,15 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     element:
       id: "profile-card-account"
     direction: DOWN
+- waitForAnimationToEnd: # INFRA-729 settle — see the Notifications & Display segment
+    timeout: 3000
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-account"
+- assertVisible:
+    id: "account-settings-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
@@ -698,8 +775,15 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     element:
       id: "profile-card-stoic"
     direction: DOWN
+- waitForAnimationToEnd: # INFRA-729 settle — see the Notifications & Display segment
+    timeout: 3000
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-stoic"
+- assertVisible:
+    id: "about-stoic-mindfulness-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
@@ -717,8 +801,15 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
     element:
       id: "profile-card-legal"
     direction: DOWN
+- waitForAnimationToEnd: # INFRA-729 settle — see the Notifications & Display segment
+    timeout: 3000
+# DEBUG-652 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-legal"
+- assertVisible:
+    id: "legal-documents-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:
@@ -731,17 +822,29 @@ name: "Crisis button (single root mount) reaches CrisisResources from every surf
 
 # depth-2: Legal Documents → an individual document (real push, depth 2).
 # Re-navigate menu → legal → legal-doc from scratch so the depth-2 assertion
-# never depends on where the prior nav-back-button landed.
+# never depends on where the prior nav-back-button landed — navigation state only: the
+# menu's scroll offset survives, which is why the absorbing tap below is needed.
 - tapOn:
     id: "tab-profile"
 - scrollUntilVisible:
     element:
       id: "profile-card-legal"
     direction: DOWN
+- waitForAnimationToEnd: # INFRA-729 settle — see the Notifications & Display segment
+    timeout: 3000
+# DEBUG-680 absorbing tap — load-bearing, not a slip (see the Notifications & Display segment).
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-legal"
+- assertVisible:
+    id: "legal-documents-screen"
 - tapOn:
     id: "profile-legal-doc-privacy-policy"
+# DEBUG-680: the Legal list carries the same root FAB, so assert the document landed. One
+# route serves all six documents. It stays the LAST step before the FAB tap.
+- assertVisible:
+    id: "legal-document-screen"
 - tapOn:
     id: "crisis-button-root"
 - assertVisible:

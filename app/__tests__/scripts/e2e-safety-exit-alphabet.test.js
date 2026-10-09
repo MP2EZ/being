@@ -59,6 +59,7 @@ const SOURCED = [
   'e2e-driver-ownership.sh',
   'e2e-content-size.sh',
   'e2e-sim-lock.sh',
+  'e2e-sim-attachments.sh', // INFRA-692
   'e2e-host-contention.sh',
   'e2e-telemetry.sh',
 ];
@@ -194,6 +195,9 @@ function runGate(sandbox, { flows = [], env = {} } = {}) {
       E2E_LOCK_INHERITED: '',
       E2E_SIM_UDID: '',
       E2E_DEVICE_UDID: '',
+      // INFRA-657: a receipt path inherited from an enclosing detached close would arm the
+      // missing-app recovery and change which exit the absent-app case reaches.
+      E2E_GATE_RECEIPT_PATH: '',
       ...env,
     },
   });

@@ -29,6 +29,7 @@
  */
 
 import {
+  ExternalErrorReporter,
   scrubFeedbackEvent,
   sanitizeFeedbackMessage,
 } from '@/core/services/logging/ExternalErrorReporter';
@@ -132,5 +133,43 @@ describe('FEAT-284 build-time gate — bug_reporting flag', () => {
 
   it('defaults OFF when the key is absent (unknown flag → false)', () => {
     expect(__parseFlagsForTest('cloud_sync:true')['bug_reporting']).toBeUndefined();
+  });
+});
+
+describe('INFRA-561 · beforeBreadcrumbHook checks BOTH ends of a navigation breadcrumb', () => {
+  /**
+   * Driven directly: `beforeBreadcrumbHook` is private but depends on nothing
+   * except `this.killed`, `isSensitiveRoute` and `sanitizeString` — no Sentry
+   * module — so it needs no mock to exercise.
+   *
+   * Latent when written: nothing in the app emits a `category:'navigation'`
+   * breadcrumb today, so this branch has never run in production. It is pinned
+   * now because INFRA-561 moves the screen-name path from root routes to leaf
+   * routes, and any future navigation-breadcrumb source would land on a hook
+   * that only ever inspected one end of the trip.
+   */
+  function hook(breadcrumb: unknown): unknown {
+    (ExternalErrorReporter as any).instance = undefined;
+    const reporter = ExternalErrorReporter.getInstance();
+    return (reporter as any).beforeBreadcrumbHook(breadcrumb);
+  }
+
+  it('drops a navigation breadcrumb whose DESTINATION is sensitive', () => {
+    // Control. Already true before INFRA-561 — if this goes red the hook is
+    // broken outright and the `from` case below proves nothing about `from`.
+    expect(hook({ category: 'navigation', data: { from: 'Home', to: 'VoiceReflection' } })).toBeNull();
+  });
+
+  it('drops a navigation breadcrumb whose ORIGIN is sensitive', () => {
+    // The gap. The hook read `data.to || message`, and the SDK's message is
+    // `Navigation to <to>` — so neither path ever saw `data.from`. Leaving
+    // VoiceReflection for Home kept the breadcrumb with the sensitive name on it.
+    expect(hook({ category: 'navigation', data: { from: 'VoiceReflection', to: 'Home' } })).toBeNull();
+  });
+
+  it('KEEPS a navigation breadcrumb when NEITHER end is sensitive', () => {
+    // Proves the two assertions above are not vacuous: a hook that dropped every
+    // navigation breadcrumb would satisfy both of them and lose the whole trail.
+    expect(hook({ category: 'navigation', data: { from: 'Home', to: 'Learn' } })).not.toBeNull();
   });
 });

@@ -45,6 +45,28 @@ name: "Bug-report form leaves the 988 affordance reachable and has a fixed exit"
       id: "profile-card-bug-report"
     direction: DOWN
     centerElement: true # DEBUG-465: the card sits inside ProfileScreen's ScrollView
+# DEBUG-477/479 absorbing tap: an element-anchored target OUTSIDE the ScrollView.
+# tab-profile is already the active tab; this re-tap is deliberate, not a copy-paste slip.
+#
+# WITHOUT IT THIS FLOW FAILS ON AN IDLE MACHINE. Measured on iPhone SE 3 / iOS 18.6,
+# `development` @ 7a33f838, Release build, assertion `bug-report-overlay is visible`:
+#
+#   host load 0.39-0.65x   2 pass / 4 fail
+#   host load 2.80-9.06x   6 pass / 0 fail
+#
+# Same binary, same device — only host load differed (p ~ 0.0003). Load is PROTECTIVE:
+# on a busy host the gap between Maestro reporting `scroll COMPLETED` and issuing the tap
+# stretches, and the ScrollView finishes decelerating before the touch lands. On a quiet
+# one the tap arrives mid-deceleration and is swallowed: the logs show scroll COMPLETED,
+# the driver logging `Tapping 187.0, 388.0` and `Tapping took 0.33`, tap COMPLETED — and
+# no overlay. So it failed precisely when an operator quiesced the machine before running
+# the gate, which is the shape that trains the `--skip-e2e` reflex.
+#
+# journal-crisis-scan, profile-voice-reflection-xxxl and journal-record-liveness all carry
+# this tap; export-share-sheet-occlusion uses a retry-on-miss instead. This flow carried
+# neither, and was the only Profile-card scroll-then-tap flow that did not.
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-bug-report"
 - assertVisible:
@@ -80,6 +102,11 @@ name: "Bug-report form leaves the 988 affordance reachable and has a fixed exit"
       id: "profile-card-bug-report"
     direction: DOWN
     centerElement: true
+# The same absorbing tap as the first entry above — this leg scrolls and taps the same
+# card, so it carries the same swallowed-tap hazard. Fixing only the first site would
+# leave the flow failing here instead, one assertion later.
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-bug-report"
 - assertVisible:

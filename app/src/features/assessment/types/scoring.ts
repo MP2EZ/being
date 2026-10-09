@@ -5,13 +5,13 @@
  * Error handling and validation for therapeutic precision
  */
 
-import { 
+import type { 
   AssessmentType, 
   AssessmentResponse, 
   AssessmentAnswer, 
   PHQ9Result, 
   GAD7Result 
-} from '../index';
+} from './index';
 import { CrisisDetection } from '@/features/crisis/types/safety';
 
 /**
@@ -40,8 +40,6 @@ export interface PHQ9ScoringConfig {
     readonly moderately_severe: [15, 19];
     readonly severe: [20, 27];
   };
-  /** Crisis detection threshold */
-  readonly crisisThreshold: 15;
   /** Suicidal ideation question ID */
   readonly suicidalIdeationQuestionId: 'phq9_9';
 }
@@ -66,8 +64,6 @@ export interface GAD7ScoringConfig {
     readonly moderate: [10, 14];
     readonly severe: [15, 21];
   };
-  /** Crisis detection threshold */
-  readonly crisisThreshold: 15;
 }
 
 /**
@@ -287,7 +283,6 @@ export type ClinicalRecommendationType =
   | 'SELF_CARE_STRATEGY'
   | 'MEDICATION_REVIEW'
   | 'FOLLOW_UP_ASSESSMENT'
-  | 'SAFETY_PLANNING'
   | 'EMERGENCY_SERVICES';
 
 /**
@@ -443,7 +438,6 @@ export const PHQ9_SCORING_CONFIG: PHQ9ScoringConfig = {
     moderately_severe: [15, 19],
     severe: [20, 27]
   },
-  crisisThreshold: 15, // Updated 2025-01-27: Moderately severe depression (≥15) triggers crisis support
   suicidalIdeationQuestionId: 'phq9_9'
 } as const;
 
@@ -457,8 +451,7 @@ export const GAD7_SCORING_CONFIG: GAD7ScoringConfig = {
     mild: [5, 9],
     moderate: [10, 14],
     severe: [15, 21]
-  },
-  crisisThreshold: 15
+  }
 } as const;
 
 /**

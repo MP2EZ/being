@@ -115,6 +115,20 @@ const ContactLine: React.FC<{ label: string; children: React.ReactNode }> = ({ l
  * Resource Card Component
  * Displays individual crisis resource with contact actions
  */
+/**
+ * The one resource id the pinned footer speaks for.
+ *
+ * Hoisted so the render decision (`hidePrimaryAction`), the audit record in
+ * `handleCall988` and the FEAT-543 analytics decision cannot drift apart --
+ * they sit ~60 lines from each other and a divergence would mislabel a real
+ * 988 tap as secondary, undercounting the exact commitment being measured.
+ *
+ * ID ONLY, never the number. DEBUG-432's ruling stands: `handleCall988` dials
+ * the literal `'tel:988'` and never looks the number up from
+ * CRISIS_RESOURCE_CATEGORIES, so a data-shape change cannot strand the dial.
+ */
+const PRIMARY_988_RESOURCE_ID = '988_lifeline';
+
 const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress, hidePrimaryAction = false }) => {
   const getPriorityColor = (priority: CrisisResourcePriority): string => {
     switch (priority) {
@@ -130,6 +144,16 @@ const ResourceCard: React.FC<ResourceCardProps> = ({ resource, onPress, hidePrim
     }
   };
 
+  /**
+   * Text / website action.
+   *
+   * EMITS NO ANALYTICS, deliberately (recorded FEAT-543). This path injects no
+   * `onTap`, so a Crisis Text Line tap has fired no `crisis_hotline_tapped`
+   * since FEAT-137. Wiring one here would retroactively change what the event
+   * has meant and destroy comparability with every pre-FEAT-543 data point --
+   * so `primary_988: false` counts PHONE taps on non-988 resources, not every
+   * non-988 crisis contact. File a separate item if SMS reach needs measuring.
+   */
   const handleSecondaryAction = () => {
     if (resource.textNumber) {
       // Correct SMS deeplink: `?body=` delimiter + encoded keyword (e.g.
@@ -334,9 +358,13 @@ export default function CrisisResourcesScreen() {
 
     // Guarded dial + manual-dial fallback via shared helper. The hotline-tap
     // analytics (FEAT-137) is injected as onTap so it fires exactly once.
+    // FEAT-543 -- computed, never a hardcoded `false`. If `hidePrimaryAction`
+    // is ever relaxed and the 988 card becomes dialable again, this keeps
+    // reporting the truth instead of silently undercounting primary taps.
     void openCrisisUrl(phoneUrl, {
       manualLabel: resource.phone,
-      onTap: trackCrisisHotlineTapped,
+      onTap: () =>
+        trackCrisisHotlineTapped(resource.id === PRIMARY_988_RESOURCE_ID),
     });
   };
 
@@ -356,14 +384,15 @@ export default function CrisisResourcesScreen() {
    */
   const handleCall988 = useCallback(() => {
     logSecurity('Crisis resource contact initiated', 'medium', {
-      resourceId: '988_lifeline',
+      resourceId: PRIMARY_988_RESOURCE_ID,
       resourceName: '988 Suicide & Crisis Lifeline',
       contactType: 'phone'
     });
 
     void openCrisisUrl('tel:988', {
       manualLabel: '988',
-      onTap: trackCrisisHotlineTapped,
+      // FEAT-543 -- this IS the primary affordance, by construction.
+      onTap: () => trackCrisisHotlineTapped(true),
     });
   }, [trackCrisisHotlineTapped]);
 
@@ -398,7 +427,7 @@ export default function CrisisResourcesScreen() {
                 key={resource.id}
                 resource={resource}
                 onPress={() => handleResourceContact(resource)}
-                hidePrimaryAction={resource.id === '988_lifeline'}
+                hidePrimaryAction={resource.id === PRIMARY_988_RESOURCE_ID}
               />
             ))}
         </View>

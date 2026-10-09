@@ -73,7 +73,14 @@
  *           resizes both states and shifts the label)
  *   0       label gap (`spacing[0]`)
  *   14      `TAB_LABEL_LINE_HEIGHT`
- *   = 52, leaving 2pt of slack inside 54.
+ *   = 52, inside a 53pt CONTENT box.
+ *
+ * The content box is 53, not 54. `CleanTabNavigator` sets `borderTopWidth: 1` on
+ * the same style object that carries `height`, and RN/Yoga is border-box, while
+ * `paddingBottom: insets.bottom` consumes the inset exactly — so children get
+ * `(54 + inset) - 1 - inset`. This comment claimed 2pt of slack until DEBUG-579;
+ * the real figure is 1pt. Nothing was broken by it (52 <= 53), but the cap below
+ * derives from the box, so the arithmetic had to be right first.
  *
  * The gap is `spacing[0]` rather than `spacing[4]` because the design-system
  * scale has no 2 (`0,4,8,12,…`) and 4 would put the stack at 56, over the 54
@@ -94,6 +101,80 @@ export const TAB_LABEL_LINE_HEIGHT = 14;
  * The largest bottom safe-area inset iOS reports for a home-indicator device.
  * The value MAINT-456's collision was measured at.
  */
+/**
+ * The bar's own top border, in points.
+ *
+ * `CleanTabNavigator` sets `borderTopWidth: 1` on the same style object as
+ * `height`. Border-box sizing means it comes OUT of the declared height, so the
+ * box children actually get is `TAB_BAR_CONTENT_HEIGHT` less this. Named rather
+ * than folded into a literal so a border change moves the label cap with it.
+ */
+export const TAB_BAR_BORDER_TOP_WIDTH = 1;
+
+/** Height available to the item stack, after the bar's own border. */
+export const TAB_BAR_CONTENT_BOX = TAB_BAR_CONTENT_HEIGHT - TAB_BAR_BORDER_TOP_WIDTH;
+
+/**
+ * The library-owned pieces of the item stack, promoted from comments and test
+ * locals so one edit moves the derivation, the invariant and the cap together.
+ *
+ * `tabVerticalUiKit { padding: 5 }` in BottomTabItem gives a top AND a bottom
+ * padding; they are separate constants because DEBUG-579's cap deliberately
+ * spends the BOTTOM one and must not touch the top.
+ */
+export const TAB_ITEM_TOP_PADDING = 5;
+export const TAB_ITEM_BOTTOM_PADDING = 5;
+/** `ICON_SIZE_TALL` in TabBarIcon — library-owned; see the warning above. */
+export const TAB_ICON_BOX_HEIGHT = 28;
+/** `spacing[0]`. The scale has no 2, and 4 would overflow the box. */
+export const TAB_LABEL_GAP = 0;
+
+/**
+ * DEBUG-579 — the largest line box the label may grow to, and the multiplier
+ * that enforces it.
+ *
+ * THE DEFECT. The `tabBarLabel` render prop set `fontSize` and `lineHeight` with
+ * no `maxFontSizeMultiplier`, while the bar's height is fixed. iOS scales both by
+ * one `effectiveFontSizeMultiplier`, so at accessibility sizes the stack outgrew
+ * the box and — `tabVerticalUiKit` being `justifyContent: 'flex-start'` — spilled
+ * DOWNWARD past the bar. Measured on iPhone SE 3 / iOS 18.6: clipped at the screen
+ * edge from AX1, entirely below the bar at AX5.
+ *
+ * WHY THE BOTTOM PADDING IS SPENT. Preserving both paddings yields a 15pt budget
+ * and a ~1.07 cap — below iOS's xLarge step (1.118), so the label would freeze at
+ * the FIRST size above default. That is `allowFontScaling={false}` in all but
+ * name, which the item explicitly refuses. Growing into the bottom padding
+ * instead yields 20pt and ~1.43, which covers every non-accessibility size
+ * including xxxLarge (1.353). The growth direction is what makes this safe: it
+ * runs downward, AWAY from the crisis FAB's touch band. A fix that pushed label
+ * pixels UPWARD out of the box — negative margin, `overflow: 'visible'`, absolute
+ * positioning — would paint a target inside that band, where the FAB wins at
+ * `zIndex: 9999`. Do not do that.
+ *
+ * WHY NOT A TALLER BAR. `TAB_BAR_CONTENT_HEIGHT` is flush against the FAB touch
+ * band at the maximum inset (54 + 34 = 88 = offset 100 - hitSlop 12). Raising it
+ * re-opens the collision DEBUG-562 settled. The cap spends slack that already
+ * existed inside the box and adds nothing to the bar.
+ *
+ * THIS IS NOT WCAG 1.4.4 CONFORMANCE, and should not be recorded as such: 143%
+ * is short of the 200% the SC asks. What makes it acceptable is that the status
+ * quo fails 1.4.4 WORSE — uncapped, the label is off-screen well before 200%,
+ * which is the loss of content the SC exists to forbid — and that the label is a
+ * redundant cue, since DEBUG-356 moved the selected-state obligation onto
+ * `ActiveTabIndicator`'s 14.16:1 focused enclosure. The residual gap is the iOS
+ * Large Content Viewer, which RN does not expose.
+ */
+export const TAB_LABEL_MAX_LINE_HEIGHT =
+  TAB_BAR_CONTENT_BOX - TAB_ITEM_TOP_PADDING - TAB_ICON_BOX_HEIGHT - TAB_LABEL_GAP;
+
+/**
+ * Derived, never a literal. Must stay > 1: iOS SILENTLY IGNORES a
+ * `maxFontSizeMultiplier` below 1.0, and exactly 1.0 is `allowFontScaling={false}`
+ * wearing a different name — either would restore the defect with every
+ * arithmetic test still green. The test file asserts it.
+ */
+export const TAB_LABEL_MAX_FONT_SCALE = TAB_LABEL_MAX_LINE_HEIGHT / TAB_LABEL_LINE_HEIGHT;
+
 export const MAX_IOS_BOTTOM_INSET = 34;
 
 /**

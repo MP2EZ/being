@@ -377,7 +377,6 @@ While Being is primarily an educational tool for Stoic Mindfulness philosophy an
 ### **Crisis Resources**
 - **Emergency Access**: Quick access to crisis support resources
 - **988 Integration**: Direct link to Suicide & Crisis Lifeline
-- **Safety Planning**: Personal crisis plan creation and storage
 - **Crisis Text Line**: 741741 text support integration
 
 **Important**: Being teaches Stoic Mindfulness philosophy for resilience-building and personal development. It is an educational tool, not a substitute for professional mental health care. If you're experiencing a crisis, please contact:

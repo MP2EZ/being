@@ -11,6 +11,24 @@
  * - <500ms launch time
  * - Minimal re-renders
  * - Optimized animations
+ *
+ * TEXT SCALING (DEBUG-678, accessibility ruling):
+ * Content text on this screen (the quote, the attribution, the practice name and the
+ * educational message) wraps, and is never capped, shrunk or truncated. The house bar is
+ * whole words through AX2 (2.143×, the first iOS step at or above WCAG 1.4.4's 200%) on the
+ * 375pt viewport. Above AX2, mid-word breaks in content are accepted: they lose no content,
+ * so they cost legibility but do not fail 1.4.4. Only the fixed-string title is capped
+ * (`PRACTICE_COMPLETION_TITLE_MAX_FONT_SCALE`), and that cap sets no precedent for content.
+ *
+ * CRISIS FAB CLEARANCE (DEBUG-682, crisis ruling):
+ * This screen replaces the whole tree of five IMMERSIVE practice hosts, so none of their own
+ * FAB clearances carry over, and the root crisis button sits over it. Continue clears the
+ * exclusion region with `marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left` on its own frame:
+ * right margin only, declared last, never on `buttonContainer`, whose `width: '100%'` would
+ * shift the button instead of shrinking it. The Pressable merges `[primaryButton, pressed &&
+ * primaryButtonPressed]` as a real array, so last-key-wins governs: the pressed member may
+ * declare no margin, width or alignSelf, and its transform may only scale by ≤ 1. The label
+ * fits at AX5 on 375 because the button's INTERNAL padding was trimmed, never by capping text.
  */
 
 import React from 'react';
@@ -24,6 +42,8 @@ import {
 } from 'react-native';
 import { semantic, colorSystem, spacing, typography, borderRadius } from '@/core/theme';
 import type { ModuleId } from '@/features/learn/types/education';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 
 /**
  * DEBUG-339 added `translation`. It is REQUIRED, not optional, and that is the
@@ -57,10 +77,25 @@ interface PracticeCompletionScreenProps {
    * same tree, so a throw here would white-screen the 988 path.
    */
   quote?: ClassicalQuote;
-  moduleId: ModuleId;
+  /** DEBUG-695: omitted when a deep link supplied no authored moduleId. Not read here. */
+  moduleId?: ModuleId | undefined;
   onContinue: () => void;
   testID?: string;
 }
+
+/**
+ * DEBUG-678 — cap on the "Practice Complete" title ONLY. Uncapped, headline2 reaches
+ * ~100pt at AX5 and both words are wider than the title box on every iPhone, so iOS
+ * broke them mid-word ("Practic / e Comple / te"). This is the AX5 endpoint of iOS's own
+ * Title 1 ramp (28 → 58pt), and it is ≥ 2.0, so WCAG 1.4.4's 200% holds.
+ *
+ * A literal ratio, deliberately not `58 / typography.headline2.size`: a token change would
+ * then move the cap, and at 34pt it would drop below 2.0. Capping is allowed here because
+ * the title is a fixed string carrying no state (DEBUG-629's category), not an
+ * information-bearing title like PracticeScreenHeader's practice name (DEBUG-619). It is no
+ * precedent for this screen's quote, practice name or educational copy, which are content.
+ */
+export const PRACTICE_COMPLETION_TITLE_MAX_FONT_SCALE = 58 / 28;
 
 /**
  * Stoic quotes — public-domain translations only, MUST be used exactly as
@@ -342,13 +377,20 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
     );
   }, [practiceTitle, quote]);
 
+  // DEBUG-682: __DEV__-only check that Continue really is clear of the crisis FAB's
+  // exclusion region on the running device (DEBUG-643); undefined in Release.
+  const continueExclusionCheck = useCrisisExclusionAssertion(`${testID}-continue-button`, 'scrolls');
+
   return (
     <ScrollView
       style={styles.container}
       contentContainerStyle={styles.contentContainer}
       testID={testID}
-      accessible
-      accessibilityLabel="Practice completion screen"
+      // DEBUG-683: never `accessible`, and nothing that hides the subtree either. An
+      // accessible root collapses the screen into ONE assistive-technology element, so
+      // Continue (the only exit on five gestureEnabled:false routes) was unreachable and
+      // the crisis button was the only other focusable control. The header role and the
+      // mount announcement already identify the screen.
     >
       {/* Completion Icon */}
       <View style={styles.iconContainer}>
@@ -361,6 +403,7 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
       <Text
         style={styles.title}
         accessibilityRole="header"
+        maxFontSizeMultiplier={PRACTICE_COMPLETION_TITLE_MAX_FONT_SCALE}
       >
         Practice Complete
       </Text>
@@ -409,6 +452,7 @@ const PracticeCompletionScreen: React.FC<PracticeCompletionScreenProps> = ({
             pressed && styles.primaryButtonPressed,
           ]}
           onPress={onContinue}
+          onLayout={continueExclusionCheck}
           accessibilityRole="button"
           accessibilityLabel="Continue"
           accessibilityHint="Continue from practice completion"
@@ -509,10 +553,14 @@ const styles = StyleSheet.create({
   primaryButton: {
     backgroundColor: colorSystem.navigation.learn,
     paddingVertical: spacing[16],
-    paddingHorizontal: spacing[24],
+    // DEBUG-682: internal, so it moves no frame. At AX5 "Continue" is ~233pt and the box
+    // inside the clearance at 375 is 239pt at this padding; spacing[12] would break mid-word.
+    paddingHorizontal: spacing[8],
     borderRadius: borderRadius.medium,
     alignItems: 'center',
     minHeight: 48, // WCAG touch target
+    // DEBUG-682 (DEBUG-653 shape): clear the crisis FAB's exclusion region. Right only, last.
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   primaryButtonPressed: {
     backgroundColor: colorSystem.navigation.learn + 'DD', // Slightly darker

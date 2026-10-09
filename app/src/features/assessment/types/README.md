@@ -52,7 +52,7 @@ types/
 ### Component Props
 
 ```typescript
-import { AssessmentQuestionProps, CrisisSafetyConstraints } from './types';
+import { AssessmentQuestionProps } from './types';
 
 // Enhanced question component with strict typing
 const AssessmentQuestion: React.FC<AssessmentQuestionProps> = ({
@@ -67,95 +67,13 @@ const AssessmentQuestion: React.FC<AssessmentQuestionProps> = ({
 };
 ```
 
-### Store Actions
+### Crisis Classification
 
-```typescript
-import { 
-  AssessmentStoreActions, 
-  TriggerCrisisInterventionAction,
-  CRISIS_SAFETY_THRESHOLDS 
-} from './types';
-
-// Store with comprehensive action typing
-const useAssessmentStore = create<AssessmentStoreState & AssessmentStoreActions>((set, get) => ({
-  // Crisis intervention with safety constraints
-  triggerCrisisIntervention: async (detection: CrisisDetection) => {
-    // Must respond within 200ms
-    const startTime = Date.now();
-    
-    // Type-safe crisis handling
-    if (detection.detectionResponseTimeMs > CRISIS_SAFETY_THRESHOLDS.MAX_CRISIS_RESPONSE_TIME_MS) {
-      throw new Error('Crisis response time exceeded safety threshold');
-    }
-    
-    // Implementation...
-  }
-}));
-```
-
-### Navigation with Crisis Safety
-
-```typescript
-import { AssessmentStackParamList, isCrisisNavigationParams } from './types';
-
-// Type-safe navigation with crisis checking
-const AssessmentNavigator = () => {
-  const navigation = useNavigation<NavigationProp<AssessmentStackParamList>>();
-  
-  const navigateToResults = (result: PHQ9Result | GAD7Result) => {
-    // Crisis detection with type safety
-    if (result.isCrisis) {
-      navigation.navigate('CrisisIntervention', {
-        detection: /* crisis detection object */,
-        triggeringResult: result,
-        sessionId: 'session_id',
-        canDismiss: false
-      });
-    } else {
-      navigation.navigate('AssessmentResults', {
-        type: result.type,
-        result,
-        context: 'standalone'
-      });
-    }
-  };
-};
-```
-
-### Scoring with Clinical Validation
-
-```typescript
-import { 
-  PHQ9ScoringFunction, 
-  GAD7ScoringFunction,
-  validateCrisisDetection,
-  detectCrisis 
-} from './types';
-
-// Type-safe scoring implementation
-const scorePHQ9: PHQ9ScoringFunction = (answers) => {
-  // 100% accurate clinical algorithm
-  const totalScore = answers.reduce((sum, answer) => sum + answer.response, 0);
-  
-  // Clinical severity determination
-  const severity = calculatePHQ9Severity(totalScore);
-  
-  // Suicidal ideation check (Question 9)
-  const q9Answer = answers.find(a => a.questionId === 'phq9_9');
-  const suicidalIdeation = q9Answer?.response > 0;
-  
-  // Crisis detection
-  const isCrisis = totalScore >= 20 || suicidalIdeation;
-  
-  return {
-    totalScore,
-    severity,
-    isCrisis,
-    suicidalIdeation,
-    // ... complete result with validation
-  };
-};
-```
+Never re-derive a crisis tier from a score. Call `detectCrisis()` from
+`@/features/crisis/types/safety` and gate on its result (`isInterventionTier()` for
+the banner tier). MAINT-712 deleted the hand-rolled copies that used to live in
+this module; `crisis-thresholds.test.ts` fails if a new literal-threshold
+comparison appears outside its counted allowlist.
 
 ## Clinical Standards
 
@@ -201,11 +119,10 @@ const scorePHQ9: PHQ9ScoringFunction = (answers) => {
 - **988 Access**: Direct access to 988 Suicide & Crisis Lifeline
 
 ### Safety Validation
-All crisis detection must pass `validateCrisisDetection()`:
-- Response time verification
-- Threshold validation  
-- Algorithm accuracy check
-- Safety constraint compliance
+Crisis classification is `detectCrisis()` alone (score path: total and
+deterministic). Its tiers are pinned by
+`src/features/crisis/types/__tests__/crisis-thresholds.test.ts`, which also
+guards against re-implemented threshold comparisons.
 
 ## Performance Guarantees
 

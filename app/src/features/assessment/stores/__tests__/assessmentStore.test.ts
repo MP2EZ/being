@@ -9,7 +9,7 @@
  * ✓ Crisis intervention trigger time <200ms
  * ✓ 100% scoring accuracy (regulatory requirement)
  * ✓ Encrypted storage with audit trail
- * ✓ Session recovery functionality
+ * ✓ Interrupted sessions are not restored (in-progress slot is memory-only, DEBUG-769)
  * ✓ Auto-save with real-time persistence
  */
 
@@ -49,6 +49,7 @@ jest.mock('@/core/services/security/SecureStorageService', () => ({
   },
 }));
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import { seedWellnessWriteConsent } from '../../../../../__tests__/helpers/wellnessWriteConsent';
 const mockStoreWellnessBlob = SecureStorageService.storeWellnessBlob as jest.Mock;
 
 // React Native is mocked globally by __tests__/setup/jest.setup.js with a FULL
@@ -69,6 +70,7 @@ const mockSecureStore = SecureStore as jest.Mocked<typeof SecureStore>;
 
 describe('Assessment Store - Clinical Validation', () => {
   beforeEach(() => {
+    seedWellnessWriteConsent('loading'); // FEAT-665: back to the default, so a seed never leaks into the next test
     jest.clearAllMocks();
     for (const k of Object.keys(mockWellnessBlobs)) delete mockWellnessBlobs[k];
     useAssessmentStore.getState().resetAssessment();
@@ -410,6 +412,12 @@ describe('Assessment Store - Clinical Validation', () => {
   });
 
   describe('Encrypted Storage and Persistence', () => {
+    beforeEach(() => {
+      // FEAT-665: asserts a persisted write, so it runs as a consenting user. FEAT-685 gates
+      // the save, and the store's default `loading` status would block it.
+      seedWellnessWriteConsent('granted');
+    });
+
     it('saves assessment data to encrypted storage (hybrid path, INFRA-144)', async () => {
       const { result } = renderHook(() => useAssessmentStore());
 
@@ -444,58 +452,60 @@ describe('Assessment Store - Clinical Validation', () => {
       );
     });
 
-    it('recovers interrupted sessions correctly', async () => {
-      const savedSession = {
-        currentSession: {
-          id: 'test_session',
-          type: 'phq9' as AssessmentType,
-          context: 'standalone' as const,
-          progress: {
+    it('does not restore an interrupted session on a cold launch (DEBUG-769)', async () => {
+      // A blob written by a build that still persisted the in-progress slot.
+      mockWellnessBlobs['assessment_store'] = {
+        state: {
+          currentSession: {
+            id: 'test_session',
             type: 'phq9' as AssessmentType,
-            currentQuestionIndex: 3,
-            totalQuestions: 9,
-            startedAt: Date.now() - 60000,
-            answers: [],
-            isComplete: false
-          }
+            context: 'standalone' as const,
+            progress: {
+              type: 'phq9' as AssessmentType,
+              currentQuestionIndex: 3,
+              totalQuestions: 9,
+              startedAt: Date.now() - 60000,
+              answers: [],
+              isComplete: false
+            }
+          },
+          currentQuestionIndex: 3,
+          answers: [
+            { questionId: 'phq9_1', response: 1 as AssessmentResponse, timestamp: Date.now() },
+            { questionId: 'phq9_2', response: 2 as AssessmentResponse, timestamp: Date.now() },
+            { questionId: 'phq9_3', response: 0 as AssessmentResponse, timestamp: Date.now() }
+          ],
+          completedAssessments: [],
+          // Hydration restores this flag; this file's afterEach (DEBUG-515) requires it off.
+          autoSaveEnabled: false
         },
-        currentQuestionIndex: 3,
-        answers: [
-          { questionId: 'phq9_1', response: 1 as AssessmentResponse, timestamp: Date.now() },
-          { questionId: 'phq9_2', response: 2 as AssessmentResponse, timestamp: Date.now() },
-          { questionId: 'phq9_3', response: 0 as AssessmentResponse, timestamp: Date.now() }
-        ],
-        completedAssessments: []
+        version: 0
       };
-
-      // Seed the SecureStorageService passthrough so EncryptedAssessmentStorage
-      // returns this session on load.
-      mockWellnessBlobs['assessment_store'] = savedSession;
 
       const { result } = renderHook(() => useAssessmentStore());
 
       await act(async () => {
-        const recovered = await result.current.recoverSession();
-        expect(recovered).toBe(true);
+        await useAssessmentStore.persist.rehydrate();
       });
 
-      expect(result.current.currentSession).toBeTruthy();
-      expect(result.current.currentSession!.id).toBe('test_session');
-      expect(result.current.currentQuestionIndex).toBe(3);
-      expect(result.current.answers).toHaveLength(3);
-      expect(result.current.hasRecoverableSession).toBe(true);
+      expect(result.current.currentSession).toBeNull();
+      expect(result.current.currentQuestionIndex).toBe(0);
+      expect(result.current.answers).toHaveLength(0);
     });
   });
 
   describe('Auto-Save Functionality', () => {
     beforeEach(() => {
+      // FEAT-665: asserts a persisted write, so it runs as a consenting user. FEAT-685 gates
+      // the save, and the store's default `loading` status would block it.
+      seedWellnessWriteConsent('granted');
       jest.useFakeTimers();
     });
 
     afterEach(() => {
       // DEBUG-515: CLEAR, do not RUN. `jest.runOnlyPendingTimers()` FIRES the
       // enabled test's leftover autosave callback, whose async tail
-      // (saveProgress -> set({lastSavedAt}) -> persist write) then resolves inside
+      // (saveProgress -> its persist-envelope write) then resolves inside
       // the NEXT test. Clearing drops nothing any assertion here depends on.
       jest.clearAllTimers();
       jest.useRealTimers();
@@ -583,6 +593,11 @@ describe('Assessment Store - Clinical Validation', () => {
 
     it('respects auto-save disabled state', async () => {
       const { result } = renderHook(() => useAssessmentStore());
+      // answerQuestion calls get().saveProgress(), so a stand-in installed on the store is
+      // what it reaches. Restored below so no later test inherits it.
+      const realSaveProgress = useAssessmentStore.getState().saveProgress;
+      const saveProgressSpy = jest.fn(async () => {});
+      useAssessmentStore.setState({ saveProgress: saveProgressSpy });
 
       // Clear any previous calls
       jest.clearAllMocks();
@@ -605,12 +620,26 @@ describe('Assessment Store - Clinical Validation', () => {
         await Promise.resolve();
       });
 
-      // Check that auto-save was not triggered by the answer
-      const autosaveCalls = mockStoreWellnessBlob.mock.calls.filter((call) => {
-        const data = call[1] as { answers?: Array<{ questionId?: string }> } | undefined;
-        return call[0] === 'assessment_store' && (data?.answers ?? []).some((a) => a.questionId === 'phq9_1');
+      // Auto-save is the saveProgress() call answerQuestion makes under the flag. Asserted
+      // on that call, not on storage: persist writes `answers` on every set() regardless of
+      // the flag, and since MAINT-731 saveProgress writes the same envelope persist does,
+      // so no blob shape tells the two apart any more.
+      const callsWhileDisabled = saveProgressSpy.mock.calls.length;
+
+      // Control (DEBUG-390): the stand-in IS reachable — with the flag on, the same answer
+      // path calls it. Without this, "not called" would also pass if answerQuestion stopped
+      // going through get().saveProgress() at all.
+      act(() => {
+        result.current.enableAutoSave();
       });
-      expect(autosaveCalls).toHaveLength(0);
+      await act(async () => {
+        await result.current.answerQuestion('phq9_2', 1);
+      });
+      const callsWhileEnabled = saveProgressSpy.mock.calls.length;
+      useAssessmentStore.setState({ saveProgress: realSaveProgress, autoSaveEnabled: false });
+
+      expect(callsWhileDisabled).toBe(0);
+      expect(callsWhileEnabled).toBeGreaterThan(0);
     });
   });
 

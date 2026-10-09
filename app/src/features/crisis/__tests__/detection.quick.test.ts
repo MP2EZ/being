@@ -5,9 +5,9 @@
  * safety.ts. No mocks needed — the function is pure. Runs in <50ms under
  * quick-setup.js.
  *
- * Pairs with the heavier behavioral tests in PR 3 (CollapsibleCrisisButton,
- * CrisisSecurityProtocol). This quick test gives <1s feedback if anyone
- * accidentally inverts a threshold comparison.
+ * Pairs with the heavier behavioral tests in PR 3 (CollapsibleCrisisButton).
+ * This quick test gives <1s feedback if anyone accidentally inverts a threshold
+ * comparison.
  */
 import { detectCrisis } from '@/features/crisis/types/safety';
 import type { PHQ9Result, GAD7Result } from '@/features/assessment/types';

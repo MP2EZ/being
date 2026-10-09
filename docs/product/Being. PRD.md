@@ -694,7 +694,6 @@ Being provides a complete daily mindfulness practice structure grounded in Stoic
 - **GAD-7 monitoring**: Scores ≥15 trigger support resources
 - **Question 9 monitoring**: PHQ-9 Q9 >0 triggers immediate crisis resources
 - **988 Suicide & Crisis Lifeline**: <3 second access from all screens
-- **Emergency contacts**: User-configured crisis contacts
 - **Requirement**: Unobtrusive but always accessible; proportional to mental wellness app (not clinical therapy app)
 
 **Preventive Blocking for High-Risk States**:
@@ -721,7 +720,7 @@ Being provides a complete daily mindfulness practice structure grounded in Stoic
 - AES-256 encryption for all user data
 - Reflections, journal entries, mood data encrypted at rest
 - Never transmitted without explicit user action
-- **Requirement**: HIPAA-level encryption (proportional mental wellness data protection)
+- **Requirement**: AES-256 encryption at rest (proportional wellness data protection)
 
 **Privacy-First Design**:
 - No user data sold, ever
@@ -1233,7 +1232,8 @@ Being competes primarily in the $5.3B mindfulness and mental wellness app market
 
 ### Safety & Regulatory Risks
 
-**Risk: Mental wellness app faces regulatory scrutiny (HIPAA, medical device classification)**
+**Risk: Mental wellness app faces regulatory scrutiny (FTC health-claim and state privacy law, medical device classification)**
+- **Scope**: Being is a consumer wellness app, not a HIPAA-covered entity. See `docs/legal/regulatory-applicability.md`.
 - **Likelihood**: Low (wellness apps generally unregulated)
 - **Impact**: High if occurs (compliance costs, operational changes)
 - **Mitigation**:
@@ -1245,7 +1245,7 @@ Being competes primarily in the $5.3B mindfulness and mental wellness app market
 - **Likelihood**: Low
 - **Impact**: High (legal liability, insurance costs)
 - **Mitigation**:
-  - Crisis resources point to professional help (988, emergency contacts)
+  - Crisis resources point to professional help (988, Crisis Text Line, 911)
   - Never diagnose or treat clinical conditions
   - Terms of service clearly state wellness focus, not therapy
 

@@ -11,8 +11,6 @@
  * - Utility function types for 100% accurate scoring calculations
  */
 
-// Crisis types import
-import type { CrisisDetection } from '@/features/crisis/types/safety';
 
 // Base Assessment Types
 export type AssessmentType = 'phq9' | 'gad7';
@@ -40,7 +38,7 @@ export interface PHQ9Question extends AssessmentQuestion {
 export interface PHQ9Result {
   totalScore: number; // 0-27
   severity: 'minimal' | 'mild' | 'moderate' | 'moderately_severe' | 'severe';
-  isCrisis: boolean; // Score ≥20
+  isCrisis: boolean; // Any tier: score ≥15 or Q9 >0 (equals detectCrisis() !== null)
   suicidalIdeation: boolean; // Question 9 response >0
   completedAt: number;
   answers: AssessmentAnswer[];
@@ -144,7 +142,6 @@ export interface AssessmentActions {
   answerQuestion: (questionId: string, response: AssessmentResponse) => void;
   completeAssessment: () => void;
   resetAssessment: () => void;
-  triggerCrisisIntervention: (detection: CrisisDetection) => void;
 }
 
 // Legacy Navigation Types (see navigation/params.ts for comprehensive)
@@ -155,9 +152,6 @@ export type AssessmentStackParamList = {
   AssessmentResults: {
     type: AssessmentType;
     result: PHQ9Result | GAD7Result;
-  };
-  CrisisIntervention: {
-    detection: CrisisDetection;
   };
 };
 
@@ -175,7 +169,7 @@ export const ASSESSMENT_RESPONSE_LABELS = {
  * DUAL-THRESHOLD SYSTEM:
  * - PHQ-9 ≥15: Moderately severe depression (support recommended)
  * - PHQ-9 ≥20: Severe depression (immediate intervention)
- * - GAD-7 ≥15: Severe anxiety (immediate intervention)
+ * - GAD-7 ≥15: Severe anxiety (support resources offered; results banner tier)
  *
  * ⚠️ DIVERGENCE WARNING — `PHQ9_CRISIS_SCORE` means DIFFERENT THINGS in this
  * module vs `CRISIS_SAFETY_THRESHOLDS` in `@/features/crisis/types/safety`:

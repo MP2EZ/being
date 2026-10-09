@@ -40,8 +40,6 @@ describe('Subscription Store - Crisis Access Guarantee', () => {
 
     // Test with no subscription
     expect(store.checkFeatureAccess('crisisButton')).toBe(true);
-    expect(store.checkFeatureAccess('crisisContacts')).toBe(true);
-    expect(store.checkFeatureAccess('safetyPlan')).toBe(true);
     expect(store.checkFeatureAccess('nineEightEightAccess')).toBe(true);
     expect(store.getCrisisAccessStatus()).toBe(true);
 
@@ -81,8 +79,6 @@ describe('Subscription Store - Crisis Access Guarantee', () => {
     await new Promise(resolve => setTimeout(resolve, 10));
 
     expect(store.checkFeatureAccess('crisisButton')).toBe(true);
-    expect(store.checkFeatureAccess('crisisContacts')).toBe(true);
-    expect(store.checkFeatureAccess('safetyPlan')).toBe(true);
     expect(store.checkFeatureAccess('nineEightEightAccess')).toBe(true);
     expect(store.getCrisisAccessStatus()).toBe(true);
 
@@ -236,8 +232,7 @@ describe('Subscription Store - Feature Access', () => {
 
     // Crisis features should ALWAYS be accessible
     expect(store.checkFeatureAccess('crisisButton')).toBe(true);
-    expect(store.checkFeatureAccess('crisisContacts')).toBe(true);
-    expect(store.checkFeatureAccess('safetyPlan')).toBe(true);
+    expect(store.checkFeatureAccess('nineEightEightAccess')).toBe(true);
 
   });
 

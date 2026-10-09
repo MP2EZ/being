@@ -29,6 +29,9 @@ import SecureStorageService from '@/core/services/security/SecureStorageService'
 import { ACCOUNT_DELETION_ATTESTATION_KEY } from '@/core/services/security/SecureStorageService';
 import { getCurrentUserId } from '@/core/constants/devMode';
 import { logSecurity } from '@/core/services/logging';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
+import { readErasurePending } from '@/core/services/privacy/erasurePending';
+import { awaitErasureInFlight } from '@/core/services/privacy/erasureResumeGate';
 // INFRA-377: read directly rather than importing `isE2EOnboardingSeedEnabled`
 // from `@/core/config/e2eSeed` — that module already imports THIS one, so the
 // back-import would be a cycle. `env` is a leaf config module with no dependency
@@ -71,15 +74,73 @@ export interface LegalGateConsents {
   version: string;
 }
 
+/**
+ * In-memory mirror of the legal-gate record (FEAT-664) — the synchronous read that
+ * `decideWellnessWrite` needs for the `missing` window, where onboarding runs
+ * PHQ-9/GAD-7 before `grantConsent` has written a ConsentRecord.
+ *
+ * Module scope, NEVER zustand state (crisis ruling): CleanRootNavigator subscribes
+ * to the whole store with no selector and hosts RootCrisisButton, so a `set()`
+ * from hydration would be a new render trigger on the crisis host. Deliberately
+ * unexported — only the write-through, the boot hydration and `resetConsent` may
+ * move it.
+ */
+let legalGateMirror: LegalGateConsents | null = null;
+/** Bumped on every mirror write, so a slow hydration read cannot overwrite a newer value. */
+let legalGateMirrorGeneration = 0;
+/**
+ * Set once this process has written the record through. `recordLegalGateConsents`
+ * is the key's only writer, and its only deleters are `resetConsent`, the full
+ * account-deletion wipe and `retireErasedRecords` (DEBUG-762) — the last two only
+ * ever remove a record that predates a deletion — so from then on disk can only be
+ * the same or older, and a null read is far likelier a transient Keychain fault
+ * (DEBUG-382) than a real absence.
+ */
+let legalGateMirrorWrittenThrough = false;
+
+const setLegalGateMirror = (record: LegalGateConsents | null): void => {
+  legalGateMirror = record;
+  legalGateMirrorGeneration += 1;
+};
+
+/**
+ * Refresh the mirror from SecureStore. Fired from `loadConsent`, never awaited:
+ * `loadConsent` sits on the cold-launch path under LoadingScreen, whose only 988
+ * affordance is Static988Button, and nothing bounds it — so a hung Keychain read
+ * here must not be able to hold that screen (DEBUG-559 class).
+ *
+ * Seeds the mirror only until the first write-through (compliance, revised ruling
+ * D). Before that, a null read clears it, so a corrupt or absent record at boot
+ * vouches for nothing. After it, hydration is a no-op: a transient read failure
+ * on one of `loadConsent`'s repeat calls must not discard a real gate pass and
+ * start dropping onboarding screenings. Never rejects.
+ */
+async function hydrateLegalGateMirror(): Promise<void> {
+  const generation = legalGateMirrorGeneration;
+  try {
+    const record = await getLegalGateConsents();
+    if (generation === legalGateMirrorGeneration && !legalGateMirrorWrittenThrough) {
+      setLegalGateMirror(record);
+    }
+  } catch {
+    // `getLegalGateConsents` catches its own read faults; this covers its logger.
+  }
+}
+
 export const recordLegalGateConsents = async (
   consents: Omit<LegalGateConsents, 'timestamp' | 'version'>,
 ): Promise<void> => {
+  // DEBUG-763: a write made while an erasure's resume runs would be deleted by its wipe.
+  await awaitErasureInFlight();
   const record: LegalGateConsents = {
     ...consents,
     timestamp: Date.now(),
     version: CONSENT_VERSION,
   };
   await SecureStore.setItemAsync(LEGAL_GATE_CONSENTS_KEY, JSON.stringify(record));
+  // Only after the write resolves: a failed write must never widen permission.
+  setLegalGateMirror(record);
+  legalGateMirrorWrittenThrough = true;
 };
 
 /**
@@ -106,6 +167,107 @@ const isLegalGateConsents = (value: unknown): value is LegalGateConsents => {
     typeof record['timestamp'] === 'number' &&
     typeof record['version'] === 'string'
   );
+};
+
+/**
+ * DEBUG-755 — when (if ever) this device recorded an account deletion.
+ *
+ * A full erasure now DELETES the consent, legal-gate and age records
+ * (ACCOUNT_ERASURE_SECURE_STORE_KEYS, DEBUG-762). This is the backstop for an install
+ * that shipped before that: its records still sit on disk — but they are the DELETED
+ * account's, and must never act as a live grant or as an input to a new one. The
+ * deletion attestation's timestamp is the line: a record that does not post-date it is
+ * retired (withheld here, deleted by `retireErasedRecords`).
+ *
+ * Reads the isolated attestation key, then — for a shipped build that wrote the
+ * attestation only into the legacy history key and has not yet relaunched — that
+ * key directly, read-only (routing it through retrieveWellnessBlob migrates and
+ * deletes it; see backfillDeletionAttestation). Never rejects: a read fault is
+ * "no attestation" (the DEBUG-382 transient-Keychain posture), so a launch on a
+ * flaky Keychain routes exactly as it did before this change.
+ */
+export const readDeletionAttestedAt = async (): Promise<number | null> => {
+  // Only the exact shape recordAccountDeletionAttestation writes counts — anything
+  // else at the key is not evidence of a deletion and must not retire a live grant.
+  const timestampOf = (value: unknown): number | null =>
+    typeof value === 'object' &&
+    value !== null &&
+    isDeletionAttestation(value as ConsentHistoryEntry) &&
+    typeof (value as { timestamp?: unknown }).timestamp === 'number'
+      ? (value as { timestamp: number }).timestamp
+      : null;
+  try {
+    const isolated = await SecureStore.getItemAsync(ACCOUNT_DELETION_ATTESTATION_KEY);
+    if (isolated !== null) return timestampOf(JSON.parse(isolated));
+    const legacy = await SecureStore.getItemAsync(LEGACY_CONSENT_HISTORY_KEY);
+    if (legacy === null) return null;
+    const entries: unknown = JSON.parse(legacy);
+    if (!Array.isArray(entries)) return null;
+    const attestation = (entries as ConsentHistoryEntry[]).find(isDeletionAttestation);
+    return attestation ? timestampOf(attestation) : null;
+  } catch {
+    return null;
+  }
+};
+
+/**
+ * DEBUG-755 — does a record stamped `recordedAt` belong to an erased account?
+ *
+ * Retired unless it STRICTLY post-dates the attestation. Equal or missing
+ * timestamps retire too: clock skew fails closed (the user is re-asked), and it
+ * can never wipe anything — this predicate only ever withholds a grant.
+ */
+export const predatesErasure = (recordedAt: unknown, attestedAt: number | null): boolean =>
+  attestedAt !== null && !(typeof recordedAt === 'number' && recordedAt > attestedAt);
+
+/**
+ * DEBUG-755 — is this launch the deleted account's?
+ *
+ * The shared predicate behind `loadConsent`'s retired branch and the root
+ * navigator's initial route (`resolveInitialRoute`). Retired = an attestation exists
+ * AND (there is no consent record OR the record predates the attestation).
+ *
+ * DEBUG-762 widened the second clause. Erasure now DELETES the consent record, so
+ * "no record" is the normal state of an erased install — and `onboardingCompleted`
+ * can outlive it (the settings reset is best-effort), which `resolveInitialRoute`
+ * would route to Main on. An attestation with no record is therefore retired. A
+ * first-ever launch has no attestation and is unaffected. A record that post-dates
+ * the attestation is the next subject's own and is not retired.
+ *
+ * Keyed on the record's GRANT time (`timestamp`), not `updatedAt`: a pre-erasure
+ * record edited after the deletion (a warm-session settings toggle) is still the
+ * deleted account's. Never rejects, and adds no await ahead of the status set.
+ *
+ * DEBUG-763: an erasure marker (server erased, local wipe unfinished) also retires the
+ * launch, read in parallel so the navigator's allSettled gains no serial await.
+ */
+export const readErasureRetirement = async (): Promise<boolean> => {
+  const [pending, retired] = await Promise.all([readErasurePending(), readAttestationRetirement()]);
+  return pending || retired;
+};
+
+const readAttestationRetirement = async (): Promise<boolean> => {
+  try {
+    const attestedAt = await readDeletionAttestedAt();
+    if (attestedAt === null) return false;
+    const stored = await SecureStore.getItemAsync(CONSENT_SECURE_KEY);
+    if (stored === null) return true;
+    const parsed: unknown = JSON.parse(stored);
+    const grantedAt =
+      typeof parsed === 'object' && parsed !== null ? (parsed as { timestamp?: unknown }).timestamp : undefined;
+    return predatesErasure(grantedAt, attestedAt);
+  } catch {
+    return false;
+  }
+};
+
+const logSupersededByErasure = (action: string): void => {
+  logSecurity('pre-erasure record withheld — it belongs to a deleted account', 'low', {
+    component: 'consentStore',
+    action,
+    result: 'blocked',
+    reason: 'superseded_by_erasure',
+  });
 };
 
 /**
@@ -164,6 +326,16 @@ export const getLegalGateConsents = async (): Promise<LegalGateConsents | null> 
       result: 'failure',
       reason: 'shape_invalid',
     });
+    return null;
+  }
+
+  // DEBUG-755: a gate pass recorded before an account deletion is the deleted
+  // account's (retired and, since DEBUG-762, deleted — this withholds the copy a
+  // shipped install may still hold until `retireErasedRecords` removes it).
+  // Withholding it here also covers the mirror's hydration and the onboarding
+  // re-grant, which both read through this function.
+  if (predatesErasure(parsed.timestamp, await readDeletionAttestedAt())) {
+    logSupersededByErasure('getLegalGateConsents');
     return null;
   }
 
@@ -447,8 +619,12 @@ export interface ConsentStore {
    * the attestation (timestamp, action, prior-entry count, final consent
    * snapshot) is retained — not the full mutable history (Art. 5(1)(e)
    * minimization). Called by AccountDeletionService before the on-device wipe.
+   *
+   * DEBUG-763: with `erasedAt` (the server-erasure time) it is written at most once
+   * per erasure — skipped when an attestation at or after `erasedAt` exists, or when
+   * no consent record remains to attest — and stamped `erasedAt`, never the clock.
    */
-  recordAccountDeletionAttestation: () => Promise<void>;
+  recordAccountDeletionAttestation: (options?: { erasedAt?: number }) => Promise<void>;
 
   // Reset (for testing/development)
   resetConsent: () => Promise<void>;
@@ -843,6 +1019,209 @@ async function backfillDeletionAttestationFromHistory(
   }
 }
 
+/**
+ * DEBUG-762 — is this entry the `storage_migration_v2` annotation the INFRA-144
+ * migration appends? It describes the movement of a chain that is no longer the
+ * reader's, so it goes with the prior subject.
+ */
+function isMigrationAnnotation(entry: ConsentHistoryEntry): boolean {
+  return (entry.note ?? '').startsWith('storage_migration_v2');
+}
+
+/**
+ * DEBUG-762 — remove the PRIOR subject's entries from a consent-history chain.
+ *
+ * The account-deletion attestation used to be folded into the next person's
+ * encrypted chain by the INFRA-144 migration (its plaintext copy sits at the
+ * legacy `consent_history_v1` key), so a new subject's history, and the DSR export
+ * built from it, began with a stranger's deletion record.
+ *
+ * If the chain contains an attestation, everything from index 0 through the LAST
+ * one is the prior subject's — cut POSITIONALLY, which clock skew cannot defeat
+ * (a device clock set back stamps the new subject's entries earlier than the
+ * deletion) — and so is any `storage_migration_v2` annotation after the cut. With
+ * no attestation entry but a known attestation time, entries that do not strictly
+ * post-date it are dropped (the `predatesErasure` rule). With neither, the chain
+ * is returned unchanged. Pure; never mutates its input.
+ */
+export function excludePriorSubjectEntries(
+  history: ConsentHistoryEntry[],
+  attestedAt: number | null
+): ConsentHistoryEntry[] {
+  let lastAttestation = -1;
+  history.forEach((entry, index) => {
+    if (isDeletionAttestation(entry)) lastAttestation = index;
+  });
+  if (lastAttestation >= 0) {
+    return history.slice(lastAttestation + 1).filter((entry) => !isMigrationAnnotation(entry));
+  }
+  if (attestedAt !== null) {
+    return history.filter((entry) => !predatesErasure(entry.timestamp, attestedAt));
+  }
+  return history;
+}
+
+/**
+ * DEBUG-762 — does the isolated attestation key hold the exact shape
+ * `recordAccountDeletionAttestation` writes? The gate for every step that
+ * removes a COPY of the attestation: a chain entry or the legacy key may be the
+ * only evidence, and is only expendable once this is true. Never rejects.
+ */
+async function isolatedAttestationVerified(): Promise<boolean> {
+  try {
+    const raw = await SecureStore.getItemAsync(ACCOUNT_DELETION_ATTESTATION_KEY);
+    if (raw === null) return false;
+    const value: unknown = JSON.parse(raw);
+    return (
+      typeof value === 'object' &&
+      value !== null &&
+      isDeletionAttestation(value as ConsentHistoryEntry) &&
+      typeof (value as { timestamp?: unknown }).timestamp === 'number'
+    );
+  } catch {
+    return false;
+  }
+}
+
+/**
+ * DEBUG-762 — remove the plaintext `consent_history_v1` copy of the attestation.
+ *
+ * It was dual-written there (DEBUG-545) and is excluded from erasure only as a
+ * fallback. Once the isolated key verifies it is redundant, and left in place it
+ * is migrated into the next subject's chain. Deleted with SecureStore directly,
+ * never via `retrieveWellnessBlob` (which would migrate it). When the isolated key
+ * does NOT verify, a legacy value that is exactly `[attestation]` is the only
+ * evidence and stays; a legacy chain that holds an attestation plus anything else
+ * is deleted. A legacy value with no attestation in it is an ordinary unmigrated
+ * chain and is never touched. Never rejects.
+ */
+async function stripLegacyAttestationCopy(): Promise<void> {
+  try {
+    const legacy = await SecureStore.getItemAsync(LEGACY_CONSENT_HISTORY_KEY);
+    if (legacy === null) return;
+    if (await isolatedAttestationVerified()) {
+      await SecureStore.deleteItemAsync(LEGACY_CONSENT_HISTORY_KEY);
+      return;
+    }
+    const chain: unknown = JSON.parse(legacy);
+    if (!Array.isArray(chain) || !(chain as ConsentHistoryEntry[]).some(isDeletionAttestation)) return;
+    if (chain.length === 1) return;
+    await SecureStore.deleteItemAsync(LEGACY_CONSENT_HISTORY_KEY);
+  } catch {
+    // Best-effort: the copy is redundant at worst, evidence at best.
+  }
+}
+
+/**
+ * DEBUG-762 — drop the prior subject from a freshly-loaded chain and, where it is
+ * safe, from disk. The filtered chain is persisted (or the blob deleted when
+ * nothing is left) ONLY once the isolated attestation key is confirmed: until then
+ * an attestation entry inside this chain may be the sole copy of the evidence.
+ */
+async function isolateFromPriorSubject(chain: ConsentHistoryEntry[]): Promise<ConsentHistoryEntry[]> {
+  const filtered = excludePriorSubjectEntries(chain, await readDeletionAttestedAt());
+  if (filtered.length === chain.length) return chain;
+  if (await isolatedAttestationVerified()) {
+    try {
+      if (filtered.length === 0) {
+        await SecureStorageService.deleteWellnessBlob(CONSENT_HISTORY_BLOB_KEY);
+      } else {
+        await persistConsentHistory(filtered);
+      }
+    } catch {
+      // Best-effort: the in-memory chain is already isolated, and the next load retries.
+    }
+  }
+  return filtered;
+}
+
+const AUTH_DEVICE_ID_KEY = 'auth_device_id';
+
+/**
+ * DEBUG-762 AC4 — delete the records a SHIPPED install still holds from an account
+ * that has since been erased. New builds delete them at erasure
+ * (`ACCOUNT_ERASURE_SECURE_STORE_KEYS`); this reaches installs erased before that.
+ *
+ * Fired with `void` from `loadConsent`, AFTER the status is set, never awaited: it
+ * sits beside `hydrateLegalGateMirror` on the cold-launch path and nothing bounds a
+ * Keychain read. Does nothing unless an attestation exists. Deletes, each in its own
+ * try/catch: the consent record if its grant time predates the attestation (or it
+ * carries an age check that does — a stale age carried into a post-erasure grant);
+ * the legal-gate record and the age check if they predate it; `auth_device_id`; then
+ * the legacy attestation copy. It never wipes: no `resetConsent`,
+ * `deleteWellnessBlob`, `clearAllWellnessData` or `deleteMasterKey`, and it touches
+ * no wellness, assessment or crisis data, the analytics queue, settings or the
+ * attestation itself. Settings are not reset here — the routing holds on the
+ * attestation alone (`readErasureRetirement`). Never rejects.
+ */
+export async function retireErasedRecords(): Promise<void> {
+  try {
+    const attestedAt = await readDeletionAttestedAt();
+    if (attestedAt === null) return;
+
+    let removed = 0;
+    const attempt = async (step: () => Promise<boolean>): Promise<void> => {
+      try {
+        if (await step()) removed += 1;
+      } catch {
+        // Independent per key: one fault must not strand the rest.
+      }
+    };
+    const readObject = async (key: string): Promise<Record<string, unknown> | null> => {
+      const raw = await SecureStore.getItemAsync(key);
+      if (raw === null) return null;
+      const value: unknown = JSON.parse(raw);
+      return typeof value === 'object' && value !== null ? (value as Record<string, unknown>) : null;
+    };
+    const deleteIf = async (key: string, stale: (record: Record<string, unknown>) => boolean): Promise<boolean> => {
+      const record = await readObject(key);
+      if (record === null || !stale(record)) return false;
+      await SecureStore.deleteItemAsync(key);
+      return true;
+    };
+
+    await attempt(() =>
+      deleteIf(CONSENT_SECURE_KEY, (record) => {
+        const age = record['ageVerification'];
+        const verifiedAt =
+          typeof age === 'object' && age !== null ? (age as { verifiedAt?: unknown }).verifiedAt : undefined;
+        return (
+          predatesErasure(record['timestamp'], attestedAt) ||
+          (typeof verifiedAt === 'number' && verifiedAt <= attestedAt)
+        );
+      })
+    );
+    await attempt(() =>
+      deleteIf(LEGAL_GATE_CONSENTS_KEY, (record) => predatesErasure(record['timestamp'], attestedAt))
+    );
+    await attempt(() =>
+      deleteIf(AGE_VERIFICATION_KEY, (record) => predatesErasure(record['verifiedAt'], attestedAt))
+    );
+    await attempt(async () => {
+      if ((await SecureStore.getItemAsync(AUTH_DEVICE_ID_KEY)) === null) return false;
+      await SecureStore.deleteItemAsync(AUTH_DEVICE_ID_KEY);
+      return true;
+    });
+
+    // An install erased by a shipped build may hold the attestation ONLY in the legacy
+    // key. Recover it into the isolated key first, so the strip below is never what
+    // destroys the only copy.
+    await backfillDeletionAttestation();
+    await stripLegacyAttestationCopy();
+
+    if (removed > 0) {
+      logSecurity('pre-erasure records deleted — they belonged to a deleted account', 'low', {
+        component: 'consentStore',
+        action: 'retireErasedRecords',
+        result: 'success',
+        reason: 'superseded_by_erasure',
+      });
+    }
+  } catch {
+    // Never rejects: this runs unawaited on the cold-launch path.
+  }
+}
+
 async function loadConsentHistoryWithMigration(): Promise<ConsentHistoryEntry[]> {
   // DEBUG-545 — FIRST statement, and the ordering is the whole point: the
   // retrieveWellnessBlob call below migrates the legacy key and DELETES the
@@ -859,29 +1238,33 @@ async function loadConsentHistoryWithMigration(): Promise<ConsentHistoryEntry[]>
     { legacyFormat: 'plaintext_json', sensitivityLevel: 'level_2_assessment_data' }
   );
 
+  let loaded: ConsentHistoryEntry[];
   if (!isFirstRun || !history || history.length === 0) {
     // No legacy data to annotate, or migration audit entry already appended.
     if (isFirstRun) {
       await AsyncStorage.setItem(CONSENT_HISTORY_MIGRATION_FLAG, '1');
     }
-    // DEBUG-545 arm (b): an install that already relaunched since deletion has
-    // its attestation inside the migrated blob rather than at the legacy key.
-    await backfillDeletionAttestationFromHistory(history ?? []);
-    return history ?? [];
+    loaded = history ?? [];
+  } else {
+    // Append migration audit entry (only on the run that actually migrated data).
+    const migrationEntry: ConsentHistoryEntry = {
+      action: 'updated',
+      changes: {},
+      timestamp: Date.now(),
+      note: 'storage_migration_v2: ciphertext moved to AsyncStorage, encryption boundary preserved',
+    };
+    loaded = [...history, migrationEntry];
+    await persistConsentHistory(loaded);
+    await AsyncStorage.setItem(CONSENT_HISTORY_MIGRATION_FLAG, '1');
   }
 
-  // Append migration audit entry (only on the run that actually migrated data).
-  const migrationEntry: ConsentHistoryEntry = {
-    action: 'updated',
-    changes: {},
-    timestamp: Date.now(),
-    note: 'storage_migration_v2: ciphertext moved to AsyncStorage, encryption boundary preserved',
-  };
-  const annotated = [...history, migrationEntry];
-  await persistConsentHistory(annotated);
-  await AsyncStorage.setItem(CONSENT_HISTORY_MIGRATION_FLAG, '1');
-  await backfillDeletionAttestationFromHistory(annotated);
-  return annotated;
+  // DEBUG-545 arm (b): an install that already relaunched since deletion has its
+  // attestation inside the migrated blob rather than at the legacy key. Recovered
+  // from the chain BEFORE the DEBUG-762 filter below drops it from there.
+  await backfillDeletionAttestationFromHistory(loaded);
+  // DEBUG-762: then the plaintext copy, then the prior subject's entries.
+  await stripLegacyAttestationCopy();
+  return isolateFromPriorSubject(loaded);
 }
 
 /**
@@ -920,6 +1303,9 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
    * Load consent from SecureStore
    */
   loadConsent: async () => {
+    // FEAT-664: before the first await, so every branch (catch included) refreshes
+    // the legal-gate mirror. Fire-and-forget — see hydrateLegalGateMirror.
+    void hydrateLegalGateMirror();
     set({ isLoading: true, error: null });
 
     try {
@@ -946,6 +1332,31 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         ...parsed,
         universalOptOut: parsed.universalOptOut ?? false,
       };
+
+      // DEBUG-755 — a record that does not post-date an account-deletion attestation
+      // is the DELETED account's (retired and deleted — a shipped install may still
+      // hold it until `retireErasedRecords` removes it), so it resolves to 'missing'
+      // before the three checks below: any status derived from it (revoked, version_mismatch, …) describes a
+      // person who is gone, and must not re-prompt or block the next one. 'missing',
+      // not 'revoked' (terminal, arms ConsentBlocked over Main) and not a new status
+      // (checkInitialRoute's missing/under_age test would not match it). It also makes
+      // hasValidConsent() false, so linking.ts's cold-start crisis base resolves to
+      // LegalGate rather than Main. No history is loaded on this branch, so the legacy
+      // attestation copy is never migrated into a new chain from here.
+      // DEBUG-763: so is any record while an erasure marker is present.
+      const [attestedAt, erasurePending] = await Promise.all([readDeletionAttestedAt(), readErasurePending()]);
+      if (erasurePending || predatesErasure(consent.timestamp, attestedAt)) {
+        await clearPersistedConsentCache();
+        set({
+          currentConsent: null,
+          staleConsent: null,
+          consentHistory: [],
+          consentStatus: 'missing',
+          consentCache: DEFAULT_CACHE,
+          isLoading: false,
+        });
+        return null;
+      }
 
       // Validate consent integrity (FEAT-316 slice A).
       //
@@ -1080,6 +1491,12 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
         isLoading: false,
       });
       return null;
+    } finally {
+      // DEBUG-762 AC4: after the status above is set on EVERY branch (catch included),
+      // delete what a shipped install still holds from an erased account. `void`, never
+      // awaited — same posture as hydrateLegalGateMirror at the top: nothing bounds a
+      // Keychain read and this sits on the cold-launch path. Never rejects.
+      void retireErasedRecords();
     }
   },
 
@@ -1090,6 +1507,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
     set({ isLoading: true, error: null });
 
     try {
+      await awaitErasureInFlight(); // DEBUG-763 — see recordLegalGateConsents
       const userId = getCurrentUserId();
       const now = Date.now();
       const oneYearFromNow = now + (365 * 24 * 60 * 60 * 1000);
@@ -1559,15 +1977,33 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
    * preserved by erasure AND independent of the master key (which the wipe
    * deletes). Minimized to a single attestation entry, not the full chain.
    */
-  recordAccountDeletionAttestation: async () => {
+  recordAccountDeletionAttestation: async ({ erasedAt } = {}) => {
     const { currentConsent, consentHistory } = get();
+    let snapshot = currentConsent?.preferences;
+    if (erasedAt !== undefined) {
+      const attestedAt = await readDeletionAttestedAt();
+      if (attestedAt !== null && attestedAt >= erasedAt) return;
+      const stored = await SecureStore.getItemAsync(CONSENT_SECURE_KEY);
+      if (stored === null && !currentConsent) return;
+      if (!snapshot && stored !== null) {
+        try {
+          snapshot = (JSON.parse(stored) as Partial<ConsentRecord>).preferences;
+        } catch {
+          // An unreadable record still evidences the erasure; its snapshot is empty.
+        }
+      }
+    }
     const attestation: ConsentHistoryEntry = {
       action: 'revoked',
       // Final consent-state snapshot (booleans only — no wellness content):
       // proves the lawful basis that existed at the moment of erasure.
-      changes: currentConsent?.preferences ?? {},
-      timestamp: Date.now(),
-      note: `account_deletion_requested; prior_entries=${consentHistory.length}`,
+      changes: snapshot ?? {},
+      timestamp: erasedAt ?? Date.now(),
+      // A launch's resume has no loaded history to count (DEBUG-763).
+      note:
+        erasedAt !== undefined && !currentConsent
+          ? 'account_deletion_requested; resumed_after_interruption'
+          : `account_deletion_requested; prior_entries=${consentHistory.length}`,
     };
     // DUAL-WRITE (DEBUG-545). Both writes are required and neither is redundant.
     //
@@ -1603,6 +2039,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
       throw new Error(`Birth year must be between 1900 and ${currentYear}`);
     }
 
+    await awaitErasureInFlight(); // DEBUG-763 — see recordLegalGateConsents
     const age = calculateAge(birthYear);
     const eligible = age >= MINIMUM_CONSENT_AGE;
 
@@ -1627,7 +2064,16 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
     try {
       const stored = await SecureStore.getItemAsync(AGE_VERIFICATION_KEY);
       if (stored) {
-        return JSON.parse(stored) as AgeVerification;
+        const verification = JSON.parse(stored) as AgeVerification;
+        // DEBUG-755: an age check passed before an account deletion is not the
+        // next person's — they must pass the age gate themselves. (Retired and
+        // deleted since DEBUG-762; this withholds the copy a shipped install may
+        // still hold until `retireErasedRecords` removes it.)
+        if (predatesErasure(verification.verifiedAt, await readDeletionAttestedAt())) {
+          logSupersededByErasure('getStoredAgeVerification');
+          return null;
+        }
+        return verification;
       }
       return null;
     } catch {
@@ -1728,6 +2174,24 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
     // persisting an annotated chain when there is). An export must never write
     // to the audit trail it exists to disclose, so the migration stays owned by
     // the ordinary load path.
+    // DEBUG-762: after an erasure the chain may still begin with the PRIOR subject
+    // (a shipped build folded the deletion record into it). The next person's export
+    // must not disclose it. Read WITHOUT the legacy key — passing it would run the
+    // migration, which writes — and filter in memory. Never writes.
+    const attestedAt = await readDeletionAttestedAt();
+    if (attestedAt !== null) {
+      const stored = await SecureStorageService.retrieveWellnessBlob<ConsentHistoryEntry[]>(
+        CONSENT_HISTORY_BLOB_KEY,
+        undefined,
+        { sensitivityLevel: 'level_2_assessment_data' }
+      );
+      return {
+        currentConsent,
+        history: excludePriorSubjectEntries(stored ?? [], attestedAt),
+        exportedAt: Date.now(),
+      };
+    }
+
     const history = await SecureStorageService.retrieveWellnessBlob<ConsentHistoryEntry[]>(
       CONSENT_HISTORY_BLOB_KEY,
       LEGACY_CONSENT_HISTORY_KEY,
@@ -1745,6 +2209,8 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
    * Reset consent (for testing/development)
    */
   resetConsent: async () => {
+    setLegalGateMirror(null);
+    legalGateMirrorWrittenThrough = false;
     try {
       await SecureStore.deleteItemAsync(CONSENT_SECURE_KEY);
       await SecureStore.deleteItemAsync(AGE_VERIFICATION_KEY);
@@ -1791,6 +2257,303 @@ export const canPerformCrisisIntervention = (): boolean => {
   // This is a Privacy vital interests exception
   return true;
 };
+
+/**
+ * How old a legal-gate record may be and still vouch for a write while the status is
+ * `missing` (compliance, 2026-09-26). The gate re-records on every pass and a
+ * relaunch mid-onboarding routes back through it, so this only has to span one
+ * foreground run from the gate to `grantConsent` at the privacy step. Anything
+ * looser lets an old record keep permitting writes for a user whose
+ * `grantConsent` failed, or on a device after erasure (the record is
+ * erasure-excluded).
+ */
+export const MISSING_CONSENT_MIRROR_BOUND_MS = 30 * 60 * 1000;
+
+export type WellnessWriteBlockReason = 'refused' | 'revoked' | 'under_age' | 'missing' | 'loading';
+
+export type WellnessWriteDecision =
+  | { allowed: true }
+  | { allowed: false; reason: WellnessWriteBlockReason };
+
+/** Breadcrumb keys already logged this process: once each, never per write. */
+const loggedWellnessWriteBreadcrumbs = new Set<string>();
+
+/**
+ * Content-free breadcrumb, at most once per key per process. The key is added
+ * BEFORE the call so a throwing logger is not retried on every write, and the
+ * call is caught so a logger fault can never change a verdict (crisis ruling).
+ */
+function logWellnessWriteBreadcrumb(
+  key: string,
+  severity: 'low' | 'high',
+  event: string,
+  context: { result: 'success' | 'failure'; reason: string; cause?: string },
+): void {
+  if (loggedWellnessWriteBreadcrumbs.has(key)) return;
+  loggedWellnessWriteBreadcrumbs.add(key);
+  try {
+    logSecurity(event, severity, {
+      component: 'consentStore',
+      action: 'decideWellnessWrite',
+      ...context,
+    });
+  } catch {
+    // Swallowed: the verdict is already decided.
+  }
+}
+
+/** The `missing` window: only an in-bound, current-version legal-gate record decides. */
+function decideFromLegalGateMirror(): WellnessWriteDecision {
+  const record = legalGateMirror;
+  if (!record || record.version !== CONSENT_VERSION) return { allowed: false, reason: 'missing' };
+  const age = Date.now() - record.timestamp;
+  // A future timestamp is outside the bound: a clock that moved back cannot vouch
+  // for freshness.
+  if (age < 0 || age > MISSING_CONSENT_MIRROR_BOUND_MS) return { allowed: false, reason: 'missing' };
+  return record.mentalHealthProcessingConsent
+    ? { allowed: true }
+    : { allowed: false, reason: 'refused' };
+}
+
+/**
+ * May wellness data be WRITTEN right now? (FEAT-664, GDPR Art. 9(2)(a))
+ *
+ * The one reading of the user's Art. 9 choice for every storage write (FEAT-318
+ * slices A2, B, C). Gate the WRITE with it, never the capture: Q9 detection,
+ * `handleCrisisDetection` and the journal's `scanOnSave` must keep running for a
+ * user who refused. Nothing crisis-owned may import it — pinned by
+ * `wellnessWriteConsentBoundary.test.ts`.
+ *
+ * Deliberately NOT `canPerformOperation('mental_health_processing')`, which fails
+ * closed on every status but `valid` — the store boots at `loading`, and
+ * onboarding writes screenings while the status is still `missing`.
+ *
+ * Disposition (founder-approved 2026-08-08):
+ *   valid            → the cached Art. 9 choice (`refused` when false)
+ *   revoked / under_age / loading → blocked
+ *   version_mismatch / expired / integrity_error → allowed, with a breadcrumb
+ *   missing          → the legal-gate mirror (see decideFromLegalGateMirror)
+ *
+ * Synchronous, zero I/O, never throws. An evaluation fault FAILS OPEN — blocking
+ * would silently discard what the user just entered.
+ */
+export const decideWellnessWrite = (): WellnessWriteDecision => {
+  let decision: WellnessWriteDecision;
+  let passedStatus: ConsentStatus | null = null;
+  try {
+    const { consentStatus, consentCache } = useConsentStore.getState();
+    switch (consentStatus) {
+      case 'valid':
+        decision = consentCache.canProcessMentalHealthData
+          ? { allowed: true }
+          : { allowed: false, reason: 'refused' };
+        break;
+      case 'revoked':
+      case 'under_age':
+      case 'loading':
+        decision = { allowed: false, reason: consentStatus };
+        break;
+      case 'version_mismatch':
+      case 'expired':
+      case 'integrity_error':
+        decision = { allowed: true };
+        passedStatus = consentStatus;
+        break;
+      case 'missing':
+        decision = decideFromLegalGateMirror();
+        break;
+      default: {
+        // A new ConsentStatus must be given a disposition here before it compiles.
+        const unhandled: never = consentStatus;
+        throw new Error(`unhandled consent status: ${String(unhandled)}`);
+      }
+    }
+  } catch (error) {
+    logWellnessWriteBreadcrumb(
+      'evaluation_threw',
+      'high',
+      'wellness-write consent could not be evaluated — failing open',
+      {
+        result: 'failure',
+        reason: 'evaluation_threw',
+        cause: error instanceof Error ? error.name : 'unknown',
+      },
+    );
+    return { allowed: true };
+  }
+
+  if (passedStatus) {
+    logWellnessWriteBreadcrumb(
+      passedStatus,
+      'low',
+      'wellness write allowed on a non-valid consent status',
+      { result: 'success', reason: passedStatus },
+    );
+  }
+  return decision;
+};
+
+/** Site + reason keys already logged by `logWellnessWriteBlocked` this process. */
+const loggedWellnessWriteBlocks = new Set<string>();
+
+/**
+ * Record that a wellness write was withheld (FEAT-665, slice A2a-i; FEAT-685 wires it).
+ *
+ * Content-free: exactly `{component, action, site, reason, result}`, never an answer or
+ * a score, and never PostHog. At most once per site and reason per process. Same
+ * contract as `logWellnessWriteBreadcrumb`: the key is added before the call so a
+ * throwing logger is not retried, and a logger fault is swallowed. It will run inside
+ * `answerQuestion`'s try, ahead of the Q9 check, so it must never throw.
+ */
+export function logWellnessWriteBlocked(
+  where: { component: string; action: string; site: string },
+  reason: WellnessWriteBlockReason,
+): void {
+  const key = `${where.site}|${reason}`;
+  if (loggedWellnessWriteBlocks.has(key)) return;
+  loggedWellnessWriteBlocks.add(key);
+  try {
+    logSecurity('wellness write withheld: Art. 9 consent not in force', 'low', {
+      component: where.component,
+      action: where.action,
+      site: where.site,
+      reason,
+      result: 'blocked',
+    });
+  } catch {
+    // Swallowed: a logging fault must never reach the write path.
+  }
+}
+
+/** What the history walk found, before it is reconciled with live state. */
+interface WellnessWriteBlockWalk {
+  /** Start of the latest interval that blocked writes, open or closed, or null if none. */
+  latestOpening: number | null;
+  /** Whether the walk ends inside a blocked interval. */
+  endsBlocked: boolean;
+  /** A granted or renewed entry that explicitly granted Art. 9. */
+  sawGrantAnchor: boolean;
+}
+
+/**
+ * Walk the consent history in append order. An interval OPENS at a `revoked` entry or
+ * at a granted / renewed / updated entry whose changes carry an explicit Art. 9 `false`,
+ * and CLOSES at one carrying an explicit `true`. `declined` and updates that do not
+ * carry the key are no-ops, so a pre-1.1.0 entry opens nothing. Each opening is
+ * clamped to the latest timestamp at or before it, so a backward clock step can only
+ * move the answer later. Returns null when any timestamp is not a finite number.
+ */
+function walkWellnessWriteBlocks(
+  history: readonly ConsentHistoryEntry[],
+): WellnessWriteBlockWalk | null {
+  let latestSeen = Number.NEGATIVE_INFINITY;
+  let latestOpening: number | null = null;
+  let endsBlocked = false;
+  let sawGrantAnchor = false;
+  for (const entry of history) {
+    if (!Number.isFinite(entry.timestamp)) return null;
+    latestSeen = Math.max(latestSeen, entry.timestamp);
+    const art9 = entry.changes?.mentalHealthProcessingConsent;
+    const carriesChoice =
+      entry.action === 'granted' || entry.action === 'renewed' || entry.action === 'updated';
+    if (entry.action === 'revoked' || (carriesChoice && art9 === false)) {
+      latestOpening = latestSeen;
+      endsBlocked = true;
+    } else if (carriesChoice && art9 === true) {
+      endsBlocked = false;
+      if (entry.action !== 'updated') sawGrantAnchor = true;
+    }
+  }
+  return { latestOpening, endsBlocked, sawGrantAnchor };
+}
+
+const finiteOrNull = (value: number | undefined): number | null =>
+  typeof value === 'number' && Number.isFinite(value) ? value : null;
+
+/**
+ * Since when has the user's Art. 9 choice blocked wellness writes? (FEAT-665, slice A2a-i)
+ *
+ * FEAT-673 consumes it: a screening counts toward guidance only if it was completed at
+ * or after this instant, so stale pre-withdrawal history can never answer `full`.
+ * Unwired in this slice; that is pinned in wellnessWriteConsentBoundary.test.ts.
+ *
+ * A PRIMITIVE, never an object (crisis ruling, founder-chosen 2026-10-03): the screens
+ * that will subscribe need a stable zustand 5 snapshot.
+ *   finite number             blocked since then (the latest interval, open or closed)
+ *   Number.NEGATIVE_INFINITY  provably never blocked
+ *   null                      unknown, so every reading is inadmissible
+ *
+ * A LATER answer is always the safe error, because an inadmissible reading still
+ * suppresses. So every approximation here errs later:
+ *   - `loading` never opens an interval: every relaunch boots through it.
+ *   - `missing`, `under_age`, `integrity_error` → null. The legal-gate mirror is never
+ *     read.
+ *   - `version_mismatch` → null. `staleConsent` is never read to widen admissibility.
+ *   - `expired` → the retained record's `updatedAt`. Its history is not loaded, so an
+ *     earlier refuse → re-grant cycle is invisible, which rules out -Infinity.
+ *   - `revoked` → the later of `revokedAt` and the walk in-session. After a relaunch
+ *     `loadConsent` nulls the record and loads no history, so it is null.
+ *   - `valid` → the walk. -Infinity needs positive proof: Art. 9 granted now, a granted
+ *     or renewed entry that granted it, and no opening. Otherwise, or when the walk
+ *     ends allowed while live state is blocked, the record's `updatedAt` stands in.
+ * Note `grantConsent` replaces the history with one entry, so a re-grant through it
+ * erases the record of an earlier block.
+ *
+ * Pure and synchronous: no I/O, no `set()`, no logging, no `decideWellnessWrite`.
+ * Any fault answers null.
+ */
+export function selectWellnessWriteBlockStart(
+  state: Pick<ConsentStore, 'consentStatus' | 'consentHistory' | 'currentConsent' | 'consentCache'>,
+): number | null {
+  try {
+    switch (state.consentStatus) {
+      case 'loading':
+      case 'missing':
+      case 'under_age':
+      case 'integrity_error':
+      case 'version_mismatch':
+        return null;
+      case 'expired':
+        return finiteOrNull(state.currentConsent?.updatedAt);
+      case 'revoked': {
+        if (!state.currentConsent) return null;
+        const walk = walkWellnessWriteBlocks(state.consentHistory);
+        if (!walk) return null;
+        const candidates = [walk.latestOpening, state.currentConsent.revokedAt].filter(
+          (value): value is number => typeof value === 'number',
+        );
+        if (candidates.length === 0) return finiteOrNull(state.currentConsent.updatedAt);
+        return finiteOrNull(Math.max(...candidates));
+      }
+      case 'valid': {
+        const walk = walkWellnessWriteBlocks(state.consentHistory);
+        if (!walk) return null;
+        const art9Now = state.consentCache.canProcessMentalHealthData === true;
+        if (!art9Now && !walk.endsBlocked) {
+          // The walk disagrees with live state: take the later of the two.
+          const updatedAt = finiteOrNull(state.currentConsent?.updatedAt);
+          if (updatedAt === null) return null;
+          return walk.latestOpening === null ? updatedAt : Math.max(walk.latestOpening, updatedAt);
+        }
+        if (walk.latestOpening !== null) return walk.latestOpening;
+        if (walk.sawGrantAnchor) return Number.NEGATIVE_INFINITY;
+        return finiteOrNull(state.currentConsent?.updatedAt);
+      }
+      default: {
+        // A new ConsentStatus must be given a disposition here before it compiles.
+        const unhandled: never = state.consentStatus;
+        void unhandled;
+        return null;
+      }
+    }
+  } catch {
+    return null;
+  }
+}
+
+/** `selectWellnessWriteBlockStart` over the store's current state. */
+export const getWellnessWriteBlockStart = (): number | null =>
+  selectWellnessWriteBlockStart(useConsentStore.getState());
 
 /**
  * The age-verification and (optional) preference values a forged stale record
@@ -1873,3 +2636,31 @@ export async function __seedStaleConsentRecordForE2E(
   await SecureStore.setItemAsync(CONSENT_SECURE_KEY, JSON.stringify(record));
   return true;
 }
+
+/**
+ * DEBUG-755 — the in-memory half of account erasure (erasureResetRegistry, DEBUG-671).
+ *
+ * Without it the store stayed 'valid' for the rest of the warm session after a
+ * deletion: `canPerformOperation('cloud_sync')` kept answering true for a new
+ * anonymous account, and the legal-gate mirror kept the deleted person's Art. 9
+ * choice. This reverses DEBUG-671's "consentStore audited and NOT registered": that
+ * ruling rested on `resetConsent` deleting erasure-excluded keys, and this reset
+ * touches MEMORY ONLY — the on-disk records are deleted by the wipe at step 6
+ * (`ACCOUNT_ERASURE_SECURE_STORE_KEYS`, DEBUG-762), or on a shipped install by
+ * `retireErasedRecords`, and withheld by `readErasureRetirement` until then. It runs
+ * at step 5, after step 2's attestation has read `currentConsent`, and never rejects.
+ */
+registerErasureReset('consentStore', async () => {
+  setLegalGateMirror(null);
+  legalGateMirrorWrittenThrough = false;
+  useConsentStore.setState({
+    currentConsent: null,
+    staleConsent: null,
+    consentHistory: [],
+    consentStatus: 'missing',
+    consentCache: DEFAULT_CACHE,
+    isLoading: false,
+    error: null,
+  });
+  await clearPersistedConsentCache();
+});

@@ -1,16 +1,12 @@
 /**
- * Education Store regression tests (TEST-19b)
+ * Education Store tests
  *
- * Validates round-trip persistence across the 9 sites that call
- * `get().persistState()`. The audit's concern: if AsyncStorage silently
- * fails, users lose Stoic-Mindfulness progress + module-unlock state
- * between sessions. Tests assert mutations land in storage AND survive
- * a "kill in-memory state, reload" cycle.
- *
- * Also covers:
- * - Default state (all 5 modules initialized, none completed)
- * - userId mismatch ignores stored data (security boundary)
- * - Corrupted JSON catch-block doesn't throw (caller swallow)
+ * The store is in-memory only (DEBUG-672): it used to write a plaintext
+ * `@education:state` blob that nothing ever read back, so TEST-19b's round-trip
+ * suite was asserting persistence no user benefited from. What remains worth
+ * pinning is the in-session behaviour every Learn surface reads, and that no
+ * action touches storage. The privacy-lane pin on writes is
+ * `__tests__/privacy/educationStore.wellnessWriteGate.privacy.test.ts`.
  */
 
 const mockAsyncStorage: Record<string, string> = {};
@@ -28,14 +24,8 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
   },
 }));
 
-let mockUserId = 'test-user-id';
-jest.mock('@/core/constants/devMode', () => ({
-  getCurrentUserId: () => mockUserId,
-}));
-
 import { useEducationStore } from '../educationStore';
 
-const STORAGE_KEY = '@education:state';
 const state = () => useEducationStore.getState();
 
 /** Reset zustand back to defaults between tests. */
@@ -68,7 +58,6 @@ function defaultModuleProgress() {
 
 describe('educationStore', () => {
   beforeEach(() => {
-    mockUserId = 'test-user-id';
     for (const k of Object.keys(mockAsyncStorage)) delete mockAsyncStorage[k];
     resetStore();
   });
@@ -92,102 +81,71 @@ describe('educationStore', () => {
     });
   });
 
-  describe('round-trip persistence', () => {
-    test('setModuleStatus persists + survives reload', async () => {
+  describe('in-session state', () => {
+    test('setModuleStatus records the status and a completion time', () => {
       state().setModuleStatus('sphere-sovereignty', 'completed');
-      // setModuleStatus calls persistState() internally — wait a tick for it
-      await new Promise((r) => setTimeout(r, 10));
-      expect(mockAsyncStorage[STORAGE_KEY]).toBeDefined();
-
-      resetStore();
-      await state().loadState();
       expect(state().modules['sphere-sovereignty'].status).toBe('completed');
+      expect(state().modules['sphere-sovereignty'].completedAt).toBeInstanceOf(Date);
     });
 
-    test('completeSection persists + survives reload', async () => {
+    test('completeSection adds a section once and moves the module to in_progress', () => {
       state().completeSection('aware-presence', 'introduction');
-      await new Promise((r) => setTimeout(r, 10));
-      resetStore();
-      await state().loadState();
-      expect(state().modules['aware-presence'].completedSections).toContain('introduction');
+      state().completeSection('aware-presence', 'introduction');
+      expect(state().modules['aware-presence'].completedSections).toEqual(['introduction']);
+      expect(state().modules['aware-presence'].status).toBe('in_progress');
     });
 
-    test('incrementPracticeCount persists + survives reload', async () => {
+    test('incrementPracticeCount counts in memory', () => {
       state().incrementPracticeCount('radical-acceptance');
       state().incrementPracticeCount('radical-acceptance');
       state().incrementPracticeCount('radical-acceptance');
-      await new Promise((r) => setTimeout(r, 10));
-      resetStore();
-      await state().loadState();
       expect(state().modules['radical-acceptance'].practiceCount).toBe(3);
     });
 
-    test('setDevelopmentalStage persists + survives reload', async () => {
-      // 'integrated' — one of the four canonical DevelopmentalStage keys. This
-      // previously read 'integrating', which is not in the union; tsconfig excludes
-      // test files and the store does not validate, so it passed while pinning a
-      // value no reader can match (FEAT-292 consumes this exact field per module).
-      state().setDevelopmentalStage('sphere-sovereignty', 'integrated');
-      await new Promise((r) => setTimeout(r, 10));
-      resetStore();
-      await state().loadState();
-      expect(state().modules['sphere-sovereignty'].developmentalStage).toBe('integrated');
-    });
-
-    test('setCurrentModule persists + survives reload', async () => {
+    test('setCurrentModule tracks the module being viewed', () => {
       state().setCurrentModule('virtuous-response');
-      await new Promise((r) => setTimeout(r, 10));
-      resetStore();
-      await state().loadState();
       expect(state().currentModule).toBe('virtuous-response');
     });
 
-    test('dismissInsightTip persists + survives reload', async () => {
+    test('dismissInsightTip holds for the session', () => {
       state().dismissInsightTip('principle-engagement-beginner');
-      await new Promise((r) => setTimeout(r, 10));
       expect(state().isInsightTipDismissed('principle-engagement-beginner')).toBe(true);
-      resetStore();
-      await state().loadState();
-      expect(state().isInsightTipDismissed('principle-engagement-beginner')).toBe(true);
+    });
+
+    test('resetModule restores default progress', () => {
+      state().incrementPracticeCount('aware-presence');
+      state().completeSection('aware-presence', 'introduction');
+      state().resetModule('aware-presence');
+      expect(state().modules['aware-presence'].practiceCount).toBe(0);
+      expect(state().modules['aware-presence'].completedSections).toEqual([]);
     });
   });
 
-  describe('security boundaries', () => {
-    test('userId mismatch on load ignores stored data', async () => {
-      // Write state as user A
-      mockUserId = 'user-A';
-      state().setModuleStatus('sphere-sovereignty', 'completed');
-      await new Promise((r) => setTimeout(r, 10));
+  describe('getRecommendedModule', () => {
+    test('a new user is pointed at aware-presence', () => {
+      expect(state().getRecommendedModule()).toBe('aware-presence');
+    });
 
-      // Reload as user B
-      mockUserId = 'user-B';
-      resetStore();
-      await state().loadState();
+    test('after one module, sphere-sovereignty comes next', () => {
+      state().setModuleStatus('aware-presence', 'completed');
+      expect(state().getRecommendedModule()).toBe('sphere-sovereignty');
+    });
 
-      // User B should see defaults, not user A's data
-      expect(state().modules['sphere-sovereignty'].status).toBe('not_started');
+    test('all completed yields no recommendation', () => {
+      for (const id of ['aware-presence', 'radical-acceptance', 'sphere-sovereignty', 'virtuous-response', 'interconnected-living'] as const) {
+        state().setModuleStatus(id, 'completed');
+      }
+      expect(state().getRecommendedModule()).toBeNull();
     });
   });
 
-  describe('persistState error handling', () => {
-    test('corrupted JSON in storage is swallowed by loadState (no throw)', async () => {
-      mockAsyncStorage[STORAGE_KEY] = '{ not valid json';
-      // Should not throw
-      await expect(state().loadState()).resolves.toBeUndefined();
-      // State remains at defaults
-      expect(state().modules['aware-presence'].status).toBe('not_started');
-    });
-
-    test('AsyncStorage.setItem rejection is caught (no throw)', async () => {
-      const AsyncStorage = require('@react-native-async-storage/async-storage').default;
-      AsyncStorage.setItem.mockRejectedValueOnce(new Error('disk full'));
-      // setModuleStatus triggers persistState which should swallow the throw
-      expect(() => state().setModuleStatus('aware-presence', 'in_progress')).not.toThrow();
-      await new Promise((r) => setTimeout(r, 10));
-      // Reset mock for subsequent tests
-      AsyncStorage.setItem.mockImplementation(async (key: string, value: string) => {
-        mockAsyncStorage[key] = value;
-      });
-    });
+  test('no action writes to storage (DEBUG-672)', async () => {
+    state().setModuleStatus('sphere-sovereignty', 'completed');
+    state().completeSection('aware-presence', 'introduction');
+    state().incrementPracticeCount('radical-acceptance');
+    state().setCurrentModule('virtuous-response');
+    state().dismissInsightTip('principle-engagement-beginner');
+    await new Promise((r) => setTimeout(r, 10));
+    expect(mockAsyncStorage).toEqual({});
   });
 });

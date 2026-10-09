@@ -52,6 +52,7 @@ import WellnessScreeningTrends from '../WellnessScreeningTrends';
 import { RootOverlaySlot } from '@/core/navigation/rootOverlaySlot';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+import { seedWellnessWriteConsent } from '../../../../../__tests__/helpers/wellnessWriteConsent';
 import type { AssessmentSession, AssessmentType, PHQ9Result } from '@/features/assessment/types';
 
 const mockStoreWellnessBlob = SecureStorageService.storeWellnessBlob as jest.Mock;
@@ -75,6 +76,7 @@ function session(type: AssessmentType, score: number, severity: string, daysAgo:
 const sessions = [session('phq9', 6, 'mild', 10), session('phq9', 9, 'mild', 2)];
 
 beforeEach(() => {
+  seedWellnessWriteConsent('loading'); // FEAT-665: back to the default, so a seed never leaks into the next test
   jest.clearAllMocks();
   for (const k of Object.keys(mockWellnessBlobs)) delete mockWellnessBlobs[k];
   mockFlag = false;
@@ -94,7 +96,12 @@ describe('WellnessScreeningTrends — Your note (flag OFF)', () => {
 });
 
 describe('WellnessScreeningTrends — Your note (flag ON)', () => {
-  beforeEach(() => { mockFlag = true; });
+  beforeEach(() => {
+    mockFlag = true;
+    // FEAT-665: asserts a persisted write, so it runs as a consenting user. FEAT-685 gates
+    // the save, and the store's default `loading` status would block it.
+    seedWellnessWriteConsent('granted');
+  });
 
   it('shows an "Add a note" affordance on un-annotated check-ins', () => {
     const { getAllByText } = render(<WellnessScreeningTrends sessions={sessions} now={NOW} />);

@@ -7,7 +7,7 @@
  * DUAL-THRESHOLD SYSTEM (Updated 2025-01-27):
  * - PHQ-9 ≥15: Moderately severe depression - support recommended (23% have suicidal ideation)
  * - PHQ-9 ≥20: Severe depression - immediate intervention required
- * - GAD-7 ≥15: Severe anxiety - immediate intervention required
+ * - GAD-7 ≥15: Severe anxiety band - support resources offered; shares the results banner tier with PHQ-9 ≥20 and Q9 >0 (see isInterventionTier)
  */
 
 import { AssessmentType, PHQ9Result, GAD7Result, AssessmentAnswer } from '@/features/assessment/types';
@@ -28,7 +28,7 @@ export const CRISIS_SAFETY_THRESHOLDS = {
   PHQ9_MODERATE_SEVERE_THRESHOLD: 15,
   /** PHQ-9 Severe Depression Score - Immediate Intervention */
   PHQ9_SEVERE_THRESHOLD: 20,
-  /** GAD-7 Severe Anxiety Score - Immediate Intervention */
+  /** GAD-7 Severe Anxiety Band (≥15) - Support Resources Offered; banner tier (see isInterventionTier) */
   GAD7_SEVERE_THRESHOLD: 15,
   /** PHQ-9 Crisis Score (alias for severe threshold = 20) - see DIVERGENCE WARNING above */
   PHQ9_CRISIS_SCORE: 20,
@@ -54,8 +54,7 @@ export type CrisisTriggerType =
   | 'phq9_suicidal_ideation'     // PHQ-9 Question 9 response >0
   | 'gad7_severe_score'          // GAD-7 score ≥15
   | 'combined_high_risk'         // Both PHQ-9 and GAD-7 high scores
-  | 'manual_override'            // Clinician or system override
-  | 'safety_plan_triggered';     // User-initiated safety plan
+  | 'manual_override';           // Clinician or system override
 
 /**
  * Crisis Severity Levels
@@ -135,8 +134,6 @@ export interface CrisisIntervention {
   status: CrisisInterventionStatus;
   /** Actions taken during intervention */
   actionsTaken: CrisisAction[];
-  /** Safety plan activation */
-  safetyPlan?: CrisisSafetyPlan;
   /** Follow-up requirements */
   followUp: CrisisFollowUp;
   /** Whether intervention can be safely dismissed */
@@ -155,7 +152,6 @@ export type CrisisInterventionStatus =
   | 'displaying_resources' // Showing crisis resources
   | 'awaiting_action'     // Waiting for user to take action
   | 'support_contacted'   // User has contacted support
-  | 'safety_plan_active'  // Safety plan is being executed
   | 'monitoring'          // Active monitoring phase
   | 'resolved'            // Crisis intervention completed
   | 'escalated';          // Escalated to emergency services
@@ -180,58 +176,10 @@ export type CrisisActionType =
   | 'viewed_resources'      // User viewed crisis resources
   | 'contacted_988'         // Called 988 Suicide & Crisis Lifeline
   | 'contacted_emergency'   // Called emergency services
-  | 'activated_safety_plan' // Activated personal safety plan
   | 'contacted_support'     // Contacted personal support person
   | 'used_coping_skill'     // Used a coping strategy
   | 'scheduled_followup'    // Scheduled follow-up appointment
   | 'acknowledged_safety';  // Acknowledged safety commitment
-
-/**
- * Crisis Safety Plan
- */
-export interface CrisisSafetyPlan {
-  /** Plan ID */
-  id: string;
-  /** When plan was created */
-  createdAt: number;
-  /** When plan was last updated */
-  updatedAt: number;
-  /** Personal warning signs */
-  warningSignsPersonal: string[];
-  /** Environmental warning signs */
-  warningSignsEnvironmental: string[];
-  /** Coping strategies that help */
-  copingStrategies: Array<{
-    strategy: string;
-    effectiveness: 1 | 2 | 3 | 4 | 5;
-    lastUsed?: number;
-  }>;
-  /** Professional support contacts */
-  professionalContacts: Array<{
-    name: string;
-    role: string;
-    phone: string;
-    email?: string;
-    availability: string;
-  }>;
-  /** Personal support contacts */
-  personalContacts: Array<{
-    name: string;
-    relationship: string;
-    phone: string;
-    canContactAnytime: boolean;
-  }>;
-  /** Emergency contacts */
-  emergencyContacts: Array<{
-    name: string;
-    phone: string;
-    type: '988' | 'emergency' | 'crisis_center';
-  }>;
-  /** Environmental safety measures */
-  environmentalSafety: string[];
-  /** Reasons for living/hope statements */
-  reasonsForLiving: string[];
-}
 
 /**
  * Crisis Follow-Up Requirements
@@ -281,41 +229,9 @@ export interface CrisisResolution {
 export type CrisisResolutionType = 
   | 'user_safe_confirmed'     // User confirmed safety
   | 'support_contacted'       // Professional support engaged
-  | 'safety_plan_activated'   // Safety plan successfully used
   | 'emergency_services'      // Emergency services contacted
   | 'clinical_referral'       // Referred to clinical care
   | 'ongoing_monitoring';     // Requires continued monitoring
-
-/**
- * Crisis Resource Information
- */
-export interface CrisisResource {
-  /** Resource ID */
-  id: string;
-  /** Resource name */
-  name: string;
-  /** Resource type */
-  type: 'hotline' | 'text_line' | 'chat' | 'local_service' | 'mobile_app' | 'website';
-  /** Contact information */
-  contact: {
-    phone?: string;
-    text?: string;
-    website?: string;
-    chat?: string;
-  };
-  /** Availability */
-  availability: '24/7' | 'business_hours' | 'specific_hours';
-  /** Specific hours if applicable */
-  hours?: string;
-  /** Geographic availability */
-  geographic: 'national' | 'regional' | 'local';
-  /** Languages supported */
-  languages: string[];
-  /** Specializations */
-  specializations: string[];
-  /** Crisis severity levels this resource handles */
-  handlesLevels: CrisisSeverityLevel[];
-}
 
 /**
  * Crisis Detection Functions
@@ -401,53 +317,9 @@ export function detectCrisis(
 }
 
 /**
- * Validates crisis detection meets safety requirements
- */
-export function validateCrisisDetection(detection: CrisisDetection): boolean {
-  // Validate response time
-  if (detection.detectionResponseTimeMs > CRISIS_SAFETY_THRESHOLDS.MAX_CRISIS_RESPONSE_TIME_MS) {
-    return false;
-  }
-
-  // Validate trigger conditions
-  const validTriggers: CrisisTriggerType[] = [
-    'phq9_severe_score',
-    'phq9_suicidal_ideation',
-    'gad7_severe_score'
-  ];
-  
-  if (!validTriggers.includes(detection.primaryTrigger)) {
-    return false;
-  }
-
-  // Validate score thresholds
-  if (detection.assessmentType === 'phq9' && 
-      detection.primaryTrigger === 'phq9_severe_score' &&
-      detection.triggerValue < CRISIS_SAFETY_THRESHOLDS.PHQ9_CRISIS_SCORE) {
-    return false;
-  }
-
-  if (detection.assessmentType === 'gad7' && 
-      detection.primaryTrigger === 'gad7_severe_score' &&
-      detection.triggerValue < CRISIS_SAFETY_THRESHOLDS.GAD7_CRISIS_SCORE) {
-    return false;
-  }
-
-  return true;
-}
-
-/**
- * Type Guards
- */
-export function isCriticalCrisis(detection: CrisisDetection): boolean {
-  return detection.severityLevel === 'critical' ||
-         detection.severityLevel === 'emergency';
-}
-
-/**
  * Intervention-tier predicate (MAINT-251).
  *
- * Separates the active-intervention tier (PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15 →
+ * Separates the banner tier (PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15 →
  * primaryTrigger phq9_severe_score | phq9_suicidal_ideation | gad7_severe_score)
  * from the PHQ-9 15–19 support tier (primaryTrigger 'phq9_moderate_severe_score').
  * The support tier offers resources via the severity-driven support surface but
@@ -456,9 +328,9 @@ export function isCriticalCrisis(detection: CrisisDetection): boolean {
  * detectCrisis's ONLY non-intervention output is the 15–19 support tier, so the
  * predicate is "triggered AND not the support tier."
  *
- * NOT equivalent to isCriticalCrisis: a Q9>0 detection with totalScore<20 is
- * severityLevel 'high' (not 'critical') yet IS intervention tier — gating the
- * banner on severity alone would drop the suicidal-ideation signal (this is the
+ * NOT a severity check: a Q9>0 detection with totalScore<20 is severityLevel
+ * 'high' (not 'critical') yet IS intervention tier — gating the banner on
+ * severity alone would drop the suicidal-ideation signal (this is the
  * zero-false-negative guarantee; see crisis-thresholds.test.ts).
  */
 export function isInterventionTier(detection: CrisisDetection): boolean {
@@ -466,18 +338,24 @@ export function isInterventionTier(detection: CrisisDetection): boolean {
          detection.primaryTrigger !== 'phq9_moderate_severe_score';
 }
 
-export function requiresImmediateIntervention(detection: CrisisDetection): boolean {
-  return detection.primaryTrigger === 'phq9_suicidal_ideation' ||
-         detection.severityLevel === 'emergency';
-}
-
-export function canSafelyDismissIntervention(
-  intervention: CrisisIntervention, 
-  currentTime: number
+/**
+ * The same tier as `isInterventionTier(detectCrisis(result))`, from bare scores
+ * (DEBUG-705). PHQ-9: Q9 > 0 at any total, or total ≥ 20. GAD-7: total ≥ 15.
+ *
+ * For callers holding PERSISTED records, which may lack the fields detectCrisis
+ * needs (it reads `result.completedAt`). Pure and total, so it cannot throw.
+ * Its parity with detectCrisis is pinned exhaustively in
+ * `__tests__/interventionTierScore.test.ts`; never edit one without the other.
+ */
+export function isInterventionTierScore(
+  type: AssessmentType,
+  totalScore: number,
+  q9Positive: boolean
 ): boolean {
-  return intervention.canDismiss && 
-         currentTime >= intervention.dismissalAvailableAt &&
-         intervention.actionsTaken.length > 0;
+  if (type === 'phq9') {
+    return q9Positive || totalScore >= CRISIS_SAFETY_THRESHOLDS.PHQ9_SEVERE_THRESHOLD;
+  }
+  return totalScore >= CRISIS_SAFETY_THRESHOLDS.GAD7_SEVERE_THRESHOLD;
 }
 
 /**
@@ -490,43 +368,5 @@ function getTimeOfDay(): 'morning' | 'afternoon' | 'evening' | 'night' {
   if (hour >= 17 && hour < 21) return 'evening';
   return 'night';
 }
-
-/**
- * Crisis Safety Validation
- */
-export interface CrisisSafetyValidator {
-  validateDetection: (detection: CrisisDetection) => boolean;
-  validateIntervention: (intervention: CrisisIntervention) => boolean;
-  validateResponseTime: (responseTimeMs: number) => boolean;
-  validateSafetyPlan: (plan: CrisisSafetyPlan) => boolean;
-}
-
-/**
- * Emergency Resources
- */
-export const EMERGENCY_RESOURCES: CrisisResource[] = [
-  {
-    id: '988_lifeline',
-    name: '988 Suicide & Crisis Lifeline',
-    type: 'hotline',
-    contact: { phone: '988' },
-    availability: '24/7',
-    geographic: 'national',
-    languages: ['English', 'Spanish'],
-    specializations: ['Suicide Prevention', 'Crisis Counseling'],
-    handlesLevels: ['moderate', 'high', 'critical', 'emergency']
-  },
-  {
-    id: 'crisis_text_line',
-    name: 'Crisis Text Line',
-    type: 'text_line',
-    contact: { text: '741741' },
-    availability: '24/7',
-    geographic: 'national',
-    languages: ['English'],
-    specializations: ['Crisis Support', 'Text-based Support'],
-    handlesLevels: ['moderate', 'high', 'critical']
-  }
-];
 
 export default CRISIS_SAFETY_THRESHOLDS;

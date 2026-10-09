@@ -13,26 +13,32 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 # hand — do not read this as a missing or sleeping device. Maestro's own driver is the
 # failure. So this flow cannot start today.
 #
-# BUT THIS LOSS IS RECOVERABLE AND MUST NOT BE READ AS PERMANENT — that is the difference
-# between this flow and crisis-988-dial, and flattening the two would be wrong. The dial is
-# device-only by PHYSICS: the simulator's canOpenURL is unconditionally false, so no
-# substitute exists even in principle. This flow is device-only only by a DEFERRED
-# AUTHORING TASK. Its own header below already records that its device-only rationale is
-# FALSE (DEBUG-506): a software keyboard does rise on the gate simulator at the default,
-# `UIKeyboardLayoutStar Preview` lands at measured bounds, and journal-crisis-scan.yaml
-# asserts that very node three times in the default sim suite today. The reachability half
-# of this contract is SIMULATOR-RUNNABLE NOW.
+# e2e-sim-half: MIGRATED flow=crisis-keyboard-reachability.yaml by=DEBUG-506
+# e2e-attach-site: journal-crisis-scan.yaml by=INFRA-594
 #
-# Status: NOT YET MIGRATED — not "unavailable". Follow-up DEBUG-590 moves the reachability
-# half into the sim suite (bumping the 14-flow tripwire in the same commit); the dial half
-# stays here behind DEBUG-589's exit condition.
+# THE REACHABILITY CONTRACT HAS MIGRATED, so this flow is no longer its only runtime pin.
+# `crisis-keyboard-reachability.yaml` (DEBUG-506; closes DEBUG-590) runs it in the default
+# `safety` sim suite: software keyboard up, the accessory BUTTON visible, ONE tap,
+# `crisis-resources-screen`. That is the one site measuring REACHABILITY end to end.
 #
-# UNTIL DEBUG-590 LANDS we are accepting unverified runtime behaviour on the crisis
-# keyboard accessory: that iOS actually attaches and paints the accessory over a real
-# software keyboard, and that the occlusion predicate fires. This is the DEBUG-450 defect
-# class — an accessory that never attached at all, for its entire life, with this flow the
-# only thing pinning it. `check-crisis-keyboard-accessory-guard.js` pins that the PROP is
-# present on every shipping TextInput; it cannot pin that iOS honours it.
+# A SECOND site measures ATTACH ONLY (INFRA-594). `journal-crisis-scan.yaml`'s keyboard-up
+# block asserts the BUTTON visible with the keyboard raised and then taps Save — no tap on
+# the button, no destination — so it pins attachment and the occlusion predicate, and
+# nothing beyond them. It is not a duplicate of the first: its input is unmounted by
+# `setPhase('saved'|'idle')`, the `prepareForRecycle` dead-`__weak`-ref shape
+# `CrisisTextInput` exists to survive, which DailyLoop's concurrent-field surface cannot
+# exercise. Both surfaces that component's header names are now measured.
+#
+# Every other text surface is covered by construction, not by measurement: each renders
+# `CrisisTextInput`, which owns the input and its accessory from one mount, and
+# `check-crisis-keyboard-accessory-guard.js` fails CI on a bare `<TextInput>` or an
+# `inputAccessoryViewID=` anywhere outside it.
+#
+# MIGRATED does NOT mean the hardware path was verified. What only this flow can reach —
+# real keyboards and `UIRemoteKeyboardWindow` layering on hardware, the non-seeded LegalGate
+# preamble, and current iOS (the gate simulator runs 18.6) — stays unavailable per
+# DEBUG-589 above. The attended device checklist (INFRA-591) compensates for it; the sim
+# flow does not.
 #
 # DO NOT delete, rename or skip this flow.
 #
@@ -55,9 +61,22 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 # node, and `simctl erase` restores it. `e2e-safety.sh` seeds
 # `DidShowContinuousPathIntroduction` and refuses outright if a hardware keyboard is on.
 #
-# STILL DEVICE-ONLY, pending DEBUG-506 AC5: the reachability half moves into the sim gate
-# and the dial half stays here, but the split is not authored until it has been RUN once.
-# A safety flow that is red on arrival gates nothing and trains a `--skip-e2e` bypass.
+# THE SPLIT IS DONE (DEBUG-506 AC5). `crisis-keyboard-reachability.yaml` carries the
+# reachability contract in the default sim suite, measured green before it was committed.
+#
+# WHY THIS FLOW STILL EXISTS, now that a sim flow pins the same surface (DEBUG-574 crisis
+# ruling). Not the preamble — that is a harness fact, not a crisis reason. Two things only
+# hardware can show:
+#   1. The accessory attaches and stays reachable against a REAL keyboard window.
+#      `UIRemoteKeyboardWindow` layering above the app window, a real bottom safe-area /
+#      home-indicator inset, a third-party or predictive keyboard, real animation timing.
+#      The simulator reproduces the layout; it does not reproduce the window server.
+#   2. It is the only on-hardware traversal of the NON-SEEDED LegalGate + onboarding path —
+#      the state a real install starts from — via `_legal-and-onboarding.yaml`, whose other
+#      callers (`crisis-988-dial.yaml`, `breathing-fps-budget.yaml`) are device-class too.
+#      Its Continue tap (INFRA-494) and its four consent taps (INFRA-656) are kept clear of
+#      the pinned 988 footer by derivation, because no device flow can run (DEBUG-589).
+# Keep the tag. Keep it out of `npm run e2e:safety`.
 #
 # On a real device, run:
 #   npm run e2e:safety:keyboard-accessory
@@ -77,26 +96,48 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 - launchApp:
     clearState: true
     clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
+# EXACTLY ONE PREAMBLE, AND IT DECLARES THE TARGET BUILD (DEBUG-574). This flow used to
+# run `_legal-and-onboarding.yaml` AND `_seeded-home.yaml`. Running both makes the build
+# class ambiguous: the first dies at its non-optional `extendedWaitUntil: legal-dob-picker`
+# on a seeded build, the second is a no-op on an unseeded one, so the pair names neither.
+# `_legal-and-onboarding.yaml` is the correct one here and ends on `home-screen` itself.
 - runFlow: _legal-and-onboarding.yaml
-- runFlow: _seeded-home.yaml
 
-# Reach a free-text surface. The journal composer is the canonical distress-bearing
-# multiline input — the surface DEBUG-431's tap arithmetic showed had no bounded exit.
+# ── Reach a free-text surface: the daily practice, Quick depth ───
+# NOT the Insights weekly reflection, which is where this flow used to go and is why it was
+# RED ON ARRIVAL for its entire life (DEBUG-574). `WeeklyReflectionCard` returns null below
+# `MIN_CHECK_INS_TO_SHOW` (4) check-ins in the last 7 days; `clearState: true` zeroes them
+# and this flow has no check-in preamble, so `weekly-reflection-card` could never exist and
+# the scroll could never succeed. INFRA-532's seeded check-ins do not reach here: that seed
+# is gated on `EXPO_PUBLIC_E2E_SEED_ONBOARDED`, declared only in `eas.json`'s `e2e-sim`
+# profile, which is `ios.simulator: true`.
+#
+# NOR the journal composer, which the deleted comment here called "the canonical
+# distress-bearing multiline input". It is behind `voice_journal`, FALSE in
+# `.env.production` — so it cannot exist on the build this flow runs against. The target
+# must be flag-free in BOTH envs, and DailyLoop is: FEAT-298 slice 5 retired `daily_loop` /
+# `daily_loop_only` and the Home card is unconditional.
 - tapOn:
-    id: "tab-insights"
-- scrollUntilVisible:
-    element:
-      id: "weekly-reflection-card"
-    direction: DOWN
-# `weekly-reflection-prompt` is the trigger on a seeded state (no reflection yet);
-# `weekly-reflection-edit` replaces it once one exists. Seeded state means the prompt.
+    text: ".*Daily Practice.*"
+- assertVisible:
+    id: "daily-loop-depth-quick"
 - tapOn:
-    id: "weekly-reflection-prompt"
+    id: "daily-loop-depth-quick"
+
+# Beat 1 is breath-gated; skip straight to the text beat. Conditional because the breath is
+# time-based and may already have elapsed.
+- runFlow:
+    when:
+      visible:
+        id: "daily-loop-breathing-circle"
+    commands:
+      - tapOn:
+          id: "daily-loop-skip-breath"
 
 - assertVisible:
-    id: "weekly-reflection-input"
+    id: "daily-loop-input-response"
 - tapOn:
-    id: "weekly-reflection-input"
+    id: "daily-loop-input-response"
 
 # THE GUARD AGAINST FALSE GREEN. The accessory button is only visible when the occlusion
 # predicate returned true — i.e. a bottom-anchored software keyboard taller than the
@@ -105,9 +146,21 @@ name: "Crisis affordance stays reachable while a software keyboard is up (device
 - assertVisible:
     id: "crisis-keyboard-accessory-button"
 
-# ONE TAP. Not "dismiss the keyboard, then find the root button" — DEBUG-431 measured
-# that path at 3 taps minimum and unbounded on DailyLoop, which is why keyboard-dismiss
-# hygiene was explicitly ruled insufficient to close this item.
+# THE ACCESSORY MUST BE THE ONLY IN-PLACE AFFORDANCE HERE, PINNED NOT ASSUMED (DEBUG-574
+# crisis ruling). `showsSupportLine` puts `daily-loop-support-line` on SphereSovereignty
+# only in quick depth (tenseMode.ts QUICK_SUPPORT_STEP), and the support bar is pinned
+# INSIDE the KAV so it survives keyboard-up. A future re-host onto this beat would silently
+# demote this flow to a weaker test that still greens. Placed after the button assertion,
+# matching crisis-keyboard-reachability.yaml, so the negative is never checked against an
+# empty screen.
+- assertNotVisible:
+    id: "daily-loop-support-line"
+
+# ONE TAP. Not "dismiss the keyboard, then find the root button" — DEBUG-431 measured that
+# path at 3 taps minimum, and unbounded on DailyLoop WITHOUT LEAVING THE PRACTICE (the
+# `daily-loop-exit` ✕ in the nested navigator's `headerLeft` is a bounded exit, but
+# abandoning a session is not a crisis affordance — see crisis-keyboard-reachability.yaml).
+# That is why keyboard-dismiss hygiene was ruled insufficient to close DEBUG-450.
 - tapOn:
     id: "crisis-keyboard-accessory-button"
 

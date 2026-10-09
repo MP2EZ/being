@@ -46,13 +46,14 @@ import { useHapticsOptIn } from '@/features/practices/shared/haptics/useHapticsO
 import { HapticsOptInPrompt } from '@/features/practices/shared/components/HapticsOptInPrompt';
 import { intervalSchedule } from '@/features/practices/shared/haptics/cueScheduler';
 import { usePracticeSettings } from '@/core/stores/settingsStore';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 
 interface ReflectionTimerScreenProps {
   practiceId: string;
   moduleId: ModuleId;
   duration: number; // Duration in seconds
   title: string;
-  prompt?: string; // Optional brief reflection prompt
   instructions?: string[]; // Full instruction steps (always visible)
   onComplete?: () => void;
   onBack?: () => void;
@@ -64,7 +65,6 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
   moduleId,
   duration,
   title,
-  prompt,
   instructions,
   onComplete,
   onBack,
@@ -151,6 +151,10 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
   );
 
   // Show completion screen after timer finishes
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  const toggleExclusionCheck = useCrisisExclusionAssertion(`${testID}-toggle-button`, 'scrolls');
+
   const completionScreen = renderCompletion();
   if (completionScreen) {
     return completionScreen;
@@ -184,9 +188,14 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
         <View style={styles.contemplationIcon}>
           <Text style={styles.iconText}>🧘</Text>
         </View>
+        {/* DEBUG-650: names the instruction list above, which every reflection practice
+            ships (pinned by reflectionPracticeInstructions.contract.test.ts). The previous
+            copy pointed at "the prompt", which nothing rendered, and described open,
+            objectless noticing; these are directed examens. Wording ruled by `philosopher`. */}
         <Text style={styles.contemplationText}>
-          Take time to reflect. There's no need to write anything down—simply
-          contemplate the prompt and notice what arises.
+          Work through the steps above at your own pace. There's no need to write anything
+          down—simply hold each one in mind. If your attention wanders, returning to it is the
+          practice.
         </Text>
       </View>
 
@@ -212,7 +221,8 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
         isActive={isTimerActive}
         elapsedTime={elapsedTime}
         onToggle={handleToggle}
-        style={{ marginBottom: spacing[32] }}
+        onLayout={toggleExclusionCheck}
+        style={styles.toggleButton}
         testID={`${testID}-toggle-button`}
       />
     </PracticeScreenLayout>
@@ -220,6 +230,25 @@ const ReflectionTimerScreen: React.FC<ReflectionTimerScreenProps> = ({
 };
 
 const styles = StyleSheet.create({
+  toggleButton: {
+    marginBottom: spacing[32],
+    // DEBUG-628 (crisis ruling): moves the toggle's OWN FRAME out of the crisis FAB's
+    // contested column, mirroring DEBUG-622 on PracticeTimerScreen. ReflectionTimer is an
+    // immersive route: the FAB renders faded, but FADED_OPACITY does not affect hit
+    // testing and it still wins at zIndex 9999, so any overlap sends a tap on Begin
+    // Practice to CrisisResources.
+    // DERIVED, not measured (DEBUG-626 owns the on-device bounds). The toggle is a stretch
+    // child of sharedPracticeStyles.content, whose paddingHorizontal is spacing[24], so it
+    // spans x=24..W-24; the rect's left is 72. Both are offsets from screen-right, so W
+    // cancels and the overlap is 48pt on EVERY viewport:
+    //   390x844  toggle x24-366 vs region left 318, y ~679-746 vs band 668-772
+    //   402x874  toggle x24-378 vs region left 330, y ~709-776 vs band 698-802
+    // HORIZONTAL because the column scrolls (scrollable={true}): the toggle can rest at
+    // any y and at any text size, but its x-range is fixed. Must NOT be paddingRight,
+    // which moves the label and leaves the frame in place. Declared LAST: StyleSheet is
+    // last-key-wins, so a marginHorizontal added below would silently undo it.
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
+  },
   // Screen-specific: Always-visible numbered instructions (unique pattern)
   instructionsSection: {
     marginBottom: spacing[32],
@@ -229,7 +258,11 @@ const styles = StyleSheet.create({
     fontSize: typography.caption.size,
     fontWeight: typography.fontWeight.bold,
     color: colorSystem.navigation.learn,
-    textTransform: 'uppercase',
+    // DEBUG-639: no `textTransform: 'uppercase'`. It made the literal `Instructions:`
+    // a single 13-glyph all-caps token with no internal break opportunity, and at AX5
+    // that token exceeds the 342pt line box — so TextKit fell back to a CHARACTER
+    // break and rendered `INSTRUCTION` / `S:`. Clamping instead is not available:
+    // DEBUG-628 forbids numberOfLines, a fixed height and maxFontSizeMultiplier here.
     letterSpacing: 0.5,
     marginBottom: spacing[8],
   },

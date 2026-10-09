@@ -21,10 +21,6 @@ jest.mock('@react-navigation/native', () => ({
   useRoute: () => ({ params: mockRouteParams }),
 }));
 
-jest.mock('@/features/crisis/components', () => ({
-  CollapsibleCrisisButton: () => null,
-}));
-
 import ClassicalLibraryScreen from '../screens/ClassicalLibraryScreen';
 
 describe('ClassicalLibraryScreen', () => {

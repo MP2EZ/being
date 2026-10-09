@@ -76,7 +76,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  TextInput,
   ScrollView,
   BackHandler,
   AccessibilityInfo,
@@ -91,7 +90,7 @@ import {
 } from '@/core/theme';
 import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { OVERLAY_ACTION_ROW_PADDING_RIGHT } from '@/features/crisis/constants/crisisButtonGeometry';
-import { crisisAccessoryProps } from '@/features/crisis/constants/crisisInputAccessory';
+import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 import { useOverlayBottomInset } from '@/core/hooks/useOverlayBottomInset';
 import { useRootOverlay } from '@/core/navigation/rootOverlaySlot';
 import { useBugReportStore } from '@/core/stores/bugReportStore';
@@ -247,10 +246,11 @@ export const BugReportForm: React.FC<BugReportFormProps> = ({ visible, killed, o
         ) : (
           <>
             <ScrollView style={styles.scrollRegion} keyboardShouldPersistTaps="handled">
-              <TextInput
-                {...crisisAccessoryProps()} /* DEBUG-450 — the keyboard is
-                   necessarily up for the dwell here, so on iOS this accessory is
-                   the SOLE 988 route while it is. Mandatory, not optional. */
+              <CrisisTextInput
+                /* DEBUG-450 — the keyboard is necessarily up for the dwell here, so on
+                   iOS this accessory is the SOLE 988 route while it is. Mandatory, not
+                   optional. DEBUG-506: the composite is what makes that true — the
+                   `crisisAccessoryProps()` wiring this used to carry never attached. */
                 style={styles.input}
                 value={message}
                 onChangeText={setMessage}

@@ -1,5 +1,14 @@
 # DRD: Being. - Design Requirements Document
 
+> ⚠️ **HISTORICAL DESIGN RECORD — not maintained against the code (MAINT-617, 2026-09-14).**
+> The v2.0 design requirements as last updated on 2025-10-23. Screens, stores and component specs here
+> are design-time, and crisis-button placement shipped differently (a root overlay, not Settings-only).
+>
+> **The support-contact requirements here are NOT met today.** "My Support Network", quick access to
+> support contacts and a `supportContacts` store describe personal emergency contacts that were never
+> built. 988 access and score-based crisis detection (PHQ-9 ≥15/≥20, Q9>0, GAD-7 ≥15) are live and not
+> covered by this notice. Current sources: `docs/product/Being. PRD.md`, `docs/architecture/feature-structure.md`.
+
 ## Mobile App UX/UI Specifications - Stoic Mindfulness Implementation
 
 ---

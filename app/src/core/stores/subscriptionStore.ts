@@ -29,6 +29,7 @@
 import { create } from 'zustand';
 import { generateInternalId } from '@/core/utils/id';
 import * as SecureStore from 'expo-secure-store';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
 import {
   SubscriptionStore,
   SubscriptionMetadata,
@@ -40,7 +41,6 @@ import {
   DEFAULT_SUBSCRIPTION_CONFIG,
   CRISIS_FEATURES
 } from '@/core/types/subscription';
-import AuthenticationService from '@/core/services/security/AuthenticationService';
 
 const STORAGE_KEY = 'subscription_metadata_v1';
 const SECURE_STORAGE_KEY = 'subscription_secure_v1';
@@ -53,15 +53,26 @@ function generateId(): string {
 }
 
 /**
- * Get current user ID from auth service
- * Falls back to anonymous user if not authenticated
+ * Subscription-local user id.
+ *
+ * MAINT-635 inlined this. It previously read `AuthenticationService.getCurrentUser()`
+ * and fell back to the anonymous literal. That branch was dead by construction:
+ * `currentUser` was assigned only behind a `this.initialized` guard, `initialized` was
+ * set only by `initialize()`, and `initialize()` had exactly two callers — both in the
+ * never-reachable chain this item deletes. So production always took the fallback, and
+ * inlining it changes no behaviour.
+ *
+ * Deliberately NOT converged onto an identity here. Both candidates would be a
+ * behavioural change this item does not authorise: the Supabase anonymous `auth.uid()`
+ * (INFRA-260) would give subscriptions a real principal, and `@/core/constants/devMode`
+ * exports a same-named `getCurrentUserId()` returning a stable `'dev-user-001'` — an easy
+ * accidental substitution that would silently alter persisted subscription identity.
+ *
+ * Known pre-existing wart, preserved rather than fixed: the value is recomputed per call,
+ * so `createTrial` and a later `purchase` mint different ids. Inert today — its only
+ * reader is a `// TODO: Send to analytics service` sink — and out of scope here.
  */
 function getCurrentUserId(): string {
-  const authUser = AuthenticationService.getCurrentUser();
-  if (authUser?.userId) {
-    return authUser.userId;
-  }
-  // Fallback to anonymous user for trials/unauthenticated access
   return `anonymous_${Date.now()}`;
 }
 
@@ -118,6 +129,8 @@ import { logSystem, logPerformance, logError, LogCategory } from '@/core/service
 // needs no lazy import — and taking it off the mocked module keeps suites that stub
 // IAPService from having to mirror every export the store destructures.
 import { appleTransactionIdentityFrom } from '@/core/services/subscription/appleTransactionIdentity';
+import { intervalFromProductId } from '@/core/services/subscription/subscriptionProductInterval';
+import { ReceiptVerificationUnavailableError } from '@/core/services/subscription/receiptVerificationUnavailable';
 const logger = {
   info: (message: string, meta?: Record<string, unknown>) => {
     logSystem(`[Subscription] ${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`);
@@ -147,6 +160,26 @@ const logger = {
 const CRISIS_FEATURE_SET = new Set<string>(CRISIS_FEATURES);
 
 /**
+ * Account-erasure guard (DEBUG-697). Every writer persists BEFORE it sets memory,
+ * and the record it writes is spread from memory, so a reset alone is undone by a
+ * writer suspended across it. Each writer captures `erasureGeneration` at entry and
+ * drops its write, its trailing `set()` and its success path once the generation
+ * has moved. Writes already dispatched are tracked so the reset can await them:
+ * they must land before the wipe, never after it.
+ */
+let erasureGeneration = 0;
+const inFlightWrites = new Set<Promise<void>>();
+
+function trackWrite(write: Promise<void>): Promise<void> {
+  inFlightWrites.add(write);
+  const settled = () => {
+    inFlightWrites.delete(write);
+  };
+  write.then(settled, settled);
+  return write;
+}
+
+/**
  * Subscription Zustand Store
  */
 export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
@@ -161,11 +194,14 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    */
   loadSubscription: async () => {
     const startTime = performance.now();
+    const generation = erasureGeneration;
     set({ isLoading: true, error: null });
 
     try {
       // Try to load from secure storage
       const secureData = await SecureStore.getItemAsync(SECURE_STORAGE_KEY);
+      // Read before an erasure: what it read is erased, and the reset already ran.
+      if (generation !== erasureGeneration) return;
 
       if (secureData) {
         const subscription = JSON.parse(secureData) as SubscriptionMetadata;
@@ -195,6 +231,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * Create trial subscription
    */
   createTrial: async () => {
+    const generation = erasureGeneration;
     set({ isLoading: true, error: null });
 
     try {
@@ -205,7 +242,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       const featureAccess = calculateFeatureAccess(subscription.status);
 
       // Save to secure storage
-      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(subscription));
+      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(subscription)));
+      if (generation !== erasureGeneration) return;
 
       set({
         subscription,
@@ -227,6 +265,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * Update subscription status
    */
   updateSubscriptionStatus: async (status: SubscriptionStatus) => {
+    const generation = erasureGeneration;
     const { subscription } = get();
     if (!subscription) {
       set({ error: 'No subscription to update' });
@@ -243,7 +282,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       const featureAccess = calculateFeatureAccess(status);
 
       // Save to secure storage
-      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription));
+      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
+      if (generation !== erasureGeneration) return;
 
       set({
         subscription: updatedSubscription,
@@ -299,8 +339,13 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * subscription metadata, acknowledge the platform transaction, track
    * the event. Errors thrown here propagate to the caller — the listener
    * catches them so it can stay fire-and-forget.
+   *
+   * Resolves true only once the record is persisted, in memory and
+   * acknowledged; false when an erasure abandoned it (DEBUG-720 — restore
+   * counts only what was actually applied).
    */
   processVerifiedPurchase: async (purchase: unknown, interval: SubscriptionInterval) => {
+    const generation = erasureGeneration;
     set({ isVerifyingReceipt: true });
 
     try {
@@ -316,21 +361,40 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
         transactionReceipt?: string;
         purchaseToken?: string;
         orderId?: string;
+        productId?: string;
       };
       const receiptData = p.transactionReceipt || '';
       const purchaseToken = p.purchaseToken;
 
       logger.info('Verifying receipt', { platform, hasReceipt: !!receiptData });
 
+      // productId rides in its own argument, never in receiptData: on Android
+      // receiptData is '' and is persisted below as the record's receipt (DEBUG-713).
       const verification = await IAPService.verifyReceipt(
         receiptData,
         platform,
         purchaseToken,
-        appleTransactionIdentityFrom(purchase)
+        appleTransactionIdentityFrom(purchase),
+        p.productId
       );
 
       if (!verification.valid) {
+        // DEBUG-715: no session or no client means the receipt was never judged.
+        // Thrown as its own type so logs tell it from an invalid receipt; either
+        // way the transaction stays unfinished and the platform offers it again.
+        if (verification.reason) {
+          throw new ReceiptVerificationUnavailableError(verification.reason);
+        }
         throw new Error(verification.error || 'Receipt verification failed');
+      }
+
+      // The account was erased while the receipt was being verified. Abandon the
+      // write AND the acknowledgement (DEBUG-697, founder ruling): an unfinished
+      // transaction is re-emitted by the platform at next launch, so a paying user
+      // gets a fresh post-erasure record instead of one built from erased memory.
+      if (generation !== erasureGeneration) {
+        logger.info('Purchase abandoned: account erased during verification');
+        return false;
       }
 
       const { subscription } = get();
@@ -364,7 +428,11 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
       const featureAccess = calculateFeatureAccess('active');
 
-      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription));
+      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
+      if (generation !== erasureGeneration) {
+        logger.info('Purchase abandoned: account erased during verification');
+        return false;
+      }
 
       set({
         subscription: updatedSubscription,
@@ -381,31 +449,66 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       });
 
       logger.info('Purchase completed successfully', { subscriptionId: verification.subscriptionId });
+      return true;
     } finally {
       set({ isVerifyingReceipt: false });
     }
   },
 
   /**
-   * Restore purchases
-   * For users who subscribed on different device
+   * Restore purchases — for a subscriber on a fresh install, another device, or
+   * after an account deletion (DEBUG-720).
+   *
+   * Each restored entitlement goes through processVerifiedPurchase, the same
+   * path a new purchase takes: the record is built from the server
+   * verification (never from in-memory state, which is null on exactly the
+   * installs that need a restore), persisted, and only then acknowledged.
+   * `restored` counts purchases that were actually applied, so the caller can
+   * never report success for a no-op. With several entitlements each one
+   * rebuilds the single record and the last applied wins.
    */
   restorePurchases: async () => {
+    const generation = erasureGeneration;
     set({ isLoading: true, error: null });
 
     try {
       logger.info('Restoring purchases');
+      const { IAPService } = await import('@/core/services/subscription/IAPService');
+      if (IAPService.getPlatform() === 'none') {
+        throw new Error('IAP not available on this platform');
+      }
 
-      // TODO: Implement restore purchases
-      // 1. Call platform IAP restore API
-      // 2. Get all active subscriptions
-      // 3. Verify receipts server-side
-      // 4. Update subscription metadata
+      const purchases = await IAPService.restorePurchases();
+      let restored = 0;
 
-      throw new Error('Restore purchases not yet implemented');
+      for (const purchase of purchases) {
+        // An erasure mid-restore ends it: processVerifiedPurchase would abandon
+        // each remaining purchase anyway, and the platform re-emits them.
+        if (generation !== erasureGeneration) break;
+
+        const interval = intervalFromProductId(purchase.productId);
+        if (!interval) {
+          logger.info('Restore skipped an unknown product', { productId: purchase.productId });
+          continue;
+        }
+
+        try {
+          if (await get().processVerifiedPurchase(purchase, interval)) restored++;
+        } catch (error) {
+          // One unverifiable entitlement must not stop the rest. It stays
+          // unacknowledged, so the platform offers it again next time.
+          logger.error('Restore of one purchase failed', { error });
+        }
+      }
+
+      logger.info('Restore finished', { found: purchases.length, restored });
+      return { found: purchases.length, restored };
     } catch (error) {
       logger.error('Restore purchases failed', { error });
-      set({ error: 'Failed to restore purchases', isLoading: false });
+      set({ error: 'Failed to restore purchases' });
+      throw error;
+    } finally {
+      set({ isLoading: false });
     }
   },
 
@@ -425,37 +528,6 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     } catch (error) {
       logger.error('Cancellation failed', { error });
       set({ error: 'Failed to cancel subscription' });
-    }
-  },
-
-  /**
-   * Verify receipt with platform API
-   * Called periodically (every 24 hours) to check subscription status
-   */
-  verifyReceipt: async (): Promise<boolean> => {
-    const { subscription } = get();
-    if (!subscription || !subscription.receiptData) {
-      return false;
-    }
-
-    set({ isVerifyingReceipt: true });
-
-    try {
-      logger.info('Verifying receipt');
-
-      // TODO: Implement receipt verification
-      // 1. Send receipt to Supabase Edge Function
-      // 2. Edge Function calls Apple/Google verification API
-      // 3. Parse response
-      // 4. Update subscription metadata
-
-      // For now, mock success
-      set({ isVerifyingReceipt: false });
-      return true;
-    } catch (error) {
-      logger.error('Receipt verification failed', { error });
-      set({ isVerifyingReceipt: false });
-      return false;
     }
   },
 
@@ -494,6 +566,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * Called when payment fails
    */
   enterGracePeriod: async () => {
+    const generation = erasureGeneration;
     const { subscription } = get();
     if (!subscription) return;
 
@@ -511,7 +584,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
       const featureAccess = calculateFeatureAccess('grace');
 
-      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription));
+      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
+      if (generation !== erasureGeneration) return;
 
       set({
         subscription: updatedSubscription,
@@ -533,6 +607,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * Called when payment succeeds or grace period expires
    */
   exitGracePeriod: async () => {
+    const generation = erasureGeneration;
     const { subscription } = get();
     if (!subscription) return;
 
@@ -548,7 +623,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
 
       const featureAccess = calculateFeatureAccess('active');
 
-      await SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription));
+      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
+      if (generation !== erasureGeneration) return;
 
       set({
         subscription: updatedSubscription,
@@ -619,6 +695,31 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     }
   }
 }));
+
+/**
+ * Drop the entitlement cache so nothing pre-erasure can be persisted again
+ * (DEBUG-697). Memory only: the disk is the wipe's job, and this runs just before it.
+ *
+ * The result is the fresh-install "no subscription loaded" state, which is what
+ * `loadSubscription` reads on the next launch once the wipe has removed the key.
+ * Always-available features never read this state, so they are unaffected. Never
+ * reloads or starts a trial: either would write a record back. One merging
+ * `setState`, never `replace`, so the actions survive. Writes already dispatched
+ * are awaited so they land before the wipe.
+ */
+export async function resetSubscriptionStoreForErasure(): Promise<void> {
+  erasureGeneration += 1;
+  useSubscriptionStore.setState({
+    subscription: null,
+    featureAccess: null,
+    isLoading: false,
+    isVerifyingReceipt: false,
+    error: null,
+  });
+  await Promise.allSettled([...inFlightWrites]);
+}
+
+registerErasureReset('subscriptionStore', resetSubscriptionStoreForErasure);
 
 /**
  * Subscription Store Hooks (convenience)

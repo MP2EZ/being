@@ -16,6 +16,7 @@
 import { create } from 'zustand';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { getCurrentUserId } from '@/core/constants/devMode';
+import { registerErasureReset } from '@/core/services/privacy/erasureResetRegistry';
 
 const STORAGE_KEY = 'app_settings_v1';
 
@@ -180,6 +181,34 @@ function mergeWithDefaults(stored: Partial<AppSettings> | null | undefined): Omi
  */
 
 /**
+ * DEBUG-755 — bumped by the erasure reset. Every writer captures it before its
+ * first await and only `set()`s afterwards if it is unchanged.
+ *
+ * WHY: each writer does `get() → await setItem → set(snapshot)`. A write already in
+ * flight when account erasure resets settings — the ordinary case is a 988 dial
+ * backgrounding the app mid-deletion, which fires AppLifecycleTracker's
+ * setLastActiveTimestamp — would otherwise land after the reset and put the deleted
+ * account's `onboardingCompleted: true` back into memory, where the next persist
+ * writes it to disk. Disk order alone is safe (AsyncStorage is serial and the reset's
+ * removeItem queues behind the write); memory is not.
+ */
+let settingsWriteGeneration = 0;
+
+/**
+ * A writer whose generation went stale wrote a pre-reset snapshot. Write current
+ * memory back over it, so disk converges to memory whichever of the two writes the
+ * storage layer applied last. Best-effort: the next persist does the same.
+ */
+async function reassertCurrentSettings(current: AppSettings | null): Promise<void> {
+  if (!current) return;
+  try {
+    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(current));
+  } catch {
+    // Best-effort, see above.
+  }
+}
+
+/**
  * Settings Zustand Store
  */
 export const useSettingsStore = create<SettingsStore>((set, get) => ({
@@ -191,6 +220,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
    * Load settings from AsyncStorage
    */
   loadSettings: async () => {
+    const generation = settingsWriteGeneration;
     set({ isLoading: true, error: null });
 
     try {
@@ -215,6 +245,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
             userId: parsed.userId ?? getCurrentUserId(),
             updatedAt: parsed.updatedAt ?? Date.now()
           };
+          if (generation !== settingsWriteGeneration) return get().settings;
           set({ settings, isLoading: false });
           return settings;
         }
@@ -229,6 +260,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       };
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSettings));
+      if (generation !== settingsWriteGeneration) return get().settings;
       set({ settings: defaultSettings, isLoading: false });
       return defaultSettings;
     } catch (error) {
@@ -245,6 +277,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   updateNotificationSettings: async (notifications: Partial<NotificationSettings>) => {
     const { settings } = get();
     if (!settings) return;
+    const generation = settingsWriteGeneration;
 
     set({ isLoading: true, error: null });
 
@@ -259,6 +292,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       };
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings));
+      if (generation !== settingsWriteGeneration) return reassertCurrentSettings(get().settings);
       set({ settings: updatedSettings, isLoading: false });
     } catch (error) {
       console.error('[Settings] Failed to update notification settings', error);
@@ -273,6 +307,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   updatePrivacySettings: async (privacy: Partial<PrivacySettings>) => {
     const { settings } = get();
     if (!settings) return;
+    const generation = settingsWriteGeneration;
 
     set({ isLoading: true, error: null });
 
@@ -287,6 +322,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       };
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings));
+      if (generation !== settingsWriteGeneration) return reassertCurrentSettings(get().settings);
       set({ settings: updatedSettings, isLoading: false });
     } catch (error) {
       console.error('[Settings] Failed to update privacy settings', error);
@@ -300,6 +336,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   updateAccessibilitySettings: async (accessibility: Partial<AccessibilitySettings>) => {
     const { settings } = get();
     if (!settings) return;
+    const generation = settingsWriteGeneration;
 
     set({ isLoading: true, error: null });
 
@@ -314,6 +351,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       };
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings));
+      if (generation !== settingsWriteGeneration) return reassertCurrentSettings(get().settings);
       set({ settings: updatedSettings, isLoading: false });
     } catch (error) {
       console.error('[Settings] Failed to update accessibility settings', error);
@@ -327,6 +365,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   updatePracticeSettings: async (practices: Partial<PracticeSettings>) => {
     const { settings } = get();
     if (!settings) return;
+    const generation = settingsWriteGeneration;
 
     set({ isLoading: true, error: null });
 
@@ -341,6 +380,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       };
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings));
+      if (generation !== settingsWriteGeneration) return reassertCurrentSettings(get().settings);
       set({ settings: updatedSettings, isLoading: false });
     } catch (error) {
       console.error('[Settings] Failed to update practice settings', error);
@@ -354,6 +394,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   markOnboardingComplete: async () => {
     const { settings } = get();
     if (!settings) return;
+    const generation = settingsWriteGeneration;
 
     set({ isLoading: true, error: null });
 
@@ -365,6 +406,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       };
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings));
+      if (generation !== settingsWriteGeneration) return reassertCurrentSettings(get().settings);
       set({ settings: updatedSettings, isLoading: false });
     } catch (error) {
       console.error('[Settings] Failed to mark onboarding complete', error);
@@ -376,6 +418,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
    * Reset settings to defaults
    */
   resetSettings: async () => {
+    const generation = settingsWriteGeneration;
     const userId = getCurrentUserId();
     const defaultSettings: AppSettings = {
       ...DEFAULT_SETTINGS,
@@ -385,6 +428,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
 
     try {
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(defaultSettings));
+      if (generation !== settingsWriteGeneration) return reassertCurrentSettings(get().settings);
       set({ settings: defaultSettings, error: null });
     } catch (error) {
       console.error('[Settings] Failed to reset settings', error);
@@ -399,6 +443,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
   setLastActiveTimestamp: async (timestamp: number) => {
     const { settings } = get();
     if (!settings) return;
+    const generation = settingsWriteGeneration;
 
     try {
       const updatedSettings: AppSettings = {
@@ -408,6 +453,7 @@ export const useSettingsStore = create<SettingsStore>((set, get) => ({
       };
 
       await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(updatedSettings));
+      if (generation !== settingsWriteGeneration) return reassertCurrentSettings(get().settings);
       set({ settings: updatedSettings });
     } catch (error) {
       console.error('[Settings] Failed to update last active timestamp', error);
@@ -430,3 +476,41 @@ export const useNotificationSettings = () => useSettingsStore((state) => state.s
 export const usePrivacySettings = () => useSettingsStore((state) => state.settings?.privacy);
 export const useAccessibilitySettings = () => useSettingsStore((state) => state.settings?.accessibility);
 export const usePracticeSettings = () => useSettingsStore((state) => state.settings?.practices);
+
+/**
+ * DEBUG-755 — the settings half of account erasure (erasureResetRegistry, DEBUG-671).
+ *
+ * `app_settings_v1` was in no swept prefix and had no reset, so an erased account
+ * kept `onboardingCompleted: true` and the next launch went straight to Main. Every
+ * section returns to its default — the deleted account's choices (analytics opt-in,
+ * reminders, display, and the whole practices block, which crisis and philosopher
+ * ruled must reset together so an inherited `practiceHaptics: true` can never cue a
+ * different person) are not the next person's. In-memory settings stay NON-null
+ * defaults: `markOnboardingComplete` no-ops on null, which would trap re-onboarding.
+ *
+ * Synchronous memory reset first (and the generation bump that voids any write in
+ * flight), then the disk key, best-effort. Never rejects — `getCurrentUserId()` is
+ * guarded, unlike `resetSettings`, because a store that fails to reset must not leave
+ * the onboarded flag behind.
+ */
+export async function resetSettingsForErasure(): Promise<void> {
+  settingsWriteGeneration += 1;
+  let userId = '';
+  try {
+    userId = getCurrentUserId();
+  } catch {
+    // An unresolvable id must not stop the reset; the next writer stamps a real one.
+  }
+  useSettingsStore.setState({
+    settings: { ...DEFAULT_SETTINGS, userId, updatedAt: Date.now() },
+    isLoading: false,
+    error: null,
+  });
+  try {
+    await AsyncStorage.removeItem(STORAGE_KEY);
+  } catch (error) {
+    console.error('[Settings] Failed to remove settings during erasure', error);
+  }
+}
+
+registerErasureReset('settingsStore', resetSettingsForErasure);

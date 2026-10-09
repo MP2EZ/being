@@ -1,126 +1,119 @@
 /**
- * DEBUG-450 — the crisis keyboard accessory guard, pinned.
+ * The crisis keyboard accessory guard, re-cut for inverted polarity (DEBUG-506).
  *
- * The guard script is the mechanical enforcement that every shipping `<TextInput>` can
- * reach 988 while its keyboard is up. This suite is the guard's own pin: it runs in
- * `precommit` (via `test:safety`), where the CI step cannot, and it proves the detector
- * still FIRES rather than merely still passing.
+ * WHY THE VACUITY CASES MOVED. Under DEBUG-450's polarity the guard passed by finding
+ * every <TextInput> wired, so its dangerous failure was a matcher that read a prose
+ * mention as wiring — a false PASS. Under inversion the guard passes by finding NOTHING,
+ * so the dangerous failure is a matcher that finds nothing because it is broken. A
+ * comment mention now produces a false FAIL, which is the safe direction; a silent
+ * zero-file sweep produces a false pass, which is not. Every "does it still fire" case
+ * below therefore has an inverted twin asserting the sweep was not empty.
  *
- * That last part is the whole point. A comment-stripping source scanner paired with a
- * narrow matcher is exactly the combination that can silently match nothing at all —
- * green because it found no sites, not because every site is wired. Every "the tree is
- * clean" assertion here is paired with a known-bad fixture.
+ * This suite shares the script's detection logic deliberately: it runs in `precommit`,
+ * where the CI job at `ci.yml:495` does not, and --no-verify is permitted on hotfix/*.
+ * Neither is redundant.
  */
 
 import {
   ALLOWLIST,
+  COMPOSITE,
+  findAccessoryIdSites,
   findTextInputSites,
-  openingTagSpan,
   runGuard,
   stripComments,
-} from '../../scripts/check-crisis-keyboard-accessory-guard.js';
+} from '../../scripts/check-crisis-keyboard-accessory-guard';
 
-describe('DEBUG-450 crisis keyboard accessory guard', () => {
+describe('DEBUG-506 crisis keyboard accessory guard', () => {
   describe('the real tree', () => {
-    it('has every shipping <TextInput> wired to the accessory', () => {
-      const { unwired } = runGuard();
-      expect(unwired).toEqual([]);
+    it('renders no bare <TextInput> outside the composite', () => {
+      expect(runGuard().bare).toEqual([]);
+    });
+
+    it('names inputAccessoryViewID nowhere but the composite', () => {
+      // A second wiring path is how the shared id — and the first-match collision that
+      // leaves every input but one uncovered — returns.
+      expect(runGuard().strayIds).toEqual([]);
     });
 
     it('carries no allowlist entry whose file no longer renders a <TextInput>', () => {
-      const { stale } = runGuard();
-      expect(stale).toEqual([]);
+      expect(runGuard().stale).toEqual([]);
     });
 
-    it('actually scanned sites — a zero-site sweep would pass vacuously', () => {
-      // Without this, deleting the matcher would make both assertions above green.
-      const fs = require('fs');
-      const path = require('path');
-      const wired = path.join(
-        __dirname,
-        '../../src/features/journal/screens/VoiceReflectionScreen.tsx',
+    it('actually walked the tree — an inverted guard passes by finding nothing', () => {
+      // THE load-bearing vacuity check under this polarity. A broken walk reports a
+      // clean tree in exactly the same words as a clean tree.
+      expect(runGuard().scanned).toBeGreaterThan(100);
+    });
+
+    it('still sees the composite itself, so the walk reaches the file it exempts', () => {
+      // If the walk stopped reaching COMPOSITE, rule 2 would pass for the wrong reason.
+      const src = require('fs').readFileSync(
+        require('path').join(__dirname, '../../', COMPOSITE),
+        'utf8',
       );
-      const sites = findTextInputSites(fs.readFileSync(wired, 'utf8'));
-      expect(sites.length).toBeGreaterThan(0);
-      expect(sites.every((s: { wired: boolean }) => s.wired)).toBe(true);
+      expect(findTextInputSites(src).length).toBeGreaterThan(0);
+      expect(findAccessoryIdSites(src).length).toBeGreaterThan(0);
     });
   });
 
   describe('the detector fires on known-bad source', () => {
-    it('flags a TextInput with no accessory props', () => {
-      const sites = findTextInputSites('<TextInput style={s.x} multiline />');
-      expect(sites).toHaveLength(1);
-      expect(sites[0].wired).toBe(false);
+    it('flags a bare <TextInput>', () => {
+      expect(findTextInputSites('<TextInput value={v} />')).toHaveLength(1);
     });
 
-    it('accepts the props spread', () => {
-      const sites = findTextInputSites('<TextInput {...crisisAccessoryProps()} style={s.x} />');
-      expect(sites[0].wired).toBe(true);
+    it('does NOT flag <CrisisTextInput>, which is the whole point of the conversion', () => {
+      // The lookahead anchors on `<` + `TextInput`. If this ever regressed, every
+      // converted site would fail and the guard would be red on a correct tree.
+      expect(findTextInputSites('<CrisisTextInput value={v} />')).toHaveLength(0);
     });
 
-    it('accepts a literal inputAccessoryViewID', () => {
-      const sites = findTextInputSites('<TextInput inputAccessoryViewID={ID} />');
-      expect(sites[0].wired).toBe(true);
-    });
-
-    /**
-     * Attribute-level, not file-level. This is the case a tag-presence guard (the shape
-     * check-modal-occlusion-guard.js uses) would pass, and it is a real shape in this
-     * tree — DailyLoopStepScreen renders two inputs, one inside a .map() factory.
-     */
-    it('flags the SECOND input when only the first is wired', () => {
+    it('flags a MIXED file — one converted site does not excuse the other', () => {
+      // Replaces DEBUG-450's ".map() factory, second input unwired" case. That shape is
+      // subsumed a fortiori under inversion, but only if a mixed file still fails.
       const src = `
-        <TextInput {...crisisAccessoryProps()} style={a} />
-        <TextInput style={b} multiline />
+        <CrisisTextInput testID="a" />
+        <View><TextInput testID="b" /></View>
       `;
-      const sites = findTextInputSites(src);
-      expect(sites).toHaveLength(2);
-      expect(sites[0].wired).toBe(true);
-      expect(sites[1].wired).toBe(false);
+      expect(findTextInputSites(src)).toHaveLength(1);
     });
 
-    it('does not treat a mention in a COMMENT as wiring', () => {
-      // The house convention names anti-patterns in prose to warn the next reader off
-      // them (DEBUG-390). An unstripped matcher would read this as compliant.
-      const src = '<TextInput style={s.x} /> // TODO add crisisAccessoryProps()';
-      const sites = findTextInputSites(src);
-      expect(sites[0].wired).toBe(false);
-    });
-  });
-
-  describe('the tag scanner', () => {
-    it('does not end the tag on a > inside an expression', () => {
-      const src = '<TextInput style={{ w: a > b }} {...crisisAccessoryProps()} />';
-      expect(findTextInputSites(src)[0].wired).toBe(true);
+    it('flags a stray inputAccessoryViewID', () => {
+      expect(findAccessoryIdSites('<Foo inputAccessoryViewID="x" />')).toHaveLength(1);
     });
 
-    it('does not end the tag on a > inside a string', () => {
-      const src = '<TextInput placeholder="a > b" {...crisisAccessoryProps()} />';
-      expect(findTextInputSites(src)[0].wired).toBe(true);
+    it('flags a stray crisisAccessoryProps() call — the OTHER wiring path', () => {
+      // Matching only the raw prop would be vacuous: the composite itself uses the helper
+      // and never writes the prop literally, so rule 2 would hold over a tree where a call
+      // site had started calling the helper directly.
+      expect(findAccessoryIdSites('<Foo {...crisisAccessoryProps(id)} />')).toHaveLength(1);
     });
 
-    it('treats an unterminated tag as UNWIRED, never as wired', () => {
-      // Fail closed: an unparsed tag is not evidence of compliance.
-      const sites = findTextInputSites('<TextInput style={s.x}');
-      expect(sites[0].unparsed).toBe(true);
-      expect(sites[0].wired).toBe(false);
-      expect(openingTagSpan('<TextInput style={s.x}', 0)).toBeNull();
+    it('does not treat a mention in a COMMENT as a site', () => {
+      // Under inversion this is a false-FAIL guard, not a false-pass one — but the repo
+      // names both identifiers in prose constantly, including in the guard's own header.
+      expect(findTextInputSites('// never render a bare <TextInput> here\n')).toHaveLength(0);
+      expect(findAccessoryIdSites('/* crisisAccessoryProps() is owned by the composite */')).toHaveLength(0);
     });
   });
 
   describe('stripComments', () => {
     it('preserves line structure so reported line numbers stay true', () => {
-      const src = 'a\n/* x\n y */\nb';
+      const src = 'a\n/* x\ny */\nb\n';
       expect(stripComments(src).split('\n')).toHaveLength(src.split('\n').length);
     });
 
     it('leaves enough source to scan — a total blanking would be vacuous', () => {
-      const src = '// note\n<TextInput {...crisisAccessoryProps()} />';
-      expect(stripComments(src)).toContain('TextInput');
+      // Pairs with the comment case above: comment-stripping plus a narrow matcher is
+      // exactly the combination that can silently match nothing at all.
+      const src = 'const a = 1; // note\n<TextInput />\n';
+      const stripped = stripComments(src);
+      expect(stripped.trim().length).toBeGreaterThan(10);
+      expect(findTextInputSites(stripped)).toHaveLength(1);
     });
   });
 
   it('exposes an allowlist that is an object (the audit trail, possibly empty)', () => {
     expect(typeof ALLOWLIST).toBe('object');
+    expect(ALLOWLIST).not.toBeNull();
   });
 });

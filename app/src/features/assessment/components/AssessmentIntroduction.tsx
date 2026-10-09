@@ -1,9 +1,9 @@
 /**
  * AssessmentIntroduction Component - DRD-FLOW-005
  * 
- * CLINICAL SPECIFICATIONS:
+ * WELLNESS SCREENING SPECIFICATIONS:
  * - Therapeutic guidance and mindful awareness
- * - PHQ-9/GAD-7 clinical context and purpose explanation
+ * - PHQ-9/GAD-7 wellness-screening context and purpose explanation
  * - Therapeutic language for anxiety reduction
  * - Crisis support integration and safety messaging
  * - Accessibility compliant therapeutic content
@@ -28,6 +28,7 @@ import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { AssessmentType } from '../types';
+import { WELLNESS_LABELS } from '../types/wellnessLabels';
 
 interface AssessmentIntroductionProps {
   assessmentType: AssessmentType;
@@ -72,20 +73,20 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
     switch (assessmentType) {
       case 'phq9':
         return {
-          title: 'Depression Assessment (PHQ-9)',
+          title: WELLNESS_LABELS.phq9,
           subtitle: 'Understanding Your Mood Patterns',
-          description: 'This assessment helps you observe your mood patterns with kindness and awareness, in the spirit of mindfulness-based cognitive therapy.',
-          purpose: 'The PHQ-9 is a clinically validated tool that gently guides you to notice patterns in your thoughts and feelings over the past two weeks.',
+          description: 'This assessment helps you observe your mood patterns with kindness and awareness.',
+          purpose: 'The PHQ-9 is a widely used wellness screening tool that helps you notice how you\'ve been feeling over the past two weeks—a starting point, not a diagnosis.',
           mindfulnessNote: 'As you respond, practice observing your experiences without judgment—simply noticing what has been present for you.',
           timeEstimate: '3-5 minutes',
           questionCount: 9,
         };
       case 'gad7':
         return {
-          title: 'Anxiety Assessment (GAD-7)',
+          title: WELLNESS_LABELS.gad7,
           subtitle: 'Observing Worry and Anxiety',
           description: 'This assessment invites you to mindfully observe your relationship with worry and anxiety over the past two weeks.',
-          purpose: 'The GAD-7 helps you notice patterns of anxiety with gentle awareness, supporting your journey toward greater understanding.',
+          purpose: 'The GAD-7 helps you notice patterns of anxiety with gentle awareness, supporting your journey toward greater understanding. It\'s a starting point, not a diagnosis.',
           mindfulnessNote: 'As you reflect on each question, breathe deeply and observe your responses with compassion and curiosity.',
           timeEstimate: '2-4 minutes',
           questionCount: 7,
@@ -282,7 +283,7 @@ const AssessmentIntroduction: React.FC<AssessmentIntroductionProps> = ({
                 style={styles.privacyText}
                 accessibilityRole="text"
               >
-                • Your responses are confidentially stored and encrypted
+                • Any responses Being saves are encrypted
                 {'\n'}• This assessment may help identify when you need additional support
                 {'\n'}• You can access crisis support at any time using the crisis button
                 {'\n'}• You can pause or stop the assessment at any point

@@ -20,6 +20,7 @@
  */
 
 import type { AssessmentSession, AssessmentType } from '@/features/assessment/types';
+import { WELLNESS_LABELS } from '@/features/assessment/types/wellnessLabels';
 
 /** PHQ-9 spans 0–27. */
 export const PHQ9_MAX_SCORE = 27;
@@ -27,15 +28,11 @@ export const PHQ9_MAX_SCORE = 27;
 export const GAD7_MAX_SCORE = 21;
 
 /**
- * Compliance-approved user-facing copy (single source of truth — the legal
- * review pins these exact strings; do not fork them per-screen). Consumed by
- * the trends component AND the export snapshot so they can never diverge.
+ * Compliance-approved user-facing copy, defined in `assessment/types/wellnessLabels`
+ * (MAINT-615) and re-exported so the trends component AND the export snapshot
+ * read the same strings as the screening screens.
  */
-export const WELLNESS_LABELS = {
-  sectionTitle: 'Wellness Screening Trends',
-  phq9: 'Mood Wellness Screening (PHQ-9)',
-  gad7: 'Stress Wellness Screening (GAD-7)',
-} as const;
+export { WELLNESS_LABELS };
 
 /** Plain-text disclaimer carried into any exported artifact (mirrors the in-app disclaimer). */
 export const WELLNESS_DISCLAIMER_TEXT =

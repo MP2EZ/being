@@ -156,7 +156,11 @@ describe('CloudBackupService — restore integrity + allowlist', () => {
     expect(result.success).toBe(true);
     expect(assessmentSetState).toHaveBeenCalledTimes(1);
     const restored = assessmentSetState.mock.calls[0][0];
-    expect(restored).toEqual({ autoSaveEnabled: true, lastSyncAt: 99 });
+    // DEBUG-625: the blob still carries `lastSyncAt: 99` above, deliberately — existing
+    // backups do. Restore no longer copies it, which is what proves the allowlist
+    // excludes the field on the way back IN, not just on the way out.
+    expect(restored).toEqual({ autoSaveEnabled: true });
+    expect(restored).not.toHaveProperty('lastSyncAt');
     expect(restored).not.toHaveProperty('totalScore');
     expect(restored).not.toHaveProperty('answers');
   });

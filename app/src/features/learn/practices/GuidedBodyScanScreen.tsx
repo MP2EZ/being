@@ -35,11 +35,14 @@ import {
   Animated,
 } from 'react-native';
 /**
- * MAINT-437 — `edges` applies to all 1 SafeAreaView root(s) in this file.
+ * MAINT-437, corrected DEBUG-621 — `edges` applies to all 1 SafeAreaView root(s) in
+ * this file.
  *
- * Root-stack card with `headerShown: false`: no navigator supplies either
- * inset, which is what RN core's iOS-only SafeAreaView already did here — so iOS
- * rendering is unchanged by construction and the whole behavioural delta is Android.
+ * Root-stack `modal` card with `headerShown: false`. The earlier claim that iOS
+ * rendering was "unchanged by construction" was false: RN core's SafeAreaView used
+ * the view's own position, while react-native-safe-area-context reads the window's
+ * insets, so claiming `top` doubled the inset the iOS modal card's margin already
+ * supplies. `getModalPracticeEdges` drops `top` on iOS and keeps both on Android.
  *
  * The app is portrait-locked (app.json `orientation: "portrait"`), so left/right
  * are never listed. NOTE: no test in this repo can observe an `edges` value having
@@ -50,7 +53,10 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { colorSystem, spacing, typography, borderRadius, semantic } from '@/core/theme';
 import { BODY_AREAS } from '@/features/practices/shared/components/BodyAreaGrid';
 import ProgressiveBodyScanList from '@/features/practices/shared/components/ProgressiveBodyScanList';
+import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 import PracticeScreenHeader from '@/features/learn/practices/shared/PracticeScreenHeader';
+import { getModalPracticeEdges } from '@/features/learn/practices/shared/practiceSafeAreaEdges';
 import { usePracticeCompletion } from '@/features/learn/practices/shared/usePracticeCompletion';
 import { useInstructionsFade } from '@/features/learn/practices/shared/useInstructionsFade';
 import type { ModuleId } from '@/features/learn/types/education';
@@ -125,13 +131,17 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
   };
 
   // Show completion screen after all areas checked
+  // DEBUG-643: __DEV__-only check that the cleared control really is clear of the crisis
+  // FAB's exclusion region on the running device; undefined in Release.
+  const nextExclusionCheck = useCrisisExclusionAssertion(`${testID}-next-button`, 'scrolls');
+
   const completionScreen = renderCompletion();
   if (completionScreen) {
     return completionScreen;
   }
 
   return (
-    <SafeAreaView edges={['top', 'bottom']} style={styles.container} testID={testID}>
+    <SafeAreaView edges={getModalPracticeEdges()} style={styles.container} testID={testID}>
       <StatusBar barStyle="dark-content" backgroundColor={colorSystem.base.white} />
 
       {/* Header */}
@@ -175,6 +185,7 @@ const GuidedBodyScanScreen: React.FC<GuidedBodyScanScreenProps> = ({
         {/* Next/Complete Button */}
         <TouchableOpacity
           style={styles.nextButton}
+          onLayout={nextExclusionCheck}
           onPress={handleNext}
           accessibilityRole="button"
           accessibilityLabel={isLastArea ? "Complete practice" : "Move to next area"}
@@ -246,6 +257,33 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: spacing[4],
     elevation: 2,
+    /**
+     * DEBUG-631 — clear the crisis FAB's touch band. DERIVED, never measured.
+     *
+     * `GuidedBodyScan` is in IMMERSIVE_ROUTES and absent from SUPPRESSED_ROUTES, so the
+     * FAB is FADED, not gone — `FADED_OPACITY` is an opacity and does not affect hit
+     * testing. At `zIndex: 9999` any overlap turns a tap on this button's right edge
+     * into CrisisResources: a crisis FALSE POSITIVE, the DEBUG-547 shape.
+     *
+     * This button is a stretch child of `content` (paddingHorizontal: spacing[24]), so
+     * it spans x = 24..W-24, and the rect's `left` is 72. Both are offsets from the same
+     * screen-right edge, so W cancels and the overlap is exactly 48pt at EVERY viewport.
+     * AX5 scales the label's height, never the x-range of a stretch child in a
+     * fixed-padding column. On-device bounds and a corner point-tap are DEBUG-626's.
+     *
+     * `marginRight`, never `paddingRight`: padding would move only the label and leave
+     * the touch frame — the thing that receives the tap — in the contested column.
+     *
+     * Do NOT reach for DEBUG-628's "last-key-wins" rationale here; it does not apply.
+     * That argument is about an ARRAY merge (`style={[styles.button, style]}`, caller
+     * last) in PracticeToggleButton, which this host does not use — it passes
+     * `style={styles.nextButton}` as a bare object, so there is no array order at all.
+     * Within one object, `marginRight` and `marginHorizontal` are distinct keys that
+     * Yoga resolves by edge specificity (right > horizontal), independent of declaration
+     * order. Adding `marginHorizontal` would not silently defeat this, but it would cost
+     * another 48pt of width for nothing.
+     */
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },
   nextButtonText: {
     fontSize: typography.bodyRegular.size,

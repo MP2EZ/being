@@ -19,6 +19,9 @@
  */
 
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
+import SecureStorageService from '@/core/services/security/SecureStorageService';
+import { decideWellnessWrite } from '@/core/stores/consentStore';
+import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
 import { AssessmentType, AssessmentResponse } from '@/features/assessment/types';
 import { detectCrisisInText } from '@/features/crisis/services/textCrisisDetection';
 
@@ -119,6 +122,10 @@ describe('ASSESSMENT PERFORMANCE TESTING SUITE', () => {
   let perf: PerformanceMeasurement;
 
   beforeEach(() => {
+    // FEAT-665: these budgets are for the GRANTED path, which persists. Once FEAT-685
+    // gates the save, the store's default `loading` status would time a path that
+    // skips the write and read as faster than it is.
+    seedWellnessWriteConsent('granted');
     state().resetAssessment();
     perf = new PerformanceMeasurement();
   });
@@ -129,6 +136,24 @@ describe('ASSESSMENT PERFORMANCE TESTING SUITE', () => {
   });
 
   describe('CRISIS DETECTION PERFORMANCE (<200ms requirement)', () => {
+    it('control: the timed path is the granted path, and it persists (FEAT-665)', async () => {
+      expect(decideWellnessWrite()).toEqual({ allowed: true });
+      await state().startAssessment('phq9', 'crisis_performance_test');
+      const store = SecureStorageService.storeWellnessBlob as jest.Mock;
+      store.mockClear();
+
+      perf.start();
+      const answers = generateAnswersForScore(20, 9);
+      for (let i = 0; i < 9; i++) {
+        await state().answerQuestion(`phq9_${i + 1}`, answers[i]);
+      }
+      await state().completeAssessment();
+      perf.measure('granted_path_control');
+
+      expect(store).toHaveBeenCalled();
+      expect(state().crisisDetection?.isTriggered).toBe(true);
+    });
+
     it('PHQ-9 crisis detection timing validation', async () => {
       const crisisScores = [20, 21, 25, 27]; // All crisis-level scores
       const timings: number[] = [];
@@ -431,7 +456,7 @@ describe('ASSESSMENT PERFORMANCE TESTING SUITE', () => {
         
         perf.start();
         
-        const recovered = await state().recoverSession();
+        await useAssessmentStore.persist.rehydrate();
         const decryptionTime = perf.measure('decryption');
         decryptionTimings.push(decryptionTime);
 

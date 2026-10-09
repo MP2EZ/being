@@ -261,6 +261,12 @@ e2e_lock_acquire() {
   # where it is stamped, below.
   local t0 wait_t0='' waited reclaimed=0 holder_pid='' holder_label='' forced=''
   E2E_LOCK_ACQUIRED_AT=''
+  # INFRA-657 — the first contender, published for a caller that must name contention
+  # (e2e-safety.sh's missing-app recovery). Correlation, not causation: it says who held the
+  # device while we waited, never who changed it. Reset per call so a stale value cannot leak.
+  E2E_LOCK_PRIOR_HOLDER_PID=''
+  E2E_LOCK_PRIOR_HOLDER_LABEL=''
+  E2E_LOCK_PRIOR_HOLDER_STATE=''
 
   # An empty key would collapse every resource onto a single lock path — the same "an empty
   # match string must never widen" rule INFRA-423 pins for the reaper.
@@ -368,6 +374,9 @@ e2e_lock_acquire() {
       if [ -z "$holder_pid" ] && [ -n "$pid" ]; then
         holder_pid="$pid"
         holder_label="$held"
+        E2E_LOCK_PRIOR_HOLDER_PID="$pid"
+        E2E_LOCK_PRIOR_HOLDER_LABEL="$held"
+        E2E_LOCK_PRIOR_HOLDER_STATE="$state"
       fi
       case "$state" in
         DEAD|RECYCLED)
@@ -423,6 +432,25 @@ e2e_lock_release() {
   if [ "$pid" = "$$" ]; then
     rm -rf "$dir" 2>/dev/null || true
   fi
+  return 0
+}
+
+# e2e_lock_peek <key> [namespace]
+#
+# INFRA-718 — READ-ONLY: `state<TAB>pid<TAB>label` for the record on disk, or nothing when no
+# lease directory exists. For a caller that must stay out of a held resource's way without
+# waiting on it (the recordings reaper's report mode). Never creates, reclaims or removes
+# anything, and classifies with the same PID + start-time rule as acquire, reading fields 1..4
+# only. A directory with no readable owner record reports RECYCLED, as acquire would treat it.
+e2e_lock_peek() {
+  local dir line pid
+  dir="$(e2e_lock_dir "${1:-}" "${2:-sim}")" || return 0
+  [ -d "$dir" ] || return 0
+  line="$(cat "$dir/owner" 2>/dev/null || true)"
+  pid="$(printf '%s' "$line" | cut -f1)"
+  printf '%s\t%s\t%s\n' \
+    "$(e2e_lock_holder_state "$pid" "$(printf '%s' "$line" | cut -f2)")" \
+    "$pid" "$(printf '%s' "$line" | cut -f4)"
   return 0
 }
 

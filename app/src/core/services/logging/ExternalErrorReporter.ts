@@ -24,9 +24,17 @@
  */
 
 import { Platform } from 'react-native';
+// INFRA-555: `isDevice` only — see detectEnvironment. Already on the launch path via
+// hapticActuator, so this adds no native module to the boot graph.
+import * as Device from 'expo-device';
 import { LogCategory, logger } from './ProductionLogger';
 import { env } from '@/core/config/env';
 import { isSensitiveRoute, sanitizeScreenName } from '@/core/utils/sensitiveScreens';
+// INFRA-561: a READ-ONLY use of the navigation ref, for the bug-report screen
+// tag. No listener, no dispatch, no new export in `core/navigation/` — crisis
+// ruled that not opening that directory is a structural guarantee where editing
+// it carefully is only a procedural one.
+import { navigationRef } from '@/core/navigation/navigationRef';
 // MAINT-248: canonical sensitive-data patterns single source of truth. The
 // reporter keeps only its two reporter-specific extras (JWT, base64) below.
 import { SENSITIVE_DATA_PATTERNS as CORE_SENSITIVE_DATA_PATTERNS } from './SensitiveDataPatterns';
@@ -36,12 +44,25 @@ import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { openBugReport } from '@/core/stores/bugReportStore';
 
 /**
+ * Sentry `environment` values. INFRA-555 added `simulator`.
+ *
+ * A LABEL, NEVER A SWITCH. Nothing may branch on this value — not beforeSend, sampling,
+ * `enabled`, or the bug-report form. The gate build exists to test the binary that ships;
+ * a `=== 'simulator'` branch would make it test something that never does.
+ *
+ * CAUTION when adding a value: it is copied into `captureException`'s `tags`, which
+ * `collectContentText` walks, so a token containing a CRISIS_CONTENT_PATTERNS term would
+ * drop every event from that environment wholesale — indistinguishable from "no errors".
+ */
+export type ReporterEnvironment = 'development' | 'staging' | 'production' | 'simulator';
+
+/**
  * CONFIGURATION
  */
 export interface ExternalReporterConfig {
   enabled: boolean;
   dsn?: string;
-  environment: 'development' | 'staging' | 'production';
+  environment: ReporterEnvironment;
   sampleRate: number;
   maxBreadcrumbs: number;
   debug: boolean;
@@ -216,6 +237,12 @@ const CRISIS_CONTENT_PATTERNS: readonly (string | RegExp)[] = [
  * the SHARED `isSensitiveRoute` constant, so it provably cannot drift from the
  * screen-name path.
  *
+ * INFRA-561 — THAT "PROVABLY" WAS NOT TRUE WHEN IT WAS WRITTEN. `sanitizeScreenName`
+ * returned an allowlist hit VERBATIM without ever consulting `isSensitiveRoute`,
+ * so the two paths could diverge on any name carrying both an allowlisted and a
+ * sensitive token. The claim above holds only because the screen-name path now
+ * tests sensitivity first. Two oracles, one of which was not consulting the other.
+ *
  * A distinct token, not `GENERIC_SCREEN_BUCKET` ('App'), because this lands
  * inside a path where 'App' reads as a real directory name.
  */
@@ -310,7 +337,7 @@ interface SanitizedErrorEvent {
   message: string;
   timestamp: number;
   platform: 'ios' | 'android' | 'windows' | 'macos' | 'web';
-  environment: 'development' | 'staging' | 'production';
+  environment: ReporterEnvironment;
   version?: string | undefined;
   buildNumber?: string | undefined;
   context: {
@@ -741,6 +768,11 @@ export class ExternalErrorReporter {
       const sanitized = sanitizeFeedbackMessage(message);
       if (!sanitized.trim()) return false;
 
+      // Omitted entirely when unavailable, rather than sent as an empty/undefined
+      // value — the same "absent keys, not empty strings" posture as the identity
+      // fields below.
+      const screen = this.activeScreenTag();
+
       // No `name`, no `email`, and no `associatedEventId` — omitted at source
       // rather than deleted downstream. `captureFeedback` destructures them, so
       // omission serialises as absent keys, not empty strings. Cross-linking a
@@ -749,11 +781,58 @@ export class ExternalErrorReporter {
       this.sentryModule.captureFeedback({
         message: sanitized,
         source: 'first-party-form',
+        // `tags` IS THE ONLY VEHICLE. `captureFeedback` destructures a fixed key
+        // set — {message, name, email, url, source, associatedEventId, tags} —
+        // and discards anything else SILENTLY, with no error. A bare `screen:`
+        // key here would look correct at the call site and arrive as nothing.
+        ...(screen ? { tags: { screen } } : {}),
       });
       return true;
     } catch {
       logger.warn(LogCategory.SYSTEM, 'submitFeedback failed');
       return false;
+    }
+  }
+
+  /**
+   * INFRA-561 — the active LEAF route, coarsened, for a bug report's `screen` tag.
+   *
+   * ── LEAF, NOT THE ROOT STACK ROUTE ──
+   *
+   * `getActiveRootRouteName()` is deliberately root-only: it exists to drive
+   * crisis-overlay suppression, and its own docstring says nested routes are
+   * "intentionally ignored". Every report raised from a tab sits under the root
+   * route `Main`, which coarsens to 'App' and names nothing — so the root route
+   * would make this tag constant across exactly the reports it exists to tell
+   * apart. `getCurrentRoute()` is the focused leaf.
+   *
+   * ── THIS METHOD IS THE ENTIRE CONTROL ON THE VALUE ──
+   *
+   * `captureFeedback` puts `tags` at the TOP LEVEL of a `type:'feedback'` event.
+   * `beforeSend` does not run for those at all, and `scrubFeedbackEvent` never
+   * reads `event.tags`. Nothing downstream compensates, so a raw route name must
+   * never leave this method. Note the form IS reachable on wellness-sensitive
+   * screens — the root overlay slot refuses only CrisisResources / AssessmentFlow
+   * / LegalGate, while the shake gesture is armed at the app root, so
+   * VoiceReflection, ReflectionTimer, JournalHistory, JournalEntryDetail and
+   * DomainGuidance all permit it. The slot's refusal is a 988-reachability
+   * control and was never a privacy one; `sanitizeScreenName` is what covers this.
+   *
+   * ── GUARDED SEPARATELY FROM `submitFeedback`, DELIBERATELY ──
+   *
+   * That method's own catch returns false, and `BugReportForm` renders
+   * `bug-report-refused` on false — so a throw here would show the user a refusal
+   * notice for a navigation hiccup and drop a report that is never persisted,
+   * queued or retried. The tag is enrichment and may never gate the send.
+   * `isReady()` also keeps us off the ref's uninitialised path, which does not
+   * throw but does `console.error`.
+   */
+  private activeScreenTag(): string | undefined {
+    try {
+      if (!navigationRef.isReady()) return undefined;
+      return sanitizeScreenName(navigationRef.getCurrentRoute()?.name);
+    } catch {
+      return undefined;
     }
   }
 
@@ -795,10 +874,16 @@ export class ExternalErrorReporter {
     }
 
     try {
-      // Block navigation breadcrumbs to assessment/crisis screens
+      // Block navigation breadcrumbs touching assessment/crisis screens at
+      // EITHER END. INFRA-561: this read only `data.to`, and an SDK-emitted
+      // navigation breadcrumb's message is `Navigation to <to>` — so neither
+      // path ever saw `data.from`, and a trip AWAY from a sensitive screen kept
+      // the breadcrumb with that screen's name on it. Latent rather than live:
+      // nothing in the app emits a navigation breadcrumb today.
       if (breadcrumb.category === 'navigation') {
-        const route = breadcrumb.data?.to || breadcrumb.message || '';
-        if (isSensitiveRoute(route)) {
+        const to = breadcrumb.data?.to || breadcrumb.message || '';
+        const from = breadcrumb.data?.from || '';
+        if (isSensitiveRoute(to) || isSensitiveRoute(from)) {
           return null;
         }
       }
@@ -1140,9 +1225,23 @@ export class ExternalErrorReporter {
 
   /**
    * Detect environment
+   *
+   * INFRA-555: the safety-gate build is a Release build on `.env.production`, so `__DEV__`
+   * is false and it used to report as `production`. No env var can tell it apart — the gate
+   * uses the production env on purpose — so the probe is where the code RUNS.
+   *
+   * iOS only. `isDevice` there is a compile-time `targetEnvironment(simulator)` check;
+   * Android's is a substring heuristic that can match a real device on a custom ROM.
+   *
+   * Only an explicit `false` retags. Hiding a real device's crash from production triage is
+   * the worse error than today's simulator noise, so anything unresolved stays `production`.
+   *
+   * The value reaches native events too: `Sentry.init` forwards `environment` to
+   * `RNSentry.initNativeSdk`, which is the only tag native AppHang/watchdog events get.
    */
-  private detectEnvironment(): 'development' | 'staging' | 'production' {
+  private detectEnvironment(): ReporterEnvironment {
     if (__DEV__) return 'development';
+    if (Platform.OS === 'ios' && Device.isDevice === false) return 'simulator';
     if ((process.env.NODE_ENV as string) === 'staging') return 'staging';
     return 'production';
   }

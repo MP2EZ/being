@@ -12,8 +12,6 @@ The project uses TypeScript path aliases for clean, maintainable imports.
 // Configured in tsconfig.json
 "@/core/*"        → "src/core/*"
 "@/features/*"    → "src/features/*"
-"@/analytics/*"   → "src/analytics/*"
-"@/types/*"       → "src/types/*"
 ```
 
 ### Usage Examples
@@ -21,38 +19,48 @@ The project uses TypeScript path aliases for clean, maintainable imports.
 ```typescript
 // ✅ Good - use path aliases
 import { theme } from '@/core/theme';
-import { CrisisButton } from '@/features/crisis';
-import { AnalyticsService } from '@/analytics';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { useAnalytics } from '@/core/analytics';
 
 // ❌ Bad - relative paths get messy
 import { theme } from '../../../core/theme';
-import { CrisisButton } from '../../features/crisis/components/CrisisButton';
+import { CollapsibleCrisisButton } from '../../features/crisis/components/CollapsibleCrisisButton';
 ```
 
 ## Import Patterns
 
-### Feature Public API Pattern
+### Feature Import Pattern
 
-Always import from feature barrel exports, never from internal files:
+Import the module you actually need, by path. **Feature-wide barrels
+(`features/<name>/index.ts`) are not the house pattern.** MAINT-599, MAINT-600 and
+MAINT-602 removed the `export *` ones; `features/consent/index.ts` is kept because it
+re-exports by name and has live importers. ~92 of the crisis feature's ~94 import sites
+already resolve a file directly.
 
 ```typescript
-// ✅ Good - use public API
-import {
-  CrisisButton,
-  useCrisisDetection,
-  type CrisisDetection
-} from '@/features/crisis';
+// ✅ Good - name the module you need
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { detectCrisis } from '@/features/crisis/types/safety';
+import type { CrisisDetection } from '@/features/crisis/types/safety';
 
-// ❌ Bad - reaching into internals
-import { CrisisButton } from '@/features/crisis/components/CrisisButton';
-import { useCrisisDetection } from '@/features/crisis/hooks/useCrisisDetection';
+// ❌ Bad - a feature-wide barrel
+import { CollapsibleCrisisButton, detectCrisis } from '@/features/crisis'; // doc-import: unresolved-by-design - MAINT-600 deleted this barrel
 ```
 
-**Why?**
-- Public API is documented and stable
-- Internal structure can change without breaking imports
-- Easier to understand what's public vs. private
-- Enables better tree-shaking
+**Why (FEAT-376):**
+- A feature barrel's `export *` puts the whole feature on the eager module graph of
+  every importer, safety paths included — the barrel, not the route, becomes what
+  makes code reachable.
+- A feature-wide barrel invites an *incomplete* public API. The crisis barrel omitted
+  `constants/` and `utils/`, which hold `crisisButtonGeometry` and
+  `crisisInputAccessory` — the exact specifiers the safety tooling anchors on. An
+  audit surface that excludes the safety-bearing modules is worse than none.
+- The path is documentation: `@/features/crisis/types/safety` says what
+  `@/features/crisis` hides.
+
+**Directory-level barrels are still fine** where they stay small and selective.
+`@/core/components/accessibility` re-exports by name rather than with `export *`.
+Crisis components have no barrel; import each by its file path.
 
 ### Core Imports
 
@@ -64,7 +72,7 @@ import { theme } from '@/core/theme';
 import { colors } from '@/core/theme/colors';
 
 import { logger } from '@/core/services/logging';
-import { LoggingService } from '@/core/services/logging/LoggingService';
+import { ProductionLogger } from '@/core/services/logging/ProductionLogger';
 ```
 
 ### Cryptographic ID Generation
@@ -101,11 +109,10 @@ const insecureId = `id_${Math.random().toString(36).substr(2, 9)}`; // NEVER DO 
 **Prefer barrel exports when available:**
 ```typescript
 // ✅ Better - use barrel
-import { logger, LoggingService } from '@/core/services/logging';
+import { logger, ProductionLogger } from '@/core/services/logging';
 
 // ⚠️  Works but less preferred
-import { logger } from '@/core/services/logging/logger';
-import { LoggingService } from '@/core/services/logging/LoggingService';
+import { logger, ProductionLogger } from '@/core/services/logging/ProductionLogger';
 ```
 
 ### Type Imports
@@ -114,11 +121,11 @@ Use type-only imports for better build performance:
 
 ```typescript
 // ✅ Good - type-only import
-import type { CrisisDetection, CrisisSeverity } from '@/features/crisis';
-import type { User } from '@/types';
+import type { CrisisDetection, CrisisSeverityLevel } from '@/features/crisis/types/safety';
+import type { SessionMetadata } from '@/core/types/session';
 
 // ⚠️  Works but creates runtime dependency
-import { CrisisDetection, CrisisSeverity } from '@/features/crisis';
+import { CrisisDetection, CrisisSeverityLevel } from '@/features/crisis/types/safety';
 ```
 
 ### React Native Imports
@@ -136,71 +143,80 @@ import * as RN from 'react-native';
 ### Allowed Import Patterns
 
 ```typescript
-// Features can import from core, compliance, analytics, global types
-// ✅ features/crisis/services/CrisisDetection.ts
+// Features can import from core
+// ✅ features/<name>/...
 import { logger } from '@/core/services/logging';
-import { HIPAAComplianceEngine } from '@/compliance';
-import { trackEvent } from '@/analytics';
-import type { SessionData } from '@/types';
+import { useAnalytics } from '@/core/analytics';
+import type { SessionMetadata } from '@/core/types/session';
 
-// Core can import from other core modules and global types
-// ✅ core/services/security/EncryptionService.ts
+// Core can import from other core modules
+// ✅ core/services/security/...
 import { logger } from '@/core/services/logging';
-import type { EncryptionConfig } from '@/types/security';
-
-// Compliance can import from core and global types
-// ✅ compliance/services/HIPAAComplianceEngine.ts
-import { logger } from '@/core/services/logging';
-import type { ComplianceEvent } from '@/types';
 ```
 
 ### Forbidden Import Patterns
 
 ```typescript
-// ❌ Core cannot import from features
-// core/services/logging/logger.ts
-import { CrisisButton } from '@/features/crisis'; // FORBIDDEN
+// ❌ Core cannot import from features — type-only imports included
+// core/<name>.ts
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore'; // FORBIDDEN
+import type { ModuleId } from '@/features/learn/types/education'; // FORBIDDEN
 
-// ❌ Global types cannot import from features
-// types/index.ts
-import type { CrisisDetection } from '@/features/crisis'; // FORBIDDEN
+// ⚠️ Features should avoid importing other features' stores and screens directly
+// features/<a>/...
+import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore'; // DISCOURAGED
 
-// ❌ Features should avoid importing other features directly
-// features/assessment/services/scoring.ts
-import { CrisisDetection } from '@/features/crisis'; // DISCOURAGED
+// ✅ REQUIRED — crisis consumption is the exception to the caution above
+// features/assessment/stores/assessmentStore.ts
+import { detectCrisis } from '@/features/crisis/types/safety';
 ```
+
+`detectCrisis()` in `@/features/crisis/types/safety` is the single source of truth for the
+PHQ-9/GAD-7 crisis thresholds and trigger taxonomy (DEBUG-229 / MAINT-226 Decision E), and it
+is where the score-path zero-false-negative contract lives. Code that decides whether a user
+is offered crisis support MUST import it by that exact module path. Never re-derive PHQ-9 ≥15
+support, ≥20 intervention, Q9 >0 at any total, or GAD-7 ≥15 as literals — a store's own copy
+was the DEBUG-229 bug. Never reach it through a barrel, a relative path or a re-export: it is
+one of the specifiers `/b-close`'s INFRA-531 import detector anchors on. Every literal threshold
+comparison that remains outside `detectCrisis` is listed, with a count and a reason, in
+`ALLOWED_THRESHOLD_SITES` in `app/src/features/crisis/types/__tests__/crisis-thresholds.test.ts`
+(MAINT-712); a new one fails that guard. The same rule covers crisis geometry (`@/features/crisis/constants/…`) and
+`CrisisTextInput`: consume them by direct path, never by copying their values.
+
+### Core → features boundary (lint-enforced, MAINT-659)
+
+`core/` must not import from `features/`. The `being/core-features-boundary` block in
+`app/eslint.config.js` enforces it, and `CORE_FEATURE_IMPORT_EXCEPTIONS` in that file is the
+**only** list of core files allowed to cross it. The architecture docs point here and never
+repeat file names. The exceptions fall into three classes:
+
+- **Composition root** — the navigators, which mount every feature's screens.
+- **Single-source copy** — a core component rendering compliance-pinned feature copy.
+- **Recorded layering debt** — real inversions left in place because moving them touches
+  gated code. Delete the entry in the change that moves the file.
+
+**The leaf allowance.** Any core file may import four crisis modules without an entry:
+`@/features/crisis/constants/…`, `@/features/crisis/types/safety`,
+`@/features/assessment/types/scoring` and `@/features/crisis/components/CrisisTextInput`.
+They are what the crisis guards prescribe as the fix, so the boundary must never make a
+literal copy or a lazy import the cheaper route.
+
+**Never** satisfy the rule by:
+- copying crisis values into `core/` as literals (DEBUG-586);
+- moving `crisisButtonGeometry.ts` or `crisisInputAccessory.ts` into `core/`, or re-exporting
+  them through a core module — either blinds INFRA-531, which keys on the import line in each
+  consumer;
+- reaching a feature by a relative or `src/` path, or loading it with `require()`, `import()`
+  or `React.lazy` — the lint block rejects all of these;
+- an `eslint-disable` comment, or `npm run lint:baseline -- --update`. An exception is a
+  reviewed entry in the list; `__tests__/scripts/eslint-core-features-boundary.test.js` pins
+  the list, the leaf paths, and a hard zero over every other core file.
 
 ### Cross-Feature Communication
 
 When features need to interact, use these patterns:
 
-#### 1. Shared Events
-
-```typescript
-// core/services/events/EventBus.ts
-export const eventBus = new EventEmitter();
-
-// features/assessment/services/scoring.ts
-import { eventBus } from '@/core/services/events';
-
-eventBus.emit('crisis-detected', {
-  severity: 'high',
-  source: 'phq9-q9'
-});
-
-// features/crisis/hooks/useCrisisDetection.ts
-import { eventBus } from '@/core/services/events';
-
-useEffect(() => {
-  const handler = (data) => {
-    // Handle crisis detection
-  };
-  eventBus.on('crisis-detected', handler);
-  return () => eventBus.off('crisis-detected', handler);
-}, []);
-```
-
-#### 2. Navigation with Data
+#### 1. Navigation with Data
 
 ```typescript
 // features/assessment/components/AssessmentComplete.tsx
@@ -213,25 +229,12 @@ navigation.navigate('CrisisResources', {
 });
 ```
 
-#### 3. Shared Context
-
-```typescript
-// core/providers/AppProvider.tsx
-export const AppContext = createContext();
-
-// features/crisis/hooks/useCrisisState.ts
-import { useContext } from 'react';
-import { AppContext } from '@/core/providers';
-
-const { crisisState } = useContext(AppContext);
-```
-
-#### 4. Type-Only Imports (Allowed)
+#### 2. Type-Only Imports (Allowed)
 
 ```typescript
 // features/assessment/types/assessment.ts
 // Type-only imports from other features are OK
-import type { CrisisDetection } from '@/features/crisis';
+import type { CrisisDetection } from '@/features/crisis/types/safety';
 
 export interface AssessmentResult {
   crisis?: CrisisDetection;  // Using the type
@@ -296,18 +299,8 @@ import { crisisStore } from './crisisStore';
 import { assessmentStore } from './assessmentStore';
 ```
 
-**Solution:** Use events or selectors
-
-```typescript
-// ✅ Good - use events
-// stores/assessmentStore.ts
-import { eventBus } from '@/core/services/events';
-eventBus.emit('assessment-complete', data);
-
-// stores/crisisStore.ts
-import { eventBus } from '@/core/services/events';
-eventBus.on('assessment-complete', handler);
-```
+**Solution:** Don't import one store from another. Read both where they are consumed —
+the hook or component that needs the two values subscribes to each store.
 
 #### Cause 3: Type Circular References
 
@@ -350,17 +343,14 @@ import { useNavigation } from '@react-navigation/native';
 // 2. Core imports
 import { theme } from '@/core/theme';
 import { logger } from '@/core/services/logging';
+import { useAnalytics } from '@/core/analytics';
 
-// 3. Compliance/Analytics (if needed)
-import { HIPAAComplianceEngine } from '@/compliance';
-import { trackEvent } from '@/analytics';
+// 3. Feature imports (current feature)
+import { CollapsibleCrisisButton } from '../components/CollapsibleCrisisButton';
+import { openCrisisUrl } from '../utils/openCrisisUrl';
 
-// 4. Feature imports (current feature)
-import { CrisisButton } from '../components';
-import { useCrisisDetection } from '../hooks';
-
-// 5. Type imports (last)
-import type { CrisisDetection } from '../types';
+// 4. Type imports (last)
+import type { CrisisDetection } from '../types/safety';
 import type { NavigationProp } from '@react-navigation/native';
 ```
 
@@ -374,9 +364,9 @@ import { View } from 'react-native';
 
 import { theme } from '@/core/theme';
 
-import { CrisisButton } from '@/features/crisis';
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 
-import type { Crisis } from './types';
+import type { CrisisDetection } from './types/safety';
 ```
 
 ## Auto-Import Configuration
@@ -392,6 +382,11 @@ Configure VS Code to use path aliases:
 ```
 
 ## ESLint Rules
+
+The only import rules actually enforced live in `app/eslint.config.js`: MAINT-437's
+SafeAreaView ban and the [core → features boundary](#core--features-boundary-lint-enforced-maint-659).
+The configuration below is illustrative and is **not** configured (`eslint-plugin-import` is
+not a dependency).
 
 Enforce import patterns with ESLint:
 
@@ -478,45 +473,44 @@ import { logger } from '../../../core/services/logging';
 import { logger } from '@/core/services/logging';
 ```
 
-### ❌ Mistake 2: Importing Internals
+### ❌ Mistake 2: Importing a Feature-Wide Barrel
 
 ```typescript
-// ❌ Bad
-import { CrisisButton } from '@/features/crisis/components/CrisisButton';
+// ❌ Bad - loads the whole feature eagerly (FEAT-376)
+import { CollapsibleCrisisButton } from '@/features/crisis'; // doc-import: unresolved-by-design - MAINT-600 deleted this barrel
 
-// ✅ Good
-import { CrisisButton } from '@/features/crisis';
+// ✅ Good - name the module
+import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 ```
 
 ### ❌ Mistake 3: Runtime Type Imports
 
 ```typescript
 // ❌ Bad - creates runtime dependency
-import { CrisisType } from '@/features/crisis';
+import { CrisisTriggerType } from '@/features/crisis/types/safety';
 
 // ✅ Good - type-only import
-import type { CrisisType } from '@/features/crisis';
+import type { CrisisTriggerType } from '@/features/crisis/types/safety';
 ```
 
 ### ❌ Mistake 4: Barrel Export Everything
 
+`export *` puts every module the barrel names onto the eager graph of every importer
+(FEAT-376). This is what retired the feature-wide barrels: MAINT-600 deleted
+`features/crisis/index.ts` after it sat at zero importers while re-exporting four
+sub-barrels — and omitting `constants/` and `utils/` entirely.
+
 ```typescript
 // ❌ Bad - exports too much
-// features/crisis/index.ts
+// features/<name>/index.ts
 export * from './components';
 export * from './services';
-export * from './stores';
-// This imports EVERYTHING, including internal utilities
+// This loads EVERYTHING, including internal utilities
 
-// ✅ Good - export selectively
-export {
-  CrisisButton,
-  CrisisErrorBoundary
-} from './components';
-export {
-  CrisisDetectionEngine,
-  detectCrisis
-} from './services';
+// ✅ Good - a directory barrel, selective and by name
+// core/components/accessibility/index.ts
+export { default as RadioGroup } from './RadioGroup';
+export type { RadioOption, RadioGroupProps } from './RadioGroup';
 ```
 
 ## Questions?
@@ -524,4 +518,3 @@ export {
 Refer to:
 - [Feature Structure](./feature-structure.md) - How features are organized
 - [Codebase Organization](./codebase-organization.md) - Overall structure
-- [Technical Patterns](./technical-patterns.md) - Implementation patterns

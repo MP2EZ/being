@@ -69,6 +69,21 @@ describe('removes the DEBUG-305 legacy plaintext records', () => {
     expect(await AsyncStorage.getAllKeys()).not.toContain('assessment_audit_trail');
   });
 
+  it('removes the DEBUG-672 plaintext @education:state blob, by exact name', async () => {
+    // educationStore wrote this as plaintext JSON — including practiceCount, ruled
+    // Art. 9 by FEAT-667 — and never read it back. DEBUG-672 removed the writer.
+    mockMemoryStore.set('@education:state', JSON.stringify({ modules: { 'aware-presence': { practiceCount: 4 } } }));
+    mockMemoryStore.set('@education:state_backup', 'keep me');
+    mockMemoryStore.set('@being/supabase/crisis_analytics_queue', '[]');
+
+    expect(await sweepLegacyPlaintextRecords()).toBe(1);
+
+    const after = await AsyncStorage.getAllKeys();
+    expect(after).not.toContain('@education:state');
+    expect(after).toContain('@education:state_backup');
+    expect(after).toContain('@being/supabase/crisis_analytics_queue');
+  });
+
   it('leaves no residual plaintext trigger value behind', async () => {
     mockMemoryStore.set(
       'crisis_intervention_s1',
@@ -126,6 +141,16 @@ describe('PREFIX COLLISION GUARD — encrypted crisis data must survive', () => 
     const after = await AsyncStorage.getAllKeys();
     expect(after).toContain('user_preferences');
     expect(after).toContain('crisis_analytics_queue');
+  });
+
+  it('does NOT sweep the live config-backup retry queue at launch (DEBUG-698)', async () => {
+    // Swept at erasure (SWEPT_EXACT_KEYS), never at launch: it must survive
+    // ordinary restarts so a failed backup can retry.
+    mockMemoryStore.set('@being/supabase/offline_queue', '[{"operation":"saveBackup"}]');
+
+    await sweepLegacyPlaintextRecords();
+
+    expect(await AsyncStorage.getAllKeys()).toContain('@being/supabase/offline_queue');
   });
 });
 

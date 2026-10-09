@@ -1,5 +1,15 @@
 # TRD: Being. - Technical Requirements Document v2.0
 
+> ⚠️ **HISTORICAL DESIGN RECORD — not maintained against the code (MAINT-617, 2026-09-14).**
+> The v2.0 technical requirements as written on 2025-01-21 against PRD v1.2. Storage keys, stores,
+> scripts and metrics here are design-time; many never shipped. Do not use it to locate code.
+>
+> **The safety-plan and emergency-contact requirements here are NOT met today.** The `CRISIS_PLAN`
+> storage key, the `crisis_plan` block with emergency contacts, "Crisis plan access" and the "create
+> crisis plan" metric describe a feature removed by MAINT-123 (`4d1a0178`) and MAINT-125 (`d974086f`).
+> 988 access and score-based crisis detection (PHQ-9 ≥15/≥20, Q9>0, GAD-7 ≥15) are live and not covered
+> by this notice. Current sources: `docs/product/Being. PRD.md`, `docs/architecture/codebase-organization.md`.
+
 ## React Native Implementation for Production App Stores
 
 ---
@@ -863,7 +873,7 @@ data_enhancements:
   encryption:
     library: expo-crypto
     scope: Assessment and crisis data
-    compliance: HIPAA-ready
+    compliance: AES-256 at rest (Being is not a HIPAA-covered entity)
     
   cloud_sync:
     approach: End-to-end encrypted

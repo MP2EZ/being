@@ -34,31 +34,29 @@ that the filenames here, the generator's `SOURCES` list, and the app's
 it also cannot ship text *newer* than its binary. A correction here reaches
 users only when a new build ships and clears App Review.
 
-### 2. being.fyi (NOT self-healing — this is the fragile one)
+### 2. being.fyi (rebuilt from here — this is the fragile one)
 
 The website does not contain these files. Its deploy workflow
-(`being-website/.github/workflows/deploy.yml`) sparse-checkouts this repo at
+(`being-website/.github/workflows/deploy.yml`, via the shared
+`being-website/.github/actions/checkout-legal`) sparse-checkouts this repo at
 build time, copies `docs/legal/` into `content/legal/`, and the Next.js pages
 `import` the markdown as a raw module. **The text is baked into the deployed
 bundle: the only way stale text leaves the site is a rebuild.**
 
-That workflow triggers on pushes to *being-website's own* `main`/`preview`, and
-on `workflow_dispatch`. **Nothing in this repo triggers it.** So editing a file
-here changes the app's source and leaves the live website exactly as it was.
+| Website environment | Legal text from | Rebuilt when |
+|---|---|---|
+| being.fyi (production) | `main` | `docs/legal/**` changes on `main` |
+| preview (workers.dev, noindexed, bannered) | `development` | `docs/legal/**` changes on `development` |
+
+`.github/workflows/legal-site-redeploy.yml` dispatches those rebuilds
+(INFRA-363). Its `main` half only runs once a release has carried that workflow
+to `main` (INFRA-459) — until then, after a legal hotfix, run
+`gh workflow run deploy.yml -R mp2ez/being-website --ref main` yourself.
 
 On 2026-08-07 the live privacy policy was found **68 days and four versions
 stale**, publicly serving a crisis-data claim DEBUG-333 had already removed as
-false. Nothing detected it for ten weeks.
-
-To publish a change here to being.fyi, **you must trigger the deploy yourself**:
-
-```bash
-gh workflow run deploy.yml -R mp2ez/being-website
-```
-
-Automating that trigger is tracked in **INFRA-363**, along with the open
-question of which ref the website should deploy from (see
-[The ref question](#the-ref-question-open)).
+false. Nothing in this repo triggered a rebuild, and nothing detected it for ten
+weeks. That is why the rebuild is dispatched and the freshness check exists.
 
 ### 3. Local website preview (a symlink — and a trap)
 
@@ -112,50 +110,63 @@ being-website with no source here.
 
 ## Where a change should land
 
-A branch ref alone cannot serve both change types, because they fail in opposite
-directions. Classify the change first:
+being.fyi publishes `main`, the same text the shipped app bundles. Classify the
+change first, because the two types fail in opposite directions:
 
 ### Corrections — the document was **wrong about already-shipped behaviour**
 
 A live false statement about what the shipped app does is the expensive
-direction (FTC §5 turns on it). It should not wait for a release train.
+direction (FTC §5 turns on it). It must not wait for a release train.
 
-1. Land the fix on `development` as usual.
-2. **Publish to being.fyi immediately** — `gh workflow run deploy.yml -R
-   mp2ez/being-website`. The website is not gated on a release, so a correction
-   can be public within minutes.
-3. If the in-app copy also carries the false statement, the correction reaches
-   users only via a build. Route it to `main` per CLAUDE.md's Hotfix Process if
-   it cannot wait for the next release.
+1. Route it to `main` as a `hotfix/*` per CLAUDE.md's Hotfix Process, then
+   backport. The in-app copy carries the same text, so the build the merge
+   triggers is needed anyway.
+2. The merge to `main` rebuilds being.fyi (see the activation note in
+   [being.fyi](#2-beingfyi-rebuilt-from-here--this-is-the-fragile-one)).
+3. **Break-glass — only** if the hotfix cannot merge fast enough to stop active
+   harm (for example `main`'s audit gate has drifted red, INFRA-452): publish the
+   hotfix branch before it merges.
+
+   ```bash
+   gh workflow run deploy.yml -R mp2ez/being-website --ref main -f legal_ref=hotfix/<slug>
+   ```
+
+   Production then no longer matches `main`, so the freshness check stays red
+   until the hotfix merges and being.fyi rebuilds from `main`. Open a tracking
+   item; never leave production diverged.
 
 ### Forward-looking disclosures — describing something **not yet shipped**
 
-These ride the release that carries the feature they describe. Disclosing before
-collecting is the correct order, so publishing slightly early is acceptable;
-publishing a capability the app never gains is not.
+Land them on `development`. They reach being.fyi with the release that carries
+the feature they describe, and can be reviewed on the preview site before then.
+Disclosing before collecting is the correct order, so publishing slightly early
+is acceptable. But if the feature is cut or changes before release, correct or
+remove the disclosure on `development` before it can reach `main`: a capability
+the app never gains must never reach production.
 
 ### The failure this rule is written against
 
 DEBUG-333 and DEBUG-340 were both corrections. Both landed on `development` as
 ordinary `fix:` commits and **neither was routed onward** — so the false claim
 stayed live on both `main` and being.fyi. Nothing mechanically flags "this
-`fix:` commit touches `docs/legal/` and is a correction, therefore it needs
-routing." That gap is real and currently unclosed; the routing decision is
-yours to make when you edit a file here.
+`fix:` commit touches `docs/legal/` and is a correction, therefore it needs a
+hotfix." That gap is real and currently unclosed; the routing decision is yours
+to make when you edit a file here.
 
-### The ref question (open)
+### Why `main` and not `development` (INFRA-363)
 
-`deploy.yml` pins `ref: development` while the app ships from `main`, so the two
-surfaces can disagree. Both positions are defensible — `main` means the site
-describes what the shipped app does; `development` means it describes the
-current corrected text — and **the decision has not been made**. It is tracked
-in **INFRA-363**, together with the fact that
-`being-website/.github/workflows/ci.yml` carries the *same* pin and must move in
-lockstep.
+The website built from `development` until INFRA-363. That let a correction go
+public in minutes, but it is the one configuration where being.fyi can describe
+**less** collection or sharing than the released app performs: a `development`
+commit that removes a data flow and updates the policy publishes the new text
+while the shipped binary still does the old thing. It also let the website and
+the in-app screen publish two different versions at once. `main` closes both, at
+the cost of routing corrections through a hotfix. Compliance signed off on that
+trade.
 
-Until then, `scripts/legal-site-freshness.js` follows reality (`development`)
-rather than asserting a preference. If the pin changes, change `DEPLOYED_REF` in
-that script to match.
+being-website's `ci.yml` and `deploy.yml` take the ref from one shared action,
+so PR CI validates the text its target ships. `DEPLOYED_REF` in
+`scripts/legal-site-freshness.js` must match it.
 
 ---
 
@@ -187,4 +198,4 @@ expected until the website rebuilds.
 
 **Known limitation:** a failing scheduled run surfaces as a red run and
 GitHub's default notification. There is no webhook alerting. If that proves too
-quiet for a legal-commitment guard, wire it in INFRA-363.
+quiet for a legal-commitment guard, it needs its own work item.

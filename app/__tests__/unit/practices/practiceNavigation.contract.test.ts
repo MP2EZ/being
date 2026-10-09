@@ -60,7 +60,7 @@ describe('FEAT-293 — Learn launch contract (AC3 regression pin)', () => {
     expect(params).toMatchObject({ duration: 300 });
   });
 
-  it('reflection → ReflectionTimer, mapping description→prompt and passing instructions', () => {
+  it('reflection → ReflectionTimer, passing instructions and NO prompt (DEBUG-650)', () => {
     const { screen, params } = resolvePracticeRoute(
       practice({
         id: 'reserve-clause',
@@ -73,10 +73,13 @@ describe('FEAT-293 — Learn launch contract (AC3 regression pin)', () => {
     );
     expect(screen).toBe('ReflectionTimer');
     expect(params).toMatchObject({
-      prompt: 'Reflect on this',
       instructions: ['one', 'two'],
       duration: 240,
     });
+    // DEBUG-650: `prompt` was populated from practice.description and rendered by
+    // nothing. The description is a list-card synopsis of the instructions (it
+    // renders at PracticeTab), not a contemplation object, so the param is gone.
+    expect(params).not.toHaveProperty('prompt');
   });
 
   it('omits `instructions` entirely when the practice has none', () => {

@@ -40,7 +40,23 @@ export function openCrisisUrl(
 ): Promise<void> {
   const { manualLabel, fallbackTitle, fallbackMessage, onTap } = options;
 
-  onTap?.();
+  // ANALYTICS MUST NEVER BLOCK A DIAL (FEAT-543).
+  //
+  // This runs before the canOpenURL guard, and `trackEvent` carries no
+  // try/catch of its own. Callers used to pass a bare function reference;
+  // FEAT-543 introduced a call-site expression into this slot, so a throw here
+  // is now reachable. Unguarded it would abort the dial with no openURL, no
+  // manual-dial Alert, no logError and no endCrisisTap terminal -- a silent
+  // crisis false negative rather than a visible failure. Swallow, record, dial.
+  try {
+    onTap?.();
+  } catch (error) {
+    logError(
+      LogCategory.CRISIS,
+      'Crisis analytics onTap threw; continuing to dial',
+      error instanceof Error ? error : new Error(String(error))
+    );
+  }
 
   const showManualFallback = (error: unknown): void => {
     // Close the crisis-tap measurement with a distinct outcome (INFRA-297). This

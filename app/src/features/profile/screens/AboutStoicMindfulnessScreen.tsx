@@ -89,8 +89,10 @@ const AboutStoicMindfulnessScreen: React.FC = () => {
     navigation.navigate('ModuleDetail', { moduleId: getModuleIdForPrinciple(principle) });
   };
 
+  // DEBUG-652: the root testID is crisis-button-reachability's proof that the card tap
+  // landed before it taps the FAB (the Profile menu has its own FAB).
   return (
-    <SafeAreaView key="stoicMindfulness-screen" style={styles.container}>
+    <SafeAreaView key="stoicMindfulness-screen" style={styles.container} testID="about-stoic-mindfulness-screen">
       <ScrollView
         style={styles.scrollContainer}
         contentContainerStyle={styles.scrollContent}

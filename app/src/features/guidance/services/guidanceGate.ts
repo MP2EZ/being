@@ -6,6 +6,12 @@
  * the full four-tier ladder, the gentlest layer only, or no domain content at
  * all because crisis resources are the right answer instead.
  *
+ * SECOND CONSUMER (DEBUG-670): the daily loop's morning premeditatio prompt reads
+ * `level` through `useGuidanceGate` and is withheld at `suppressed`. It deliberately
+ * does NOT read `allowPremeditatio` below, which gates the guidance loss
+ * visualization on developmental stage. Moving a floor here therefore moves who is
+ * asked to rehearse a setback in the morning loop, not only who sees guidance tiers.
+ *
  * PURE BY CONSTRUCTION. No React, no store access, no I/O, no clock. Callers read
  * fresh assessment state and hand it in; this function only decides. That is what
  * makes every threshold boundary table-testable, which is the whole point —

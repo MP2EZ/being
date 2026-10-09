@@ -20,7 +20,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect, ClipPath, Defs, G } from 'react-native-svg';
 import { semantic, colorSystem, spacing, typography } from '@/core/theme';
 import { ActiveTabIndicator } from './ActiveTabIndicator';
-import { TAB_LABEL_LINE_HEIGHT, getTabBarHeight } from './tabBarLayout';
+import {
+  TAB_LABEL_LINE_HEIGHT,
+  TAB_LABEL_MAX_FONT_SCALE,
+  getTabBarHeight,
+} from './tabBarLayout';
 import CleanHomeScreen from '@/features/home/screens/CleanHomeScreen';
 import ProfileStackNavigator from '@/features/profile/ProfileStackNavigator';
 import InsightsScreen from '@/features/insights/screens/InsightsScreen';
@@ -158,6 +162,18 @@ const CleanTabNavigator: React.FC = () => {
         // already resolved from the active/inactive tint colours above.
         tabBarLabel: ({ focused, color, children }) => (
           <Text
+            // DEBUG-579. Both props are load-bearing and neither substitutes for
+            // the other. The cap bounds the LINE BOX (iOS scales the pinned
+            // lineHeight by the same effective multiplier as fontSize); the clamp
+            // bounds the LINE COUNT, and without it a wrap makes the box
+            // 2 x lineHeight x scale and defeats the cap entirely. Passing a
+            // function label short-circuits @react-navigation's renderLabel, which
+            // otherwise supplies numberOfLines={1} itself — so this is restoring a
+            // library default we silently dropped, not adding a new behaviour.
+            // NOT allowFontScaling={false}: that freezes the label against Dynamic
+            // Type outright, trading one WCAG failure for another.
+            maxFontSizeMultiplier={TAB_LABEL_MAX_FONT_SCALE}
+            numberOfLines={1}
             style={{
               fontSize: typography.micro.size,
               fontWeight: focused

@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.11
+**Version:** 1.17
 **Effective Date:** December 12, 2025
-**Last Updated:** August 24, 2026
+**Last Updated:** October 8, 2026
 
 ---
 
@@ -48,7 +48,6 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 - **Check-In Data:** Daily mindfulness check-ins, mood tracking, journal entries
 - **Wellness Assessments:** PHQ-9 and GAD-7 responses and scores (for self-monitoring, not clinical diagnosis)
-- **Emergency Contacts:** Contact information for crisis support (stored locally only)
 - **Voice Reflections:** If you choose to speak a reflection rather than type it, your device's microphone captures audio for the sole purpose of transcribing it into text. Transcription runs entirely on your device — Being will not begin recording unless your device confirms it can transcribe without using the network. The audio is discarded as soon as transcription completes; only the resulting text is saved, encrypted, on your device. No audio and no transcript is sent to Being, to Palouse Labs, or to any third party.
 
 ### 2.2 Automatically Collected Information
@@ -73,7 +72,7 @@ We use your information solely to provide and improve the Being app:
 
 - **Core Functionality:** Enable mindfulness check-ins, mood tracking, and progress visualization
 - **Wellness Tools:** Calculate PHQ-9 and GAD-7 scores for self-monitoring, recommend crisis resources when wellness screening thresholds are reached
-- **Safety Features:** Provide crisis support resources when wellness screening thresholds are met. When a PHQ-9 score of 20 or higher, a non-zero PHQ-9 Q9 (self-harm) response, or a GAD-7 score of 15 or higher is detected, Being also records an aggregate, PII-free crisis-detection event to our own first-party secure storage (Supabase). This recording happens under a vital-interests basis and is **not** gated on your analytics consent — crisis-safety monitoring is not something you can inadvertently disable. The event contains only a category label, a severity bucket, whether an intervention was surfaced, and the assessment type — **no** raw score, no Q9 value, no device identifier, and nothing that identifies you.
+- **Safety Features:** Provide crisis support resources when wellness screening thresholds are met. When a PHQ-9 score of 20 or higher, a non-zero PHQ-9 Q9 (self-harm) response, or a GAD-7 score of 15 or higher is detected, Being also records an aggregate, PII-free crisis-detection event to our own first-party secure storage (Supabase). This recording happens under a vital-interests basis and is **not** gated on your analytics consent — crisis-safety monitoring is not something you can inadvertently disable. The event contains only a category label, a severity bucket, whether an intervention was surfaced, the assessment type, and the calendar day the detection happened — **no** raw score, no Q9 value, no time of day, no device identifier, and nothing that identifies you. The detection day is recorded so that a detection made while your device is offline is counted on the day it actually happened rather than the day your device next reconnects. It is a date only, never a clock time.
 - **App Improvement:** Analyze anonymized usage patterns to improve user experience
 - **Technical Support:** Debug issues, provide customer support
 - **Legal Compliance:** Comply with applicable laws and regulations
@@ -88,22 +87,26 @@ We use your information solely to provide and improve the Being app:
 
 All your mental health data is stored locally on your device by default. We use AES-256 encryption to protect your data at rest.
 
-To keep any data that does reach our servers (optional settings backup; the PII-free crisis-detection event described in §3) isolated to you and to you alone, the app creates — at startup — an **anonymous account identifier** with our database provider (Supabase). This identifier is a randomly generated value — it contains **no** email address, name, phone number, or other personal information, and you are never asked to sign in. It exists only to enforce that one device's data cannot be read by another. It is removed when you delete your account or data (§7.4).
+To keep any data that does reach our servers isolated to you and to you alone, the app creates an **anonymous account identifier** with our database provider (Supabase). It is not created at startup: it is created the first time one is needed — when a crisis-detection event (§3) is recorded, when you use the optional settings backup (§4.2), or when you make or restore a purchase. This identifier is a randomly generated value — it contains **no** email address, name, phone number, or other personal information, and you are never asked to sign in. It exists only to enforce that one device's data cannot be read by another. It is removed when you delete your account or data (§7.4).
+
+**Purchases.** When you make or restore a purchase, the app sends the transaction identifier Apple or Google issued for it (on Android, the purchase token) to our servers, so we can confirm the purchase with the store. We store that identifier against your anonymous account identifier, together with your subscription's plan, status and dates and an encrypted copy of the store's signed transaction record, so the subscription is tied to you and cannot be claimed from another device's account. None of this is wellness data. It is deleted with your account (§7.4).
 
 ### 4.2 Optional Settings Backup
 
-You may optionally enable an encrypted settings backup. This is a narrow, opt-in feature that backs up a small set of non-wellness app preferences (such as autosave configuration and last-sync timestamps) to encrypted cloud storage. It does **not** back up your mental-health data — PHQ-9 / GAD-7 responses, mood check-ins, journal entries, and crisis records always stay on your device. Settings backups are:
+You may optionally enable an encrypted settings backup. This is a narrow, opt-in feature that backs up a single non-wellness app preference (your autosave setting) to encrypted cloud storage. It does **not** back up your mental-health data — PHQ-9 / GAD-7 responses, mood check-ins, journal entries, and crisis records always stay on your device. Settings backups are:
 
 - Encrypted in transit (TLS 1.2+) and at rest (AES-256) on Supabase infrastructure (SOC 2 Type II certified)
 - Scoped to a strict allowlist of non-sensitive preference fields
-- Deletable at any time from in-app *Settings → Privacy & Data*
+- Removed when you delete your data or account (§7.4), which erases every record tied to your anonymous account identifier
+
+Enabling this backup also sends us **operational records of the backup itself** — when a backup or restore ran, whether it succeeded, how long it took and how large it was. These are stored on our servers alongside your anonymous account identifier (§4.1), are retained for 90 days, and contain no wellness data. They exist so we can tell whether the backup feature is working.
 
 ### 4.3 Security Measures
 
 - AES-256 encryption for data at rest
 - TLS 1.2+ encryption for data in transit
-- Regular security audits and penetration testing
-- Limited employee access to encrypted data
+- Automated dependency vulnerability scanning and automated safety and privacy test suites, enforced in continuous integration on every code change
+- Being is operated solely by its founder, with no additional employees or staff who access user data
 - A documented Data Protection Impact Assessment covering our processing of sensitive wellness data is maintained as an internal compliance artifact in accordance with applicable state privacy laws
 
 ### 4.4 Breach Notification
@@ -169,7 +172,6 @@ What we **NEVER** collect in-app:
 - Assessment scores (PHQ-9, GAD-7)
 - Mood check-in values or notes
 - Journal entries
-- Crisis contact information
 - Any mental health data
 
 Your control:
@@ -249,7 +251,7 @@ This data is automatically deleted after 90 days to minimize data collection whi
 For your safety and our liability protection, we retain crisis-related data for 3 years:
 
 - **High-Severity Assessments:** PHQ-9 scores ≥ 20, GAD-7 scores ≥ 15
-- **Suicidal Ideation Responses:** Any non-zero response to PHQ-9 question 9
+- **Suicidal Ideation Responses:** Any non-zero response to PHQ-9 question 9 in a check-in you complete
 - **Crisis Detection Events:** An aggregate, PII-free record of when a crisis threshold was detected and support resources were surfaced (see §3, Safety Features) — this records that a threshold was met and resources were shown, not whether you tapped through to 988 or another resource
 
 This extended retention supports safety-monitoring continuity and protects both you and us in case of legal proceedings.
@@ -258,18 +260,19 @@ This extended retention supports safety-monitoring continuity and protects both 
 
 ### 7.3 Other Data
 
+- **Unfinished Check-Ins:** If you leave a PHQ-9 or GAD-7 check-in before finishing it, or the app closes partway through, the answers you gave are not kept. They are deleted on your device no later than the next time you open Being, whatever they were, including any answer to PHQ-9 question 9. If one of those answers led Being to show you crisis support resources, the Crisis Detection Event described in §7.2 is still recorded and kept for 3 years; it does not contain your answers.
 - **Local Data:** Stored on your device until you delete the app or clear data
 - **Settings Backup:** Retained until you disable backup or request deletion via in-app *Privacy & Data* settings
 - **Data Deletion Requests:** Honored within 30 days of request
 - **Audit Logs:** 3 years (for security and compliance)
-- **Consent Records:** Retained indefinitely as proof of lawful data processing
-- **Account-Deletion Record:** 3 years, on your device only. When you delete your account we keep a small confirmation that the deletion happened — the date, and the privacy choices that were in effect at that moment. It contains **no identifier of any kind**: nothing that names you, your device, or your account, and nothing that could be used to re-link you to anything you did before. We keep it because we have to be able to show that a deletion request was honored, and it survives the wipe for that reason alone.
+- **Consent Records:** Kept for as long as your account exists, as proof of lawful data processing. When you delete your account they are deleted with it, along with your age check and legal acceptances; only the account-deletion record below is kept.
+- **Account-Deletion Record:** 3 years, on your device only. When you delete your account we keep a small confirmation that the deletion happened — the date, the privacy choices that were in effect at that moment, and a count of the consent changes recorded before it. It contains **no identifier of any kind**: nothing that names you, your device, or your account, and nothing that could be used to re-link you to anything you did before. We keep it because we have to be able to show that a deletion request was honored, and it survives the wipe for that reason alone.
 
 ### 7.4 Your Right to Delete
 
 You can delete your data at any time in Settings, including crisis-related data. Deletion removes your data both on your device and on our servers: it erases your anonymous account identifier (§4.1), which automatically and permanently deletes every record tied to it (any settings backup, subscription records, and crisis-detection events). We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
 
-Deletion also resets the analytics identity on your device and discards anything queued but not yet sent, so nothing captured before the deletion is transmitted afterward. The one thing deliberately kept is the non-identifying account-deletion record described in §7.3.
+Deletion also resets the analytics identity on your device and discards anything queued but not yet sent, so nothing captured before the deletion is transmitted afterward. Your consent, age-check and legal-acceptance records are deleted too. What stays on your device afterward is: the account-deletion record described in §7.3; a marker that records only that the app has been opened on this device before; and some app settings caches that hold no information about you. None of these identifies you. Anyone who uses Being on this device afterward is asked for their own age and consent, starts with an empty consent history, and sees nothing from your account in their data export.
 
 ---
 
@@ -292,6 +295,18 @@ Being is based in the United States. If you access our Services from outside the
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 **Recent revisions**
+
+- **v1.17 (October 8, 2026):** §7.2 now says the 3-year retention of answers to PHQ-9 question 9 applies to check-ins you complete, and §7.3 states that answers from an unfinished check-in are deleted on your device no later than the next time you open Being. This shortens how long some data is kept and changes nothing else: crisis detection events, completed check-ins and every other retention period are unchanged. Because it narrows what we keep, it is published with the next app release rather than separately.
+
+- **v1.16 (October 8, 2026):** Correction to §7.3 and §7.4. §7.3 said consent records are retained indefinitely, and §7.4 said the account-deletion record was the one thing kept when you delete your account. In fact your consent, age-check and legal-acceptance records also stayed on your device after deletion. They are now deleted when you delete your account, and §7.3 limits consent-record retention to the life of your account. §7.4 now lists everything that stays on the device after deletion. This reduces what we keep and changes nothing we collect or share, so it is published with the next app release rather than separately.
+
+- **v1.15 (October 5, 2026):** Correction and addition to §4.1. §4.1 said the anonymous account identifier is created at startup, and named only the settings backup and the crisis-detection event as data tied to it. It is not created at startup: it is created the first time it is needed, and making or restoring a purchase is now one of those occasions, alongside a crisis-detection event and the optional settings backup. §4.1 now also discloses what purchase verification sends and keeps: the store's transaction identifier for the purchase, sent to our servers and stored against your anonymous account identifier with your subscription's plan, status and dates and an encrypted copy of the store's signed transaction record. No wellness data is involved, and it is deleted with your account as §7.4 already described for subscription records.
+
+- **v1.14 (September 23, 2026):** Correction. §4.3 listed "Regular security audits and penetration testing" and "Limited employee access to encrypted data" among our security measures. Being has never had a security audit or a penetration test, so the first line described a practice that has not happened; and Being is operated by its founder alone, so the second implied a staff access-control programme that does not exist. They are replaced with what Being actually does, automated dependency vulnerability scanning and automated safety and privacy test suites enforced in continuous integration on every code change, and with a plain statement that no employees or staff access user data. This narrows what §4.3 claims and nothing else: what Being collects, keeps and shares is unchanged, and AES-256 encryption at rest, TLS 1.2+ encryption in transit and the Data Protection Impact Assessment are unaffected. Because the correction narrows a claim rather than changing what we collect, it is published with the next app release rather than separately.
+
+- **v1.13 (September 13, 2026):** Correction. §2.1 listed emergency contacts as information you provide, and §5.2 listed crisis contacts among the things analytics never collects. Being has never offered a way to enter or save personal emergency contacts, so neither entry described anything the app does, and both are removed. This narrows what the policy describes and nothing else: what Being collects, keeps and shares is unchanged, and the crisis resources the app points you to (988, the Crisis Text Line and 911) are unaffected. Because the correction only removes a description of more than we collect, it is published with the next app release rather than separately.
+
+- **v1.12 (September 13, 2026):** §3 now names a fifth field in the crisis-detection event — the calendar day the detection happened. Previously the event was dated by when it reached our server, so a detection made offline was counted on the day the device reconnected. Nothing new is learned about you: the field is a date with no time of day, and it is capped at the day we received the event so a wrong clock on a device cannot place a detection in the future. This is disclosed because §3 previously said the event contained *only* four things, and that list is now five.
 
 - **v1.11 (August 25, 2026):** §7.3 now names the account-deletion record and states its retention (3 years, on-device, no identifier). Nothing about what is kept has changed — the record already existed and already survived erasure — but it was not disclosed, and an undisclosed retention with no stated bound is not a defensible one. §7.4 additionally states that deletion resets the analytics identity and discards anything queued but unsent.
 

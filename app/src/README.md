@@ -1,28 +1,9 @@
 # Being App - Source Architecture
 
-Last Updated: 2025-11-15 (Commit `688ffd1`)
-
-## Directory Structure
-
-```
-src/
-├── __tests__/          # Integration/regression tests (app-wide only)
-├── core/               # Infrastructure (cross-cutting concerns)
-│   ├── analytics/      # Privacy-preserving analytics
-│   ├── services/       # Security, sync, session, logging
-│   ├── stores/         # Subscription, settings
-│   ├── types/          # Infrastructure types
-│   ├── providers/      # Theme, context providers
-│   ├── navigation/     # Root navigation
-│   └── constants/      # Shared constants
-├── features/           # Domain features (business logic)
-│   ├── learn/          # Educational modules
-│   ├── practices/      # Morning/midday/evening practices
-│   ├── crisis/         # Crisis intervention
-│   ├── assessment/     # PHQ-9/GAD-7 assessments
-│   └── insights/       # Virtue dashboard
-└── App.tsx             # Entry point
-```
+This file is the *decision guide*: where a new file belongs, and how to import it.
+It deliberately does not restate the directory tree — see
+[Codebase Organization → Directory Structure](../../docs/architecture/codebase-organization.md#directory-structure),
+which is the single source for the tree. Two copies drift; one does not.
 
 ## Organization Rules
 
@@ -41,16 +22,16 @@ src/
 #### ✅ Belongs in `core/`
 
 - **Services:** Security, authentication, networking, logging, analytics
-- **Types:** Security, compliance, session, subscription, errors, integration
-- **Stores:** Subscription, settings (used across features)
+- **Types:** Session, subscription, practice identity — anything cross-cutting
+- **Stores:** Subscription, settings, consent (used across features)
 - **Components:** Shared UI primitives, navigation
 - **Constants:** App-wide configuration
 
 **Examples:**
 ```
-core/analytics/AnalyticsService.ts    # Used by crisis, assessment, settings
-core/types/security/encryption.ts     # Security types used everywhere
-core/stores/subscriptionStore.ts      # Subscription state for entire app
+core/analytics/PHIFilter.ts                 # Event allow-list used app-wide
+core/types/session.ts                       # Session types used everywhere
+core/stores/subscriptionStore.ts            # Subscription state for entire app
 ```
 
 #### ✅ Belongs in `features/{name}/`
@@ -63,24 +44,36 @@ core/stores/subscriptionStore.ts      # Subscription state for entire app
 
 **Examples:**
 ```
-features/learn/types/education.ts           # Education types only used in learn
+features/learn/types/education.ts                # Education types only used in learn
 features/practices/stores/stoicPracticeStore.ts  # Practice state
-features/crisis/services/CrisisDetectionEngine.ts # Crisis-specific logic
+features/crisis/services/textCrisisDetection.ts  # Crisis-specific logic
 ```
 
-#### ✅ Belongs in `src/__tests__/`
+## Where Tests Go
 
-**Only app-wide integration/regression tests:**
+There are **two test roots**, and both are live. A `src`-scoped search cannot answer
+"is this suite dead?" — see CLAUDE.md → Known Gotchas (INFRA-84).
+
+#### App-wide suites → `app/__tests__/`
+
+Grouped by concern (`unit`, `integration`, `performance`, `clinical`, `safety`,
+`privacy`, `security`, `compliance`, …). The `package.json` scripts glob these
+directories **by name**, so a suite here runs in `precommit` while staying invisible
+to a `grep` over `app/src`.
+
 ```
-__tests__/performance/week4-comprehensive-performance-regression.test.ts
-__tests__/integration/analytics-service-integration.test.ts
-__tests__/compliance/week3-analytics-hipaa-compliance.test.ts
+app/__tests__/performance/assessment-performance.test.ts
+app/__tests__/integration/crisis-resources-integration.test.ts
+app/__tests__/compliance/consumer-privacy-posture.test.ts
 ```
 
-**Unit tests co-located with code:**
+#### Unit tests → co-located `__tests__/` beside the code
+
+54 such directories exist under `app/src/`.
+
 ```
-core/services/__tests__/         # Unit tests for core services
-features/learn/__tests__/        # Unit tests for learn feature
+app/src/core/services/security/__tests__/    # Unit tests for security services
+app/src/features/learn/__tests__/            # Unit tests for the learn feature
 ```
 
 ## Import Path Conventions
@@ -89,8 +82,8 @@ features/learn/__tests__/        # Unit tests for learn feature
 
 ```typescript
 // Infrastructure
-import { AnalyticsService } from '@/core/analytics';
-import { EncryptionService } from '@/core/services/security';
+import { useAnalytics } from '@/core/analytics';
+import { EncryptionService } from '@/core/services/security/EncryptionService';
 import type { SessionMetadata } from '@/core/types/session';
 
 // Features
@@ -99,20 +92,24 @@ import type { ModuleId } from '@/features/learn/types/education';
 import type { CardinalVirtue } from '@/features/practices/types/stoic';
 ```
 
+Import the **file**, not the directory, unless that directory actually has an
+`index.ts`. `core/services/security/` does not, so `@/core/services/security`
+alone does not resolve.
+
 ### ❌ Avoid Relative Imports
 
 ```typescript
 // ❌ Don't do this
-import { AnalyticsService } from '../../../core/analytics';
-import { ModuleId } from '../../../../types/education';
+import { useAnalytics } from '../../../core/analytics';
+import { ModuleId } from '../../../../features/learn/types/education';
 ```
 
 ### Path Alias Reference
 
+Two aliases, plus the `@/*` catch-all they are subsumed by:
+
 - `@/core/*` - Infrastructure (services, analytics, types, stores)
 - `@/features/*` - Feature code
-- `@/types/*` - **DEPRECATED** (use `@/core/types/*` or `@/features/*/types/*`)
-- `@/analytics/*` - **DEPRECATED** (use `@/core/analytics/*`)
 
 ## Adding New Code
 
@@ -197,7 +194,8 @@ import type { ModuleId } from '@/features/learn/types/education';
 
 ## Migration History
 
-**Previous structure** (DEPRECATED as of 2025-11-15):
+**Previous structure** (DEPRECATED as of 2025-11-15 — none of these directories
+still exist):
 
 ```
 src/analytics/          → Moved to core/analytics/
@@ -222,10 +220,11 @@ src/stores/             → Split to core/stores/ and features/*/stores/
 
 ## Related Documentation
 
-- **Contribution Workflow:** `/CONTRIBUTING.md`
-- **Architecture Deep Dive:** `/docs/architecture/` (if exists)
-- **Stoic Mindfulness Framework:** `/docs/philosophical/`
-- **Security & Compliance:** `/docs/security/`
+- **Directory tree:** [`docs/architecture/codebase-organization.md`](../../docs/architecture/codebase-organization.md#directory-structure)
+- **Import rules:** [`docs/architecture/import-guidelines.md`](../../docs/architecture/import-guidelines.md)
+- **Architecture Deep Dive:** [`docs/architecture/`](../../docs/architecture/)
+- **Stoic Mindfulness Framework:** [`docs/product/stoic-mindfulness/`](../../docs/product/stoic-mindfulness/INDEX.md)
+- **Security & Compliance:** [`docs/security/`](../../docs/security/)
 
 ## Questions?
 
@@ -239,9 +238,9 @@ src/stores/             → Split to core/stores/ and features/*/stores/
 → If multiple features use it → `core/`
 → If only one feature uses it → `features/{name}/`
 
-**"Where do integration tests go?"**
-→ App-wide tests → `src/__tests__/`
-→ Unit tests → Co-located with code (`*/tests/`)
+**"Where do tests go?"**
+→ App-wide suites → `app/__tests__/<concern>/`
+→ Unit tests → Co-located with code (`__tests__/`)
 
 ---
 
