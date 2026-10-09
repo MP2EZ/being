@@ -1,5 +1,5 @@
 <!-- e2e-device-compensates: DEBUG-589 flows=crisis-988-dial.yaml,crisis-keyboard-accessory.yaml -->
-<!-- e2e-device-triggers: b-release-phase-2.9,hotfix-pr -->
+<!-- e2e-device-triggers: app-store-submission,hotfix-pr -->
 
 # Crisis device checklist: 988 dial + keyboard accessory (INFRA-591)
 
@@ -9,13 +9,15 @@ measured that no released Maestro can run a flow on a physical iPhone, so
 verifies these two contracts on real hardware. A green CI run, a green precommit and a green
 `npm run e2e:safety` are **not** evidence for anything below.
 
-**When it runs:** two triggers.
+**When it runs:** it is not a release gate (founder decision 2026-10-09: the founder is the
+only user and the only TestFlight recipient). Releases ship unattended and the release PR
+records `Device check: not run`. The check is owed, against the TestFlight binary per §5:
 
-- **Before every release**, prompted by `/b-release` Phase 2.9, before anything is bumped or
-  merged. The result goes into the release PR body. It is release-gated, not close-gated.
-- **After every hotfix build reaches TestFlight** (INFRA-605), and after a waived release
-  build does. Both run against the TestFlight binary — see §5, which owns that path. Nothing
-  prompts for it: the hotfix procedure is hand-run, so the trigger is the hotfix PR itself.
+- **Before a build is submitted for App Store review**, the first submission included.
+- **Before anyone other than the founder receives TestFlight builds.**
+- **Each hotfix build** (INFRA-605), before App Store promotion of that build.
+
+Nothing prompts the run; `/b-release` does not check for it.
 
 **Scope:**
 - **In:** the two runtime behaviours only hardware can show:
@@ -36,10 +38,11 @@ verifies these two contracts on real hardware. A green CI run, a green precommit
 |---|---|
 | An **iPhone** on the **current major iOS (26.x)** | An iPad legitimately returns `canOpenURL('tel:')` false. A run on 18.x only repeats what the simulator already shows. |
 | **No hardware or Bluetooth keyboard** connected | With one attached, no software keyboard rises and the accessory cannot be tested. |
-| A **Release** build of the release tree, installed on that iPhone | Debug ships the dev launcher. TestFlight only exists after the build fires, which is too late for the evidence `/b-release` needs. **This row is a timing constraint on the release path, not a statement about binary quality** — on the hotfix path the timing is inverted and the TestFlight binary is the evidence. See §5. |
+| The **TestFlight build** under test, installed on that iPhone | The TestFlight binary is the evidence on both paths. It is EAS-built on the `production` profile, so it is the shipped binary. See §5. |
 
-From the `development` worktree, at `origin/development` HEAD, with the iPhone connected and
-unlocked:
+**A local Release build is an optional pre-merge diagnostic only, and is never recorded.** Debug
+ships the dev launcher, so use Release. From the `development` worktree, with the iPhone
+connected and unlocked:
 
 ```bash
 cd ~/dev/being/development/app
@@ -50,7 +53,7 @@ npx expo run:ios --device --configuration Release
   a failed build reads as exit 0.
 - **If the device isn't listed, its tunnel may be asleep.** Wake it with
   `xcrun devicectl device info details --device <udid>`. See `.claude/CLAUDE.md`.
-- **`/b-release` records the tested commit itself.** Do not type it.
+- **The §6 block has no local-build form.** Only a TestFlight build is recorded.
 
 If LegalGate or onboarding appears on launch, complete it. It is not part of the checklist.
 
@@ -90,23 +93,16 @@ reports Cancel as a failure has never been measured.
 
 ## 4. Reading the result
 
-- **Any FAIL aborts the release.** Re-running to turn a FAIL into a PASS is not allowed.
+- **Any FAIL blocks App Store promotion of that build.** Re-running to turn a FAIL into a PASS
+  is not allowed.
 - **An ambiguous observation** (a prompt that flashed, a bar you aren't sure sat on the
   keyboard):
   - Force-quit Being and run that half once more.
   - If it is still ambiguous, it is a FAIL.
   - There is no "PASS with notes" that describes a deviation.
-- **WAIVED** is allowed only when no qualifying iPhone is available. It is never a way past a
-  FAIL.
-  - The operator types the reason.
-  - The record carries this sentence: *988 dial and keyboard accessory NOT verified on
-    hardware for vX.Y.Z.*
-  - `/b-release` refuses a waiver if the previous release was also `WAIVED`.
-  - A waived build must not be promoted to the App Store until this checklist passes against
-    that TestFlight build. That run follows **§5**, and its result goes on the release PR as a
-    comment.
-  - **This clause is the release path's only. It does not extend to hotfixes** — see §5, which
-    refuses a waiver there.
+- **VOID** means no installable build exists for that merge: Apple rejected it, or the
+  TestFlight build expired. The record must cite the ITMS code or the expiry date. VOID is
+  never valid for promotion.
 
 ---
 
@@ -114,10 +110,17 @@ reports Cancel as a failure has never been measured.
 
 Two paths land here and they run the same procedure:
 
-- **A waived release build** (§4), before that release is promoted to the App Store.
+- **A release build about to be submitted for App Store review.** The release is not a gate,
+  so this runs whenever submission is planned; the result is a comment on the release PR.
 - **Every hotfix build** (INFRA-605). A `hotfix/* → main` merge fires `release.yml` on push and
   `--auto-submit` delivers the binary with no human in the loop, so there is no pre-build slot
   and no `/b-release` prompt. The trigger is the hotfix PR.
+
+**The gate is App Store Connect submit-for-review.** Do not submit a build without a PASS or
+EXEMPT record bound to that exact ASC build number. A PASS authorizes promotion of exactly the
+ASC build it names, never an earlier or later one. An approved
+version set to auto-release goes live on approval, so submit-for-review is the last point to
+enforce this.
 
 **Wait for installable, not for green.** `release.yml` exiting green means *uploaded*, not
 accepted — Apple processing can still reject a fully green submit, by email only, as ITMS-90683
@@ -134,6 +137,8 @@ coverage. That is exactly when its hardware run stops being redundant.
 nothing outside `.github/workflows/`, record `EXEMPT` with the diff output pasted and skip the
 device run. INFRA-458 already treats workflow-only changes as a class that cannot move app
 behaviour. This is computed, never judged — "the diff looks unrelated" is not this rule.
+**EXEMPT never applies to a release:** the version bump changes `app/app.json` and
+`package.json`.
 
 ```bash
 git diff --name-only <LAST_PASS_SHA> <MERGE_SHA> | grep -v '^\.github/workflows/'
@@ -142,8 +147,8 @@ git diff --name-only <LAST_PASS_SHA> <MERGE_SHA> | grep -v '^\.github/workflows/
 
 ### What the record must bind
 
-There is no `binding: ok` here. That check diffs two trees, and no tree diff reaches a binary
-someone installed from Apple. The chain that *is* checkable is merge → EAS → App Store Connect
+There is no tree-diff binding here. A tree diff cannot reach a binary someone installed from
+Apple. The chain that *is* checkable is merge → EAS → App Store Connect
 → the phone, so the record prints each link rather than asserting the whole:
 
 ```
@@ -161,7 +166,7 @@ Installed:      <version (build)> exactly as TestFlight shows it
   `eas build:list` or App Store Connect, never from `app/app.json` or the in-app version string.
 - **Residual, and it stays on the record:** nothing proves the binary executing on the phone is
   that ASC build beyond what TestFlight displays. `Binding: ok` on the hash line is weaker than
-  the release path's tree diff. Do not read it as the same guarantee.
+  a tree diff. Do not read it as the same guarantee.
 
 For D3 specifically the TestFlight binary is **stronger** evidence than a local build: it is
 EAS-built on the `production` profile with a CNG `expo prebuild` on EAS's runner, so it
@@ -170,52 +175,53 @@ check reads prebuild output, not the binary.
 
 ### FAIL
 
-"Any FAIL aborts the release" (§4) has no referent here: the build has already shipped.
+"Any FAIL blocks App Store promotion of that build" (§4) is all a FAIL can do here: the build has
+already shipped.
 
 1. **Record the FAIL block on the PR first**, before diagnosing anything. A FAIL that lives only
    in someone's head is what this step exists to prevent.
 2. **Do not promote to the App Store.** That is the entire gate.
-3. **Do not revert the hotfix.** It is on `main` because something needed fixing, and reverting a
-   crisis-path hotfix over a device-check FAIL is plausibly net-worse.
+3. **Do not revert the merge (release or hotfix).** It is on `main` because something needed
+   shipping, and reverting a crisis-path change over a device-check FAIL is plausibly net-worse.
 4. **Disambiguate: install the last build carrying a PASS record and re-run only the failing
-   half**, same device, same session. This is *not* the re-run §4 forbids — that bans re-running
-   the same binary to convert a FAIL; this is a different binary answering a different question.
-   - **Also FAILs** → the hotfix did not cause it, and **the live App Store build is affected**.
+   half**, same device, same session. Record both `LAST_PASS_SHA` and `MERGE_SHA`. This is *not*
+   the re-run §4 forbids — that bans re-running the same binary to convert a FAIL; this is a
+   different binary answering a different question.
+   - **Also FAILs** → this merge did not cause it, and **the live App Store build is affected**.
      Open a DEBUG at P0 and work it as a production crisis-path incident, not a release blocker.
      Do **not** expire the TestFlight build: that removes the fix and leaves testers on an
      equally-broken older one.
-   - **Passes** → the hotfix caused it. Expire the TestFlight build in App Store Connect, open a
-     DEBUG, and ship the correction as a second hotfix, which runs this section in turn.
+   - **Passes** → the regression is in `LAST_PASS_SHA..MERGE_SHA`. Expire the failing build in
+     App Store Connect, open a DEBUG, and ship the correction by hotfix or the next release,
+     which runs this section in turn.
 
-### No waiver on the hotfix path
+### No waiver on the TestFlight path
 
-**`WAIVED` is not a permitted `Result:` for a hotfix build**, and §4's waiver clause does not
-extend here. A release waiver exists because the release is *blocked* on the device; a hotfix
-build is gated only on an App Store promotion that is already a manual, indefinitely deferrable
-click, with the fix live on TestFlight meanwhile. So a waiver buys nothing that "not promoted
-yet" does not already buy, and it would spend the one word that means *we knowingly shipped
-unverified*. Urgency and device-absence have the same answer: **promote later.**
+**`WAIVED` is not a permitted `Result:` for a release or hotfix build.** A build is gated only
+on an App Store promotion that is already a manual, indefinitely deferrable click, with the
+build on TestFlight meanwhile. A waiver buys nothing that "not promoted yet" does not already
+buy, and it would spend the one word that means *we knowingly shipped unverified*. Urgency and
+device-absence have the same answer: **promote later.** A legacy `WAIVED` record from the
+pre-bump check is not a PASS.
 
 If a live emergency ever forces promotion anyway, that is an out-of-process decision, not a
-waiver. Record it on the hotfix PR with the words *promoted without hardware verification*. Do
-not spell it `WAIVED`, and do not expect the release path to notice: Phase 2.9's `PREV_WAIVED`
-query is `--base main --head development`, blind to hotfix PRs by construction.
+waiver. Record it on the PR with the words *promoted without hardware verification*. Do not
+spell it `WAIVED`.
 
 ---
 
 ## 6. Result block
 
-`/b-release` Phase 2.9 fills this in and embeds it in the release PR body. A §5 run fills in the
-same block and posts it as a PR comment.
+A §5 run posts this block as a comment on the release or hotfix PR.
 
-Pick ONE literal per two-valued field. `Build:` on a §5 record must never contain
-`expo run:ios` — a reader scanning for that string must not find it on a TestFlight record.
+Pick ONE literal per two-valued field. `Build:` must never contain `expo run:ios` — only a
+TestFlight build is recorded.
 
 ```
 ### Crisis device checklist (INFRA-591)
-Result:         PASS | FAIL | WAIVED | EXEMPT
-Trigger:        /b-release Phase 2.9 | hotfix PR #<N> (INFRA-605) | waived release <vX.Y.Z> (§5)
-Build:          local Release (npx expo run:ios --device --configuration Release) | TestFlight (EAS <build-id>)
+Result:         PASS | FAIL | EXEMPT | VOID
+Trigger:        App Store submission of release PR #<N> v<X.Y.Z> | hotfix PR #<N> (INFRA-605)
+Build:          TestFlight (EAS <build-id>)
 Device:         <model>
 iOS:            <version>
 Date:           <YYYY-MM-DD>
@@ -224,17 +230,14 @@ DIAL       D2 [PASS|FAIL]  D3 [PASS|FAIL]  after_cancel_alert: yes|no  call_conn
 ACCESSORY  A2 [PASS|FAIL]  A3 [PASS|FAIL]
 Re-runs:   none | <which half, and what was ambiguous>
 
-# Release path only (Phase 2.9):
-Tested commit:  <TESTED_SHA — computed by /b-release, bound to the release head, binding: ok>
-Waiver:         <WAIVED only: reason + "988 dial and keyboard accessory NOT verified on hardware for vX.Y.Z">
-
-# TestFlight path only (§5) — every line, or the chain is not bound:
+# PASS, FAIL and EXEMPT: every line, or the chain is not bound:
 Merge commit:   <MERGE_SHA>
 EAS build:      <build-id>  gitCommitHash=<SHA>
 Binding:        ok | MISMATCH
 ASC build:      <appVersion> (<appBuildVersion>)
 Installed:      <version (build)> exactly as TestFlight shows it
-Exempt:         <EXEMPT only: "workflows-only vs <LAST_PASS_SHA>" + the diff command's output>
+Exempt:         <EXEMPT only (hotfix): "workflows-only vs <LAST_PASS_SHA>" + the diff command's output>
+Void:           <VOID only: the ITMS code (ITMS-90683) or "expired <YYYY-MM-DD>">
 ```
 
 ---
@@ -256,29 +259,48 @@ Exempt:         <EXEMPT only: "workflows-only vs <LAST_PASS_SHA>" + the diff com
 
 ## 8. Known gaps this checklist does not close
 
-- **A hotfix reaches TestFlight before it is checked.** A `hotfix/* → main` merge fires
-  `release.yml` on push, and `--auto-submit` delivers the binary to App Store Connect with no
-  human in the loop — so TestFlight testers can install a hotfix whose dial and accessory
-  halves nobody has run, for an unbounded and uninstrumented window. INFRA-605 gates only App
-  Store **promotion** of that build, not its TestFlight distribution. There is no pre-build
-  slot on the hotfix path to close the earlier window.
+- **Every release and hotfix reaches TestFlight before it is checked.** A `hotfix/* → main`
+  merge fires `release.yml` on push, and `--auto-submit` delivers the binary to App Store
+  Connect with no human in the loop — so TestFlight testers can install a hotfix whose dial and
+  accessory halves nobody has run, for an unbounded and uninstrumented window. The same holds
+  for every release, by founder decision (2026-10-09): the check is not a release gate.
+  INFRA-605 gates only App Store **promotion** of that build, not its
+  TestFlight distribution. There is no pre-build slot on either path to close the earlier
+  window.
+- **The App Store promotion gate is prose.** App Store Connect does not enforce it, and ASC
+  tester and group state is invisible to git.
 - **CI checks only the generated `Info.plist`, not the binary.** Its `Generated Info.plist
   keeps tel/sms` step (INFRA-592) reads the `expo prebuild` output, so it cannot see the
   Xcode build, the EAS binary, or `canOpenURL` on hardware. D3 is the only check of those.
 - **The automated dial flow can only assert that the fallback alert is absent.** It cannot see
   the iOS prompt, so removing this checklist gives up that observation.
 
+**Make it a release gate again** (the check runs before the version bump, and a FAIL stops the
+release) when any of these holds:
+
+1. A TestFlight recipient other than the founder: a `groups` key under `app/eas.json`
+   `submit.production.ios`, an ASC external group, a second internal tester, or a public link.
+2. Any workflow delivers a production binary with no manual promotion step: `android` or `all`
+   added to `release.yml`'s `--platform ios`, or an `eas submit` against
+   `submit.production.android` (track `production`, `releaseStatus` `completed`).
+3. A non-founder user on any channel.
+4. First public App Store availability (the v1.0.0 launch, or the first promotion to the public
+   store). Before it, build mechanical enforcement (a scripted submit-for-review that refuses
+   without a bound PASS) or revert.
+
+`deviceOnlyFlowsUnavailable.test.ts` pins triggers 1 and 2.
+
 ---
 
 ## 9. Removal
 
-Remove this checklist and its `/b-release` Phase 2.9 step only when all three hold:
+Remove this checklist only when all three hold:
 
 1. **DEBUG-589's exit condition is met:** a Maestro release that ships `MaestroDriverLib/`,
    or an upstream fix to the runner handshake on iOS ≥ 26.
 2. **Both `safety-device-only` flows are re-certified** green on hardware at the pinned
    version.
-3. **`/b-release` runs those flows in this same slot.**
+3. **`/b-release` runs those flows before the bump.**
 
 Being runnable is not enough, because no gate runs device-only flows today.
 
@@ -287,7 +309,9 @@ Do it in one commit:
 - The matching entries in `app/__tests__/safety/deviceOnlyFlowsUnavailable.test.ts`, which
   fails if this file outlives the notices or the notices outlive it.
 - This file.
-- The Phase 2.9 step.
+- The `/b-release` Phase 2.9 note and the `Device check: not run` line it writes in 6.4.
+- The two revert-trigger pins in `deviceOnlyFlowsUnavailable.test.ts` (`eas.json` `groups`,
+  `release.yml` `--platform ios`).
 - **The hotfix step in `.claude/CLAUDE.md`'s Hotfix Process** (INFRA-605), and the App Store
   promotion gate it carries. Nothing else removes it: it is prose on a path with no skill, so a
   removal that forgets it leaves a procedure step pointing at a deleted file.

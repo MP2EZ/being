@@ -32,7 +32,8 @@
  *              crisis-keyboard-reachability.yaml (authored by DEBUG-506). The device flow
  *              records it as MIGRATED, and the block below pins that the record is still
  *              true. Its hardware residual stays unavailable.
- *   INFRA-591  done — docs/testing/crisis-device-checklist.md, run by /b-release Phase 2.9.
+ *   INFRA-591  done — docs/testing/crisis-device-checklist.md, run against each release and
+ *              hotfix TestFlight build before App Store submission; it is not a release gate.
  *              The block below pins that it exists exactly while the notice does, and that
  *              every on-screen label it tells a tester to look for still exists in source.
  *   INFRA-592  done — scripts/check-generated-infoplist.js, run on every PR by CI's
@@ -121,12 +122,12 @@ const CHECKLIST_MARKER =
   /^<!--\s*e2e-device-compensates:\s*DEBUG-589\s+flows=crisis-988-dial\.yaml,crisis-keyboard-accessory\.yaml\s*-->\s*$/m;
 
 /**
- * INFRA-605. The checklist has TWO triggers and only one of them has a skill behind it:
- * `/b-release` prompts for Phase 2.9, but the hotfix path is hand-run prose with no command to
- * fire, so this marker is the only thing that fails when its step is deleted.
+ * INFRA-605. The checklist has TWO triggers, both TestFlight builds: App Store submission of a
+ * release, and the hotfix PR. No skill fires either run (the founder decided on 2026-10-09 that
+ * it is not a release gate), so this marker is the only thing that fails when a trigger is deleted.
  */
 const CHECKLIST_TRIGGER_MARKER =
-  /^<!--\s*e2e-device-triggers:\s*b-release-phase-2\.9,hotfix-pr\s*-->\s*$/m;
+  /^<!--\s*e2e-device-triggers:\s*app-store-submission,hotfix-pr\s*-->\s*$/m;
 
 /**
  * Every on-screen string the checklist tells a human to find, and the source that renders it.
@@ -472,11 +473,21 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
 
       it('the trigger marker fires on a known-GOOD literal and NOT on a one-trigger near-miss', () => {
         expect(
-          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: b-release-phase-2.9,hotfix-pr -->'),
+          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: app-store-submission,hotfix-pr -->'),
         ).toBe(true);
         // The whole point is that BOTH triggers are named. One is the state this pin exists to fail.
         expect(
-          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: b-release-phase-2.9 -->'),
+          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: app-store-submission -->'),
+        ).toBe(false);
+        expect(
+          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: hotfix-pr -->'),
+        ).toBe(false);
+        // Earlier literals (the pre-bump check, then the per-release ceiling) must no longer satisfy it.
+        expect(
+          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: b-release-phase-2.9,hotfix-pr -->'),
+        ).toBe(false);
+        expect(
+          CHECKLIST_TRIGGER_MARKER.test('<!-- e2e-device-triggers: release-pr,hotfix-pr -->'),
         ).toBe(false);
         expect(CHECKLIST_TRIGGER_MARKER.test('Triggered by /b-release and by hotfix PRs.')).toBe(false);
       });
@@ -515,7 +526,16 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
     });
 
     it('names its trigger, so it cannot drift into a document nobody runs', () => {
-      expect(fs.readFileSync(CHECKLIST, 'utf8')).toMatch(/\/b-release`? Phase 2\.9/);
+      // Inside §5 specifically: the release path and its App Store review gate are named where
+      // the run is defined, not anywhere in the file.
+      const body = checklistSection(
+        fs.readFileSync(CHECKLIST, 'utf8'),
+        /Running against a TestFlight build/,
+      );
+      expect(body).not.toBeNull();
+      expect(body as string).toMatch(/release PR/);
+      expect(body as string).toMatch(/App Store review/);
+      expect(body as string).toMatch(/not a gate/);
     });
 
     describe('INFRA-605 — the hotfix trigger, which no skill fires', () => {
@@ -530,7 +550,7 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
         const body = section as string;
         // Both paths that land here must be named IN it, or "both point at one section" is prose.
         expect(body).toMatch(/hotfix/i);
-        expect(body).toMatch(/waiv/i);
+        expect(body).toMatch(/release/i);
         // The binding chain: a tree diff cannot reach a binary installed from Apple, so the
         // record prints each link instead. Losing any one of them loses the chain.
         expect(body).toMatch(/gitCommitHash/);
@@ -538,15 +558,27 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
         expect(body).toMatch(/ASC build:/);
       });
 
-      it('refuses WAIVED on the hotfix path instead of extending the release waiver to it', () => {
+      it('refuses WAIVED on the TestFlight path, release and hotfix alike', () => {
         const body = checklistSection(
           fs.readFileSync(CHECKLIST, 'utf8'),
           /Running against a TestFlight build/,
         );
         expect(body).not.toBeNull();
+        expect(body as string).toMatch(/No waiver on the TestFlight path/);
         expect(body as string).toMatch(
-          /`WAIVED` is not a permitted `Result:` for a hotfix build/,
+          /`WAIVED` is not a permitted `Result:` for a release or hotfix build/,
         );
+      });
+
+      it('the result block offers VOID and no longer offers WAIVED', () => {
+        const block = checklistSection(fs.readFileSync(CHECKLIST, 'utf8'), /Result block/);
+        expect(block).not.toBeNull();
+        const alternatives = (block as string).match(/^Result:[^\n]*\|[^\n]*$/gm);
+        expect(alternatives).not.toBeNull();
+        expect((alternatives as string[]).length).toBe(1);
+        expect((alternatives as string[])[0]).toMatch(/\bVOID\b/);
+        expect((alternatives as string[])[0]).not.toMatch(/WAIVED/);
+        expect((alternatives as string[])[0]).not.toMatch(/PENDING/);
       });
 
       it('still concedes the unchecked TestFlight window rather than claiming hotfixes are covered', () => {
@@ -559,6 +591,17 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
         expect(body.trim().length).toBeGreaterThan(200);
         expect(body).toMatch(/TestFlight/);
         expect(body).toMatch(/INFRA-605/);
+        // Generalized: every release reaches TestFlight unchecked, not only hotfixes.
+        expect(body).toMatch(/every release/i);
+      });
+
+      it('lists the revert triggers under Known gaps', () => {
+        const gaps = checklistSection(fs.readFileSync(CHECKLIST, 'utf8'), /Known gaps/);
+        expect(gaps).not.toBeNull();
+        expect(gaps as string).toMatch(/groups/);
+        expect(gaps as string).toMatch(/--platform ios/);
+        expect(gaps as string).toMatch(/non-founder/);
+        expect(gaps as string).toMatch(/first public App Store availability/i);
       });
 
       it('lists the hotfix step among what a removal commit must take with it', () => {
@@ -566,6 +609,53 @@ describe('DEBUG-589 — the device-unavailability notice', () => {
         const removal = checklistSection(fs.readFileSync(CHECKLIST, 'utf8'), /Removal/);
         expect(removal).not.toBeNull();
         expect(removal as string).toMatch(/hotfix/i);
+      });
+    });
+
+    describe('2026-10-09 — the device check is not a release gate only while TestFlight is founder-only', () => {
+      const RULING =
+        'decision 2026-10-09: the crisis device check is not a release gate only while ' +
+        'TestFlight reaches the founder alone and every production binary needs a manual ' +
+        'promotion — make it a release gate again ' +
+        '(docs/testing/crisis-device-checklist.md §8) before changing this';
+      const EAS_JSON = path.join(APP_ROOT, 'eas.json');
+      const RELEASE_YML = path.join(APP_ROOT, '..', '.github', 'workflows', 'release.yml');
+
+      /** Every `--platform <value>` token, from comment-stripped YAML. */
+      function platformsOf(yml: string): string[] {
+        return [...stripYamlComments(yml).matchAll(/--platform[=\s]+([A-Za-z0-9_-]+)/g)].map((m) => m[1]);
+      }
+
+      describe('vacuity controls', () => {
+        it('the platform extractor reads a real build and ignores commented ones', () => {
+          expect(platformsOf('run: eas build --platform ios --profile production')).toEqual(['ios']);
+          expect(platformsOf('run: eas build \\\n  --platform all')).toEqual(['all']);
+          expect(platformsOf('# eas build --platform android\nrun: eas build --platform ios')).toEqual(['ios']);
+          expect(platformsOf('run: echo nothing')).toEqual([]);
+        });
+
+        it('the release workflow and eas.json are real files', () => {
+          expect(fs.readFileSync(RELEASE_YML, 'utf8').length).toBeGreaterThan(1000);
+          expect(Object.keys(JSON.parse(fs.readFileSync(EAS_JSON, 'utf8')).submit.production)).toContain('ios');
+        });
+      });
+
+      it('revert trigger 1: eas.json submit.production.ios has no groups key', () => {
+        const eas = JSON.parse(fs.readFileSync(EAS_JSON, 'utf8'));
+        const ios = eas.submit?.production?.ios;
+        expect(ios).toBeDefined();
+        if (Object.prototype.hasOwnProperty.call(ios, 'groups')) {
+          throw new Error(`submit.production.ios gained a "groups" key. ${RULING}`);
+        }
+      });
+
+      it('revert trigger 2: release.yml builds --platform ios only', () => {
+        const platforms = platformsOf(fs.readFileSync(RELEASE_YML, 'utf8'));
+        if (platforms.length === 0 || platforms.some((p) => p !== 'ios')) {
+          throw new Error(
+            `release.yml --platform values are [${platforms.join(', ')}], expected only ios. ${RULING}`,
+          );
+        }
       });
     });
 
