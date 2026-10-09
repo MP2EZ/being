@@ -196,26 +196,6 @@ export interface AssessmentAccessibilityProps {
 }
 
 /**
- * Type guard functions for component props validation
- */
-
-export function isValidAssessmentResponse(value: unknown): value is AssessmentResponse {
-  return typeof value === 'number' && value >= 0 && value <= 3 && Number.isInteger(value);
-}
-
-export function isPHQ9Result(result: PHQ9Result | GAD7Result): result is PHQ9Result {
-  return 'suicidalIdeation' in result;
-}
-
-export function isGAD7Result(result: PHQ9Result | GAD7Result): result is GAD7Result {
-  return !('suicidalIdeation' in result);
-}
-
-export function isCrisisTriggered(result: PHQ9Result | GAD7Result): boolean {
-  return result.isCrisis;
-}
-
-/**
  * Component Performance Requirements
  */
 
