@@ -209,7 +209,12 @@ describe('FEAT-710: the store-billing notice', () => {
   const ANDROID =
     'If you pay for Being through Google Play, deleting your account does not cancel billing. ' +
     'To cancel, open Play Store, then Payments & subscriptions, then Subscriptions.';
-  const PRESERVED = /minimal record of your consent/;
+  // DEBUG-762: names what is kept and gives a truthful category for the rest. Pinned
+  // literally, not imported, so a rewording has to come back through compliance.
+  const PRESERVED =
+    'Kept on this device: a short record that this deletion happened, with its date and ' +
+    'your privacy choices at that moment, a note that the app was opened before, and some ' +
+    'app settings caches that hold no information about you. None of these identifies you.';
 
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   const { Platform } = require('react-native');
@@ -264,13 +269,22 @@ describe('FEAT-710: the store-billing notice', () => {
     const order = readingOrder(render(<DeleteAccountScreen />).toJSON());
     const at = (pred: (s: string) => boolean) => order.findIndex(pred);
     const removed = at((s) => s === 'What is removed');
-    const preserved = at((s) => PRESERVED.test(s));
+    const preserved = at((s) => s === PRESERVED);
     const notice = at((s) => s === '#delete-subscription-notice');
     const confirm = at((s) => s === '#delete-confirm-input');
     expect([removed, preserved, notice, confirm].every((i) => i >= 0)).toBe(true);
     expect(removed).toBeLessThan(preserved);
     expect(preserved).toBeLessThan(notice);
     expect(notice).toBeLessThan(confirm);
+  });
+
+  it('the preserved-record note is the DEBUG-762 text, verbatim, and no longer claims consent or age records are kept', () => {
+    const { getByText, queryByText, toJSON } = render(<DeleteAccountScreen />);
+    expect(getByText(PRESERVED)).toBeTruthy();
+    expect(queryByText(/consent and age verification/)).toBeNull();
+    expect(readingOrder(toJSON()).some((s) => s.includes('consent and age verification'))).toBe(false);
+    // Glyph-free (VoiceOver) and names no crisis record.
+    expect(PRESERVED).not.toMatch(/crisis|→|>/i);
   });
 
   it('is inert: no role, no live region, no press handler, and no pressable is added', () => {

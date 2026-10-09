@@ -137,6 +137,7 @@ const {
   default: service,
   SECURE_STORAGE_CONFIG,
   ERASURE_EXCLUDED_SECURE_STORE_KEYS,
+  ACCOUNT_ERASURE_SECURE_STORE_KEYS,
   STORAGE_METADATA_INDEX_KEY,
 } = require('../SecureStorageService');
 
@@ -289,10 +290,25 @@ describe('account erasure removes the storage-access audit logs', () => {
 });
 
 describe('the erasure exclusions are unaffected', () => {
-  it('preserves the consent audit trail and the identity anchor', async () => {
-    // Lawful-basis evidence and the anonymous device-identity anchor are
-    // DELIBERATELY excluded from the sweep. Widening the sweep by one prefix
-    // must not widen it into these.
+  it('a full account-deletion wipe deletes every account-scoped erasure key (DEBUG-762)', async () => {
+    // Positive control for the survivor assertion below: it only means something if the
+    // keys it does NOT list really are gone. The consent record, legal-gate acceptances,
+    // age check and device anchors belong to the account and go with it.
+    expect([...ACCOUNT_ERASURE_SECURE_STORE_KEYS].length).toBe(5);
+    for (const key of ACCOUNT_ERASURE_SECURE_STORE_KEYS as readonly string[]) {
+      mockSecureStoreMap.set(key, JSON.stringify({ planted: true }));
+    }
+
+    await service.clearAllWellnessData({ deleteMasterKey: true });
+
+    for (const key of ACCOUNT_ERASURE_SECURE_STORE_KEYS as readonly string[]) {
+      expect([key, mockSecureStoreMap.has(key)]).toEqual([key, false]);
+    }
+  });
+
+  it('preserves the deletion evidence (the attestation and the consent-history fallback)', async () => {
+    // The account-deletion attestation is DELIBERATELY excluded from the sweep
+    // (Art. 17(3)(b) demonstrability). Widening the sweep must not widen it into these.
     for (const key of ERASURE_EXCLUDED_SECURE_STORE_KEYS as readonly string[]) {
       mockSecureStoreMap.set(key, JSON.stringify({ preserved: true }));
     }

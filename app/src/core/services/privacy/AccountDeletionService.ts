@@ -70,10 +70,12 @@ export async function deleteAccountAndWipe({
   }
 
   // 2. Terminal audit attestation BEFORE the wipe. It lands in the plaintext
-  //    consent_history_v1 key, which is in ERASURE_EXCLUDED_SECURE_STORE_KEYS
-  //    (survives the sweep) and is NOT master-key encrypted (survives
+  //    account_deletion_attestation_v1 key (and, for fallback, the legacy
+  //    consent_history_v1 key), both in ERASURE_EXCLUDED_SECURE_STORE_KEYS
+  //    (survive the sweep) and NOT master-key encrypted (survive
   //    deleteMasterKey:true). Best-effort: a failed attestation must not strand
-  //    an already-successful server erasure.
+  //    an already-successful server erasure — and step 6's deletion of the consent,
+  //    legal-gate, age and device keys does not depend on it (DEBUG-762).
   try {
     await useConsentStore.getState().recordAccountDeletionAttestation();
   } catch (error) {

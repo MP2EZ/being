@@ -96,6 +96,7 @@ jest.mock('@/core/components/shared/BrainIcon', () => {
 jest.mock('@/core/components/NotificationTimePicker', () => ({ __esModule: true, default: () => null }));
 jest.mock('@/features/crisis/components/CollapsibleCrisisButton', () => ({ __esModule: true, default: () => null }));
 
+import * as SecureStore from 'expo-secure-store';
 import { ACCOUNT_DELETION_ATTESTATION_KEY } from '@/core/services/security/SecureStorageService';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
 import {
@@ -204,11 +205,36 @@ describe('the warm session after erasure (AC1, AC4)', () => {
     expect(await useConsentStore.getState().getStoredAgeVerification()).toBeNull();
   });
 
-  it('keeps the attestation and the retired records on disk (retire, not delete — DEBUG-762)', async () => {
+  it('keeps the attestation but DELETES the consent, legal-gate, age and device records (DEBUG-762)', async () => {
     await seedOnboardedAccount();
+    mockSecure.set('auth_device_id', 'legacy-anchor');
+    mockSecure.set('@being/device_id', 'dead-key');
+    expect(mockSecure.has(CONSENT_KEY)).toBe(true); // control: they were on disk before
     await erase();
     expect(mockSecure.has(ACCOUNT_DELETION_ATTESTATION_KEY)).toBe(true);
-    expect(mockSecure.has(CONSENT_KEY)).toBe(true);
+    for (const key of ['consent_record_v1', 'legal_gate_consents_v1', 'age_verification_v1', 'auth_device_id', '@being/device_id']) {
+      expect([key, mockSecure.has(key)]).toEqual([key, false]);
+    }
+  });
+
+  it('erasure still deletes the records when the attestation write throws (deletion is independent of step 2)', async () => {
+    await seedOnboardedAccount();
+    mockSecure.set('auth_device_id', 'legacy-anchor');
+    mockSecure.set('@being/device_id', 'dead-key');
+    const realSet = (SecureStore.setItemAsync as jest.Mock).getMockImplementation()!;
+    (SecureStore.setItemAsync as jest.Mock).mockImplementation(async (k: string, v: string) => {
+      if (k === ACCOUNT_DELETION_ATTESTATION_KEY || k === 'consent_history_v1') throw new Error('attestation write failed');
+      return realSet(k, v);
+    });
+    try {
+      await erase();
+    } finally {
+      (SecureStore.setItemAsync as jest.Mock).mockImplementation(realSet);
+    }
+    expect(mockSecure.has(ACCOUNT_DELETION_ATTESTATION_KEY)).toBe(false);
+    for (const key of ['consent_record_v1', 'legal_gate_consents_v1', 'age_verification_v1', 'auth_device_id', '@being/device_id']) {
+      expect([key, mockSecure.has(key)]).toEqual([key, false]);
+    }
   });
 
   it('onboarding after erasure returns to the legal gate and grants nothing', async () => {
