@@ -25,7 +25,7 @@ import {
   assertNotEquals,
   assertStrictEquals,
 } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
-import { handle, type AppleReceiptDeps } from '../verify-apple-receipt/handler.ts';
+import { appleFailureMetadata, handle, type AppleReceiptDeps } from '../verify-apple-receipt/handler.ts';
 import { verifyAppleJWS } from '../_shared/verifyAppleJWS.ts';
 import {
   AppleAuthError,
@@ -638,4 +638,312 @@ t('an audit RPC error on a failure path does not change the failure answer', asy
   const res = await handle(req(), h.deps);
   assertEquals(res.status, 503);
   assertEquals(await bodyJson(res), { valid: false, error: 'App Store is temporarily unavailable' });
+});
+
+// ---------------------------------------------------------------------------
+// MAINT-765: no identifier and no free text in any log line
+// ---------------------------------------------------------------------------
+//
+// Compliance ruling: a function log must carry no user id, no Apple transaction id, no
+// subscription row id, no whole error object and no error text - and no hashed, truncated or
+// prefixed form of any of them. What a log may say about a failure is a CLOSED reason (an
+// error class name from an allowlist, or an audit reason the branch already writes).
+//
+// Audit rows are checked against the ERROR-TEXT sentinels only: p_user_id carries the user id
+// and p_subscription_id the transaction id on success rows by design (the audit table is the
+// access-controlled record; function logs are not).
+
+const ROW_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+const MOCK_ID = 'mock_receipt_yearly_1700000000000';
+const SENTINEL_TEXT = `SENTINEL ${JWT_SUB} ${ORIGINAL_TXN}`;
+
+const LOG_FORBIDDEN = [
+  JWT_SUB,
+  OTHER_USER,
+  ANON_SESSION_TOKEN,
+  ANON_SESSION_TOKEN.split('.')[1],
+  ORIGINAL_TXN,
+  ROW_ID,
+  MOCK_ID,
+  'mock_sub_',
+  'issuer-test-0001',
+  'keyid-test-0001',
+  'apple-private-key-placeholder',
+  'GARBAGE',
+  'SENTINEL',
+];
+const AUDIT_FORBIDDEN = ['SENTINEL', 'apple-private-key-placeholder'];
+
+function assertNothingForbidden(where: string, text: string, forbidden: string[]) {
+  for (const f of forbidden) assert(!text.includes(f), `${where} carries ${JSON.stringify(f)}: ${text}`);
+}
+
+/** An error whose message, stack and extra fields all carry sentinel text. */
+function leakyError<E extends Error>(err: E, text = SENTINEL_TEXT): E {
+  err.message = text;
+  err.stack = `${err.name}: ${text}\n    at SENTINEL (frame)`;
+  Object.assign(err, { details: text, hint: text });
+  return err;
+}
+
+const DB_LEAK = { code: '42501', message: SENTINEL_TEXT, details: SENTINEL_TEXT, hint: SENTINEL_TEXT };
+
+interface LeakCase {
+  name: string;
+  env?: Record<string, string | undefined>;
+  build: () => Promise<{ h: Harness; req: Request; extraForbidden?: string[] }>;
+}
+
+const LEAK_CASES: LeakCase[] = [
+  {
+    name: 'valid success',
+    build: async () => ({ h: harness({ jws: await sign() }), req: req() }),
+  },
+  {
+    name: 'valid success on a Sandbox transaction',
+    build: async () => ({
+      h: harness({ jws: await sign({ environment: 'Sandbox' }) }),
+      req: req({ transactionId: ORIGINAL_TXN, environment: 'Sandbox' }),
+    }),
+  },
+  {
+    name: 'transaction not active',
+    build: async () => ({ h: harness({ jws: await sign({ expiresDate: NOW - 1 }) }), req: req() }),
+  },
+  {
+    name: 'replay: transaction bound to another user',
+    build: async () => ({
+      h: harness({
+        jws: await sign(),
+        seed: {
+          subscriptions: [{
+            id: ROW_ID,
+            user_id: OTHER_USER,
+            platform: 'apple',
+            original_transaction_id: ORIGINAL_TXN,
+            status: 'active',
+          }],
+        },
+      }),
+      req: req(),
+    }),
+  },
+  {
+    name: 'missing transaction identifier',
+    build: async () => ({
+      h: harness({ jws: await sign({ originalTransactionId: undefined }) }),
+      req: req(),
+    }),
+  },
+  ...[
+    new TransactionNotFoundError(4040010),
+    new InvalidTransactionIdError(),
+    new AppleUnavailableError(503),
+    new AppleAuthError(401),
+    new AppStoreConnectConfigError('x'),
+    new Error('x'),
+    new TypeError('x'),
+  ].map((err) => ({
+    name: `upstream ${err.name} carrying sentinel text`,
+    build: () => Promise.resolve({ h: harness({ fetchThrows: leakyError(err) }), req: req() }),
+  })),
+  {
+    name: 'upstream throws a non-Error string with sentinel text',
+    build: () => Promise.resolve({ h: harness({ fetchThrows: SENTINEL_TEXT }), req: req() }),
+  },
+  {
+    name: 'upstream throws a plain object with sentinel text',
+    build: () =>
+      Promise.resolve({
+        h: harness({ fetchThrows: { message: SENTINEL_TEXT, details: SENTINEL_TEXT, status: 500 } }),
+        req: req(),
+      }),
+  },
+  {
+    name: 'environment mismatch (Sandbox-signed, asked for as Production)',
+    build: async () => ({ h: harness({ jws: await sign({ environment: 'Sandbox' }) }), req: req() }),
+  },
+  {
+    name: 'app scope refusal (another app)',
+    build: async () => ({ h: harness({ jws: await sign({ bundleId: 'com.someone.else' }) }), req: req() }),
+  },
+  {
+    name: 'malformed JSON body containing the transaction id',
+    build: () =>
+      Promise.resolve({
+        h: harness(),
+        req: request(token, `{"transactionId":${ORIGINAL_TXN}${ORIGINAL_TXN}, "environment": GARBAGE`),
+      }),
+  },
+  {
+    name: 'upsert failure with sentinel database text',
+    build: async () => {
+      const h = harness({ jws: await sign() });
+      h.db.failOn('subscriptions', 'upsert', DB_LEAK);
+      return { h, req: req() };
+    },
+  },
+  {
+    name: 'upsert unique violation carrying sentinel text (TOCTOU replay)',
+    build: async () => {
+      const h = harness({ jws: await sign() });
+      h.db.failOn('subscriptions', 'upsert', { ...DB_LEAK, code: '23505' });
+      return { h, req: req() };
+    },
+  },
+  {
+    name: 'ownership lookup failure with sentinel database text',
+    build: async () => {
+      const h = harness({ jws: await sign() });
+      h.db.failOn('subscriptions', 'select', DB_LEAK);
+      return { h, req: req() };
+    },
+  },
+  {
+    name: 'audit RPC failure with sentinel message, hint and details (success path)',
+    build: async () => {
+      const h = harness({ jws: await sign() });
+      h.db.failRpc('log_subscription_event', DB_LEAK);
+      return { h, req: req() };
+    },
+  },
+  {
+    name: 'audit RPC failure with sentinel text (failure path)',
+    build: () => {
+      const h = harness({ fetchThrows: new AppleUnavailableError(503) });
+      h.db.failRpc('log_subscription_event', DB_LEAK);
+      return Promise.resolve({ h, req: req() });
+    },
+  },
+  {
+    name: 'missing encryption key',
+    env: { RECEIPT_ENCRYPTION_KEY: undefined },
+    build: async () => ({ h: harness({ jws: await sign() }), req: req() }),
+  },
+  {
+    name: 'mock branch accepted (ALLOW_MOCK_RECEIPTS=true)',
+    env: { ALLOW_MOCK_RECEIPTS: 'true' },
+    build: () => Promise.resolve({ h: harness(), req: req({ transactionId: MOCK_ID }) }),
+  },
+  {
+    name: 'mock branch rejected (ALLOW_MOCK_RECEIPTS unset)',
+    build: () => Promise.resolve({ h: harness(), req: req({ transactionId: MOCK_ID }) }),
+  },
+];
+
+for (const c of LEAK_CASES) {
+  Deno.test(`no identifier or error text in any log line or audit row: ${c.name}`, async () => {
+    const lines: string[] = [];
+    const { h, req: r, extraForbidden = [] } = await c.build();
+    await scenario(c.env ?? {}, () => handle(r, h.deps), lines);
+    // Non-vacuity: every path logs, so an empty capture cannot pass for a clean one.
+    assert(lines.length > 0, 'nothing was captured');
+    assertNothingForbidden('an audit row', JSON.stringify(h.db.rpcCalls), AUDIT_FORBIDDEN);
+    for (const line of lines) assertNothingForbidden('a log line', line, [...LOG_FORBIDDEN, ...extraForbidden]);
+  });
+}
+
+Deno.test('control: the capture sees a user id in an Error and a value nested five levels deep', async () => {
+  const lines: string[] = [];
+  await scenario({}, () => {
+    console.error(
+      'probe',
+      new Error(`x ${JWT_SUB}`),
+      { nested: { a: { b: { c: { d: ORIGINAL_TXN } } } } },
+    );
+    return Promise.resolve();
+  }, lines);
+  assert(lines.some((l) => l.includes(JWT_SUB)), 'capture missed a logged user id');
+  assert(lines.some((l) => l.includes(ORIGINAL_TXN)), 'capture missed a deeply nested transaction id');
+});
+
+Deno.test('control: the forbidden-string matcher throws on a hand-built leaky line', () => {
+  for (const leaky of [`user: ${JWT_SUB}`, `txn ${ORIGINAL_TXN}`, 'Error: SENTINEL boom']) {
+    let threw = false;
+    try {
+      assertNothingForbidden('a log line', leaky, LOG_FORBIDDEN);
+    } catch {
+      threw = true;
+    }
+    assert(threw, `matcher accepted ${JSON.stringify(leaky)}`);
+  }
+});
+
+// What a log line SAYS about a failure: pinned positively, so a regression to "log nothing
+// useful" is as visible as a leak.
+
+const lineFor = (lines: string[], needle: string) => lines.filter((l) => l.includes(needle));
+
+t('a failed verification logs the closed reason, and the audit row carries the same one', async () => {
+  const lines: string[] = [];
+  const h = harness({ fetchThrows: leakyError(new AppleAuthError(401)) });
+  await scenario({}, () => handle(req(), h.deps), lines);
+  assert(lineFor(lines, 'Verification failed').every((l) => l.includes('AppleAuthError')), lines.join('\n'));
+  assertEquals(lineFor(lines, 'Verification failed').length, 1);
+  assertEquals((auditRows(h.db)[0].p_metadata as { reason: string }).reason, 'AppleAuthError');
+});
+
+t('a replay logs the closed audit reason, not the user', async () => {
+  const lines: string[] = [];
+  const bound = { user_id: OTHER_USER, platform: 'apple', original_transaction_id: ORIGINAL_TXN };
+  const h = harness({ jws: await sign(), seed: { subscriptions: [bound] } });
+  await scenario({}, () => handle(req(), h.deps), lines);
+  assertEquals(lineFor(lines, 'Replay rejected').length, 1);
+  assert(lineFor(lines, 'Replay rejected')[0].includes('txn_bound_to_other_user'));
+});
+
+t('a missing identifier logs its closed audit reason', async () => {
+  const lines: string[] = [];
+  const h = harness({ jws: await sign({ originalTransactionId: undefined }) });
+  await scenario({}, () => handle(req(), h.deps), lines);
+  assert(lineFor(lines, 'No stable transaction identifier')[0].includes('missing_txn_identifier'), lines.join('\n'));
+});
+
+t('a transaction that is not active logs its closed audit reason', async () => {
+  const lines: string[] = [];
+  const h = harness({ jws: await sign({ expiresDate: NOW - 1 }) });
+  await scenario({}, () => handle(req(), h.deps), lines);
+  assert(lineFor(lines, 'Transaction not active')[0].includes('expired_or_revoked'), lines.join('\n'));
+});
+
+t('the catch-all logs an allowlisted error NAME only, never the message', async () => {
+  const lines: string[] = [];
+  const h = harness({ jws: await sign() });
+  h.db.failOn('subscriptions', 'select', DB_LEAK);
+  await scenario({}, () => handle(req(), h.deps), lines);
+  const unexpected = lineFor(lines, 'Unexpected error');
+  assertEquals(unexpected.length, 1);
+  assert(unexpected[0].endsWith('Error'), unexpected[0]);
+});
+
+// ---------------------------------------------------------------------------
+// appleFailureMetadata: the closed reason, matched by class
+// ---------------------------------------------------------------------------
+
+for (
+  const err of [
+    new TransactionNotFoundError(4040010),
+    new InvalidTransactionIdError(),
+    new AppleUnavailableError(503),
+    new AppleAuthError(401),
+    new AppStoreConnectConfigError('APPLE_KEY_ID is not configured'),
+  ]
+) {
+  Deno.test(`appleFailureMetadata: ${err.name} -> its class name, nothing else`, () => {
+    assertEquals(appleFailureMetadata(err), { reason: err.name });
+  });
+}
+
+Deno.test('appleFailureMetadata: any other Error is the literal "Error", whatever its name or message', () => {
+  const impostor = new Error(SENTINEL_TEXT);
+  impostor.name = 'TransactionNotFoundError';
+  assertEquals(appleFailureMetadata(impostor), { reason: 'Error' });
+  assertEquals(appleFailureMetadata(new TypeError(SENTINEL_TEXT)), { reason: 'Error' });
+  assertEquals(appleFailureMetadata(new RangeError('x')), { reason: 'Error' });
+});
+
+Deno.test('appleFailureMetadata: a non-Error is "unknown", whatever it carries', () => {
+  for (const v of [SENTINEL_TEXT, { message: SENTINEL_TEXT, name: 'AppleAuthError' }, null, undefined, 42]) {
+    assertEquals(appleFailureMetadata(v), { reason: 'unknown' });
+  }
 });

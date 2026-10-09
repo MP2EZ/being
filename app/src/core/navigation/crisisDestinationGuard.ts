@@ -18,7 +18,9 @@
  * Consumers: CleanRootNavigator's AssessmentFlow completion (DEBUG-706,
  * `dismissRouteThenNotify`), DeleteAccountScreen's post-erasure reset
  * (DEBUG-703, `runWhenNoCrisisDestinationFocused`), and onboarding completion
- * (DEBUG-711, `completeOnboarding`, which defers its whole replace-then-push).
+ * (DEBUG-711, `completeOnboarding`, which defers its whole replace-then-push),
+ * and the ReConsent / ConsentBlocked dismissals in CleanRootNavigator (DEBUG-733,
+ * `removeOwnRoute`).
  */
 import { CommonActions } from '@react-navigation/native';
 import { logSystem } from '@/core/services/logging';

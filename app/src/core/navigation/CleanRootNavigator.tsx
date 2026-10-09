@@ -40,7 +40,7 @@ import BugReportOverlay from '@/core/components/BugReportOverlay';
 import Static988Button from '@/features/crisis/components/Static988Button';
 import RootCrisisBoundary from '@/features/crisis/components/RootCrisisBoundary';
 import PurchaseOptionsScreen from '@/core/components/subscription/PurchaseOptionsScreen';
-import SubscriptionStatusCard from '@/core/components/subscription/SubscriptionStatusCard';
+import SubscriptionStatusRoute from '@/core/components/subscription/SubscriptionStatusRoute';
 import OnboardingScreen from '@/features/onboarding/screens/OnboardingScreen';
 import EnhancedAssessmentFlow from '@/features/assessment/components/EnhancedAssessmentFlow';
 import ModuleDetailScreen from '@/features/learn/screens/ModuleDetailScreen';
@@ -571,7 +571,9 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => <ReConsentRoute onDismiss={() => navigation.goBack()} />}
+          {/* DEBUG-733 — dismisses after an await or an effect, so it removes ITSELF by key
+              (DEBUG-706 ruling); a bare goBack() would pop a CrisisResources opened above it. */}
+          {({ navigation, route }) => <ReConsentRoute onDismiss={() => removeOwnRoute(navigation, route.key)} />}
         </Stack.Screen>
 
         {/* DEBUG-451 — the explanation for the three fail-closed consent
@@ -607,7 +609,9 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => <ConsentBlockedRoute onDismiss={() => navigation.goBack()} />}
+          {/* DEBUG-733 — dismisses after an await or an effect, so it removes ITSELF by key
+              (DEBUG-706 ruling); a bare goBack() would pop a CrisisResources opened above it. */}
+          {({ navigation, route }) => <ConsentBlockedRoute onDismiss={() => removeOwnRoute(navigation, route.key)} />}
         </Stack.Screen>
 
         {/* Educational Module Detail */}
@@ -929,7 +933,7 @@ const CleanRootNavigator: React.FC = () => {
 
           <Stack.Screen
             name="SubscriptionStatus"
-            component={SubscriptionStatusCard}
+            component={SubscriptionStatusRoute}
             options={{
               title: 'Subscription Status',
               headerShown: true,
