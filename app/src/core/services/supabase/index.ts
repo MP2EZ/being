@@ -108,7 +108,9 @@ async function initializeCloudServices(): Promise<void> {
 function setupAppLifecycleHandlers(): void {
   AppState.addEventListener('change', async (nextAppState) => {
     if (nextAppState === 'active') {
-      // App came to foreground
+      // App came to foreground. Defence in depth (DEBUG-756): the authoritative gate, and
+      // the drop/hold decision, are in SupabaseService.processOfflineQueue.
+      if (!hasCloudSyncConsent()) return;
       try {
         await supabaseService.processOfflineQueue();
       } catch (error) {

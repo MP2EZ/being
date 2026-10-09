@@ -499,7 +499,8 @@ class SupabaseService {
    * DEBUG-409 — provision the crisis-telemetry lane at boot, and NOTHING else.
    *
    * Deliberately does NOT set `isInitialized`. That is what keeps AC2 structurally
-   * true rather than merely asserted: `processOfflineQueue` stays gated, backups stay
+   * true rather than merely asserted: `processOfflineQueue` stays gated on
+   * `isInitialized` (and, since DEBUG-756, on cloud_sync consent), backups stay
    * gated in CloudBackupService, `trackEvent` keeps its own `cloud_sync` check, and
    * `forceSync` keeps its defence-in-depth gate in index.ts. The vital-interest lane
    * provisions a client to deliver `crisis_detected` and touches no other egress.
@@ -827,6 +828,15 @@ class SupabaseService {
    * Save encrypted backup to cloud
    */
   async saveBackup(encryptedData: string, checksum: string, version: number = 1): Promise<boolean> {
+    // DEBUG-756: no upload, and no enqueue, without cloud_sync consent. Refusing BEFORE the
+    // enqueue branches matters: a refusal that queued would re-create the queue that
+    // processOfflineQueue just dropped, and inside that loop would duplicate the op it is
+    // iterating on every foreground.
+    if (!this.hasCloudSyncConsent()) {
+      logSecurity('[SupabaseService] saveBackup skipped — cloud_sync consent absent', 'low');
+      return false;
+    }
+
     if (!this.isInitialized || !this.client || !this.userId) {
       logSecurity('[SupabaseService] Not initialized, queuing backup for later', 'low');
       this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
@@ -1412,10 +1422,59 @@ class SupabaseService {
   }
 
   /**
+   * DEBUG-756 — cloud_sync consent, read at the moment of the cloud act. Never throws: it is
+   * reached from the AppState listener, beside the crisis-telemetry retry.
+   */
+  private hasCloudSyncConsent(): boolean {
+    try {
+      return useConsentStore.getState().canPerformOperation('cloud_sync');
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * DEBUG-756 — what consent says to do with the queued backups right now (compliance ruling):
+   * - 'hold' while consent is still 'loading': unknown is not a withdrawal, and a cold-start
+   *   foreground can land before hydration - dropping then would erase a consenting user's
+   *   queue on every boot. A failed read also holds (no upload, no drop).
+   * - 'drop' on definitive absence (cloud_sync off, Universal Opt-Out, revoked, any other
+   *   non-valid status): privacy policy §9 says opt-out "immediately suppresses" the backup,
+   *   and nothing is kept for a purpose the user withdrew from. Dropping loses nothing - the
+   *   queue is a retry buffer, and CloudBackupService re-creates a fresh backup once consent
+   *   is valid again, so holding would only replay a pre-withdrawal snapshot. Same
+   *   emit/hold/purge shape as DEBUG-686's analytics disposition.
+   * - 'process' when consent is valid.
+   * A plain `=== 'loading'` check, deliberately: suites that mock the store with only
+   * `canPerformOperation` must still read as process-or-drop.
+   */
+  private offlineQueueDisposition(): 'process' | 'hold' | 'drop' {
+    try {
+      const consent = useConsentStore.getState();
+      if (consent.consentStatus === 'loading') return 'hold';
+      return consent.canPerformOperation('cloud_sync') ? 'process' : 'drop';
+    } catch {
+      return 'hold';
+    }
+  }
+
+  /**
    * Process offline queue when connectivity is restored
    */
   async processOfflineQueue(): Promise<void> {
     if (this.offlineQueue.length === 0 || !this.isInitialized) return;
+
+    // DEBUG-756: decided ONCE, before the loop. A mid-loop withdrawal makes saveBackup refuse
+    // without re-queuing, so the item stays and the next pass drops it.
+    const disposition = this.offlineQueueDisposition();
+    if (disposition === 'hold') return;
+
+    if (disposition === 'drop') {
+      logSecurity('[SupabaseService] cloud_sync consent absent — dropping queued backups', 'low', {
+        droppedOperations: this.offlineQueue.length,
+      });
+      this.offlineQueue = [];
+    }
 
     logSecurity('[SupabaseService] Processing offline queue', 'low', {
       pendingOperations: this.offlineQueue.length,
@@ -1449,7 +1508,7 @@ class SupabaseService {
       this.offlineQueue.splice(processedOperations[i]!, 1);
     }
 
-    // Save updated queue
+    // Save updated queue (a drop persists '[]' here, so loadOfflineQueue cannot restore it)
     await AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(this.offlineQueue));
   }
 
@@ -1459,8 +1518,12 @@ class SupabaseService {
   private setupAppStateListener(): void {
     AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        // App came to foreground, process offline queue + retry crisis telemetry
-        this.processOfflineQueue();
+        // App came to foreground, process offline queue + retry crisis telemetry.
+        // The consent gate lives INSIDE processOfflineQueue (DEBUG-756), never here: the
+        // crisis retry is vital-interest and runs whatever the consent state.
+        void this.processOfflineQueue().catch((error) => {
+          logSecurity('[SupabaseService] Failed to process offline queue:', 'medium', { error });
+        });
         void this.flushCrisisAnalytics();
       } else if (nextAppState === 'background' || nextAppState === 'inactive') {
         // DEBUG-335: the ONLY point where the real-device kill window actually narrows.
