@@ -70,7 +70,8 @@ async function loadStripped(...relativePaths: string[]): Promise<string> {
   return stripped;
 }
 
-const GRACE = ['../grace-period-automation/index.ts'];
+// MAINT-770: the handler moved to handler.ts; the cron-secret read lives there, inline.
+const GRACE = ['../grace-period-automation/index.ts', '../grace-period-automation/handler.ts'];
 // Entry point first: that is where the literal env reads live (see the last test below).
 const ALERTER = [
   '../crisis-detection-alerting/index.ts',
