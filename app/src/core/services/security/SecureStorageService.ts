@@ -292,6 +292,50 @@ export const ACCOUNT_ERASURE_SECURE_STORE_KEYS = [
 ] as const;
 
 /**
+ * DEBUG-775 — AsyncStorage keys that are information about the ACCOUNT rather than
+ * wellness content, deleted by a full account-deletion wipe only (alongside
+ * `ACCOUNT_ERASURE_SECURE_STORE_KEYS`). Privacy policy §7.4 says only the deletion
+ * record, the first-open marker and settings caches stay on the device
+ * (`erasureSurvivorManifest.ts`); each of these is activity data that does not
+ * qualify, so it goes.
+ *
+ *  - cloud backup / sync: config, last-backup time and hash, stats, error history
+ *    and last-sync time. Every writer is gated on `cloud_sync` consent, which the
+ *    wipe deletes, so sweeping the key is the whole control (no erasure reset).
+ *    One window remains: a backup already past its consent check writes
+ *    `last_backup` after its awaited upload (no wellness data; DPIA residual).
+ *  - `data_retention_*`: the retention audit (category, record counts, oldest and
+ *    newest screening dates) and its daily limiter. `runRetentionCleanup` is fenced
+ *    off while an erasure is pending or in flight, so it cannot rewrite them.
+ *  - `consent_cache_v1`: the deleted account's privacy choices. A backstop to the
+ *    consent store's own reset.
+ *  - Dead writers a shipped build may have left: the circuit-breaker fallback caches
+ *    and `subscription_metadata_v1`; `@being/cloud_backup/stats` and
+ *    `@being/cloud_sync/stats` (read, never written, today).
+ *
+ * `error_alert_*` (sanitized alert events) and `circuit_breaker_queue_*` (unsanitized
+ * retry context) are prefix families in `ACCOUNT_ERASURE_ASYNC_PREFIXES`; both
+ * writers are reached only through CircuitBreaker, which has no production caller.
+ */
+export const ACCOUNT_ERASURE_ASYNC_KEYS = [
+  '@being/cloud_backup/config',
+  '@being/cloud_backup/last_backup',
+  '@being/cloud_backup/stats',
+  '@being/cloud_sync/stats',
+  '@being/cloud_sync/error_history',
+  '@being/supabase/last_sync',
+  'data_retention_audit_log',
+  'data_retention_last_cleanup',
+  'consent_cache_v1',
+  'assessment_cache',
+  'auth_cache',
+  'network_cache',
+  'subscription_metadata_v1',
+] as const;
+
+export const ACCOUNT_ERASURE_ASYNC_PREFIXES = ['error_alert_', 'circuit_breaker_queue_'] as const;
+
+/**
  * DEBUG-545 — keys that must NEVER be routed through the legacy-migration path.
  *
  * A SEPARATE list from `ERASURE_EXCLUDED_SECURE_STORE_KEYS`, and conflating the
@@ -1351,7 +1395,11 @@ export class SecureStorageService {
       // purges these at launch; sweeping them here too covers the user who
       // deletes their account without relaunching first (DEBUG-305). Same
       // predicate as the sweeper, so the two lists cannot drift (DEBUG-672).
-      isLegacyPlaintextRecord(k)
+      isLegacyPlaintextRecord(k) ||
+      // DEBUG-775 — account activity, on a full account-deletion wipe only.
+      (options.deleteMasterKey === true &&
+        ((ACCOUNT_ERASURE_ASYNC_KEYS as readonly string[]).includes(k) ||
+          ACCOUNT_ERASURE_ASYNC_PREFIXES.some((p) => k.startsWith(p))))
     );
     if (toRemove.length > 0) {
       await AsyncStorage.multiRemove(toRemove);
