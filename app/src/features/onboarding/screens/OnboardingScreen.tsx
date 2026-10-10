@@ -116,6 +116,12 @@ interface NotificationTime {
 // Component props interface for embedded mode support
 interface OnboardingScreenProps {
   onComplete?: (destination?: 'home' | 'practice') => void;
+  /**
+   * Re-ask at the legal gate (DEBUG-734). The caller replaces THIS route, by key at the
+   * root, deferred while a crisis destination is focused; a bare replace from here
+   * would replace a CrisisResources opened during the consent awaits.
+   */
+  onReturnToLegalGate: () => void;
   isEmbedded?: boolean;
 }
 
@@ -133,7 +139,7 @@ interface CrisisDetectionResult {
 // re-consent screen must re-ask these four with the SAME descriptions the user
 // agreed to here, and two divergent copies would drift invisibly.
 
-const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
+const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onReturnToLegalGate, isEmbedded = false }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const {
     trackScreenView,
@@ -1010,10 +1016,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             outcome: 'returned-to-legal-gate',
           },
         );
-        // MUST be `return`, not `throw`: the catch below ends in navigateNext()
-        // ("Still proceed - consent is optional"), which would silently convert this
-        // guard back into the fail-open behaviour it exists to close.
-        navigation.replace('LegalGate');
+        // MUST be `return`, not `throw`: a throw would land in the catch below and be
+        // logged as a failed grant. The decision is made and logged HERE; only the
+        // route change may wait for a crisis screen to close (DEBUG-734).
+        onReturnToLegalGate();
         return;
       }
 
@@ -1028,7 +1034,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       // re-ask as the legal-gate branch above, for the same reason: return, not throw.
       if (!ageVerification) {
         logError(LogCategory.SECURITY, 'No usable age verification at onboarding — returning to the legal gate');
-        navigation.replace('LegalGate');
+        onReturnToLegalGate();
         return;
       }
 
@@ -1041,7 +1047,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       // optional"), completing onboarding with no consent recorded. Wellness-data
       // consent is not optional; re-ask at the gate, whose 988 footer is unconditional.
       logError(LogCategory.SECURITY, 'Failed to save consent preferences — returning to the legal gate', error instanceof Error ? error : undefined);
-      navigation.replace('LegalGate');
+      onReturnToLegalGate();
+      return;
     }
   };
 

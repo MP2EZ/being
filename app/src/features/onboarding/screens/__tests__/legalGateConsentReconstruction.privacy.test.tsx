@@ -71,6 +71,10 @@ import { render, fireEvent, waitFor } from '@testing-library/react-native';
 
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
+// DEBUG-734: the screen no longer replaces its own route. It calls this prop, and the
+// navigator replaces Onboarding by key at the root, deferred while a crisis destination
+// is focused (pinned router-level by __tests__/safety/onboardingLegalGateReaskCrisisRoute).
+const mockReturnToLegalGate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate, replace: mockReplace }),
   useFocusEffect: jest.fn(),
@@ -117,11 +121,16 @@ jest.mock('@/core/services/logging', () => ({
   LogCategory: { SECURITY: 'security' },
 }));
 
-import { logSecurity } from '@/core/services/logging';
+import { logError, logSecurity } from '@/core/services/logging';
 
 import OnboardingScreen from '../OnboardingScreen';
 
 const mockLogSecurity = logSecurity as jest.MockedFunction<typeof logSecurity>;
+const mockLogError = logError as jest.MockedFunction<typeof logError>;
+
+/** The catch branch's log. Its absence proves a re-ask came from a decision, not a throw. */
+const FAILED_GRANT_LOG = 'Failed to save consent preferences';
+const failedGrantLogs = () => mockLogError.mock.calls.filter(([, message]) => message.includes(FAILED_GRANT_LOG));
 
 type Api = ReturnType<typeof render>;
 
@@ -150,10 +159,18 @@ async function continueThroughPrivacy(api: Api): Promise<void> {
   await waitFor(() => expect(mockGrantConsent).toHaveBeenCalledTimes(1));
 }
 
-/** The re-ask path: nothing is recorded, so wait on the route change instead. */
+/**
+ * The re-ask path: nothing is recorded, so wait on the re-ask instead. Exactly once,
+ * the screen replaces nothing itself, and the wizard did not advance (navigateNext
+ * would have rendered the celebration step).
+ */
 async function continueAndExpectReAsk(api: Api): Promise<void> {
   fireEvent.press(api.getByLabelText('Continue'));
-  await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('LegalGate'));
+  await waitFor(() => expect(mockReturnToLegalGate).toHaveBeenCalled());
+  expect(mockReturnToLegalGate).toHaveBeenCalledTimes(1);
+  expect(mockReplace).not.toHaveBeenCalled();
+  expect(api.queryByText('Your Mindfulness Journey Begins')).toBeNull();
+  expect(api.getByText('Privacy Settings')).toBeTruthy();
 }
 
 beforeEach(() => {
@@ -175,7 +192,7 @@ describe('an unreadable legal-gate record records NOTHING', () => {
   it('does not record a refusal when the read returns null', async () => {
     // Retained from DEBUG-382 — this was its finding and it still holds.
     mockGetLegalGateConsents.mockResolvedValue(null);
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueAndExpectReAsk(api);
@@ -188,7 +205,7 @@ describe('an unreadable legal-gate record records NOTHING', () => {
 
   it('does not record a grant either — the reversal of DEBUG-382', async () => {
     mockGetLegalGateConsents.mockResolvedValue(null);
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueAndExpectReAsk(api);
@@ -204,7 +221,7 @@ describe('an unreadable legal-gate record records NOTHING', () => {
     // "declines to write". A later refactor that reintroduces a default would
     // pass both assertions above by writing the OTHER value; this one catches it.
     mockGetLegalGateConsents.mockResolvedValue(null);
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueAndExpectReAsk(api);
@@ -214,7 +231,7 @@ describe('an unreadable legal-gate record records NOTHING', () => {
 
   it('records nothing when the read rejects', async () => {
     mockGetLegalGateConsents.mockRejectedValue(new Error('keychain unavailable'));
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueAndExpectReAsk(api);
@@ -224,34 +241,44 @@ describe('an unreadable legal-gate record records NOTHING', () => {
 });
 
 describe('the user is returned to the legal gate to re-capture the consent', () => {
-  it('replaces the route with LegalGate rather than advancing the wizard', async () => {
+  it('returns to LegalGate (onReturnToLegalGate) rather than advancing the wizard', async () => {
     mockGetLegalGateConsents.mockResolvedValue(null);
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueAndExpectReAsk(api);
 
-    expect(mockReplace).toHaveBeenCalledWith('LegalGate');
+    // DEBUG-734 migrated this pin from `mockReplace('LegalGate')`: the screen now hands
+    // the route change to the navigator, which replaces Onboarding by key.
+    expect(mockReturnToLegalGate).toHaveBeenCalledTimes(1);
+    expect(mockGrantConsent).not.toHaveBeenCalled();
+    expect(api.queryByText('Your Mindfulness Journey Begins')).toBeNull();
+    // A decision, not a throw: the branch returned before reaching the catch.
+    expect(failedGrantLogs()).toEqual([]);
   });
 
-  it('uses replace, not navigate — the wizard step must not stay on the stack', async () => {
+  it('uses the re-ask (a replace), not navigate — the wizard step must not stay on the stack', async () => {
     // A `navigate` would leave Onboarding beneath the gate, so completing the gate
     // would pop back into a half-finished wizard holding stale local consent state.
+    // DEBUG-734: the replace itself now lives in returnToLegalGate (replace by key at
+    // the root, pinned in the safety suite); the screen must not navigate OR replace.
     mockGetLegalGateConsents.mockResolvedValue(null);
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueAndExpectReAsk(api);
 
     expect(mockNavigate).not.toHaveBeenCalledWith('LegalGate', expect.anything());
     expect(mockNavigate).not.toHaveBeenCalledWith('LegalGate');
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReturnToLegalGate).toHaveBeenCalledTimes(1);
   });
 });
 
 describe('the decision is recorded — silence is what let the original defect survive', () => {
   it('logs at high severity, naming the re-ask as the outcome', async () => {
     mockGetLegalGateConsents.mockResolvedValue(null);
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueAndExpectReAsk(api);
@@ -268,7 +295,7 @@ describe('the decision is recorded — silence is what let the original defect s
     // Leaving them in place would make the audit trail describe a fabrication that
     // no longer happens — worse than no field at all.
     mockGetLegalGateConsents.mockResolvedValue(null);
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueAndExpectReAsk(api);
@@ -289,7 +316,7 @@ describe('the read is still retried before anything is concluded', () => {
     mockGetLegalGateConsents
       .mockRejectedValueOnce(new Error('transient'))
       .mockResolvedValueOnce(VALID_GATE_RECORD);
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueThroughPrivacy(api);
@@ -300,6 +327,7 @@ describe('the read is still retried before anything is concluded', () => {
       expect.anything(),
     );
     expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReturnToLegalGate).not.toHaveBeenCalled();
     // A successful retry is not a failure — nothing to report.
     expect(mockLogSecurity).not.toHaveBeenCalledWith(
       expect.stringContaining('legal-gate'),
@@ -309,7 +337,7 @@ describe('the read is still retried before anything is concluded', () => {
   });
 
   it('does not retry when the first read succeeds', async () => {
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueThroughPrivacy(api);
@@ -327,7 +355,7 @@ describe('a genuine recorded decision is passed through untouched', () => {
       ...VALID_GATE_RECORD,
       mentalHealthProcessingConsent: false,
     });
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueThroughPrivacy(api);
@@ -337,6 +365,7 @@ describe('a genuine recorded decision is passed through untouched', () => {
       expect.anything(),
     );
     expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReturnToLegalGate).not.toHaveBeenCalled();
     expect(mockLogSecurity).not.toHaveBeenCalledWith(
       expect.stringContaining('legal-gate'),
       'high',
@@ -345,7 +374,7 @@ describe('a genuine recorded decision is passed through untouched', () => {
   });
 
   it('passes a readable `true` through without touching it', async () => {
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueThroughPrivacy(api);
@@ -355,6 +384,7 @@ describe('a genuine recorded decision is passed through untouched', () => {
       expect.anything(),
     );
     expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReturnToLegalGate).not.toHaveBeenCalled();
   });
 });
 
@@ -370,31 +400,38 @@ describe('a genuine recorded decision is passed through untouched', () => {
 describe('no age verification, or a failed grant, re-asks rather than finishing onboarding (DEBUG-755)', () => {
   it('a missing age verification grants nothing and returns to the legal gate', async () => {
     mockGetStoredAgeVerification.mockResolvedValue(null);
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueAndExpectReAsk(api);
 
     expect(mockGrantConsent).not.toHaveBeenCalled();
     expect(mockNavigate).not.toHaveBeenCalledWith('LegalGate', expect.anything());
+    expect(mockReturnToLegalGate).toHaveBeenCalledTimes(1);
+    // A decision, not a throw: the branch returned before reaching the catch.
+    expect(failedGrantLogs()).toEqual([]);
   });
 
   it('a grant that rejects returns to the legal gate instead of advancing', async () => {
     mockGrantConsent.mockRejectedValueOnce(new Error('keychain unavailable'));
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueAndExpectReAsk(api);
 
     expect(mockGrantConsent).toHaveBeenCalledTimes(1);
+    expect(mockReturnToLegalGate).toHaveBeenCalledTimes(1);
+    // Control for the two branches above: this one IS the catch.
+    expect(failedGrantLogs()).toHaveLength(1);
   });
 
   it('control: a readable age verification and a successful grant still advance, with no re-ask', async () => {
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     await advanceToPrivacy(api);
 
     await continueThroughPrivacy(api);
 
     expect(mockReplace).not.toHaveBeenCalled();
+    expect(mockReturnToLegalGate).not.toHaveBeenCalled();
   });
 });
