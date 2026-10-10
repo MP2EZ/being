@@ -25,7 +25,7 @@ code-side alert (the subscription-verification watchdog) and documents the other
 
 | # | Alert | Mechanism | Surface | Status (2026-06-18) |
 |---|---|---|---|---|
-| 1 | App crash rate > 1% | Sentry metric alert (release-health crash-free rate) | Sentry dashboard | ⏳ operator to create — see [§1](#1-crash-rate-alert-sentry) |
+| 1 | App crash rate > 1% | Sentry metric alert (release-health crash-free rate) — **opted-in users only** since DEBUG-776 | Sentry dashboard | ⏳ operator to create — see [§1](#1-crash-rate-alert-sentry) |
 | 2 | API / edge error rate > 5% | Sentry metric alert (+ Supabase logs for edge) | Sentry dashboard | ⏳ operator to create — see [§2](#2-error-rate-alert-sentry) |
 | 3 | Sustained Supabase connection failures | Supabase project notifications + **external healthchecks.io dead-man's-switch (INFRA-296)** | Supabase dashboard + healthchecks.io | ✅ code shipped; needs deploy + secret + check creation, **in that order** — see [§3](#3-supabase-connection-failure-alert) |
 | 4 | Subscription-verification automation dead | `subscription_verification_watchdog()` pg_cron + Resend | **code (this PR)** | ✅ migration shipped; needs deploy + Vault bootstrap — see [§4](#4-subscription-verification-failure-watchdog-shipped) |
@@ -139,10 +139,15 @@ in the dashboard, then verify with the MCP.
 > source even if wired: PostHog is **consent-gated** (it won't initialize without analytics
 > consent — the same reason crisis telemetry routes to Supabase, not PostHog, per INFRA-214), so
 > any crash rate derived from it has a **biased denominator** — it cannot see crashes from users
-> who declined analytics or crashes before the consent gate. Crash-free rate belongs in **Sentry**
-> (not consent-gated; the designated crash/error sink). **Net: a true crash-rate signal exists in
-> neither sink today** — the interim error-count alert above is the honest option until Sentry
-> session tracking is enabled.
+> who declined analytics or crashes before the consent gate. Crash-free rate belongs in **Sentry**,
+> the designated crash/error sink. **Corrected (DEBUG-776): Sentry is consent-gated too.** It runs
+> only while the user has turned on *Crash Reports* (off by default) and *Honor Universal Opt-Out*
+> is off, and it starts only after consent loads, so crashes during early boot are never reported.
+> This section used to say Sentry was "not consent-gated"; that described a defect, contrary to
+> privacy policy §5.3/§6, which DEBUG-776 fixed. So Sentry's crash-free rate has the SAME
+> biased-denominator problem as PostHog: it measures opted-in users only. **Net: a true
+> population crash-rate signal exists in neither sink** — read §1's alert as "crash rate among
+> users who opted in".
 
 **Verify (after creating):**
 ```
