@@ -26,14 +26,17 @@ import {
 const APPLE_HANDLED: Array<[string, string | undefined, StatusTransition]> = [
   ['SUBSCRIBED', undefined, { status: 'active', eventType: 'subscription_started' }],
   ['DID_RENEW', undefined, { status: 'active', eventType: 'subscription_renewed' }],
-  // DEBUG-751: grace only when Apple says the billing-retry grace period is on.
-  ['DID_FAIL_TO_RENEW', undefined, { status: 'expired', eventType: 'payment_failed' }],
-  ['DID_FAIL_TO_RENEW', 'BILLING_RETRY', { status: 'expired', eventType: 'payment_failed' }],
-  ['DID_FAIL_TO_RENEW', 'GRACE_PERIOD', { status: 'grace', eventType: 'payment_failed' }],
+  // DEBUG-772: the subtype no longer grants grace. The status is decided from the signed
+  // transaction and renewal info (handlers.ts); 'expired' is the fail-closed default.
+  ['DID_FAIL_TO_RENEW', undefined, { status: 'expired', eventType: 'payment_failed', signedState: 'post_expiry' }],
+  ['DID_FAIL_TO_RENEW', 'BILLING_RETRY', { status: 'expired', eventType: 'payment_failed', signedState: 'post_expiry' }],
+  ['DID_FAIL_TO_RENEW', 'GRACE_PERIOD', { status: 'expired', eventType: 'payment_failed', signedState: 'post_expiry' }],
   ['EXPIRED', undefined, { status: 'expired', eventType: 'subscription_expired' }],
   ['GRACE_PERIOD_EXPIRED', undefined, { status: 'expired', eventType: 'subscription_expired' }],
-  ['REVOKE', undefined, { status: 'expired', eventType: 'subscription_cancelled' }],
-  ['REFUND', undefined, { status: 'expired', eventType: 'subscription_cancelled' }],
+  // DEBUG-772 AC3: revoke only when the refunded transaction is the current period.
+  ['REVOKE', undefined, { status: 'expired', eventType: 'subscription_cancelled', signedState: 'revocation' }],
+  ['REFUND', undefined, { status: 'expired', eventType: 'subscription_cancelled', signedState: 'revocation' }],
+  ['REFUND_REVERSED', undefined, { status: 'active', eventType: 'subscription_restored', signedState: 'reversal' }],
   // AC5: auto-renew toggled — never a status write; the direction comes from `subtype`.
   ['DID_CHANGE_RENEWAL_STATUS', 'AUTO_RENEW_DISABLED', { status: null, eventType: 'subscription_cancelled' }],
   ['DID_CHANGE_RENEWAL_STATUS', 'AUTO_RENEW_ENABLED', { status: null, eventType: 'subscription_restored' }],
@@ -61,7 +64,6 @@ const APPLE_UNHANDLED = [
   'CONSUMPTION_REQUEST',
   'PRICE_INCREASE',
   'REFUND_DECLINED',
-  'REFUND_REVERSED',
   'RENEWAL_EXTENDED',
   'RENEWAL_EXTENSION',
   'OFFER_REDEEMED',
@@ -84,7 +86,8 @@ const GOOGLE_HANDLED: Array<[number, StatusTransition]> = [
   [3, { status: null, eventType: 'subscription_cancelled' }], // CANCELED: access continues to period end
   [4, { status: 'active', eventType: 'subscription_started' }], // PURCHASED
   [5, { status: 'expired', eventType: 'payment_failed' }], // ON_HOLD: access suspended
-  [6, { status: 'grace', eventType: 'grace_period_started' }], // IN_GRACE_PERIOD
+  // DEBUG-772: no signed grace end exists on an RTDN, so no unbounded grace write (DEBUG-777).
+  [6, { status: null, eventType: 'grace_period_started' }], // IN_GRACE_PERIOD
   [7, { status: null, eventType: 'subscription_restored' }], // RESTARTED: auto-renew back on
   [10, { status: 'expired', eventType: 'subscription_expired' }], // PAUSED: access suspended
   [12, { status: 'expired', eventType: 'subscription_expired' }], // REVOKED
