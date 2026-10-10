@@ -65,6 +65,10 @@ name: "Assessment AX5 reachability (DEBUG-722): every PHQ-9 answer and the crisi
     direction: DOWN
     timeout: 60000
     centerElement: true
+# DEBUG-771: the exit control sits above the ScrollView, so a scrolled question at AX5 still
+# shows it. Asserted only — never tapped here (a tap would end the run).
+- assertVisible:
+    id: "assessment-exit-button"
 - tapOn:
     point: "92%,15%"
 - tapOn:

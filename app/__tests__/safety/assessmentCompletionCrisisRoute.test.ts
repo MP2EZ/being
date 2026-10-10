@@ -169,6 +169,39 @@ describe('the crisis screen survives onboarding PHQ-9 completion (DEBUG-706)', (
   });
 });
 
+describe('an onboarding exit-skip survives a focused crisis screen (DEBUG-771)', () => {
+  /*
+   * Crisis ruling R5 on DEBUG-771: the new questions-phase Exit makes onCancel reachable
+   * mid-screening. In onboarding it runs the parent's onSkip, which opens the next
+   * screening — forward navigation after a user action, the same shape as DEBUG-706's
+   * completion. It goes through the same guard, so it is deferred, never dropped, while a
+   * crisis destination is focused.
+   */
+  it('holds onSkip while CrisisResources is focused, keeping its key', () => {
+    const { stack, phq9Key, crisisKey, startGad7: onSkip } = crisisOpenedDuringPhq9();
+
+    complete(stack, phq9Key, onSkip);
+    jest.advanceTimersByTime(1000);
+
+    expect(stack.state.routes.map((r) => r.name)).toEqual(['Onboarding', 'CrisisResources']);
+    expect(stack.keyOf('CrisisResources')).toBe(crisisKey);
+    expect(onSkip).not.toHaveBeenCalled();
+  });
+
+  it('runs onSkip exactly once after the user leaves CrisisResources — never dropped', () => {
+    const { stack, phq9Key, startGad7: onSkip } = crisisOpenedDuringPhq9();
+    complete(stack, phq9Key, onSkip);
+    jest.advanceTimersByTime(100);
+
+    stack.popCrisis();
+    jest.advanceTimersByTime(1000);
+
+    expect(onSkip).toHaveBeenCalledTimes(1);
+    const next = stack.state.routes[stack.state.index]!;
+    expect(next.key).not.toBe(phq9Key);
+  });
+});
+
 describe('CleanRootNavigator wiring (DEBUG-706)', () => {
   /** The AssessmentFlow screen block, comments stripped (DEBUG-390: prose may name the anti-pattern). */
   const assessmentFlowBlock = (): string => {
@@ -187,5 +220,34 @@ describe('CleanRootNavigator wiring (DEBUG-706)', () => {
     expect(block).toMatch(/dismissRouteThenNotify\s*\(/);
     expect(block).toMatch(/removeOwnRoute\s*\(/);
     expect(block).not.toMatch(/navigation\.goBack\s*\(/);
+  });
+
+  /** onCancel's handler, from its prop to the end of the screen block. */
+  const onCancelHandler = (): string => {
+    const block = assessmentFlowBlock();
+    const start = block.indexOf('onCancel={');
+    expect(start).toBeGreaterThan(-1);
+    return block.slice(start);
+  };
+  const DIRECT_SKIP = /onSkip\s*\(/;
+  const GUARDED_SKIP = /dismissRouteThenNotify\s*\(\s*\{[^}]*notify:\s*route\.params\.onSkip\b[^}]*\}\s*\)/;
+
+  it('DEBUG-771 matcher self-check: the direct call fires, the guarded form matches', () => {
+    expect('route.params.onSkip();').toMatch(DIRECT_SKIP);
+    expect('dismissRouteThenNotify({ navigation, routeKey: route.key, notify: route.params.onSkip });').toMatch(
+      GUARDED_SKIP,
+    );
+    expect('dismissRouteThenNotify({ navigation, routeKey: route.key, notify: route.params.onSkip });').not.toMatch(
+      DIRECT_SKIP,
+    );
+  });
+
+  it('DEBUG-771: onCancel reaches onSkip only through dismissRouteThenNotify, and still removes its own route', () => {
+    const handler = onCancelHandler();
+    expect(handler.length).toBeGreaterThan(60);
+    expect(handler).toMatch(GUARDED_SKIP);
+    expect(handler).not.toMatch(DIRECT_SKIP);
+    expect(handler).toMatch(/removeOwnRoute\s*\(\s*navigation\s*,\s*route\.key\s*\)/);
+    expect(handler).not.toMatch(/navigation\.goBack\s*\(/);
   });
 });

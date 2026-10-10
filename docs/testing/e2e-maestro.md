@@ -492,6 +492,7 @@ npm run e2e:safety
 npm run e2e:safety:q9              # PHQ-9 Q9 single-alert pinning
 npm run e2e:safety:phq9            # PHQ-9 ≥20 completion banner
 npm run e2e:safety:gad7            # GAD-7 ≥15 completion banner
+npm run e2e:safety:assessment-exit # questions-phase Exit → confirm → Continue / Exit (DEBUG-771)
 npm run e2e:safety:crisis-button   # crisis button reaches CrisisResources from each tab
 
 # Device-only flow (tag `safety-device-only`, excluded from `e2e:safety`).
@@ -1479,6 +1480,7 @@ states its own contract.
 | `q9-single-alert.yaml` | PHQ-9 Q9 > 0 fires exactly one canonical alert (no `View Resources` / `Call 988 Now` from old mockCrisisEngine) | `assessmentStore.ts` `triggerEmergencyResponse` (alert copy) + MAINT-166 PR 1 (single-alert) |
 | `phq9-severe-completion.yaml` | Score ≥20 (Q9=0) shows `results-crisis-banner` on completion | `safety.ts` `PHQ9_SEVERE_THRESHOLD = 20` |
 | `gad7-severe.yaml` | Score ≥15 shows `results-crisis-banner` on completion | `safety.ts` `GAD7_SEVERE_THRESHOLD = 15` |
+| `assessment-exit.yaml` (DEBUG-771) | Mid-check-in `assessment-exit-button` opens the existing "Exit Assessment?" confirm; Continue keeps the question and the in-flow crisis button; Exit lands with `crisis-button-root` visible. The in-flight race and exactly-once callbacks are jest's (`EnhancedAssessmentFlow.exit*.test.tsx`) | `EnhancedAssessmentFlow.tsx` `promptExit` / `requestExit` |
 | `crisis-button-reachability.yaml` | Crisis button → `CrisisResources` from each of 4 tabs | CLAUDE.md "988 access <3 taps from any screen" |
 | `journal-crisis-scan.yaml` | Journal crisis-content scan fires its intervention | crisis detection contract |
 | `daily-loop-deeplink.yaml` | `being://daily` cold start keeps the crisis overlay AND an escape from the immersive practice | FEAT-298 slice 4 + `linking.ts` `initialRouteName` |

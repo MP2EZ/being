@@ -25,8 +25,11 @@ import {
   ScrollView,
   StyleSheet,
   AccessibilityInfo,
+  Pressable,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
 import { CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useNavigation } from '@react-navigation/native';
@@ -49,6 +52,10 @@ interface EnhancedAssessmentQuestionProps {
   totalSteps: number;
   theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
   onError?: ((error: Error) => void) | undefined;
+  /** DEBUG-771: asks the flow to exit; the flow decides whether a confirm opens. */
+  onExit?: (() => void) | undefined;
+  /** DEBUG-771: an answer is saving — the exit control shows disabled + busy. */
+  exitInFlight?: boolean | undefined;
 }
 
 // Clinically validated response labels (exact PHQ-9/GAD-7 wording)
@@ -76,7 +83,11 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
   totalSteps,
   theme = 'neutral',
   onError,
+  onExit,
+  exitInFlight = false,
 }) => {
+  const insets = useSafeAreaInsets();
+
   // Navigation for crisis button
   const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
@@ -159,7 +170,12 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
         announceChanges={true}
         restoreFocus={true}
       >
-        <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: themeColors.background, paddingTop: insets.top },
+          ]}
+        >
           {/* Crisis Alert Banner */}
           {crisisAlert && (
             <Focusable
@@ -176,6 +192,31 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
                 </Text>
               </View>
             </Focusable>
+          )}
+
+          {/* DEBUG-771: the questions-phase exit. In flow (never absolute), above and outside
+              the ScrollView, AFTER the crisis banner so VoiceOver reaches the banner first.
+              A native button on its own — never inside a Focusable, which would merge it.
+              Neutral by ruling: the word "Exit", no critical colour, no icon. Nothing
+              pressable to its right: the AX5 flow's absorbing tap lands there. Kept
+              disabled + busy (never hidden) while an answer is saving. */}
+          {onExit && (
+            <View style={styles.exitRow} testID="assessment-exit-row">
+              <Pressable
+                onPress={onExit}
+                disabled={exitInFlight}
+                accessibilityRole="button"
+                accessibilityLabel="Exit check-in"
+                accessibilityHint="Asks before ending this check-in."
+                accessibilityState={{ disabled: exitInFlight, busy: exitInFlight }}
+                style={styles.exitButton}
+                testID="assessment-exit-button"
+              >
+                <Text style={styles.exitText} maxFontSizeMultiplier={2} numberOfLines={1}>
+                  Exit
+                </Text>
+              </Pressable>
+            </View>
           )}
 
         {/* DEBUG-722: the only vertical scroller in the questions phase. At AX5 the
@@ -311,6 +352,24 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+  },
+  exitRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    paddingHorizontal: spacing[8],
+  },
+  exitButton: {
+    minWidth: TOUCH_TARGETS.minimum,
+    minHeight: TOUCH_TARGETS.minimum,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exitText: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: colorSystem.accessibility.text.primary,
   },
   scrollContent: {
     padding: spacing[16],

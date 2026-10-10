@@ -135,6 +135,8 @@
   "src/features/assessment/components/__tests__/AssessmentResults.copy.test.tsx": 1,
   "src/features/assessment/components/__tests__/AssessmentResults.test.tsx": 1,
   "src/features/assessment/components/__tests__/AssessmentStorageExplainer.unit.test.tsx": 1,
+  "src/features/assessment/components/__tests__/EnhancedAssessmentFlow.exit.accessibility.test.tsx": 1,
+  "src/features/assessment/components/__tests__/EnhancedAssessmentFlow.exit.test.tsx": 1,
   "src/features/assessment/components/__tests__/EnhancedAssessmentQuestion.accessibility.test.tsx": 1,
   "src/features/assessment/components/__tests__/EnhancedAssessmentQuestion.test.tsx": 1,
   "src/features/assessment/components/__tests__/assessmentSavedCopy.unit.test.tsx": 1,
