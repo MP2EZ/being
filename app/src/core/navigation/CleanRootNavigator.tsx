@@ -15,6 +15,7 @@ import PracticeTimerRoute from './PracticeTimerRoute';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { dismissRouteThenNotify, removeOwnRoute } from './crisisDestinationGuard';
 import { completeOnboarding } from './completeOnboarding';
+import { returnToLegalGate } from './returnToLegalGate';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { semantic, spacing, typography } from '@/core/theme';
@@ -544,6 +545,9 @@ const CleanRootNavigator: React.FC = () => {
                   markComplete: handleOnboardingComplete,
                 })
               }
+              // DEBUG-734: the consent re-ask replaces THIS route with LegalGate the same
+              // way — by key, at the root, deferred while a crisis destination is focused.
+              onReturnToLegalGate={() => returnToLegalGate({ onboardingRouteKey: route.key })}
               isEmbedded={true}
             />
           )}

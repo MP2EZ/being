@@ -70,6 +70,9 @@ jest.mock('@/core/services/privacy/exportArtifactSweeper', () => ({ sweepExportA
 // consent store is deliberately NOT mocked: the point is the real post-erasure store.
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
+// DEBUG-734: the consent re-ask goes through this prop; the navigator replaces
+// Onboarding by key at the root, deferred while a crisis destination is focused.
+const mockReturnToLegalGate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate, replace: mockReplace }),
   useFocusEffect: jest.fn(),
@@ -242,7 +245,7 @@ describe('the warm session after erasure (AC1, AC4)', () => {
     await erase();
     const recordBefore = mockSecure.get(CONSENT_KEY);
 
-    const api = render(<OnboardingScreen />);
+    const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
     fireEvent.press(api.getByLabelText('Begin Your Practice'));
     await waitFor(() => expect(api.getByText('Welcome to Stoic Mindfulness')).toBeTruthy());
     fireEvent.press(api.getByText('Continue'));
@@ -251,7 +254,11 @@ describe('the warm session after erasure (AC1, AC4)', () => {
     await waitFor(() => expect(api.getByText('Privacy Settings')).toBeTruthy());
     fireEvent.press(api.getByLabelText('Continue'));
 
-    await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('LegalGate'));
+    // DEBUG-734 migrated this pin from `mockReplace('LegalGate')`.
+    await waitFor(() => expect(mockReturnToLegalGate).toHaveBeenCalled());
+    expect(mockReturnToLegalGate).toHaveBeenCalledTimes(1);
+    expect(mockReplace).not.toHaveBeenCalled();
+    expect(api.queryByText('Your Mindfulness Journey Begins')).toBeNull();
     expect(mockSecure.get(CONSENT_KEY)).toBe(recordBefore);
     expect(useConsentStore.getState().consentStatus).toBe('missing');
   });

@@ -35,6 +35,9 @@ import { StyleSheet } from 'react-native';
 
 const mockNavigate = jest.fn();
 const mockReplace = jest.fn();
+// DEBUG-734: the consent re-ask goes through this prop; the navigator replaces
+// Onboarding by key at the root, deferred while a crisis destination is focused.
+const mockReturnToLegalGate = jest.fn();
 // DEBUG-625: these suites pin the consent-DEFAULT contract (nothing pre-checked, every
 // control labelled) — not which preferences a given build offers. AC3 gates the Cloud
 // Backup card on the build-time `cloud_sync` flag, which is dark by default, so without
@@ -98,6 +101,7 @@ jest.mock('@/core/services/logging', () => ({
   LogCategory: { SECURITY: 'security' },
 }));
 
+import { logError } from '@/core/services/logging';
 import OnboardingScreen from '../OnboardingScreen';
 
 // --- Helpers -------------------------------------------------------------
@@ -157,7 +161,7 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
 
   describe('current screen, not the removed assessment flow', () => {
     it('renders the welcome step and none of the removed assessment-flow surface', () => {
-      const api = render(<OnboardingScreen />);
+      const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
 
       expect(api.getByLabelText('Begin Your Practice')).toBeTruthy();
       // The removed welcome→PHQ-9→GAD-7 testIDs must no longer resolve.
@@ -171,7 +175,7 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
 
   describe('granular consent toggles', () => {
     it('defaults every consent toggle to OFF (privacy-first, no pre-checked boxes)', async () => {
-      const api = render(<OnboardingScreen />);
+      const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
       await advanceToPrivacy(api);
 
       for (const id of ['consent-analytics', 'consent-crash-reports', 'consent-cloud-sync', 'consent-research']) {
@@ -180,7 +184,7 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
     });
 
     it('reflects a toggle in local UI state without persisting until Continue', async () => {
-      const api = render(<OnboardingScreen />);
+      const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
       await advanceToPrivacy(api);
 
       fireEvent(consentSwitch(api, 'consent-analytics'), 'valueChange', true);
@@ -192,7 +196,7 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
     });
 
     it('persists the merged preferences once on Continue, with the Art. 9 flag from the legal gate', async () => {
-      const api = render(<OnboardingScreen />);
+      const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
       await advanceToPrivacy(api);
 
       fireEvent(consentSwitch(api, 'consent-analytics'), 'valueChange', true);
@@ -211,6 +215,7 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
         }),
         expect.objectContaining({ verified: true, isEligible: true }),
       );
+      expect(mockReturnToLegalGate).not.toHaveBeenCalled();
     });
 
     // DEBUG-755 REVERSED this pin: it asserted that onboarding "still advances
@@ -219,21 +224,29 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
     // belongs to an erased account), the screen now re-asks at the legal gate.
     it('returns to the legal gate, granting nothing, when no age verification is stored', async () => {
       mockGetStoredAgeVerification.mockResolvedValue(null);
-      const api = render(<OnboardingScreen />);
+      const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
       await advanceToPrivacy(api);
 
       fireEvent.press(api.getByLabelText('Continue'));
 
-      await waitFor(() => expect(mockReplace).toHaveBeenCalledWith('LegalGate'));
+      // DEBUG-734 migrated this pin from `mockReplace('LegalGate')`.
+      await waitFor(() => expect(mockReturnToLegalGate).toHaveBeenCalled());
+      expect(mockReturnToLegalGate).toHaveBeenCalledTimes(1);
+      expect(mockReplace).not.toHaveBeenCalled();
       expect(mockGrantConsent).not.toHaveBeenCalled();
       expect(api.queryByText('Your Mindfulness Journey Begins')).toBeNull();
+      // A decision, not a throw: the branch returned before reaching the catch.
+      const failedGrantLogs = (logError as jest.Mock).mock.calls.filter(([, message]) =>
+        String(message).includes('Failed to save consent preferences'),
+      );
+      expect(failedGrantLogs).toEqual([]);
     });
   });
 
   describe('completion navigation', () => {
     it('invokes the embedded completion handler with "home" when Explore App is pressed', async () => {
       const onComplete = jest.fn();
-      const api = render(<OnboardingScreen isEmbedded onComplete={onComplete} />);
+      const api = render(<OnboardingScreen isEmbedded onComplete={onComplete} onReturnToLegalGate={mockReturnToLegalGate} />);
       await advanceToCelebration(api);
 
       fireEvent.press(api.getByTestId('onboarding-explore-app'));
@@ -244,7 +257,7 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
 
   describe('accessibility', () => {
     it('exposes the welcome CTA as a labelled button with a ≥44pt touch target', () => {
-      const api = render(<OnboardingScreen />);
+      const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
       const begin = api.getByLabelText('Begin Your Practice');
 
       expect(begin.props.accessibilityRole).toBe('button');
@@ -256,7 +269,7 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
     });
 
     it('gives each consent toggle a screen-reader role and label', async () => {
-      const api = render(<OnboardingScreen />);
+      const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
       await advanceToPrivacy(api);
 
       for (const id of ['consent-analytics', 'consent-crash-reports', 'consent-cloud-sync', 'consent-research']) {
@@ -267,7 +280,7 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
     });
 
     it('exposes the Explore App control as a labelled button with a ≥44pt touch target', async () => {
-      const api = render(<OnboardingScreen isEmbedded onComplete={jest.fn()} />);
+      const api = render(<OnboardingScreen isEmbedded onComplete={jest.fn()} onReturnToLegalGate={mockReturnToLegalGate} />);
       await advanceToCelebration(api);
 
       const explore = api.getByTestId('onboarding-explore-app');
@@ -281,7 +294,7 @@ describe('OnboardingScreen — consent wizard (MAINT-279)', () => {
 
   describe('safety-net reachability', () => {
     it('shows the static 988 / 911 lifeline disclaimer on the privacy step', async () => {
-      const api = render(<OnboardingScreen />);
+      const api = render(<OnboardingScreen onReturnToLegalGate={mockReturnToLegalGate} />);
       await advanceToPrivacy(api);
 
       // The current onboarding screens render no interactive crisis button
