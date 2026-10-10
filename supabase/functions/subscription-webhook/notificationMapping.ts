@@ -22,8 +22,13 @@
  *     records the cancellation.
  *   - Google ON_HOLD (billing retry failed) and PAUSED suspend access, so both are 'expired'.
  *     A later RECOVERED / RENEWED / PURCHASED restores 'active'.
- *   - Apple DID_FAIL_TO_RENEW is a grace period only when the subtype says so
- *     (GRACE_PERIOD); otherwise Apple is retrying billing without extending access.
+ *   - Apple DID_FAIL_TO_RENEW is a grace period only inside a SIGNED grace period
+ *     (renewal info's gracePeriodExpiresDate), decided in handlers.ts (DEBUG-772). The subtype
+ *     is not evidence of anything; billing retry alone is no access.
+ *   - Apple REFUND / REVOKE revoke only the current paid period; REFUND_REVERSED restores it
+ *     (DEBUG-772, decided in handlers.ts from the signed transaction).
+ *   - Google IN_GRACE_PERIOD carries no grace end, so it is audited without a status write
+ *     (DEBUG-772; a bounded Google grace needs a Play Developer API lookup, DEBUG-777).
  *   - A voided Google purchase (refund, chargeback) revokes access: mapGoogleVoidedPurchase.
  *
  * ORDERING (DEBUG-751). Stores deliver at-least-once and out of order, so applying every
@@ -48,6 +53,14 @@ export interface StatusTransition {
   /** null = handled, but leave `status` as it is. */
   status: SubscriptionStatus | null;
   eventType: WebhookEventType;
+  /**
+   * DEBUG-772: the status is not fixed by the type but decided by handlers.ts from the signed
+   * transaction (and renewal info). `status` above is then the fail-closed default.
+   *   - 'post_expiry': decideAppleStatus — grace only inside a bounded, signed grace period.
+   *   - 'revocation': revoke only when the refunded transaction is the current paid period.
+   *   - 'reversal': restore only a still-running period at least as late as the stored one.
+   */
+  signedState?: 'post_expiry' | 'revocation' | 'reversal';
 }
 
 export const APPLE_NOTIFICATION_TYPES = {
@@ -59,6 +72,7 @@ export const APPLE_NOTIFICATION_TYPES = {
   GRACE_PERIOD_EXPIRED: 'GRACE_PERIOD_EXPIRED',
   REVOKE: 'REVOKE',
   REFUND: 'REFUND',
+  REFUND_REVERSED: 'REFUND_REVERSED',
 } as const;
 
 export const GOOGLE_NOTIFICATION_TYPES = {
@@ -95,8 +109,8 @@ export function mapAppleNotification(
     case T.DID_RENEW:
       return { status: 'active', eventType: 'subscription_renewed' };
     case T.DID_FAIL_TO_RENEW:
-      // Grace only when Apple says the grace period is on; else billing retry without access.
-      return { status: subtype === 'GRACE_PERIOD' ? 'grace' : 'expired', eventType: 'payment_failed' };
+      // Status from the signed transaction + renewal info, never the subtype (DEBUG-772).
+      return { status: 'expired', eventType: 'payment_failed', signedState: 'post_expiry' };
     case T.EXPIRED:
     case T.GRACE_PERIOD_EXPIRED:
       return { status: 'expired', eventType: 'subscription_expired' };
@@ -111,7 +125,9 @@ export function mapAppleNotification(
       return null;
     case T.REVOKE:
     case T.REFUND:
-      return { status: 'expired', eventType: 'subscription_cancelled' };
+      return { status: 'expired', eventType: 'subscription_cancelled', signedState: 'revocation' };
+    case T.REFUND_REVERSED:
+      return { status: 'active', eventType: 'subscription_restored', signedState: 'reversal' };
     default:
       return null;
   }
@@ -127,7 +143,8 @@ export function mapGoogleNotification(notificationType: number | undefined): Sta
     case T.SUBSCRIPTION_RECOVERED:
       return { status: 'active', eventType: 'subscription_renewed' };
     case T.SUBSCRIPTION_IN_GRACE_PERIOD:
-      return { status: 'grace', eventType: 'grace_period_started' };
+      // No signed grace end on an RTDN: audit only, never an unbounded grace (DEBUG-772).
+      return { status: null, eventType: 'grace_period_started' };
     case T.SUBSCRIPTION_CANCELED:
       // Auto-renew switched off; access continues to the end of the paid period.
       return { status: null, eventType: 'subscription_cancelled' };
