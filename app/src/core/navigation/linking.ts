@@ -18,6 +18,7 @@ import { logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { useConsentStore } from '@/core/stores/consentStore';
 import type { RootStackParamList } from './CleanRootNavigator';
 import { isModuleId } from '@/features/learn/types/education';
+import { isCrisisDestinationFocused } from './crisisDestinationGuard';
 
 /**
  * URL PREFIXES
@@ -354,6 +355,18 @@ function secureSubscribe(
         hasParams: Object.keys(validation.metadata.params).length > 0,
       });
 
+      // DEBUG-737: a crisis destination is focused — drop, never defer. Delivering
+      // would push the link's route over CrisisResources (or a new Main over it),
+      // possibly mid-988 call. Read at event time, never at subscribe time; crisis
+      // links returned above and never reach this. A throw here falls to the catch,
+      // which drops this NON-crisis link. Ruling: crisisDestinationGuard.ts header.
+      if (isCrisisDestinationFocused()) {
+        logSecurity('DeepLink: Runtime URL dropped, crisis destination focused', 'low', {
+          basePath: pathForSecurityLog(validation.metadata.path),
+        });
+        return;
+      }
+
       // Call listener with sanitized URL
       if (validation.sanitizedUrl) {
         listener(validation.sanitizedUrl);
@@ -411,7 +424,7 @@ export const DEEP_LINK_REACHABILITY: Readonly<
 > = {
   '/': {
     ruling: 'EXTERNALLY_REACHABLE',
-    reason: 'The canonical "open the app" link; lands where a normal launch lands, so it adds no capability.',
+    reason: 'The canonical "open the app" link; lands on Main, where a normal launch lands. Not inert at runtime: it pushes Main over the focused route, so it is dropped while a crisis destination is focused (DEBUG-737).',
   },
   '/crisis': {
     ruling: 'EXTERNALLY_REACHABLE',

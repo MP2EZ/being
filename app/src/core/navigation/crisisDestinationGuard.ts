@@ -11,6 +11,13 @@
  *   crisis destination is the active root route — never dropped, never
  *   redirected. It runs once the user leaves the crisis screen.
  * - Navigation INTO a crisis destination is never guarded here or anywhere.
+ * - RUNTIME EXTERNAL LINKS are the one exception to "deferred" (DEBUG-737): a
+ *   non-crisis deep link arriving while a crisis destination is focused is
+ *   DROPPED and logged by base path, never deferred. It is not the app's own
+ *   follow-on but an outside party's request; replayed after the user leaves the
+ *   crisis screen it would arrive out of context, unasked. `being://crisis` and
+ *   the rate-limited crisis fallback return before the check and always deliver.
+ *   Cold start is unaffected (no navigator is ready, so nothing is focused).
  * - The set is CRISIS_DESTINATION_ROUTES ("the user was sent here for 988;
  *   nothing may cover it"). Not SUPPRESSED_ROUTES or RECONSENT_DEFERRAL_ROUTES:
  *   both include AssessmentFlow and LegalGate, which mean something else.
@@ -19,8 +26,9 @@
  * `dismissRouteThenNotify`), DeleteAccountScreen's post-erasure reset
  * (DEBUG-703, `runWhenNoCrisisDestinationFocused`), and onboarding completion
  * (DEBUG-711, `completeOnboarding`, which defers its whole replace-then-push),
- * and the ReConsent / ConsentBlocked dismissals in CleanRootNavigator (DEBUG-733,
- * `removeOwnRoute`).
+ * the ReConsent / ConsentBlocked dismissals in CleanRootNavigator (DEBUG-733,
+ * `removeOwnRoute`), and linking.ts's runtime link subscriber (DEBUG-737,
+ * `isCrisisDestinationFocused`, read per event in `secureSubscribe`).
  */
 import { CommonActions } from '@react-navigation/native';
 import { logSystem } from '@/core/services/logging';
