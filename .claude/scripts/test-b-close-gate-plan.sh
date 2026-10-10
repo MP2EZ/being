@@ -31,7 +31,7 @@
 
 if [ -z "${BASH_VERSION:-}" ]; then echo "run with bash" >&2; exit 2; fi
 
-EXPECTED_CASES=120
+EXPECTED_CASES=121
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/b-close-gate-plan.sh"
 VERBOSE=""; NO_CACHE=""
@@ -132,6 +132,7 @@ case_supabase_service()     { w $C/services/supabase/SupabaseService.ts; expect 
 case_data_retention()       { w $C/services/data-retention/DataRetentionService.ts; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "" "data-retention changed"; }
 case_account_deletion()     { w $C/services/privacy/AccountDeletionService.ts; expect 0 1 "" "$CBR deeplink-consent-gate" "" "AccountDeletionService changed"; }
 case_erasure_pending()      { w $C/services/privacy/erasurePending.ts; expect 0 1 "" "$CBR deeplink-consent-gate" "" "erasurePending changed"; }
+case_onboarding()           { w $F/onboarding/screens/OnboardingScreen.tsx; expect 0 1 "" "$CBR legal-gate-art9-optional" "" "features/onboarding changed"; }
 case_erasure_resume_gate()  { w $C/services/privacy/erasureResumeGate.ts; expect 0 1 "" "legal-gate-art9-optional" "" "erasureResumeGate changed"; }
 case_erasure_registry_ungated() { w $C/services/privacy/erasureResetRegistry.ts; expect 0 "" "" "" ""; }
 case_threshold_modal()      { w $C/components/ThresholdEducationModal.tsx; expect 0 1 "" "$CBR" ""; }

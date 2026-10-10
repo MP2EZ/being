@@ -395,3 +395,17 @@ is the witness: it is the only safety flow that taps `legal-gate-continue` and a
 (a 30s wait for "Begin Your Practice"), the exact path a wedged gate holds. NECESSARY, NOT
 SUFFICIENT: a wait during an actual resume needs a marker no flow can seed, so it is jest-owned:
 `CombinedLegalGateScreen.erasureWait.crisis.test.tsx` and `interruptedErasureResume.privacy.test.ts`.
+
+`features/onboarding/` is the thirty-first instance (added DEBUG-734/736, crisis rulings; the
+DEBUG-525 shape), gated as a DIRECTORY: its one non-test member, `OnboardingScreen.tsx`, has been
+reviewed, and any future onboarding file should land gated. It hosts the onboarding PHQ-9 → GAD-7
+handoff and the consent fail-closed legal-gate re-ask. Both schedule forward navigation after an
+await or timer while the root FAB is live on Onboarding (it is not in `SUPPRESSED_ROUTES`), so a
+CrisisResources opened in that window can be covered or replaced. It imports nothing from
+`features/crisis/`, so INFRA-531 cannot see it. `compliance` co-owns it because the re-ask is the
+consent fail-closed branch (DEBUG-419/755): deferring the navigation must never defer the decision.
+`legal-gate-art9-optional` is the witness that the screen still renders and advances (it taps
+`legal-gate-continue` and waits for "Begin Your Practice"), and `crisis-button-reachability` is the
+net. NECESSARY, NOT SUFFICIENT: the gate build seeds past onboarding, so no sim flow reaches the
+privacy step or the handoff, and none can open CrisisResources inside those windows. The races are
+jest-owned: `onboardingLegalGateReaskCrisisRoute.test.ts` and `assessmentCompletionCrisisRoute.test.ts`.

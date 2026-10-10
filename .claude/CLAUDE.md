@@ -45,6 +45,7 @@ Editing these areas should invoke the matching agent for a planning pass before 
 | `app/src/features/practices/dailyloop/` | `crisis` + `philosopher` |
 | `app/src/features/guidance/` | `crisis` + `philosopher` |
 | `app/src/features/consent/` | `crisis` + `compliance` |
+| `app/src/features/onboarding/` | `crisis` + `compliance` |
 | `app/src/features/journal/` | `crisis` |
 | `app/src/core/services/security/` | `compliance` |
 | `app/src/core/stores/consentStore.ts` | `crisis` + `compliance` |

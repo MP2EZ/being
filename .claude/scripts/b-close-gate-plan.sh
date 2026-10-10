@@ -58,7 +58,7 @@ if [ -z "${BASH_VERSION:-}" ]; then
   exit 2
 fi
 
-SAFETY_PATH_RE='^app/(src/features/(assessment|consent|crisis|guidance|journal|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/components/accessibility/(RadioGroup|FocusManager)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|src/core/services/data-retention/|src/core/services/privacy/(AccountDeletionService|erasurePending|erasureResumeGate)\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)'
+SAFETY_PATH_RE='^app/(src/features/(assessment|consent|crisis|guidance|journal|onboarding|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/components/accessibility/(RadioGroup|FocusManager)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|src/core/services/data-retention/|src/core/services/privacy/(AccountDeletionService|erasurePending|erasureResumeGate)\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)'
 
 die() { echo "🛑 b-close-gate-plan: $*" >&2; exit 2; }
 
@@ -579,6 +579,21 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/components/' && 
 # its only 988 affordance, and this flow is the only witness to it.
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/consent/' && \
   FLOWS+=("deeplink-consent-gate" "reconsent-stale" "reconsent-stale-ineligible")
+# DEBUG-734/736 (crisis rulings, DEBUG-525 shape): features/onboarding/ hosts the onboarding
+# PHQ-9 -> GAD-7 handoff and the consent fail-closed legal-gate re-ask, and both schedule
+# forward navigation that can cover or replace a focused CrisisResources (the root FAB is live
+# on Onboarding). It imports nothing from features/crisis/, so INFRA-531 is blind to it.
+# DIRECTORY-level: one non-test member (OnboardingScreen.tsx), reviewed. legal-gate-art9-optional
+# is the only safety flow that renders OnboardingScreen (it taps legal-gate-continue and waits
+# for "Begin Your Practice"); crisis-button-reachability is the net.
+if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/onboarding/'; then
+  FLOWS+=("legal-gate-art9-optional" "crisis-button-reachability")
+  echo "🧭 features/onboarding changed. NECESSARY, NOT SUFFICIENT: the gate build seeds past"
+  echo "   onboarding, so no sim flow reaches the privacy step or the PHQ-9 -> GAD-7 handoff, and"
+  echo "   none can open CrisisResources inside their await/timer windows. Those races are"
+  echo "   jest-owned (onboardingLegalGateReaskCrisisRoute.test.ts,"
+  echo "   assessmentCompletionCrisisRoute.test.ts)."
+fi
 # DEBUG-559: App.tsx and PostHogProvider.tsx are ANCESTORS of every 988 affordance. A
 # consent-driven element-type swap there destroyed the whole crisis subtree, and
 # SafeAreaProvider (no initialMetrics) renders nothing until its native insets land — so the
