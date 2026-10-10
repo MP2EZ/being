@@ -253,6 +253,31 @@ export class EncryptionService {
    * unreadable.
    */
   public async deleteMasterKey(): Promise<void> {
+    // DEBUG-775 — rotated master keys first, so the master key is still deleted LAST.
+    // `rotateKey` writes `${keyId}_v2` (and, rotated again, `_v2_v2`); nothing reads
+    // them and nothing is encrypted under them, so a surviving one is random bytes
+    // with no reader. Best-effort for that reason: a strict throw here would leave the
+    // erasure marker set and route every launch to LegalGate while a Keychain fault
+    // persists (crisis + compliance ruling). The fixed `_v2` is always attempted, since
+    // `keyMetadata` is in-memory and a resumed erasure runs in a fresh process.
+    const rotated = new Set([`${ENCRYPTION_CONFIG.MASTER_KEY_ID}_v2`]);
+    for (const id of this.keyMetadata.keys()) {
+      if (id.startsWith(`${ENCRYPTION_CONFIG.MASTER_KEY_ID}_`)) rotated.add(id);
+    }
+    const results = await Promise.allSettled([...rotated].map((id) => SecureStore.deleteItemAsync(id)));
+    [...rotated].forEach((id, i) => {
+      const result = results[i]!;
+      if (result.status === 'rejected') {
+        logSecurity('Rotated master key delete failed (continuing erasure)', 'high', {
+          component: 'EncryptionService',
+          keyId: id,
+          error: result.reason instanceof Error ? result.reason.name : 'Unknown error',
+        });
+      }
+      this.keyCache.delete(id);
+      this.keyMetadata.delete(id);
+    });
+
     await SecureStore.deleteItemAsync(ENCRYPTION_CONFIG.MASTER_KEY_ID);
     this.keyCache.delete(ENCRYPTION_CONFIG.MASTER_KEY_ID);
     this.keyMetadata.delete(ENCRYPTION_CONFIG.MASTER_KEY_ID);
