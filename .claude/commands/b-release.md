@@ -351,6 +351,11 @@ NEXT_BUILD="N"        # computed above
 # 1. app/package.json
 cd /Users/max/dev/being/development/app
 npm version --no-git-tag-version "$NEXT_VERSION"
+# npm re-encodes package.json's \uXXXX escapes as UTF-8; keep the diff to the version line.
+git show HEAD:app/package.json \
+  | sed "s/^  \"version\": \"$PKG_VERSION\"/  \"version\": \"$NEXT_VERSION\"/" > package.json
+[ "$(git diff --numstat -- package.json | cut -f1,2)" = "$(printf '1\t1')" ] \
+  || { echo "❌ package.json bump touched more than the version line"; exit 1; }
 
 # 2. app/app.json (Expo manifest)
 jq --arg v "$NEXT_VERSION" --arg b "$NEXT_BUILD" \
@@ -489,7 +494,6 @@ gh pr merge $BUMP_PR_NUMBER --merge --delete-branch --admin
 
 # Sync local dev to match
 BUMP_MERGE_SHA=$(gh pr view $BUMP_PR_NUMBER --json mergeCommit -q '.mergeCommit.oid')
-git -C /Users/max/dev/being update-ref refs/heads/development $BUMP_MERGE_SHA
 git fetch origin
 git checkout development
 git pull --rebase origin development
