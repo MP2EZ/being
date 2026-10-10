@@ -31,7 +31,7 @@
 
 if [ -z "${BASH_VERSION:-}" ]; then echo "run with bash" >&2; exit 2; fi
 
-EXPECTED_CASES=118
+EXPECTED_CASES=120
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/b-close-gate-plan.sh"
 VERBOSE=""; NO_CACHE=""
@@ -77,6 +77,7 @@ flow reconsent-stale-ineligible-fab-clearance safety-bottom-inset
 flow daily-loop-ax5-entry safety-dynamic-type
 flow daily-loop-ax5-virtuous safety-dynamic-type
 flow assessment-ax5-reachability safety-dynamic-type
+flow assessment-exit safety
 flow journal-record-liveness safety-host-probe
 flow profile-voice-reflection-xxxl safety-dynamic-type
 flow breathing-fps-budget perf-device-only
@@ -135,7 +136,10 @@ case_erasure_resume_gate()  { w $C/services/privacy/erasureResumeGate.ts; expect
 case_erasure_registry_ungated() { w $C/services/privacy/erasureResetRegistry.ts; expect 0 "" "" "" ""; }
 case_threshold_modal()      { w $C/components/ThresholdEducationModal.tsx; expect 0 1 "" "$CBR" ""; }
 case_radio_group()          { w $C/components/accessibility/RadioGroup.tsx; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "assessment-ax5-reachability" "RadioGroup/FocusManager changed"; }
-case_assessment_component() { w $F/assessment/components/EnhancedAssessmentQuestion.tsx; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" "assessment-ax5-reachability"; }
+case_assessment_component() { w $F/assessment/components/EnhancedAssessmentQuestion.tsx; expect 0 1 "" "assessment-exit gad7-severe phq9-severe-completion q9-single-alert" "assessment-ax5-reachability"; }
+# DEBUG-771: assessment-exit is armed by components/ only — the exit host arms it, a types-only edit does not.
+case_assessment_exit_host() { w $F/assessment/components/EnhancedAssessmentFlow.tsx; expect 0 1 "" "assessment-exit gad7-severe phq9-severe-completion q9-single-alert" "assessment-ax5-reachability"; }
+case_assessment_types_only(){ w $F/assessment/types/index.ts; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" ""; }
 case_focus_manager()        { w $C/components/accessibility/FocusManager.tsx; expect 0 1 "" "gad7-severe phq9-severe-completion q9-single-alert" ""; }
 case_accessible_button_ungated() { w $C/components/accessibility/AccessibleButton.tsx; expect 0 "" "" "" ""; }
 case_clean_home()           { w $F/home/screens/CleanHomeScreen.tsx; expect 0 1 "" "$CBR" "daily-loop-ax5-entry"; }

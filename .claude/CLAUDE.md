@@ -158,7 +158,7 @@ npm run test:offline-crisis        # offline 988 access
 npm run validate:accessibility     # accessibility validation
 
 # Safety-path e2e (Maestro, local-only — INFRA-171)
-npm run e2e:safety                 # the 15 sim-runnable safety flows (a jest tripwire pins the count)
+npm run e2e:safety                 # the 17 sim-runnable safety flows as of 2026-10-09 (a jest tripwire pins the count)
 npm run e2e:safety:q9              # PHQ-9 Q9 single-alert pinning
 npm run e2e:safety:phq9            # PHQ-9 ≥20 completion path
 npm run e2e:safety:gad7            # GAD-7 ≥15 severe handoff

@@ -561,6 +561,13 @@ if echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/crisis/' || [ -n "$CRISI
 fi
 echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/' && \
   FLOWS+=("q9-single-alert" "phq9-severe-completion" "gad7-severe")
+# DEBUG-771 (crisis ruling): assessment-exit pins the visible mid-check-in exit — confirm,
+# Continue keeps the place, Exit lands with 988 in reach. Scoped to components/ like
+# assessment-ax5-reachability: the control lives in EnhancedAssessmentFlow.tsx /
+# EnhancedAssessmentQuestion.tsx, and a scoring- or types-only change cannot move it. An
+# edit to the flow file itself self-maps through the `safety` tag in the .maestro catch-all.
+echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/features/assessment/components/' && \
+  FLOWS+=("assessment-exit")
 # INFRA-416: features/consent hosts the PRE-consent 988 footer (CombinedLegalGateScreen),
 # and LegalGate is in SUPPRESSED_ROUTES so the root overlay does not cover for it.
 # deeplink-consent-gate.yaml is the flow that lands on that screen and asserts the

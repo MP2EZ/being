@@ -426,7 +426,8 @@ documented gate and the running gate disagree, with the running one winning.
 |---|---|---|
 | Dead-code deletion (≥1 removed, 0 added) | **skip** | Removing unreachable code can't change a running flow (MAINT-254 case). |
 | Comment / JSDoc / whitespace-only | **skip** | No executable line changed. A JSX comment does NOT qualify — it closes `*/}`, which the filter's `*/` pattern misses, so a comment-only `.tsx` edit stays gated. Bias-safe; budget the build. |
-| Real threshold / scoring edit (assessment) | **trigger** q9/phq9/gad7 | Added executable line → live. |
+| Real threshold / scoring edit (assessment) | **trigger** q9/phq9/gad7 | Added executable line → live. Not `assessment-exit`: scoring and types cannot move the exit control. |
+| `features/assessment/components/` change | **trigger** q9/phq9/gad7 + **`assessment-exit`** | DEBUG-771 (crisis ruling). The mid-check-in exit lives in `EnhancedAssessmentFlow.tsx` / `EnhancedAssessmentQuestion.tsx`; the flow pins confirm → Continue keeps the place → Exit lands with 988 in reach. `components/` only, like `assessment-ax5-reachability`. An edit to the flow file self-maps by its `safety` tag. |
 | Crisis-dir UI / screen / component change | **trigger** crisis-button | Added executable line under `features/crisis/`. |
 | `CollapsibleCrisisButton` re-host in ANY dir | **trigger** crisis-button | Content detection (`CRISIS_HOST_CHANGED`), exempt from inert filter. |
 | Comment merely NAMING the overlay, in any file | **skip** | Not a re-host; changes no rendered output, so no flow can see it. Citing its 44pt decision as a precedent is normal. |
