@@ -1032,6 +1032,11 @@ self-skips (the re-check already proved no safety paths changed); **RED-GATED** 
 scoped flows, and that is the point of routing the item here. On success, manifest
 `state: done`, capture the PR number.
 
+**Launch one detached close at a time within a batch.** Overlapping `close:detached` runs
+gain nothing — the simulator lease serialises their gates — but the later one's CI runs on a
+base without the earlier merge, so its merge is refused as stale and it re-gates in full.
+Launch the next runner after the previous one reports MERGED; implement meanwhile.
+
 **Cleanup guard (B1 corollary — NEVER delete a branch/worktree on an unconfirmed merge).**
 `/b-close` Phases 3.6–3.8 remove the worktree and delete the feature branch (local +
 remote). Those steps are destructive and must be **gated on a verified merge** — if you
