@@ -1459,16 +1459,210 @@ Deno.test('AC2: Google RESTARTED does not touch status and audits subscription_r
   assertEquals(auditTypes(db), ['subscription_restored']);
 });
 
-Deno.test('AC2: Apple DID_FAIL_TO_RENEW is grace only for the GRACE_PERIOD subtype, otherwise expired', async () => {
-  const plain = fakeDb({ subscriptions: [appleRow('active')] });
-  await run({ db: plain, body: amsg('DID_FAIL_TO_RENEW', T2, 'u-1') });
-  assertEquals(statusOf(plain, APPLE_ROW_ID), 'expired');
-  assertEquals(auditTypes(plain), ['payment_failed']);
+// ---------------------------------------------------------------------------
+// DEBUG-772 - status from signed state, bounded grace, refunds of older transactions
+// ---------------------------------------------------------------------------
 
-  const grace = fakeDb({ subscriptions: [appleRow('active')] });
-  await run({ db: grace, body: amsg('DID_FAIL_TO_RENEW', T2, 'u-2', 'GRACE_PERIOD') });
-  assertEquals(statusOf(grace, APPLE_ROW_ID), 'grace');
-  assertEquals(auditTypes(grace), ['payment_failed']);
+const DAY_MS = 86_400_000;
+/** A renewal-info JWS (stub-decoded JSON) bound to the fixture transaction. */
+const renewalInfo = (over: Record<string, unknown> = {}) =>
+  JSON.stringify({ environment: 'Production', originalTransactionId: ORIGINAL_TXN, ...over });
+/** An Apple notification whose signed transaction (and optionally renewal info) is given. */
+const amsgWith = (
+  type: string,
+  uuid: string,
+  txn: Record<string, unknown>,
+  opts: { subtype?: string; renewal?: string; signedDate?: number } = {},
+) =>
+  appleBody(type, {
+    uuid,
+    subtype: opts.subtype,
+    signedDate: opts.signedDate ?? T2,
+    data: {
+      ...SCOPE,
+      signedTransactionInfo: appleTransaction(txn),
+      ...(opts.renewal ? { signedRenewalInfo: opts.renewal } : {}),
+    },
+  });
+const graceEndOf = (db: FakeDb, id: string) => db.tables.subscriptions.find((r) => r.id === id)?.grace_period_end;
+const endOf = (db: FakeDb, id: string) => db.tables.subscriptions.find((r) => r.id === id)?.subscription_end_date;
+
+Deno.test('DEBUG-772 AC1: Apple DID_FAIL_TO_RENEW in billing retry with no grace period is expired, whatever the subtype', async () => {
+  for (const subtype of [undefined, 'GRACE_PERIOD']) {
+    const db = fakeDb({ subscriptions: [appleRow('active')] });
+    const r = await run({
+      db,
+      body: amsgWith('DID_FAIL_TO_RENEW', `u-${subtype}`, { expiresDate: String(NOW - 2 * DAY_MS) }, {
+        subtype,
+        renewal: renewalInfo({ isInBillingRetryPeriod: true }),
+      }),
+    });
+    assertEquals(r.res.status, 200);
+    assertEquals(statusOf(db, APPLE_ROW_ID), 'expired', `subtype ${subtype}`);
+    assertEquals(graceEndOf(db, APPLE_ROW_ID), null);
+    assertEquals(auditTypes(db), ['payment_failed']);
+  }
+});
+
+Deno.test('DEBUG-772 AC2: Apple DID_FAIL_TO_RENEW inside a signed grace period is grace with that end written', async () => {
+  const db = fakeDb({ subscriptions: [appleRow('active')] });
+  const graceEnd = NOW + 14 * DAY_MS;
+  const r = await run({
+    db,
+    body: amsgWith('DID_FAIL_TO_RENEW', 'u-grace', { expiresDate: String(NOW - 2 * DAY_MS) }, {
+      subtype: 'GRACE_PERIOD',
+      renewal: renewalInfo({ isInBillingRetryPeriod: true, gracePeriodExpiresDate: graceEnd }),
+    }),
+  });
+  assertEquals(r.res.status, 200);
+  assertEquals(statusOf(db, APPLE_ROW_ID), 'grace');
+  assertEquals(graceEndOf(db, APPLE_ROW_ID), iso(graceEnd));
+});
+
+Deno.test('DEBUG-772 AC2: a DID_FAIL_TO_RENEW with no signedRenewalInfo is expired, never an unbounded grace', async () => {
+  const db = fakeDb({ subscriptions: [appleRow('active')] });
+  await run({
+    db,
+    body: amsgWith('DID_FAIL_TO_RENEW', 'u-no-renewal', { expiresDate: String(NOW - DAY_MS) }, { subtype: 'GRACE_PERIOD' }),
+  });
+  assertEquals(statusOf(db, APPLE_ROW_ID), 'expired');
+  assertEquals(graceEndOf(db, APPLE_ROW_ID), null);
+});
+
+Deno.test('DEBUG-772: renewal info bound to a different transaction or environment is a 422, never applied or marked', async () => {
+  for (const renewal of [renewalInfo({ originalTransactionId: '2000000999999999' }), renewalInfo({ environment: 'Sandbox' })]) {
+    const db = fakeDb({ subscriptions: [appleRow('active')] });
+    const r = await run({
+      db,
+      body: amsgWith('DID_FAIL_TO_RENEW', 'u-mismatch', { expiresDate: String(NOW - DAY_MS) }, {
+        subtype: 'GRACE_PERIOD',
+        renewal,
+      }),
+    });
+    assertEquals(r.res.status, 422);
+    assertEquals(r.body.reason, 'renewal_info_mismatch');
+    assertEquals(db.updates.length, 0);
+    assertEquals(r.marked.length, 0);
+  }
+});
+
+Deno.test('DEBUG-772 AC2: leaving grace clears grace_period_end (Apple DID_RENEW, Google RENEWED)', async () => {
+  const apple = fakeDb({ subscriptions: [{ ...appleRow('grace'), grace_period_end: iso(NOW + DAY_MS) }] });
+  await run({ db: apple, body: amsg('DID_RENEW', T2, 'u-renew') });
+  assertEquals(statusOf(apple, APPLE_ROW_ID), 'active');
+  assertEquals(graceEndOf(apple, APPLE_ROW_ID), null);
+
+  const google = fakeDb({ subscriptions: [{ ...googleRow('grace'), grace_period_end: iso(NOW + DAY_MS) }] });
+  await run({ db: google, body: gmsg(2, T2, 'm-renew') });
+  assertEquals(statusOf(google, GOOGLE_ROW_ID), 'active');
+  assertEquals(graceEndOf(google, GOOGLE_ROW_ID), null);
+});
+
+Deno.test('DEBUG-772 AC2: a status-null transition leaves grace_period_end untouched', async () => {
+  const db = fakeDb({ subscriptions: [{ ...appleRow('grace'), grace_period_end: iso(NOW + DAY_MS) }] });
+  await run({ db, body: amsg('DID_CHANGE_RENEWAL_STATUS', T2, 'u-toggle', 'AUTO_RENEW_DISABLED') });
+  assertEquals('grace_period_end' in db.updates[0].patch, false);
+});
+
+Deno.test('DEBUG-772 AC2: Google IN_GRACE_PERIOD no longer writes an unbounded grace - status untouched, audit row only', async () => {
+  const db = fakeDb({ subscriptions: [googleRow('active')] });
+  const r = await run({ db, body: gmsg(6, T2, 'm-grace') });
+  assertEquals(r.res.status, 200);
+  assertEquals(statusOf(db, GOOGLE_ROW_ID), 'active');
+  assertEquals('status' in db.updates[0].patch, false);
+  assertEquals('grace_period_end' in db.updates[0].patch, false);
+  assertEquals(auditTypes(db), ['grace_period_started']);
+});
+
+Deno.test('DEBUG-772 AC3: a REFUND of an OLDER transaction keeps the paid period - no write, no audit row, acknowledged', async () => {
+  for (const type of ['REFUND', 'REVOKE']) {
+    const paidEnd = NOW + 20 * DAY_MS;
+    const db = fakeDb({ subscriptions: [{ ...appleRow('active'), subscription_end_date: iso(paidEnd) }] });
+    const r = await run({
+      db,
+      body: amsgWith(type, `u-old-${type}`, { expiresDate: String(NOW - 10 * DAY_MS), revocationDate: NOW - DAY_MS }),
+    });
+    assertEquals(r.res.status, 200, type);
+    assertEquals(r.body.ignored, 'refund_of_superseded_transaction', type);
+    assertEquals(statusOf(db, APPLE_ROW_ID), 'active', type);
+    assertEquals(endOf(db, APPLE_ROW_ID), iso(paidEnd), type);
+    assertEquals(db.updates.length, 0, type);
+    assertEquals(auditTypes(db), [], type);
+    assertEquals(r.marked.length, 1, type);
+  }
+});
+
+Deno.test('DEBUG-772 AC3: a REFUND of the CURRENT transaction revokes access and never moves the end date backwards', async () => {
+  const paidEnd = NOW + 20 * DAY_MS;
+  const db = fakeDb({ subscriptions: [{ ...appleRow('active'), subscription_end_date: iso(paidEnd) }] });
+  const r = await run({ db, body: amsgWith('REFUND', 'u-current', { expiresDate: String(paidEnd), revocationDate: NOW - DAY_MS }) });
+  assertEquals(r.res.status, 200);
+  assertEquals(statusOf(db, APPLE_ROW_ID), 'expired');
+  assertEquals(endOf(db, APPLE_ROW_ID), iso(paidEnd));
+  assertEquals(auditTypes(db), ['subscription_cancelled']);
+});
+
+Deno.test('DEBUG-772 AC3: a REFUND against a row with no usable end date is not applied (the daily job converges)', async () => {
+  for (const end of [null, 'not-a-date']) {
+    const db = fakeDb({ subscriptions: [{ ...appleRow('active'), subscription_end_date: end }] });
+    const r = await run({ db, body: amsgWith('REFUND', `u-null-${end}`, { expiresDate: String(NOW + DAY_MS) }) });
+    assertEquals(r.res.status, 200);
+    assertEquals(r.body.ignored, 'refund_of_superseded_transaction');
+    assertEquals(statusOf(db, APPLE_ROW_ID), 'active');
+    assertEquals(db.updates.length, 0);
+  }
+});
+
+Deno.test('DEBUG-772 AC3: REFUND_REVERSED restores access from the signed transaction', async () => {
+  const end = NOW + 20 * DAY_MS;
+  const db = fakeDb({ subscriptions: [{ ...appleRow('expired'), subscription_end_date: iso(end) }] });
+  const r = await run({ db, body: amsgWith('REFUND_REVERSED', 'u-reversed', { expiresDate: String(end) }) });
+  assertEquals(r.res.status, 200);
+  assertEquals(statusOf(db, APPLE_ROW_ID), 'active');
+  assertEquals(endOf(db, APPLE_ROW_ID), iso(end));
+  assertEquals(auditTypes(db), ['subscription_restored']);
+});
+
+Deno.test('DEBUG-772 AC3: REFUND_REVERSED for an elapsed or superseded period never downgrades or writes', async () => {
+  const cases: Array<[string, Record<string, unknown>, string]> = [
+    ['elapsed', { expiresDate: String(NOW - DAY_MS) }, 'expired'],
+    ['older than the current period', { expiresDate: String(NOW + 5 * DAY_MS) }, 'active'],
+    ['still revoked', { expiresDate: String(NOW + 20 * DAY_MS), revocationDate: NOW - DAY_MS }, 'active'],
+  ];
+  for (const [label, txn, rowStatus] of cases) {
+    const db = fakeDb({ subscriptions: [{ ...appleRow(rowStatus), subscription_end_date: iso(NOW + 20 * DAY_MS) }] });
+    const r = await run({ db, body: amsgWith('REFUND_REVERSED', `u-${label}`, txn) });
+    assertEquals(r.res.status, 200, label);
+    assertEquals(r.body.ignored, 'refund_reversal_no_current_period', label);
+    assertEquals(statusOf(db, APPLE_ROW_ID), rowStatus, label);
+    assertEquals(db.updates.length, 0, label);
+  }
+});
+
+Deno.test('DEBUG-772: a late REFUND_REVERSED older than a newer EXPIRED is stale and not applied', async () => {
+  const db = fakeDb({ subscriptions: [appleRow('active')] });
+  assertEquals((await run({ db, body: amsg('EXPIRED', T2, 'u-exp') })).res.status, 200);
+  const late = await run({ db, body: amsg('REFUND_REVERSED', T1, 'u-reversed-late') });
+  assertEquals(late.res.status, 200);
+  assertEquals(late.body.ignored, 'stale_notification');
+  assertEquals(statusOf(db, APPLE_ROW_ID), 'expired');
+});
+
+Deno.test('DEBUG-772: an Apple write never moves subscription_end_date backwards', async () => {
+  const paidEnd = NOW + 40 * DAY_MS;
+  const db = fakeDb({ subscriptions: [{ ...appleRow('active'), subscription_end_date: iso(paidEnd) }] });
+  await run({ db, body: amsgWith('DID_RENEW', 'u-renew-short', { expiresDate: String(NOW + 10 * DAY_MS) }) });
+  assertEquals(endOf(db, APPLE_ROW_ID), iso(paidEnd));
+});
+
+Deno.test('DEBUG-772: the row lookup selects status and subscription_end_date (the fake does not project, so pin the source)', async () => {
+  const src = await Deno.readTextFile(new URL('../subscription-webhook/handlers.ts', import.meta.url));
+  const m = src.match(/const ROW_COLUMNS\s*=\s*'([^']*)'/);
+  assert(m, 'ROW_COLUMNS not found');
+  const cols = m[1].split(',').map((c) => c.trim());
+  for (const c of ['status', 'subscription_end_date', 'last_store_event_at', 'updated_at']) {
+    assert(cols.includes(c), `ROW_COLUMNS lacks ${c}`);
+  }
 });
 
 Deno.test('AC2: a status-null transition stamps the watermark too', async () => {

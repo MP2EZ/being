@@ -56,6 +56,23 @@
  *     acknowledged unwritten ('package_mismatch') on both Google paths, loudly. The OIDC pin
  *     authenticates the sender, not whose subscription the message describes.
  *
+ * WHAT DEBUG-772 ADDED (Apple; Google is DEBUG-777):
+ *   - STATUS FROM SIGNED STATE where the type alone cannot say. DID_FAIL_TO_RENEW is decided by
+ *     the same decideAppleStatus the daily job uses, from the signed transaction and the signed
+ *     renewal info - bound to that transaction by environment and originalTransactionId, since
+ *     renewal info has no bundleId and cannot be app-scoped alone (an unbound one is a 422,
+ *     renewal_info_mismatch). 'grace' is written only with its signed, bounded end in
+ *     grace_period_end; billing retry alone is 'expired'. Every other status write clears
+ *     grace_period_end; a status-null transition leaves it.
+ *   - REFUNDS OF OLDER TRANSACTIONS. REFUND / REVOKE revoke only when the refunded transaction's
+ *     signed expiresDate is at least the row's subscription_end_date (it is the current paid
+ *     period). Otherwise - or when the row has no usable end date, which the daily job then
+ *     converges - it is acknowledged as 'refund_of_superseded_transaction' with no write and no
+ *     audit row. REFUND_REVERSED restores 'active' only for a still-running, unrevoked period at
+ *     least as late as the stored one ('refund_reversal_no_current_period' otherwise); it never
+ *     downgrades. No App Store re-fetch: no new secret, no new failure mode on this endpoint.
+ *   - subscription_end_date is never moved backwards by an Apple write.
+ *
  * LOGS AND RESPONSES (MAINT-765). Nothing identifying and no error text reaches a log line or
  * a response body: no user id, transaction id, purchase token, subscription row id or
  * per-notification id (notificationUUID, messageId), no whole error object, no error message.
@@ -69,6 +86,11 @@ import { assertAppleAppScope } from '../_shared/verifyAppleJWS.ts';
 import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
 import { safeStoreCode, stringCodeOf, sqlStateOf } from '../_shared/logSafe.ts';
 import { assertValidPurchaseToken, BEING_ANDROID_PACKAGE } from '../_shared/googlePlayDeveloperApi.ts';
+import {
+  decideAppleStatus,
+  renewalBoundToTransaction,
+  type SignedRenewalClaims,
+} from '../_shared/subscriptionStatusDecision.ts';
 import { markProcessed, wasProcessed } from './replayCache.ts';
 import {
   EVENT_CLOCK_SKEW_MS,
@@ -112,7 +134,8 @@ export type WebhookRejectReason =
   | 'missing_original_transaction_id'
   | 'unusable_expires_date'
   | 'app_account_token_mismatch'
-  | 'missing_signed_date';
+  | 'missing_signed_date'
+  | 'renewal_info_mismatch';
 
 /** A signed, in-scope notification missing what its type requires. Non-2xx, not marked. */
 export class WebhookPayloadRejectedError extends Error {
@@ -187,24 +210,58 @@ function isUsableId(v: unknown): v is string {
 }
 
 /** The columns both lookups select; BoundRow is what comes back. */
-const ROW_COLUMNS = 'user_id, id, last_store_event_at, updated_at';
+const ROW_COLUMNS = 'user_id, id, status, subscription_end_date, last_store_event_at, updated_at';
 
 interface BoundRow {
   user_id: string;
   id: string;
+  status?: string | null;
+  /** The stored paid-through date: what an Apple refund is compared against (DEBUG-772). */
+  subscription_end_date?: string | null;
   /** Store event time of the newest notification applied to this row (DEBUG-751). */
   last_store_event_at: string | null;
   /** The optimistic-concurrency token: the write only lands if this is still current. */
   updated_at: string | null;
 }
 
-/** The update payload: `status` is written only when the transition names one. */
+/**
+ * The update payload: `status` is written only when the transition names one. Any status other
+ * than 'grace' clears grace_period_end (DEBUG-772); a 'grace' write brings its own bounded end
+ * in `extra`, and a status-null transition leaves the column alone.
+ */
 function transitionPatch(t: StatusTransition, extra: Record<string, unknown>) {
   return {
     ...(t.status !== null ? { status: t.status } : {}),
+    ...(t.status !== null && t.status !== 'grace' ? { grace_period_end: null } : {}),
     ...extra,
     updated_at: new Date().toISOString(),
   };
+}
+
+/** A stored timestamptz as ms, or undefined when absent or unparseable. */
+function storedMs(v: unknown): number | undefined {
+  if (typeof v !== 'string') return undefined;
+  const ms = Date.parse(v);
+  return Number.isFinite(ms) ? ms : undefined;
+}
+
+/**
+ * The notification's signed renewal info, verified and bound to its scoped transaction, or
+ * null when the notification carries none. Never app-scoped directly: it has no bundleId.
+ */
+async function boundRenewalInfo(
+  signedRenewalInfo: unknown,
+  // deno-lint-ignore no-explicit-any
+  transaction: any,
+  environment: string,
+  verifyAppleSignature: WebhookDeps['verifyAppleSignature'],
+): Promise<SignedRenewalClaims | null> {
+  if (typeof signedRenewalInfo !== 'string' || signedRenewalInfo === '') return null;
+  const renewal = await verifyAppleSignature(signedRenewalInfo);
+  if (!renewalBoundToTransaction(renewal, transaction ?? {}, environment)) {
+    throw new WebhookPayloadRejectedError('renewal_info_mismatch');
+  }
+  return renewal;
 }
 
 /** A store event time we can order by and write: a positive number that is a valid Date. */
@@ -315,14 +372,48 @@ export async function handleAppleWebhook(
     throw new WebhookPayloadRejectedError('app_account_token_mismatch');
   }
 
+  const label = safeStoreCode(notificationType);
+  const rowEndMs = storedMs(subscription.subscription_end_date);
+  let resolved: StatusTransition = transition;
+  const extraPatch: Record<string, unknown> = {};
+
+  switch (transition.signedState) {
+    case 'post_expiry': {
+      const renewal = await boundRenewalInfo(data?.signedRenewalInfo, transaction, innerScope.environment, verifyAppleSignature);
+      const decided = decideAppleStatus(transaction ?? {}, renewal, nowMs);
+      if (!decided) throw new WebhookPayloadRejectedError('unusable_expires_date');
+      resolved = { ...transition, status: decided.status };
+      if (decided.status === 'grace') extraPatch.grace_period_end = new Date(decided.gracePeriodEndMs!).toISOString();
+      break;
+    }
+    case 'revocation':
+      // Revoke only the CURRENT paid period. A refund of an older transaction, or a row with no
+      // end date to compare against, is not applied; the daily job re-verifies the row.
+      if (rowEndMs === undefined || expiresMs < rowEndMs) {
+        console.log('[Apple Webhook] Refund of a superseded transaction, no write:', label);
+        return { kind: 'ignored', reason: 'refund_of_superseded_transaction' };
+      }
+      break;
+    case 'reversal': {
+      const decided = decideAppleStatus(transaction ?? {}, null, nowMs);
+      if (!decided || decided.status !== 'active' || (rowEndMs !== undefined && expiresMs < rowEndMs)) {
+        console.log('[Apple Webhook] Refund reversal for no current period, no write:', label);
+        return { kind: 'ignored', reason: 'refund_reversal_no_current_period' };
+      }
+      break;
+    }
+  }
+
+  // Never move the paid-through date backwards.
+  const endMs = rowEndMs !== undefined && rowEndMs > expiresMs ? rowEndMs : expiresMs;
   return await applyTransition(supabase, {
     platform: 'apple',
     row: subscription,
-    transition,
+    transition: resolved,
     eventMs: signedDate,
     nowMs,
-    label: safeStoreCode(notificationType),
-    extraPatch: { subscription_end_date: new Date(expiresMs).toISOString() },
+    label,
+    extraPatch: { ...extraPatch, subscription_end_date: new Date(endMs).toISOString() },
     auditMetadata: { platform: 'apple', notification_type: notificationType },
   });
 }
