@@ -333,6 +333,11 @@ consumes `isInterventionTierScore` from `features/crisis/types/safety`, which is
 surfaced it. The three armed flows witness only a boot-time prune breaking or hanging a live
 screening: every flow launches with `clearState`, so tier selection and no-resurrection are
 jest-owned.
+DEBUG-775 (crisis + compliance) fenced that launch sweep off account erasure: it also races
+`resumeInterruptedErasure`, and a read → prune → write-back straddling the wipe restored the
+erased account's records. `runRetentionCleanup` now awaits an erasure in flight and skips while
+the marker is set, failing closed. No flow can seed a marker, so the fence is jest-owned
+(`retentionErasureFence.privacy.test.ts`).
 
 `core/components/accessibility/RadioGroup.tsx` and `FocusManager.tsx` are the twenty-sixth and
 twenty-seventh instances (added MAINT-750, crisis ruling), gated as FILES. RadioGroup is the PHQ-9
