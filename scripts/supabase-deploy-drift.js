@@ -48,10 +48,39 @@
 const fs = require('fs');
 const path = require('path');
 
-const REPO_ROOT = path.resolve(__dirname, '..');
-const MANIFEST_PATH = path.join(REPO_ROOT, 'supabase', 'deploy-manifest.json');
-const FUNCTIONS_DIR = path.join(REPO_ROOT, 'supabase', 'functions');
-const MIGRATIONS_DIR = path.join(REPO_ROOT, 'supabase', 'migrations');
+const DEFAULT_ROOT = path.resolve(__dirname, '..');
+
+/**
+ * Where to look. Precedence per path: CLI flag > env var > repo default, so the
+ * script can be pointed at a fixture tree (tests) without touching the real one.
+ *   --functions-dir  / DRIFT_FUNCTIONS_DIR
+ *   --manifest       / DRIFT_MANIFEST_PATH
+ *   --migrations-dir / DRIFT_MIGRATIONS_DIR
+ * Both `--flag value` and `--flag=value` are accepted.
+ */
+function flagValue(argv, name) {
+  for (let i = 0; i < argv.length; i++) {
+    if (argv[i] === name) return argv[i + 1];
+    if (argv[i].startsWith(`${name}=`)) return argv[i].slice(name.length + 1);
+  }
+  return undefined;
+}
+
+function pick(argv, env, flag, envName, fallback) {
+  const chosen = flagValue(argv, flag) || env[envName] || fallback;
+  return path.resolve(chosen);
+}
+
+const ARGV = process.argv.slice(2);
+const MANIFEST_PATH = pick(ARGV, process.env, '--manifest', 'DRIFT_MANIFEST_PATH',
+  path.join(DEFAULT_ROOT, 'supabase', 'deploy-manifest.json'));
+const FUNCTIONS_DIR = pick(ARGV, process.env, '--functions-dir', 'DRIFT_FUNCTIONS_DIR',
+  path.join(DEFAULT_ROOT, 'supabase', 'functions'));
+const MIGRATIONS_DIR = pick(ARGV, process.env, '--migrations-dir', 'DRIFT_MIGRATIONS_DIR',
+  path.join(DEFAULT_ROOT, 'supabase', 'migrations'));
+// Manifest file entries (knownNonLiteralEnvReads) are written relative to the
+// directory that contains `supabase/`, i.e. two levels above the functions dir.
+const REPO_ROOT = path.resolve(FUNCTIONS_DIR, '..', '..');
 
 /** Directories under supabase/functions/ that are not deployable functions. */
 const NON_FUNCTION_DIRS = new Set(['_shared', '_tests', 'vendor']);
@@ -349,9 +378,14 @@ function reconcile() {
 }
 
 // ---------------------------------------------------------------------------
-const mode = process.argv[2];
-if (mode === '--reconcile') {
-  reconcile();
+if (ARGV.includes('--reconcile')) {
+  try {
+    reconcile();
+  } catch (err) {
+    // process.exit() inside reconcile() does not throw; anything that does is an
+    // internal error, and an internal error is "could not determine", never "clean".
+    undetermined('internal error while reconciling', err);
+  }
 } else {
   console.error('Usage: node scripts/supabase-deploy-drift.js --reconcile');
   console.error('');
