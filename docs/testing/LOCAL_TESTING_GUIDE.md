@@ -5,8 +5,8 @@ Comprehensive local testing automation and validation tools for rapid developmen
 ## 🚀 Quick Start
 
 ```bash
-# Quick validation (fastest)
-npm run quick:validate
+# Quick clinical check (fastest)
+npm run test:clinical-quick
 
 # Smart development workflow
 npm run automation:dev
@@ -17,36 +17,7 @@ npm run reports:dashboard
 
 ## 📋 Available Testing Tools
 
-### 1. Quick Validation Tools
-Ultra-fast validation for rapid iteration:
-
-```bash
-# Smart validation based on file changes
-npm run quick:validate
-
-# Crisis safety check (< 30s)
-npm run quick:crisis
-
-# Clinical accuracy check (< 45s)
-npm run quick:clinical
-
-# Syntax/type check (< 15s)
-npm run quick:syntax
-
-# Performance check
-npm run quick:perf
-
-# Auto-fix lint issues
-npm run quick:fix
-
-# Watch mode with smart validation
-npm run quick:watch
-
-# Interactive validation mode
-npm run quick:interactive
-```
-
-### 2. Test Automation Workflows
+### 1. Test Automation Workflows
 
 ```bash
 # Quick validation suite (< 2 min)
@@ -68,7 +39,7 @@ npm run automation:dev
 npm run automation:watch
 ```
 
-### 3. Enhanced Jest Configurations
+### 2. Enhanced Jest Configurations
 
 ```bash
 # Local development optimized
@@ -90,48 +61,7 @@ npm run test:local-performance
 npm run test:local-coverage
 ```
 
-### 4. Smart Test Execution
-
-```bash
-# Smart prioritized testing
-npm run dev:test-smart
-
-# Focused testing for specific component
-npm run dev:test-focused ComponentName
-
-# Debug mode with verbose output
-npm run dev:test-debug
-
-# Fast execution with fail-fast
-npm run dev:test-fast
-
-# Coverage analysis
-npm run dev:test-coverage
-```
-
-### 5. Cross-Platform Testing
-
-```bash
-# List available devices
-npm run platform:list
-
-# iOS testing
-npm run platform:ios
-
-# Android testing
-npm run platform:android
-
-# Both platforms
-npm run platform:both
-
-# Parallel platform testing
-npm run platform:parallel
-
-# Setup platform test utilities
-npm run platform:setup
-```
-
-### 6. Git Hooks (Optional)
+### 3. Git Hooks (Optional)
 
 ```bash
 # Setup optional pre-commit/pre-push hooks
@@ -150,7 +80,7 @@ npm run hooks:status
 npm run hooks:remove
 ```
 
-### 7. Test Reports & Visualization
+### 4. Test Reports & Visualization
 
 ```bash
 # Generate HTML test dashboard
@@ -168,27 +98,12 @@ npm run reports:all
 
 ## 🎯 Development Workflows
 
-### Rapid Iteration Workflow
-```bash
-# 1. Quick validation during development
-npm run quick:validate
-
-# 2. Auto-fix any issues
-npm run quick:fix
-
-# 3. Watch mode for continuous feedback
-npm run quick:watch
-```
-
 ### Feature Development Workflow
 ```bash
 # 1. Start with smart validation
 npm run automation:dev
 
-# 2. Focus on your component
-npm run dev:test-focused MyComponent
-
-# 3. Generate reports
+# 2. Generate reports
 npm run reports:dashboard
 ```
 
@@ -202,18 +117,6 @@ npm run automation:pre-commit
 
 # 3. Crisis-only mode for quick commits
 CRISIS_ONLY=true git commit -m "message"
-```
-
-### Cross-platform Workflow
-```bash
-# 1. Setup platform utilities (one-time)
-npm run platform:setup
-
-# 2. Test on both platforms
-npm run platform:both
-
-# 3. Or parallel for speed
-npm run platform:parallel
 ```
 
 ## ⚡ Performance-Optimized Testing
@@ -251,7 +154,7 @@ Crisis tests have special handling:
 
 ```bash
 # Quick crisis check
-npm run quick:crisis
+npm run test:crisis-quick
 
 # Crisis performance validation
 npm run perf:crisis
@@ -270,7 +173,7 @@ Clinical tests ensure therapeutic safety:
 
 ```bash
 # Quick clinical check
-npm run quick:clinical
+npm run test:clinical-quick
 
 # Comprehensive clinical validation
 npm run local:clinical-check
@@ -349,17 +252,7 @@ npm run reports:coverage
 
 ### Common Issues
 
-**Tests timeout**: Increase timeout in configuration
-```bash
-# Debug mode with longer timeouts
-npm run dev:test-debug
-```
-
-**Platform issues**: Check device availability
-```bash
-# List available devices
-npm run platform:list
-```
+**Tests timeout**: Increase the timeout in the Jest configuration, or run a single file with `npx jest <path> --testTimeout=30000`
 
 **Performance issues**: Use performance monitoring
 ```bash
@@ -373,17 +266,11 @@ npm run automation:performance
 ### Debug Commands
 
 ```bash
-# Verbose test output
-npm run dev:test-debug
-
 # Memory usage analysis
 npm run test:memory
 
 # Performance regression check
 npm run automation:performance
-
-# Interactive validation mode
-npm run quick:interactive
 ```
 
 ## 🎛️ Advanced Usage
@@ -391,32 +278,11 @@ npm run quick:interactive
 ### Custom Test Patterns
 
 ```bash
-# Test specific component
-npm run dev:test-focused CrisisButton
-
 # Test specific pattern
 npm run test:quick -- --testNamePattern="crisis|Crisis"
 
 # Test specific file
-node scripts/quick-validation.js test src/components/CrisisButton.test.tsx
-```
-
-### Watch Mode with Patterns
-
-```bash
-# Watch specific pattern
-npm run quick:watch crisis
-
-# Watch with smart validation
-npm run automation:watch
-```
-
-### Interactive Mode
-
-```bash
-# Interactive validation commands
-npm run quick:interactive
-# Commands: c (crisis), cl (clinical), s (syntax), p (perf), a (all), f (fix), t (test file), q (quit)
+npx jest src/components/CrisisButton.test.tsx
 ```
 
 ## 📝 File Structure
@@ -427,9 +293,6 @@ app/
 ├── jest.quick.config.js           # Ultra-fast Jest config
 ├── scripts/
 │   ├── local-test-automation.js   # Main automation workflows
-│   ├── quick-validation.js        # Quick validation tools
-│   ├── dev-test-runner.js         # Smart test execution
-│   ├── cross-platform-testing.js  # iOS/Android testing
 │   ├── test-report-generator.js   # HTML reports & dashboards
 │   └── setup-git-hooks.js         # Optional Git hooks
 ├── __tests__/
@@ -450,9 +313,9 @@ app/
 ## 🚀 Best Practices
 
 ### Development Workflow
-1. **Start with quick validation** (`npm run quick:validate`)
-2. **Use watch mode** for continuous feedback
-3. **Run focused tests** for specific components
+1. **Start with the quick clinical check** (`npm run test:clinical-quick`)
+2. **Use watch mode** for continuous feedback (`npm run automation:watch`)
+3. **Run focused tests** for specific components (`npx jest <path>`)
 4. **Generate reports** for analysis
 
 ### Safety-First Testing
@@ -473,15 +336,14 @@ app/
 
 | Command | Purpose | Speed |
 |---------|---------|-------|
-| `npm run quick:validate` | Smart validation | < 1 min |
+| `npm run test:clinical-quick` | Quick clinical check | < 1 min |
 | `npm run automation:quick` | Essential tests | < 2 min |
 | `npm run automation:dev` | Development workflow | 2-5 min |
 | `npm run automation:full` | Comprehensive | 5-10 min |
 | `npm run reports:dashboard` | Generate reports | < 30s |
-| `npm run platform:both` | Cross-platform | 3-8 min |
 
 **Crisis Safety**: Always < 3s, never skipped, immediate feedback
 **Clinical Accuracy**: PHQ-9/GAD-7 100% accuracy, therapeutic validation
 **Performance**: Real-time monitoring, regression detection, optimization tips
 
-For questions or issues, check the generated HTML reports or run interactive mode: `npm run quick:interactive`
+For questions or issues, check the generated HTML reports.
