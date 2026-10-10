@@ -47,6 +47,8 @@ import { logSecurity, logError, LogCategory } from '@/core/services/logging';
 import { generateTimestampedId } from '@/core/utils/id';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import { ASSESSMENT_RETENTION_PERIODS, pruneAssessmentBlob } from './assessmentRetention';
+import { awaitErasureInFlight } from '@/core/services/privacy/erasureResumeGate';
+import { ERASURE_PENDING_KEY } from '@/core/services/privacy/erasurePending';
 
 // ──────────────────────────────────────────────────────────────────────────────
 // CONFIGURATION
@@ -176,6 +178,19 @@ const generateAuditId = (): string => {
 /**
  * Get cutoff date for 90-day retention
  */
+/**
+ * DEBUG-775 — is an account erasure pending? Read directly rather than through
+ * `readErasurePendingAt`, which maps a fault to "absent": here a fault must skip the
+ * run (fail closed), and any value at the key counts.
+ */
+async function erasurePendingOrUnreadable(): Promise<boolean> {
+  try {
+    return (await AsyncStorage.getItem(ERASURE_PENDING_KEY)) !== null;
+  } catch {
+    return true;
+  }
+}
+
 const getRetentionCutoffDate = (): Date => {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() - DATA_RETENTION_CONFIG.DEFAULT_RETENTION_DAYS);
@@ -247,6 +262,27 @@ class DataRetentionServiceImpl {
         totalRecordsDeleted: 0,
         errors: ['Cleanup already in progress'],
         durationMs: 0,
+        auditEntries: [],
+      };
+    }
+
+    // DEBUG-775 — never alongside an account erasure. App.tsx starts this in its init
+    // allSettled while the navigator is already mounted, and the navigator starts
+    // `resumeInterruptedErasure`; a read → prune → write-back that straddles that wipe
+    // restores the deleted account's records (the assessment blob under a fresh master
+    // key). Wait for an erasure in flight, then skip the launch while the marker is set
+    // — set before the wipe and cleared after it, so it also covers a resume not yet
+    // started. Fails closed, and a skip stamps nothing: the limiter must not cost the
+    // next day's run.
+    await awaitErasureInFlight();
+    if (await erasurePendingOrUnreadable()) {
+      logSecurity('[DataRetention] cleanup skipped — account erasure pending', 'low');
+      return {
+        success: true,
+        categoriesProcessed: [],
+        totalRecordsDeleted: 0,
+        errors: [],
+        durationMs: Date.now() - startTime,
         auditEntries: [],
       };
     }

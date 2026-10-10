@@ -317,7 +317,9 @@ describe('DataRetentionService', () => {
     it('should skip cleanup if run within 24 hours', async () => {
       // Simulate last cleanup was 12 hours ago
       const twelveHoursAgo = Date.now() - 12 * 60 * 60 * 1000;
-      mockAsyncStorage.getItem.mockResolvedValue(twelveHoursAgo.toString());
+      mockAsyncStorage.getItem.mockImplementation(async (key: string) =>
+        key === DATA_RETENTION_CONFIG.LAST_CLEANUP_KEY ? twelveHoursAgo.toString() : null,
+      );
 
       const result = await DataRetentionService.runRetentionCleanup();
 
@@ -331,7 +333,10 @@ describe('DataRetentionService', () => {
     it('should run cleanup if more than 24 hours passed', async () => {
       // Simulate last cleanup was 25 hours ago
       const twentyFiveHoursAgo = Date.now() - 25 * 60 * 60 * 1000;
-      mockAsyncStorage.getItem.mockResolvedValue(twentyFiveHoursAgo.toString());
+      // Keyed: a blanket value would also answer the DEBUG-775 erasure marker, which skips the run.
+      mockAsyncStorage.getItem.mockImplementation(async (key: string) =>
+        key === DATA_RETENTION_CONFIG.LAST_CLEANUP_KEY ? twentyFiveHoursAgo.toString() : null,
+      );
       mockSecureStore.getItemAsync.mockResolvedValue(null);
 
       const result = await DataRetentionService.runRetentionCleanup();
