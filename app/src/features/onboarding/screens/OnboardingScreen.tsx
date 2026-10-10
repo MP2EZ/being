@@ -360,51 +360,47 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onRetur
           allowSkip: true,
           onComplete: (result) => {
             console.log('✅ PHQ-9 onboarding completed:', result);
-            // Modal already dismissed by CleanRootNavigator, just open GAD-7
-            setTimeout(() => {
-              navigation.navigate('AssessmentFlow', {
-                assessmentType: 'gad7',
-                context: 'onboarding',
-                allowSkip: true,
-                onComplete: (result) => {
-                  console.log('✅ GAD-7 onboarding completed:', result);
-                  // Modal already dismissed, continue to Stoic intro
-                  setCurrentScreen('stoicIntro');
-                  logStateChange('navigateNext:assessments->stoicIntro');
-                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
-                  announceToScreenReader('Assessments complete. Learning about Stoic Mindfulness.');
-                },
-                onSkip: () => {
-                  // Modal already dismissed, continue to Stoic intro
-                  setCurrentScreen('stoicIntro');
-                  logStateChange('navigateNext:gad7-skipped->stoicIntro');
-                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
-                },
-              });
-            }, 50);
+            // dismissRouteThenNotify already waited for the dismissal and for crisis focus to clear, so open GAD-7 now
+            navigation.navigate('AssessmentFlow', {
+              assessmentType: 'gad7',
+              context: 'onboarding',
+              allowSkip: true,
+              onComplete: (result) => {
+                console.log('✅ GAD-7 onboarding completed:', result);
+                // Modal already dismissed, continue to Stoic intro
+                setCurrentScreen('stoicIntro');
+                logStateChange('navigateNext:assessments->stoicIntro');
+                trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
+                announceToScreenReader('Assessments complete. Learning about Stoic Mindfulness.');
+              },
+              onSkip: () => {
+                // Modal already dismissed, continue to Stoic intro
+                setCurrentScreen('stoicIntro');
+                logStateChange('navigateNext:gad7-skipped->stoicIntro');
+                trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
+              },
+            });
           },
           onSkip: () => {
-            // PHQ-9 skipped, modal already dismissed, go to GAD-7
-            setTimeout(() => {
-              navigation.navigate('AssessmentFlow', {
-                assessmentType: 'gad7',
-                context: 'onboarding',
-                allowSkip: true,
-                onComplete: (result) => {
-                  console.log('✅ GAD-7 onboarding completed:', result);
-                  // Modal already dismissed, continue to Stoic intro
-                  setCurrentScreen('stoicIntro');
-                  logStateChange('navigateNext:gad7->stoicIntro');
-                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
-                },
-                onSkip: () => {
-                  // Modal already dismissed, continue to Stoic intro
-                  setCurrentScreen('stoicIntro');
-                  logStateChange('navigateNext:assessments-skipped->stoicIntro');
-                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
-                },
-              });
-            }, 50);
+            // PHQ-9 skipped; dismissRouteThenNotify already waited for the dismissal and for crisis focus to clear, so open GAD-7 now
+            navigation.navigate('AssessmentFlow', {
+              assessmentType: 'gad7',
+              context: 'onboarding',
+              allowSkip: true,
+              onComplete: (result) => {
+                console.log('✅ GAD-7 onboarding completed:', result);
+                // Modal already dismissed, continue to Stoic intro
+                setCurrentScreen('stoicIntro');
+                logStateChange('navigateNext:gad7->stoicIntro');
+                trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
+              },
+              onSkip: () => {
+                // Modal already dismissed, continue to Stoic intro
+                setCurrentScreen('stoicIntro');
+                logStateChange('navigateNext:assessments-skipped->stoicIntro');
+                trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
+              },
+            });
           },
         });
         logStateChange('navigateNext:welcome->assessments');

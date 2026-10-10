@@ -251,3 +251,105 @@ describe('CleanRootNavigator wiring (DEBUG-706)', () => {
     expect(handler).not.toMatch(/navigation\.goBack\s*\(/);
   });
 });
+
+describe('DEBUG-736: the GAD-7 follow-on has no post-guard timer', () => {
+  /*
+   * dismissRouteThenNotify checks crisis focus and calls notify in the same tick. An inner
+   * setTimeout(…, 50) in the notify callback reopens a 50ms window AFTER that check: a crisis
+   * screen opened inside it is covered by GAD-7. The fix calls navigate synchronously.
+   * Both the PHQ-9 onComplete and onSkip callbacks reach the same guard, so both shapes run.
+   */
+  const PATHS = ['onComplete', 'onSkip'] as const;
+
+  /** PHQ-9 over Onboarding, then the guarded completion — no crisis screen yet. */
+  function phq9Completing(notifyFor: (startGad7: () => void) => () => void) {
+    const stack = rootStack();
+    stack.navigate('AssessmentFlow', { assessmentType: 'phq9', context: 'onboarding' });
+    const phq9Key = stack.keyOf('AssessmentFlow')!;
+    const onboarding = stack.navigationFor(stack.keyOf('Onboarding')!);
+    const startGad7 = jest.fn(() => onboarding.navigate('AssessmentFlow', { assessmentType: 'gad7', context: 'onboarding' }));
+    complete(stack, phq9Key, notifyFor(startGad7));
+    return { stack, phq9Key, startGad7 };
+  }
+
+  describe.each(PATHS)('PHQ-9 %s', (path) => {
+    it(`${path} control — the old setTimeout shape ends GAD-7 on top of CrisisResources`, () => {
+      const { stack, startGad7 } = phq9Completing((go) => () => {
+        setTimeout(go, 50);
+      });
+
+      jest.advanceTimersByTime(50); // guard checked: no crisis, notify fires and arms the inner timer
+      expect(startGad7).not.toHaveBeenCalled();
+      stack.navigate('CrisisResources'); // opened inside the post-guard window
+      jest.advanceTimersByTime(50);
+
+      expect(startGad7).toHaveBeenCalledTimes(1);
+      expect(stack.focused()).toBe('AssessmentFlow');
+      expect(stack.state.routes.map((r) => r.name)).toEqual(['Onboarding', 'CrisisResources', 'AssessmentFlow']);
+    });
+
+    it(`${path} fixed — synchronous navigate leaves CrisisResources focused, GAD-7 started once`, () => {
+      const { stack, startGad7 } = phq9Completing((go) => go);
+
+      expect(startGad7).not.toHaveBeenCalled();
+      jest.advanceTimersByTime(50); // the guard's own 50ms: crisis check, then GAD-7 in the same tick
+      expect(startGad7).toHaveBeenCalledTimes(1);
+      stack.navigate('CrisisResources'); // the same moment the old shape was exposed
+      const crisisKey = stack.keyOf('CrisisResources');
+      jest.advanceTimersByTime(1000);
+
+      expect(startGad7).toHaveBeenCalledTimes(1);
+      expect(stack.focused()).toBe('CrisisResources');
+      expect(stack.keyOf('CrisisResources')).toBe(crisisKey);
+      expect(stack.state.routes.map((r) => r.name)).toEqual(['Onboarding', 'AssessmentFlow', 'CrisisResources']);
+    });
+
+    it(`${path} fixed — crisis opened before the 50ms mark holds GAD-7, then runs it exactly once`, () => {
+      const { stack, startGad7 } = phq9Completing((go) => go);
+
+      jest.advanceTimersByTime(20);
+      stack.navigate('CrisisResources');
+      const crisisKey = stack.keyOf('CrisisResources');
+      jest.advanceTimersByTime(1000);
+
+      expect(startGad7).not.toHaveBeenCalled();
+      expect(stack.focused()).toBe('CrisisResources');
+      expect(stack.keyOf('CrisisResources')).toBe(crisisKey);
+
+      stack.popCrisis();
+      jest.advanceTimersByTime(1000);
+
+      expect(startGad7).toHaveBeenCalledTimes(1);
+      expect(stack.focused()).toBe('AssessmentFlow');
+    });
+  });
+
+  describe('OnboardingScreen source pin', () => {
+    /** navigateNext's `case 'welcome'`, comments stripped (DEBUG-390), anchored to its first `break;`. */
+    const welcomeCase = (): string => {
+      const source = readFileSync(join(__dirname, '../../src/features/onboarding/screens/OnboardingScreen.tsx'), 'utf8')
+        .replace(/\/\*[\s\S]*?\*\//g, '')
+        .replace(/(^|[^:])\/\/.*$/gm, '$1');
+      const start = source.indexOf("case 'welcome':");
+      const end = source.indexOf('break;', start);
+      expect(start).toBeGreaterThan(-1);
+      expect(end).toBeGreaterThan(start);
+      return source.slice(start, end);
+    };
+    const TIMER = /setTimeout\s*\(/;
+
+    it('matcher self-check: the timer regex fires on the old wrapper shape', () => {
+      expect('setTimeout(() => {').toMatch(TIMER);
+      expect('navigation.navigate(').not.toMatch(TIMER);
+    });
+
+    it('opens GAD-7 synchronously from both PHQ-9 callbacks, with no timer and no bare goBack', () => {
+      const slice = welcomeCase();
+      expect(slice.length).toBeGreaterThan(300);
+      expect(slice).toMatch(/assessmentType:\s*'phq9'/); // the slice is the right region
+      expect(slice).not.toMatch(TIMER);
+      expect(slice.match(/assessmentType:\s*'gad7'/g)).toHaveLength(2);
+      expect(slice).not.toMatch(/navigation\.goBack\s*\(/);
+    });
+  });
+});
