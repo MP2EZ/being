@@ -13,8 +13,9 @@
  * CI npm-audit gate never scans.
  *
  * THIS IS A ONE-OFF, ATTENDED SCRIPT. It is deliberately wired into NOTHING — no npm
- * script, no CI job, no test. It makes a network call and costs money; a test or a gate
- * must never invoke it.
+ * script, no CI job. A unit test (app/__tests__/scripts/corpus-generator-guard.test.js)
+ * imports only the pure guards, and nothing ever invokes main() or the network. It makes
+ * a network call and costs money; a test or a gate must never invoke it.
  *
  * IT NEVER WRITES INTO THE REPO. Two independent reasons, both hard:
  *   1. Unreviewed generated self-harm phrasing must not enter git history. INFRA-512 AC3
@@ -40,6 +41,7 @@
 
 'use strict';
 
+const childProcess = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -98,19 +100,87 @@ function parseArgs(argv) {
   return out;
 }
 
-/** Fail closed if the destination is anywhere inside this repository. */
+const REFUSAL_EXIT = 2;
+const MAX_SYMLINK_HOPS = 40;
+
+/**
+ * The guard boundary. This is NOT the worktree: the shared git dir's parent is the
+ * bare repo's own working tree, which holds every peer worktree, and an untracked file
+ * in any of them breaks that worktree's e2e provenance just the same.
+ */
+function guardBoundary() {
+  const gitCommonDir = childProcess
+    .execFileSync('git', ['rev-parse', '--path-format=absolute', '--git-common-dir'], {
+      cwd: __dirname,
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'pipe'],
+    })
+    .trim();
+  return fs.realpathSync.native(path.dirname(gitCommonDir));
+}
+
+/**
+ * Canonical form of a destination that may not exist yet: realpath (native, so the
+ * filesystem's true case is returned) of the deepest EXISTING ancestor, with the
+ * not-yet-existing segments rejoined. A dangling symlink is followed by hand, because
+ * a later write through it would create its target. Only ENOENT is tolerated.
+ */
+function canonicalise(dest) {
+  let pending = path.resolve(dest);
+  for (let hops = 0; hops <= MAX_SYMLINK_HOPS; hops += 1) {
+    let probe = pending;
+    const rest = [];
+    for (;;) {
+      try {
+        return path.join(fs.realpathSync.native(probe), ...rest);
+      } catch (e) {
+        if (!e || e.code !== 'ENOENT') throw e;
+      }
+      // ENOENT: either a dangling symlink, or a segment that does not exist yet.
+      let linkTarget = null;
+      try {
+        if (fs.lstatSync(probe).isSymbolicLink()) linkTarget = fs.readlinkSync(probe);
+      } catch (e) {
+        if (!e || e.code !== 'ENOENT') throw e;
+      }
+      if (linkTarget !== null) {
+        pending = path.join(path.resolve(path.dirname(probe), linkTarget), ...rest);
+        break;
+      }
+      const parent = path.dirname(probe);
+      if (parent === probe) throw new Error(`no existing ancestor for ${dest}`);
+      rest.unshift(path.basename(probe));
+      probe = parent;
+    }
+  }
+  throw new Error(`too many symlink hops resolving ${dest}`);
+}
+
+/** Fail closed if the destination is anywhere inside the repository tree, or the guard cannot tell. */
 function assertOutsideRepo(dest) {
-  const repoRoot = path.resolve(__dirname, '..');
-  const resolved = path.resolve(dest);
-  const rel = path.relative(repoRoot, resolved);
-  if (rel && !rel.startsWith('..') && !path.isAbsolute(rel)) {
+  let resolved;
+  let inside;
+  try {
+    const boundary = guardBoundary();
+    resolved = canonicalise(dest);
+    const rel = path.relative(boundary, resolved);
+    const escapes = rel === '..' || rel.startsWith('..' + path.sep) || path.isAbsolute(rel);
+    inside = !escapes;
+  } catch (e) {
+    console.error(
+      `\nREFUSED: could not verify that --out is outside the repository (${e && e.message}).\n` +
+        'The guard fails closed. Fix the path or the git lookup and re-run.\n',
+    );
+    process.exit(REFUSAL_EXIT);
+  }
+  if (inside) {
     console.error(
       `\nREFUSED: --out resolves inside the repository (${resolved}).\n\n` +
         'Unreviewed generated crisis phrasing must not enter git history (AC3), and an\n' +
         'untracked file under the worktree invalidates the e2e provenance fingerprint,\n' +
         'costing a full gate rebuild. Write to a path outside the repo and review there.\n',
     );
-    process.exit(2);
+    process.exit(REFUSAL_EXIT);
   }
 }
 
@@ -232,7 +302,11 @@ async function main() {
   );
 }
 
-main().catch((err) => {
-  console.error(`\nUNCAUGHT: ${err && err.stack ? err.stack : err}\n`);
-  process.exit(1);
-});
+if (require.main === module) {
+  main().catch((err) => {
+    console.error(`\nUNCAUGHT: ${err && err.stack ? err.stack : err}\n`);
+    process.exit(1);
+  });
+}
+
+module.exports = { assertOutsideRepo, parseArgs };

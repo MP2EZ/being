@@ -26,6 +26,8 @@
  * `dismissRouteThenNotify`), DeleteAccountScreen's post-erasure reset
  * (DEBUG-703, `runWhenNoCrisisDestinationFocused`), and onboarding completion
  * (DEBUG-711, `completeOnboarding`, which defers its whole replace-then-push),
+ * onboarding's legal-gate re-ask (DEBUG-734, `returnToLegalGate`) and legal-gate
+ * completion (DEBUG-735, `completeLegalGate`), both deferred replaces by key,
  * the ReConsent / ConsentBlocked dismissals in CleanRootNavigator (DEBUG-733,
  * `removeOwnRoute`), and linking.ts's runtime link subscriber (DEBUG-737,
  * `isCrisisDestinationFocused`, read per event in `secureSubscribe`).

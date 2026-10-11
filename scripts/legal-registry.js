@@ -60,109 +60,190 @@ function readFile(p) {
   }
 }
 
-// 1. Markdown filenames on disk (without extension), minus intentional exclusions.
-const mdFiles = fs
-  .readdirSync(LEGAL_DIR)
-  .filter((f) => f.endsWith('.md'))
-  .map((f) => f.replace(/\.md$/, ''))
-  .filter((name) => !EXCLUDED_FROM_REGISTRY.has(name))
-  .sort();
-
-// 2. Parse SOURCES from the generator script.
-const generatorSrc = readFile(GENERATOR_PATH);
-const sourcesMatch = generatorSrc.match(/const SOURCES = \[([\s\S]*?)\];/);
-if (!sourcesMatch) {
-  fail(`could not locate \`const SOURCES = [ … ];\` in ${GENERATOR_PATH}`);
+/**
+ * Reduce an object-literal body to its depth-0 text. Everything inside a nested
+ * `{ … }` is dropped (the braces themselves are kept, so `key: {` still reads as a
+ * key), and so are comments. Quoted strings are copied only at depth 0 — keys are
+ * often quoted — and are scanned as units so a brace inside one never moves the depth.
+ */
+function topLevelOnly(body) {
+  let out = '';
+  let depth = 0;
+  let i = 0;
+  while (i < body.length) {
+    const c = body[i];
+    const next = body[i + 1];
+    if (c === '/' && next === '/') {
+      while (i < body.length && body[i] !== '\n') i += 1;
+    } else if (c === '/' && next === '*') {
+      const end = body.indexOf('*/', i + 2);
+      i = end === -1 ? body.length : end + 2;
+    } else if (c === "'" || c === '"' || c === '`') {
+      let j = i + 1;
+      while (j < body.length && body[j] !== c) j += body[j] === '\\' ? 2 : 1;
+      if (depth === 0) out += body.slice(i, j + 1);
+      i = j + 1;
+    } else {
+      if (c === '{') {
+        if (depth === 0) out += c;
+        depth += 1;
+      } else if (c === '}') {
+        depth = Math.max(0, depth - 1);
+        if (depth === 0) out += c;
+      } else if (depth === 0 || c === '\n') {
+        out += c;
+      }
+      i += 1;
+    }
+  }
+  return out;
 }
-const sourceEntries = [
-  ...sourcesMatch[1].matchAll(
-    /\{\s*key:\s*'([A-Za-z0-9_]+)'\s*,\s*file:\s*'([^']+\.md)'\s*\}/g,
-  ),
-];
-if (sourceEntries.length === 0) {
-  fail(`SOURCES block found but no { key, file } entries parsed in ${GENERATOR_PATH}`);
-}
-const sourceKeys = sourceEntries.map((m) => m[1]).sort();
-const sourceFiles = sourceEntries.map((m) => m[2].replace(/\.md$/, '')).sort();
 
-// 3. Parse legalDocuments.ts.
-const registrySrc = readFile(REGISTRY_PATH);
-
-// 3a. Imports from ./legalContent.generated.
-const importMatch = registrySrc.match(
-  /import\s*\{([\s\S]*?)\}\s*from\s*['"]\.\/legalContent\.generated['"]/,
-);
-if (!importMatch) {
-  fail(
-    `could not locate \`import { … } from './legalContent.generated'\` in registry`,
-  );
-}
-const importNames = [...importMatch[1].matchAll(/([A-Za-z_][A-Za-z0-9_]*)/g)]
-  .map((m) => m[1])
-  .sort();
-
-// 3b. LegalDocumentType union members.
-const unionMatch = registrySrc.match(
-  /export type LegalDocumentType =([\s\S]*?);/,
-);
-if (!unionMatch) {
-  fail('could not locate `export type LegalDocumentType = …;` in registry');
-}
-const unionMembers = [...unionMatch[1].matchAll(/'([^']+)'/g)]
-  .map((m) => m[1])
-  .sort();
-
-// 3c. legalDocuments Record keys.
-const recordMatch = registrySrc.match(
-  /export const legalDocuments[^{]*\{([\s\S]*?)^\};/m,
-);
-if (!recordMatch) {
-  fail('could not locate `export const legalDocuments … = { … };` in registry');
-}
-const recordKeys = [
-  ...recordMatch[1].matchAll(/^\s*['"]?([a-z0-9-]+)['"]?:\s*\{/gm),
-]
-  .map((m) => m[1])
-  .sort();
-
-// 4. Compare.
 const arrEqual = (a, b) =>
   a.length === b.length && a.every((v, i) => v === b[i]);
 
-const errors = [];
-if (!arrEqual(mdFiles, sourceFiles)) {
-  errors.push(
-    `docs/legal/*.md filenames vs generator SOURCES.file disagree:\n` +
-      `  on disk:   ${JSON.stringify(mdFiles)}\n` +
-      `  generator: ${JSON.stringify(sourceFiles)}`,
+/**
+ * Pure comparison of the three surfaces. Never calls fail() or process.exit.
+ *
+ * @param {string[]} mdFiles  RAW directory listing of docs/legal/ (filtering,
+ *                            exclusion and sorting happen here).
+ * @param {string} source     Text of app/scripts/generate-legal-content.js.
+ * @param {string} registry   Text of legalDocuments.ts.
+ * @returns {string[]} error messages; empty when consistent. A parse miss is an
+ *                     entry, and suppresses the disagreement checks that depend
+ *                     on the surface that could not be parsed.
+ */
+function compare(mdFiles, source, registry) {
+  // 1. Markdown filenames on disk (without extension), minus intentional exclusions.
+  const diskNames = mdFiles
+    .filter((f) => f.endsWith('.md'))
+    .map((f) => f.replace(/\.md$/, ''))
+    .filter((name) => !EXCLUDED_FROM_REGISTRY.has(name))
+    .sort();
+
+  const parseErrors = [];
+
+  // 2. Parse SOURCES from the generator script.
+  let sourceKeys = [];
+  let sourceFiles = [];
+  const sourcesMatch = source.match(/const SOURCES = \[([\s\S]*?)\];/);
+  if (!sourcesMatch) {
+    parseErrors.push(`could not locate \`const SOURCES = [ … ];\` in ${GENERATOR_PATH}`);
+  } else {
+    const sourceEntries = [
+      ...sourcesMatch[1].matchAll(
+        /\{\s*key:\s*'([A-Za-z0-9_]+)'\s*,\s*file:\s*'([^']+\.md)'\s*\}/g,
+      ),
+    ];
+    if (sourceEntries.length === 0) {
+      parseErrors.push(`SOURCES block found but no { key, file } entries parsed in ${GENERATOR_PATH}`);
+    } else {
+      sourceKeys = sourceEntries.map((m) => m[1]).sort();
+      sourceFiles = sourceEntries.map((m) => m[2].replace(/\.md$/, '')).sort();
+    }
+  }
+
+  // 3. Parse legalDocuments.ts.
+  // 3a. Imports from ./legalContent.generated.
+  let importNames = [];
+  const importMatch = registry.match(
+    /import\s*\{([\s\S]*?)\}\s*from\s*['"]\.\/legalContent\.generated['"]/,
   );
-}
-if (!arrEqual(sourceKeys, importNames)) {
-  errors.push(
-    `generator SOURCES.key vs legalDocuments.ts imports disagree:\n` +
-      `  generator: ${JSON.stringify(sourceKeys)}\n` +
-      `  imports:   ${JSON.stringify(importNames)}`,
+  if (!importMatch) {
+    parseErrors.push(
+      `could not locate \`import { … } from './legalContent.generated'\` in registry`,
+    );
+  } else {
+    importNames = [...importMatch[1].matchAll(/([A-Za-z_][A-Za-z0-9_]*)/g)]
+      .map((m) => m[1])
+      .sort();
+  }
+
+  // 3b. LegalDocumentType union members.
+  let unionMembers = [];
+  const unionMatch = registry.match(
+    /export type LegalDocumentType =([\s\S]*?);/,
   );
-}
-if (!arrEqual(unionMembers, recordKeys)) {
-  errors.push(
-    `LegalDocumentType union vs legalDocuments Record keys disagree:\n` +
-      `  union:    ${JSON.stringify(unionMembers)}\n` +
-      `  record:   ${JSON.stringify(recordKeys)}`,
+  if (!unionMatch) {
+    parseErrors.push('could not locate `export type LegalDocumentType = …;` in registry');
+  } else {
+    unionMembers = [...unionMatch[1].matchAll(/'([^']+)'/g)]
+      .map((m) => m[1])
+      .sort();
+  }
+
+  // 3c. legalDocuments Record keys.
+  let recordKeys = [];
+  const recordMatch = registry.match(
+    /export const legalDocuments[^{]*\{([\s\S]*?)^\};/m,
   );
+  if (!recordMatch) {
+    parseErrors.push('could not locate `export const legalDocuments … = { … };` in registry');
+  } else {
+    recordKeys = [
+      ...topLevelOnly(recordMatch[1]).matchAll(/^\s*['"]?([a-z0-9-]+)['"]?:\s*\{/gm),
+    ]
+      .map((m) => m[1])
+      .sort();
+  }
+
+  if (parseErrors.length > 0) return parseErrors;
+
+  // 4. Compare.
+  const errors = [];
+  if (!arrEqual(diskNames, sourceFiles)) {
+    errors.push(
+      `docs/legal/*.md filenames vs generator SOURCES.file disagree:\n` +
+        `  on disk:   ${JSON.stringify(diskNames)}\n` +
+        `  generator: ${JSON.stringify(sourceFiles)}`,
+    );
+  }
+  if (!arrEqual(sourceKeys, importNames)) {
+    errors.push(
+      `generator SOURCES.key vs legalDocuments.ts imports disagree:\n` +
+        `  generator: ${JSON.stringify(sourceKeys)}\n` +
+        `  imports:   ${JSON.stringify(importNames)}`,
+    );
+  }
+  if (!arrEqual(unionMembers, recordKeys)) {
+    errors.push(
+      `LegalDocumentType union vs legalDocuments Record keys disagree:\n` +
+        `  union:    ${JSON.stringify(unionMembers)}\n` +
+        `  record:   ${JSON.stringify(recordKeys)}`,
+    );
+  }
+  if (!arrEqual(diskNames, unionMembers)) {
+    errors.push(
+      `docs/legal/*.md filenames vs LegalDocumentType union disagree:\n` +
+        `  on disk:  ${JSON.stringify(diskNames)}\n` +
+        `  union:    ${JSON.stringify(unionMembers)}`,
+    );
+  }
+  return errors;
 }
-if (!arrEqual(mdFiles, unionMembers)) {
-  errors.push(
-    `docs/legal/*.md filenames vs LegalDocumentType union disagree:\n` +
-      `  on disk:  ${JSON.stringify(mdFiles)}\n` +
-      `  union:    ${JSON.stringify(unionMembers)}`,
+
+function main() {
+  const mdFiles = fs.readdirSync(LEGAL_DIR);
+  const generatorSrc = readFile(GENERATOR_PATH);
+  const registrySrc = readFile(REGISTRY_PATH);
+
+  const errors = compare(mdFiles, generatorSrc, registrySrc);
+  if (errors.length > 0) {
+    fail(errors.join('\n\n'));
+  }
+
+  const names = mdFiles
+    .filter((f) => f.endsWith('.md'))
+    .map((f) => f.replace(/\.md$/, ''))
+    .filter((name) => !EXCLUDED_FROM_REGISTRY.has(name))
+    .sort();
+  console.log(
+    `✅ Legal registry consistent (${names.length} docs: ${names.join(', ')})`,
   );
 }
 
-if (errors.length > 0) {
-  fail(errors.join('\n\n'));
+if (require.main === module) {
+  main();
 }
 
-console.log(
-  `✅ Legal registry consistent (${mdFiles.length} docs: ${mdFiles.join(', ')})`,
-);
+module.exports = { compare, EXCLUDED_FROM_REGISTRY };
