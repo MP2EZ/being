@@ -47,6 +47,7 @@ import {
 import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
 import { fetchSubscriptionStatuses } from '../_shared/appStoreServerApi.ts';
 import { assertAppleAppScope, verifyAppleJWS } from '../_shared/verifyAppleJWS.ts';
+import { decideAppleStatus, renewalBoundToTransaction } from '../_shared/subscriptionStatusDecision.ts';
 import { sqlStateOf, stringCodeOf } from '../_shared/logSafe.ts';
 
 /** Error names that are ours or the runtime's, and so safe to log. Never the message. */
@@ -398,7 +399,10 @@ async function notifyExpiringGracePeriods(supabase: any): Promise<number> {
  * ---------------------------------------------------------------------------
  * WHAT MAY BE WRITTEN, AND WHERE FAILURES GO
  * ---------------------------------------------------------------------------
- * Only `status`, `subscription_end_date`, `last_receipt_verified`, `updated_at`. Never
+ * Only `status`, `subscription_end_date`, `grace_period_end`, `last_receipt_verified`,
+ * `updated_at`. `grace_period_end` (DEBUG-772) is Apple's signed gracePeriodExpiresDate on a
+ * 'grace' write and NULL on every other one, so `expire_grace_periods()` can end every grace
+ * row and none outlives Apple's own. Never
  * `user_id`, `platform`, `original_transaction_id`, `receipt_hash`, `receipt_data_encrypted`
  * or `environment` — those are set by the binding/verification path, and rewriting them here
  * would let a cron failure unbind a receipt. Never `crisis_access_enabled`: its
@@ -436,39 +440,35 @@ const CONSECUTIVE_FAILURE_LIMIT = 5;
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
 /**
- * Decide the row's new state from CLAIMS THAT HAVE BEEN VERIFIED. Never called with anything
- * unverified.
+ * Decide the row's new state from CLAIMS THAT HAVE BEEN VERIFIED, with the decision the
+ * webhook uses (`_shared/subscriptionStatusDecision.ts`, DEBUG-772) so the two never disagree
+ * on the same store state. Never called with anything unverified.
  *
- * A downgrade requires POSITIVE signed evidence: a revocation, or an elapsed expiry with the
- * renewal half showing the subscription is not in Apple's billing-retry window and not inside
- * an unexpired grace period. Without that last clause a user whose card is being retried —
- * whose money is fine — gets cut off by a cron.
+ * A downgrade requires POSITIVE signed evidence: a revocation, or an elapsed expiry outside a
+ * signed grace period. DEBUG-772 corrected the second half: billing retry ALONE used to keep a
+ * row in 'grace' with no end date for as long as Apple retried (up to 60 days), and an unbounded
+ * grace row is one `expire_grace_periods()` never ends. With Billing Grace Period off, Apple has
+ * already ended the entitlement; recovery (DID_RENEW, BILLING_RECOVERY) restores it through the
+ * webhook or a client re-verification.
+ *
+ * The trial overlay stays here: a trial still inside its period stays a trial — this cron does
+ * not adjudicate trial-vs-active; `parseTransaction` owns that at verification time.
  */
-function decideStatus(
-  txn: { expiresDate?: number; revocationDate?: number },
-  renewal: { isInBillingRetryPeriod?: boolean; gracePeriodExpiresDate?: number },
+function decideRowStatus(
+  txn: Record<string, unknown>,
+  renewal: Record<string, unknown>,
   currentStatus: string,
   now: number,
-): { status: string; expiresDateIso?: string } | null {
-  if (typeof txn.revocationDate === 'number') {
-    return { status: 'expired' };
-  }
-  const expiresMs = typeof txn.expiresDate === 'number' ? txn.expiresDate : undefined;
-  if (expiresMs === undefined) return null; // malformed — caller treats as payload_malformed
-
-  const expiresDateIso = new Date(expiresMs).toISOString();
-  if (expiresMs > now) {
-    // Still inside the paid period. A trial stays a trial — this cron does not adjudicate
-    // trial-vs-active; `parseTransaction` owns that at verification time.
-    const status = currentStatus === 'trial' ? 'trial' : 'active';
-    return { status, expiresDateIso };
-  }
-
-  const inGrace =
-    renewal.isInBillingRetryPeriod === true ||
-    (typeof renewal.gracePeriodExpiresDate === 'number' && renewal.gracePeriodExpiresDate > now);
-
-  return { status: inGrace ? 'grace' : 'expired', expiresDateIso };
+): { status: string; expiresDateIso?: string; gracePeriodEndIso?: string } | null {
+  const decided = decideAppleStatus(txn, renewal, now);
+  if (!decided) return null; // malformed — caller treats as payload_malformed
+  return {
+    status: decided.status === 'active' && currentStatus === 'trial' ? 'trial' : decided.status,
+    ...(decided.expiresMs !== undefined ? { expiresDateIso: new Date(decided.expiresMs).toISOString() } : {}),
+    ...(decided.gracePeriodEndMs !== undefined
+      ? { gracePeriodEndIso: new Date(decided.gracePeriodEndMs).toISOString() }
+      : {}),
+  };
 }
 
 async function verifyStaleReceipts(supabase: any): Promise<StaleVerificationReport> {
@@ -609,8 +609,7 @@ async function verifyStaleReceipts(supabase: any): Promise<StaleVerificationRepo
         // the transaction half we just scoped.
         if (
           scope.environment !== row.environment ||
-          renewalClaims.environment !== scope.environment ||
-          renewalClaims.originalTransactionId !== txnClaims.originalTransactionId
+          !renewalBoundToTransaction(renewalClaims, txnClaims, scope.environment)
         ) {
           sawEnvironmentMismatch = true;
           continue;
@@ -632,12 +631,7 @@ async function verifyStaleReceipts(supabase: any): Promise<StaleVerificationRepo
         continue;
       }
 
-      const decided = decideStatus(
-        matched.txn as { expiresDate?: number; revocationDate?: number },
-        matched.renewal as { isInBillingRetryPeriod?: boolean; gracePeriodExpiresDate?: number },
-        row.status,
-        Date.now(),
-      );
+      const decided = decideRowStatus(matched.txn, matched.renewal, row.status, Date.now());
       if (!decided) {
         outcomes.push({ outcome: 'payload_malformed' });
         continue;
@@ -646,6 +640,7 @@ async function verifyStaleReceipts(supabase: any): Promise<StaleVerificationRepo
       const nowIso = new Date().toISOString();
       const patch: Record<string, unknown> = {
         status: decided.status,
+        grace_period_end: decided.gracePeriodEndIso ?? null,
         last_receipt_verified: nowIso,
         updated_at: nowIso,
       };
@@ -689,6 +684,8 @@ async function verifyStaleReceipts(supabase: any): Promise<StaleVerificationRepo
         // recovery would misdescribe what happened.
         const eventType = decided.status === 'expired'
           ? 'subscription_expired'
+          : decided.status === 'grace'
+          ? 'grace_period_started'
           : row.status === 'grace'
           ? 'subscription_restored'
           : 'subscription_renewed';
