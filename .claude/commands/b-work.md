@@ -103,6 +103,29 @@ Non-zero means a named failure verdict or a run presumed dead. Surface each line
 to handle it; a result nobody looked at is the silence detaching was meant to remove. Do
 not `touch <dir>/ACK` for anything you have not acted on.
 
+### Step 0.4: Reclaim what earlier tickets left (INFRA-693)
+
+Detached closes stop at the merge, and b-close's "n"/"later" keep everything, so teardown
+happens here. List what is safe to offer:
+
+```bash
+bash /Users/max/dev/being/.claude/scripts/worktree-teardown.sh list \
+  --exclude "$(git rev-parse --show-toplevel 2>/dev/null || pwd)"
+```
+
+Each row is `dir · branch · size · age`. The script offers only merged + clean worktrees
+(its header lists every guard) — never add one by hand. Exit 2 means the merged-PR lookup
+failed: offer nothing, run `sweep`, and say so.
+
+- **Rows** → ask once via `AskUserQuestion`: **Remove all** (default) / **Pick** / **Skip**,
+  listing each row. Then
+  `bash /Users/max/dev/being/.claude/scripts/worktree-teardown.sh remove --require-clean <dir>…`
+  — it sweeps after removing. A dir it reports as surviving needs the printed `rm -rf` run as
+  its own call, with the user's approval.
+- **No rows, or Skip** → `bash /Users/max/dev/being/.claude/scripts/worktree-teardown.sh sweep`.
+
+Report the `♻️` line it prints; the sweep is machine-wide, so the figure is not this run's alone.
+
 ---
 
 ## Phase 1: Fetch & Parse Work Item

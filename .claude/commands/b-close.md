@@ -60,6 +60,8 @@ bash /Users/max/dev/being/.claude/scripts/check-safety-paths.sh || exit 1
 # INFRA-727: the gate plan's fixture suite. A pass is cached per script + fixtures, so this is
 # ~0.1 s unless one of them changed since the last pass (~20 s cold).
 bash /Users/max/dev/being/.claude/scripts/test-b-close-gate-plan.sh || exit 1
+# INFRA-693: the shared worktree-teardown guards (~3 s).
+bash /Users/max/dev/being/.claude/scripts/test-worktree-teardown.sh || exit 1
 # No app/ here means a no-worktree item (Step 1.1) closing from the bare root — run the
 # ledger from the development worktree rather than aborting the close on a missing dir.
 APP_DIR=app; [ -d app ] || APP_DIR=/Users/max/dev/being/development/app
@@ -828,7 +830,7 @@ close on an already-merged PR is the expensive misread.
 
 It can also remove the item's worktree and local branch along with the remote one (observed
 with gh 2.100.0). If `[worktree-dir]` is gone after the merge, skip Step 5.1's question and
-Step 3.8, but still run 5.1's DerivedData orphan sweep.
+Step 3.8, but still run 5.1's command: it reports the dir as already gone and still sweeps.
 
 **Display**:
 ```
@@ -1000,29 +1002,23 @@ Do not use `parent:` + `rich_text[]` — that shape is rejected, and `rich_text`
 Remove worktree directory? (y/n/later)
 - y: Remove worktree now
 - n: Keep worktree for reference
-- later: Keep for now, remind me
+- later: Keep for now — the next /b-work start offers it for removal (Step 0.4)
 
 Worktree: ~/being/[worktree-dir]/
 ```
 
 **If user chooses "y"**:
 ```bash
-cd /Users/max/dev/being
-git worktree remove [worktree-dir] --force
-# Run `remove` as its OWN call: the harness refuses any command containing an rm -rf of a
-# worktree dir, so chaining the fallback blocks the remove too. Only if the dir survives
-# (untracked leftovers), run this separately — it needs a human's approval:
-[ -d "[worktree-dir]" ] && rm -rf "[worktree-dir]" && git worktree prune
-
-# reap the DerivedData and CocoaPods cache entries this removal just orphaned (INFRA-435/691). Only on "y":
-# on n/later the worktree is still live and its root still resolves, so the
-# sweep could not touch it anyway.
-bash /Users/max/dev/being/development/app/scripts/e2e-sim-clean.sh --orphans --yes
+# INFRA-693: the one teardown copy, shared with /b-work Step 0.4. Removes the worktree, prunes,
+# then reaps the DerivedData and CocoaPods entries it just orphaned (INFRA-435/691) — from the
+# development worktree, since the script being removed goes with it.
+bash /Users/max/dev/being/.claude/scripts/worktree-teardown.sh remove /Users/max/dev/being/[worktree-dir]
 ```
 
-Run the sweep from the `development` worktree, not the one being removed — the
-script goes with it. Removal is simultaneously the moment the orphan is created
-and the last moment its path is known, which is why the hook lives here.
+It never runs `rm -rf` — the harness refuses one on a worktree dir. If the dir survives
+(exit 1, `survived the remove`), it prints the command; run that as its own call, with a
+human's approval. Only on "y": on n/later the worktree is still live, so the sweep could not
+touch it anyway.
 
 The sweep is repo-wide, so the reported figure covers **every** orphan on the
 machine, not just this worktree's. Say so when reporting it.
@@ -1030,15 +1026,14 @@ machine, not just this worktree's. Say so when reporting it.
 **Display**:
 ```
 🗑️  Worktree removed: [worktree-dir]
-♻️  DerivedData: ~N GB reclaimed across M orphaned cache(s) (machine-wide)
-♻️  CocoaPods cache: ~N GB reclaimed across M orphaned entr(ies) (machine-wide)
+♻️  DerivedData: Reaped M orphaned cache(s), ~N GB reclaimed. · CocoaPods cache: Reaped M orphaned entr(ies), ~N GB reclaimed. (machine-wide)
 ```
 
 **If user chooses "later"**:
 Add to Notion comment:
 ```
 📝 Note: Worktree still exists at ~/being/[worktree-dir]
-   Run manually when ready: git worktree remove [worktree-dir]
+   The next /b-work start offers it for removal (merged + clean worktrees only).
 ```
 
 ---
