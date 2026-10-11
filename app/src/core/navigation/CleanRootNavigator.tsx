@@ -14,6 +14,7 @@ import { linkingConfig } from './linking';
 import PracticeTimerRoute from './PracticeTimerRoute';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { dismissRouteThenNotify, removeOwnRoute } from './crisisDestinationGuard';
+import { completeLegalGate } from './completeLegalGate';
 import { completeOnboarding } from './completeOnboarding';
 import { returnToLegalGate } from './returnToLegalGate';
 import { createStackNavigator } from '@react-navigation/stack';
@@ -513,12 +514,11 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => (
+          {({ route }) => (
             <CombinedLegalGateScreen
-              onComplete={() => {
-                // Legal gate passed - proceed to onboarding
-                navigation.replace('Onboarding');
-              }}
+              // DEBUG-735: replace THIS route (by key, at the root) with Onboarding — deferred
+              // while a crisis destination is focused, never dropped.
+              onComplete={() => completeLegalGate({ legalGateRouteKey: route.key })}
               onUnderAge={() => {
                 // Under age - screen handles showing crisis resources
                 // User stays on LegalGate screen with crisis resources
