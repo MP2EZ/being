@@ -330,6 +330,15 @@ export function scrubFeedbackEvent(event: any): any | null {
 }
 
 /**
+ * DEBUG-776: the consent store's shape, as far as the crash-report gate needs it.
+ * Satisfied by `useConsentStore`; injectable so the gate is testable on its own.
+ */
+export interface CrashReportConsentSource {
+  getState(): { canPerformOperation: (operation: 'crash_reports') => boolean };
+  subscribe(listener: () => void): () => void;
+}
+
+/**
  * Sanitized error event structure
  */
 interface SanitizedErrorEvent {
@@ -363,6 +372,22 @@ export class ExternalErrorReporter {
   private killed: boolean = false;
   private sentryModule: any = null;
 
+  // ── DEBUG-776: CRASH-REPORT CONSENT ─────────────────────────────────────────
+  // `suspended` is the consent half of the gate, and unlike `killed` it is
+  // REVERSIBLE: true while crash reports are not consented (the default, and under
+  // Universal Opt-Out). It is flipped synchronously inside the consent store's
+  // set(), so beforeSend / beforeBreadcrumb / reportError refuse in the same tick
+  // as the withdrawal; Sentry.close() follows off that call stack.
+  private suspended: boolean = false;
+  private consentGateInstalled: boolean = false;
+  private consentWanted: boolean = false;
+  private consentGateDsn: string | undefined;
+  /** init / close never interleave: every consent transition queues here. */
+  private consentChain: Promise<void> = Promise.resolve();
+  /** A close still flushing; the next init waits for it (RN's close also closes native). */
+  private closing: Promise<void> | null = null;
+  private feedbackProcessorRegistered: boolean = false;
+
   private constructor() {
     this.config = {
       enabled: false,
@@ -389,6 +414,11 @@ export class ExternalErrorReporter {
       logger.warn(LogCategory.SECURITY, 'External error reporter is killed - cannot initialize');
       return false;
     }
+    if (this.initialized) return true;
+    // A previous client (a consent withdrawal, or a feedback-only send) may still be
+    // closing; the RN client's close also closes the native SDK, so it must finish
+    // before a new client starts or it would close that one too.
+    if (this.closing) await this.closing;
 
     // Expo requires EXPO_PUBLIC_ prefix for client-side env vars.
     // Schema-validated at startup (core/config/env.ts) — empty string is
@@ -409,7 +439,19 @@ export class ExternalErrorReporter {
       try {
         this.sentryModule = await this.loadSentryModule();
 
+        // DEBUG-776: consent may have been withdrawn while this awaited. The
+        // consent gate is the authority once installed; this method itself stays
+        // consent-agnostic for direct callers.
+        if (this.consentGateInstalled && !this.consentWanted) {
+          this.config.enabled = false;
+          return false;
+        }
+
         if (this.sentryModule) {
+          this.suspended = false;
+          // Breadcrumbs added while no consented client was running must not ride
+          // on the first event after a re-grant.
+          this.clearScopeBreadcrumbs();
           this.sentryModule.init({
             dsn: this.config.dsn,
             environment: this.config.environment,
@@ -494,9 +536,7 @@ export class ExternalErrorReporter {
           // FEAT-284: feedback events (captureFeedback) BYPASS beforeSend, so
           // register a global event processor as the enforcement point. It is a
           // no-op for non-feedback events (which beforeSend still scrubs).
-          if (typeof this.sentryModule.addEventProcessor === 'function') {
-            this.sentryModule.addEventProcessor(scrubFeedbackEvent);
-          }
+          this.registerFeedbackProcessor(this.sentryModule);
 
           this.initialized = true;
           logger.info(LogCategory.SYSTEM, 'External error reporting initialized');
@@ -544,7 +584,7 @@ export class ExternalErrorReporter {
     }
   ): Promise<void> {
     // Gate checks
-    if (!this.config.enabled || !this.initialized || this.killed) {
+    if (!this.config.enabled || !this.initialized || this.killed || this.suspended) {
       return;
     }
 
@@ -760,7 +800,12 @@ export class ExternalErrorReporter {
    * The message is NEVER persisted, queued, or retried — see `bugReportStore`.
    */
   submitFeedback(message: string): boolean {
-    if (!this.isActive() || !this.sentryModule) return false;
+    if (this.killed) return false;
+    // DEBUG-776 AC5 (founder ruling): a report the user chose to send is its own
+    // processing, consented by the act of sending, so the crash-reports toggle does
+    // not suppress it. With no consented client running it goes through a
+    // feedback-only client instead — see sendThroughFeedbackOnlyClient.
+    if (!this.isActive() || !this.sentryModule) return this.sendThroughFeedbackOnlyClient(message);
 
     try {
       if (typeof this.sentryModule.captureFeedback !== 'function') return false;
@@ -841,8 +886,8 @@ export class ExternalErrorReporter {
    * Sanitizes ALL data before external transmission
    */
   private beforeSendHook(event: any): any | null {
-    if (this.killed) {
-      return null; // Drop all events if killed
+    if (this.killed || this.suspended) {
+      return null; // Drop all events if killed, or while crash reports are not consented
     }
 
     try {
@@ -869,7 +914,7 @@ export class ExternalErrorReporter {
    * Sanitizes breadcrumbs before storage
    */
   private beforeBreadcrumbHook(breadcrumb: any): any | null {
-    if (this.killed) {
+    if (this.killed || this.suspended) {
       return null;
     }
 
@@ -1247,6 +1292,208 @@ export class ExternalErrorReporter {
   }
 
   /**
+   * DEBUG-776 — start Sentry only while crash reports are consented, and follow
+   * the consent at runtime. What App.tsx's boot call reaches (through
+   * `initializeExternalReporting`).
+   *
+   * Privacy policy §5.3 / §6 promise that Universal Opt-Out "immediately
+   * suppresses ... crash reporting" and that crash reporting can be disabled. The
+   * only consent input is `canPerformOperation('crash_reports')`, which is false
+   * until consent is hydrated, false unless crash reports were granted (the
+   * default is off) and false under Universal Opt-Out — so the default is deny.
+   *
+   * SUBSCRIBED, NOT READ ONCE. At boot the consent store is still 'loading'
+   * (CleanRootNavigator hydrates it later), so a one-shot read would leave Sentry
+   * off for consenting users too. The listener runs inside the store's set():
+   *   - it only compares a boolean and never throws into the consent write;
+   *   - on a withdrawal it flips `suspended` synchronously — capture stops in the
+   *     same tick — and defers Sentry.close() off the set() call stack;
+   *   - on a grant it defers initialize(). Both go through one promise chain and
+   *     re-read the latest wish when they run, so rapid toggles cannot interleave.
+   * Never `kill()`: that is a one-way operator latch, and it would also switch
+   * the bug-report form to its "unavailable" variant.
+   *
+   * The store is loaded lazily: consentStore imports the logging barrel, which
+   * re-exports this module, so a static import would be a cycle. Nothing here
+   * gates render, and nothing on a crisis path waits on it — Sentry.wrap and
+   * Sentry.startSpan are no-ops with no client.
+   *
+   * KNOWN RESIDUALS (recorded in the DPIA): a crash before consent hydrates is
+   * not reported even for a consenting user, and events captured before a
+   * withdrawal may still flush while the client closes.
+   */
+  async installConsentGate(dsn?: string, store?: CrashReportConsentSource): Promise<boolean> {
+    if (this.consentGateInstalled) return this.isActive();
+    this.consentGateInstalled = true;
+    this.consentGateDsn = dsn;
+
+    let source: CrashReportConsentSource;
+    try {
+      source = store ?? (await import('@/core/stores/consentStore')).useConsentStore;
+    } catch {
+      // No consent source, no consent: stay off.
+      this.suspended = true;
+      return false;
+    }
+
+    const wanted = (): boolean => {
+      try {
+        return source.getState().canPerformOperation('crash_reports') === true;
+      } catch {
+        return false;
+      }
+    };
+
+    this.consentWanted = wanted();
+    if (!this.consentWanted) this.suspended = true;
+
+    try {
+      source.subscribe(() => {
+        try {
+          const now = wanted();
+          if (now === this.consentWanted) return;
+          this.consentWanted = now;
+          if (!now) this.suspended = true; // refuse capture in this same tick
+          setTimeout(() => this.reconcileConsent(), 0);
+        } catch {
+          // Never throw into the consent store's set().
+        }
+      });
+    } catch {
+      logger.warn(LogCategory.SYSTEM, 'Crash-report consent subscription failed');
+    }
+
+    if (this.consentWanted) this.reconcileConsent();
+    await this.consentChain;
+    return this.isActive();
+  }
+
+  /** Bring the client in line with the LATEST consent wish, one transition at a time. */
+  private reconcileConsent(): void {
+    this.consentChain = this.consentChain
+      .then(async () => {
+        if (this.killed) return;
+        if (this.consentWanted) {
+          if (!this.initialized) await this.initialize(this.consentGateDsn);
+        } else {
+          this.suspend();
+        }
+      })
+      .catch(() => {
+        logger.warn(LogCategory.SYSTEM, 'Crash-report consent transition failed');
+      });
+  }
+
+  /**
+   * Reversible off-switch for a consent withdrawal (DEBUG-776). Distinct from
+   * kill(): it leaves `killed` false, so a re-grant can initialize again and the
+   * bug-report form keeps its normal variant.
+   */
+  private suspend(): void {
+    this.suspended = true;
+    if (!this.initialized) return;
+    this.initialized = false;
+    this.config.enabled = false;
+    this.clearScopeBreadcrumbs();
+    if (this.sentryModule && typeof this.sentryModule.close === 'function') {
+      try {
+        this.closing = Promise.resolve(this.sentryModule.close()).then(
+          () => undefined,
+          () => undefined,
+        );
+      } catch {
+        // Ignore close errors; capture is already refused by `suspended`.
+      }
+    }
+  }
+
+  private clearScopeBreadcrumbs(): void {
+    try {
+      const scope = this.sentryModule?.getIsolationScope?.();
+      if (scope && typeof scope.clearBreadcrumbs === 'function') scope.clearBreadcrumbs();
+    } catch {
+      // Best effort only.
+    }
+  }
+
+  /** The feedback scrub attaches to the isolation scope, which outlives clients: once. */
+  private registerFeedbackProcessor(sentry: any): void {
+    if (this.feedbackProcessorRegistered) return;
+    if (typeof sentry.addEventProcessor === 'function') {
+      sentry.addEventProcessor(scrubFeedbackEvent);
+      this.feedbackProcessorRegistered = true;
+    }
+  }
+
+  /**
+   * DEBUG-776 AC5 — deliver a bug report with no crash-reporting client running.
+   *
+   * A transient client that can carry ONLY the feedback event: no native SDK (so
+   * no native crash handler and no release-health session), no default
+   * integrations (so no global error, rejection or console handlers), no
+   * breadcrumbs, and beforeSend dropping every ordinary event. Feedback events
+   * bypass beforeSend and are cleaned by `scrubFeedbackEvent`, registered once on
+   * the isolation scope. The client is closed right after the send; close()
+   * flushes first, so the report is delivered. Never the full init: that would
+   * switch on crash capture and sessions for a user who opted out of them.
+   */
+  private sendThroughFeedbackOnlyClient(message: string): boolean {
+    try {
+      const dsn = this.config.dsn || env.EXPO_PUBLIC_SENTRY_DSN;
+      if (!dsn) return false;
+      const sentry = this.sentryModule ?? this.requireSentry();
+      if (!sentry || typeof sentry.init !== 'function' || typeof sentry.captureFeedback !== 'function') {
+        return false;
+      }
+
+      const sanitized = sanitizeFeedbackMessage(message);
+      if (!sanitized.trim()) return false;
+      const screen = this.activeScreenTag();
+
+      sentry.init({
+        dsn,
+        environment: this.config.environment,
+        enableNative: false,
+        defaultIntegrations: false,
+        integrations: [],
+        enableAutoSessionTracking: false,
+        enableAutoPerformanceTracing: false,
+        maxBreadcrumbs: 0,
+        beforeSend: () => null,
+        beforeBreadcrumb: () => null,
+      });
+      this.registerFeedbackProcessor(sentry);
+
+      sentry.captureFeedback({
+        message: sanitized,
+        source: 'first-party-form',
+        ...(screen ? { tags: { screen } } : {}),
+      });
+
+      const client = typeof sentry.getClient === 'function' ? sentry.getClient() : undefined;
+      if (client && typeof client.close === 'function') {
+        this.closing = Promise.resolve(client.close()).then(
+          () => undefined,
+          () => undefined,
+        );
+      }
+      return true;
+    } catch {
+      logger.warn(LogCategory.SYSTEM, 'submitFeedback failed');
+      return false;
+    }
+  }
+
+  /** Synchronous load, for the feedback-only path (submitFeedback is synchronous). */
+  private requireSentry(): any {
+    try {
+      return require('@sentry/react-native');
+    } catch {
+      return null;
+    }
+  }
+
+  /**
    * KILL SWITCH: Immediately disable all external reporting
    * Use this in case of emergency or privacy concern
    */
@@ -1273,7 +1520,7 @@ export class ExternalErrorReporter {
    * Check if reporter is active
    */
   isActive(): boolean {
-    return this.config.enabled && this.initialized && !this.killed;
+    return this.config.enabled && this.initialized && !this.killed && !this.suspended;
   }
 
   /**

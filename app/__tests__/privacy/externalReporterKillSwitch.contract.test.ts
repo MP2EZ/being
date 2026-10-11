@@ -3,11 +3,11 @@
  *
  * `kill()` is an operator/emergency circuit breaker: something we fire when a
  * privacy concern is found in the external reporting path. It is NOT the user's
- * opt-out. There is no consent gate and no environment switch in this module —
- * `environment` is a label, never a switch — and the only other "off" state is
+ * opt-out (that is the consent gate, below). There is no environment switch in this module —
+ * `environment` is a label, never a switch — and the other non-incident "off" state is
  * the empty-DSN sentinel, which is an absence of configuration rather than an
- * incident. Sentry consent gating is tracked separately (DEBUG-776) and is
- * deliberately NOT asserted here.
+ * incident. Sentry consent gating (DEBUG-776) is the reversible `suspend()`, pinned
+ * in `crashReportConsentGate.contract.test.ts`, and is deliberately NOT asserted here.
  *
  * What this file pins is the part of the breaker that fails SILENTLY if it
  * regresses: a reporter that still transmits after `kill()` looks identical, on

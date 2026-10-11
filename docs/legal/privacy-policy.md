@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.17
+**Version:** 1.18
 **Effective Date:** December 12, 2025
-**Last Updated:** October 8, 2026
+**Last Updated:** October 10, 2026
 
 ---
 
@@ -54,7 +54,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 - **Device Information:** Device type, OS version (for app compatibility)
 - **Usage Data:** App usage patterns, feature engagement (anonymized)
-- **Technical Data:** Crash reports, performance data (no personal info included)
+- **Technical Data:** Crash reports and app-stability diagnostics (no personal info included), collected only if you turn on *Crash Reports* (off by default) and *Honor Universal Opt-Out* is off
 
 ### 2.3 Information We Do NOT Collect
 
@@ -140,7 +140,7 @@ We use the following third-party service providers to operate our Services:
 - **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional settings backup, your encrypted preference data is stored on Supabase infrastructure.
 - **[PostHog](https://posthog.com/privacy):** Product analytics (EU data residency, Frankfurt). See Section 5.2 for details.
 - **[Notion](https://www.notion.so/privacy):** Waitlist email storage for the being.fyi marketing website. When you submit your email via the pre-launch waitlist form, we store it (along with your A/B variant assignment, where applicable) in an internal Notion database. We do not transfer mental-health data, app usage, or any other personal data to Notion.
-- **[Sentry](https://sentry.io/privacy/):** Crash, error, and performance diagnostics. Error event payloads are scrubbed of wellness data before transmission — no PHQ-9 / GAD-7 responses or scores, and no journal content are sent. Sentry also receives standard app-session diagnostics (session start/end, app version, crash status) used to measure app stability across releases; these session records include a random identifier generated per app installation by our mobile framework. This identifier is not linked to your account, your wellness data, or any other personal information we hold, and is not used to identify you or to track you across apps or websites.
+- **[Sentry](https://sentry.io/privacy/):** Crash, error, and performance diagnostics, sent only while *Crash Reports* is on (it is off by default) and *Honor Universal Opt-Out* is off; turning either setting off stops them. Error event payloads are scrubbed of wellness data before transmission — no PHQ-9 / GAD-7 responses or scores, and no journal content are sent. Sentry also receives standard app-session diagnostics (session start/end, app version, crash status) used to measure app stability across releases; these session records include a random identifier generated per app installation by our mobile framework. This identifier is not linked to your account, your wellness data, or any other personal information we hold, and is not used to identify you or to track you across apps or websites. **Bug reports you send:** if you choose to send a bug report from within the app, the message you type, the general area of the app you were in, and basic technical details such as the app version are sent to Sentry when you tap Send. This happens only when you send a report, and it is not affected by the *Crash Reports* setting or *Honor Universal Opt-Out*, because sending it is your choice to share it. Nothing else is collected with it.
 - **[Resend](https://resend.com/legal/privacy-policy):** Transactional email delivery for internal operational alerts only — for example, automated notifications to our operators about the health of the crisis-detection pipeline. These alerts contain aggregate, non-personal operational data; no user personal data is sent to Resend.
 - **[healthchecks.io](https://healthchecks.io/privacy/):** Uptime monitoring for our own internal scheduled jobs. Our servers send a periodic signal to healthchecks.io confirming that a maintenance job ran; if the signal stops arriving, healthchecks.io notifies our operators. The signal is an empty request carrying no message content — no account identifier, no wellness data, and nothing about you. Only the fact and time of the request are recorded. ("Health" in the provider's name refers to the health of our servers, not to health information.)
 - **Expo:** Mobile app framework and over-the-air updates
@@ -295,6 +295,8 @@ Being is based in the United States. If you access our Services from outside the
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 **Recent revisions**
+
+- **v1.18 (October 10, 2026):** Crash reporting now follows your choice. §2.2 and §5.1 said crash reports and app-stability diagnostics are collected, and §5.3 and §6 said you can turn crash reporting off. In practice the app sent crash reports, error reports and app-session diagnostics to Sentry whether or not you had turned *Crash Reports* on. That is corrected: nothing is sent to Sentry for crash or error reporting unless *Crash Reports* is on and *Honor Universal Opt-Out* is off, and turning either off stops it. §5.1 also now describes bug reports you choose to send from the app, which the policy did not mention: they go to Sentry when you tap Send, separately from the *Crash Reports* setting. This narrows what is collected without your permission and adds no new kind of data, so it is published with the next app release rather than separately.
 
 - **v1.17 (October 8, 2026):** §7.2 now says the 3-year retention of answers to PHQ-9 question 9 applies to check-ins you complete, and §7.3 states that answers from an unfinished check-in are deleted on your device no later than the next time you open Being. This shortens how long some data is kept and changes nothing else: crisis detection events, completed check-ins and every other retention period are unchanged. Because it narrows what we keep, it is published with the next app release rather than separately.
 
