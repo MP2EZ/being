@@ -1037,6 +1037,11 @@ gain nothing — the simulator lease serialises their gates — but the later on
 base without the earlier merge, so its merge is refused as stale and it re-gates in full.
 Launch the next runner after the previous one reports MERGED; implement meanwhile.
 
+**A gate-less predecessor's CI wait can overlap the next RED item's gate.** If the item
+merging ahead touches no safety path, gate the next item on its current tree meanwhile:
+`b-close-gate.md`'s re-classify rule means that back-merge does not invalidate a passing
+gate. Never overlap two safety-path items — the second must gate on a tree holding the first.
+
 **Cleanup guard (B1 corollary — NEVER delete a branch/worktree on an unconfirmed merge).**
 `/b-close` Phases 3.6–3.8 remove the worktree and delete the feature branch (local +
 remote). Those steps are destructive and must be **gated on a verified merge** — if you
