@@ -348,7 +348,22 @@ async function main() {
   process.exitCode = 1;
 }
 
-main().catch((e) => {
-  console.error(`\n❌ legal-site-freshness check errored: ${e.stack || e.message}`);
-  process.exitCode = 1;
-});
+if (require.main === module) {
+  main().catch((e) => {
+    console.error(`\n❌ legal-site-freshness check errored: ${e.stack || e.message}`);
+    process.exitCode = 1;
+  });
+}
+
+module.exports = {
+  extractRenderedArticle,
+  decodeEntities,
+  normalizeWords,
+  liveProseFingerprint,
+  sourceProseFingerprint,
+  hash,
+  headerValue,
+  liveHeaders,
+  sourceHeaders,
+  firstDivergence,
+};
