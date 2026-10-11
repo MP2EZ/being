@@ -39,17 +39,17 @@ function escapeForTemplateLiteral(raw) {
   return raw.replace(/\\/g, '\\\\').replace(/`/g, '\\`').replace(/\$\{/g, '\\${');
 }
 
-function readSource({ file }) {
-  const src = path.join(DOCS_LEGAL, file);
+function readSource({ file }, docsDir = DOCS_LEGAL) {
+  const src = path.join(docsDir, file);
   if (!fs.existsSync(src)) {
     throw new Error(`Missing legal source: ${src}`);
   }
   return fs.readFileSync(src, 'utf8');
 }
 
-function main() {
+function main({ docsDir = DOCS_LEGAL, outPath = OUT_PATH } = {}) {
   const exports = SOURCES.map(({ key, file }) => {
-    const raw = readSource({ file });
+    const raw = readSource({ file }, docsDir);
     return `export const ${key}: string = \`${escapeForTemplateLiteral(raw)}\`;\n`;
   }).join('\n');
 
@@ -61,13 +61,17 @@ function main() {
 
   const next = header + exports;
 
-  if (fs.existsSync(OUT_PATH) && fs.readFileSync(OUT_PATH, 'utf8') === next) {
+  if (fs.existsSync(outPath) && fs.readFileSync(outPath, 'utf8') === next) {
     return;
   }
 
-  fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
-  fs.writeFileSync(OUT_PATH, next);
-  console.log(`generated ${path.relative(APP_DIR, OUT_PATH)} (${SOURCES.length} docs)`);
+  fs.mkdirSync(path.dirname(outPath), { recursive: true });
+  fs.writeFileSync(outPath, next);
+  console.log(`generated ${path.relative(APP_DIR, outPath)} (${SOURCES.length} docs)`);
 }
 
-main();
+if (require.main === module) {
+  main();
+}
+
+module.exports = { escapeForTemplateLiteral, main, SOURCES };
