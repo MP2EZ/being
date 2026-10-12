@@ -130,42 +130,54 @@ const ALL_PRINCIPLES: StoicPrinciple[] = [
 ];
 
 /** Minimum engagements to show observational insight (AC-1) */
-const MIN_ENGAGEMENTS_FOR_INSIGHT = 5;
+export const MIN_ENGAGEMENTS_FOR_INSIGHT = 5;
 
 /** Minimum percentage to be considered dominant (AC-1) */
-const DOMINANT_PERCENTAGE_THRESHOLD = 40;
+export const DOMINANT_PERCENTAGE_THRESHOLD = 40;
 
 /** Minimum ratio vs next highest to be considered dominant (AC-1) */
-const DOMINANT_RATIO_THRESHOLD = 2;
+export const DOMINANT_RATIO_THRESHOLD = 2;
 
 /** Days threshold for beginner tip (<90 days) (AC-3) */
-const BEGINNER_DAYS_THRESHOLD = 90;
+export const BEGINNER_DAYS_THRESHOLD = 90;
 
 /** Minimum engagements to show beginner tip (AC-3) */
-const MIN_ENGAGEMENTS_FOR_TIP = 3;
+export const MIN_ENGAGEMENTS_FOR_TIP = 3;
 
 // ──────────────────────────────────────────────────────────────────────────────
 // HELPERS
 // ──────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Local calendar date as YYYY-MM-DD. Engagement dates are stamped on this basis
+ * (stoicPracticeStore's toLocalDateString), so the cutoff must be too: a UTC date
+ * drifts a day off the stamps near local midnight.
+ */
+const toLocalDateString = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+/**
  * Filter engagements by date range
  */
-const filterByDateRange = (
+export const filterByDateRange = (
   engagements: PrincipleEngagement[],
   days: number
 ): PrincipleEngagement[] => {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
-  const cutoffString = cutoffDate.toISOString().split('T')[0];
+  const cutoffString = toLocalDateString(cutoffDate);
 
-  return engagements.filter(e => cutoffString && e.date >= cutoffString);
+  return engagements.filter(e => e.date >= cutoffString);
 };
 
 /**
  * Calculate engagement counts per principle
  */
-const calculatePrincipleCounts = (
+export const calculatePrincipleCounts = (
   engagements: PrincipleEngagement[]
 ): PrincipleCount[] => {
   // Count engagements per principle
@@ -196,7 +208,7 @@ const calculatePrincipleCounts = (
  * - ≥2× the next highest
  * - Minimum 5 total engagements
  */
-const detectDominantPrinciple = (
+export const detectDominantPrinciple = (
   principleCounts: PrincipleCount[],
   totalEngagements: number
 ): DominantPrincipleInfo | null => {
@@ -239,7 +251,7 @@ const detectDominantPrinciple = (
 /**
  * Check if user is a beginner (<90 days since practice start)
  */
-const isBeginnerUser = (practiceStartDate: Date | null): boolean => {
+export const isBeginnerUser = (practiceStartDate: Date | null): boolean => {
   if (!practiceStartDate) {
     return true; // No start date = assume new user = show beginner tip
   }
