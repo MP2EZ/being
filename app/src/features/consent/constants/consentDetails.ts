@@ -54,17 +54,21 @@ export const CONSENT_DETAILS = {
     title: 'Crash Reports',
     description: 'Automatically report errors to fix bugs faster',
     details: {
+      // DEBUG-779: matches what the consented Sentry client sends (DEBUG-776) and
+      // privacy-policy §5.1. Release-health sessions carry a per-install identifier, so
+      // nothing here may claim anonymity; "encrypted" means in transit only.
       whatWeCollect: [
-        'Technical error logs (which code failed)',
-        'Device info (OS version, app version)',
-        'What screen you were on when the crash occurred',
+        "Technical error details (which part of the app's code failed)",
+        'Device and app details, such as OS version and app version',
+        'App-session diagnostics (when a session starts and ends, and whether it crashed), used to measure app stability',
+        'A random identifier created for this installation of the app',
       ],
       whatWeDontCollect: [
-        'Your personal data (mood, journal, assessments)',
-        'Identifiable information',
+        'Your mood check-ins, journal entries, or PHQ-9/GAD-7 responses and scores',
+        'Your name, email, or account identifier',
       ],
       whyItHelps: 'Crashes disrupt your practice. Automatic reports help us detect and fix issues before they affect more people.',
-      privacyNote: 'All crash reports are encrypted and anonymized.',
+      privacyNote: 'Sent to our crash-reporting provider, Sentry, over an encrypted connection. The installation identifier is not linked to your account or your wellness data. Turning this off stops all crash and session reporting.',
     },
   },
   cloudSync: {
