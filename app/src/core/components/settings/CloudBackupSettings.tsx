@@ -39,8 +39,37 @@ import {
   StyleProp,
   ViewStyle,
 } from 'react-native';
-import { useCloudSync, useCloudBackupConfig } from '@/core/services/supabase/hooks/useCloudSync';
+import {
+  useCloudSync,
+  useCloudBackupConfig,
+  type ConnectivityResult,
+} from '@/core/services/supabase/hooks/useCloudSync';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
+
+// DEBUG-767: plain-language copy for each connection-test outcome. Raw error strings and codes
+// never reach the user. Success is deliberately modest: testCloudConnectivity can report
+// canConnect:true without a network round-trip (DEBUG-783), so it must not claim reachability.
+// The consent copy stays generic because the toggle is disabled under Universal Opt-Out.
+const CONSENT_ABSENT = 'cloud_sync_consent_absent';
+const CONSENT_OFF_TITLE = 'Cloud Backup Is Off';
+const CONSENT_OFF_MESSAGE = 'You can turn on cloud backup in Privacy & Data.';
+
+export function connectionTestAlert(
+  result: ConnectivityResult | null
+): { title: string; message: string } | null {
+  if (!result) return null; // a test was already running
+  if (result.canConnect) return { title: 'Connection Test', message: 'Cloud backup is set up.' };
+  if (result.error === CONSENT_ABSENT) return { title: CONSENT_OFF_TITLE, message: CONSENT_OFF_MESSAGE };
+  return {
+    title: "Couldn't Connect",
+    message: "We couldn't reach cloud backup. Check your internet connection and try again.",
+  };
+}
+
+/** The error banner shares the mapping for known codes; other messages pass through. */
+function errorBannerText(error: string): string {
+  return error === CONSENT_ABSENT ? `${CONSENT_OFF_TITLE}. ${CONSENT_OFF_MESSAGE}` : error;
+}
 
 interface CloudBackupSettingsProps {
   style?: StyleProp<ViewStyle>;
@@ -140,14 +169,15 @@ export default function CloudBackupSettings({
     );
   };
 
-  // Handle connection test
+  // Handle connection test (DEBUG-767: the alert follows the returned result)
   const handleTestConnection = async () => {
+    let alert: { title: string; message: string } | null;
     try {
-      await testConnectivity();
-      Alert.alert('Connection Test', 'Successfully connected to cloud');
+      alert = connectionTestAlert(await testConnectivity());
     } catch {
-      Alert.alert('Connection Failed', 'Unable to connect to cloud services');
+      alert = connectionTestAlert({ canConnect: false });
     }
+    if (alert) Alert.alert(alert.title, alert.message);
   };
 
   // Get status color
@@ -178,7 +208,7 @@ export default function CloudBackupSettings({
       {(error || configError) && (
         <View style={styles.errorContainer}>
           <Text style={styles.errorText}>
-            {error || configError}
+            {error ? errorBannerText(error) : configError}
           </Text>
           <TouchableOpacity
             onPress={() => {
@@ -348,6 +378,7 @@ export default function CloudBackupSettings({
               style={[styles.button, styles.tertiaryButton]}
               disabled={isLoading}
               accessibilityRole="button"
+              accessibilityState={{ disabled: isLoading, busy: isLoading }}
               accessibilityLabel="Test connection"
             >
               <Text style={styles.tertiaryButtonText}>Test Connection</Text>
