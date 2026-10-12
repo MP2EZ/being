@@ -47,7 +47,9 @@ import {
 import { logSubscriptionEvent } from '../_shared/subscriptionAudit.ts';
 import { fetchSubscriptionStatuses } from '../_shared/appStoreServerApi.ts';
 import { assertAppleAppScope, verifyAppleJWS } from '../_shared/verifyAppleJWS.ts';
-import { decideAppleStatus, renewalBoundToTransaction } from '../_shared/subscriptionStatusDecision.ts';
+import { renewalBoundToTransaction } from '../_shared/subscriptionStatusDecision.ts';
+import { decideRowStatus } from './decideRowStatus.ts';
+import { classifyRowError, noMatchOutcome } from './staleRowClassification.ts';
 import { sqlStateOf, stringCodeOf } from '../_shared/logSafe.ts';
 
 /** Error names that are ours or the runtime's, and so safe to log. Never the message. */
@@ -433,43 +435,10 @@ const INTER_REQUEST_DELAY_MS = 250;
  * mid-flight writes no heartbeat at all, flipping the watchdog for a reason unrelated to
  * Apple. Rows not reached are reported as skipped, never as verified. */
 const STEP_DEADLINE_MS = 60_000;
-/** Consecutive `AppleUnavailableError`s that abort the step. An Apple outage should cost a
- * handful of calls, not the whole batch. */
-const CONSECUTIVE_FAILURE_LIMIT = 5;
-
 const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
-/**
- * Decide the row's new state from CLAIMS THAT HAVE BEEN VERIFIED, with the decision the
- * webhook uses (`_shared/subscriptionStatusDecision.ts`, DEBUG-772) so the two never disagree
- * on the same store state. Never called with anything unverified.
- *
- * A downgrade requires POSITIVE signed evidence: a revocation, or an elapsed expiry outside a
- * signed grace period. DEBUG-772 corrected the second half: billing retry ALONE used to keep a
- * row in 'grace' with no end date for as long as Apple retried (up to 60 days), and an unbounded
- * grace row is one `expire_grace_periods()` never ends. With Billing Grace Period off, Apple has
- * already ended the entitlement; recovery (DID_RENEW, BILLING_RECOVERY) restores it through the
- * webhook or a client re-verification.
- *
- * The trial overlay stays here: a trial still inside its period stays a trial — this cron does
- * not adjudicate trial-vs-active; `parseTransaction` owns that at verification time.
- */
-function decideRowStatus(
-  txn: Record<string, unknown>,
-  renewal: Record<string, unknown>,
-  currentStatus: string,
-  now: number,
-): { status: string; expiresDateIso?: string; gracePeriodEndIso?: string } | null {
-  const decided = decideAppleStatus(txn, renewal, now);
-  if (!decided) return null; // malformed — caller treats as payload_malformed
-  return {
-    status: decided.status === 'active' && currentStatus === 'trial' ? 'trial' : decided.status,
-    ...(decided.expiresMs !== undefined ? { expiresDateIso: new Date(decided.expiresMs).toISOString() } : {}),
-    ...(decided.gracePeriodEndMs !== undefined
-      ? { gracePeriodEndIso: new Date(decided.gracePeriodEndMs).toISOString() }
-      : {}),
-  };
-}
+// The row decision (decideRowStatus.ts) and the per-row error classification
+// (staleRowClassification.ts) live in their own pure modules so they can be tested (INFRA-741).
 
 async function verifyStaleReceipts(supabase: any): Promise<StaleVerificationReport> {
   console.log('[Automation] Verifying stale receipts...');
@@ -622,12 +591,11 @@ async function verifyStaleReceipts(supabase: any): Promise<StaleVerificationRepo
       }
 
       if (!matched) {
-        // Ordered by severity: a security-class failure must not be reported as a benign
-        // "no match" just because a later item also failed to match.
-        if (sawScopeFailure) outcomes.push({ outcome: 'app_scope_mismatch' });
-        else if (sawEnvironmentMismatch) outcomes.push({ outcome: 'environment_mismatch' });
-        else if (sawJwsFailure) outcomes.push({ outcome: 'jws_verification_failed' });
-        else outcomes.push({ outcome: 'no_matching_transaction' });
+        outcomes.push(noMatchOutcome({
+          scopeFailure: sawScopeFailure,
+          environmentMismatch: sawEnvironmentMismatch,
+          jwsFailure: sawJwsFailure,
+        }));
         continue;
       }
 
@@ -703,41 +671,10 @@ async function verifyStaleReceipts(supabase: any): Promise<StaleVerificationRepo
         });
       }
     } catch (err) {
-      const name = (err as Error)?.name;
-      const status = (err as { status?: number })?.status;
-      const appleErrorCode = (err as { errorCode?: number })?.errorCode;
-
-      if (name === 'AppleAuthError') {
-        // Systemic: a rotated or revoked key. Every remaining row fails identically, and
-        // each attempt clears the token cache and forces a fresh PKCS#8 import plus
-        // signature — burning quota and CPU to learn nothing already known.
-        outcomes.push({ outcome: 'apple_auth', httpStatus: status, appleErrorCode });
-        aborted = true;
-        continue;
-      }
-      if (status === 429) {
-        // Continuing through a 429 is exactly what starves the live user-facing path. The
-        // correct retry is tomorrow's tick, never a sleep inside this run — Apple's retry
-        // windows exceed this function's whole budget.
-        outcomes.push({ outcome: 'apple_rate_limited', httpStatus: 429, appleErrorCode });
-        aborted = true;
-        continue;
-      }
-      if (name === 'TransactionNotFoundError') {
-        // NEVER "expired". See the downgrade-only ruling in this function's header.
-        outcomes.push({ outcome: 'not_found', appleErrorCode });
-      } else if (name === 'AppleUnavailableError') {
-        // A 200 carrying garbage arrives as AppleUnavailableError with status 200 — a
-        // different operator story from "Apple is down", so it is classified separately.
-        outcomes.push(
-          status === 200
-            ? { outcome: 'payload_malformed', httpStatus: 200 }
-            : { outcome: 'apple_unavailable', httpStatus: status, appleErrorCode },
-        );
-        if (++consecutiveUnavailable >= CONSECUTIVE_FAILURE_LIMIT) aborted = true;
-      } else {
-        outcomes.push({ outcome: 'payload_malformed' });
-      }
+      const classified = classifyRowError(err, consecutiveUnavailable);
+      outcomes.push(classified.outcome);
+      consecutiveUnavailable = classified.consecutiveUnavailable;
+      if (classified.abort) aborted = true;
     } finally {
       // In `finally` so a failed call is throttled exactly like a successful one — a burst
       // of fast failures draws on the shared quota just as hard as a burst of successes.
