@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.18
+**Version:** 1.19
 **Effective Date:** December 12, 2025
-**Last Updated:** October 10, 2026
+**Last Updated:** October 12, 2026
 
 ---
 
@@ -54,7 +54,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 - **Device Information:** Device type, OS version (for app compatibility)
 - **Usage Data:** App usage patterns, feature engagement (anonymized)
-- **Technical Data:** Crash reports and app-stability diagnostics (no personal info included), collected only if you turn on *Crash Reports* (off by default) and *Honor Universal Opt-Out* is off
+- **Technical Data:** Crash reports and app-stability diagnostics, including a random identifier generated per app installation (see Section 5.1), collected only if you turn on *Crash Reports* (off by default) and *Honor Universal Opt-Out* is off
 
 ### 2.3 Information We Do NOT Collect
 
@@ -296,6 +296,7 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
+- **v1.19 (October 12, 2026):** §2.2 said crash reports and app-stability diagnostics include no personal info. They include a random identifier generated per app installation, which Section 5.1 already described, so §2.2 now says so. The in-app *Crash Reports* description was corrected the same way: it no longer calls crash reports "anonymized". This narrows a claim and adds no new kind of data, so it is published with the next app release.
 - **v1.18 (October 10, 2026):** Crash reporting now follows your choice. §2.2 and §5.1 said crash reports and app-stability diagnostics are collected, and §5.3 and §6 said you can turn crash reporting off. In practice the app sent crash reports, error reports and app-session diagnostics to Sentry whether or not you had turned *Crash Reports* on. That is corrected: nothing is sent to Sentry for crash or error reporting unless *Crash Reports* is on and *Honor Universal Opt-Out* is off, and turning either off stops it. §5.1 also now describes bug reports you choose to send from the app, which the policy did not mention: they go to Sentry when you tap Send, separately from the *Crash Reports* setting. This narrows what is collected without your permission and adds no new kind of data, so it is published with the next app release rather than separately.
 
 - **v1.17 (October 8, 2026):** §7.2 now says the 3-year retention of answers to PHQ-9 question 9 applies to check-ins you complete, and §7.3 states that answers from an unfinished check-in are deleted on your device no later than the next time you open Being. This shortens how long some data is kept and changes nothing else: crisis detection events, completed check-ins and every other retention period are unchanged. Because it narrows what we keep, it is published with the next app release rather than separately.
