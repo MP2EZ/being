@@ -195,10 +195,16 @@ Deno.test('renewalBoundToTransaction: environment and originalTransactionId must
 });
 
 Deno.test('parity (source pin): the daily job imports the shared decision and keeps no local decideStatus', async () => {
-  const src = await Deno.readTextFile(new URL('../grace-period-automation/handler.ts', import.meta.url));
-  const code = src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
-  assert(/from ['"]\.\.\/_shared\/subscriptionStatusDecision\.ts['"]/.test(code), 'no import of the shared decision');
-  assert(/\bdecideAppleStatus\s*\(/.test(code), 'the shared decision is imported but never called');
-  assert(!/function\s+decideStatus\s*\(/.test(code), 'a local decideStatus survives');
-  assert(/renewalBoundToTransaction\s*\(/.test(code), 'the renewal binding is not the shared helper');
+  const strip = (src: string) => src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
+  const handler = strip(await Deno.readTextFile(new URL('../grace-period-automation/handler.ts', import.meta.url)));
+  // INFRA-741 moved the row decision into its own module; the shared call moved with it.
+  const decision = strip(await Deno.readTextFile(new URL('../grace-period-automation/decideRowStatus.ts', import.meta.url)));
+  assert(/from ['"]\.\/decideRowStatus\.ts['"]/.test(handler), 'the daily job does not use the extracted row decision');
+  assert(/\bdecideRowStatus\s*\(/.test(handler), 'the row decision is imported but never called');
+  assert(/from ['"]\.\.\/_shared\/subscriptionStatusDecision\.ts['"]/.test(decision), 'no import of the shared decision');
+  assert(/\bdecideAppleStatus\s*\(/.test(decision), 'the shared decision is imported but never called');
+  for (const code of [handler, decision]) {
+    assert(!/function\s+decideStatus\s*\(/.test(code), 'a local decideStatus survives');
+  }
+  assert(/renewalBoundToTransaction\s*\(/.test(handler), 'the renewal binding is not the shared helper');
 });
