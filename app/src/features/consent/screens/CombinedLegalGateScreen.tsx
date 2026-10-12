@@ -40,6 +40,7 @@ import { useConsentStore, recordLegalGateConsents } from '@/core/stores/consentS
 import { logSecurity } from '@/core/services/logging';
 // Static import — the crisis path's no-lazy-import rule (CLAUDE.md).
 import { openCrisisUrl } from '@/features/crisis/utils/openCrisisUrl';
+import { isCrisisDestinationFocused } from '@/core/navigation/crisisDestinationGuard';
 import {
   semantic,
   colorSystem,
@@ -48,6 +49,26 @@ import {
   typography,
   TOUCH_TARGETS,
 } from '@/core/theme';
+
+/**
+ * DEBUG-778 — the announcements made after handleContinue's awaits. A runtime crisis link can
+ * focus CrisisResources above this screen while verifyAge / recordLegalGateConsents wait (an
+ * unbounded window since DEBUG-763), and any announcement then interrupts VoiceOver reading
+ * the 988 content, whatever its words. Crisis ruling: SUPPRESS — never defer (a replay arrives
+ * out of context, the DEBUG-737 precedent) and never reword. Sampled synchronously at the
+ * moment of speech, after the awaits. Never throws: a fault here must not reach
+ * handleContinue's catch, which would report a failure after consent was already recorded
+ * and invite a second write. A reader that throws suppresses, the side that cannot speak over
+ * a crisis screen. Speech only — the write and onComplete() are unchanged.
+ */
+function announceUnlessCrisisFocused(message: string): void {
+  try {
+    if (isCrisisDestinationFocused()) return;
+    AccessibilityInfo.announceForAccessibility(message);
+  } catch {
+    // suppressed: see above
+  }
+}
 
 interface CombinedLegalGateScreenProps {
   /** Called when user passes legal gate (age verified + four consents accepted) */
@@ -228,18 +249,18 @@ const CombinedLegalGateScreen: React.FC<CombinedLegalGateScreenProps> = ({
           wellnessDisclaimerAcknowledged,
           mentalHealthProcessingConsent: mentalHealthProcessingConsented,
         });
-        AccessibilityInfo.announceForAccessibility('Verification complete. Proceeding to app.');
+        announceUnlessCrisisFocused('Verification complete. Proceeding to app.');
         onComplete();
       } else {
         setShowUnderAge(true);
-        AccessibilityInfo.announceForAccessibility(
+        announceUnlessCrisisFocused(
           `We're sorry. Being is available for ages 18 and older. You appear to be ${age} years old. Crisis resources are available if you need support.`
         );
         onUnderAge();
       }
     } catch (err) {
       setError('Verification failed. Please try again.');
-      AccessibilityInfo.announceForAccessibility('Verification failed. Please try again.');
+      announceUnlessCrisisFocused('Verification failed. Please try again.');
     } finally {
       setIsLoading(false);
     }

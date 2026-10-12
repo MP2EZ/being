@@ -78,6 +78,12 @@ const mockReturnToLegalGate = jest.fn();
 jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate, replace: mockReplace }),
   useFocusEffect: jest.fn(),
+  // DEBUG-778: CombinedLegalGateScreen reads crisis focus through navigationRef; unmounted here.
+  createNavigationContainerRef: () => ({
+    isReady: () => false,
+    getCurrentRoute: () => undefined,
+    getRootState: () => undefined,
+  }),
 }));
 
 const mockGrantConsent = jest.fn<Promise<void>, unknown[]>().mockResolvedValue(undefined);
