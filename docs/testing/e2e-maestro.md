@@ -724,8 +724,10 @@ non-certifying for a layout-sensitive flow and as certifying for a `viewport-ind
 one. `e2e_run_certifies` is the single authority; the label consumes it rather than
 re-deriving it, so the two cannot drift.
 
-**The exit alphabet is unchanged: 0 pass / 1 regression / 2 harness / 3 target replaced.** A
-non-certifying all-green run still exits **0**, so any device remains usable for iterating
+**The exit alphabet is unchanged: 0 pass / 1 regression / 2 harness / 3 target replaced**
+(plus 130/143, an operator abort by SIGINT/SIGTERM with no verdict — INFRA-781; the abort
+handler reaps the in-flight maestro, which leads its own process group, before releasing the
+lease). A non-certifying all-green run still exits **0**, so any device remains usable for iterating
 and debugging. The refusal is `/b-close`'s alone and applies only to a MERGE — it fires on
 the ABSENCE of a certifying run, never on the presence of a large device. It reads
 `certification: CERTIFIED|UNCERTIFIED` from the run receipt, whose path the caller sets with

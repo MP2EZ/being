@@ -185,7 +185,13 @@ if ! e2e_lock_acquire_pair gatetree "$GATE_KEY" sim "$SIM_UDID" \
   echo "   needs the simulator, so it waits too if that is the contended half." >&2
   exit "$EXIT_LEASE"
 fi
-trap 'e2e_lock_release_pair gatetree "$GATE_KEY" sim "$SIM_UDID"' EXIT INT TERM
+trap 'e2e_lock_release_pair gatetree "$GATE_KEY" sim "$SIM_UDID"' EXIT
+# INFRA-781 — the release used to be trapped on INT/TERM too, with no exit in it, so an abort
+# released the pair and the script resumed into npm ci and the build without its lease. The
+# signals now only exit, into the release above. Never 4 (that reads as lease contention and
+# b-close re-runs the gate) and never 0: 128+signal is "aborted, no verdict".
+trap 'exit 143' TERM
+trap 'exit 130' INT
 
 # Children re-acquire the simulator lease (e2e-sim-build.sh does, by design) and would
 # otherwise wait out the full timeout on a lease their own parent holds. Verified against the

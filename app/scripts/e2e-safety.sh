@@ -46,6 +46,11 @@ set -u
 #   3  the gate target was replaced mid-suite (INFRA-434); completed flows are VOID
 #   4  NOT OURS — e2e-gate.sh's lease contention (INFRA-472). Never emitted here.
 #
+#   130 / 143  operator abort by SIGINT / SIGTERM (INFRA-781) — NO VERDICT, and never a
+#              statement about the branch. 128+signal rather than 2 because an abort is a
+#              deliberate act, not a harness that could not complete; every consumer
+#              already routes an unrecognised code to "no verdict".
+#
 # THE INVARIANT: exit 1 has exactly ONE producer in this file, the terminal `exit "$fail"`,
 # and `fail` is assigned 1 in exactly one place — the FAIL arm of the per-flow adjudication.
 # Everything else that stops the run is 2 or 3.
@@ -454,14 +459,47 @@ fi
 # The trap releases on every exit path. e2e_lock_release is a no-op unless we are the
 # recorded owner, so an early `exit 1` from a pre-flight that ran before the acquire cannot
 # release a peer's lock.
+#
+# INFRA-781 — an operator abort must STOP the run. The release used to be trapped on
+# `EXIT INT TERM` with no exit in it: a TERM interrupted the flow loop's `wait`, the trap
+# released the lease, and the loop went on starting flows. Worse, each maestro and its
+# watchdog lead their OWN process groups (`set -m`, below), so the documented
+# `kill -TERM -- -PGID` never reaches them. So the signals get their own handler, which kills
+# the in-flight flow FIRST — the lease must not be handed back while our maestro still
+# drives the simulator — and then exits, which runs the one release trap. Armed before the
+# acquire, and unconditionally: a device-only run backgrounds maestro the same way.
+child=""
+watchdog=""
+e2e_safety_abort() {
+  trap '' INT TERM
+  echo "🛑 e2e:safety aborted by SIG$2 — NO VERDICT. Flows completed before the abort are not evidence; reaping the in-flight flow, then releasing the lease." >&2
+  local g n
+  for g in "${child:-}" "${watchdog:-}"; do
+    [ -n "$g" ] || continue
+    kill -TERM -"$g" 2>/dev/null || kill -TERM "$g" 2>/dev/null || true
+  done
+  for n in 1 2 3 4 5 6; do
+    { [ -n "${child:-}" ] && kill -0 -"$child" 2>/dev/null; } || break
+    /bin/sleep 0.5 2>/dev/null || true
+  done
+  for g in "${child:-}" "${watchdog:-}"; do
+    [ -n "$g" ] || continue
+    kill -KILL -"$g" 2>/dev/null || kill -KILL "$g" 2>/dev/null || true
+  done
+  exit "$1"
+}
+trap 'e2e_safety_abort 143 TERM' TERM
+trap 'e2e_safety_abort 130 INT' INT
+
 if [ -n "$SIM_UDID" ]; then
   # DEBUG-496 — same flattening, found by the AC4 sweep rather than by chance. A lock the
   # gate cannot take means a peer holds the device (or the lock root is unwritable): no
   # flow ran, so this is 2. Reporting 1 blamed the branch for a machine that was busy.
   e2e_lock_acquire "$SIM_UDID" "${E2E_LOCK_TIMEOUT:-1800}" "safety flows" || exit 2
   # INFRA-692: ONE trap, sweep first, so the recordings are deleted while the lease is still
-  # held. A second `trap … EXIT` would replace this one and drop the release.
-  trap 'e2e_attachments_reap_run "$SIM_UDID"; e2e_lock_release "$SIM_UDID"' EXIT INT TERM
+  # held. A second `trap … EXIT` would replace this one and drop the release. The signals
+  # are not trapped here (INFRA-781): their handler above only exits, into this.
+  trap 'e2e_attachments_reap_run "$SIM_UDID"; e2e_lock_release "$SIM_UDID"' EXIT
   e2e_attachments_snapshot "$SIM_UDID"
 fi
 
@@ -1392,6 +1430,10 @@ for f in "${FLOWS[@]}"; do
   flow_elapsed="$(e2e_fmt_elapsed "$flow_secs")"
   kill -TERM -"$watchdog" 2>/dev/null || kill -TERM "$watchdog" 2>/dev/null || true
   wait "$watchdog" 2>/dev/null || true
+  # INFRA-781 — both are reaped; clear them so an abort later in the run cannot signal a
+  # stale, possibly recycled, process group.
+  child=""
+  watchdog=""
 
   timed_out=0
   [ -f "$RUN_DIR/.timed-out" ] && timed_out=1

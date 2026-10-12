@@ -164,7 +164,12 @@ cleanup() {
     e2e_lock_release "$SIM_UDID"
   fi
 }
-trap cleanup EXIT INT TERM
+trap cleanup EXIT
+# INFRA-781 — signals exit into the cleanup above rather than running it and resuming: an
+# interruption inside a `|| true` or a conditional would otherwise carry on, installing and
+# marking a binary after the lease was released. Same shape as e2e-safety.sh and e2e-gate.sh.
+trap 'exit 143' TERM
+trap 'exit 130' INT
 
 # ---------------------------------------------------------------------------------------
 # 1. Clean-tree pre-flight (INFRA-329). See header for why this stays.
