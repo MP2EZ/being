@@ -395,6 +395,36 @@ describe('useCloudSync.testConnectivity', () => {
     });
     expect(result.current.error).toBe('Connection test failed');
   });
+
+  // DEBUG-767: the screen can only report what happened if the hook hands the result back —
+  // reading `error` after the await reads the closure's stale value.
+  it('returns the service result, so the caller can branch on it', async () => {
+    const { result } = await mountHook();
+
+    for (const reported of [
+      { canConnect: false, error: 'unreachable' },
+      { canConnect: false, error: 'cloud_sync_consent_absent' },
+      { canConnect: true, responseTimeMs: 5 },
+    ]) {
+      mocked.testCloudConnectivity.mockResolvedValue(reported);
+      let returned: unknown;
+      await act(async () => {
+        returned = await result.current.testConnectivity();
+      });
+      expect(returned).toEqual(reported);
+    }
+  });
+
+  it('returns a failure, never undefined, when the service throws', async () => {
+    const { result } = await mountHook();
+
+    mocked.testCloudConnectivity.mockRejectedValue(new Error('boom'));
+    let returned: unknown;
+    await act(async () => {
+      returned = await result.current.testConnectivity();
+    });
+    expect(returned).toEqual({ canConnect: false, error: 'boom' });
+  });
 });
 
 describe('useCloudBackupConfig', () => {

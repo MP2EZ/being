@@ -9,7 +9,8 @@
  * advanced view (advanced used to show the indicator and nothing else).
  */
 import React from 'react';
-import { fireEvent, render } from '@testing-library/react-native';
+import { Alert } from 'react-native';
+import { act, fireEvent, render } from '@testing-library/react-native';
 import CloudBackupSettings from '../CloudBackupSettings';
 import type { UseCloudSyncReturn } from '@/core/services/supabase/hooks/useCloudSync';
 
@@ -92,5 +93,71 @@ describe('CloudBackupSettings status section (MAINT-702)', () => {
 
     expect(queryByText(ALARM)).toBeNull();
     expect(getByText('Online')).toBeTruthy();
+  });
+});
+
+// DEBUG-767: Test Connection used to say "Successfully connected" whatever happened, because
+// testConnectivity never throws. The alert now follows the returned result.
+describe('CloudBackupSettings Test Connection result (DEBUG-767)', () => {
+  const SUCCESS_COPY = /successfully connected|is set up/i;
+  let alertSpy: jest.SpyInstance;
+
+  beforeEach(() => {
+    alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+  });
+  afterEach(() => alertSpy.mockRestore());
+
+  async function pressTest(result: unknown) {
+    mockCloudSync = syncState({ testConnectivity: jest.fn().mockResolvedValue(result) });
+    const utils = render(<CloudBackupSettings />);
+    fireEvent.press(utils.getByLabelText('Show advanced settings'));
+    await act(async () => {
+      fireEvent.press(utils.getByLabelText('Test connection'));
+    });
+    return utils;
+  }
+
+  const alertText = () => alertSpy.mock.calls.map((c) => `${c[0]} ${c[1]}`).join('\n');
+
+  it('a failed connection shows the failure message, not success', async () => {
+    await pressTest({ canConnect: false, error: 'unreachable' });
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(alertText()).toMatch(/couldn.t connect/i);
+    expect(alertText()).not.toMatch(SUCCESS_COPY);
+    expect(alertText()).not.toMatch(/unreachable/);
+  });
+
+  it('consent absent says cloud backup is off, in plain language', async () => {
+    await pressTest({ canConnect: false, error: 'cloud_sync_consent_absent' });
+    expect(alertText()).toMatch(/cloud backup is off/i);
+    expect(alertText()).not.toMatch(/cloud_sync_consent_absent/);
+    expect(alertText()).not.toMatch(SUCCESS_COPY);
+  });
+
+  it('success makes no reachability claim', async () => {
+    await pressTest({ canConnect: true, responseTimeMs: 5 });
+    expect(alertText()).toMatch(/is set up/i);
+    expect(alertText()).not.toMatch(/successfully connected/i);
+  });
+
+  it('a test already in flight shows nothing', async () => {
+    await pressTest(null);
+    expect(alertSpy).not.toHaveBeenCalled();
+  });
+
+  it('the error banner never shows the raw consent token', () => {
+    mockCloudSync = syncState({ error: 'cloud_sync_consent_absent' });
+    const { queryByText, getByText } = render(<CloudBackupSettings />);
+    expect(queryByText(/cloud_sync_consent_absent/)).toBeNull();
+    expect(getByText(/cloud backup is off/i)).toBeTruthy();
+  });
+
+  it('the button reports busy while a test runs', () => {
+    mockCloudSync = syncState({ isLoading: true });
+    const { getByLabelText } = render(<CloudBackupSettings />);
+    fireEvent.press(getByLabelText('Show advanced settings'));
+    expect(getByLabelText('Test connection').props.accessibilityState).toEqual(
+      expect.objectContaining({ disabled: true, busy: true })
+    );
   });
 });
