@@ -1,7 +1,3 @@
-// Engagement dates are LOCAL calendar dates, so the cutoff tests need a zone that is
-// never on UTC's date for part of the day. Set before anything reads a Date.
-process.env.TZ = 'America/Los_Angeles';
-
 /**
  * MAINT-747 — PrincipleEngagementChart: window filter, dominant-insight thresholds,
  * beginner detection, and the chart's own render paths.
@@ -63,12 +59,32 @@ const totalOf = (byPrinciple: Partial<Record<StoicPrinciple, number>>): number =
 const dominantOf = (byPrinciple: Partial<Record<StoicPrinciple, number>>) =>
   detectDominantPrinciple(countsOf(byPrinciple), totalOf(byPrinciple));
 
-describe('time zone', () => {
-  it('control: the suite runs in America/Los_Angeles', () => {
-    // 2026-10-14 is PDT (UTC-7).
-    expect(new Date(2026, 9, 14, 12).getTimezoneOffset()).toBe(420);
+/**
+ * Engagement dates are LOCAL calendar dates, so the cutoff tests need a local calendar that
+ * is off UTC's date for part of the day. Setting `process.env.TZ` in a test file does not
+ * work — jest sandboxes `process.env`, so it never reaches the real process, and the cases
+ * would pass only on a machine that already sits west of UTC (CI runs in UTC). Instead the
+ * local-calendar getters the code under test uses are shimmed to a fixed UTC-7, and every
+ * instant is built from UTC, so the cases mean the same thing on any machine.
+ */
+const UTC_MINUS_7_MS = 7 * 60 * 60 * 1000;
+function useUtcMinus7Calendar(): void {
+  const local = (d: Date) => new Date(d.getTime() - UTC_MINUS_7_MS);
+  jest.spyOn(Date.prototype, 'getFullYear').mockImplementation(function (this: Date) {
+    return local(this).getUTCFullYear();
   });
-});
+  jest.spyOn(Date.prototype, 'getMonth').mockImplementation(function (this: Date) {
+    return local(this).getUTCMonth();
+  });
+  jest.spyOn(Date.prototype, 'getDate').mockImplementation(function (this: Date) {
+    return local(this).getUTCDate();
+  });
+  jest.spyOn(Date.prototype, 'setDate').mockImplementation(function (this: Date, day: number) {
+    const shifted = local(this);
+    shifted.setUTCDate(day);
+    return this.setTime(shifted.getTime() + UTC_MINUS_7_MS);
+  });
+}
 
 describe('thresholds', () => {
   it('pins the documented values the boundary tests below are built on', () => {
@@ -81,13 +97,23 @@ describe('thresholds', () => {
 });
 
 describe('filterByDateRange — local-date cutoff', () => {
+  beforeEach(() => {
+    jest.useFakeTimers();
+    useUtcMinus7Calendar();
+  });
   afterEach(() => {
+    jest.restoreAllMocks();
     jest.useRealTimers();
   });
 
+  it('control: the shim is live — at 18:00 local the UTC date is already the next day', () => {
+    jest.setSystemTime(Date.UTC(2026, 9, 15, 1, 0, 0)); // 18:00 on Oct 14 at UTC-7
+    expect(new Date().toISOString().startsWith('2026-10-15')).toBe(true);
+    expect(localDate(new Date())).toBe('2026-10-14');
+  });
+
   it('keeps an engagement exactly `days` ago (inclusive) and drops the day before', () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date(2026, 9, 14, 12, 0, 0)); // local noon
+    jest.setSystemTime(Date.UTC(2026, 9, 14, 19, 0, 0)); // local noon
     const onCutoff = engagement(P1, '2026-10-07');
     const dayBefore = engagement(P1, '2026-10-06');
     const today = engagement(P1, '2026-10-14');
@@ -96,10 +122,9 @@ describe('filterByDateRange — local-date cutoff', () => {
   });
 
   it('near local midnight, where the UTC date has already rolled over: the cutoff day is still kept', () => {
-    jest.useFakeTimers();
-    // 18:00 PDT on Oct 14 is 01:00 UTC on Oct 15. A UTC-derived cutoff would be '2026-10-08'
+    // 18:00 local on Oct 14 is 01:00 UTC on Oct 15. A UTC-derived cutoff would be '2026-10-08'
     // and would drop an engagement stamped (locally) exactly 7 days ago.
-    jest.setSystemTime(new Date(2026, 9, 14, 18, 0, 0));
+    jest.setSystemTime(Date.UTC(2026, 9, 15, 1, 0, 0));
     expect(new Date().toISOString().startsWith('2026-10-15')).toBe(true);
 
     const onCutoff = engagement(P1, '2026-10-07');
@@ -109,8 +134,7 @@ describe('filterByDateRange — local-date cutoff', () => {
   });
 
   it('crosses a month boundary on the local calendar', () => {
-    jest.useFakeTimers();
-    jest.setSystemTime(new Date(2026, 10, 2, 23, 30, 0)); // Nov 2, 23:30 PST (already Nov 3 UTC)
+    jest.setSystemTime(Date.UTC(2026, 10, 3, 6, 30, 0)); // Nov 2, 23:30 local (already Nov 3 UTC)
     const onCutoff = engagement(P1, '2026-10-26');
     const dayBefore = engagement(P1, '2026-10-25');
 
