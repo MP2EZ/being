@@ -45,10 +45,14 @@ export interface UseCloudSyncReturn {
 
   // Actions
   checkForRestore: () => Promise<void>;
-  testConnectivity: () => Promise<void>;
+  /** The test's outcome, or null when a test was already in flight (DEBUG-767). */
+  testConnectivity: () => Promise<ConnectivityResult | null>;
   clearError: () => void;
   refreshStatus: () => Promise<void>;
 }
+
+/** What testCloudConnectivity reports. Returned so the caller can branch on it (DEBUG-767). */
+export type ConnectivityResult = Awaited<ReturnType<typeof CloudServices.testCloudConnectivity>>;
 
 /**
  * Cloud sync hook for React components
@@ -189,8 +193,10 @@ export function useCloudSync(): UseCloudSyncReturn {
   }, [isLoading, refreshStatus]);
 
   // Test connectivity
-  const testConnectivity = useCallback(async () => {
-    if (isLoading) return;
+  // DEBUG-767: returns the result. The hook never throws, so a caller that awaited and then
+  // assumed success reported "connected" for every outcome.
+  const testConnectivity = useCallback(async (): Promise<ConnectivityResult | null> => {
+    if (isLoading) return null;
 
     setIsLoading(true);
     setError(null);
@@ -201,9 +207,12 @@ export function useCloudSync(): UseCloudSyncReturn {
       if (!result.canConnect) {
         setError(result.error || 'Connection test failed');
       }
+      return result;
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Connection test failed');
+      const message = err instanceof Error ? err.message : 'Connection test failed';
+      setError(message);
+      return { canConnect: false, error: message };
     } finally {
       setIsLoading(false);
     }
