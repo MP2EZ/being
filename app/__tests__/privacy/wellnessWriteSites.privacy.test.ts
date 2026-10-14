@@ -106,8 +106,8 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       `${NOT_WELLNESS} — cloud-sync operational telemetry`,
       'backup completed/failed/restored counts; gated on cloud_sync consent',
     ],
-    'SupabaseService.saveBackup › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — last-sync timestamp`],
-    'SupabaseService.saveBackup › supabase.upsert': [
+    'SupabaseService.attemptBackupUpload › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — last-sync timestamp`],
+    'SupabaseService.attemptBackupUpload › supabase.upsert': [
       1,
       `${NOT_WELLNESS} — CloudBackupService payload, uploads only {autoSaveEnabled}`,
       'encrypted; the allowlist is pinned by the spec below',

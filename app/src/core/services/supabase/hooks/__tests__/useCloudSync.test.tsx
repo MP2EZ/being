@@ -393,7 +393,8 @@ describe('useCloudSync.testConnectivity', () => {
     await act(async () => {
       await result.current.testConnectivity();
     });
-    expect(result.current.error).toBe('Connection test failed');
+    // DEBUG-783: the fallback is a closed code the screen maps, never a raw string.
+    expect(result.current.error).toBe('cloud_unreachable');
   });
 
   // DEBUG-767: the screen can only report what happened if the hook hands the result back —
@@ -423,7 +424,9 @@ describe('useCloudSync.testConnectivity', () => {
     await act(async () => {
       returned = await result.current.testConnectivity();
     });
-    expect(returned).toEqual({ canConnect: false, error: 'boom' });
+    // DEBUG-783: a thrown message never becomes the error; the closed code does.
+    expect(returned).toEqual({ canConnect: false, error: 'cloud_unreachable' });
+    expect(result.current.error).toBe('cloud_unreachable');
   });
 });
 

@@ -99,7 +99,7 @@ describe('CloudBackupSettings status section (MAINT-702)', () => {
 // DEBUG-767: Test Connection used to say "Successfully connected" whatever happened, because
 // testConnectivity never throws. The alert now follows the returned result.
 describe('CloudBackupSettings Test Connection result (DEBUG-767)', () => {
-  const SUCCESS_COPY = /successfully connected|is set up/i;
+  const SUCCESS_COPY = /connected to cloud backup|successfully connected|is set up/i;
   let alertSpy: jest.SpyInstance;
 
   beforeEach(() => {
@@ -134,11 +134,27 @@ describe('CloudBackupSettings Test Connection result (DEBUG-767)', () => {
     expect(alertText()).not.toMatch(SUCCESS_COPY);
   });
 
-  it('success makes no reachability claim', async () => {
+  it('success now claims reachability, never that a backup exists or data is safe (DEBUG-783)', async () => {
     await pressTest({ canConnect: true, responseTimeMs: 5 });
-    expect(alertText()).toMatch(/is set up/i);
-    expect(alertText()).not.toMatch(/successfully connected/i);
+    expect(alertText()).toMatch(/connected to cloud backup/i);
+    expect(alertText()).not.toMatch(/backed up|your data|safe|sign.?in|account/i);
   });
+
+  it('no session gets its own plain-language copy, never the raw code (DEBUG-783)', async () => {
+    await pressTest({ canConnect: false, error: 'cloud_no_session' });
+    expect(alertText()).toMatch(/couldn.t set up cloud backup/i);
+    expect(alertText()).not.toMatch(/cloud_no_session/);
+    expect(alertText()).not.toMatch(SUCCESS_COPY);
+  });
+
+  it.each(['cloud_unreachable', 'cloud_init_failed'])(
+    '%s shares the plain couldn\'t-connect copy (DEBUG-783)',
+    async (code) => {
+      await pressTest({ canConnect: false, error: code });
+      expect(alertText()).toMatch(/couldn.t connect/i);
+      expect(alertText()).not.toMatch(new RegExp(code));
+    }
+  );
 
   it('a test already in flight shows nothing', async () => {
     await pressTest(null);
@@ -150,6 +166,17 @@ describe('CloudBackupSettings Test Connection result (DEBUG-767)', () => {
     const { queryByText, getByText } = render(<CloudBackupSettings />);
     expect(queryByText(/cloud_sync_consent_absent/)).toBeNull();
     expect(getByText(/cloud backup is off/i)).toBeTruthy();
+  });
+
+  it.each([
+    ['cloud_no_session', /couldn.t set up cloud backup/i],
+    ['cloud_unreachable', /couldn.t connect/i],
+    ['cloud_init_failed', /couldn.t connect/i],
+  ])('the error banner maps %s to plain copy, never the raw code (DEBUG-783)', (code, copy) => {
+    mockCloudSync = syncState({ error: code });
+    const { queryByText, getByText } = render(<CloudBackupSettings />);
+    expect(queryByText(new RegExp(code))).toBeNull();
+    expect(getByText(copy)).toBeTruthy();
   });
 
   it('the button reports busy while a test runs', () => {

@@ -28,7 +28,6 @@ import { AppState } from 'react-native';
 // Service imports
 import supabaseService from './SupabaseService';
 import cloudBackupService from './CloudBackupService';
-import { CONNECTIVITY_EVENT } from './operationalEvents';
 import { useConsentStore } from '@/core/stores/consentStore';
 
 // Type definitions
@@ -348,40 +347,85 @@ export async function cleanupCloudServices(): Promise<void> {
 }
 
 /**
- * Test cloud connectivity
+ * DEBUG-783: what testCloudConnectivity reports when it cannot connect. A closed set, so the
+ * settings screen can map every code to plain copy and no raw error string reaches the user.
+ */
+export const CONNECTIVITY_ERROR = {
+  CONSENT_ABSENT: 'cloud_sync_consent_absent',
+  INIT_FAILED: 'cloud_init_failed',
+  NO_SESSION: 'cloud_no_session',
+  UNREACHABLE: 'cloud_unreachable',
+} as const;
+
+export type ConnectivityError = (typeof CONNECTIVITY_ERROR)[keyof typeof CONNECTIVITY_ERROR];
+
+/**
+ * Upper bound on one connection test, initialization included. Its own timer, because
+ * pinned-fetch replaces a caller's abort signal with its own 30s one.
+ */
+export const CONNECTIVITY_PROBE_TIMEOUT_MS = 10_000;
+
+const PROBE_TIMED_OUT = Symbol('probe-timed-out');
+
+/**
+ * Test cloud connectivity (DEBUG-783).
+ *
+ * canConnect is true only after a real authenticated round-trip: a head-only read of the
+ * user's own encrypted_backups row. RLS scopes it to auth.uid(), head:true returns no body,
+ * and zero rows still counts, because the probe proves the path and the session, not that a
+ * backup exists. It never mints an identity (mint:false), writes nothing, sends no event,
+ * and makes one attempt outside the shared circuit breaker, so a test tap cannot open the
+ * breaker for backups.
  */
 export async function testCloudConnectivity(): Promise<{
   canConnect: boolean;
   responseTimeMs?: number;
-  error?: string | undefined;
+  error?: ConnectivityError | undefined;
 }> {
-  try {
-    // DEBUG-757: user-tapped, but its only network act is a cloud_sync-consented event, so
-    // without consent it would mint an identity for nothing and report a false success.
-    if (!hasCloudSyncConsent()) {
-      return { canConnect: false, error: 'cloud_sync_consent_absent' };
+  // DEBUG-757: without consent a test would mint an identity for nothing.
+  if (!hasCloudSyncConsent()) {
+    return { canConnect: false, error: CONNECTIVITY_ERROR.CONSENT_ABSENT };
+  }
+
+  const startTime = Date.now();
+  let timer: ReturnType<typeof setTimeout> | undefined;
+
+  const probe = async (): Promise<ConnectivityError | null> => {
+    // initializeCloudServices swallows its failures; the module flag is the only signal.
+    await initializeCloudServices();
+    if (!isInitialized) return CONNECTIVITY_ERROR.INIT_FAILED;
+
+    const auth = await supabaseService.getAuthenticatedClient({ mint: false });
+    if (!auth.ok) {
+      return auth.reason === 'no_session' ? CONNECTIVITY_ERROR.NO_SESSION : CONNECTIVITY_ERROR.INIT_FAILED;
     }
 
-    const startTime = Date.now();
+    // supabase-js resolves network and PostgREST failures as { error } rather than throwing.
+    const resp = await auth.client
+      .from('encrypted_backups')
+      .select('user_id', { count: 'exact', head: true })
+      .eq('user_id', auth.userId);
+    if (resp.error || (typeof resp.status === 'number' && (resp.status < 200 || resp.status >= 400))) {
+      return CONNECTIVITY_ERROR.UNREACHABLE;
+    }
+    return null;
+  };
 
-    // Try to initialize services
-    await initializeCloudServices();
+  try {
+    const outcome = await Promise.race([
+      probe(),
+      new Promise<typeof PROBE_TIMED_OUT>((resolve) => {
+        timer = setTimeout(() => resolve(PROBE_TIMED_OUT), CONNECTIVITY_PROBE_TIMEOUT_MS);
+      }),
+    ]);
 
-    // Test basic connectivity with analytics ping
-    await supabaseService.trackEvent(CONNECTIVITY_EVENT.TEST);
-
-    const responseTime = Date.now() - startTime;
-
-    return {
-      canConnect: true,
-      responseTimeMs: responseTime,
-    };
-
-  } catch (error) {
-    return {
-      canConnect: false,
-      error: error instanceof Error ? error.message : 'Unknown error',
-    };
+    if (outcome === PROBE_TIMED_OUT) return { canConnect: false, error: CONNECTIVITY_ERROR.UNREACHABLE };
+    if (outcome) return { canConnect: false, error: outcome };
+    return { canConnect: true, responseTimeMs: Date.now() - startTime };
+  } catch {
+    return { canConnect: false, error: CONNECTIVITY_ERROR.UNREACHABLE };
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 
