@@ -42,7 +42,6 @@ import {
   CRISIS_FEATURES
 } from '@/core/types/subscription';
 
-const STORAGE_KEY = 'subscription_metadata_v1';
 const SECURE_STORAGE_KEY = 'subscription_secure_v1';
 
 /**
