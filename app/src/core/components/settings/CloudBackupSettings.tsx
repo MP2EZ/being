@@ -47,28 +47,35 @@ import {
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 
 // DEBUG-767: plain-language copy for each connection-test outcome. Raw error strings and codes
-// never reach the user. Success is deliberately modest: testCloudConnectivity can report
-// canConnect:true without a network round-trip (DEBUG-783), so it must not claim reachability.
+// never reach the user. Since DEBUG-783 a success means a real authenticated round-trip, so the
+// copy may claim reachability, but never that a backup exists or that data is backed up.
 // The consent copy stays generic because the toggle is disabled under Universal Opt-Out.
 const CONSENT_ABSENT = 'cloud_sync_consent_absent';
+const NO_SESSION = 'cloud_no_session';
+const UNREACHABLE_CODES: ReadonlySet<string> = new Set(['cloud_unreachable', 'cloud_init_failed']);
 const CONSENT_OFF_TITLE = 'Cloud Backup Is Off';
 const CONSENT_OFF_MESSAGE = 'You can turn on cloud backup in Privacy & Data.';
+const NO_SESSION_TITLE = "Couldn't Set Up Cloud Backup";
+const NO_SESSION_MESSAGE = "Being couldn't start a secure backup session. Check your internet connection and try again.";
+const UNREACHABLE_TITLE = "Couldn't Connect";
+const UNREACHABLE_MESSAGE = "We couldn't reach cloud backup. Check your internet connection and try again.";
 
 export function connectionTestAlert(
   result: ConnectivityResult | null
 ): { title: string; message: string } | null {
   if (!result) return null; // a test was already running
-  if (result.canConnect) return { title: 'Connection Test', message: 'Cloud backup is set up.' };
+  if (result.canConnect) return { title: 'Connection Test', message: 'Connected to cloud backup.' };
   if (result.error === CONSENT_ABSENT) return { title: CONSENT_OFF_TITLE, message: CONSENT_OFF_MESSAGE };
-  return {
-    title: "Couldn't Connect",
-    message: "We couldn't reach cloud backup. Check your internet connection and try again.",
-  };
+  if (result.error === NO_SESSION) return { title: NO_SESSION_TITLE, message: NO_SESSION_MESSAGE };
+  return { title: UNREACHABLE_TITLE, message: UNREACHABLE_MESSAGE };
 }
 
 /** The error banner shares the mapping for known codes; other messages pass through. */
 function errorBannerText(error: string): string {
-  return error === CONSENT_ABSENT ? `${CONSENT_OFF_TITLE}. ${CONSENT_OFF_MESSAGE}` : error;
+  if (error === CONSENT_ABSENT) return `${CONSENT_OFF_TITLE}. ${CONSENT_OFF_MESSAGE}`;
+  if (error === NO_SESSION) return `${NO_SESSION_TITLE}. ${NO_SESSION_MESSAGE}`;
+  if (UNREACHABLE_CODES.has(error)) return `${UNREACHABLE_TITLE}. ${UNREACHABLE_MESSAGE}`;
+  return error;
 }
 
 interface CloudBackupSettingsProps {

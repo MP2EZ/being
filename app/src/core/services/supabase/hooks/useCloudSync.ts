@@ -21,7 +21,7 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../../logging';
 import { useState, useEffect, useCallback } from 'react';
-import CloudServices, { CloudSyncStatus, CloudSyncStats } from '../index';
+import CloudServices, { CloudSyncStatus, CloudSyncStats, type ConnectivityError } from '../index';
 
 export interface UseCloudSyncReturn {
   // Status
@@ -53,6 +53,9 @@ export interface UseCloudSyncReturn {
 
 /** What testCloudConnectivity reports. Returned so the caller can branch on it (DEBUG-767). */
 export type ConnectivityResult = Awaited<ReturnType<typeof CloudServices.testCloudConnectivity>>;
+
+/** The closed code for a failed test with no reported cause (DEBUG-783). Typed against the barrel's set. */
+const CONNECTIVITY_UNREACHABLE: ConnectivityError = 'cloud_unreachable';
 
 /**
  * Cloud sync hook for React components
@@ -205,14 +208,15 @@ export function useCloudSync(): UseCloudSyncReturn {
       const result = await CloudServices.testCloudConnectivity();
 
       if (!result.canConnect) {
-        setError(result.error || 'Connection test failed');
+        setError(result.error || CONNECTIVITY_UNREACHABLE);
       }
       return result;
 
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Connection test failed';
-      setError(message);
-      return { canConnect: false, error: message };
+    } catch {
+      // testCloudConnectivity does not throw (DEBUG-783); if it ever does, report the closed
+      // code so no raw error string reaches the banner.
+      setError(CONNECTIVITY_UNREACHABLE);
+      return { canConnect: false, error: CONNECTIVITY_UNREACHABLE };
     } finally {
       setIsLoading(false);
     }

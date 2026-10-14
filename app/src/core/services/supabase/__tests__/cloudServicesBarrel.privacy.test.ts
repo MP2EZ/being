@@ -43,6 +43,7 @@ const mockSupabase = {
   processOfflineQueue: jest.fn(),
   cleanup: jest.fn(),
   trackEvent: jest.fn(),
+  getAuthenticatedClient: jest.fn(),
 };
 const mockBackup = {
   initialize: jest.fn(),
@@ -494,7 +495,7 @@ describe('cloud services barrel — configureCloudBackup consent gate', () => {
 });
 
 describe('cloud services barrel — testCloudConnectivity consent gate', () => {
-  it('without consent: refuses before init and before any connectivity event', async () => {
+  it('without consent: refuses before init, before any client, and before any read', async () => {
     mockCanPerform.mockReturnValue(false);
     const { testCloudConnectivity } = loadBarrel();
 
@@ -505,18 +506,118 @@ describe('cloud services barrel — testCloudConnectivity consent gate', () => {
 
     expect(mockCanPerform).toHaveBeenCalledWith('cloud_sync');
     expect(mockSupabase.initialize).not.toHaveBeenCalled();
+    expect(mockSupabase.getAuthenticatedClient).not.toHaveBeenCalled();
+    expect(mockSupabase.trackEvent).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * DEBUG-783: canConnect:true only after a real authenticated round-trip. The probe is a
+ * head-only read of the user's own encrypted_backups row (RLS-scoped, no body). It never
+ * mints an identity, writes nothing, and sends no connectivity event.
+ */
+describe('cloud services barrel — testCloudConnectivity round-trip (DEBUG-783)', () => {
+  const USER_ID = 'uid-1';
+
+  /** A client whose from().select().eq() settles as `outcome` says (created lazily, per call). */
+  function probeClient(outcome: () => Promise<unknown>) {
+    const eq = jest.fn(() => outcome());
+    const select = jest.fn(() => ({ eq }));
+    const from = jest.fn(() => ({ select }));
+    return { client: { from }, from, select, eq };
+  }
+
+  async function consentedBarrel(): Promise<Barrel> {
+    mockCanPerform.mockReturnValue(false);
+    const barrel = loadBarrel();
+    mockCanPerform.mockReturnValue(true);
+    return barrel;
+  }
+
+  it('success: one head-only read of the own row, zero rows still counts, and no event is sent', async () => {
+    const probe = probeClient(() => Promise.resolve({ error: null, count: 0, status: 200 }));
+    mockSupabase.getAuthenticatedClient.mockResolvedValue({ ok: true, client: probe.client, userId: USER_ID });
+    const { testCloudConnectivity } = await consentedBarrel();
+
+    const result = await testCloudConnectivity();
+
+    expect(result.canConnect).toBe(true);
+    expect(typeof result.responseTimeMs).toBe('number');
+    expect(mockSupabase.getAuthenticatedClient).toHaveBeenCalledWith({ mint: false });
+    expect(probe.from).toHaveBeenCalledWith('encrypted_backups');
+    expect(probe.select).toHaveBeenCalledWith('user_id', expect.objectContaining({ head: true }));
+    expect(probe.eq).toHaveBeenCalledWith('user_id', USER_ID);
     expect(mockSupabase.trackEvent).not.toHaveBeenCalled();
   });
 
-  it('with consent: initializes and sends the connectivity event', async () => {
-    mockCanPerform.mockReturnValue(false);
-    const { testCloudConnectivity } = loadBarrel();
-    mockCanPerform.mockReturnValue(true);
+  it('init failure: cloud_init_failed, and no probe', async () => {
+    mockSupabase.initialize.mockRejectedValue(new Error('boom'));
+    const { testCloudConnectivity } = await consentedBarrel();
 
-    await expect(testCloudConnectivity()).resolves.toMatchObject({ canConnect: true });
+    await expect(testCloudConnectivity()).resolves.toEqual({ canConnect: false, error: 'cloud_init_failed' });
+    expect(mockSupabase.getAuthenticatedClient).not.toHaveBeenCalled();
+  });
 
-    expect(mockSupabase.initialize).toHaveBeenCalledTimes(1);
-    expect(mockSupabase.trackEvent).toHaveBeenCalledTimes(1);
+  it('no session: cloud_no_session, asked with mint:false, and no read or event', async () => {
+    mockSupabase.getAuthenticatedClient.mockResolvedValue({ ok: false, reason: 'no_session' });
+    const { testCloudConnectivity } = await consentedBarrel();
+
+    await expect(testCloudConnectivity()).resolves.toEqual({ canConnect: false, error: 'cloud_no_session' });
+    expect(mockSupabase.getAuthenticatedClient).toHaveBeenCalledWith({ mint: false });
+    expect(mockSupabase.trackEvent).not.toHaveBeenCalled();
+  });
+
+  it('client unavailable: cloud_init_failed', async () => {
+    mockSupabase.getAuthenticatedClient.mockResolvedValue({ ok: false, reason: 'client_unavailable' });
+    const { testCloudConnectivity } = await consentedBarrel();
+
+    await expect(testCloudConnectivity()).resolves.toEqual({ canConnect: false, error: 'cloud_init_failed' });
+  });
+
+  it.each([
+    ['a resolved { error } (supabase-js does not throw)', () => Promise.resolve({ error: { message: 'Network request failed' }, status: 0 })],
+    ['a rejected request', () => Promise.reject(new Error('Network request failed'))],
+    ['an HTTP error status', () => Promise.resolve({ error: null, status: 503 })],
+  ])('offline / unreachable via %s: cloud_unreachable, never the raw message', async (_label, outcome) => {
+    const probe = probeClient(outcome);
+    mockSupabase.getAuthenticatedClient.mockResolvedValue({ ok: true, client: probe.client, userId: USER_ID });
+    const { testCloudConnectivity } = await consentedBarrel();
+
+    const result = await testCloudConnectivity();
+    expect(result).toEqual({ canConnect: false, error: 'cloud_unreachable' });
+    expect(JSON.stringify(result)).not.toMatch(/Network request failed/);
+    expect(mockSupabase.trackEvent).not.toHaveBeenCalled();
+  });
+
+  it('a read that never settles is bounded: cloud_unreachable once the probe timeout passes', async () => {
+    jest.useFakeTimers();
+    try {
+      const probe = probeClient(() => new Promise(() => undefined));
+      mockSupabase.getAuthenticatedClient.mockResolvedValue({ ok: true, client: probe.client, userId: USER_ID });
+      const barrel = await consentedBarrel();
+
+      let settled: unknown = 'pending';
+      void barrel.testCloudConnectivity().then((r) => {
+        settled = r;
+      });
+      await flushMicrotasks();
+      expect(settled).toBe('pending');
+
+      await jest.advanceTimersByTimeAsync(barrel.CONNECTIVITY_PROBE_TIMEOUT_MS);
+      expect(settled).toEqual({ canConnect: false, error: 'cloud_unreachable' });
+    } finally {
+      jest.useRealTimers();
+    }
+  });
+
+  it('exports the closed set of error codes the settings screen maps', async () => {
+    const { CONNECTIVITY_ERROR } = await consentedBarrel();
+    expect(CONNECTIVITY_ERROR).toEqual({
+      CONSENT_ABSENT: 'cloud_sync_consent_absent',
+      INIT_FAILED: 'cloud_init_failed',
+      NO_SESSION: 'cloud_no_session',
+      UNREACHABLE: 'cloud_unreachable',
+    });
   });
 });
 
