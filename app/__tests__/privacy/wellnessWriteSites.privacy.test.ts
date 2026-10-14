@@ -178,7 +178,6 @@ const MANIFEST: Record<string, Record<string, Row>> = {
   },
   'src/core/services/security/SecureStorageService.ts': {
     'SecureStorageService.storeWellnessBlob › AsyncStorage.setItem': [1, STORAGE_LAYER],
-    'SecureStorageService.storeAssessmentData › AsyncStorage.setItem': [1, STORAGE_LAYER, 'no production caller'],
     'SecureStorageService.storeGeneralData › AsyncStorage.setItem': [2, STORAGE_LAYER, 'no production caller'],
     'SecureStorageService.readWithLegacyFallback › AsyncStorage.setItem': [
       1,
@@ -186,7 +185,6 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       'relocates ciphertext already stored (INFRA-144); blocking it would lose data',
     ],
     'SecureStorageService.markMigrated › AsyncStorage.setItem': [1, STORAGE_LAYER, 'migration flag'],
-    'SecureStorageService.persistMetadataIndex › AsyncStorage.setItem': [1, STORAGE_LAYER, 'key/size metadata'],
     'SecureStorageService.logStorageAccess › AsyncStorage.setItem': [1, STORAGE_LAYER, 'failed-op metadata, no payload'],
     'SecureStorageService.verifyStorageCapabilities › AsyncStorage.setItem': [1, STORAGE_LAYER, 'probe write'],
     'SecureStorageService.verifyStorageCapabilities › setItemAsync': [1, STORAGE_LAYER, 'probe write'],
@@ -255,7 +253,7 @@ const MANIFEST: Record<string, Record<string, Row>> = {
 // ── Scanner ────────────────────────────────────────────────────────────────
 
 const ASYNC_STORAGE_WRITES = new Set(['setItem', 'multiSet', 'mergeItem', 'multiMerge']);
-const WELLNESS_SERVICE_WRITES = new Set(['storeWellnessBlob', 'storeAssessmentData', 'storeGeneralData']);
+const WELLNESS_SERVICE_WRITES = new Set(['storeWellnessBlob', 'storeGeneralData']);
 const SUPABASE_WRITES = new Set(['insert', 'upsert', 'update']);
 
 /** The write primitive a node invokes, or null. */

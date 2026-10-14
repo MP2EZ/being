@@ -239,7 +239,7 @@ const SESSION_KEYS = ['stoic_session_morning', 'stoic_session_midday', 'stoic_se
 type Classification = readonly KeyRef[] | typeof PASS_THROUGH | typeof LIBRARY_OWNED;
 /** `[site count, classification]` — the count pins the site set, so a new unresolved call fails. */
 const UNRESOLVED_SITES: Record<string, readonly [number, Classification]> = {
-  'src/core/services/security/SecureStorageService.ts :: storageKey': [10, PASS_THROUGH],
+  'src/core/services/security/SecureStorageService.ts :: storageKey': [9, PASS_THROUGH],
   'src/core/services/security/SecureStorageService.ts :: asyncKey': [3, PASS_THROUGH],
   'src/core/services/security/SecureStorageService.ts :: legacySecureStoreKey': [3, PASS_THROUGH],
   'src/core/services/security/SecureStorageService.ts :: key': [2, PASS_THROUGH],

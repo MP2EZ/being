@@ -1,15 +1,16 @@
 /**
- * `storage_metadata_index` — erasure coverage (DEBUG-381)
+ * `storage_metadata_index` — erasure coverage (DEBUG-381, re-anchored MAINT-716)
  *
  * WHY THIS EXISTS
  *
- * `SecureStorageService` persists a metadata index to AsyncStorage under the
- * bare key `storage_metadata_index`, holding one record per stored blob:
- * `storageKey` (e.g. `assessment_async_<assessmentId>`), `storageTier: 'assessment_tier'`,
- * `sensitivityLevel: 'level_2_assessment_data'`, `dataType`, `createdAt`,
- * `lastAccessedAt`, `accessCount`, `dataSize`. No wellness CONTENT — but a
- * durable, CLEARTEXT local record that an assessment record existed, under which
- * record id, when it was created, when it was last read, and how often.
+ * Shipped builds of `SecureStorageService` persisted a metadata index to
+ * AsyncStorage under the bare key `storage_metadata_index`, holding one record
+ * per stored blob: `storageKey` (e.g. `assessment_async_<assessmentId>`),
+ * `storageTier: 'assessment_tier'`, `sensitivityLevel: 'level_2_assessment_data'`,
+ * `dataType`, `createdAt`, `lastAccessedAt`, `accessCount`, `dataSize`. No
+ * wellness CONTENT — but a durable, CLEARTEXT local record that an assessment
+ * record existed, under which record id, when it was created, when it was last
+ * read, and how often.
  *
  * The key matched no swept prefix and was not on the exact-name list, so it
  * survived `clearAllWellnessData` — including the full account-deletion path
@@ -18,29 +19,33 @@
  * `critical_log_*` and `audit_log_*`, this one), and it was found the same way
  * the last one was: by enumerating the whole store after erasure.
  *
- * WHY IT NEEDED ITS OWN SUITE RATHER THAN A LINE IN THE SWEEP
+ * WHAT MAINT-716 CHANGED
  *
- * This defect is unerasable by omission PLUS a write-back loop, and the second
- * half is what makes the one-line fix a FAKE CONTROL. `storeMetadata`
- * re-serialises the ENTIRE in-memory `metadataCache` on every single write, and
- * `clearAllWellnessData` never cleared that cache. So adding the key to the
- * sweep alone would delete the file and let the very next assessment
- * write put it straight back — complete with metadata for the records that were
- * just erased. It would read as a control while providing none, which is exactly
- * the shape `legacyPlaintextRecordSweeper` documents against itself and that
- * DEBUG-355 declined to repeat.
+ * The index had a write-back loop: `storeMetadata` re-serialised the ENTIRE
+ * in-memory `metadataCache` on every write, so sweeping the key alone would have
+ * been a FAKE CONTROL — the next write would restore it, erased records
+ * included. DEBUG-381 closed that by clearing the cache first and sweeping the
+ * key. MAINT-716 deleted `storeAssessmentData`, the last writer (no production
+ * caller), together with `storeMetadata`, `deleteMetadata` and
+ * `persistMetadataIndex`. Nothing writes the key any more, so the write-back
+ * cannot happen by construction and "the key is written" is no longer a premise
+ * this suite can stand on.
  *
- * THE TEST THAT DISTINGUISHES THE REAL FIX FROM THE FAKE ONE is
- * "does not come back after a subsequent assessment write". The sweep-only fix
- * passes every other assertion in this file and fails that one.
+ * What it stands on instead, in two parts:
+ *   1. RESIDUE. Installs that shipped before the fix still carry the file. It
+ *      is planted here as raw JSON, not produced by any production writer, so
+ *      the sweep tests cannot pass vacuously and do not depend on a writer
+ *      existing.
+ *   2. A NO-WRITER PIN. Every surviving public writer is run against that
+ *      residue, before and after erasure, and the key must be byte-identical
+ *      beforehand and absent afterwards. Re-adding a persist call anywhere those
+ *      writers reach turns it red (proved once by mutation when this landed).
  *
- * A NOTE ON THAT ASSERTION'S SHAPE. The acceptance criterion as written asks
- * for a test proving the key "does not come back". Taken literally that is
- * impossible and would be wrong to build: the index is a live feature, so the
- * key legitimately reappears the moment anything is stored after erasure. The
- * provable — and correct — property is that when it comes back it contains ONLY
- * post-erasure entries. Hence these assertions key on the ERASED RECORD ID and
- * never on `assessment_tier`, which a post-erasure record legitimately carries.
+ * The `metadataCache.clear()` kept at the top of `clearAllWellnessData` is
+ * covered separately: its remaining reason is that `loadStorageMetadata` hydrates
+ * the cache from residue, and a stale cache feeds `performScheduledCleanup` ->
+ * `deleteSecureData` misses -> `logStorageAccess`, which persists an `audit_log_`
+ * entry naming the erased record id.
  *
  * WHAT IS FAKED, AND WHY THAT IS SOUND
  *
@@ -48,16 +53,14 @@
  * under test. `EncryptionService` is a passthrough stub — the property proven
  * here is key naming and sweep coverage, not cipher correctness.
  *
- * SINGLETON HYGIENE, WHICH IS LOAD-BEARING HERE AND NOWHERE ELSE.
- * `loadStorageMetadata` only overwrites `metadataCache` when the persisted key
- * EXISTS, so clearing the mock Maps between tests does NOT clear the cache —
- * entries leak across tests. Every other erasure suite gets away with that;
- * this one cannot, because a leaked entry from a prior test is indistinguishable
- * from the resurrection bug under test. `__resetForTesting__()` clears the
- * instance's state IN PLACE before nulling the static, so calling it and then
- * re-initialising the SAME default export is safe — do NOT follow it with
- * `getInstance()`, which would mint a second instance with its own cache writing
- * the same key.
+ * SINGLETON HYGIENE. `loadStorageMetadata` only overwrites `metadataCache` when
+ * the persisted key EXISTS, so clearing the mock Maps between tests does NOT
+ * clear the cache — entries leak across tests, and a leaked entry is
+ * indistinguishable from the resurrection this suite guards against.
+ * `__resetForTesting__()` clears the instance's state IN PLACE before nulling the
+ * static, so calling it and then re-initialising the SAME default export is
+ * safe — do NOT follow it with `getInstance()`, which would mint a second
+ * instance with its own cache.
  */
 
 const mockSecureStoreMap = new Map<string, string>();
@@ -116,7 +119,6 @@ jest.mock('../EncryptionService', () => {
     decryptData: jest.fn(async (pkg: any) =>
       JSON.parse(Buffer.from(pkg.encryptedData, 'base64').toString('utf-8'))
     ),
-        encryptAssessmentData: jest.fn(async (data: any) => wrap(data, 'level_2_assessment_data')),
     initialize: jest.fn(async () => undefined),
     destroy: jest.fn(async () => undefined),
     deleteMasterKey: jest.fn(async () => undefined),
@@ -140,8 +142,13 @@ const {
   SECURE_STORAGE_CONFIG,
   STORAGE_METADATA_INDEX_KEY,
 } = require('../SecureStorageService');
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+const AsyncStorage = require('@react-native-async-storage/async-storage');
 
-/** The persisted index, parsed — or null when the key is absent. */
+const VICTIM = 'victim-record';
+const VICTIM_KEY = `assessment_async_${VICTIM}`;
+
+/** The persisted index, raw — or null when the key is absent. */
 const indexRaw = (): string | null => mockAsyncStorageMap.get(STORAGE_METADATA_INDEX_KEY) ?? null;
 
 /** Whole-store dump across BOTH stores. SecureStore is not enumerable in
@@ -154,6 +161,77 @@ const wholeStoreDump = (): string =>
     ...mockSecureStoreMap.entries(),
   ]);
 
+/** The index exactly as a shipped build left it: cleartext, naming the record. */
+const shippedIndex = (): string =>
+  JSON.stringify([
+    [
+      VICTIM_KEY,
+      {
+        storageKey: VICTIM_KEY,
+        storageTier: 'assessment_tier',
+        sensitivityLevel: 'level_2_assessment_data',
+        dataType: 'assessment_phq-9',
+        createdAt: 1,
+        lastAccessedAt: 1,
+        accessCount: 3,
+        encrypted: true,
+        dataSize: 128,
+        retentionPolicy: 'wellness_record',
+      },
+    ],
+  ]);
+
+/**
+ * Shipped-install residue, as raw keys: the index plus the record it names. The
+ * ciphertext is a package the passthrough stub can decrypt, so
+ * `retrieveAssessmentData` takes its success path.
+ */
+const plantShippedInstall = (): string => {
+  const index = shippedIndex();
+  mockAsyncStorageMap.set(STORAGE_METADATA_INDEX_KEY, index);
+  mockAsyncStorageMap.set(
+    VICTIM_KEY,
+    JSON.stringify({
+      encryptedData: Buffer.from(JSON.stringify({ totalScore: 14 }), 'utf-8').toString('base64'),
+      iv: 'mock-iv',
+      tag: 'mock-tag',
+      salt: 'mock-salt',
+      metadata: {},
+      checksum: 'mock-checksum',
+    })
+  );
+  return index;
+};
+
+/**
+ * Every surviving public path that touches storage, with `tag` keeping the keys
+ * of one round distinct from another's. None may write `storage_metadata_index`.
+ * `StorageTier` covers both `storeGeneralData` branches (plain and encrypted).
+ */
+const runSurvivingWriters = async (tag: string): Promise<void> => {
+  await service.storeWellnessBlob(`${tag}-blob`, { n: 1 }, 'level_2_assessment_data');
+  await service.retrieveWellnessBlob(`${tag}-blob`);
+  await service.storeWellnessBlob(`${tag}-legacy`, { n: 2 }, 'level_2_assessment_data');
+  await service.deleteWellnessBlob(`${tag}-legacy`, `legacy_secure_${tag}`);
+  await service.deleteWellnessBlob(`${tag}-blob`);
+  const oversize = await service.storeWellnessBlob(
+    `${tag}-oversize`,
+    'x'.repeat(300 * 1024),
+    'level_2_assessment_data'
+  );
+  expect(oversize.success).toBe(false);
+  await service.storeGeneralData(`${tag}-plain`, { n: 3 }, 'general_tier');
+  await service.storeGeneralData(`${tag}-enc`, { n: 4 }, 'performance_tier');
+  const present = await service.deleteSecureData(`${tag}-plain`);
+  expect(present.success).toBe(true);
+  const absent = await service.deleteSecureData(`${tag}-absent`);
+  expect(absent.success).toBe(false);
+  await service.retrieveAssessmentData(`${tag}-no-such-assessment`);
+};
+
+const indexWrites = (): unknown[][] =>
+  AsyncStorage.setItem.mock.calls.filter((c: unknown[]) => c[0] === STORAGE_METADATA_INDEX_KEY);
+
 beforeEach(async () => {
   mockSecureStoreMap.clear();
   mockAsyncStorageMap.clear();
@@ -161,147 +239,203 @@ beforeEach(async () => {
   // See the singleton-hygiene note in the header. In place, then re-init the
   // SAME default export — never getInstance() after this.
   SecureStorageService.__resetForTesting__();
-  await service.initialize();
 });
 
-describe('the metadata index really is written, and really does name stored records', () => {
-  it('storeAssessmentData persists storage_metadata_index containing the storage tier', async () => {
-    // Establishes the premise every erasure assertion below rests on. Without
-    // it, "the key does not survive" passes vacuously the day the writer is
-    // renamed, and the sweep entry becomes dead code nothing detects.
-    await service.storeAssessmentData('victim-record', {
-      type: 'PHQ-9',
-      responses: [1, 2, 3, 0, 2, 1, 3, 2, 0],
-      totalScore: 14,
-      timestamp: 1716000000000,
-      userId: 'u1',
-    });
+describe('nothing writes the metadata index (MAINT-716)', () => {
+  it('every surviving writer, run over a shipped index, leaves it untouched and never writes the key', async () => {
+    // The no-writer pin. Planting the shipped index first means a writer that
+    // re-serialised or removed it would show as a changed or missing value, not
+    // as an absence a silent no-op also produces.
+    const planted = plantShippedInstall();
+    await service.initialize();
+    jest.clearAllMocks();
 
-    const raw = indexRaw();
-    expect(raw).not.toBeNull();
-    expect(raw).toContain('assessment_tier');
-    expect(raw).toContain('victim-record');
+    await runSurvivingWriters('pre');
+    // The two calls that reach the planted record itself: the read path that
+    // used to update cache metadata, and the delete path that used to persist
+    // the index afterwards.
+    expect((await service.retrieveAssessmentData(VICTIM)).data).toEqual({ totalScore: 14 });
+    expect((await service.deleteSecureData(VICTIM)).success).toBe(true);
+
+    expect(indexWrites()).toEqual([]);
+    expect(indexRaw()).toBe(planted);
+    // Guard the guard: the writers really wrote something, so an untouched
+    // index is not the product of the round doing nothing.
+    expect(AsyncStorage.setItem.mock.calls.length).toBeGreaterThan(0);
+    expect(mockAsyncStorageMap.has(VICTIM_KEY)).toBe(false);
   });
-});
 
-describe('account erasure removes the metadata index', () => {
-  it('clearAllWellnessData removes storage_metadata_index', async () => {
-    await service.storeAssessmentData('victim-record', {
-      type: 'PHQ-9',
-      responses: [1, 2, 3, 0, 2, 1, 3, 2, 0],
-      totalScore: 14,
-      timestamp: 1716000000000,
-      userId: 'u1',
-    });
-    expect(indexRaw()).not.toBeNull();
+  it('after erasure the key is absent, and stays absent through every surviving writer', async () => {
+    plantShippedInstall();
+    await service.initialize();
+    await runSurvivingWriters('pre');
 
     await service.clearAllWellnessData({ deleteMasterKey: true });
+    expect(mockAsyncStorageMap.has(STORAGE_METADATA_INDEX_KEY)).toBe(false);
+
+    await runSurvivingWriters('post');
 
     expect(mockAsyncStorageMap.has(STORAGE_METADATA_INDEX_KEY)).toBe(false);
-  });
-
-  it('the erased record does not COME BACK on the next assessment write', async () => {
-    // THE ASSERTION THAT DISTINGUISHES A REAL FIX FROM A FAKE ONE.
-    //
-    // Sweeping the key without clearing `metadataCache` passes every other test
-    // in this file and fails this one: `storeMetadata` re-serialises the whole
-    // cache, so the next write restores every pre-erasure entry verbatim.
-    //
-    // Note what is and is not asserted. `assessment_tier` is NOT checked for absence
-    // — the post-erasure record legitimately carries it, and asserting otherwise
-    // would force this test to be weakened later, which is how a pin becomes a
-    // rubber stamp. The erased RECORD ID is the honest discriminator.
-    await service.storeAssessmentData('victim-record', {
-      type: 'PHQ-9',
-      responses: [1, 2, 3, 0, 2, 1, 3, 2, 0],
-      totalScore: 14,
-      timestamp: 1716000000000,
-      userId: 'u1',
-    });
-    await service.clearAllWellnessData({ deleteMasterKey: true });
-
-    await service.storeAssessmentData('fresh-record', {
-      type: 'PHQ-9',
-      responses: [1, 2, 3, 0, 2, 1, 3, 2, 0],
-      totalScore: 14,
-      timestamp: 1716000000000,
-      userId: 'u1',
-    });
-
-    const raw = indexRaw();
-    // Proves the write actually happened — otherwise the negative below is vacuous.
-    expect(raw).toContain('fresh-record');
-    expect(raw).not.toContain('victim-record');
-    expect(wholeStoreDump()).not.toContain('victim-record');
+    expect(indexWrites()).toEqual([]);
+    expect(wholeStoreDump()).not.toContain(VICTIM);
+    // Guard the guard: the second round left records behind, so the store is
+    // not clean merely because nothing ran.
+    expect(wholeStoreDump()).toContain('post-enc');
+    expect(mockAsyncStorageMap.size).toBeGreaterThan(0);
   });
 
   it('holds on the logout path too (deleteMasterKey omitted)', async () => {
     // `clearAllWellnessData()` with no options is the `deleteMasterKey: false`
     // branch. It has NO production caller today — `AccountDeletionService.ts:61`
     // is the only invocation in app/src and passes `true` — so this pins a
-    // DECISION rather than fixing a live regression: the cache is cleared
-    // unconditionally on both branches.
-    //
-    // Clearing it is the right default even though the branch is currently
-    // unreachable. Every entry the cache can hold names an `assessment_async_*`
-    // key (only storeAssessmentData writes metadata since MAINT-378 removed the
-    // crisis tier), and both prefixes are swept on BOTH branches — so after
-    // either call the cache is 100% stale by construction. Retaining it would
-    // preserve only a record that erased data once existed, and would feed the
-    // write-back loop.
-    await service.storeAssessmentData('victim-record', {
-      type: 'PHQ-9',
-      responses: [1, 2, 3, 0, 2, 1, 3, 2, 0],
-      totalScore: 14,
-      timestamp: 1716000000000,
-      userId: 'u1',
-    });
+    // DECISION: the cache is cleared and the key swept on both branches.
+    plantShippedInstall();
+    await service.initialize();
+    await runSurvivingWriters('pre');
+
+    await service.clearAllWellnessData();
+    expect(mockAsyncStorageMap.has(STORAGE_METADATA_INDEX_KEY)).toBe(false);
+
+    await runSurvivingWriters('post');
+
+    expect(mockAsyncStorageMap.has(STORAGE_METADATA_INDEX_KEY)).toBe(false);
+    expect(wholeStoreDump()).not.toContain(VICTIM);
+    expect(mockAsyncStorageMap.size).toBeGreaterThan(0);
+  });
+});
+
+describe('account erasure removes the metadata index', () => {
+  it('clearAllWellnessData removes storage_metadata_index on a full account-deletion wipe', async () => {
+    // Planted directly rather than via a write, to model a device that upgraded
+    // into the fix. The key is a single fixed AsyncStorage name, so the sweep
+    // reaches already-shipped installs with no migration and no launch sweeper.
+    plantShippedInstall();
+    await service.initialize();
+    expect(indexRaw()).not.toBeNull();
+
+    await service.clearAllWellnessData({ deleteMasterKey: true });
+
+    expect(mockAsyncStorageMap.has(STORAGE_METADATA_INDEX_KEY)).toBe(false);
+    expect(wholeStoreDump()).not.toContain(VICTIM);
+  });
+
+  it('clearAllWellnessData removes it on the logout branch as well', async () => {
+    plantShippedInstall();
+    await service.initialize();
+    expect(indexRaw()).not.toBeNull();
 
     await service.clearAllWellnessData();
 
     expect(mockAsyncStorageMap.has(STORAGE_METADATA_INDEX_KEY)).toBe(false);
-
-    await service.storeAssessmentData('fresh-record', {
-      type: 'PHQ-9',
-      responses: [1, 2, 3, 0, 2, 1, 3, 2, 0],
-      totalScore: 14,
-      timestamp: 1716000000000,
-      userId: 'u1',
-    });
-    expect(indexRaw()).not.toContain('victim-record');
+    expect(wholeStoreDump()).not.toContain(VICTIM);
   });
 
-  it('sweeps an index left by an install that predates this fix', async () => {
-    // Like the `audit_log_*` half of DEBUG-355 and unlike `critical_log_*`, this
-    // defect is fixable RETROACTIVELY: the key is a single fixed AsyncStorage
-    // name, so the sweep reaches already-shipped installs with no migration and
-    // no launch sweeper. Planted directly rather than via a write, to model a
-    // device that upgraded into the fix.
+  it('sweeps an index the service never loaded (planted after initialize)', async () => {
+    // Residue that arrived after the cache was built — the sweep must not
+    // depend on the cache knowing about the key.
+    await service.initialize();
+    mockAsyncStorageMap.set(STORAGE_METADATA_INDEX_KEY, shippedIndex());
+
+    await service.clearAllWellnessData({ deleteMasterKey: true });
+
+    expect(mockAsyncStorageMap.has(STORAGE_METADATA_INDEX_KEY)).toBe(false);
+    expect(wholeStoreDump()).not.toContain(VICTIM);
+  });
+});
+
+describe('the in-memory cache hydrated from residue does not outlive erasure', () => {
+  it.each([
+    ['full account-deletion wipe', { deleteMasterKey: true }],
+    ['logout branch', {}],
+  ])('exportStorageData and getStorageMetrics report no ghosts after a %s', async (_label, options) => {
+    plantShippedInstall();
+    await service.initialize();
+    // Guard the guard: hydration really happened, so an empty cache afterwards
+    // is the clear's doing and not an index that never loaded.
+    expect(JSON.stringify((await service.exportStorageData()).metadata)).toContain(VICTIM);
+    expect((await service.getStorageMetrics()).totalEntries).toBe(1);
+
+    await service.clearAllWellnessData(options);
+
+    expect((await service.exportStorageData()).metadata).toEqual([]);
+    expect((await service.getStorageMetrics()).totalEntries).toBe(0);
+  });
+
+  it('a cleanup pass after erasure persists no audit_log_ naming the erased record', async () => {
+    // `performScheduledCleanup` walks the cache and calls `deleteSecureData` on
+    // expired entries; for a record already erased that is a miss, and a miss is
+    // a failed operation, which `logStorageAccess` persists as `audit_log_*`.
+    // A cache that survived erasure would therefore re-create a cleartext key
+    // naming the erased record. The entry below is already expired so the first
+    // pass (inside initialize) and the post-erasure pass both consider it.
     mockAsyncStorageMap.set(
       STORAGE_METADATA_INDEX_KEY,
       JSON.stringify([
         [
-          'assessment_async_legacy-record',
+          VICTIM_KEY,
           {
-            storageKey: 'assessment_async_legacy-record',
+            storageKey: VICTIM_KEY,
             storageTier: 'assessment_tier',
             sensitivityLevel: 'level_2_assessment_data',
             dataType: 'assessment_phq-9',
             createdAt: 1,
             lastAccessedAt: 1,
-            accessCount: 3,
+            accessCount: 1,
             encrypted: true,
             dataSize: 128,
             retentionPolicy: 'wellness_record',
+            expiresAt: 2,
           },
         ],
       ])
     );
+    await service.initialize();
 
     await service.clearAllWellnessData({ deleteMasterKey: true });
+    await (service as any).performScheduledCleanup();
 
-    expect(mockAsyncStorageMap.has(STORAGE_METADATA_INDEX_KEY)).toBe(false);
-    expect(wholeStoreDump()).not.toContain('legacy-record');
+    const auditKeys = Array.from(mockAsyncStorageMap.keys()).filter((k) =>
+      k.startsWith(SECURE_STORAGE_CONFIG.AUDIT_LOG_PREFIX)
+    );
+    expect(auditKeys).toEqual([]);
+    expect(wholeStoreDump()).not.toContain('victim-record');
+  });
+
+  it('proves the cleanup assertion can fail — without erasure the same pass DOES persist audit_log_', async () => {
+    // Positive control for the test above: the identical expired residue, with
+    // no clearAllWellnessData in between, leaves an audit_log_ key naming the
+    // record. If this stopped holding, the test above would pass whether or not
+    // the cache clear exists.
+    mockAsyncStorageMap.set(
+      STORAGE_METADATA_INDEX_KEY,
+      JSON.stringify([
+        [
+          VICTIM_KEY,
+          {
+            storageKey: VICTIM_KEY,
+            storageTier: 'assessment_tier',
+            sensitivityLevel: 'level_2_assessment_data',
+            dataType: 'assessment_phq-9',
+            createdAt: 1,
+            lastAccessedAt: 1,
+            accessCount: 1,
+            encrypted: true,
+            dataSize: 128,
+            retentionPolicy: 'wellness_record',
+            expiresAt: 2,
+          },
+        ],
+      ])
+    );
+    await service.initialize();
+    await (service as any).performScheduledCleanup();
+
+    expect(wholeStoreDump()).toContain('victim-record');
+    expect(
+      Array.from(mockAsyncStorageMap.keys()).some((k) =>
+        k.startsWith(SECURE_STORAGE_CONFIG.AUDIT_LOG_PREFIX)
+      )
+    ).toBe(true);
   });
 });
 
