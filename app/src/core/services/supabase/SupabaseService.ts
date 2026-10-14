@@ -866,28 +866,46 @@ class SupabaseService {
 
   /**
    * Save encrypted backup to cloud
+   *
+   * Enqueues the op exactly once when the upload could not be attempted or failed; a refusal
+   * (no consent, pending backup delete) is never enqueued.
    */
   async saveBackup(encryptedData: string, checksum: string, version: number = 1): Promise<boolean> {
-    // DEBUG-756: no upload, and no enqueue, without cloud_sync consent. Refusing BEFORE the
-    // enqueue branches matters: a refusal that queued would re-create the queue that
-    // processOfflineQueue just dropped, and inside that loop would duplicate the op it is
-    // iterating on every foreground.
+    const outcome = await this.attemptBackupUpload(encryptedData, checksum, version);
+    if (outcome === 'unavailable' || outcome === 'failed') {
+      this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
+    }
+    return outcome === 'uploaded';
+  }
+
+  /**
+   * One backup upload attempt. Never enqueues: `processOfflineQueue` replays through this
+   * while iterating the queue, and an enqueue from inside that loop duplicated the op it was
+   * replaying (DEBUG-766). The caller decides what a non-'uploaded' outcome means.
+   */
+  private async attemptBackupUpload(
+    encryptedData: string,
+    checksum: string,
+    version: number
+  ): Promise<'uploaded' | 'refused' | 'unavailable' | 'failed'> {
+    // DEBUG-756: no upload, and no enqueue, without cloud_sync consent. 'refused' is never
+    // enqueued: a refusal that queued would re-create the queue that processOfflineQueue
+    // just dropped.
     if (!this.hasCloudSyncConsent()) {
       logSecurity('[SupabaseService] saveBackup skipped — cloud_sync consent absent', 'low');
-      return false;
+      return 'refused';
     }
 
     // DEBUG-764: a withdrawal's delete lands before any new upload. Not enqueued on failure:
     // CloudBackupService re-creates the backup once the delete is confirmed.
     if (!(await this.drainPendingBackupDelete())) {
       logSecurity('[SupabaseService] saveBackup deferred — pending backup delete unconfirmed', 'low');
-      return false;
+      return 'refused';
     }
 
     if (!this.isInitialized || !this.client || !this.userId) {
       logSecurity('[SupabaseService] Not initialized, queuing backup for later', 'low');
-      this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
-      return false;
+      return 'unavailable';
     }
 
     const result = await this.executeWithResilience(async () => {
@@ -920,13 +938,12 @@ class SupabaseService {
 
     if (!result.success) {
       logError(LogCategory.SYSTEM, '[SupabaseService] Backup failed:', result.error instanceof Error ? result.error : new Error(String(result.error)));
-      this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
-      return false;
+      return 'failed';
     }
 
     // Update last sync time
     await AsyncStorage.setItem(STORAGE_KEYS.LAST_SYNC, new Date().toISOString());
-    return true;
+    return 'uploaded';
   }
 
   /**
@@ -1673,33 +1690,36 @@ class SupabaseService {
       pendingOperations: this.offlineQueue.length,
     });
 
-    const processedOperations: number[] = [];
+    // Loop a snapshot and remove by object identity afterwards: indices shift when an op is
+    // removed, and a concurrent enqueue or erasure reset must not be undone (DEBUG-766).
+    const batch = this.offlineQueue.slice();
+    const done = new Set<unknown>();
 
-    for (let i = 0; i < this.offlineQueue.length; i++) {
-      const { operation, data } = this.offlineQueue[i];
+    for (const op of batch) {
+      const { operation, data } = op;
 
       try {
         switch (operation) {
           case 'saveBackup':
-            const success = await this.saveBackup(data.encryptedData, data.checksum, data.version);
-            if (success) processedOperations.push(i);
+            // Not saveBackup(): that enqueues on failure, which would duplicate this op.
+            if ((await this.attemptBackupUpload(data.encryptedData, data.checksum, data.version)) === 'uploaded') {
+              done.add(op);
+            }
             break;
 
           default:
             logSecurity('Unknown offline operation', 'low', {
               operation
             });
-            processedOperations.push(i); // Remove unknown operations
+            done.add(op); // Remove unknown operations
         }
       } catch (error) {
         logError(LogCategory.SYSTEM, `[SupabaseService] Failed to process offline operation ${operation}:`, error instanceof Error ? error : new Error(String(error)));
       }
     }
 
-    // Remove processed operations (in reverse order to maintain indices)
-    for (let i = processedOperations.length - 1; i >= 0; i--) {
-      this.offlineQueue.splice(processedOperations[i]!, 1);
-    }
+    // Filter the CURRENT array, never assign the snapshot back
+    this.offlineQueue = this.offlineQueue.filter((op) => !done.has(op));
 
     // Save updated queue (a drop persists '[]' here, so loadOfflineQueue cannot restore it)
     await AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(this.offlineQueue));
