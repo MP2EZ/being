@@ -1,9 +1,9 @@
 /**
  * The operational telemetry emitted under `cloud_sync` consent (DEBUG-625).
  *
- * WHY THIS EXISTS AS A SHARED CONST rather than four string literals at their call
+ * WHY THIS EXISTS AS A SHARED CONST rather than string literals at their call
  * sites: `cloudBackupConsentCopy.privacy.test.ts` asserts the consent card covers this
- * list, so adding a fifth ops event red-lines that suite until the card discloses it.
+ * list, so adding an ops event red-lines that suite until the card discloses it.
  * A hand-maintained list in the test would drift the moment someone adds an emitter —
  * which is exactly how this gap opened. DEBUG-614 pinned the backup PAYLOAD against the
  * card and deliberately left the telemetry out of scope, so the card ended up describing
@@ -31,26 +31,20 @@ export const BACKUP_EVENT = {
   RESTORE_FAILED: 'backup_restore_failed',
 } as const;
 
-/** Emitted by the `services/supabase` barrel's connectivity probe. */
-export const CONNECTIVITY_EVENT = {
-  TEST: 'connectivity_test',
-} as const;
-
 export const BACKUP_OPERATIONAL_EVENTS = Object.values(BACKUP_EVENT);
-export const CONNECTIVITY_OPERATIONAL_EVENTS = Object.values(CONNECTIVITY_EVENT);
+
+// `connectivity_test` was retired by DEBUG-783: the connection test is now a read that
+// writes nothing, so it sends no event.
 
 /**
  * Every operational event sent under `cloud_sync` consent.
  *
- * The consent card must disclose this as ONE CATEGORY, not five event names — a list of
+ * The consent card must disclose this as ONE CATEGORY, not a list of event names — a list of
  * internal identifiers is worse disclosure, not better. The requirement the compliance
  * ruling set is: category + sink + the fact that rows are timestamped and bound to the
  * anonymous account identifier.
  */
-export const CLOUD_SYNC_OPERATIONAL_EVENTS = [
-  ...BACKUP_OPERATIONAL_EVENTS,
-  ...CONNECTIVITY_OPERATIONAL_EVENTS,
-] as const;
+export const CLOUD_SYNC_OPERATIONAL_EVENTS = [...BACKUP_OPERATIONAL_EVENTS] as const;
 
 export type CloudSyncOperationalEvent = (typeof CLOUD_SYNC_OPERATIONAL_EVENTS)[number];
 
