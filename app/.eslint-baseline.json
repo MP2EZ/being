@@ -61,7 +61,7 @@
   "src/core/services/resilience/index.ts": 1,
   "src/core/services/security/DeepLinkValidationService.ts": 5,
   "src/core/services/security/EncryptionService.ts": 7,
-  "src/core/services/security/SecureStorageService.ts": 15,
+  "src/core/services/security/SecureStorageService.ts": 11,
   "src/core/services/security/SecurityMonitoringService.ts": 26,
   "src/core/services/security/__tests__/EncryptionService.realcrypto.test.ts": 1,
   "src/core/services/security/__tests__/EncryptionService.test.ts": 1,

@@ -6,8 +6,12 @@
  * `logStorageAccess` persists an entry to AsyncStorage under
  * `audit_log_${Date.now()}` on EVERY FAILED storage operation. (It also
  * persisted on every `crisis_tier` operation until MAINT-378 deleted that tier;
- * the failure arm is now the only writer, which is why the premise test below
- * drives a deliberate failure rather than a crisis write.) That prefix appeared
+ * the failure arm is now the only writer.) Since MAINT-716 deleted
+ * `storeAssessmentData` that arm has NO PRODUCTION CALLER: it is reachable only
+ * through a failed `deleteSecureData` or `retrieveAssessmentData`, and neither
+ * has a production caller either. The suite keeps it covered anyway — the prefix
+ * stays swept as a defensive floor, and shipped installs carry the records — so
+ * the premise test below drives a deliberate `deleteSecureData` miss. That prefix appeared
  * in no sweep: `clearAllWellnessData` filtered on the `*_async_` /
  * `wellness_migrated:` prefix families plus an exact-name exception list, and
  * `audit_log_` is none of them. So the records survived account erasure.
@@ -45,12 +49,12 @@
  * which tiers can populate it.)
  *
  * It was left unfixed here because the obvious one-line fix was wrong:
- * `storeMetadata` re-serialises the entire in-memory `metadataCache` on every
+ * `storeMetadata` re-serialised the entire in-memory `metadataCache` on every
  * write, so sweeping the key alone would have let the next write restore it.
  * DEBUG-381 closed it properly — cache cleared before the sweep, key on
- * `SWEPT_EXACT_KEYS` — and its own suite,
- * `storageMetadataIndexErasure.privacy.test.ts`, carries the write-back
- * regression pin. The whole-store assertion below was widened back at the same
+ * `SWEPT_EXACT_KEYS` — and MAINT-716 then deleted the last writer outright. Its
+ * own suite, `storageMetadataIndexErasure.privacy.test.ts`, carries the
+ * no-writer pin. The whole-store assertion below was widened back at the same
  * time, which is what makes this file's coverage honest rather than scoped.
  *
  * Worth keeping the sequence in mind: this is the fourth local crisis-path
@@ -115,7 +119,6 @@ jest.mock('../EncryptionService', () => {
       JSON.parse(Buffer.from(pkg.encryptedData, 'base64').toString('utf-8'))
     ),
     encryptCrisisData: jest.fn(async (data: any) => wrap(data, 'level_1_crisis_responses')),
-    encryptAssessmentData: jest.fn(async (data: any) => wrap(data, 'level_2_assessment_data')),
     initialize: jest.fn(async () => undefined),
     destroy: jest.fn(async () => undefined),
     deleteMasterKey: jest.fn(async () => undefined),
@@ -150,29 +153,17 @@ const auditKeys = () =>
  * A storage call that is GUARANTEED to fail, and to fail inside the try block
  * that logs the failure.
  *
- * `storeAssessmentData` encrypts, then calls `validateStorageSize(pkg,
- * 'assessment_tier')`, which throws once the wrapped package exceeds
- * `MAX_WELLNESS_PAYLOAD_SIZE` (256KB). The throw lands in the method's catch,
- * which calls `logStorageAccess({ success: false })` — the only remaining
- * `audit_log_*` writer since MAINT-378.
+ * `deleteSecureData` on a key that exists in no tier finds nothing to delete and
+ * reports `success: false` through `logStorageAccess` — the only remaining
+ * `audit_log_*` writer since MAINT-378. It is the deterministic anchor: no size
+ * cap to tune, no malformed payload.
  *
- * The oversize field is deliberately part of an otherwise well-formed
- * assessment payload: the failure must come from the size cap, not from a
- * malformed record tripping some earlier guard.
- *
- * NOTE the sibling writer that does NOT work here: `storeWellnessBlob` hits the
- * same 256KB cap, but its catch only calls `logError` — it never reaches
- * `logStorageAccess`, so it persists nothing. If this premise ever needs
- * re-anchoring again, check the catch block, not just the throw site.
+ * NOTE the sibling that does NOT work here: `storeWellnessBlob` trips the 256KB
+ * cap, but its catch only calls `logError` — it never reaches `logStorageAccess`,
+ * so it persists nothing. If this premise ever needs re-anchoring again, check
+ * the catch block, not just the throw site.
  */
-const storeOversizedAssessment = () =>
-  service.storeAssessmentData('premise-oversize', {
-    type: 'PHQ-9',
-    responses: [1, 2, 3, 0, 2, 1, 3, 2, 0],
-    totalScore: 14,
-    timestamp: 1716000000000,
-    userId: 'x'.repeat(300 * 1024),
-  });
+const failAStorageOperation = () => service.deleteSecureData('premise-absent-key');
 
 beforeEach(async () => {
   mockSecureStoreMap.clear();
@@ -182,35 +173,35 @@ beforeEach(async () => {
 });
 
 describe('a FAILED storage operation really does persist an audit_log_* record', () => {
-  it('writes at least one audit_log_* key when a store operation fails', async () => {
+  it('writes at least one audit_log_* key when a storage operation fails', async () => {
     // Establishes the premise the erasure assertions rest on. Without this, a
     // "no audit_log_ key survives" test would pass vacuously if the writer were
     // ever removed or renamed, and the sweep entry would silently become dead.
     //
-    // This premise was anchored on `storeCrisisData` until MAINT-378 deleted it
-    // — exactly the removal the premise exists to catch. It is re-anchored on a
-    // deterministic failure rather than removed, because dropping it would
-    // leave the erasure assertions below unable to distinguish "the sweep
-    // works" from "nothing was ever written".
+    // This premise was anchored on `storeCrisisData` until MAINT-378 deleted it,
+    // then on `storeAssessmentData` until MAINT-716 deleted that — exactly the
+    // removals the premise exists to catch. It is re-anchored on a deterministic
+    // failure rather than removed, because dropping it would leave the erasure
+    // assertions below unable to distinguish "the sweep works" from "nothing was
+    // ever written".
 
     // Nothing has failed yet, so nothing should be persisted yet. This pins the
     // key below to THIS call rather than to service.initialize() or to leftover
     // state, and would catch a change that started persisting on success again.
     expect(auditKeys()).toEqual([]);
 
-    const result = await storeOversizedAssessment();
+    const result = await failAStorageOperation();
 
-    // The failure is real (the size cap tripped), not a silently-swallowed
-    // success — otherwise the audit assertion could never fire.
+    // The failure is real (a miss), not a silently-swallowed success — otherwise
+    // the audit assertion could never fire.
     expect(result.success).toBe(false);
-    expect(result.error).toMatch(/payload size limit exceeded/i);
     expect(auditKeys().length).toBeGreaterThan(0);
   });
 });
 
 describe('account erasure removes the storage-access audit logs', () => {
   it('clearAllWellnessData sweeps every audit_log_* key', async () => {
-    await storeOversizedAssessment();
+    await failAStorageOperation();
     expect(auditKeys().length).toBeGreaterThan(0);
 
     await service.clearAllWellnessData({ deleteMasterKey: true });
@@ -245,8 +236,16 @@ describe('account erasure removes the storage-access audit logs', () => {
   });
 
   it('leaves no audit-log record content behind after erasure', async () => {
-    await storeOversizedAssessment();
+    await failAStorageOperation();
     expect(auditKeys().length).toBeGreaterThan(0);
+    // Shipped-install residue, planted raw: no production writer produces the
+    // index any more (MAINT-716), so without this the whole-store assertion
+    // below would pass vacuously. The guard line proves the plant is present.
+    mockAsyncStorageMap.set(
+      STORAGE_METADATA_INDEX_KEY,
+      JSON.stringify([['assessment_async_planted-record', { storageTier: 'assessment_tier' }]])
+    );
+    expect(JSON.stringify([...mockAsyncStorageMap.entries()])).toContain(STORAGE_METADATA_INDEX_KEY);
 
     await service.clearAllWellnessData({ deleteMasterKey: true });
 
@@ -258,7 +257,8 @@ describe('account erasure removes the storage-access audit logs', () => {
     // the one thing a privacy pin must never be.
     //
     // So the widened form targets the SURVIVING KEY, not a tier string: after
-    // erasure `storage_metadata_index` must be absent outright. That is the
+    // erasure `storage_metadata_index` must be absent outright, against the
+    // index planted above. That is the
     // property DEBUG-381 actually establishes, and unlike a tier name it cannot
     // be quietly emptied of meaning by a future tier removal.
     //

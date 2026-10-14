@@ -94,7 +94,6 @@ jest.mock('../EncryptionService', () => {
       JSON.parse(Buffer.from(pkg.encryptedData, 'base64').toString('utf-8'))
     ),
     encryptCrisisData: jest.fn(async (d: unknown) => wrap(d, 'level_1_crisis_responses')),
-    encryptAssessmentData: jest.fn(async (d: unknown) => wrap(d, 'level_2_assessment_data')),
     initialize: jest.fn(async () => undefined),
     destroy: jest.fn(async () => undefined),
     deleteMasterKey: jest.fn(async () => undefined),
