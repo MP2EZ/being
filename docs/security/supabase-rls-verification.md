@@ -1,7 +1,7 @@
 # Supabase Row-Level Security (RLS) Verification
 
 **Work Item**: INFRA-260 (supersedes MAINT-116); role-grant layer added MAINT-441
-**Last verified**: 2026-06-08 (RLS) · 2026-08-16 (role grants)
+**Last verified**: 2026-06-08 (RLS) · 2026-08-16 (role grants) · 2026-10-14 (server-internal tables, DEBUG-795)
 **Status**: VERIFIED — runtime-enforced
 
 > **Scope note.** This document covers **two** access-control layers, not one. RLS is
@@ -143,7 +143,9 @@ is the structural reason nothing pointed at it.
 ### Live grant matrix
 
 Measured against `yliycxslzdsgjtpxggtf` on 2026-08-16 via
-`information_schema.role_table_grants`. `anon` holds **nothing** on any of these tables.
+`information_schema.role_table_grants`; the last two rows on 2026-10-14 (DEBUG-795) —
+`webhook_replay_cache`'s client-role column is the state once `20261014000000` is pushed.
+`anon` holds **nothing** on any of these tables.
 
 | Table | `service_role` | `authenticated` |
 |---|---|---|
@@ -152,6 +154,18 @@ Measured against `yliycxslzdsgjtpxggtf` on 2026-08-16 via
 | `analytics_events` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT |
 | `subscription_events` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT |
 | `subscriptions` | SELECT, INSERT, UPDATE *(INFRA-379)* — no DELETE | SELECT, INSERT, UPDATE |
+| `webhook_replay_cache` | SELECT, INSERT *(DEBUG-795)* — no UPDATE, no DELETE | **nothing** |
+| `grace_period_automation_runs` | SELECT, INSERT *(INFRA-266)* — no UPDATE, no DELETE | **nothing** |
+
+The last two are server-internal: RLS on, no policies, written only by edge functions via
+`service_role`, and `REVOKE ALL … FROM anon, authenticated` so the client roles hold no
+privilege at all — not even the default REFERENCES/TRIGGER/TRUNCATE. `webhook_replay_cache`
+holds a store-issued notification identifier (Apple notificationUUID / Google Pub/Sub
+messageId); no user identifier column. It shipped with **no** grant, on the false premise that
+RLS with no policies admits `service_role`, so every `wasProcessed()` failed
+`permission denied` — the INFRA-379 class again. The founder granted SELECT, INSERT by hand on
+2026-10-14; `20261014000000_webhook_replay_cache_service_role_grant.sql` encodes it and adds
+the REVOKE. No prune job exists, so the table is unbounded.
 
 REFERENCES / TRIGGER / TRUNCATE are **not granted by our migrations**. `pg_default_acl`
 carries `service_role=Dxtm/postgres` with grantor `postgres`, and the platform re-applies
@@ -224,7 +238,9 @@ Per-table rules for any future grant:
 `supabase/tests/maint441_service_role_grants.sql` asserts the no-grant state, pins the
 `update_backup_stats` coupling above, and carries a positive control on `subscriptions`
 (SELECT/INSERT/UPDATE present, DELETE absent) so the privilege query cannot silently stop
-discriminating and let the negative assertions pass vacuously.
+discriminating and let the negative assertions pass vacuously. Test 7 (DEBUG-795) pins the two
+server-internal rows: `service_role` SELECT + INSERT present, UPDATE/DELETE absent, and no
+privilege of any kind for `anon` or `authenticated`.
 
 **It pins by assertion, not by gate.** There is no CI Postgres in this repo, so nothing
 runs it automatically — same standing as `maint347_retention_heartbeat.sql` and
@@ -302,6 +318,7 @@ durable queue (INFRA-214) holds an event until a session exists, then it lands.
 | Security Review | Claude (Security Agent) | 2026-06-08 | ✅ APPROVED (runtime) |
 | Compliance Review | Claude (Compliance Agent) | 2026-06-08 | ✅ APPROVED (runtime) |
 | Compliance Review | Claude (Compliance Agent) | 2026-08-16 | ✅ APPROVED — role grants (MAINT-441): no `service_role` grant on `users` / `encrypted_backups` |
+| Compliance Review | Claude (Compliance Agent) | 2026-10-14 | ✅ APPROVED — DEBUG-795: `service_role` SELECT, INSERT on `webhook_replay_cache`; REVOKE ALL from client roles |
 
 ---
 
@@ -313,11 +330,12 @@ durable queue (INFRA-214) holds an event until a session exists, then it lands.
 - Role-grant assertion: `supabase/tests/maint441_service_role_grants.sql`
 - Grant migrations: `supabase/migrations/20260523000000_base_schema.sql` §9 (`users`,
   `encrypted_backups` → `authenticated`), `…20260814000000_service_role_subscriptions_grant.sql`
-  (§16 is the *subscriptions* block — a commonly mis-cited reference)
+  (§16 is the *subscriptions* block — a commonly mis-cited reference),
+  `…20261014000000_webhook_replay_cache_service_role_grant.sql`
 - Supabase RLS docs: https://supabase.com/docs/guides/auth/row-level-security
 
 ---
 
-**Document Version**: 2.1
-**Last Updated**: 2026-08-16
-**Work Item**: INFRA-260 (supersedes MAINT-116 v1.0); role-grant layer MAINT-441
+**Document Version**: 2.2
+**Last Updated**: 2026-10-14
+**Work Item**: INFRA-260 (supersedes MAINT-116 v1.0); role-grant layer MAINT-441; server-internal tables DEBUG-795

@@ -9,8 +9,11 @@
  *
  * Backed by the `webhook_replay_cache` Postgres table (see
  * `supabase/migrations/20260522000000_webhook_replay_cache.sql`). RLS is
- * enabled with no policies, so only the service role (used here in
- * edge-function context) can read or write.
+ * enabled with no policies; access comes from the table GRANT in
+ * `20261014000000_webhook_replay_cache_service_role_grant.sql` — SELECT and
+ * INSERT to service_role (used here in edge-function context), nothing to
+ * anon/authenticated. RLS alone admits no one: service_role bypasses it but
+ * still needs the grant (DEBUG-795).
  *
  * Usage:
  *   if (await wasProcessed(supabase, 'apple', uuid)) { return 200 no-op; }
