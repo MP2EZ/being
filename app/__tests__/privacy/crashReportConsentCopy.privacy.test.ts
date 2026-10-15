@@ -144,6 +144,10 @@ describe('Crash reports carry the installation identifier (DEBUG-786)', () => {
     expect(sentence).toMatch(CRASH);
   });
 
+  it('§5.1 says Sentry does not store the IP address (org setting, hand-verified — DPIA 2.43)', () => {
+    expect(sentryBullet()).toMatch(/not store[^.]*IP address|IP address[^.]*not stored/);
+  });
+
   it('§5.1 does not say a bug report carries nothing else', () => {
     const bug = bugReportPart(sentryBullet());
     expect(bug).toMatch(/Bug reports you send/);
