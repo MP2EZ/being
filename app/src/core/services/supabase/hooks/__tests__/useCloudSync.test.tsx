@@ -468,3 +468,55 @@ describe('useCloudBackupConfig', () => {
     expect(result.current.config.autoBackupEnabled).toBe(true);
   });
 });
+
+// DEBUG-784: createBackup returned void and never threw, so the screen's try/catch reported
+// "Backup completed successfully" for every outcome. It now returns what happened.
+describe('useCloudSync.createBackup returns its outcome (DEBUG-784)', () => {
+  it.each([
+    [{ success: true }],
+    [{ success: false, error: 'x' }],
+    [{ success: false, error: 'cloud_sync_consent_absent' }],
+  ])('returns the service result %j', async (serviceResult) => {
+    mocked.forceSync.mockResolvedValue(serviceResult);
+    const { result } = await mountHook();
+    let returned: unknown;
+    await act(async () => {
+      returned = await result.current.createBackup();
+    });
+    expect(returned).toEqual(serviceResult);
+  });
+
+  it('returns a failure — never undefined — when the service rejects', async () => {
+    mocked.forceSync.mockRejectedValue(new Error('boom'));
+    const { result } = await mountHook();
+    let returned: unknown;
+    await act(async () => {
+      returned = await result.current.createBackup();
+    });
+    expect(returned).toEqual({ success: false, error: 'boom' });
+    expect(result.current.error).toBe('boom');
+  });
+
+  it('returns null without calling the service while another operation is loading', async () => {
+    const { result } = await mountHook();
+    const gate = deferred<{ success: boolean }>();
+    mocked.forceSync.mockReturnValue(gate.promise);
+    let pending: Promise<void> | undefined;
+    act(() => {
+      pending = result.current.forceSync();
+    });
+    expect(result.current.isLoading).toBe(true);
+
+    let returned: unknown = 'unset';
+    await act(async () => {
+      returned = await result.current.createBackup();
+    });
+    expect(returned).toBeNull();
+    expect(mocked.forceSync).toHaveBeenCalledTimes(1);
+
+    gate.resolve({ success: true });
+    await act(async () => {
+      await pending;
+    });
+  });
+});
