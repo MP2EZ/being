@@ -71,6 +71,55 @@ B_CLOSE_CI_JQ='[.statusCheckRollup[] | (.conclusion // .state)]
 # COMPLETED stops one from holding the wait open forever.
 B_CLOSE_CI_PENDING_JQ='[.statusCheckRollup[] | (.status // "COMPLETED")] | any(. != "COMPLETED")'
 
+# DEBUG-785 — THE WORD AND THE WAIT FLAG MUST COME FROM ONE ROLLUP RESPONSE. Read with two
+# `gh` calls, a check completing between them yields word=RED (read while `CI pass` ran,
+# null conclusion) beside pending=false (read after) — a false CI_RED on a green PR.
+#
+# The wait flag is WIDER than the pending probe, and only ever in the delay direction:
+#   - `CI pass` absent: the job is created only when its last `needs:` dependency
+#     completes (~3 s on run 38304156606), so until then every visible row is
+#     COMPLETED/SUCCESS. Its absence is "not yet", never a verdict.
+#   - a StatusContext still PENDING/EXPECTED: it has no `.status`, so the pending probe
+#     reads it as completed while the verdict reads its `.state` as RED.
+# Neither touches the green set — the merge is still gated on B_CLOSE_CI_JQ alone.
+B_CLOSE_CI_REQUIRED_CONTEXT_JQ='any(.statusCheckRollup[]; (.name // .context) == "CI pass")'
+B_CLOSE_CI_WAIT_JQ="($B_CLOSE_CI_PENDING_JQ)
+  or any(.statusCheckRollup[]; .status == null and (.state == \"PENDING\" or .state == \"EXPECTED\"))
+  or (($B_CLOSE_CI_REQUIRED_CONTEXT_JQ) | not)"
+
+# One `gh -q` evaluation (gh embeds jq, so no runtime dependency): line 1 is
+# "<word> <waiting>", every further line is a "<check>\t<result>" row FROM THE SAME
+# SNAPSHOT, so the log can never show green rows beside the red verdict they did not decide.
+B_CLOSE_CI_SNAPSHOT_JQ="([($B_CLOSE_CI_JQ), (($B_CLOSE_CI_WAIT_JQ) | tostring)] | join(\" \")),
+  (.statusCheckRollup[] | \"\\(.name // .context)\\t\\(.conclusion // .state)\")"
+
+B_CLOSE_CI_POLL_S="${B_CLOSE_CI_POLL_S:-20}"
+
+# ---------------------------------------------------------------------------------------
+# b_close_ci_wait <pr> <deadline-epoch> — poll until the rollup settles or the deadline
+# passes. Sets B_CLOSE_CI_WORD to GREEN or RED only on a POSITIVE match from one snapshot
+# (a known word, and waiting == false); anything else — gh failing, empty or unparseable
+# output, a partial read — is "not yet". At the deadline the word is TIMEOUT, never the
+# last one seen: that snapshot may be GREEN while still waiting. Prints the deciding (or
+# last) snapshot's rows, sorted, for the log.
+b_close_ci_wait() {
+  local pr="$1" deadline="$2" snap='' head='' word='' waiting=''
+  B_CLOSE_CI_WORD=TIMEOUT
+  while [ "$(date +%s)" -lt "$deadline" ]; do
+    snap="$(gh pr view "$pr" --json statusCheckRollup -q "$B_CLOSE_CI_SNAPSHOT_JQ" 2>/dev/null)" || snap=''
+    head="${snap%%$'\n'*}"
+    word=''; waiting=''
+    read -r word waiting _ <<<"$head" || true
+    case "$word" in
+      GREEN|RED)
+        if [ "$waiting" = "false" ]; then B_CLOSE_CI_WORD="$word"; break; fi ;;
+    esac
+    sleep "$B_CLOSE_CI_POLL_S"
+  done
+  case "$snap" in *$'\n'*) printf '%s\n' "${snap#*$'\n'}" | sort ;; esac
+  return 0
+}
+
 # ---------------------------------------------------------------------------------------
 # b_close_stage_verdict <stage> <outcome> -> one token on stdout, never empty.
 #
