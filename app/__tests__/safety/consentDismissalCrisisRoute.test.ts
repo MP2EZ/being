@@ -26,9 +26,11 @@ function rootStack() {
   const router = StackRouter({ initialRouteName: 'Main' });
   const options = { routeNames: ROUTE_NAMES, routeParamList: {}, routeGetIdList: {} };
   let state = router.getInitialState(options) as State;
+  let lastResult: State | null | undefined;
 
   const apply = (action: Action) => {
     const next = router.getStateForAction(state, action as never, options);
+    lastResult = next as State | null;
     if (next && next !== state) state = next as State;
   };
   /** What `navigation` gives the screen at `routeKey`: it stamps `source`, never `target`. */
@@ -43,6 +45,9 @@ function rootStack() {
       return state;
     },
     navigationFor,
+    /** What the router returned for the most recent action (null = it declined). */
+    lastResult: () => lastResult,
+    keys: () => state.routes.map((r) => r.key),
     navigate: (name: string, params?: object) => apply(CommonActions.navigate(name, params)),
     keyOf: (name: string) => state.routes.find((r) => r.name === name)?.key,
     names: () => state.routes.map((r) => r.name),
@@ -50,6 +55,9 @@ function rootStack() {
     popCrisis: () => apply({ ...CommonActions.goBack(), source: state.routes[state.index]!.key }),
   };
 }
+
+/** Keys present in `before` and absent from `after`. */
+const removedKeys = (before: string[], after: string[]) => before.filter((k) => !after.includes(k));
 
 const flush = async () => {
   for (let i = 0; i < 5; i++) await Promise.resolve();
@@ -111,6 +119,32 @@ describe.each(['ReConsent', 'ConsentBlocked'])('the crisis screen survives %s di
     expect(stack.names()).toEqual(['Main', 'CrisisResources']);
     expect(stack.focused()).toBe('CrisisResources');
     expect(stack.keyOf('CrisisResources')).toBe(crisisKey);
+  });
+
+  it('(c2) removes exactly its own key while CrisisResources is focused above it', () => {
+    const { stack, ownKey, dismiss, openCrisis } = openOverMain();
+    openCrisis();
+    const before = stack.keys();
+
+    dismiss();
+
+    expect(removedKeys(before, stack.keys())).toEqual([ownKey]);
+    expect(removedKeys(stack.keys(), before)).toEqual([]);
+  });
+
+  it('(d2) own key already gone: the router declines (null), the state is the same object, no key is removed', () => {
+    const { stack, dismiss, openCrisis } = openOverMain();
+    openCrisis();
+    dismiss();
+    const before = stack.keys();
+    const stateBefore = stack.state;
+
+    dismiss();
+
+    expect(stack.lastResult()).toBeNull();
+    expect(stack.state).toBe(stateBefore);
+    expect(removedKeys(before, stack.keys())).toEqual([]);
+    expect(stack.focused()).toBe('CrisisResources');
   });
 
   it('(d) a second dismissal is a no-op and CrisisResources stays focused', () => {
@@ -177,5 +211,23 @@ describe.each(['ReConsent', 'ConsentBlocked'])('the crisis screen survives %s di
       expect(block).toMatch(/removeOwnRoute\s*\(\s*navigation\s*,\s*route\.key\s*\)/);
       expect(block).not.toMatch(/\.goBack\s*\(/);
     });
+  });
+});
+
+describe('removeOwnRoute on the root-most route (DEBUG-733 null branch)', () => {
+  it('own route at index 0: the router declines (null) and CrisisResources is not removed', () => {
+    const stack = rootStack();
+    const mainKey = stack.keyOf('Main')!;
+    stack.navigate('CrisisResources');
+    const before = stack.keys();
+    const stateBefore = stack.state;
+
+    removeOwnRoute(stack.navigationFor(mainKey), mainKey);
+
+    expect(stack.lastResult()).toBeNull();
+    expect(stack.state).toBe(stateBefore);
+    expect(removedKeys(before, stack.keys())).toEqual([]);
+    expect(stack.names()).toEqual(['Main', 'CrisisResources']);
+    expect(stack.focused()).toBe('CrisisResources');
   });
 });
