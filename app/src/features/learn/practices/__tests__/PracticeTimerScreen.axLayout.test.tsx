@@ -309,8 +309,12 @@ describe('a text-size change mid-practice moves the toggle and remounts nothing'
  * reduce-motion.
  *
  *   viewport     the scroll view below the stacked header (402: 431..840, 390: 416..810)
- *   toggle*      the toggle's frame at each label. At 390 'Begin Practice' wraps to three
- *                lines and 'Resume' breaks mid-word onto two
+ *   toggle*      the toggle's frame at each label. DEBUG-677 re-measured them on its fix
+ *                (Release 6042af4a, iOS 18.6, AX5, `maestro hierarchy`): labels now break only
+ *                between words, so at 390 'Begin Practice' is two lines (253 -> 185) and
+ *                'Resume' one (184 -> 116). The toggle's height does not depend on the title.
+ *                402 read 185/116/116; 117 is kept there, the larger of two readings of a
+ *                geometry the fix did not change
  *   phaseCue     the cue's line box. It is hidden from the accessibility tree, so it is the
  *                container's growth on Begin (227 / 228) less guidanceContainer's marginTop and
  *                the cue's marginBottom
@@ -334,7 +338,7 @@ describe('a text-size change mid-practice moves the toggle and remounts nothing'
  */
 describe.each([
   { device: '402x874', width: 402, height: 874, viewport: 409, toggleBegin: 185, togglePause: 117, toggleResume: 117, phaseCue: 187 },
-  { device: '390x844', width: 390, height: 844, viewport: 394, toggleBegin: 253, togglePause: 116, toggleResume: 184, phaseCue: 188 },
+  { device: '390x844', width: 390, height: 844, viewport: 394, toggleBegin: 185, togglePause: 116, toggleResume: 116, phaseCue: 188 },
 ])('at AX5 on $device the measured viewport holds the breath guide and the control', (m) => {
   const DISC_PT = 120;
   const EXPANSION_PT = 0.25 * DISC_PT; // 1.5x scale about the centre adds 30pt each side
