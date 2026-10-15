@@ -326,10 +326,30 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
           id: "daily-loop-skip-breath"
       - tapOn:
           id: "daily-loop-skip-breath"
+      # DEBUG-694 — settle, then ONE conditional re-tap (the DEBUG-632 shape), crisis ruling.
+      # This tap follows the crisis round-trip, and on 6 control runs one first tap was
+      # swallowed there (COMPLETED, 6.4s; the timer ended the beat). The old proof passed that
+      # run green. This site therefore does NOT own "the first tap must work" at default type —
+      # the deep site below does (one unconditional tap, no round-trip in front). The SkipLink
+      # is not a crisis affordance; no crisis tap is retried. Whether that swallow is the app
+      # dropping the first touch after CrisisResources back-navigation is its own item.
+      - extendedWaitUntil:
+          visible:
+            id: "daily-loop-breath-skipped"
+          timeout: 3000
+          optional: true
+      - runFlow:
+          when:
+            visible:
+              id: "daily-loop-skip-breath"
+          commands:
+            - tapOn:
+                id: "daily-loop-skip-breath"
+                optional: true
       # DEBUG-694 — the skip's PROOF. Only the SkipLink sets it and the 30s timer never does,
-      # so a swallowed tap reds here however far Maestro stretches its wait. Inside the block
-      # on purpose: if the breath already expired during a stalled crisis round-trip (the
-      # hardening path above), there was no skip to prove.
+      # so a skip that never took reds here however far Maestro stretches its wait. Inside the
+      # block on purpose: if the breath already expired during a stalled crisis round-trip
+      # (the hardening path above), there was no skip to prove.
       - assertVisible:
           id: "daily-loop-breath-skipped"
 - assertNotVisible:
@@ -552,6 +572,7 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
     id: "daily-loop-depth-select-screen"
 - tapOn:
     id: "daily-loop-depth-deep"
+# THIS site owns "the first tap must work" at default type (DEBUG-694): one tap, no re-tap.
 # NOT conditional, unlike the Aware Presence site above, and the asymmetry is the point:
 # no crisis round-trip precedes this tap, so nothing here can burn 30 seconds of wall
 # clock before we reach the SkipLink. Leaving it unconditional keeps this a real

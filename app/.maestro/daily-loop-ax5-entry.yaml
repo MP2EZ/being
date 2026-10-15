@@ -142,9 +142,10 @@ name: "DailyLoop AX5 entry (DEBUG-469): the loop is enterable at accessibility t
 #
 #    DIVISION OF LABOUR. Every skip tap in the daily-loop flows is followed by
 #    `daily-loop-breath-skipped`, pinned by __tests__/scripts/e2e-tap-consequence.test.js.
-#    The default-type flows own "the first tap must work" where no fling precedes the tap;
-#    this flow is the only one whose content forces a swipe first, and that fling is what
-#    creates the swallow. crisis-keyboard-reachability and crisis-keyboard-accessory tap the
+#    daily-loop-quick-depth's DEEP site owns "the first tap must work" at default type (one
+#    tap, no fling and no crisis round-trip in front); its beat-1 site re-taps like this flow.
+#    This flow is the only one whose content forces a swipe first, and that fling is what
+#    creates the swallow here. crisis-keyboard-reachability and crisis-keyboard-accessory tap the
 #    link only as SCAFFOLDING to reach the text beat and are exempt by name: their
 #    input-response post-condition does NOT prove the skip (the timer satisfies it), which
 #    is acceptable only because the skip is not their contract.
