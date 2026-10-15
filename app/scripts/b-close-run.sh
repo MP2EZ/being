@@ -219,20 +219,12 @@ printf 'PR #%s\n' "$PR_NUMBER"
 b_close_status_write "$RUN_DIR" ci
 say "ci"
 CI_DEADLINE=$(( $(date +%s) + B_CLOSE_CI_TIMEOUT_S ))
-CI_WORD=TIMEOUT
-while [ "$(date +%s)" -lt "$CI_DEADLINE" ]; do
-  word="$(gh pr view "$PR_NUMBER" --json statusCheckRollup -q "$B_CLOSE_CI_JQ" 2>/dev/null || true)"
-  pending="$(gh pr view "$PR_NUMBER" --json statusCheckRollup -q "$B_CLOSE_CI_PENDING_JQ" 2>/dev/null || echo true)"
-  # EMPTY is the registration window, not a verdict: CI's push trigger does not cover
-  # feat/fix/chore branches, so the only run is the one `gh pr create` just triggered and
-  # it takes seconds to appear. Waiting it out is why TIMEOUT exists as a distinct word.
-  if [ -n "$word" ] && [ "$word" != "EMPTY" ] && [ "$pending" = "false" ]; then
-    CI_WORD="$word"; break
-  fi
-  sleep 20
-done
-gh pr view "$PR_NUMBER" --json statusCheckRollup \
-  -q '.statusCheckRollup[] | "\(.name)\t\(.conclusion // .state)"' 2>/dev/null | sort || true
+# One rollup snapshot per poll, waiting out the `CI pass` registration window
+# (DEBUG-785). EMPTY is the registration window too: CI's push trigger does not cover
+# feat/fix/chore branches, so the only run is the one `gh pr create` just triggered and it
+# takes seconds to appear. Waiting it out is why TIMEOUT exists as a distinct word.
+b_close_ci_wait "$PR_NUMBER" "$CI_DEADLINE"
+CI_WORD="$B_CLOSE_CI_WORD"
 
 CI_VERDICT="$(b_close_stage_verdict ci "$CI_WORD")"
 b_close_mergeable "$CI_VERDICT" || finish "$CI_VERDICT" ci "rollup=$CI_WORD on PR #$PR_NUMBER"
