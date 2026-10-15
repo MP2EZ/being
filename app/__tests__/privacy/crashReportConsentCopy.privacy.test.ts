@@ -99,3 +99,55 @@ describe('Crash Reports consent copy (DEBUG-779)', () => {
     expect(s22).not.toMatch(BLANKET_NOT_IDENTIFIABLE);
   });
 });
+
+/**
+ * Native crash events carry the installation identifier too (DEBUG-786)
+ *
+ * sentry-cocoa 8.58.0 `SentryClient.m` `setUserIdIfNoUserSet:` writes the installation id to
+ * `user.id` on every event with no user set, native crashes and app hangs included; the app
+ * never sets a user and RN's native `beforeSend` does not strip it. §5.1 attached the identifier
+ * to session records only. With *Crash Reports* on, a bug report also carries it: RN's
+ * DeviceContext integration copies the native user in, and `scrubFeedbackEvent` keeps `id`.
+ */
+// The clause holding the identifier: bounded by the preceding ';' or '.', so the session
+// parenthetical's "crash status" cannot satisfy the crash check.
+const ID_CLAUSE = /[^.;]*random identifier generated per app installation[^.]*\./;
+const CRASH = /crash/i;
+const NOTHING_ELSE = /Nothing else is collected/i;
+
+const PRE_FIX_5_1_ID =
+  'Sentry also receives standard app-session diagnostics (session start/end, app version, crash status) used to measure app stability across releases; these session records include a random identifier generated per app installation by our mobile framework.';
+const PRE_FIX_BUG_REPORT =
+  '**Bug reports you send:** if you choose to send a bug report from within the app, the message you type, the general area of the app you were in, and basic technical details such as the app version are sent to Sentry when you tap Send. Nothing else is collected with it.';
+
+const sentryBullet = () => {
+  const policy = read('docs/legal/privacy-policy.md');
+  const start = policy.indexOf('- **[Sentry]');
+  expect(start).toBeGreaterThan(-1);
+  return policy.slice(start, policy.indexOf('\n', start));
+};
+const idSentence = (text: string) => text.match(ID_CLAUSE)?.[0] ?? '';
+const bugReportPart = (text: string) => text.slice(text.indexOf('**Bug reports you send:**'));
+
+describe('Crash reports carry the installation identifier (DEBUG-786)', () => {
+  it('every matcher fires on the pre-fix text', () => {
+    // The pre-fix text names "crash" only in the session parenthetical, outside the clause.
+    expect(PRE_FIX_5_1_ID).toMatch(CRASH);
+    expect(idSentence(PRE_FIX_5_1_ID)).toMatch(/session records include/);
+    expect(idSentence(PRE_FIX_5_1_ID)).not.toMatch(CRASH);
+    expect(bugReportPart(PRE_FIX_BUG_REPORT)).toMatch(NOTHING_ELSE);
+  });
+
+  it('§5.1 attaches the identifier to crash reports, not only session records', () => {
+    const sentence = idSentence(sentryBullet());
+    expect(sentence).toMatch(/random identifier generated per app installation/);
+    expect(sentence).toMatch(CRASH);
+  });
+
+  it('§5.1 does not say a bug report carries nothing else', () => {
+    const bug = bugReportPart(sentryBullet());
+    expect(bug).toMatch(/Bug reports you send/);
+    expect(bug).not.toMatch(NOTHING_ELSE);
+    expect(bug).toMatch(/Crash Reports\*? is on[^.]*installation identifier/);
+  });
+});
