@@ -374,7 +374,12 @@ describe('INFRA-492 runner — structural guarantees that cannot be asserted by 
 
   it('reads the CI verdict from the shared filter, never from `gh pr checks --watch` status', () => {
     const src = stripped(RUNNER);
-    expect(src).toMatch(/B_CLOSE_CI_JQ/);
+    // The runner reads through b_close_ci_wait, whose one snapshot filter embeds
+    // B_CLOSE_CI_JQ verbatim (DEBUG-785 — pinned in that describe block).
+    expect(src).toMatch(/b_close_ci_wait/);
+    expect(sh('printf %s "$B_CLOSE_CI_SNAPSHOT_JQ"').stdout).toContain(
+      sh('printf %s "$B_CLOSE_CI_JQ"').stdout
+    );
     // --watch may be used to BLOCK, but its exit code must be discarded (INFRA-329).
     const watch = src.match(/gh pr checks[^\n]*--watch[^\n]*/);
     if (watch) expect(watch[0]).toMatch(/\|\|\s*true/);
@@ -518,5 +523,137 @@ describe('DEBUG-511 ACK — the four terminal states, plus the in-flight carve-o
     expect(r.stdout).toContain('DEBUG-511-OPEN');
     expect(r.stdout).not.toContain('DEBUG-511-ACKED');
     expect(r.status).not.toBe(0);
+  });
+});
+
+/**
+ * DEBUG-785 — the CI wait must decide from ONE rollup snapshot.
+ *
+ * The loop read the verdict word and the pending flag with two separate `gh` calls. A check
+ * that completed between them produced word=RED (read while `CI pass` was still running,
+ * so its null conclusion is RED) beside pending=false (read after it completed), and the
+ * loop broke on CI_RED for a PR whose every check passed (DEBUG-779, PR #661).
+ *
+ * The same change closes the registration window: `CI pass` is created only when its last
+ * `needs:` dependency completes (~3 s on run 38304156606), so for that window every visible
+ * row is COMPLETED/SUCCESS. Absence of the `CI pass` row is therefore "keep waiting" —
+ * a predicate that can only delay, never merge.
+ *
+ * These cases drive the shipped `b_close_ci_wait` against a PATH-stubbed `gh` that
+ * honours `-q` exactly as gh does (the fixture is piped through jq with the given filter),
+ * and counts only rollup reads. A control drives the PRE-FIX two-read shape against the
+ * same stub and must read RED, so a stub that never served IN_PROGRESS cannot pass vacuously.
+ */
+describe('DEBUG-785 CI wait — one snapshot per iteration', () => {
+  const RUNNING = [
+    { name: 'Unit + integration tests', conclusion: 'SUCCESS', status: 'COMPLETED' },
+    { name: 'CI pass', conclusion: null, status: 'IN_PROGRESS' },
+  ];
+  const DONE = [
+    { name: 'Unit + integration tests', conclusion: 'SUCCESS', status: 'COMPLETED' },
+    { name: 'CI pass', conclusion: 'SUCCESS', status: 'COMPLETED' },
+  ];
+  const UNREGISTERED = Array.from({ length: 10 }, (_, i) => ({
+    name: `job-${i}`,
+    conclusion: 'SUCCESS',
+    status: 'COMPLETED',
+  }));
+
+  /**
+   * Build a stub dir whose `gh` serves `fixtures[n]` on the n-th rollup read (the last one
+   * repeats). `mode` 'fail' exits non-zero, 'garbage' prints a non-verdict, 'empty' prints
+   * nothing. Anything but a rollup read exits 97 so the stub can never reach real GitHub.
+   */
+  function ghStub(fixtures, mode = 'serve') {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'debug785-'));
+    fixtures.forEach((f, i) =>
+      fs.writeFileSync(path.join(dir, `f${i + 1}.json`), JSON.stringify({ statusCheckRollup: f }))
+    );
+    const script = `#!/usr/bin/env bash
+case " $* " in *" statusCheckRollup "*) ;; *) exit 97 ;; esac
+n=$(( $(cat "${dir}/count" 2>/dev/null || echo 0) + 1 )); echo "$n" > "${dir}/count"
+case "${mode}" in fail) exit 1 ;; empty) exit 0 ;; garbage) echo 'not a verdict'; exit 0 ;; esac
+q=''; while [ $# -gt 0 ]; do [ "$1" = -q ] && q="$2"; shift; done
+f="${dir}/f$n.json"; [ -f "$f" ] || f="${dir}/f${fixtures.length}.json"
+if [ -n "$q" ]; then jq -r "$q" < "$f"; else cat "$f"; fi
+`;
+    fs.writeFileSync(path.join(dir, 'gh'), script, { mode: 0o755 });
+    return { dir, reads: () => Number(fs.readFileSync(path.join(dir, 'count'), 'utf8')) };
+  }
+
+  /** Run the shipped wait with a short deadline; returns the word it settled on + output. */
+  function wait(stub, deadlineS = 3) {
+    const r = sh(
+      `b_close_ci_wait 661 $(( $(date +%s) + ${deadlineS} )); printf 'WORD=%s\\n' "$B_CLOSE_CI_WORD"`,
+      { PATH: `${stub.dir}:${process.env.PATH}`, B_CLOSE_CI_POLL_S: '1' }
+    );
+    const m = r.stdout.match(/WORD=(\S*)\s*$/);
+    expect(m).not.toBeNull(); // liveness: the function ran and reported
+    return { word: m[1], out: r.stdout };
+  }
+
+  it('reads GREEN once CI pass completes, even though the first read saw it running (AC2)', () => {
+    const stub = ghStub([RUNNING, DONE]);
+    expect(wait(stub, 10).word).toBe('GREEN');
+    expect(stub.reads()).toBe(2); // the IN_PROGRESS snapshot was consumed, then one more
+  });
+
+  it('control: the pre-fix two-read loop reads RED against the same stub', () => {
+    // Proves the stub really serves the race. If this ever reads GREEN the AC2 case above
+    // is vacuous, not passing.
+    const stub = ghStub([RUNNING, DONE]);
+    const r = sh(
+      `w="$(gh pr view 661 --json statusCheckRollup -q "$B_CLOSE_CI_JQ")"; ` +
+        `p="$(gh pr view 661 --json statusCheckRollup -q "$B_CLOSE_CI_PENDING_JQ")"; echo "$w $p"`,
+      { PATH: `${stub.dir}:${process.env.PATH}` }
+    );
+    expect(r.stdout).toBe('RED false');
+  });
+
+  it('keeps waiting while no CI pass row exists, though every visible row succeeded', () => {
+    const stub = ghStub([UNREGISTERED]);
+    expect(wait(stub).word).toBe('TIMEOUT');
+    expect(stub.reads()).toBeGreaterThan(1);
+  });
+
+  it('keeps waiting while CI pass runs, and never reports the last-seen word at the deadline', () => {
+    expect(wait(ghStub([RUNNING])).word).toBe('TIMEOUT');
+  });
+
+  it.each(['fail', 'empty', 'garbage'])('treats a %s read as "not yet", never as a verdict', (mode) => {
+    expect(wait(ghStub([DONE], mode)).word).toBe('TIMEOUT');
+  });
+
+  it('reads RED for a completed CANCELLED row', () => {
+    const stub = ghStub([[...DONE, { name: 'Lint', conclusion: 'CANCELLED', status: 'COMPLETED' }]]);
+    expect(wait(stub).word).toBe('RED');
+  });
+
+  it('keeps waiting on a StatusContext still PENDING rather than breaking on it', () => {
+    const stub = ghStub([[...DONE, { context: 'legacy-integration', state: 'PENDING' }]]);
+    expect(wait(stub).word).toBe('TIMEOUT');
+  });
+
+  it('prints the check rows from the same snapshot that decided', () => {
+    const { out } = wait(ghStub([RUNNING, DONE]), 10);
+    expect(out).toMatch(/CI pass\tSUCCESS/);
+    expect(out).not.toMatch(/CI pass\tnull|CI pass\t$/m);
+  });
+
+  it('makes exactly one gh call per iteration (AC1), and the runner delegates to it', () => {
+    const helper = stripped(HELPER);
+    const body = helper.match(/b_close_ci_wait\(\)\s*\{[\s\S]*?\n\}/);
+    expect(body).not.toBeNull();
+    expect(body[0]).toMatch(/gh pr view/); // liveness: the slice is the function
+    expect(body[0].match(/\bgh\s/g)).toHaveLength(1);
+    const runner = stripped(RUNNER);
+    expect(runner).toMatch(/b_close_ci_wait\s+"\$PR_NUMBER"/);
+    expect(runner).not.toMatch(/statusCheckRollup/);
+  });
+
+  it('embeds the shared verdict and pending filters verbatim, never a restatement', () => {
+    const snap = sh('printf %s "$B_CLOSE_CI_SNAPSHOT_JQ"').stdout;
+    expect(snap).toContain(sh('printf %s "$B_CLOSE_CI_JQ"').stdout);
+    expect(snap).toContain(sh('printf %s "$B_CLOSE_CI_PENDING_JQ"').stdout);
   });
 });
