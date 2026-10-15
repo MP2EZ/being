@@ -99,3 +99,45 @@ describe('Crash Reports consent copy (DEBUG-779)', () => {
     expect(s22).not.toMatch(BLANKET_NOT_IDENTIFIABLE);
   });
 });
+
+/**
+ * DEBUG-787 — the crisis error screen's privacy bullet makes the same kind of claim as the
+ * card, so it is held to the same matchers. The boundary itself sends nothing to the external
+ * reporter (its reportError only logs locally); the identifier travels with Crash Reports
+ * sessions while that toggle is on. The bullet is static so the crisis fallback reads no
+ * consent state — the canary below forces it to be re-derived if the boundary is ever wired
+ * to the reporter.
+ */
+describe('CrisisErrorBoundary privacy bullet (DEBUG-787)', () => {
+  const PRE_FIX_BULLET = '• No personal information is shared in error reports';
+  const boundary = stripComments(read('app/src/features/crisis/components/CrisisErrorBoundary.tsx'));
+  const start = boundary.indexOf('Your Safety & Privacy');
+  const slice = start < 0 ? '' : boundary.slice(start, boundary.indexOf('</Text>', boundary.indexOf('<Text', start)));
+
+  it('(e) the matchers fire on the pre-fix bullet', () => {
+    expect(PRE_FIX_BULLET).toMatch(BLANKET_NOT_IDENTIFIABLE);
+  });
+
+  it('slices the Safety & Privacy block (liveness)', () => {
+    expect(slice).toMatch(/Crisis support remains fully accessible/);
+  });
+
+  it('claims neither anonymity nor blanket non-identifiability', () => {
+    expect(slice).not.toMatch(BLANKET_NOT_IDENTIFIABLE);
+    expect(slice).not.toMatch(ANONYMITY);
+    expect(slice).not.toMatch(/no personal information/i);
+  });
+
+  it('ties crash reports to the setting, discloses the identifier, and names what is excluded', () => {
+    expect(slice).toMatch(/crash reports/i);
+    expect(slice).toMatch(/only if you turned them on/i);
+    expect(slice).toMatch(/random installation identifier/i);
+    expect(slice).toMatch(/check-in answers/i);
+    expect(slice).toMatch(/journal/i);
+  });
+
+  it('canary: the boundary does not send to the external reporter', () => {
+    expect(boundary).toMatch(/reportError/); // liveness: the stripped source is the boundary
+    expect(boundary).not.toMatch(/externalErrorReporter|reportExternalError|captureException|ErrorTrackingService\.reportError/);
+  });
+});

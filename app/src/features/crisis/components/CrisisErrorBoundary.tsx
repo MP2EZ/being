@@ -412,7 +412,7 @@ export class CrisisErrorBoundary extends Component<
               • Crisis support remains fully accessible{'\n'}
               • Your personal data is secure and encrypted{'\n'}
               • Assessment progress is automatically saved{'\n'}
-              • No personal information is shared in error reports{'\n'}
+              • Crash reports (only if you turned them on) never include your check-in answers, journal, or mood entries. They carry a random installation identifier.{'\n'}
               • Professional support is available 24/7
             </Text>
           </View>
