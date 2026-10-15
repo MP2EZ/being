@@ -42,7 +42,9 @@ import {
 import {
   useCloudSync,
   useCloudBackupConfig,
+  type BackupResult,
   type ConnectivityResult,
+  type RestoreResult,
 } from '@/core/services/supabase/hooks/useCloudSync';
 import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core/theme';
 
@@ -70,12 +72,46 @@ export function connectionTestAlert(
   return { title: UNREACHABLE_TITLE, message: UNREACHABLE_MESSAGE };
 }
 
-/** The error banner shares the mapping for known codes; other messages pass through. */
+// DEBUG-784: Backup now and Restore follow the same rule. The backup holds app settings only,
+// so success copy never claims more. Restore errors can carry fragments of decrypted content
+// (DEBUG-625) and its store labels are internal, so no branch interpolates either. Restore has
+// no consent branch: restoreFromCloud is consent-exempt by design (DEBUG-757).
+const BACKUP_FAILED_TITLE = "Couldn't Back Up";
+const BACKUP_FAILED_MESSAGE = "We couldn't back up your settings. Check your internet connection and try again.";
+const RESTORE_FAILED_TITLE = "Couldn't Restore";
+const RESTORE_FAILED_MESSAGE = "We couldn't restore your backup. Your current data hasn't changed. Try again later.";
+const NO_BACKUP = 'No backup found';
+const RESTORE_IN_FLIGHT = 'Operation in progress';
+const BANNER_FALLBACK = 'Something went wrong with cloud backup. Please try again.';
+
+export function backupAlert(
+  result: BackupResult | null | undefined
+): { title: string; message: string } | null {
+  if (!result) return null; // an operation was already running
+  if (result.success) return { title: 'Backup Complete', message: 'Your settings are backed up.' };
+  if (result.error === CONSENT_ABSENT) return { title: CONSENT_OFF_TITLE, message: CONSENT_OFF_MESSAGE };
+  return { title: BACKUP_FAILED_TITLE, message: BACKUP_FAILED_MESSAGE };
+}
+
+export function restoreAlert(result: RestoreResult): { title: string; message: string } | null {
+  if (result.success && result.errors.length === 0) {
+    return result.restoredStores.length > 0
+      ? { title: 'Restore Complete', message: 'Your settings were restored from your cloud backup.' }
+      : { title: 'Nothing to Restore', message: "Your backup didn't have any settings to restore." };
+  }
+  if (result.errors.length === 1 && result.errors[0] === RESTORE_IN_FLIGHT) return null;
+  if (result.errors.includes(NO_BACKUP)) {
+    return { title: 'No Backup Found', message: "We couldn't find a cloud backup to restore." };
+  }
+  return { title: RESTORE_FAILED_TITLE, message: RESTORE_FAILED_MESSAGE };
+}
+
+/** The error banner shares the mapping for known codes; any other message gets one generic line. */
 function errorBannerText(error: string): string {
   if (error === CONSENT_ABSENT) return `${CONSENT_OFF_TITLE}. ${CONSENT_OFF_MESSAGE}`;
   if (error === NO_SESSION) return `${NO_SESSION_TITLE}. ${NO_SESSION_MESSAGE}`;
   if (UNREACHABLE_CODES.has(error)) return `${UNREACHABLE_TITLE}. ${UNREACHABLE_MESSAGE}`;
-  return error;
+  return BANNER_FALLBACK;
 }
 
 interface CloudBackupSettingsProps {
@@ -131,14 +167,15 @@ export default function CloudBackupSettings({
     return date.toLocaleDateString();
   };
 
-  // Handle manual backup
+  // Handle manual backup (DEBUG-784: the alert follows the returned result)
   const handleManualBackup = async () => {
+    let alert: { title: string; message: string } | null;
     try {
-      await createBackup();
-      Alert.alert('Success', 'Backup completed successfully');
+      alert = backupAlert(await createBackup());
     } catch {
-      Alert.alert('Backup Failed', 'Please check your connection and try again');
+      alert = backupAlert({ success: false });
     }
+    if (alert) Alert.alert(alert.title, alert.message);
   };
 
   // Handle restore with confirmation (destructive — overwrites local data)
@@ -152,23 +189,16 @@ export default function CloudBackupSettings({
           text: 'Restore',
           style: 'destructive',
           onPress: async () => {
+            let result: RestoreResult;
             try {
-              const result = await restoreFromBackup();
-
-              if (result.success) {
-                Alert.alert(
-                  'Restore Complete',
-                  `Restored: ${result.restoredStores.join(', ')}`
-                );
-                onRestoreComplete?.(result.restoredStores);
-              } else {
-                Alert.alert(
-                  'Restore Failed',
-                  result.errors.join('\n')
-                );
-              }
+              result = await restoreFromBackup();
             } catch {
-              Alert.alert('Restore Failed', 'Please try again later');
+              result = { success: false, restoredStores: [], errors: [] };
+            }
+            const alert = restoreAlert(result);
+            if (alert) Alert.alert(alert.title, alert.message);
+            if (result.success && result.errors.length === 0 && result.restoredStores.length > 0) {
+              onRestoreComplete?.(result.restoredStores);
             }
           },
         },
@@ -246,6 +276,7 @@ export default function CloudBackupSettings({
             disabled={isLoading}
             accessibilityRole="button"
             accessibilityLabel="Restore data from backup"
+            accessibilityState={{ disabled: isLoading, busy: isLoading }}
           >
             {isLoading ? (
               <ActivityIndicator color={colorSystem.base.white} size="small" />
@@ -314,6 +345,7 @@ export default function CloudBackupSettings({
           disabled={isLoading || !isOnline}
           accessibilityRole="button"
           accessibilityLabel="Back up now"
+          accessibilityState={{ disabled: isLoading || !isOnline, busy: isLoading }}
         >
           {isLoading ? (
             <ActivityIndicator color={colorSystem.base.white} size="small" />
@@ -329,6 +361,7 @@ export default function CloudBackupSettings({
             disabled={isLoading}
             accessibilityRole="button"
             accessibilityLabel="Restore from cloud"
+            accessibilityState={{ disabled: isLoading, busy: isLoading }}
           >
             <Text style={styles.secondaryButtonText}>Restore from Cloud</Text>
           </TouchableOpacity>
