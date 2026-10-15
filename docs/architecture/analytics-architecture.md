@@ -526,7 +526,7 @@ Required disclosure for privacy policy:
 
 > **Analytics and Usage Data**
 >
-> Being uses PostHog (EU data residency) to collect anonymous product analytics.
+> Being uses PostHog (EU data residency) to collect product analytics, keyed to a random per-installation identifier.
 > Analytics is disabled by default and requires your explicit opt-in.
 >
 > **What We Collect (when opted in):**
@@ -545,7 +545,7 @@ Required disclosure for privacy policy:
 >
 > **Your Control:**
 > - Analytics is OFF by default
-> - Opt-in via **Privacy & Data > Anonymous Usage Analytics**; turning it off stops collection immediately
+> - Opt-in via **Privacy & Data > Usage Analytics**; turning it off stops collection immediately
 > - Analytics events on our servers are automatically deleted after 90 days. To request deletion sooner, email privacy@being.fyi
 >
 > **Data Residency:** EU (Frankfurt, Germany)

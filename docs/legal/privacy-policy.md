@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.19
+**Version:** 1.20
 **Effective Date:** December 12, 2025
-**Last Updated:** October 12, 2026
+**Last Updated:** October 14, 2026
 
 ---
 
@@ -53,7 +53,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 ### 2.2 Automatically Collected Information
 
 - **Device Information:** Device type, OS version (for app compatibility)
-- **Usage Data:** App usage patterns, feature engagement (anonymized)
+- **Usage Data:** App usage patterns and feature engagement, with a random identifier generated per app installation and approximate location, collected only if you turn on *Analytics* (see Section 5.2)
 - **Technical Data:** Crash reports and app-stability diagnostics, including a random identifier generated per app installation (see Section 5.1), collected only if you turn on *Crash Reports* (off by default) and *Honor Universal Opt-Out* is off
 
 ### 2.3 Information We Do NOT Collect
@@ -73,7 +73,7 @@ We use your information solely to provide and improve the Being app:
 - **Core Functionality:** Enable mindfulness check-ins, mood tracking, and progress visualization
 - **Wellness Tools:** Calculate PHQ-9 and GAD-7 scores for self-monitoring, recommend crisis resources when wellness screening thresholds are reached
 - **Safety Features:** Provide crisis support resources when wellness screening thresholds are met. When a PHQ-9 score of 20 or higher, a non-zero PHQ-9 Q9 (self-harm) response, or a GAD-7 score of 15 or higher is detected, Being also records an aggregate, PII-free crisis-detection event to our own first-party secure storage (Supabase). This recording happens under a vital-interests basis and is **not** gated on your analytics consent — crisis-safety monitoring is not something you can inadvertently disable. The event contains only a category label, a severity bucket, whether an intervention was surfaced, the assessment type, and the calendar day the detection happened — **no** raw score, no Q9 value, no time of day, no device identifier, and nothing that identifies you. The detection day is recorded so that a detection made while your device is offline is counted on the day it actually happened rather than the day your device next reconnects. It is a date only, never a clock time.
-- **App Improvement:** Analyze anonymized usage patterns to improve user experience
+- **App Improvement:** Analyze usage patterns to improve user experience
 - **Technical Support:** Debug issues, provide customer support
 - **Legal Compliance:** Comply with applicable laws and regulations
 
@@ -160,12 +160,14 @@ Being uses PostHog (EU data residency, Frankfurt) for product analytics. We use 
 
 What we collect (when opted in):
 
-- Screen views and navigation patterns
+- Screen views and navigation patterns, including when you open a check-in, a wellness screening or support resources (never your answers, scores or what you write)
 - Feature usage counts (e.g., "check-in completed")
 - App performance metrics
 - Session duration
 - App open patterns (first open vs. return; time since last open, in coarse ranges)
-- Device type and OS version
+- Device and app details: device model, OS and app version, screen size, language and time zone
+- A random identifier generated per app installation. It is not linked to your account, your name or your email
+- Your approximate location (city and country), which PostHog estimates from your internet connection. Your IP address itself is not stored
 
 What we **NEVER** collect in-app:
 
@@ -177,7 +179,7 @@ What we **NEVER** collect in-app:
 Your control:
 
 - Analytics is **OFF by default**
-- Opt-in via **Privacy & Data > Anonymous Usage Analytics**; turning it off stops collection immediately
+- Opt-in via **Privacy & Data > Usage Analytics**; turning it off stops collection immediately
 - Analytics events on our servers are automatically deleted after 90 days (see §7.2). To request deletion sooner, email privacy@being.fyi — requests are honored within 30 days (see §7.3)
 
 **Note on crisis-safety recording:** The analytics opt-in above controls what is sent to PostHog. It does **not** control the separate crisis-detection event described in §3 (Safety Features), which is recorded to Being's own first-party storage under a vital-interests basis and is not suppressible by analytics opt-out or universal opt-out. That event contains no raw scores and no identifying information — only aggregate category labels.
@@ -296,6 +298,7 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
+- **v1.20 (October 14, 2026):** §2.2 and §3 described in-app usage analytics as "anonymized". Each event carries a random identifier generated per app installation, and PostHog estimates an approximate location (city and country) from the connection, so §2.2 and §5.2 now say so and list the device, language and time-zone details that are sent. The in-app control is renamed *Usage Analytics*, and the in-app *Analytics* and *Research Participation* descriptions were corrected the same way; the research setting now says plainly that nothing is collected for research today. This corrects how existing processing is described and adds no new kind of data, so it is published with the next app release.
 - **v1.19 (October 12, 2026):** §2.2 said crash reports and app-stability diagnostics include no personal info. They include a random identifier generated per app installation, which Section 5.1 already described, so §2.2 now says so. The in-app *Crash Reports* description was corrected the same way: it no longer calls crash reports "anonymized". This narrows a claim and adds no new kind of data, so it is published with the next app release.
 - **v1.18 (October 10, 2026):** Crash reporting now follows your choice. §2.2 and §5.1 said crash reports and app-stability diagnostics are collected, and §5.3 and §6 said you can turn crash reporting off. In practice the app sent crash reports, error reports and app-session diagnostics to Sentry whether or not you had turned *Crash Reports* on. That is corrected: nothing is sent to Sentry for crash or error reporting unless *Crash Reports* is on and *Honor Universal Opt-Out* is off, and turning either off stops it. §5.1 also now describes bug reports you choose to send from the app, which the policy did not mention: they go to Sentry when you tap Send, separately from the *Crash Reports* setting. This narrows what is collected without your permission and adds no new kind of data, so it is published with the next app release rather than separately.
 
