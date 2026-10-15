@@ -211,4 +211,49 @@ BEGIN
   END IF;
 END $$;
 
+-- ============ Test 7: server-internal tables — exact verbs, client roles locked out ======
+-- DEBUG-795. webhook_replay_cache shipped with RLS on, no policies and NO grant, on the
+-- false premise that "RLS with no policies" lets service_role through. It does not: the
+-- GRANT is checked first, so every wasProcessed() failed `permission denied` and every
+-- store notification died at the replay check — the INFRA-379 class again, latent because
+-- there are no subscribers. Both server-internal tables are written only by edge functions
+-- via service_role: SELECT + INSERT, never UPDATE (markProcessed is a plain insert that
+-- swallows 23505) and never DELETE (no prune job exists). anon/authenticated hold NOTHING —
+-- not even the default REFERENCES/TRIGGER/TRUNCATE: a TRUNCATE of the replay cache re-arms
+-- every captured notification inside the 24h freshness window.
+DO $$
+DECLARE
+  tbl  TEXT;
+  verb TEXT;
+  rol  TEXT;
+BEGIN
+  FOREACH tbl IN ARRAY ARRAY['public.webhook_replay_cache','public.grace_period_automation_runs'] LOOP
+    FOREACH verb IN ARRAY ARRAY['SELECT','INSERT'] LOOP
+      IF NOT has_table_privilege('service_role', tbl, verb) THEN
+        RAISE EXCEPTION
+          'FAIL(7): service_role LACKS % on %. Its edge function selects and inserts '
+          'here, so every call fails permission denied (DEBUG-795 / INFRA-266).', verb, tbl;
+      END IF;
+    END LOOP;
+
+    FOREACH verb IN ARRAY ARRAY['UPDATE','DELETE'] LOOP
+      IF has_table_privilege('service_role', tbl, verb) THEN
+        RAISE EXCEPTION
+          'FAIL(7): service_role holds % on %. No call site updates or deletes; '
+          'narrow it back to SELECT, INSERT.', verb, tbl;
+      END IF;
+    END LOOP;
+
+    FOREACH rol IN ARRAY ARRAY['anon','authenticated'] LOOP
+      FOREACH verb IN ARRAY ARRAY['SELECT','INSERT','UPDATE','DELETE','TRUNCATE','REFERENCES','TRIGGER'] LOOP
+        IF has_table_privilege(rol, tbl, verb) THEN
+          RAISE EXCEPTION
+            'FAIL(7): % holds % on %. This table is server-internal; clients get no '
+            'privilege at all (REVOKE ALL ... FROM anon, authenticated).', rol, verb, tbl;
+        END IF;
+      END LOOP;
+    END LOOP;
+  END LOOP;
+END $$;
+
 SELECT 'ALL MAINT-441 SERVICE_ROLE GRANT TESTS PASSED' AS result;

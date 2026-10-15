@@ -1,0 +1,32 @@
+-- DEBUG-795 — service_role could not read or write `webhook_replay_cache`.
+--
+-- Corrects two claims in 20260522000000: (1) RLS with no policies does not grant service_role
+-- access — service_role bypasses RLS but still needs a table GRANT, and none existed, so every
+-- wasProcessed() call failed permission denied. (2) No prune job exists; the table is unbounded
+-- until a prune job is added. Encodes the manual prod grant applied 2026-10-14; the GRANT is a
+-- no-op there, the REVOKE is not.
+--
+-- THE DEFECT. Live state before 2026-10-14: service_role, anon and authenticated each held only
+-- REFERENCES/TRIGGER/TRUNCATE (the platform default ACL). `subscription-webhook`'s
+-- `replayCache.ts` reads and writes this table with the service_role key, and `wasProcessed()`
+-- throws on a database error, so every Apple/Google notification would have failed at the
+-- replay check, before any subscription state changed. Same class as INFRA-379 on
+-- `subscriptions`, and latent for the same reason: no subscription has ever been recorded.
+-- The local image's default ACL grants ALL, which is why the local stack never showed it.
+--
+-- SELECT, INSERT ONLY. `wasProcessed()` is a `.select('notification_id')`; `markProcessed()` is
+-- a plain `.insert()` that swallows 23505 on a concurrent duplicate, so UPDATE is never needed.
+-- Nothing deletes rows. Same verb set as the sibling server-internal table
+-- `grace_period_automation_runs` (20260616000000), chosen from the call sites, not by symmetry.
+--
+-- REVOKE ALL FROM anon, authenticated. Clients have no business with this table, and the grant
+-- matrix in docs/security/supabase-rls-verification.md states that anon holds nothing on the
+-- tables it lists. It also removes the default TRUNCATE: emptying this table re-arms replay of
+-- every captured notification still inside the 24h signedDate freshness window. Matches
+-- 20260616000000. service_role's default REFERENCES/TRIGGER/TRUNCATE are left alone, per that
+-- document's MAINT-441 reasoning.
+--
+-- Pinned by Test 7 in supabase/tests/maint441_service_role_grants.sql.
+
+GRANT SELECT, INSERT ON public.webhook_replay_cache TO service_role;
+REVOKE ALL ON public.webhook_replay_cache FROM anon, authenticated;
