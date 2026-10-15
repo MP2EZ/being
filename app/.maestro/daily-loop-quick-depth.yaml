@@ -332,7 +332,7 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
       # run green. This site therefore does NOT own "the first tap must work" at default type —
       # the deep site below does (one unconditional tap, no round-trip in front). The SkipLink
       # is not a crisis affordance; no crisis tap is retried. Whether that swallow is the app
-      # dropping the first touch after CrisisResources back-navigation is its own item.
+      # dropping the first touch after CrisisResources back-navigation is DEBUG-799.
       - extendedWaitUntil:
           visible:
             id: "daily-loop-breath-skipped"
