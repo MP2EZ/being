@@ -62,6 +62,8 @@ bash /Users/max/dev/being/.claude/scripts/check-safety-paths.sh || exit 1
 bash /Users/max/dev/being/.claude/scripts/test-b-close-gate-plan.sh || exit 1
 # INFRA-693: the shared worktree-teardown guards (~3 s).
 bash /Users/max/dev/being/.claude/scripts/test-worktree-teardown.sh || exit 1
+# INFRA-796: the Step 3.4 CI verdict (~1 s).
+bash /Users/max/dev/being/.claude/scripts/test-ci-rollup-verdict.sh || exit 1
 # No app/ here means a no-worktree item (Step 1.1) closing from the bare root — run the
 # ledger from the development worktree rather than aborting the close on a missing dir.
 APP_DIR=app; [ -d app ] || APP_DIR=/Users/max/dev/being/development/app
@@ -740,26 +742,14 @@ done
 #     on failure and (c) must still run — (c) is what decides, not this.
 gh pr checks [PR_NUMBER] --watch || true
 
-# (c) AUTHORITATIVE verdict — one word: GREEN | RED | EMPTY.
-#     `.conclusion // .state` because Actions check-runs carry `.conclusion` while
-#     StatusContext rows (non-Actions integrations) carry `.state` — reading only
-#     `.conclusion` renders those as literal "null" and reads as permanently red.
-#     Deliberately grep-free: `grep -qv` is NOT safe here. Claude Code's shell
-#     snapshot aliases `grep` to a ugrep wrapper whose `-q` + `-v` exit status is
-#     INVERTED vs system grep (verified: `-qv` on input containing a non-matching
-#     line returns 1 via the wrapper, 0 via /usr/bin/grep). A `grep -qv` gate
-#     therefore reads a red rollup as green — the exact bug this step exists to
-#     stop. Positive `grep -q` is unaffected, which is why the Phase 2.5 path
-#     checks above are fine.
-gh pr view [PR_NUMBER] --json statusCheckRollup -q '
-  [.statusCheckRollup[] | (.conclusion // .state)]
-  | if length == 0 then "EMPTY"
-    elif all(. == "SUCCESS" or . == "NEUTRAL" or . == "SKIPPED") then "GREEN"
-    else "RED" end'
-
-# Human-readable detail, for the failure message:
-gh pr view [PR_NUMBER] --json statusCheckRollup \
-  -q '.statusCheckRollup[] | "\(.name)\t\(.conclusion // .state)"' | sort
+# (c) AUTHORITATIVE verdict — one word: GREEN | RED | EMPTY | PENDING. (b) can return
+#     before `CI pass` exists: it is created only when its last `needs:` dependency
+#     completes (~3 s), and every row visible in that window is green (INFRA-796). The
+#     script keeps polling until each CI run carries its own `CI pass` and nothing is
+#     pending, deciding from one rollup snapshot per poll (DEBUG-785). Deliberately
+#     grep-free: Claude Code's ugrep wrapper inverts `grep -qv`'s exit status, so a
+#     `grep -qv` gate reads a red rollup as green. Rows print to stderr.
+bash /Users/max/dev/being/.claude/scripts/ci-rollup-verdict.sh [PR_NUMBER]
 ```
 
 Route on (c), never on (b)'s exit code:
@@ -769,6 +759,8 @@ Route on (c), never on (b)'s exit code:
   once. Still `EMPTY` → STOP and report; a PR with no checks must never merge,
   because `CI pass` is the sole required context and an empty rollup is
   indistinguishable from "the workflow never triggered".
+- **`PENDING`** → 40 min passed without a settled rollup carrying every run's `CI pass`.
+  Never a verdict: re-run (c) once, then STOP and report the rows.
 
 **A GREEN rollup does not prove a NEW workflow step ran.** When the diff touches
 `.github/workflows/`, confirm the step executed rather than being skipped or absent:

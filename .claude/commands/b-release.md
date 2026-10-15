@@ -474,16 +474,10 @@ for i in $(seq 1 30); do
 done
 gh pr checks $BUMP_PR_NUMBER --watch || true
 
-# Verdict is jq-only, never `grep -qv`: Claude Code's shell snapshot aliases grep
-# to a ugrep wrapper whose `-q` + `-v` exit status is inverted vs system grep, so a
-# grep-based gate reads a red rollup as GREEN. (Positive `grep -q` is unaffected.)
-gh pr view $BUMP_PR_NUMBER --json statusCheckRollup \
-  -q '.statusCheckRollup[] | "\(.name)\t\(.conclusion // .state)"' | sort
-BUMP_VERDICT=$(gh pr view $BUMP_PR_NUMBER --json statusCheckRollup -q '
-  [.statusCheckRollup[] | (.conclusion // .state)]
-  | if length == 0 then "EMPTY"
-    elif all(. == "SUCCESS" or . == "NEUTRAL" or . == "SKIPPED") then "GREEN"
-    else "RED" end')
+# --watch can return before `CI pass` exists, with every visible row green; the shared
+# verdict (/b-close Step 3.4, INFRA-796) waits for each CI run's `CI pass` and decides
+# from one rollup snapshot. GREEN | RED | EMPTY | PENDING; rows print to stderr.
+BUMP_VERDICT=$(bash /Users/max/dev/being/.claude/scripts/ci-rollup-verdict.sh $BUMP_PR_NUMBER)
 if [ "$BUMP_VERDICT" != "GREEN" ]; then
   echo "❌ Bump PR #$BUMP_PR_NUMBER is $BUMP_VERDICT — STOP. Do not merge or tag."
   exit 1
@@ -545,14 +539,12 @@ Never merge a release on `--watch`'s exit status.
 ```bash
 gh pr checks $PR_NUMBER --watch || true
 
-# Verdict is jq-only, never `grep -qv` — see the bump-PR block above for why.
-gh pr view $PR_NUMBER --json statusCheckRollup \
-  -q '.statusCheckRollup[] | "\(.name)\t\(.conclusion // .state)"' | sort
-VERDICT=$(gh pr view $PR_NUMBER --json statusCheckRollup -q '
-  [.statusCheckRollup[] | (.conclusion // .state)]
-  | if length == 0 then "EMPTY"
-    elif all(. == "SUCCESS" or . == "NEUTRAL" or . == "SKIPPED") then "GREEN"
-    else "RED" end')
+# Same shared verdict as the bump PR. This is the PR it exists for: with two runs on the
+# commit, the push run's `CI pass` is already green while the pull_request run's has not
+# registered, so "a `CI pass` row exists" would settle early — the script requires one per
+# run. The trailing `2` requires both runs PRESENT: right after `gh pr create` the rollup can
+# hold the finished push run alone, which --watch and a per-run check both read as settled.
+VERDICT=$(bash /Users/max/dev/being/.claude/scripts/ci-rollup-verdict.sh $PR_NUMBER 2400 2)
 if [ "$VERDICT" != "GREEN" ]; then
   echo "❌ Release PR #$PR_NUMBER is $VERDICT — STOP. Do not merge, do not tag."
   exit 1
