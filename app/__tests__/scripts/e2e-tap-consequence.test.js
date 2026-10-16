@@ -251,32 +251,96 @@ describe('DEBUG-642 — the post-centring tap population', () => {
   });
 });
 
-describe('DEBUG-642 — a breath skip must prove it landed', () => {
+describe('DEBUG-642/694 — a breath skip must prove it landed', () => {
   // A swallowed skip lets the 30s breath expire on its own and the flow goes green on the
   // next beat, so a bare skip tap never tests the tap. Every skip must be followed, before
-  // the flow moves on, by a non-optional app-state fact: the reflection field appearing, or
-  // the SkipLink unmounting (the DEBUG-632 shape, used at AX sizes where the field is below
-  // the fold). Never the breathing circle: the element under suspicion must not double as
-  // the proof (DEBUG-408). Where the field IS on screen, prefer it — a negative alone can
-  // pass on an element that merely scrolled away (DEBUG-468).
-  test('every daily-loop-skip-breath tap is followed by an app-state proof that it landed', () => {
+  // the flow moves on, by a non-optional `daily-loop-breath-skipped` — the fact only the
+  // SkipLink sets (DailyLoopStepScreen, DEBUG-694). Nothing the 30s timer can produce
+  // counts: not the reflection field appearing, not the SkipLink unmounting — DEBUG-652
+  // measured the no-skip mutant GREEN 3/3 on exactly those. Never the breathing circle
+  // either: the element under suspicion must not double as the proof (DEBUG-408).
+  const SKIP_FACT = 'daily-loop-breath-skipped';
+  const CIRCLE_GUARD = /when:\s*\n\s*visible:\s*\n\s*id:\s*"daily-loop-breathing-circle"/;
+
+  // Scaffolding taps, exempt by exact `file:line` of the `- tapOn` step (crisis ruling,
+  // DEBUG-694). On these crisis flows the skip only reaches the text beat; a swallow lets
+  // the timer reach the same state and the flow's own contract is still tested, so a crisis
+  // flow must not go red on a property it does not own. Any other skip tap — including one
+  // a new crisis flow adds — fails the pin by default.
+  const SCAFFOLDING = ['crisis-keyboard-accessory.yaml:134', 'crisis-keyboard-reachability.yaml:64'];
+
+  const skipTaps = () => {
     const taps = [];
     flowFiles().forEach((file) => {
       const steps = stepsOf(fs.readFileSync(path.join(MAESTRO, file), 'utf8'));
       steps.forEach((s, i) => {
         if (s.command !== 'tapOn' || targetOf(s) !== 'daily-loop-skip-breath') return;
-        taps.push({ at: `${file}:${s.line}`, ...consequencesAfter(steps, i) });
+        taps.push({ file, line: s.line, at: `${file}:${s.line}`, ...consequencesAfter(steps, i) });
       });
     });
-    const proven = (t) =>
-      t.visible.includes('daily-loop-input-response') || t.gone.includes('daily-loop-skip-breath');
+    return taps;
+  };
+  const proven = (t) => t.visible.includes(SKIP_FACT);
+
+  // The raw text from the `- runFlow:` that encloses a step down to the step, or null when
+  // the step is not nested in one.
+  const enclosingRunFlow = (file, line) => {
+    const raw = fs.readFileSync(path.join(MAESTRO, file), 'utf8').split('\n');
+    const indent = (t) => t.match(/^\s*/)[0].length;
+    const own = indent(raw[line - 1]);
+    for (let j = line - 2; j >= 0; j--) {
+      const t = raw[j];
+      if (t.trim() === '' || /^\s*#/.test(t) || indent(t) >= own) continue;
+      if (/^\s*-\s+runFlow:/.test(t)) return raw.slice(j, line).join('\n');
+      if (/^\s*-\s+\w+/.test(t)) return null;
+    }
+    return null;
+  };
+
+  test('every daily-loop-skip-breath tap is followed by an app-state proof that it landed', () => {
+    const taps = skipTaps();
 
     // Controls: taps are found in every flow that reaches a breath, and the proof test can
-    // fail — a tap followed only by the circle's disappearance does not count.
-    expect(new Set(taps.map((t) => t.at.split(':')[0])).size).toBeGreaterThanOrEqual(4);
+    // fail — none of the timer-satisfiable facts counts, alone or together.
+    expect(new Set(taps.map((t) => t.file)).size).toBeGreaterThanOrEqual(4);
     expect(proven({ visible: ['daily-loop-breathing-circle'], gone: ['daily-loop-breathing-circle'] })).toBe(false);
+    expect(proven({ visible: ['daily-loop-input-response'], gone: ['daily-loop-skip-breath'] })).toBe(false);
+    expect(proven({ visible: [], gone: ['daily-loop-skip-breath'] })).toBe(false);
 
-    expect(taps.filter((t) => !proven(t)).map((t) => t.at)).toEqual([]);
+    expect(taps.filter((t) => !proven(t) && !SCAFFOLDING.includes(t.at)).map((t) => t.at)).toEqual([]);
+  });
+
+  test('an OPTIONAL skip fact does not count as the proof', () => {
+    const flow = (optional) =>
+      [
+        'appId: x',
+        '---',
+        '- tapOn:',
+        '    id: "daily-loop-skip-breath"',
+        '- extendedWaitUntil:',
+        '    visible:',
+        `      id: "${SKIP_FACT}"`,
+        '    timeout: 5000',
+        ...(optional ? ['    optional: true'] : []),
+      ].join('\n');
+    const after = (src) => consequencesAfter(stepsOf(src), 0);
+    expect(proven(after(flow(false)))).toBe(true);
+    expect(proven(after(flow(true)))).toBe(false);
+  });
+
+  test('each scaffolding exemption still names a conditional skip tap that lacks the proof', () => {
+    const taps = skipTaps();
+    SCAFFOLDING.forEach((at) => {
+      const tap = taps.find((t) => t.at === at);
+      // A stale line number, or a tap that moved, surfaces here rather than exempting nothing.
+      expect([at, !!tap]).toEqual([at, true]);
+      expect([at, CIRCLE_GUARD.test(enclosingRunFlow(tap.file, tap.line) || '')]).toEqual([at, true]);
+      // An exempt tap that gained the proof no longer needs its exemption — delete it.
+      expect([at, proven(tap)]).toEqual([at, false]);
+    });
+    // Control: the guard matcher can fail — an unconditional skip tap is not in a block.
+    const ax5Virtuous = taps.filter((t) => t.file === 'daily-loop-ax5-virtuous.yaml');
+    expect(ax5Virtuous.some((t) => enclosingRunFlow(t.file, t.line) === null)).toBe(true);
   });
 });
 

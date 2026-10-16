@@ -1056,15 +1056,14 @@ rect x[303,375] y[491,595), clip bottom 613:
 Each clearance is `CRISIS_BUTTON_EXCLUSION_RECT.left` on the element carrying the testID. The
 falsifier is each host's jest every-y sweep, not a flow: `tapOn: id:` hits element centres.
 
-The same suite pins one more tap class: every `daily-loop-skip-breath` tap must be followed by
-an app-state proof that it landed — `daily-loop-input-response` appearing, or the SkipLink
-unmounting (the DEBUG-632 shape, used at AX sizes). A bare skip lets the 30s breath expire on
-its own and the flow goes green without ever testing the tap.
-
-**Both proofs can still be satisfied by the timer (DEBUG-652, measured; fix is DEBUG-694).**
-Removing the skip tap from `daily-loop-quick-depth` still goes green 3/3: the wait outlasts
-the breath (10.6–16.1s waited, resolved at mount + 30s), and SkipLink and the Timer share
-`handleBreathComplete`, so nothing on screen tells a skip from an expiry.
+The same suite pins one more tap class: every `daily-loop-skip-breath` tap must be followed,
+before the flow moves on, by a non-optional `daily-loop-breath-skipped` — a testID on
+`DailyLoopStepScreen`'s root container that only the SkipLink sets (DEBUG-694). It is on the
+root so no AX5 scroll offset can hide it, and it is the only accepted proof: DEBUG-652 measured
+that `daily-loop-input-response` appearing and the SkipLink unmounting are both satisfied by the
+30s breath expiring on its own (no-skip mutant GREEN 3/3). The two crisis-keyboard flows tap the
+link only as scaffolding to reach the text beat and are exempt by exact `file:line`; a new skip
+tap anywhere else fails the pin.
 
 ## How a flow works
 
