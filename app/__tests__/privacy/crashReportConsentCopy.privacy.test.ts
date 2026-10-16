@@ -38,7 +38,8 @@ const cardText = [
 const ANONYMITY = /anonymi[sz]|\banonymous\b/i;
 const BLANKET_NOT_IDENTIFIABLE = /\bidentifiable information\b|\bnot identifiable\b|\bno personal info/i;
 const SESSION = /session/i;
-const INSTALL_ID = /identifier created for this installation|installation identifier/i;
+const INSTALL_ID = /identifiers? created for this installation|installation identifier/i;
+const APPROX_LOCATION = /approximate location \(city and country\)/i;
 const ENCRYPTED = /encrypt/i;
 const IN_TRANSIT = /encrypted connection|in transit/i;
 
@@ -73,6 +74,17 @@ describe('Crash Reports consent copy (DEBUG-779)', () => {
     const collected = card.details.whatWeCollect.join('\n');
     expect(collected).toMatch(SESSION);
     expect(collected).toMatch(INSTALL_ID);
+  });
+
+  // DEBUG-786: crash events carry two identifiers (installation id, device_app_hash) and a
+  // city/country Sentry derives at ingest; the card is the consent surface for all of it.
+  it('(f) the card names plural identifiers and approximate location, and excludes IP/GPS', () => {
+    expect('A random identifier created for this installation of the app').toMatch(INSTALL_ID);
+    const collected = card.details.whatWeCollect.join('\n');
+    expect(collected).toMatch(/Identifiers created for this installation/);
+    expect(collected).toMatch(APPROX_LOCATION);
+    expect(card.details.whatWeDontCollect.join('\n')).toMatch(/precise \(GPS\) location, or your IP address/);
+    expect(card.details.privacyNote).toMatch(/These identifiers are not linked/);
   });
 
   it('(c) "encrypted" appears only as encryption in transit', () => {
@@ -190,10 +202,35 @@ describe('Crash reports carry the installation identifier (DEBUG-786)', () => {
     expect(sentryBullet()).toMatch(/not store[^.]*IP address|IP address[^.]*not stored/);
   });
 
+  // AC1, observed 2026-10-16 (Sentry event bf0dd8b4…, DPIA 2.43): the native crash event also
+  // carries `user.geo` (city/country derived at ingest, IP not stored) and
+  // `contexts.app.device_app_hash` (SHA-1 over identifierForVendor + hw.machine + hw.model +
+  // bundle id, `SentryCrashMonitor_System.m:396-423`).
+  it('§5.1 discloses the approximate location Sentry derives, not just that IP is not stored', () => {
+    const bullet = sentryBullet();
+    expect(bullet).toMatch(/approximate location \(city and country\)/);
+    expect(bullet).toMatch(/IP address itself is not stored/);
+  });
+
+  it('§5.1 names the device identifier crash reports carry', () => {
+    expect(sentryBullet()).toMatch(/device identifier[^.]*Apple/);
+  });
+
+  it('§2.2 Technical Data names the identifiers and approximate location', () => {
+    const policy = read('docs/legal/privacy-policy.md');
+    const line = policy.slice(policy.indexOf('- **Technical Data:**'));
+    const technical = line.slice(0, line.indexOf('\n'));
+    expect(technical).toMatch(/Crash reports/);
+    expect(technical).toMatch(/identifiers/);
+    expect(technical).toMatch(/approximate location/);
+  });
+
   it('§5.1 does not say a bug report carries nothing else', () => {
     const bug = bugReportPart(sentryBullet());
     expect(bug).toMatch(/Bug reports you send/);
     expect(bug).not.toMatch(NOTHING_ELSE);
     expect(bug).toMatch(/Crash Reports\*? is on[^.]*installation identifier/);
+    // Interim hedge until DEBUG-797 captures a Crash-Reports-off bug report.
+    expect(bug).toMatch(/may also estimate your approximate location/);
   });
 });
