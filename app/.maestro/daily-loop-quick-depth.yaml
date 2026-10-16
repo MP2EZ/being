@@ -333,6 +333,10 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
       # the deep site below does (one unconditional tap, no round-trip in front). The SkipLink
       # is not a crisis affordance; no crisis tap is retried. Whether that swallow is the app
       # dropping the first touch after CrisisResources back-navigation is DEBUG-799.
+      # DEBUG-799 did NOT reproduce it: 0/30 with the round-trip, 0/30 without (one
+      # SE 3 / iOS 18.6 Release binary, 2026-10-15). A 6.4s tap is normal here (median 6.7s
+      # both arms), and Maestro dispatches this tap ≥10s after nav-back, so no flow can test
+      # the dismiss window. The re-tap stays.
       - extendedWaitUntil:
           visible:
             id: "daily-loop-breath-skipped"

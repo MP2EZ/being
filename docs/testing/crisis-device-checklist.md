@@ -24,6 +24,9 @@ Nothing prompts the run; `/b-release` does not check for it.
   - `tel:988` hands off to the iOS dialer with no in-app fallback alert.
   - The keyboard accessory sits on a real software keyboard on current iOS and reaches crisis
     resources in one tap.
+  - The first tap after leaving Crisis Support Resources with **Back** reaches a crisis
+    affordance. Simulator runs retry a non-crisis tap at this seam, so only a finger shows it
+    (DEBUG-799).
 - **Out:**
   - The generated `Info.plist`. CI's `Generated Info.plist keeps tel/sms` step checks it on
     every PR (INFRA-592).
@@ -88,6 +91,22 @@ reports Cancel as a failure has never been measured.
 | A1 | From Home, tap **"Daily Practice"**. If a resume prompt appears, take either option. When offered a choice, tap **"Quick"**. If a breathing circle appears, tap **"Skip →"**. | A practice screen with a reflection text field. | — |
 | A2 | Tap the first reflection text field. If iOS's QuickPath typing tutorial appears, dismiss it (not a FAIL) and look again. | The software keyboard rises, and a bar reading **"I need support"** sits directly on top of it, fully visible. | The bar is missing, partly covered, or the keyboard does not rise. |
 | A3 | Tap **"I need support"** on that bar **once**. | Within ~3 s, **"Crisis Support Resources"**. | More than one tap is needed, the tap does nothing, or it lands anywhere else. Tapping the floating lifebuoy button **does not count**. |
+
+---
+
+## 3b. First tap after Back (DEBUG-799)
+
+Each counted tap is the **first** tap after **Back**, made the instant the practice screen
+shows again. Do not wait for the screen to settle and never tap twice: a second tap hides the
+drop this section exists to find. Count drops as you go.
+
+| # | Do | PASS | FAIL |
+|---|---|---|---|
+| B1 | From Home, tap **"Daily Practice"**, then **"Quick"**. On the breathing screen, tap the **lifebuoy**. Then 10 times: tap **Back** (top-left), and the instant the practice screen is visible, tap the **lifebuoy** once. | Every one of the 10 taps opens **"Crisis Support Resources"** within ~3 s. | Any tap that does nothing, or lands anywhere else. |
+| B2 | Tap **Back**, tap **"Skip →"** if the breath is still running, then **Continue** to the next screen. Tap **"If this feels heavier than a hard day, support is here anytime."** Then 10 times: tap **Back**, and the instant the practice screen is visible, tap that line once. | Every one of the 10 taps opens **"Crisis Support Resources"** within ~3 s. | Any tap that does nothing, or lands anywhere else. |
+
+**One drop is a FAIL**, under §4's no-re-run rule: both targets are crisis affordances. Record
+the drop count either way. Never add **"Skip →"** here; it is not a crisis affordance.
 
 ---
 
@@ -228,6 +247,7 @@ Date:           <YYYY-MM-DD>
 
 DIAL       D2 [PASS|FAIL]  D3 [PASS|FAIL]  after_cancel_alert: yes|no  call_connected: yes|no
 ACCESSORY  A2 [PASS|FAIL]  A3 [PASS|FAIL]
+BACKNAV    B1 [PASS|FAIL] drops=<n>/10  B2 [PASS|FAIL] drops=<n>/10
 Re-runs:   none | <which half, and what was ambiguous>
 
 # PASS, FAIL and EXEMPT: every line, or the chain is not bound:
