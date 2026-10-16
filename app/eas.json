@@ -18,7 +18,8 @@
       "env": {
         "BUILD_TYPE": "development",
         "CLINICAL_VALIDATION": "true",
-        "NEW_ARCHITECTURE": "true"
+        "NEW_ARCHITECTURE": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       }
     },
     "preview": {
@@ -31,7 +32,8 @@
         "PERFORMANCE_MONITORING": "true",
         "NEW_ARCHITECTURE": "true",
         "CRISIS_MONITORING": "true",
-        "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_STAGING"
+        "EXPO_PUBLIC_SUPABASE_URL": "$SUPABASE_URL_STAGING",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true"
       },
       "cache": {
         "disabled": false
@@ -56,7 +58,8 @@
         "CRISIS_MONITORING": "true",
         "PRODUCTION_MONITORING": "true",
         "WELLNESS_DATA_PROTECTION": "true",
-        "WELLNESS_PRACTICES_MONITORING": "true"
+        "WELLNESS_PRACTICES_MONITORING": "true",
+        "SENTRY_ALLOW_FAILURE": "true"
       },
       "cache": {
         "disabled": false,
@@ -75,6 +78,7 @@
       },
       "env": {
         "EXPO_PUBLIC_E2E_SEED_ONBOARDED": "true",
+        "SENTRY_DISABLE_AUTO_UPLOAD": "true",
         "EXPO_PUBLIC_FEATURE_FLAGS": "cloud_sync:false,emergency_sync:false,cross_device_sync:false,wellness_trend_notes:false,data_export:false,bug_reporting:true,practice_haptics:false,voice_journal:true,domain_guidance:true"
       }
     },
