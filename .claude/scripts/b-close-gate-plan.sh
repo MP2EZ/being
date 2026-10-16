@@ -58,7 +58,7 @@ if [ -z "${BASH_VERSION:-}" ]; then
   exit 2
 fi
 
-SAFETY_PATH_RE='^app/(src/features/(assessment|consent|crisis|guidance|journal|onboarding|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/components/accessibility/(RadioGroup|FocusManager)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|src/core/services/data-retention/|src/core/services/privacy/(AccountDeletionService|erasurePending|erasureResumeGate)\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|ios/.*Info\.plist)'
+SAFETY_PATH_RE='^app/(src/features/(assessment|consent|crisis|guidance|journal|onboarding|practices/dailyloop)|src/features/insights/(components/|screens/InsightsScreen\.tsx)|src/features/home/screens/CleanHomeScreen\.tsx|src/features/learn/practices/(PracticeTimerScreen|ReflectionTimerScreen|BodyScanScreen|GuidedBodyScanScreen|SortingPracticeScreen|PracticeCompletionScreen|shared/PracticeToggleButton|shared/usePracticeCompletion)\.tsx|src/features/practices/screens/PracticeLibraryScreen\.tsx|src/features/profile/screens/(DeleteAccountScreen|ProfileScreen|ExportDataScreen|PrivacyDataScreen)\.tsx|src/features/practices/shared/components/(HapticsOptInPrompt|ResumeSessionModal|BreathingCircle)\.tsx|src/features/practices/shared/haptics/|src/features/practices/shared/useIsFocusedSafe\.ts|src/core/services/security|src/core/services/speech/|src/core/services/logging/ExternalErrorReporter\.ts|src/core/navigation/|src/core/hooks/|src/core/components/(ThresholdEducationModal|BugReportOverlay)\.tsx|src/core/components/accessibility/(RadioGroup|FocusManager)\.tsx|src/core/config/e2eSeed\.ts|src/core/stores/(consentStore|bugReportStore)\.ts|src/core/services/supabase/SupabaseService\.ts|src/core/services/data-retention/|src/core/services/privacy/(AccountDeletionService|erasurePending|erasureResumeGate)\.ts|App\.tsx|src/core/analytics/PostHogProvider\.tsx|plugins/|patches/|\.maestro/|app\.json|metro\.config\.js|ios/.*Info\.plist)'
 
 die() { echo "🛑 b-close-gate-plan: $*" >&2; exit 2; }
 
@@ -624,6 +624,10 @@ echo "$RENDER_BOOT_RELEVANT" | grep -q 'src/core/services/speech/' && \
 # reviewed in a diff. No sim flow can bound an arbitrary patched module, so the arm proves the
 # surrounding crisis paths still render and the notice points at an attended device session.
 echo "$RENDER_BOOT_RELEVANT" | grep -q '^app/patches/' && \
+  FLOWS+=("crisis-button-reachability")
+# INFRA-800: metro.config.js sets the serializer/transformer/resolver for every module on every
+# 988 path; its output is never diff-reviewed. The arm proves boot + 988 reachability.
+echo "$RENDER_BOOT_RELEVANT" | grep -q '^app/metro\.config\.js$' && \
   FLOWS+=("crisis-button-reachability")
 # INFRA-482: consentStore.ts is FILE-level, not the whole of src/core/stores/. It owns every
 # consent-record write, `canPerformOperation`, the INFRA-377 forging seam, and the loadConsent

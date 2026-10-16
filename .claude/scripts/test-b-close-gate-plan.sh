@@ -31,7 +31,7 @@
 
 if [ -z "${BASH_VERSION:-}" ]; then echo "run with bash" >&2; exit 2; fi
 
-EXPECTED_CASES=121
+EXPECTED_CASES=122
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/b-close-gate-plan.sh"
 VERBOSE=""; NO_CACHE=""
@@ -126,6 +126,7 @@ case_posthog_provider()     { w $C/analytics/PostHogProvider.tsx; expect 0 1 "" 
 case_journal()              { w $F/journal/screens/JournalScreen.tsx; expect 0 1 "" "journal-crisis-scan" ""; }
 case_speech()               { w $C/services/speech/onDeviceSpeechGuard.ts; expect 0 1 "" "journal-crisis-scan" ""; }
 case_patches()              { w app/patches/expo-modules-jsi+56.0.7.patch; expect 0 1 "" "$CBR" ""; }
+case_metro_config()         { w app/metro.config.js 'module.exports = {};'; expect 0 1 "" "$CBR" ""; }
 case_consent_store()        { w $C/stores/consentStore.ts; expect 0 1 "" "$CONSENT3" ""; }
 case_deeplink_validation()  { w $C/services/security/DeepLinkValidationService.ts; expect 0 1 "" "daily-loop-deeplink deeplink-consent-gate" ""; }
 case_supabase_service()     { w $C/services/supabase/SupabaseService.ts; expect 0 1 "" "gad7-severe journal-crisis-scan phq9-severe-completion q9-single-alert" "" "SupabaseService changed"; }

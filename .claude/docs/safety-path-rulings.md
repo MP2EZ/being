@@ -409,3 +409,12 @@ consent fail-closed branch (DEBUG-419/755): deferring the navigation must never 
 net. NECESSARY, NOT SUFFICIENT: the gate build seeds past onboarding, so no sim flow reaches the
 privacy step or the handoff, and none can open CrisisResources inside those windows. The races are
 jest-owned: `onboardingLegalGateReaskCrisisRoute.test.ts` and `assessmentCompletionCrisisRoute.test.ts`.
+
+`metro.config.js` is the thirty-second instance (added INFRA-800, crisis ruling), gated as a
+FILE: `app/` itself is not a candidate. It mirrors `patches/` for JS. It decides the serializer,
+transformer and resolver for every module on every 988 path, imports nothing from
+`features/crisis/` (so INFRA-531 cannot see it), and the bundle it produces is never reviewed in
+a diff. `crisis-button-reachability` proves boot and 988 reachability. Deliberately NOT gated:
+`android/app/build.gradle` and `android/sentry.properties`, because no sim flow runs Android;
+their check is a Release `assembleRelease` with `SENTRY_DISABLE_AUTO_UPLOAD=true`. Not ruled:
+`babel.config.js`, the same shape, left ungated by founder decision.
