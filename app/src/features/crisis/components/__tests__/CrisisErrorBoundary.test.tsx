@@ -19,6 +19,7 @@ jest.mock('../../utils/openCrisisUrl', () => ({
 
 import { openCrisisUrl } from '../../utils/openCrisisUrl';
 import { CrisisErrorBoundary } from '../CrisisErrorBoundary';
+import { STATIC_988_BUTTON_TEST_ID } from '../Static988Button';
 
 const Boom = (): React.ReactElement => {
   throw new Error('child exploded');
@@ -67,5 +68,17 @@ describe('CrisisErrorBoundary emergency dials', () => {
     const buttons = openEmergencyAlert();
     buttons.find((b) => /911/.test(b.text))?.onPress?.();
     expect(openCrisisUrl).toHaveBeenCalledWith('tel:911', expect.anything());
+  });
+
+  // DEBUG-787: the privacy bullet changed; the 988 affordance above it must not.
+  test('renders the corrected privacy bullet with the 988 button still present', () => {
+    const { getByTestId, getByText, queryByText } = render(
+      <CrisisErrorBoundary>
+        <Boom />
+      </CrisisErrorBoundary>
+    );
+    expect(queryByText(/No personal information is shared/)).toBeNull();
+    expect(getByText(/Crash reports \(only if you turned them on\)/)).toBeTruthy();
+    expect(getByTestId(STATIC_988_BUTTON_TEST_ID)).toBeTruthy();
   });
 });

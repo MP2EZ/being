@@ -299,6 +299,12 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   // report from there rather than re-litigating it.
   const [breathCompleted, setBreathCompleted] = useState(!showBreath);
   const [isBreathActive, setIsBreathActive] = useState(showBreath);
+  // DEBUG-694. Which route ended the breath, for e2e only: SkipLink and the Timer both
+  // flip `breathCompleted`, so nothing on screen said which did, and the 30s expiry
+  // satisfied every skip "proof" the flows had. Read ONLY in the root testID below —
+  // never persisted, never in onSave/analytics, never used to vary what follows a skip
+  // (philosopher constraint: declining the gate is prohairesis, not a lesser path).
+  const [breathSkipped, setBreathSkipped] = useState(false);
 
   const setField = useCallback((key: LoopFieldKey, text: string) => {
     setValues((v) => ({ ...v, [key]: text }));
@@ -312,6 +318,14 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
     setBreathCompleted(true);
     setIsBreathActive(false);
   }, []);
+
+  // The ONLY setter of `breathSkipped`, and it must keep delegating to
+  // handleBreathComplete so completion logic stays in one place. Never derive the fact
+  // from `breathCompleted`: that is the timer-satisfiable shape this replaced.
+  const handleBreathSkip = useCallback(() => {
+    setBreathSkipped(true);
+    handleBreathComplete();
+  }, [handleBreathComplete]);
 
   const handleContinue = useCallback(() => {
     // Reflect-first: all inputs optional. Capture only what was written.
@@ -350,6 +364,9 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       style={styles.container}
+      // DEBUG-694: on the ROOT, not a reflection-phase node — at AX5 those scroll off
+      // screen, the root cannot. Automation identifier only: no label, hint or value.
+      testID={breathSkipped ? 'daily-loop-breath-skipped' : undefined}
     >
       <ScrollView
         style={styles.scrollView}
@@ -388,8 +405,8 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
           the reduce-motion label), so `announce` would double-speak rather than add
           a channel. Both session anchors would assert falsehoods: `sessionStart`
           says "you can close your eyes now", `sessionEnd` says "the practice is
-          complete" on beat 1 of 5 — and `handleBreathComplete` is shared with
-          `SkipLink` below, so the latter would fire on a skip.
+          complete" on beat 1 of 5 — and `handleBreathComplete` is reached from
+          `SkipLink` below (via `handleBreathSkip`), so the latter would fire on a skip.
 
           Reopens on an arrival that is genuinely eyes-closed, or on a cue authored
           for a GATE transition with its own catalog meaning — never by reusing the
@@ -438,7 +455,7 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
               and pacing the triad, not by moving this control.
             */}
             <SkipLink
-              onPress={handleBreathComplete}
+              onPress={handleBreathSkip}
               accessibilityLabel="Skip breathing exercise"
               testID="daily-loop-skip-breath"
             />

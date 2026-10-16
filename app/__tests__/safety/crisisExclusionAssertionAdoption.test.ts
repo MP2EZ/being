@@ -69,7 +69,8 @@ describe('DEBUG-643 — every AC4 host checks its cleared controls', () => {
   it('PracticeToggleButton only forwards the handler, leaving the host style last', () => {
     const src = read('features/learn/practices/shared/PracticeToggleButton.tsx');
     expect(src).toMatch(/onLayout=\{onLayout\}/);
-    expect(src).toMatch(/style=\{\[styles\.button, style\]\}/);
+    // DEBUG-677 inserts a padding-only AX entry between them; the host style stays last.
+    expect(src).toMatch(/style=\{\[styles\.button,[^\]]*\bstyle\]\}/);
     expect(src).not.toMatch(/from '@\/features\/crisis\//);
   });
 

@@ -281,12 +281,11 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
 #
 # The two assertions below exist because a `when:` block that silently no-ops is exactly
 # the "passing step that proved nothing" shape docs/testing/e2e-maestro.md warns about:
-#   • assertNotVisible pins that the gate is actually GONE — if the conditional skipped
-#     while the breath was still running, the SkipLink would still be mounted and this
-#     goes red.
-#     ⚠️ DEBUG-652 MEASURED THIS FALSE: with the skip tap removed, the wait below outlasts
-#     the breath (10.6-16.1s waited, resolved at mount + 30s) and the step goes GREEN 3/3.
-#     The timer's own expiry satisfies both assertions. Fix owned by DEBUG-694.
+#   • assertNotVisible pins that the gate is GONE by either route. It is NOT the skip's
+#     proof, and neither is the assertVisible below: the timer's own expiry satisfies both
+#     (DEBUG-652 measured the no-skip mutant GREEN 3/3, resolving at mount + 30s after
+#     10.6-16.1s of waiting). The proof is `daily-loop-breath-skipped` inside the block —
+#     the one fact only the SkipLink sets (DEBUG-694).
 #   • assertVisible pins that the reflection phase actually RENDERED. It is deliberately
 #     NOT `continue-button`: that element is the one under suspicion in this defect, so
 #     it must not double as the thing that proves the step. `daily-loop-input-response`
@@ -327,6 +326,36 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
           id: "daily-loop-skip-breath"
       - tapOn:
           id: "daily-loop-skip-breath"
+      # DEBUG-694 — settle, then ONE conditional re-tap (the DEBUG-632 shape), crisis ruling.
+      # This tap follows the crisis round-trip, and on 6 control runs one first tap was
+      # swallowed there (COMPLETED, 6.4s; the timer ended the beat). The old proof passed that
+      # run green. This site therefore does NOT own "the first tap must work" at default type —
+      # the deep site below does (one unconditional tap, no round-trip in front). The SkipLink
+      # is not a crisis affordance; no crisis tap is retried. Whether that swallow is the app
+      # dropping the first touch after CrisisResources back-navigation is DEBUG-799.
+      # DEBUG-799 did NOT reproduce it: 0/30 with the round-trip, 0/30 without (one
+      # SE 3 / iOS 18.6 Release binary, 2026-10-15). A 6.4s tap is normal here (median 6.7s
+      # both arms), and Maestro dispatches this tap ≥10s after nav-back, so no flow can test
+      # the dismiss window. The re-tap stays.
+      - extendedWaitUntil:
+          visible:
+            id: "daily-loop-breath-skipped"
+          timeout: 3000
+          optional: true
+      - runFlow:
+          when:
+            visible:
+              id: "daily-loop-skip-breath"
+          commands:
+            - tapOn:
+                id: "daily-loop-skip-breath"
+                optional: true
+      # DEBUG-694 — the skip's PROOF. Only the SkipLink sets it and the 30s timer never does,
+      # so a skip that never took reds here however far Maestro stretches its wait. Inside the
+      # block on purpose: if the breath already expired during a stalled crisis round-trip
+      # (the hardening path above), there was no skip to prove.
+      - assertVisible:
+          id: "daily-loop-breath-skipped"
 - assertNotVisible:
     id: "daily-loop-skip-breath"
 - assertVisible:
@@ -547,6 +576,7 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
     id: "daily-loop-depth-select-screen"
 - tapOn:
     id: "daily-loop-depth-deep"
+# THIS site owns "the first tap must work" at default type (DEBUG-694): one tap, no re-tap.
 # NOT conditional, unlike the Aware Presence site above, and the asymmetry is the point:
 # no crisis round-trip precedes this tap, so nothing here can burn 30 seconds of wall
 # clock before we reach the SkipLink. Leaving it unconditional keeps this a real
@@ -563,6 +593,11 @@ name: "DailyLoop quick-depth (FEAT-301): crisis affordance survives the shorter 
     notVisible:
       id: "daily-loop-skip-breath"
     timeout: 5000
+# DEBUG-694 — the proof the wait above only approximates: Maestro has stretched a nominal
+# 5000 to 16.1s on this screen class, so the margin argument is arithmetic, not a guarantee.
+# This fact is set only by the SkipLink, so a swallowed skip reds however long the wait runs.
+- assertVisible:
+    id: "daily-loop-breath-skipped"
 - assertVisible:
     id: "daily-loop-input-response"
 # DEBUG-519 — the second bare tap. Same guard and same reasoning as the quick beat-1 site

@@ -14,8 +14,16 @@
  */
 
 import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ViewStyle, type LayoutChangeEvent } from 'react-native';
+import {
+  TouchableOpacity,
+  Text,
+  StyleSheet,
+  ViewStyle,
+  useWindowDimensions,
+  type LayoutChangeEvent,
+} from 'react-native';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { practiceHeaderStacksTitle } from './practiceScreenHeaderLayout';
 
 interface PracticeToggleButtonProps {
   isActive: boolean;
@@ -41,6 +49,11 @@ const PracticeToggleButton: React.FC<PracticeToggleButtonProps> = ({
   testID = 'practice-toggle-button',
   onLayout,
 }) => {
+  // DEBUG-677: from the AX threshold the label box is too narrow for one AX5 word at
+  // spacing[32] on 375-390pt iPhones ("Resum / e"). Narrowing the padding widens the
+  // box instead of capping the text.
+  const axPadding = practiceHeaderStacksTitle(useWindowDimensions().fontScale);
+
   const {
     begin = 'Begin Practice',
     pause = 'Pause',
@@ -80,7 +93,7 @@ const PracticeToggleButton: React.FC<PracticeToggleButtonProps> = ({
 
   return (
     <TouchableOpacity
-      style={[styles.button, style]}
+      style={[styles.button, axPadding && styles.buttonAx, style]}
       onLayout={onLayout}
       onPress={handlePress}
       accessibilityRole="button"
@@ -117,10 +130,17 @@ const styles = StyleSheet.create({
     shadowRadius: borderRadius.small,
     elevation: 2,
   },
+  // Crisis ruling (DEBUG-677): symmetric padding keys only, and merged BEFORE the host
+  // `style`, which carries the three hosts' FAB-clearance marginRight. Padding sits inside
+  // the frame, so the frame's x-range is unchanged. Never paddingLeft/Right (DEBUG-622).
+  buttonAx: {
+    paddingHorizontal: spacing[12],
+  },
   buttonText: {
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,
     color: colorSystem.base.white,
+    textAlign: 'center',
   },
 });
 
