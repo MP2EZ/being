@@ -20,11 +20,12 @@
  * and since MAINT-123 never has been, persisted through this service. The
  * `crisis_async_` / `crisis_secure_` namespaces are retained in the erasure paths
  * below as a defensive floor for records on already-shipped installs — see
- * SWEPT_ASYNC_PREFIXES and deleteSecureData.
+ * SWEPT_ASYNC_PREFIXES.
  *
  * `storeAssessmentData` was removed in MAINT-716 on the same grounds (no
- * production caller). `assessment_async_` stays swept and enumerated for the same
- * reason, and `retrieveAssessmentData` still reads records already on disk.
+ * production caller), and `retrieveAssessmentData` and `deleteSecureData` went in
+ * MAINT-790 for the same reason. `assessment_async_` stays swept for records
+ * already on disk.
  *
  * Plaintext is never written to disk. AES-256-GCM ciphertext is opaque;
  * confidentiality derives from the key (held in Keychain), not the
@@ -42,11 +43,10 @@
  */
 
 
-import { logSecurity, logPerformance, logError, logSystem, LogCategory } from '../logging';
+import { logSecurity, logError, logSystem, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as SecureStore from 'expo-secure-store';
 import { isLegacyPlaintextRecord } from './legacyPlaintextRecordSweeper';
-import * as FileSystem from 'expo-file-system';
 import EncryptionService, { 
   EncryptedDataPackage, 
   DataSensitivityLevel 
@@ -55,17 +55,17 @@ import EncryptionService, {
 /**
  * The persisted metadata index (DEBUG-381).
  *
- * Named rather than inlined because it is read by `loadStorageMetadata`, swept by
- * `clearAllWellnessData`, and asserted by the erasure privacy suites — sites that
- * must agree. It was a bare string literal at three of them, which is the same
- * hand-copied-mirror shape that let `audit_log_` go unswept through two work
- * items (see `SWEPT_ASYNC_PREFIXES` below).
+ * Named rather than inlined because it is swept by `clearAllWellnessData` and
+ * asserted by the erasure privacy suites — sites that must agree. It was a bare
+ * string literal at three of them, which is the same hand-copied-mirror shape
+ * that let `audit_log_` go unswept through two work items (see
+ * `SWEPT_ASYNC_PREFIXES` below).
  *
- * NOTHING WRITES IT since MAINT-716 deleted `storeAssessmentData`, its last
- * writer. It survives as a read-and-sweep key: shipped installs may still carry
- * the file, `loadStorageMetadata` hydrates the cache from it, and erasure
+ * NOTHING WRITES OR READS IT. MAINT-716 deleted `storeAssessmentData`, its last
+ * writer; MAINT-790 deleted `loadStorageMetadata`, its last reader. It survives
+ * only as a sweep key: shipped installs may still carry the file and erasure
  * deletes it. `storageMetadataIndexErasure.privacy.test.ts` pins the absence of
- * a writer, so one cannot be re-added unnoticed.
+ * both a writer and a reader, so neither can be re-added unnoticed.
  *
  * Its contents on those installs are CLEARTEXT and crisis-describing: one record
  * per stored blob carrying `storageKey` (e.g. `crisis_async_<episodeId>`),
@@ -79,11 +79,6 @@ export const STORAGE_METADATA_INDEX_KEY = 'storage_metadata_index';
  * SECURE STORAGE CONFIGURATION
  */
 export const SECURE_STORAGE_CONFIG = {
-  /** Storage tier prefixes — legacy SecureStore (kept for migration fallback) */
-  CRISIS_PREFIX: 'crisis_secure_',
-  ASSESSMENT_PREFIX: 'assessment_secure_',
-  INTERVENTION_PREFIX: 'intervention_secure_',
-  PERFORMANCE_PREFIX: 'performance_',
   GENERAL_PREFIX: 'general_',
 
   /** AsyncStorage prefixes for hybrid wellness storage (INFRA-144) */
@@ -112,15 +107,14 @@ export const SECURE_STORAGE_CONFIG = {
    * in `crisisRecordErasure.privacy.test.ts`, which reads this same constant —
    * so the exception list cannot silently grow a hole.
    *
-   * `storage_metadata_index` (DEBUG-381) has had no writer since MAINT-716, so
-   * membership here is the whole erasure control for it: it deletes residue left
-   * by shipped installs, and nothing re-creates the file afterwards. Before
-   * MAINT-716 the key was inert on its own, because `storeMetadata` re-serialised
-   * the in-memory `metadataCache` on every write and restored the file verbatim.
-   * The `metadataCache.clear()` retained in `clearAllWellnessData` now serves a
-   * different purpose — see the comment there. The no-writer pin is
-   * `storageMetadataIndexErasure.privacy.test.ts`; a re-introduced writer reopens
-   * the restore-on-write hole that cache clear used to close.
+   * `storage_metadata_index` (DEBUG-381) has had no writer since MAINT-716 and
+   * no reader since MAINT-790, so membership here is the whole erasure control
+   * for it: it deletes residue left by shipped installs, and nothing re-creates
+   * the file afterwards. Before MAINT-716 the key was inert on its own, because
+   * `storeMetadata` re-serialised an in-memory cache on every write and restored
+   * the file verbatim. The no-writer and no-reader pins are in
+   * `storageMetadataIndexErasure.privacy.test.ts`; a re-introduced writer
+   * reopens that restore-on-write hole.
    *
    * 🔴 `@being/supabase/offline_queue` (DEBUG-698) IS INERT WITHOUT
    * SupabaseService's registered erasure reset (`resetOfflineQueueForErasure`,
@@ -168,14 +162,11 @@ export const SECURE_STORAGE_CONFIG = {
   BULK_OPERATION_THRESHOLD_MS: 500,
   
   /** Cleanup configuration */
-  AUTO_CLEANUP_INTERVAL_MS: 24 * 60 * 60 * 1000, // Daily
-  TEMP_DATA_EXPIRY_MS: 60 * 60 * 1000, // 1 hour
   CACHE_EXPIRY_MS: 30 * 60 * 1000, // 30 minutes
   
   /** Audit configuration */
   AUDIT_LOG_PREFIX: 'audit_log_',
-  MAX_AUDIT_ENTRIES: 10000,
-  AUDIT_ROTATION_DAYS: 90
+  MAX_AUDIT_ENTRIES: 10000
 } as const;
 
 /**
@@ -187,16 +178,15 @@ export const SECURE_STORAGE_CONFIG = {
  * passing. `SWEPT_EXACT_KEYS` above already had this property; this is the
  * prefix half.
  *
- * `audit_log_` is on this list because `logStorageAccess` persists an entry on
- * every failed operation. (It also persisted on every `crisis_tier` operation
- * until MAINT-378 removed that tier; the failure arm is now the only writer, and
- * since MAINT-716 it is reachable only through `deleteSecureData` and
- * `retrieveAssessmentData`, neither of which has a production caller.)
- * Nothing reads those records back and `cleanupAuditLogs()` prunes only the
- * in-memory array, so before DEBUG-355 nothing in the app could remove them at
- * all. Unlike the SecureStore `critical_log_*` records in the same work item,
- * these enumerate — so adding the prefix here fixes already-shipped installs
- * retroactively, with no migration and no persisted index.
+ * `audit_log_` is on this list as a defensive floor. `logStorageAccess` used to
+ * persist an entry on every failed operation (and on every `crisis_tier`
+ * operation until MAINT-378 removed that tier); MAINT-716 left that failure arm
+ * reachable only through two methods with no production caller, and MAINT-790
+ * deleted the arm, so no code writes the prefix. Nothing reads those records
+ * back, so before DEBUG-355 nothing in the app could remove them at all. Unlike
+ * the SecureStore `critical_log_*` records in the same work item, these
+ * enumerate — so the prefix here clears already-shipped installs retroactively,
+ * with no migration and no persisted index.
  *
  * `crisis_async_` is retained here after MAINT-378 deleted the tier that wrote
  * it. The namespace is now write-free: no production code path produces such a
@@ -387,23 +377,6 @@ export type StorageTier =
 export type LegacyFormat = 'encrypted_package' | 'plaintext_json';
 
 /**
- * SECURE STORAGE METADATA
- */
-export interface SecureStorageMetadata {
-  storageKey: string;
-  storageTier: StorageTier;
-  sensitivityLevel: DataSensitivityLevel;
-  dataType: string;
-  createdAt: number;
-  lastAccessedAt: number;
-  accessCount: number;
-  encrypted: boolean;
-  dataSize: number;
-  expiresAt?: number;
-  retentionPolicy: 'temporary' | 'session' | 'persistent' | 'wellness_record';
-}
-
-/**
  * STORAGE OPERATION RESULT
  */
 export interface StorageOperationResult {
@@ -413,7 +386,6 @@ export interface StorageOperationResult {
   operationTimeMs: number;
   dataSize: number;
   error?: string | undefined;
-  metadata?: SecureStorageMetadata | undefined;
 }
 
 /**
@@ -440,19 +412,10 @@ export interface StorageAccessLogEntry {
 export class SecureStorageService {
   private static instance: SecureStorageService;
   private encryptionService: typeof EncryptionService;
-  private metadataCache: Map<string, SecureStorageMetadata> = new Map();
   private accessLog: StorageAccessLogEntry[] = [];
-  private cleanupTimer: NodeJS.Timeout | null = null;
-  private initialized: boolean = false;
 
   private constructor() {
     this.encryptionService = EncryptionService;
-    // Skip the long-lived cleanup setInterval in test runs; otherwise it
-    // keeps the Jest runtime alive past test completion and triggers
-    // "open handle" warnings + worker process timeouts.
-    if (process.env.NODE_ENV !== 'test') {
-      this.initializeCleanupScheduler();
-    }
   }
 
   public static getInstance(): SecureStorageService {
@@ -464,10 +427,10 @@ export class SecureStorageService {
 
   /**
    * MAINT-190: Test-only escape hatch for singleton state isolation.
-   * Clears the in-memory metadata cache + access log + cleanup timer.
-   * Does NOT delete persisted secure-store entries — those belong to the
-   * underlying expo-secure-store and survive process restarts. Tests that
-   * need a clean store must call the explicit clear/erase APIs.
+   * Clears the in-memory access log and drops the singleton. Does NOT delete
+   * persisted secure-store entries — those belong to the underlying
+   * expo-secure-store and survive process restarts. Tests that need a clean
+   * store must call the explicit clear/erase APIs.
    *
    * Production safety: throws if NODE_ENV !== 'test'.
    */
@@ -478,160 +441,10 @@ export class SecureStorageService {
       );
     }
     if (SecureStorageService.instance) {
-      const inst = SecureStorageService.instance;
-      if (inst.cleanupTimer) {
-        clearInterval(inst.cleanupTimer);
-        inst.cleanupTimer = null;
-      }
-      inst.metadataCache.clear();
-      inst.accessLog = [];
-      inst.initialized = false;
+      SecureStorageService.instance.accessLog = [];
     }
     // eslint-disable-next-line @typescript-eslint/no-explicit-any -- intentional: nulling private static reset target
     SecureStorageService.instance = undefined as any;
-  }
-
-  /**
-   * INITIALIZE SECURE STORAGE
-   */
-  public async initialize(): Promise<void> {
-    const startTime = performance.now();
-
-    try {
-      logSystem('Initializing Secure Storage Service');
-
-      // Initialize encryption service
-      await this.encryptionService.initialize();
-
-      // Load existing metadata
-      await this.loadStorageMetadata();
-
-      // Verify storage capabilities
-      await this.verifyStorageCapabilities();
-
-      // Schedule cleanup
-      await this.scheduleDataCleanup();
-
-      this.initialized = true;
-
-      const initializationTime = performance.now() - startTime;
-      logPerformance('SecureStorageService.initialize', initializationTime, {
-        status: 'success',
-        context: 'service_initialization'
-      });
-
-      // Log initialization
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'store',
-        storageKey: 'system_initialization',
-        storageTier: 'general_tier',
-        dataType: 'system_event',
-        success: true,
-        operationTimeMs: initializationTime,
-        dataSize: 0,
-        securityContext: 'secure_storage_init'
-      });
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 SECURE STORAGE INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw new Error(`Secure storage initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
-    }
-  }
-
-  /**
-   * RETRIEVE ASSESSMENT DATA
-   * Retrieval for PHQ-9/GAD-7 assessment data
-   */
-  public async retrieveAssessmentData(
-    assessmentId: string,
-    userContext?: string
-  ): Promise<{ data: any; metadata: SecureStorageMetadata } | null> {
-    const startTime = performance.now();
-
-    try {
-      // Lazy-init the encryption layer so callers can hit these methods
-      // before app-startup ordering completes (e.g. Zustand persist rehydration
-      // for the assessment store fires at module load, ahead of App.tsx's
-      // SecureStorageService.initialize() call). encryptionService.initialize
-      // is idempotent and shares the in-flight promise across concurrent calls.
-      await this.encryptionService.initialize();
-
-      const storageKey = `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`;
-      const legacyKey = `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`;
-
-      const encryptedDataString = await this.readWithLegacyFallback(storageKey, legacyKey);
-      if (!encryptedDataString) {
-        return null;
-      }
-
-      const encryptedPackage: EncryptedDataPackage = JSON.parse(encryptedDataString);
-      const decryptedData = await this.encryptionService.decryptData(encryptedPackage);
-
-      // Update metadata
-      const metadata = this.metadataCache.get(storageKey);
-      if (metadata) {
-        metadata.lastAccessedAt = Date.now();
-        metadata.accessCount += 1;
-        this.metadataCache.set(storageKey, metadata);
-      }
-
-      const operationTime = performance.now() - startTime;
-
-      // Log access
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'retrieve',
-        storageKey,
-        storageTier: 'assessment_tier',
-        dataType: 'assessment_data',
-        success: true,
-        operationTimeMs: operationTime,
-        dataSize: encryptedDataString.length,
-        userContext,
-        securityContext: 'assessment_data_retrieval'
-      });
-
-      logPerformance('SecureStorageService.retrieveAssessmentData', operationTime, {
-        tier: 'assessment_tier'
-      });
-
-      return {
-        data: decryptedData,
-        metadata: metadata || {
-          storageKey,
-          storageTier: 'assessment_tier',
-          sensitivityLevel: 'level_2_assessment_data',
-          dataType: 'assessment_data',
-          createdAt: Date.now(),
-          lastAccessedAt: Date.now(),
-          accessCount: 1,
-          encrypted: true,
-          dataSize: encryptedDataString.length,
-          retentionPolicy: 'wellness_record'
-        }
-      };
-
-    } catch (error) {
-      const operationTime = performance.now() - startTime;
-      logError(LogCategory.SECURITY, '🚨 ASSESSMENT DATA RETRIEVAL ERROR:', error instanceof Error ? error : new Error(String(error)));
-
-      // Log failure
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'retrieve',
-        storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`,
-        storageTier: 'assessment_tier',
-        dataType: 'assessment_data',
-        success: false,
-        operationTimeMs: operationTime,
-        dataSize: 0,
-        userContext,
-        error: (error instanceof Error ? error.message : String(error))
-      });
-
-      throw error;
-    }
   }
 
   /**
@@ -712,203 +525,6 @@ export class SecureStorageService {
   }
 
   /**
-   * SECURE DATA DELETION
-   */
-  public async deleteSecureData(
-    key: string,
-    userContext?: string
-  ): Promise<StorageOperationResult> {
-    const startTime = performance.now();
-
-    try {
-      // Lazy-init the encryption layer so callers can hit these methods
-      // before app-startup ordering completes (e.g. Zustand persist rehydration
-      // for the assessment store fires at module load, ahead of App.tsx's
-      // SecureStorageService.initialize() call). encryptionService.initialize
-      // is idempotent and shares the in-flight promise across concurrent calls.
-      await this.encryptionService.initialize();
-
-      // Hybrid storage (INFRA-144): wellness data lives under *_ASYNC_PREFIX
-      // in AsyncStorage; legacy *_PREFIX keys remain in SecureStore until
-      // first-read migration. Enumerate both. Always also clear the migration
-      // marker so a future write under the legacy key would re-migrate if
-      // needed.
-      //
-      // The two crisis namespaces below are write-free since MAINT-378 removed
-      // the tier that produced them. They are enumerated deliberately, as a
-      // defensive erasure floor for records on already-shipped installs. Do not
-      // prune them for tidiness: dropping a namespace from a deletion path is a
-      // one-way regression, and SecureStore in particular has no enumerate API,
-      // so a legacy `crisis_secure_*` key can only ever be reached by name.
-      const asyncPossibleKeys = [
-        `${SECURE_STORAGE_CONFIG.CRISIS_ASYNC_PREFIX}${key}`,
-        `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${key}`,
-        `${SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX}${key}`,
-        `${SECURE_STORAGE_CONFIG.PERFORMANCE_PREFIX}${key}`,
-        `${SECURE_STORAGE_CONFIG.GENERAL_PREFIX}${key}`,
-      ];
-      const secureStorePossibleKeys = [
-        `${SECURE_STORAGE_CONFIG.CRISIS_PREFIX}${key}`,
-        `${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${key}`,
-        `${SECURE_STORAGE_CONFIG.INTERVENTION_PREFIX}${key}`,
-      ];
-
-      let deletedKey: string | null = null;
-      let dataSize = 0;
-
-      for (const storageKey of asyncPossibleKeys) {
-        try {
-          const asyncData = await AsyncStorage.getItem(storageKey);
-          if (asyncData) {
-            await AsyncStorage.removeItem(storageKey);
-            deletedKey = storageKey;
-            dataSize = asyncData.length;
-            break;
-          }
-        } catch {
-          continue;
-        }
-      }
-
-      if (!deletedKey) {
-        for (const storageKey of secureStorePossibleKeys) {
-          try {
-            const secureData = await SecureStore.getItemAsync(storageKey);
-            if (secureData) {
-              await SecureStore.deleteItemAsync(storageKey);
-              deletedKey = storageKey;
-              dataSize = secureData.length;
-              break;
-            }
-          } catch {
-            continue;
-          }
-        }
-      }
-
-      const operationTime = performance.now() - startTime;
-
-      // Log deletion
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'delete',
-        storageKey: deletedKey || key,
-        storageTier: 'general_tier',
-        dataType: 'unknown',
-        success: deletedKey !== null,
-        operationTimeMs: operationTime,
-        dataSize,
-        userContext,
-        securityContext: 'secure_data_deletion'
-      });
-
-      logPerformance('SecureStorageService.deleteData', operationTime, {
-        success: deletedKey !== null,
-        key: deletedKey || 'not_found'
-      });
-
-      return {
-        success: deletedKey !== null,
-        operationType: 'delete',
-        storageKey: deletedKey || key,
-        operationTimeMs: operationTime,
-        dataSize
-      };
-
-    } catch (error) {
-      const operationTime = performance.now() - startTime;
-      logError(LogCategory.SECURITY, '🚨 SECURE DATA DELETION ERROR:', error instanceof Error ? error : new Error(String(error)));
-
-      return {
-        success: false,
-        operationType: 'delete',
-        storageKey: key,
-        operationTimeMs: operationTime,
-        dataSize: 0,
-        error: (error instanceof Error ? error.message : String(error))
-      };
-    }
-  }
-
-  /**
-   * DATA CLEANUP AND MAINTENANCE
-   */
-
-  private initializeCleanupScheduler(): void {
-    this.cleanupTimer = setInterval(async () => {
-      try {
-        await this.performScheduledCleanup();
-      } catch (error) {
-        logError(LogCategory.SECURITY, '🚨 SCHEDULED CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
-      }
-    }, SECURE_STORAGE_CONFIG.AUTO_CLEANUP_INTERVAL_MS);
-  }
-
-  private async performScheduledCleanup(): Promise<void> {
-    try {
-      logSystem('Performing scheduled storage cleanup');
-
-      let cleanedCount = 0;
-      const currentTime = Date.now();
-
-      // Clean up expired data
-      for (const [storageKey, metadata] of this.metadataCache.entries()) {
-        if (metadata.expiresAt && currentTime > metadata.expiresAt) {
-          await this.deleteSecureData(storageKey.replace(/^[^_]+_/, ''));
-          cleanedCount++;
-        } else if (metadata.retentionPolicy === 'temporary' && 
-                  currentTime - metadata.createdAt > SECURE_STORAGE_CONFIG.TEMP_DATA_EXPIRY_MS) {
-          await this.deleteSecureData(storageKey.replace(/^[^_]+_/, ''));
-          cleanedCount++;
-        }
-      }
-
-      // Clean up old audit logs
-      await this.cleanupAuditLogs();
-
-      logSystem(`Cleanup completed (${cleanedCount} items removed)`);
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  private async cleanupAuditLogs(): Promise<void> {
-    try {
-      const cutoffTime = Date.now() - (SECURE_STORAGE_CONFIG.AUDIT_ROTATION_DAYS * 24 * 60 * 60 * 1000);
-      
-      this.accessLog = this.accessLog.filter(entry => entry.timestamp > cutoffTime);
-
-      // Keep only latest entries if still too many
-      if (this.accessLog.length > SECURE_STORAGE_CONFIG.MAX_AUDIT_ENTRIES) {
-        this.accessLog = this.accessLog.slice(-SECURE_STORAGE_CONFIG.MAX_AUDIT_ENTRIES);
-      }
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 AUDIT LOG CLEANUP ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  /**
-   * METADATA MANAGEMENT
-   */
-
-  private async loadStorageMetadata(): Promise<void> {
-    try {
-      const metadataString = await AsyncStorage.getItem(STORAGE_METADATA_INDEX_KEY);
-      
-      if (metadataString) {
-        const metadataArray: Array<[string, SecureStorageMetadata]> = JSON.parse(metadataString);
-        this.metadataCache = new Map(metadataArray);
-        logSystem(`Loaded ${this.metadataCache.size} metadata entries`);
-      }
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 METADATA LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  /**
    * VALIDATION AND VERIFICATION
    */
 
@@ -953,10 +569,10 @@ export class SecureStorageService {
 
     try {
       // Lazy-init the encryption layer so callers can hit these methods
-      // before app-startup ordering completes (e.g. Zustand persist rehydration
-      // for the assessment store fires at module load, ahead of App.tsx's
-      // SecureStorageService.initialize() call). encryptionService.initialize
-      // is idempotent and shares the in-flight promise across concurrent calls.
+      // before any app-startup ordering completes (e.g. Zustand persist
+      // rehydration for the assessment store fires at module load).
+      // encryptionService.initialize is idempotent and shares the in-flight
+      // promise across concurrent calls. Nothing else initialises this service.
       await this.encryptionService.initialize();
 
       const encryptedPackage = await this.encryptionService.encryptData(data, sensitivityLevel);
@@ -1188,32 +804,6 @@ export class SecureStorageService {
   public async clearAllWellnessData(
     options: { deleteMasterKey?: boolean } = {}
   ): Promise<void> {
-    // DEBUG-381 / MAINT-716 — MUST be the first statement.
-    //
-    // No code writes `storage_metadata_index` any more, so this clear no longer
-    // stops the index being re-created from the cache. It stays because
-    // `loadStorageMetadata` can hydrate the cache from residue a shipped install
-    // left in that key, and a stale cache still has consumers:
-    // `performScheduledCleanup` walks it and calls `deleteSecureData` on entries
-    // whose records are already erased, and each miss goes through
-    // `logStorageAccess`, which persists an `audit_log_` entry naming the erased
-    // record id. `exportStorageData` and `getStorageMetrics` would report the
-    // same ghosts.
-    //
-    // Keep it ahead of the `getAllKeys()` await: a scheduled cleanup that runs
-    // inside that window would still see the cache naming erased records.
-    //
-    // Unconditional on both `deleteMasterKey` branches, deliberately. Every
-    // entry this cache can hold names a `crisis_async_*` or `assessment_async_*`
-    // key, and both prefixes are swept on both branches, so after either call the
-    // cache is 100% stale by construction. `accessLog` is deliberately NOT
-    // cleared alongside it: `getStorageMetrics` derives `successRate` from that
-    // array, and an empty one reports 0 — a false reliability signal to any
-    // consumer of that metric. (The original consumer, SecurityMonitoringService,
-    // was deleted unwired in MAINT-597; the invariant stands on its own and this
-    // array must not be "tidied up" alongside the cache.)
-    this.metadataCache.clear();
-
     const asyncKeys = await AsyncStorage.getAllKeys();
     const toRemove = asyncKeys.filter((k) =>
       // Prefix families — SWEPT_ASYNC_PREFIXES is the single source of truth the
@@ -1262,39 +852,6 @@ export class SecureStorageService {
     }
   }
 
-  private async verifyStorageCapabilities(): Promise<void> {
-    try {
-      logSystem('Verifying storage capabilities');
-
-      // Test SecureStore
-      const testKey = 'storage_capability_test';
-      const testData = 'test_data';
-      
-      await SecureStore.setItemAsync(testKey, testData);
-      const retrievedData = await SecureStore.getItemAsync(testKey);
-      await SecureStore.deleteItemAsync(testKey);
-
-      if (retrievedData !== testData) {
-        throw new Error('SecureStore capability test failed');
-      }
-
-      // Test AsyncStorage
-      await AsyncStorage.setItem(testKey, testData);
-      const asyncRetrievedData = await AsyncStorage.getItem(testKey);
-      await AsyncStorage.removeItem(testKey);
-
-      if (asyncRetrievedData !== testData) {
-        throw new Error('AsyncStorage capability test failed');
-      }
-
-      logSystem('Storage capabilities verified');
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 STORAGE CAPABILITY VERIFICATION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw error;
-    }
-  }
-
   /**
    * AUDIT AND LOGGING
    */
@@ -1308,110 +865,29 @@ export class SecureStorageService {
         this.accessLog = this.accessLog.slice(-SECURE_STORAGE_CONFIG.MAX_AUDIT_ENTRIES);
       }
 
-      // Persist critical access logs.
-      // Failure is the only persistence trigger since MAINT-378 removed the
-      // crisis tier. `audit_log_` stays in SWEPT_ASYNC_PREFIXES because this
-      // arm still writes.
-      if (!entry.success) {
-        const logKey = `${SECURE_STORAGE_CONFIG.AUDIT_LOG_PREFIX}${Date.now()}`;
-        await AsyncStorage.setItem(logKey, JSON.stringify(entry));
-      }
-
+      // In-memory only. Nothing persists an access-log entry (MAINT-790): the
+      // `audit_log_` prefix is swept on erasure but no code writes it.
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 ACCESS LOGGING ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
-  }
-
-  private async scheduleDataCleanup(): Promise<void> {
-    // Immediate cleanup of any expired data
-    await this.performScheduledCleanup();
   }
 
   /**
    * PUBLIC API METHODS
    */
 
-  public async getStorageMetrics(): Promise<{
-    totalEntries: number;
-    assessmentEntries: number;
-    totalStorageSize: number;
-    accessLogSize: number;
-    averageAccessTime: number;
-    successRate: number;
-  }> {
-    const assessmentEntries = Array.from(this.metadataCache.values()).filter(m => m.storageTier === 'assessment_tier').length;
-    const totalStorageSize = Array.from(this.metadataCache.values()).reduce((sum, m) => sum + m.dataSize, 0);
-    
-    const accessTimes = this.accessLog.map(log => log.operationTimeMs);
-    const averageAccessTime = accessTimes.length > 0 ? accessTimes.reduce((sum, time) => sum + time, 0) / accessTimes.length : 0;
-    
-    const successfulOperations = this.accessLog.filter(log => log.success).length;
-    const successRate = this.accessLog.length > 0 ? successfulOperations / this.accessLog.length : 0;
-
-    return {
-      totalEntries: this.metadataCache.size,
-      assessmentEntries,
-      totalStorageSize,
-      accessLogSize: this.accessLog.length,
-      averageAccessTime,
-      successRate
-    };
-  }
-
   public async getAccessLog(): Promise<StorageAccessLogEntry[]> {
     return [...this.accessLog];
-  }
-
-  public async exportStorageData(userContext?: string): Promise<{
-    metadata: SecureStorageMetadata[];
-    accessLog: StorageAccessLogEntry[];
-    exportTimestamp: number;
-  }> {
-    try {
-      // Log export operation
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'retrieve',
-        storageKey: 'storage_export',
-        storageTier: 'general_tier',
-        dataType: 'export_operation',
-        success: true,
-        operationTimeMs: 0,
-        dataSize: this.metadataCache.size + this.accessLog.length,
-        userContext,
-        securityContext: 'storage_data_export'
-      });
-
-      return {
-        metadata: Array.from(this.metadataCache.values()),
-        accessLog: [...this.accessLog],
-        exportTimestamp: Date.now()
-      };
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 STORAGE EXPORT ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw error;
-    }
   }
 
   public async destroy(): Promise<void> {
     try {
       logSystem('Destroying secure storage service');
 
-      // Clear cleanup timer
-      if (this.cleanupTimer) {
-        clearInterval(this.cleanupTimer);
-        this.cleanupTimer = null;
-      }
-
-      // Clear caches
-      this.metadataCache.clear();
       this.accessLog = [];
 
       // Destroy encryption service
       await this.encryptionService.destroy();
-
-      this.initialized = false;
 
       logSystem('Secure storage service destroyed');
 

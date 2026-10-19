@@ -36,10 +36,12 @@
  * MAINT-123, and the safety plan is not persisted through that service at all.
  * The correct argument is the structural one above — a broad prefix sweep
  * running unsupervised at launch is unsafe on its own terms, regardless of what
- * currently happens to live under the prefix. `crisis_async_*` and
- * `crisis_secure_*` remain reachable by the erasure paths in
- * SecureStorageService as a defensive floor for shipped installs, which is
- * another reason this module must not race them.
+ * currently happens to live under the prefix. `crisis_async_*` stays swept by
+ * `SecureStorageService.clearAllWellnessData` as a defensive floor for shipped
+ * installs, which is another reason this module must not race it.
+ * `crisis_secure_*` (SecureStore) has no erasure path: SecureStore cannot be
+ * enumerated and `deleteSecureData`, which reached it by name, was deleted in
+ * MAINT-790 with no caller. That gap is unchanged from DPIA v2.0 (6).
  *
  * Deliberately NOT swept: the `crisis_<assessmentId>` key from
  * `CrisisPerformanceOptimizer.logCrisisInterventionOptimized`. That class no

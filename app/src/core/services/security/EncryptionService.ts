@@ -67,8 +67,6 @@ export const ENCRYPTION_CONFIG = {
   MASTER_KEY_ID: 'mental_health_master_key',
   /** Crisis data key prefix */
   CRISIS_KEY_PREFIX: 'crisis_key_',
-  /** Assessment data key prefix */
-  ASSESSMENT_KEY_PREFIX: 'assessment_key_',
   /** Performance monitoring threshold */
   PERFORMANCE_THRESHOLD_MS: 200
 } as const;
@@ -161,9 +159,8 @@ export class EncryptionService {
   private initPromise: Promise<void> | null = null;
 
   private constructor() {
-    // Match SecureStorageService.ts:159 — skip the long-lived setInterval
-    // under Jest so the runtime can exit cleanly. The scheduler is only
-    // meaningful in the running app (cold-boot → 24h rotation cadence).
+    // Skip the long-lived setInterval under Jest so the runtime can exit
+    // cleanly. The scheduler is only meaningful in the running app (cold-boot → 24h rotation cadence).
     if (process.env.NODE_ENV !== 'test') {
       this.initializeKeyRotationScheduler();
     }
@@ -580,45 +577,6 @@ export class EncryptionService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 CRISIS ENCRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
-      throw error;
-    }
-  }
-
-  /**
-   * ASSESSMENT DATA ENCRYPTION
-   * Specialized encryption for PHQ-9/GAD-7 assessment responses
-   */
-  public async encryptAssessmentData(
-    assessmentData: {
-      type: 'PHQ-9' | 'GAD-7';
-      responses: number[];
-      totalScore: number;
-      timestamp: number;
-      userId: string;
-    },
-    assessmentId: string
-  ): Promise<EncryptedDataPackage> {
-    try {
-      // Use dedicated assessment key
-      const assessmentKeyId = `${ENCRYPTION_CONFIG.ASSESSMENT_KEY_PREFIX}${assessmentId}`;
-
-      // MAINT-712: always level_2. This used to elevate Q9>0 / severe totals to
-      // level_1_crisis_responses — a third copy of the crisis thresholds. The
-      // tier selects no key material (derivation is master key + per-record
-      // salt), and the label sits in plaintext package metadata, so elevating
-      // would have published a crisis-band indicator for no protective gain.
-      const encryptedPackage = await this.encryptData(
-        assessmentData,
-        'level_2_assessment_data',
-        assessmentKeyId
-      );
-
-      logSystem(`Assessment data encrypted (${assessmentData.type}, score: ${assessmentData.totalScore})`);
-
-      return encryptedPackage;
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 ASSESSMENT ENCRYPTION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw error;
     }
   }

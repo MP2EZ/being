@@ -239,7 +239,7 @@ const SESSION_KEYS = ['stoic_session_morning', 'stoic_session_midday', 'stoic_se
 type Classification = readonly KeyRef[] | typeof PASS_THROUGH | typeof LIBRARY_OWNED;
 /** `[site count, classification]` — the count pins the site set, so a new unresolved call fails. */
 const UNRESOLVED_SITES: Record<string, readonly [number, Classification]> = {
-  'src/core/services/security/SecureStorageService.ts :: storageKey': [9, PASS_THROUGH],
+  'src/core/services/security/SecureStorageService.ts :: storageKey': [5, PASS_THROUGH],
   'src/core/services/security/SecureStorageService.ts :: asyncKey': [3, PASS_THROUGH],
   'src/core/services/security/SecureStorageService.ts :: legacySecureStoreKey': [3, PASS_THROUGH],
   'src/core/services/security/SecureStorageService.ts :: key': [2, PASS_THROUGH],
@@ -247,10 +247,6 @@ const UNRESOLVED_SITES: Record<string, readonly [number, Classification]> = {
   'src/core/services/security/SecureStorageService.ts :: this.migrationMarkerKey(legacySecureStoreKey)': [
     2,
     [{ store: 'async', prefix: SECURE_STORAGE_CONFIG.MIGRATION_MARKER_PREFIX }],
-  ],
-  'src/core/services/security/SecureStorageService.ts :: logKey': [
-    1,
-    [{ store: 'async', prefix: SECURE_STORAGE_CONFIG.AUDIT_LOG_PREFIX }],
   ],
   'src/core/services/security/legacyPlaintextRecordSweeper.ts :: toRemove': [1, PASS_THROUGH],
   'src/core/services/security/EncryptionService.ts :: `${keyId}_v2`': [
@@ -295,6 +291,13 @@ const UNRESOLVED_SITES: Record<string, readonly [number, Classification]> = {
 const LEGACY_KEYS: readonly KeyRef[] = [
   { store: 'async', key: '@being/cloud_backup/stats' },
   { store: 'async', key: 'subscription_metadata_v1' },
+  // MAINT-790: the last reader/writer of each is gone, so the resolver no longer
+  // sees them. Each is still swept (SWEPT_EXACT_KEYS / SWEPT_ASYNC_PREFIXES) for
+  // records shipped installs carry; seeding them here makes a sweep regression
+  // visible.
+  { store: 'async', key: 'storage_metadata_index' },
+  { store: 'async', prefix: SECURE_STORAGE_CONFIG.AUDIT_LOG_PREFIX },
+  { store: 'async', prefix: SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX },
 ];
 
 /** Not in the manifest; removed by the wipe, with its own suite (DEBUG-763 step 6b). */
@@ -303,12 +306,6 @@ const ABSENT_ENFORCED_ELSEWHERE: readonly KeyRef[] = [
   // DEBUG-763's marker: cleared once the wipe resolves (interruptedErasureResume.privacy).
   { store: 'async', key: ERASURE_PENDING_KEY },
 ];
-
-/**
- * Written and deleted inside one function, holding a constant: the capability probe
- * in `verifyStorageCapabilities`. Not seeded — it is never at rest.
- */
-const TRANSIENT_KEYS = new Set(['storage_capability_test']);
 
 // ── Build the universe ─────────────────────────────────────────────────────
 
@@ -326,9 +323,7 @@ for (const site of ALL_SITES) {
     : { store: site.store, prefix: `${site.prefix}${r.prefix}` });
 }
 const classifiedRefs = Object.values(UNRESOLVED_SITES).flatMap(([, v]) => (Array.isArray(v) ? v : []));
-const UNIVERSE: KeyRef[] = [...resolvedRefs, ...classifiedRefs, ...LEGACY_KEYS].filter(
-  (r) => !('key' in r && TRANSIENT_KEYS.has(r.key)),
-);
+const UNIVERSE: KeyRef[] = [...resolvedRefs, ...classifiedRefs, ...LEGACY_KEYS];
 
 const instance = (ref: KeyRef): string => ('key' in ref ? ref.key : `${ref.prefix}seeded`);
 const tag = (store: Store, key: string) => `${store}:${key}`;
