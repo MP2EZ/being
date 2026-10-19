@@ -31,7 +31,7 @@
 
 if [ -z "${BASH_VERSION:-}" ]; then echo "run with bash" >&2; exit 2; fi
 
-EXPECTED_CASES=129
+EXPECTED_CASES=131
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/b-close-gate-plan.sh"
 VERBOSE=""; NO_CACHE=""
@@ -81,7 +81,8 @@ flow assessment-exit safety
 flow journal-record-liveness safety-host-probe
 flow profile-voice-reflection-xxxl safety-dynamic-type
 flow breathing-fps-budget perf-device-only
-flow crisis-keyboard-accessory safety-device-only
+flow crisis-keyboard-accessory safety-device-only '- runFlow: _legal-and-onboarding.yaml'
+flow legal-gate-art9-optional safety '# Names _legal-and-onboarding.yaml in a comment only, like the real flow.'
 flow export-share-sheet-occlusion safety-occlusion-measurement
 flow tab-label-dynamic-type-capture safety-dynamic-type
 printf -- '- tapOn: home\n' > "$T/app/.maestro/_seeded-home.yaml"
@@ -90,6 +91,7 @@ printf -- '- tapOn: inner\n' > "$T/app/.maestro/_inner-helper.yaml"
 printf -- '- tapOn: device\n' > "$T/app/.maestro/_device-helper.yaml"
 printf -- '- tapOn: orphan\n' > "$T/app/.maestro/_orphan-helper.yaml"
 printf -- '- tapOn: residue\n' > "$T/app/.maestro/_residue-helper.yaml"
+printf -- '- tapOn: continue\n' > "$T/app/.maestro/_legal-and-onboarding.yaml"
 printf '{"expo":{}}\n' > "$T/app/app.json"
 printf "import React from 'react';\nexport const Banner = () => {\n  const label = 'help';\n  return null;\n};\n" \
   > "$T/app/src/features/crisis/components/Banner.tsx"
@@ -180,7 +182,10 @@ case_flow_new_safety()      { printf 'appId: t\ntags:\n  - safety\n---\n- launch
 case_flow_deletion_only()   { dl $M/journal-crisis-scan.yaml "- launchApp"; expect 0 1 "" "journal-crisis-scan" ""; }
 case_helper_sim_caller()    { ap $M/_sim-helper.yaml "- back"; expect 0 1 "" "journal-crisis-scan" ""; }
 case_helper_transitive()    { ap $M/_inner-helper.yaml "- back"; expect 0 1 "" "journal-crisis-scan" ""; }
-case_helper_device_only()   { ap $M/_device-helper.yaml "- back"; expect 0 1 "" "$CBR" "" "included by callers this gate CANNOT run" "No Step 2.5.3 clause matched"; }
+case_helper_device_only()   { ap $M/_device-helper.yaml "- back"; expect 0 1 "" "$CBR" "" "included by callers this gate CANNOT run" "No Step 2.5.3 clause matched" "The Step 2.5.3 net below still runs crisis-button-reachability." "!Running legal-gate-art9-optional instead"; }
+# INFRA-801: this one helper arms the sibling flow that drives LegalGate, replacing the net (crisis ruling).
+case_helper_legal_gate()    { ap $M/_legal-and-onboarding.yaml "- back"; expect 0 1 "" "legal-gate-art9-optional" "" "included by callers this gate CANNOT run" "Its Continue tap (INFRA-494)" "Running legal-gate-art9-optional instead" "!No Step 2.5.3 clause matched" "!The Step 2.5.3 net below still runs"; }
+case_helper_legal_residue() { ap $M/_legal-and-onboarding.yaml "- back"; ap $M/assessment-exit.yaml '- assertVisible: "_legal-and-onboarding.yaml"'; expect 0 1 1 "" "" "is named on non-comment lines the matcher did not classify" "!Running legal-gate-art9-optional instead"; }
 case_helper_seeded_home()   { ap $M/_seeded-home.yaml "- back"; expect 0 1 "" "$CBR" ""; }
 case_helper_no_callers()    { ap $M/_orphan-helper.yaml "- back"; expect 0 1 1 "" "" "has no runFlow: caller in either tree"; }
 case_helper_residue()       { ap $M/_residue-helper.yaml "- back"; expect 0 1 1 "" "" "is named on non-comment lines the matcher did not classify"; }

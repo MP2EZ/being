@@ -1189,6 +1189,13 @@ while IFS= read -r f; do
               FULL_SUITE=1
             else
               for s in $HELPER_SIM; do FLOWS+=("$s"); done
+              # INFRA-801: legal-gate-art9-optional is the only sim flow driving LegalGate's
+              # controls. It is a sibling, not a caller (it names this helper in comments
+              # only; a runFlow: would route it through HELPER_SIM and retire this arm).
+              # crisis ruled it REPLACES the net: a helper-only edit changes no binary, and
+              # crisis-button-reachability seeds past LegalGate. Exact basename, no glob —
+              # every other device-only helper keeps the net (INFRA-728 AC3).
+              [ "$HELPER" = "_legal-and-onboarding.yaml" ] && FLOWS+=("legal-gate-art9-optional")
               if [ -n "$HELPER_OTHER" ]; then
                 echo "📱 $HELPER is included by callers this gate CANNOT run:"
                 for c in $HELPER_OTHER; do printf '      • %s (%s)\n' "$c" "$(mflow_tag "$c")"; done
@@ -1201,9 +1208,15 @@ while IFS= read -r f; do
                     echo "   ⚠️  Its Continue tap (INFRA-494) and four consent taps (INFRA-656) clear"
                     echo "       the 988 footer by DERIVATION only — re-read the helper's D0-D5"
                     echo "       before changing any tap, anchor or point:. No Maestro version can"
-                    echo "       run its callers (DEBUG-589)." ;;
+                    echo "       run its callers (DEBUG-589)."
+                    echo "   Running legal-gate-art9-optional instead. It is a SIBLING surface, not a caller: it"
+                    echo "   observes the LegalGate screen this helper taps (988 footer at four offsets, the"
+                    echo "   INFRA-656 consent guard, gate release), never the helper's own steps. NECESSARY, NOT"
+                    echo "   SUFFICIENT. crisis-button-reachability is not run: a helper-only edit changes no"
+                    echo "   binary, and that flow seeds past LegalGate." ;;
+                  *)
+                    echo "   The Step 2.5.3 net below still runs crisis-button-reachability." ;;
                 esac
-                echo "   The Step 2.5.3 net below still runs crisis-button-reachability."
               fi
             fi ;;
         esac
