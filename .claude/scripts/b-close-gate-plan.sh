@@ -1206,8 +1206,9 @@ while IFS= read -r f; do
     crisis-988-dial.yaml)
       echo "📱 crisis-988-dial.yaml changed — safety-device-only. The sim's canOpenURL"
       echo "   returns false unconditionally, so this flow cannot pass here and is NOT"
-      echo "   added to the run set. Validate on real hardware before merging:"
-      echo "   npm run e2e:safety:988-dial (with an iPhone connected)." ;;
+      echo "   added to the run set. No automation can validate it: npm run e2e:safety:988-dial"
+      echo "   refuses with exit 5, because no Maestro version drives a device (DEBUG-589). The"
+      echo "   dial is checked only by docs/testing/crisis-device-checklist.md, run attended." ;;
     reconsent-stale-ineligible-fab-clearance.yaml)
       echo "📐 reconsent-stale-ineligible-fab-clearance.yaml changed — safety-bottom-inset."
       echo "   It declares 393x852 and the suite's target is 375x667, where the collision"
