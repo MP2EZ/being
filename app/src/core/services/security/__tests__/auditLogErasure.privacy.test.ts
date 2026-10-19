@@ -1,33 +1,36 @@
 /**
- * Storage-access audit logs — erasure coverage (DEBUG-355)
+ * Storage-access audit logs — erasure coverage (DEBUG-355; write-free since MAINT-790)
  *
  * WHY THIS EXISTS
  *
- * `logStorageAccess` persists an entry to AsyncStorage under
- * `audit_log_${Date.now()}` on EVERY FAILED storage operation. (It also
- * persisted on every `crisis_tier` operation until MAINT-378 deleted that tier;
- * the failure arm is now the only writer.) Since MAINT-716 deleted
- * `storeAssessmentData` that arm has NO PRODUCTION CALLER: it is reachable only
- * through a failed `deleteSecureData` or `retrieveAssessmentData`, and neither
- * has a production caller either. The suite keeps it covered anyway — the prefix
- * stays swept as a defensive floor, and shipped installs carry the records — so
- * the premise test below drives a deliberate `deleteSecureData` miss. That prefix appeared
+ * `logStorageAccess` used to persist an entry to AsyncStorage under
+ * `audit_log_${Date.now()}` on every FAILED storage operation (and on every
+ * `crisis_tier` operation until MAINT-378 deleted that tier). Those keys appeared
  * in no sweep: `clearAllWellnessData` filtered on the `*_async_` /
  * `wellness_migrated:` prefix families plus an exact-name exception list, and
  * `audit_log_` is none of them. So the records survived account erasure.
  *
- * This is a DIFFERENT failure mode from the `critical_log_*` defect in the same
- * work item, and the distinction decides the remedy. `critical_log_*` went to
- * SecureStore, which has no enumerate API, so those records were unerasable BY
- * CONSTRUCTION — no sweep could ever have found them, and the only fix was to
- * stop writing. `audit_log_*` goes to AsyncStorage, which enumerates fine, so it
- * was unerasable merely BY OMISSION. One line in the sweep therefore fixes it
- * retroactively on every already-shipped install, without a migration.
+ * MAINT-716 left the failure arm reachable only through two methods with no
+ * production caller; MAINT-790 deleted the arm, so `logStorageAccess` is
+ * in-memory only and NO CODE WRITES `audit_log_*`. The prefix stays on
+ * `SWEPT_ASYNC_PREFIXES` as a defensive floor for records shipped installs already
+ * carry. This suite therefore pins two things:
  *
- * Note the records are write-only in the other direction too: nothing reads an
- * `audit_log_*` key back, and `cleanupAuditLogs()` prunes only the in-memory
- * `accessLog` array, never the persisted keys. Before this fix nothing in the
- * app could remove them at all.
+ *  1. ERASURE: planted `audit_log_<epoch>` residue — raw JSON, so it depends on no
+ *     production writer — is swept on BOTH `clearAllWellnessData` branches.
+ *  2. NO WRITER: the surviving public methods, driven through success and through
+ *     injected failures, never call `AsyncStorage.setItem` with an `audit_log_`
+ *     key, and neither does `logStorageAccess` itself when handed a failed entry
+ *     (the private method is called directly because no public method produces a
+ *     failed entry any more — without that call the pin could not fail against a
+ *     restored `if (!entry.success)` arm). Checked against the mock's call log,
+ *     not just the final store, so a write that is later removed is still caught.
+ *
+ * This is a DIFFERENT failure mode from the `critical_log_*` defect in the same
+ * work item. `critical_log_*` went to SecureStore, which has no enumerate API, so
+ * those records were unerasable BY CONSTRUCTION. `audit_log_*` goes to
+ * AsyncStorage, which enumerates fine, so it was unerasable merely BY OMISSION —
+ * one line in the sweep fixes it retroactively on every already-shipped install.
  *
  * WHAT IS FAKED, AND WHY THAT IS SOUND
  *
@@ -39,23 +42,15 @@
  * SURVIVOR FOUND HERE, CLOSED BY DEBUG-381 — `storage_metadata_index`
  *
  * Enumerating the store after erasure (which is how this suite works) also
- * exposed a THIRD unswept key, found while writing these tests. It holds one
- * record per stored blob: `storageKey` (e.g. `assessment_async_<assessmentId>`),
- * `storageTier: 'assessment_tier'`, `sensitivityLevel:
- * 'level_2_assessment_data'`, `dataType: 'assessment_phq-9'`, and timestamps. No
- * wellness content, but it records that a PHQ-9/GAD-7 record existed and when —
- * and it survived account deletion. (The example was a `crisis_tier` record
- * until MAINT-378 removed that tier; the survivor itself is unchanged, only
- * which tiers can populate it.)
- *
- * It was left unfixed here because the obvious one-line fix was wrong:
- * `storeMetadata` re-serialised the entire in-memory `metadataCache` on every
- * write, so sweeping the key alone would have let the next write restore it.
- * DEBUG-381 closed it properly — cache cleared before the sweep, key on
- * `SWEPT_EXACT_KEYS` — and MAINT-716 then deleted the last writer outright. Its
- * own suite, `storageMetadataIndexErasure.privacy.test.ts`, carries the
- * no-writer pin. The whole-store assertion below was widened back at the same
- * time, which is what makes this file's coverage honest rather than scoped.
+ * exposed a THIRD unswept key. It holds one record per stored blob: `storageKey`
+ * (e.g. `assessment_async_<assessmentId>`), `storageTier`, `sensitivityLevel`,
+ * `dataType`, and timestamps. No wellness content, but it records that a
+ * PHQ-9/GAD-7 record existed and when — and it survived account deletion.
+ * DEBUG-381 closed it by putting the key on `SWEPT_EXACT_KEYS`; MAINT-716 deleted
+ * its last writer and MAINT-790 its last reader. Its own suite,
+ * `storageMetadataIndexErasure.privacy.test.ts`, carries the no-writer and
+ * no-reader pins. The whole-store assertion below is what makes this file's
+ * coverage honest rather than scoped.
  *
  * Worth keeping the sequence in mind: this is the fourth local crisis-path
  * survivor across three work items, and each was found by enumerating after
@@ -128,13 +123,6 @@ jest.mock('../EncryptionService', () => {
   return { __esModule: true, default: stub };
 });
 
-jest.mock('expo-file-system', () => ({
-  documentDirectory: '/mock-docs/',
-  writeAsStringAsync: jest.fn(async () => undefined),
-  getInfoAsync: jest.fn(async () => ({ exists: false, size: 0 })),
-  EncodingType: { UTF8: 'utf8', Base64: 'base64' },
-}));
-
 // eslint-disable-next-line @typescript-eslint/no-var-requires
 const {
   default: service,
@@ -149,78 +137,141 @@ const AUDIT_PREFIX: string = SECURE_STORAGE_CONFIG.AUDIT_LOG_PREFIX;
 const auditKeys = () =>
   Array.from(mockAsyncStorageMap.keys()).filter((k) => k.startsWith(AUDIT_PREFIX));
 
-/**
- * A storage call that is GUARANTEED to fail, and to fail inside the try block
- * that logs the failure.
- *
- * `deleteSecureData` on a key that exists in no tier finds nothing to delete and
- * reports `success: false` through `logStorageAccess` — the only remaining
- * `audit_log_*` writer since MAINT-378. It is the deterministic anchor: no size
- * cap to tune, no malformed payload.
- *
- * NOTE the sibling that does NOT work here: `storeWellnessBlob` trips the 256KB
- * cap, but its catch only calls `logError` — it never reaches `logStorageAccess`,
- * so it persists nothing. If this premise ever needs re-anchoring again, check
- * the catch block, not just the throw site.
- */
-const failAStorageOperation = () => service.deleteSecureData('premise-absent-key');
+const asyncStorageMock = jest.requireMock('@react-native-async-storage/async-storage');
+const secureStoreMock = jest.requireMock('expo-secure-store');
+const encryptionMock = jest.requireMock('../EncryptionService').default;
 
-beforeEach(async () => {
+/** Every key any code path handed to `AsyncStorage.setItem` since the last reset. */
+const keysWritten = (): string[] =>
+  asyncStorageMock.setItem.mock.calls.map((call: unknown[]) => String(call[0]));
+
+const auditKeysWritten = () => keysWritten().filter((k) => k.startsWith(AUDIT_PREFIX));
+
+const throwOnce = (fn: jest.Mock, message: string) =>
+  fn.mockImplementationOnce(async () => {
+    throw new Error(message);
+  });
+
+beforeEach(() => {
   mockSecureStoreMap.clear();
   mockAsyncStorageMap.clear();
   jest.clearAllMocks();
-  await service.initialize();
 });
 
-describe('a FAILED storage operation really does persist an audit_log_* record', () => {
-  it('writes at least one audit_log_* key when a storage operation fails', async () => {
-    // Establishes the premise the erasure assertions rest on. Without this, a
-    // "no audit_log_ key survives" test would pass vacuously if the writer were
-    // ever removed or renamed, and the sweep entry would silently become dead.
-    //
-    // This premise was anchored on `storeCrisisData` until MAINT-378 deleted it,
-    // then on `storeAssessmentData` until MAINT-716 deleted that — exactly the
-    // removals the premise exists to catch. It is re-anchored on a deterministic
-    // failure rather than removed, because dropping it would leave the erasure
-    // assertions below unable to distinguish "the sweep works" from "nothing was
-    // ever written".
+describe('no code writes an audit_log_* record (MAINT-790)', () => {
+  const failedEntry = {
+    timestamp: 1700000000000,
+    operationType: 'retrieve',
+    storageKey: 'wellness_async_x',
+    storageTier: 'assessment_tier',
+    dataType: 'wellness_blob',
+    success: false,
+    operationTimeMs: 0,
+    dataSize: 0,
+    error: 'injected',
+  };
 
-    // Nothing has failed yet, so nothing should be persisted yet. This pins the
-    // key below to THIS call rather than to service.initialize() or to leftover
-    // state, and would catch a change that started persisting on success again.
+  it('logStorageAccess persists nothing for a failed entry, a successful one, or a crisis-shaped one', async () => {
+    // The private method is driven directly: no public method produces a failed
+    // entry any more, so this is the only call that fails against a restored
+    // `if (!entry.success)` persistence arm.
+    await (service as any).logStorageAccess(failedEntry);
+    await (service as any).logStorageAccess({ ...failedEntry, success: true });
+    await (service as any).logStorageAccess({ ...failedEntry, storageTier: 'crisis_tier' });
+
+    expect(asyncStorageMock.setItem).not.toHaveBeenCalled();
     expect(auditKeys()).toEqual([]);
+    // It still records in memory — the guard that the calls above did something.
+    expect((await service.getAccessLog()).filter((e: any) => e.error === 'injected')).toHaveLength(3);
+  });
 
-    const result = await failAStorageOperation();
+  it('surviving public methods write no audit_log_* key on success or on injected failure', async () => {
+    // Success paths. The positive control: the spy really does record writes.
+    expect((await service.storeWellnessBlob('ok', { a: 1 }, 'level_2_assessment_data')).success).toBe(true);
+    await service.retrieveWellnessBlob('ok');
+    expect((await service.storeGeneralData('g', { a: 1 }, 'general_tier')).success).toBe(true);
+    await service.retrieveGeneralData('g');
+    await service.deleteWellnessBlob('ok');
+    expect(keysWritten()).toEqual(expect.arrayContaining(['wellness_async_ok', 'general_g']));
 
-    // The failure is real (a miss), not a silently-swallowed success — otherwise
-    // the audit assertion could never fire.
-    expect(result.success).toBe(false);
-    expect(auditKeys().length).toBeGreaterThan(0);
+    // storeWellnessBlob: size cap, then a failing write.
+    const oversize = await service.storeWellnessBlob(
+      'big',
+      { blob: 'x'.repeat(300 * 1024) },
+      'level_2_assessment_data'
+    );
+    expect(oversize.success).toBe(false);
+    throwOnce(asyncStorageMock.setItem, 'disk full');
+    expect((await service.storeWellnessBlob('w', { a: 1 }, 'level_2_assessment_data')).success).toBe(false);
+
+    // storeGeneralData: failing encryption (non-general tier), then a failing write.
+    throwOnce(encryptionMock.encryptData, 'encrypt failed');
+    expect((await service.storeGeneralData('g2', { a: 1 }, 'performance_tier')).success).toBe(false);
+    throwOnce(asyncStorageMock.setItem, 'disk full');
+    expect((await service.storeGeneralData('g3', { a: 1 }, 'general_tier')).success).toBe(false);
+
+    // retrieveWellnessBlob: failing decrypt of a planted record, then a failing read.
+    mockAsyncStorageMap.set(
+      'wellness_async_tampered',
+      JSON.stringify({ encryptedData: 'bogus', iv: 'x', tag: 'x', salt: 'x', metadata: {}, checksum: 'x' })
+    );
+    throwOnce(encryptionMock.decryptData, 'tag verification failed');
+    await expect(service.retrieveWellnessBlob('tampered')).rejects.toThrow(/tag verification/);
+    throwOnce(asyncStorageMock.getItem, 'read failed');
+    await expect(service.retrieveWellnessBlob('anything')).rejects.toThrow(/read failed/);
+
+    // retrieveGeneralData: failing read (swallowed to null).
+    throwOnce(asyncStorageMock.getItem, 'read failed');
+    expect(await service.retrieveGeneralData('g')).toBeNull();
+
+    // deleteWellnessBlob: failing remove.
+    throwOnce(asyncStorageMock.removeItem, 'remove failed');
+    await expect(service.deleteWellnessBlob('ok')).rejects.toThrow(/remove failed/);
+
+    // clearAllWellnessData: failing enumeration, then a failing SecureStore delete.
+    throwOnce(asyncStorageMock.getAllKeys, 'enumerate failed');
+    await expect(service.clearAllWellnessData()).rejects.toThrow(/enumerate failed/);
+    throwOnce(secureStoreMock.deleteItemAsync, 'keychain locked');
+    await expect(service.clearAllWellnessData()).rejects.toThrow(/keychain locked/);
+
+    expect(auditKeysWritten()).toEqual([]);
+    expect(auditKeys()).toEqual([]);
   });
 });
 
 describe('account erasure removes the storage-access audit logs', () => {
-  it('clearAllWellnessData sweeps every audit_log_* key', async () => {
-    await failAStorageOperation();
-    expect(auditKeys().length).toBeGreaterThan(0);
+  it('clearAllWellnessData sweeps planted audit_log_* residue on BOTH branches', async () => {
+    // Raw residue, as a shipped install left it: depends on no production writer.
+    const plant = () => {
+      mockAsyncStorageMap.set(
+        `${AUDIT_PREFIX}1700000000000`,
+        JSON.stringify({ storageKey: 'assessment_async_erased-id', success: false })
+      );
+      mockAsyncStorageMap.set(`${AUDIT_PREFIX}1700000000003`, '{}');
+    };
 
+    plant();
+    expect(auditKeys().length).toBe(2);
+    await service.clearAllWellnessData();
+    expect(auditKeys()).toEqual([]);
+
+    plant();
+    expect(auditKeys().length).toBe(2);
     await service.clearAllWellnessData({ deleteMasterKey: true });
-
     expect(auditKeys()).toEqual([]);
   });
 
   it('sweeps audit_log_* records left by earlier installs', async () => {
     // Unlike the SecureStore half of DEBUG-355, this defect is fixable
-    // retroactively: the keys enumerate, so adding the prefix to the sweep
-    // reaches records already written on shipped builds. No sweeper or
-    // persisted index is required.
+    // retroactively: the keys enumerate, so the prefix in the sweep reaches
+    // records already written on shipped builds. No sweeper or persisted index
+    // is required.
     //
     // The `crisis_tier` fixtures below are deliberate and must NOT be retargeted
     // to `assessment_tier`: this test is specifically about records left behind
     // by ALREADY-SHIPPED installs, which wrote `crisis_tier` audit entries from
-    // the tier MAINT-378 deleted. No current writer produces them; that is the
-    // point. These are raw JSON planted straight into AsyncStorage, so they do
-    // not depend on any production writer still existing.
+    // the tier MAINT-378 deleted. These are raw JSON planted straight into
+    // AsyncStorage.
     mockAsyncStorageMap.set(
       `${AUDIT_PREFIX}1700000000000`,
       JSON.stringify({ storageTier: 'crisis_tier', operationType: 'store', success: true })
@@ -236,11 +287,15 @@ describe('account erasure removes the storage-access audit logs', () => {
   });
 
   it('leaves no audit-log record content behind after erasure', async () => {
-    await failAStorageOperation();
+    // Shipped-install residue, planted raw: no production code writes the audit
+    // records (MAINT-790) or the index (MAINT-716), so without these the
+    // whole-store assertion below would pass vacuously. The guard lines prove the
+    // plants are present.
+    mockAsyncStorageMap.set(
+      `${AUDIT_PREFIX}1700000000004`,
+      JSON.stringify({ storageKey: 'assessment_async_erased-id', success: false })
+    );
     expect(auditKeys().length).toBeGreaterThan(0);
-    // Shipped-install residue, planted raw: no production writer produces the
-    // index any more (MAINT-716), so without this the whole-store assertion
-    // below would pass vacuously. The guard line proves the plant is present.
     mockAsyncStorageMap.set(
       STORAGE_METADATA_INDEX_KEY,
       JSON.stringify([['assessment_async_planted-record', { storageTier: 'assessment_tier' }]])
@@ -253,14 +308,13 @@ describe('account erasure removes the storage-access audit logs', () => {
     // one DEBUG-381 originally proposed. The original plan was a whole-store
     // `not.toContain('crisis_tier')`. MAINT-378 deleted the crisis tier, so no
     // writer produces `storageTier: 'crisis_tier'` at all and that assertion
-    // would now pass VACUOUSLY — green whether or not the sweep works, which is
-    // the one thing a privacy pin must never be.
+    // would pass VACUOUSLY — green whether or not the sweep works, which is the
+    // one thing a privacy pin must never be.
     //
     // So the widened form targets the SURVIVING KEY, not a tier string: after
     // erasure `storage_metadata_index` must be absent outright, against the
-    // index planted above. That is the
-    // property DEBUG-381 actually establishes, and unlike a tier name it cannot
-    // be quietly emptied of meaning by a future tier removal.
+    // index planted above. Unlike a tier name it cannot be quietly emptied of
+    // meaning by a future tier removal.
     //
     // Both stores, not just AsyncStorage: asserting over one under-asserts
     // invisibly, because the gap only shows when the other happens to be

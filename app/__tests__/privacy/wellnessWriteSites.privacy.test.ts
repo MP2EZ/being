@@ -185,9 +185,6 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       'relocates ciphertext already stored (INFRA-144); blocking it would lose data',
     ],
     'SecureStorageService.markMigrated › AsyncStorage.setItem': [1, STORAGE_LAYER, 'migration flag'],
-    'SecureStorageService.logStorageAccess › AsyncStorage.setItem': [1, STORAGE_LAYER, 'failed-op metadata, no payload'],
-    'SecureStorageService.verifyStorageCapabilities › AsyncStorage.setItem': [1, STORAGE_LAYER, 'probe write'],
-    'SecureStorageService.verifyStorageCapabilities › setItemAsync': [1, STORAGE_LAYER, 'probe write'],
   },
   'src/core/services/security/EncryptionService.ts': {
     'EncryptionService.initializeMasterKey › setItemAsync': [1, `${NOT_WELLNESS} — key material`],

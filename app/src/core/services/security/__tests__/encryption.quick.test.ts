@@ -43,11 +43,7 @@ describe('ENCRYPTION_CONFIG — quick contract pin', () => {
     expect(ENCRYPTION_CONFIG.KEY_ROTATION_INTERVAL_MS).toBe(30 * 24 * 60 * 60 * 1000);
   });
 
-  it('crisis + assessment key prefixes exist and differ', () => {
+  it('crisis key prefix exists', () => {
     expect(typeof ENCRYPTION_CONFIG.CRISIS_KEY_PREFIX).toBe('string');
-    expect(typeof ENCRYPTION_CONFIG.ASSESSMENT_KEY_PREFIX).toBe('string');
-    expect(ENCRYPTION_CONFIG.CRISIS_KEY_PREFIX).not.toBe(
-      ENCRYPTION_CONFIG.ASSESSMENT_KEY_PREFIX,
-    );
   });
 });
