@@ -18,9 +18,9 @@
  * text only. Breadcrumbs still ride along because they are already sanitized
  * app-wide by `beforeBreadcrumbHook`.
  *
- * This contract pins the LIGHT hygiene the processor enforces — identity reduced
- * to the anonymous uid, no cross-linking to a prior error, and a pattern-scrub of
- * the typed message — and the flag mechanism. The submit path's own guarantees
+ * This contract pins the LIGHT hygiene the processor enforces — no `user` and no
+ * `device_app_hash` (DEBUG-797), no cross-linking to a prior error, and a
+ * pattern-scrub of the typed message — and the flag mechanism. The submit path's own guarantees
  * (kill switch, payload shape, call-site scrub) are pinned separately in
  * `bugReportSubmit.contract.test.ts`. Runs in `npm run precommit` via
  * `test:privacy`.
@@ -77,11 +77,61 @@ describe('FEAT-284 feedback event processor — light hygiene', () => {
     expect(scrubFeedbackEvent(errorEvent)).toBe(errorEvent);
   });
 
-  it('keeps ONLY the anonymous uid on user — never email / ip / username', () => {
+  // DEBUG-797: with Crash Reports on, `user.id` is the Sentry installation UUID
+  // (RNSentry.mm fills a nil native user with it; DeviceContext copies it in), so
+  // keeping it joined a bug report to that install's crash events.
+  it('drops user entirely — no installation id, email, ip or username', () => {
     const out = scrubFeedbackEvent(makeFeedbackEvent());
-    expect(out.user).toEqual({ id: 'anon-uid-123' });
-    expect(out.user.email).toBeUndefined();
-    expect(out.user.ip_address).toBeUndefined();
+    expect(out.user).toBeUndefined();
+    expect('user' in out).toBe(false);
+  });
+
+  it('drops user even when it carries an id alone', () => {
+    const out = scrubFeedbackEvent(makeFeedbackEvent({ user: { id: 'INSTALL-UUID' } }));
+    expect(out.user).toBeUndefined();
+    expect(JSON.stringify(out)).not.toContain('INSTALL-UUID');
+  });
+
+  it('handles a feedback event with no user (the Crash-Reports-off path)', () => {
+    const { user: _omit, ...noUser } = makeFeedbackEvent();
+    const out = scrubFeedbackEvent(noUser);
+    expect(out).not.toBeNull();
+    expect(out.user).toBeUndefined();
+    expect(out.contexts.feedback.message).toBe('the button is broken');
+  });
+
+  it('handles a feedback event with no contexts.feedback and still drops user', () => {
+    const out = scrubFeedbackEvent(makeFeedbackEvent({ contexts: { device: { model: 'iPhone15,2' } } }));
+    expect(out).not.toBeNull();
+    expect(out.user).toBeUndefined();
+    expect(out.contexts.device).toEqual({ model: 'iPhone15,2' });
+  });
+
+  // DEBUG-797 (compliance ruling): DeviceContext also merges the native `app`
+  // context and tags, which on iOS carry `device_app_hash` — a vendor-derived
+  // device identifier that survives reinstall. Same join key, same processor.
+  it('drops the vendor-derived device_app_hash (context and tag), keeps the rest of contexts.app', () => {
+    const out = scrubFeedbackEvent(
+      makeFeedbackEvent({
+        tags: { screen: 'Home', 'app.device': 'HASH-123' },
+        contexts: {
+          feedback: { message: 'ok' },
+          app: { device_app_hash: 'HASH-123', app_version: '1.4.0', in_foreground: true },
+        },
+      }),
+    );
+    expect(out.contexts.app.device_app_hash).toBeUndefined();
+    expect(out.tags['app.device']).toBeUndefined();
+    expect(out.contexts.app).toEqual({ app_version: '1.4.0', in_foreground: true });
+    expect(out.tags.screen).toBe('Home');
+    expect(JSON.stringify(out)).not.toContain('HASH-123');
+  });
+
+  it('passes a non-feedback event carrying a user through byte-identical', () => {
+    const errorEvent = { type: undefined, message: 'boom', user: { id: 'INSTALL-UUID' } };
+    const before = JSON.stringify(errorEvent);
+    expect(scrubFeedbackEvent(errorEvent)).toBe(errorEvent);
+    expect(JSON.stringify(errorEvent)).toBe(before);
   });
 
   it('pattern-scrubs the typed feedback message', () => {
@@ -117,6 +167,115 @@ describe('FEAT-284 feedback event processor — light hygiene', () => {
       },
     });
     expect(scrubFeedbackEvent(hostile)).toBeNull();
+  });
+});
+
+/**
+ * DEBUG-797 AC3 — ordering against the REAL `@sentry/core` `prepareEvent`.
+ *
+ * Every other Sentry test here `jest.mock`s `@sentry/react-native`, so none of them
+ * proves the scrub runs AFTER the processors that inject `user`. In @sentry/core
+ * 10.37.0 `prepareEvent` applies scope data (scope `user`) first, then runs client
+ * processors (RN's DeviceContext, which copies the native installation id), then
+ * scope processors — where `Sentry.addEventProcessor` registers `scrubFeedbackEvent`
+ * (isolation scope). Fresh `Scope` instances only: the global scope is not mutated.
+ */
+describe('DEBUG-797 · scrubFeedbackEvent runs after user injection (real prepareEvent)', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const { prepareEvent, Scope } = jest.requireActual('@sentry/core');
+
+  function run(event: any, isolationScope: any, currentScope: any, client: any) {
+    const options = { integrations: [], normalizeDepth: 3, normalizeMaxBreadth: 1000 };
+    return prepareEvent(options, event, {}, currentScope, client, isolationScope);
+  }
+
+  function stubClient(injectedUser: Record<string, unknown>) {
+    return {
+      emit: () => undefined,
+      // Stand-in for DeviceContext: copies the native user into the event.
+      getEventProcessors: () => [(e: any) => ({ ...e, user: { ...injectedUser, ...e.user } })],
+    };
+  }
+
+  it('strips a client-injected AND a scope user from a feedback event', async () => {
+    const isolationScope = new Scope();
+    isolationScope.addEventProcessor(scrubFeedbackEvent);
+    const currentScope = new Scope();
+    currentScope.setUser({ id: 'SCOPE-UUID', ip_address: '{{auto}}' });
+
+    const out = await run(
+      { type: 'feedback', contexts: { feedback: { message: 'it froze' } } },
+      isolationScope,
+      currentScope,
+      stubClient({ id: 'INSTALL-UUID' }),
+    );
+
+    expect(out).not.toBeNull();
+    expect(out.type).toBe('feedback');
+    expect(out.user).toBeUndefined();
+    const json = JSON.stringify(out);
+    expect(json).not.toContain('INSTALL-UUID');
+    expect(json).not.toContain('SCOPE-UUID');
+  });
+
+  it('control: without the scrub, the same pipeline DOES deliver user (the harness injects)', async () => {
+    const currentScope = new Scope();
+    currentScope.setUser({ id: 'SCOPE-UUID' });
+    const out = await run(
+      { type: 'feedback', contexts: { feedback: { message: 'it froze' } } },
+      new Scope(),
+      currentScope,
+      stubClient({ id: 'INSTALL-UUID' }),
+    );
+    expect(out.user).toEqual({ id: 'SCOPE-UUID' });
+  });
+
+  it('leaves a non-feedback event user alone (crash/session events keep the disclosed id)', async () => {
+    const isolationScope = new Scope();
+    isolationScope.addEventProcessor(scrubFeedbackEvent);
+    const out = await run({ message: 'boom' }, isolationScope, new Scope(), stubClient({ id: 'INSTALL-UUID' }));
+    expect(out.user).toEqual({ id: 'INSTALL-UUID' });
+  });
+});
+
+/**
+ * DEBUG-797 AC4 — the reporter never ASKS for user data. A `sendDefaultPii: true`
+ * or a `setUser` call would put identity on every event class, crash events
+ * included, outside anything `scrubFeedbackEvent` reaches. Comments are stripped
+ * first: this file names both in prose (DEBUG-390).
+ */
+describe('DEBUG-797 · ExternalErrorReporter sets no sendDefaultPii and calls no setUser', () => {
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const fs = require('fs');
+  // eslint-disable-next-line @typescript-eslint/no-var-requires
+  const path = require('path');
+  const SRC = path.join(__dirname, '../../src/core/services/logging/ExternalErrorReporter.ts');
+
+  function stripComments(src: string): string {
+    return src.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|[^:'"`])\/\/.*$/gm, '$1');
+  }
+
+  const raw: string = fs.readFileSync(SRC, 'utf8');
+  const code = stripComments(raw);
+
+  it('slice is the real reporter (anchors on its Sentry.init and processor registration)', () => {
+    expect(code).toMatch(/addEventProcessor\s*\(\s*scrubFeedbackEvent\s*\)/);
+    expect(code).toMatch(/\.init\s*\(/);
+  });
+
+  it('never enables sendDefaultPii', () => {
+    expect(code).not.toMatch(/sendDefaultPii\s*:\s*true/);
+  });
+
+  it('never calls setUser', () => {
+    expect(code).not.toMatch(/\bsetUser\s*\(/);
+  });
+
+  it('the pattern fires on a positive sample (not vacuous)', () => {
+    const sample = stripComments("Sentry.init({ sendDefaultPii: true }); scope.setUser({ id: 'x' }); // setUser(");
+    expect(sample).toMatch(/sendDefaultPii\s*:\s*true/);
+    expect(sample).toMatch(/\bsetUser\s*\(/);
+    expect(stripComments('// Sentry.setUser({ id })')).not.toMatch(/\bsetUser\s*\(/);
   });
 });
 

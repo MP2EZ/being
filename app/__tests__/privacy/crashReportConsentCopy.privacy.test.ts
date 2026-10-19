@@ -229,8 +229,52 @@ describe('Crash reports carry the installation identifier (DEBUG-786)', () => {
     const bug = bugReportPart(sentryBullet());
     expect(bug).toMatch(/Bug reports you send/);
     expect(bug).not.toMatch(NOTHING_ELSE);
-    expect(bug).toMatch(/Crash Reports\*? is on[^.]*installation identifier/);
-    // Interim hedge until DEBUG-797 captures a Crash-Reports-off bug report.
+    // Interim hedge until DEBUG-797's post-fix capture settles where `user.geo` appears.
     expect(bug).toMatch(/may also estimate your approximate location/);
+  });
+});
+
+/**
+ * DEBUG-797: `scrubFeedbackEvent` now deletes `user` and `contexts.app.device_app_hash` from
+ * feedback events, so §5.1 says a bug report carries neither identifier. The claim is coupled to
+ * the processor: if the scrub stops deleting either field, this fails alongside the policy text.
+ */
+const PRE_FIX_BUG_REPORT_ON =
+  '**Bug reports you send:** if you choose to send a bug report. If *Crash Reports* is on, the report also carries the installation identifier and the device and app details described above.';
+
+describe('A bug report carries neither identifier (DEBUG-797)', () => {
+  const CARRIES_ID = /\b(?:also )?carries the installation identifier/i;
+  const DISCLAIMS_IDS = /does not carry the installation identifier or the device identifier/i;
+
+  it('the matchers fire on the pre-fix text', () => {
+    expect(PRE_FIX_BUG_REPORT_ON).toMatch(CARRIES_ID);
+    expect(PRE_FIX_BUG_REPORT_ON).not.toMatch(DISCLAIMS_IDS);
+  });
+
+  it('§5.1 bug-report part disclaims both identifiers and still names device and app details', () => {
+    const bug = bugReportPart(sentryBullet());
+    expect(bug).toMatch(/Bug reports you send/);
+    expect(bug).not.toMatch(CARRIES_ID);
+    expect(bug).toMatch(DISCLAIMS_IDS);
+    expect(bug).toMatch(/device and app details/);
+  });
+
+  it('crash and session text still discloses the identifiers (not narrowed by this change)', () => {
+    const bullet = sentryBullet();
+    expect(idSentence(bullet)).toMatch(CRASH);
+    expect(bullet).toMatch(/device identifier[^.]*Apple/);
+  });
+
+  it('the processor does what the policy says', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { scrubFeedbackEvent } = require('@/core/services/logging/ExternalErrorReporter');
+    const out = scrubFeedbackEvent({
+      type: 'feedback',
+      user: { id: 'INSTALL-UUID' },
+      contexts: { feedback: { message: 'x' }, app: { device_app_hash: 'HASH', app_version: '1' } },
+    });
+    expect(out.user).toBeUndefined();
+    expect(out.contexts.app.device_app_hash).toBeUndefined();
+    expect(out.contexts.app.app_version).toBe('1');
   });
 });
