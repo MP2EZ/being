@@ -229,8 +229,12 @@ describe('Crash reports carry the installation identifier (DEBUG-786)', () => {
     const bug = bugReportPart(sentryBullet());
     expect(bug).toMatch(/Bug reports you send/);
     expect(bug).not.toMatch(NOTHING_ELSE);
-    // Interim hedge until DEBUG-797's post-fix capture settles where `user.geo` appears.
-    expect(bug).toMatch(/may also estimate your approximate location/);
+    // DEBUG-797 AC7, observed post-fix: `user.geo` on both settings (city+country with Crash
+    // Reports on, country only with it off) — a definite statement with a city/country ceiling.
+    expect(bug).not.toMatch(/may also estimate your approximate location/);
+    expect(bug).toMatch(
+      /Whatever the \*Crash Reports\* setting, Sentry estimates your approximate location[^.]*no more precisely than your city and country[^.]*not your IP address/,
+    );
   });
 });
 
