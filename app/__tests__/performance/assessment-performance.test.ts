@@ -456,7 +456,7 @@ describe('ASSESSMENT PERFORMANCE TESTING SUITE', () => {
         
         perf.start();
         
-        const recovered = await state().recoverSession();
+        await useAssessmentStore.persist.rehydrate();
         const decryptionTime = perf.measure('decryption');
         decryptionTimings.push(decryptionTime);
 

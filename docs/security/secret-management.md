@@ -23,8 +23,9 @@ Both root and app-level `.gitignore` files contain patterns to prevent accidenta
 
 **Allowed exceptions:**
 - `.env.example` (template without values)
-- `.env.production` (client-side config for Expo builds)
 - `credentials.example.*`, `secrets.example.*` (templates)
+
+`.env.production` is intentionally **ignored** (SEC-04): production config belongs in EAS secrets / runtime config, not in git.
 
 ### 2. Pre-commit Hook
 
@@ -33,13 +34,11 @@ A pre-commit hook at `.git/hooks/pre-commit` blocks commits containing files mat
 - Allows configured exceptions
 - Provides bypass instructions for legitimate cases (`git commit --no-verify`)
 
-### 3. Validation Script
+### 3. Validation Test
 
-Run `scripts/validate-gitignore-security.sh` to verify:
-- All secret patterns are properly ignored
-- Allowed exceptions work correctly
-- Pre-commit hook is installed
-- Git history is clean
+`app/__tests__/safety/gitignoreSecretPatterns.test.js` (run by `npm run test:safety`) verifies, via `git check-ignore --no-index`:
+- All secret patterns (including `.env.production`) are ignored
+- Allowed exceptions (`.env.example`, `credentials.example.json`, `secrets.example.yaml`) are not ignored
 
 ## Environment Files
 
@@ -50,7 +49,7 @@ Run `scripts/validate-gitignore-security.sh` to verify:
 | `.env` | Local development | No | Yes (local only) |
 | `.env.local` | Local overrides | No | Yes |
 | `.env.example` | Template | Yes | No (placeholders) |
-| `.env.production` | Expo build config | Yes | No (client-side only) |
+| `.env.production` | Expo build config | No (gitignored, SEC-04) | No (client-side only) |
 
 ### Client-Side vs Server-Side Keys
 
@@ -75,7 +74,7 @@ These are designed to be in client code and protected by:
 1. **Add to `.env.example`** with placeholder value
 2. **Add actual value** to local `.env` (gitignored)
 3. **For production:** Use Expo secrets, EAS secrets, or environment variables
-4. **Verify:** Run `./scripts/validate-gitignore-security.sh`
+4. **Verify:** Run `npm run test:safety` from `app/` (includes the gitignore pattern test)
 
 ## If Secrets Are Accidentally Committed
 
@@ -111,8 +110,8 @@ git log --all --full-history -- "credentials.*" "secrets.*" "*.key"
 # List all files that would be ignored
 git ls-files --others --ignored --exclude-standard
 
-# Run full security validation
-./scripts/validate-gitignore-security.sh
+# Run the gitignore pattern test (from app/)
+npx jest __tests__/safety/gitignoreSecretPatterns.test.js
 ```
 
 ## Related Documentation

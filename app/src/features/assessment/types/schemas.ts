@@ -9,7 +9,6 @@
  *   alone; MAINT-712 removed the refines that re-derived it from thresholds.
  * - 100% accuracy required for clinical validity
  *
- * @see validation.ts for runtime validation utilities
  * @see scoring.ts for clinical scoring configuration
  */
 

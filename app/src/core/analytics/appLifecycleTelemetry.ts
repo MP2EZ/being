@@ -11,8 +11,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 /**
  * Device-level "this install has launched before" anchor.
  *
- * DELIBERATELY EXCLUDED FROM ERASURE (compliance ruling, INFRA-542) — mirrors
- * the `auth_device_id` exclusion in SecureStorageService. This key holds a
+ * DELIBERATELY EXCLUDED FROM ERASURE (compliance ruling, INFRA-542). It is the one
+ * kind of device-level key erasure keeps: unlike the account-scoped keys
+ * (`ACCOUNT_ERASURE_SECURE_STORE_KEYS` in SecureStorageService, deleted by DEBUG-762)
+ * it belongs to the install, not the account. This key holds a
  * boolean install-state fact: no wellness content, no PII, no user identifier.
  * It must SURVIVE `clearAllWellnessData` on both the logout and the
  * delete-master-key branch, so it carries none of `SWEPT_ASYNC_PREFIXES`

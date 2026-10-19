@@ -88,6 +88,24 @@ describe('MAINT-731 — the assessment blob on disk is always the persist envelo
     expect(useAssessmentStore.getState().error).toBeNull();
   });
 
+  // DEBUG-769 — the in-progress slot is memory-only; the persisted state is exactly these keys.
+  it('persists only completedAssessments and autoSaveEnabled, never the in-progress slot', async () => {
+    await useAssessmentStore.getState().startAssessment('phq9', 'standalone');
+    await useAssessmentStore.getState().answerQuestion('phq9_1', 2);
+    await useAssessmentStore.getState().answerQuestion('phq9_9', 1);
+    await useAssessmentStore.getState().saveProgress();
+    await settle();
+
+    const env = expectEnvelope(mockWellnessBlobs[BLOB]);
+    expect(Object.keys(env.state).sort()).toEqual(['autoSaveEnabled', 'completedAssessments']);
+    for (const slotKey of ['currentSession', 'answers', 'currentQuestionIndex']) {
+      expect(env.state).not.toHaveProperty(slotKey);
+    }
+    expect(JSON.stringify(mockWellnessBlobs[BLOB])).not.toContain('phq9_9');
+    // Memory still holds the live session.
+    expect(useAssessmentStore.getState().answers).toHaveLength(2);
+  });
+
   it.each([
     ['setSessionNote', () => useAssessmentStore.getState().setSessionNote('s1', 'new job')],
     ['clearHistory', () => useAssessmentStore.getState().clearHistory()],

@@ -102,35 +102,6 @@ npm run test:encryption
 npm run test:secure-storage
 ```
 
-### Quick Validation Commands
-
-Fast validation for rapid iteration:
-```bash
-# Quick validation (syntax + critical tests)
-npm run quick:validate
-
-# Quick crisis validation
-npm run quick:crisis
-
-# Quick clinical validation
-npm run quick:clinical
-
-# Quick syntax check
-npm run quick:syntax
-
-# Quick performance check
-npm run quick:perf
-
-# Quick fix (lint + format)
-npm run quick:fix
-
-# Watch mode for quick checks
-npm run quick:watch
-
-# Interactive quick validation
-npm run quick:interactive
-```
-
 ### Automation Commands
 
 Automated validation workflows:
@@ -152,49 +123,6 @@ npm run automation:dev
 
 # Watch mode automation
 npm run automation:watch
-```
-
-### Dev Testing Commands
-
-Development-focused test runners:
-```bash
-# Smart test runner (only changed files)
-npm run dev:test-smart
-
-# Focused test runner (specific tests)
-npm run dev:test-focused
-
-# Debug test runner
-npm run dev:test-debug
-
-# Fast test runner (minimal output)
-npm run dev:test-fast
-
-# Coverage test runner
-npm run dev:test-coverage
-```
-
-### Platform Testing
-
-Cross-platform validation:
-```bash
-# List available platforms
-npm run platform:list
-
-# Test iOS platform
-npm run platform:ios
-
-# Test Android platform
-npm run platform:android
-
-# Test both platforms
-npm run platform:both
-
-# Setup platform testing
-npm run platform:setup
-
-# Run platforms in parallel
-npm run platform:parallel
 ```
 
 ### Code Quality
@@ -540,4 +468,3 @@ npm run validate:offline-crisis
 - **Technical Issues**: Check `app/CHANGELOG.md` for recent fixes
 - **Clinical Questions**: Refer to `.claude/CLAUDE.md` domain authorities (crisis, compliance, philosopher)
 - **Performance Issues**: Run `npm run perf:all`
-- **Quick Validation**: Run `npm run quick:validate`

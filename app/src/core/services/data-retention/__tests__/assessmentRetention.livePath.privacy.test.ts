@@ -212,6 +212,121 @@ describe('assessment retention on the live wellness blob (DEBUG-705)', () => {
     expect(result.errors.join(' ')).toMatch(/Assessment cleanup/);
   });
 
+  // DEBUG-769 — the in-progress slot never survives the launch sweep, whatever it holds.
+  describe('in-progress slot (DEBUG-769)', () => {
+    const q9 = (response: number) => ({ questionId: 'phq9_9', response, timestamp: 5 });
+    const liveSession = (id: string, answered: unknown[]) => ({
+      id,
+      type: 'phq9',
+      context: 'standalone',
+      progress: { type: 'phq9', currentQuestionIndex: answered.length, totalQuestions: 9, startedAt: Date.now() - 1000, answers: [], isComplete: false },
+    });
+    const isDefault = (state: Record<string, unknown>) => {
+      expect(state['currentSession'] ?? null).toBeNull();
+      expect(state['answers'] ?? []).toEqual([]);
+      expect(state['currentQuestionIndex'] ?? 0).toBe(0);
+    };
+    const read = async () =>
+      (await SecureStorageService.retrieveWellnessBlob<{ state: Record<string, unknown>; version: number }>(BLOB))!;
+
+    it('clears the leftover slot copy of a COMPLETED Q9 > 0 screening, leaving completedAssessments byte-identical', async () => {
+      const completed = record('completed-q9', 'phq9', 9, 2, { q9: 2 });
+      const history = [completed, record('other', 'gad7', 3, 5)];
+      await SecureStorageService.storeWellnessBlob(
+        BLOB,
+        {
+          state: {
+            completedAssessments: history,
+            // completeAssessment never clears the slot: this is the full copy of the answers.
+            currentSession: liveSession('completed-q9', []),
+            answers: [q9(2), { questionId: 'phq9_1', response: 1, timestamp: 1 }],
+            currentQuestionIndex: 9,
+            autoSaveEnabled: true,
+          },
+          version: 0,
+        },
+        'level_2_assessment_data'
+      );
+      const historyBefore = JSON.stringify(history);
+
+      await runCleanup();
+
+      const after = await read();
+      isDefault(after.state);
+      expect(JSON.stringify(after.state['completedAssessments'])).toBe(historyBefore);
+      expect(after.state['autoSaveEnabled']).toBe(true);
+      expect(after.version).toBe(0);
+      expect(mockAsyncStorageMap.get(`wellness_async_${BLOB}`)).not.toContain('"currentQuestionIndex":9');
+    });
+
+    it('clears a pure partial that carries a Q9 answer and no completed history', async () => {
+      await SecureStorageService.storeWellnessBlob(
+        BLOB,
+        {
+          state: { completedAssessments: [], currentSession: liveSession('partial', []), answers: [q9(1)], currentQuestionIndex: 1, autoSaveEnabled: true },
+          version: 0,
+        },
+        'level_2_assessment_data'
+      );
+
+      await runCleanup();
+
+      const after = await read();
+      isDefault(after.state);
+      expect(JSON.stringify(after)).not.toContain('phq9_9');
+      expect(after.state['completedAssessments']).toEqual([]);
+    });
+
+    it('cleans a flat slot-only blob with no completedAssessments', async () => {
+      await SecureStorageService.storeWellnessBlob(
+        BLOB,
+        { currentSession: liveSession('flat', []), answers: [q9(3)], currentQuestionIndex: 1 },
+        'level_2_assessment_data'
+      );
+
+      await runCleanup();
+
+      const after = await SecureStorageService.retrieveWellnessBlob<Record<string, unknown>>(BLOB);
+      isDefault(after!);
+      expect(JSON.stringify(after)).not.toContain('phq9_9');
+    });
+
+    it('writes a content-free audit entry for a slot-only clear (no type, total, Q9 flag, id or startedAt)', async () => {
+      await SecureStorageService.storeWellnessBlob(
+        BLOB,
+        { state: { completedAssessments: [], currentSession: liveSession('audit-me', []), answers: [q9(2)], currentQuestionIndex: 1 }, version: 0 },
+        'level_2_assessment_data'
+      );
+
+      await runCleanup();
+
+      const raw = mockAsyncStorageMap.get('data_retention_audit_log');
+      expect(raw).toBeDefined();
+      const entries = JSON.parse(raw!) as Record<string, unknown>[];
+      expect(entries).toHaveLength(1);
+      // Count-only: no screening type, total, Q9 flag, session id or startedAt.
+      expect(Object.keys(entries[0]!).sort()).toEqual(
+        ['dataCategory', 'deletionReason', 'id', 'newestRecordDate', 'oldestRecordDate', 'recordCount', 'success', 'timestamp'].sort()
+      );
+      expect(raw).not.toContain('audit-me');
+      expect(raw).not.toContain('phq9');
+      expect(raw).not.toContain('suicidalIdeation');
+    });
+
+    it('does not rewrite a blob whose slot is already default', async () => {
+      await SecureStorageService.storeWellnessBlob(
+        BLOB,
+        { state: { completedAssessments: [record('fresh', 'phq9', 5, 1)], currentSession: null, answers: [], currentQuestionIndex: 0 }, version: 0 },
+        'level_2_assessment_data'
+      );
+      const before = mockAsyncStorageMap.get(`wellness_async_${BLOB}`);
+
+      await runCleanup();
+
+      expect(mockAsyncStorageMap.get(`wellness_async_${BLOB}`)).toBe(before);
+    });
+  });
+
   it('the cutoffs are the published periods, and the store filter uses the same ones', () => {
     expect(DATA_RETENTION_CONFIG.DEFAULT_RETENTION_MS).toBe(90 * DAY);
     expect(DATA_RETENTION_CONFIG.CRISIS_RETENTION_MS).toBe(3 * 365 * DAY);

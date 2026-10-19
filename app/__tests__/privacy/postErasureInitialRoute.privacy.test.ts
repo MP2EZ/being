@@ -209,6 +209,130 @@ describe('a cold launch after a real erasure (AC2)', () => {
   });
 });
 
+/** Like coldLaunchRoute, but also reports the consent status the fresh store resolved. */
+async function coldLaunch(): Promise<{ route: string; status: string }> {
+  let out = { route: '', status: '' };
+  await new Promise<void>((resolve, reject) => {
+    jest.isolateModules(() => {
+      const { useConsentStore: c, readErasureRetirement: retire } = require('@/core/stores/consentStore');
+      const { useSettingsStore: s } = require('@/core/stores/settingsStore');
+      const { resolveInitialRoute: resolve_ } = require('@/core/navigation/resolveInitialRoute');
+      (async () => {
+        const [settings, consent, retired] = await Promise.all([
+          s.getState().loadSettings(),
+          c.getState().loadConsent(),
+          retire(),
+        ]);
+        out = {
+          route: resolve_({ settings, consent, consentStatus: 'loading', retired }),
+          status: c.getState().consentStatus,
+        };
+      })().then(resolve, reject);
+    });
+  });
+  return out;
+}
+
+/** Let the fire-and-forget retireErasedRecords started by loadConsent run to completion. */
+async function settleCleanup(): Promise<void> {
+  for (let i = 0; i < 40; i += 1) await new Promise<void>((r) => setImmediate(r));
+}
+
+describe('DEBUG-762: an erased install whose records are DELETED still never reaches Main', () => {
+  const ERASED_KEYS = ['consent_record_v1', 'legal_gate_consents_v1', 'age_verification_v1', 'auth_device_id'];
+
+  it('attestation present, consent record absent, onboardingCompleted:true → retired → LegalGate', async () => {
+    await seedOnboardedAccount();
+    now += 60_000;
+    await useConsentStore.getState().recordAccountDeletionAttestation();
+    mockSecure.delete('consent_record_v1');
+    expect(JSON.parse(mockAsync.get('app_settings_v1')!).onboardingCompleted).toBe(true);
+
+    expect(await readErasureRetirement()).toBe(true);
+    expect((await coldLaunch()).route).toBe('LegalGate');
+  });
+
+  it('control: no attestation and no consent record is NOT retired (a first-ever launch)', async () => {
+    expect(await readErasureRetirement()).toBe(false);
+  });
+
+  it('control: attestation present and a record that POST-dates it is not retired', async () => {
+    await seedOnboardedAccount();
+    now += 60_000;
+    await useConsentStore.getState().recordAccountDeletionAttestation();
+    now += 60_000;
+    await seedOnboardedAccount();
+    expect(await readErasureRetirement()).toBe(false);
+  });
+
+  it('AC4 two launches: stale records are deleted after launch 1; launch 2 is still LegalGate, never Main', async () => {
+    // The cipher singleton caches its key across tests while mockSecure was just emptied:
+    // provision a real master key on disk so the "master key survives" assertion is not vacuous.
+    const encryption = require('@/core/services/security/EncryptionService').default;
+    await encryption.deleteMasterKey();
+    await encryption.initialize();
+    await seedOnboardedAccount();
+    // Bystanders the cleanup must never touch.
+    mockSecure.set('stoic_practice_state', 'seeded-practice-cipher');
+    mockSecure.set('auth_device_id', 'legacy-anchor');
+    mockAsync.set('wellness_async_journal_entry', 'ciphertext');
+    mockAsync.set('crisis_async_episode-1', 'ciphertext');
+    mockAsync.set('assessment_async_a1', 'ciphertext');
+    const masterKey = mockSecure.get('mental_health_master_key');
+    expect(masterKey).toBeDefined();
+    now += 60_000;
+    // The state a shipped build leaves: attestation written, nothing wiped, settings still onboarded.
+    await useConsentStore.getState().recordAccountDeletionAttestation();
+    const attestation = mockSecure.get('account_deletion_attestation_v1');
+    for (const key of ERASED_KEYS) expect([key, mockSecure.has(key)]).toEqual([key, true]);
+    expect(JSON.parse(mockAsync.get('app_settings_v1')!).onboardingCompleted).toBe(true);
+
+    const launch1 = await coldLaunch();
+    expect(launch1).toEqual({ route: 'LegalGate', status: 'missing' });
+    await settleCleanup();
+    for (const key of ERASED_KEYS) expect([key, mockSecure.has(key)]).toEqual([key, false]);
+
+    const launch2 = await coldLaunch();
+    expect(launch2.route).toBe('LegalGate');
+    expect(launch2.route).not.toBe('Main');
+    expect(launch2.status).toBe('missing');
+    await settleCleanup();
+
+    // Survivors: the evidence, the user's wellness data, crisis/assessment data and the master key.
+    expect(mockSecure.get('account_deletion_attestation_v1')).toBe(attestation);
+    expect(mockSecure.get('stoic_practice_state')).toBe('seeded-practice-cipher');
+    expect(mockSecure.get('mental_health_master_key')).toBe(masterKey);
+    expect(mockAsync.get('wellness_async_journal_entry')).toBe('ciphertext');
+    expect(mockAsync.get('crisis_async_episode-1')).toBe('ciphertext');
+    expect(mockAsync.get('assessment_async_a1')).toBe('ciphertext');
+    // No settings reset on this path.
+    expect(JSON.parse(mockAsync.get('app_settings_v1')!).onboardingCompleted).toBe(true);
+  });
+
+  it('a completed erasure whose settings removeItem REJECTS still launches to LegalGate', async () => {
+    await seedOnboardedAccount();
+    const AsyncStorage = require('@react-native-async-storage/async-storage');
+    const realRemove = AsyncStorage.removeItem.getMockImplementation()!;
+    AsyncStorage.removeItem.mockImplementation(async (k: string) => {
+      if (k === 'app_settings_v1') throw new Error('disk full');
+      return realRemove(k);
+    });
+    jest.spyOn(console, 'error').mockImplementation(() => undefined);
+    now += 60_000;
+    try {
+      await deleteAccountAndWipe({ posthog: null });
+    } finally {
+      AsyncStorage.removeItem.mockImplementation(realRemove);
+    }
+    // The onboarded flag survived on disk, and the records are gone — the routing must hold.
+    expect(JSON.parse(mockAsync.get('app_settings_v1')!).onboardingCompleted).toBe(true);
+    expect(mockSecure.has('consent_record_v1')).toBe(false);
+    expect((await coldLaunch()).route).toBe('LegalGate');
+    await settleCleanup();
+    expect((await coldLaunch()).route).toBe('LegalGate');
+  });
+});
+
 describe('settings reset at erasure (AC3)', () => {
   it('registers settingsStore and consentStore with the erasure registry', () => {
     const owners = registeredErasureResetOwners();

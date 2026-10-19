@@ -198,9 +198,13 @@ export {
 } from './ExternalErrorReporter';
 
 /**
- * INFRA-61: Initialize external error reporting
+ * INFRA-61: Initialize external error reporting.
+ *
+ * DEBUG-776: installs the crash-report consent gate rather than starting Sentry
+ * outright — Sentry runs only while `canPerformOperation('crash_reports')` holds,
+ * and follows that consent at runtime. See ExternalErrorReporter.installConsentGate.
  */
 export const initializeExternalReporting = async (dsn?: string) => {
   const { externalErrorReporter } = await import('./ExternalErrorReporter');
-  return externalErrorReporter.initialize(dsn);
+  return externalErrorReporter.installConsentGate(dsn);
 };

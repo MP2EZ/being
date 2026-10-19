@@ -234,37 +234,6 @@ export type CrisisResolutionType =
   | 'ongoing_monitoring';     // Requires continued monitoring
 
 /**
- * Crisis Resource Information
- */
-export interface CrisisResource {
-  /** Resource ID */
-  id: string;
-  /** Resource name */
-  name: string;
-  /** Resource type */
-  type: 'hotline' | 'text_line' | 'chat' | 'local_service' | 'mobile_app' | 'website';
-  /** Contact information */
-  contact: {
-    phone?: string;
-    text?: string;
-    website?: string;
-    chat?: string;
-  };
-  /** Availability */
-  availability: '24/7' | 'business_hours' | 'specific_hours';
-  /** Specific hours if applicable */
-  hours?: string;
-  /** Geographic availability */
-  geographic: 'national' | 'regional' | 'local';
-  /** Languages supported */
-  languages: string[];
-  /** Specializations */
-  specializations: string[];
-  /** Crisis severity levels this resource handles */
-  handlesLevels: CrisisSeverityLevel[];
-}
-
-/**
  * Crisis Detection Functions
  */
 
@@ -348,14 +317,6 @@ export function detectCrisis(
 }
 
 /**
- * Type Guards
- */
-export function isCriticalCrisis(detection: CrisisDetection): boolean {
-  return detection.severityLevel === 'critical' ||
-         detection.severityLevel === 'emergency';
-}
-
-/**
  * Intervention-tier predicate (MAINT-251).
  *
  * Separates the banner tier (PHQ-9 ≥20 / Q9>0 / GAD-7 ≥15 →
@@ -367,9 +328,9 @@ export function isCriticalCrisis(detection: CrisisDetection): boolean {
  * detectCrisis's ONLY non-intervention output is the 15–19 support tier, so the
  * predicate is "triggered AND not the support tier."
  *
- * NOT equivalent to isCriticalCrisis: a Q9>0 detection with totalScore<20 is
- * severityLevel 'high' (not 'critical') yet IS intervention tier — gating the
- * banner on severity alone would drop the suicidal-ideation signal (this is the
+ * NOT a severity check: a Q9>0 detection with totalScore<20 is severityLevel
+ * 'high' (not 'critical') yet IS intervention tier — gating the banner on
+ * severity alone would drop the suicidal-ideation signal (this is the
  * zero-false-negative guarantee; see crisis-thresholds.test.ts).
  */
 export function isInterventionTier(detection: CrisisDetection): boolean {
@@ -397,20 +358,6 @@ export function isInterventionTierScore(
   return totalScore >= CRISIS_SAFETY_THRESHOLDS.GAD7_SEVERE_THRESHOLD;
 }
 
-export function requiresImmediateIntervention(detection: CrisisDetection): boolean {
-  return detection.primaryTrigger === 'phq9_suicidal_ideation' ||
-         detection.severityLevel === 'emergency';
-}
-
-export function canSafelyDismissIntervention(
-  intervention: CrisisIntervention, 
-  currentTime: number
-): boolean {
-  return intervention.canDismiss && 
-         currentTime >= intervention.dismissalAvailableAt &&
-         intervention.actionsTaken.length > 0;
-}
-
 /**
  * Utility Functions
  */
@@ -421,42 +368,5 @@ function getTimeOfDay(): 'morning' | 'afternoon' | 'evening' | 'night' {
   if (hour >= 17 && hour < 21) return 'evening';
   return 'night';
 }
-
-/**
- * Crisis Safety Validation
- */
-export interface CrisisSafetyValidator {
-  validateDetection: (detection: CrisisDetection) => boolean;
-  validateIntervention: (intervention: CrisisIntervention) => boolean;
-  validateResponseTime: (responseTimeMs: number) => boolean;
-}
-
-/**
- * Emergency Resources
- */
-export const EMERGENCY_RESOURCES: CrisisResource[] = [
-  {
-    id: '988_lifeline',
-    name: '988 Suicide & Crisis Lifeline',
-    type: 'hotline',
-    contact: { phone: '988' },
-    availability: '24/7',
-    geographic: 'national',
-    languages: ['English', 'Spanish'],
-    specializations: ['Suicide Prevention', 'Crisis Counseling'],
-    handlesLevels: ['moderate', 'high', 'critical', 'emergency']
-  },
-  {
-    id: 'crisis_text_line',
-    name: 'Crisis Text Line',
-    type: 'text_line',
-    contact: { text: '741741' },
-    availability: '24/7',
-    geographic: 'national',
-    languages: ['English'],
-    specializations: ['Crisis Support', 'Text-based Support'],
-    handlesLevels: ['moderate', 'high', 'critical']
-  }
-];
 
 export default CRISIS_SAFETY_THRESHOLDS;

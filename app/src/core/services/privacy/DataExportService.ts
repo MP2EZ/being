@@ -9,8 +9,8 @@
  * this explicitly (CCPA right-to-know / GDPR Art. 15).
  *
  * Exclusions (by construction — never read into the envelope): the AES master
- * key, raw ciphertext, and `auth_device_id` (a device-identity anchor, not
- * wellness content). UNGATED, like erasure — a data-subject right is not
+ * key, raw ciphertext, and the device-identity anchors (`auth_device_id`,
+ * deleted on account erasure since DEBUG-762; not wellness content). UNGATED, like erasure — a data-subject right is not
  * consent-dependent.
  */
 

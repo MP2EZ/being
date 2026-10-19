@@ -162,12 +162,14 @@ describe('DEBUG-469 — the class stays OUT of the default safety suite', () => 
   // 15 → 16: INFRA-494 added legal-gate-art9-optional. It is the first sim flow to drive
   //          CombinedLegalGateScreen's CONTROLS at all — deeplink-consent-gate reaches the
   //          screen but ticks nothing, and the helper's gate steps run only on hardware.
-  test('the exact-tag matcher the suite uses still selects exactly the sixteen safety flows', () => {
+  // 16 → 17: DEBUG-771 added assessment-exit — the questions-phase exit control, its
+  //          confirm, and the landing with the root crisis button.
+  test('the exact-tag matcher the suite uses still selects exactly the seventeen safety flows', () => {
     const files = fs.readdirSync(MAESTRO).filter((f) => f.endsWith('.yaml') && !f.startsWith('_'));
     const tagged = files.filter((f) =>
       /^\s*-\s+safety\s*$/m.test(fs.readFileSync(path.join(MAESTRO, f), 'utf8'))
     );
-    expect(tagged).toHaveLength(16);
+    expect(tagged).toHaveLength(17);
     expect(tagged).not.toContain('daily-loop-ax5-entry.yaml');
   });
 });
@@ -487,5 +489,47 @@ describe('DEBUG-632 — the skip-breath tap must be CONFIRMED, not assumed', () 
     expect(slice).toMatch(
       /extendedWaitUntil:\s*\n\s+notVisible:\s*\n\s+id:\s*"daily-loop-skip-breath"\s*\n\s+timeout:\s*5000/
     );
+  });
+});
+
+describe('DEBUG-722 — the assessment AX5 reachability flow joins the class, not the default suite', () => {
+  const FLOW = 'assessment-ax5-reachability.yaml';
+  const src = () => fs.readFileSync(path.join(MAESTRO, FLOW), 'utf8');
+
+  // Same carve-out as daily-loop-ax5-entry: this flow asserts a NON-default text size.
+  test('is tagged safety-dynamic-type and NOT safety', () => {
+    expect(/^\s*-\s+safety-dynamic-type\s*$/m.test(src())).toBe(true);
+    expect(/^\s*-\s+safety\s*$/m.test(src())).toBe(false);
+  });
+
+  test('runs through the wrapper that sets and restores AX5', () => {
+    const pkg = JSON.parse(fs.readFileSync(path.join(__dirname, '../../package.json'), 'utf8'));
+    expect(pkg.scripts['e2e:safety:assessment-ax5']).toBe(
+      'bash scripts/e2e-dynamic-type.sh assessment-ax5-reachability',
+    );
+  });
+
+  // The defect is that option-3, the bottom row, was unreachable. Answering every one of
+  // the nine questions with it is what makes the flow fail on an unscrolled screen; a
+  // walk that answered option-0 would pass on the pre-fix layout at XXXL.
+  test('answers all nine PHQ-9 questions with the bottom option, each after a scroll', () => {
+    const body = src().replace(/^\s*#.*$/gm, '');
+    for (let n = 1; n <= 9; n++) {
+      expect(body).toContain(`Question ${n} of 9`);
+    }
+    expect(body.match(/tapOn:\s*\n\s*id: "assessment-response-group-option-3"/g)).toHaveLength(9);
+    expect(body.match(/scrollUntilVisible:\s*\n\s*element:\s*\n\s*id: "assessment-response-group-option-3"/g)).toHaveLength(9);
+    expect(body).not.toMatch(/assessment-response-group-option-[012]/);
+  });
+
+  test('asserts the crisis outcome and taps the crisis button over a scrolled question', () => {
+    const body = src().replace(/^\s*#.*$/gm, '');
+    expect(body).toContain('id: "results-crisis-banner"');
+    const swipe = body.lastIndexOf('- swipe:');
+    const fab = body.indexOf('id: "assessment-crisis-button"');
+    expect(swipe).toBeGreaterThan(-1);
+    expect(fab).toBeGreaterThan(swipe);
+    expect(body.slice(swipe, fab)).not.toMatch(/waitForAnimationToEnd|point:/);
+    expect(body.indexOf('id: "crisis-resources-screen"')).toBeGreaterThan(fab);
   });
 });

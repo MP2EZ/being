@@ -47,9 +47,12 @@ const PracticeTab: React.FC<PracticeTabProps> = ({
     navigation.navigate(screen, params as never);
   };
 
-  const formatDuration = (seconds: number): string => {
-    const minutes = Math.floor(seconds / 60);
-    return `${minutes} min`;
+  // Untimed practices (e.g. control-sorting) carry no duration: show nothing rather
+  // than "0 min". Under a minute reads "<1 min"; otherwise whole minutes.
+  const formatDuration = (seconds: number | undefined): string | null => {
+    if (!seconds) return null;
+    if (seconds < 60) return '<1 min';
+    return `${Math.floor(seconds / 60)} min`;
   };
 
   const getPracticeTypeLabel = (type: string): string => {
@@ -118,9 +121,11 @@ const PracticeTab: React.FC<PracticeTabProps> = ({
                   <Text style={styles.practiceType}>
                     {getPracticeTypeLabel(practice.type)}
                   </Text>
-                  <Text style={styles.practiceDuration}>
-                    {formatDuration(practice.duration ?? 0)}
-                  </Text>
+                  {formatDuration(practice.duration) !== null && (
+                    <Text style={styles.practiceDuration} testID={`practice-duration-${practice.id}`}>
+                      {formatDuration(practice.duration)}
+                    </Text>
+                  )}
                 </View>
               </View>
             </View>

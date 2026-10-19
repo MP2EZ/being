@@ -194,7 +194,11 @@ module.exports = {
     '^@/(.*)$': '<rootDir>/src/$1',
     '^@tests/(.*)$': '<rootDir>/__tests__/$1',
     '^@setup/(.*)$': '<rootDir>/__tests__/setup/$1',
-    '^@utils/(.*)$': '<rootDir>/__tests__/utils/$1'
+    '^@utils/(.*)$': '<rootDir>/__tests__/utils/$1',
+    // MAINT-743: repo-root scripts/ (outside app/) are babel-transformed like any other
+    // file, and an async function there emits `require('@babel/runtime/helpers/...')`,
+    // which cannot resolve from a directory with no node_modules. Pin it to app's copy.
+    '^@babel/runtime/(.*)$': '<rootDir>/node_modules/@babel/runtime/$1'
     // MAINT-630: removed @components/ @flows/ @stores/ @services/ @types/ — all five
     // mapped into src/ directories that do not exist, with zero importers. Neutral by
     // per-alias non-overlap (they lack the slash '^@/' requires, so it never subsumed

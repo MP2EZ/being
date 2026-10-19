@@ -20,7 +20,8 @@
  *
  * Both patterns are valid; the script detects either:
  *   1. INFRA-175 style: a `process.env.NODE_ENV === 'test'` check appears
- *      within 40 lines above the `setInterval` line in the same file.
+ *      between the enclosing method's declaration and the `setInterval` line
+ *      (and within 40 lines above it). A guard in a sibling method never counts.
  *   2. INFRA-144 style: the enclosing method is called elsewhere in the
  *      file, with a guard preceding the call site.
  *
@@ -113,18 +114,104 @@ function walkDir(dir, out) {
   return out;
 }
 
+// Control-flow keywords and other `word (` shapes that METHOD_DECL_RE would
+// otherwise accept as a "method declaration" (`if (x) {`, `catch (e) {`, ...).
+const NOT_A_METHOD = new Set([
+  'if', 'for', 'while', 'switch', 'catch', 'with', 'return', 'function', 'else', 'do', 'try', 'await', 'new',
+]);
+
 /**
- * Find the enclosing method/function name for a given line index by
- * walking backwards until we hit a method declaration. Returns null if
- * no declaration is found within reasonable scope.
+ * Return a copy of `text` with the CONTENTS of string literals, template
+ * literals (including `${...}` interpolations) and comments removed. Quote
+ * delimiters are kept and every newline is preserved, so line N of the result
+ * is line N of the input. Used only for brace counting and declaration matching;
+ * guard / setInterval detection still reads the raw lines because GUARD_RE needs
+ * the `'test'` literal. Regex literals are not understood (rough by design).
  */
-function findEnclosingMethod(lines, lineIdx) {
+function stripLiterals(text) {
+  let out = '';
+  // Stack of lexer modes. Top-level is code. A template literal pushes 'tpl';
+  // `${` inside it pushes a code frame that remembers its brace depth.
+  const stack = [{ mode: 'code', depth: 0 }];
+  const n = text.length;
+  let i = 0;
+  while (i < n) {
+    const top = stack[stack.length - 1];
+    const ch = text[i];
+    const next = text[i + 1];
+    if (top.mode === 'tpl') {
+      if (ch === '\\') {
+        if (next === '\n') out += '\n';
+        i += 2;
+      } else if (ch === '`') {
+        out += '`';
+        stack.pop();
+        i++;
+      } else if (ch === '$' && next === '{') {
+        stack.push({ mode: 'code', depth: 0, interp: true });
+        i += 2;
+      } else {
+        if (ch === '\n') out += '\n';
+        i++;
+      }
+      continue;
+    }
+    // code mode
+    if (ch === '/' && next === '/') {
+      while (i < n && text[i] !== '\n') i++;
+    } else if (ch === '/' && next === '*') {
+      i += 2;
+      while (i < n && !(text[i] === '*' && text[i + 1] === '/')) {
+        if (text[i] === '\n') out += '\n';
+        i++;
+      }
+      i += 2;
+    } else if (ch === "'" || ch === '"') {
+      out += ch;
+      i++;
+      while (i < n && text[i] !== ch && text[i] !== '\n') {
+        i += text[i] === '\\' ? 2 : 1;
+      }
+      if (text[i] === ch) {
+        out += ch;
+        i++;
+      }
+    } else if (ch === '`') {
+      out += '`';
+      stack.push({ mode: 'tpl' });
+      i++;
+    } else if (ch === '{') {
+      top.depth++;
+      out += ch;
+      i++;
+    } else if (ch === '}') {
+      if (top.interp && top.depth === 0) {
+        stack.pop();
+      } else {
+        top.depth--;
+        out += ch;
+      }
+      i++;
+    } else {
+      out += ch;
+      i++;
+    }
+  }
+  return out;
+}
+
+/**
+ * Find the enclosing method declaration for a given line index by walking
+ * backwards (over the literal-stripped view of `lines`) until the brace depth
+ * goes negative on a line that declares a method. Returns { name, line } with a
+ * 0-indexed declaration line, or null if none is found.
+ */
+function findEnclosingMethodDecl(lines, lineIdx) {
+  const code = stripLiterals(lines.join('\n')).split('\n');
   let braceDepth = 0;
   for (let i = lineIdx - 1; i >= 0; i--) {
-    const line = lines[i];
-    if (isCommentLine(line)) continue;
-    // Count braces in this line (rough — doesn't handle strings perfectly,
-    // but good enough for the file-shape we're dealing with).
+    const line = code[i];
+    if (isCommentLine(lines[i])) continue;
     for (const ch of line) {
       if (ch === '}') braceDepth++;
       else if (ch === '{') braceDepth--;
@@ -133,23 +220,29 @@ function findEnclosingMethod(lines, lineIdx) {
     // upward — the method declaration is on or before this line.
     if (braceDepth < 0) {
       const m = METHOD_DECL_RE.exec(line);
-      if (m) return m[1];
-      // Block boundary but no method — keep walking (could be a try/catch).
+      if (m && !NOT_A_METHOD.has(m[1])) return { name: m[1], line: i };
+      // Block boundary but no method (if/try/catch/...) — keep walking.
       braceDepth = 0;
     }
   }
   return null;
 }
 
+/** Name of the enclosing method for `lineIdx`, or null. */
+function findEnclosingMethod(lines, lineIdx) {
+  const decl = findEnclosingMethodDecl(lines, lineIdx);
+  return decl ? decl.name : null;
+}
+
 /**
  * Check if a given method name is called elsewhere in the same file with
  * a guard preceding the call site within 5 lines.
  */
-function isCalledFromGuardedSite(lines, methodName, originLineIdx) {
+function isCalledFromGuardedSite(lines, methodName, declLineIdx) {
   // Match `this.methodName(` or bare `methodName(` calls.
   const callRe = new RegExp(`\\b(?:this\\.)?${methodName}\\s*\\(`);
   for (let i = 0; i < lines.length; i++) {
-    if (i === originLineIdx) continue; // skip the declaration site itself
+    if (i === declLineIdx) continue; // skip the declaration site itself
     const line = lines[i];
     if (isCommentLine(line)) continue;
     if (!callRe.test(line)) continue;
@@ -159,6 +252,56 @@ function isCalledFromGuardedSite(lines, methodName, originLineIdx) {
     }
   }
   return false;
+}
+
+/**
+ * Pure scan of one file's text. No filesystem access, no process exit.
+ * Returns { guardedInMethod, guardedAtCaller, skipped, unguarded } where each
+ * unguarded entry is { line (1-indexed), text }.
+ */
+function scanSource(text) {
+  const lines = text.split('\n');
+  const result = { guardedInMethod: 0, guardedAtCaller: 0, skipped: 0, unguarded: [] };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    if (isCommentLine(line)) continue;
+    if (!SET_INTERVAL_RE.test(line)) continue;
+
+    // Escape hatch on the line directly above.
+    const prev = i > 0 ? lines[i - 1] : '';
+    if (SKIP_DIRECTIVE_RE.test(prev)) {
+      result.skipped++;
+      continue;
+    }
+
+    const decl = findEnclosingMethodDecl(lines, i);
+
+    // Pattern A: guard inside the enclosing method body, i.e. between its
+    // declaration line and this setInterval, and within BACKWARD_SCOPE_LINES.
+    // A guard in a sibling method above never counts.
+    if (decl) {
+      const start = Math.max(decl.line, i - BACKWARD_SCOPE_LINES);
+      let guarded = false;
+      for (let j = i - 1; j >= start; j--) {
+        if (GUARD_RE.test(lines[j])) {
+          guarded = true;
+          result.guardedInMethod++;
+          break;
+        }
+      }
+      if (guarded) continue;
+
+      // Pattern B: guard at caller of the enclosing method.
+      if (isCalledFromGuardedSite(lines, decl.name, decl.line)) {
+        result.guardedAtCaller++;
+        continue;
+      }
+    }
+
+    result.unguarded.push({ line: i + 1, text: line.trim() });
+  }
+  return result;
 }
 
 function fail(msg) {
@@ -178,74 +321,66 @@ function fail(msg) {
       'If this is an intentional unguarded call, add\n' +
       '`// interval-guard-skip: <reason>` directly above the setInterval line.\n'
   );
-  process.exit(1);
 }
 
-const files = [];
-for (const root of SERVICE_ROOTS) {
-  walkDir(root, files);
-}
-files.sort();
-
-const unguarded = [];
-let guardedInMethod = 0;
-let guardedAtCaller = 0;
-let skippedCount = 0;
-
-for (const file of files) {
-  const lines = fs.readFileSync(file, 'utf-8').split('\n');
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-    if (isCommentLine(line)) continue;
-    if (!SET_INTERVAL_RE.test(line)) continue;
-
-    // Escape hatch on the line directly above.
-    const prev = i > 0 ? lines[i - 1] : '';
-    if (SKIP_DIRECTIVE_RE.test(prev)) {
-      skippedCount++;
-      continue;
-    }
-
-    // Pattern A: guard within BACKWARD_SCOPE_LINES above in same file.
-    const start = Math.max(0, i - BACKWARD_SCOPE_LINES);
-    let guarded = false;
-    for (let j = i - 1; j >= start; j--) {
-      if (GUARD_RE.test(lines[j])) {
-        guarded = true;
-        guardedInMethod++;
-        break;
-      }
-    }
-    if (guarded) continue;
-
-    // Pattern B: guard at caller of the enclosing method.
-    const methodName = findEnclosingMethod(lines, i);
-    if (methodName && isCalledFromGuardedSite(lines, methodName, i)) {
-      guardedAtCaller++;
-      continue;
-    }
-
-    const rel = path.relative(REPO_ROOT, file);
-    unguarded.push(`  ${rel}:${i + 1}\n    ${line.trim()}`);
+function main() {
+  const files = [];
+  for (const root of SERVICE_ROOTS) {
+    walkDir(root, files);
   }
-}
+  files.sort();
 
-if (unguarded.length > 0) {
-  fail(
-    `Found ${unguarded.length} unguarded setInterval call(s) in service files.\n` +
-      `(${guardedInMethod} guarded in-method, ${guardedAtCaller} guarded at caller, ` +
-      `${skippedCount} explicitly skipped.)\n\n` +
-      'Unguarded calls:\n' +
-      unguarded.join('\n')
+  const unguarded = [];
+  let guardedInMethod = 0;
+  let guardedAtCaller = 0;
+  let skippedCount = 0;
+
+  for (const file of files) {
+    const r = scanSource(fs.readFileSync(file, 'utf-8'));
+    guardedInMethod += r.guardedInMethod;
+    guardedAtCaller += r.guardedAtCaller;
+    skippedCount += r.skipped;
+    const rel = path.relative(REPO_ROOT, file);
+    for (const u of r.unguarded) {
+      unguarded.push(`  ${rel}:${u.line}\n    ${u.text}`);
+    }
+  }
+
+  if (unguarded.length > 0) {
+    fail(
+      `Found ${unguarded.length} unguarded setInterval call(s) in service files.\n` +
+        `(${guardedInMethod} guarded in-method, ${guardedAtCaller} guarded at caller, ` +
+        `${skippedCount} explicitly skipped.)\n\n` +
+        'Unguarded calls:\n' +
+        unguarded.join('\n')
+    );
+    process.exitCode = 1;
+    return 1;
+  }
+
+  const guardedTotal = guardedInMethod + guardedAtCaller;
+  const breakdown =
+    guardedTotal > 0
+      ? ` (${guardedInMethod} in-method, ${guardedAtCaller} at caller)`
+      : '';
+  const skippedNote = skippedCount > 0 ? `, ${skippedCount} explicitly skipped` : '';
+  console.log(
+    `✅ All ${guardedTotal} service setInterval call(s) properly guarded under NODE_ENV=test${breakdown}${skippedNote}.`
   );
+  return 0;
 }
 
-const guardedTotal = guardedInMethod + guardedAtCaller;
-const breakdown =
-  guardedTotal > 0
-    ? ` (${guardedInMethod} in-method, ${guardedAtCaller} at caller)`
-    : '';
-const skippedNote = skippedCount > 0 ? `, ${skippedCount} explicitly skipped` : '';
-console.log(
-  `✅ All ${guardedTotal} service setInterval call(s) properly guarded under NODE_ENV=test${breakdown}${skippedNote}.`
-);
+if (require.main === module) {
+  main();
+}
+
+module.exports = {
+  findEnclosingMethod,
+  findEnclosingMethodDecl,
+  stripLiterals,
+  isCalledFromGuardedSite,
+  isTestFile,
+  isHookFile,
+  scanSource,
+  main,
+};

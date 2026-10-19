@@ -36,35 +36,52 @@ export const CONSENT_DETAILS = {
     title: 'Analytics',
     description: 'Help us improve the app by understanding how it\'s used',
     details: {
+      // DEBUG-788: matches what PostHog actually stores (project 111221, checked 2026-10-14)
+      // and privacy-policy §5.2. Every event carries a device-persistent random identifier,
+      // and the project's GeoIP transformation adds city and country, so nothing here may
+      // claim anonymity or rule out location. No retention figure: nothing in the app
+      // enforces one on PostHog's side (DEBUG-793). Pinned by
+      // analyticsConsentCopy.privacy.test.ts.
       whatWeCollect: [
-        'Which features you use (e.g., "Daily Check-in completed")',
-        'How long you spend in the app',
-        'Device type (iPhone, Android, etc.)',
+        'Which features and screens you use, including when you open a check-in, a wellness screening or support resources (never your answers, scores or what you write)',
+        'When you open the app and how long you spend in it',
+        'Device and app details: device model, OS and app version, screen size, language and time zone',
+        'A random identifier created for this installation of the app',
+        'Your approximate location (city and country), which our analytics provider estimates from your internet connection',
       ],
       whatWeDontCollect: [
-        'Your journal entries, mood ratings, or assessment scores',
-        'Any personally identifiable information',
-        'Location data',
+        'Your journal entries, mood ratings, or PHQ-9/GAD-7 responses and scores',
+        'Your name, email, or account identifier',
+        'Your advertising identifier',
+        'Your precise (GPS) location, or your IP address',
       ],
       whyItHelps: 'Understanding usage patterns helps us improve features you care about and fix confusing flows.',
-      privacyNote: 'Data retention: 90 days, then automatically deleted. Anonymized before storage.',
+      privacyNote: 'Sent to our analytics provider, PostHog (EU servers, Frankfurt), over an encrypted connection. The installation identifier is not linked to your account. Turning this off stops collection immediately.',
     },
   },
   crashReports: {
     title: 'Crash Reports',
     description: 'Automatically report errors to fix bugs faster',
     details: {
+      // DEBUG-779: matches what the consented Sentry client sends (DEBUG-776) and
+      // privacy-policy §5.1. Release-health sessions carry a per-install identifier, so
+      // nothing here may claim anonymity; "encrypted" means in transit only.
+      // DEBUG-786: native crash events also carry a device identifier (device_app_hash) and a
+      // city/country Sentry derives at ingest — observed, Sentry event bf0dd8b4…, DPIA 2.43.
       whatWeCollect: [
-        'Technical error logs (which code failed)',
-        'Device info (OS version, app version)',
-        'What screen you were on when the crash occurred',
+        "Technical error details (which part of the app's code failed)",
+        'Device and app details, such as OS version and app version',
+        'App-session diagnostics (when a session starts and ends, and whether it crashed), used to measure app stability',
+        'Identifiers created for this installation of the app',
+        'Your approximate location (city and country), which our crash-reporting provider estimates from your internet connection',
       ],
       whatWeDontCollect: [
-        'Your personal data (mood, journal, assessments)',
-        'Identifiable information',
+        'Your mood check-ins, journal entries, or PHQ-9/GAD-7 responses and scores',
+        'Your name, email, or account identifier',
+        'Your precise (GPS) location, or your IP address',
       ],
       whyItHelps: 'Crashes disrupt your practice. Automatic reports help us detect and fix issues before they affect more people.',
-      privacyNote: 'All crash reports are encrypted and anonymized.',
+      privacyNote: 'Sent to our crash-reporting provider, Sentry, over an encrypted connection. These identifiers are not linked to your account or your wellness data. Turning this off stops all crash and session reporting.',
     },
   },
   cloudSync: {
@@ -95,20 +112,20 @@ export const CONSENT_DETAILS = {
   },
   research: {
     title: 'Research Participation',
-    description: 'Help improve mental health care (fully anonymous)',
+    // DEBUG-788: no code consumes the research grant (canary in
+    // analyticsConsentCopy.privacy.test.ts). When a research path is built, re-derive this
+    // card from it and bump CONSENT_VERSION.
+    description: 'Not active. Nothing is collected for research today.',
     details: {
       whatWeCollect: [
-        'Aggregated mood trends (e.g., "60% of users report improvement")',
-        'Feature effectiveness data (which practices help most)',
-        'Anonymized usage patterns',
+        'Nothing. Being does not currently run a research program.',
       ],
       whatWeDontCollect: [
-        'Individual responses or identifiable data',
+        'Any of your data, while no research program is running',
         'Data shared with third parties for advertising',
-        'Anything that could identify you',
       ],
-      whyItHelps: 'Research helps us validate that Stoic practices are effective, publish findings to help more people, and secure funding to keep the app accessible.',
-      privacyNote: 'Fully anonymized. Aggregated with 1,000+ other users. You can opt out anytime.',
+      whyItHelps: 'If we start a research program, this records that you are open to being asked.',
+      privacyNote: 'Before any research data is collected, we will tell you exactly what it includes and ask for your consent again. You can turn this off anytime.',
     },
   },
 } satisfies Record<string, ConsentCategoryCopy>;

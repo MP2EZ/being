@@ -33,6 +33,8 @@ import { useConsentStore } from '@/core/stores/consentStore';
 import { useAnalytics, useFeatureFlag } from '@/core/analytics';
 import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
+// Direct path, not the consent barrel: the barrel would put its screens on this graph (FEAT-376).
+import { CONSENT_DETAILS } from '@/features/consent/constants/consentDetails';
 import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
@@ -398,9 +400,9 @@ const PrivacyDataScreen: React.FC = () => {
           <View style={styles.settingCard}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Anonymous Usage Analytics</Text>
+                <Text style={styles.settingLabel}>Usage Analytics</Text>
                 <Text style={styles.settingDescription}>
-                  Help improve Being. by sharing anonymous usage data (NO personal or health information)
+                  Help improve Being by sharing which features you use. Never your check-ins, journal or screening answers.
                 </Text>
               </View>
               <Switch
@@ -478,7 +480,7 @@ const PrivacyDataScreen: React.FC = () => {
               <View style={styles.settingInfo}>
                 <Text style={styles.settingLabel}>Research Participation</Text>
                 <Text style={styles.settingDescription}>
-                  Help improve mental health care (fully anonymous)
+                  {CONSENT_DETAILS.research.description}
                 </Text>
               </View>
               <Switch
@@ -493,7 +495,7 @@ const PrivacyDataScreen: React.FC = () => {
 
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
-              Your check-in responses, therapeutic values, and health data are NEVER shared. Analytics are limited to app usage patterns only.
+              Your check-in responses, therapeutic values, and health data are NEVER shared. Analytics cover app usage and device details only.
             </Text>
           </View>
 

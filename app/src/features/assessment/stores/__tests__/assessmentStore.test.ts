@@ -9,7 +9,7 @@
  * ✓ Crisis intervention trigger time <200ms
  * ✓ 100% scoring accuracy (regulatory requirement)
  * ✓ Encrypted storage with audit trail
- * ✓ Session recovery functionality
+ * ✓ Interrupted sessions are not restored (in-progress slot is memory-only, DEBUG-769)
  * ✓ Auto-save with real-time persistence
  */
 
@@ -452,46 +452,45 @@ describe('Assessment Store - Clinical Validation', () => {
       );
     });
 
-    it('recovers interrupted sessions correctly', async () => {
-      const savedSession = {
-        currentSession: {
-          id: 'test_session',
-          type: 'phq9' as AssessmentType,
-          context: 'standalone' as const,
-          progress: {
+    it('does not restore an interrupted session on a cold launch (DEBUG-769)', async () => {
+      // A blob written by a build that still persisted the in-progress slot.
+      mockWellnessBlobs['assessment_store'] = {
+        state: {
+          currentSession: {
+            id: 'test_session',
             type: 'phq9' as AssessmentType,
-            currentQuestionIndex: 3,
-            totalQuestions: 9,
-            startedAt: Date.now() - 60000,
-            answers: [],
-            isComplete: false
-          }
+            context: 'standalone' as const,
+            progress: {
+              type: 'phq9' as AssessmentType,
+              currentQuestionIndex: 3,
+              totalQuestions: 9,
+              startedAt: Date.now() - 60000,
+              answers: [],
+              isComplete: false
+            }
+          },
+          currentQuestionIndex: 3,
+          answers: [
+            { questionId: 'phq9_1', response: 1 as AssessmentResponse, timestamp: Date.now() },
+            { questionId: 'phq9_2', response: 2 as AssessmentResponse, timestamp: Date.now() },
+            { questionId: 'phq9_3', response: 0 as AssessmentResponse, timestamp: Date.now() }
+          ],
+          completedAssessments: [],
+          // Hydration restores this flag; this file's afterEach (DEBUG-515) requires it off.
+          autoSaveEnabled: false
         },
-        currentQuestionIndex: 3,
-        answers: [
-          { questionId: 'phq9_1', response: 1 as AssessmentResponse, timestamp: Date.now() },
-          { questionId: 'phq9_2', response: 2 as AssessmentResponse, timestamp: Date.now() },
-          { questionId: 'phq9_3', response: 0 as AssessmentResponse, timestamp: Date.now() }
-        ],
-        completedAssessments: []
+        version: 0
       };
-
-      // Seed the SecureStorageService passthrough so EncryptedAssessmentStorage
-      // returns this session on load.
-      mockWellnessBlobs['assessment_store'] = savedSession;
 
       const { result } = renderHook(() => useAssessmentStore());
 
       await act(async () => {
-        const recovered = await result.current.recoverSession();
-        expect(recovered).toBe(true);
+        await useAssessmentStore.persist.rehydrate();
       });
 
-      expect(result.current.currentSession).toBeTruthy();
-      expect(result.current.currentSession!.id).toBe('test_session');
-      expect(result.current.currentQuestionIndex).toBe(3);
-      expect(result.current.answers).toHaveLength(3);
-      expect(result.current.hasRecoverableSession).toBe(true);
+      expect(result.current.currentSession).toBeNull();
+      expect(result.current.currentQuestionIndex).toBe(0);
+      expect(result.current.answers).toHaveLength(0);
     });
   });
 

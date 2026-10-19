@@ -272,19 +272,6 @@ export type AssessmentNavigationEvent =
     };
 
 /**
- * Type Guards for Navigation Parameters
- */
-export function isAssessmentParams(
-  params: unknown
-): params is AssessmentStackParamList['PHQ9Assessment'] | AssessmentStackParamList['GAD7Assessment'] {
-  return (
-    typeof params === 'object' &&
-    params !== null &&
-    'context' in params
-  );
-}
-
-/**
  * Navigation Utilities
  */
 export interface AssessmentNavigationUtils {

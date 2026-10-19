@@ -17,6 +17,12 @@
  * { onConflict }) - recorded in `upserts` and applied (replace the row whose onConflict column
  * matches, else append); failOn(table, 'upsert', err) for a 23505 or a plain error; and
  * failRpc(name, err) to make an RPC (the audit writer) report an error.
+ *
+ * DEBUG-751 additions (additive): from(t).update(p)….select(cols) resolves { data: matchedRows,
+ * error } - the rows the filters matched BEFORE the patch, projected to `cols` - so a test can
+ * observe an optimistic-concurrency update that matched nothing; .is(c, null) matches a null or
+ * absent column; beforeUpdate(table, fn) runs `fn` once, just before the next update on that
+ * table resolves its filters, so a test can change a row between the handler's read and write.
  */
 
 type Row = Record<string, unknown>;
@@ -33,6 +39,8 @@ export interface FakeDb {
   failOn(table: string, op: 'select' | 'update' | 'insert' | 'upsert', error: Row): void;
   /** Make the next call to the named RPC resolve `{ error }` (MAINT-753). */
   failRpc(name: string, error: Row): void;
+  /** Run `fn` once, just before the next update on `table` matches its rows (DEBUG-751). */
+  beforeUpdate(table: string, fn: () => void): void;
 }
 
 export function fakeDb(seed: Record<string, Row[]> = {}): FakeDb {
@@ -42,6 +50,7 @@ export function fakeDb(seed: Record<string, Row[]> = {}): FakeDb {
   const upserts: FakeDb['upserts'] = [];
   const failures: Array<{ table: string; op: string; error: Row }> = [];
   const rpcFailures: Array<{ name: string; error: Row }> = [];
+  const updateHooks: Array<{ table: string; fn: () => void }> = [];
 
   function takeFailure(table: string, op: string): Row | null {
     const i = failures.findIndex((f) => f.table === table && f.op === op);
@@ -51,15 +60,27 @@ export function fakeDb(seed: Record<string, Row[]> = {}): FakeDb {
 
   function query(table: string) {
     const filters: Array<[string, unknown]> = [];
+    const nullFilters: string[] = [];
     let patch: Row | null = null;
+    let returning: string | null = null;
     const rows = () =>
-      (tables[table] ??= []).filter((r) => filters.every(([c, v]) => r[c] === v));
+      (tables[table] ??= []).filter((r) =>
+        filters.every(([c, v]) => r[c] === v) && nullFilters.every((c) => (r[c] ?? null) === null)
+      );
 
     // deno-lint-ignore no-explicit-any
     const b: any = {
-      select: () => b,
+      select: (cols?: string) => {
+        if (patch) returning = cols ?? '*';
+        return b;
+      },
       eq: (c: string, v: unknown) => {
         filters.push([c, v]);
+        return b;
+      },
+      is: (c: string, v: null) => {
+        if (v !== null) throw new Error('fakeDb.is supports null only');
+        nullFilters.push(c);
         return b;
       },
       update: (p: Row) => {
@@ -73,7 +94,8 @@ export function fakeDb(seed: Record<string, Row[]> = {}): FakeDb {
         if (found.length > 1) {
           return Promise.resolve({ data: null, error: { code: 'PGRST116', message: 'multiple rows' } });
         }
-        return Promise.resolve({ data: found[0] ?? null, error: null });
+        // A copy, as over the wire: a later write must not change what the caller already read.
+        return Promise.resolve({ data: found[0] ? { ...found[0] } : null, error: null });
       },
       single: () => {
         const err = takeFailure(table, 'select');
@@ -81,7 +103,7 @@ export function fakeDb(seed: Record<string, Row[]> = {}): FakeDb {
         const found = rows();
         return Promise.resolve(
           found.length === 1
-            ? { data: found[0], error: null }
+            ? { data: { ...found[0] }, error: null }
             : { data: null, error: { code: 'PGRST116', message: `${found.length} rows` } },
         );
       },
@@ -112,13 +134,26 @@ export function fakeDb(seed: Record<string, Row[]> = {}): FakeDb {
       then: (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) => {
         let result: unknown;
         if (patch) {
+          const hook = updateHooks.findIndex((h) => h.table === table);
+          if (hook >= 0) updateHooks.splice(hook, 1)[0].fn();
           const err = takeFailure(table, 'update');
           if (err) {
-            result = { error: err };
+            result = returning === null ? { error: err } : { data: null, error: err };
           } else {
             updates.push({ table, patch, filters: [...filters] });
-            for (const r of rows()) Object.assign(r, patch);
-            result = { error: null };
+            const matched = rows();
+            for (const r of matched) Object.assign(r, patch);
+            if (returning === null) {
+              result = { error: null };
+            } else {
+              const cols = returning.split(',').map((c) => c.trim()).filter((c) => c && c !== '*');
+              result = {
+                data: matched.map((r) =>
+                  cols.length === 0 ? { ...r } : Object.fromEntries(cols.map((c) => [c, r[c]]))
+                ),
+                error: null,
+              };
+            }
           }
         } else {
           const err = takeFailure(table, 'select');
@@ -145,6 +180,7 @@ export function fakeDb(seed: Record<string, Row[]> = {}): FakeDb {
     rpcCalls,
     upserts,
     failRpc: (name, error) => rpcFailures.push({ name, error }),
+    beforeUpdate: (table, fn) => updateHooks.push({ table, fn }),
     failOn: (table, op, error) => failures.push({ table, op, error }),
   };
 }

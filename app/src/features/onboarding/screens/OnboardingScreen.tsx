@@ -116,6 +116,12 @@ interface NotificationTime {
 // Component props interface for embedded mode support
 interface OnboardingScreenProps {
   onComplete?: (destination?: 'home' | 'practice') => void;
+  /**
+   * Re-ask at the legal gate (DEBUG-734). The caller replaces THIS route, by key at the
+   * root, deferred while a crisis destination is focused; a bare replace from here
+   * would replace a CrisisResources opened during the consent awaits.
+   */
+  onReturnToLegalGate: () => void;
   isEmbedded?: boolean;
 }
 
@@ -133,7 +139,7 @@ interface CrisisDetectionResult {
 // re-consent screen must re-ask these four with the SAME descriptions the user
 // agreed to here, and two divergent copies would drift invisibly.
 
-const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbedded = false }) => {
+const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onReturnToLegalGate, isEmbedded = false }) => {
   const navigation = useNavigation<StackNavigationProp<RootStackParamList>>();
   const {
     trackScreenView,
@@ -354,51 +360,47 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
           allowSkip: true,
           onComplete: (result) => {
             console.log('✅ PHQ-9 onboarding completed:', result);
-            // Modal already dismissed by CleanRootNavigator, just open GAD-7
-            setTimeout(() => {
-              navigation.navigate('AssessmentFlow', {
-                assessmentType: 'gad7',
-                context: 'onboarding',
-                allowSkip: true,
-                onComplete: (result) => {
-                  console.log('✅ GAD-7 onboarding completed:', result);
-                  // Modal already dismissed, continue to Stoic intro
-                  setCurrentScreen('stoicIntro');
-                  logStateChange('navigateNext:assessments->stoicIntro');
-                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
-                  announceToScreenReader('Assessments complete. Learning about Stoic Mindfulness.');
-                },
-                onSkip: () => {
-                  // Modal already dismissed, continue to Stoic intro
-                  setCurrentScreen('stoicIntro');
-                  logStateChange('navigateNext:gad7-skipped->stoicIntro');
-                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
-                },
-              });
-            }, 50);
+            // dismissRouteThenNotify already waited for the dismissal and for crisis focus to clear, so open GAD-7 now
+            navigation.navigate('AssessmentFlow', {
+              assessmentType: 'gad7',
+              context: 'onboarding',
+              allowSkip: true,
+              onComplete: (result) => {
+                console.log('✅ GAD-7 onboarding completed:', result);
+                // Modal already dismissed, continue to Stoic intro
+                setCurrentScreen('stoicIntro');
+                logStateChange('navigateNext:assessments->stoicIntro');
+                trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
+                announceToScreenReader('Assessments complete. Learning about Stoic Mindfulness.');
+              },
+              onSkip: () => {
+                // Modal already dismissed, continue to Stoic intro
+                setCurrentScreen('stoicIntro');
+                logStateChange('navigateNext:gad7-skipped->stoicIntro');
+                trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
+              },
+            });
           },
           onSkip: () => {
-            // PHQ-9 skipped, modal already dismissed, go to GAD-7
-            setTimeout(() => {
-              navigation.navigate('AssessmentFlow', {
-                assessmentType: 'gad7',
-                context: 'onboarding',
-                allowSkip: true,
-                onComplete: (result) => {
-                  console.log('✅ GAD-7 onboarding completed:', result);
-                  // Modal already dismissed, continue to Stoic intro
-                  setCurrentScreen('stoicIntro');
-                  logStateChange('navigateNext:gad7->stoicIntro');
-                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
-                },
-                onSkip: () => {
-                  // Modal already dismissed, continue to Stoic intro
-                  setCurrentScreen('stoicIntro');
-                  logStateChange('navigateNext:assessments-skipped->stoicIntro');
-                  trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
-                },
-              });
-            }, 50);
+            // PHQ-9 skipped; dismissRouteThenNotify already waited for the dismissal and for crisis focus to clear, so open GAD-7 now
+            navigation.navigate('AssessmentFlow', {
+              assessmentType: 'gad7',
+              context: 'onboarding',
+              allowSkip: true,
+              onComplete: (result) => {
+                console.log('✅ GAD-7 onboarding completed:', result);
+                // Modal already dismissed, continue to Stoic intro
+                setCurrentScreen('stoicIntro');
+                logStateChange('navigateNext:gad7->stoicIntro');
+                trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
+              },
+              onSkip: () => {
+                // Modal already dismissed, continue to Stoic intro
+                setCurrentScreen('stoicIntro');
+                logStateChange('navigateNext:assessments-skipped->stoicIntro');
+                trackOnboardingStepCompleted(1); // Track step completion (FEAT-137)
+              },
+            });
           },
         });
         logStateChange('navigateNext:welcome->assessments');
@@ -1010,10 +1012,10 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
             outcome: 'returned-to-legal-gate',
           },
         );
-        // MUST be `return`, not `throw`: the catch below ends in navigateNext()
-        // ("Still proceed - consent is optional"), which would silently convert this
-        // guard back into the fail-open behaviour it exists to close.
-        navigation.replace('LegalGate');
+        // MUST be `return`, not `throw`: a throw would land in the catch below and be
+        // logged as a failed grant. The decision is made and logged HERE; only the
+        // route change may wait for a crisis screen to close (DEBUG-734).
+        onReturnToLegalGate();
         return;
       }
 
@@ -1028,7 +1030,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       // re-ask as the legal-gate branch above, for the same reason: return, not throw.
       if (!ageVerification) {
         logError(LogCategory.SECURITY, 'No usable age verification at onboarding — returning to the legal gate');
-        navigation.replace('LegalGate');
+        onReturnToLegalGate();
         return;
       }
 
@@ -1041,7 +1043,8 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, isEmbed
       // optional"), completing onboarding with no consent recorded. Wellness-data
       // consent is not optional; re-ask at the gate, whose 988 footer is unconditional.
       logError(LogCategory.SECURITY, 'Failed to save consent preferences — returning to the legal gate', error instanceof Error ? error : undefined);
-      navigation.replace('LegalGate');
+      onReturnToLegalGate();
+      return;
     }
   };
 

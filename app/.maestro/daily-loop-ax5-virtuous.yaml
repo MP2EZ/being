@@ -141,6 +141,12 @@ name: "DailyLoop AX5 VirtuousResponse (DEBUG-629): quick depth reaches beat 3 at
     notVisible:
       id: "daily-loop-skip-breath"
     timeout: 5000
+# DEBUG-694 — the skip's PROOF, which the wait above is not: it starts ~t39 against a breath
+# that expires at ~t50-57, and Maestro stretches a nominal 5000 past that gap, so the timer
+# alone satisfied it. Only the SkipLink sets this fact, and it sits on the screen's root, so
+# the AX5 scroll offset cannot hide it. Must stay before the continue scroll.
+- assertVisible:
+    id: "daily-loop-breath-skipped"
 - scrollUntilVisible:
     element:
       id: "continue-button"

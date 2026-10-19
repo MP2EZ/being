@@ -60,7 +60,7 @@
  * script refuses to proceed when the evidence says it didn't.
  */
 
-const { spawnSync } = require('child_process');
+const { spawn, spawnSync } = require('child_process');
 const fs = require('fs');
 const os = require('os');
 const path = require('path');
@@ -837,7 +837,9 @@ describe('DEBUG-469 — the sandbox stages every helper the gate scripts source'
 // path with exit 5 because no released Maestro can build its driver for a device.
 const DEVICE_ONLY_FLOW_NAMES = ['crisis-988-dial', 'crisis-keyboard-accessory'];
 
-function runSafety(built, opts = {}) {
+// INFRA-781: the stub/env setup is shared by runSafety (synchronous, the common case) and
+// startSafety (asynchronous, for the cases that must signal a run while it is in flight).
+function prepareSafety(built, opts = {}) {
   const {
     flows = [],
     git: gitMutation = null,
@@ -985,15 +987,9 @@ function runSafety(built, opts = {}) {
 
   if (gitMutation) writeGitState(built.root, gitMutation);
 
-  // DEBUG-392: bound the harness itself. spawnSync blocks the jest process outright, so
-  // jest's own per-test timeout cannot interrupt it — a script under test that fails to
-  // bound its child would wedge the whole suite for as long as that child lives. That is
-  // the same defect this work fixes in the gate, and a test suite that can hang while
-  // proving the gate cannot is not worth much. 45s is far above any stubbed run (all
-  // sub-second) and far below the wedges these tests simulate.
-  const res = spawnSync('bash', [path.join(built.root, 'scripts', 'e2e-safety.sh'), ...flows], {
-    encoding: 'utf8',
-    cwd: built.root,
+  return {
+    trace,
+    args: [path.join(built.root, 'scripts', 'e2e-safety.sh'), ...flows],
     env: {
       ...process.env,
       PATH: `${built.stubs}:${process.env.PATH}`,
@@ -1012,6 +1008,21 @@ function runSafety(built, opts = {}) {
         : {}),
       ...env,
     },
+  };
+}
+
+function runSafety(built, opts = {}) {
+  const { trace, args, env } = prepareSafety(built, opts);
+  // DEBUG-392: bound the harness itself. spawnSync blocks the jest process outright, so
+  // jest's own per-test timeout cannot interrupt it — a script under test that fails to
+  // bound its child would wedge the whole suite for as long as that child lives. That is
+  // the same defect this work fixes in the gate, and a test suite that can hang while
+  // proving the gate cannot is not worth much. 45s is far above any stubbed run (all
+  // sub-second) and far below the wedges these tests simulate.
+  const res = spawnSync('bash', args, {
+    encoding: 'utf8',
+    cwd: built.root,
+    env,
     timeout: 45000,
     killSignal: 'SIGKILL',
   });
@@ -3084,5 +3095,114 @@ describe('INFRA-466 — a failed container re-resolve is a refusal, not a fallba
 
     expect(r.status).toBe(3);
     expect(r.output).toMatch(/vanished/i);
+  }, 60000);
+});
+
+// =====================================================================================
+// INFRA-781 — the documented abort (`kill -TERM -- -PGID`, e2e-gotchas.md) must STOP the
+// suite. Two defects stacked: the trap released the lease and returned into the flow loop,
+// and maestro runs under `set -m` in its OWN process group, so the group kill never reached
+// it. A run aborted that way kept starting flows, lease-less, for an hour.
+//
+// These run the script asynchronously (spawn, not spawnSync) because the signal has to land
+// while a flow is in flight, and every spawn carries its own SIGKILL timer so a regression
+// fails the test instead of wedging jest.
+
+/** Resolve once `predicate()` holds, or reject after `ms`. */
+function waitFor(predicate, ms, what) {
+  const deadline = Date.now() + ms;
+  return new Promise((resolve, reject) => {
+    const tick = () => {
+      if (predicate()) return resolve();
+      if (Date.now() > deadline) return reject(new Error(`timed out waiting for ${what}`));
+      setTimeout(tick, 50);
+    };
+    tick();
+  });
+}
+
+function isAlive(pid) {
+  try {
+    process.kill(pid, 0);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/** Every lock directory that still records an owner — an un-released lease. */
+function heldLocks(root) {
+  const lockRoot = path.join(root, '.locks');
+  if (!fs.existsSync(lockRoot)) return [];
+  return fs.readdirSync(lockRoot).filter((d) => fs.existsSync(path.join(lockRoot, d, 'owner')));
+}
+
+/**
+ * Start e2e-safety.sh detached (it leads its own process group, as under nohup), with a
+ * maestro stub that records its pid and then never returns. Resolves once the first flow is
+ * in flight AND the simulator lease is held — signalling earlier would test bash's default
+ * disposition, not the trap.
+ */
+async function startSafety(built, flows) {
+  const pidFile = path.join(built.root, 'maestro.pid');
+  const { trace, args, env } = prepareSafety(built, {
+    flows,
+    maestroBody: [`echo $$ > "${pidFile}"`, 'exec /bin/sleep 3600'].join('\n'),
+    env: { E2E_HOST_SETTLE_MAX_S: '0', E2E_FLOW_TIMEOUT_S: '900' },
+  });
+  const child = spawn('bash', args, { cwd: built.root, env, detached: true, stdio: ['ignore', 'pipe', 'pipe'] });
+  let output = '';
+  child.stdout.on('data', (d) => (output += d));
+  child.stderr.on('data', (d) => (output += d));
+  const closed = new Promise((resolve) => child.on('close', (code, signal) => resolve({ code, signal })));
+  // The stub maestro leads its OWN group (`set -m`) and holds our stdout, so killing the
+  // script's group alone would leave 'close' pending forever — reap it by pid as well.
+  const killer = setTimeout(() => {
+    try { process.kill(-child.pid, 'SIGKILL'); } catch { /* already gone */ }
+    try { process.kill(Number(fs.readFileSync(pidFile, 'utf8').trim()), 'SIGKILL'); } catch { /* none */ }
+  }, 20000);
+  closed.then(() => clearTimeout(killer));
+
+  await waitFor(
+    () => fs.existsSync(pidFile) && fs.readFileSync(pidFile, 'utf8').trim() !== '' && heldLocks(built.root).length > 0,
+    30000,
+    'the first flow to be in flight with the lease held'
+  );
+  const maestroPid = Number(fs.readFileSync(pidFile, 'utf8').trim());
+  return { child, closed, trace, maestroPid, output: () => output };
+}
+
+const flowsStarted = (trace) => (fs.readFileSync(trace, 'utf8').match(/maestro test/g) || []).length;
+
+describe('INFRA-781 — an operator abort stops the suite', () => {
+  const FLOWS = ['q9-single-alert', 'crisis-button-reachability'];
+
+  test.each([
+    ['SIGTERM to the process group (the documented abort)', 'SIGTERM', true, 143],
+    ['SIGINT to the process group', 'SIGINT', true, 130],
+    ['SIGTERM to the script pid alone', 'SIGTERM', false, 143],
+  ])('%s', async (_label, signal, toGroup, expected) => {
+    const built = runScript({});
+    const run = await startSafety(built, FLOWS);
+    expect(isAlive(run.maestroPid)).toBe(true);
+
+    process.kill(toGroup ? -run.child.pid : run.child.pid, signal);
+    const { code, signal: killedBy } = await run.closed;
+
+    // The handler ran and chose the code — not bash's default disposition (signal set,
+    // code null), and never a verdict: 0 would read as a pass, 1 as a regression.
+    expect(killedBy).toBeNull();
+    expect(code).toBe(expected);
+    expect(run.output()).toMatch(/NO VERDICT/);
+    expect(run.output()).not.toMatch(/all safety flows passed/);
+
+    // No further flow started, even given time to.
+    await new Promise((r) => setTimeout(r, 1500));
+    expect(flowsStarted(run.trace)).toBe(1);
+
+    // The in-flight maestro was reaped, though it sat in its own process group…
+    expect(isAlive(run.maestroPid)).toBe(false);
+    // …and only then was the lease released.
+    expect(heldLocks(built.root)).toEqual([]);
   }, 60000);
 });

@@ -18,15 +18,20 @@
 
 
 import { logSecurity, logError, LogCategory } from '@/core/services/logging';
-import React, { useCallback, useMemo, useState, useRef } from 'react';
+import React, { useCallback, useMemo, useState, useRef, useLayoutEffect } from 'react';
 import {
   View,
   Text,
+  ScrollView,
   StyleSheet,
   AccessibilityInfo,
+  Pressable,
 } from 'react-native';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { colorSystem, spacing, typography, borderRadius } from '@/core/theme';
+import { TOUCH_TARGETS } from '@/core/theme/accessibility';
 import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';
+import { CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useNavigation } from '@react-navigation/native';
 import type { StackNavigationProp } from '@react-navigation/stack';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
@@ -47,6 +52,10 @@ interface EnhancedAssessmentQuestionProps {
   totalSteps: number;
   theme?: ('morning' | 'midday' | 'evening' | 'neutral') | undefined;
   onError?: ((error: Error) => void) | undefined;
+  /** DEBUG-771: asks the flow to exit; the flow decides whether a confirm opens. */
+  onExit?: (() => void) | undefined;
+  /** DEBUG-771: an answer is saving — the exit control shows disabled + busy. */
+  exitInFlight?: boolean | undefined;
 }
 
 // Clinically validated response labels (exact PHQ-9/GAD-7 wording)
@@ -74,7 +83,11 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
   totalSteps,
   theme = 'neutral',
   onError,
+  onExit,
+  exitInFlight = false,
 }) => {
+  const insets = useSafeAreaInsets();
+
   // Navigation for crisis button
   const rootNavigation = useNavigation<StackNavigationProp<RootStackParamList>>();
 
@@ -142,13 +155,27 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
     return ''; // Empty string to hide visual label
   }, []);
 
+  // DEBUG-722: EnhancedAssessmentFlow reuses this instance for every question (MAINT-750),
+  // so the offset would carry over and open the next question on its options. Driven by
+  // the question changing, never by the answer tap, and never animated: a tap landing
+  // while the list is still moving is spent stopping the scroll.
+  const scrollRef = useRef<ScrollView>(null);
+  useLayoutEffect(() => {
+    scrollRef.current?.scrollTo({ y: 0, animated: false });
+  }, [question.id]);
+
   return (
     <>
       <FocusProvider
         announceChanges={true}
         restoreFocus={true}
       >
-        <View style={[styles.container, { backgroundColor: themeColors.background }]}>
+        <View
+          style={[
+            styles.container,
+            { backgroundColor: themeColors.background, paddingTop: insets.top },
+          ]}
+        >
           {/* Crisis Alert Banner */}
           {crisisAlert && (
             <Focusable
@@ -167,6 +194,40 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
             </Focusable>
           )}
 
+          {/* DEBUG-771: the questions-phase exit. In flow (never absolute), above and outside
+              the ScrollView, AFTER the crisis banner so VoiceOver reaches the banner first.
+              A native button on its own — never inside a Focusable, which would merge it.
+              Neutral by ruling: the word "Exit", no critical colour, no icon. Nothing
+              pressable to its right: the AX5 flow's absorbing tap lands there. Kept
+              disabled + busy (never hidden) while an answer is saving. */}
+          {onExit && (
+            <View style={styles.exitRow} testID="assessment-exit-row">
+              <Pressable
+                onPress={onExit}
+                disabled={exitInFlight}
+                accessibilityRole="button"
+                accessibilityLabel="Exit check-in"
+                accessibilityHint="Asks before ending this check-in."
+                accessibilityState={{ disabled: exitInFlight, busy: exitInFlight }}
+                style={styles.exitButton}
+                testID="assessment-exit-button"
+              >
+                <Text style={styles.exitText} maxFontSizeMultiplier={2} numberOfLines={1}>
+                  Exit
+                </Text>
+              </Pressable>
+            </View>
+          )}
+
+        {/* DEBUG-722: the only vertical scroller in the questions phase. At AX5 the
+            instruction alone outgrows a 667pt screen; with no scroller no answer was
+            reachable. The crisis banner above and the crisis button below stay outside
+            it so scrolling can never hide them. No font cap on anything in here. */}
+        <ScrollView
+          ref={scrollRef}
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+        >
         {/* Enhanced Progress indicator with security status */}
         {showProgress && (
           <Focusable
@@ -270,6 +331,7 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
             </View>
           </Focusable>
         )}
+        </ScrollView>
 
         </View>
       </FocusProvider>
@@ -287,13 +349,37 @@ const EnhancedAssessmentQuestion: React.FC<EnhancedAssessmentQuestionProps> = ({
 const styles = StyleSheet.create({
   container: {
     flex: 1,
+  },
+  scroll: {
+    flex: 1,
+  },
+  exitRow: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    paddingHorizontal: spacing[8],
+  },
+  exitButton: {
+    minWidth: TOUCH_TARGETS.minimum,
+    minHeight: TOUCH_TARGETS.minimum,
+    paddingHorizontal: spacing[8],
+    paddingVertical: spacing[4],
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  exitText: {
+    fontSize: typography.bodyRegular.size,
+    fontWeight: typography.fontWeight.medium,
+    color: colorSystem.accessibility.text.primary,
+  },
+  scrollContent: {
     padding: spacing[16],
   },
   crisisAlertBanner: {
     backgroundColor: colorSystem.status.critical,
     padding: spacing[16],
     borderRadius: borderRadius.medium,
-    marginBottom: spacing[24],
+    marginTop: spacing[16],
+    marginHorizontal: spacing[16],
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -369,8 +455,13 @@ const styles = StyleSheet.create({
     lineHeight: typography.caption.size * 1.4,
   },
   responseContainer: {
-    flex: 1,
     marginBottom: spacing[16],
+    // DEBUG-722 / AC3: clear the prominent crisis button's COLUMN. Every row of a
+    // scroll host passes through the button's height band, so a bottom inset cannot
+    // protect it; at zIndex 9999 the button wins an overlapping tap and fires a crisis
+    // entry instead of the answer. A margin narrows the option Pressables' frames,
+    // which paddingRight would not. Mirror this if the button is ever `position="left"`.
+    marginRight: CRISIS_BUTTON_PROMINENT_EXCLUSION_RECT.left,
   },
   processingContainer: {
     backgroundColor: colorSystem.gray[100],

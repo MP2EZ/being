@@ -89,23 +89,30 @@ const ModuleDetailScreen: React.FC = () => {
       return;
     }
 
+    // An unmount before the load resolves must not write: cleanup has already cleared
+    // currentModule, and a late setCurrentModule(moduleId) would re-set it for no screen.
+    let cancelled = false;
+
     const loadContent = async () => {
       try {
         setLoading(true);
         const content = await loadModuleContent(moduleId);
+        if (cancelled) return;
         setModuleContent(content);
         setCurrentModule(moduleId);
       } catch (error) {
         console.error('[ModuleDetail] Failed to load module:', error);
-        // TODO: Show error state to user
       } finally {
-        setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
     };
 
     loadContent();
 
     return () => {
+      cancelled = true;
       setCurrentModule(null);
     };
   }, [moduleId]);
@@ -130,7 +137,7 @@ const ModuleDetailScreen: React.FC = () => {
   if (loading && moduleId !== undefined) {
     return (
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
-        <View style={styles.loadingContainer}>
+        <View style={styles.loadingContainer} testID="module-detail-loading">
           <ActivityIndicator size="large" color={colorSystem.navigation.learn} />
           <Text style={styles.loadingText}>Loading module...</Text>
         </View>
@@ -142,8 +149,16 @@ const ModuleDetailScreen: React.FC = () => {
     return (
       <SafeAreaView edges={['top', 'bottom']} style={styles.safeArea}>
         <View style={styles.errorContainer}>
-          <Text style={styles.errorText}>Failed to load module content.</Text>
-          <TouchableOpacity style={styles.errorButton} onPress={handleBack}>
+          <Text style={styles.errorText} accessibilityRole="alert" testID="module-detail-error">
+            Failed to load module content.
+          </Text>
+          <TouchableOpacity
+            style={styles.errorButton}
+            onPress={handleBack}
+            accessibilityRole="button"
+            accessibilityLabel="Go back"
+            testID="module-detail-error-go-back"
+          >
             <Text style={styles.errorButtonText}>Go Back</Text>
           </TouchableOpacity>
         </View>

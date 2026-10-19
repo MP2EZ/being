@@ -393,7 +393,40 @@ describe('useCloudSync.testConnectivity', () => {
     await act(async () => {
       await result.current.testConnectivity();
     });
-    expect(result.current.error).toBe('Connection test failed');
+    // DEBUG-783: the fallback is a closed code the screen maps, never a raw string.
+    expect(result.current.error).toBe('cloud_unreachable');
+  });
+
+  // DEBUG-767: the screen can only report what happened if the hook hands the result back —
+  // reading `error` after the await reads the closure's stale value.
+  it('returns the service result, so the caller can branch on it', async () => {
+    const { result } = await mountHook();
+
+    for (const reported of [
+      { canConnect: false, error: 'unreachable' },
+      { canConnect: false, error: 'cloud_sync_consent_absent' },
+      { canConnect: true, responseTimeMs: 5 },
+    ]) {
+      mocked.testCloudConnectivity.mockResolvedValue(reported);
+      let returned: unknown;
+      await act(async () => {
+        returned = await result.current.testConnectivity();
+      });
+      expect(returned).toEqual(reported);
+    }
+  });
+
+  it('returns a failure, never undefined, when the service throws', async () => {
+    const { result } = await mountHook();
+
+    mocked.testCloudConnectivity.mockRejectedValue(new Error('boom'));
+    let returned: unknown;
+    await act(async () => {
+      returned = await result.current.testConnectivity();
+    });
+    // DEBUG-783: a thrown message never becomes the error; the closed code does.
+    expect(returned).toEqual({ canConnect: false, error: 'cloud_unreachable' });
+    expect(result.current.error).toBe('cloud_unreachable');
   });
 });
 
@@ -433,5 +466,57 @@ describe('useCloudBackupConfig', () => {
 
     expect(result.current.error).toBe('config boom');
     expect(result.current.config.autoBackupEnabled).toBe(true);
+  });
+});
+
+// DEBUG-784: createBackup returned void and never threw, so the screen's try/catch reported
+// "Backup completed successfully" for every outcome. It now returns what happened.
+describe('useCloudSync.createBackup returns its outcome (DEBUG-784)', () => {
+  it.each([
+    [{ success: true }],
+    [{ success: false, error: 'x' }],
+    [{ success: false, error: 'cloud_sync_consent_absent' }],
+  ])('returns the service result %j', async (serviceResult) => {
+    mocked.forceSync.mockResolvedValue(serviceResult);
+    const { result } = await mountHook();
+    let returned: unknown;
+    await act(async () => {
+      returned = await result.current.createBackup();
+    });
+    expect(returned).toEqual(serviceResult);
+  });
+
+  it('returns a failure — never undefined — when the service rejects', async () => {
+    mocked.forceSync.mockRejectedValue(new Error('boom'));
+    const { result } = await mountHook();
+    let returned: unknown;
+    await act(async () => {
+      returned = await result.current.createBackup();
+    });
+    expect(returned).toEqual({ success: false, error: 'boom' });
+    expect(result.current.error).toBe('boom');
+  });
+
+  it('returns null without calling the service while another operation is loading', async () => {
+    const { result } = await mountHook();
+    const gate = deferred<{ success: boolean }>();
+    mocked.forceSync.mockReturnValue(gate.promise);
+    let pending: Promise<void> | undefined;
+    act(() => {
+      pending = result.current.forceSync();
+    });
+    expect(result.current.isLoading).toBe(true);
+
+    let returned: unknown = 'unset';
+    await act(async () => {
+      returned = await result.current.createBackup();
+    });
+    expect(returned).toBeNull();
+    expect(mocked.forceSync).toHaveBeenCalledTimes(1);
+
+    gate.resolve({ success: true });
+    await act(async () => {
+      await pending;
+    });
   });
 });

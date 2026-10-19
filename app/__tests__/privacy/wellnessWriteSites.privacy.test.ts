@@ -106,8 +106,8 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       `${NOT_WELLNESS} — cloud-sync operational telemetry`,
       'backup completed/failed/restored counts; gated on cloud_sync consent',
     ],
-    'SupabaseService.saveBackup › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — last-sync timestamp`],
-    'SupabaseService.saveBackup › supabase.upsert': [
+    'SupabaseService.attemptBackupUpload › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — last-sync timestamp`],
+    'SupabaseService.attemptBackupUpload › supabase.upsert': [
       1,
       `${NOT_WELLNESS} — CloudBackupService payload, uploads only {autoSaveEnabled}`,
       'encrypted; the allowlist is pinned by the spec below',
@@ -119,6 +119,11 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     ],
     'SupabaseService.processOfflineQueue › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — encrypted config-backup retry`],
     'SupabaseService.cleanup › AsyncStorage.setItem': [1, DORMANT],
+    'SupabaseService.requestBackupDeletion › AsyncStorage.setItem': [
+      2,
+      ERASURE,
+      'DEBUG-764: the pending server-backup delete {uid, requestedAt} and the offline queue minus pre-withdrawal snapshots; the pending key is swept at erasure (SWEPT_EXACT_KEYS + in-memory reset)',
+    ],
   },
   'src/core/services/supabase/CloudBackupService.ts': {
     'CloudBackupService.createBackup › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — backup metadata {timestamp, hash, size}`],
@@ -168,9 +173,11 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     'backfillDeletionAttestation › setItemAsync': [1, ERASURE, 'Art. 17(3)(b) attestation'],
     'backfillDeletionAttestationFromHistory › setItemAsync': [1, ERASURE, 'Art. 17(3)(b) attestation'],
   },
+  'src/core/services/privacy/erasurePending.ts': {
+    'markErasurePending › AsyncStorage.setItem': [1, ERASURE, 'DEBUG-763 marker: server-erasure epoch ms only, no identifier'],
+  },
   'src/core/services/security/SecureStorageService.ts': {
     'SecureStorageService.storeWellnessBlob › AsyncStorage.setItem': [1, STORAGE_LAYER],
-    'SecureStorageService.storeAssessmentData › AsyncStorage.setItem': [1, STORAGE_LAYER, 'no production caller'],
     'SecureStorageService.storeGeneralData › AsyncStorage.setItem': [2, STORAGE_LAYER, 'no production caller'],
     'SecureStorageService.readWithLegacyFallback › AsyncStorage.setItem': [
       1,
@@ -178,7 +185,6 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       'relocates ciphertext already stored (INFRA-144); blocking it would lose data',
     ],
     'SecureStorageService.markMigrated › AsyncStorage.setItem': [1, STORAGE_LAYER, 'migration flag'],
-    'SecureStorageService.persistMetadataIndex › AsyncStorage.setItem': [1, STORAGE_LAYER, 'key/size metadata'],
     'SecureStorageService.logStorageAccess › AsyncStorage.setItem': [1, STORAGE_LAYER, 'failed-op metadata, no payload'],
     'SecureStorageService.verifyStorageCapabilities › AsyncStorage.setItem': [1, STORAGE_LAYER, 'probe write'],
     'SecureStorageService.verifyStorageCapabilities › setItemAsync': [1, STORAGE_LAYER, 'probe write'],
@@ -247,7 +253,7 @@ const MANIFEST: Record<string, Record<string, Row>> = {
 // ── Scanner ────────────────────────────────────────────────────────────────
 
 const ASYNC_STORAGE_WRITES = new Set(['setItem', 'multiSet', 'mergeItem', 'multiMerge']);
-const WELLNESS_SERVICE_WRITES = new Set(['storeWellnessBlob', 'storeAssessmentData', 'storeGeneralData']);
+const WELLNESS_SERVICE_WRITES = new Set(['storeWellnessBlob', 'storeGeneralData']);
 const SUPABASE_WRITES = new Set(['insert', 'upsert', 'update']);
 
 /** The write primitive a node invokes, or null. */

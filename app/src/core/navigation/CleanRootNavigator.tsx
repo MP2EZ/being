@@ -14,7 +14,9 @@ import { linkingConfig } from './linking';
 import PracticeTimerRoute from './PracticeTimerRoute';
 import { navigationRef, getActiveRootRouteName } from './navigationRef';
 import { dismissRouteThenNotify, removeOwnRoute } from './crisisDestinationGuard';
+import { completeLegalGate } from './completeLegalGate';
 import { completeOnboarding } from './completeOnboarding';
+import { returnToLegalGate } from './returnToLegalGate';
 import { createStackNavigator } from '@react-navigation/stack';
 import { HeaderBackButton } from '@react-navigation/elements';
 import { semantic, spacing, typography } from '@/core/theme';
@@ -64,6 +66,7 @@ import { useStoicPracticeStore } from '@/features/practices/stores/stoicPractice
 import { useSettingsStore } from '@/core/stores/settingsStore';
 import { readErasureRetirement, useConsentStore } from '@/core/stores/consentStore';
 import { resolveInitialRoute } from './resolveInitialRoute';
+import { resumeInterruptedErasure } from '@/core/services/privacy/AccountDeletionService';
 import { CombinedLegalGateScreen } from '@/features/consent';
 // FEAT-417: imported by direct path, not through the `@/features/consent`
 // barrel. The barrel is already in this file's eager graph via the line above,
@@ -213,6 +216,13 @@ const Stack = createStackNavigator<RootStackParamList>();
 const INITIAL_ROUTE_TIMEOUT_MS = 3000;
 
 /**
+ * DEBUG-763 — once per process: checkInitialRoute re-runs on every consentStatus
+ * change, and the resume itself can move consent state. Module scope, never state,
+ * so it is no render trigger on the crisis host (DEBUG-536).
+ */
+let erasureResumeStarted = false;
+
+/**
  * DEBUG-341 — LoadingScreen now carries a 988 control, and this is the single
  * highest-value change in the item.
  *
@@ -312,6 +322,13 @@ const CleanRootNavigator: React.FC = () => {
         // with one added input: an onboarded state left by an erased account never
         // reaches Main (DEBUG-755).
         setInitialRoute(resolveInitialRoute({ settings, consent, consentStatus, retired }));
+        // DEBUG-763: finish an interrupted erasure only AFTER the route is set — never
+        // under LoadingScreen, never awaited. It never rejects, shows no UI and
+        // dispatches no navigation; a launch it retires is already on LegalGate.
+        if (!erasureResumeStarted) {
+          erasureResumeStarted = true;
+          void resumeInterruptedErasure();
+        }
       } catch (error) {
         if (cancelled) return;
         // DEBUG-341: default to LegalGate, NOT Main. Routing an unconsented or under-age
@@ -497,12 +514,11 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => (
+          {({ route }) => (
             <CombinedLegalGateScreen
-              onComplete={() => {
-                // Legal gate passed - proceed to onboarding
-                navigation.replace('Onboarding');
-              }}
+              // DEBUG-735: replace THIS route (by key, at the root) with Onboarding — deferred
+              // while a crisis destination is focused, never dropped.
+              onComplete={() => completeLegalGate({ legalGateRouteKey: route.key })}
               onUnderAge={() => {
                 // Under age - screen handles showing crisis resources
                 // User stays on LegalGate screen with crisis resources
@@ -529,6 +545,9 @@ const CleanRootNavigator: React.FC = () => {
                   markComplete: handleOnboardingComplete,
                 })
               }
+              // DEBUG-734: the consent re-ask replaces THIS route with LegalGate the same
+              // way — by key, at the root, deferred while a crisis destination is focused.
+              onReturnToLegalGate={() => returnToLegalGate({ onboardingRouteKey: route.key })}
               isEmbedded={true}
             />
           )}
@@ -571,7 +590,9 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => <ReConsentRoute onDismiss={() => navigation.goBack()} />}
+          {/* DEBUG-733 — dismisses after an await or an effect, so it removes ITSELF by key
+              (DEBUG-706 ruling); a bare goBack() would pop a CrisisResources opened above it. */}
+          {({ navigation, route }) => <ReConsentRoute onDismiss={() => removeOwnRoute(navigation, route.key)} />}
         </Stack.Screen>
 
         {/* DEBUG-451 — the explanation for the three fail-closed consent
@@ -607,7 +628,9 @@ const CleanRootNavigator: React.FC = () => {
             gestureEnabled: false,
           }}
         >
-          {({ navigation }) => <ConsentBlockedRoute onDismiss={() => navigation.goBack()} />}
+          {/* DEBUG-733 — dismisses after an await or an effect, so it removes ITSELF by key
+              (DEBUG-706 ruling); a bare goBack() would pop a CrisisResources opened above it. */}
+          {({ navigation, route }) => <ConsentBlockedRoute onDismiss={() => removeOwnRoute(navigation, route.key)} />}
         </Stack.Screen>
 
         {/* Educational Module Detail */}
@@ -878,9 +901,18 @@ const CleanRootNavigator: React.FC = () => {
                     });
                   }}
                   onCancel={() => {
-                    // Handle skip for onboarding context
+                    // Handle skip for onboarding context. DEBUG-771 (crisis ruling R5): the
+                    // questions-phase Exit makes this reachable mid-screening, and the parent's
+                    // skip opens the next screening — so it goes through the DEBUG-706 guard:
+                    // remove THIS route, and defer the follow-on while a crisis destination is
+                    // focused (never dropped, never redirected).
                     if (route.params.allowSkip && route.params.onSkip) {
-                      route.params.onSkip();
+                      dismissRouteThenNotify({
+                        navigation,
+                        routeKey: route.key,
+                        notify: route.params.onSkip,
+                      });
+                      return;
                     }
                     removeOwnRoute(navigation, route.key);
                   }}

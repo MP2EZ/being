@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.15
+**Version:** 1.21
 **Effective Date:** December 12, 2025
-**Last Updated:** October 5, 2026
+**Last Updated:** October 14, 2026
 
 ---
 
@@ -53,8 +53,8 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 ### 2.2 Automatically Collected Information
 
 - **Device Information:** Device type, OS version (for app compatibility)
-- **Usage Data:** App usage patterns, feature engagement (anonymized)
-- **Technical Data:** Crash reports, performance data (no personal info included)
+- **Usage Data:** App usage patterns and feature engagement, with a random identifier generated per app installation and approximate location, collected only if you turn on *Analytics* (see Section 5.2)
+- **Technical Data:** Crash reports and app-stability diagnostics, including identifiers generated for this installation of the app and approximate location (see Section 5.1), collected only if you turn on *Crash Reports* (off by default) and *Honor Universal Opt-Out* is off
 
 ### 2.3 Information We Do NOT Collect
 
@@ -73,7 +73,7 @@ We use your information solely to provide and improve the Being app:
 - **Core Functionality:** Enable mindfulness check-ins, mood tracking, and progress visualization
 - **Wellness Tools:** Calculate PHQ-9 and GAD-7 scores for self-monitoring, recommend crisis resources when wellness screening thresholds are reached
 - **Safety Features:** Provide crisis support resources when wellness screening thresholds are met. When a PHQ-9 score of 20 or higher, a non-zero PHQ-9 Q9 (self-harm) response, or a GAD-7 score of 15 or higher is detected, Being also records an aggregate, PII-free crisis-detection event to our own first-party secure storage (Supabase). This recording happens under a vital-interests basis and is **not** gated on your analytics consent — crisis-safety monitoring is not something you can inadvertently disable. The event contains only a category label, a severity bucket, whether an intervention was surfaced, the assessment type, and the calendar day the detection happened — **no** raw score, no Q9 value, no time of day, no device identifier, and nothing that identifies you. The detection day is recorded so that a detection made while your device is offline is counted on the day it actually happened rather than the day your device next reconnects. It is a date only, never a clock time.
-- **App Improvement:** Analyze anonymized usage patterns to improve user experience
+- **App Improvement:** Analyze usage patterns to improve user experience
 - **Technical Support:** Debug issues, provide customer support
 - **Legal Compliance:** Comply with applicable laws and regulations
 
@@ -140,7 +140,7 @@ We use the following third-party service providers to operate our Services:
 - **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional settings backup, your encrypted preference data is stored on Supabase infrastructure.
 - **[PostHog](https://posthog.com/privacy):** Product analytics (EU data residency, Frankfurt). See Section 5.2 for details.
 - **[Notion](https://www.notion.so/privacy):** Waitlist email storage for the being.fyi marketing website. When you submit your email via the pre-launch waitlist form, we store it (along with your A/B variant assignment, where applicable) in an internal Notion database. We do not transfer mental-health data, app usage, or any other personal data to Notion.
-- **[Sentry](https://sentry.io/privacy/):** Crash, error, and performance diagnostics. Error event payloads are scrubbed of wellness data before transmission — no PHQ-9 / GAD-7 responses or scores, and no journal content are sent. Sentry also receives standard app-session diagnostics (session start/end, app version, crash status) used to measure app stability across releases; these session records include a random identifier generated per app installation by our mobile framework. This identifier is not linked to your account, your wellness data, or any other personal information we hold, and is not used to identify you or to track you across apps or websites.
+- **[Sentry](https://sentry.io/privacy/):** Crash, error, and performance diagnostics, sent only while *Crash Reports* is on (it is off by default) and *Honor Universal Opt-Out* is off; turning either setting off stops them. Error event payloads are scrubbed of wellness data before transmission — no PHQ-9 / GAD-7 responses or scores, and no journal content are sent. Sentry also receives standard app-session diagnostics (session start/end, app version, crash status) used to measure app stability across releases; these session records, and crash and app-freeze reports, include a random identifier generated per app installation by the crash-reporting software built into the app. This identifier is not linked to your account, your wellness data, or any other personal information we hold, and is not used to identify you or to track you across apps or websites. Crash reports also include a device identifier that Sentry derives from an identifier Apple assigns to our apps on your device. Like the installation identifier, it is not linked to your account or wellness data. Sentry also estimates your approximate location (city and country) from your internet connection and stores it with the reports it receives. Your IP address itself is not stored. **Bug reports you send:** if you choose to send a bug report from within the app, the message you type, the general area of the app you were in, and basic technical details such as the app version are sent to Sentry when you tap Send. This happens only when you send a report, and it is not affected by the *Crash Reports* setting or *Honor Universal Opt-Out*, because sending it is your choice to share it. If *Crash Reports* is on, the report also carries the installation identifier and the device and app details described above. Sentry may also estimate your approximate location from your internet connection, as described above.
 - **[Resend](https://resend.com/legal/privacy-policy):** Transactional email delivery for internal operational alerts only — for example, automated notifications to our operators about the health of the crisis-detection pipeline. These alerts contain aggregate, non-personal operational data; no user personal data is sent to Resend.
 - **[healthchecks.io](https://healthchecks.io/privacy/):** Uptime monitoring for our own internal scheduled jobs. Our servers send a periodic signal to healthchecks.io confirming that a maintenance job ran; if the signal stops arriving, healthchecks.io notifies our operators. The signal is an empty request carrying no message content — no account identifier, no wellness data, and nothing about you. Only the fact and time of the request are recorded. ("Health" in the provider's name refers to the health of our servers, not to health information.)
 - **Expo:** Mobile app framework and over-the-air updates
@@ -160,12 +160,14 @@ Being uses PostHog (EU data residency, Frankfurt) for product analytics. We use 
 
 What we collect (when opted in):
 
-- Screen views and navigation patterns
+- Screen views and navigation patterns, including when you open a check-in, a wellness screening or support resources (never your answers, scores or what you write)
 - Feature usage counts (e.g., "check-in completed")
 - App performance metrics
 - Session duration
 - App open patterns (first open vs. return; time since last open, in coarse ranges)
-- Device type and OS version
+- Device and app details: device model, OS and app version, screen size, language and time zone
+- A random identifier generated per app installation. It is not linked to your account, your name or your email
+- Your approximate location (city and country), which PostHog estimates from your internet connection. Your IP address itself is not stored
 
 What we **NEVER** collect in-app:
 
@@ -177,7 +179,7 @@ What we **NEVER** collect in-app:
 Your control:
 
 - Analytics is **OFF by default**
-- Opt-in via **Privacy & Data > Anonymous Usage Analytics**; turning it off stops collection immediately
+- Opt-in via **Privacy & Data > Usage Analytics**; turning it off stops collection immediately
 - Analytics events on our servers are automatically deleted after 90 days (see §7.2). To request deletion sooner, email privacy@being.fyi — requests are honored within 30 days (see §7.3)
 
 **Note on crisis-safety recording:** The analytics opt-in above controls what is sent to PostHog. It does **not** control the separate crisis-detection event described in §3 (Safety Features), which is recorded to Being's own first-party storage under a vital-interests basis and is not suppressible by analytics opt-out or universal opt-out. That event contains no raw scores and no identifying information — only aggregate category labels.
@@ -251,7 +253,7 @@ This data is automatically deleted after 90 days to minimize data collection whi
 For your safety and our liability protection, we retain crisis-related data for 3 years:
 
 - **High-Severity Assessments:** PHQ-9 scores ≥ 20, GAD-7 scores ≥ 15
-- **Suicidal Ideation Responses:** Any non-zero response to PHQ-9 question 9
+- **Suicidal Ideation Responses:** Any non-zero response to PHQ-9 question 9 in a check-in you complete
 - **Crisis Detection Events:** An aggregate, PII-free record of when a crisis threshold was detected and support resources were surfaced (see §3, Safety Features) — this records that a threshold was met and resources were shown, not whether you tapped through to 988 or another resource
 
 This extended retention supports safety-monitoring continuity and protects both you and us in case of legal proceedings.
@@ -260,18 +262,19 @@ This extended retention supports safety-monitoring continuity and protects both 
 
 ### 7.3 Other Data
 
+- **Unfinished Check-Ins:** If you leave a PHQ-9 or GAD-7 check-in before finishing it, or the app closes partway through, the answers you gave are not kept. They are deleted on your device no later than the next time you open Being, whatever they were, including any answer to PHQ-9 question 9. If one of those answers led Being to show you crisis support resources, the Crisis Detection Event described in §7.2 is still recorded and kept for 3 years; it does not contain your answers.
 - **Local Data:** Stored on your device until you delete the app or clear data
 - **Settings Backup:** Retained until you disable backup or request deletion via in-app *Privacy & Data* settings
 - **Data Deletion Requests:** Honored within 30 days of request
 - **Audit Logs:** 3 years (for security and compliance)
-- **Consent Records:** Retained indefinitely as proof of lawful data processing
-- **Account-Deletion Record:** 3 years, on your device only. When you delete your account we keep a small confirmation that the deletion happened — the date, and the privacy choices that were in effect at that moment. It contains **no identifier of any kind**: nothing that names you, your device, or your account, and nothing that could be used to re-link you to anything you did before. We keep it because we have to be able to show that a deletion request was honored, and it survives the wipe for that reason alone.
+- **Consent Records:** Kept for as long as your account exists, as proof of lawful data processing. When you delete your account they are deleted with it, along with your age check and legal acceptances; only the account-deletion record below is kept.
+- **Account-Deletion Record:** 3 years, on your device only. When you delete your account we keep a small confirmation that the deletion happened — the date, the privacy choices that were in effect at that moment, and a count of the consent changes recorded before it. It contains **no identifier of any kind**: nothing that names you, your device, or your account, and nothing that could be used to re-link you to anything you did before. We keep it because we have to be able to show that a deletion request was honored, and it survives the wipe for that reason alone.
 
 ### 7.4 Your Right to Delete
 
 You can delete your data at any time in Settings, including crisis-related data. Deletion removes your data both on your device and on our servers: it erases your anonymous account identifier (§4.1), which automatically and permanently deletes every record tied to it (any settings backup, subscription records, and crisis-detection events). We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
 
-Deletion also resets the analytics identity on your device and discards anything queued but not yet sent, so nothing captured before the deletion is transmitted afterward. The one thing deliberately kept is the non-identifying account-deletion record described in §7.3.
+Deletion also resets the analytics identity on your device and discards anything queued but not yet sent, so nothing captured before the deletion is transmitted afterward. Your consent, age-check and legal-acceptance records are deleted too. What stays on your device afterward is: the account-deletion record described in §7.3; a marker that records only that the app has been opened on this device before; and some app settings caches that hold no information about you. None of these identifies you. Anyone who uses Being on this device afterward is asked for their own age and consent, starts with an empty consent history, and sees nothing from your account in their data export.
 
 ---
 
@@ -294,6 +297,15 @@ Being is based in the United States. If you access our Services from outside the
 We may update this Privacy Policy from time to time. We will notify you of material changes via in-app notification. Your continued use of Being after changes take effect constitutes acceptance of the updated policy.
 
 **Recent revisions**
+
+- **v1.21 (October 14, 2026):** §5.1 said only Sentry's app-session records include the random identifier generated per app installation. Crash and app-freeze reports include it too, and so does a bug report you send while *Crash Reports* is on, along with device and app details; §5.1 also said nothing else is collected with a bug report. Both are corrected. §5.1 and §2.2 now also say that crash reports include a device identifier Sentry derives from an identifier Apple assigns to our apps on your device, and that Sentry stores an approximate location (city and country) estimated from your internet connection, though not your IP address. Nothing about what is collected has changed, and §2.2 already described crash reports as carrying the identifier.
+- **v1.20 (October 14, 2026):** §2.2 and §3 described in-app usage analytics as "anonymized". Each event carries a random identifier generated per app installation, and PostHog estimates an approximate location (city and country) from the connection, so §2.2 and §5.2 now say so and list the device, language and time-zone details that are sent. The in-app control is renamed *Usage Analytics*, and the in-app *Analytics* and *Research Participation* descriptions were corrected the same way; the research setting now says plainly that nothing is collected for research today. This corrects how existing processing is described and adds no new kind of data, so it is published with the next app release.
+- **v1.19 (October 12, 2026):** §2.2 said crash reports and app-stability diagnostics include no personal info. They include a random identifier generated per app installation, which Section 5.1 already described, so §2.2 now says so. The in-app *Crash Reports* description was corrected the same way: it no longer calls crash reports "anonymized". This narrows a claim and adds no new kind of data, so it is published with the next app release.
+- **v1.18 (October 10, 2026):** Crash reporting now follows your choice. §2.2 and §5.1 said crash reports and app-stability diagnostics are collected, and §5.3 and §6 said you can turn crash reporting off. In practice the app sent crash reports, error reports and app-session diagnostics to Sentry whether or not you had turned *Crash Reports* on. That is corrected: nothing is sent to Sentry for crash or error reporting unless *Crash Reports* is on and *Honor Universal Opt-Out* is off, and turning either off stops it. §5.1 also now describes bug reports you choose to send from the app, which the policy did not mention: they go to Sentry when you tap Send, separately from the *Crash Reports* setting. This narrows what is collected without your permission and adds no new kind of data, so it is published with the next app release rather than separately.
+
+- **v1.17 (October 8, 2026):** §7.2 now says the 3-year retention of answers to PHQ-9 question 9 applies to check-ins you complete, and §7.3 states that answers from an unfinished check-in are deleted on your device no later than the next time you open Being. This shortens how long some data is kept and changes nothing else: crisis detection events, completed check-ins and every other retention period are unchanged. Because it narrows what we keep, it is published with the next app release rather than separately.
+
+- **v1.16 (October 8, 2026):** Correction to §7.3 and §7.4. §7.3 said consent records are retained indefinitely, and §7.4 said the account-deletion record was the one thing kept when you delete your account. In fact your consent, age-check and legal-acceptance records also stayed on your device after deletion. They are now deleted when you delete your account, and §7.3 limits consent-record retention to the life of your account. §7.4 now lists everything that stays on the device after deletion. This reduces what we keep and changes nothing we collect or share, so it is published with the next app release rather than separately.
 
 - **v1.15 (October 5, 2026):** Correction and addition to §4.1. §4.1 said the anonymous account identifier is created at startup, and named only the settings backup and the crisis-detection event as data tied to it. It is not created at startup: it is created the first time it is needed, and making or restoring a purchase is now one of those occasions, alongside a crisis-detection event and the optional settings backup. §4.1 now also discloses what purchase verification sends and keeps: the store's transaction identifier for the purchase, sent to our servers and stored against your anonymous account identifier with your subscription's plan, status and dates and an encrypted copy of the store's signed transaction record. No wellness data is involved, and it is deleted with your account as §7.4 already described for subscription records.
 

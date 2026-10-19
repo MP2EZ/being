@@ -492,6 +492,7 @@ npm run e2e:safety
 npm run e2e:safety:q9              # PHQ-9 Q9 single-alert pinning
 npm run e2e:safety:phq9            # PHQ-9 ≥20 completion banner
 npm run e2e:safety:gad7            # GAD-7 ≥15 completion banner
+npm run e2e:safety:assessment-exit # questions-phase Exit → confirm → Continue / Exit (DEBUG-771)
 npm run e2e:safety:crisis-button   # crisis button reaches CrisisResources from each tab
 
 # Device-only flow (tag `safety-device-only`, excluded from `e2e:safety`).
@@ -723,8 +724,10 @@ non-certifying for a layout-sensitive flow and as certifying for a `viewport-ind
 one. `e2e_run_certifies` is the single authority; the label consumes it rather than
 re-deriving it, so the two cannot drift.
 
-**The exit alphabet is unchanged: 0 pass / 1 regression / 2 harness / 3 target replaced.** A
-non-certifying all-green run still exits **0**, so any device remains usable for iterating
+**The exit alphabet is unchanged: 0 pass / 1 regression / 2 harness / 3 target replaced**
+(plus 130/143, an operator abort by SIGINT/SIGTERM with no verdict — INFRA-781; the abort
+handler reaps the in-flight maestro, which leads its own process group, before releasing the
+lease). A non-certifying all-green run still exits **0**, so any device remains usable for iterating
 and debugging. The refusal is `/b-close`'s alone and applies only to a MERGE — it fires on
 the ABSENCE of a certifying run, never on the presence of a large device. It reads
 `certification: CERTIFIED|UNCERTIFIED` from the run receipt, whose path the caller sets with
@@ -1053,15 +1056,14 @@ rect x[303,375] y[491,595), clip bottom 613:
 Each clearance is `CRISIS_BUTTON_EXCLUSION_RECT.left` on the element carrying the testID. The
 falsifier is each host's jest every-y sweep, not a flow: `tapOn: id:` hits element centres.
 
-The same suite pins one more tap class: every `daily-loop-skip-breath` tap must be followed by
-an app-state proof that it landed — `daily-loop-input-response` appearing, or the SkipLink
-unmounting (the DEBUG-632 shape, used at AX sizes). A bare skip lets the 30s breath expire on
-its own and the flow goes green without ever testing the tap.
-
-**Both proofs can still be satisfied by the timer (DEBUG-652, measured; fix is DEBUG-694).**
-Removing the skip tap from `daily-loop-quick-depth` still goes green 3/3: the wait outlasts
-the breath (10.6–16.1s waited, resolved at mount + 30s), and SkipLink and the Timer share
-`handleBreathComplete`, so nothing on screen tells a skip from an expiry.
+The same suite pins one more tap class: every `daily-loop-skip-breath` tap must be followed,
+before the flow moves on, by a non-optional `daily-loop-breath-skipped` — a testID on
+`DailyLoopStepScreen`'s root container that only the SkipLink sets (DEBUG-694). It is on the
+root so no AX5 scroll offset can hide it, and it is the only accepted proof: DEBUG-652 measured
+that `daily-loop-input-response` appearing and the SkipLink unmounting are both satisfied by the
+30s breath expiring on its own (no-skip mutant GREEN 3/3). The two crisis-keyboard flows tap the
+link only as scaffolding to reach the text beat and are exempt by exact `file:line`; a new skip
+tap anywhere else fails the pin.
 
 ## How a flow works
 
@@ -1479,6 +1481,7 @@ states its own contract.
 | `q9-single-alert.yaml` | PHQ-9 Q9 > 0 fires exactly one canonical alert (no `View Resources` / `Call 988 Now` from old mockCrisisEngine) | `assessmentStore.ts` `triggerEmergencyResponse` (alert copy) + MAINT-166 PR 1 (single-alert) |
 | `phq9-severe-completion.yaml` | Score ≥20 (Q9=0) shows `results-crisis-banner` on completion | `safety.ts` `PHQ9_SEVERE_THRESHOLD = 20` |
 | `gad7-severe.yaml` | Score ≥15 shows `results-crisis-banner` on completion | `safety.ts` `GAD7_SEVERE_THRESHOLD = 15` |
+| `assessment-exit.yaml` (DEBUG-771) | Mid-check-in `assessment-exit-button` opens the existing "Exit Assessment?" confirm; Continue keeps the question and the in-flow crisis button; Exit lands with `crisis-button-root` visible. The in-flight race and exactly-once callbacks are jest's (`EnhancedAssessmentFlow.exit*.test.tsx`) | `EnhancedAssessmentFlow.tsx` `promptExit` / `requestExit` |
 | `crisis-button-reachability.yaml` | Crisis button → `CrisisResources` from each of 4 tabs | CLAUDE.md "988 access <3 taps from any screen" |
 | `journal-crisis-scan.yaml` | Journal crisis-content scan fires its intervention | crisis detection contract |
 | `daily-loop-deeplink.yaml` | `being://daily` cold start keeps the crisis overlay AND an escape from the immersive practice | FEAT-298 slice 4 + `linking.ts` `initialRouteName` |

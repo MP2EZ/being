@@ -11,7 +11,7 @@
  * these very constructs in prose), and every matcher is proven here to fire on known-bad
  * source and to stay quiet on the same words in a comment.
  *
- * TARGETS covers delete-account and both receipt verifiers. Beyond the shared shape, the
+ * TARGETS covers delete-account, both receipt verifiers and grace-period-automation (MAINT-770). Beyond the shared shape, the
  * receipt entry points carry BINDING pins (what productionDeps hands the handler), and every
  * handler's *Deps interface is checked to name no env or mock key and none of the guards that
  * must stay inline - a dep is a seam, and a seam on a trust boundary is where a test (or a
@@ -43,6 +43,7 @@ const TARGETS: Target[] = [
   { index: 'delete-account/index.ts', envNames: ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] },
   { index: 'verify-apple-receipt/index.ts', envNames: ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] },
   { index: 'verify-google-receipt/index.ts', envNames: ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] },
+  { index: 'grace-period-automation/index.ts', envNames: ['SUPABASE_URL', 'SUPABASE_SERVICE_ROLE_KEY'] },
 ];
 
 // The env-read call is spelled in pieces in the fixtures below: the INFRA-442 deploy-drift
@@ -224,6 +225,7 @@ const HANDLERS = [
   'delete-account/handler.ts',
   'verify-apple-receipt/handler.ts',
   'verify-google-receipt/handler.ts',
+  'grace-period-automation/handler.ts',
 ];
 
 const DEPS_INTERFACE = /export\s+interface\s+(\w+Deps)\s*\{[\s\S]*?\n\}/g;

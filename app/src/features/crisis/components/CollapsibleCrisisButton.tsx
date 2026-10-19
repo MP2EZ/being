@@ -83,6 +83,7 @@ import { MaterialDesignIcons } from '@react-native-vector-icons/material-design-
 // Sentry itself is no longer imported here: all crisis-tap telemetry moved into
 // crisisTapTrace so that no telemetry code can sit upstream of the dial.
 import { beginCrisisTap } from '@/features/crisis/services/crisisTapTrace';
+import { CRISIS_BUTTON_SIZE_PROMINENT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { borderRadius, colorSystem } from '@/core/theme';
 
 /** Display mode for the crisis button */
@@ -107,7 +108,7 @@ interface CollapsibleCrisisButtonProps {
 // on hitSlop, which met functional but not visual requirement)
 // Prominent: 56px - 40% larger for assessments (PHQ>=15)
 const COLLAPSED_WIDTH_STANDARD = 44;
-const COLLAPSED_WIDTH_PROMINENT = 56;
+const COLLAPSED_WIDTH_PROMINENT = CRISIS_BUTTON_SIZE_PROMINENT;
 
 // Fade configuration for immersive mode
 //

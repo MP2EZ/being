@@ -21,7 +21,7 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../../logging';
 import { useState, useEffect, useCallback } from 'react';
-import CloudServices, { CloudSyncStatus, CloudSyncStats } from '../index';
+import CloudServices, { CloudSyncStatus, CloudSyncStats, type ConnectivityError } from '../index';
 
 export interface UseCloudSyncReturn {
   // Status
@@ -33,8 +33,9 @@ export interface UseCloudSyncReturn {
   error: string | null;
 
   // Backup operations
-  createBackup: () => Promise<void>;
-  restoreFromBackup: () => Promise<{ success: boolean; restoredStores: string[]; errors: string[] }>;
+  /** The backup's outcome, or null when an operation was already in flight (DEBUG-784). */
+  createBackup: () => Promise<BackupResult | null>;
+  restoreFromBackup: () => Promise<RestoreResult>;
   forceSync: () => Promise<void>;
 
   // Configuration
@@ -45,10 +46,23 @@ export interface UseCloudSyncReturn {
 
   // Actions
   checkForRestore: () => Promise<void>;
-  testConnectivity: () => Promise<void>;
+  /** The test's outcome, or null when a test was already in flight (DEBUG-767). */
+  testConnectivity: () => Promise<ConnectivityResult | null>;
   clearError: () => void;
   refreshStatus: () => Promise<void>;
 }
+
+/** What a manual backup reports. Returned so the caller can branch on it (DEBUG-784). */
+export type BackupResult = Awaited<ReturnType<typeof CloudServices.forceSync>>;
+
+/** What a restore reports. */
+export type RestoreResult = { success: boolean; restoredStores: string[]; errors: string[] };
+
+/** What testCloudConnectivity reports. Returned so the caller can branch on it (DEBUG-767). */
+export type ConnectivityResult = Awaited<ReturnType<typeof CloudServices.testCloudConnectivity>>;
+
+/** The closed code for a failed test with no reported cause (DEBUG-783). Typed against the barrel's set. */
+const CONNECTIVITY_UNREACHABLE: ConnectivityError = 'cloud_unreachable';
 
 /**
  * Cloud sync hook for React components
@@ -113,8 +127,10 @@ export function useCloudSync(): UseCloudSyncReturn {
   }, []);
 
   // Create backup
-  const createBackup = useCallback(async () => {
-    if (isLoading) return;
+  // DEBUG-784: returns the result. The hook never throws, so a caller that awaited and then
+  // assumed success reported "Backup completed successfully" for every outcome.
+  const createBackup = useCallback(async (): Promise<BackupResult | null> => {
+    if (isLoading) return null;
 
     setIsLoading(true);
     setError(null);
@@ -128,16 +144,19 @@ export function useCloudSync(): UseCloudSyncReturn {
         // Refresh status after successful backup
         await refreshStatus();
       }
+      return result;
 
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Backup failed');
+      const message = err instanceof Error ? err.message : 'Backup failed';
+      setError(message);
+      return { success: false, error: message };
     } finally {
       setIsLoading(false);
     }
   }, [isLoading, refreshStatus]);
 
   // Restore from backup
-  const restoreFromBackup = useCallback(async () => {
+  const restoreFromBackup = useCallback(async (): Promise<RestoreResult> => {
     if (isLoading) return { success: false, restoredStores: [], errors: ['Operation in progress'] };
 
     setIsLoading(true);
@@ -189,8 +208,10 @@ export function useCloudSync(): UseCloudSyncReturn {
   }, [isLoading, refreshStatus]);
 
   // Test connectivity
-  const testConnectivity = useCallback(async () => {
-    if (isLoading) return;
+  // DEBUG-767: returns the result. The hook never throws, so a caller that awaited and then
+  // assumed success reported "connected" for every outcome.
+  const testConnectivity = useCallback(async (): Promise<ConnectivityResult | null> => {
+    if (isLoading) return null;
 
     setIsLoading(true);
     setError(null);
@@ -199,11 +220,15 @@ export function useCloudSync(): UseCloudSyncReturn {
       const result = await CloudServices.testCloudConnectivity();
 
       if (!result.canConnect) {
-        setError(result.error || 'Connection test failed');
+        setError(result.error || CONNECTIVITY_UNREACHABLE);
       }
+      return result;
 
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Connection test failed');
+    } catch {
+      // testCloudConnectivity does not throw (DEBUG-783); if it ever does, report the closed
+      // code so no raw error string reaches the banner.
+      setError(CONNECTIVITY_UNREACHABLE);
+      return { canConnect: false, error: CONNECTIVITY_UNREACHABLE };
     } finally {
       setIsLoading(false);
     }

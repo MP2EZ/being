@@ -136,7 +136,7 @@ describe('DEBUG-550 — completeAssessment refuses a malformed answer set', () =
 
   describe('a refusal does not strand a stale result', () => {
     it('nulls currentResult so a previous assessment cannot render as this one', async () => {
-      // recoverSession does not clear currentResult, so a second assessment
+      // Nothing else clears currentResult, so a second assessment
       // completed-then-refused in one app session could otherwise render the
       // earlier banded result.
       seedSession('phq9', [answer('phq9_1', 1)]);

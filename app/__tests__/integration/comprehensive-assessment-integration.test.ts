@@ -48,6 +48,7 @@ import {
   CrisisDetection,
   CRISIS_THRESHOLDS
 } from '../../src/features/assessment/types/index';
+import SecureStorageService from '../../src/core/services/security/SecureStorageService';
 import { resetEncryptionMocks } from '../helpers/mockEncryption';
 import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
 import { Alert, Linking } from 'react-native';
@@ -89,8 +90,8 @@ jest.mock('expo-crypto', () => {
 // MAINT-204: the hybrid wellness-data path stores the encrypted assessment
 // blob in AsyncStorage (master key stays in the Keychain mock above). The
 // previous inline mock was a no-op (getItem always resolved null), so the
-// blob never round-tripped and recoverSession() could never succeed. Use the
-// shared functional in-memory mock so save→recover genuinely round-trips.
+// blob never round-tripped. Use the shared functional in-memory mock so
+// save→load genuinely round-trips.
 jest.mock('@react-native-async-storage/async-storage', () => {
   const { createAsyncStorageMock } = require('../helpers/mockEncryption');
   return createAsyncStorageMock();
@@ -454,50 +455,53 @@ describe('COMPREHENSIVE ASSESSMENT INTEGRATION TESTING', () => {
     // (recover) resolve the key (no more 'Master key not found'). Exercises the
     // real encrypt→write→read→decrypt path. Perf assertion intentionally omitted
     // — jest is the wrong layer; Maestro owns recovery perf budgets.
-    it('Assessment persistence through interruption and recovery', async () => {
-      // Start assessment and answer some questions
+    it('Assessment persistence through interruption: the partial is NOT recovered, the completed history is', async () => {
+      // DEBUG-769: the in-progress slot is memory-only. An interruption loses the partial
+      // (by design — no slot content survives a cold launch); a COMPLETED screening is
+      // still persisted, through the real encrypt -> write -> read -> decrypt round trip.
       await store.startAssessment('phq9', 'persistence_test');
-      
+
       await store.answerQuestion('phq9_1', 2);
       await store.answerQuestion('phq9_2', 1);
       await store.answerQuestion('phq9_3', 3);
 
-      // Verify partial progress saved
       expect(state().answers).toHaveLength(3);
       expect(store.getCurrentProgress()).toBeGreaterThan(0);
 
-      // Simulate app interruption (save current state)
+      // Simulate app interruption (save current state), then the next launch.
       await store.saveProgress();
-      const partialAnswers = [...state().answers];
-      const partialSession = state().currentSession;
-
-      // Reset store (simulate app restart)
       store.resetAssessment();
       expect(state().currentSession).toBeFalsy();
       expect(state().answers).toHaveLength(0);
 
-      // Recover session (simulate restart) — real read + decrypt round-trip
-      const recovered = await store.recoverSession();
+      await useAssessmentStore.persist.rehydrate();
 
-      expect(recovered).toBe(true);
-      expect(state().currentSession?.id).toBe(partialSession?.id);
-      expect(state().answers).toHaveLength(3);
+      expect(state().currentSession).toBeNull();
+      expect(state().answers).toHaveLength(0);
+      expect(state().currentQuestionIndex).toBe(0);
+      const interrupted = await SecureStorageService.retrieveWellnessBlob<{ state?: Record<string, unknown> }>('assessment_store');
+      expect(interrupted?.state).not.toHaveProperty('currentSession');
+      expect(interrupted?.state).not.toHaveProperty('answers');
 
-      // Verify data integrity
-      for (let i = 0; i < partialAnswers.length; i++) {
-        expect(state().answers[i]).toEqual(partialAnswers[i]);
+      // A fresh screening completes, and its history survives the real round trip.
+      await store.startAssessment('phq9', 'persistence_test');
+      const responses = [2, 1, 3, 1, 1, 1, 1, 1, 1] as const;
+      for (let i = 0; i < 9; i++) {
+        await store.answerQuestion(`phq9_${i + 1}`, responses[i]!);
       }
-
-      // Continue and complete assessment
-      for (let i = 4; i <= 9; i++) {
-        await store.answerQuestion(`phq9_${i}`, 1);
-      }
-
       await store.completeAssessment();
 
       const result = state().currentResult as PHQ9Result;
       expect(result.totalScore).toBe(12); // Q1-3: 2+1+3=6, Q4-9: 1×6=6 → 12
       expect(result.answers).toHaveLength(9);
+
+      await new Promise((r) => setTimeout(r, 0));
+      const onDisk = await SecureStorageService.retrieveWellnessBlob<{ state?: Record<string, unknown> }>('assessment_store');
+      const history = onDisk?.state?.['completedAssessments'] as { result?: { totalScore: number } }[];
+      expect(history).toHaveLength(1);
+      expect(history[0]!.result?.totalScore).toBe(12);
+      expect(onDisk?.state).not.toHaveProperty('answers');
+      expect(onDisk?.state).not.toHaveProperty('currentSession');
     });
 
     // MAINT-192: this test previously asserted ONLY jest perf budgets

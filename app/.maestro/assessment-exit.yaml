@@ -1,0 +1,107 @@
+appId: fyi.being.app
+tags:
+  - safety
+name: "Assessment exit (DEBUG-771): a visible Exit mid-check-in confirms, Continue keeps the place, Exit lands with 988 in reach"
+# e2e-certifies: any
+# INFRA-486 — Asserts a top-left in-flow control and a system UIAlertController's buttons — a centred modal with no fold.
+---
+# DEBUG-771. Before this item the only way out of a PHQ-9 / GAD-7 question was Android's
+# hardware back: on iOS (gestureEnabled false, no header) a check-in, once begun, could only
+# be left by answering every question.
+#
+# WHAT IT PINS (user-visible contract, crisis ruling on DEBUG-771):
+#   1. `assessment-exit-button` is on screen mid-check-in (Q2), not only on Q1.
+#   2. It opens the existing confirm — "Exit Assessment?" — never exits directly.
+#   3. Continue keeps the place: still Question 2, and the in-flow crisis button is there.
+#   4. Exit leaves the assessment and lands where the root crisis button is reachable.
+# The race with an in-flight answer (AC3), the copy bytes, exactly-once terminal callbacks
+# and the "exit writes nothing to the store" rule are jest's
+# (EnhancedAssessmentFlow.exit*.test.tsx): Maestro cannot time a tap into a save.
+#
+# ALERT BUTTONS — UNPROBED AT AUTHORING. q9-single-alert.yaml and journal-crisis-scan.yaml
+# record that Maestro's `text:` selector did not match UIAlertController text on 2.6.
+# This flow taps the confirm's buttons by text and was authored without a simulator run.
+# A red at the first `Exit Assessment.*` wait means the confirm is invisible to Maestro —
+# the toolchain, not the app (jest pins the confirm). Do not substitute a `point:` tap on
+# the alert: its geometry varies by device and Dynamic Type, which would void `any`.
+#
+# "Exit" is matched as a FULL-MATCH regex, so it cannot hit the control underneath the
+# alert: that control is a merged accessibility node whose text is "Exit check-in". A tap
+# that never reached the alert would still fail the landing assertions below.
+#
+# ENTRY. Profile's take-phq9-button with gad7-severe's DEBUG-477 absorbing tap: a scroll
+# that stops mid-content swallows exactly one following touch.
+
+- launchApp:
+    clearState: true
+    clearKeychain: true # SecureStore-backed consent persists across clearState (INFRA-179)
+- runFlow: _seeded-home.yaml # INFRA-217: e2e-sim seeds onboarding; start at home
+
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "take-phq9-button"
+    direction: DOWN
+- tapOn:
+    id: "tab-profile" # absorbing tap (DEBUG-477); Profile is the active tab
+- tapOn:
+    id: "take-phq9-button"
+- assertVisible:
+    id: "assessment-close-button" # the intro, not a swallowed tap left on Profile
+- scrollUntilVisible:
+    element:
+      id: "assessment-begin-button"
+    direction: DOWN
+- tapOn:
+    id: "assessment-begin-button"
+
+# Q1 → Q2, so the exit is exercised past the first question.
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 1 of 9.*"
+    timeout: 15000
+- tapOn:
+    id: "assessment-response-group-option-0"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 2 of 9.*"
+    timeout: 15000
+
+# 1–2: the control is there, and it asks first.
+- tapOn:
+    id: "assessment-exit-button"
+- extendedWaitUntil:
+    visible:
+      text: "Exit Assessment.*"
+    timeout: 5000
+
+# 3: Continue keeps the place, with the crisis button.
+- tapOn:
+    text: "Continue Assessment"
+- extendedWaitUntil:
+    visible:
+      text: ".*Question 2 of 9.*"
+    timeout: 5000
+- assertVisible:
+    id: "assessment-crisis-button"
+- assertVisible:
+    id: "assessment-exit-button"
+
+# 4: Exit leaves, and 988 stays one tap away.
+- tapOn:
+    id: "assessment-exit-button"
+- extendedWaitUntil:
+    visible:
+      text: "Exit Assessment.*"
+    timeout: 5000
+- tapOn:
+    text: "Exit"
+- extendedWaitUntil:
+    visible:
+      id: "crisis-button-root"
+    timeout: 10000
+- assertNotVisible:
+    id: "assessment-exit-button"
+- assertNotVisible:
+    id: "assessment-crisis-button"

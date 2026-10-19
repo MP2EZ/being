@@ -22,6 +22,10 @@
  * below as a defensive floor for records on already-shipped installs — see
  * SWEPT_ASYNC_PREFIXES and deleteSecureData.
  *
+ * `storeAssessmentData` was removed in MAINT-716 on the same grounds (no
+ * production caller). `assessment_async_` stays swept and enumerated for the same
+ * reason, and `retrieveAssessmentData` still reads records already on disk.
+ *
  * Plaintext is never written to disk. AES-256-GCM ciphertext is opaque;
  * confidentiality derives from the key (held in Keychain), not the
  * substrate. Removing SecureStore as the substrate for assessment data
@@ -51,17 +55,23 @@ import EncryptionService, {
 /**
  * The persisted metadata index (DEBUG-381).
  *
- * Named rather than inlined because it is written from `storeMetadata` and
- * `deleteMetadata`, read by `loadStorageMetadata`, swept by
- * `clearAllWellnessData`, and asserted by the erasure privacy suites — five
- * sites that must agree. It was a bare string literal at three of them, which is
- * the same hand-copied-mirror shape that let `audit_log_` go unswept through two
- * work items (see `SWEPT_ASYNC_PREFIXES` below).
+ * Named rather than inlined because it is read by `loadStorageMetadata`, swept by
+ * `clearAllWellnessData`, and asserted by the erasure privacy suites — sites that
+ * must agree. It was a bare string literal at three of them, which is the same
+ * hand-copied-mirror shape that let `audit_log_` go unswept through two work
+ * items (see `SWEPT_ASYNC_PREFIXES` below).
  *
- * Its contents are CLEARTEXT and crisis-describing: one record per stored blob
- * carrying `storageKey` (e.g. `crisis_async_<episodeId>`), `storageTier`,
- * `sensitivityLevel`, `dataType` and access timestamps. No wellness content —
- * but enough to establish that a crisis episode existed and when.
+ * NOTHING WRITES IT since MAINT-716 deleted `storeAssessmentData`, its last
+ * writer. It survives as a read-and-sweep key: shipped installs may still carry
+ * the file, `loadStorageMetadata` hydrates the cache from it, and erasure
+ * deletes it. `storageMetadataIndexErasure.privacy.test.ts` pins the absence of
+ * a writer, so one cannot be re-added unnoticed.
+ *
+ * Its contents on those installs are CLEARTEXT and crisis-describing: one record
+ * per stored blob carrying `storageKey` (e.g. `crisis_async_<episodeId>`),
+ * `storageTier`, `sensitivityLevel`, `dataType` and access timestamps. No
+ * wellness content — but enough to establish that a crisis episode existed and
+ * when.
  */
 export const STORAGE_METADATA_INDEX_KEY = 'storage_metadata_index';
 
@@ -102,15 +112,15 @@ export const SECURE_STORAGE_CONFIG = {
    * in `crisisRecordErasure.privacy.test.ts`, which reads this same constant —
    * so the exception list cannot silently grow a hole.
    *
-   * 🔴 `storage_metadata_index` (DEBUG-381) IS INERT WITHOUT THE CACHE CLEAR IN
-   * `clearAllWellnessData`. Do not "simplify" that clear away on the reasoning
-   * that membership here already covers the key — it does not, and the two must
-   * land and stay together. `storeMetadata` re-serialises the ENTIRE in-memory
-   * `metadataCache` on every write, so sweeping the key alone deletes the file
-   * and lets the very next crisis or assessment write restore it verbatim,
-   * erased records included. That is a fake control: it reads as coverage and
-   * provides none. The regression pin for the write-back specifically is
-   * `storageMetadataIndexErasure.privacy.test.ts` → "does not COME BACK".
+   * `storage_metadata_index` (DEBUG-381) has had no writer since MAINT-716, so
+   * membership here is the whole erasure control for it: it deletes residue left
+   * by shipped installs, and nothing re-creates the file afterwards. Before
+   * MAINT-716 the key was inert on its own, because `storeMetadata` re-serialised
+   * the in-memory `metadataCache` on every write and restored the file verbatim.
+   * The `metadataCache.clear()` retained in `clearAllWellnessData` now serves a
+   * different purpose — see the comment there. The no-writer pin is
+   * `storageMetadataIndexErasure.privacy.test.ts`; a re-introduced writer reopens
+   * the restore-on-write hole that cache clear used to close.
    *
    * 🔴 `@being/supabase/offline_queue` (DEBUG-698) IS INERT WITHOUT
    * SupabaseService's registered erasure reset (`resetOfflineQueueForErasure`,
@@ -134,7 +144,7 @@ export const SECURE_STORAGE_CONFIG = {
    * are handled in `core/analytics/analyticsIdentityReset.ts`, which resets
    * THROUGH the live instance where one exists — deleting the files under a live
    * client is the same write-back fake control described above for
-   * `storeMetadata`. A tripwire pins the backend branch, because if a future
+   * `@being/supabase/offline_queue`. A tripwire pins the backend branch, because if a future
    * dependency resolution loses `Paths`/`File` the adapter silently becomes
    * AsyncStorage-backed and THIS list becomes the correct fix.
    */
@@ -142,6 +152,8 @@ export const SECURE_STORAGE_CONFIG = {
     '@being/supabase/crisis_analytics_queue',
     STORAGE_METADATA_INDEX_KEY,
     '@being/supabase/offline_queue',
+    // DEBUG-764: holds the uid; SupabaseService.resetOfflineQueueForErasure drops its memory copy.
+    '@being/supabase/pending_backup_delete',
   ] as readonly string[],
 
   /** Storage limits */
@@ -177,7 +189,9 @@ export const SECURE_STORAGE_CONFIG = {
  *
  * `audit_log_` is on this list because `logStorageAccess` persists an entry on
  * every failed operation. (It also persisted on every `crisis_tier` operation
- * until MAINT-378 removed that tier; the failure arm is now the only writer.)
+ * until MAINT-378 removed that tier; the failure arm is now the only writer, and
+ * since MAINT-716 it is reachable only through `deleteSecureData` and
+ * `retrieveAssessmentData`, neither of which has a production caller.)
  * Nothing reads those records back and `cleanupAuditLogs()` prunes only the
  * in-memory array, so before DEBUG-355 nothing in the app could remove them at
  * all. Unlike the SecureStore `critical_log_*` records in the same work item,
@@ -217,16 +231,6 @@ export const WELLNESS_SECURE_STORE_KEYS = [
 ] as const;
 
 /**
- * Keys DELIBERATELY EXCLUDED from the erasure sweep (documented so the
- * exclusion is a reviewable decision, not an accidental omission):
- *  - consent_record_v1 / consent_history_v1 / legal_gate_consents_v1 /
- *    age_verification_v1 — consent audit trail (lawful-basis evidence;
- *    DataRetentionService already refuses to delete consent records).
- *  - auth_device_id — anonymous device-identity anchor; deleting it would
- *    de-authenticate the device with no recovery path and holds no wellness
- *    content.
- */
-/**
  * DEBUG-545 — the account-deletion attestation's own key.
  *
  * It exists as a SEPARATE key from `consent_history_v1` because that key is
@@ -245,14 +249,103 @@ export const WELLNESS_SECURE_STORE_KEYS = [
  */
 export const ACCOUNT_DELETION_ATTESTATION_KEY = 'account_deletion_attestation_v1';
 
+/**
+ * Keys DELIBERATELY EXCLUDED from the erasure sweep (documented so the
+ * exclusion is a reviewable decision, not an accidental omission). Like the
+ * manifest above this is DOCUMENTATION plus assertion coverage: `clearAllWellnessData`
+ * deletes only what it enumerates, so a key's ABSENCE from every deleting list
+ * is the real protection.
+ *
+ *  - `ACCOUNT_DELETION_ATTESTATION_KEY` — the Art. 17(3)(b) record that an
+ *    erasure happened. Carries no identifier (see its doc).
+ *  - `consent_history_v1` — NOT the history chain (that is an encrypted
+ *    `wellness_async_*` blob and is swept). It is the legacy plaintext key the
+ *    attestation was dual-written to (DEBUG-545), and it is excluded only so that
+ *    copy can serve as the single-entry fallback when the isolated key cannot
+ *    be read. `stripLegacyAttestationCopy` removes it as soon as the isolated key
+ *    verifies, and deletes it outright if it ever holds more than that one entry.
+ *
+ * DEBUG-762 moved the consent record, legal-gate acceptances, age check and the
+ * device anchors OUT of this list and into `ACCOUNT_ERASURE_SECURE_STORE_KEYS`:
+ * they belong to the account, and keeping them was never evidence of anything
+ * the attestation does not already prove.
+ */
 export const ERASURE_EXCLUDED_SECURE_STORE_KEYS = [
-  'consent_record_v1',
   'consent_history_v1',
+  ACCOUNT_DELETION_ATTESTATION_KEY,
+] as const;
+
+/**
+ * DEBUG-762 — fixed SecureStore keys that belong to the ACCOUNT and are deleted
+ * by a full account-deletion wipe (`clearAllWellnessData({ deleteMasterKey: true })`)
+ * only. NEVER by a logout or partial clear: the consent record and age check are
+ * what lets a signed-in user keep using the app.
+ *
+ *  - `consent_record_v1`, `legal_gate_consents_v1`, `age_verification_v1` — the
+ *    deleted account's consent, legal acceptances and age check. Until DEBUG-762
+ *    these survived (DEBUG-755 only retired them), so the next person on the device
+ *    inherited a stale record and the privacy policy said "retained indefinitely".
+ *  - `auth_device_id` — the pre-INFRA-260 device-identity anchor. Nothing reads it
+ *    since the anonymous Supabase session replaced it; deleting it cannot
+ *    de-authenticate anyone.
+ *  - `@being/device_id` — written only by `EncryptionService.generateSecureDeviceId`,
+ *    which has no caller. Listed so a build that ever wrote it cannot keep it.
+ *
+ * Deleted BEFORE the master key and NOT best-effort: a failed delete throws, so
+ * `deleteAccountAndWipe` reports failure and the user retries (the server account
+ * is already gone, which is why that retry is safe).
+ */
+export const ACCOUNT_ERASURE_SECURE_STORE_KEYS = [
+  'consent_record_v1',
   'legal_gate_consents_v1',
   'age_verification_v1',
   'auth_device_id',
-  ACCOUNT_DELETION_ATTESTATION_KEY,
+  '@being/device_id',
 ] as const;
+
+/**
+ * DEBUG-775 — AsyncStorage keys that are information about the ACCOUNT rather than
+ * wellness content, deleted by a full account-deletion wipe only (alongside
+ * `ACCOUNT_ERASURE_SECURE_STORE_KEYS`). Privacy policy §7.4 says only the deletion
+ * record, the first-open marker and settings caches stay on the device
+ * (`erasureSurvivorManifest.ts`); each of these is activity data that does not
+ * qualify, so it goes.
+ *
+ *  - cloud backup / sync: config, last-backup time and hash, stats, error history
+ *    and last-sync time. Every writer is gated on `cloud_sync` consent, which the
+ *    wipe deletes, so sweeping the key is the whole control (no erasure reset).
+ *    One window remains: a backup already past its consent check writes
+ *    `last_backup` after its awaited upload (no wellness data; DPIA residual).
+ *  - `data_retention_*`: the retention audit (category, record counts, oldest and
+ *    newest screening dates) and its daily limiter. `runRetentionCleanup` is fenced
+ *    off while an erasure is pending or in flight, so it cannot rewrite them.
+ *  - `consent_cache_v1`: the deleted account's privacy choices. A backstop to the
+ *    consent store's own reset.
+ *  - Dead writers a shipped build may have left: the circuit-breaker fallback caches
+ *    and `subscription_metadata_v1`; `@being/cloud_backup/stats` and
+ *    `@being/cloud_sync/stats` (read, never written, today).
+ *
+ * `error_alert_*` (sanitized alert events) and `circuit_breaker_queue_*` (unsanitized
+ * retry context) are prefix families in `ACCOUNT_ERASURE_ASYNC_PREFIXES`; both
+ * writers are reached only through CircuitBreaker, which has no production caller.
+ */
+export const ACCOUNT_ERASURE_ASYNC_KEYS = [
+  '@being/cloud_backup/config',
+  '@being/cloud_backup/last_backup',
+  '@being/cloud_backup/stats',
+  '@being/cloud_sync/stats',
+  '@being/cloud_sync/error_history',
+  '@being/supabase/last_sync',
+  'data_retention_audit_log',
+  'data_retention_last_cleanup',
+  'consent_cache_v1',
+  'assessment_cache',
+  'auth_cache',
+  'network_cache',
+  'subscription_metadata_v1',
+] as const;
+
+export const ACCOUNT_ERASURE_ASYNC_PREFIXES = ['error_alert_', 'circuit_breaker_queue_'] as const;
 
 /**
  * DEBUG-545 — keys that must NEVER be routed through the legacy-migration path.
@@ -443,126 +536,6 @@ export class SecureStorageService {
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 SECURE STORAGE INITIALIZATION ERROR:', error instanceof Error ? error : new Error(String(error)));
       throw new Error(`Secure storage initialization failed: ${(error instanceof Error ? error.message : String(error))}`);
-    }
-  }
-
-  /**
-   * ASSESSMENT DATA STORAGE
-   * High security tier for PHQ-9/GAD-7 assessment data
-   */
-  public async storeAssessmentData(
-    assessmentId: string,
-    assessmentData: {
-      type: 'PHQ-9' | 'GAD-7';
-      responses: number[];
-      totalScore: number;
-      timestamp: number;
-      userId: string;
-    },
-    userContext?: string
-  ): Promise<StorageOperationResult> {
-    const startTime = performance.now();
-
-    try {
-      // Lazy-init the encryption layer so callers can hit these methods
-      // before app-startup ordering completes (e.g. Zustand persist rehydration
-      // for the assessment store fires at module load, ahead of App.tsx's
-      // SecureStorageService.initialize() call). encryptionService.initialize
-      // is idempotent and shares the in-flight promise across concurrent calls.
-      await this.encryptionService.initialize();
-
-      const storageKey = `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`;
-
-      const encryptedPackage = await this.encryptionService.encryptAssessmentData(
-        assessmentData,
-        assessmentId
-      );
-
-      await this.validateStorageSize(encryptedPackage, 'assessment_tier');
-
-      await AsyncStorage.setItem(storageKey, JSON.stringify(encryptedPackage));
-      await this.markMigrated(`${SECURE_STORAGE_CONFIG.ASSESSMENT_PREFIX}${assessmentId}`);
-
-      const metadata: SecureStorageMetadata = {
-        storageKey,
-        storageTier: 'assessment_tier',
-        sensitivityLevel: 'level_2_assessment_data',
-        dataType: `assessment_${assessmentData.type.toLowerCase()}`,
-        createdAt: Date.now(),
-        lastAccessedAt: Date.now(),
-        accessCount: 1,
-        encrypted: true,
-        dataSize: JSON.stringify(encryptedPackage).length,
-        retentionPolicy: 'wellness_record'
-      };
-
-      // Cache metadata
-      this.metadataCache.set(storageKey, metadata);
-
-      // Store metadata
-      await this.storeMetadata(storageKey, metadata);
-
-      const operationTime = performance.now() - startTime;
-
-      // Validate assessment performance requirement
-      if (operationTime > SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS) {
-        logSecurity(`⚠️  Assessment storage slow: ${operationTime.toFixed(2)}ms > ${SECURE_STORAGE_CONFIG.ASSESSMENT_ACCESS_THRESHOLD_MS}ms`, 'medium', { component: 'SecurityService' });
-      }
-
-      // Log access
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'store',
-        storageKey,
-        storageTier: 'assessment_tier',
-        dataType: metadata.dataType,
-        success: true,
-        operationTimeMs: operationTime,
-        dataSize: metadata.dataSize,
-        userContext,
-        securityContext: 'assessment_data_storage'
-      });
-
-      logPerformance('SecureStorageService.storeAssessmentData', operationTime, {
-        assessmentType: assessmentData.type,
-        tier: 'assessment_tier'
-      });
-
-      return {
-        success: true,
-        operationType: 'store',
-        storageKey,
-        operationTimeMs: operationTime,
-        dataSize: metadata.dataSize,
-        metadata
-      };
-
-    } catch (error) {
-      const operationTime = performance.now() - startTime;
-      logError(LogCategory.SECURITY, '🚨 ASSESSMENT DATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
-
-      // Log failure
-      await this.logStorageAccess({
-        timestamp: Date.now(),
-        operationType: 'store',
-        storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`,
-        storageTier: 'assessment_tier',
-        dataType: 'assessment_data',
-        success: false,
-        operationTimeMs: operationTime,
-        dataSize: 0,
-        userContext,
-        error: (error instanceof Error ? error.message : String(error))
-      });
-
-      return {
-        success: false,
-        operationType: 'store',
-        storageKey: `${SECURE_STORAGE_CONFIG.ASSESSMENT_ASYNC_PREFIX}${assessmentId}`,
-        operationTimeMs: operationTime,
-        dataSize: 0,
-        error: (error instanceof Error ? error.message : String(error))
-      };
     }
   }
 
@@ -813,12 +786,6 @@ export class SecureStorageService {
         }
       }
 
-      // Remove from metadata cache
-      if (deletedKey) {
-        this.metadataCache.delete(deletedKey);
-        await this.deleteMetadata(deletedKey);
-      }
-
       const operationTime = performance.now() - startTime;
 
       // Log deletion
@@ -938,54 +905,6 @@ export class SecureStorageService {
 
     } catch (error) {
       logError(LogCategory.SECURITY, '🚨 METADATA LOADING ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  /**
-   * Write the cache to `storage_metadata_index`, or REMOVE the key when the
-   * cache is empty (DEBUG-381).
-   *
-   * Extracted so `storeMetadata` and `deleteMetadata` cannot drift — they held
-   * byte-identical persist blocks, which is how the key ended up written from
-   * two places and swept from none.
-   *
-   * The empty-cache branch matters for erasure hygiene: without it, deleting the
-   * last remaining record via `deleteSecureData` → `deleteMetadata` re-creates
-   * the key holding `"[]"`. Harmless in content, but it leaves a
-   * crisis-path-adjacent key present in a store that just enumerated clean, and
-   * the whole-store assertions in the privacy suites are the poorer for it.
-   */
-  private async persistMetadataIndex(): Promise<void> {
-    if (this.metadataCache.size === 0) {
-      await AsyncStorage.removeItem(STORAGE_METADATA_INDEX_KEY);
-      return;
-    }
-    const metadataArray = Array.from(this.metadataCache.entries());
-    await AsyncStorage.setItem(STORAGE_METADATA_INDEX_KEY, JSON.stringify(metadataArray));
-  }
-
-  private async storeMetadata(storageKey: string, metadata: SecureStorageMetadata): Promise<void> {
-    try {
-      // Store in cache
-      this.metadataCache.set(storageKey, metadata);
-
-      // Persist metadata index
-      await this.persistMetadataIndex();
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 METADATA STORAGE ERROR:', error instanceof Error ? error : new Error(String(error)));
-    }
-  }
-
-  private async deleteMetadata(storageKey: string): Promise<void> {
-    try {
-      this.metadataCache.delete(storageKey);
-
-      // Update persisted index
-      await this.persistMetadataIndex();
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, '🚨 METADATA DELETION ERROR:', error instanceof Error ? error : new Error(String(error)));
     }
   }
 
@@ -1253,8 +1172,10 @@ export class SecureStorageService {
   /**
    * Wipe all wellness data on logout/account deletion. Sweeps AsyncStorage
    * (hybrid path) AND the fixed legacy SecureStore wellness keys
-   * (`WELLNESS_SECURE_STORE_KEYS`). Consent audit-trail + device-identity keys
-   * are deliberately preserved (`ERASURE_EXCLUDED_SECURE_STORE_KEYS`).
+   * (`WELLNESS_SECURE_STORE_KEYS`). On a full account-deletion wipe it also deletes
+   * the account-scoped consent/age/device keys (`ACCOUNT_ERASURE_SECURE_STORE_KEYS`,
+   * DEBUG-762); the deletion attestation is deliberately preserved
+   * (`ERASURE_EXCLUDED_SECURE_STORE_KEYS`).
    *
    * Required for CCPA/TDPSA right-to-delete + GDPR Art. 17 (right to erasure).
    *
@@ -1267,32 +1188,24 @@ export class SecureStorageService {
   public async clearAllWellnessData(
     options: { deleteMasterKey?: boolean } = {}
   ): Promise<void> {
-    // DEBUG-381 — MUST be the first statement, and MUST be synchronous.
+    // DEBUG-381 / MAINT-716 — MUST be the first statement.
     //
-    // `storeMetadata` re-serialises this entire cache to
-    // `storage_metadata_index` on every write, and nothing cleared it here — so
-    // sweeping the key below (via SWEPT_EXACT_KEYS) without this line would
-    // delete the file and let the next crisis or assessment write restore every
-    // erased record verbatim. Membership in the sweep list is inert on its own.
+    // No code writes `storage_metadata_index` any more, so this clear no longer
+    // stops the index being re-created from the cache. It stays because
+    // `loadStorageMetadata` can hydrate the cache from residue a shipped install
+    // left in that key, and a stale cache still has consumers:
+    // `performScheduledCleanup` walks it and calls `deleteSecureData` on entries
+    // whose records are already erased, and each miss goes through
+    // `logStorageAccess`, which persists an `audit_log_` entry naming the erased
+    // record id. `exportStorageData` and `getStorageMetrics` would report the
+    // same ghosts.
     //
-    // POSITION IS LOAD-BEARING, not stylistic. `storeMetadata` is synchronous
-    // from entry through `JSON.stringify`; its only suspension point is inside
-    // the `AsyncStorage.setItem` await. So a snapshot's contents are frozen when
-    // its synchronous prelude runs, and there are exactly two cases: a prelude
-    // that ran BEFORE this clear enqueued its write before our removal (and
-    // AsyncStorage's native module dispatches serially, so the removal wins), or
-    // it ran AFTER and can only contain post-erasure entries. Move this line
-    // below the `getAllKeys()` await and a third case opens — a prelude
-    // capturing the full pre-erasure map inside that window.
-    //
-    // The reverse order (remove the key, then clear the cache) is strictly
-    // worse: a prelude landing between the two steps re-persists the ENTIRE
-    // pre-erasure index.
+    // Keep it ahead of the `getAllKeys()` await: a scheduled cleanup that runs
+    // inside that window would still see the cache naming erased records.
     //
     // Unconditional on both `deleteMasterKey` branches, deliberately. Every
     // entry this cache can hold names a `crisis_async_*` or `assessment_async_*`
-    // key — only `storeCrisisData` and `storeAssessmentData` write metadata —
-    // and both prefixes are swept on both branches, so after either call the
+    // key, and both prefixes are swept on both branches, so after either call the
     // cache is 100% stale by construction. `accessLog` is deliberately NOT
     // cleared alongside it: `getStorageMetrics` derives `successRate` from that
     // array, and an empty one reports 0 — a false reliability signal to any
@@ -1312,22 +1225,39 @@ export class SecureStorageService {
       // purges these at launch; sweeping them here too covers the user who
       // deletes their account without relaunching first (DEBUG-305). Same
       // predicate as the sweeper, so the two lists cannot drift (DEBUG-672).
-      isLegacyPlaintextRecord(k)
+      isLegacyPlaintextRecord(k) ||
+      // DEBUG-775 — account activity, on a full account-deletion wipe only.
+      (options.deleteMasterKey === true &&
+        ((ACCOUNT_ERASURE_ASYNC_KEYS as readonly string[]).includes(k) ||
+          ACCOUNT_ERASURE_ASYNC_PREFIXES.some((p) => k.startsWith(p))))
     );
     if (toRemove.length > 0) {
       await AsyncStorage.multiRemove(toRemove);
     }
 
     // SecureStore has no enumerate API: explicitly delete the fixed wellness
-    // keys from the manifest. Consent/identity keys are intentionally NOT in
-    // the manifest (see ERASURE_EXCLUDED_SECURE_STORE_KEYS) and are preserved.
+    // keys from the manifest. The deletion attestation is intentionally NOT in
+    // the manifest (see ERASURE_EXCLUDED_SECURE_STORE_KEYS) and is preserved.
     await Promise.all(
       WELLNESS_SECURE_STORE_KEYS.map((key) => SecureStore.deleteItemAsync(key))
     );
 
-    // Full account-deletion wipe only: delete the master key LAST, after all
-    // dependent wellness ciphertext above has been removed.
     if (options.deleteMasterKey) {
+      // DEBUG-762 — the account-scoped consent/age/device keys go with the account.
+      // Full wipe ONLY (a logout must keep the user consented), BEFORE the master key,
+      // and deliberately NOT best-effort: a failed delete must throw so erasure reports
+      // failure and the user retries, rather than reporting a deletion that left the
+      // previous subject's consent record for the next person. Every key is attempted
+      // before the first failure is rethrown. Independent of the attestation write
+      // (AccountDeletionService step 2, best-effort): this path never reads it.
+      const results = await Promise.allSettled(
+        ACCOUNT_ERASURE_SECURE_STORE_KEYS.map((key) => SecureStore.deleteItemAsync(key))
+      );
+      const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+      if (failed) throw failed.reason;
+
+      // Delete the master key LAST, after all dependent wellness ciphertext
+      // above has been removed.
       await EncryptionService.deleteMasterKey();
     }
   }

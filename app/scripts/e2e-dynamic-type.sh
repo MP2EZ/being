@@ -35,7 +35,8 @@
 # only declining to add a check; here it would be creating the leak.
 #
 # EXIT CODES mirror e2e-safety.sh (INFRA-434 / DEBUG-496): 0 pass · 1 flow regression ·
-# 2 harness could not complete · 3 target replaced · 4 peer owns the gate slot.
+# 2 harness could not complete · 3 target replaced · 4 peer owns the gate slot ·
+# 130/143 operator abort by SIGINT/SIGTERM, no verdict (INFRA-781).
 
 set -uo pipefail
 
@@ -75,7 +76,10 @@ restore_content_size() {
     echo "   Fix by hand:  xcrun simctl ui ${SIM_UDID} content_size ${ORIGINAL_SIZE}" >&2
   fi
 }
-trap restore_content_size EXIT INT TERM
+trap restore_content_size EXIT
+# INFRA-781 — signals exit into the restore above (once), the same split as e2e-safety.sh.
+trap 'exit 143' TERM
+trap 'exit 130' INT
 
 echo "🔠 Dynamic Type run: setting content size to '${CONTENT_SIZE}' (was '${ORIGINAL_SIZE}')."
 xcrun simctl ui "$SIM_UDID" content_size "$CONTENT_SIZE" >/dev/null 2>&1 \

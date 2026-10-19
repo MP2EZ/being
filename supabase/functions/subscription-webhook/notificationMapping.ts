@@ -1,5 +1,5 @@
 /**
- * Store notification → subscription transition (DEBUG-739).
+ * Store notification → subscription transition (DEBUG-739, DEBUG-751).
  *
  * Pure and import-free, so the mapping can be table-tested on its own. Two outcomes are
  * distinct and must stay distinct:
@@ -13,10 +13,28 @@
  *     them (a price increase, a pause-schedule change, a type the store adds next year)
  *     re-activated whatever row it matched.
  *
- * The handled-type mappings below are the PRE-EXISTING ones, pinned as-is. Several do not
- * match store semantics (Google CANCELED → expired while access continues; ON_HOLD and
- * PAUSED → grace while access has stopped; Apple DID_FAIL_TO_RENEW → grace without
- * checking the GRACE_PERIOD subtype). Correcting them is DEBUG-751, not this change.
+ * STATUS SEMANTICS (DEBUG-751). `status` answers "does this person have access right now":
+ * 'active' and 'grace' do, 'expired' does not. There is deliberately no fourth value
+ * ('on_hold', 'paused'): a suspended subscription is simply no-access, and
+ * `subscriptions_status_check` is untouched.
+ *   - Google CANCELED means auto-renew was switched off; the user keeps access to the end of
+ *     the paid period and Google sends EXPIRED when it ends. Status stays; the audit row
+ *     records the cancellation.
+ *   - Google ON_HOLD (billing retry failed) and PAUSED suspend access, so both are 'expired'.
+ *     A later RECOVERED / RENEWED / PURCHASED restores 'active'.
+ *   - Apple DID_FAIL_TO_RENEW is a grace period only inside a SIGNED grace period
+ *     (renewal info's gracePeriodExpiresDate), decided in handlers.ts (DEBUG-772). The subtype
+ *     is not evidence of anything; billing retry alone is no access.
+ *   - Apple REFUND / REVOKE revoke only the current paid period; REFUND_REVERSED restores it
+ *     (DEBUG-772, decided in handlers.ts from the signed transaction).
+ *   - Google IN_GRACE_PERIOD carries no grace end, so it is audited without a status write
+ *     (DEBUG-772; a bounded Google grace needs a Play Developer API lookup, DEBUG-777).
+ *   - A voided Google purchase (refund, chargeback) revokes access: mapGoogleVoidedPurchase.
+ *
+ * ORDERING (DEBUG-751). Stores deliver at-least-once and out of order, so applying every
+ * notification in arrival order lets a late EXPIRED undo a newer RENEWED. isStaleEvent is
+ * the pure half of the guard (handlers.ts holds the rest): an event strictly older than the
+ * newest one already applied to the row is acknowledged and not applied.
  */
 
 export type SubscriptionStatus = 'active' | 'grace' | 'expired';
@@ -35,6 +53,14 @@ export interface StatusTransition {
   /** null = handled, but leave `status` as it is. */
   status: SubscriptionStatus | null;
   eventType: WebhookEventType;
+  /**
+   * DEBUG-772: the status is not fixed by the type but decided by handlers.ts from the signed
+   * transaction (and renewal info). `status` above is then the fail-closed default.
+   *   - 'post_expiry': decideAppleStatus — grace only inside a bounded, signed grace period.
+   *   - 'revocation': revoke only when the refunded transaction is the current paid period.
+   *   - 'reversal': restore only a still-running period at least as late as the stored one.
+   */
+  signedState?: 'post_expiry' | 'revocation' | 'reversal';
 }
 
 export const APPLE_NOTIFICATION_TYPES = {
@@ -46,6 +72,7 @@ export const APPLE_NOTIFICATION_TYPES = {
   GRACE_PERIOD_EXPIRED: 'GRACE_PERIOD_EXPIRED',
   REVOKE: 'REVOKE',
   REFUND: 'REFUND',
+  REFUND_REVERSED: 'REFUND_REVERSED',
 } as const;
 
 export const GOOGLE_NOTIFICATION_TYPES = {
@@ -82,7 +109,8 @@ export function mapAppleNotification(
     case T.DID_RENEW:
       return { status: 'active', eventType: 'subscription_renewed' };
     case T.DID_FAIL_TO_RENEW:
-      return { status: 'grace', eventType: 'payment_failed' };
+      // Status from the signed transaction + renewal info, never the subtype (DEBUG-772).
+      return { status: 'expired', eventType: 'payment_failed', signedState: 'post_expiry' };
     case T.EXPIRED:
     case T.GRACE_PERIOD_EXPIRED:
       return { status: 'expired', eventType: 'subscription_expired' };
@@ -97,7 +125,9 @@ export function mapAppleNotification(
       return null;
     case T.REVOKE:
     case T.REFUND:
-      return { status: 'expired', eventType: 'subscription_cancelled' };
+      return { status: 'expired', eventType: 'subscription_cancelled', signedState: 'revocation' };
+    case T.REFUND_REVERSED:
+      return { status: 'active', eventType: 'subscription_restored', signedState: 'reversal' };
     default:
       return null;
   }
@@ -113,15 +143,49 @@ export function mapGoogleNotification(notificationType: number | undefined): Sta
     case T.SUBSCRIPTION_RECOVERED:
       return { status: 'active', eventType: 'subscription_renewed' };
     case T.SUBSCRIPTION_IN_GRACE_PERIOD:
-      return { status: 'grace', eventType: 'grace_period_started' };
+      // No signed grace end on an RTDN: audit only, never an unbounded grace (DEBUG-772).
+      return { status: null, eventType: 'grace_period_started' };
     case T.SUBSCRIPTION_CANCELED:
+      // Auto-renew switched off; access continues to the end of the paid period.
+      return { status: null, eventType: 'subscription_cancelled' };
+    case T.SUBSCRIPTION_RESTARTED:
+      // Auto-renew switched back on before the period ended; access never stopped.
+      return { status: null, eventType: 'subscription_restored' };
     case T.SUBSCRIPTION_EXPIRED:
     case T.SUBSCRIPTION_REVOKED:
       return { status: 'expired', eventType: 'subscription_expired' };
     case T.SUBSCRIPTION_ON_HOLD:
+      return { status: 'expired', eventType: 'payment_failed' };
     case T.SUBSCRIPTION_PAUSED:
-      return { status: 'grace', eventType: 'payment_failed' };
+      return { status: 'expired', eventType: 'subscription_expired' };
     default:
       return null;
   }
+}
+
+/**
+ * Google Play `voidedPurchaseNotification.productType`: 1 is a subscription purchase, 2 a
+ * one-time product. Only a subscription voiding revokes this table's access; anything else
+ * (including an absent or malformed value) maps to no transition and is acknowledged.
+ */
+export function mapGoogleVoidedPurchase(productType: unknown): StatusTransition | null {
+  return productType === 1 ? { status: 'expired', eventType: 'subscription_cancelled' } : null;
+}
+
+/** How far ahead of now a store timestamp may be before it is not believed. */
+export const EVENT_CLOCK_SKEW_MS = 5 * 60 * 1000;
+
+/**
+ * True when `eventMs` is strictly older than the newest store event already applied to the
+ * row (`storedIso`, subscriptions.last_store_event_at). Equal is not stale: a redelivery of
+ * the newest applied event is idempotent. An absent or unparseable watermark is no watermark,
+ * and so is one more than EVENT_CLOCK_SKEW_MS ahead of `nowMs` - nothing legitimate writes
+ * one, and believing it would freeze the row against every real event until the clock caught
+ * up.
+ */
+export function isStaleEvent(eventMs: number, storedIso: string | null | undefined, nowMs: number): boolean {
+  if (typeof storedIso !== 'string') return false;
+  const storedMs = Date.parse(storedIso);
+  if (!Number.isFinite(storedMs) || storedMs > nowMs + EVENT_CLOCK_SKEW_MS) return false;
+  return eventMs < storedMs;
 }
