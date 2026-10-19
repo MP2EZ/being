@@ -369,6 +369,23 @@ class SupabaseService {
    */
   private crisisQueueEpoch = 0;
   /**
+   * DEBUG-791: bumped SYNCHRONOUSLY by resetOfflineQueueForErasure(). An offline-queue pass or
+   * backup upload that captured an older value was started for an identity that has since
+   * been erased: it stops, uploads nothing more, and does not re-persist the queue.
+   */
+  private erasureEpoch = 0;
+  /**
+   * DEBUG-791: the upload lane. Every backup upload attempt runs its whole body inside this
+   * chain, so two attempts (a replay and a direct save, or two passes) never interleave and
+   * the server's one-row-per-user upsert cannot land an older snapshot last. `null` means
+   * idle; the tail never rejects. drainPendingBackupDelete, requestBackupDeletion and the
+   * crisis flush NEVER enter the lane (the lane body awaits the drain: entering it would
+   * deadlock, and a crisis row must not wait behind a backup).
+   */
+  private backupUploadTail: Promise<void> | null = null;
+  /** DEBUG-791: single-flight for processOfflineQueue(). `null` means idle. */
+  private offlineQueueInFlight: Promise<void> | null = null;
+  /**
    * DEBUG-409: single-flight guard for client construction. `null` means idle.
    *
    * Load-bearing, not defensive polish. Once a client can be created off the crisis
@@ -897,9 +914,17 @@ class SupabaseService {
    * (no consent, pending backup delete) is never enqueued.
    */
   async saveBackup(encryptedData: string, checksum: string, version: number = 1): Promise<boolean> {
-    const outcome = await this.attemptBackupUpload(encryptedData, checksum, version);
+    // DEBUG-791: the snapshot's identity in time. Stamped at entry, so neither the lane wait
+    // nor the retry sleeps age it; it is the queued op's timestamp and the LAST_SYNC watermark.
+    const snapshotAt = Date.now();
+    const erasureEpoch = this.erasureEpoch;
+    const outcome = await this.attemptBackupUpload(encryptedData, checksum, version, snapshotAt);
     if (outcome === 'unavailable' || outcome === 'failed') {
-      this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version });
+      // An erasure that landed mid-attempt dropped the queue; a pre-erasure snapshot must not
+      // be parked in the fresh one.
+      if (erasureEpoch === this.erasureEpoch) {
+        this.queueOfflineOperation('saveBackup', { encryptedData, checksum, version }, snapshotAt);
+      }
     }
     return outcome === 'uploaded';
   }
@@ -908,12 +933,52 @@ class SupabaseService {
    * One backup upload attempt. Never enqueues: `processOfflineQueue` replays through this
    * while iterating the queue, and an enqueue from inside that loop duplicated the op it was
    * replaying (DEBUG-766). The caller decides what a non-'uploaded' outcome means.
+   *
+   * DEBUG-791: the whole body runs in the upload lane. `snapshotAt` is the snapshot's time;
+   * `replay` marks a queued op, the only caller whose snapshot may already be superseded.
+   * 'superseded' means a newer snapshot has uploaded since: the op is finished, not retried.
    */
-  private async attemptBackupUpload(
+  private attemptBackupUpload(
     encryptedData: string,
     checksum: string,
-    version: number
-  ): Promise<'uploaded' | 'refused' | 'unavailable' | 'failed'> {
+    version: number,
+    snapshotAt: number,
+    replay = false
+  ): Promise<'uploaded' | 'refused' | 'unavailable' | 'failed' | 'superseded'> {
+    // DEBUG-791 (E-a): the identity this attempt began under, fixed before the lane wait.
+    const boundUid = this.userId;
+    const boundClient = this.client;
+    const epoch = this.erasureEpoch;
+    return this.runInBackupLane(() =>
+      this.runBackupUpload(encryptedData, checksum, version, snapshotAt, replay, boundUid, boundClient, epoch)
+    );
+  }
+
+  /** DEBUG-791: chain `body` onto the upload lane (same shape as persistCrisisQueue's tail). */
+  private runInBackupLane<T>(body: () => Promise<T>): Promise<T> {
+    const result = this.backupUploadTail === null ? body() : this.backupUploadTail.then(body);
+    const tail: Promise<void> = result.then(
+      () => undefined,
+      () => undefined
+    );
+    this.backupUploadTail = tail;
+    // Identity-guard the reset so a settling link cannot clear a newer tail.
+    void tail.then(() => {
+      if (this.backupUploadTail === tail) this.backupUploadTail = null;
+    });
+    return result;
+  }
+
+  private async runBackupUpload(
+    encryptedData: string,
+    checksum: string,
+    version: number,
+    snapshotAt: number,
+    replay: boolean,
+    boundUid: string | null,
+    boundClient: SupabaseClient | null,
+    epoch: number
+  ): Promise<'uploaded' | 'refused' | 'unavailable' | 'failed' | 'superseded'> {
     // DEBUG-756: no upload, and no enqueue, without cloud_sync consent. 'refused' is never
     // enqueued: a refusal that queued would re-create the queue that processOfflineQueue
     // just dropped.
@@ -929,16 +994,47 @@ class SupabaseService {
       return 'refused';
     }
 
+    // DEBUG-791 (E-c): deleteAccount() is erasing this identity (mirrors runPendingBackupDelete).
+    if (this.deletionsInFlight > 0) return 'unavailable';
+
     if (!this.isInitialized || !this.client || !this.userId) {
       logSecurity('[SupabaseService] Not initialized, queuing backup for later', 'low');
       return 'unavailable';
     }
 
+    // DEBUG-791 (E-a): upload only under the identity and client this attempt began with. A
+    // session swapped in while it waited (an erased account re-minted) is not its identity.
+    // A null bound identity (no session yet at call time) adopts the current one.
+    const uid = boundUid ?? this.userId;
+    const client = boundClient ?? this.client;
+    if (this.userId !== uid || epoch !== this.erasureEpoch) {
+      logSecurity('[SupabaseService] backup upload abandoned — identity changed since it began', 'low');
+      return 'unavailable';
+    }
+
+    // DEBUG-791 (B): replays only, inside the lane so the watermark read cannot race an
+    // upload ahead of it. Strictly older than the last uploaded snapshot -> superseded; a
+    // missing, unreadable or unparseable watermark fails OPEN (replay proceeds).
+    if (replay && (await this.isSnapshotSuperseded(snapshotAt))) {
+      logSecurity('[SupabaseService] queued backup superseded by a newer upload — dropped unsent', 'low');
+      return 'superseded';
+    }
+    // The staleness read awaited: nothing may have changed under the bound identity.
+    if (this.deletionsInFlight > 0 || this.userId !== uid || epoch !== this.erasureEpoch) {
+      return 'unavailable';
+    }
+
+    // Set when an erasure lands in a retry-sleep window; the next attempt then sends nothing.
+    let erased = false;
     const result = await this.executeWithResilience(async () => {
-      const resp: any = await this.client!
+      if (epoch !== this.erasureEpoch) {
+        erased = true;
+        return null;
+      }
+      const resp: any = await client
         .from('encrypted_backups')
         .upsert({
-          user_id: this.userId,
+          user_id: uid,
           encrypted_data: encryptedData,
           checksum,
           version,
@@ -962,14 +1058,33 @@ class SupabaseService {
       return resp;
     }, 'saveBackup');
 
+    if (erased) return 'unavailable';
+
     if (!result.success) {
       logError(LogCategory.SYSTEM, '[SupabaseService] Backup failed:', result.error instanceof Error ? result.error : new Error(String(result.error)));
       return 'failed';
     }
 
-    // Update last sync time
-    await AsyncStorage.setItem(STORAGE_KEYS.LAST_SYNC, new Date().toISOString());
+    // DEBUG-791 (A): the watermark is the SNAPSHOT's time, never the completion time. A
+    // completion-time watermark would outrun a still-unsent older-but-not-oldest op and
+    // wrongly supersede it. A snapshot time that is not a date (a legacy queued op) writes none.
+    if (Number.isFinite(snapshotAt)) {
+      await AsyncStorage.setItem(STORAGE_KEYS.LAST_SYNC, new Date(snapshotAt).toISOString());
+    }
     return 'uploaded';
+  }
+
+  /** DEBUG-791 (B): is a snapshot taken at `snapshotAt` strictly older than the last upload? */
+  private async isSnapshotSuperseded(snapshotAt: number): Promise<boolean> {
+    if (!Number.isFinite(snapshotAt)) return false;
+    try {
+      const raw = await AsyncStorage.getItem(STORAGE_KEYS.LAST_SYNC);
+      if (!raw) return false;
+      const watermark = Date.parse(raw);
+      return Number.isFinite(watermark) && watermark > snapshotAt;
+    } catch {
+      return false;
+    }
   }
 
   /**
@@ -1487,7 +1602,7 @@ class SupabaseService {
   /**
    * Queue operation for offline processing
    */
-  private queueOfflineOperation(operation: string, data: any): void {
+  private queueOfflineOperation(operation: string, data: any, timestamp: number = Date.now()): void {
     if (this.offlineQueue.length >= this.config.offlineQueueSize) {
       // Remove oldest operation
       this.offlineQueue.shift();
@@ -1496,11 +1611,17 @@ class SupabaseService {
     this.offlineQueue.push({
       operation,
       data,
-      timestamp: Date.now(),
+      timestamp,
     });
 
-    // Save to persistent storage
-    AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(this.offlineQueue));
+    // Save to persistent storage. Fire-and-forget by design (the caller stays synchronous);
+    // the memory copy still drives this process's retries. Logs a count only — the payload is
+    // backup ciphertext and its checksum.
+    AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(this.offlineQueue)).catch(() => {
+      logSecurity('[SupabaseService] offline queue persist failed — memory copy retained', 'low', {
+        queuedOperations: this.offlineQueue.length,
+      });
+    });
   }
 
   /**
@@ -1528,6 +1649,8 @@ class SupabaseService {
    * nothing else: the crisis queue's erasure is `teardownErasedSession`'s, not this.
    */
   resetOfflineQueueForErasure(): void {
+    // DEBUG-791: first, synchronously — a pass or upload in flight sees it before its next step.
+    this.erasureEpoch += 1;
     this.offlineQueue = [];
     // DEBUG-764: the pending delete holds the erased uid; its key is on SWEPT_EXACT_KEYS.
     // Marked loaded so no later drain re-reads a disk copy the sweep is about to remove.
@@ -1695,9 +1818,24 @@ class SupabaseService {
   }
 
   /**
-   * Process offline queue when connectivity is restored
+   * Process offline queue when connectivity is restored.
+   *
+   * DEBUG-791: a single flight. A call while a pass is running JOINS it instead of starting a
+   * second loop over the same ops (one foreground fires this from two listeners). `async` so a
+   * synchronous throw from the pass surfaces as a rejection, never out of the AppState handler.
    */
   async processOfflineQueue(): Promise<void> {
+    if (this.offlineQueueInFlight) return this.offlineQueueInFlight;
+    const flight = this.runOfflineQueuePass();
+    this.offlineQueueInFlight = flight;
+    const clear = () => {
+      if (this.offlineQueueInFlight === flight) this.offlineQueueInFlight = null;
+    };
+    flight.then(clear, clear);
+    return flight;
+  }
+
+  private async runOfflineQueuePass(): Promise<void> {
     if (this.offlineQueue.length === 0 || !this.isInitialized) return;
 
     // DEBUG-756: decided ONCE, before the loop. A mid-loop withdrawal makes saveBackup refuse
@@ -1720,16 +1858,27 @@ class SupabaseService {
     // removed, and a concurrent enqueue or erasure reset must not be undone (DEBUG-766).
     const batch = this.offlineQueue.slice();
     const done = new Set<unknown>();
+    // DEBUG-791 (E-b): an erasure that lands mid-pass ends it before the next op.
+    const erasureEpoch = this.erasureEpoch;
+    const crisisEpoch = this.crisisQueueEpoch;
 
     for (const op of batch) {
+      if (erasureEpoch !== this.erasureEpoch || crisisEpoch !== this.crisisQueueEpoch) break;
+      // Removed from the live queue since the snapshot (requestBackupDeletion, an erasure,
+      // a drop): not this pass's to upload.
+      if (!this.offlineQueue.includes(op)) continue;
       const { operation, data } = op;
 
       try {
         switch (operation) {
           case 'saveBackup':
             // Not saveBackup(): that enqueues on failure, which would duplicate this op.
-            if ((await this.attemptBackupUpload(data.encryptedData, data.checksum, data.version)) === 'uploaded') {
-              done.add(op);
+            {
+              const outcome = await this.attemptBackupUpload(
+                data.encryptedData, data.checksum, data.version, op.timestamp, true
+              );
+              // 'superseded': a newer snapshot is already on the server; finished, like uploaded.
+              if (outcome === 'uploaded' || outcome === 'superseded') done.add(op);
             }
             break;
 
@@ -1746,6 +1895,10 @@ class SupabaseService {
 
     // Filter the CURRENT array, never assign the snapshot back
     this.offlineQueue = this.offlineQueue.filter((op) => !done.has(op));
+
+    // An erasure that landed mid-pass owns the disk copy (the sweep removed the key): writing
+    // here would re-create it.
+    if (erasureEpoch !== this.erasureEpoch) return;
 
     // Save updated queue (a drop persists '[]' here, so loadOfflineQueue cannot restore it)
     await AsyncStorage.setItem(STORAGE_KEYS.OFFLINE_QUEUE, JSON.stringify(this.offlineQueue));

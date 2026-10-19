@@ -14,7 +14,8 @@
  * the finished ops by object identity, and filters the CURRENT array afterwards, so an op
  * enqueued or a queue reset by a concurrent caller mid-pass is never undone.
  *
- * Out of scope: coalescing equal payloads and single-flighting the pass (DEBUG-791).
+ * Superseding an older queued snapshot and single-flighting the pass are DEBUG-791
+ * (offlineQueueSupersede.unit.test.ts).
  *
  * WHY THE REAL SERVICE. The duplicate only exists in the interaction between the public
  * `saveBackup`, the executeWithResilience retry/breaker and the loop. A stubbed saveBackup

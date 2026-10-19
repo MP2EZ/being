@@ -34,7 +34,7 @@ jest.mock('../exportArtifactSweeper', () => ({
 }));
 
 jest.mock('../erasureResetRegistry', () => ({
-  resetInMemoryStateForErasure: jest.fn(async () => []),
+  resetInMemoryStateForErasure: jest.fn(async () => ({ failed: [], timedOut: [] })),
 }));
 
 jest.mock('@/core/services/logging', () => ({
@@ -73,7 +73,7 @@ describe('AccountDeletionService — deleteAccountAndWipe ordering invariant', (
     jest.clearAllMocks();
     mockClearAllWellnessData.mockResolvedValue(undefined);
     mockRecordAttestation.mockResolvedValue(undefined);
-    mockResetInMemory.mockResolvedValue([]);
+    mockResetInMemory.mockResolvedValue({ failed: [], timedOut: [] });
     (useConsentStore.getState as jest.Mock).mockReturnValue({
       recordAccountDeletionAttestation: mockRecordAttestation,
     });
@@ -224,7 +224,7 @@ describe('AccountDeletionService — deleteAccountAndWipe ordering invariant', (
     mockResetInMemory.mockImplementationOnce(async () => {
       await Promise.resolve();
       resetFinishedBeforeWipe = !mockClearAllWellnessData.mock.calls.length;
-      return [];
+      return { failed: [], timedOut: [] };
     });
 
     await deleteAccountAndWipe({ posthog: null });
@@ -249,7 +249,7 @@ describe('AccountDeletionService — deleteAccountAndWipe ordering invariant', (
 
   it('DEBUG-671: failed owners are logged and still reach the wipe', async () => {
     mockDeleteAccount.mockResolvedValue(true);
-    mockResetInMemory.mockResolvedValueOnce(['assessmentStore']);
+    mockResetInMemory.mockResolvedValueOnce({ failed: ['assessmentStore'], timedOut: [] });
 
     const result = await deleteAccountAndWipe({ posthog: null });
 
@@ -259,6 +259,54 @@ describe('AccountDeletionService — deleteAccountAndWipe ordering invariant', (
       '[AccountDeletion] in-memory reset failed (continuing with wipe)',
       'high',
       { owners: 'assessmentStore' },
+    );
+  });
+
+  it('DEBUG-789: timed-out owners are logged at high with owner names only, and the wipe still runs', async () => {
+    mockDeleteAccount.mockResolvedValue(true);
+    mockResetInMemory.mockResolvedValueOnce({
+      failed: [],
+      timedOut: ['subscriptionStore', 'stoicPracticeStore'],
+    });
+
+    const result = await deleteAccountAndWipe({ posthog: null });
+
+    expect(result).toEqual({ ok: true });
+    expect(mockClearAllWellnessData).toHaveBeenCalledWith({ deleteMasterKey: true });
+    expect(mockLogSecurity).toHaveBeenCalledWith(
+      '[AccountDeletion] in-memory reset timed out (continuing with wipe)',
+      'high',
+      { owners: 'subscriptionStore,stoicPracticeStore' },
+    );
+    // A timeout is not a failure: the failed-owners line must stay silent.
+    expect(mockLogSecurity).not.toHaveBeenCalledWith(
+      '[AccountDeletion] in-memory reset failed (continuing with wipe)',
+      expect.anything(),
+      expect.anything(),
+    );
+  });
+
+  it('DEBUG-789: a timeout never maps to ok:false and the erasure marker is still cleared', async () => {
+    const removeItem = AsyncStorage.removeItem as jest.Mock;
+    removeItem.mockResolvedValue(undefined);
+    mockDeleteAccount.mockResolvedValue(true);
+    mockResetInMemory.mockResolvedValueOnce({ failed: [], timedOut: ['subscriptionStore'] });
+
+    const result = await deleteAccountAndWipe({ posthog: null });
+
+    expect(result).toEqual({ ok: true });
+    expect(removeItem.mock.calls.filter(([k]) => k === '@being/erasure_pending')).toHaveLength(1);
+  });
+
+  it('DEBUG-789: nothing timed out means no timeout line', async () => {
+    mockDeleteAccount.mockResolvedValue(true);
+
+    await deleteAccountAndWipe({ posthog: null });
+
+    expect(mockLogSecurity).not.toHaveBeenCalledWith(
+      '[AccountDeletion] in-memory reset timed out (continuing with wipe)',
+      expect.anything(),
+      expect.anything(),
     );
   });
 
@@ -287,7 +335,7 @@ describe('DEBUG-763 — the erasure marker brackets the local erasure', () => {
     removeItem.mockResolvedValue(undefined);
     mockClearAllWellnessData.mockResolvedValue(undefined);
     mockRecordAttestation.mockResolvedValue(undefined);
-    mockResetInMemory.mockResolvedValue([]);
+    mockResetInMemory.mockResolvedValue({ failed: [], timedOut: [] });
     (useConsentStore.getState as jest.Mock).mockReturnValue({
       recordAccountDeletionAttestation: mockRecordAttestation,
     });
