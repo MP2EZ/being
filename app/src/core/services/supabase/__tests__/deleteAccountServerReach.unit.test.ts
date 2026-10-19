@@ -197,7 +197,7 @@ jest.mock('@/core/services/privacy/exportArtifactSweeper', () => ({
   sweepExportArtifacts: jest.fn(() => 0),
 }));
 jest.mock('@/core/services/privacy/erasureResetRegistry', () => ({
-  resetInMemoryStateForErasure: jest.fn(async () => []),
+  resetInMemoryStateForErasure: jest.fn(async () => ({ failed: [], timedOut: [] })),
   registerErasureReset: jest.fn(),
 }));
 
