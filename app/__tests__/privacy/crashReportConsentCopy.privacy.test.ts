@@ -155,6 +155,57 @@ describe('CrisisErrorBoundary privacy bullet (DEBUG-787)', () => {
 });
 
 /**
+ * DEBUG-792 — the boundary's other Safety & Privacy bullets and its subtitle overclaimed: a
+ * partial check-in is memory-only since DEBUG-769, "personal data" includes stores that are not
+ * encrypted, nothing is sent anywhere, and the support control sent nothing. Same slice as
+ * DEBUG-787 above, plus the whole stripped boundary for the removed control.
+ */
+describe('CrisisErrorBoundary claims (DEBUG-792)', () => {
+  const PRE_FIX = [
+    '• Your personal data is secure and encrypted',
+    '• Assessment progress is automatically saved',
+    "We're working to resolve this quickly. Your data is safe.",
+  ].join('\n');
+  const SAVED = /automatically saved|progress is (automatically )?saved/i;
+  const PERSONAL_DATA = /personal data/i;
+  const DATA_IS_SAFE = /data is safe/i;
+  const boundary = stripComments(read('app/src/features/crisis/components/CrisisErrorBoundary.tsx'));
+  const start = boundary.indexOf('Your Safety & Privacy');
+  const slice = start < 0 ? '' : boundary.slice(start, boundary.indexOf('</Text>', boundary.indexOf('<Text', start)));
+
+  it('every matcher fires on the pre-fix text', () => {
+    expect(PRE_FIX).toMatch(SAVED);
+    expect(PRE_FIX).toMatch(PERSONAL_DATA);
+    expect(PRE_FIX).toMatch(DATA_IS_SAFE);
+    expect("text: 'Send Report'").toMatch(/Send Report/);
+  });
+
+  it('slices the Safety & Privacy block (liveness)', () => {
+    expect(slice).toMatch(/Crisis support remains fully accessible/);
+  });
+
+  it('claims no saved progress and no blanket protection of personal data', () => {
+    expect(slice).not.toMatch(SAVED);
+    expect(slice).not.toMatch(PERSONAL_DATA);
+    expect(boundary).not.toMatch(DATA_IS_SAFE);
+  });
+
+  it('every encryption claim is scoped to wellness data on this device', () => {
+    const lines = slice.split('\n').filter((l) => /encrypt/i.test(l));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      expect(line).toMatch(/wellness data/i);
+      expect(line).toMatch(/on this device/i);
+      expect(line).not.toMatch(/secure|AES/i);
+    }
+  });
+
+  it('offers no Send Report control', () => {
+    expect(boundary).not.toMatch(/Send Report|handleContactSupport/);
+  });
+});
+
+/**
  * Native crash events carry the installation identifier too (DEBUG-786)
  *
  * sentry-cocoa 8.58.0 `SentryClient.m` `setUserIdIfNoUserSet:` writes the installation id to
