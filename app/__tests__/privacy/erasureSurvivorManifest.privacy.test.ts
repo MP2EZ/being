@@ -272,7 +272,6 @@ const UNRESOLVED_SITES: Record<string, readonly [number, Classification]> = {
       { store: 'async', key: 'assessment_cache' },
     ],
   ],
-  'src/core/services/resilience/index.ts :: key': [1, [{ store: 'async', prefix: 'circuit_breaker_queue_' }]],
   'src/core/services/supabase/secureStoreSessionAdapter.ts :: key': [6, LIBRARY_OWNED],
   'src/core/services/supabase/secureStoreSessionAdapter.ts :: k': [2, LIBRARY_OWNED],
   'src/core/services/supabase/secureStoreSessionAdapter.ts :: chunkKey(key, i)': [5, LIBRARY_OWNED],
