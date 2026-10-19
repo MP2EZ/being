@@ -163,8 +163,14 @@ const CRISIS_FEATURE_SET = new Set<string>(CRISIS_FEATURES);
  * and the record it writes is spread from memory, so a reset alone is undone by a
  * writer suspended across it. Each writer captures `erasureGeneration` at entry and
  * drops its write, its trailing `set()` and its success path once the generation
- * has moved. Writes already dispatched are tracked so the reset can await them:
- * they must land before the wipe, never after it.
+ * has moved. Writes already dispatched are tracked so the reset can await them,
+ * but that JS await is BOUNDED (DEBUG-789: the registry stops waiting at
+ * ERASURE_RESET_DEADLINE_MS) and is not what orders a write before the wipe. On
+ * device expo-modules-core runs SecureStore calls on one serial native queue (iOS
+ * AsyncFunctionDefinition.swift serial DispatchQueue; Android AppContext
+ * single HandlerThread), so a set dispatched before the wipe lands before the
+ * wipe's delete. A write still held past the deadline has its trailing set() and
+ * success path dropped by the generation guard.
  */
 let erasureGeneration = 0;
 const inFlightWrites = new Set<Promise<void>>();
@@ -704,7 +710,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
  * Always-available features never read this state, so they are unaffected. Never
  * reloads or starts a trial: either would write a record back. One merging
  * `setState`, never `replace`, so the actions survive. Writes already dispatched
- * are awaited so they land before the wipe.
+ * are awaited, but only up to the registry's deadline (DEBUG-789).
  */
 export async function resetSubscriptionStoreForErasure(): Promise<void> {
   erasureGeneration += 1;

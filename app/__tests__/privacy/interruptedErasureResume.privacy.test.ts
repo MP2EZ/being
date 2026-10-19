@@ -101,6 +101,8 @@ function newProcess() {
       deletion: require('@/core/services/privacy/AccountDeletionService'),
       supabase: require('@/core/services/supabase/SupabaseService').default,
       storage: require('@/core/services/security/SecureStorageService').default,
+      registry: require('@/core/services/privacy/erasureResetRegistry'),
+      gate: require('@/core/services/privacy/erasureResumeGate'),
     };
   });
   return p;
@@ -249,6 +251,47 @@ describe('resumeInterruptedErasure', () => {
     await newProcess().deletion.resumeInterruptedErasure();
     expectErased();
     for (const fn of Object.values(mockNav)) expect(fn).not.toHaveBeenCalled();
+  });
+});
+
+describe('DEBUG-789 — a hung in-memory reset cannot hold the launch', () => {
+  const observe = <T,>(promise: Promise<T>) => {
+    const state: { settled: boolean; value?: T } = { settled: false };
+    void promise.then((value) => {
+      state.settled = true;
+      state.value = value;
+    });
+    return state;
+  };
+
+  it('the resume settles within the bound and awaitErasureInFlight releases, so LegalGate Continue proceeds', async () => {
+    await interruptedDeletion('A');
+    // Real setImmediate drives `tick`; only setTimeout (the registry deadline) is faked.
+    jest.useFakeTimers({ doNotFake: ['setImmediate', 'nextTick', 'queueMicrotask', 'Date'] });
+    try {
+      const p2 = newProcess();
+      p2.registry.registerErasureReset('hung', () => new Promise<void>(() => undefined));
+      await launch(p2);
+
+      const resume = observe(p2.deletion.resumeInterruptedErasure());
+      const continueGate = observe(p2.gate.awaitErasureInFlight());
+      await tick();
+      expect(resume.settled).toBe(false);
+      expect(continueGate.settled).toBe(false);
+
+      await jest.advanceTimersByTimeAsync(p2.registry.ERASURE_RESET_DEADLINE_MS - 1);
+      await tick();
+      expect(resume.settled).toBe(false);
+
+      await jest.advanceTimersByTimeAsync(1);
+      await tick();
+      expect(resume.settled).toBe(true);
+      expect(continueGate.settled).toBe(true);
+      expectErased();
+      expect(p2.supabase.deleteAccount).not.toHaveBeenCalled();
+    } finally {
+      jest.useRealTimers();
+    }
   });
 });
 

@@ -9,7 +9,7 @@
  * - BrainIcon with 60% fill for profile
  * - Inactive state: semantic.text.muted (was gray[500] until DEBUG-342 — that
  *   value is 1.98:1 on white and is now banned outright by ESLint)
- * - Active state: the brand hue on an ActiveTabIndicator container (DEBUG-356)
+ * - Active state: the brand hue on a top-edge ActiveTabIndicator pill (DEBUG-803, supersedes DEBUG-356)
  */
 
 import React, { useMemo } from 'react';
@@ -19,7 +19,7 @@ import { View, Text } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Svg, { Path, Circle, Rect, ClipPath, Defs, G } from 'react-native-svg';
 import { semantic, colorSystem, spacing, typography } from '@/core/theme';
-import { ActiveTabIndicator } from './ActiveTabIndicator';
+import { ActiveTabIndicator, ACTIVE_TAB_GLYPH_TINT } from './ActiveTabIndicator';
 import {
   TAB_LABEL_LINE_HEIGHT,
   TAB_LABEL_MAX_FONT_SCALE,
@@ -134,22 +134,20 @@ const CleanTabNavigator: React.FC = () => {
         // icon hue was the SOLE state cue. That made the icon colour load-bearing for
         // WCAG 1.4.11, and left selection signalled by colour alone (1.4.1, Level A).
         //
-        // Darkening the inactive ICON to semantic.text.muted (4.61:1) to clear the 3:1
-        // non-text bar would, on its own, have made unselected icons higher-contrast
-        // than three of the four ACTIVE tints (navigation.insights 1.41:1,
-        // exercises 2.04:1, home 2.68:1) — inverting the affordance. So the state delta
+        // Darkening the inactive ICON to semantic.text.muted (gray[650], 5.57:1) to
+        // clear the 3:1 non-text bar would, on its own, have made unselected icons
+        // higher-contrast than three of the four ACTIVE tints (navigation.insights
+        // 1.41:1, exercises 2.04:1, home 2.68:1) — inverting the affordance. So the state delta
         // is restored structurally in the label instead, per DEBUG-323's ruling that
         // quieting must be structural rather than chromatic.
         //
-        // DEBUG-356 closed the half DEBUG-342 left open. This block previously ended
-        // "The active tints failing 3:1 are a design-system palette defect and are
-        // NOT fixed here — they live in @mp2ez/being-design-system and need a
-        // release." That turned out to be avoidable: the release is only required if
-        // the HUE has to carry 1.4.11. Wrapping the focused glyph in
-        // ActiveTabIndicator moves the obligation onto the container (14.16:1 against
-        // this bar), so every brand hex ships unchanged and no package release is
-        // needed. See ActiveTabIndicator.tsx for the measurements and the rejected
-        // alternatives.
+        // DEBUG-356 closed the half DEBUG-342 left open by moving the 1.4.11
+        // obligation off the hue; DEBUG-803 replaced its filled enclosure with a
+        // 31x4 midnight-blue pill along the top of the selected tab (14.16:1 against
+        // this bar). The pill is a non-hue indicator and every tab keeps its visible
+        // label, so the icon tints need not pass 3:1 (see the ruling and its three
+        // conditions in ActiveTabIndicator.tsx). Every brand hex ships unchanged and
+        // no package release is needed.
         //
         // Two corrections to DEBUG-342's note above, verified in code: the failing
         // set is TWO tints (insights 1.41:1, home 2.68:1) — navigation.learn is
@@ -233,7 +231,7 @@ const CleanTabNavigator: React.FC = () => {
           tabBarIcon: ({ focused }) => (
             <ActiveTabIndicator focused={focused}>
               <TriangleIcon
-                color={focused ? colorSystem.navigation.home : semantic.text.muted}
+                color={focused ? ACTIVE_TAB_GLYPH_TINT.home : semantic.text.muted}
               />
             </ActiveTabIndicator>
           ),
@@ -250,7 +248,7 @@ const CleanTabNavigator: React.FC = () => {
           tabBarIcon: ({ focused }) => (
             <ActiveTabIndicator focused={focused}>
               <BookIcon
-                color={focused ? colorSystem.navigation.learn : semantic.text.muted}
+                color={focused ? ACTIVE_TAB_GLYPH_TINT.learn : semantic.text.muted}
               />
             </ActiveTabIndicator>
           ),
@@ -276,7 +274,7 @@ const CleanTabNavigator: React.FC = () => {
           tabBarIcon: ({ focused }) => (
             <ActiveTabIndicator focused={focused}>
               <CircleIcon
-                color={focused ? colorSystem.navigation.insights : semantic.text.muted}
+                color={focused ? ACTIVE_TAB_GLYPH_TINT.insights : semantic.text.muted}
               />
             </ActiveTabIndicator>
           ),
@@ -292,14 +290,12 @@ const CleanTabNavigator: React.FC = () => {
           // which owns its own headers; keep the tab header hidden to avoid doubling.
           headerShown: false,
           tabBarButtonTestID: 'tab-profile',
-          // DEBUG-356: Profile is the one tab whose ACTIVE glyph had to change
-          // colour. Its tint was base.midnightBlue — which is now the container
-          // fill, so it would render at 1.00:1 against its own background, i.e.
-          // invisible. Knocked out to semantic.text.inverse (14.16:1 on the
-          // container). The other three keep their brand hue unchanged.
+          // DEBUG-803: Profile's ACTIVE glyph is base.midnightBlue (14.16:1 on the
+          // white bar). DEBUG-356 had knocked it out to white for the dark
+          // enclosure; with the enclosure gone, white would be invisible on the bar.
           tabBarIcon: ({ focused }) => (
             <ActiveTabIndicator focused={focused}>
-              <BrainIcon color={focused ? semantic.text.inverse : semantic.text.muted} />
+              <BrainIcon color={focused ? ACTIVE_TAB_GLYPH_TINT.profile : semantic.text.muted} />
             </ActiveTabIndicator>
           ),
         }}

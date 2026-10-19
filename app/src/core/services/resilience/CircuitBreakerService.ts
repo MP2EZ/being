@@ -739,9 +739,6 @@ export const executeProtected = <T>(
 ): Promise<T> => circuitBreakerService.executeProtected(service, operation, context);
 
 // Service-specific helpers
-export const protectedCrisisDetection = <T>(operation: () => Promise<T>) =>
-  executeProtected(ProtectedService.CRISIS_DETECTION, operation);
-
 export const protectedAuthentication = <T>(operation: () => Promise<T>) =>
   executeProtected(ProtectedService.AUTHENTICATION, operation);
 

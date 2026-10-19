@@ -90,11 +90,15 @@ import SecureStorageService, {
   WELLNESS_SECURE_STORE_KEYS,
 } from '@/core/services/security/SecureStorageService';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
-import { registeredErasureResetOwners } from '@/core/services/privacy/erasureResetRegistry';
+import {
+  ERASURE_RESET_DEADLINE_MS,
+  registeredErasureResetOwners,
+} from '@/core/services/privacy/erasureResetRegistry';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { SESSION_STORAGE_KEYS } from '@/core/types/session';
 import {
   flushStoicPracticePersist,
+  resetStoicPracticeStoreForErasure,
   useStoicPracticeStore,
 } from '@/features/practices/stores/stoicPracticeStore';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
@@ -375,6 +379,32 @@ describe('subscriptionStore (DEBUG-697)', () => {
     expect(sub().subscription).toBeNull();
   });
 
+  // DEBUG-789 AC4: a purchase parked at its SecureStore write, released within the
+  // registry's bound, leaves nothing of the prior subscription on disk.
+  it('a purchase parked at its write and released within the bound leaves no prior record on disk', async () => {
+    await seedPreErasureState();
+    mockVerifyReceipt.mockResolvedValueOnce({ valid: true, subscriptionId: 'sub_parked', expiresDate: null });
+    mockHold.key = SUBSCRIPTION_KEY;
+    const purchasing = sub().processVerifiedPurchase(
+      { transactionReceipt: 'receipt_parked', orderId: 'order_parked' },
+      'monthly',
+    );
+    await settle();
+    expect(mockHold.release).not.toBeNull(); // the purchase really is parked at its write
+
+    const deleting = deleteAccountAndWipe({ posthog: null });
+    await settle();
+    mockHold.release!();
+    await expect(deleting).resolves.toEqual({ ok: true });
+    await expect(purchasing).resolves.toBe(false);
+
+    for (const [key, value] of mockSecure) {
+      expect([key, /sub_prior|orig_tx_prior|receipt_prior|sub_parked|receipt_parked/.test(value)]).toEqual([key, false]);
+    }
+    expect(sub().subscription).toBeNull();
+    expect(mockFinishTransaction).not.toHaveBeenCalled();
+  });
+
   it('a purchase whose verification straddles deletion writes nothing and is not acknowledged', async () => {
     await seedPreErasureState();
     let resolveVerify: ((v: unknown) => void) | null = null;
@@ -466,6 +496,142 @@ describe('subscriptionStore (DEBUG-697)', () => {
     expect(onDisk.receiptData).toBeNull();
     expect(onDisk.platformSubscriptionId).toBe('');
     expect(onDisk.status).toBe('trial');
+  });
+});
+
+// ── DEBUG-789: a write that never settles must not hang the deletion ──────────
+// Fake timers: the registry's deadline is a real setTimeout, so the bound is proven by
+// advancing the clock, never by waiting. After a held write is released the jest mock
+// writes to its Map, an artifact of the mock; on device expo-modules-core's serial
+// native queue orders that set before the wipe's delete, so disk state after the
+// release is deliberately NOT asserted for the subscription write.
+describe('DEBUG-789 — a never-settling write is bounded (fake timers)', () => {
+  const MARKER_KEY = '@being/erasure_pending';
+  const drain = async () => {
+    for (let i = 0; i < 10; i += 1) await jest.advanceTimersByTimeAsync(0);
+  };
+  const observe = <T,>(promise: Promise<T>) => {
+    const state: { settled: boolean; value?: T; error?: unknown } = { settled: false };
+    promise.then(
+      (value) => {
+        state.settled = true;
+        state.value = value;
+      },
+      (error) => {
+        state.settled = true;
+        state.error = error;
+      },
+    );
+    return state;
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+    jest.restoreAllMocks();
+  });
+
+  it('subscription: a held purchase write delays the deletion to the deadline, then the late release changes nothing', async () => {
+    await seedPreErasureState();
+    mockVerifyReceipt.mockResolvedValueOnce({ valid: true, subscriptionId: 'sub_held', expiresDate: null });
+    mockHold.key = SUBSCRIPTION_KEY;
+    const purchasing = observe(
+      sub().processVerifiedPurchase({ transactionReceipt: 'receipt_held', orderId: 'order_held' }, 'monthly'),
+    );
+    await drain();
+    expect(mockHold.release).not.toBeNull(); // the write really is held open
+    mockAsync.set(MARKER_KEY, '1'); // positive control: the marker exists until the deletion clears it
+    const wipe = jest.spyOn(SecureStorageService, 'clearAllWellnessData');
+
+    const deleting = observe(deleteAccountAndWipe({ posthog: null }));
+    await jest.advanceTimersByTimeAsync(ERASURE_RESET_DEADLINE_MS - 1);
+    expect(deleting.settled).toBe(false);
+    expect(wipe).not.toHaveBeenCalled();
+
+    await jest.advanceTimersByTimeAsync(1);
+    await drain();
+    expect(deleting.settled).toBe(true);
+    expect(deleting.error).toBeUndefined();
+    expect(deleting.value).toEqual({ ok: true });
+    expect(wipe).toHaveBeenCalledWith({ deleteMasterKey: true });
+    expect(mockAsync.has(MARKER_KEY)).toBe(false);
+
+    // The write finally lands. Memory stays erased and the purchase is abandoned.
+    mockHold.release!();
+    await drain();
+    expect(purchasing.settled).toBe(true);
+    expect(purchasing.value).toBe(false);
+    expect(sub().subscription).toBeNull();
+    expect(sub().featureAccess).toBeNull();
+    expect(mockFinishTransaction).not.toHaveBeenCalled();
+  });
+
+  it('stoic: a held persist delays the deletion to the deadline; after release memory is the empty post-erasure state', async () => {
+    await seedPreErasureState();
+    await stoic().markCheckInComplete('morning');
+    mockHold.key = STOIC_KEY;
+    const flushing = flushStoicPracticePersist();
+    await drain();
+    expect(mockHold.release).not.toBeNull(); // the write really is held open
+    mockHold.key = null;
+
+    const deleting = observe(deleteAccountAndWipe({ posthog: null }));
+    await jest.advanceTimersByTimeAsync(ERASURE_RESET_DEADLINE_MS - 1);
+    expect(deleting.settled).toBe(false);
+    await jest.advanceTimersByTimeAsync(1);
+    await drain();
+    expect(deleting.value).toEqual({ ok: true });
+
+    mockHold.release!();
+    await flushing;
+    await drain();
+    expect(stoic().checkInCompletions).toEqual([]);
+    expect(stoic().principleEngagements).toEqual([]);
+    expect(stoic().weeklyReflections).toEqual([]);
+  });
+
+  it('stoic: a debounce armed after the reset timed out is not cancelled by the late reset tail', async () => {
+    await seedPreErasureState();
+    await stoic().markCheckInComplete('morning');
+    mockHold.key = STOIC_KEY;
+    const flushing = flushStoicPracticePersist();
+    await drain();
+    expect(mockHold.release).not.toBeNull();
+    mockHold.key = null;
+
+    const deleting = observe(deleteAccountAndWipe({ posthog: null }));
+    await jest.advanceTimersByTimeAsync(ERASURE_RESET_DEADLINE_MS);
+    await drain();
+    expect(deleting.value).toEqual({ ok: true });
+
+    // Post-erasure, the user checks in: a legitimate debounce is armed.
+    seedWellnessWriteConsent('granted');
+    await stoic().markCheckInComplete('evening');
+
+    // The stale reset's await finally settles. Its tail must not cancel that debounce.
+    mockHold.release!();
+    await flushing;
+    await drain();
+    await jest.advanceTimersByTimeAsync(1000);
+    await drain();
+
+    expect(stoicOnDisk().checkInCompletions.map((c) => c.type)).toEqual(['evening']);
+  });
+
+  it('stoic: a persist deferred across the reset does not re-arm the erased state (epoch guard)', async () => {
+    seedWellnessWriteConsent('loading');
+    await stoic().markCheckInComplete('morning'); // armed; the write gate says "defer"
+    const baseline = jest.getTimerCount();
+
+    const flushing = flushStoicPracticePersist(); // runPersist is now awaiting its 'deferred' outcome
+    const resetting = resetStoicPracticeStoreForErasure(); // epoch moves before it resumes
+    await resetting;
+    await flushing;
+    await drain();
+
+    expect(jest.getTimerCount()).toBeLessThanOrEqual(baseline - 1);
   });
 });
 

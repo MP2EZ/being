@@ -138,11 +138,13 @@ function App() {
         // false — so the off-device crisis audit trail did not exist for any user who
         // had not opened Profile → Cloud Backup.
         //
-        // 🔴 FIRED UNAWAITED AND DELIBERATELY OUTSIDE the allSettled array below. That
-        // array is AWAITED before setIsInitialized(true), so anything added to it delays
-        // first render — and therefore delays crisis-button availability. Telemetry must
-        // never sit in front of the 988 affordance. It no-ops when the durable queue is
-        // empty, so the common boot pays nothing and opens no backend session.
+        // 🔴 FIRED UNAWAITED AND DELIBERATELY OUTSIDE the allSettled array below, so it
+        // never waits on, or adds to, the init chain. First render does not wait on that
+        // array today: App renders immediately, and isInitialized is set but never read
+        // (MAINT-794). Forward hazard: if a change ever gates render on isInitialized,
+        // every awaited task becomes a delay in front of the 988 affordance, so that
+        // change needs a crisis ruling. It no-ops when the durable queue is empty, so the
+        // common boot pays nothing and opens no backend session.
         void supabaseService.initializeCrisisTelemetry();
 
         // Remaining init tasks are independent. allSettled (not all) so one
