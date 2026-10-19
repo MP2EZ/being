@@ -106,8 +106,8 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       `${NOT_WELLNESS} — cloud-sync operational telemetry`,
       'backup completed/failed/restored counts; gated on cloud_sync consent',
     ],
-    'SupabaseService.attemptBackupUpload › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — last-sync timestamp`],
-    'SupabaseService.attemptBackupUpload › supabase.upsert': [
+    'SupabaseService.runBackupUpload › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — last-sync timestamp`],
+    'SupabaseService.runBackupUpload › supabase.upsert': [
       1,
       `${NOT_WELLNESS} — CloudBackupService payload, uploads only {autoSaveEnabled}`,
       'encrypted; the allowlist is pinned by the spec below',
@@ -117,7 +117,7 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       `${NOT_WELLNESS} — encrypted config-backup retry`,
       'unverified: a pre-MAINT-117 queue on an old install could still hold a full-state blob; the key is swept at erasure (DEBUG-698: SWEPT_EXACT_KEYS + in-memory reset)',
     ],
-    'SupabaseService.processOfflineQueue › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — encrypted config-backup retry`],
+    'SupabaseService.runOfflineQueuePass › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — encrypted config-backup retry`],
     'SupabaseService.cleanup › AsyncStorage.setItem': [1, DORMANT],
     'SupabaseService.requestBackupDeletion › AsyncStorage.setItem': [
       2,
