@@ -160,8 +160,9 @@ export const TAB_LABEL_GAP = 0;
  * is short of the 200% the SC asks. What makes it acceptable is that the status
  * quo fails 1.4.4 WORSE — uncapped, the label is off-screen well before 200%,
  * which is the loss of content the SC exists to forbid — and that the label is a
- * redundant cue, since DEBUG-356 moved the selected-state obligation onto
- * `ActiveTabIndicator`'s 14.16:1 focused enclosure. The residual gap is the iOS
+ * redundant cue, since the selected-state obligation sits on
+ * `ActiveTabIndicator`'s 14.16:1 top-edge pill (DEBUG-803, superseding
+ * DEBUG-356's enclosure). The residual gap is the iOS
  * Large Content Viewer, which RN does not expose.
  */
 export const TAB_LABEL_MAX_LINE_HEIGHT =

@@ -12,12 +12,19 @@
  * construction, not a gap.
  *
  * Owners registered today: stoicPracticeStore, assessmentStore, educationStore,
- * subscriptionStore (DEBUG-697) and supabaseService (DEBUG-698 — its backup
- * retry queue; the key's sweep entry is inert without this reset).
- * Audited and NOT registered: consentStore (it holds the erasure-excluded consent
- * record, and `resetConsent` deletes excluded keys), the journal (no in-memory
- * cache — every read goes to storage) and SessionStorageService (stateless; its
- * blobs are in WELLNESS_SECURE_STORE_KEYS).
+ * subscriptionStore (DEBUG-697), supabaseService (DEBUG-698 — its backup retry
+ * queue; the key's sweep entry is inert without this reset), and consentStore and
+ * settingsStore (DEBUG-755 — memory only; their disk records are the wipe's job).
+ * Audited and NOT registered: the journal (no in-memory cache — every read goes to
+ * storage) and SessionStorageService (stateless; its blobs are in
+ * WELLNESS_SECURE_STORE_KEYS).
+ *
+ * Bounded (DEBUG-789): a reset that never settles (a hung SecureStore write) must
+ * not hang the deletion screen or the launch resume path, so the whole run races
+ * ONE deadline. An owner still pending at the deadline is reported in `timedOut`
+ * and the wipe proceeds; its late settlement is inert. A late reset must therefore
+ * be safe to land after the wipe — each owner guards that itself (erasure
+ * generation / epoch), never this registry.
  *
  * SyncCoordinator was deleted in MAINT-702; any successor must register an
  * erasure reset and sweep its keys.
@@ -39,16 +46,53 @@ export function registeredErasureResetOwners(): string[] {
   return [...resets.keys()];
 }
 
+/** The one registry-wide deadline for a full run of resets (DEBUG-789). */
+export const ERASURE_RESET_DEADLINE_MS = 3_000;
+
+export type ErasureResetOutcome = {
+  /** Owners whose reset threw or rejected before the deadline. */
+  failed: string[];
+  /** Owners whose reset was still pending at the deadline. Distinct from `failed`. */
+  timedOut: string[];
+};
+
 /**
- * Run every registered reset and settle all of them. Never rejects: a store that
- * fails to reset must not stop the others or the wipe that follows. Returns the
- * owners whose reset threw or rejected.
+ * Run every registered reset and settle all of them, or stop waiting at
+ * ERASURE_RESET_DEADLINE_MS. Never rejects: a store that fails to reset must not
+ * stop the others or the wipe that follows.
  */
-export async function resetInMemoryStateForErasure(): Promise<string[]> {
+export async function resetInMemoryStateForErasure(): Promise<ErasureResetOutcome> {
   const entries = [...resets.entries()];
-  const results = await Promise.allSettled(
-    // `.then` turns a synchronous throw into a rejection, so it settles too.
-    entries.map(([, reset]) => Promise.resolve().then(reset)),
+  const status: Array<'pending' | 'fulfilled' | 'rejected'> = entries.map(() => 'pending');
+
+  // `.then` turns a synchronous throw into a rejection, so it settles too. Each
+  // branch records its own outcome and swallows its rejection, so a reset that
+  // settles after the deadline is inert rather than an unhandled rejection.
+  const runs = entries.map(([, reset], i) =>
+    Promise.resolve()
+      .then(reset)
+      .then(
+        () => {
+          status[i] = 'fulfilled';
+        },
+        () => {
+          status[i] = 'rejected';
+        },
+      ),
   );
-  return entries.filter((_, i) => results[i]!.status === 'rejected').map(([owner]) => owner);
+
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const deadline = new Promise<void>((resolve) => {
+    timer = setTimeout(resolve, ERASURE_RESET_DEADLINE_MS);
+  });
+  try {
+    await Promise.race([Promise.all(runs), deadline]);
+  } finally {
+    clearTimeout(timer);
+  }
+
+  return {
+    failed: entries.filter((_, i) => status[i] === 'rejected').map(([owner]) => owner),
+    timedOut: entries.filter((_, i) => status[i] === 'pending').map(([owner]) => owner),
+  };
 }
