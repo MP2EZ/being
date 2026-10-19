@@ -100,7 +100,7 @@ const MANIFEST: Record<string, Record<string, Row>> = {
   'src/core/services/supabase/SupabaseService.ts': {
     'SupabaseService.flushCrisisAnalytics.flight › supabase.insert': [1, CRISIS_TELEMETRY],
     'SupabaseService.persistCrisisQueue.run › AsyncStorage.setItem': [1, CRISIS_TELEMETRY],
-    'SupabaseService.deleteAccount › functions.invoke': [1, ERASURE],
+    'SupabaseService.runDeletionAttempt › functions.invoke': [1, ERASURE],
     'SupabaseService.flushAnalytics › supabase.insert': [
       1,
       `${NOT_WELLNESS} — cloud-sync operational telemetry`,

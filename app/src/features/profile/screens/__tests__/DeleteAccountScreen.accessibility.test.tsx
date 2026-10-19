@@ -83,7 +83,11 @@ describe('DeleteAccountScreen', () => {
     fireEvent.press(getByTestId('delete-account-button'));
 
     await waitFor(() => expect(getByTestId('delete-error')).toBeTruthy());
-    expect(getByTestId('delete-error').props.children).toMatch(/intact/i);
+    // DEBUG-707 (compliance): unconfirmed, never "failed" or an unqualified "intact".
+    const copy = getByTestId('delete-error').props.children;
+    expect(copy).toMatch(/couldn't confirm/i);
+    expect(copy).toMatch(/on this device has not been deleted/i);
+    expect(copy).not.toMatch(/failed|your data is intact/i);
     expect(mockReset).not.toHaveBeenCalled();
   });
 

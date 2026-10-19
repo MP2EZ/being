@@ -192,6 +192,15 @@ interface AnalyticsEvent {
   created_at?: string;
 }
 
+/** DEBUG-707 — one server-side erasure attempt, which deleteAccount() calls race or join. */
+interface DeletionAttempt {
+  generation: number;
+  startedAt: number;
+  /** Crisis events queued when a caller's deadline first elapsed; null until then. */
+  queuedByDeadline: Set<object> | null;
+  promise: Promise<boolean>;
+}
+
 export type AuthenticatedClientResult =
   | { ok: true; client: SupabaseClient; userId: string }
   | { ok: false; reason: 'client_unavailable' | 'no_session' };
@@ -244,6 +253,19 @@ const SESSION_ID_FORMAT = /^session_(\d{4}-\d{2}-\d{2})_([a-z0-9]+)$/;
  * empirical fit — there is no session-length distribution to fit against.
  */
 export const SESSION_ID_IDLE_MS = 30 * 60 * 1000;
+
+/**
+ * DEBUG-707 — how long `deleteAccount()` may take before it answers "unconfirmed".
+ *
+ * App-owned, because nothing below it is bounded: the pinned fetch's 30s abort clears once
+ * headers arrive (the body read is unbounded), functions-js's own `timeout` option is
+ * silently defeated by `fetchWithTimeout` overwriting the caller's signal, and
+ * `auth.getSession()` can refresh behind the auth lock before any request is sent. It bounds
+ * the server phase only — never the local wipe that follows a confirmed erasure, which has
+ * no honest timeout answer. About 4× a normal refresh + invoke + reconcile; too short costs
+ * one convergent retry, never a wrong answer. Not a 988 bound: the root FAB stays live.
+ */
+export const ACCOUNT_DELETION_DEADLINE_MS = 20_000;
 
 /**
  * `YYYY-MM-DD` for an instant, in **UTC**.
@@ -383,6 +405,10 @@ class SupabaseService {
    * identity being erased.
    */
   private deletionsInFlight = 0;
+  /** DEBUG-707: the attempt a deleteAccount() call joins while it is younger than the deadline. */
+  private deletionAttempt: DeletionAttempt | null = null;
+  /** DEBUG-707: bumped per attempt; an attempt whose generation is stale has been superseded. */
+  private deletionGeneration = 0;
   /**
    * DEBUG-764: the withdrawal delete awaiting server confirmation, mirrored to
    * PENDING_BACKUP_DELETE. `loaded` is false until the disk copy has been read once.
@@ -1866,8 +1892,57 @@ class SupabaseService {
    *
    * DEBUG-715: for the whole call getAuthenticatedClient() refuses to mint, and a mint
    * already in flight is awaited before step 1 so the probe sees the identity it creates.
+   *
+   * DEBUG-707: answers within ACCOUNT_DELETION_DEADLINE_MS. Past it the caller gets `false`
+   * (unconfirmed) while the attempt runs on. A later answer from it never reaches the
+   * caller, so it can never trigger the local wipe or navigation; if it confirms, it only
+   * tears the session down, which the next call converges through (the no-account path).
+   * A call made while an attempt younger than the deadline is in flight joins it. An older
+   * one is superseded by a fresh attempt instead, so a request that never settles (an
+   * unbounded body read) cannot hold every retry until relaunch; a superseded attempt never
+   * restarts the refresher and never tears down, since a newer attempt owns both.
    */
   async deleteAccount(): Promise<boolean> {
+    let attempt = this.deletionAttempt;
+    if (!attempt || Date.now() - attempt.startedAt >= ACCOUNT_DELETION_DEADLINE_MS) {
+      attempt = this.startDeletionAttempt();
+    }
+    const joined = attempt;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const deadline = new Promise<boolean>((resolve) => {
+      timer = setTimeout(() => {
+        // What was queued by the time the user is told "unconfirmed" is the erased
+        // identity's; anything queued later is kept by a late teardown.
+        joined.queuedByDeadline ??= new Set(this.crisisAnalyticsQueue);
+        logSecurity('[SupabaseService] Account deletion: deadline elapsed — unconfirmed', 'medium');
+        resolve(false);
+      }, ACCOUNT_DELETION_DEADLINE_MS);
+    });
+    try {
+      return await Promise.race([joined.promise, deadline]);
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  private startDeletionAttempt(): DeletionAttempt {
+    const attempt: DeletionAttempt = {
+      generation: ++this.deletionGeneration,
+      startedAt: Date.now(),
+      queuedByDeadline: null,
+      promise: Promise.resolve(false),
+    };
+    attempt.promise = this.runDeletionAttempt(attempt)
+      .catch(() => false)
+      .finally(() => {
+        if (this.deletionAttempt === attempt) this.deletionAttempt = null;
+      });
+    this.deletionAttempt = attempt;
+    return attempt;
+  }
+
+  private async runDeletionAttempt(attempt: DeletionAttempt): Promise<boolean> {
+    const superseded = (): boolean => attempt.generation !== this.deletionGeneration;
     // DEBUG-715: for the whole call, getAuthenticatedClient() refuses to mint. A counter, not
     // a boolean, so an overlapping second request cannot clear the first one's flag.
     this.deletionsInFlight += 1;
@@ -1967,6 +2042,7 @@ class SupabaseService {
       }
 
       if (!confirmed) {
+        if (superseded()) return false;
         try {
           await client.auth.startAutoRefresh();
         } catch {
@@ -1975,7 +2051,11 @@ class SupabaseService {
         return false;
       }
 
-      await this.teardownErasedSession(client);
+      if (superseded()) {
+        logSecurity('[SupabaseService] Account deletion: superseded attempt confirmed — newer attempt owns teardown', 'low');
+        return false;
+      }
+      await this.teardownErasedSession(client, attempt.queuedByDeadline);
       logSecurity('[SupabaseService] Account erased (server cascade confirmed, session removed)', 'low');
       return true;
     } finally {
@@ -2026,12 +2106,23 @@ class SupabaseService {
    *  - `signOut({ scope: 'local' })` runs fire-and-forget to clear auth-js's own state,
    *    after the removal, so it has no token to send. Never awaited.
    * The client object is kept: the next crisis flush finds no session and mints a new one.
+   *
+   * DEBUG-707: `queuedByDeadline` is set when the confirmation arrived after the caller's
+   * deadline. The user was told "unconfirmed" then and kept using the app, so only the
+   * events queued by that moment are dropped; later ones flush under the next identity.
+   * No local wipe follows a late confirmation to sweep the disk copy, so it is rewritten.
    */
-  private async teardownErasedSession(client: SupabaseClient): Promise<void> {
+  private async teardownErasedSession(
+    client: SupabaseClient,
+    queuedByDeadline: ReadonlySet<object> | null = null,
+  ): Promise<void> {
     this.userId = null;
-    this.crisisAnalyticsQueue = [];
+    this.crisisAnalyticsQueue = queuedByDeadline
+      ? this.crisisAnalyticsQueue.filter((event) => !queuedByDeadline.has(event))
+      : [];
     this.crisisQueueEpoch += 1;
     this.crisisPersistDirty = false;
+    if (queuedByDeadline) void this.persistCrisisQueue();
 
     const key = supabaseAuthStorageKey(SUPABASE_URL);
     try {
