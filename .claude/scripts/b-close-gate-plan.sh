@@ -1150,6 +1150,11 @@ EXCLUDED_FLOWS="crisis-988-dial reconsent-stale-ineligible-fab-clearance daily-l
 journal-record-liveness profile-voice-reflection-xxxl breathing-fps-budget
 crisis-keyboard-accessory export-share-sheet-occlusion tab-label-dynamic-type-capture
 daily-loop-ax5-virtuous assessment-ax5-reachability"
+# INFRA-728: the RENDER_BOOT_RELEVANT lines (full paths, one per line) of excluded flows whose
+# arm deliberately arms NOTHING. Only the seven no-op arms below append; the AX5 arms,
+# crisis-keyboard-accessory, the helper branch and the catch-all never do. The fail-safe
+# subtracts this set, so an excluded-flow-only diff is a logged outcome, not a fallback.
+EXCLUDED_HANDLED=""
 MAESTRO_CHANGED="$(echo "$RENDER_BOOT_RELEVANT" | grep -E '\.maestro/.*\.yaml$' || true)"
 while IFS= read -r f; do
   [ -z "$f" ] && continue
@@ -1204,12 +1209,14 @@ while IFS= read -r f; do
         esac
       fi ;;
     crisis-988-dial.yaml)
+      EXCLUDED_HANDLED="$EXCLUDED_HANDLED$f"$'\n'
       echo "📱 crisis-988-dial.yaml changed — safety-device-only. The sim's canOpenURL"
       echo "   returns false unconditionally, so this flow cannot pass here and is NOT"
       echo "   added to the run set. No automation can validate it: npm run e2e:safety:988-dial"
       echo "   refuses with exit 5, because no Maestro version drives a device (DEBUG-589). The"
       echo "   dial is checked only by docs/testing/crisis-device-checklist.md, run attended." ;;
     reconsent-stale-ineligible-fab-clearance.yaml)
+      EXCLUDED_HANDLED="$EXCLUDED_HANDLED$f"$'\n'
       echo "📐 reconsent-stale-ineligible-fab-clearance.yaml changed — safety-bottom-inset."
       echo "   It declares 393x852 and the suite's target is 375x667, where the collision"
       echo "   it adjudicates cannot occur at any clearance value. NOT added, and NOT a"
@@ -1231,6 +1238,7 @@ while IFS= read -r f; do
       echo "🔠 assessment-ax5-reachability.yaml changed — safety-dynamic-type, so NOT in the"
       echo "   tagged suite. Step 2.5.5 runs it at AX5 through e2e-dynamic-type.sh." ;;
     journal-record-liveness.yaml)
+      EXCLUDED_HANDLED="$EXCLUDED_HANDLED$f"$'\n'
       echo "🎙️  journal-record-liveness.yaml changed — safety-host-probe. It drives to"
       echo "   phase:'recording' and STOPS; the verdict is the host-side pid sample either"
       echo "   side of a MEASURED dwell, which no Maestro assertion can express. Running"
@@ -1238,23 +1246,27 @@ while IFS= read -r f; do
       echo "   set, and NOT a full-suite trigger. Validate it directly:"
       echo "   npm run e2e:safety:audio-liveness" ;;
     breathing-fps-budget.yaml)
+      EXCLUDED_HANDLED="$EXCLUDED_HANDLED$f"$'\n'
       echo "📐 breathing-fps-budget.yaml changed — perf-device-only, and it CANNOT run:"
       echo "   DEBUG-589 established no Maestro version executes a flow on a physical"
       echo "   iPhone, so e2e-safety.sh refuses it up front (DEVICE_PATH_UNAVAILABLE,"
       echo "   exit 5). NOT added, and NOT a full-suite trigger — a sim run cannot"
       echo "   observe a device frame probe. It is dormant by design until DEBUG-589." ;;
     profile-voice-reflection-xxxl.yaml)
+      EXCLUDED_HANDLED="$EXCLUDED_HANDLED$f"$'\n'
       echo "🔠 profile-voice-reflection-xxxl.yaml changed — safety-dynamic-type, same"
       echo "   carve-out as ax5 above. Note the SIZE differs: this one runs at"
       echo "   extra-extra-extra-large (largest NON-accessibility step) via"
       echo "   E2E_DYNAMIC_TYPE_SIZE, not the wrapper's AX5 default. Validate it directly:"
       echo "   npm run e2e:safety:xxxl" ;;
     tab-label-dynamic-type-capture.yaml)
+      EXCLUDED_HANDLED="$EXCLUDED_HANDLED$f"$'\n'
       echo "🔠 tab-label-dynamic-type-capture.yaml changed — safety-dynamic-type, and a"
       echo "   CAPTURE HARNESS: Maestro asserts presence, not clipping, so running it can"
       echo "   prove nothing. NOT added. Size-agnostic by design — run both endpoints:"
       echo "   npm run e2e:capture:tabbar-ax1 && npm run e2e:capture:tabbar-ax5" ;;
     export-share-sheet-occlusion.yaml)
+      EXCLUDED_HANDLED="$EXCLUDED_HANDLED$f"$'\n'
       echo "📤 export-share-sheet-occlusion.yaml changed — safety-occlusion-measurement."
       echo "   It PINS A DEBT STATE, not a contract: its load-bearing assertion is that the"
       echo "   988 affordance is UNREACHABLE behind the share sheet, so it stays green on the"
@@ -1330,8 +1342,17 @@ echo "$RENDER_BOOT_RELEVANT" | grep -qE 'src/core/navigation/|CleanRootNavigator
 #    enter the gate on a render/boot change and run zero flows).
 #  • ONLY service-layer carve-outs changed → deliberate, LOGGED skip (no silent cap):
 #    jest owns the surface; no sim build needed (this is the MAINT-237 narrowing payoff).
+#  • ONLY excluded-flow edits whose arm arms nothing (INFRA-728) → logged no-sim-flow
+#    outcome: each arm's notice is the instruction, and the fallback flow cannot observe
+#    any of them. A whole-line set difference, so one excluded edit never masks another
+#    render/boot path — any residual takes the fallback exactly as before.
+if [ -z "$EXCLUDED_HANDLED" ]; then
+  RENDER_BOOT_RESIDUAL="$RENDER_BOOT_RELEVANT"
+else
+  RENDER_BOOT_RESIDUAL="$(printf '%s\n' "$RENDER_BOOT_RELEVANT" | grep -vxF -f <(printf '%s' "$EXCLUDED_HANDLED") || true)"
+fi
 if [ ${#FLOWS[@]} -eq 0 ] && [ -z "$FULL_SUITE" ] && [ ${#DYNAMIC_TYPE_FLOWS[@]} -eq 0 ]; then
-  if [ -n "$RENDER_BOOT_RELEVANT" ]; then
+  if [ -n "$RENDER_BOOT_RESIDUAL" ]; then
     # NAME the substitution, for the INFRA-517 reason one screen up: a silent cap reads
     # exactly like a deliberate scope. This arm is the fail-safe for a render/boot path
     # that reached Step 2.5.1's grep but matched no Step 2.5.3 clause — the shape a newly
@@ -1347,11 +1368,25 @@ if [ ${#FLOWS[@]} -eq 0 ] && [ -z "$FULL_SUITE" ] && [ ${#DYNAMIC_TYPE_FLOWS[@]}
     echo "    Give these paths a Step 2.5.3 arm to scope them properly."
     FLOWS=("crisis-button-reachability")
   else
-    echo "ℹ️  Safety-surface change is SERVICE-LAYER ONLY (MAINT-237 narrowing) — no sim flow:"
-    echo "$SAFETY_CHANGED" | sed 's/^/      /'
-    echo "    The sim flows only validate render/boot/nav; this change touches none. jest"
-    echo "    crisis/clinical/security/encryption suites + CollapsibleCrisisButton render"
-    echo "    tests (precommit + CI) own it. Proceeding to close with no sim build."
+    service_layer_notice() {
+      echo "ℹ️  Safety-surface change is SERVICE-LAYER ONLY (MAINT-237 narrowing) — no sim flow:"
+      echo "$1" | sed 's/^/      /'
+      echo "    The sim flows only validate render/boot/nav; this change touches none. jest"
+      echo "    crisis/clinical/security/encryption suites + CollapsibleCrisisButton render"
+      echo "    tests (precommit + CI) own it. Proceeding to close with no sim build."
+    }
+    if [ -n "$EXCLUDED_HANDLED" ]; then
+      echo "ℹ️  Safety-surface change is EXCLUDED-FLOW ONLY (INFRA-728) — no sim flow:"
+      printf '%s' "$EXCLUDED_HANDLED" | sed 's/^/      /'
+      echo "    Each is a deliberately excluded flow; its notice above states how, or whether,"
+      echo "    it can be validated. This sim gate can run none of them, and the fail-safe flow"
+      echo "    cannot observe them, so this close does NOT verify them — a recorded gap."
+      # Service-layer carve-outs in the same diff keep their own record (crisis ruling).
+      SERVICE_REMAINDER="$(printf '%s\n' "$SAFETY_CHANGED" | grep -vxF -f <(printf '%s' "$EXCLUDED_HANDLED") || true)"
+      [ -n "$SERVICE_REMAINDER" ] && service_layer_notice "$SERVICE_REMAINDER"
+    else
+      service_layer_notice "$SAFETY_CHANGED"
+    fi
   fi
 fi
 

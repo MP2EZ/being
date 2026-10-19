@@ -25,7 +25,7 @@ above. The plan's variables:
 | `FULL_SUITE=1` | A cross-cutting change: `core/navigation`, `e2eSeed.ts`, an unmapped flow, a helper whose caller set cannot be proven | Runs the tagged suite with NO arguments; `FLOWS` is empty by construction |
 | `FLOWS=(…)` | The minimal flow set pinning the touched surfaces, sorted and deduped | One `e2e-safety.sh` invocation over all of them (INFRA-483) |
 | `DYNAMIC_TYPE_FLOWS=(…)` | `safety-dynamic-type` flows (DEBUG-546), never merged into `FLOWS` | Runs them through `e2e-dynamic-type.sh` after the suite |
-| `GATE_REQUIRED=1` and all three empty | The SERVICE-LAYER ONLY skip (MAINT-237): jest owns the surface | No sim build; a detached close takes `--no-flows` |
+| `GATE_REQUIRED=1` and all three empty | The SERVICE-LAYER ONLY skip (MAINT-237): jest owns the surface — or the EXCLUDED-FLOW ONLY outcome (INFRA-728): every render/boot path is an excluded flow whose arm arms nothing, so no sim flow CAN run it | No sim build; a detached close takes `--no-flows`. EXCLUDED-FLOW ONLY is a recorded gap, never a pass: quote it and carry each arm's instruction into the close-out |
 
 The printed notices are instructions, not decoration:
 - **`No Step 2.5.3 clause matched a render/boot-relevant change`** — the fail-safe ran
@@ -198,8 +198,9 @@ back-merged `development`. Without the guard, every open feature branch's close 
 
 ```bash
 GATE_PLAN="$(bash /Users/max/dev/being/.claude/scripts/b-close-gate-plan.sh --worktree /Users/max/dev/being/[worktree-dir] --check-plan)" && . "$GATE_PLAN" || exit 2
-# Only require a simulator when there are flows to run. A service-layer-only safety
-# change (Step 2.5.3) resolves to zero flows and closes with no sim build at all.
+# Only require a simulator when there are flows to run. A service-layer-only or
+# excluded-flow-only safety change (Step 2.5.3) resolves to zero flows and closes with no
+# sim build at all.
 if [ ${#FLOWS[@]} -gt 0 ] || [ -n "$FULL_SUITE" ] || [ ${#DYNAMIC_TYPE_FLOWS[@]} -gt 0 ]; then
   if ! xcrun simctl list devices booted | grep -qE '\([A-F0-9-]+\) \(Booted\)'; then
     echo "❌ No iOS simulator booted."
@@ -264,7 +265,7 @@ GATE_PLAN="$(bash /Users/max/dev/being/.claude/scripts/b-close-gate-plan.sh --wo
 cd /Users/max/dev/being/[worktree-dir]/app
 if [ ${#FLOWS[@]} -eq 0 ] && [ -z "$FULL_SUITE" ]; then
   [ ${#DYNAMIC_TYPE_FLOWS[@]} -eq 0 ] && \
-    echo "✅ No sim flows required (service-layer-only safety change, Step 2.5.3) — proceeding to close."
+    echo "✅ No sim flow runs (service-layer-only or excluded-flow-only change — see Step 2.5.3's notice) — proceeding to close."
 else
   # INFRA-384 — a merge gate's evidence must correspond to the commit being merged, so
   # a dirty-tree marker is a FAILURE here even though it is only a banner for a human

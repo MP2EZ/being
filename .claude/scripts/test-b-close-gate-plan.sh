@@ -31,7 +31,7 @@
 
 if [ -z "${BASH_VERSION:-}" ]; then echo "run with bash" >&2; exit 2; fi
 
-EXPECTED_CASES=122
+EXPECTED_CASES=129
 
 SCRIPT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/b-close-gate-plan.sh"
 VERBOSE=""; NO_CACHE=""
@@ -105,6 +105,7 @@ w()  { mkdir -p "$(dirname "$1")"; printf '%s\n' "${2:-export const x = 1;}" > "
 ap() { printf '%s\n' "$2" >> "$1"; }                                                    # append a line
 dl() { grep -vF -- "$2" "$1" > "$1.tmp"; mv "$1.tmp" "$1"; }                               # delete matching lines
 # expect <rc> <gate> <full> "<flows>" "<dynamic flows>" [stdout or stderr line fragment...]
+# A fragment starting with ! must NOT appear (INFRA-728: the fail-safe banner's absence is the assertion).
 expect() { E_RC="$1"; E_GATE="$2"; E_FULL="$3"; E_FLOWS="$4"; E_DYN="$5"; shift 5; E_SUB=("$@"); }
 
 CBR=crisis-button-reachability
@@ -171,7 +172,7 @@ case_fab_clearance_content(){ w $F/consent/ReConsentIneligibleScreen.tsx "export
 # --- the security carve-out (the subject of the `$0` defect) ------------------
 case_encryption_service()   { w $C/services/security/EncryptionService.ts; expect 0 1 "" "$CBR" ""; }
 case_secure_storage()       { w $C/services/security/SecureStorageService.ts; expect 0 1 "" "$CBR" ""; }
-case_security_monitoring()  { w $C/services/security/SecurityMonitoringService.ts; expect 0 1 "" "" "" "SERVICE-LAYER ONLY"; }
+case_security_monitoring()  { w $C/services/security/SecurityMonitoringService.ts; expect 0 1 "" "" "" "SERVICE-LAYER ONLY" "!EXCLUDED-FLOW ONLY"; }
 case_security_mixed()       { w $C/services/security/SecurityMonitoringService.ts; w $C/services/security/EncryptionService.ts; expect 0 1 "" "$CBR" ""; }
 # --- .maestro flows and helpers --------------------------------------------------
 case_flow_safety_edit()     { ap $M/journal-crisis-scan.yaml "- back"; expect 0 1 "" "journal-crisis-scan" ""; }
@@ -184,18 +185,26 @@ case_helper_seeded_home()   { ap $M/_seeded-home.yaml "- back"; expect 0 1 "" "$
 case_helper_no_callers()    { ap $M/_orphan-helper.yaml "- back"; expect 0 1 1 "" "" "has no runFlow: caller in either tree"; }
 case_helper_residue()       { ap $M/_residue-helper.yaml "- back"; expect 0 1 1 "" "" "is named on non-comment lines the matcher did not classify"; }
 case_config_yaml()          { printf 'flows: []\n' > $M/config.yaml; expect 0 1 1 "" "" "config.yaml exists"; }
-case_flow_988_dial()        { ap $M/crisis-988-dial.yaml "- back"; expect 0 1 "" "$CBR" "" "crisis-988-dial.yaml changed" "No Step 2.5.3 clause matched"; }
-case_flow_fab_clearance()   { ap $M/reconsent-stale-ineligible-fab-clearance.yaml "- back"; expect 0 1 "" "$CBR" "" "safety-bottom-inset"; }
+case_flow_988_dial()        { ap $M/crisis-988-dial.yaml "- back"; expect 0 1 "" "" "" "crisis-988-dial.yaml changed" "EXCLUDED-FLOW ONLY" "!No Step 2.5.3 clause matched"; }
+case_flow_fab_clearance()   { ap $M/reconsent-stale-ineligible-fab-clearance.yaml "- back"; expect 0 1 "" "" "" "safety-bottom-inset" "EXCLUDED-FLOW ONLY" "!No Step 2.5.3 clause matched"; }
 case_flow_ax5_entry()       { ap $M/daily-loop-ax5-entry.yaml "- back"; expect 0 1 "" "" "daily-loop-ax5-entry" "Step 2.5.5 runs it at AX5"; }
 case_flow_ax5_virtuous()    { ap $M/daily-loop-ax5-virtuous.yaml "- back"; expect 0 1 "" "" "daily-loop-ax5-virtuous"; }
 case_flow_assessment_ax5()  { ap $M/assessment-ax5-reachability.yaml "- back"; expect 0 1 "" "" "assessment-ax5-reachability" "Step 2.5.5 runs it at AX5"; }
-case_flow_record_liveness() { ap $M/journal-record-liveness.yaml "- back"; expect 0 1 "" "$CBR" "" "safety-host-probe"; }
-case_flow_breathing_fps()   { ap $M/breathing-fps-budget.yaml "- back"; expect 0 1 "" "$CBR" "" "perf-device-only"; }
-case_flow_xxxl()            { ap $M/profile-voice-reflection-xxxl.yaml "- back"; expect 0 1 "" "$CBR" "" "npm run e2e:safety:xxxl"; }
-case_flow_tab_label()       { ap $M/tab-label-dynamic-type-capture.yaml "- back"; expect 0 1 "" "$CBR" "" "CAPTURE HARNESS"; }
-case_flow_export_occlusion(){ ap $M/export-share-sheet-occlusion.yaml "- back"; expect 0 1 "" "$CBR" "" "PINS A DEBT STATE"; }
+case_flow_record_liveness() { ap $M/journal-record-liveness.yaml "- back"; expect 0 1 "" "" "" "safety-host-probe" "EXCLUDED-FLOW ONLY" "!No Step 2.5.3 clause matched"; }
+case_flow_breathing_fps()   { ap $M/breathing-fps-budget.yaml "- back"; expect 0 1 "" "" "" "perf-device-only" "EXCLUDED-FLOW ONLY" "!No Step 2.5.3 clause matched"; }
+case_flow_xxxl()            { ap $M/profile-voice-reflection-xxxl.yaml "- back"; expect 0 1 "" "" "" "npm run e2e:safety:xxxl" "EXCLUDED-FLOW ONLY" "!No Step 2.5.3 clause matched"; }
+case_flow_tab_label()       { ap $M/tab-label-dynamic-type-capture.yaml "- back"; expect 0 1 "" "" "" "CAPTURE HARNESS" "EXCLUDED-FLOW ONLY" "!No Step 2.5.3 clause matched"; }
+case_flow_export_occlusion(){ ap $M/export-share-sheet-occlusion.yaml "- back"; expect 0 1 "" "" "" "PINS A DEBT STATE" "EXCLUDED-FLOW ONLY" "!No Step 2.5.3 clause matched"; }
 case_flow_kbd_accessory()   { ap $M/crisis-keyboard-accessory.yaml "- back"; expect 0 1 "" "crisis-keyboard-reachability" ""; }
 case_flow_unmapped_tag()    { printf 'appId: t\ntags:\n  - experimental\n---\n' > $M/odd-one.yaml; expect 0 1 1 "" "" "unmapped flow odd-one.yaml" "arm-set drift: odd-one.yaml"; }
+# --- INFRA-728: an excluded-flow edit whose arm arms nothing is its own outcome, never the fail-safe
+case_excl_two()             { ap $M/crisis-988-dial.yaml "- back"; ap $M/breathing-fps-budget.yaml "- back"; expect 0 1 "" "" "" "EXCLUDED-FLOW ONLY" "      app/.maestro/crisis-988-dial.yaml" "      app/.maestro/breathing-fps-budget.yaml" "!No Step 2.5.3 clause matched"; }
+case_excl_service_layer()   { ap $M/crisis-988-dial.yaml "- back"; w $C/services/security/SecurityMonitoringService.ts; expect 0 1 "" "" "" "EXCLUDED-FLOW ONLY" "SERVICE-LAYER ONLY" "      app/src/core/services/security/SecurityMonitoringService.ts" "!No Step 2.5.3 clause matched"; }
+case_excl_crisis_host()     { ap $M/crisis-988-dial.yaml "- back"; ap $F/learn/Plain.tsx "import { CollapsibleCrisisButton } from '@/features/crisis/components/CollapsibleCrisisButton';"; expect 0 1 "" "$CBR" "" "!EXCLUDED-FLOW ONLY" "!No Step 2.5.3 clause matched"; }
+case_excl_plugins_mixed()   { ap $M/crisis-988-dial.yaml "- back"; w app/plugins/withPrivacyShield.js; expect 0 1 "" "$CBR" "" "No Step 2.5.3 clause matched" "      app/plugins/withPrivacyShield.js" "      app/.maestro/crisis-988-dial.yaml" "!EXCLUDED-FLOW ONLY"; }
+case_excl_device_helper()   { ap $M/crisis-988-dial.yaml "- back"; ap $M/_device-helper.yaml "- back"; expect 0 1 "" "$CBR" "" "No Step 2.5.3 clause matched" "!EXCLUDED-FLOW ONLY"; }
+case_excl_kbd_accessory()   { ap $M/crisis-988-dial.yaml "- back"; ap $M/crisis-keyboard-accessory.yaml "- back"; expect 0 1 "" "crisis-keyboard-reachability" "" "!EXCLUDED-FLOW ONLY" "!No Step 2.5.3 clause matched"; }
+case_excl_ax5()             { ap $M/crisis-988-dial.yaml "- back"; ap $M/daily-loop-ax5-entry.yaml "- back"; expect 0 1 "" "" "daily-loop-ax5-entry" "!EXCLUDED-FLOW ONLY" "!No Step 2.5.3 clause matched"; }
 # --- full-suite overrides --------------------------------------------------------
 case_e2e_seed()             { w $C/config/e2eSeed.ts; expect 0 1 1 "" ""; }
 case_navigation()           { w $C/navigation/CleanTabNavigator.tsx; expect 0 1 1 "" ""; }
@@ -253,7 +262,12 @@ run_case() {  # run_case <name> → writes $ROOT/r/<name>: PASS or FAIL lines
   TMPDIR="$d.tmp" bash "$SCRIPT" --worktree "$d" --base base > "$d.out" 2>&1
   rc=$?
   [ "$rc" = "$E_RC" ] || why="$why rc=$rc(want $E_RC)"
-  for s in "${E_SUB[@]}"; do grep -qF -- "$s" "$d.out" || why="$why missing-line[$s]"; done
+  for s in "${E_SUB[@]}"; do
+    case "$s" in
+      '!'*) grep -qF -- "${s#!}" "$d.out" && why="$why unwanted-line[${s#!}]" ;;
+      *)    grep -qF -- "$s" "$d.out" || why="$why missing-line[$s]" ;;
+    esac
+  done
   if [ "$rc" = 0 ]; then
     if [ ! -f "$plan" ] || grep -q '^STALE=1' "$plan"; then
       why="$why stale-or-missing-plan"
