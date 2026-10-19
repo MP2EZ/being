@@ -184,3 +184,47 @@ describe('the queued backup does not COME BACK after erasure (DEBUG-698)', () =>
     expect(mockMemoryStore.get(OFFLINE_QUEUE_KEY)).toContain(MARKER);
   });
 });
+
+describe('a pass in flight when erasure fires uploads nothing more (DEBUG-791)', () => {
+  it('the ops behind the in-flight upload are never sent, and the pass does not re-create the swept key', async () => {
+    grantCloudSync();
+    internals.isInitialized = true;
+    internals.client = null;
+    internals.userId = null;
+    for (const p of ['first', 'second', 'third']) await supabaseService.saveBackup(p, `checksum-${p}`, 1);
+    await settle();
+
+    const sent: string[] = [];
+    let release!: () => void;
+    const held = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    const client = {
+      from: () => ({
+        upsert: async (row: { encrypted_data: string }) => {
+          sent.push(row.encrypted_data);
+          if (row.encrypted_data === 'first') await held;
+          return { data: null, error: null };
+        },
+      }),
+    };
+    internals.client = client;
+    internals.userId = 'user-d791-erasure';
+
+    const pass = supabaseService.processOfflineQueue();
+    await settle();
+    expect(sent).toEqual(['first']);
+
+    // AccountDeletionService order: in-memory reset, then the wipe — while `first` is in flight.
+    await resetInMemoryStateForErasure();
+    await SecureStorageService.clearAllWellnessData({ deleteMasterKey: true });
+    release();
+    await pass;
+    await settle();
+
+    expect(sent).toEqual(['first']);
+    expect(mockMemoryStore.has(OFFLINE_QUEUE_KEY)).toBe(false);
+    expect(wholeStoreDump()).not.toContain('second');
+    expect(wholeStoreDump()).not.toContain('third');
+  });
+});
