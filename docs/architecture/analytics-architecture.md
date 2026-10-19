@@ -182,7 +182,7 @@ Wraps the app and provides PostHog context. Key behaviors:
   Those three are load-bearing, not belt-and-braces: the SDK's init sequence gates on
   `disabled`, never on `optedOut`, so at their defaults the constructor fires `/flags`
   requests carrying the anonymous device id before consent. With them set, no SDK path
-  reaches the network while opted out. An anonymous `distinct_id` is minted to on-device
+  reaches the network while opted out. The same suppression means the PostHog runtime feature-flag tier never fetches flags in current builds; see [feature-flags.md](./feature-flags.md) section 4. An anonymous `distinct_id` is minted to on-device
   storage at launch and is never transmitted.
 - **EU data residency**: Configured for Frankfurt (GDPR compliance)
 - **Privacy settings**: No autocapture, no session replay
