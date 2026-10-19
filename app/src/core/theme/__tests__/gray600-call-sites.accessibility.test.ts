@@ -71,12 +71,6 @@ const ALLOWED: ReadonlyArray<{ file: string; property: string; reason: string }>
   // below is set equality in BOTH directions, a stale entry here is a
   // deliberate red — the allowlist must keep describing the tree as it is.
   {
-    file: 'features/crisis/components/CrisisErrorBoundary.tsx',
-    property: 'backgroundColor',
-    reason:
-      'Button FILL, not text. Same 4.608:1 white-on-fill as above. Lawful under both bars.',
-  },
-  {
     file: 'features/consent/screens/ReConsentScreen.tsx',
     property: 'borderColor',
     reason:
