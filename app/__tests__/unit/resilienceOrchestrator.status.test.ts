@@ -4,7 +4,7 @@
  * Callers today are initialize() and getResilienceStatus() (via
  * CrisisMonitoringService). The rest of the orchestrator's API
  * (triggerEmergencyProtocol, emergencyShutdown, isServiceAvailable,
- * isCriticalSystemHealthy) is never called and is deliberately NOT pinned here.
+ * isCriticalSystemHealthy) was never called and was deleted in MAINT-794.
  *
  * Not on the zero-false-negative path (that is detectCrisis() over PHQ/GAD
  * integers); this is a health-reporting layer, so it lives in test:unit, not
