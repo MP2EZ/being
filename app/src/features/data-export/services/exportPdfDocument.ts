@@ -30,7 +30,7 @@
  * otherwise need an exemption entry for this file).
  */
 
-import { colorSystem, spacing, typography } from '@/core/theme';
+import { semantic, spacing, typography } from '@/core/theme';
 import { EXPORT_DISCLAIMER } from '../types';
 import type {
   ExportDataCategory,
@@ -120,14 +120,14 @@ const disclaimerBlock = (): string =>
   `<section class="disclaimer"><p>${escapeHtml(EXPORT_DISCLAIMER)}</p></section>`;
 
 function stylesheet(): string {
-  const text = colorSystem.base.black;
-  const muted = colorSystem.gray[650];
-  const rule = colorSystem.gray[300];
-  const band = colorSystem.gray[100];
+  const text = semantic.text.primary;
+  const muted = semantic.text.secondary;
+  const rule = semantic.border.strong;
+  const band = semantic.background.secondary;
   const px = (n: number): string => `${n}px`;
   return [
     `@page { margin: ${px(spacing[48])} ${px(spacing[40])}; }`,
-    `body { color: ${text}; background: ${colorSystem.base.white}; font-family: -apple-system, Roboto, sans-serif; font-size: ${px(typography.bodySmall.size)}; line-height: 1.5; margin: 0; }`,
+    `body { color: ${text}; background: ${semantic.background.primary}; font-family: -apple-system, Roboto, sans-serif; font-size: ${px(typography.bodySmall.size)}; line-height: 1.5; margin: 0; }`,
     `h1 { font-size: ${px(typography.headline2.size)}; font-weight: ${typography.fontWeight.semibold}; margin: 0 0 ${px(spacing[16])}; }`,
     `h2 { font-size: ${px(typography.headline4.size)}; font-weight: ${typography.fontWeight.semibold}; margin: ${px(spacing[24])} 0 ${px(spacing[8])}; page-break-after: avoid; }`,
     `p, ul { margin: 0 0 ${px(spacing[12])}; }`,
