@@ -102,20 +102,17 @@ async function initializeCloudServices(): Promise<void> {
 }
 
 /**
- * Setup app lifecycle event handlers
+ * Setup app lifecycle event handlers.
+ *
+ * Background only. The foreground trigger (offline queue, then the telemetry retry) has
+ * one owner, SupabaseService.setupAppStateListener, registered on every install; the
+ * cloud_sync consent gate and the drop/hold decision live inside processOfflineQueue
+ * (DEBUG-756). This listener exists only after a consented init, so it never owned the
+ * foreground (MAINT-815).
  */
 function setupAppLifecycleHandlers(): void {
   AppState.addEventListener('change', async (nextAppState) => {
-    if (nextAppState === 'active') {
-      // App came to foreground. Defence in depth (DEBUG-756): the authoritative gate, and
-      // the drop/hold decision, are in SupabaseService.processOfflineQueue.
-      if (!hasCloudSyncConsent()) return;
-      try {
-        await supabaseService.processOfflineQueue();
-      } catch (error) {
-        logSecurity('[CloudServices] Failed to process offline queue:', 'medium', { error });
-      }
-    } else if (nextAppState === 'background') {
+    if (nextAppState === 'background') {
       // App going to background
       try {
         await cloudBackupService.createBackup();
