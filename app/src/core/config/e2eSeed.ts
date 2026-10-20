@@ -442,6 +442,16 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
     //    no consumer outside consentStore. A reader who believed the old comment would
     //    conclude that refusing this consent blocks assessments and therefore blocks
     //    crisis detection; it blocks neither. Enforcement is FEAT-318.
+    //
+    //    `crashReportsEnabled` is seeded FALSE by founder ruling (MAINT-780,
+    //    2026-10-19), so this is not a fully-consented record. Off is the default
+    //    most users have (consentStore DEFAULT preferences), so the gate runs in
+    //    their state. With it off, `canPerformOperation('crash_reports')` is false,
+    //    `installConsentGate` (ExternalErrorReporter) never calls Sentry.init, and
+    //    gate launches open no release-health session against the production DSN
+    //    the e2e-sim build inherits. A bug-report send in this state would take the
+    //    DEBUG-776 feedback-only client, pinned in jest by
+    //    crashReportConsentGate.contract.test.ts; no flow taps Send.
     const { verifyAge, grantConsent } = useConsentStore.getState();
     const { age, eligible } = await verifyAge(SEED_BIRTH_YEAR);
     const ageVerification: AgeVerification = {
@@ -453,7 +463,7 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
     };
     const preferences: ConsentPreferences = {
       analyticsEnabled: true,
-      crashReportsEnabled: true,
+      crashReportsEnabled: false,
       cloudSyncEnabled: true,
       researchEnabled: true,
       mentalHealthProcessingConsent: true,

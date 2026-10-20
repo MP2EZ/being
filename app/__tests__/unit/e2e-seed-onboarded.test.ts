@@ -178,16 +178,25 @@ describe('maybeSeedE2EOnboardedState — gate (INFRA-217)', () => {
       );
     });
 
-    it('grants a full consent record with an eligible (18+) age verification', async () => {
+    it('grants a consent record with crash reports off and an eligible (18+) age verification', async () => {
       const { run, mocks } = loadSeed('true');
       await run();
       expect(mocks.verifyAge).toHaveBeenCalledTimes(1);
       expect(mocks.grantConsent).toHaveBeenCalledTimes(1);
 
       const [prefs, ageVerification] = mocks.grantConsent.mock.calls[0];
-      // mentalHealthProcessingConsent unlocks the assessment / check-in screens
-      // the safety flows exercise (GDPR Art. 9(2)(a)).
-      expect(prefs.mentalHealthProcessingConsent).toBe(true);
+      // The whole literal is pinned so a silent re-flip of any key goes red.
+      // crashReportsEnabled is false by founder ruling (MAINT-780, 2026-10-19):
+      // the gate runs in the default most users have, and never starts Sentry
+      // against the production DSN the e2e-sim build inherits.
+      // mentalHealthProcessingConsent gates nothing; see the note in e2eSeed.ts.
+      expect(prefs).toEqual({
+        analyticsEnabled: true,
+        crashReportsEnabled: false,
+        cloudSyncEnabled: true,
+        researchEnabled: true,
+        mentalHealthProcessingConsent: true,
+      });
       expect(ageVerification.verified).toBe(true);
       expect(ageVerification.isEligible).toBe(true);
     });
