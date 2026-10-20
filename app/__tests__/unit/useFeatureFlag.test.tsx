@@ -79,7 +79,7 @@ describe('useFeatureFlag — runtime resolution contract (INFRA-199)', () => {
     mockIsFeatureEnabled.mockReturnValue(false);
     mockGetFeatureFlag.mockReturnValue(true);
 
-    const { result } = renderHook(() => useFeatureFlag('cloud_sync'));
+    const { result } = renderHook(() => useFeatureFlag('wellness_trend_notes'));
 
     expect(result.current).toBe(false);
     // The privacy-critical assertion: no flag read => no $feature_flag_called event.
@@ -87,15 +87,15 @@ describe('useFeatureFlag — runtime resolution contract (INFRA-199)', () => {
     expect(mockOnFeatureFlags).not.toHaveBeenCalled();
   });
 
-  it('consent + PostHog true: a product flag resolves to the PostHog boolean (promotes above the build-time floor)', () => {
+  it('consent + PostHog true: a product flag resolves to the PostHog boolean (overrides a build-time false)', () => {
     setConsent(true);
-    mockIsFeatureEnabled.mockReturnValue(false); // build-time floor is OFF
+    mockIsFeatureEnabled.mockReturnValue(false); // build-time value is OFF
     mockGetFeatureFlag.mockReturnValue(true);
 
-    const { result } = renderHook(() => useFeatureFlag('cloud_sync'));
+    const { result } = renderHook(() => useFeatureFlag('wellness_trend_notes'));
 
     expect(result.current).toBe(true);
-    expect(mockGetFeatureFlag).toHaveBeenCalledWith('cloud_sync');
+    expect(mockGetFeatureFlag).toHaveBeenCalledWith('wellness_trend_notes');
   });
 
   it('consent but unresolved PostHog value (undefined / network fail) falls back to the build-time default', () => {
@@ -103,7 +103,7 @@ describe('useFeatureFlag — runtime resolution contract (INFRA-199)', () => {
     mockIsFeatureEnabled.mockReturnValue(false);
     mockGetFeatureFlag.mockReturnValue(undefined); // not yet loaded / fetch failed
 
-    const { result } = renderHook(() => useFeatureFlag('cloud_sync'));
+    const { result } = renderHook(() => useFeatureFlag('wellness_trend_notes'));
 
     expect(result.current).toBe(false); // fail-safe to build-time default
   });
@@ -113,9 +113,33 @@ describe('useFeatureFlag — runtime resolution contract (INFRA-199)', () => {
     mockIsFeatureEnabled.mockReturnValue(false);
     mockGetFeatureFlag.mockReturnValue(true);
 
+    const { result } = renderHook(() => useFeatureFlag('wellness_trend_notes'));
+
+    expect(result.current).toBe(false);
+    expect(mockGetFeatureFlag).not.toHaveBeenCalled();
+  });
+  it('consent + PostHog false: a product flag resolves to false even when build-time is on (the override runs both ways)', () => {
+    // Pins useFeatureFlag's documented model: the build-time value is a fallback, not a floor.
+    setConsent(true);
+    mockIsFeatureEnabled.mockReturnValue(true);
+    mockGetFeatureFlag.mockReturnValue(false);
+
+    const { result } = renderHook(() => useFeatureFlag('wellness_trend_notes'));
+
+    expect(result.current).toBe(false);
+  });
+
+  it('MAINT-809: cloud_sync is not a product flag; consent + PostHog true still returns build-time and never reads PostHog', () => {
+    // A runtime cloud_sync could show Cloud Backup without the consent card that authorizes
+    // it (or hide restore from a user whose backups continue). It resolves at build time only.
+    setConsent(true);
+    mockIsFeatureEnabled.mockReturnValue(false);
+    mockGetFeatureFlag.mockReturnValue(true);
+
     const { result } = renderHook(() => useFeatureFlag('cloud_sync'));
 
     expect(result.current).toBe(false);
     expect(mockGetFeatureFlag).not.toHaveBeenCalled();
+    expect(mockOnFeatureFlags).not.toHaveBeenCalled();
   });
 });

@@ -5,9 +5,11 @@
  * by the cloud_sync feature flag: absent when off (dark ship), present and
  * navigable when on, with correct accessibility role/label.
  *
- * INFRA-199: the row now resolves the flag via the runtime `useFeatureFlag`
- * hook (from @/core/analytics) rather than the sync `isFeatureEnabled`, so the
- * control point here is the mocked hook. The dark-ship assertions are unchanged.
+ * MAINT-809: the row resolves the flag at BUILD TIME (`isFeatureEnabled`), the
+ * same tier as the consent cards that authorize Cloud Backup, so the control
+ * point here is the mocked build-time resolver. INFRA-199 had moved it to the
+ * runtime `useFeatureFlag` hook, which let a PostHog value split the row from its
+ * consent card; that hook is mocked to "on" below so a regression back to it shows.
  *
  * FEAT-212: Cloud Backup is now a pushed route on ProfileStackNavigator rather
  * than an in-component sub-screen, so pressing the row calls
@@ -25,8 +27,12 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: mockNavigate }),
 }));
 
-// Control the flag per test (the runtime hook is the gating point post-INFRA-199).
-const mockUseFeatureFlag = jest.fn<boolean, [string]>();
+// Control the flag per test (the build-time resolver is the gating point, MAINT-809).
+const mockIsFeatureEnabled = jest.fn<boolean, [string]>();
+jest.mock('@/core/services/featureFlags', () => ({
+  isFeatureEnabled: (name: string) => mockIsFeatureEnabled(name),
+}));
+const mockUseFeatureFlag = jest.fn<boolean, [string]>(() => true);
 
 // Consent store: provide the slice PrivacyDataScreen destructures.
 jest.mock('@/core/stores/consentStore', () => ({
@@ -62,17 +68,19 @@ describe('PrivacyDataScreen — Manage Cloud Backup row (MAINT-173)', () => {
     jest.clearAllMocks();
   });
 
-  it('hides the row when cloud_sync is OFF (dark ship)', async () => {
-    mockUseFeatureFlag.mockReturnValue(false);
+  it('hides the row when cloud_sync is OFF (dark ship), even if the runtime tier would say on', async () => {
+    mockIsFeatureEnabled.mockReturnValue(false);
+    mockUseFeatureFlag.mockReturnValue(true);
     const { queryByText } = render(<PrivacyDataScreen />);
 
     // Wait for the post-load form to render.
     await waitFor(() => expect(queryByText('Settings Backup')).toBeTruthy());
     expect(queryByText('Manage Cloud Backup')).toBeNull();
+    expect(mockUseFeatureFlag).not.toHaveBeenCalledWith('cloud_sync');
   });
 
   it('shows the row, with a11y role/label, and pushes the CloudBackup route when cloud_sync is ON', async () => {
-    mockUseFeatureFlag.mockImplementation((name) => name === 'cloud_sync');
+    mockIsFeatureEnabled.mockImplementation((name) => name === 'cloud_sync');
     const { findByRole } = render(<PrivacyDataScreen />);
 
     const row = await findByRole('button', { name: 'Manage Cloud Backup' });

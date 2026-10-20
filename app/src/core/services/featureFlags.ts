@@ -13,8 +13,8 @@
  * This sync API remains the source of truth for safety/structural flags. For
  * runtime control (kill-switch, %-rollout, A/B) of *product* flags, use the
  * PostHog-backed `useFeatureFlag` hook in `@/core/analytics` (INFRA-199): it
- * layers on top of this build-time default (which stays the fail-safe floor)
- * and only resolves remotely for the explicit `PRODUCT_FLAGS` allow-list, under
+ * layers on top of this build-time default (the fail-safe fallback; a clean
+ * PostHog boolean overrides it in both directions) and only resolves remotely for the explicit `PRODUCT_FLAGS` allow-list, under
  * granted analytics consent.
  *
  * Blob format: comma-separated `key:value` pairs, e.g.
@@ -27,11 +27,12 @@ import { env } from '@/core/config/env';
 /**
  * Known build-time flags (the keys present in EXPO_PUBLIC_FEATURE_FLAGS).
  *
- * Scope: only flags that some code path actually reads. `cloud_sync` flows
- * through `isFeatureEnabled` via the runtime `useFeatureFlag` hook (it is in
- * `PRODUCT_FLAGS`), as does `wellness_trend_notes` (FEAT-195), read via the runtime
- * `useFeatureFlag` hook to gate the Wellness Trends "Your note" surface
- * (in `PRODUCT_FLAGS`; ships dark, build-time floor false). MAINT-213 removed
+ * Scope: only flags that some code path actually reads. `cloud_sync` is
+ * build-time only: all four of its readers (the two Profile screens and the
+ * onboarding and re-consent consent cards) call `isFeatureEnabled`, and it must
+ * never enter `PRODUCT_FLAGS` (MAINT-809). `wellness_trend_notes` (FEAT-195) is
+ * read via the runtime `useFeatureFlag` hook to gate the Wellness Trends "Your
+ * note" surface (in `PRODUCT_FLAGS`; ships dark, build-time default false). MAINT-213 removed
  * eight keys that lived here but were never read as flags (`production_mode`,
  * `performance_monitoring`, `crisis_detection`, `clinical_accuracy`,
  * `data_encryption`, `biometric_auth`, `offline_mode`, `widget_support`).
