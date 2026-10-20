@@ -282,7 +282,7 @@ describe('DEBUG-797 · ExternalErrorReporter sets no sendDefaultPii and calls no
 describe('FEAT-284 build-time gate — bug_reporting flag', () => {
   it('is ON pre-launch (dev + production blobs ship it to TestFlight)', () => {
     const blob =
-      'cloud_sync:false,emergency_sync:false,cross_device_sync:false,wellness_trend_notes:false,data_export:false,bug_reporting:true';
+      'cloud_sync:false,wellness_trend_notes:false,data_export:false,bug_reporting:true';
     expect(__parseFlagsForTest(blob)['bug_reporting']).toBe(true);
   });
 

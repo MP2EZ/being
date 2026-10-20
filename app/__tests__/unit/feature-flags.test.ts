@@ -8,9 +8,9 @@ import { isFeatureEnabled, __parseFlagsForTest } from '@/core/services/featureFl
 
 describe('featureFlags — parseFlags', () => {
   it('parses key:value pairs into booleans', () => {
-    const flags = __parseFlagsForTest('cloud_sync:false,cross_device_sync:true');
+    const flags = __parseFlagsForTest('cloud_sync:false,wellness_trend_notes:true');
     expect(flags.cloud_sync).toBe(false);
-    expect(flags.cross_device_sync).toBe(true);
+    expect(flags.wellness_trend_notes).toBe(true);
   });
 
   it('treats only the literal "true" as enabled', () => {
@@ -23,16 +23,16 @@ describe('featureFlags — parseFlags', () => {
   });
 
   it('tolerates surrounding whitespace in keys and values', () => {
-    const flags = __parseFlagsForTest(' cloud_sync : true , cross_device_sync:false ');
+    const flags = __parseFlagsForTest(' cloud_sync : true , wellness_trend_notes:false ');
     expect(flags.cloud_sync).toBe(true);
-    expect(flags.cross_device_sync).toBe(false);
+    expect(flags.wellness_trend_notes).toBe(false);
   });
 
   it('skips malformed segments without throwing', () => {
-    expect(() => __parseFlagsForTest('cloud_sync,:,cross_device_sync:true,,')).not.toThrow();
-    const flags = __parseFlagsForTest('cloud_sync,:,cross_device_sync:true,,');
+    expect(() => __parseFlagsForTest('cloud_sync,:,wellness_trend_notes:true,,')).not.toThrow();
+    const flags = __parseFlagsForTest('cloud_sync,:,wellness_trend_notes:true,,');
     expect(flags.cloud_sync).toBeUndefined(); // no colon → skipped
-    expect(flags.cross_device_sync).toBe(true);
+    expect(flags.wellness_trend_notes).toBe(true);
   });
 });
 
@@ -44,7 +44,5 @@ describe('featureFlags — isFeatureEnabled', () => {
   it('pins the dark-ship default: cloud_sync is OFF in the current env', () => {
     // Guards against accidentally enabling cloud backup before it is productized.
     expect(isFeatureEnabled('cloud_sync')).toBe(false);
-    expect(isFeatureEnabled('emergency_sync')).toBe(false);
-    expect(isFeatureEnabled('cross_device_sync')).toBe(false);
   });
 });

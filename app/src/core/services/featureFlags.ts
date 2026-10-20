@@ -18,7 +18,7 @@
  * granted analytics consent.
  *
  * Blob format: comma-separated `key:value` pairs, e.g.
- *   "cloud_sync:false,cross_device_sync:true". Only the literal string "true"
+ *   "cloud_sync:false,bug_reporting:true". Only the literal string "true"
  * enables a flag; any other value (or an unknown key) resolves to false.
  */
 
@@ -27,16 +27,16 @@ import { env } from '@/core/config/env';
 /**
  * Known build-time flags (the keys present in EXPO_PUBLIC_FEATURE_FLAGS).
  *
- * Scope: only flags that some code path actually reads. Today that is the sync
- * family — `cloud_sync` flows through `isFeatureEnabled` via the runtime
- * `useFeatureFlag` hook (it is in `PRODUCT_FLAGS`), and `emergency_sync` /
- * `cross_device_sync` are reserved allow-list placeholders for upcoming sync
- * features — plus `wellness_trend_notes` (FEAT-195), read via the runtime
+ * Scope: only flags that some code path actually reads. `cloud_sync` flows
+ * through `isFeatureEnabled` via the runtime `useFeatureFlag` hook (it is in
+ * `PRODUCT_FLAGS`), as does `wellness_trend_notes` (FEAT-195), read via the runtime
  * `useFeatureFlag` hook to gate the Wellness Trends "Your note" surface
  * (in `PRODUCT_FLAGS`; ships dark, build-time floor false). MAINT-213 removed
  * eight keys that lived here but were never read as flags (`production_mode`,
  * `performance_monitoring`, `crisis_detection`, `clinical_accuracy`,
  * `data_encryption`, `biometric_auth`, `offline_mode`, `widget_support`).
+ * MAINT-808 removed `emergency_sync` and `cross_device_sync`, "reserved
+ * placeholders" for sync features that no code ever read.
  *
  * NOTE — name collisions: several of those removed names still appear as string
  * literals elsewhere (`crisis_detection` in CircuitBreakerService,
@@ -49,8 +49,6 @@ import { env } from '@/core/config/env';
  */
 export type FeatureFlag =
   | 'cloud_sync'
-  | 'emergency_sync'
-  | 'cross_device_sync'
   | 'wellness_trend_notes'
   // FEAT-284: gates the internal-only "Report a bug / Send feedback" surface
   // (shake-to-report + Sentry feedback widget with screenshot). Build-time (not
