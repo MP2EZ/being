@@ -95,7 +95,7 @@ In current builds the runtime tier never fetches flags. `useFeatureFlag` therefo
 | `disableRemoteConfig: true`, `preloadFeatureFlags: false`, `disableSurveys: true` | `PostHogProvider.tsx:81-83`. Load-bearing pre-consent network suppression from the DEBUG-559 ruling (`:40-62`) |
 | `optIn()` / `optOut()` only mutate a persisted opt-out flag | `PostHogProvider.tsx:116-117`, `:136` |
 | No app code calls `reloadFeatureFlags`, `identify` or `group` | Searched `app/src` and `app/App.tsx` on 2026-10-18; only hits are comments in `PostHogProvider.tsx` |
-| The only path that loads flags is `client.reset()` during account deletion | `analyticsIdentityReset.ts:145`; the SDK's `reset()` calls `reloadFeatureFlags()` (`node_modules/@posthog/core/dist/posthog-core.js:100`) |
+| No path loads flags. The SDK's `reset()` calls `reloadFeatureFlags()` (`@posthog/core` `dist/posthog-core.js:100`), whose `flagsAsync()` gates only on `disabled`, never `optedOut`, so before DEBUG-812 the account-deletion reset POSTed `/flags` in every opt state, carrying the pre-erasure id as `$device_id` (RN `reset()` keeps `DeviceId` by default). The erasure reset now shadows the instance's `reloadFeatureFlags` for the rest of the process and resets with a keep-list that drops `DeviceId` | `analyticsIdentityReset.ts:171-172`. Pinned against the real SDK and the real `POSTHOG_OPTIONS` in `analyticsIdentityReset.networkSilence.privacy.test.ts` (zero requests in three opt states; a raw-`reset()` control that records the `/flags` POST). A runtime-tier enablement (section 7) must revisit the shadowing |
 | Observed: on app 1.4.0, every `$feature_flag_called` event for `cloud_sync` and `wellness_trend_notes` carried `$used_bootstrap_value=true` | Planning panel reading, 2026-10-18 (PostHog read-only); not re-run here |
 
 Caveat: a device that ran a pre-DEBUG-559 build may hold a persisted flag cache.
@@ -160,4 +160,4 @@ PostHog targeting rule: release conditions may use only the anonymous device id 
 | Resolve `cloud_sync` split-tier reads (Protected Paths: `PrivacyDataScreen.tsx`, `OnboardingScreen.tsx`, `ReConsentScreen.tsx`) and the stale "PostHog promotes" wording at `CloudBackupScreen.tsx:8-9` | MAINT-809 |
 | Clean stale keys from `app/__tests__/setup/env.mock.js` | MAINT-810 (done) |
 | Decide keep, fix or retire the PostHog runtime tier. A fix would be a post-consent `reloadFeatureFlags` under the same four conditions as `useFeatureFlag.ts:99-100`, in `PostHogProvider` (a crisis + compliance Protected Path), plus a privacy-policy section 5.2 check | MAINT-811 |
-| Investigate whether `client.reset()` on account deletion triggers a `/flags` request while the user is opted out (compliance) | DEBUG-812 |
+| Investigate whether `client.reset()` on account deletion triggers a `/flags` request while the user is opted out (compliance) | DEBUG-812 (done: it did, in every opt state; fixed, see section 4) |
