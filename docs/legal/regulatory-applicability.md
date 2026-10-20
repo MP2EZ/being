@@ -1,8 +1,8 @@
 # Regulatory Applicability & Compliance Source of Truth
 
-**Version:** 1.1  
+**Version:** 1.2  
 **Effective Date:** December 26, 2025  
-**Last Updated:** September 13, 2026  
+**Last Updated:** October 19, 2026  
 **Authority:** This document is the authoritative reference for regulatory compliance decisions.
 
 ---
@@ -79,6 +79,29 @@ As of 2025, 20 US states have comprehensive consumer privacy laws. The following
 **Compliance Approach:** Provide data access, deletion, and export features. Maintain transparent privacy notices. Honor universal opt-out mechanisms (including Global Privacy Control signals). See `california-privacy.md` and the "No Sale or Sharing of Personal Information" section of `privacy-policy.md`.
 
 **Sensitive-data processing assessment.** TDPSA (Tex. Bus. & Com. Code §541.105(a)), CPA (C.R.S. §6-1-1309), VCDPA (Va. Code §59.1-580), and CTDPA (Conn. Pub. Act 22-15 §6) each require a documented data protection assessment for processing of sensitive personal information — including mental health condition data. See [`dpia-sensitive-wellness-data.md`](dpia-sensitive-wellness-data.md) for the assessment covering Being's processing of PHQ-9, GAD-7, mood check-ins, journal entries, consent records, and subscription metadata.
+
+### 2a. Consumer Health Data Laws (WA MHMDA, NV SB 370, CT)
+
+**Status: APPLIES. Not compliant: open gaps below (DEBUG-793, 2026-10-19).** Statute citations are to be confirmed by counsel.
+
+| Law | Citation (to be confirmed by counsel) | Threshold |
+|-----|---------------------------------------|-----------|
+| **My Health My Data Act** | Washington, RCW 19.373 | None (no revenue or volume threshold) |
+| **SB 370 consumer health data** | Nevada, NRS 603A | None |
+| **Consumer health data provisions** | Connecticut (CTDPA as amended) | None |
+
+**Why it applies.** PostHog product events sent with *Usage Analytics* on include `crisis_resources_viewed`, `crisis_hotline_tapped` and `assessment_started` / `assessment_completed`. They are keyed to an install-persistent identifier (`distinct_id`) and carry city-level GeoIP (DPIA v2.42). These laws define personal information to include data tied to a persistent unique identifier such as a device ID. Their "health care services" covers services to assess, measure, improve or learn about mental health, which takes in PHQ-9 / GAD-7 self-screening and the 988 crisis line. Their consumer health data covers data identifying a consumer seeking such services, including inferences drawn from non-health data. A conservative reading also covers `check_in_*`, `practice_*` and `guidance_opened`, because the whole app is a mental-wellness service. Being is a Palouse Labs LLC product and the Terms of Service pick Washington law.
+
+**What this reverses.** The "access is not the finding" ruling in `docs/architecture/analytics-architecture.md` (and the DPIA v2.11 ACCESS/CONTENT distinction) assumed these access signals were unlinkable. They are not: every event carries the persistent `distinct_id` and city.
+
+**Open gaps:**
+1. No separate Consumer Health Data Privacy Policy is linked from the being.fyi homepage (website repo).
+2. The Analytics opt-in (`consentDetails.ts`) lacks the MHMDA consent elements: the named consumer-health-data categories, purpose, sources, and how to withdraw.
+3. Account erasure resets the PostHog identity but does not delete PostHog events, so `privacy-policy.md` §7.4 ("removes your data … on our servers") is untrue for PostHog.
+4. The PostHog processor contract is unconfirmed.
+5. The Supabase Crisis Detection Event (`crisis_detected`) carries `user_id` = `auth.uid()`, a persistent identifier. It is collected without consent under vital interests, which MHMDA does not recognise outside "necessary to provide the requested service". `privacy-policy.md` §3 also says it contains "nothing that identifies you", which conflicts with §7.4. This is recorded open, not assessed and cleared.
+
+**Remedy: a founder decision, tracked in DEBUG-821.** (A) build MHMDA compliance (CHD policy page, MHMDA-specific consent copy with a CONSENT_VERSION bump, erasure propagated to PostHog, processor contract), or (B) minimise (drop or de-link these events from PostHog, or disable GeoIP). See `dpia-sensitive-wellness-data.md` §9 v2.51.
 
 ### 3. International Privacy Laws
 
@@ -236,6 +259,7 @@ We implement strong security because it's the right thing to do for users entrus
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-26 | Initial document creation |
+| 1.2 | 2026-10-19 | DEBUG-793: new §2a. WA MHMDA, Nevada SB 370 and Connecticut consumer-health-data provisions APPLY to the PostHog crisis-access and assessment events (persistent identifier plus city GeoIP). Five open gaps are listed, and the remedy is a founder decision (DEBUG-821). The analytics-architecture.md "access is not the finding" ruling is reversed. See `dpia-sensitive-wellness-data.md` §9 v2.51. |
 | 1.1 | 2026-09-13 | DEBUG-608: "What Being IS" no longer lists emergency contact access, and the sensitive-data assessment summary no longer lists crisis safety plans. Being never collected either: the safety-plan screen and store were deleted before the first external distribution. Crisis access is to 988, the Crisis Text Line and 911. See `dpia-sensitive-wellness-data.md` §9 v2.14. |
 
 ---

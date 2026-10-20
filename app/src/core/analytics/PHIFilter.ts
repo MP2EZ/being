@@ -52,10 +52,11 @@ export const AnalyticsEvents = {
   //
   // 🔴 ACCESS, NEVER CONTENT. These say which affordance was reached and how long
   // it took. They must never say what was found, scored, said or selected there.
-  // That is the FEAT-457 boundary, and it is the reason these coexist with the
-  // published "we never collect any mental health data" promise — the same reason
-  // crisis_resources_viewed / crisis_hotline_tapped, bare access signals for a
-  // strictly more sensitive affordance, already ship to PostHog today.
+  // That is the FEAT-457 boundary. Privacy policy §5.2 (v1.23, DEBUG-793) discloses
+  // these ACCESS events, alongside crisis_resources_viewed / crisis_hotline_tapped,
+  // and promises the CONTENT is never collected. Access is disclosed, not unlinkable:
+  // with the persistent distinct_id it is consumer health data under WA MHMDA
+  // (regulatory-applicability.md §2a), so never widen these past access.
   CHECK_IN_STARTED: 'check_in_started',
   CHECK_IN_COMPLETED: 'check_in_completed',
   ASSESSMENT_STARTED: 'assessment_started',

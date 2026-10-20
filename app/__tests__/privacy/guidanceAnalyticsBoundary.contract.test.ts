@@ -4,10 +4,11 @@
  * ─────────────────────────────────────────────────────────────────────────────
  * THE PROMISE THIS ENFORCES IS A PUBLISHED ONE.
  *
- * `docs/architecture/analytics-architecture.md` states, under Privacy Policy
- * Disclosure: "What We NEVER Collect: … Any mental health data." A self-selected
- * hardship domain — "this user opened grief" — is exactly that, and arguably more
- * revealing than a screen-view bucket.
+ * Privacy policy §5.2 (mirrored in `docs/architecture/analytics-architecture.md`,
+ * v1.23, DEBUG-793) promises that what you select, answer or write is never collected;
+ * only that an affordance was opened is disclosed. A self-selected hardship domain —
+ * "this user opened grief" — is exactly that content, and arguably more revealing
+ * than a screen-view bucket.
  *
  * Before this suite, NOTHING mechanical stood behind that sentence for these
  * values. `PHI_KEYWORDS` is a substring blocklist scanned against string VALUES,
