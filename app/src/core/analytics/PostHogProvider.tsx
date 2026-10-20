@@ -57,7 +57,10 @@ const POSTHOG_CONFIGURED =
  *   disableSurveys: true      — makes the one remaining init fetch self-gate to a no-op.
  *
  * Net effect, and this is the claim DEBUG-559's AC required ESTABLISHED rather
- * than assumed: while opted out, no code path in the SDK reaches the network. An
+ * than assumed: while opted out, no construction-time path in the SDK reaches the
+ * network. The options do NOT cover a later `reset()`, which reloads flags whatever
+ * the opt state; the erasure reset suppresses that itself (DEBUG-812,
+ * `analyticsIdentityReset.ts`). An
  * anonymous device id is still minted to on-device storage at launch; it is never
  * transmitted, and it is the same identifier already disclosed for the opted-in
  * state — see docs/architecture/analytics-architecture.md.

@@ -37,6 +37,10 @@
  * `disableSurveys` are what actually close that, and the "defaults" control below
  * is what proves they are load-bearing rather than decorative.
  *
+ * SCOPE: construction only. A later `client.reset()` reloads flags in every opt state; the
+ * erasure path's silence is pinned in analyticsIdentityReset.networkSilence.privacy.test.ts
+ * (DEBUG-812).
+ *
  * HOW IT CANNOT GO VACUOUS (DEBUG-390)
  * ------------------------------------
  * "Zero fetch calls" is exactly what a broken harness reports — a client that
