@@ -1821,7 +1821,8 @@ class SupabaseService {
    * Process offline queue when connectivity is restored.
    *
    * DEBUG-791: a single flight. A call while a pass is running JOINS it instead of starting a
-   * second loop over the same ops (one foreground fires this from two listeners). `async` so a
+   * second loop over the same ops (the foreground listener, its only foreground caller since
+   * MAINT-815, can overlap a manual forceSync). `async` so a
    * synchronous throw from the pass surfaces as a rejection, never out of the AppState handler.
    */
   async processOfflineQueue(): Promise<void> {
