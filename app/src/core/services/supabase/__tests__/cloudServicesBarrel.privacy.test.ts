@@ -641,25 +641,16 @@ describe('cloud services barrel — AppState lifecycle handler', () => {
     expect(mockSupabase.processOfflineQueue).not.toHaveBeenCalled();
   });
 
-  it("'active' processes the offline queue (consent given)", async () => {
+  // MAINT-815: the foreground trigger has one owner, SupabaseService.setupAppStateListener
+  // (one call per foreground across both modules is pinned by
+  // foregroundQueueTrigger.unit.test.ts). The barrel's handler does nothing on 'active'.
+  it("'active' does not process the offline queue: SupabaseService owns the foreground", async () => {
     const handler = await consentedHandler();
-
-    await handler('active');
-
-    expect(mockSupabase.processOfflineQueue).toHaveBeenCalledTimes(1);
-    expect(mockBackup.createBackup).not.toHaveBeenCalled();
-  });
-
-  // DEBUG-756. Defence in depth: the authoritative gate (and the drop/hold decision) is in
-  // SupabaseService.processOfflineQueue, because the service's own AppState listener reaches it
-  // independently - pinned by offlineQueueConsentWithdrawal.privacy.test.ts.
-  it("'active' with cloud_sync consent withdrawn does not process the offline queue", async () => {
-    const handler = await consentedHandler();
-    mockCanPerform.mockReturnValue(false);
 
     await handler('active');
 
     expect(mockSupabase.processOfflineQueue).not.toHaveBeenCalled();
+    expect(mockBackup.createBackup).not.toHaveBeenCalled();
   });
 
   it("'inactive' does neither", async () => {
@@ -678,18 +669,6 @@ describe('cloud services barrel — AppState lifecycle handler', () => {
     await expect(handler('background')).resolves.toBeUndefined();
     expect(mockLogSecurity).toHaveBeenCalledWith(
       '[CloudServices] Background backup failed:',
-      'medium',
-      expect.objectContaining({ error: expect.any(Error) }),
-    );
-  });
-
-  it("swallows a rejected processOfflineQueue on 'active' and logs it", async () => {
-    const handler = await consentedHandler();
-    mockSupabase.processOfflineQueue.mockRejectedValue(new Error('queue boom'));
-
-    await expect(handler('active')).resolves.toBeUndefined();
-    expect(mockLogSecurity).toHaveBeenCalledWith(
-      '[CloudServices] Failed to process offline queue:',
       'medium',
       expect.objectContaining({ error: expect.any(Error) }),
     );
