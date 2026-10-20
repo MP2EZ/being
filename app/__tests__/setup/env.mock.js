@@ -11,6 +11,7 @@
  *   - SENTRY_DSN is empty (test runs must not phone home to Sentry).
  *   - POSTHOG_API_KEY is empty (no analytics from tests).
  *   - ALLOW_INSECURE_SSL stays unset (defaults to 'false' per schema).
+ *   - FEATURE_FLAGS enables nothing (see the entry below).
  *
  * INFRA-141.
  */
@@ -60,8 +61,11 @@ const ENV = {
   EXPO_PUBLIC_POSTHOG_API_KEY: '',
   EXPO_PUBLIC_POSTHOG_HOST: 'https://eu.i.posthog.com',
 
-  // Feature flags
-  EXPO_PUBLIC_FEATURE_FLAGS: 'production_mode:true,crisis_detection:true',
+  // Feature flags — deliberately NOT mirrored from .env.production (MAINT-810): every
+  // build-time flag resolves false under jest. The schema rejects an empty string, so
+  // this names one real flag set false; a suite that needs a flag on mocks
+  // '@/core/services/featureFlags'.
+  EXPO_PUBLIC_FEATURE_FLAGS: 'cloud_sync:false',
 
   // Clinical / therapeutic
   EXPO_PUBLIC_CLINICAL_ACCURACY_MODE: 'true',
