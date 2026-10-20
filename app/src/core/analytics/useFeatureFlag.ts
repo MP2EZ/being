@@ -26,11 +26,17 @@
  * therefore never accidentally become network-gated, and the set of
  * remotely-controllable flags stays auditable for compliance.
  *
- * Rollout model: "PostHog promotes; build-time is the floor" — the PostHog
- * value only overrides the build-time default when it resolves to a clean
- * boolean under consent. Full rollout to everyone (including analytics
- * decliners) is achieved by flipping the build-time env default to `true` in a
- * later build, NOT by PostHog alone.
+ * Rollout model: for a flag in `PRODUCT_FLAGS`, a clean PostHog boolean under
+ * analytics consent OVERRIDES the build-time value in BOTH directions — it can
+ * switch a flag off as well as on. The build-time value is the fallback (no
+ * consent, no client, no clean boolean), not a floor. Full rollout to everyone
+ * (including analytics decliners) is achieved by flipping the build-time env
+ * default to `true` in a later build, NOT by PostHog alone.
+ *
+ * A flag that gates whether a consent surface appears, or the surface that
+ * consent authorizes, must NEVER be in `PRODUCT_FLAGS`: the two would resolve
+ * through different tiers and could split (MAINT-809, DEBUG-625). `cloud_sync`
+ * and `data_export` are build-time only for that reason.
  *
  * Compliance boundary (INFRA-199 ruling): the flag governs UI visibility only.
  * It must NEVER substitute for a data-operation consent gate
@@ -51,10 +57,9 @@ import { useConsentStore } from '@/core/stores/consentStore';
  * making a flag remotely controllable.
  */
 export const PRODUCT_FLAGS: ReadonlySet<string> = new Set<string>([
-  'cloud_sync',
   // FEAT-195 — gates the "Your note" annotation surface on Wellness Trends.
   // UI-visibility only; the note's encryption/consent/delete paths are
-  // independent and always-on. Ships dark (build-time floor false).
+  // independent and always-on. Ships dark (build-time default false).
   'wellness_trend_notes',
 ]);
 

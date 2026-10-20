@@ -30,7 +30,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { useConsentStore } from '@/core/stores/consentStore';
-import { useAnalytics, useFeatureFlag } from '@/core/analytics';
+import { useAnalytics } from '@/core/analytics';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 // Direct path, not the consent barrel: the barrel would put its screens on this graph (FEAT-376).
@@ -165,9 +166,9 @@ const PrivacyDataScreen: React.FC = () => {
   const { trackScreenView, trackSettingsOpened, trackConsentChanged } = useAnalytics();
   const [isSaving, setIsSaving] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
-  // Runtime flag (INFRA-199): gates UI visibility of the cloud-backup entry.
-  // PostHog promotes post-consent; build-time default is the fail-safe floor.
-  const cloudSyncAvailable = useFeatureFlag('cloud_sync');
+  // Build-time only (MAINT-809): gates UI visibility of the cloud-backup entry, on
+  // the same resolver as the consent cards that authorize it. Never PostHog.
+  const cloudSyncAvailable = isFeatureEnabled('cloud_sync');
   // DEBUG-653: __DEV__-only crisis-FAB exclusion check (DEBUG-643), above the early return.
   const deleteCardExclusionCheck = useCrisisExclusionAssertion('profile-card-delete', 'scrolls');
 
