@@ -13,6 +13,11 @@
  * `PRODUCT_FLAGS`. Both halves are pinned: the allow-list could re-arm the split for any future
  * hook read, and a hook read is the split itself.
  *
+ * MAINT-811 retired the runtime tier outright, so `PRODUCT_FLAGS` no longer exists. The first
+ * half is now pinned as "the hook module is gone"; the four reader scans and HOOK_READ stay, so a
+ * reintroduced hook still cannot carry cloud_sync. The tier-wide pin is
+ * runtimeFlagTierRetired.contract.test.ts.
+ *
  * Source scans strip comments first (DEBUG-390): the ruling's own comments name
  * `useFeatureFlag('cloud_sync')` in prose. Each scan is paired with a positive assertion on the
  * same stripped text, so a scan that matches nothing because the file moved fails loudly.
@@ -20,7 +25,6 @@
 
 import * as fs from 'fs';
 import * as path from 'path';
-import { PRODUCT_FLAGS } from '@/core/analytics/useFeatureFlag';
 
 const APP_ROOT = path.resolve(__dirname, '../..');
 const SRC = path.join(APP_ROOT, 'src');
@@ -52,8 +56,8 @@ function sourceFiles(dir: string): string[] {
 }
 
 describe('MAINT-809 — cloud_sync is build-time only', () => {
-  it('is not in PRODUCT_FLAGS, so the runtime hook can never resolve it remotely', () => {
-    expect(PRODUCT_FLAGS.has('cloud_sync')).toBe(false);
+  it('has no runtime hook to resolve it remotely: the module no longer exists (MAINT-811)', () => {
+    expect(fs.existsSync(path.join(SRC, 'core/analytics/useFeatureFlag.ts'))).toBe(false);
   });
 
   it.each(READERS)('%s reads cloud_sync through isFeatureEnabled, not the runtime hook', (rel) => {
