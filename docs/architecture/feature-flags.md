@@ -116,7 +116,7 @@ Pinned SDK versions (`app/package-lock.json`): `posthog-react-native` 4.45.14, `
 | PostHog `data_export` definition | Inactive; orphan; must never become the gate for `data_export` | Pending op (archive) |
 | EAS preview and development strings | Stale, see section 2 | Pending op (resync or delete) |
 | `daily_loop` | Not a flag any more. Appears only in a comment at `featureFlags.ts:91` and as retired-flag history at `CleanHomeScreen.tsx:5`, `:264`. (`stoic_session_daily_loop` is a storage key, not a flag) | None; reword the comment when touching `featureFlags.ts` |
-| `app/__tests__/setup/env.mock.js:64` | Still sets `EXPO_PUBLIC_FEATURE_FLAGS: 'production_mode:true,crisis_detection:true'`, both keys removed by MAINT-213 | Follow-up item (clean) |
+| `app/__tests__/setup/env.mock.js` | Set `EXPO_PUBLIC_FEATURE_FLAGS: 'production_mode:true,crisis_detection:true'`, both keys removed by MAINT-213 | Done (MAINT-810): now `'cloud_sync:false'`, so every flag resolves false under jest |
 
 ## 6. Launch gates and how to flip
 
@@ -161,6 +161,6 @@ PostHog targeting rule: release conditions may use only the anonymous device id 
 |---|---|
 | Remove `emergency_sync` and `cross_device_sync` from `FeatureFlag` and `PRODUCT_FLAGS` | MAINT-808 |
 | Resolve `cloud_sync` split-tier reads (Protected Paths: `PrivacyDataScreen.tsx`, `OnboardingScreen.tsx`, `ReConsentScreen.tsx`) and the stale "PostHog promotes" wording at `CloudBackupScreen.tsx:8-9` | MAINT-809 |
-| Clean stale keys from `app/__tests__/setup/env.mock.js:64` | MAINT-810 |
+| Clean stale keys from `app/__tests__/setup/env.mock.js` | MAINT-810 (done) |
 | Decide keep, fix or retire the PostHog runtime tier. A fix would be a post-consent `reloadFeatureFlags` under the same four conditions as `useFeatureFlag.ts:101-102`, in `PostHogProvider` (a crisis + compliance Protected Path), plus a privacy-policy section 5.2 check | MAINT-811 |
 | Investigate whether `client.reset()` on account deletion triggers a `/flags` request while the user is opted out (compliance) | DEBUG-812 |

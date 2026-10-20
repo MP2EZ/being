@@ -38,7 +38,7 @@ jest.mock('@sentry/react-native', () => ({
 }));
 
 // `bug_reporting` is a BUILD-TIME flag read from EXPO_PUBLIC_FEATURE_FLAGS, which
-// is unset under jest — so without this every `showFeedbackForm()` case would
+// enables no flag under jest — so without this every `showFeedbackForm()` case would
 // pass through the flag guard and prove nothing. Mocked rather than stubbed into
 // the env so the guard itself can be exercised in both directions below.
 const mockIsFeatureEnabled = jest.fn(() => true);
