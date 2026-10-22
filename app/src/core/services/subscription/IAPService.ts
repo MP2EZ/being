@@ -8,6 +8,7 @@
  * - Purchase flow management
  * - Receipt verification
  * - Restore purchases
+ * - Store free-trial offer reading (FEAT-822) — eligibility is the store's, never ours
  *
  * SECURITY:
  * - Server-side receipt verification (via Supabase Edge Function)
@@ -45,7 +46,8 @@ import type {
 import {
   SubscriptionProductIds,
   SubscriptionInterval,
-  DEFAULT_SUBSCRIPTION_CONFIG
+  DEFAULT_SUBSCRIPTION_CONFIG,
+  APPLE_SUBSCRIPTION_GROUP_ID,
 } from '@/core/types/subscription';
 import { Platform } from 'react-native';
 import { supabaseService } from '../supabase/SupabaseService';
@@ -53,6 +55,18 @@ import { logSystem, logPerformance } from '@/core/services/logging';
 import type { AppleTransactionIdentity } from './appleTransactionIdentity';
 import type { ReceiptVerificationUnavailableReason } from './receiptVerificationUnavailable';
 import { intervalFromProductId } from './subscriptionProductInterval';
+import {
+  androidRecurringPrice,
+  androidTrialPhase,
+  findIOSIntroFreeTrial,
+  formatTrialDuration,
+  selectAndroidOffers,
+  TRIAL_INELIGIBLE,
+  TRIAL_UNKNOWN,
+  type TrialOffer,
+} from './trialOffer';
+
+export type { TrialOffer } from './trialOffer';
 
 // Re-exported so existing importers of this module keep working. New consumers should
 // import from './appleTransactionIdentity' directly — see that module's header for why.
@@ -225,6 +239,66 @@ class IAPServiceClass {
   }
 
   /**
+   * Re-read the store's products into the cache. The init-time list goes stale after a
+   * purchase or a lapse, and Play returns only the offers this account is eligible for, so
+   * every trial read and every purchase reads fresh. On failure the cache is kept and false
+   * is returned.
+   */
+  private async refreshProducts(): Promise<boolean> {
+    try {
+      const result = await RNIap.fetchProducts({ skus: getPlatformProductIds(), type: 'subs' });
+      this.products = (result as ProductSubscription[] | null) ?? [];
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  /**
+   * Whether the store offers THIS store account a free trial on `interval`, read fresh on
+   * every call (FEAT-822). Call it on each paywall mount; never cache or persist the result —
+   * the store is the only trial authority (founder 2026-10-19). Anything this cannot decide
+   * is 'unknown', which a caller must treat as "show no trial copy".
+   */
+  async getTrialOffer(interval: SubscriptionInterval): Promise<TrialOffer> {
+    if (!this.isInitialized || this.mockMode) return TRIAL_UNKNOWN;
+    try {
+      const productId = getProductId(interval);
+      if (!(await this.refreshProducts())) return TRIAL_UNKNOWN;
+      const product = this.products.find(p => p.id === productId);
+      if (!product) return TRIAL_UNKNOWN;
+
+      if (Platform.OS === 'ios') {
+        // Unset (null, undefined or '') is unknown: a wrong or empty group fails open.
+        if (!APPLE_SUBSCRIPTION_GROUP_ID) return TRIAL_UNKNOWN;
+        const offer = findIOSIntroFreeTrial(product);
+        if (!offer) return TRIAL_INELIGIBLE;
+        if (!(await RNIap.isEligibleForIntroOfferIOS(APPLE_SUBSCRIPTION_GROUP_ID))) return TRIAL_INELIGIBLE;
+        const durationLabel = offer.period
+          ? formatTrialDuration({ unit: offer.period.unit, value: offer.period.value, count: offer.periodCount })
+          : null;
+        const renewalPriceLabel = product.displayPrice || null;
+        if (!durationLabel || !renewalPriceLabel) return TRIAL_UNKNOWN;
+        return { state: 'eligible', durationLabel, renewalPriceLabel };
+      }
+
+      const offers = selectAndroidOffers(product);
+      if (!offers) return TRIAL_UNKNOWN;
+      if (!offers.trialOffer) return TRIAL_INELIGIBLE;
+      const phase = androidTrialPhase(offers.trialOffer);
+      const durationLabel = phase
+        ? formatTrialDuration({ iso: phase.billingPeriod, count: phase.billingCycleCount })
+        : null;
+      const renewalPriceLabel = androidRecurringPrice(offers.trialOffer);
+      if (!durationLabel || !renewalPriceLabel) return TRIAL_UNKNOWN;
+      return { state: 'eligible', durationLabel, renewalPriceLabel, offerToken: offers.trialOffer.offerToken };
+    } catch {
+      // A store throw (isEligibleForIntroOfferIOS rethrows as a PurchaseError) is unknown.
+      return TRIAL_UNKNOWN;
+    }
+  }
+
+  /**
    * Purchase subscription
    * Initiates platform IAP flow (or mock flow in development)
    */
@@ -279,16 +353,21 @@ class IAPServiceClass {
           type: 'subs',
         });
       } else if (Platform.OS === 'android') {
-        // Play Billing v6+ requires a subscriptionOffer per requestPurchase
-        // call. The offerToken is plucked from the cached product's first
-        // offer; richer offer selection (trial vs intro vs base) is out of
-        // scope for this migration.
+        // Play Billing v6+ requires a subscriptionOffer per requestPurchase call. Offers
+        // are re-read (a failed read keeps the cache) and picked by structure, never by
+        // array position (FEAT-822). StoreKit applies an introductory offer itself, so
+        // only Android chooses.
+        await this.refreshProducts();
         const sub = this.products.find(p => p.id === productId);
-        const androidSub = sub as ProductSubscriptionAndroid | undefined;
-        const offerToken = androidSub?.subscriptionOfferDetailsAndroid?.[0]?.offerToken;
-        if (!offerToken) {
-          throw new Error(`No subscription offer token available for ${productId}`);
+        const offers = sub ? selectAndroidOffers(sub as ProductSubscriptionAndroid) : null;
+        if (!offers) {
+          throw new Error(`No base plan offer for ${productId}`);
         }
+        // Founder 2026-10-22: the free-trial offer whenever Play returns one on this base
+        // plan — Play returns only offers this account is eligible for — even when its
+        // display labels could not be built. Keying on getTrialOffer's 'eligible' would
+        // charge on day 0 a user Play would have given the trial.
+        const offerToken = (offers.trialOffer ?? offers.basePlanOffer).offerToken;
         await RNIap.requestPurchase({
           request: {
             android: {
