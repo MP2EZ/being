@@ -52,7 +52,7 @@
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState } from 'react-native';
+import { AppState, type NativeEventSubscription } from 'react-native';
 
 // Services
 import EncryptionService, { EncryptedDataPackage } from '../security/EncryptionService';
@@ -153,6 +153,8 @@ const STORAGE_KEYS = {
 class CloudBackupService {
   private isInitialized = false;
   private autoBackupTimer: NodeJS.Timeout | null = null;
+  private appStateSubscription: NativeEventSubscription | null = null;
+  private foregroundBackupTimeout: NodeJS.Timeout | null = null;
   private config: BackupConfig;
   private lastBackupHash: string | null = null;
 
@@ -743,14 +745,26 @@ class CloudBackupService {
    * Setup app state listener for foreground backup
    */
   private setupAppStateListener(): void {
-    AppState.addEventListener('change', (nextAppState) => {
+    this.appStateSubscription?.remove();
+    this.appStateSubscription = AppState.addEventListener('change', (nextAppState) => {
       if (nextAppState === 'active') {
-        // App came to foreground, check if backup is needed
-        setTimeout(() => {
+        // App came to foreground, check if backup is needed. Clear-before-set: a second
+        // foreground inside the delay replaces the pending backup rather than adding one,
+        // since there is no in-flight guard on createBackup (MAINT-817).
+        this.cancelForegroundBackup();
+        this.foregroundBackupTimeout = setTimeout(() => {
+          this.foregroundBackupTimeout = null;
           this.createBackup();
         }, 2000); // Small delay to let app stabilize
       }
     });
+  }
+
+  private cancelForegroundBackup(): void {
+    if (this.foregroundBackupTimeout) {
+      clearTimeout(this.foregroundBackupTimeout);
+      this.foregroundBackupTimeout = null;
+    }
   }
 
   /**
@@ -789,12 +803,18 @@ class CloudBackupService {
       clearInterval(this.autoBackupTimer);
       this.autoBackupTimer = null;
     }
+    this.cancelForegroundBackup();
 
     // Perform final backup if needed
     if (this.isInitialized) {
       await this.createBackup();
     }
 
+    // A foreground can arrive during the final backup. The subscription goes with the flag,
+    // so a rejected final backup leaves both in place (MAINT-817).
+    this.cancelForegroundBackup();
+    this.appStateSubscription?.remove();
+    this.appStateSubscription = null;
     this.isInitialized = false;
   }
 }
