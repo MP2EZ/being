@@ -49,20 +49,42 @@ jest.mock('@react-navigation/native', () => ({
   useFocusEffect: jest.fn(),
 }));
 
-const mockUpdateConsent = jest.fn().mockResolvedValue(undefined);
+const mockUpdateConsent = jest.fn();
 const mockSetUniversalOptOut = jest.fn().mockResolvedValue(undefined);
 const mockLoadConsent = jest.fn().mockResolvedValue(undefined);
 
 /** Mutable so each case can pose a different stored consent state. */
 let mockConsent: Record<string, unknown> = {};
 
-jest.mock('@/core/stores/consentStore', () => ({
-  useConsentStore: () => ({
+/**
+ * A successful write commits to the stored record, as the real store does. DEBUG-816: the
+ * screen confirms a write through getState() after the await, because the real
+ * updateConsent swallows its own failures, so a mock that resolves without committing is
+ * the swallowed-failure case.
+ */
+const commitUpdate = async (updates: Record<string, unknown>) => {
+  mockConsent = {
+    ...mockConsent,
+    preferences: { ...(mockConsent.preferences as Record<string, unknown>), ...updates },
+  };
+};
+
+jest.mock('@/core/stores/consentStore', () => {
+  const useConsentStore = () => ({
     loadConsent: mockLoadConsent,
     currentConsent: mockConsent,
     updateConsent: mockUpdateConsent,
     setUniversalOptOut: mockSetUniversalOptOut,
-  }),
+  });
+  useConsentStore.getState = () => ({ currentConsent: mockConsent });
+  return { useConsentStore };
+});
+
+// Pinned rather than left to env.mock.js, so the cloud_sync cases below are deterministic.
+// Default dark, matching what every earlier case in this file has always rendered.
+let mockCloudSync = false;
+jest.mock('@/core/services/featureFlags', () => ({
+  isFeatureEnabled: (name: string) => name === 'cloud_sync' && mockCloudSync,
 }));
 
 jest.mock('@/core/analytics', () => ({
@@ -81,7 +103,7 @@ jest.mock('@/core/analytics', () => ({
  * and silently never receive the screen's calls. `jest.config.js` sets no
  * `clearMocks`, so the beforeEach below is what stops it bleeding across cases.
  */
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Alert } from 'react-native';
 
 import PrivacyDataScreen from '../PrivacyDataScreen';
 
@@ -111,7 +133,8 @@ const renderScreen = async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUpdateConsent.mockResolvedValue(undefined);
+  mockUpdateConsent.mockImplementation(commitUpdate);
+  mockCloudSync = false;
   mockLoadConsent.mockResolvedValue(undefined);
   mockConsent = consentWith();
 });
@@ -240,6 +263,22 @@ describe('FEAT-470 — withdrawal is announced, but only once it has actually pe
     expect(mockAnnounce).not.toHaveBeenCalled();
   });
 
+  // DEBUG-816: the real updateConsent never rejects. It catches its own write failure and
+  // resolves with the record unchanged, so the case above could not happen in production
+  // and a failed withdrawal was announced as honoured.
+  it('does NOT announce, and shows Save Failed, when the write resolves without committing', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockUpdateConsent.mockImplementationOnce(async () => undefined);
+    const { getByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(TOGGLE), 'valueChange', false);
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Save Failed', expect.any(String), expect.any(Array)));
+    expect(mockAnnounce).not.toHaveBeenCalled();
+    expect(getByTestId(TOGGLE).props.value).toBe(true);
+    alertSpy.mockRestore();
+  });
+
   it('withdraws via updateConsent and never through revokeConsent', async () => {
     // revokeConsent flips the WHOLE record to the fail-closed `revoked` status,
     // killing analytics/crash/cloud/research consent too, and strands onboarded
@@ -255,6 +294,62 @@ describe('FEAT-470 — withdrawal is announced, but only once it has actually pe
     expect(Object.keys(mockUpdateConsent.mock.calls[0][0])).toEqual([
       'mentalHealthProcessingConsent',
     ]);
+  });
+});
+
+describe('DEBUG-816 — Settings Backup withdrawal is announced, and only once it has committed', () => {
+  const BACKUP = 'privacy-settings-backup-toggle';
+  const DARK_HOLDER_WITHDRAWN =
+    "Settings Backup disabled. This option is no longer shown because it isn't available in this version of Being.";
+
+  const holder = () => consentWith({ preferences: { cloudSyncEnabled: true } });
+
+  it("flag dark: a holder's withdrawal announces that the option is gone, once, and the card goes", async () => {
+    mockConsent = holder();
+    const { getByTestId, queryByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(BACKUP), 'valueChange', false);
+
+    await waitFor(() => expect(mockAnnounce).toHaveBeenCalledWith(DARK_HOLDER_WITHDRAWN));
+    expect(mockAnnounce).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(queryByTestId(BACKUP)).toBeNull());
+  });
+
+  it('flag on: withdrawal announces the plain state and the card stays', async () => {
+    mockCloudSync = true;
+    mockConsent = holder();
+    const { getByTestId, queryByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(BACKUP), 'valueChange', false);
+
+    await waitFor(() => expect(mockAnnounce).toHaveBeenCalledWith('Settings Backup disabled'));
+    expect(queryByTestId(BACKUP)).not.toBeNull();
+  });
+
+  it('flag on: granting announces "Settings Backup enabled"', async () => {
+    mockCloudSync = true;
+    const { getByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(BACKUP), 'valueChange', true);
+
+    await waitFor(() => expect(mockAnnounce).toHaveBeenCalledWith('Settings Backup enabled'));
+  });
+
+  it.each([
+    ['resolves without committing (the real store swallows the error)', () => mockUpdateConsent.mockImplementationOnce(async () => undefined)],
+    ['rejects', () => mockUpdateConsent.mockRejectedValueOnce(new Error('secure store unavailable'))],
+  ])('a write that %s: no announcement, Save Failed, and the switch stays on', async (_name, failWrite) => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockConsent = holder();
+    failWrite();
+    const { getByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(BACKUP), 'valueChange', false);
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Save Failed', expect.any(String), expect.any(Array)));
+    expect(mockAnnounce).not.toHaveBeenCalled();
+    expect(getByTestId(BACKUP).props.value).toBe(true);
+    alertSpy.mockRestore();
   });
 });
 
