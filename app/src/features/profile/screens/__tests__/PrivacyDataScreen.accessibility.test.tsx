@@ -10,13 +10,10 @@
  *
  * WHAT IT PINS, and why each is load-bearing rather than boilerplate:
  *
- *   1. The full declared a11y contract on the new Switch. The four pre-existing
- *      preference toggles on this screen carry NO accessibilityRole, label, hint or
- *      state — VoiceOver announces role and value only, and the visible description
- *      beside them is an unassociated node a form-controls-rotor user never reaches.
- *      Those four are a known defect, not the house pattern; the pattern is
- *      AppSettingsScreen.tsx:197-209. This suite stops the new control from being
- *      "made consistent" with the defective siblings.
+ *   1. The full declared a11y contract on the new Switch. When FEAT-470 landed, the
+ *      four preference toggles on this screen carried NO accessibilityRole, label,
+ *      hint or state; DEBUG-818 gave them role, label and state (pinned in its own
+ *      describe below). The pattern is AppSettingsScreen.tsx:197-209.
  *
  *   2. 🔴 INDEPENDENCE FROM `universalOptOut`. The other four are swept by the
  *      GPC-equivalent signal (`value={x && !universalOptOut}`,
@@ -349,6 +346,94 @@ describe('DEBUG-816 — Settings Backup withdrawal is announced, and only once i
     await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Save Failed', expect.any(String), expect.any(Array)));
     expect(mockAnnounce).not.toHaveBeenCalled();
     expect(getByTestId(BACKUP).props.value).toBe(true);
+    alertSpy.mockRestore();
+  });
+});
+
+describe('DEBUG-818 — the four consent rows: switch contract, Learn more, announcements', () => {
+  const ROWS = [
+    { label: 'Usage Analytics', key: 'analyticsEnabled', testID: 'privacy-analytics-toggle' },
+    { label: 'Crash Reports', key: 'crashReportsEnabled', testID: 'privacy-crash-reports-toggle' },
+    { label: 'Research Participation', key: 'researchEnabled', testID: 'privacy-research-toggle' },
+  ];
+
+  /** Host testIDs in render-tree (and so screen-reader) order. */
+  const testIDOrder = (node: unknown, out: string[] = []): string[] => {
+    if (Array.isArray(node)) node.forEach((n) => testIDOrder(n, out));
+    else if (node && typeof node === 'object') {
+      const n = node as { props?: { testID?: string }; children?: unknown };
+      if (n.props?.testID) out.push(n.props.testID);
+      testIDOrder(n.children, out);
+    }
+    return out;
+  };
+
+  it.each(ROWS)('$label: the Switch declares role, label and state', async (r) => {
+    const { getByTestId } = await renderScreen();
+    const sw = getByTestId(r.testID);
+    expect(sw.props.accessibilityRole).toBe('switch');
+    expect(sw.props.accessibilityLabel).toBe(r.label);
+    expect(sw.props.accessibilityState).toEqual(expect.objectContaining({ checked: false, disabled: false }));
+  });
+
+  it.each(ROWS)('$label: Learn more is a button reachable BEFORE the switch, and expands', async (r) => {
+    const api = await renderScreen();
+    const toggleID = `${r.testID}-details-toggle`;
+    const learnMore = api.getByTestId(toggleID);
+
+    expect(learnMore.props.accessibilityRole).toBe('button');
+    // WCAG 2.5.3: the accessible name contains the visible words.
+    expect(learnMore.props.accessibilityLabel).toMatch(/^Learn more/);
+    expect(learnMore.props.accessibilityLabel).toContain(r.label);
+    expect(learnMore.props.accessibilityState).toEqual(expect.objectContaining({ expanded: false }));
+
+    // In Settings the switch saves immediately, so the disclosure must come first.
+    const order = testIDOrder(api.toJSON());
+    expect(order.indexOf(toggleID)).toBeGreaterThan(-1);
+    expect(order.indexOf(toggleID)).toBeLessThan(order.indexOf(r.testID));
+
+    fireEvent.press(learnMore);
+    const expanded = api.getByTestId(toggleID);
+    expect(expanded.props.accessibilityState).toEqual(expect.objectContaining({ expanded: true }));
+    expect(expanded.props.accessibilityLabel).toMatch(/^Hide details/);
+  });
+
+  it('Learn more stays operable under Universal Opt-Out, so a holder can read what the grant covers', async () => {
+    mockConsent = consentWith({ universalOptOut: true });
+    const { getByTestId } = await renderScreen();
+    const learnMore = getByTestId('privacy-analytics-toggle-details-toggle');
+    expect(learnMore.props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
+    expect(getByTestId('privacy-analytics-toggle').props.disabled).toBe(true);
+  });
+
+  it.each(ROWS)('$label: announces "<label> enabled" only after the write resolves', async (r) => {
+    let release!: () => void;
+    mockUpdateConsent.mockImplementationOnce(async (updates: Record<string, unknown>) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await commitUpdate(updates);
+    });
+    const { getByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(r.testID), 'valueChange', true);
+    await waitFor(() => expect(mockUpdateConsent).toHaveBeenCalledWith({ [r.key]: true }));
+    expect(mockAnnounce).not.toHaveBeenCalled();
+
+    release();
+    await waitFor(() => expect(mockAnnounce).toHaveBeenCalledWith(`${r.label} enabled`));
+  });
+
+  it.each(ROWS)('$label: a write that does not commit announces nothing and shows Save Failed', async (r) => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockUpdateConsent.mockImplementationOnce(async () => undefined);
+    const { getByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(r.testID), 'valueChange', true);
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Save Failed', expect.any(String), expect.any(Array)));
+    expect(mockAnnounce).not.toHaveBeenCalled();
+    expect(getByTestId(r.testID).props.value).toBe(false);
     alertSpy.mockRestore();
   });
 });

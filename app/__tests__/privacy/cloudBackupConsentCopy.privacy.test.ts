@@ -19,9 +19,10 @@
  *   (d) the docs describing the same backup do not contradict it;
  *   (e) every matcher still fires on the pre-fix text (DEBUG-390 discipline).
  *
- * Deliberately NOT asserted: backup ops telemetry sent under the same consent
- * (`backup_completed` etc.). Whether the card must list it is a compliance
- * ruling tracked in DEBUG-625.
+ * The backup operational telemetry sent under the same consent (`backup_completed`
+ * etc.) is now part of the card: DEBUG-625 ruled it must be listed, as
+ * OPERATIONAL_TELEMETRY_DISCLOSURE, and DEBUG-818 renders it on the Privacy & Data
+ * row too (PrivacyDataScreen.consentDisclosure.privacy.test.tsx).
  */
 import * as fs from 'fs';
 import * as path from 'path';

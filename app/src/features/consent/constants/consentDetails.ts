@@ -131,3 +131,14 @@ export const CONSENT_DETAILS = {
 } satisfies Record<string, ConsentCategoryCopy>;
 
 export type ConsentCategoryKey = keyof typeof CONSENT_DETAILS;
+
+/**
+ * DEBUG-818 (compliance ruling): the Cloud Backup row's description for someone who holds
+ * the grant in a build where cloud_sync is dark (DEBUG-816 keeps the row visible so they
+ * can withdraw). It replaces only the description; the details still describe what the
+ * held permission covers. It must not read as an offer, claim nothing is sent (true today
+ * only because nothing calls the backup code), claim a history, or promise deletion.
+ * Outside CONSENT_DETAILS so the onboarding and re-consent cards are unaffected.
+ */
+export const CLOUD_BACKUP_UNAVAILABLE_HOLDER_DESCRIPTION =
+  'Not available in this version of Being. Turn this off to withdraw your permission.';
