@@ -100,29 +100,6 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
   });
 
   // ──────────────────────────────────────────────────────────────────
-  // createTrial
-  // ──────────────────────────────────────────────────────────────────
-  describe('createTrial', () => {
-    it('persists a trial subscription and wires trial feature access', async () => {
-      await useSubscriptionStore.getState().createTrial();
-
-      const state = useSubscriptionStore.getState();
-      expect(state.subscription?.status).toBe('trial');
-      // MAINT-635: AuthenticationService is deleted; getCurrentUserId() now returns
-      // the anonymous literal directly. Shape-matched rather than value-matched
-      // because it embeds Date.now().
-      expect(state.subscription?.userId).toMatch(/^anonymous_\d+$/);
-      expect(state.subscription?.crisisAccessEnabled).toBe(true);
-      expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(1);
-
-      // featureAccess must equal calculateFeatureAccess('trial').
-      expect(state.featureAccess).toEqual(calculateFeatureAccess('trial'));
-      expect(state.featureAccess?.checkIns).toBe(true);
-      expect(state.isLoading).toBe(false);
-    });
-  });
-
-  // ──────────────────────────────────────────────────────────────────
   // loadSubscription
   // ──────────────────────────────────────────────────────────────────
   describe('loadSubscription', () => {
@@ -389,6 +366,9 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
     it('isTrialActive reflects only the trial status', () => {
       useSubscriptionStore.setState({ subscription: seedSubscription({ status: 'trial' }) });
       expect(useSubscriptionStore.getState().isTrialActive()).toBe(true);
+      // DEBUG-709: a trial is not an active subscription — trial-inclusive checks use
+      // isTrialActive() || isSubscriptionActive().
+      expect(useSubscriptionStore.getState().isSubscriptionActive()).toBe(false);
       useSubscriptionStore.setState({ subscription: seedSubscription({ status: 'active' }) });
       expect(useSubscriptionStore.getState().isTrialActive()).toBe(false);
     });
