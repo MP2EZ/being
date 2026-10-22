@@ -222,8 +222,11 @@ async function updateSubscription(
   const receipt_data_encrypted = await encryptReceipt(purchaseToken, Deno.env.get('RECEIPT_ENCRYPTION_KEY'));
   const receipt_hash = await receiptHash(purchaseToken);
 
-  // Upsert subscription
-  const { error: upsertError } = await supabase
+  // Upsert subscription. RETURNING id (DEBUG-836): the audit row below needs the row's uuid -
+  // log_subscription_event's p_subscription_id is uuid-typed and owner-checked, so the store
+  // identifier this used to pass was rejected and the success row was never written.
+  // maybeSingle, not single: a write that landed must not read as a failed upsert.
+  const { data: upserted, error: upsertError } = await supabase
     .from('subscriptions')
     .upsert({
       user_id: userId,
@@ -241,7 +244,9 @@ async function updateSubscription(
       updated_at: now,
     }, {
       onConflict: 'user_id'
-    });
+    })
+    .select('id')
+    .maybeSingle();
 
   if (upsertError) {
     // uniq_txn_per_platform is the TOCTOU backstop behind the ownership check.
@@ -252,10 +257,11 @@ async function updateSubscription(
     throw new Error('Failed to update subscription');
   }
 
-  // Log verification event
+  // Log verification event. The row uuid or null - never a store identifier (DEBUG-836); a
+  // missing read-back writes the event unlinked rather than failing a verified purchase.
   await logSubscriptionEvent(supabase, {
     userId: userId,
-    subscriptionId: verification.subscriptionId,
+    subscriptionId: upserted?.id ?? null,
     eventType: 'receipt_verification_succeeded',
     metadata: {
       platform: 'google',
