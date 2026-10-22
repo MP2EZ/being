@@ -19,6 +19,7 @@ import { IAPService } from '../IAPService';
 import * as RNIap from 'react-native-iap';
 import * as SecureStore from 'expo-secure-store';
 import { calculateFeatureAccess } from '../../../types/subscription';
+import { seedStoreBackedTrial } from '@tests/helpers/subscriptionFixtures';
 
 // Mock react-native-iap with an explicit factory. An auto-mock would
 // introspect the real module's shape and trigger react-native-nitro-modules'
@@ -146,9 +147,10 @@ describe('Subscription Integration - Full Lifecycle', () => {
     expect(products).toHaveLength(2);
     console.log('✅ STEP 1: IAP service initialized, products loaded');
 
-    // Step 2: Create trial subscription
+    // Step 2: A store-backed trial (DEBUG-709: trials come only from a verified store intro
+    // offer; the local trial path is gone)
     const store = useSubscriptionStore.getState();
-    await store.createTrial();
+    seedStoreBackedTrial();
     await new Promise(resolve => setTimeout(resolve, 10)); // Zustand sync
 
     const storeAfterTrial = useSubscriptionStore.getState();
@@ -254,8 +256,8 @@ describe('Subscription Integration - Full Lifecycle', () => {
     expect(store.getCrisisAccessStatus()).toBe(true);
     console.log('✅ Crisis access: NO SUBSCRIPTION → true');
 
-    // Trial
-    await store.createTrial();
+    // Trial (store-backed, DEBUG-709)
+    seedStoreBackedTrial();
     await new Promise(resolve => setTimeout(resolve, 10));
     expect(useSubscriptionStore.getState().getCrisisAccessStatus()).toBe(true);
     console.log('✅ Crisis access: TRIAL → true');
@@ -313,8 +315,8 @@ describe('Subscription Integration - Full Lifecycle', () => {
     expect(store.checkFeatureAccess('checkIns')).toBe(false);
     console.log('✅ No subscription: Crisis=true, Non-crisis=false');
 
-    // Trial - all features accessible
-    await store.createTrial();
+    // Trial - all features accessible (store-backed, DEBUG-709)
+    seedStoreBackedTrial();
     const trialFeatureAccess = calculateFeatureAccess('trial');
     useSubscriptionStore.setState({ featureAccess: trialFeatureAccess });
     await new Promise(resolve => setTimeout(resolve, 10));
@@ -365,15 +367,8 @@ describe('Subscription Integration - Full Lifecycle', () => {
   it('PERFORMANCE: State synchronization completes quickly', async () => {
     const store = useSubscriptionStore.getState();
 
-    // Measure trial creation
-    const trialStart = performance.now();
-    await store.createTrial();
-    await new Promise(resolve => setTimeout(resolve, 10));
-    const trialEnd = performance.now();
-    const trialTime = trialEnd - trialStart;
-
-    expect(trialTime).toBeLessThan(100);
-    console.log(`✅ Trial creation: ${trialTime.toFixed(2)}ms (target: <100ms)`);
+    // DEBUG-709: the trial-creation timing was removed with the local trial path;
+    // a store-backed trial is created by the purchase flow, which has its own budget.
 
     // Measure feature access calculation
     // calculateFeatureAccess imported at top of file (dynamic import required --experimental-vm-modules).

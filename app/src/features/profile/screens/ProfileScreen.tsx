@@ -11,6 +11,7 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useFocusEffect, CompositeNavigationProp } from '@react-navigation/native';
@@ -21,6 +22,8 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
 import type { ProfileStackParamList } from '../ProfileStackNavigator';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
+import { SUBSCRIPTION_STATUS_LABELS } from '@/core/types/subscription';
+import { openSubscriptionManagement } from '@/core/components/subscription/subscriptionManagement';
 import { isDevMode } from '@/core/constants/devMode';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { showFeedbackForm } from '@/core/services/logging';
@@ -84,19 +87,39 @@ const ProfileScreen: React.FC = () => {
     navigation.navigate('LegalGate');
   };
 
-  const handleSubscriptionPress = () => {
-    navigation.navigate('Subscription');
+  // DEBUG-709: the plan card shows only what the App Store / Google Play will honour. A trial,
+  // active or grace plan is managed in the store; everyone else sees neutral copy and the plans.
+  // Copy approved by compliance (AC6). Trial-inclusive: isTrialActive() || isSubscriptionActive().
+  const hasStorePlan = subscriptionStore.isTrialActive() || subscriptionStore.isSubscriptionActive();
+
+  const getPlanTitle = (): string => {
+    const status = subscriptionStore.subscription?.status;
+    if (subscriptionStore.isTrialActive()) {
+      const days = subscriptionStore.getTrialDaysRemaining();
+      if (days === null) return 'Free Trial';
+      if (days === 0) return 'Free Trial - ends today';
+      return `Free Trial - ${days} day${days === 1 ? '' : 's'} remaining`;
+    }
+    return status ? SUBSCRIPTION_STATUS_LABELS[status] : 'Choose a plan';
   };
 
-  const getSubscriptionStatus = () => {
-    if (subscriptionStore.isTrialActive()) {
-      const daysRemaining = subscriptionStore.getTrialDaysRemaining();
-      return `Free Trial - ${daysRemaining} days remaining`;
+  // Crisis ruling: the store page opens straight from here (never via the SubscriptionStatus
+  // modal route). If it cannot open, this screen alone shows one dismissable OK Alert; the
+  // shared helper presents nothing, and there is no spinner or disabled state around the press.
+  const handleSubscriptionPress = async () => {
+    if (!hasStorePlan) {
+      navigation.navigate('Subscription');
+      return;
     }
-    if (subscriptionStore.isSubscriptionActive()) {
-      return 'Active Subscription';
+    const opened = await openSubscriptionManagement();
+    if (!opened) {
+      Alert.alert(
+        'Manage your subscription in your App Store / Google Play account settings',
+        undefined,
+        [{ text: 'OK' }],
+        { cancelable: true },
+      );
     }
-    return 'Start Your Free Trial';
   };
 
   // Load assessment metadata when assessments change
@@ -300,15 +323,17 @@ const ProfileScreen: React.FC = () => {
             style={styles.profileCard}
             onPress={handleSubscriptionPress}
             accessibilityRole="button"
-            accessibilityLabel={getSubscriptionStatus()}
-            accessibilityHint={subscriptionStore.isSubscriptionActive() ? 'Manage your subscription' : 'Start your 28-day free trial'}
+            accessibilityLabel={getPlanTitle()}
+            accessibilityHint={hasStorePlan ? 'Manage your subscription' : 'Opens subscription plans'}
           >
-            <Text style={styles.cardTitle}>{getSubscriptionStatus()}</Text>
+            <Text style={styles.cardTitle}>{getPlanTitle()}</Text>
             <Text style={styles.cardDescription}>
-              Unlock all therapeutic exercises, progress insights, and personalized guidance with a subscription. Try free for 28 days.
+              {hasStorePlan
+                ? 'Manage or cancel your plan in your App Store or Google Play account settings.'
+                : 'See subscription options and pricing. Crisis support is always available, with or without a subscription.'}
             </Text>
             <Text style={styles.cardAction} importantForAccessibility="no">
-              {subscriptionStore.isSubscriptionActive() ? 'Manage Subscription →' : 'Start Free Trial →'}
+              {hasStorePlan ? 'Manage Subscription →' : 'See plans →'}
             </Text>
           </Pressable>
         </View>

@@ -27,12 +27,25 @@ import {
   type WellnessWriteDecision,
 } from '@/core/stores/consentStore';
 
-/** `revoked_relaunched` is what `loadConsent` leaves after a relaunch: no record, no history. */
-export type SeededWellnessWriteConsent = 'granted' | WellnessWriteBlockReason | 'revoked_relaunched';
+/**
+ * `revoked_relaunched` is what `loadConsent` leaves after a relaunch: no record, no history.
+ * FEAT-673: `withdrawn` is a granted record whose Art. 9 was later switched off by an
+ * appended update (valid status, writes refused); `regranted` is that withdrawal followed by
+ * an appended Art. 9 true update at `regrantedAt` (valid, writes allowed, the closed block's
+ * start still reported).
+ */
+export type SeededWellnessWriteConsent =
+  | 'granted'
+  | WellnessWriteBlockReason
+  | 'revoked_relaunched'
+  | 'withdrawn'
+  | 'regranted';
 
 export interface SeedWellnessWriteConsentOptions {
   /** When the block began, for the seeds whose block has a recorded start. */
   blockStartedAt?: number;
+  /** `regranted` only: when Art. 9 was granted again (default: one minute after the block). */
+  regrantedAt?: number;
 }
 
 const EXPECTED: Record<SeededWellnessWriteConsent | 'legal_gate_refused', WellnessWriteDecision> = {
@@ -44,6 +57,8 @@ const EXPECTED: Record<SeededWellnessWriteConsent | 'legal_gate_refused', Wellne
   missing: { allowed: false, reason: 'missing' },
   loading: { allowed: false, reason: 'loading' },
   legal_gate_refused: { allowed: false, reason: 'refused' },
+  withdrawn: { allowed: false, reason: 'refused' },
+  regranted: { allowed: true },
 };
 
 const GRANT_LEAD_MS = 60_000;
@@ -71,6 +86,12 @@ function seededRecord(art9: boolean, at: number, overrides: Partial<ConsentRecor
 
 const grantEntry = (art9: boolean, at: number): ConsentHistoryEntry => ({
   action: 'granted',
+  changes: { mentalHealthProcessingConsent: art9 },
+  timestamp: at,
+});
+
+const updateEntry = (art9: boolean, at: number): ConsentHistoryEntry => ({
+  action: 'updated',
   changes: { mentalHealthProcessingConsent: art9 },
   timestamp: at,
 });
@@ -147,6 +168,28 @@ export function seedWellnessWriteConsent(
     case 'revoked_relaunched':
       useConsentStore.setState({ consentStatus: 'revoked', currentConsent: null, consentHistory: [] });
       break;
+    case 'withdrawn':
+      useConsentStore.setState({
+        consentStatus: 'valid',
+        currentConsent: seededRecord(false, grantedAt, { updatedAt: blockStartedAt }),
+        consentHistory: [grantEntry(true, grantedAt), updateEntry(false, blockStartedAt)],
+        consentCache: { ...consentCache, canProcessMentalHealthData: false },
+      });
+      break;
+    case 'regranted': {
+      const regrantedAt = options.regrantedAt ?? blockStartedAt + GRANT_LEAD_MS;
+      useConsentStore.setState({
+        consentStatus: 'valid',
+        currentConsent: seededRecord(true, grantedAt, { updatedAt: regrantedAt }),
+        consentHistory: [
+          grantEntry(true, grantedAt),
+          updateEntry(false, blockStartedAt),
+          updateEntry(true, regrantedAt),
+        ],
+        consentCache: { ...consentCache, canProcessMentalHealthData: true },
+      });
+      break;
+    }
     case 'under_age':
       useConsentStore.setState({
         consentStatus: 'under_age',

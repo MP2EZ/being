@@ -15,7 +15,8 @@
 
 import React from 'react';
 import path from 'path';
-import { render, fireEvent } from '@testing-library/react-native';
+import { render, fireEvent, act } from '@testing-library/react-native';
+import { Alert, Linking } from 'react-native';
 import type { AssessmentSession } from '@/features/assessment/types';
 import {
   expectEntryShape, expectLiveness, expectMarginClearance, expectModelFidelity,
@@ -46,11 +47,18 @@ jest.mock('@/features/assessment/stores/assessmentStore', () => ({
     selector({ completedAssessments: mockSessions }),
 }));
 
+// DEBUG-709: mutable, so each plan state can be rendered. The selectors mirror the store's:
+// isSubscriptionActive is active|grace, isTrialActive is trial only.
+let mockPlan: { status: 'trial' | 'active' | 'grace' | 'expired' | 'crisis_only' | null; trialDays: number | null } = {
+  status: null,
+  trialDays: null,
+};
 jest.mock('@/core/stores/subscriptionStore', () => ({
   useSubscriptionStore: () => ({
-    isTrialActive: () => false,
-    getTrialDaysRemaining: () => 0,
-    isSubscriptionActive: () => false,
+    subscription: mockPlan.status ? { status: mockPlan.status } : null,
+    isTrialActive: () => mockPlan.status === 'trial',
+    getTrialDaysRemaining: () => mockPlan.trialDays,
+    isSubscriptionActive: () => mockPlan.status === 'active' || mockPlan.status === 'grace',
   }),
 }));
 
@@ -195,5 +203,89 @@ describe('DEBUG-653: the Onboarding Setup footer link clears the crisis FAB excl
 
   it('DEBUG-643: the __DEV__ crisis-exclusion check is wired to the footer link', async () => {
     await expectExclusionCheckWired(renderHost().api.getByTestId(TEST_ID), TEST_ID);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// DEBUG-709: "Your Plan" shows only what the store will honour
+// ---------------------------------------------------------------------------
+
+describe('DEBUG-709: the Your Plan card', () => {
+  const APPLE_URL = 'https://apps.apple.com/account/subscriptions';
+  const PROMISE = /start free trial|try free|28|unlock|therapeutic/i;
+
+  beforeEach(() => {
+    mockPlan = { status: null, trialDays: null };
+    (Linking.canOpenURL as jest.Mock).mockResolvedValue(true);
+    (Linking.openURL as jest.Mock).mockClear();
+    (Linking.openURL as jest.Mock).mockResolvedValue(undefined);
+  });
+
+  afterEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  it.each([
+    ['trial, 12 days', 'trial', 12, 'Free Trial - 12 days remaining'],
+    ['trial, 1 day', 'trial', 1, 'Free Trial - 1 day remaining'],
+    ['trial, ends today', 'trial', 0, 'Free Trial - ends today'],
+    ['trial, unknown end', 'trial', null, 'Free Trial'],
+    ['active', 'active', null, 'Active Subscription'],
+    ['grace', 'grace', null, 'Payment Issue'],
+  ] as const)('%s: "%s" title, a Manage CTA, and the press opens the store — never the paywall', async (_l, status, days, title) => {
+    mockPlan = { status, trialDays: days };
+    const { getByText, getByLabelText, queryByText } = render(<ProfileScreen />);
+
+    expect(getByText(title)).toBeTruthy();
+    expect(getByText('Manage Subscription →')).toBeTruthy();
+    expect(getByLabelText(title).props.accessibilityHint).toBe('Manage your subscription');
+    expect(queryByText(PROMISE)).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByLabelText(title));
+    });
+    expect(Linking.openURL).toHaveBeenCalledWith(APPLE_URL);
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it('when the store page cannot open, one dismissable OK Alert names where to manage it', async () => {
+    mockPlan = { status: 'active', trialDays: null };
+    (Linking.canOpenURL as jest.Mock).mockResolvedValue(false);
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    const { getByLabelText } = render(<ProfileScreen />);
+
+    await act(async () => {
+      fireEvent.press(getByLabelText('Active Subscription'));
+    });
+    expect(Linking.openURL).not.toHaveBeenCalled();
+    expect(alertSpy).toHaveBeenCalledTimes(1);
+    expect(alertSpy).toHaveBeenCalledWith(
+      'Manage your subscription in your App Store / Google Play account settings',
+      undefined,
+      [{ text: 'OK' }],
+      { cancelable: true },
+    );
+    expect(mockNavigate).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['no subscription', null, 'Choose a plan'],
+    ['expired', 'expired', 'Subscription Ended'],
+    ['crisis_only', 'crisis_only', 'Crisis Support Available'],
+  ] as const)('%s: "%s", neutral copy, "See plans" opens the paywall', async (_l, status, title) => {
+    mockPlan = { status, trialDays: null };
+    const { getByText, getByLabelText, queryByText } = render(<ProfileScreen />);
+
+    expect(getByText(title)).toBeTruthy();
+    expect(getByText('See plans →')).toBeTruthy();
+    expect(getByLabelText(title).props.accessibilityHint).toBe('Opens subscription plans');
+    expect(queryByText(PROMISE)).toBeNull();
+    expect(queryByText(/free trial/i)).toBeNull();
+
+    await act(async () => {
+      fireEvent.press(getByLabelText(title));
+    });
+    expect(mockNavigate).toHaveBeenCalledWith('Subscription');
+    expect(Linking.openURL).not.toHaveBeenCalled();
   });
 });

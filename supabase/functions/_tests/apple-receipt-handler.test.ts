@@ -40,7 +40,9 @@ import { fakeDb, type FakeDb } from './helpers/fakeSupabase.ts';
 import {
   ANON_KEY_TOKEN,
   ANON_SESSION_TOKEN,
+  assertAuditIdsRowOrNull,
   assertCors,
+  assertNoStoreIdInMetadata,
   auditRows,
   bodyJson,
   DAY,
@@ -430,13 +432,17 @@ t('200: the exact subscriptions upsert and the receipt_verification_succeeded au
   assertEquals(await decryptReceipt(ciphertext, ENC_KEY_B64), jws);
   assertNotEquals(row.receipt_hash, await receiptHash(ORIGINAL_TXN));
 
+  // DEBUG-836: the audit row carries the upserted subscriptions row's uuid, never the
+  // transaction id (log_subscription_event's p_subscription_id is uuid-typed and owner-checked).
+  assertEquals(h.db.tables.subscriptions.length, 1);
   assertEquals(auditRows(h.db), [{
     p_user_id: JWT_SUB,
-    p_subscription_id: ORIGINAL_TXN,
+    p_subscription_id: h.db.tables.subscriptions[0].id,
     p_event_type: 'receipt_verification_succeeded',
     p_metadata: { platform: 'apple', environment: 'Production', verified_at: iso(NOW) },
   }]);
-  assertEquals(h.db.tables.subscriptions.length, 1);
+  assertAuditIdsRowOrNull(h.db);
+  assertNoStoreIdInMetadata(h.db, [ORIGINAL_TXN]);
 });
 
 t('the persisted environment is the SIGNED claim, never the client hint', async () => {
@@ -495,7 +501,7 @@ for (
     ['no expiresDate at all', { expiresDate: undefined }],
   ] as const
 ) {
-  t(`400 expired_or_revoked, audited with the transaction id, no subscription: ${label}`, async () => {
+  t(`400 expired_or_revoked, audited with a null row id, no subscription: ${label}`, async () => {
     const h = harness({ jws: await sign(over) });
     const res = await handle(req(), h.deps);
     assertEquals(res.status, 400);
@@ -503,9 +509,10 @@ for (
     assertEquals(body.valid, false);
     assertEquals(body.error, 'Subscription is expired or revoked');
     assertEquals(body.subscriptionId, ORIGINAL_TXN);
+    // DEBUG-836: nothing was upserted, so there is no row id to carry; never the transaction id.
     assertEquals(auditRows(h.db), [{
       p_user_id: JWT_SUB,
-      p_subscription_id: ORIGINAL_TXN,
+      p_subscription_id: null,
       p_event_type: 'receipt_verification_failed',
       p_metadata: { platform: 'apple', reason: 'expired_or_revoked', timestamp: iso(NOW) },
     }]);
@@ -553,15 +560,23 @@ t('REPLAY: a transaction already bound to another user is a 409, audited, and wr
 });
 
 t('REPLAY: the same user re-verifying (restore purchases) is an idempotent 200', async () => {
-  const mine = { user_id: JWT_SUB, platform: 'apple', original_transaction_id: ORIGINAL_TXN, status: 'trial' };
+  const mine = { id: MY_ROW_ID, user_id: JWT_SUB, platform: 'apple', original_transaction_id: ORIGINAL_TXN, status: 'trial' };
   const h = harness({ jws: await sign(), seed: { subscriptions: [mine] } });
   const res = await handle(req(), h.deps);
   assertEquals(res.status, 200);
   assertEquals(h.db.upserts.length, 1);
   assertEquals(h.db.tables.subscriptions.length, 1);
   assertEquals(h.db.tables.subscriptions[0].status, 'active');
-  assertEquals(auditRows(h.db).map((a) => a.p_event_type), ['receipt_verification_succeeded']);
+  // DEBUG-836: the upsert keeps the row's id, and the audit carries that preserved id.
+  assertEquals(h.db.tables.subscriptions[0].id, MY_ROW_ID);
+  assertEquals(
+    auditRows(h.db).map((a) => [a.p_event_type, a.p_subscription_id]),
+    [['receipt_verification_succeeded', MY_ROW_ID]],
+  );
+  assertAuditIdsRowOrNull(h.db);
 });
+
+const MY_ROW_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 
 t('REPLAY: the binding is per platform - a google row with the same id does not block apple', async () => {
   const google = { user_id: OTHER_USER, platform: 'google', original_transaction_id: ORIGINAL_TXN };
@@ -650,8 +665,9 @@ t('an audit RPC error on a failure path does not change the failure answer', asy
 // error class name from an allowlist, or an audit reason the branch already writes).
 //
 // Audit rows are checked against the ERROR-TEXT sentinels only: p_user_id carries the user id
-// and p_subscription_id the transaction id on success rows by design (the audit table is the
-// access-controlled record; function logs are not).
+// by design (the audit table is the access-controlled record; function logs are not). Since
+// DEBUG-836, p_subscription_id is the subscriptions row uuid or null - never the transaction id -
+// and no metadata value carries it either.
 
 const ROW_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
 const MOCK_ID = 'mock_receipt_yearly_1700000000000';
@@ -840,6 +856,15 @@ for (const c of LEAK_CASES) {
     assert(lines.length > 0, 'nothing was captured');
     assertNothingForbidden('an audit row', JSON.stringify(h.db.rpcCalls), AUDIT_FORBIDDEN);
     for (const line of lines) assertNothingForbidden('a log line', line, [...LOG_FORBIDDEN, ...extraForbidden]);
+    // DEBUG-836: every audit row's id is a row the user owns, or null - so it lands.
+    assertAuditIdsRowOrNull(h.db);
+    assertNoStoreIdInMetadata(h.db, [ORIGINAL_TXN]);
+    if (!c.name.startsWith('audit RPC failure')) {
+      assert(
+        !lines.some((l) => l.includes('log_subscription_event FAILED')),
+        'an audit row the handler issued was rejected (the fake mirrors the uuid parameter)',
+      );
+    }
   });
 }
 

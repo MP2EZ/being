@@ -82,6 +82,7 @@ trailing 7 days (10 jobs, 0 failures):
 | `crisis-liveness-probe-prune` | `45 3 * * *` | ops telemetry |
 | `grace-period-automation-runs-prune` | `50 3 * * *` | ops telemetry |
 | `retention-prune-runs-prune` | `55 3 * * *` | the pruner's own heartbeat (MAINT-347) |
+| `subscription-transfer-prune` | `5 * * * *` | transfer ledger 31 days, failed-proof rows 1 hour (FEAT-833; heartbeat in `retention_prune_runs`). Not yet pushed: lands with the FEAT-833 db push |
 
 Verify:
 

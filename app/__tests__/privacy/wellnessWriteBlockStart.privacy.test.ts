@@ -153,7 +153,7 @@ describe('selectWellnessWriteBlockStart: valid, walked over the history', () => 
     expect(selectWellnessWriteBlockStart(state('valid', history, record({ updatedAt: T1 }, false), false))).toBe(T1);
   });
 
-  it('a CLOSED interval still reports its start: blocked-period readings stay inadmissible', () => {
+  it('a CLOSED interval still reports its start: readings before it stay inadmissible', () => {
     const history = [entry('granted', T0, true), entry('updated', T1, false), entry('updated', T2, true)];
     expect(selectWellnessWriteBlockStart(state('valid', history, record({ updatedAt: T2 }), true))).toBe(T1);
   });

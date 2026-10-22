@@ -22,6 +22,8 @@ const mockGoBack = jest.fn();
 const mockRoute = { domain: 'conflict' as GuidanceDomain };
 
 jest.mock('@react-navigation/native', () => ({
+  // FEAT-673: the gate now reads consentStore, whose import chain builds navigationRef.
+  ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({ navigate: jest.fn(), goBack: mockGoBack }),
   useRoute: () => ({ params: { domain: mockRoute.domain } }),
 }));
@@ -67,6 +69,7 @@ jest.mock('@/core/services/guidanceContent', () => ({
 
 import DomainGuidanceScreen from '@/features/guidance/screens/DomainGuidanceScreen';
 import { loadGuidanceContent } from '@/core/services/guidanceContent';
+import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
 
 const conflictContent = require('../../assets/guidance/guidance-conflict.json') as GuidanceContent;
 const loader = loadGuidanceContent as jest.Mock;
@@ -103,6 +106,9 @@ const pendingLoad = (domain: GuidanceDomain): Deferred => {
 };
 
 beforeEach(() => {
+  // FEAT-673: consent boots at `loading`, which the gate reads as pending. Seed a
+  // never-blocked grant so this suite keeps testing what it tested (B.start -Infinity).
+  seedWellnessWriteConsent('granted');
   mockGoBack.mockClear();
   loader.mockClear();
   mockLoads.length = 0;
