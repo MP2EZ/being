@@ -23,7 +23,7 @@
 
 import { logSecurity, logPerformance, logError, LogCategory } from '../logging';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { AppState } from 'react-native';
+import { AppState, type NativeEventSubscription } from 'react-native';
 
 // Service imports
 import supabaseService from './SupabaseService';
@@ -53,6 +53,8 @@ export interface CloudSyncStats {
 // Service state
 let isInitialized = false;
 let initializationPromise: Promise<void> | null = null;
+// Held so cleanup can release it: live handlers = isInitialized ? 1 : 0 (MAINT-817).
+let appStateSubscription: NativeEventSubscription | null = null;
 
 /**
  * Whether cloud_sync consent permits a cloud act right now. Read on every call and never
@@ -111,7 +113,8 @@ async function initializeCloudServices(): Promise<void> {
  * foreground (MAINT-815).
  */
 function setupAppLifecycleHandlers(): void {
-  AppState.addEventListener('change', async (nextAppState) => {
+  appStateSubscription?.remove();
+  appStateSubscription = AppState.addEventListener('change', async (nextAppState) => {
     if (nextAppState === 'background') {
       // App going to background
       try {
@@ -335,6 +338,11 @@ export async function cleanupCloudServices(): Promise<void> {
         supabaseService.cleanup(),
       ]);
 
+      // Released in the same branch that clears isInitialized, never before the await: a
+      // rejected cleanup must leave both in place, or every later init returns early with
+      // no handler and background backup silently ends for the session (MAINT-817).
+      appStateSubscription?.remove();
+      appStateSubscription = null;
       isInitialized = false;
       initializationPromise = null;
     }
