@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.22
+**Version:** 1.23
 **Effective Date:** December 12, 2025
-**Last Updated:** October 18, 2026
+**Last Updated:** October 22, 2026
 
 ---
 
@@ -53,7 +53,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 ### 2.2 Automatically Collected Information
 
 - **Device Information:** Device type, OS version (for app compatibility)
-- **Usage Data:** App usage patterns and feature engagement, with a random identifier generated per app installation and approximate location, collected only if you turn on *Analytics* (see Section 5.2)
+- **Usage Data:** App usage patterns and feature engagement, with a random identifier generated per app installation and approximate location, collected only if you turn on *Usage Analytics* (see Section 5.2)
 - **Technical Data:** Crash reports and app-stability diagnostics, including identifiers generated for this installation of the app and approximate location (see Section 5.1), collected only if you turn on *Crash Reports* (off by default) and *Honor Universal Opt-Out* is off
 
 ### 2.3 Information We Do NOT Collect
@@ -298,6 +298,7 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
+- **v1.23 (October 22, 2026):** §2.2 now calls the in-app analytics setting *Usage Analytics*, the name it carries in the app and in §5.2. Every backup screen in the app now uses the *Settings Backup* name that §4.2 and §7.3 already use. These are names only: nothing about what is collected changes, so it is published with the next app release.
 - **v1.22 (October 18, 2026):** A bug report you send while *Crash Reports* is on no longer carries the installation identifier or the device identifier described in §5.1, so it carries no identifier that links it to your crash reports; §5.1 is updated to match, and now states that Sentry stores an approximate location, no more precise than city and country, with any bug report you send, but not your IP address. Copies of the app installed before this version still attach both identifiers to a bug report sent with *Crash Reports* on, until they are updated. This narrows what is collected and adds no new kind of data, so it is published with the next app release.
 - **v1.21 (October 14, 2026):** §5.1 said only Sentry's app-session records include the random identifier generated per app installation. Crash and app-freeze reports include it too, and so does a bug report you send while *Crash Reports* is on, along with device and app details; §5.1 also said nothing else is collected with a bug report. Both are corrected. §5.1 and §2.2 now also say that crash reports include a device identifier Sentry derives from an identifier Apple assigns to our apps on your device, and that Sentry stores an approximate location (city and country) estimated from your internet connection, though not your IP address. Nothing about what is collected has changed, and §2.2 already described crash reports as carrying the identifier.
 - **v1.20 (October 14, 2026):** §2.2 and §3 described in-app usage analytics as "anonymized". Each event carries a random identifier generated per app installation, and PostHog estimates an approximate location (city and country) from the connection, so §2.2 and §5.2 now say so and list the device, language and time-zone details that are sent. The in-app control is renamed *Usage Analytics*, and the in-app *Analytics* and *Research Participation* descriptions were corrected the same way; the research setting now says plainly that nothing is collected for research today. This corrects how existing processing is described and adds no new kind of data, so it is published with the next app release.

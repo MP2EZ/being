@@ -631,7 +631,7 @@ const PrivacyDataScreen: React.FC = () => {
             />
           )}
 
-          {/* Manage Cloud Backup — flag-gated entry to the comprehensive
+          {/* Manage Settings Backup — flag-gated entry to the comprehensive
               controls (backup now, restore, status). Ships dark: hidden
               until the cloud_sync feature flag is enabled. */}
           {cloudSyncAvailable && (
@@ -640,12 +640,12 @@ const PrivacyDataScreen: React.FC = () => {
               onPress={() => navigation.navigate('CloudBackup')}
               testID="profile-cloud-backup"
               accessibilityRole="button"
-              accessibilityLabel="Manage Cloud Backup"
-              accessibilityHint="Opens cloud backup status, manual backup, and restore controls"
+              accessibilityLabel="Manage Settings Backup"
+              accessibilityHint="Opens settings backup status, manual backup, and restore controls"
             >
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>Manage Cloud Backup</Text>
+                  <Text style={styles.settingLabel}>Manage Settings Backup</Text>
                   <Text style={styles.settingDescription}>
                     Back up now, restore, and view sync status
                   </Text>

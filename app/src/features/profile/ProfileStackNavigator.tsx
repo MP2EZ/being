@@ -100,7 +100,7 @@ const ProfileStackNavigator: React.FC = () => {
       <Stack.Screen name="StoicMindfulness" component={AboutStoicMindfulnessScreen} options={{ title: 'About Stoic Mindfulness' }} />
       <Stack.Screen name="About" component={AboutBeingScreen} options={{ title: 'About Being.' }} />
       <Stack.Screen name="Legal" component={LegalDocumentsListScreen} options={{ title: 'Legal Documents' }} />
-      <Stack.Screen name="CloudBackup" component={CloudBackupScreen} options={{ title: 'Cloud Backup' }} />
+      <Stack.Screen name="CloudBackup" component={CloudBackupScreen} options={{ title: 'Settings Backup' }} />
       <Stack.Screen name="ExportData" component={ExportDataScreen} options={{ title: 'Export My Data' }} />
       <Stack.Screen name="DeleteAccount" component={DeleteAccountScreen} options={{ title: 'Delete Account' }} />
       <Stack.Screen

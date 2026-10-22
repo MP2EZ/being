@@ -33,7 +33,7 @@ type ConsentCategoryCopy = Pick<ConsentToggleCardProps, 'title' | 'description' 
  */
 export const CONSENT_DETAILS = {
   analytics: {
-    title: 'Analytics',
+    title: 'Usage Analytics',
     description: 'Help us improve the app by understanding how it\'s used',
     details: {
       // DEBUG-788: matches what PostHog actually stores (project 111221, checked 2026-10-14)
@@ -85,7 +85,7 @@ export const CONSENT_DETAILS = {
     },
   },
   cloudSync: {
-    title: 'Cloud Backup',
+    title: 'Settings Backup',
     description: 'Back up a few app settings to encrypted cloud storage',
     details: {
       // TWO disjoint sources, both pinned by cloudBackupConsentCopy.privacy.test.ts:
