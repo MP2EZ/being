@@ -1831,3 +1831,63 @@ Deno.test('security: a test notification from another package is still just ackn
   assertEquals(r.res.status, 200);
   assert(typeof r.body.ignored === 'string');
 });
+
+// ---------------------------------------------------------------------------
+// FEAT-833 AC5 — a transfer between the webhook's read and its write
+//
+// transfer_subscription() tombstones the old row in place (status 'expired', transaction id
+// NULLed, updated_at coarsened to the UTC day) and binds the transaction to a new row on the
+// caller's uid. A webhook that read the old row must lose its conditioned UPDATE — the
+// tombstone's updated_at changed — and, on redelivery, apply to the new row instead.
+// ---------------------------------------------------------------------------
+
+const NEW_HOLDER = '33333333-3333-4333-8333-333333333333';
+const NEW_ROW_ID = 'cccccccc-cccc-4ccc-8ccc-cccccccccccc';
+
+for (
+  const [platform, body, oldId] of [
+    ['google', gmsg(13, T2, 'm-transfer-race'), GOOGLE_ROW_ID],
+    ['apple', amsg('EXPIRED', T2, 'u-transfer-race'), APPLE_ROW_ID],
+  ] as Array<[string, unknown, string]>
+) {
+  Deno.test(`FEAT-833 AC5: ${platform}: a transfer between read and update is a retryable 503; redelivery applies to the new holder`, async () => {
+    const old = platform === 'google' ? googleRow('active') : appleRow('active');
+    const bound = { ...old }; // the seed row is mutated in place below; the new row copies this
+    const db = fakeDb({ subscriptions: [old] });
+    db.beforeUpdate('subscriptions', () => {
+      // What the RPC does, in one transaction: tombstone in place, then the caller's row.
+      Object.assign(db.tables.subscriptions[0], {
+        status: 'expired',
+        original_transaction_id: null,
+        platform_subscription_id: null,
+        receipt_data_encrypted: null,
+        last_store_event_at: null,
+        updated_at: '2026-10-06T00:00:00.000Z',
+      });
+      db.tables.subscriptions.push({
+        ...bound,
+        id: NEW_ROW_ID,
+        user_id: NEW_HOLDER,
+        status: 'active',
+        last_store_event_at: null,
+        updated_at: '2026-10-06T11:59:00.000Z',
+      });
+    });
+
+    const r = await run({ db, body });
+    assertEquals(r.res.status, 503);
+    assertEquals(r.body, { error: 'subscription_write_race', retry: true });
+    assertEquals(r.marked.length, 0);
+    assertEquals(db.rpcCalls.length, 0, 'an audit row was written for a lost race');
+    assertEquals(statusOf(db, oldId), 'expired');
+    assertEquals(statusOf(db, NEW_ROW_ID), 'active');
+
+    // The store redelivers: the lookup by transaction now finds the new holder's row.
+    const again = await run({ db, body });
+    assertEquals(again.res.status, 200);
+    assertEquals(statusOf(db, NEW_ROW_ID), 'expired');
+    assertEquals(db.tables.subscriptions.find((x) => x.id === oldId)?.updated_at, '2026-10-06T00:00:00.000Z',
+      'the tombstone was written to');
+    assertEquals(again.marked.length, 1);
+  });
+}
