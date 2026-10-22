@@ -50,6 +50,7 @@ jest.mock('@/features/assessment/stores/assessmentStore', () => {
 });
 
 import { useGuidanceGate, type GuidanceGateState } from '@/features/guidance/hooks/useGuidanceGate';
+import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
 
 const phq9 = (totalScore: number, suicidalIdeation = false): PHQ9Result => ({
   totalScore,
@@ -81,6 +82,9 @@ const expectNotFull = (state: GuidanceGateState) => {
 };
 
 beforeEach(() => {
+  // FEAT-673: consent boots at `loading`, which the gate reads as pending. Seed a
+  // never-blocked grant so this suite keeps testing what it tested (B.start -Infinity).
+  seedWellnessWriteConsent('granted');
   mockStore.phq9 = null;
   mockStore.gad7 = null;
   mockStore.hydrated = true;

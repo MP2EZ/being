@@ -38,7 +38,9 @@ import { useEffect, useMemo, useState } from 'react';
 
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import type { GAD7Result, PHQ9Result } from '@/features/assessment/types';
+import { decideWellnessWrite, selectWellnessWriteBlockStart, useConsentStore } from '@/core/stores/consentStore';
 import { decideGuidanceAccess } from '../services/guidanceGate';
+import { decideAdmissibleGuidanceAccess, GENTLE_WITHHELD_DECISION } from '../services/guidanceAdmissibility';
 import type { GuidanceAccessDecision } from '../types/guidance';
 
 export type GuidanceGateState =
@@ -96,8 +98,31 @@ function useAssessmentHydrated(): boolean {
 }
 
 /**
+ * Are wellness writes allowed right now? (FEAT-673)
+ *
+ * PRIVATE and boolean on purpose: this file is the one guidance reader of the write
+ * predicate (wellnessWriteConsentBoundary's allowlist), and the one-hop rule forbids it
+ * re-exporting anything that returns a WellnessWriteDecision. The predicate fails open by
+ * design (allowed:true on its own fault); a throw HERE fails closed. Fail-closed for the
+ * gate as a whole rests on the block-start selector answering null, never on this.
+ */
+function art9WriteAllowed(): boolean {
+  try {
+    return decideWellnessWrite().allowed === true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Decide only. This hook does NOT navigate and does NOT load content — those are
  * the screen's job, and keeping them out keeps this testable as a pure-ish read.
+ *
+ * FEAT-673: a reading counts only if it completed at or after the reader's Art. 9
+ * write-block start (guidanceAdmissibility.ts). Consent `loading` is `pending`, like an
+ * unhydrated assessment store. Every consent read is guarded: a throw answers
+ * `gentle_withheld` (or `suppressed`), never `full` and never an error boundary above the
+ * daily loop's crisis button. No await or I/O is added to any render path.
  */
 export function useGuidanceGate(): GuidanceGateState {
   const hydrated = useAssessmentHydrated();
@@ -116,23 +141,41 @@ export function useGuidanceGate(): GuidanceGateState {
   const lastPhq9 = useAssessmentStore((state) => state.getLastResult('phq9'));
   const lastGad7 = useAssessmentStore((state) => state.getLastResult('gad7'));
 
-  return useMemo<GuidanceGateState>(() => {
-    if (!hydrated) return { status: 'pending' };
+  // The selector returns a primitive (stable under zustand 5) and catches internally; null
+  // on any fault. Subscribing, not snapshotting, so an in-place withdrawal re-renders.
+  const blockStart = useConsentStore(selectWellnessWriteBlockStart);
+  const consentLoading = useConsentStore((state) => {
+    try {
+      return state.consentStatus === 'loading';
+    } catch {
+      return false; // falls through to a null block start: gentle_withheld, never pending forever
+    }
+  });
+  const writesAllowed = art9WriteAllowed();
 
-    const decision = decideGuidanceAccess(
-      asPhq9(lastPhq9),
-      asGad7(lastGad7),
-      // No global developmental stage exists: `educationStore` holds it per module and
-      // `setDevelopmentalStage` has zero call sites, so aggregating one would be a new
-      // product decision rather than a wiring choice. Passed explicitly rather than
-      // omitted — it only feeds `allowPremeditatio`, which is unreachable in slice 3a.
-      null,
-    );
+  return useMemo<GuidanceGateState>(() => {
+    if (!hydrated || consentLoading) return { status: 'pending' };
+
+    const phq9 = asPhq9(lastPhq9);
+    const gad7 = asGad7(lastGad7);
+    // No global developmental stage exists: `educationStore` holds it per module and
+    // `setDevelopmentalStage` has zero call sites, so aggregating one would be a new
+    // product decision rather than a wiring choice. Passed explicitly rather than
+    // omitted — it only feeds `allowPremeditatio`, which is unreachable in slice 3a.
+    const stage = null;
+
+    let decision: GuidanceAccessDecision;
+    try {
+      decision = decideAdmissibleGuidanceAccess(phq9, gad7, stage, blockStart, writesAllowed);
+    } catch {
+      const raw = decideGuidanceAccess(phq9, gad7, stage);
+      decision = raw.level === 'suppressed' ? raw : GENTLE_WITHHELD_DECISION;
+    }
 
     return { status: 'ready', decision };
-    // All three dependencies are genuinely read above. They are also exactly what
-    // changes when hydration lands or a new assessment is recorded, which is what
-    // lets a gentle→suppressed flip tear content down mid-view rather than leaving a
+    // Every dependency is genuinely read above. They are also exactly what changes when
+    // hydration lands, a new assessment is recorded or consent moves, which is what lets
+    // a gentle→suppressed flip tear content down mid-view rather than leaving a
     // suppressed reader looking at philosophy for the rest of the mount.
-  }, [hydrated, lastPhq9, lastGad7]);
+  }, [hydrated, consentLoading, blockStart, writesAllowed, lastPhq9, lastGad7]);
 }

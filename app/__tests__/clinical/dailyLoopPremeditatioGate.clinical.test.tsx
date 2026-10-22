@@ -26,7 +26,7 @@
  */
 
 import React from 'react';
-import { render, fireEvent, act } from '@testing-library/react-native';
+import { render, fireEvent, act, renderHook } from '@testing-library/react-native';
 
 import type { GAD7Result, PHQ9Result } from '@/features/assessment/types';
 
@@ -81,6 +81,9 @@ jest.mock('@/features/assessment/stores/assessmentStore', () => {
 
 // Imported AFTER the mock so the hook binds to it.
 import DailyLoopStepScreen from '@/features/practices/dailyloop/screens/DailyLoopStepScreen';
+import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
+import { useGuidanceGate, type GuidanceGateState } from '@/features/guidance/hooks/useGuidanceGate';
+import { useConsentStore } from '@/core/stores/consentStore';
 
 const phq9 = (totalScore: number, suicidalIdeation = false): PHQ9Result => ({
   totalScore,
@@ -108,6 +111,9 @@ const renderMorningVirtue = (onSave = jest.fn()) =>
   );
 
 beforeEach(() => {
+  // FEAT-673: consent boots at `loading`, which the gate reads as pending. Seed a
+  // never-blocked grant so this suite keeps testing what it tested (B.start -Infinity).
+  seedWellnessWriteConsent('granted');
   mockStore.phq9 = [];
   mockStore.gad7 = [];
   mockStore.hydrated = true;
@@ -286,5 +292,161 @@ describe('the existing mode and depth gates are unchanged', () => {
       <DailyLoopStepScreen stepKey="SphereSovereignty" mode="morning" depth="deep" onSave={jest.fn()} />,
     );
     expect(queryByTestId(PREMEDITATIO)).toBeNull();
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FEAT-673 — readings count only from the Art. 9 write-block start
+//
+// Real consent store (seeded through A2a's helper, which checks its own verdict); the
+// assessment mock above carries each reading's completedAt. Every row asserts the gate
+// level AND whether DailyLoopStepScreen renders premeditatio.
+// ─────────────────────────────────────────────────────────────────────────────
+
+const T = 1_800_000_000_000; // the block start
+const at = <R extends { completedAt: number }>(r: R, completedAt: number): R => ({ ...r, completedAt });
+const levelOf = (state: GuidanceGateState) => (state.status === 'ready' ? state.decision.level : 'pending');
+const gateLevel = () => levelOf(renderHook(() => useGuidanceGate()).result.current);
+const premeditatioShown = () => renderMorningVirtue().queryByTestId(PREMEDITATIO) !== null;
+
+describe('FEAT-673 AC4 — crisis-ruled rows (consent shape x reading set)', () => {
+  const LOW_BEFORE = () => { mockStore.phq9 = [at(phq9(3), T - 1)]; mockStore.gad7 = [at(gad7(2), T - 1)]; };
+  const Q9_BEFORE = () => { mockStore.phq9 = [at(phq9(1, true), T - 1)]; mockStore.gad7 = [at(gad7(2), T - 1)]; };
+
+  it.each([
+    ['(a) revoked', () => seedWellnessWriteConsent('revoked', { blockStartedAt: T })],
+    ['(b) valid + Art. 9 switched off', () => seedWellnessWriteConsent('withdrawn', { blockStartedAt: T })],
+    ['(c) revoked after relaunch (null)', () => seedWellnessWriteConsent('revoked_relaunched')],
+  ] as const)('%s: a persisted PHQ-9 3 / GAD-7 2 from before the block is never full; premeditatio absent', (_l, seed) => {
+    seed();
+    LOW_BEFORE();
+    expect(gateLevel()).toBe('gentle_withheld');
+    expect(premeditatioShown()).toBe(false);
+  });
+
+  it.each([
+    ['revoked', () => seedWellnessWriteConsent('revoked', { blockStartedAt: T })],
+    ['withdrawn', () => seedWellnessWriteConsent('withdrawn', { blockStartedAt: T })],
+    ['revoked_relaunched', () => seedWellnessWriteConsent('revoked_relaunched')],
+  ] as const)('(d) a stale Q9 > 0 under %s still suppresses', (_l, seed) => {
+    seed();
+    Q9_BEFORE();
+    expect(gateLevel()).toBe('suppressed');
+    expect(premeditatioShown()).toBe(false);
+  });
+
+  it('(e) re-granted by an appended Art. 9 true entry, no reading at or after B.start -> withheld', () => {
+    seedWellnessWriteConsent('regranted', { blockStartedAt: T, regrantedAt: T + 60_000 });
+    LOW_BEFORE();
+    expect(gateLevel()).toBe('gentle_withheld');
+    expect(premeditatioShown()).toBe(false);
+  });
+
+  it('(e2) a low pair completed inside the now-closed block [B.start, re-grant) -> full + premeditatio (crisis confirmed)', () => {
+    seedWellnessWriteConsent('regranted', { blockStartedAt: T, regrantedAt: T + 60_000 });
+    mockStore.phq9 = [at(phq9(3), T + 10)];
+    mockStore.gad7 = [at(gad7(2), T + 10)];
+    expect(gateLevel()).toBe('full');
+    expect(premeditatioShown()).toBe(true);
+  });
+
+  it('(f) a low pair after the re-grant -> shown', () => {
+    seedWellnessWriteConsent('regranted', { blockStartedAt: T, regrantedAt: T + 60_000 });
+    mockStore.phq9 = [at(phq9(3), T + 120_000)];
+    mockStore.gad7 = [at(gad7(2), T + 120_000)];
+    expect(gateLevel()).toBe('full');
+    expect(premeditatioShown()).toBe(true);
+  });
+
+  it('(g) relaunch: stale low + a high after B.start suppresses in session; after the relaunch the cap holds, never full', () => {
+    seedWellnessWriteConsent('revoked', { blockStartedAt: T });
+    mockStore.phq9 = [at(phq9(3), T - 1), at(phq9(22), T + 10)];
+    mockStore.gad7 = [at(gad7(2), T - 1)];
+    expect(gateLevel()).toBe('suppressed');
+    expect(premeditatioShown()).toBe(false);
+
+    // The in-memory high is gone after a relaunch (FEAT-685 keeps it off disk); only the stale low remains.
+    mockStore.phq9 = [at(phq9(3), T - 1)];
+    seedWellnessWriteConsent('revoked_relaunched');
+    expect(gateLevel()).toBe('gentle_withheld');
+    expect(premeditatioShown()).toBe(false);
+  });
+});
+
+describe('FEAT-673 AC5 — the accepted pre-A2b behaviour change, pinned', () => {
+  it('(1) blocked, never screened: premeditatio withheld, Tier 0/1 stays', () => {
+    seedWellnessWriteConsent('refused', { blockStartedAt: T });
+    expect(gateLevel()).toBe('gentle_withheld');
+    expect(premeditatioShown()).toBe(false);
+  });
+
+  it('(3) an onboarding refuser whose screening completed before the grant: withheld', () => {
+    seedWellnessWriteConsent('refused', { blockStartedAt: T });
+    mockStore.phq9 = [at(phq9(3), T - 5_000)];
+    mockStore.gad7 = [at(gad7(2), T - 5_000)];
+    expect(gateLevel()).toBe('gentle_withheld');
+    expect(premeditatioShown()).toBe(false);
+  });
+
+  it.each(['version_mismatch', 'integrity_error'] as const)(
+    '(4) a null B.start while writes are allowed (%s): withheld',
+    (status) => {
+      seedWellnessWriteConsent('granted');
+      useConsentStore.setState({ consentStatus: status });
+      mockStore.phq9 = [phq9(3)];
+      mockStore.gad7 = [gad7(2)];
+      expect(gateLevel()).toBe('gentle_withheld');
+      expect(premeditatioShown()).toBe(false);
+    },
+  );
+
+  it('control: never blocked and never screened is gentle and keeps premeditatio', () => {
+    seedWellnessWriteConsent('granted');
+    expect(gateLevel()).toBe('gentle');
+    expect(premeditatioShown()).toBe(true);
+  });
+});
+
+describe('FEAT-673 AC3 — the hook fails closed and follows consent in place', () => {
+  it("consent `loading` is pending, so premeditatio is withheld", () => {
+    seedWellnessWriteConsent('loading');
+    mockStore.phq9 = [phq9(3)];
+    mockStore.gad7 = [gad7(2)];
+    expect(gateLevel()).toBe('pending');
+    expect(premeditatioShown()).toBe(false);
+  });
+
+  it('an in-place switch from granted to revoked re-renders to the fourth level without a remount', () => {
+    seedWellnessWriteConsent('granted');
+    mockStore.phq9 = [at(phq9(3), T - 1)];
+    mockStore.gad7 = [at(gad7(2), T - 1)];
+    const { result } = renderHook(() => useGuidanceGate());
+    expect(levelOf(result.current)).toBe('full');
+
+    act(() => {
+      seedWellnessWriteConsent('revoked', { blockStartedAt: T });
+    });
+    expect(levelOf(result.current)).toBe('gentle_withheld');
+  });
+
+  it('a consent store that throws on access answers the fourth level, never full, and renders no error boundary', () => {
+    seedWellnessWriteConsent('granted');
+    mockStore.phq9 = [phq9(3)];
+    mockStore.gad7 = [gad7(2)];
+    const state = useConsentStore.getState() as unknown as Record<string, unknown>;
+    const saved = { consentStatus: state.consentStatus, consentCache: state.consentCache };
+    const boom = () => { throw new Error('fault injected'); };
+    try {
+      for (const key of ['consentStatus', 'consentCache'] as const) {
+        Object.defineProperty(state, key, { get: boom, configurable: true, enumerable: true });
+      }
+      // decideWellnessWrite takes its fail-open catch (allowed) and the selector answers null.
+      expect(gateLevel()).toBe('gentle_withheld');
+      expect(premeditatioShown()).toBe(false);
+    } finally {
+      for (const key of ['consentStatus', 'consentCache'] as const) {
+        Object.defineProperty(state, key, { value: saved[key], writable: true, configurable: true, enumerable: true });
+      }
+    }
   });
 });
