@@ -2,7 +2,7 @@
  * privacy-data-cloud-backup-row.test.tsx — the Settings Backup switch and the Manage
  * Cloud Backup row on PrivacyDataScreen.
  *
- * MAINT-173 dark-ship contract: the "Manage Cloud Backup" entry row is gated by the
+ * MAINT-173 dark-ship contract: the "Manage Settings Backup" entry row (named "Manage Cloud Backup" before MAINT-819) is gated by the
  * cloud_sync feature flag: absent when off, present and navigable when on.
  *
  * MAINT-809: the row resolves the flag at BUILD TIME (`isFeatureEnabled`), the
@@ -100,7 +100,7 @@ const renderScreen = async () => {
 const preferencesLocation = (getByLabelText: (m: RegExp) => { props: { accessibilityLabel: string } }) =>
   getByLabelText(/^Preferences\./).props.accessibilityLabel;
 
-describe('PrivacyDataScreen — Manage Cloud Backup row (MAINT-173)', () => {
+describe('PrivacyDataScreen — Manage Settings Backup row (MAINT-173)', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockConsent = consentWith(false);
@@ -111,7 +111,7 @@ describe('PrivacyDataScreen — Manage Cloud Backup row (MAINT-173)', () => {
     mockUseFeatureFlag.mockReturnValue(true);
     const { queryByText } = await renderScreen();
 
-    expect(queryByText('Manage Cloud Backup')).toBeNull();
+    expect(queryByText('Manage Settings Backup')).toBeNull();
     expect(mockUseFeatureFlag).not.toHaveBeenCalledWith('cloud_sync');
   });
 
@@ -119,7 +119,7 @@ describe('PrivacyDataScreen — Manage Cloud Backup row (MAINT-173)', () => {
     mockIsFeatureEnabled.mockImplementation((name) => name === 'cloud_sync');
     const { findByRole } = render(<PrivacyDataScreen />);
 
-    const row = await findByRole('button', { name: 'Manage Cloud Backup' });
+    const row = await findByRole('button', { name: 'Manage Settings Backup' });
     expect(row).toBeTruthy();
 
     fireEvent.press(row);
@@ -158,7 +158,7 @@ describe('PrivacyDataScreen — Settings Backup switch visibility (DEBUG-816)', 
       expect(queryByText('Settings Backup')).toBeNull();
     }
 
-    expect(queryByText('Manage Cloud Backup') !== null).toBe(flag);
+    expect(queryByText('Manage Settings Backup') !== null).toBe(flag);
     // AC7: 'cloud' only when something can actually be backed up.
     expect(preferencesLocation(getByLabelText)).toMatch(
       flag && grant && !uoo ? /Synced to Being Cloud\./ : /Stored in this app only\./,

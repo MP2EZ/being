@@ -99,7 +99,7 @@ describe('CloudBackupSettings status section (MAINT-702)', () => {
 // DEBUG-767: Test Connection used to say "Successfully connected" whatever happened, because
 // testConnectivity never throws. The alert now follows the returned result.
 describe('CloudBackupSettings Test Connection result (DEBUG-767)', () => {
-  const SUCCESS_COPY = /connected to cloud backup|successfully connected|is set up/i;
+  const SUCCESS_COPY = /connected to settings backup|successfully connected|is set up/i;
   let alertSpy: jest.SpyInstance;
 
   beforeEach(() => {
@@ -127,22 +127,22 @@ describe('CloudBackupSettings Test Connection result (DEBUG-767)', () => {
     expect(alertText()).not.toMatch(/unreachable/);
   });
 
-  it('consent absent says cloud backup is off, in plain language', async () => {
+  it('consent absent says settings backup is off, in plain language', async () => {
     await pressTest({ canConnect: false, error: 'cloud_sync_consent_absent' });
-    expect(alertText()).toMatch(/cloud backup is off/i);
+    expect(alertText()).toMatch(/settings backup is off/i);
     expect(alertText()).not.toMatch(/cloud_sync_consent_absent/);
     expect(alertText()).not.toMatch(SUCCESS_COPY);
   });
 
   it('success now claims reachability, never that a backup exists or data is safe (DEBUG-783)', async () => {
     await pressTest({ canConnect: true, responseTimeMs: 5 });
-    expect(alertText()).toMatch(/connected to cloud backup/i);
+    expect(alertText()).toMatch(/connected to settings backup/i);
     expect(alertText()).not.toMatch(/backed up|your data|safe|sign.?in|account/i);
   });
 
   it('no session gets its own plain-language copy, never the raw code (DEBUG-783)', async () => {
     await pressTest({ canConnect: false, error: 'cloud_no_session' });
-    expect(alertText()).toMatch(/couldn.t set up cloud backup/i);
+    expect(alertText()).toMatch(/couldn.t set up settings backup/i);
     expect(alertText()).not.toMatch(/cloud_no_session/);
     expect(alertText()).not.toMatch(SUCCESS_COPY);
   });
@@ -165,11 +165,11 @@ describe('CloudBackupSettings Test Connection result (DEBUG-767)', () => {
     mockCloudSync = syncState({ error: 'cloud_sync_consent_absent' });
     const { queryByText, getByText } = render(<CloudBackupSettings />);
     expect(queryByText(/cloud_sync_consent_absent/)).toBeNull();
-    expect(getByText(/cloud backup is off/i)).toBeTruthy();
+    expect(getByText(/settings backup is off/i)).toBeTruthy();
   });
 
   it.each([
-    ['cloud_no_session', /couldn.t set up cloud backup/i],
+    ['cloud_no_session', /couldn.t set up settings backup/i],
     ['cloud_unreachable', /couldn.t connect/i],
     ['cloud_init_failed', /couldn.t connect/i],
   ])('the error banner maps %s to plain copy, never the raw code (DEBUG-783)', (code, copy) => {
@@ -237,7 +237,7 @@ describe('CloudBackupSettings Backup now / Restore results (DEBUG-784)', () => {
 
   it('a consent-absent backup shows the cloud-backup-off copy, not the code', async () => {
     await pressBackup(jest.fn().mockResolvedValue({ success: false, error: 'cloud_sync_consent_absent' }));
-    expect(alertText()).toMatch(/cloud backup is off/i);
+    expect(alertText()).toMatch(/settings backup is off/i);
     expect(alertText()).not.toMatch(/cloud_sync_consent_absent|completed successfully/i);
   });
 
@@ -285,7 +285,7 @@ describe('CloudBackupSettings Backup now / Restore results (DEBUG-784)', () => {
 
   it('"No backup found" gets its own plain copy', async () => {
     await confirmRestore(jest.fn().mockResolvedValue({ success: false, restoredStores: [], errors: ['No backup found'] }));
-    expect(alertText()).toMatch(/couldn.t find a cloud backup/i);
+    expect(alertText()).toMatch(/couldn.t find a backup/i);
   });
 
   it('a rejected restore shows fixed failure copy', async () => {
@@ -298,7 +298,7 @@ describe('CloudBackupSettings Backup now / Restore results (DEBUG-784)', () => {
     mockCloudSync = syncState({ error: SENTINEL });
     const { queryByText, getByText } = render(<CloudBackupSettings />);
     expect(queryByText(new RegExp(SENTINEL))).toBeNull();
-    expect(getByText(/something went wrong with cloud backup/i)).toBeTruthy();
+    expect(getByText(/something went wrong with settings backup/i)).toBeTruthy();
   });
 
   it('Back up now and Restore report busy while an operation runs', () => {
