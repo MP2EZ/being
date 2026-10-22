@@ -54,6 +54,15 @@ export type SubscriptionTier = 'standard';
 export type SubscriptionInterval = 'monthly' | 'yearly';
 
 /**
+ * App Store Connect subscription group ID (FEAT-822). Ships unset (null) until FEAT-39
+ * records the real group: unset reads as an "unknown" trial offer, never as eligible.
+ * StoreKit reports any group the account has no history in as eligible, so a WRONG id fails
+ * open — an ineligible user would be shown a trial and charged at once. Monthly and yearly
+ * must be in this ONE group.
+ */
+export const APPLE_SUBSCRIPTION_GROUP_ID: string | null = null;
+
+/**
  * Subscription Product IDs (Apple/Google)
  */
 export interface SubscriptionProductIds {

@@ -81,6 +81,7 @@
   "src/core/services/subscription/__tests__/IAPService.test.ts": 1,
   "src/core/services/subscription/__tests__/subscription.integration.test.ts": 1,
   "src/core/services/subscription/__tests__/subscriptionProductInterval.unit.test.ts": 1,
+  "src/core/services/subscription/__tests__/trialOffer.unit.test.ts": 1,
   "src/core/services/supabase/CloudBackupService.ts": 7,
   "src/core/services/supabase/ErrorHandler.ts": 9,
   "src/core/services/supabase/__tests__/CloudBackupService.privacy.test.ts": 1,
