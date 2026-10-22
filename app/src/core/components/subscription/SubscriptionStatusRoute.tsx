@@ -3,9 +3,10 @@
  *
  * The navigator mounts route components with no props, so registering
  * SubscriptionStatusCard directly left every upgrade button with onPress undefined. This
- * wrapper is the registered component: it sends Start Free Trial / Upgrade Now / Renew /
- * Subscribe to the 'Subscription' paywall (the same call ProfileScreen makes) and leaves
- * onManage unset, so Manage and Update Payment keep the card's store-URL fallback.
+ * wrapper is the registered component: it sends See plans / Renew / Subscribe to the
+ * 'Subscription' paywall (the same call ProfileScreen makes) and leaves onManage unset, so
+ * Manage Subscription (trial and active) and Update Payment keep the card's store-URL path.
+ * Since DEBUG-709 no button here offers a trial: trials are store intro offers.
  *
  * Crisis constraints (b-batch crisis ruling): a plain navigate only - never reset/replace or a
  * StackActions dispatch, which can discard a CrisisResources route lower in the stack - and no

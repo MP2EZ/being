@@ -345,7 +345,7 @@ describe('subscriptionStore (DEBUG-697)', () => {
     }
     expect(sub().checkFeatureAccess('assessments')).toBe(false);
     expect(sub().getCrisisAccessStatus()).toBe(true);
-    expect(typeof sub().createTrial).toBe('function');
+    expect(typeof sub().restorePurchases).toBe('function');
   });
 
   it('the spreading writers after deletion write nothing back', async () => {
@@ -483,19 +483,6 @@ describe('subscriptionStore (DEBUG-697)', () => {
     expect(onDisk.id).not.toBe('sub_prior');
     expect(onDisk.platformSubscriptionId).toBe('sub_restore_after');
     expect(onDisk.status).toBe('active');
-  });
-
-  it('a trial started after deletion persists only a fresh record', async () => {
-    await seedPreErasureState();
-    await deleteAccountAndWipe({ posthog: null });
-
-    await sub().createTrial();
-
-    const onDisk = JSON.parse(mockSecure.get(SUBSCRIPTION_KEY)!) as typeof PRIOR_SUBSCRIPTION;
-    expect(onDisk.id).not.toBe('sub_prior');
-    expect(onDisk.receiptData).toBeNull();
-    expect(onDisk.platformSubscriptionId).toBe('');
-    expect(onDisk.status).toBe('trial');
   });
 });
 

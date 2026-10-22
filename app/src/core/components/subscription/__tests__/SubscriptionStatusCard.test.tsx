@@ -19,7 +19,7 @@
  */
 
 import React from 'react';
-import { Linking, Platform } from 'react-native';
+import { Alert, Linking, Platform } from 'react-native';
 import { act, fireEvent, render } from '@testing-library/react-native';
 import SubscriptionStatusCard from '../SubscriptionStatusCard';
 import { useSubscriptionStore } from '@/core/stores/subscriptionStore';
@@ -97,8 +97,8 @@ describe('SubscriptionStatusCard — per-status title and button', () => {
   const CRISIS_NOTE = 'Crisis support features remain accessible';
 
   const table: Array<[string, SubscriptionStatus | null, string, string]> = [
-    ['none (no subscription)', null, 'Start Your Free Trial', 'Start Free Trial'],
-    ['trial', 'trial', 'Your Trial is Active', 'Upgrade Now'],
+    ['none (no subscription)', null, 'Choose a plan', 'See plans'],
+    ['trial', 'trial', 'Your Trial is Active', 'Manage Subscription'],
     ['active', 'active', 'Subscription Active', 'Manage Subscription'],
     ['grace', 'grace', 'Update Payment Method', 'Update Payment'],
     ['expired', 'expired', 'Subscription Ended', 'Renew Subscription'],
@@ -137,8 +137,7 @@ describe('SubscriptionStatusCard — per-status title and button', () => {
 
 describe('SubscriptionStatusCard — onUpgrade wiring', () => {
   const upgradeStates: Array<[string, SubscriptionStatus | null, string]> = [
-    ['none', null, 'Start Free Trial'],
-    ['trial', 'trial', 'Upgrade Now'],
+    ['none', null, 'See plans'],
     ['expired', 'expired', 'Renew Subscription'],
     ['crisis_only', 'crisis_only', 'Subscribe'],
   ];
@@ -152,10 +151,11 @@ describe('SubscriptionStatusCard — onUpgrade wiring', () => {
   });
 
   it.each([
+    ['trial', 'Manage Subscription'],
     ['active', 'Manage Subscription'],
     ['grace', 'Update Payment'],
   ] as const)('%s: its button routes through manage, not onUpgrade', async (status, button) => {
-    setSubscription(makeSubscription(status, { gracePeriodEnd: NOW + DAY_MS }));
+    setSubscription(makeSubscription(status, { gracePeriodEnd: NOW + DAY_MS, trialEndDate: NOW + DAY_MS }));
     const onUpgrade = jest.fn();
     const onManage = jest.fn();
     const { getByText } = render(<SubscriptionStatusCard onUpgrade={onUpgrade} onManage={onManage} />);
@@ -177,6 +177,17 @@ describe('SubscriptionStatusCard — countdown', () => {
     setSubscription(makeSubscription('trial', { trialEndDate: NOW + 3 * DAY_MS }));
     const three = render(<SubscriptionStatusCard />);
     expect(three.getByText('3 days remaining')).toBeTruthy();
+  });
+
+  it('trial: "Ends today" at 0 days, and no countdown line when the end is unknown', () => {
+    setSubscription(makeSubscription('trial', { trialEndDate: NOW - 1000 }));
+    const zero = render(<SubscriptionStatusCard />);
+    expect(zero.getByText('Ends today')).toBeTruthy();
+    zero.unmount();
+
+    setSubscription(makeSubscription('trial', { trialEndDate: null }));
+    const unknown = render(<SubscriptionStatusCard />);
+    expect(unknown.queryByText(/remaining|Ends today/)).toBeNull();
   });
 
   it('grace: shows singular "1 day remaining" at +1 day and plural "3 days remaining" at +3 days', () => {
@@ -261,5 +272,52 @@ describe('SubscriptionStatusCard — Manage subscription', () => {
     });
     expect(mockCanOpenURL).toHaveBeenCalledTimes(1);
     expect(mockOpenURL).not.toHaveBeenCalled();
+  });
+});
+
+// DEBUG-709 AC4: no state of this card promises a trial or a feature it cannot deliver.
+// Rendered output, never source text (the copy lives in JSX and in a constant).
+describe('SubscriptionStatusCard — no trial or gating promise (DEBUG-709)', () => {
+  const PROMISE = /free trial|try free|28|unlock|therapeutic|no payment/i;
+
+  test.each([null, 'active', 'grace', 'expired', 'crisis_only'] as Array<SubscriptionStatus | null>)(
+    '%s renders no trial, duration or unlock claim',
+    (status) => {
+      setSubscription(status === null ? null : makeSubscription(status, { gracePeriodEnd: NOW + DAY_MS }));
+      const { queryByText } = render(<SubscriptionStatusCard />);
+      expect(queryByText(PROMISE)).toBeNull();
+    },
+  );
+
+  it('trial offers management, never "Start Free Trial" or "Upgrade Now"', () => {
+    setSubscription(makeSubscription('trial', { trialEndDate: NOW + 3 * DAY_MS }));
+    const { queryByText, getByText } = render(<SubscriptionStatusCard />);
+    expect(queryByText(/start free trial/i)).toBeNull();
+    expect(queryByText(/upgrade now/i)).toBeNull();
+    expect(getByText('Manage Subscription')).toBeTruthy();
+  });
+
+  it('the no-subscription button label matches its visible text', () => {
+    setSubscription(null);
+    const { getByLabelText, getByText } = render(<SubscriptionStatusCard />);
+    expect(getByLabelText('See plans')).toBeTruthy();
+    expect(getByText('See plans')).toBeTruthy();
+  });
+
+  it('keeps its crisis reassurance titles', () => {
+    setSubscription(makeSubscription('crisis_only'));
+    expect(render(<SubscriptionStatusCard />).getByText('Crisis Support Always Available')).toBeTruthy();
+  });
+
+  it('a store page that cannot open shows no Alert from this card (crisis ruling)', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert');
+    mockCanOpenURL.mockResolvedValue(false);
+    setSubscription(makeSubscription('trial', { trialEndDate: NOW + DAY_MS }));
+    const { getByText } = render(<SubscriptionStatusCard />);
+    await act(async () => {
+      fireEvent.press(getByText('Manage Subscription'));
+    });
+    expect(mockOpenURL).not.toHaveBeenCalled();
+    expect(alertSpy).not.toHaveBeenCalled();
   });
 });
