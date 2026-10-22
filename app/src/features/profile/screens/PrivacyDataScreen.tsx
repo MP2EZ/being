@@ -29,7 +29,7 @@ import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useConsentStore } from '@/core/stores/consentStore';
+import { useConsentStore, type ConsentPreferences } from '@/core/stores/consentStore';
 import { useAnalytics } from '@/core/analytics';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
@@ -199,6 +199,19 @@ const PrivacyDataScreen: React.FC = () => {
     currentConsent?.preferences?.mentalHealthProcessingConsent ?? false;
   // INFRA-151: GPC-equivalent universal opt-out flag
   const universalOptOut = currentConsent?.universalOptOut ?? false;
+  /**
+   * DEBUG-816: the Settings Backup switch is a grant point, so it renders only where
+   * Cloud Backup exists in this build OR a grant is already held, so a holder can always
+   * see and withdraw it. Keyed on the RAW stored value, never on the displayed
+   * `cloudSyncEnabled && !universalOptOut`: UOO suppresses a grant without withdrawing it.
+   * A revoked record is not a held grant (its preferences are a historical snapshot).
+   * Disappear-on-withdraw, deliberately not a latch: a latch would re-offer the grant in a
+   * build where the feature does not exist. ReConsentScreen revokes a dark-build grant on
+   * submit; this screen deliberately does not, since viewing settings is not a submission.
+   */
+  const cloudSyncGrantHeld =
+    currentConsent?.revoked !== true && currentConsent?.preferences?.cloudSyncEnabled === true;
+  const showSettingsBackup = cloudSyncAvailable || cloudSyncGrantHeld;
 
   // Load consent on mount
   useEffect(() => {
@@ -225,15 +238,30 @@ const PrivacyDataScreen: React.FC = () => {
    * `ConsentToggleCard` announces synchronously because its `onValueChange` is a
    * bare setter; copying that here would announce a new state on a write that then
    * throws, and immediately contradict itself with the Save Failed alert.
+   *
+   * DEBUG-816: `updateConsent` never throws — it catches its own write failure, sets
+   * `error`, and resolves with the record unchanged. So the write is confirmed against
+   * the store before anything is announced, and an unconfirmed write takes the Save
+   * Failed path. A string `announceLabel` announces `<label> enabled|disabled`; a
+   * function supplies the whole message, for a control whose withdrawal also removes it.
    */
-  const handleConsentToggle = async (key: string, value: boolean, announceLabel?: string) => {
+  const handleConsentToggle = async (
+    key: keyof ConsentPreferences,
+    value: boolean,
+    announceLabel?: string | ((value: boolean) => string),
+  ) => {
     setIsSaving(true);
     try {
       await updateConsent({ [key]: value });
+      if (useConsentStore.getState().currentConsent?.preferences?.[key] !== value) {
+        throw new Error('Consent update did not persist');
+      }
       trackConsentChanged();
       if (announceLabel) {
         AccessibilityInfo.announceForAccessibility(
-          `${announceLabel} ${value ? 'enabled' : 'disabled'}`,
+          typeof announceLabel === 'function'
+            ? announceLabel(value)
+            : `${announceLabel} ${value ? 'enabled' : 'disabled'}`,
         );
       }
     } catch (error) {
@@ -434,23 +462,34 @@ const PrivacyDataScreen: React.FC = () => {
             </View>
           </View>
 
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Settings Backup</Text>
-                <Text style={styles.settingDescription}>
-                  Back up app preferences to encrypted cloud storage
-                </Text>
+          {showSettingsBackup && (
+            <View style={styles.settingCard}>
+              <View style={styles.settingRow}>
+                <View style={styles.settingInfo}>
+                  <Text style={styles.settingLabel}>Settings Backup</Text>
+                  <Text style={styles.settingDescription}>
+                    Back up app preferences to encrypted cloud storage
+                  </Text>
+                </View>
+                <Switch
+                  testID="privacy-settings-backup-toggle"
+                  accessibilityLabel="Settings Backup"
+                  value={cloudSyncEnabled && !universalOptOut}
+                  onValueChange={(value) =>
+                    handleConsentToggle('cloudSyncEnabled', value, (v) =>
+                      // Withdrawing in a build without Cloud Backup removes this card.
+                      !v && !cloudSyncAvailable
+                        ? "Settings Backup disabled. This option is no longer shown because it isn't available in this version of Being."
+                        : `Settings Backup ${v ? 'enabled' : 'disabled'}`,
+                    )
+                  }
+                  trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+                  thumbColor={colorSystem.base.white}
+                  disabled={isSaving || universalOptOut}
+                />
               </View>
-              <Switch
-                value={cloudSyncEnabled && !universalOptOut}
-                onValueChange={(value) => handleConsentToggle('cloudSyncEnabled', value)}
-                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
-                thumbColor={colorSystem.base.white}
-                disabled={isSaving || universalOptOut}
-              />
             </View>
-          </View>
+          )}
 
           {/* Manage Cloud Backup — flag-gated entry to the comprehensive
               controls (backup now, restore, status). Ships dark: hidden
@@ -530,7 +569,7 @@ const PrivacyDataScreen: React.FC = () => {
             <StorageLocationRow
               label="Preferences"
               description="App settings and customizations"
-              location={cloudSyncEnabled && !universalOptOut ? 'cloud' : 'app'}
+              location={cloudSyncAvailable && cloudSyncGrantHeld && !universalOptOut ? 'cloud' : 'app'}
             />
           </View>
 
