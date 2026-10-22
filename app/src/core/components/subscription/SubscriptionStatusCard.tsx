@@ -27,8 +27,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Platform,
-  Linking,
 } from 'react-native';
 import {
   useSubscription,
@@ -41,6 +39,11 @@ import {
   SUBSCRIPTION_STATUS_LABELS,
 } from '@/core/types/subscription';
 import { spacing, borderRadius, typography } from '@/core/theme';
+import { openSubscriptionManagement } from './subscriptionManagement';
+
+/** Non-subscribed copy, approved by compliance (DEBUG-709 AC6): no trial, duration or gating claim. */
+const NON_SUBSCRIBED_DESCRIPTION =
+  'See subscription options and pricing. Crisis support is always available, with or without a subscription.';
 
 interface SubscriptionStatusCardProps {
   style?: any;
@@ -67,7 +70,11 @@ export default function SubscriptionStatusCard({
 
       if (status === 'trial') {
         const daysLeft = store.getTrialDaysRemaining();
-        if (daysLeft !== null) {
+        if (daysLeft === null) {
+          setTimeRemaining('');
+        } else if (daysLeft === 0) {
+          setTimeRemaining('Ends today');
+        } else {
           setTimeRemaining(`${daysLeft} day${daysLeft !== 1 ? 's' : ''} remaining`);
         }
       } else if (status === 'grace') {
@@ -84,39 +91,29 @@ export default function SubscriptionStatusCard({
     return () => clearInterval(interval);
   }, [subscription, status]);
 
-  // Open platform subscription management
+  // Open platform subscription management. If the store page cannot open, nothing is shown:
+  // this card adds no Alert or modal (crisis ruling, DEBUG-709).
   const handleManageSubscription = async () => {
     if (onManage) {
       onManage();
       return;
     }
-
-    const url =
-      Platform.OS === 'ios'
-        ? 'https://apps.apple.com/account/subscriptions'
-        : 'https://play.google.com/store/account/subscriptions';
-
-    const supported = await Linking.canOpenURL(url);
-    if (supported) {
-      await Linking.openURL(url);
-    }
+    await openSubscriptionManagement();
   };
 
   // No subscription yet
   if (!subscription) {
     return (
       <View style={[styles.card, style]}>
-        <Text style={styles.title}>Start Your Free Trial</Text>
-        <Text style={styles.description}>
-          Try Being for free with full access to all features
-        </Text>
+        <Text style={styles.title}>Choose a plan</Text>
+        <Text style={styles.description}>{NON_SUBSCRIBED_DESCRIPTION}</Text>
         <TouchableOpacity
           style={styles.primaryButton}
           onPress={onUpgrade}
-          accessibilityLabel="Start free trial"
+          accessibilityLabel="See plans"
           accessibilityRole="button"
         >
-          <Text style={styles.primaryButtonText}>Start Free Trial</Text>
+          <Text style={styles.primaryButtonText}>See plans</Text>
         </TouchableOpacity>
       </View>
     );
@@ -128,17 +125,14 @@ export default function SubscriptionStatusCard({
       <View style={[styles.card, styles.trialCard, style]}>
         <Text style={styles.badge}>FREE TRIAL</Text>
         <Text style={styles.title}>Your Trial is Active</Text>
-        <Text style={styles.countdown}>{timeRemaining}</Text>
-        <Text style={styles.description}>
-          Enjoying Being? Upgrade to continue your journey after the trial ends.
-        </Text>
+        {timeRemaining ? <Text style={styles.countdown}>{timeRemaining}</Text> : null}
         <TouchableOpacity
-          style={styles.primaryButton}
-          onPress={onUpgrade}
-          accessibilityLabel="Upgrade now"
+          style={styles.secondaryButton}
+          onPress={handleManageSubscription}
+          accessibilityLabel="Manage subscription"
           accessibilityRole="button"
         >
-          <Text style={styles.primaryButtonText}>Upgrade Now</Text>
+          <Text style={styles.secondaryButtonText}>Manage Subscription</Text>
         </TouchableOpacity>
       </View>
     );
@@ -194,7 +188,7 @@ export default function SubscriptionStatusCard({
         <Text style={[styles.badge, styles.expiredBadge]}>EXPIRED</Text>
         <Text style={styles.title}>Subscription Ended</Text>
         <Text style={styles.description}>
-          Renew your subscription to regain access to all features
+          Your subscription has ended. You can subscribe again at any time.
         </Text>
         <TouchableOpacity
           style={styles.primaryButton}
@@ -216,9 +210,7 @@ export default function SubscriptionStatusCard({
     return (
       <View style={[styles.card, style]}>
         <Text style={styles.title}>Crisis Support Always Available</Text>
-        <Text style={styles.description}>
-          Subscribe to unlock all therapeutic features
-        </Text>
+        <Text style={styles.description}>{NON_SUBSCRIBED_DESCRIPTION}</Text>
         <TouchableOpacity
           style={styles.primaryButton}
           onPress={onUpgrade}
