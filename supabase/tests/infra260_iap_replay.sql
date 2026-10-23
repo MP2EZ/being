@@ -21,14 +21,16 @@ VALUES
   (:'B', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated', true, now(), now());
 
 -- A binds transaction TXN1.
-INSERT INTO subscriptions (user_id, platform, original_transaction_id, status, tier, interval, crisis_access_enabled)
-VALUES (:'A', 'apple', 'TXN1', 'active', 'standard', 'monthly', true);
+-- `environment` is required on apple rows (subscriptions_apple_environment_present,
+-- 20260821000000); omitting it fails the CHECK before the UNIQUE index is reached.
+INSERT INTO subscriptions (user_id, platform, original_transaction_id, status, tier, interval, crisis_access_enabled, environment)
+VALUES (:'A', 'apple', 'TXN1', 'active', 'standard', 'monthly', true, 'Sandbox');
 
 -- Test 1: B CANNOT bind the same (platform, txn) — replay backstop fires.
 DO $$ BEGIN
   BEGIN
-    INSERT INTO subscriptions (user_id, platform, original_transaction_id, status, tier, interval, crisis_access_enabled)
-    VALUES ('22222222-2222-2222-2222-222222222222', 'apple', 'TXN1', 'active', 'standard', 'monthly', true);
+    INSERT INTO subscriptions (user_id, platform, original_transaction_id, status, tier, interval, crisis_access_enabled, environment)
+    VALUES ('22222222-2222-2222-2222-222222222222', 'apple', 'TXN1', 'active', 'standard', 'monthly', true, 'Sandbox');
     RAISE EXCEPTION 'FAIL: B bound a transaction already owned by A (replay backstop missing)';
   EXCEPTION WHEN unique_violation THEN
     RAISE NOTICE 'PASS: uniq_txn_per_platform rejected B replaying A''s transaction';

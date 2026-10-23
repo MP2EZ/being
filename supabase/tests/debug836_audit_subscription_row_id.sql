@@ -6,7 +6,8 @@
 -- supabase/functions/_tests/helpers/fakeSupabase.ts mirrors the uuid parameter (22P02) and the
 -- receipt-handler tests assert the row-uuid-or-null contract at every verifier call site. That
 -- pins the CALLERS against a fake; this file pins the FUNCTION, so the fake cannot drift from
--- the database unnoticed. It is run by hand — no CI workflow references supabase/tests/.
+-- the database unnoticed. ci.yml's `Supabase SQL suites` job runs it on every PR against a
+-- freshly reset local stack (INFRA-782; non-strict until INFRA-829).
 --
 -- HOW TO RUN (local stack):
 --   supabase start && supabase db reset

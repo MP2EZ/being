@@ -55,10 +55,11 @@
 -- This suite is READ-ONLY — it queries catalogs only, inserts nothing, and is safe to run
 -- against the shared project as well as a local stack.
 --
--- ⚠️  THIS PINS BY ASSERTION, NOT BY GATE. There is no CI Postgres in this repo, so nothing
--- runs this file automatically. It is a checked-in assertion someone must execute, exactly
--- like maint347_retention_heartbeat.sql and infra260_account_deletion_cascade.sql. Treat it
--- as the record of what was verified and the means to re-verify, not as a merge gate.
+-- ⚠️  NOT YET A MERGE GATE. Since INFRA-782, ci.yml's `Supabase SQL suites` job runs every
+-- file in this directory on each PR against a freshly reset local stack, but the step is
+-- continue-on-error until INFRA-829 promotes it: a red suite leaves the check green. Read the
+-- job log's `N/N suites passed, 0 SKIP` line, never the check colour. A fresh reset is not
+-- the shared project either, so a prod-only grant drift still needs a run against it.
 --
 -- Last validated: 2026-08-16 against the shared project yliycxslzdsgjtpxggtf (catalog reads
 -- only). Live state at that time matched every assertion below.

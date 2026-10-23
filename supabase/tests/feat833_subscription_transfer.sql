@@ -3,7 +3,8 @@
 --
 -- The Deno half (supabase/functions/_tests/subscription-transfer-status.test.ts) pins the
 -- status set and the tombstone column list against the migration text; this file pins the
--- behaviour. It is run by hand — no CI workflow references supabase/tests/.
+-- behaviour. ci.yml's `Supabase SQL suites` job runs it on every PR against a freshly reset
+-- local stack (INFRA-782; non-strict until INFRA-829).
 --
 -- HOW TO RUN (local stack, after the migration):
 --   supabase start && supabase db reset

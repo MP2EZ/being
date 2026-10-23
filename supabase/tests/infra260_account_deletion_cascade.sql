@@ -21,8 +21,8 @@ INSERT INTO encrypted_backups (user_id, encrypted_data, checksum, size_bytes)
 VALUES (:'U', 'cipher', repeat('a',64), 10);
 INSERT INTO analytics_events (user_id, event_type, properties, session_id)
 VALUES (:'U', 'crisis_detected', '{"trigger_type":"x","severity_bucket":"high","assessment_type":"phq9","intervention_surfaced":true}', 'session_2026-06-08_abc');
-INSERT INTO subscriptions (user_id, platform, original_transaction_id, status, tier, interval, crisis_access_enabled)
-VALUES (:'U', 'apple', 'TXN-DEL', 'active', 'standard', 'monthly', true);
+INSERT INTO subscriptions (user_id, platform, original_transaction_id, status, tier, interval, crisis_access_enabled, environment)
+VALUES (:'U', 'apple', 'TXN-DEL', 'active', 'standard', 'monthly', true, 'Sandbox');
 INSERT INTO subscription_events (user_id, event_type, metadata)
 VALUES (:'U', 'subscription_started', '{}');
 
