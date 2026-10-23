@@ -221,9 +221,10 @@ END $$;
 -- store notification died at the replay check — the INFRA-379 class again, latent because
 -- there are no subscribers. Both server-internal tables are written only by edge functions
 -- via service_role: SELECT + INSERT, never UPDATE (markProcessed is a plain insert that
--- swallows 23505) and never DELETE (no prune job exists). anon/authenticated hold NOTHING —
--- not even the default REFERENCES/TRIGGER/TRUNCATE: a TRUNCATE of the replay cache re-arms
--- every captured notification inside the 24h freshness window.
+-- swallows 23505) and never DELETE (the INFRA-846 prune runs as the table owner under
+-- pg_cron, not as service_role). anon/authenticated hold NOTHING — not even the default
+-- REFERENCES/TRIGGER/TRUNCATE: a TRUNCATE of the replay cache re-arms every captured
+-- notification inside the 24h freshness window.
 DO $$
 DECLARE
   tbl  TEXT;
