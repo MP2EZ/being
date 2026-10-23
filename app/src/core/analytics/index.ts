@@ -30,8 +30,6 @@
 export { PostHogProvider, usePostHogConfigured } from './PostHogProvider';
 export { PHIFilter, AnalyticsEvents } from './PHIFilter';
 export { useAnalytics } from './useAnalytics';
-// Runtime (PostHog-backed) feature-flag tier (INFRA-199)
-export { useFeatureFlag, PRODUCT_FLAGS } from './useFeatureFlag';
 export type { PHIValidationResult, AnalyticsEventType } from './PHIFilter';
 // DEBUG-539: `getDeletionRequestHistory` / `hasPendingDeletionRequests` are GONE,
 // along with the `previousDistinctId` audit record they read. That record was

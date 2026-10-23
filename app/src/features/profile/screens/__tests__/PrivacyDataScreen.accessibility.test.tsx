@@ -90,7 +90,6 @@ jest.mock('@/core/analytics', () => ({
     trackSettingsOpened: jest.fn(),
     trackConsentChanged: jest.fn(),
   }),
-  useFeatureFlag: () => false,
 }));
 
 /**

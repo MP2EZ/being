@@ -10,12 +10,11 @@
  * network dependency — which matters in an app with crisis/safety surfaces
  * where feature availability must never hinge on a network round-trip.
  *
- * This sync API remains the source of truth for safety/structural flags. For
- * runtime control (kill-switch, %-rollout, A/B) of *product* flags, use the
- * PostHog-backed `useFeatureFlag` hook in `@/core/analytics` (INFRA-199): it
- * layers on top of this build-time default (the fail-safe fallback; a clean
- * PostHog boolean overrides it in both directions) and only resolves remotely for the explicit `PRODUCT_FLAGS` allow-list, under
- * granted analytics consent.
+ * This is the only flag tier. The PostHog-backed runtime tier (`useFeatureFlag` /
+ * `PRODUCT_FLAGS`, INFRA-199) was retired by MAINT-811 (founder decision 2026-10-19):
+ * it never fetched flags in practice, and EAS build-time values are the real source.
+ * Remote evaluation (kill-switch, %-rollout, A/B) would be new processing: a new
+ * item, with crisis + compliance review and a DPIA entry.
  *
  * Blob format: comma-separated `key:value` pairs, e.g.
  *   "cloud_sync:false,bug_reporting:true". Only the literal string "true"
@@ -29,10 +28,9 @@ import { env } from '@/core/config/env';
  *
  * Scope: only flags that some code path actually reads. `cloud_sync` is
  * build-time only: all four of its readers (the two Profile screens and the
- * onboarding and re-consent consent cards) call `isFeatureEnabled`, and it must
- * never enter `PRODUCT_FLAGS` (MAINT-809). `wellness_trend_notes` (FEAT-195) is
- * read via the runtime `useFeatureFlag` hook to gate the Wellness Trends "Your
- * note" surface (in `PRODUCT_FLAGS`; ships dark, build-time default false). MAINT-213 removed
+ * onboarding and re-consent consent cards) call `isFeatureEnabled` (MAINT-809).
+ * `wellness_trend_notes` (FEAT-195) gates the Wellness Trends "Your note" surface,
+ * read in WellnessScreeningTrends; it ships dark (build-time default false). MAINT-213 removed
  * eight keys that lived here but were never read as flags (`production_mode`,
  * `performance_monitoring`, `crisis_detection`, `clinical_accuracy`,
  * `data_encryption`, `biometric_auth`, `offline_mode`, `widget_support`).

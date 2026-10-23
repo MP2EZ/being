@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.23
+**Version:** 1.24
 **Effective Date:** December 12, 2025
 **Last Updated:** October 22, 2026
 
@@ -58,7 +58,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 ### 2.3 Information We Do NOT Collect
 
-- Location data or GPS tracking
+- Precise location or GPS tracking (Section 5 describes the approximate, city-level location our service providers estimate)
 - Contacts or address book access
 - Camera or photo library access
 - Audio recordings — if you speak a reflection, the recording is transcribed on your device and then discarded. We never receive, transmit, or store audio (see 2.1)
@@ -171,10 +171,13 @@ What we collect (when opted in):
 
 What we **NEVER** collect in-app:
 
-- Assessment scores (PHQ-9, GAD-7)
+- Your answers to a wellness screening (PHQ-9, GAD-7), your scores, or their severity
+- Which screening you took
 - Mood check-in values or notes
-- Journal entries
-- Any mental health data
+- Journal entries, or anything else you write or speak in the app
+- Which practice you did
+
+**What these events can show.** If you turn on Usage Analytics, analytics records when you open a wellness screening or support resources, and when you tap to call or text a crisis line. These events are tied to the installation identifier and approximate location described above, so they can show that someone using this installation looked for mental-health support. They never include what you answered, scored, wrote or said.
 
 Your control:
 
@@ -298,6 +301,7 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
+- **v1.24 (October 22, 2026) — material change.** §5.2 said we never collect "any mental health data". That was broader than what happens. With Usage Analytics on, analytics records when you open a wellness screening or support resources and when you tap to call or text a crisis line, tied to an installation identifier and approximate location, so these events can show that someone looked for mental-health support. §5.2 now lists exactly what is never collected (screening answers, scores and severity, which screening you took, mood values, anything you write or speak, which practice you did) and states what these events can show. §2.3 now says we do not collect *precise* location, since §5 already describes approximate, city-level location. Nothing about what is collected has changed; this corrects how it was described. Because it withdraws a broader promise, it is treated as a material change. It does not change the retention described in §7.2.
 - **v1.23 (October 22, 2026):** §2.2 now calls the in-app analytics setting *Usage Analytics*, the name it carries in the app and in §5.2. Every backup screen in the app now uses the *Settings Backup* name that §4.2 and §7.3 already use. These are names only: nothing about what is collected changes, so it is published with the next app release.
 - **v1.22 (October 18, 2026):** A bug report you send while *Crash Reports* is on no longer carries the installation identifier or the device identifier described in §5.1, so it carries no identifier that links it to your crash reports; §5.1 is updated to match, and now states that Sentry stores an approximate location, no more precise than city and country, with any bug report you send, but not your IP address. Copies of the app installed before this version still attach both identifiers to a bug report sent with *Crash Reports* on, until they are updated. This narrows what is collected and adds no new kind of data, so it is published with the next app release.
 - **v1.21 (October 14, 2026):** §5.1 said only Sentry's app-session records include the random identifier generated per app installation. Crash and app-freeze reports include it too, and so does a bug report you send while *Crash Reports* is on, along with device and app details; §5.1 also said nothing else is collected with a bug report. Both are corrected. §5.1 and §2.2 now also say that crash reports include a device identifier Sentry derives from an identifier Apple assigns to our apps on your device, and that Sentry stores an approximate location (city and country) estimated from your internet connection, though not your IP address. Nothing about what is collected has changed, and §2.2 already described crash reports as carrying the identifier.

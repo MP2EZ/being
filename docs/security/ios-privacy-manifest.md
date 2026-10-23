@@ -2,89 +2,47 @@
 
 ## Overview
 
-This document describes the data collection declarations in `app/ios/Being/PrivacyInfo.xcprivacy` as required by Apple's App Store guidelines (enforced May 2024).
+This document explains the declarations in Being's iOS privacy manifest. **The source is `app/app.json` → `expo.ios.privacyManifests`.** `expo prebuild` writes it into `app/ios/Being/PrivacyInfo.xcprivacy`, which is generated (iOS is CNG, INFRA-280) and gitignored, so never edit or cite that file as a source. After any change, regenerate with `npx expo prebuild --platform ios --no-install` (never omit `--platform`: `app/android/` is committed) and read it back with `/usr/libexec/PlistBuddy -c 'Print :NSPrivacyCollectedDataTypes' app/ios/Being/PrivacyInfo.xcprivacy`.
+
+Pinned by `app/__tests__/privacy/privacyManifestCollectedDataTypes.config.test.ts`. Re-synced to `app.json` by DEBUG-793 (2026-10-19). This document previously described a Health declaration and API reasons that `app.json` never carried.
 
 ## NSPrivacyCollectedDataTypes
 
-### Health Data (`NSPrivacyCollectedDataTypeHealth`)
+| Type | Linked | Tracking | Purposes | What it covers |
+|---|---|---|---|---|
+| `NSPrivacyCollectedDataTypeDeviceID` | `true` | `false` | Analytics, AppFunctionality | PostHog's install-persistent `distinct_id`, sent only with *Usage Analytics* on. Sentry's installation and device identifiers, sent only with *Crash Reports* on (privacy policy v1.21, §5.1) |
+| `NSPrivacyCollectedDataTypeProductInteraction` | `true` | `false` | Analytics | PostHog product events, only with *Usage Analytics* on. These include opening wellness screenings or support resources and tapping a crisis line, but never answers, scores, or anything the user writes (privacy policy §5.2) |
+| `NSPrivacyCollectedDataTypeCoarseLocation` | `true` | `false` | Analytics, AppFunctionality | City-level GeoIP derived by PostHog (with *Usage Analytics* on) and by Sentry (with *Crash Reports* on, and on any bug report sent). IP addresses are not stored |
 
-**Data Collected:**
-- PHQ-9 (Patient Health Questionnaire-9) assessment responses
-- GAD-7 (Generalized Anxiety Disorder-7) assessment responses
-- Daily mood check-in data (emotional state, intensity levels)
-- Practice completion status (meditation, breathing exercises)
+**Why Linked = true.** Being has no account, but Apple counts data tied to a device identifier as linked to the user, and every one of these is stored against an install-persistent identifier. Declaring them "not linked" would rest on the absence of an account, which Apple's definition does not accept. This is the conservative reading (DEBUG-793 compliance lens). Revisit only with a written ruling.
 
-**Justification:**
-This data is classified as "Health" data per Apple's App Privacy Details categories because it relates to the user's mental health and medical state. PHQ-9 and GAD-7 are widely used wellness self-screening questionnaires for mood and anxiety.
+**Why Tracking = false.** No data is combined with third-party data for advertising or shared with a data broker. There is no IDFA and no ATT prompt.
 
-**Privacy Configuration:**
-| Property | Value | Justification |
-|----------|-------|---------------|
-| `NSPrivacyCollectedDataTypeLinked` | `false` | Data is stored locally on-device with encryption. If cloud backup is enabled, data is end-to-end encrypted with user-controlled keys. No server-side user identity linkage occurs. |
-| `NSPrivacyCollectedDataTypeTracking` | `false` | Data is never used for advertising, analytics tracking, or shared with third parties for tracking purposes. |
-| `NSPrivacyCollectedDataTypePurposes` | `AppFunctionality` | Data is collected solely to provide core app functionality: mood tracking, assessment scoring, progress visualization, and personalized recommendations. |
+Sentry's pod ships its own manifest (crash, performance and other diagnostic data), which Xcode merges into the app's privacy report.
+
+### Open, not ruled
+
+- **Health.** Screening answers, scores, mood values and journal content never leave the device. A Crisis Detection Event (`crisis_detected`) is sent to Being's server keyed to the anonymous account identifier, so whether `NSPrivacyCollectedDataTypeHealth` must be declared (Linked) needs a compliance ruling. Tracked with the MHMDA gaps in DEBUG-821.
+- **Purchase History.** Store transaction identifiers and subscription status are stored server-side against the anonymous account identifier (privacy policy §4.1). A compliance ruling is needed before App Store submission.
 
 ## NSPrivacyAccessedAPITypes
 
-The app uses the following Apple APIs that require reason declarations:
-
-### File Timestamp API (`NSPrivacyAccessedAPICategoryFileTimestamp`)
-**Reasons:**
-- `C617.1`: Access file timestamps inside app container
-- `0A2A.1`: Access file timestamps for files provided by user
-- `3B52.1`: Access file timestamps for app data organization
-
-**Use Case:** Managing encrypted local storage files for health data.
-
-### User Defaults API (`NSPrivacyAccessedAPICategoryUserDefaults`)
-**Reasons:**
-- `CA92.1`: Access user preferences within app
-
-**Use Case:** Storing non-sensitive app preferences (theme, notification settings).
-
-### System Boot Time API (`NSPrivacyAccessedAPICategorySystemBootTime`)
-**Reasons:**
-- `35F9.1`: Measure elapsed time within app
-
-**Use Case:** Animation timing, session duration tracking.
-
-### Disk Space API (`NSPrivacyAccessedAPICategoryDiskSpace`)
-**Reasons:**
-- `E174.1`: Check disk space for storage operations
-- `85F4.1`: Check available disk space
-
-**Use Case:** Ensuring sufficient storage for encrypted health data.
+| API category | Reason | Use |
+|---|---|---|
+| `NSPrivacyAccessedAPICategoryFileTimestamp` | `C617.1` | File timestamps inside the app container (encrypted local storage) |
+| `NSPrivacyAccessedAPICategoryUserDefaults` | `CA92.1` | App preferences |
+| `NSPrivacyAccessedAPICategorySystemBootTime` | `35F9.1` | Elapsed-time measurement (animation and session timing) |
 
 ## NSPrivacyTracking
 
-Set to `false`. The Being app does not engage in any form of user tracking as defined by Apple's App Tracking Transparency framework.
+`false`. Being does not track users as defined by App Tracking Transparency.
 
-## Compliance Notes
+## App Store Connect declaration
 
-1. **HIPAA Alignment:** Data collection practices align with HIPAA requirements for PHI protection. See `docs/brand-legal/legal/HIPAA/` for full compliance documentation.
-
-2. **Local-First Architecture:** Health data is primarily stored locally with encryption. Cloud sync is optional and uses end-to-end encryption.
-
-3. **No Third-Party Data Sharing:** Health data is never sold or shared with third parties for any purpose.
-
-4. **User Control:** Users can export or delete their health data at any time through in-app settings.
-
-## App Store Connect Declaration
-
-When submitting to App Store Connect, the following must be declared in the App Privacy questionnaire:
-
-**Health & Fitness > Health:**
-- Collected: Yes
-- Linked to Identity: No
-- Used for Tracking: No
-- Purpose: App Functionality
+The App Store Connect nutrition label is entered by hand and must match this manifest. The questionnaire answers are in `docs/product/app-store-connect-metadata.md` §5.
 
 ## References
 
 - [Apple App Privacy Details](https://developer.apple.com/app-store/app-privacy-details/)
 - [Privacy Manifest Files](https://developer.apple.com/documentation/bundleresources/privacy-manifest-files)
 - [Describing Data Use in Privacy Manifests](https://developer.apple.com/documentation/bundleresources/privacy_manifest_files/describing_data_use_in_privacy_manifests)
-
-## Last Updated
-
-December 2024 - INFRA-113

@@ -8,10 +8,11 @@
  * This is the same defence-in-depth shape `guidanceAnalyticsBoundary.contract.test.ts`
  * gives FEAT-457's `guidance_opened` domain tokens, and it exists because the review
  * that permitted these two events rested on exactly this boundary holding. Compliance's
- * ruling: they sit inside the published "we never collect any mental health data"
- * promise for the same reason `crisis_resources_viewed` / `crisis_hotline_tapped` do —
- * bare access signals for a strictly more sensitive affordance, shipping to PostHog
- * today. Access is not the finding.
+ * ruling: they are ACCESS signals, like `crisis_resources_viewed` /
+ * `crisis_hotline_tapped`. Privacy policy §5.2 (v1.24, DEBUG-793) discloses them and
+ * promises the content (which screening, score, severity) is never collected. Access is
+ * disclosed, not unlinkable: it is consumer health data under WA MHMDA
+ * (regulatory-applicability.md §2a). This boundary is what keeps the content half true.
  *
  * WHY THIS FILE AND NOT A CODE COMMENT: the FILTER IS NOT THE CONTROL for this class.
  * `phq`, `gad`, `score` and `severity` are PHI_KEYWORDS, so those particular values

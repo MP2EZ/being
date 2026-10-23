@@ -7,9 +7,8 @@
  * flag, so users see nothing until the feature is enabled. The flag resolves at
  * BUILD TIME only (`isFeatureEnabled`, MAINT-809), the same resolver the onboarding
  * and re-consent Cloud Backup consent cards use, so this screen and the card that
- * authorizes it always appear or disappear together. `cloud_sync` is deliberately
- * not in `PRODUCT_FLAGS`: for those flags a clean PostHog boolean wins in both
- * directions for analytics consenters. This gates UI visibility only; actual
+ * authorizes it always appear or disappear together. Flags are build-time only; there
+ * is no runtime tier (MAINT-811). This gates UI visibility only; actual
  * backup egress stays gated independently by the cloud_sync consent in
  * CloudBackupService.
  */

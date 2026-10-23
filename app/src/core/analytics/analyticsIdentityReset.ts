@@ -100,8 +100,9 @@ function resetKeepList(): PostHogPersistedProperty[] {
  * `disabled` (never `optedOut`), so it POSTs `/flags` in every opt state. Shadow it on the
  * instance before the reset and leave it shadowed for the rest of the process: `reset()` runs
  * inside the SDK's `wrap()`, which DEFERS it until init completes, so restoring in a
- * `finally` would reopen the request on the deferred path. Nothing in app code reloads flags
- * (docs/architecture/feature-flags.md section 4); a runtime-tier enablement must revisit this.
+ * `finally` would reopen the request on the deferred path. Nothing in app code reads or
+ * reloads flags: the runtime tier was retired (MAINT-811; docs/architecture/feature-flags.md
+ * section 4). Any future PostHog flag read, identify or group must revisit this.
  */
 function suppressFlagReload(client: AnalyticsIdentityResetTarget): void {
   client.reloadFeatureFlags = () => undefined;
