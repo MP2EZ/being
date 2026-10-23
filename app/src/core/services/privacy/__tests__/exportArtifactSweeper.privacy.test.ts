@@ -18,10 +18,29 @@
  *     (audio artifacts, image caches, near-miss names);
  *   - it never throws: it runs inside the account-deletion sequence, where a
  *     throw would report an already-completed server erasure as a failure.
+ *
+ * FEAT-806 widened it to the PDF export: the screen's own `being-export-*.pdf`,
+ * plus expo-print's render output, which lands in `<cache>/Print/<UUID>.pdf`
+ * before the screen moves it. A process killed between the render and the move
+ * strands it there, under a name the export pattern cannot see.
  */
 
-const mockFiles: { name: string; deleted: boolean; failDelete?: boolean }[] = [];
+type MockFile = { name: string; deleted: boolean; failDelete?: boolean };
+const mockFiles: MockFile[] = [];
+const mockPrintFiles: MockFile[] = [];
 let mockListThrows = false;
+const mockPrintDir = { exists: false, listThrows: false };
+
+const mockEntries = (files: MockFile[]) =>
+  files
+    .filter((f) => !f.deleted)
+    .map((f) => ({
+      name: f.name,
+      delete: () => {
+        if (f.failDelete) throw new Error('locked');
+        f.deleted = true;
+      },
+    }));
 
 jest.mock('expo-file-system', () => ({
   Paths: {
@@ -29,19 +48,22 @@ jest.mock('expo-file-system', () => ({
       return {
         list: () => {
           if (mockListThrows) throw new Error('cache unreadable');
-          return mockFiles
-            .filter((f) => !f.deleted)
-            .map((f) => ({
-              name: f.name,
-              delete: () => {
-                if (f.failDelete) throw new Error('locked');
-                f.deleted = true;
-              },
-            }));
+          return mockEntries(mockFiles);
         },
       };
     },
   },
+  Directory: jest.fn().mockImplementation((_parent: unknown, name: string) => ({
+    name,
+    get exists() {
+      return name === 'Print' && mockPrintDir.exists;
+    },
+    list: () => {
+      if (name !== 'Print') throw new Error(`unexpected directory ${name}`);
+      if (mockPrintDir.listThrows) throw new Error('print dir unreadable');
+      return mockEntries(mockPrintFiles);
+    },
+  })),
 }));
 
 import {
@@ -53,11 +75,20 @@ import {
 function add(name: string, opts: { failDelete?: boolean } = {}): void {
   mockFiles.push({ name, deleted: false, ...opts });
 }
+function addPrint(name: string, opts: { failDelete?: boolean } = {}): void {
+  mockPrintDir.exists = true;
+  mockPrintFiles.push({ name, deleted: false, ...opts });
+}
 const remaining = (): string[] => mockFiles.filter((f) => !f.deleted).map((f) => f.name);
+const remainingPrint = (): string[] =>
+  mockPrintFiles.filter((f) => !f.deleted).map((f) => f.name);
 
 beforeEach(() => {
   mockFiles.length = 0;
+  mockPrintFiles.length = 0;
   mockListThrows = false;
+  mockPrintDir.exists = false;
+  mockPrintDir.listThrows = false;
 });
 
 describe('DEBUG-645: one filename definition for writer and sweeper', () => {
@@ -67,8 +98,16 @@ describe('DEBUG-645: one filename definition for writer and sweeper', () => {
 
   it('the sweep pattern matches every name the writer can produce', () => {
     for (const iso of ['2026-01-01T00:00:00Z', '2026-12-31T23:59:59Z', '2031-06-15T12:00:00Z']) {
-      expect(EXPORT_FILE_PATTERN.test(exportFileName(new Date(iso)))).toBe(true);
+      for (const ext of ['json', 'pdf'] as const) {
+        expect(EXPORT_FILE_PATTERN.test(exportFileName(new Date(iso), ext))).toBe(true);
+      }
     }
+  });
+
+  it('FEAT-806: the PDF name differs from the JSON name only by extension', () => {
+    const date = new Date('2026-09-23T15:04:05Z');
+    expect(exportFileName(date, 'pdf')).toBe('being-export-2026-09-23.pdf');
+    expect(exportFileName(date)).toBe('being-export-2026-09-23.json');
   });
 });
 
@@ -111,5 +150,62 @@ describe('DEBUG-645: sweepExportArtifacts', () => {
 
   it('returns 0 on an empty cache', () => {
     expect(sweepExportArtifacts()).toBe(0);
+  });
+});
+
+describe('FEAT-806: sweepExportArtifacts covers the PDF export', () => {
+  const PRINT_UUID = '3F2504E0-4F89-41D3-9A0C-0305E82C3301.pdf';
+
+  it("removes the screen's own PDF export alongside the JSON one", () => {
+    add('being-export-2026-09-23.json');
+    add('being-export-2026-09-23.pdf');
+    expect(sweepExportArtifacts()).toBe(2);
+    expect(remaining()).toEqual([]);
+  });
+
+  it('leaves PDFs in the shared cache root alone unless the exporter named them', () => {
+    const others = ['being-export-2026-09-23.pdf.bak', 'invoice.pdf', 'being-export.pdf'];
+    others.forEach((n) => add(n));
+    expect(sweepExportArtifacts()).toBe(0);
+    expect(remaining()).toEqual(others);
+  });
+
+  it("removes a render stranded in expo-print's output directory", () => {
+    addPrint(PRINT_UUID);
+    addPrint('9B2C1A40-0000-4000-8000-000000000000.PDF');
+    expect(sweepExportArtifacts()).toBe(2);
+    expect(remainingPrint()).toEqual([]);
+  });
+
+  it('leaves non-PDF files in that directory alone', () => {
+    addPrint('notes.txt');
+    addPrint(PRINT_UUID);
+    expect(sweepExportArtifacts()).toBe(1);
+    expect(remainingPrint()).toEqual(['notes.txt']);
+  });
+
+  it('returns 0 when the output directory was never created', () => {
+    expect(sweepExportArtifacts()).toBe(0);
+  });
+
+  it('never throws on an unreadable output directory, and still sweeps the cache root', () => {
+    add('being-export-2026-09-23.pdf');
+    addPrint(PRINT_UUID);
+    mockPrintDir.listThrows = true;
+    expect(() => sweepExportArtifacts()).not.toThrow();
+    expect(remaining()).toEqual([]);
+  });
+
+  it('never throws on a render it cannot delete, and still removes the rest', () => {
+    addPrint(PRINT_UUID, { failDelete: true });
+    addPrint('9B2C1A40-0000-4000-8000-000000000000.pdf');
+    expect(() => sweepExportArtifacts()).not.toThrow();
+    expect(remainingPrint()).toEqual([PRINT_UUID]);
+  });
+
+  it('still sweeps the output directory when the cache root is unreadable', () => {
+    mockListThrows = true;
+    addPrint(PRINT_UUID);
+    expect(sweepExportArtifacts()).toBe(1);
   });
 });

@@ -154,8 +154,8 @@ const keyOf = (s) => `${s.file} | ${s.scroll} -> ${s.tap}`;
  *   measured-clear      the target sits OUTSIDE the ScrollView and a capture measured no
  *                       swallow against a matched control; no remedy, so a retry cannot
  *                       mask the regression the tap tests. Cites the item holding the capture
- *   debt-pin            export-share-sheet-occlusion pins a known debt state, is never
- *                       scoped by /b-close, and is recorded only
+ *   debt-pin            export-share-sheet-occlusion and its PDF sibling pin a known debt state, are never
+ *                       scoped by /b-close, and are recorded only
  *
  * `consequence` is the fact the flow asserts after the tap, or null when it asserts none.
  * Both directions are checked, so adding an assertion to a null site reds until the
@@ -185,6 +185,9 @@ const REGISTER = [
   { key: 'daily-loop-ax5-virtuous.yaml | checkin-card-daily-loop -> checkin-card-daily-loop', status: 'remedied', consequence: 'daily-loop-depth-select-screen' },
   { key: 'daily-loop-ax5-virtuous.yaml | virtue-chip-temperance -> daily-loop-exit', status: 'measured-clear', consequence: 'home-screen', capture: 'DEBUG-652' },
   { key: 'daily-loop-quick-depth.yaml | continue-button -> continue-button', status: 'boundary', consequence: 'daily-loop-VirtuousResponse-screen' },
+  { key: 'export-pdf-share-sheet-occlusion.yaml | profile-card-privacy -> profile-card-privacy', status: 'debt-pin', consequence: null },
+  { key: 'export-pdf-share-sheet-occlusion.yaml | profile-card-export -> profile-card-export', status: 'debt-pin', consequence: 'export-data-screen' },
+  { key: 'export-pdf-share-sheet-occlusion.yaml | export-pdf-button -> export-pdf-button', status: 'debt-pin', consequence: null },
   { key: 'export-share-sheet-occlusion.yaml | profile-card-privacy -> profile-card-privacy', status: 'debt-pin', consequence: null },
   { key: 'export-share-sheet-occlusion.yaml | profile-card-export -> profile-card-export', status: 'debt-pin', consequence: 'export-data-screen' },
   { key: 'export-share-sheet-occlusion.yaml | export-data-button -> export-data-button', status: 'debt-pin', consequence: null },

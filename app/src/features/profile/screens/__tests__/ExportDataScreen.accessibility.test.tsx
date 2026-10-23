@@ -39,8 +39,14 @@ jest.mock('expo-file-system', () => ({
   File: jest.fn().mockImplementation(() => ({
     create: mockCreate,
     write: mockWrite,
+    move: jest.fn(async () => undefined),
     uri: 'file:///cache/being-export.json',
   })),
+}));
+
+const mockPrintToFile = jest.fn();
+jest.mock('expo-print', () => ({
+  printToFileAsync: (...a: unknown[]) => mockPrintToFile(...a),
 }));
 
 const mockShareAsync = jest.fn();
@@ -55,6 +61,12 @@ jest.mock('expo-sharing', () => ({
 const mockIsFeatureEnabled = jest.fn();
 jest.mock('@/core/services/featureFlags', () => ({
   isFeatureEnabled: (...a: unknown[]) => mockIsFeatureEnabled(...a),
+}));
+
+// FEAT-806: the presenting guard reads navigation focus; these tests render outside a navigator.
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useNavigation: () => ({ isFocused: () => true }),
 }));
 
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
@@ -159,6 +171,17 @@ describe('ExportDataScreen', () => {
     const button = getByTestId('export-data-button');
     expect(button.props.accessibilityRole).toBe('button');
     expect(button.props.accessibilityLabel).toMatch(/export as json/i);
+  });
+
+  it('labels the PDF control for screen readers, distinct from the complete JSON copy', () => {
+    const { getByTestId, getByText } = render(<ExportDataScreen />);
+    const pdf = getByTestId('export-pdf-button');
+    expect(pdf.props.accessibilityRole).toBe('button');
+    expect(pdf.props.accessibilityLabel).toMatch(/export as pdf, readable summary/i);
+    expect(pdf.props.accessibilityHint).toMatch(/share sheet/i);
+    expect(getByTestId('export-data-button').props.accessibilityLabel).toMatch(/complete copy/i);
+    expect(getByText(/JSON is the complete copy of your wellness data/)).toBeTruthy();
+    expect(getByText(/PDF is a readable summary/)).toBeTruthy();
   });
 
   it('discloses that encrypted server data is excluded', () => {
@@ -433,6 +456,51 @@ describe('ExportDataScreen', () => {
     });
 
     it('DEBUG-643: the __DEV__ crisis-exclusion check is wired to the export button', async () => {
+      await expectExclusionCheckWired(renderHost().api.getByTestId(TEST_ID), TEST_ID);
+    });
+  });
+
+  // FEAT-806: with the preview dark the PDF button is now the LAST control at max scroll —
+  // the DEBUG-653 position — so it carries the same clearance in its own style entry.
+  describe('FEAT-806: the PDF button clears the crisis FAB exclusion region', () => {
+    const TEST_ID = 'export-pdf-button';
+    const HOST = readHost(path.join(__dirname, '../ExportDataScreen.tsx'));
+    const renderHost = () => {
+      const api = render(<ExportDataScreen />);
+      return { api, style: flat(api.getByTestId(TEST_ID).props.style), pad: hostPad(api) };
+    };
+
+    it('(a) keeps the MARGIN clearance idle and while exporting', async () => {
+      let release: (v: unknown) => void = () => {};
+      mockPrintToFile.mockReturnValue(new Promise((resolve) => { release = resolve; }));
+      const { api, style } = renderHost();
+      expectMarginClearance(style, true);
+
+      fireEvent.press(api.getByTestId(TEST_ID));
+      await waitFor(() => expect(api.getByTestId(TEST_ID).props.accessibilityState.busy).toBe(true));
+      const exporting = flatten(api.getByTestId(TEST_ID).props.style);
+      expect(exporting.backgroundColor).not.toBe(style.backgroundColor);
+      expectMarginClearance(exporting, true);
+
+      release({ uri: 'file:///cache/Print/x.pdf', numberOfPages: 1 });
+      await waitFor(() => expect(api.getByTestId(TEST_ID).props.accessibilityState.busy).toBe(false));
+    });
+
+    it('(b) declares it in its own base entry, last, and the later member cannot clobber it', () => {
+      expectEntryShape(HOST, 'pdfExportButton', true);
+      expect(HOST.source).toMatch(
+        /style=\{\[styles\.pdfExportButton, pdfDisabled && styles\.exportButtonDisabled\]\}/
+      );
+      expect(HOST.source.match(/styles\.pdfExportButton(?!\w)/g)).toHaveLength(1);
+      expectInertMember(HOST, 'exportButtonDisabled');
+    });
+
+    it('(c) never intersects the exclusion rect at any y, on any supported viewport', () => {
+      const { pad, style } = renderHost();
+      expectSweepClear(pad, style, [52, 200]);
+    });
+
+    it('DEBUG-643: the __DEV__ crisis-exclusion check is wired to the PDF button', async () => {
       await expectExclusionCheckWired(renderHost().api.getByTestId(TEST_ID), TEST_ID);
     });
   });

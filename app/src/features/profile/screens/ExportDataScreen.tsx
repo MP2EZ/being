@@ -1,11 +1,18 @@
 /**
- * EXPORT MY DATA SCREEN (FEAT-267 + FEAT-270)
+ * EXPORT MY DATA SCREEN (FEAT-267 + FEAT-270 + FEAT-806)
  *
- * Data portability (CCPA / TDPSA / VCDPA / CPA / CTDPA / GDPR Art. 20). Two
+ * Data portability (CCPA / TDPSA / VCDPA / CPA / CTDPA / GDPR Art. 20). Three
  * surfaces share this one screen and one Privacy & Data entry point:
  *
  *   - JSON export (FEAT-267, ALWAYS ON, never flag-gated): gathers the on-device
  *     wellness data, writes it to a JSON file, opens the system share sheet.
+ *   - PDF export (FEAT-806, ALWAYS ON, no flag — founder decision 2026-10-18):
+ *     renders FEAT-272's `buildExportHtml` over the full-copy payload with
+ *     expo-print and shares the PDF through the SAME `handleExport` and the same
+ *     single share call. A readable summary, not the complete copy; the document
+ *     says so itself. expo-print is loaded with `await import` inside the handler
+ *     only, so the module stays off the eager graph of every screen that imports
+ *     this one.
  *   - Scoping + count preview (FEAT-270, behind the BUILD-TIME `data_export`
  *     flag): lets the user pick a date range + categories and see HOW MANY
  *     records that selection covers, before deciding what to do with it.
@@ -50,9 +57,29 @@
  * out-claim that entry. `buildExportPayload` is
  * synchronous but bounded by on-device record counts, and runs in a `useMemo`
  * keyed on the selection, so it re-runs only on an explicit user toggle.
+ *
+ * PRESENTING GUARD (FEAT-806). The window opens only on a deliberate tap, but a
+ * PDF render takes seconds, and a render that settles after the user left would
+ * raise the sheet — and blank the 988 affordance — over whatever screen they went
+ * to, including CrisisResources itself. So, after a short yield that lets input
+ * queued during the render reach JS first, the share call runs only if this
+ * screen still has navigation focus AND the app is `active`, read with no await
+ * between the read and the call. Otherwise nothing is presented: the file is
+ * deleted and an inline message says why. The JSON path takes the same guard.
+ *
+ * WHAT IT DOES NOT CLOSE (crisis review, FEAT-806). It holds once the leaving
+ * navigation has been processed in JS before the read. Residual windows: a press
+ * still held at the moment the guard passes (the sheet then cancels that touch,
+ * and a presented sheet cannot be withdrawn from JS); `AppState` lagging native
+ * state; a swipe-back still in progress (reads focused, presents over ExportData,
+ * the route the user chose); and overlays that do not move navigation focus.
+ * Separately, on iOS expo-print draws the PDF on the MAIN thread
+ * (ExpoPrintModule.swift `.runOnQueue(.main)`), so for the length of the draw the
+ * crisis button is on screen but cannot take a tap. `crisisTapTrace` starts in JS
+ * `onPress` and cannot see that delay; it is a device measurement (FEAT-806 AC9e).
  */
 
-import React, { useState, useCallback, useEffect, useMemo } from 'react';
+import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
 import {
   View,
   Text,
@@ -60,8 +87,10 @@ import {
   ScrollView,
   Pressable,
   ActivityIndicator,
+  AppState,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import { useNavigation } from '@react-navigation/native';
 import { File, Paths } from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
 import {
@@ -77,6 +106,7 @@ import { exportFileName } from '@/core/services/privacy/exportArtifactSweeper';
 import { logError, LogCategory } from '@/core/services/logging';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { buildExportPayload } from '@/features/data-export/services/exportService';
+import { buildExportHtml } from '@/features/data-export/services/exportPdfDocument';
 import type {
   ExportDataCategory,
   ExportRangePreset,
@@ -112,6 +142,26 @@ const ALL_CATEGORIES_SELECTED: Record<ExportDataCategory, boolean> = {
   checkIns: true,
   practices: true,
   reflections: true,
+};
+
+type ExportFormat = 'json' | 'pdf';
+
+const SHARE_TYPES: Record<ExportFormat, { mimeType: string; UTI: string }> = {
+  json: { mimeType: 'application/json', UTI: 'public.json' },
+  pdf: { mimeType: 'application/pdf', UTI: 'com.adobe.pdf' },
+};
+
+/**
+ * Yield after the export is prepared and before the presenting guard is read, so a
+ * crisis tap queued while the native side was busy (iOS draws the PDF on the main
+ * thread) is dispatched — and its navigation processed — before the guard decides.
+ */
+const PRE_PRESENT_INPUT_YIELD_MS = 100;
+
+/** The PDF summarises the FULL copy: every category, all time — never the preview's selection. */
+const PDF_SCOPE = {
+  categories: SELECTABLE_CATEGORIES.map((c) => c.key),
+  range: { preset: 'all' as const },
 };
 
 const formatDay = (ms: number): string =>
@@ -157,7 +207,13 @@ function useExportStoresHydrated(): boolean {
 const ExportDataScreen: React.FC = () => {
   // DEBUG-653: __DEV__-only crisis-FAB exclusion check (DEBUG-643); undefined in Release.
   const exportButtonExclusionCheck = useCrisisExclusionAssertion('export-data-button', 'scrolls');
-  const [isExporting, setIsExporting] = useState(false);
+  const pdfButtonExclusionCheck = useCrisisExclusionAssertion('export-pdf-button', 'scrolls');
+  const navigation = useNavigation();
+  const [inFlight, setInFlight] = useState<ExportFormat | null>(null);
+  const isExporting = inFlight !== null;
+  // State disables the buttons on the NEXT render; two taps in one frame would both
+  // enter handleExport and race two share sheets. The ref latches synchronously.
+  const exportLatch = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Build-time flag, read once per render. Deliberately NOT the PostHog-backed
@@ -217,24 +273,45 @@ const ExportDataScreen: React.FC = () => {
       )
     : 0;
 
-  const handleExport = useCallback(async () => {
-    setIsExporting(true);
+  const handleExport = useCallback(async (format: ExportFormat) => {
+    if (exportLatch.current) return;
+    exportLatch.current = true;
+    setInFlight(format);
     setErrorMessage(null);
-    // Declared outside the try so `finally` can remove it on every path (DEBUG-645).
+    // Declared outside the try so `finally` can remove them on every path (DEBUG-645).
+    // `rendered` is expo-print's own output in `<cache>/Print/`, live until it is moved.
     let file: File | null = null;
+    let rendered: File | null = null;
     try {
-      const json = serializeExport(await gatherExportData());
-      file = new File(Paths.cache, exportFileName());
-      file.create({ overwrite: true });
-      file.write(json);
+      if (format === 'pdf') {
+        const Print = await import('expo-print');
+        const html = buildExportHtml(buildExportPayload(PDF_SCOPE));
+        const { uri } = await Print.printToFileAsync({ html });
+        rendered = new File(uri);
+        file = new File(Paths.cache, exportFileName(new Date(), 'pdf'));
+        await rendered.move(file, { overwrite: true });
+      } else {
+        const json = serializeExport(await gatherExportData());
+        file = new File(Paths.cache, exportFileName());
+        file.create({ overwrite: true });
+        file.write(json);
+      }
 
       if (!(await Sharing.isAvailableAsync())) {
         setErrorMessage('Sharing is not available on this device.');
         return;
       }
+      await new Promise<void>((resolve) => setTimeout(resolve, PRE_PRESENT_INPUT_YIELD_MS));
+      // Presenting guard — see the header. Read here, after every await, never earlier,
+      // and nothing may be awaited between this read and the share call.
+      if (!navigation.isFocused() || AppState.currentState !== 'active') {
+        setErrorMessage(
+          'Your export was not opened because Being was no longer on this screen. Nothing was saved. Please try again.',
+        );
+        return;
+      }
       await Sharing.shareAsync(file.uri, {
-        mimeType: 'application/json',
-        UTI: 'public.json',
+        ...SHARE_TYPES[format],
         dialogTitle: 'Export your Being data',
       });
     } catch (error) {
@@ -253,18 +330,29 @@ const ExportDataScreen: React.FC = () => {
       // window. `delete()` throws when the file is already gone; that is
       // swallowed here, never surfaced as an export error, never left to become an
       // unhandled rejection, and never raised as an Alert (DEBUG-533).
-      try {
-        if (file?.exists) file.delete();
-      } catch (cleanupError) {
-        logError(
-          LogCategory.SYSTEM,
-          '[ExportData] export file cleanup failed',
-          cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError)),
-        );
+      // After a successful move `rendered` and `file` name the same path, so the
+      // second check finds nothing; after a failed one it removes the render.
+      for (const leftover of [file, rendered]) {
+        try {
+          if (leftover?.exists) leftover.delete();
+        } catch (cleanupError) {
+          logError(
+            LogCategory.SYSTEM,
+            '[ExportData] export file cleanup failed',
+            cleanupError instanceof Error ? cleanupError : new Error(String(cleanupError)),
+          );
+        }
       }
-      setIsExporting(false);
+      setInFlight(null);
+      exportLatch.current = false;
     }
-  }, []);
+  }, [navigation]);
+
+  const handleJsonExport = useCallback(() => handleExport('json'), [handleExport]);
+  const handlePdfExport = useCallback(() => handleExport('pdf'), [handleExport]);
+  // The PDF reads the stores synchronously, so before they rehydrate it would be an
+  // empty summary presented as the user's data. JSON gathers from storage itself.
+  const pdfDisabled = isExporting || !storesHydrated;
 
   return (
     <SafeAreaView style={styles.container} edges={['bottom']} testID="export-data-screen">
@@ -290,8 +378,8 @@ const ExportDataScreen: React.FC = () => {
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>
             Cloud-backup data on our servers is encrypted with a key only this device holds, so it
-            is not included — the meaningful copy is this on-device export. The file is plain JSON;
-            keep it somewhere private.
+            is not included — the meaningful copies are these on-device exports. Neither file is
+            encrypted or password-protected; keep it somewhere private.
           </Text>
         </View>
 
@@ -301,21 +389,44 @@ const ExportDataScreen: React.FC = () => {
           </Text>
         )}
 
+        <Text style={styles.formatCaption}>
+          JSON is the complete copy of your wellness data on this device, readable by other
+          apps. PDF is a readable summary that leaves some data out.
+        </Text>
+
         <Pressable
           style={[styles.exportButton, isExporting && styles.exportButtonDisabled]}
           onLayout={exportButtonExclusionCheck}
-          onPress={handleExport}
+          onPress={handleJsonExport}
           disabled={isExporting}
           accessibilityRole="button"
-          accessibilityLabel="Export as JSON"
-          accessibilityHint="Prepares a JSON file of your on-device data and opens the share sheet"
-          accessibilityState={{ disabled: isExporting, busy: isExporting }}
+          accessibilityLabel="Export as JSON, complete copy"
+          accessibilityHint="Prepares a JSON file with all of your on-device data and opens the share sheet"
+          accessibilityState={{ disabled: isExporting, busy: inFlight === 'json' }}
           testID="export-data-button"
         >
-          {isExporting ? (
+          {inFlight === 'json' ? (
             <ActivityIndicator color={colorSystem.base.white} />
           ) : (
             <Text style={styles.exportButtonText}>Export as JSON</Text>
+          )}
+        </Pressable>
+
+        <Pressable
+          style={[styles.pdfExportButton, pdfDisabled && styles.exportButtonDisabled]}
+          onLayout={pdfButtonExclusionCheck}
+          onPress={handlePdfExport}
+          disabled={pdfDisabled}
+          accessibilityRole="button"
+          accessibilityLabel="Export as PDF, readable summary"
+          accessibilityHint="Prepares a readable PDF summary of your on-device data and opens the share sheet"
+          accessibilityState={{ disabled: pdfDisabled, busy: inFlight === 'pdf' }}
+          testID="export-pdf-button"
+        >
+          {inFlight === 'pdf' ? (
+            <ActivityIndicator color={colorSystem.base.white} />
+          ) : (
+            <Text style={styles.exportButtonText}>Export as PDF</Text>
           )}
         </Pressable>
 
@@ -528,6 +639,13 @@ const styles = StyleSheet.create({
     color: semantic.text.secondary,
     lineHeight: 20,
   },
+  formatCaption: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: semantic.text.secondary,
+    lineHeight: 20,
+    marginBottom: spacing[16],
+  },
   errorText: {
     fontSize: typography.bodySmall.size,
     fontWeight: typography.fontWeight.medium,
@@ -547,6 +665,20 @@ const styles = StyleSheet.create({
     // DEBUG-653: measured [24,529][351,581] vs crisis-button-root [331,523][375,567] (375x667,
     // iOS 18.6). Margin, never padding: padding moves only the label, not the frame under the
     // FAB. marginLeft keeps it centred; exportButtonDisabled must never set a margin or width.
+    marginLeft: CRISIS_BUTTON_EXCLUSION_RECT.left,
+    marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
+  },
+  pdfExportButton: {
+    backgroundColor: colorSystem.base.midnightBlue,
+    paddingVertical: spacing[16],
+    paddingHorizontal: spacing[16],
+    borderRadius: borderRadius.large,
+    alignItems: 'center',
+    justifyContent: 'center',
+    minHeight: 52,
+    marginTop: spacing[12],
+    // DEBUG-653 shape (FEAT-806): with the preview dark this is the LAST control at max scroll,
+    // where the FAB would win an overlapping tap. Margin, never padding; declared last.
     marginLeft: CRISIS_BUTTON_EXCLUSION_RECT.left,
     marginRight: CRISIS_BUTTON_EXCLUSION_RECT.left,
   },

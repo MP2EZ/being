@@ -172,6 +172,12 @@ const ALLOWLIST = {
  * a PERSISTENT FLOATING button, whose harm is DEBUG-547-style overlap with the
  * crisis FAB's `zIndex: 9999` — a wrong-destination tap, a crisis FALSE POSITIVE
  * — rather than full occlusion. Both belong here; the rulings should say which.
+ *
+ * FEAT-806 added expo-print's two presenters as BARE names, so any member form
+ * (`Print.printAsync(`, a module handle from `await import('expo-print')`)
+ * matches. `printAsync` presents the OS print dialog and `selectPrinterAsync`
+ * the printer picker (iOS). Neither has an allowlist entry: the PDF export
+ * renders with `printToFileAsync`, which presents nothing and must not match.
  */
 const THIRD_PARTY_PRESENTERS = [
   'showFeedbackWidget',
@@ -179,6 +185,8 @@ const THIRD_PARTY_PRESENTERS = [
   'showScreenshotButton',
   'Sharing.shareAsync',
   'RNIap.requestPurchase',
+  'printAsync',
+  'selectPrinterAsync',
 ];
 
 /**
@@ -231,6 +239,27 @@ const PRESENTER_ALLOWLIST = {
     'those facts alone. (INFRA-571 argued it by comparison to the Sentry widget, bounded ' +
     'by `bug_reporting` being dark; FEAT-570 has since removed that widget, so the ' +
     'comparison is history and the reachability claim no longer rests on it.) ' +
+    'FEAT-806 WIDENED THE PAYLOAD, NOT THE CALL: the same single call now also shares ' +
+    'the readable PDF summary (`application/pdf`, UTI `com.adobe.pdf`). For a PDF the ' +
+    'iOS sheet adds in-sheet actions — Print, which presents UIPrintInteractionController, ' +
+    'and Markup, a full-screen editor — and each extends the window from INSIDE the sheet. ' +
+    'Both are reached only by a further user tap and dismissed by the user, so the ' +
+    'ruling’s ground (user-initiated, self-terminating, on a route the user chose) ' +
+    'carries over; what it does NOT carry over is the DEBUG-577 measurement, which was of ' +
+    'the JSON sheet. The PDF sheet’s own re-measure is FEAT-806 AC9(d), ' +
+    '`.maestro/export-pdf-share-sheet-occlusion.yaml`; its provenance belongs here. ' +
+    'The call is gated by a presenting guard (navigation focus AND AppState active, read ' +
+    'after an input yield with no await before the call). It stops a render that settles ' +
+    'after the user left from raising the sheet over another screen ONLY once the leaving ' +
+    'navigation has been processed in JS before the read. NOT closed: a press still held ' +
+    'when the guard passes (the sheet cancels that touch, and a presented sheet cannot be ' +
+    'withdrawn from JS), AppState lagging native state, a swipe-back still in progress, ' +
+    'and overlays that do not move navigation focus. A SEPARATE WINDOW, NOT THE SHEET: on ' +
+    'iOS expo-print draws the PDF on the main thread (ExpoPrintModule.swift ' +
+    '`.runOnQueue(.main)`), so for the length of the draw the crisis button is visible but ' +
+    'cannot take a tap. That is not an occlusion this guard can see, and crisisTapTrace, ' +
+    'which starts in JS onPress, cannot see it either; its bound is FEAT-806 AC9(e), ' +
+    'measured finger-down to pixels on device. ' +
     'WHEN THAT CALL IS REMOVED, ' +
     'DELETE this entry in the same commit.',
 

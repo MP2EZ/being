@@ -1,0 +1,148 @@
+appId: fyi.being.app
+tags:
+  - safety-occlusion-measurement
+name: "FEAT-806: the PDF share sheet occludes the 988 affordance (DEBT PIN)"
+
+# e2e-certifies: 375x667
+#
+# ⚠️ THIS FLOW PINS A DEBT STATE, NOT A CONTRACT — the sibling of
+# export-share-sheet-occlusion.yaml (DEBUG-577), re-measured for the PDF payload that
+# FEAT-806 sends through the same single `Sharing.shareAsync` call. Its load-bearing
+# assertion is `assertNotVisible: crisis-resources-screen`, i.e. that the 988 affordance is
+# UNREACHABLE while the sheet is up. IF THE OCCLUSION IS EVER REMEDIED, DELETE THIS FLOW;
+# do not "fix" it.
+#
+# WHY A SIBLING AND NOT A PARAMETER. The DEBUG-577 ruling was measured on the JSON sheet.
+# A PDF gets a different UIActivityViewController configuration on iOS (Print and Markup
+# appear in it), so the JSON measurement does not transfer by assertion; it transfers only
+# by re-measuring. This flow is that re-measure, and it stays separate so the JSON flow's
+# provenance is never silently rewritten.
+#
+# WHY ITS OWN TAG CLASS. `safety-occlusion-measurement` keeps it out of `npm run e2e:safety`
+# by construction (e2e-safety.sh selects on a tag line matching exactly `- safety`). An open
+# share sheet is state Maestro does not reliably clear, and per DEBUG-422 it outlives the
+# flow that raised it and reds LATER flows against a healthy app. Never scoped by /b-close.
+#
+# WHAT IT DOES NOT MEASURE: the in-sheet Print (UIPrintInteractionController) and Markup
+# actions. Each is a further user tap from inside the sheet and extends the same window;
+# the ruling covers them by mechanism, not by this probe.
+#
+# 375x667 IS LOAD-BEARING: the probe point is derived from this device's measured FAB
+# bounds [331,523][375,567]. Re-measure before re-certifying elsewhere.
+#
+# FALSIFICATION: the positive control IS the red arm — the identical point, on the
+# identical route, reaches CrisisResources with the sheet down.
+---
+- launchApp:
+    clearState: true
+    clearKeychain: true
+- extendedWaitUntil:
+    visible:
+      id: "home-screen"
+    timeout: 90000
+
+- tapOn:
+    id: "tab-profile"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-privacy"
+    direction: DOWN
+    centerElement: true
+- tapOn:
+    id: "profile-card-privacy"
+- scrollUntilVisible:
+    element:
+      id: "profile-card-export"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 48000
+- tapOn:
+    id: "profile-card-export"
+- runFlow:
+    when:
+      notVisible:
+        id: "export-data-screen"
+    commands:
+      - tapOn:
+          id: "profile-card-export"
+- assertVisible:
+    id: "export-data-screen"
+
+# ── POSITIVE CONTROL — the point resolves to the FAB on THIS route, sheet DOWN ──
+# Route matters: SUPPRESSED_ROUTES fades/omits the FAB on some routes, so a control
+# taken elsewhere proves nothing about ExportData. Without this, a red probe below is
+# indistinguishable from "the arithmetic put the point somewhere the FAB is not".
+# Safe to tap: RootCrisisButton NAVIGATES, it does not dial.
+- assertVisible:
+    id: "crisis-button-root"
+- tapOn:
+    point: "98%,82%"
+- extendedWaitUntil:
+    visible:
+      id: "crisis-resources-screen"
+    timeout: 30000
+# DEBUG-392 witness — it navigated, it did not fall through to the degraded dial
+# branch. MUST follow the assertVisible above or it passes vacuously at t=0.
+- extendedWaitUntil:
+    notVisible: "Unable to Call"
+    timeout: 3000
+- tapOn:
+    id: "nav-back-button"
+- assertVisible:
+    id: "export-data-screen"
+
+# ── VACUITY GUARD — the FAB is mounted immediately before the sheet opens ───────
+- assertVisible:
+    id: "crisis-button-root"
+
+# DEBUG-465: the button is below this ScrollView's fold and XCUITest keeps it in the
+# tree, so without a real scroll Maestro taps coordinates that land on the tab bar.
+- scrollUntilVisible:
+    element:
+      id: "export-pdf-button"
+    direction: DOWN
+    visibilityPercentage: 100
+    centerElement: true
+    timeout: 48000
+# The PDF button is disabled until the stores rehydrate; tap only once it is enabled.
+- extendedWaitUntil:
+    visible:
+      id: "export-pdf-button"
+      enabled: true
+    timeout: 30000
+- tapOn:
+    id: "export-pdf-button"
+
+# ── SHEET-IS-UP ORACLE ─────────────────────────────────────────────────────────
+# `export-data-screen` going notVisible IS the run-1 measurement restated: with the
+# UIActivityViewController up, `maestro hierarchy` carries ZERO app-owned nodes —
+# not a covered FAB, an absent app tree. The screenshot below is what distinguishes
+# that from a crash, and per the crisis pass a green probe without it is not a result.
+# Timeout is generous: the JSON path measured ~20-40s here; the PDF render is unmeasured.
+- extendedWaitUntil:
+    notVisible:
+      id: "export-data-screen"
+    timeout: 90000
+- takeScreenshot: /tmp/feat806-pdf-01-sheet-up
+
+# ── THE PROBE ──────────────────────────────────────────────────────────────────
+- tapOn:
+    point: "98%,82%"
+- takeScreenshot: /tmp/feat806-pdf-02-after-probe
+
+# ── FALSIFIER PAIR ─────────────────────────────────────────────────────────────
+# (a) the adjudicating outcome: the FAB did NOT take the touch.
+- assertNotVisible:
+    id: "crisis-resources-screen"
+# (b) its complement — the app was alive throughout, so (a) is not vacuous. Dismiss
+# the sheet and confirm we are back on the very screen we started from.
+- tapOn:
+    point: "92%,52%"
+- extendedWaitUntil:
+    visible:
+      id: "export-data-screen"
+    timeout: 30000
+- assertVisible:
+    id: "crisis-button-root"
+- takeScreenshot: /tmp/feat806-pdf-03-sheet-dismissed

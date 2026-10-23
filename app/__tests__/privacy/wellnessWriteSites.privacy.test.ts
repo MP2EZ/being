@@ -93,8 +93,9 @@ const MANIFEST: Record<string, Record<string, Row>> = {
   // ── Exempt by rule ───────────────────────────────────────────────────────
   'src/features/profile/screens/ExportDataScreen.tsx': {
     'ExportDataScreen.handleExport › new File': [
-      1,
+      3,
       'exempt: DSR export — a data-subject right, must never be gated',
+      'FEAT-806: the JSON file, plus the PDF path\'s render handle and its export-name destination',
     ],
   },
   'src/core/services/supabase/SupabaseService.ts': {

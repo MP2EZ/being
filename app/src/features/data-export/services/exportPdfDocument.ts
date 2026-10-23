@@ -65,6 +65,7 @@ const SUMMARY_LEAVES_OUT: readonly string[] = [
   'Consent records',
   'Subscription state',
   'Individual screening answers',
+  'Practice streaks and totals',
 ];
 
 const DOCUMENT_TITLE = 'Being — wellness data summary';

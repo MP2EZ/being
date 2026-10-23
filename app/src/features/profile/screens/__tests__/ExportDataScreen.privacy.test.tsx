@@ -78,6 +78,12 @@ jest.mock('@/core/services/logging', () => ({
   logError: (...a: unknown[]) => mockLogError(...a),
 }));
 
+// FEAT-806: the presenting guard reads navigation focus; these tests render outside a navigator.
+jest.mock('@react-navigation/native', () => ({
+  ...jest.requireActual('@react-navigation/native'),
+  useNavigation: () => ({ isFocused: () => true }),
+}));
+
 import ExportDataScreen from '../ExportDataScreen';
 
 const exportedName = (): string => {
