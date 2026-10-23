@@ -1,8 +1,8 @@
 # California Privacy Rights
 
-**Version:** 1.1
+**Version:** 1.2
 **Effective Date:** December 12, 2025
-**Last Updated:** August 6, 2026
+**Last Updated:** October 23, 2026
 
 ---
 
@@ -16,10 +16,10 @@ This page supplements our [Privacy Policy](/privacy) and provides additional inf
 
 | Category | Examples | Collected |
 |----------|----------|-----------|
-| **Identifiers** | Email address, username | No (v1 operates anonymously; no account creation) |
+| **Identifiers** | IP address, an anonymous account identifier, random identifiers generated per app installation, device and app details | Yes (no email address, username or sign-in; see Privacy Policy §2.2 and §4.1) |
 | **Sensitive Personal Information** | Mental health information (PHQ-9, GAD-7 scores, mood data) | Yes (stored locally on your device by default) |
-| **Internet Activity** | App usage patterns, feature engagement | Yes (anonymized; opt-in only) |
-| **Geolocation** | Location data | No |
+| **Internet Activity** | App usage patterns, feature engagement | Yes (opt-in only; tied to a random installation identifier and approximate location — see Privacy Policy §5.2) |
+| **Geolocation** | Location data | Approximate only (city and country), estimated from your internet connection by our analytics and crash-reporting providers (see Privacy Policy §5); never precise or GPS location |
 | **Professional/Employment** | Job title, employer | No |
 | **Education** | School, degrees | No |
 | **Financial** | Payment card numbers | No (handled by App Store/Play Store) |
@@ -32,7 +32,7 @@ We use your personal information for the following business purposes:
 
 1. **Providing Services:** Enable app functionality, check-ins, and assessments
 2. **Safety Features:** Detect crisis indicators and provide resources
-3. **Improving Services:** Analyze anonymized usage to enhance the app
+3. **Improving Services:** Analyze usage, if you turn on *Usage Analytics*, to enhance the app
 4. **Customer Support:** Respond to your questions and requests
 5. **Legal Compliance:** Comply with applicable laws
 
@@ -101,12 +101,12 @@ Send your request to [privacy@being.fyi](mailto:privacy@being.fyi)
 
 Include:
 - Which right you want to exercise
-- Approximate first-use date, device type, and time zone (to help us locate the relevant data — v1 operates anonymously, so we cannot match by email or account)
+- Approximate first-use date, device type, and time zone (to help us locate the relevant data — v1 has no email address or sign-in account, so we cannot match by email or account)
 - Any other details that help us understand your request
 
 ### Verification
 
-In v1, Being operates anonymously and does not maintain account records that could be matched to a verification request. To protect your privacy while still fulfilling requests:
+In v1, Being has no sign-in accounts and keeps no account record we can match to you without the anonymous account identifier held by the app on your device. To protect your privacy while still fulfilling requests:
 
 - **In-app fulfillment is preferred.** Most rights (access, deletion, export, opt-out) can be exercised directly from *Settings → Privacy & Data* without verification, because your device is the authoritative copy of your data.
 - **For email requests** to [privacy@being.fyi](mailto:privacy@being.fyi), we may ask for usage-pattern information (approximate first-use date, device type, time zone) to help us locate any relevant settings-backup data tied to your device.
@@ -137,7 +137,7 @@ Being collects **sensitive personal information** as defined under CPRA, specifi
 - NOT for profiling, advertising, or secondary purposes
 
 **Your control:**
-- All sensitive personal information is stored locally on your device only — Being does not transmit PHQ-9 / GAD-7 responses, mood check-ins, or journal entries to any server
+- PHQ-9 / GAD-7 responses, mood check-ins and journal entries are stored locally on your device only — Being does not transmit them to any server. The one exception is the crisis-detection event (Privacy Policy §3), which records that a screening threshold was met, without your answers or scores, and is linked to your anonymous account identifier
 - The optional settings backup (see Privacy Policy §4.2) is scoped to non-sensitive app preferences only and does not include any sensitive personal information
 - You can delete this data at any time via in-app *Settings → Privacy & Data*
 
@@ -152,7 +152,8 @@ We retain your personal information only as long as necessary for the purposes d
 | Wellness data (local, on your device) | Until you delete it via in-app settings, or uninstall the app |
 | Settings backup (cloud, optional) | Until you disable backup or request deletion via in-app *Privacy & Data* settings |
 | Usage analytics (opt-in only) | 90 days on our servers |
-| Crisis detection events (aggregate, PII-free — not opt-in; see Privacy Policy §7.2) | 3 years on our servers |
+| Crisis detection events (linked to your anonymous account identifier; not opt-in; see Privacy Policy §7.2) | 3 years on our servers |
+| Connection records (IP address, device and app details and last-connection time kept against your anonymous account identifier; see Privacy Policy §4.1) | Until the identifier is deleted; request logs that include the IP address are kept for 1 day on our current plan |
 
 ---
 

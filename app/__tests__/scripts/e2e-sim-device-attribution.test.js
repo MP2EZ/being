@@ -54,7 +54,7 @@ const PROFILES = {
  * run verbatim. `node` is deliberately NOT stubbed — the helper's JSON parsing is part of
  * what is under test.
  */
-function run(fnCall, { booted = [], name } = {}) {
+function run(fnCall, { booted = [], name, layout = 'legacy', capScale } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infra478-'));
   const profileRoot = path.join(dir, 'Profiles');
 
@@ -62,10 +62,32 @@ function run(fnCall, { booted = [], name } = {}) {
   for (const [identifier, p] of Object.entries(PROFILES)) {
     const bundle = path.join(profileRoot, `${p.name}.simdevicetype`);
     fs.mkdirSync(path.join(bundle, 'Contents', 'Resources'), { recursive: true });
+    const legacy = layout === 'legacy' || layout === 'both';
     fs.writeFileSync(
       path.join(bundle, 'Contents', 'Resources', 'profile.plist'),
-      JSON.stringify({ mainScreenWidth: p.w, mainScreenHeight: p.h, mainScreenScale: p.scale })
+      JSON.stringify(
+        legacy
+          ? { mainScreenWidth: p.w, mainScreenHeight: p.h, mainScreenScale: p.scale }
+          : { minRuntimeVersion: '15.4' }
+      )
     );
+    // DEBUG-854: the CoreSimulator shape since 2026-09 — pixels in capabilities.plist.
+    // Under 'both' the numbers are doubled, so a test can tell which file answered.
+    if (layout === 'capabilities' || layout === 'both') {
+      const k = layout === 'both' ? 2 : 1;
+      fs.writeFileSync(
+        path.join(bundle, 'Contents', 'Resources', 'capabilities.plist'),
+        JSON.stringify({
+          capabilities: {
+            ScreenDimensionsCapability: {
+              'main-screen-width': p.w * k,
+              'main-screen-height': p.h * k,
+              'main-screen-scale': capScale !== undefined ? capScale : Number(p.scale),
+            },
+          },
+        })
+      );
+    }
     devicetypes.push({ identifier, bundlePath: bundle });
   }
 
@@ -107,8 +129,12 @@ const a = process.argv.slice(2);
 const key = a[a.indexOf('-extract') + 1];
 try {
   const j = JSON.parse(fs.readFileSync(a[a.length - 1], 'utf8'));
-  if (!(key in j)) process.exit(1);
-  console.log(j[key]);
+  let v = j;
+  for (const part of key.split('.')) {
+    if (v === null || typeof v !== 'object' || !(part in v)) process.exit(1);
+    v = v[part];
+  }
+  console.log(v);
 } catch { process.exit(1); }
 `,
     { mode: 0o755 }
@@ -221,6 +247,38 @@ describe('AC3: WARN-ONLY is structural — it can never refuse', () => {
     const r = warn('NO-SUCH-UDID', [{ udid: SE3_UDID, type: SE3_TYPE }]);
     expect(r.status).toBe(0);
     expect(r.stderr).toMatch(/Viewport could not be derived/);
+  });
+});
+
+describe('DEBUG-854: the viewport survives CoreSimulator moving it to capabilities.plist', () => {
+  const vp = (type, opts) => run(`e2e_viewport_for_device_type "${type}"`, opts);
+
+  it('derives it from capabilities.plist when profile.plist has no mainScreen keys', () => {
+    expect(vp(SE3_TYPE, { layout: 'capabilities' }).stdout).toBe('375x667');
+    expect(vp(PRO_TYPE, { layout: 'capabilities' }).stdout).toBe('402x874');
+  });
+
+  it('certifies a booted SE 3 end to end on the new layout', () => {
+    const r = run(describeCall(SE3_UDID), {
+      booted: [{ udid: SE3_UDID, type: SE3_TYPE }],
+      layout: 'capabilities',
+    });
+    expect(field(r.stdout, 'VIEWPORT')).toBe('375x667');
+  });
+
+  it('prefers profile.plist when both carry a size', () => {
+    // 'both' doubles the capabilities numbers, so 375x667 can only come from profile.plist.
+    expect(vp(SE3_TYPE, { layout: 'both' }).stdout).toBe('375x667');
+  });
+
+  it('stays empty when neither file carries a size (fail-soft unchanged)', () => {
+    const r = vp(SE3_TYPE, { layout: 'neither' });
+    expect(r.status).toBe(0);
+    expect(r.stdout).toBe('');
+  });
+
+  it('stays empty on a non-positive capabilities scale', () => {
+    expect(vp(SE3_TYPE, { layout: 'capabilities', capScale: 0 }).stdout).toBe('');
   });
 });
 
