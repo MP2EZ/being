@@ -19,7 +19,9 @@
 -- Nothing persists. Running it in the Supabase SQL editor after a migration push is the
 -- intended use.
 --
--- Last validated: 2026-08-16 against the shared prod project.
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
+-- Previously: 2026-08-16 against the shared prod project.
 
 \set ON_ERROR_STOP on
 

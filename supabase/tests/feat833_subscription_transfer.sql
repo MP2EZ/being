@@ -18,7 +18,8 @@
 -- exception, and the fixed principals below exist only inside those blocks. The helper is a
 -- pg_temp function and vanishes with the session.
 --
--- Last validated: not yet run (written 2026-10-22; no local Docker in the authoring session).
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
 
 \set ON_ERROR_STOP on
 

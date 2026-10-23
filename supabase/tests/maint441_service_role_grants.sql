@@ -61,7 +61,9 @@
 -- job log's `N/N suites passed, 0 SKIP` line, never the check colour. A fresh reset is not
 -- the shared project either, so a prod-only grant drift still needs a run against it.
 --
--- Last validated: 2026-08-16 against the shared project yliycxslzdsgjtpxggtf (catalog reads
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
+-- Previously: 2026-08-16 against the shared project yliycxslzdsgjtpxggtf (catalog reads
 -- only). Live state at that time matched every assertion below.
 
 \set ON_ERROR_STOP on

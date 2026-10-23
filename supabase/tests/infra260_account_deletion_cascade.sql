@@ -4,7 +4,9 @@
 --
 -- Run: docker exec -i supabase_db_$(basename "$PWD") psql -U postgres -d postgres \
 --        -v ON_ERROR_STOP=1 < supabase/tests/infra260_account_deletion_cascade.sql
--- Last validated: 2026-06-08 on the local stack.
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
+-- Previously: 2026-06-08 on the local stack.
 
 \set ON_ERROR_STOP on
 \set U '33333333-3333-3333-3333-333333333333'
