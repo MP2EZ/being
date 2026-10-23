@@ -86,6 +86,7 @@ trailing 7 days (10 jobs, 0 failures):
 | `subscription-events-retention-prune` | `40 3 * * *` | `subscription_events` 3 years, privacy-policy §7.3's audit-log ceiling (DEBUG-840; heartbeat in `retention_prune_runs`). Live: on prod at 20261022000600 (verified 2026-10-23) |
 | `webhook-replay-cache-prune` | `35 3 * * *` | `webhook_replay_cache` 14 days, twice Pub/Sub's 7-day default retention (INFRA-846; heartbeat in `retention_prune_runs`). Assumes the Google subscription keeps that default: if its retention is raised, the window becomes retention + 7 days. Live: on prod at 20261023000000 (verified 2026-10-23) |
 | `orphaned-identity-prune` | `35 4 * * *` | **Census only, deletes nothing** (INFRA-848). Counts anonymous identities a subscription transfer left behind, tombstone and auth activity both older than 30 days, no backup. Heartbeat `orphaned-identity-census` in `retention_prune_runs`, `detail` holds counts and never a uid. Mode lives in `orphaned_identity_prune_config`; enabling delete is INFRA-852's migration, never a hand edit. Live: on prod at 20261023000100 (verified 2026-10-23) |
+| `auth-session-ip-scrub` | `25 * * * *` | **Nulls, deletes nothing** (INFRA-851). Sets `auth.sessions.ip` and `user_agent` to NULL on every row, never its timestamps (INFRA-848's census reads them). GoTrue rewrites both on every refresh, so a row carries them for up to an hour. Heartbeat in `retention_prune_runs`: `rows_deleted` is rows scrubbed, `detail` is `remaining=N`. Not yet on prod: founder push pending |
 
 Verify:
 
@@ -100,7 +101,8 @@ GROUP BY j.jobname ORDER BY j.jobname;
 ```
 
 The 7-day count above predates `subscription-transfer-prune`,
-`subscription-events-retention-prune`, `webhook-replay-cache-prune` and `orphaned-identity-prune`;
+`subscription-events-retention-prune`, `webhook-replay-cache-prune`, `orphaned-identity-prune` and
+`auth-session-ip-scrub`;
 the verify query lists every job, those included.
 
 `retention_prune_health` is a view you read, **not a watchdog**: nothing pages when a prune
@@ -113,6 +115,37 @@ FROM public.retention_prune_health ORDER BY job_name;
 ```
 
 A nightly job whose `since_last_ok` is over 26 hours has missed a run.
+An hourly job (`subscription-transfer-prune`, `auth-session-ip-scrub`) has missed a run when it
+is over 70 minutes.
+
+**`auth-session-ip-scrub` post-release probe (INFRA-851).** CI cannot reach prod, so after each
+release confirm the job still exists and that GoTrue's audit log stays off. Pass: one row,
+`active` true, `since_last_ok` under 70 minutes, `latest_status` ok, `audit_rows` 0. Zero rows
+means the job is gone. `audit_rows` above 0 means GoTrue started writing
+`audit_log_entries.ip_address` (DPIA residual 9): extend the scrub to it.
+
+```sql
+SELECT j.jobname, j.schedule, j.active, h.last_ok_at, h.since_last_ok, h.latest_status,
+       (SELECT count(*) FROM auth.audit_log_entries) AS audit_rows
+FROM cron.job j
+LEFT JOIN public.retention_prune_health h ON h.job_name = j.jobname
+WHERE j.jobname = 'auth-session-ip-scrub';
+```
+
+Then that no session carries a value older than the interval. `populated_past_interval` must
+be 0; `populated_now` can be non-zero, from refreshes since the last run.
+
+```sql
+SELECT count(*) FILTER (WHERE ip IS NOT NULL OR user_agent IS NOT NULL) AS populated_now,
+       count(*) FILTER (WHERE (ip IS NOT NULL OR user_agent IS NOT NULL)
+                          AND GREATEST(created_at, updated_at, refreshed_at AT TIME ZONE 'UTC')
+                              < now() - interval '70 minutes') AS populated_past_interval
+FROM auth.sessions;
+```
+
+After a GoTrue upgrade, re-read the hosted version (`/auth/v1/health`) and confirm at that tag
+that GoTrue still only assigns `sessions.ip` and `user_agent` and never reads them
+(v2.197.0: `internal/tokens/service.go:615-626`, `internal/models/sessions.go:175`).
 
 Note `cleanup_orphaned_backups()` is **deliberately deleted, not scheduled** (MAINT-347) —
 privacy-policy §7.3 retains settings backup "until you disable backup", so a sweeper would
