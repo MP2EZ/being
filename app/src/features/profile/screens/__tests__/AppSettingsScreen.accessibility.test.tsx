@@ -174,11 +174,25 @@ describe('interval sub-setting', () => {
   });
 });
 
+describe('MAINT-845 — virtue reflection row', () => {
+  const DESCRIPTION =
+    'Periodic invitations to reflect on how you practiced wisdom, courage, justice, and temperance';
+
+  it('shows the virtue wording and speaks the same string as its hint', async () => {
+    const { getByTestId, getByText } = render(<AppSettingsScreen />);
+    await waitFor(() => getByTestId('values-reflection-toggle'));
+
+    expect(getByText('Virtue Reflection Prompts')).toBeTruthy();
+    expect(getByText(DESCRIPTION)).toBeTruthy();
+    expect(getByTestId('values-reflection-toggle').props.accessibilityHint).toBe(DESCRIPTION);
+  });
+});
+
 describe('retrofitted switches — WCAG 4.1.2 Name, Role, Value', () => {
   const SWITCHES: Array<[string, string]> = [
     ['check-in-reminders-toggle', 'Check-in reminders'],
     ['breathing-reminders-toggle', 'Breathing reminders'],
-    ['values-reflection-toggle', 'Values reflection prompts'],
+    ['values-reflection-toggle', 'Virtue reflection prompts'],
     ['reduced-motion-toggle', 'Reduce motion'],
     ['high-contrast-toggle', 'High contrast'],
   ];
