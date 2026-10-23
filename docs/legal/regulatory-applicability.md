@@ -1,8 +1,8 @@
 # Regulatory Applicability & Compliance Source of Truth
 
-**Version:** 1.2  
+**Version:** 1.3  
 **Effective Date:** December 26, 2025  
-**Last Updated:** October 19, 2026  
+**Last Updated:** October 23, 2026  
 **Authority:** This document is the authoritative reference for regulatory compliance decisions.
 
 ---
@@ -99,7 +99,7 @@ As of 2025, 20 US states have comprehensive consumer privacy laws. The following
 2. The Analytics opt-in (`consentDetails.ts`) lacks the MHMDA consent elements: the named consumer-health-data categories, purpose, sources, and how to withdraw.
 3. Account erasure resets the PostHog identity but does not delete PostHog events, so `privacy-policy.md` §7.4 ("removes your data … on our servers") is untrue for PostHog.
 4. The PostHog processor contract is unconfirmed.
-5. The Supabase Crisis Detection Event (`crisis_detected`) carries `user_id` = `auth.uid()`, a persistent identifier. It is collected without consent under vital interests, which MHMDA does not recognise outside "necessary to provide the requested service". `privacy-policy.md` §3 also says it contains "nothing that identifies you", which conflicts with §7.4. This is recorded open, not assessed and cleared.
+5. The Supabase Crisis Detection Event (`crisis_detected`) carries `user_id` = `auth.uid()`, a persistent identifier. It is collected without consent under vital interests, which MHMDA does not recognise outside "necessary to provide the requested service". `privacy-policy.md` §3 also says it contains "nothing that identifies you", which conflicts with §7.4. This is recorded open, not assessed and cleared. **Updated v1.3 (DEBUG-850, 2026-10-23):** the §3 wording is corrected in privacy-policy v1.25. The finding is also stronger than first recorded: `user_id` joins `auth.sessions.ip` / `user_agent`, the latest connection's IP address and user agent, so the event is linkable to a network address. The MHMDA remedy itself remains open with DEBUG-821.
 
 **Remedy: a founder decision, tracked in DEBUG-821.** (A) build MHMDA compliance (CHD policy page, MHMDA-specific consent copy with a CONSENT_VERSION bump, erasure propagated to PostHog, processor contract), or (B) minimise (drop or de-link these events from PostHog, or disable GeoIP). See `dpia-sensitive-wellness-data.md` §9 v2.52.
 
@@ -259,6 +259,7 @@ We implement strong security because it's the right thing to do for users entrus
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-26 | Initial document creation |
+| 1.3 | 2026-10-23 | DEBUG-850: §2a gap 5 updated. Privacy-policy v1.25 corrects the §3 "nothing that identifies you" wording, and the gap now records that `user_id` joins the Supabase Auth session's IP address and user agent. The MHMDA remedy stays open with DEBUG-821. |
 | 1.2 | 2026-10-19 | DEBUG-793: new §2a. WA MHMDA, Nevada SB 370 and Connecticut consumer-health-data provisions APPLY to the PostHog crisis-access and assessment events (persistent identifier plus city GeoIP). Five open gaps are listed, and the remedy is a founder decision (DEBUG-821). The analytics-architecture.md "access is not the finding" ruling is reversed. See `dpia-sensitive-wellness-data.md` §9 v2.52. |
 | 1.1 | 2026-09-13 | DEBUG-608: "What Being IS" no longer lists emergency contact access, and the sensitive-data assessment summary no longer lists crisis safety plans. Being never collected either: the safety-plan screen and store were deleted before the first external distribution. Crisis access is to 988, the Crisis Text Line and 911. See `dpia-sensitive-wellness-data.md` §9 v2.14. |
 
