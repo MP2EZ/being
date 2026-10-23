@@ -42,7 +42,11 @@ const PRO_TYPE = 'com.apple.CoreSimulator.SimDeviceType.iPhone-16-Pro';
 const SE1_TYPE = 'com.apple.CoreSimulator.SimDeviceType.iPhone-SE';
 const RUNTIME = 'com.apple.CoreSimulator.SimRuntime.iOS-18-6';
 
-/** Real device-type bundle layout: <bundlePath>/Contents/Resources/profile.plist. */
+/**
+ * Real device-type bundle layout: <bundlePath>/Contents/Resources/. Current CoreSimulator
+ * keeps the screen in capabilities.plist; older installs kept it in profile.plist
+ * (DEBUG-855). `layout` picks which one a fixture writes.
+ */
 const PROFILES = {
   [SE3_TYPE]: { name: 'iPhone SE (3rd generation)', w: 750, h: 1334, scale: '2.000000' },
   [PRO_TYPE]: { name: 'iPhone 16 Pro', w: 1206, h: 2622, scale: '3.000000' },
@@ -54,18 +58,35 @@ const PROFILES = {
  * run verbatim. `node` is deliberately NOT stubbed — the helper's JSON parsing is part of
  * what is under test.
  */
-function run(fnCall, { booted = [], name } = {}) {
+function run(fnCall, { booted = [], name, layout = 'capabilities' } = {}) {
   const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'infra478-'));
   const profileRoot = path.join(dir, 'Profiles');
 
   const devicetypes = [];
   for (const [identifier, p] of Object.entries(PROFILES)) {
     const bundle = path.join(profileRoot, `${p.name}.simdevicetype`);
-    fs.mkdirSync(path.join(bundle, 'Contents', 'Resources'), { recursive: true });
-    fs.writeFileSync(
-      path.join(bundle, 'Contents', 'Resources', 'profile.plist'),
-      JSON.stringify({ mainScreenWidth: p.w, mainScreenHeight: p.h, mainScreenScale: p.scale })
-    );
+    const resources = path.join(bundle, 'Contents', 'Resources');
+    fs.mkdirSync(resources, { recursive: true });
+    if (layout === 'capabilities') {
+      fs.writeFileSync(path.join(resources, 'profile.plist'), JSON.stringify({ modelIdentifier: 'x' }));
+      fs.writeFileSync(
+        path.join(resources, 'capabilities.plist'),
+        JSON.stringify({
+          capabilities: {
+            ScreenDimensionsCapability: {
+              'main-screen-width': p.w,
+              'main-screen-height': p.h,
+              'main-screen-scale': p.scale,
+            },
+          },
+        })
+      );
+    } else {
+      fs.writeFileSync(
+        path.join(resources, 'profile.plist'),
+        JSON.stringify({ mainScreenWidth: p.w, mainScreenHeight: p.h, mainScreenScale: p.scale })
+      );
+    }
     devicetypes.push({ identifier, bundlePath: bundle });
   }
 
@@ -98,7 +119,8 @@ esac
     { mode: 0o755 }
   );
 
-  // Real plutil reads binary/XML plists; ours are JSON fixtures, so shim -extract.
+  // Real plutil reads binary/XML plists; ours are JSON fixtures, so shim -extract,
+  // including its dotted keypath form.
   fs.writeFileSync(
     path.join(dir, 'plutil'),
     `#!/usr/bin/env node
@@ -106,9 +128,13 @@ const fs = require('fs');
 const a = process.argv.slice(2);
 const key = a[a.indexOf('-extract') + 1];
 try {
-  const j = JSON.parse(fs.readFileSync(a[a.length - 1], 'utf8'));
-  if (!(key in j)) process.exit(1);
-  console.log(j[key]);
+  let v = JSON.parse(fs.readFileSync(a[a.length - 1], 'utf8'));
+  for (const k of key.split('.')) {
+    if (v === null || typeof v !== 'object' || !(k in v)) process.exit(1);
+    v = v[k];
+  }
+  if (typeof v === 'object') process.exit(1);
+  console.log(v);
 } catch { process.exit(1); }
 `,
     { mode: 0o755 }
@@ -157,6 +183,19 @@ describe('AC1: the resolved device is described — model, iOS, viewport', () =>
     // since no table in this repo has ever carried 320x568.
     const r = run(describeCall(PRO_UDID), { booted: [{ udid: PRO_UDID, type: PRO_TYPE }] });
     expect(field(r.stdout, 'VIEWPORT')).toBe('402x874');
+  });
+
+  it('derives from the legacy profile.plist layout too (DEBUG-855)', () => {
+    const se = run(describeCall(SE3_UDID), {
+      booted: [{ udid: SE3_UDID, type: SE3_TYPE }],
+      layout: 'profile',
+    });
+    expect(field(se.stdout, 'VIEWPORT')).toBe('375x667');
+    const pro = run(describeCall(PRO_UDID), {
+      booted: [{ udid: PRO_UDID, type: PRO_TYPE }],
+      layout: 'profile',
+    });
+    expect(field(pro.stdout, 'VIEWPORT')).toBe('402x874');
   });
 
   it('degrades to unknown rather than failing when the device is not booted', () => {

@@ -216,12 +216,18 @@ e2e_viewport_for_device_type() {
   ' "$ident" 2>/dev/null)" || return 0
   [ -n "$bundle" ] || return 0
 
-  local plist w h sc
-  plist="$bundle/Contents/Resources/profile.plist"
-  [ -f "$plist" ] || return 0
-  w="$(plutil -extract mainScreenWidth  raw "$plist" 2>/dev/null)" || return 0
-  h="$(plutil -extract mainScreenHeight raw "$plist" 2>/dev/null)" || return 0
-  sc="$(plutil -extract mainScreenScale raw "$plist" 2>/dev/null)" || return 0
+  # DEBUG-855: current CoreSimulator keeps the main screen in capabilities.plist and no
+  # longer writes the mainScreen* keys into profile.plist, so read that first and fall
+  # back to profile.plist for older installs.
+  local res w h sc dims="capabilities.ScreenDimensionsCapability"
+  res="$bundle/Contents/Resources"
+  if ! { w="$(plutil -extract "$dims.main-screen-width"  raw "$res/capabilities.plist" 2>/dev/null)" \
+      && h="$(plutil -extract "$dims.main-screen-height" raw "$res/capabilities.plist" 2>/dev/null)" \
+      && sc="$(plutil -extract "$dims.main-screen-scale" raw "$res/capabilities.plist" 2>/dev/null)"; }; then
+    w="$(plutil -extract mainScreenWidth  raw "$res/profile.plist" 2>/dev/null)" || return 0
+    h="$(plutil -extract mainScreenHeight raw "$res/profile.plist" 2>/dev/null)" || return 0
+    sc="$(plutil -extract mainScreenScale raw "$res/profile.plist" 2>/dev/null)" || return 0
+  fi
   # Scale is a float ("2.000000"), so this must not be shell arithmetic.
   awk -v w="$w" -v h="$h" -v s="$sc" 'BEGIN {
     if (s + 0 <= 0) exit 0
