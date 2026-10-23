@@ -174,8 +174,10 @@ export const VIRTUE_REFERENCE: ReadonlyArray<{ key: CardinalVirtue; label: strin
  * toward loss needs philosopher + crisis.
  *
  * WITHHELD — absent, nothing in its place — while useGuidanceGate() is pending or its
- * decision is 'suppressed' (Q9 > 0, PHQ-9 ≥ 20, GAD-7 ≥ 15), DEBUG-670. That reads
- * the latest screening, not the user's state now; it cannot see unrecorded distress.
+ * decision is 'suppressed' (Q9 > 0, PHQ-9 ≥ 20, GAD-7 ≥ 15), DEBUG-670, or
+ * 'gentle_withheld' (no admissible reading since the Art. 9 write-block began),
+ * FEAT-673. That reads the latest admissible screening, not the user's state now; it
+ * cannot see unrecorded distress.
  * Not the guidance loss-visualization: never read `allowPremeditatio` here. Accepted
  * deviation: a suppressed reader cannot choose the practice (a prohairesis cost).
  *

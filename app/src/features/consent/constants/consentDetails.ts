@@ -33,7 +33,7 @@ type ConsentCategoryCopy = Pick<ConsentToggleCardProps, 'title' | 'description' 
  */
 export const CONSENT_DETAILS = {
   analytics: {
-    title: 'Analytics',
+    title: 'Usage Analytics',
     description: 'Help us improve the app by understanding how it\'s used',
     details: {
       // DEBUG-788: matches what PostHog actually stores (project 111221, checked 2026-10-14)
@@ -85,7 +85,7 @@ export const CONSENT_DETAILS = {
     },
   },
   cloudSync: {
-    title: 'Cloud Backup',
+    title: 'Settings Backup',
     description: 'Back up a few app settings to encrypted cloud storage',
     details: {
       // TWO disjoint sources, both pinned by cloudBackupConsentCopy.privacy.test.ts:
@@ -131,3 +131,14 @@ export const CONSENT_DETAILS = {
 } satisfies Record<string, ConsentCategoryCopy>;
 
 export type ConsentCategoryKey = keyof typeof CONSENT_DETAILS;
+
+/**
+ * DEBUG-818 (compliance ruling): the Cloud Backup row's description for someone who holds
+ * the grant in a build where cloud_sync is dark (DEBUG-816 keeps the row visible so they
+ * can withdraw). It replaces only the description; the details still describe what the
+ * held permission covers. It must not read as an offer, claim nothing is sent (true today
+ * only because nothing calls the backup code), claim a history, or promise deletion.
+ * Outside CONSENT_DETAILS so the onboarding and re-consent cards are unaffected.
+ */
+export const CLOUD_BACKUP_UNAVAILABLE_HOLDER_DESCRIPTION =
+  'Not available in this version of Being. Turn this off to withdraw your permission.';

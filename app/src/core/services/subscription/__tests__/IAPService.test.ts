@@ -17,6 +17,7 @@ import { IAPService } from '../IAPService';
 import { appleTransactionIdentityFrom } from '../appleTransactionIdentity';
 import * as RNIap from 'react-native-iap';
 import type { Purchase, PurchaseError } from 'react-native-iap';
+import { Platform } from 'react-native';
 
 // Mock react-native-iap with an explicit factory. An auto-mock would
 // introspect the real module's shape and trigger react-native-nitro-modules'
@@ -33,6 +34,7 @@ jest.mock('react-native-iap', () => {
     getAvailablePurchases: jest.fn(),
     finishTransaction: jest.fn(),
     getReceiptIOS: jest.fn(),
+    isEligibleForIntroOfferIOS: jest.fn(),
     ErrorCode: {
       UserCancelled: 'E_USER_CANCELLED',
       Unknown: 'E_UNKNOWN',
@@ -40,6 +42,12 @@ jest.mock('react-native-iap', () => {
     },
   };
 });
+
+// FEAT-822: APPLE_SUBSCRIPTION_GROUP_ID ships unset (null). Tests set it on the module's
+// exports object, which IAPService reads at call time. (A getter in a jest.mock factory does
+// not work here: jest snapshots the factory's object into plain data properties.)
+const subscriptionTypes = require('@/core/types/subscription') as { APPLE_SUBSCRIPTION_GROUP_ID: unknown };
+const setGroupId = (v: string | null | undefined) => { subscriptionTypes.APPLE_SUBSCRIPTION_GROUP_ID = v; };
 
 // Mock SupabaseService. getAuthenticatedClient() (DEBUG-715) hands back a stub client
 // whose functions.invoke is a jest.fn — tests assert against that.
@@ -795,5 +803,173 @@ describe('IAPService - Async purchase listener (v15 split listeners)', () => {
     );
 
     consoleError.mockRestore();
+  });
+});
+
+/**
+ * FEAT-822 (intro-offer A): the store's free-trial eligibility, and the offer a purchase
+ * applies. Real mode only — mock mode (__DEV__, so every jest run) returns before any store
+ * call, so these flip the private flag and restore it.
+ */
+describe('IAPService - FEAT-822 store trial offer', () => {
+  const GROUP = '21480000';
+  const IOS_MONTHLY = 'com.being.subscription.monthly';
+  const GOOGLE_MONTHLY = 'subscription_monthly';
+
+  // Shaped like the real bridge output: subscriptionInfoIOS is undefined (type-bridge.ts:244)
+  // and the offer arrives only in subscriptionOffers.
+  const iosProduct = (offers: unknown[] | null) => ({
+    ...makeIOSSubscription(IOS_MONTHLY, '$9.99'),
+    subscriptionInfoIOS: undefined,
+    subscriptionOffers: offers,
+  }) as unknown as RNIap.ProductSubscription;
+  const IOS_TRIAL = {
+    id: 'intro', type: 'introductory', paymentMode: 'free-trial', displayPrice: '$0.00', price: 0,
+    period: { unit: 'month', value: 1 }, periodCount: 1,
+  };
+
+  const phase = (micros: string, billingPeriod: string, recurrenceMode: number, formattedPrice: string) =>
+    ({ priceAmountMicros: micros, billingPeriod, recurrenceMode, formattedPrice, billingCycleCount: 1, priceCurrencyCode: 'USD' });
+  const BASE = { basePlanId: 'monthly', offerId: null, offerTags: [], offerToken: 'tok-base',
+    pricingPhases: { pricingPhaseList: [phase('9990000', 'P1M', 1, '$9.99')] } };
+  const TRIAL = { basePlanId: 'monthly', offerId: 'free-trial', offerTags: [], offerToken: 'tok-trial',
+    pricingPhases: { pricingPhaseList: [phase('0', 'P1M', 2, 'Free'), phase('9990000', 'P1M', 1, '$9.99')] } };
+  const androidProduct = (details: unknown[] | undefined) => ({
+    id: GOOGLE_MONTHLY, type: 'subs', platform: 'android', displayPrice: '$9.99',
+    subscriptionOfferDetailsAndroid: details, subscriptionOffers: [],
+  }) as unknown as RNIap.ProductSubscription;
+
+  const asPlatform = (os: 'ios' | 'android') => jest.replaceProperty(Platform, 'OS', os);
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    await IAPService.disconnect();
+    setGroupId(GROUP);
+    mockRNIap.initConnection.mockResolvedValue(true);
+    mockRNIap.endConnection.mockResolvedValue(true);
+    mockRNIap.requestPurchase.mockResolvedValue(undefined as never);
+    (IAPService as unknown as { mockMode: boolean }).mockMode = false;
+  });
+
+  afterEach(() => {
+    (IAPService as unknown as { mockMode: boolean }).mockMode = true;
+    setGroupId(null);
+    jest.restoreAllMocks();
+  });
+
+  async function initWith(os: 'ios' | 'android', product: RNIap.ProductSubscription) {
+    asPlatform(os);
+    mockRNIap.fetchProducts.mockResolvedValue([product] as never);
+    await IAPService.initialize();
+  }
+
+  describe('getTrialOffer: 3 states x 2 platforms', () => {
+    it.each([
+      ['ios', 'eligible', () => iosProduct([IOS_TRIAL]), true,
+        { state: 'eligible', durationLabel: '1 month', renewalPriceLabel: '$9.99' }],
+      ['ios', 'ineligible (StoreKit says no)', () => iosProduct([IOS_TRIAL]), false, { state: 'ineligible' }],
+      ['ios', 'ineligible (no intro offer configured)', () => iosProduct(null), true, { state: 'ineligible' }],
+      ['android', 'eligible', () => androidProduct([TRIAL, BASE]), undefined,
+        { state: 'eligible', durationLabel: '1 month', renewalPriceLabel: '$9.99', offerToken: 'tok-trial' }],
+      ['android', 'ineligible (Play returned no trial offer)', () => androidProduct([BASE]), undefined, { state: 'ineligible' }],
+      ['android', 'unknown (no single base plan)', () => androidProduct([TRIAL]), undefined, { state: 'unknown' }],
+    ] as const)('%s: %s', async (os, _label, product, iosEligible, expected) => {
+      await initWith(os, product());
+      if (iosEligible !== undefined) mockRNIap.isEligibleForIntroOfferIOS.mockResolvedValue(iosEligible);
+      await expect(IAPService.getTrialOffer('monthly')).resolves.toEqual(expected);
+    });
+
+    it('ios: unknown when the store throws', async () => {
+      await initWith('ios', iosProduct([IOS_TRIAL]));
+      mockRNIap.isEligibleForIntroOfferIOS.mockRejectedValue(new Error('StoreKit unavailable'));
+      await expect(IAPService.getTrialOffer('monthly')).resolves.toEqual({ state: 'unknown' });
+    });
+
+    it.each([[null], [undefined], ['']])('ios: an unset group id (%j) is unknown and never reaches StoreKit', async (unset) => {
+      await initWith('ios', iosProduct([IOS_TRIAL]));
+      setGroupId(unset as string | null | undefined);
+      await expect(IAPService.getTrialOffer('monthly')).resolves.toEqual({ state: 'unknown' });
+      expect(mockRNIap.isEligibleForIntroOfferIOS).not.toHaveBeenCalled();
+    });
+
+    it.each(['ios', 'android'] as const)('%s: products not loaded is unknown', async (os) => {
+      asPlatform(os);
+      mockRNIap.fetchProducts.mockResolvedValue([] as never);
+      await IAPService.initialize();
+      await expect(IAPService.getTrialOffer('monthly')).resolves.toEqual({ state: 'unknown' });
+    });
+
+    it('android: a failed re-read is unknown, not the stale cached answer', async () => {
+      await initWith('android', androidProduct([TRIAL, BASE]));
+      mockRNIap.fetchProducts.mockRejectedValueOnce(new Error('Play down'));
+      await expect(IAPService.getTrialOffer('monthly')).resolves.toEqual({ state: 'unknown' });
+    });
+
+    it('android: a trial offer whose labels cannot be built is unknown', async () => {
+      const unlabelled = { ...TRIAL, pricingPhases: { pricingPhaseList: [phase('0', 'P1M', 2, 'Free')] } };
+      await initWith('android', androidProduct([unlabelled, BASE]));
+      await expect(IAPService.getTrialOffer('monthly')).resolves.toEqual({ state: 'unknown' });
+    });
+
+    it('not initialized, or in mock mode, is unknown with no store call', async () => {
+      await expect(IAPService.getTrialOffer('monthly')).resolves.toEqual({ state: 'unknown' });
+      await initWith('ios', iosProduct([IOS_TRIAL]));
+      mockRNIap.fetchProducts.mockClear();
+      (IAPService as unknown as { mockMode: boolean }).mockMode = true;
+      await expect(IAPService.getTrialOffer('monthly')).resolves.toEqual({ state: 'unknown' });
+      expect(mockRNIap.fetchProducts).not.toHaveBeenCalled();
+      expect(mockRNIap.isEligibleForIntroOfferIOS).not.toHaveBeenCalled();
+    });
+
+    it.each(['ios', 'android'] as const)('%s: every call re-reads the store (no cached eligibility)', async (os) => {
+      await initWith(os, os === 'ios' ? iosProduct([IOS_TRIAL]) : androidProduct([TRIAL, BASE]));
+      mockRNIap.isEligibleForIntroOfferIOS.mockResolvedValue(true);
+      mockRNIap.fetchProducts.mockClear();
+      await IAPService.getTrialOffer('monthly');
+      await IAPService.getTrialOffer('monthly');
+      expect(mockRNIap.fetchProducts).toHaveBeenCalledTimes(2);
+      if (os === 'ios') expect(mockRNIap.isEligibleForIntroOfferIOS).toHaveBeenCalledWith(GROUP);
+      if (os === 'ios') expect(mockRNIap.isEligibleForIntroOfferIOS).toHaveBeenCalledTimes(2);
+    });
+  });
+
+  describe('purchaseSubscription: the exact requestPurchase payload', () => {
+    const androidPayload = (token: string) => ({
+      request: { android: { skus: [GOOGLE_MONTHLY], subscriptionOffers: [{ sku: GOOGLE_MONTHLY, offerToken: token }] } },
+      type: 'subs',
+    });
+
+    it('android, trial offered: the free-trial offer token', async () => {
+      await initWith('android', androidProduct([BASE, TRIAL]));
+      await IAPService.purchaseSubscription('monthly');
+      expect(mockRNIap.requestPurchase).toHaveBeenCalledWith(androidPayload('tok-trial'));
+    });
+
+    it('android, trial offered but its labels cannot be built: still the trial token (founder 2026-10-22)', async () => {
+      const unlabelled = { ...TRIAL, pricingPhases: { pricingPhaseList: [phase('0', 'P1M', 2, 'Free')] } };
+      await initWith('android', androidProduct([unlabelled, BASE]));
+      await expect(IAPService.getTrialOffer('monthly')).resolves.toEqual({ state: 'unknown' });
+      await IAPService.purchaseSubscription('monthly');
+      expect(mockRNIap.requestPurchase).toHaveBeenCalledWith(androidPayload('tok-trial'));
+    });
+
+    it('android, no trial offer: the base-plan token, never the first array entry', async () => {
+      const otherPlanTrial = { ...TRIAL, basePlanId: 'yearly', offerToken: 'tok-other' };
+      await initWith('android', androidProduct([otherPlanTrial, BASE]));
+      await IAPService.purchaseSubscription('monthly');
+      expect(mockRNIap.requestPurchase).toHaveBeenCalledWith(androidPayload('tok-base'));
+    });
+
+    it('android, no base plan: throws and requests nothing', async () => {
+      await initWith('android', androidProduct([TRIAL]));
+      await expect(IAPService.purchaseSubscription('monthly')).rejects.toThrow('No base plan offer for subscription_monthly');
+      expect(mockRNIap.requestPurchase).not.toHaveBeenCalled();
+    });
+
+    it('ios: { ios: { sku } } — StoreKit applies an eligible introductory offer itself', async () => {
+      await initWith('ios', iosProduct([IOS_TRIAL]));
+      await IAPService.purchaseSubscription('monthly');
+      expect(mockRNIap.requestPurchase).toHaveBeenCalledWith({ request: { ios: { sku: IOS_MONTHLY } }, type: 'subs' });
+    });
   });
 });

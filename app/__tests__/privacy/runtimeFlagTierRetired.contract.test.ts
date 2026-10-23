@@ -6,7 +6,7 @@
  * flags anyway (MAINT-804): every `$feature_flag_called` on app 1.4.0 carried
  * `$used_bootstrap_value=true`.
  *
- * WHAT THIS PINS, and why it is a privacy contract. DPIA v2.50 states that the app evaluates no
+ * WHAT THIS PINS, and why it is a privacy contract. DPIA v2.51 states that the app evaluates no
  * PostHog feature flag, sends no `$feature_flag_called`, and never calls `identify` or `group`.
  * A client flag read is new processing that must come back through crisis + compliance review,
  * so a reintroduced one fails here rather than shipping on a green suite.

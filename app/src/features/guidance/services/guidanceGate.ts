@@ -7,7 +7,8 @@
  * all because crisis resources are the right answer instead.
  *
  * SECOND CONSUMER (DEBUG-670): the daily loop's morning premeditatio prompt reads
- * `level` through `useGuidanceGate` and is withheld at `suppressed`. It deliberately
+ * `level` through `useGuidanceGate` and is withheld at pending, `suppressed` and, since
+ * FEAT-673, `gentle_withheld` (its allowlist admits only `full` and `gentle`). It deliberately
  * does NOT read `allowPremeditatio` below, which gates the guidance loss
  * visualization on developmental stage. Moving a floor here therefore moves who is
  * asked to rehearse a setback in the morning loop, not only who sees guidance tiers.
@@ -131,6 +132,13 @@ function isGentleBandGad7(gad7: GAD7Result | null): boolean {
  * existing cadence design. A stale crisis-level reading continuing to protect is
  * the safe direction; whether to prompt re-assessment above some age is a product
  * decision, not a gate mechanic.
+ *
+ * Admissibility is a different thing and lives UPSTREAM (FEAT-673,
+ * guidanceAdmissibility.ts): a consent window, not a staleness window. Readings taken
+ * before the reader's Art. 9 write-block began are not handed to this function as
+ * evidence; with no admissible reading the answer is `gentle_withheld` — no admissible
+ * evidence of state, which is not evidence of readiness. A suppressing reading still
+ * suppresses there whether or not it is admissible.
  *
  * On missing data: absence is never evidence of safety, so it cannot yield
  * `full`. It is equally never evidence of crisis, so it must not yield

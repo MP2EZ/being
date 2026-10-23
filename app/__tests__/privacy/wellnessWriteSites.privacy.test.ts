@@ -206,7 +206,6 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     'useSettingsStore.updatePrivacySettings › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — app settings`],
   },
   'src/core/stores/subscriptionStore.ts': {
-    'useSubscriptionStore.createTrial › setItemAsync': [1, `${NOT_WELLNESS} — entitlement`],
     'useSubscriptionStore.enterGracePeriod › setItemAsync': [1, `${NOT_WELLNESS} — entitlement`],
     'useSubscriptionStore.exitGracePeriod › setItemAsync': [1, `${NOT_WELLNESS} — entitlement`],
     'useSubscriptionStore.processVerifiedPurchase › setItemAsync': [1, `${NOT_WELLNESS} — entitlement`],

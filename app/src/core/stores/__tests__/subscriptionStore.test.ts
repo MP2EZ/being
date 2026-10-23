@@ -16,6 +16,7 @@
 import { useSubscriptionStore } from '../subscriptionStore';
 import * as SecureStore from 'expo-secure-store';
 import { calculateFeatureAccess } from '../../types/subscription';
+import { seedStoreBackedTrial } from '@tests/helpers/subscriptionFixtures';
 
 // Mock SecureStore
 jest.mock('expo-secure-store');
@@ -289,42 +290,19 @@ describe('Subscription Store - Trial Management', () => {
     mockSecureStore.getItemAsync.mockResolvedValue(null);
   });
 
-  it('createTrial() creates 28-day trial subscription', async () => {
-    const store = useSubscriptionStore.getState();
-
-    await store.createTrial();
-    await new Promise(resolve => setTimeout(resolve, 10));
-
-    const updatedStore = useSubscriptionStore.getState();
-    expect(updatedStore.subscription).toBeTruthy();
-    expect(updatedStore.subscription?.status).toBe('trial');
-    expect(updatedStore.subscription?.crisisAccessEnabled).toBe(true);
-
-    // Verify trial duration is approximately 28 days
-    const trialDurationMs = updatedStore.subscription!.trialEndDate! - updatedStore.subscription!.trialStartDate!;
-    const trialDurationDays = trialDurationMs / (24 * 60 * 60 * 1000);
-    expect(trialDurationDays).toBeCloseTo(28, 0);
-
-  });
+  // DEBUG-709: the local 28-day trial path is removed; a trial is now a store-backed record.
 
   it('getTrialDaysRemaining() returns correct countdown', async () => {
-    const store = useSubscriptionStore.getState();
-
-    await store.createTrial();
+    seedStoreBackedTrial({ trialEndDate: Date.now() + 12 * 24 * 60 * 60 * 1000 - 1000 });
     await new Promise(resolve => setTimeout(resolve, 10));
 
     const updatedStore = useSubscriptionStore.getState();
-    const daysRemaining = updatedStore.getTrialDaysRemaining();
-
-    expect(daysRemaining).toBeGreaterThan(27);
-    expect(daysRemaining).toBeLessThanOrEqual(28);
+    expect(updatedStore.getTrialDaysRemaining()).toBe(12);
 
   });
 
   it('isTrialActive() returns true during trial', async () => {
-    const store = useSubscriptionStore.getState();
-
-    await store.createTrial();
+    seedStoreBackedTrial();
     await new Promise(resolve => setTimeout(resolve, 10));
 
     const updatedStore = useSubscriptionStore.getState();

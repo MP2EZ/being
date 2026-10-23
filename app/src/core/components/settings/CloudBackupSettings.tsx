@@ -55,18 +55,18 @@ import { colorSystem, spacing, borderRadius, typography, semantic } from '@/core
 const CONSENT_ABSENT = 'cloud_sync_consent_absent';
 const NO_SESSION = 'cloud_no_session';
 const UNREACHABLE_CODES: ReadonlySet<string> = new Set(['cloud_unreachable', 'cloud_init_failed']);
-const CONSENT_OFF_TITLE = 'Cloud Backup Is Off';
-const CONSENT_OFF_MESSAGE = 'You can turn on cloud backup in Privacy & Data.';
-const NO_SESSION_TITLE = "Couldn't Set Up Cloud Backup";
+const CONSENT_OFF_TITLE = 'Settings Backup Is Off';
+const CONSENT_OFF_MESSAGE = 'You can turn on Settings Backup in Privacy & Data.';
+const NO_SESSION_TITLE = "Couldn't Set Up Settings Backup";
 const NO_SESSION_MESSAGE = "Being couldn't start a secure backup session. Check your internet connection and try again.";
 const UNREACHABLE_TITLE = "Couldn't Connect";
-const UNREACHABLE_MESSAGE = "We couldn't reach cloud backup. Check your internet connection and try again.";
+const UNREACHABLE_MESSAGE = "We couldn't reach settings backup. Check your internet connection and try again.";
 
 export function connectionTestAlert(
   result: ConnectivityResult | null
 ): { title: string; message: string } | null {
   if (!result) return null; // a test was already running
-  if (result.canConnect) return { title: 'Connection Test', message: 'Connected to cloud backup.' };
+  if (result.canConnect) return { title: 'Connection Test', message: 'Connected to settings backup.' };
   if (result.error === CONSENT_ABSENT) return { title: CONSENT_OFF_TITLE, message: CONSENT_OFF_MESSAGE };
   if (result.error === NO_SESSION) return { title: NO_SESSION_TITLE, message: NO_SESSION_MESSAGE };
   return { title: UNREACHABLE_TITLE, message: UNREACHABLE_MESSAGE };
@@ -82,7 +82,7 @@ const RESTORE_FAILED_TITLE = "Couldn't Restore";
 const RESTORE_FAILED_MESSAGE = "We couldn't restore your backup. Your current data hasn't changed. Try again later.";
 const NO_BACKUP = 'No backup found';
 const RESTORE_IN_FLIGHT = 'Operation in progress';
-const BANNER_FALLBACK = 'Something went wrong with cloud backup. Please try again.';
+const BANNER_FALLBACK = 'Something went wrong with settings backup. Please try again.';
 
 export function backupAlert(
   result: BackupResult | null | undefined
@@ -96,12 +96,12 @@ export function backupAlert(
 export function restoreAlert(result: RestoreResult): { title: string; message: string } | null {
   if (result.success && result.errors.length === 0) {
     return result.restoredStores.length > 0
-      ? { title: 'Restore Complete', message: 'Your settings were restored from your cloud backup.' }
+      ? { title: 'Restore Complete', message: 'Your settings were restored from your backup.' }
       : { title: 'Nothing to Restore', message: "Your backup didn't have any settings to restore." };
   }
   if (result.errors.length === 1 && result.errors[0] === RESTORE_IN_FLIGHT) return null;
   if (result.errors.includes(NO_BACKUP)) {
-    return { title: 'No Backup Found', message: "We couldn't find a cloud backup to restore." };
+    return { title: 'No Backup Found', message: "We couldn't find a backup to restore." };
   }
   return { title: RESTORE_FAILED_TITLE, message: RESTORE_FAILED_MESSAGE };
 }
@@ -182,7 +182,7 @@ export default function CloudBackupSettings({
   const handleRestore = async () => {
     Alert.alert(
       'Restore Data',
-      'This will replace your current data with your cloud backup. Continue?',
+      'This will replace your current settings with your backup. Continue?',
       [
         { text: 'Cancel', style: 'cancel' },
         {
@@ -237,7 +237,7 @@ export default function CloudBackupSettings({
     <View style={[styles.container, style]}>
       {/* Header */}
       <View style={styles.header}>
-        <Text style={styles.title}>Cloud Backup</Text>
+        <Text style={styles.title}>Settings Backup</Text>
         <View style={[styles.statusIndicator, { backgroundColor: getStatusColor() }]} />
       </View>
 

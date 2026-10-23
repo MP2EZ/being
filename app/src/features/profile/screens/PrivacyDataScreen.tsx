@@ -19,6 +19,7 @@ import {
   StyleSheet,
   ScrollView,
   Switch,
+  Pressable,
   TouchableOpacity,
   ActivityIndicator,
   Alert,
@@ -29,13 +30,16 @@ import { Ionicons } from '@react-native-vector-icons/ionicons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { useConsentStore } from '@/core/stores/consentStore';
+import { useConsentStore, type ConsentPreferences } from '@/core/stores/consentStore';
 import { useAnalytics } from '@/core/analytics';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { semantic, colorSystem, spacing, borderRadius, typography } from '@/core/theme';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 // Direct path, not the consent barrel: the barrel would put its screens on this graph (FEAT-376).
-import { CONSENT_DETAILS } from '@/features/consent/constants/consentDetails';
+import {
+  CONSENT_DETAILS,
+  CLOUD_BACKUP_UNAVAILABLE_HOLDER_DESCRIPTION,
+} from '@/features/consent/constants/consentDetails';
 import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 import type { ProfileStackParamList } from '../ProfileStackNavigator';
 
@@ -157,6 +161,161 @@ const storageRowStyles = StyleSheet.create({
   },
 });
 
+/**
+ * Consent Setting Row (DEBUG-818)
+ * A consent-preference switch with the same CONSENT_DETAILS account the onboarding and
+ * re-consent cards give, behind "Learn more". Settings writes on toggle, with no deferred
+ * submit like onboarding's Continue, so the disclosure comes BEFORE the switch in reading
+ * order. The row never announces: the screen's handler announces after a confirmed write,
+ * because a flag-dark Settings Backup withdrawal unmounts this row first (DEBUG-816).
+ * Expansion is inline and unanimated, so nothing here can cover the crisis button, and
+ * the card keeps the shared settingCard style unchanged.
+ */
+interface ConsentDetailsCopy {
+  whatWeCollect: readonly string[];
+  whatWeDontCollect: readonly string[];
+  whyItHelps: string;
+  privacyNote?: string;
+}
+
+interface ConsentSettingRowProps {
+  label: string;
+  description: string;
+  details: ConsentDetailsCopy;
+  value: boolean;
+  disabled: boolean;
+  onValueChange: (value: boolean) => void;
+  testID: string;
+}
+
+const ConsentSettingRow: React.FC<ConsentSettingRowProps> = ({
+  label,
+  description,
+  details,
+  value,
+  disabled,
+  onValueChange,
+  testID,
+}) => {
+  const [expanded, setExpanded] = useState(false);
+
+  return (
+    <View style={styles.settingCard}>
+      <View style={consentRowStyles.row}>
+        <View style={styles.settingInfo}>
+          <Text style={styles.settingLabel}>{label}</Text>
+          <Text style={styles.settingDescription}>{description}</Text>
+          {/* Never disabled: a holder under Universal Opt-Out can still read what their
+              stored grant covers. */}
+          <Pressable
+            onPress={() => setExpanded((open) => !open)}
+            style={consentRowStyles.learnMore}
+            hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+            accessibilityRole="button"
+            accessibilityLabel={expanded ? `Hide details for ${label}` : `Learn more about ${label}`}
+            accessibilityState={{ expanded, disabled: false }}
+            testID={`${testID}-details-toggle`}
+          >
+            <Text style={consentRowStyles.learnMoreText}>{expanded ? 'Hide details' : 'Learn more'}</Text>
+          </Pressable>
+        </View>
+        <Switch
+          testID={testID}
+          value={value}
+          onValueChange={onValueChange}
+          trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
+          thumbColor={colorSystem.base.white}
+          disabled={disabled}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          accessibilityRole="switch"
+          accessibilityLabel={label}
+          accessibilityState={{ checked: value, disabled }}
+        />
+      </View>
+
+      {expanded && (
+        <View style={consentRowStyles.details}>
+          <View style={consentRowStyles.detailSection}>
+            <Text style={consentRowStyles.detailTitle}>What we collect:</Text>
+            {details.whatWeCollect.map((item) => (
+              <Text key={item} style={consentRowStyles.detailBullet}>• {item}</Text>
+            ))}
+          </View>
+          <View style={consentRowStyles.detailSection}>
+            <Text style={consentRowStyles.detailTitle}>What we DON'T collect:</Text>
+            {details.whatWeDontCollect.map((item) => (
+              <Text key={item} style={consentRowStyles.detailBullet}>• {item}</Text>
+            ))}
+          </View>
+          <View style={consentRowStyles.detailSection}>
+            <Text style={consentRowStyles.detailTitle}>Why it helps:</Text>
+            <Text style={consentRowStyles.detailText}>{details.whyItHelps}</Text>
+          </View>
+          {details.privacyNote ? (
+            <View style={consentRowStyles.privacyNote}>
+              <Text style={consentRowStyles.detailText}>{details.privacyNote}</Text>
+            </View>
+          ) : null}
+        </View>
+      )}
+    </View>
+  );
+};
+
+const consentRowStyles = StyleSheet.create({
+  row: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+  },
+  learnMore: {
+    alignSelf: 'flex-start',
+    marginTop: spacing[8],
+    paddingVertical: spacing[4],
+  },
+  learnMoreText: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.medium,
+    color: colorSystem.base.midnightBlue,
+    textDecorationLine: 'underline',
+  },
+  details: {
+    marginTop: spacing[16],
+    paddingTop: spacing[16],
+    borderTopWidth: 1,
+    borderTopColor: colorSystem.gray[200],
+  },
+  detailSection: {
+    marginBottom: spacing[16],
+  },
+  detailTitle: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.semibold,
+    color: semantic.text.primary,
+    marginBottom: spacing[4],
+  },
+  detailBullet: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: semantic.text.secondary,
+    lineHeight: 22,
+    marginLeft: spacing[8],
+  },
+  detailText: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: semantic.text.secondary,
+    lineHeight: 22,
+  },
+  privacyNote: {
+    backgroundColor: colorSystem.status.successBackground,
+    borderRadius: borderRadius.medium,
+    padding: spacing[16],
+    borderLeftWidth: 3,
+    borderLeftColor: colorSystem.status.success,
+  },
+});
+
 const PrivacyDataScreen: React.FC = () => {
   // FEAT-212: rendered as a route on ProfileStackNavigator. The cloud-backup
   // sub-screen is now a pushed route (Privacy → CloudBackup), not an in-component
@@ -199,6 +358,19 @@ const PrivacyDataScreen: React.FC = () => {
     currentConsent?.preferences?.mentalHealthProcessingConsent ?? false;
   // INFRA-151: GPC-equivalent universal opt-out flag
   const universalOptOut = currentConsent?.universalOptOut ?? false;
+  /**
+   * DEBUG-816: the Settings Backup switch is a grant point, so it renders only where
+   * Cloud Backup exists in this build OR a grant is already held, so a holder can always
+   * see and withdraw it. Keyed on the RAW stored value, never on the displayed
+   * `cloudSyncEnabled && !universalOptOut`: UOO suppresses a grant without withdrawing it.
+   * A revoked record is not a held grant (its preferences are a historical snapshot).
+   * Disappear-on-withdraw, deliberately not a latch: a latch would re-offer the grant in a
+   * build where the feature does not exist. ReConsentScreen revokes a dark-build grant on
+   * submit; this screen deliberately does not, since viewing settings is not a submission.
+   */
+  const cloudSyncGrantHeld =
+    currentConsent?.revoked !== true && currentConsent?.preferences?.cloudSyncEnabled === true;
+  const showSettingsBackup = cloudSyncAvailable || cloudSyncGrantHeld;
 
   // Load consent on mount
   useEffect(() => {
@@ -214,26 +386,39 @@ const PrivacyDataScreen: React.FC = () => {
    *
    * `announceLabel` (FEAT-470) opts a control into a VoiceOver/TalkBack
    * announcement of its new state. The consent domain's own precedent is that
-   * consent toggles announce — `ConsentToggleCard.tsx:79-85`, which renders every
-   * consent toggle in onboarding and re-consent, does exactly this. The four
-   * preference toggles on this screen are the anomaly: they are consent toggles
-   * rendered without that component, and they announce nothing. Rather than
-   * retrofit all four here (out of scope, and each needs its own copy decision),
-   * the parameter is opt-in and only the Art. 9 control passes it.
+   * consent toggles announce (`ConsentToggleCard.tsx:79-85`, which renders every
+   * consent toggle in onboarding and re-consent). Every consent switch on this
+   * screen passes one: the Art. 9 control (FEAT-470) and the four preference rows
+   * (DEBUG-818), each announcing `<label> enabled|disabled`.
    *
    * The announcement is deliberately INSIDE the try and AFTER the await.
    * `ConsentToggleCard` announces synchronously because its `onValueChange` is a
    * bare setter; copying that here would announce a new state on a write that then
    * throws, and immediately contradict itself with the Save Failed alert.
+   *
+   * DEBUG-816: `updateConsent` never throws — it catches its own write failure, sets
+   * `error`, and resolves with the record unchanged. So the write is confirmed against
+   * the store before anything is announced, and an unconfirmed write takes the Save
+   * Failed path. A string `announceLabel` announces `<label> enabled|disabled`; a
+   * function supplies the whole message, for a control whose withdrawal also removes it.
    */
-  const handleConsentToggle = async (key: string, value: boolean, announceLabel?: string) => {
+  const handleConsentToggle = async (
+    key: keyof ConsentPreferences,
+    value: boolean,
+    announceLabel?: string | ((value: boolean) => string),
+  ) => {
     setIsSaving(true);
     try {
       await updateConsent({ [key]: value });
+      if (useConsentStore.getState().currentConsent?.preferences?.[key] !== value) {
+        throw new Error('Consent update did not persist');
+      }
       trackConsentChanged();
       if (announceLabel) {
         AccessibilityInfo.announceForAccessibility(
-          `${announceLabel} ${value ? 'enabled' : 'disabled'}`,
+          typeof announceLabel === 'function'
+            ? announceLabel(value)
+            : `${announceLabel} ${value ? 'enabled' : 'disabled'}`,
         );
       }
     } catch (error) {
@@ -398,61 +583,55 @@ const PrivacyDataScreen: React.FC = () => {
             Control how your data is used and stored. Privacy-first by default.{universalOptOut ? ' These toggles are overridden while Universal Opt-Out is on.' : ''}
           </Text>
 
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Usage Analytics</Text>
-                <Text style={styles.settingDescription}>
-                  Help improve Being by sharing which features you use. Never your check-ins, journal or screening answers.
-                </Text>
-              </View>
-              <Switch
-                value={analyticsEnabled && !universalOptOut}
-                onValueChange={(value) => handleConsentToggle('analyticsEnabled', value)}
-                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
-                thumbColor={colorSystem.base.white}
-                disabled={isSaving || universalOptOut}
-              />
-            </View>
-          </View>
+          {/* DEBUG-818: each row discloses its CONSENT_DETAILS category. Labels stay literal
+              here: analyticsControlClaims.privacy.test.ts resolves the privacy policy's
+              control paths against this file's text. */}
+          <ConsentSettingRow
+            label="Usage Analytics"
+            description={CONSENT_DETAILS.analytics.description}
+            details={CONSENT_DETAILS.analytics.details}
+            value={analyticsEnabled && !universalOptOut}
+            disabled={isSaving || universalOptOut}
+            onValueChange={(value) => handleConsentToggle('analyticsEnabled', value, 'Usage Analytics')}
+            testID="privacy-analytics-toggle"
+          />
 
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Crash Reports</Text>
-                <Text style={styles.settingDescription}>
-                  Automatically report errors to fix bugs faster
-                </Text>
-              </View>
-              <Switch
-                value={crashReportsEnabled && !universalOptOut}
-                onValueChange={(value) => handleConsentToggle('crashReportsEnabled', value)}
-                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
-                thumbColor={colorSystem.base.white}
-                disabled={isSaving || universalOptOut}
-              />
-            </View>
-          </View>
+          <ConsentSettingRow
+            label="Crash Reports"
+            description={CONSENT_DETAILS.crashReports.description}
+            details={CONSENT_DETAILS.crashReports.details}
+            value={crashReportsEnabled && !universalOptOut}
+            disabled={isSaving || universalOptOut}
+            onValueChange={(value) => handleConsentToggle('crashReportsEnabled', value, 'Crash Reports')}
+            testID="privacy-crash-reports-toggle"
+          />
 
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Settings Backup</Text>
-                <Text style={styles.settingDescription}>
-                  Back up app preferences to encrypted cloud storage
-                </Text>
-              </View>
-              <Switch
-                value={cloudSyncEnabled && !universalOptOut}
-                onValueChange={(value) => handleConsentToggle('cloudSyncEnabled', value)}
-                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
-                thumbColor={colorSystem.base.white}
-                disabled={isSaving || universalOptOut}
-              />
-            </View>
-          </View>
+          {showSettingsBackup && (
+            <ConsentSettingRow
+              label="Settings Backup"
+              // Without Cloud Backup in this build the row is only here for a holder to
+              // withdraw, so it must not read as an offer (DEBUG-818 AC5).
+              description={
+                cloudSyncAvailable
+                  ? CONSENT_DETAILS.cloudSync.description
+                  : CLOUD_BACKUP_UNAVAILABLE_HOLDER_DESCRIPTION
+              }
+              details={CONSENT_DETAILS.cloudSync.details}
+              value={cloudSyncEnabled && !universalOptOut}
+              disabled={isSaving || universalOptOut}
+              onValueChange={(value) =>
+                handleConsentToggle('cloudSyncEnabled', value, (v) =>
+                  // Withdrawing in a build without Cloud Backup removes this card.
+                  !v && !cloudSyncAvailable
+                    ? "Settings Backup disabled. This option is no longer shown because it isn't available in this version of Being."
+                    : `Settings Backup ${v ? 'enabled' : 'disabled'}`,
+                )
+              }
+              testID="privacy-settings-backup-toggle"
+            />
+          )}
 
-          {/* Manage Cloud Backup — flag-gated entry to the comprehensive
+          {/* Manage Settings Backup — flag-gated entry to the comprehensive
               controls (backup now, restore, status). Ships dark: hidden
               until the cloud_sync feature flag is enabled. */}
           {cloudSyncAvailable && (
@@ -461,12 +640,12 @@ const PrivacyDataScreen: React.FC = () => {
               onPress={() => navigation.navigate('CloudBackup')}
               testID="profile-cloud-backup"
               accessibilityRole="button"
-              accessibilityLabel="Manage Cloud Backup"
-              accessibilityHint="Opens cloud backup status, manual backup, and restore controls"
+              accessibilityLabel="Manage Settings Backup"
+              accessibilityHint="Opens settings backup status, manual backup, and restore controls"
             >
               <View style={styles.settingRow}>
                 <View style={styles.settingInfo}>
-                  <Text style={styles.settingLabel}>Manage Cloud Backup</Text>
+                  <Text style={styles.settingLabel}>Manage Settings Backup</Text>
                   <Text style={styles.settingDescription}>
                     Back up now, restore, and view sync status
                   </Text>
@@ -476,27 +655,22 @@ const PrivacyDataScreen: React.FC = () => {
             </TouchableOpacity>
           )}
 
-          <View style={styles.settingCard}>
-            <View style={styles.settingRow}>
-              <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Research Participation</Text>
-                <Text style={styles.settingDescription}>
-                  {CONSENT_DETAILS.research.description}
-                </Text>
-              </View>
-              <Switch
-                value={researchEnabled && !universalOptOut}
-                onValueChange={(value) => handleConsentToggle('researchEnabled', value)}
-                trackColor={{ false: colorSystem.gray[300], true: colorSystem.base.midnightBlue }}
-                thumbColor={colorSystem.base.white}
-                disabled={isSaving || universalOptOut}
-              />
-            </View>
-          </View>
+          <ConsentSettingRow
+            label="Research Participation"
+            description={CONSENT_DETAILS.research.description}
+            details={CONSENT_DETAILS.research.details}
+            value={researchEnabled && !universalOptOut}
+            disabled={isSaving || universalOptOut}
+            onValueChange={(value) => handleConsentToggle('researchEnabled', value, 'Research Participation')}
+            testID="privacy-research-toggle"
+          />
 
+          {/* DEBUG-818: the "Analytics cover app usage and device details only" sentence is
+              gone; the analytics details above disclose an installation identifier and an
+              approximate location, which "only" contradicted. */}
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
-              Your check-in responses, therapeutic values, and health data are NEVER shared. Analytics cover app usage and device details only.
+              Your check-in responses, therapeutic values, and health data are NEVER shared.
             </Text>
           </View>
 
@@ -530,7 +704,7 @@ const PrivacyDataScreen: React.FC = () => {
             <StorageLocationRow
               label="Preferences"
               description="App settings and customizations"
-              location={cloudSyncEnabled && !universalOptOut ? 'cloud' : 'app'}
+              location={cloudSyncAvailable && cloudSyncGrantHeld && !universalOptOut ? 'cloud' : 'app'}
             />
           </View>
 

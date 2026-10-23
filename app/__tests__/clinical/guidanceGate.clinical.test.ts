@@ -29,6 +29,11 @@ import { CRISIS_SAFETY_THRESHOLDS } from '@/features/crisis/types/safety';
 import { CRISIS_THRESHOLDS, type PHQ9Result, type GAD7Result } from '@/features/assessment/types';
 import type { DevelopmentalStage } from '@/features/learn/types/education';
 import { decideGuidanceAccess } from '@/features/guidance/services/guidanceGate';
+import {
+  decideAdmissibleGuidanceAccess,
+  GENTLE_WITHHELD_DECISION,
+} from '@/features/guidance/services/guidanceAdmissibility';
+
 
 const PHQ9_SEVERE = CRISIS_SAFETY_THRESHOLDS.PHQ9_SEVERE_THRESHOLD; // 20
 const GAD7_SEVERE = CRISIS_SAFETY_THRESHOLDS.GAD7_SEVERE_THRESHOLD; // 15
@@ -313,5 +318,119 @@ describe('FEAT-55 · the gate is pure', () => {
   it('is deterministic across repeated calls', () => {
     const args = [phq9(PHQ9_SUPPORT), gad7(4), 'fluid'] as const;
     expect(decideGuidanceAccess(...args)).toEqual(decideGuidanceAccess(...args));
+  });
+});
+
+// ─────────────────────────────────────────────────────────────────────────────
+// FEAT-673 · admissibility under the Art. 9 write-block start (AC2)
+//
+// Pure: (phq9, gad7, stage, blockStart, predicateAllowed). blockStart is the consent
+// selector's primitive: -Infinity = never blocked, a finite time = the latest block
+// start, null = unknown (every reading inadmissible). A reading counts iff
+// completedAt >= blockStart. A suppressing reading suppresses whether or not it counts.
+// ─────────────────────────────────────────────────────────────────────────────
+
+
+describe('FEAT-673 · AC2 admissibility (pure, table-tested)', () => {
+  const B = 50_000;
+  const at = <T extends { completedAt: number }>(r: T, completedAt: number): T => ({ ...r, completedAt });
+  const decide = (
+    p: PHQ9Result | null,
+    g: GAD7Result | null,
+    blockStart: number | null,
+    allowed = true,
+  ) => decideAdmissibleGuidanceAccess(p, g, null, blockStart, allowed);
+
+  it('the fourth level withholds Tier 2+ and premeditatio and carries no crisis route', () => {
+    expect(GENTLE_WITHHELD_DECISION).toEqual({
+      level: 'gentle_withheld',
+      allowTier2Plus: false,
+      allowPremeditatio: false,
+    });
+    expect('crisisRoute' in GENTLE_WITHHELD_DECISION).toBe(false);
+  });
+
+  // (a) Never blocked, predicate allowing: identical to the unedited matrix.
+  it.each([
+    ['calm pair', CALM_PHQ9(), CALM_GAD7()],
+    ['PHQ-9 gentle band', phq9(PHQ9_SUPPORT), CALM_GAD7()],
+    ['GAD-7 gentle band', CALM_PHQ9(), gad7(GAD7_MODERATE)],
+    ['Q9 > 0 at total 1', phq9(1, true), CALM_GAD7()],
+    ['PHQ-9 severe', phq9(PHQ9_SEVERE), CALM_GAD7()],
+    ['GAD-7 severe', CALM_PHQ9(), gad7(GAD7_SEVERE)],
+    ['PHQ-9 missing', null, CALM_GAD7()],
+    ['never assessed', null, null],
+  ] as const)('(a) -Infinity + allowed: %s equals decideGuidanceAccess', (_label, p, g) => {
+    for (const stage of [null, 'fluid'] as DevelopmentalStage[]) {
+      expect(decideAdmissibleGuidanceAccess(p, g, stage, -Infinity, true)).toEqual(decideGuidanceAccess(p, g, stage));
+    }
+  });
+
+  // (b) completedAt === B is admissible; B - 1 is not.
+  it('(b) a finite B.start admits completedAt === B and rejects B - 1', () => {
+    expect(decide(at(CALM_PHQ9(), B), at(CALM_GAD7(), B), B, false).level).toBe('full');
+    expect(decide(at(CALM_PHQ9(), B - 1), at(CALM_GAD7(), B - 1), B, false)).toEqual(GENTLE_WITHHELD_DECISION);
+  });
+
+  // (c) + (j): null admits nothing, even an in-session reading, whether or not writes are allowed.
+  it.each([true, false])('(c)/(j) null B.start admits nothing, predicate allowed=%s', (allowed) => {
+    const fresh = Number.MAX_SAFE_INTEGER;
+    expect(decide(at(CALM_PHQ9(), fresh), at(CALM_GAD7(), fresh), null, allowed)).toEqual(GENTLE_WITHHELD_DECISION);
+  });
+
+  // (d) A non-finite completedAt is inadmissible.
+  it.each([NaN, Infinity, -Infinity])('(d) completedAt %s is inadmissible under a finite B.start', (bad) => {
+    expect(decide(at(CALM_PHQ9(), bad), at(CALM_GAD7(), bad), B, true)).toEqual(GENTLE_WITHHELD_DECISION);
+  });
+
+  // (e) An inadmissible suppressing reading still suppresses.
+  it.each([
+    ['Q9 > 0 at total 1', at(phq9(1, true), B - 1), at(CALM_GAD7(), B)],
+    ['PHQ-9 20', at(phq9(PHQ9_SEVERE), B - 1), at(CALM_GAD7(), B)],
+    ['GAD-7 15', at(CALM_PHQ9(), B), at(gad7(GAD7_SEVERE), B - 1)],
+  ] as const)('(e) stale %s -> suppressed, under a finite and a null B.start', (_label, p, g) => {
+    for (const blockStart of [B, null]) {
+      const d = decide(p, g, blockStart, false);
+      expect(d.level).toBe('suppressed');
+      expect(d.crisisRoute).toEqual({ screen: 'CrisisResources', params: { source: 'guidance_gate' } });
+    }
+  });
+
+  // (f) One axis admissible and calm, the other inadmissible and calm -> that axis is missing -> gentle.
+  it('(f) a calm admissible axis beside an inadmissible calm one is exactly gentle', () => {
+    expect(decide(at(CALM_PHQ9(), B), at(CALM_GAD7(), B - 1), B, false).level).toBe('gentle');
+    expect(decide(at(CALM_PHQ9(), B - 1), at(CALM_GAD7(), B), B, false).level).toBe('gentle');
+  });
+
+  it('(f) …unless the inadmissible axis suppresses, when (e) wins', () => {
+    expect(decide(at(CALM_PHQ9(), B), at(gad7(GAD7_SEVERE), B - 1), B, false).level).toBe('suppressed');
+  });
+
+  // (g) No admissible reading on either axis and nothing suppressing -> the fourth level.
+  it.each([
+    ['finite B.start, never screened', B, null, null],
+    ['finite B.start, all readings before it', B, at(CALM_PHQ9(), B - 1), at(CALM_GAD7(), B - 1)],
+    ['null B.start, never screened', null, null, null],
+  ] as const)('(g) %s -> gentle_withheld', (_label, blockStart, p, g) => {
+    expect(decide(p, g, blockStart, false)).toEqual(GENTLE_WITHHELD_DECISION);
+  });
+
+  it('(g) control: never blocked and never screened is gentle (the existing row, unchanged)', () => {
+    expect(decide(null, null, -Infinity, true).level).toBe('gentle');
+  });
+
+  // (h) Founder 2026-10-19: a fresh low pair counts while the user is still blocked.
+  it('(h) admissible PHQ-9 3 / GAD-7 2 under a finite B.start, still blocked -> full', () => {
+    expect(decide(at(phq9(3), B + 10), at(gad7(2), B + 10), B, false).level).toBe('full');
+  });
+
+  // (i) -Infinity with the predicate blocking is read as null.
+  it('(i) -Infinity with the predicate blocked is treated as null', () => {
+    expect(decide(at(CALM_PHQ9(), 1), at(CALM_GAD7(), 1), -Infinity, false)).toEqual(GENTLE_WITHHELD_DECISION);
+  });
+
+  it('the fourth level never carries a level string a prefix test could mistake for gentle', () => {
+    // Philosopher condition: consumers branch on allowTier2Plus / the allowlist, never on a prefix.
+    expect(GENTLE_WITHHELD_DECISION.level).not.toBe('gentle');
   });
 });

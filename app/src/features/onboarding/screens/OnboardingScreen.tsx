@@ -1185,16 +1185,16 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onRetur
           <View style={styles.summarySection}>
             <Text style={styles.summaryLabel}>Privacy Settings</Text>
             {consentPreferences.analyticsEnabled && (
-              <Text style={styles.summaryValue}>✓ Analytics enabled</Text>
+              <Text style={styles.summaryValue}>✓ Usage Analytics enabled</Text>
             )}
             {consentPreferences.crashReportsEnabled && (
-              <Text style={styles.summaryValue}>✓ Crash reports enabled</Text>
+              <Text style={styles.summaryValue}>✓ Crash Reports enabled</Text>
             )}
             {consentPreferences.cloudSyncEnabled && (
-              <Text style={styles.summaryValue}>✓ Cloud backup enabled</Text>
+              <Text style={styles.summaryValue}>✓ Settings Backup enabled</Text>
             )}
             {consentPreferences.researchEnabled && (
-              <Text style={styles.summaryValue}>✓ Research participation enabled</Text>
+              <Text style={styles.summaryValue}>✓ Research Participation enabled</Text>
             )}
             {!consentPreferences.analyticsEnabled &&
              !consentPreferences.crashReportsEnabled &&

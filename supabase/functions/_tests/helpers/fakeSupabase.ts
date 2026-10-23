@@ -23,7 +23,18 @@
  * observe an optimistic-concurrency update that matched nothing; .is(c, null) matches a null or
  * absent column; beforeUpdate(table, fn) runs `fn` once, just before the next update on that
  * table resolves its filters, so a test can change a row between the handler's read and write.
+ *
+ * DEBUG-836 additions (additive; `await upsert(...)` still resolves { error }): upsert(...)
+ * returns a builder, so .select(cols).single() / .maybeSingle() / await resolve { data, error }
+ * with the written row, as PostgREST's RETURNING does. Rows carry an `id` the way Postgres
+ * does: a conflict-replace keeps the existing row's id, an insert gets crypto.randomUUID().
+ * rpc('log_subscription_event') rejects a non-null p_subscription_id that is not a UUID with
+ * 22P02, as the uuid-typed parameter does, so a store identifier passed there fails a test
+ * instead of silently dropping an audit row.
  */
+
+/** A Postgres-castable uuid literal (any version), as `p_subscription_id uuid` accepts. */
+export const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 type Row = Record<string, unknown>;
 
@@ -123,13 +134,40 @@ export function fakeDb(seed: Record<string, Row[]> = {}): FakeDb {
       upsert: (row: Row, options?: Row) => {
         upserts.push({ table, row: { ...row }, options });
         const err = takeFailure(table, 'upsert');
-        if (err) return Promise.resolve({ error: err });
-        const t = (tables[table] ??= []);
-        const key = typeof options?.onConflict === 'string' ? options.onConflict : null;
-        const i = key === null ? -1 : t.findIndex((r) => r[key] === row[key]);
-        if (i >= 0) t[i] = { ...row };
-        else t.push({ ...row });
-        return Promise.resolve({ error: null });
+        let written: Row | null = null;
+        if (!err) {
+          const t = (tables[table] ??= []);
+          const key = typeof options?.onConflict === 'string' ? options.onConflict : null;
+          const i = key === null ? -1 : t.findIndex((r) => r[key] === row[key]);
+          // ON CONFLICT DO UPDATE never changes the primary key.
+          const id = row.id ?? (i >= 0 ? t[i].id : undefined) ?? crypto.randomUUID();
+          written = { ...row, id };
+          if (i >= 0) t[i] = written;
+          else t.push(written);
+        }
+        let cols: string[] | null = null;
+        const project = (r: Row): Row =>
+          cols === null || cols.length === 0 ? { ...r } : Object.fromEntries(cols.map((c) => [c, r[c]]));
+        const one = () =>
+          Promise.resolve(err ? { data: null, error: err } : { data: project(written as Row), error: null });
+        // deno-lint-ignore no-explicit-any
+        const u: any = {
+          select: (c?: string) => {
+            cols = (c ?? '*').split(',').map((x) => x.trim()).filter((x) => x && x !== '*');
+            return u;
+          },
+          single: one,
+          maybeSingle: one,
+          then: (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) => {
+            const result = cols === null
+              ? { error: err }
+              : err
+              ? { data: null, error: err }
+              : { data: [project(written as Row)], error: null };
+            return Promise.resolve(result).then(onFulfilled, onRejected);
+          },
+        };
+        return u;
       },
       then: (onFulfilled: (v: unknown) => unknown, onRejected?: (e: unknown) => unknown) => {
         let result: unknown;
@@ -172,6 +210,11 @@ export function fakeDb(seed: Record<string, Row[]> = {}): FakeDb {
         rpcCalls.push({ name, args });
         const i = rpcFailures.findIndex((f) => f.name === name);
         if (i >= 0) return Promise.resolve({ data: null, error: rpcFailures.splice(i, 1)[0].error });
+        const sid = args?.p_subscription_id;
+        if (name === 'log_subscription_event' && sid != null && !(typeof sid === 'string' && UUID_RE.test(sid))) {
+          // The value is not echoed: PostgREST's text quotes it, and handlers log error text nowhere.
+          return Promise.resolve({ data: null, error: { code: '22P02', message: 'invalid input syntax for type uuid' } });
+        }
         return Promise.resolve({ data: null, error: null });
       },
     },

@@ -27,6 +27,7 @@
   "src/core/components/settings/__tests__/CloudBackupSettings.test.tsx": 1,
   "src/core/components/subscription/PurchaseOptionsScreen.tsx": 6,
   "src/core/components/subscription/SubscriptionStatusCard.tsx": 4,
+  "src/core/components/subscription/__tests__/PurchaseOptionsScreen.copy.test.tsx": 1,
   "src/core/components/subscription/__tests__/PurchaseOptionsScreen.restore.unit.test.tsx": 1,
   "src/core/components/subscription/__tests__/SubscriptionStatusCard.test.tsx": 1,
   "src/core/components/subscription/__tests__/SubscriptionStatusRoute.test.tsx": 1,
@@ -81,6 +82,7 @@
   "src/core/services/subscription/__tests__/IAPService.test.ts": 1,
   "src/core/services/subscription/__tests__/subscription.integration.test.ts": 1,
   "src/core/services/subscription/__tests__/subscriptionProductInterval.unit.test.ts": 1,
+  "src/core/services/subscription/__tests__/trialOffer.unit.test.ts": 1,
   "src/core/services/supabase/CloudBackupService.ts": 7,
   "src/core/services/supabase/ErrorHandler.ts": 9,
   "src/core/services/supabase/__tests__/CloudBackupService.privacy.test.ts": 1,
@@ -303,5 +305,6 @@
   "src/features/profile/screens/__tests__/ExportDataScreen.accessibility.test.tsx": 1,
   "src/features/profile/screens/__tests__/ExportDataScreen.privacy.test.tsx": 1,
   "src/features/profile/screens/__tests__/PrivacyDataScreen.accessibility.test.tsx": 1,
+  "src/features/profile/screens/__tests__/PrivacyDataScreen.consentDisclosure.privacy.test.tsx": 1,
   "src/features/profile/screens/__tests__/ProfileScreen.accessibility.test.tsx": 1
 }
