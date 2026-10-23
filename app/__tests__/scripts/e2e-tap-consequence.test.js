@@ -185,7 +185,7 @@ const REGISTER = [
   { key: 'daily-loop-ax5-virtuous.yaml | checkin-card-daily-loop -> checkin-card-daily-loop', status: 'remedied', consequence: 'daily-loop-depth-select-screen' },
   { key: 'daily-loop-ax5-virtuous.yaml | virtue-chip-temperance -> daily-loop-exit', status: 'measured-clear', consequence: 'home-screen', capture: 'DEBUG-652' },
   { key: 'daily-loop-quick-depth.yaml | continue-button -> continue-button', status: 'boundary', consequence: 'daily-loop-VirtuousResponse-screen' },
-  { key: 'export-pdf-share-sheet-occlusion.yaml | profile-card-privacy -> profile-card-privacy', status: 'debt-pin', consequence: null },
+  { key: 'export-pdf-share-sheet-occlusion.yaml | profile-card-privacy -> tab-profile', status: 'remedied', consequence: 'privacy-data-screen' },
   { key: 'export-pdf-share-sheet-occlusion.yaml | profile-card-export -> profile-card-export', status: 'debt-pin', consequence: 'export-data-screen' },
   { key: 'export-pdf-share-sheet-occlusion.yaml | export-pdf-button -> export-pdf-button', status: 'debt-pin', consequence: null },
   { key: 'export-share-sheet-occlusion.yaml | profile-card-privacy -> profile-card-privacy', status: 'debt-pin', consequence: null },

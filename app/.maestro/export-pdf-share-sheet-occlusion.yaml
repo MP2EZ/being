@@ -48,8 +48,18 @@ name: "FEAT-806: the PDF share sheet occludes the 988 affordance (DEBT PIN)"
       id: "profile-card-privacy"
     direction: DOWN
     centerElement: true
+- waitForAnimationToEnd: # INFRA-729 settle — see crisis-button-reachability.yaml
+    timeout: 3000
+# DEBUG-652 absorbing tap — load-bearing, not a slip. Without it the first run of this flow
+# (FEAT-806, 2026-10-22) swallowed the privacy tap and stalled on the Profile list.
+- tapOn:
+    id: "tab-profile"
 - tapOn:
     id: "profile-card-privacy"
+# Arrival is asserted before the next scroll, or a swallowed tap surfaces ~48s later as the
+# wrong element.
+- assertVisible:
+    id: "privacy-data-screen"
 - scrollUntilVisible:
     element:
       id: "profile-card-export"
