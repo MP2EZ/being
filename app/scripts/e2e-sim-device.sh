@@ -216,12 +216,22 @@ e2e_viewport_for_device_type() {
   ' "$ident" 2>/dev/null)" || return 0
   [ -n "$bundle" ] || return 0
 
-  local plist w h sc
+  local plist caps w h sc
   plist="$bundle/Contents/Resources/profile.plist"
-  [ -f "$plist" ] || return 0
-  w="$(plutil -extract mainScreenWidth  raw "$plist" 2>/dev/null)" || return 0
-  h="$(plutil -extract mainScreenHeight raw "$plist" 2>/dev/null)" || return 0
-  sc="$(plutil -extract mainScreenScale raw "$plist" 2>/dev/null)" || return 0
+  caps="$bundle/Contents/Resources/capabilities.plist"
+  # DEBUG-854: CoreSimulator (2026-09) dropped mainScreen* from profile.plist and keeps the
+  # size, in pixels, under capabilities.plist's ScreenDimensionsCapability. Without this
+  # fallback every device reads `unknown` and every layout-sensitive flow is UNCERTIFIED.
+  if [ -f "$plist" ] && w="$(plutil -extract mainScreenWidth raw "$plist" 2>/dev/null)"; then
+    h="$(plutil -extract mainScreenHeight raw "$plist" 2>/dev/null)" || return 0
+    sc="$(plutil -extract mainScreenScale raw "$plist" 2>/dev/null)" || return 0
+  elif [ -f "$caps" ]; then
+    w="$(plutil -extract capabilities.ScreenDimensionsCapability.main-screen-width  raw "$caps" 2>/dev/null)" || return 0
+    h="$(plutil -extract capabilities.ScreenDimensionsCapability.main-screen-height raw "$caps" 2>/dev/null)" || return 0
+    sc="$(plutil -extract capabilities.ScreenDimensionsCapability.main-screen-scale raw "$caps" 2>/dev/null)" || return 0
+  else
+    return 0
+  fi
   # Scale is a float ("2.000000"), so this must not be shell arithmetic.
   awk -v w="$w" -v h="$h" -v s="$sc" 'BEGIN {
     if (s + 0 <= 0) exit 0
