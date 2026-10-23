@@ -1,8 +1,8 @@
 # Multi-State Privacy Rights
 
-**Version:** 1.0
+**Version:** 1.1
 **Effective Date:** May 25, 2026
-**Last Updated:** May 29, 2026
+**Last Updated:** October 23, 2026
 
 > **Not legal advice.** This page is informational and reflects our understanding of the named laws as of the Last Updated date. State privacy law is changing quickly; rules, deadlines, and cure periods may have changed since this page was written. For authoritative and current information, consult your state Attorney General (links in the [Escalation](#escalation) section) or a qualified attorney.
 
@@ -120,7 +120,7 @@ The Virginia Consumer Data Protection Act (VCDPA), effective January 1, 2023, gr
 
 ## Verification Procedures
 
-In v1, Being operates in anonymous local-only mode: we do not collect email addresses, usernames, or account records that could be matched to a privacy request. We verify privacy requests using a usage-pattern fallback rather than account-record matching:
+In v1, Being has no sign-in accounts: we do not collect email addresses or usernames, and we keep no account record we can match to a privacy request without the anonymous account identifier held by the app on your device. We verify privacy requests using a usage-pattern fallback rather than account-record matching:
 
 1. **In-app fulfillment is preferred.** Most rights (access, deletion, export, opt-out) can be exercised directly from *Settings → Privacy & Data* without sending us a request — your device is the authoritative copy of your data.
 2. **Email requests are accepted.** If you email [privacy@being.fyi](mailto:privacy@being.fyi), we will respond within 45 days. For requests we can fulfill through in-app controls, we will direct you to those controls and confirm completion. For requests we cannot fulfill in-app, we will work with you manually.
