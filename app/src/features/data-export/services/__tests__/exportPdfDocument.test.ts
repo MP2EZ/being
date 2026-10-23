@@ -7,7 +7,17 @@
  * `__tests__/safety/exportPdfCrisisContent.test.ts`.
  */
 
-import { buildExportHtml, escapeHtml, SUMMARY_NOT_COMPLETE_HEADING } from '../exportPdfDocument';
+import {
+  buildExportHtml,
+  escapeHtml,
+  PDF_COMPLETE_COPY_NOTE,
+  PDF_RANGE_PRESET,
+  PDF_ROW_CAP,
+  PDF_ROW_CAP_NOTE,
+  PDF_ROW_CAP_OMISSION,
+  PDF_WINDOW_OMISSION,
+  SUMMARY_NOT_COMPLETE_HEADING,
+} from '../exportPdfDocument';
 import {
   EXPORT_DISCLAIMER,
   EXPORT_OMISSIONS,
@@ -85,7 +95,7 @@ describe('completeness disclosure', () => {
     expect(html).toContain('Export as JSON');
   });
 
-  it.each(['Voice journal entries', 'Consent records', 'Subscription state', 'Individual screening answers'])(
+  it.each(['Voice journal entries', 'Consent records', 'Subscription state', 'Individual screening answers', 'Practice streaks and totals', 'more than 90 days before'])(
     'lists what the summary leaves out: %s',
     (item) => {
       expect(html).toContain(item);
@@ -94,6 +104,91 @@ describe('completeness disclosure', () => {
 
   it('renders every meta omission verbatim', () => {
     for (const omission of EXPORT_OMISSIONS) expect(html).toContain(escapeHtml(omission));
+  });
+});
+
+describe('check-in and engagement cap (FEAT-806)', () => {
+  const rows = (n: number) => ({
+    checkIns: Array.from({ length: n }, (_, i) => ({
+      type: 'morning' as const,
+      date: new Date(T0 + i * DAY).toISOString().slice(0, 10),
+      completedAt: T0 + i * DAY,
+    })),
+    practices: {
+      principleEngagements: Array.from({ length: n }, (_, i) => ({
+        principle: 'aware_presence' as const,
+        flowType: 'morning' as const,
+        engagementType: 'applied' as const,
+        timestamp: T0 + i * DAY,
+      })),
+    },
+  });
+  const times = (html: string, row: string): number[] =>
+    [...html.matchAll(new RegExp(`<tr data-row="${row}" data-time="(\\d+)"`, 'g'))].map((m) => Number(m[1]));
+
+  it('is 50, and the fixed strings name the same 50', () => {
+    expect(PDF_ROW_CAP).toBe(50);
+    expect(PDF_ROW_CAP_NOTE).toBe('Shows at most the 50 most recent in this period.');
+    expect(PDF_ROW_CAP_OMISSION).toBe('Check-ins and practice engagements beyond the 50 most recent in this period');
+  });
+
+  it('keeps the most recent rows, rendered oldest first', () => {
+    const html = buildExportHtml(basePayload(rows(PDF_ROW_CAP + 7)));
+    const expected = Array.from({ length: PDF_ROW_CAP }, (_, i) => T0 + (i + 7) * DAY);
+    expect(times(html, 'checkIn')).toEqual(expected);
+    expect(times(html, 'engagement')).toEqual(expected);
+  });
+
+  it('states the cap in both sections whether or not anything was dropped', () => {
+    for (const n of [1, PDF_ROW_CAP + 7]) {
+      const html = buildExportHtml(basePayload(rows(n)));
+      for (const section of ['checkIns', 'practices']) {
+        const start = html.indexOf(`data-section="${section}"`);
+        const body = html.slice(start, html.indexOf('</section>', start));
+        expect(body).toContain(escapeHtml(PDF_ROW_CAP_NOTE));
+      }
+    }
+  });
+
+  it('lists the cap among what the summary leaves out', () => {
+    const html = buildExportHtml(basePayload());
+    const list = html.slice(html.indexOf('It leaves out:'), html.indexOf('</ul>', html.indexOf('It leaves out:')));
+    expect(list).toContain(`<li>${escapeHtml(PDF_ROW_CAP_OMISSION)}</li>`);
+  });
+});
+
+describe('the 90-day window (FEAT-806)', () => {
+  const html = buildExportHtml(basePayload());
+
+  it('is the last90 preset, and the fixed omission line names the same 90 days', () => {
+    expect(PDF_RANGE_PRESET).toBe('last90');
+    expect(PDF_WINDOW_OMISSION).toBe(
+      'Anything recorded more than 90 days before this PDF was prepared, including earlier ' +
+        'wellness screenings and weekly reflections',
+    );
+  });
+
+  it('lists the window among what the summary leaves out', () => {
+    const list = html.slice(html.indexOf('It leaves out:'), html.indexOf('</ul>', html.indexOf('It leaves out:')));
+    expect(list).toContain(`<li>${escapeHtml(PDF_WINDOW_OMISSION)}</li>`);
+  });
+
+  it('says an absent screening or reflection may be in the complete copy, before the JSON pointer', () => {
+    expect(PDF_COMPLETE_COPY_NOTE).toBe('A screening or reflection not shown here may still be in your complete copy.');
+    const note = html.indexOf(escapeHtml(PDF_COMPLETE_COPY_NOTE));
+    expect(note).toBeGreaterThan(-1);
+    expect(note).toBeLessThan(html.indexOf('For your complete copy, use Export as JSON'));
+  });
+
+  it('states the requested window from meta.requestedRange, not only the records found', () => {
+    const from = T0 + 10 * DAY;
+    const to = T0 + 100 * DAY;
+    const windowed = buildExportHtml(basePayload({ meta: { ...basePayload().meta, requestedRange: { from, to } } }));
+    const ymd = (ms: number): string => {
+      const d = new Date(ms);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    expect(windowed).toContain(`Covers ${ymd(from)} to ${ymd(to)}`);
   });
 });
 
@@ -189,12 +284,13 @@ describe('three-year payload budget', () => {
     })),
   });
 
-  it('renders every record — nothing is dropped', () => {
+  it('renders every screening and reflection, and caps only check-ins and engagements', () => {
     const html = buildExportHtml(payload);
     const count = (row: string): number => (html.match(new RegExp(`data-row="${row}"`, 'g')) ?? []).length;
+    expect(payload.checkIns!.length).toBeGreaterThan(PDF_ROW_CAP);
     expect(count('assessment')).toBe(payload.assessments!.length);
-    expect(count('checkIn')).toBe(payload.checkIns!.length);
-    expect(count('engagement')).toBe(payload.practices!.principleEngagements.length);
+    expect(count('checkIn')).toBe(PDF_ROW_CAP);
+    expect(count('engagement')).toBe(PDF_ROW_CAP);
     expect(count('reflection')).toBe(payload.reflections!.length);
   });
 
@@ -202,7 +298,7 @@ describe('three-year payload budget', () => {
     const start = Date.now();
     const html = buildExportHtml(payload);
     const elapsed = Date.now() - start;
-    expect(html.length).toBeGreaterThan(1_000_000);
+    expect(html.length).toBeGreaterThan(200_000);
     expect(html.length).toBeLessThan(4_000_000);
     expect(elapsed).toBeLessThan(1_000);
   });

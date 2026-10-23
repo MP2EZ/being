@@ -7,7 +7,7 @@ document:
   type: Security Architecture
   version: 2.2.2
   status: CURRENT
-  updated: 2026-10-05  # MAINT-712: §1/§2 sensitivity-level wording corrected. MAINT-627: §1/§2 corrected. MAINT-641: §5–§8, roadmap and checklist corrected. DEBUG-645: §5/§6 export residual closed. DEBUG-655: §5 launch sweep
+  updated: 2026-10-22  # FEAT-806: §5 PDF summary added. MAINT-712: §1/§2 sensitivity-level wording corrected. MAINT-627: §1/§2 corrected. MAINT-641: §5–§8, roadmap and checklist corrected. DEBUG-645: §5/§6 export residual closed. DEBUG-655: §5 launch sweep
   application: Being. Mental Health App
 
 # Being is a CONSUMER WELLNESS APP, not a HIPAA-covered entity.
@@ -184,7 +184,7 @@ No user-facing copy may claim an app lock, an inactivity timeout, or hidden cont
 
 ## 5. Secure Export Mechanisms
 
-Being ships **one export path**: a plain-JSON copy of the user's own wellness data, handed to them through the operating system's share sheet at their own initiative. It is not encrypted, not password-protected, not watermarked, not time-limited, and not logged.
+Being ships **one export path in two formats**: a plain-JSON copy of the user's own wellness data and, since FEAT-806, a readable PDF summary of it, each handed to them through the operating system's share sheet at their own initiative. It is not encrypted, not password-protected, not watermarked, not time-limited, and not logged.
 
 - **What runs.** `ExportDataScreen.handleExport` gathers the selected categories, calls `serializeExport(gatherExportData())`, writes `being-export-<YYYY-MM-DD>.json` into the app cache directory, and passes its URI to `Sharing.shareAsync` with `mimeType: 'application/json'` and `UTI: 'public.json'`. The destination is whatever the user picks in the share sheet; Being neither chooses it nor sees it.
 - **What the file contains.** The Art. 20 portability envelope built by `DataExportService` — decrypted on device, with the master key, the raw ciphertext and the device identifier excluded by construction.
@@ -200,12 +200,14 @@ Being ships **one export path**: a plain-JSON copy of the user's own wellness da
 
 **This is a correction, not a downgrade.** GDPR Art. 20 does not require a portability export to be encrypted, password-protected or audit-logged; a machine-readable copy delivered to the data subject at their own request is the correct posture. What changes here is the description, not the control. DPIA §7 control 12 is narrowed to match in the same commit.
 
+**Corrected (FEAT-806): a readable PDF summary joins the JSON copy.** "Export as PDF" renders `buildExportHtml` (`features/data-export/services/exportPdfDocument.ts`) over the all-categories, last-90-days payload (check-ins and practice engagements capped at the 50 most recent), on-device and offline, through expo-print's `printToFileAsync`, moves the render to `being-export-<YYYY-MM-DD>.pdf` in the app cache and shares it through the same single `Sharing.shareAsync` call. It is a summary, not the portable copy: it omits records older than 90 days, check-ins and practice engagements beyond the 50 most recent in that period, voice journal entries, consent records, subscription state, individual screening answers and practice streaks and totals, and says so; the JSON copy remains the Art. 20 export. Like the JSON copy it is not encrypted, password-protected, watermarked, time-limited or logged. The document's content-security policy loads nothing and user free text in it is escaped. The render and the shared file are deleted when the share settles, on every path, and `sweepExportArtifacts` covers `being-export-*.pdf` and expo-print's own `<cache>/Print/*.pdf`. The `client-side PDF … not a shipped path` line in the MAINT-641 list below is history.
+
 **Corrected (DEBUG-645).** The exported file is written to the app cache directory and handed to the share sheet, and it is now deleted when the share settles. One `finally` covers every path — a completed share, a cancelled one (`shareAsync` resolves on cancel on both platforms), the sharing-unavailable early return, and a thrown error. Account deletion additionally sweeps the cache for export files (`exportArtifactSweeper.sweepExportArtifacts`, best-effort, before the wipe), because `clearAllWellnessData` walks storage keys rather than the filesystem. The writer and the sweeper share one filename definition, so the sweep cannot drift from what is written. Previously the file was never deleted, and an unencrypted copy of the export survived account deletion.
 
 **Corrected (DEBUG-655): the residual is narrowed, not closed.** A process killed while the share sheet is up never reaches the delete. Account deletion still sweeps that file, and `App.tsx` now also runs `exportArtifactSweeper.sweepExportArtifacts()` at every app launch, in the init effect that runs after the first commit (not before render). It sits beside the audio sweep, `audioArtifactSweeper.sweepStaleAudioArtifacts()`, which has run there since FEAT-283 and is now pinned by the same test. What remains: a stranded export persists until the next launch, and indefinitely for a user who never opens the app again and never deletes their account. Stranded raw audio can also survive a relaunch inside its 5-minute TTL, until a later launch. The cache is on-device only and excluded from OS backup by default. The OS purging its cache under storage pressure is not counted as a control.
 
 ### User-Facing Description
-No user-facing copy may say that exports are password-protected, encrypted, watermarked, expiring, logged, or delivered securely to a therapist. Being's export is a plain JSON file the user shares themselves. Copy may say that the file contains only the categories the user selected, and that Being does not receive it.
+No user-facing copy may say that exports are password-protected, encrypted, watermarked, expiring, logged, or delivered securely to a therapist. Being's export is a plain JSON file, or a readable PDF summary that leaves some data out, which the user shares themselves. Copy may say that the file contains only the categories the user selected, and that Being does not receive it.
 
 ---
 
@@ -332,7 +334,7 @@ optimization:
 - ⚠️ Data deletion by cryptographic erasure — §6. Corrected from "Secure data deletion": the key is destroyed and the stores are swept, but nothing is overwritten.
 - ❌ Jailbreak/root detection — **never built.** §7.
 - ❌ Memory protection — **never built.** §7.
-- ⚠️ Data export as plain JSON through the OS share sheet — §5. Corrected from "Secure export mechanisms": the export is not encrypted, password-protected or logged.
+- ⚠️ Data export as plain JSON, or a readable PDF summary, through the OS share sheet — §5. Corrected from "Secure export mechanisms": the export is not encrypted, password-protected or logged.
 - ✅ Cryptographic ID generation (no Math.random() - see `@/core/utils/id`)
 
 ### Privacy Requirements

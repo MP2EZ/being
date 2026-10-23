@@ -107,6 +107,10 @@ export type FeatureFlag =
   // operation. The always-on JSON export below it is unaffected by this flag and
   // stays reachable when it is false.
   //
+  // FEAT-806: the PDF export on the same screen is NOT behind this flag. It is
+  // always on, like the JSON export (founder decision 2026-10-18); this flag
+  // still gates only the preview.
+  //
   // Ships dark (`data_export:false` in both env files and the e2e-sim profile).
   | 'data_export'
   // FEAT-457: gates the Home entry point into domain-specific guidance. Build-time,

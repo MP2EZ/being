@@ -26,6 +26,15 @@
  * - No textual crisis scan runs over notes. Its recall is unmeasured, and a null
  *   scan would imply a check that does not exist.
  *
+ * FEAT-806 bounds the PDF to the last 90 days (`PDF_RANGE_PRESET`), because expo-print
+ * draws on the iOS main thread and an all-time worst case held the crisis screen off
+ * for seconds (crisis + compliance ruling 2026-10-22). Check-ins and practice
+ * engagements, which carry no free text, are also capped at the most recent
+ * `PDF_ROW_CAP`. Free text is never truncated and screenings inside the window are
+ * never capped. Fixed strings disclose both bounds in every export, never conditional
+ * on flagged, older or dropped rows, with no count of what was left out; the JSON
+ * export stays the complete, all-time copy.
+ *
  * Imports nothing from `features/crisis/` (INFRA-531's import detector would
  * otherwise need an exemption entry for this file).
  */
@@ -34,6 +43,7 @@ import { semantic, spacing, typography } from '@/core/theme';
 import { EXPORT_DISCLAIMER } from '../types';
 import type {
   ExportDataCategory,
+  ExportRangePreset,
   ExportedAssessment,
   ExportedCheckIn,
   ExportedPrincipleEngagement,
@@ -60,11 +70,32 @@ export const SUPPORT_OFFERED_STATEMENT = 'Being offered support resources after 
 
 export const SUMMARY_NOT_COMPLETE_HEADING = 'This PDF is a readable summary, not your complete copy';
 
+/** The window the PDF covers. `PDF_WINDOW_OMISSION` names the same 90 days. */
+export const PDF_RANGE_PRESET: ExportRangePreset = 'last90';
+
+export const PDF_WINDOW_OMISSION =
+  'Anything recorded more than 90 days before this PDF was prepared, including earlier ' +
+  'wellness screenings and weekly reflections';
+
+/** Check-ins and practice engagements render at most this many, most recent first kept. */
+export const PDF_ROW_CAP = 50;
+
+export const PDF_ROW_CAP_NOTE = 'Shows at most the 50 most recent in this period.';
+
+export const PDF_ROW_CAP_OMISSION =
+  'Check-ins and practice engagements beyond the 50 most recent in this period';
+
+export const PDF_COMPLETE_COPY_NOTE =
+  'A screening or reflection not shown here may still be in your complete copy.';
+
 const SUMMARY_LEAVES_OUT: readonly string[] = [
+  PDF_WINDOW_OMISSION,
+  PDF_ROW_CAP_OMISSION,
   'Voice journal entries',
   'Consent records',
   'Subscription state',
   'Individual screening answers',
+  'Practice streaks and totals',
 ];
 
 const DOCUMENT_TITLE = 'Being — wellness data summary';
@@ -110,6 +141,13 @@ function formatDate(ms: number): string {
 function chronological<T>(rows: readonly T[], at: (row: T) => number): T[] {
   return [...rows].sort((a, b) => at(a) - at(b));
 }
+
+/** The `PDF_ROW_CAP` most recent rows, oldest first. */
+function mostRecent<T>(rows: readonly T[], at: (row: T) => number): T[] {
+  return chronological(rows, at).slice(-PDF_ROW_CAP);
+}
+
+const capNote = (): string => `<p class="meta">${escapeHtml(PDF_ROW_CAP_NOTE)}</p>`;
 
 const hasText = (value: string | undefined): value is string =>
   typeof value === 'string' && value.trim() !== '';
@@ -181,24 +219,24 @@ function assessmentsSection(rows: readonly ExportedAssessment[]): string {
 }
 
 function checkInsSection(rows: readonly ExportedCheckIn[]): string {
-  if (rows.length === 0) return section('checkIns', EMPTY);
-  const body = chronological(rows, (c) => c.completedAt).map(
+  if (rows.length === 0) return section('checkIns', capNote() + EMPTY);
+  const body = mostRecent(rows, (c) => c.completedAt).map(
     (c) =>
       `<tr data-row="checkIn" data-time="${c.completedAt}" class="row">` +
       `<td>${formatDate(c.completedAt)}</td><td>${humanise(c.type)}</td></tr>`,
   );
-  return section('checkIns', table(['Date', 'Check-in'], body));
+  return section('checkIns', capNote() + table(['Date', 'Check-in'], body));
 }
 
 function practicesSection(rows: readonly ExportedPrincipleEngagement[]): string {
-  if (rows.length === 0) return section('practices', EMPTY);
-  const body = chronological(rows, (p) => p.timestamp).map(
+  if (rows.length === 0) return section('practices', capNote() + EMPTY);
+  const body = mostRecent(rows, (p) => p.timestamp).map(
     (p) =>
       `<tr data-row="engagement" data-time="${p.timestamp}" class="row">` +
       `<td>${formatDate(p.timestamp)}</td><td>${humanise(p.principle)}</td>` +
       `<td>${humanise(p.engagementType)}</td><td>${humanise(p.flowType)}</td></tr>`,
   );
-  return section('practices', table(['Date', 'Principle', 'Engagement', 'Session'], body));
+  return section('practices', capNote() + table(['Date', 'Principle', 'Engagement', 'Session'], body));
 }
 
 function reflectionsSection(rows: readonly ExportedReflection[]): string {
@@ -214,6 +252,7 @@ function reflectionsSection(rows: readonly ExportedReflection[]): string {
 
 function aboutBlock(payload: ExportPayload): string {
   const { meta } = payload;
+  const requested = `${formatDate(meta.requestedRange.from)} to ${formatDate(meta.requestedRange.to)}`;
   const included = meta.categories.map((c) => escapeHtml(CATEGORY_LABEL[c])).join(', ');
   const covered =
     meta.dataRangeStart !== null && meta.dataRangeEnd !== null
@@ -222,7 +261,8 @@ function aboutBlock(payload: ExportPayload): string {
   const omissions = meta.omissions.map((o) => `<li>${escapeHtml(o)}</li>`).join('');
   return (
     '<section class="about">' +
-    `<p class="meta">Prepared ${formatDate(meta.exportedAt)} · Records from ${covered} · ` +
+    `<p class="meta">Prepared ${formatDate(meta.exportedAt)} · Covers ${requested} · ` +
+    `Records from ${covered} · ` +
     `Included: ${included || 'none'}</p>` +
     (omissions ? `<p class="meta">Not recorded by Being:</p><ul class="meta">${omissions}</ul>` : '') +
     '</section>'
@@ -235,14 +275,17 @@ function summaryNotice(): string {
     '<section class="summary">' +
     `<h2>${escapeHtml(SUMMARY_NOT_COMPLETE_HEADING)}</h2>` +
     `<p>It leaves out:</p><ul>${items}</ul>` +
+    `<p>${escapeHtml(PDF_COMPLETE_COPY_NOTE)}</p>` +
     '<p>For your complete copy, use Export as JSON in the Being app.</p>' +
     '</section>'
   );
 }
 
 /**
- * Render the payload as a complete HTML document. Every record in the payload is
- * rendered; nothing is capped or summarised.
+ * Render the payload as a complete HTML document. Every screening and reflection in
+ * the payload is rendered; check-ins and practice engagements are capped at
+ * `PDF_ROW_CAP`. The window is the caller's: the screen builds the payload with
+ * `PDF_RANGE_PRESET`.
  */
 export function buildExportHtml(payload: ExportPayload): string {
   const requested = new Set(payload.meta.categories);

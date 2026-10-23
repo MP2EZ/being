@@ -350,6 +350,16 @@ describe('INFRA-571 · third-party full-screen presenter call sites', () => {
       expect('MEASURED ON DEVICE by DEBUG-533').toMatch(/MEASURED ON (DEVICE|SIMULATOR)/);
     });
 
+    it('FEAT-806: the share-sheet ruling covers the PDF payload and its in-sheet actions', () => {
+      const ruling = PRESENTER_ALLOWLIST[
+        'src/features/profile/screens/ExportDataScreen.tsx::Sharing.shareAsync'
+      ];
+      expect(ruling).toMatch(/FEAT-806/);
+      expect(ruling).toMatch(/application\/pdf/);
+      expect(ruling).toMatch(/Print/);
+      expect(ruling).toMatch(/Markup/);
+    });
+
     it('documents the denylist as non-exhaustive rather than as the set', () => {
       const fs = require('fs');
       const path = require('path');
@@ -364,5 +374,99 @@ describe('INFRA-571 · third-party full-screen presenter call sites', () => {
       // Sentry names as a complete account of that SDK's presenters.
       expect(THIRD_PARTY_PRESENTERS).toContain('showScreenshotButton');
     });
+  });
+});
+
+describe('FEAT-806 · expo-print presenters on the PDF export path', () => {
+  /**
+   * `Print.printAsync` presents the OS print dialog and `selectPrinterAsync` the
+   * printer picker — both OS-owned surfaces above the JS tree, like the share
+   * sheet. They are listed as BARE names so the member form the module handle
+   * takes (`Print.printAsync(`, `(await import('expo-print')).printAsync(`)
+   * matches, and no allowlist entry exists for either: nothing in the tree may
+   * call them. `printToFileAsync` renders offscreen and presents nothing, so the
+   * PDF path's one expo-print call must NOT match.
+   */
+  const fs = require('fs');
+  const path = require('path');
+  const SCREEN = path.join(__dirname, '../../src/features/profile/screens/ExportDataScreen.tsx');
+
+  it('denylists both expo-print presenters under their bare names', () => {
+    expect(THIRD_PARTY_PRESENTERS).toEqual(
+      expect.arrayContaining(['printAsync', 'selectPrinterAsync']),
+    );
+  });
+
+  it('matches the member form the module handle produces', () => {
+    expect(findPresenterCalls('await Print.printAsync({ html });')).toEqual([
+      { name: 'printAsync', line: 1 },
+    ]);
+    expect(findPresenterCalls("(await import('expo-print')).selectPrinterAsync();")).toEqual([
+      { name: 'selectPrinterAsync', line: 1 },
+    ]);
+  });
+
+  it('does NOT match printToFileAsync, which renders offscreen and presents nothing', () => {
+    expect(findPresenterCalls('const { uri } = await Print.printToFileAsync({ html });')).toEqual([]);
+  });
+
+  it('grants neither expo-print presenter an allowlist entry', () => {
+    for (const key of Object.keys(PRESENTER_ALLOWLIST)) {
+      expect(key).not.toMatch(/::(printAsync|selectPrinterAsync)$/);
+    }
+  });
+
+  it('keeps exactly ONE shareAsync call on ExportDataScreen, through the namespace', () => {
+    // The ruling is keyed per file::call and examined ONE call. A second call
+    // site (a PDF-only share) would inherit it unexamined, and a named import
+    // would escape the dotted matcher altogether.
+    const stripped = stripComments(fs.readFileSync(SCREEN, 'utf8'));
+    expect(stripped.match(/Sharing\s*\.\s*shareAsync\s*\(/g)).toHaveLength(1);
+    expect(stripped.match(/\bshareAsync\b/g)).toHaveLength(1);
+    expect(stripped).not.toMatch(/import\s*\{[^}]*\bshareAsync\b/);
+    expect(stripped).toMatch(/import \* as Sharing from 'expo-sharing'/);
+  });
+
+  it('awaits nothing between the presenting guard and the share call', () => {
+    // An await there reopens the window the guard exists to close (FEAT-806 crisis review).
+    const stripped = stripComments(fs.readFileSync(SCREEN, 'utf8'));
+    const start = stripped.indexOf('navigation.isFocused()');
+    const end = stripped.indexOf('Sharing.shareAsync(');
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    // The slice ends at the call; drop the `await` that belongs to the call itself.
+    const slice = stripped.slice(start, end).replace(/await\s*$/, '');
+    expect(slice).toMatch(/AppState\.currentState/);
+    expect(slice).not.toMatch(/\bawait\b/);
+    // Liveness: the same slice with an await inserted is caught.
+    expect(`${slice} await x;`).toMatch(/\bawait\b/);
+  });
+
+  it('keeps ExportDataScreen the only printToFileAsync caller, so Print/ belongs to it alone', () => {
+    // The sweeper deletes every PDF in `<cache>/Print/` at launch and on erasure. That is
+    // safe only while no other feature renders there and expects the file to survive.
+    const root = path.join(__dirname, '../../src');
+    const callers: string[] = [];
+    const walk = (dir: string) => {
+      for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+        const abs = path.join(dir, entry.name);
+        if (entry.isDirectory()) {
+          if (entry.name !== '__tests__') walk(abs);
+        } else if (/\.(ts|tsx)$/.test(entry.name)) {
+          if (/printToFileAsync\s*\(/.test(stripComments(fs.readFileSync(abs, 'utf8')))) {
+            callers.push(path.relative(root, abs));
+          }
+        }
+      }
+    };
+    walk(root);
+    expect(callers).toEqual(['features/profile/screens/ExportDataScreen.tsx']);
+  });
+
+  it('loads expo-print lazily, never on the eager module graph', () => {
+    const stripped = stripComments(fs.readFileSync(SCREEN, 'utf8'));
+    expect(stripped).not.toMatch(/^\s*import[^;]*from\s*'expo-print'/m);
+    expect(stripped).not.toMatch(/require\(\s*'expo-print'\s*\)/);
+    expect(stripped).toMatch(/await import\('expo-print'\)/);
   });
 });
