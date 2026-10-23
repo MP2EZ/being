@@ -30,6 +30,7 @@ jest.mock('@/core/services/featureFlags', () => ({
 }));
 
 import ReConsentScreen from '../ReConsentScreen';
+import { CONSENT_DETAILS } from '../../constants/consentDetails';
 import type { ConsentDelta, ConsentPreferences } from '@/core/stores/consentStore';
 
 const ALL_ON: ConsentPreferences = {
@@ -100,8 +101,12 @@ describe('a grant that can no longer be offered is revoked LOUDLY, not silently'
     const notice = getByTestId('reconsent-current-preferences-notice').props.children;
     const text = Array.isArray(notice) ? notice.join('') : String(notice);
 
+    // The card's title, not a literal: MAINT-819 renamed it, and a literal here made the
+    // negative below pass vacuously. Liveness first: the notice does name the category.
+    const title = CONSENT_DETAILS.cloudSync.title;
     expect(text).toMatch(/no longer offered and will be turned off/i);
-    expect(text).not.toMatch(/You currently have[^.]*Cloud Backup/i);
+    expect(text).toContain(title);
+    expect(text).not.toMatch(new RegExp(`You currently have[^.]*${title}`, 'i'));
   });
 
   it('says nothing about Cloud Backup being withdrawn when the card IS offered', () => {

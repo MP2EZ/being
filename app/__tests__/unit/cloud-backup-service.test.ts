@@ -84,6 +84,7 @@ import { useConsentStore } from '@/core/stores/consentStore';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import * as Crypto from 'expo-crypto';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { AppState } from 'react-native';
 
 const mockSupabase = supabaseService as unknown as {
   initialize: jest.Mock;
@@ -456,6 +457,98 @@ describe('CloudBackupService (MAINT-193)', () => {
 
       expect(createBackupSpy).toHaveBeenCalledTimes(1);
       expect(service.isInitialized).toBe(false);
+    });
+  });
+
+  // MAINT-817: the service keeps its AppState subscription and its 2s foreground timeout,
+  // and releases both in cleanup(), so init → cleanup → init leaves one live handler.
+  describe('AppState subscription and foreground timeout (MAINT-817)', () => {
+    type Handler = (state: string) => void;
+    const liveHandlers = new Set<Handler>();
+    const addEventListener = AppState.addEventListener as unknown as jest.Mock;
+    let createBackupSpy: jest.Mock;
+
+    function emit(state: string) {
+      for (const handler of [...liveHandlers]) handler(state);
+    }
+
+    beforeEach(() => {
+      liveHandlers.clear();
+      addEventListener.mockImplementation((_event: unknown, handler: unknown) => {
+        liveHandlers.add(handler as Handler);
+        return { remove: jest.fn(() => { liveHandlers.delete(handler as Handler); }) };
+      });
+      createBackupSpy = jest.spyOn(service, 'createBackup').mockResolvedValue({ success: true }) as unknown as jest.Mock;
+    });
+
+    afterEach(() => {
+      // Re-install the preset rather than mockRestore, which would strip the preset's
+      // implementation for every later test in this file.
+      addEventListener.mockImplementation(() => ({ remove: jest.fn() }));
+      jest.useRealTimers();
+    });
+
+    it('initialize → cleanup → initialize leaves exactly one live handler', async () => {
+      await service.initialize();
+      expect(liveHandlers.size).toBe(1);
+
+      await service.cleanup();
+      expect(liveHandlers.size).toBe(0);
+
+      await service.initialize();
+      expect(liveHandlers.size).toBe(1);
+    });
+
+    // cleanup() runs one final backup itself, so counts start once it has resolved.
+    it('after a re-init, one foreground runs exactly one backup', async () => {
+      jest.useFakeTimers();
+      await service.initialize();
+      await service.cleanup();
+      createBackupSpy.mockClear();
+
+      await service.initialize();
+      emit('active');
+      jest.advanceTimersByTime(2000);
+
+      expect(createBackupSpy).toHaveBeenCalledTimes(1);
+    });
+
+    // AC3, exactly. Without the re-init this passes vacuously: createBackup returns early
+    // while the service is uninitialized.
+    it('a foreground timeout armed before cleanup does not fire after a re-init', async () => {
+      jest.useFakeTimers();
+      await service.initialize();
+      emit('active');
+      await service.cleanup();
+      createBackupSpy.mockClear();
+
+      await service.initialize();
+      jest.advanceTimersByTime(2000);
+
+      expect(createBackupSpy).not.toHaveBeenCalled();
+    });
+
+    // Clear-before-set (decided at batch approval): two foregrounds inside the 2s delay
+    // coalesce into one backup instead of two concurrent uploads.
+    it('two foregrounds within 2s run one backup', async () => {
+      jest.useFakeTimers();
+      await service.initialize();
+
+      emit('active');
+      jest.advanceTimersByTime(1000);
+      emit('active');
+      jest.advanceTimersByTime(2000);
+
+      expect(createBackupSpy).toHaveBeenCalledTimes(1);
+    });
+
+    it('a cleanup whose final backup rejects keeps the handler and the initialized flag together', async () => {
+      await service.initialize();
+      createBackupSpy.mockRejectedValueOnce(new Error('final backup boom'));
+
+      await expect(service.cleanup()).rejects.toThrow('final backup boom');
+      expect(service.isInitialized).toBe(true);
+      expect(liveHandlers.size).toBe(1);
     });
   });
 });

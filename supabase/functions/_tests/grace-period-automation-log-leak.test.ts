@@ -76,9 +76,14 @@ function builder(outcome: Outcome) {
   return b;
 }
 
+interface RpcCall {
+  name: string;
+  params: unknown;
+}
+
 function fakeClient(spec: FakeSpec) {
   const inserted: Record<string, unknown>[] = [];
-  const rpcCalls: string[] = [];
+  const rpcCalls: RpcCall[] = [];
   const defaults: Record<string, Outcome> = {
     expire_old_trials: { data: 0, error: null },
     expire_grace_periods: { data: 0, error: null },
@@ -87,8 +92,8 @@ function fakeClient(spec: FakeSpec) {
     log_subscription_event: { data: null, error: null },
   };
   const client = {
-    rpc(name: string, _params?: unknown) {
-      rpcCalls.push(name);
+    rpc(name: string, params?: unknown) {
+      rpcCalls.push({ name, params });
       return settle(spec.rpc?.[name] ?? defaults[name] ?? { data: null, error: null });
     },
     from(table: string) {
@@ -124,6 +129,7 @@ interface Run {
   bodyText: string;
   lines: string[];
   inserted: Record<string, unknown>[];
+  rpcCalls: RpcCall[];
 }
 
 async function run(spec: FakeSpec): Promise<Run> {
@@ -146,7 +152,13 @@ async function run(spec: FakeSpec): Promise<Run> {
           ),
       )
     );
-    return { status: result.status, bodyText: await result.text(), lines, inserted: fake.inserted };
+    return {
+      status: result.status,
+      bodyText: await result.text(),
+      lines,
+      inserted: fake.inserted,
+      rpcCalls: fake.rpcCalls,
+    };
   } finally {
     globalThis.fetch = realFetch;
   }
@@ -298,7 +310,10 @@ Deno.test('createSupabase throws: 500, fixed body, closed line, no heartbeat', a
 // Identifier rows: rows carrying ids, and failures around them
 // ---------------------------------------------------------------------------
 
-Deno.test('expiring-trial row with a user id + failing audit write: no id, no text', async () => {
+// DEBUG-839 retired the trial/grace expiry audit writes, so an expiring-trial row no longer
+// reaches log_subscription_event at all. The audit-failure line's own no-leak contract is pinned
+// where it is produced (subscription-audit-log.test.ts).
+Deno.test('expiring-trial row with a user id, audit write armed to fail: no write, no id, no text', async () => {
   const r = await run({
     rpc: {
       get_expiring_trials: {
@@ -308,10 +323,90 @@ Deno.test('expiring-trial row with a user id + failing audit write: no id, no te
       log_subscription_event: { data: null, error: pgError() },
     },
   });
-  assertNoLeak(r, 'expiring trial + audit failure');
+  assertNoLeak(r, 'expiring trial');
   assertEquals(r.status, 200);
-  assert(hasLine(r, 'log_subscription_event FAILED', '"code":"23505"'), 'the audit failure line must still fire');
-  assertEquals(heartbeat(r).status, 'ok', 'an audit-write failure is non-fatal by ruling');
+  assertEquals(auditWrites(r).length, 0, 'an expiring trial must not write an audit row (DEBUG-839)');
+  assertEquals(heartbeat(r).status, 'ok');
+});
+
+// ---------------------------------------------------------------------------
+// DEBUG-839: the expiry notices write no audit row and leak no store date
+// ---------------------------------------------------------------------------
+
+const TRIAL_DATE_S = '2031-01-02T03:04:05.839Z';
+const GRACE_DATE_S = '2032-06-07T08:09:10.839Z';
+const RETIRED_EVENT_TYPES = ['trial_ending_soon', 'grace_period_ending'];
+
+function auditWrites(r: Run): RpcCall[] {
+  return r.rpcCalls.filter((c) => c.name === 'log_subscription_event');
+}
+
+/** Every captured rpc param payload that carries a store-date sentinel. */
+function datesInParams(calls: RpcCall[]): string[] {
+  return calls
+    .filter((c) => {
+      const text = JSON.stringify(c.params ?? null);
+      return text.includes(TRIAL_DATE_S) || text.includes(GRACE_DATE_S);
+    })
+    .map((c) => c.name);
+}
+
+const expiringRows = {
+  rpc: {
+    get_expiring_trials: {
+      data: [
+        { user_id: USER_S, trial_end_date: TRIAL_DATE_S, days_remaining: 3 },
+        { user_id: USER_S, trial_end_date: TRIAL_DATE_S, days_remaining: 2 },
+      ],
+      error: null,
+    },
+    get_expiring_grace_periods: {
+      data: [
+        { user_id: USER_S, grace_period_end: GRACE_DATE_S, days_remaining: 2 },
+        { user_id: USER_S, grace_period_end: GRACE_DATE_S, days_remaining: 1 },
+      ],
+      error: null,
+    },
+  },
+};
+
+Deno.test('DEBUG-839: expiring trials and grace periods write no retired audit event and no store date', async () => {
+  const r = await run(expiringRows);
+  assertEquals(r.status, 200);
+
+  // Vacuity: both lookups ran and returned their rows, so the absence below is not a skipped path.
+  const names = r.rpcCalls.map((c) => c.name);
+  assert(names.includes('get_expiring_trials'), 'get_expiring_trials was never called');
+  assert(names.includes('get_expiring_grace_periods'), 'get_expiring_grace_periods was never called');
+
+  const retired = auditWrites(r).filter((c) =>
+    RETIRED_EVENT_TYPES.includes((c.params as { p_event_type?: string })?.p_event_type ?? '')
+  );
+  assertEquals(retired.length, 0, `retired event types were written: ${JSON.stringify(retired)}`);
+  assertEquals(datesInParams(r.rpcCalls), [], 'a store date reached an rpc payload');
+
+  for (const [where, text] of [
+    ['console', r.lines.join('\n')],
+    ['heartbeat row', JSON.stringify(r.inserted)],
+    ['response body', r.bodyText],
+  ]) {
+    assert(!text.includes(TRIAL_DATE_S) && !text.includes(GRACE_DATE_S), `a store date reached the ${where}`);
+  }
+
+  // The counts the ops heartbeat reads are unchanged.
+  const hb = heartbeat(r);
+  assertEquals(hb.trials_expiring_soon, 2);
+  assertEquals(hb.grace_periods_expiring_soon, 2);
+  assertEquals(hb.status, 'ok');
+});
+
+Deno.test('CONTROL: the store-date check goes red on a payload carrying a sentinel date', () => {
+  const leaked: RpcCall[] = [{
+    name: 'log_subscription_event',
+    params: { p_event_type: 'grace_period_ending', p_metadata: { ends_at: GRACE_DATE_S } },
+  }];
+  assertEquals(datesInParams(leaked), ['log_subscription_event']);
+  assertEquals(datesInParams([{ name: 'get_expiring_trials', params: { days_until_expiry: 3 } }]), []);
 });
 
 Deno.test('stale apple row with identifiers and no environment: no id reaches any exit', async () => {

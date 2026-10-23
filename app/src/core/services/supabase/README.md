@@ -52,7 +52,7 @@ useEffect(() => {
 ### 5. Add Settings UI
 
 `CloudBackupSettings` is mounted (MAINT-173) as the `CloudBackupScreen`
-sub-screen of `PrivacyDataScreen`, reached via a "Manage Cloud Backup" row
+sub-screen of `PrivacyDataScreen`, reached via a "Manage Settings Backup" row
 that is gated behind the `cloud_sync` feature flag (ships dark until enabled).
 To embed the controls elsewhere, render the component directly:
 

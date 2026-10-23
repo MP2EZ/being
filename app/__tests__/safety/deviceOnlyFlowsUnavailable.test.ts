@@ -144,6 +144,13 @@ const CHECKLIST_LABELS: ReadonlyArray<readonly [string, string]> = [
   ['Quick', 'src/features/practices/dailyloop/config/tenseMode.ts'],
   ['Skip →', 'src/features/practices/shared/components/SkipLink.tsx'],
   ['I need support', 'src/features/crisis/components/CrisisKeyboardAccessory.tsx'],
+  // §3b (DEBUG-799)
+  ['Back', 'src/core/navigation/CleanRootNavigator.tsx'],
+  ['Continue', 'src/features/practices/dailyloop/screens/DailyLoopStepScreen.tsx'],
+  [
+    'If this feels heavier than a hard day, support is here anytime.',
+    'src/features/practices/dailyloop/config/tenseMode.ts',
+  ],
 ];
 
 /** Source, not a notice: a label surviving only in a comment is a label that is gone. */

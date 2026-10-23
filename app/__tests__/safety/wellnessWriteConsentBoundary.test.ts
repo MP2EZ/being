@@ -117,6 +117,11 @@ const PREDICATE_ALLOWLIST = [
   // between a restored session and its first beat, so it hosts the same display-only note.
   // DailyLoopNavigator stays in NAMED_FILES: it neither reads the predicate nor passes it down.
   'src/features/practices/shared/components/ResumeSessionModal.tsx', // DEBUG-699 notice host
+  // FEAT-673 (crisis ruling 2026-10-02, re-confirmed 2026-10-22): the one guidance reader.
+  // It reads the predicate through a PRIVATE boolean wrapper, so per FEAT-717 AC4 it exports
+  // nothing that returns a WellnessWriteDecision, and DailyLoopStepScreen / DomainGuidanceScreen
+  // reach the gate's verdict only through the hook's GuidanceGateState.
+  'src/features/guidance/hooks/useGuidanceGate.ts', // FEAT-673 guidance reader
 ].map((file) => join(APP, file));
 
 /** Listed ahead of its reader. FEAT-685 removes this entry when it wires the gate. */
@@ -429,10 +434,9 @@ describe('no crisis-path file reads the Art. 9 block start (FEAT-665)', () => {
 });
 
 describe('FEAT-665 slice A2a-i ships unwired', () => {
-  // Inert by AC1. FEAT-673 wires the block start and FEAT-685 the blocked log;
-  // each deletes its own name from this list in the PR that wires it.
-  const UNWIRED =
-    /\b(?:selectWellnessWriteBlockStart|getWellnessWriteBlockStart|logWellnessWriteBlocked)\b/;
+  // Inert by AC1. FEAT-673 wired the block start (and deleted its two names here);
+  // FEAT-685 wires the blocked log and deletes the last one.
+  const UNWIRED = /\blogWellnessWriteBlocked\b/;
 
   it('the matcher fires on consentStore itself', () => {
     expect(stripped(CONSENT_STORE)).toMatch(UNWIRED);
@@ -483,5 +487,64 @@ describe('FEAT-717 slice A2a-ii ships unwired', () => {
   it('only assessmentStore and the ledger use the normaliser', () => {
     const users = ALL_FILES.filter((f) => importsOf(f).includes(NORMALISER)).map(label).sort();
     expect(users).toEqual([label(ASSESSMENT_STORE), label(LEDGER)].sort());
+  });
+});
+
+// ── FEAT-673: the guidance reader's surface ────────────────────────────────
+
+describe('FEAT-673: the guidance reader reads exactly what it was ruled to read', () => {
+  const HOOK = join(SRC, 'features/guidance/hooks/useGuidanceGate.ts');
+
+  it('imports only useConsentStore, selectWellnessWriteBlockStart and decideWellnessWrite from consentStore', () => {
+    const src = readFileSync(HOOK, 'utf8');
+    const m = src.match(/import\s*\{([^}]*)\}\s*from\s*'@\/core\/stores\/consentStore'/);
+    expect(m).not.toBeNull();
+    const names = m![1].split(',').map((n) => n.trim()).filter(Boolean).sort();
+    expect(names).toEqual(['decideWellnessWrite', 'selectWellnessWriteBlockStart', 'useConsentStore']);
+  });
+
+  it("reads no consent field but `consentStatus === 'loading'`", () => {
+    const code = stripped(HOOK);
+    expect(code).toMatch(/consentStatus\s*===\s*'loading'/); // the slice exists (non-vacuity)
+    expect((code.match(/consentStatus/g) ?? []).length).toBe(1);
+    expect(code).not.toMatch(/\b(?:consentCache|currentConsent|consentHistory|staleConsent)\b/);
+  });
+
+  it('imports nothing from SupabaseService, crisis telemetry, the journal stores or the legal-gate mirror', () => {
+    const src = readFileSync(HOOK, 'utf8');
+    expect(src).not.toMatch(/SupabaseService|CrisisTelemetry|crisisAnalytics|features\/journal|legalGate/i);
+  });
+
+  it('is still read by DailyLoopStepScreen (the one-hop test above therefore covers it)', () => {
+    expect(readFileSync(join(SRC, 'features/practices/dailyloop/screens/DailyLoopStepScreen.tsx'), 'utf8'))
+      .toMatch(/from '@\/features\/guidance\/hooks\/useGuidanceGate'/);
+  });
+});
+
+describe("FEAT-673: the fourth level's name stays inside the guidance gate", () => {
+  const LEVEL = /'gentle_withheld'/;
+  const OWNERS = [
+    'src/features/guidance/types/guidance.ts',
+    'src/features/guidance/services/guidanceAdmissibility.ts',
+  ].map((file) => join(APP, file));
+
+  it('the matcher fires on its owners (non-vacuity)', () => {
+    for (const f of OWNERS) expect(stripped(f)).toMatch(LEVEL);
+  });
+
+  it('no other code names it, so it cannot reach an analytics payload, a log or Sentry', () => {
+    const offenders = ALL_FILES.filter((f) => !OWNERS.includes(f)).filter((f) => LEVEL.test(stripped(f))).map(label);
+    expect(offenders).toEqual([]);
+  });
+
+  it('its owners import no analytics, logging or Sentry module', () => {
+    for (const f of OWNERS) {
+      expect(readFileSync(f, 'utf8')).not.toMatch(/@\/core\/analytics|PHIFilter|core\/services\/logging|@sentry/);
+    }
+  });
+
+  it('no code tests a guidance level by prefix (philosopher ruling: never startsWith/includes "gentle")', () => {
+    const PREFIX = /\.(?:startsWith|includes)\(\s*['"]gentle['"]\s*\)/;
+    expect(ALL_FILES.filter((f) => PREFIX.test(stripped(f))).map(label)).toEqual([]);
   });
 });

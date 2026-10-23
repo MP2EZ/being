@@ -38,7 +38,8 @@ const cardText = [
 const ANONYMITY = /anonymi[sz]|\banonymous\b/i;
 const BLANKET_NOT_IDENTIFIABLE = /\bidentifiable information\b|\bnot identifiable\b|\bno personal info/i;
 const SESSION = /session/i;
-const INSTALL_ID = /identifier created for this installation|installation identifier/i;
+const INSTALL_ID = /identifiers? created for this installation|installation identifier/i;
+const APPROX_LOCATION = /approximate location \(city and country\)/i;
 const ENCRYPTED = /encrypt/i;
 const IN_TRANSIT = /encrypted connection|in transit/i;
 
@@ -73,6 +74,17 @@ describe('Crash Reports consent copy (DEBUG-779)', () => {
     const collected = card.details.whatWeCollect.join('\n');
     expect(collected).toMatch(SESSION);
     expect(collected).toMatch(INSTALL_ID);
+  });
+
+  // DEBUG-786: crash events carry two identifiers (installation id, device_app_hash) and a
+  // city/country Sentry derives at ingest; the card is the consent surface for all of it.
+  it('(f) the card names plural identifiers and approximate location, and excludes IP/GPS', () => {
+    expect('A random identifier created for this installation of the app').toMatch(INSTALL_ID);
+    const collected = card.details.whatWeCollect.join('\n');
+    expect(collected).toMatch(/Identifiers created for this installation/);
+    expect(collected).toMatch(APPROX_LOCATION);
+    expect(card.details.whatWeDontCollect.join('\n')).toMatch(/precise \(GPS\) location, or your IP address/);
+    expect(card.details.privacyNote).toMatch(/These identifiers are not linked/);
   });
 
   it('(c) "encrypted" appears only as encryption in transit', () => {
@@ -139,5 +151,185 @@ describe('CrisisErrorBoundary privacy bullet (DEBUG-787)', () => {
   it('canary: the boundary does not send to the external reporter', () => {
     expect(boundary).toMatch(/reportError/); // liveness: the stripped source is the boundary
     expect(boundary).not.toMatch(/externalErrorReporter|reportExternalError|captureException|ErrorTrackingService\.reportError/);
+  });
+});
+
+/**
+ * DEBUG-792 — the boundary's other Safety & Privacy bullets and its subtitle overclaimed: a
+ * partial check-in is memory-only since DEBUG-769, "personal data" includes stores that are not
+ * encrypted, nothing is sent anywhere, and the support control sent nothing. Same slice as
+ * DEBUG-787 above, plus the whole stripped boundary for the removed control.
+ */
+describe('CrisisErrorBoundary claims (DEBUG-792)', () => {
+  const PRE_FIX = [
+    '• Your personal data is secure and encrypted',
+    '• Assessment progress is automatically saved',
+    "We're working to resolve this quickly. Your data is safe.",
+  ].join('\n');
+  const SAVED = /automatically saved|progress is (automatically )?saved/i;
+  const PERSONAL_DATA = /personal data/i;
+  const DATA_IS_SAFE = /data is safe/i;
+  const boundary = stripComments(read('app/src/features/crisis/components/CrisisErrorBoundary.tsx'));
+  const start = boundary.indexOf('Your Safety & Privacy');
+  const slice = start < 0 ? '' : boundary.slice(start, boundary.indexOf('</Text>', boundary.indexOf('<Text', start)));
+
+  it('every matcher fires on the pre-fix text', () => {
+    expect(PRE_FIX).toMatch(SAVED);
+    expect(PRE_FIX).toMatch(PERSONAL_DATA);
+    expect(PRE_FIX).toMatch(DATA_IS_SAFE);
+    expect("text: 'Send Report'").toMatch(/Send Report/);
+  });
+
+  it('slices the Safety & Privacy block (liveness)', () => {
+    expect(slice).toMatch(/Crisis support remains fully accessible/);
+  });
+
+  it('claims no saved progress and no blanket protection of personal data', () => {
+    expect(slice).not.toMatch(SAVED);
+    expect(slice).not.toMatch(PERSONAL_DATA);
+    expect(boundary).not.toMatch(DATA_IS_SAFE);
+  });
+
+  it('every encryption claim is scoped to wellness data on this device', () => {
+    const lines = slice.split('\n').filter((l) => /encrypt/i.test(l));
+    expect(lines.length).toBeGreaterThan(0);
+    for (const line of lines) {
+      expect(line).toMatch(/wellness data/i);
+      expect(line).toMatch(/on this device/i);
+      expect(line).not.toMatch(/secure|AES/i);
+    }
+  });
+
+  it('offers no Send Report control', () => {
+    expect(boundary).not.toMatch(/Send Report|handleContactSupport/);
+  });
+});
+
+/**
+ * Native crash events carry the installation identifier too (DEBUG-786)
+ *
+ * sentry-cocoa 8.58.0 `SentryClient.m` `setUserIdIfNoUserSet:` writes the installation id to
+ * `user.id` on every event with no user set, native crashes and app hangs included; the app
+ * never sets a user and RN's native `beforeSend` does not strip it. §5.1 attached the identifier
+ * to session records only. With *Crash Reports* on, a bug report also carries it: RN's
+ * DeviceContext integration copies the native user in, and `scrubFeedbackEvent` keeps `id`.
+ */
+// The clause holding the identifier: bounded by the preceding ';' or '.', so the session
+// parenthetical's "crash status" cannot satisfy the crash check.
+const ID_CLAUSE = /[^.;]*random identifier generated per app installation[^.]*\./;
+const CRASH = /crash/i;
+const NOTHING_ELSE = /Nothing else is collected/i;
+
+const PRE_FIX_5_1_ID =
+  'Sentry also receives standard app-session diagnostics (session start/end, app version, crash status) used to measure app stability across releases; these session records include a random identifier generated per app installation by our mobile framework.';
+const PRE_FIX_BUG_REPORT =
+  '**Bug reports you send:** if you choose to send a bug report from within the app, the message you type, the general area of the app you were in, and basic technical details such as the app version are sent to Sentry when you tap Send. Nothing else is collected with it.';
+
+const sentryBullet = () => {
+  const policy = read('docs/legal/privacy-policy.md');
+  const start = policy.indexOf('- **[Sentry]');
+  expect(start).toBeGreaterThan(-1);
+  return policy.slice(start, policy.indexOf('\n', start));
+};
+const idSentence = (text: string) => text.match(ID_CLAUSE)?.[0] ?? '';
+const bugReportPart = (text: string) => text.slice(text.indexOf('**Bug reports you send:**'));
+
+describe('Crash reports carry the installation identifier (DEBUG-786)', () => {
+  it('every matcher fires on the pre-fix text', () => {
+    // The pre-fix text names "crash" only in the session parenthetical, outside the clause.
+    expect(PRE_FIX_5_1_ID).toMatch(CRASH);
+    expect(idSentence(PRE_FIX_5_1_ID)).toMatch(/session records include/);
+    expect(idSentence(PRE_FIX_5_1_ID)).not.toMatch(CRASH);
+    expect(bugReportPart(PRE_FIX_BUG_REPORT)).toMatch(NOTHING_ELSE);
+  });
+
+  it('§5.1 attaches the identifier to crash reports, not only session records', () => {
+    const sentence = idSentence(sentryBullet());
+    expect(sentence).toMatch(/random identifier generated per app installation/);
+    expect(sentence).toMatch(CRASH);
+  });
+
+  it('§5.1 says Sentry does not store the IP address (org setting, hand-verified — DPIA 2.43)', () => {
+    expect(sentryBullet()).toMatch(/not store[^.]*IP address|IP address[^.]*not stored/);
+  });
+
+  // AC1, observed 2026-10-16 (Sentry event bf0dd8b4…, DPIA 2.43): the native crash event also
+  // carries `user.geo` (city/country derived at ingest, IP not stored) and
+  // `contexts.app.device_app_hash` (SHA-1 over identifierForVendor + hw.machine + hw.model +
+  // bundle id, `SentryCrashMonitor_System.m:396-423`).
+  it('§5.1 discloses the approximate location Sentry derives, not just that IP is not stored', () => {
+    const bullet = sentryBullet();
+    expect(bullet).toMatch(/approximate location \(city and country\)/);
+    expect(bullet).toMatch(/IP address itself is not stored/);
+  });
+
+  it('§5.1 names the device identifier crash reports carry', () => {
+    expect(sentryBullet()).toMatch(/device identifier[^.]*Apple/);
+  });
+
+  it('§2.2 Technical Data names the identifiers and approximate location', () => {
+    const policy = read('docs/legal/privacy-policy.md');
+    const line = policy.slice(policy.indexOf('- **Technical Data:**'));
+    const technical = line.slice(0, line.indexOf('\n'));
+    expect(technical).toMatch(/Crash reports/);
+    expect(technical).toMatch(/identifiers/);
+    expect(technical).toMatch(/approximate location/);
+  });
+
+  it('§5.1 does not say a bug report carries nothing else', () => {
+    const bug = bugReportPart(sentryBullet());
+    expect(bug).toMatch(/Bug reports you send/);
+    expect(bug).not.toMatch(NOTHING_ELSE);
+    // DEBUG-797 AC7, observed post-fix: `user.geo` on both settings (city+country with Crash
+    // Reports on, country only with it off) — a definite statement with a city/country ceiling.
+    expect(bug).not.toMatch(/may also estimate your approximate location/);
+    expect(bug).toMatch(
+      /Whatever the \*Crash Reports\* setting, Sentry estimates your approximate location[^.]*no more precisely than your city and country[^.]*not your IP address/,
+    );
+  });
+});
+
+/**
+ * DEBUG-797: `scrubFeedbackEvent` now deletes `user` and `contexts.app.device_app_hash` from
+ * feedback events, so §5.1 says a bug report carries neither identifier. The claim is coupled to
+ * the processor: if the scrub stops deleting either field, this fails alongside the policy text.
+ */
+const PRE_FIX_BUG_REPORT_ON =
+  '**Bug reports you send:** if you choose to send a bug report. If *Crash Reports* is on, the report also carries the installation identifier and the device and app details described above.';
+
+describe('A bug report carries neither identifier (DEBUG-797)', () => {
+  const CARRIES_ID = /\b(?:also )?carries the installation identifier/i;
+  const DISCLAIMS_IDS = /does not carry the installation identifier or the device identifier/i;
+
+  it('the matchers fire on the pre-fix text', () => {
+    expect(PRE_FIX_BUG_REPORT_ON).toMatch(CARRIES_ID);
+    expect(PRE_FIX_BUG_REPORT_ON).not.toMatch(DISCLAIMS_IDS);
+  });
+
+  it('§5.1 bug-report part disclaims both identifiers and still names device and app details', () => {
+    const bug = bugReportPart(sentryBullet());
+    expect(bug).toMatch(/Bug reports you send/);
+    expect(bug).not.toMatch(CARRIES_ID);
+    expect(bug).toMatch(DISCLAIMS_IDS);
+    expect(bug).toMatch(/device and app details/);
+  });
+
+  it('crash and session text still discloses the identifiers (not narrowed by this change)', () => {
+    const bullet = sentryBullet();
+    expect(idSentence(bullet)).toMatch(CRASH);
+    expect(bullet).toMatch(/device identifier[^.]*Apple/);
+  });
+
+  it('the processor does what the policy says', () => {
+    // eslint-disable-next-line @typescript-eslint/no-var-requires
+    const { scrubFeedbackEvent } = require('@/core/services/logging/ExternalErrorReporter');
+    const out = scrubFeedbackEvent({
+      type: 'feedback',
+      user: { id: 'INSTALL-UUID' },
+      contexts: { feedback: { message: 'x' }, app: { device_app_hash: 'HASH', app_version: '1' } },
+    });
+    expect(out.user).toBeUndefined();
+    expect(out.contexts.app.device_app_hash).toBeUndefined();
+    expect(out.contexts.app.app_version).toBe('1');
   });
 });

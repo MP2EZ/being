@@ -254,9 +254,10 @@ const DailyLoopStepScreen: React.FC<DailyLoopStepScreenProps> = ({
   const themeColors = getTheme('midday');
   // Premeditatio (morning-tensed negative visualization on Virtuous Response): never
   // on the quick pass — a fast micro-arc is not its container — and WITHHELD while
-  // useGuidanceGate() is pending or its decision is 'suppressed' (DEBUG-670; contract
-  // on PREMEDITATIO in tenseMode.ts). That reads the latest screening, not the user's
-  // state now. Withheld means absent: nothing replaces it, no verdict is logged or
+  // useGuidanceGate() is pending or its decision is 'suppressed' or 'gentle_withheld'
+  // (DEBUG-670, FEAT-673: no admissible reading, which is not evidence of readiness;
+  // contract on PREMEDITATIO in tenseMode.ts). That reads the latest admissible
+  // screening, not the user's state now. Withheld means absent: nothing replaces it, no verdict is logged or
   // persisted, and text typed before it was withheld is never saved. The gate is ANDed
   // onto the tense/depth terms, not nested in them, so any widening inherits it.
   const guidanceGate = useGuidanceGate();

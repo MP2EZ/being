@@ -33,7 +33,7 @@ type ConsentCategoryCopy = Pick<ConsentToggleCardProps, 'title' | 'description' 
  */
 export const CONSENT_DETAILS = {
   analytics: {
-    title: 'Analytics',
+    title: 'Usage Analytics',
     description: 'Help us improve the app by understanding how it\'s used',
     details: {
       // DEBUG-788: matches what PostHog actually stores (project 111221, checked 2026-10-14)
@@ -66,22 +66,26 @@ export const CONSENT_DETAILS = {
       // DEBUG-779: matches what the consented Sentry client sends (DEBUG-776) and
       // privacy-policy §5.1. Release-health sessions carry a per-install identifier, so
       // nothing here may claim anonymity; "encrypted" means in transit only.
+      // DEBUG-786: native crash events also carry a device identifier (device_app_hash) and a
+      // city/country Sentry derives at ingest — observed, Sentry event bf0dd8b4…, DPIA 2.43.
       whatWeCollect: [
         "Technical error details (which part of the app's code failed)",
         'Device and app details, such as OS version and app version',
         'App-session diagnostics (when a session starts and ends, and whether it crashed), used to measure app stability',
-        'A random identifier created for this installation of the app',
+        'Identifiers created for this installation of the app',
+        'Your approximate location (city and country), which our crash-reporting provider estimates from your internet connection',
       ],
       whatWeDontCollect: [
         'Your mood check-ins, journal entries, or PHQ-9/GAD-7 responses and scores',
         'Your name, email, or account identifier',
+        'Your precise (GPS) location, or your IP address',
       ],
       whyItHelps: 'Crashes disrupt your practice. Automatic reports help us detect and fix issues before they affect more people.',
-      privacyNote: 'Sent to our crash-reporting provider, Sentry, over an encrypted connection. The installation identifier is not linked to your account or your wellness data. Turning this off stops all crash and session reporting.',
+      privacyNote: 'Sent to our crash-reporting provider, Sentry, over an encrypted connection. These identifiers are not linked to your account or your wellness data. Turning this off stops all crash and session reporting.',
     },
   },
   cloudSync: {
-    title: 'Cloud Backup',
+    title: 'Settings Backup',
     description: 'Back up a few app settings to encrypted cloud storage',
     details: {
       // TWO disjoint sources, both pinned by cloudBackupConsentCopy.privacy.test.ts:
@@ -127,3 +131,14 @@ export const CONSENT_DETAILS = {
 } satisfies Record<string, ConsentCategoryCopy>;
 
 export type ConsentCategoryKey = keyof typeof CONSENT_DETAILS;
+
+/**
+ * DEBUG-818 (compliance ruling): the Cloud Backup row's description for someone who holds
+ * the grant in a build where cloud_sync is dark (DEBUG-816 keeps the row visible so they
+ * can withdraw). It replaces only the description; the details still describe what the
+ * held permission covers. It must not read as an offer, claim nothing is sent (true today
+ * only because nothing calls the backup code), claim a history, or promise deletion.
+ * Outside CONSENT_DETAILS so the onboarding and re-consent cards are unaffected.
+ */
+export const CLOUD_BACKUP_UNAVAILABLE_HOLDER_DESCRIPTION =
+  'Not available in this version of Being. Turn this off to withdraw your permission.';

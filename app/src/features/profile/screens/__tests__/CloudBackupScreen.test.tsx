@@ -9,15 +9,18 @@
  * backup of wellness data. Consent is an independent control enforced where
  * egress happens (CloudBackupService / the cloud services barrel), so no test
  * here treats "flag on" as "consent given".
+ *
+ * MAINT-809: the flag resolves at build time (`isFeatureEnabled`), the same tier as
+ * the consent cards. MAINT-811 retired the runtime tier, so there is no other.
  */
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import CloudBackupScreen from '../CloudBackupScreen';
-import { useFeatureFlag } from '@/core/analytics';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 
-jest.mock('@/core/analytics', () => ({
-  useFeatureFlag: jest.fn(),
+jest.mock('@/core/services/featureFlags', () => ({
+  isFeatureEnabled: jest.fn(),
 }));
 jest.mock('@/core/components/settings/CloudBackupSettings', () => {
   const { Text: MockText } = jest.requireActual('react-native');
@@ -28,15 +31,15 @@ jest.mock('@/core/components/settings/CloudBackupSettings', () => {
   };
 });
 
-const mockUseFeatureFlag = useFeatureFlag as jest.Mock;
+const mockIsFeatureEnabled = isFeatureEnabled as jest.Mock;
 
 beforeEach(() => {
-  mockUseFeatureFlag.mockReset();
+  mockIsFeatureEnabled.mockReset();
 });
 
 describe('CloudBackupScreen', () => {
   it('renders nothing when the cloud_sync flag is off', () => {
-    mockUseFeatureFlag.mockReturnValue(false);
+    mockIsFeatureEnabled.mockReturnValue(false);
     const { toJSON, queryByTestId } = render(<CloudBackupScreen />);
 
     expect(toJSON()).toBeNull();
@@ -44,16 +47,16 @@ describe('CloudBackupScreen', () => {
   });
 
   it('renders the CloudBackupSettings controls when the cloud_sync flag is on', () => {
-    mockUseFeatureFlag.mockReturnValue(true);
+    mockIsFeatureEnabled.mockReturnValue(true);
     const { getByTestId } = render(<CloudBackupScreen />);
 
     expect(getByTestId('cloud-backup-settings')).toBeTruthy();
   });
 
   it("asks for the 'cloud_sync' flag", () => {
-    mockUseFeatureFlag.mockReturnValue(true);
+    mockIsFeatureEnabled.mockReturnValue(true);
     render(<CloudBackupScreen />);
 
-    expect(mockUseFeatureFlag).toHaveBeenCalledWith('cloud_sync');
+    expect(mockIsFeatureEnabled).toHaveBeenCalledWith('cloud_sync');
   });
 });

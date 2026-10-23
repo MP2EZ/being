@@ -252,26 +252,6 @@ export class CrisisErrorBoundary extends Component<
     );
   };
 
-  /**
-   * Contact support for technical issues
-   */
-  private handleContactSupport = () => {
-    Alert.alert(
-      'Technical Support',
-      'Report this issue to help improve the app for everyone.',
-      [
-        {
-          text: 'Send Report',
-          onPress: () => {
-            // In production, this would open support form or email
-            logSystem('Support report requested');
-          },
-        },
-        { text: 'Cancel', style: 'cancel' },
-      ]
-    );
-  };
-
   override render() {
     if (this.state.hasError) {
       // Use custom fallback if provided
@@ -312,7 +292,7 @@ export class CrisisErrorBoundary extends Component<
             <Text style={styles.errorSubtitle}>
               {this.state.isCrisisMode
                 ? 'Crisis support is still fully accessible despite this technical issue.'
-                : 'We\'re working to resolve this quickly. Your data is safe.'}
+                : 'Something on this screen stopped working.'}
             </Text>
           </View>
 
@@ -359,11 +339,17 @@ export class CrisisErrorBoundary extends Component<
               </Pressable>
             </View>
 
-            {/* Recovery options */}
-            <View style={styles.actionGroup}>
-              <Text style={styles.actionGroupTitle}>🔄 Recovery Options</Text>
-              <View style={styles.buttonRow}>
-                {this.state.retryCount < 3 && (
+            {/*
+              Recovery options. DEBUG-792 removed 'Contact Support' / 'Send Report': it
+              sent nothing, and routing it to the bug-report overlay cannot work here —
+              this boundary renders only on AssessmentFlow, a SCREEN_OWNED_988_ROUTES
+              route where the overlay slot refuses by design. Hidden once retries are
+              exhausted so no empty header shows.
+            */}
+            {this.state.retryCount < 3 && (
+              <View style={styles.actionGroup}>
+                <Text style={styles.actionGroupTitle}>🔄 Recovery Options</Text>
+                <View style={styles.buttonRow}>
                   <Pressable
                     style={styles.retryButton}
                     onPress={this.handleRetry}
@@ -374,17 +360,9 @@ export class CrisisErrorBoundary extends Component<
                       Retry ({this.state.retryCount + 1}/3)
                     </Text>
                   </Pressable>
-                )}
-                <Pressable
-                  style={styles.supportButton}
-                  onPress={this.handleContactSupport}
-                  accessibilityRole="button"
-                  accessibilityLabel="Contact technical support"
-                >
-                  <Text style={styles.supportButtonText}>Contact Support</Text>
-                </Pressable>
+                </View>
               </View>
-            </View>
+            )}
           </View>
 
           {/* Error Details (if enabled) */}
@@ -410,8 +388,7 @@ export class CrisisErrorBoundary extends Component<
             <Text style={styles.safetyTitle}>Your Safety & Privacy</Text>
             <Text style={styles.safetyText}>
               • Crisis support remains fully accessible{'\n'}
-              • Your personal data is secure and encrypted{'\n'}
-              • Assessment progress is automatically saved{'\n'}
+              • Your wellness data is stored encrypted on this device{'\n'}
               • Crash reports (only if you turned them on) never include your check-in answers, journal, or mood entries. They carry a random installation identifier.{'\n'}
               • Professional support is available 24/7
             </Text>
@@ -515,19 +492,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   retryButtonText: {
-    color: colorSystem.base.white,
-    fontSize: typography.bodyRegular.size,
-    fontWeight: typography.fontWeight.semibold,
-  },
-  supportButton: {
-    backgroundColor: colorSystem.gray[600],
-    paddingVertical: spacing[8],
-    paddingHorizontal: spacing[16],
-    borderRadius: borderRadius.medium,
-    minHeight: 44,
-    justifyContent: 'center',
-  },
-  supportButtonText: {
     color: colorSystem.base.white,
     fontSize: typography.bodyRegular.size,
     fontWeight: typography.fontWeight.semibold,

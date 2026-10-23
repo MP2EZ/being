@@ -170,16 +170,30 @@ export async function completeLocalErasure({
 
   // 5. In-memory store reset (DEBUG-671). Stores still holding pre-erasure
   //    records would write them back on their next persist, so each registered
-  //    store drops its state here. IMMEDIATELY BEFORE the wipe, so a persist
-  //    already in flight lands on disk that is about to be cleared rather than
-  //    after it. Best-effort like steps 2-4: the registry never rejects, and a
-  //    store that fails to reset must not gate the wipe. Never runs on the abort
-  //    path above, so a failed server delete leaves memory and timers untouched.
+  //    store drops its state here, IMMEDIATELY BEFORE the wipe. Best-effort like
+  //    steps 2-4: the registry never rejects, and a store that fails to reset must
+  //    not gate the wipe. Never runs on the abort path above, so a failed server
+  //    delete leaves memory and timers untouched.
+  //
+  //    The JS await is BOUNDED (DEBUG-789): the registry stops waiting at
+  //    ERASURE_RESET_DEADLINE_MS, so a never-settling store write cannot hang this
+  //    screen or the launch resume path. A timeout is NOT a failure — it never
+  //    maps to `{ ok: false }` and the marker still clears at 6c. What holds the
+  //    write-before-wipe ordering on device is not this await but expo-modules-core
+  //    running SecureStore calls on ONE serial native queue (iOS: the serial
+  //    DispatchQueue in AsyncFunctionDefinition.swift; Android: AppContext's single
+  //    HandlerThread), so a set dispatched before the wipe lands before the wipe's
+  //    delete. A reset that settles late is inert: each owner guards its own tail.
   try {
-    const failed = await resetInMemoryStateForErasure();
+    const { failed, timedOut } = await resetInMemoryStateForErasure();
     if (failed.length > 0) {
       logSecurity('[AccountDeletion] in-memory reset failed (continuing with wipe)', 'high', {
         owners: failed.join(','),
+      });
+    }
+    if (timedOut.length > 0) {
+      logSecurity('[AccountDeletion] in-memory reset timed out (continuing with wipe)', 'high', {
+        owners: timedOut.join(','),
       });
     }
   } catch (error) {

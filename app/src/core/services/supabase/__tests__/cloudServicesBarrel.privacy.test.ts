@@ -20,8 +20,9 @@
  *    and CloudBackupService.privacy.test.ts. Asserting "background skips createBackup
  *    without consent" with CloudBackupService mocked would need a mock that re-encodes
  *    the gate — a test of the mock.
- *  - The AppState listener count across cleanup + re-init (duplicate listeners are
- *    a known gap).
+ *
+ * The AppState listener count IS pinned (MAINT-817): live handlers = isInitialized ? 1 : 0,
+ * across cleanup + re-init cycles and on both branches of cleanupCloudServices.
  *
  * Consent is read at the moment of every cloud act (DEBUG-757): getCloudSyncStatus,
  * configureCloudBackup, testCloudConnectivity and checkForCloudRestore all refuse to
@@ -76,6 +77,10 @@ jest.mock('@react-native-async-storage/async-storage', () => ({
 type Barrel = typeof import('../index');
 type AppStateHandler = (state: string) => Promise<void>;
 
+// Handlers whose subscription has not been removed (MAINT-817). Module-scope for the
+// same reason as the mocks above; never referenced inside a jest.mock factory.
+const liveHandlers = new Set<AppStateHandler>();
+
 let consoleLogSpy: jest.SpyInstance;
 
 /** Re-evaluate the barrel from scratch; the consent mock must already be set. */
@@ -119,7 +124,11 @@ beforeEach(() => {
     hasLocalData: false,
     cloudBackupTime: undefined,
   });
-  mockAddEventListener.mockReturnValue({ remove: jest.fn() });
+  liveHandlers.clear();
+  mockAddEventListener.mockImplementation((_event: string, handler: AppStateHandler) => {
+    liveHandlers.add(handler);
+    return { remove: jest.fn(() => { liveHandlers.delete(handler); }) };
+  });
   mockCanPerform.mockReturnValue(false);
 
   consoleLogSpy = jest.spyOn(console, 'log').mockImplementation(() => undefined);
@@ -641,25 +650,16 @@ describe('cloud services barrel — AppState lifecycle handler', () => {
     expect(mockSupabase.processOfflineQueue).not.toHaveBeenCalled();
   });
 
-  it("'active' processes the offline queue (consent given)", async () => {
+  // MAINT-815: the foreground trigger has one owner, SupabaseService.setupAppStateListener
+  // (one call per foreground across both modules is pinned by
+  // foregroundQueueTrigger.unit.test.ts). The barrel's handler does nothing on 'active'.
+  it("'active' does not process the offline queue: SupabaseService owns the foreground", async () => {
     const handler = await consentedHandler();
-
-    await handler('active');
-
-    expect(mockSupabase.processOfflineQueue).toHaveBeenCalledTimes(1);
-    expect(mockBackup.createBackup).not.toHaveBeenCalled();
-  });
-
-  // DEBUG-756. Defence in depth: the authoritative gate (and the drop/hold decision) is in
-  // SupabaseService.processOfflineQueue, because the service's own AppState listener reaches it
-  // independently - pinned by offlineQueueConsentWithdrawal.privacy.test.ts.
-  it("'active' with cloud_sync consent withdrawn does not process the offline queue", async () => {
-    const handler = await consentedHandler();
-    mockCanPerform.mockReturnValue(false);
 
     await handler('active');
 
     expect(mockSupabase.processOfflineQueue).not.toHaveBeenCalled();
+    expect(mockBackup.createBackup).not.toHaveBeenCalled();
   });
 
   it("'inactive' does neither", async () => {
@@ -682,16 +682,77 @@ describe('cloud services barrel — AppState lifecycle handler', () => {
       expect.objectContaining({ error: expect.any(Error) }),
     );
   });
+});
 
-  it("swallows a rejected processOfflineQueue on 'active' and logs it", async () => {
-    const handler = await consentedHandler();
-    mockSupabase.processOfflineQueue.mockRejectedValue(new Error('queue boom'));
+describe('cloud services barrel — AppState subscription lifecycle (MAINT-817)', () => {
+  async function consentedBarrel(): Promise<Barrel> {
+    mockCanPerform.mockReturnValue(true);
+    const barrel = loadBarrel();
+    await flushMicrotasks();
+    return barrel;
+  }
 
-    await expect(handler('active')).resolves.toBeUndefined();
+  async function emit(state: string) {
+    for (const handler of [...liveHandlers]) {
+      await handler(state);
+    }
+  }
+
+  it('init → 1 live handler, cleanup → 0, re-init → 1', async () => {
+    const barrel = await consentedBarrel();
+    expect(liveHandlers.size).toBe(1);
+
+    await barrel.cleanupCloudServices();
+    expect(liveHandlers.size).toBe(0);
+
+    await barrel.default.initializeCloudServices();
+    expect(liveHandlers.size).toBe(1);
+  });
+
+  it('three full cycles end at one handler, and one background runs exactly one backup', async () => {
+    const barrel = await consentedBarrel();
+    for (let i = 0; i < 3; i++) {
+      await barrel.cleanupCloudServices();
+      expect(liveHandlers.size).toBe(0);
+      await barrel.default.initializeCloudServices();
+    }
+    expect(liveHandlers.size).toBe(1);
+
+    mockBackup.createBackup.mockClear();
+    await emit('background');
+    expect(mockBackup.createBackup).toHaveBeenCalledTimes(1);
+  });
+
+  // AC4: the handler goes in the same branch that clears isInitialized. A rejected service
+  // cleanup leaves both in place, so live handlers = isInitialized ? 1 : 0 on this path too.
+  it.each([
+    ['CloudBackupService', () => mockBackup.cleanup],
+    ['SupabaseService', () => mockSupabase.cleanup],
+  ])('a rejected %s cleanup keeps the handler and the initialized flag together', async (_name, cleanupOf) => {
+    const barrel = await consentedBarrel();
+    cleanupOf().mockRejectedValueOnce(new Error('cleanup boom'));
+
+    await expect(barrel.cleanupCloudServices()).resolves.toBeUndefined();
     expect(mockLogSecurity).toHaveBeenCalledWith(
-      '[CloudServices] Failed to process offline queue:',
+      '[CloudServices] Cleanup failed:',
       'medium',
       expect.objectContaining({ error: expect.any(Error) }),
     );
+    expect(liveHandlers.size).toBe(1);
+
+    // Still initialized: a re-init is a no-op and registers nothing more.
+    await barrel.default.initializeCloudServices();
+    expect(mockBackup.initialize).toHaveBeenCalledTimes(1);
+    expect(liveHandlers.size).toBe(1);
+
+    mockBackup.createBackup.mockClear();
+    await emit('background');
+    expect(mockBackup.createBackup).toHaveBeenCalledTimes(1);
+
+    // A later successful cleanup takes the other branch.
+    await barrel.cleanupCloudServices();
+    expect(liveHandlers.size).toBe(0);
+    await barrel.default.initializeCloudServices();
+    expect(liveHandlers.size).toBe(1);
   });
 });

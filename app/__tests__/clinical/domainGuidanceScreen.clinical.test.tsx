@@ -19,13 +19,15 @@
  */
 
 import React from 'react';
-import { render, waitFor, fireEvent, act } from '@testing-library/react-native';
+import { render, waitFor, fireEvent, act, renderHook } from '@testing-library/react-native';
 
 import type { GAD7Result, PHQ9Result } from '@/features/assessment/types';
 
 const mockNavigate = jest.fn();
 
 jest.mock('@react-navigation/native', () => ({
+  // FEAT-673: the gate now reads consentStore, whose import chain builds navigationRef.
+  ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({ navigate: mockNavigate, goBack: jest.fn() }),
   useRoute: () => ({ params: { domain: 'conflict' } }),
 }));
@@ -79,6 +81,8 @@ jest.mock('@/features/assessment/stores/assessmentStore', () => {
 // Imported AFTER the mocks so the hook binds to them.
 import DomainGuidanceScreen from '@/features/guidance/screens/DomainGuidanceScreen';
 import { clearGuidanceContentCache } from '@/core/services/guidanceContent';
+import { seedWellnessWriteConsent } from '../helpers/wellnessWriteConsent';
+import { useGuidanceGate } from '@/features/guidance/hooks/useGuidanceGate';
 
 const phq9 = (totalScore: number, suicidalIdeation = false): PHQ9Result => ({
   totalScore,
@@ -98,6 +102,9 @@ const gad7 = (totalScore: number): GAD7Result => ({
 });
 
 beforeEach(() => {
+  // FEAT-673: consent boots at `loading`, which the gate reads as pending. Seed a
+  // never-blocked grant so this suite keeps testing what it tested (B.start -Infinity).
+  seedWellnessWriteConsent('granted');
   mockNavigate.mockClear();
   mockStore.phq9 = null;
   mockStore.gad7 = null;
@@ -416,5 +423,35 @@ describe('FEAT-457 — Tier 2/3 render their content in full', () => {
     const { getByTestId } = await renderFull();
     const attribution = getByTestId('guidance-tier3-attribution');
     expect(JSON.stringify(attribution.props.children ?? '')).toContain('trans. George Long');
+  });
+});
+
+describe('FEAT-673 — gentle_withheld renders exactly what gentle renders', () => {
+  /** The whole visible text of the content region: no notice, teaser or extra affordance. */
+  const renderedText = async () => {
+    const screen = render(<DomainGuidanceScreen />);
+    await waitFor(() => expect(screen.getByTestId('guidance-content')).toBeTruthy());
+    const texts = screen.UNSAFE_root.findAll((n) => typeof n.props?.children === 'string')
+      .map((n) => n.props.children as string);
+    const tiers = ['tier0', 'tier1', 'tier2', 'tier3'].map((t) => screen.queryByTestId(`guidance-${t}`) !== null);
+    screen.unmount();
+    return { texts, tiers };
+  };
+
+  it('a blocked reader with no admissible reading sees the gentle Tier 0/1 text, nothing more or less', async () => {
+    // gentle: never blocked, never screened.
+    seedWellnessWriteConsent('granted');
+    const gentle = await renderedText();
+
+    // gentle_withheld: blocked since now, never screened.
+    seedWellnessWriteConsent('refused');
+    clearGuidanceContentCache();
+    const gate = renderHook(() => useGuidanceGate()).result.current;
+    expect(gate.status === 'ready' && gate.decision.level).toBe('gentle_withheld'); // non-vacuity
+    const withheld = await renderedText();
+
+    expect(withheld.tiers).toEqual([true, true, false, false]);
+    expect(withheld).toEqual(gentle);
+    expect(withheld.texts.join(' ')).not.toMatch(/consent|withdr|withheld|admissible/i);
   });
 });

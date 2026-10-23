@@ -81,4 +81,48 @@ describe('CrisisErrorBoundary emergency dials', () => {
     expect(getByText(/Crash reports \(only if you turned them on\)/)).toBeTruthy();
     expect(getByTestId(STATIC_988_BUTTON_TEST_ID)).toBeTruthy();
   });
+
+  // DEBUG-792: every privacy and recovery claim on this screen is true, and the 988
+  // affordances are unchanged.
+  test('makes no saved-progress, blanket-security or data-is-safe claim', () => {
+    const { getByText, queryByText } = render(
+      <CrisisErrorBoundary>
+        <Boom />
+      </CrisisErrorBoundary>
+    );
+    expect(queryByText(/automatically saved/)).toBeNull();
+    expect(queryByText(/secure and encrypted/)).toBeNull();
+    expect(queryByText(/personal data/i)).toBeNull();
+    expect(queryByText(/Your data is safe/)).toBeNull();
+    expect(getByText(/Your wellness data is stored encrypted on this device/)).toBeTruthy();
+    expect(getByText(/Crisis support remains fully accessible/)).toBeTruthy();
+    expect(getByText(/Professional support is available 24\/7/)).toBeTruthy();
+  });
+
+  test('offers no Send Report control, and 988 stays one tap away', () => {
+    const { getByTestId, getByLabelText, queryByLabelText, queryByText } = render(
+      <CrisisErrorBoundary>
+        <Boom />
+      </CrisisErrorBoundary>
+    );
+    expect(queryByLabelText('Contact technical support')).toBeNull();
+    expect(queryByText('Contact Support')).toBeNull();
+    expect(getByTestId(STATIC_988_BUTTON_TEST_ID)).toBeTruthy();
+    expect(getByLabelText('View all emergency options')).toBeTruthy();
+    expect((Alert.alert as jest.Mock).mock.calls.some((c) => c[0] === 'Technical Support')).toBe(false);
+  });
+
+  test('hides Recovery Options once retries are exhausted, keeping 988', () => {
+    const { getByText, getByTestId, queryByText, getByLabelText } = render(
+      <CrisisErrorBoundary>
+        <Boom />
+      </CrisisErrorBoundary>
+    );
+    expect(getByText(/Recovery Options/)).toBeTruthy();
+    for (let attempt = 1; attempt <= 3; attempt += 1) {
+      fireEvent.press(getByLabelText(`Retry application (attempt ${attempt} of 3)`));
+    }
+    expect(queryByText(/Recovery Options/)).toBeNull();
+    expect(getByTestId(STATIC_988_BUTTON_TEST_ID)).toBeTruthy();
+  });
 });

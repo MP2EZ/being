@@ -165,8 +165,9 @@ export function useAnalytics() {
    * 🔴 TAKES NO ARGUMENTS, DELIBERATELY. Do not add a `domain` parameter.
    *
    * The hardship domain ("this user opened grief") IS the wellness inference, and
-   * `docs/architecture/analytics-architecture.md` publishes "What We NEVER
-   * Collect: … Any mental health data." Shipping it would make that published
+   * privacy policy §5.2 (mirrored in `docs/architecture/analytics-architecture.md`)
+   * publishes that what you select, answer or write is never collected; only that an
+   * affordance was opened is disclosed (v1.24, DEBUG-793). Shipping it would make that published
    * promise false — an FTC Act §5 exposure, not a disclosure gap you can close by
    * editing the policy — and would trip the DPIA's own material-change trigger
    * plus new App Store mental-health labels.

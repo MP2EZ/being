@@ -1,8 +1,8 @@
 # Privacy Policy
 
-**Version:** 1.20
+**Version:** 1.24
 **Effective Date:** December 12, 2025
-**Last Updated:** October 14, 2026
+**Last Updated:** October 22, 2026
 
 ---
 
@@ -53,12 +53,12 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 ### 2.2 Automatically Collected Information
 
 - **Device Information:** Device type, OS version (for app compatibility)
-- **Usage Data:** App usage patterns and feature engagement, with a random identifier generated per app installation and approximate location, collected only if you turn on *Analytics* (see Section 5.2)
-- **Technical Data:** Crash reports and app-stability diagnostics, including a random identifier generated per app installation (see Section 5.1), collected only if you turn on *Crash Reports* (off by default) and *Honor Universal Opt-Out* is off
+- **Usage Data:** App usage patterns and feature engagement, with a random identifier generated per app installation and approximate location, collected only if you turn on *Usage Analytics* (see Section 5.2)
+- **Technical Data:** Crash reports and app-stability diagnostics, including identifiers generated for this installation of the app and approximate location (see Section 5.1), collected only if you turn on *Crash Reports* (off by default) and *Honor Universal Opt-Out* is off
 
 ### 2.3 Information We Do NOT Collect
 
-- Location data or GPS tracking
+- Precise location or GPS tracking (Section 5 describes the approximate, city-level location our service providers estimate)
 - Contacts or address book access
 - Camera or photo library access
 - Audio recordings — if you speak a reflection, the recording is transcribed on your device and then discarded. We never receive, transmit, or store audio (see 2.1)
@@ -140,7 +140,7 @@ We use the following third-party service providers to operate our Services:
 - **[Supabase](https://supabase.com/privacy):** Database, authentication, and cloud storage (SOC 2 Type II certified, US data region). If you enable optional settings backup, your encrypted preference data is stored on Supabase infrastructure.
 - **[PostHog](https://posthog.com/privacy):** Product analytics (EU data residency, Frankfurt). See Section 5.2 for details.
 - **[Notion](https://www.notion.so/privacy):** Waitlist email storage for the being.fyi marketing website. When you submit your email via the pre-launch waitlist form, we store it (along with your A/B variant assignment, where applicable) in an internal Notion database. We do not transfer mental-health data, app usage, or any other personal data to Notion.
-- **[Sentry](https://sentry.io/privacy/):** Crash, error, and performance diagnostics, sent only while *Crash Reports* is on (it is off by default) and *Honor Universal Opt-Out* is off; turning either setting off stops them. Error event payloads are scrubbed of wellness data before transmission — no PHQ-9 / GAD-7 responses or scores, and no journal content are sent. Sentry also receives standard app-session diagnostics (session start/end, app version, crash status) used to measure app stability across releases; these session records include a random identifier generated per app installation by our mobile framework. This identifier is not linked to your account, your wellness data, or any other personal information we hold, and is not used to identify you or to track you across apps or websites. **Bug reports you send:** if you choose to send a bug report from within the app, the message you type, the general area of the app you were in, and basic technical details such as the app version are sent to Sentry when you tap Send. This happens only when you send a report, and it is not affected by the *Crash Reports* setting or *Honor Universal Opt-Out*, because sending it is your choice to share it. Nothing else is collected with it.
+- **[Sentry](https://sentry.io/privacy/):** Crash, error, and performance diagnostics, sent only while *Crash Reports* is on (it is off by default) and *Honor Universal Opt-Out* is off; turning either setting off stops them. Error event payloads are scrubbed of wellness data before transmission — no PHQ-9 / GAD-7 responses or scores, and no journal content are sent. Sentry also receives standard app-session diagnostics (session start/end, app version, crash status) used to measure app stability across releases; these session records, and crash and app-freeze reports, include a random identifier generated per app installation by the crash-reporting software built into the app. This identifier is not linked to your account, your wellness data, or any other personal information we hold, and is not used to identify you or to track you across apps or websites. Crash reports also include a device identifier that Sentry derives from an identifier Apple assigns to our apps on your device. Like the installation identifier, it is not linked to your account or wellness data. Sentry also estimates your approximate location (city and country) from your internet connection and stores it with the reports it receives. Your IP address itself is not stored. **Bug reports you send:** if you choose to send a bug report from within the app, the message you type, the general area of the app you were in, and basic technical details such as the app version are sent to Sentry when you tap Send. This happens only when you send a report, and it is not affected by the *Crash Reports* setting or *Honor Universal Opt-Out*, because sending it is your choice to share it. If *Crash Reports* is on, the report also carries device and app details such as the device model, operating system version and app version. It does not carry the installation identifier or the device identifier described above, so it carries no identifier that links it to your crash reports. Whatever the *Crash Reports* setting, Sentry estimates your approximate location from your internet connection, no more precisely than your city and country, and stores it with the report, but not your IP address.
 - **[Resend](https://resend.com/legal/privacy-policy):** Transactional email delivery for internal operational alerts only — for example, automated notifications to our operators about the health of the crisis-detection pipeline. These alerts contain aggregate, non-personal operational data; no user personal data is sent to Resend.
 - **[healthchecks.io](https://healthchecks.io/privacy/):** Uptime monitoring for our own internal scheduled jobs. Our servers send a periodic signal to healthchecks.io confirming that a maintenance job ran; if the signal stops arriving, healthchecks.io notifies our operators. The signal is an empty request carrying no message content — no account identifier, no wellness data, and nothing about you. Only the fact and time of the request are recorded. ("Health" in the provider's name refers to the health of our servers, not to health information.)
 - **Expo:** Mobile app framework and over-the-air updates
@@ -171,10 +171,13 @@ What we collect (when opted in):
 
 What we **NEVER** collect in-app:
 
-- Assessment scores (PHQ-9, GAD-7)
+- Your answers to a wellness screening (PHQ-9, GAD-7), your scores, or their severity
+- Which screening you took
 - Mood check-in values or notes
-- Journal entries
-- Any mental health data
+- Journal entries, or anything else you write or speak in the app
+- Which practice you did
+
+**What these events can show.** If you turn on Usage Analytics, analytics records when you open a wellness screening or support resources, and when you tap to call or text a crisis line. These events are tied to the installation identifier and approximate location described above, so they can show that someone using this installation looked for mental-health support. They never include what you answered, scored, wrote or said.
 
 Your control:
 
@@ -298,6 +301,10 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
+- **v1.24 (October 22, 2026) — material change.** §5.2 said we never collect "any mental health data". That was broader than what happens. With Usage Analytics on, analytics records when you open a wellness screening or support resources and when you tap to call or text a crisis line, tied to an installation identifier and approximate location, so these events can show that someone looked for mental-health support. §5.2 now lists exactly what is never collected (screening answers, scores and severity, which screening you took, mood values, anything you write or speak, which practice you did) and states what these events can show. §2.3 now says we do not collect *precise* location, since §5 already describes approximate, city-level location. Nothing about what is collected has changed; this corrects how it was described. Because it withdraws a broader promise, it is treated as a material change. It does not change the retention described in §7.2.
+- **v1.23 (October 22, 2026):** §2.2 now calls the in-app analytics setting *Usage Analytics*, the name it carries in the app and in §5.2. Every backup screen in the app now uses the *Settings Backup* name that §4.2 and §7.3 already use. These are names only: nothing about what is collected changes, so it is published with the next app release.
+- **v1.22 (October 18, 2026):** A bug report you send while *Crash Reports* is on no longer carries the installation identifier or the device identifier described in §5.1, so it carries no identifier that links it to your crash reports; §5.1 is updated to match, and now states that Sentry stores an approximate location, no more precise than city and country, with any bug report you send, but not your IP address. Copies of the app installed before this version still attach both identifiers to a bug report sent with *Crash Reports* on, until they are updated. This narrows what is collected and adds no new kind of data, so it is published with the next app release.
+- **v1.21 (October 14, 2026):** §5.1 said only Sentry's app-session records include the random identifier generated per app installation. Crash and app-freeze reports include it too, and so does a bug report you send while *Crash Reports* is on, along with device and app details; §5.1 also said nothing else is collected with a bug report. Both are corrected. §5.1 and §2.2 now also say that crash reports include a device identifier Sentry derives from an identifier Apple assigns to our apps on your device, and that Sentry stores an approximate location (city and country) estimated from your internet connection, though not your IP address. Nothing about what is collected has changed, and §2.2 already described crash reports as carrying the identifier.
 - **v1.20 (October 14, 2026):** §2.2 and §3 described in-app usage analytics as "anonymized". Each event carries a random identifier generated per app installation, and PostHog estimates an approximate location (city and country) from the connection, so §2.2 and §5.2 now say so and list the device, language and time-zone details that are sent. The in-app control is renamed *Usage Analytics*, and the in-app *Analytics* and *Research Participation* descriptions were corrected the same way; the research setting now says plainly that nothing is collected for research today. This corrects how existing processing is described and adds no new kind of data, so it is published with the next app release.
 - **v1.19 (October 12, 2026):** §2.2 said crash reports and app-stability diagnostics include no personal info. They include a random identifier generated per app installation, which Section 5.1 already described, so §2.2 now says so. The in-app *Crash Reports* description was corrected the same way: it no longer calls crash reports "anonymized". This narrows a claim and adds no new kind of data, so it is published with the next app release.
 - **v1.18 (October 10, 2026):** Crash reporting now follows your choice. §2.2 and §5.1 said crash reports and app-stability diagnostics are collected, and §5.3 and §6 said you can turn crash reporting off. In practice the app sent crash reports, error reports and app-session diagnostics to Sentry whether or not you had turned *Crash Reports* on. That is corrected: nothing is sent to Sentry for crash or error reporting unless *Crash Reports* is on and *Honor Universal Opt-Out* is off, and turning either off stops it. §5.1 also now describes bug reports you choose to send from the app, which the policy did not mention: they go to Sentry when you tap Send, separately from the *Crash Reports* setting. This narrows what is collected without your permission and adds no new kind of data, so it is published with the next app release rather than separately.

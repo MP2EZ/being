@@ -9,21 +9,21 @@
  * thresholds, lifecycle, and the public surface.
  *
  * What this tests:
- *   - retrieveAssessmentData over planted assessment ciphertext (no writer since MAINT-716)
+ *   - retrieveWellnessBlob over planted wellness ciphertext
  *   - storeWellnessBlob / retrieveWellnessBlob round-trip
- *   - Assessment vs wellness-blob go to separate prefixes (prefix routing)
- *   - Audit log captures store/retrieve operations
- *   - Pre-init guard: operations before initialize() return failure
- *   - deleteSecureData removes data
- *   - getStorageMetrics returns structured shape
+ *   - Wellness-blob and residual assessment_async_ records use separate prefixes
+ *   - Audit log captures store/retrieve operations (in memory only)
+ *   - Lazy init: store/retrieve work without any initialize() call
+ *   - The legacy SecureStore -> AsyncStorage migration on retrieveWellnessBlob
  *   - No public writer produces a key under CRISIS_ASYNC_PREFIX
  *
- * MAINT-716 removed `storeAssessmentData` (no production caller). The
- * `assessment_async_` read, delete and sweep paths remain as a defensive floor
- * for records on shipped installs, so those cases plant raw ciphertext into the
- * mock store instead of producing it through a writer; the write-side cases
- * (lazy init, concurrency, size cap, audit success) moved to `storeWellnessBlob`,
- * which walks the same encrypt / validate / persist / log path.
+ * MAINT-716 removed `storeAssessmentData` (no production caller) and MAINT-790
+ * removed `retrieveAssessmentData`, `deleteSecureData`, `initialize()`,
+ * `getStorageMetrics` and the rest of the unwired lifecycle surface. The
+ * `assessment_async_` sweep stays as a defensive floor for records on shipped
+ * installs, so the sweep case plants raw ciphertext into the mock store. The
+ * legacy-migration cases ran through `retrieveAssessmentData`; they now run
+ * through `retrieveWellnessBlob`, which shares `readWithLegacyFallback`.
  *
  * MAINT-378 removed the crisis storage tier (storeCrisisData /
  * retrieveCrisisData / 'crisis_tier'). The tier-agnostic machinery these tests
@@ -33,10 +33,6 @@
  * to the assessment tier rather than deleted: assessment_tier walks the same
  * code paths the crisis tier did. Only the genuinely crisis-shaped cases (the
  * crisis round-trip and crisis-vs-assessment isolation) were dropped.
- *
- * Phase A also added a NODE_ENV=test guard in the constructor so the
- * setInterval cleanup scheduler doesn't keep Jest alive. Verified
- * indirectly: this test suite exits cleanly without --forceExit.
  */
 
 // In-memory backing for storage primitives.
@@ -111,15 +107,6 @@ jest.mock('../EncryptionService', () => {
   };
 });
 
-// FileSystem: only used in exportStorageData which isn't under test here.
-// Provide a minimal stub so the module imports don't fail.
-jest.mock('expo-file-system', () => ({
-  documentDirectory: '/mock-docs/',
-  writeAsStringAsync: jest.fn(async () => undefined),
-  getInfoAsync: jest.fn(async () => ({ exists: false, size: 0 })),
-  EncodingType: { UTF8: 'utf8', Base64: 'base64' },
-}));
-
 // Force Platform.OS = ios so any platform-conditional paths take the
 // native branch (matches T2.1's expectation).
 jest.mock('react-native', () => ({
@@ -134,28 +121,35 @@ jest.mock('react-native', () => ({
 const {
   default: service,
   SECURE_STORAGE_CONFIG,
-  STORAGE_METADATA_INDEX_KEY,
   ACCOUNT_ERASURE_SECURE_STORE_KEYS,
   ERASURE_EXCLUDED_SECURE_STORE_KEYS,
 } = require('../SecureStorageService');
 
+const plantPackage = (data: unknown): string =>
+  JSON.stringify({
+    encryptedData: Buffer.from(JSON.stringify(data), 'utf-8').toString('base64'),
+    iv: 'mock-iv',
+    tag: 'mock-tag',
+    salt: 'mock-salt',
+    metadata: {},
+    checksum: 'mock-checksum',
+  });
+
 /**
- * Raw `assessment_async_<id>` ciphertext, as a shipped install left it. The
- * package is one the passthrough stub can decrypt, so `retrieveAssessmentData`
- * takes its success path without any production writer involved.
+ * Raw `wellness_async_<id>` ciphertext. The package is one the passthrough stub
+ * can decrypt, so `retrieveWellnessBlob` takes its success path without a writer.
+ */
+const plantWellness = (id: string, data: unknown): void => {
+  mockAsyncStorageMap.set(`wellness_async_${id}`, plantPackage(data));
+};
+
+/**
+ * Raw `assessment_async_<id>` ciphertext, as a shipped install left it. Nothing
+ * reads or writes the prefix any more (MAINT-716, MAINT-790); only the erasure
+ * sweep still names it.
  */
 const plantAssessment = (id: string, data: unknown): void => {
-  mockAsyncStorageMap.set(
-    `assessment_async_${id}`,
-    JSON.stringify({
-      encryptedData: Buffer.from(JSON.stringify(data), 'utf-8').toString('base64'),
-      iv: 'mock-iv',
-      tag: 'mock-tag',
-      salt: 'mock-salt',
-      metadata: {},
-      checksum: 'mock-checksum',
-    })
-  );
+  mockAsyncStorageMap.set(`assessment_async_${id}`, plantPackage(data));
 };
 
 beforeEach(() => {
@@ -164,10 +158,8 @@ beforeEach(() => {
   jest.clearAllMocks();
 });
 
-describe('SecureStorageService — assessment data tier', () => {
-  it('retrieveAssessmentData decrypts a planted assessment_async_ PHQ-9 record', async () => {
-    await service.initialize();
-
+describe('SecureStorageService — wellness blob tier', () => {
+  it('retrieveWellnessBlob decrypts a planted wellness_async_ PHQ-9 record', async () => {
     const phq9 = {
       type: 'PHQ-9' as const,
       responses: [1, 2, 3, 0, 2, 1, 3, 2, 0],
@@ -176,26 +168,20 @@ describe('SecureStorageService — assessment data tier', () => {
       userId: 'user-1',
     };
 
-    // INFRA-144: hybrid storage keeps assessment ciphertext in AsyncStorage
-    // under the assessment_async_ prefix; legacy assessment_secure_ remains as
-    // the migration fallback only. Nothing writes it since MAINT-716.
-    plantAssessment('assess-1', phq9);
-    expect(mockAsyncStorageMap.has('assessment_async_assess-1')).toBe(true);
+    // INFRA-144: hybrid storage keeps wellness ciphertext in AsyncStorage under
+    // the wellness_async_ prefix; legacy SecureStore keys are the migration
+    // fallback only.
+    plantWellness('assess-1', phq9);
+    expect(mockAsyncStorageMap.has('wellness_async_assess-1')).toBe(true);
 
-    const retrieved = await service.retrieveAssessmentData('assess-1');
-    expect(retrieved).not.toBeNull();
-    expect(retrieved?.data).toEqual(phq9);
-    expect(retrieved?.metadata.storageTier).toBe('assessment_tier');
-    expect(retrieved?.metadata.encrypted).toBe(true);
+    expect(await service.retrieveWellnessBlob('assess-1')).toEqual(phq9);
   });
 
   // Repointed from 'assessment tier is isolated from crisis tier' (MAINT-378).
-  // The property under test is prefix routing — the same logical key stored via
-  // two different namespaces must not collide — which assessment-vs-wellness-blob
-  // exercises identically now that the crisis tier is gone.
-  it('assessment tier is isolated from the wellness-blob namespace (separate prefixes)', async () => {
-    await service.initialize();
-
+  // The property under test is prefix routing — the same logical key under two
+  // namespaces must not collide — which a residual `assessment_async_` record
+  // exercises now that nothing reads that namespace.
+  it('wellness blobs are isolated from a residual assessment_async_ record (separate prefixes)', async () => {
     await service.storeWellnessBlob('overlap', { source: 'blob' }, 'level_2_assessment_data');
     plantAssessment('overlap', {
       type: 'GAD-7',
@@ -205,12 +191,7 @@ describe('SecureStorageService — assessment data tier', () => {
       userId: 'u',
     });
 
-    const blob = await service.retrieveWellnessBlob('overlap');
-    const assess = await service.retrieveAssessmentData('overlap');
-
-    // Same logical key, different namespaces → both round-trip independently
-    expect(blob).toEqual({ source: 'blob' });
-    expect((assess?.data as any).type).toBe('GAD-7');
+    expect(await service.retrieveWellnessBlob('overlap')).toEqual({ source: 'blob' });
     expect(mockAsyncStorageMap.has('assessment_async_overlap')).toBe(true);
     expect(mockAsyncStorageMap.has('wellness_async_overlap')).toBe(true);
   });
@@ -218,11 +199,8 @@ describe('SecureStorageService — assessment data tier', () => {
 
 describe('SecureStorageService — audit log', () => {
   it('logs successful store and retrieve operations', async () => {
-    await service.initialize();
-
     await service.storeWellnessBlob('audit-1', { totalScore: 1 }, 'level_2_assessment_data');
-    plantAssessment('audit-1', { totalScore: 1 });
-    await service.retrieveAssessmentData('audit-1');
+    await service.retrieveWellnessBlob('audit-1');
 
     const accessLog = await service.getAccessLog();
     expect(Array.isArray(accessLog)).toBe(true);
@@ -241,14 +219,13 @@ describe('SecureStorageService — audit log', () => {
   });
 });
 
-describe('SecureStorageService — lifecycle and metrics', () => {
-  it('storeWellnessBlob lazily auto-initializes if called before initialize() (INFRA-144 boot-order fix)', async () => {
+describe('SecureStorageService — lifecycle', () => {
+  it('storeWellnessBlob lazily auto-initializes the encryption layer (INFRA-144 boot-order fix)', async () => {
     await service.destroy();
 
-    // Pre-INFRA-144 this returned a failure result. Post-fix, store/retrieve
-    // methods await encryptionService.initialize() (idempotent) so that
-    // Zustand-persist rehydration paths that fire at module load can
-    // succeed without depending on App.tsx ordering.
+    // Store/retrieve methods await encryptionService.initialize() (idempotent)
+    // so that Zustand-persist rehydration paths that fire at module load can
+    // succeed. Nothing else initialises this service (MAINT-790).
     const result = await service.storeWellnessBlob(
       'lazy-init',
       { totalScore: 0 },
@@ -256,76 +233,10 @@ describe('SecureStorageService — lifecycle and metrics', () => {
     );
     expect(result.success).toBe(true);
   });
-
-  it('getStorageMetrics returns structured shape', async () => {
-    await service.initialize();
-
-    // No writer populates the metadata cache since MAINT-716, so a fresh store
-    // reports zero entries and the counters can only be exercised by hydrating
-    // the cache from a planted index, as an upgraded install would.
-    const empty = await service.getStorageMetrics();
-    expect(empty.totalEntries).toBe(0);
-    expect(empty.assessmentEntries).toBe(0);
-
-    mockAsyncStorageMap.set(
-      STORAGE_METADATA_INDEX_KEY,
-      JSON.stringify([
-        [
-          'assessment_async_metric-1',
-          {
-            storageKey: 'assessment_async_metric-1',
-            storageTier: 'assessment_tier',
-            sensitivityLevel: 'level_2_assessment_data',
-            dataType: 'assessment_gad-7',
-            createdAt: 1,
-            lastAccessedAt: 1,
-            accessCount: 1,
-            encrypted: true,
-            dataSize: 128,
-            retentionPolicy: 'wellness_record',
-          },
-        ],
-      ])
-    );
-    await service.initialize();
-
-    const metrics = await service.getStorageMetrics();
-    expect(metrics).toBeDefined();
-    expect(typeof metrics).toBe('object');
-    expect(metrics).not.toBeNull();
-    // MAINT-378 removed the `crisisEntries` field; `assessmentEntries` is the
-    // surviving per-tier counter and must actually count the hydrated record.
-    expect(metrics.assessmentEntries).toBe(1);
-    expect(metrics.totalEntries).toBe(1);
-    expect(metrics.totalStorageSize).toBe(128);
-    expect(metrics).not.toHaveProperty('crisisEntries');
-
-    // The cache is module-singleton state this file does not reset; leave it empty.
-    await service.clearAllWellnessData();
-    expect((await service.getStorageMetrics()).totalEntries).toBe(0);
-  });
-
-  it('deleteSecureData removes planted assessment data', async () => {
-    await service.initialize();
-
-    plantAssessment('to-delete', { totalScore: 4 });
-    expect(await service.retrieveAssessmentData('to-delete')).not.toBeNull();
-
-    // deleteSecureData takes the logical key (it tries every tier prefix internally).
-    const result = await service.deleteSecureData('to-delete');
-    expect(result.success).toBe(true);
-    expect(result.storageKey).toBe('assessment_async_to-delete');
-
-    const after = await service.retrieveAssessmentData('to-delete');
-    expect(after).toBeNull();
-    expect(mockAsyncStorageMap.has('assessment_async_to-delete')).toBe(false);
-  });
 });
 
 describe('SecureStorageService — concurrent writes', () => {
   it('two concurrent stores both succeed (no last-writer corruption)', async () => {
-    await service.initialize();
-
     const [r1, r2] = await Promise.all([
       service.storeWellnessBlob('concur-a', { userId: 'a', totalScore: 1 }, 'level_2_assessment_data'),
       service.storeWellnessBlob('concur-b', { userId: 'b', totalScore: 2 }, 'level_2_assessment_data'),
@@ -348,7 +259,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   // of this case went with `storeAssessmentData` (MAINT-716); this is now the
   // only no-SecureStore-write assertion for a public writer.
   it('wellness-blob ciphertext writes to AsyncStorage, not SecureStore (post-INFRA-144)', async () => {
-    await service.initialize();
     await service.storeWellnessBlob('hybrid-1', { signal: 'x' }, 'level_2_assessment_data');
 
     expect(mockAsyncStorageMap.has('wellness_async_hybrid-1')).toBe(true);
@@ -356,8 +266,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('reads from legacy SecureStore key and migrates to AsyncStorage on first read', async () => {
-    await service.initialize();
-
     // Seed a legacy SecureStore record (simulates a pre-INFRA-144 install).
     const legacyKey = 'assessment_secure_legacy-1';
     const legacyPayload = JSON.stringify({
@@ -378,19 +286,17 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
     });
     mockSecureStoreMap.set(legacyKey, legacyPayload);
 
-    const retrieved = await service.retrieveAssessmentData('legacy-1');
-    expect(retrieved?.data).toEqual({ from: 'legacy' });
+    const retrieved = await service.retrieveWellnessBlob('legacy-1', legacyKey);
+    expect(retrieved).toEqual({ from: 'legacy' });
 
     // After migration: ciphertext now in AsyncStorage, legacy SecureStore key
     // deleted, migration marker set.
-    expect(mockAsyncStorageMap.get('assessment_async_legacy-1')).toBe(legacyPayload);
+    expect(mockAsyncStorageMap.get('wellness_async_legacy-1')).toBe(legacyPayload);
     expect(mockSecureStoreMap.has(legacyKey)).toBe(false);
     expect(mockAsyncStorageMap.get(`wellness_migrated:${legacyKey}`)).toBe('v1');
   });
 
   it('migration is idempotent — second read does not re-attempt SecureStore', async () => {
-    await service.initialize();
-
     // Pre-mark migrated so the legacy fallback is skipped even if data exists.
     const legacyKey = 'assessment_secure_idemp-1';
     mockSecureStoreMap.set(legacyKey, 'should-never-be-read');
@@ -398,14 +304,67 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
 
     // No AsyncStorage value at the hybrid key, so retrieve should return null
     // without falling back to the legacy SecureStore copy.
-    const retrieved = await service.retrieveAssessmentData('idemp-1');
+    const retrieved = await service.retrieveWellnessBlob('idemp-1', legacyKey);
     expect(retrieved).toBeNull();
     expect(mockSecureStoreMap.get(legacyKey)).toBe('should-never-be-read');
   });
 
-  it('deleteWellnessBlob(key, legacyKey) deletes a stale SecureStore copy and marks it migrated', async () => {
-    await service.initialize();
+  it('migration decrypt-verifies first: an undecryptable legacy copy is NOT migrated and stays in SecureStore', async () => {
+    const legacyKey = 'assessment_secure_corrupt-1';
+    mockSecureStoreMap.set(legacyKey, plantPackage({ from: 'legacy' }));
 
+    const enc = jest.requireMock('../EncryptionService').default;
+    const originalDecrypt = enc.decryptData;
+    enc.decryptData = jest.fn(async () => {
+      throw new Error('AES-GCM authentication tag verification failed');
+    });
+    try {
+      await expect(service.retrieveWellnessBlob('corrupt-1', legacyKey)).rejects.toThrow(/authentication tag/i);
+    } finally {
+      enc.decryptData = originalDecrypt;
+    }
+
+    expect(mockSecureStoreMap.has(legacyKey)).toBe(true);
+    expect(mockAsyncStorageMap.has('wellness_async_corrupt-1')).toBe(false);
+    expect(mockAsyncStorageMap.has(`wellness_migrated:${legacyKey}`)).toBe(false);
+  });
+
+  it('migration writes AsyncStorage BEFORE it deletes the SecureStore copy', async () => {
+    const legacyKey = 'assessment_secure_order-1';
+    mockSecureStoreMap.set(legacyKey, plantPackage({ from: 'legacy' }));
+
+    const SecureStore = jest.requireMock('expo-secure-store');
+    let asyncHadCopyAtDelete: boolean | null = null;
+    SecureStore.deleteItemAsync.mockImplementationOnce(async (key: string) => {
+      asyncHadCopyAtDelete = mockAsyncStorageMap.has('wellness_async_order-1');
+      mockSecureStoreMap.delete(key);
+    });
+
+    await service.retrieveWellnessBlob('order-1', legacyKey);
+
+    expect(asyncHadCopyAtDelete).toBe(true);
+  });
+
+  it('migration verifies the AsyncStorage read-back: a mismatch throws and the SecureStore copy survives', async () => {
+    const legacyKey = 'assessment_secure_readback-1';
+    mockSecureStoreMap.set(legacyKey, plantPackage({ from: 'legacy' }));
+
+    const AsyncStorageMock = jest.requireMock('@react-native-async-storage/async-storage');
+    // First read (the AsyncStorage-first lookup) misses; the read-back returns
+    // something other than what was written.
+    AsyncStorageMock.getItem
+      .mockImplementationOnce(async () => null) // asyncKey lookup
+      .mockImplementationOnce(async () => null) // isMigrated marker lookup
+      .mockImplementationOnce(async () => 'corrupted-readback');
+
+    await expect(service.retrieveWellnessBlob('readback-1', legacyKey)).rejects.toThrow(
+      /write verification failed/i
+    );
+    expect(mockSecureStoreMap.has(legacyKey)).toBe(true);
+    expect(mockAsyncStorageMap.has(`wellness_migrated:${legacyKey}`)).toBe(false);
+  });
+
+  it('deleteWellnessBlob(key, legacyKey) deletes a stale SecureStore copy and marks it migrated', async () => {
     // Pretend there's a stale legacy copy left behind.
     const legacyKey = 'assessment_secure_fresh-1';
     mockSecureStoreMap.set(legacyKey, 'stale-data');
@@ -424,8 +383,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('storeWellnessBlob → retrieveWellnessBlob round-trips arbitrary payloads', async () => {
-    await service.initialize();
-
     const big = { entries: Array.from({ length: 50 }, (_, i) => ({ idx: i, n: i * 7 })) };
     const result = await service.storeWellnessBlob('test-blob', big, 'level_2_assessment_data');
     expect(result.success).toBe(true);
@@ -435,8 +392,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('large payload (>2KB) round-trips successfully (the headline INFRA-144 fix)', async () => {
-    await service.initialize();
-
     // Build a payload that would have failed validateStorageSize under the
     // legacy SecureStore-only path (which capped at 2KB).
     const big = {
@@ -459,8 +414,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('wellness payload size cap (256KB) is enforced', async () => {
-    await service.initialize();
-
     // ~300KB of payload after wrap — should trip the cap. The oversize field
     // sits inside an otherwise well-formed assessment record so the rejection
     // provably comes from validateStorageSize, not from a malformed payload.
@@ -480,8 +433,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('retrieveWellnessBlob propagates decryption failure when ciphertext is tampered', async () => {
-    await service.initialize();
-
     // Stub decryptData to simulate AES-GCM auth tag failure on tampered input.
     const enc = jest.requireMock('../EncryptionService').default;
     const originalDecrypt = enc.decryptData;
@@ -502,27 +453,15 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('clearAllWellnessData sweeps both AsyncStorage prefixes and migration markers', async () => {
-    await service.initialize();
-
-    // Explicit `assessment_async_` seed: no writer produces the prefix since
-    // MAINT-716, and the sweep covers it as a defensive floor for shipped installs.
+    // Explicit `assessment_async_` seed: no code reads or writes the prefix since
+    // MAINT-716 / MAINT-790, and the sweep covers it as a defensive floor for
+    // shipped installs.
     plantAssessment('wipe-2', { totalScore: 0 });
     await service.storeWellnessBlob('wipe-3', { b: 2 }, 'level_2_assessment_data');
     mockAsyncStorageMap.set('wellness_migrated:assessment_secure_old', 'v1');
 
-    // DEBUG-355: `logStorageAccess` persists an `audit_log_${Date.now()}` entry
-    // on every FAILED operation — since MAINT-378 removed the crisis tier, that
-    // is the only remaining writer, so the audit_log_ assertion below needs a
-    // real failure to be non-vacuous. A `deleteSecureData` on a key held in no
-    // tier is a miss, and a miss is logged as a failure (MAINT-716 re-anchored
-    // this from `storeAssessmentData`'s catch). That prefix was outside the
-    // sweep, so the record survived account erasure. An explicit seed rides
-    // along as a shipped-install record, which the real writer cannot reproduce.
-    const failed = await service.deleteSecureData('wipe-4-absent');
-    expect(failed.success).toBe(false);
-    expect(
-      Array.from(mockAsyncStorageMap.keys()).some((k) => k.startsWith('audit_log_'))
-    ).toBe(true);
+    // `audit_log_` has had no writer since MAINT-790 (`auditLogErasure.privacy.test.ts`
+    // pins that), so a shipped-install residue record is seeded explicitly.
     mockAsyncStorageMap.set('audit_log_1700000000000', JSON.stringify({ success: false }));
     expect(mockAsyncStorageMap.has('assessment_async_wipe-2')).toBe(true);
 
@@ -537,20 +476,18 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   // MAINT-378 behavioural no-writer proof. The crisis storage tier is gone, but
-  // CRISIS_ASYNC_PREFIX is deliberately RETAINED in SWEPT_ASYNC_PREFIXES and in
-  // deleteSecureData as a defensive erasure floor for already-shipped installs.
+  // CRISIS_ASYNC_PREFIX is deliberately RETAINED in SWEPT_ASYNC_PREFIXES as a
+  // defensive erasure floor for already-shipped installs.
   // That retention is only defensible while the namespace is genuinely
   // write-free, so prove it behaviourally: exercise every public writer and
   // assert none of them lands a key there. Asserts against the exported constant
   // so a rename cannot make this pass by drifting away from production.
   it('no public writer produces a key under CRISIS_ASYNC_PREFIX', async () => {
-    await service.initialize();
-
-    // The assessment writer is gone (MAINT-716); the read and delete paths that
-    // reach the assessment namespace are exercised in its place.
-    plantAssessment('no-crisis-1', { totalScore: 27 });
-    await service.retrieveAssessmentData('no-crisis-1');
-    await service.deleteSecureData('no-crisis-1');
+    // The assessment writer is gone (MAINT-716); the surviving read and delete
+    // paths are exercised in its place.
+    plantWellness('no-crisis-1', { totalScore: 27 });
+    await service.retrieveWellnessBlob('no-crisis-1');
+    await service.deleteWellnessBlob('no-crisis-1');
     await service.storeWellnessBlob(
       'no-crisis-2',
       { safetyPlan: 'not persisted through this service' },
@@ -572,7 +509,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   // clearAllWellnessData must explicitly delete the fixed wellness keys that
   // live outside the sweepable AsyncStorage prefixes.
   it('clearAllWellnessData sweeps fixed legacy SecureStore wellness keys', async () => {
-    await service.initialize();
     mockSecureStoreMap.set('stoic_practice_state', 'cipher');
     mockSecureStoreMap.set('assessment_store_encrypted', 'cipher');
     mockSecureStoreMap.set('subscription_secure_v1', 'cipher');
@@ -615,7 +551,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('clearAllWellnessData({deleteMasterKey:true}) deletes the five account keys; the attestation and history fallback survive', async () => {
-    await service.initialize();
     for (const key of ACCOUNT_ERASURE_KEYS) mockSecureStoreMap.set(key, 'x');
     mockSecureStoreMap.set('consent_history_v1', 'history');
     mockSecureStoreMap.set('account_deletion_attestation_v1', 'attestation');
@@ -630,7 +565,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('a PARTIAL clear (no master-key deletion) leaves the account keys alone', async () => {
-    await service.initialize();
     for (const key of ACCOUNT_ERASURE_KEYS) mockSecureStoreMap.set(key, 'x');
     mockSecureStoreMap.set('stoic_practice_state', 'cipher');
 
@@ -641,7 +575,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('deletes the account keys BEFORE the master key', async () => {
-    await service.initialize();
     const enc = jest.requireMock('../EncryptionService').default;
     for (const key of ACCOUNT_ERASURE_KEYS) mockSecureStoreMap.set(key, 'x');
     let presentAtMasterKeyDelete: string[] = [];
@@ -655,7 +588,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('a failed account-key delete THROWS (erasure reports failure) and the master key is not deleted', async () => {
-    await service.initialize();
     const enc = jest.requireMock('../EncryptionService').default;
     enc.deleteMasterKey.mockClear();
     for (const key of ACCOUNT_ERASURE_KEYS) mockSecureStoreMap.set(key, 'x');
@@ -676,7 +608,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   // The master key destroys access to ALL wellness ciphertext, so it is only
   // deleted on a full account-deletion wipe — never on logout/partial clears.
   it('clearAllWellnessData deletes the master key ONLY on full account-deletion wipe', async () => {
-    await service.initialize();
     const enc = jest.requireMock('../EncryptionService').default;
     enc.deleteMasterKey.mockClear();
 
@@ -692,8 +623,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it('deleteWellnessBlob removes both AsyncStorage copy and legacy SecureStore copy', async () => {
-    await service.initialize();
-
     await service.storeWellnessBlob('del-blob', { x: 1 }, 'level_2_assessment_data');
     mockSecureStoreMap.set('consent_history_v1', 'legacy-cipher'); // simulate unmigrated
 
@@ -705,8 +634,6 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   });
 
   it("migrates plaintext_json legacy data by encrypting on the fly (assessment + consent path)", async () => {
-    await service.initialize();
-
     // Pre-INFRA-144 assessment/consent wrote plain JSON to SecureStore.
     // Migration must encrypt the JSON, not try to decrypt-verify it.
     const legacyKey = 'assessment_store_encrypted';
@@ -740,8 +667,8 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
   it('rehydration paths firing before initialize() succeed via lazy init (INFRA-144 boot-order fix)', async () => {
     await service.destroy();
 
-    // Simulates Zustand persist rehydration at module load, ahead of
-    // App.tsx's SecureStorageService.initialize(). Must not throw.
+    // Simulates Zustand persist rehydration at module load, before anything has
+    // touched the encryption layer. Must not throw.
     const result = await service.storeWellnessBlob('rehydrate', { a: 1 }, 'level_2_assessment_data');
     expect(result.success).toBe(true);
 

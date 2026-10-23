@@ -909,6 +909,172 @@ jobs:
           DENO_DIR: ${{ runner.temp }}/deno-cold
         run: cd supabase/functions && deno task test
 
+  # INFRA-782: every supabase/tests/*.sql suite against a freshly reset LOCAL
+  # stack. Before this job nothing ran them — each header said "run by hand",
+  # and three would have failed or SKIPped on a fresh reset unnoticed.
+  #
+  # NON-STRICT until INFRA-829. Every step that can fail carries a step-level
+  # continue-on-error, so the job check stays SUCCESS on a red suite. Job-level
+  # continue-on-error would not do: the job would still report FAILURE, and
+  # b-close-verdict.sh reads any FAILURE row as RED, blocking every PR's close.
+  # The verdict therefore lives in the log, not the colour — the suite step's
+  # last line is `N/N suites passed, 0 SKIP` only on a full pass. INFRA-829
+  # promotes the job by deleting those flags.
+  #
+  # Local-only by construction, and pinned by
+  # app/__tests__/scripts/supabase-sql-ci-job.test.js: no secrets, no project
+  # ref, no link/push/deploy — psql only ever targets 127.0.0.1:54322.
+  supabase-sql:
+    name: Supabase SQL suites
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    # Replaces the workflow default (contents + packages): this job installs
+    # nothing from GitHub Packages.
+    permissions:
+      contents: read
+    env:
+      # config.toml reads these via env() for [auth.external.apple]; the local
+      # stack refuses to start without them. Visibly fake on purpose.
+      APPLE_CLIENT_ID: ci-local-fake-apple-client-id
+      APPLE_SECRET: ci-local-fake-apple-secret-not-a-real-key
+      DB_URL: postgresql://postgres:postgres@127.0.0.1:54322/postgres
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: supabase/setup-cli@v1
+        id: cli
+        continue-on-error: true
+        with:
+          version: 2.119.0
+
+      # Only postgres and gotrue are needed: gotrue owns the auth schema the
+      # suites seed into. One retry absorbs a registry pull blip.
+      - name: Start local stack
+        id: stack
+        if: steps.cli.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          EXCLUDE=realtime,storage-api,imgproxy,kong,mailpit,postgrest,postgres-meta,studio,edge-runtime,logflare,vector,supavisor
+          for attempt in 1 2; do
+            if supabase start -x "$EXCLUDE"; then
+              exit 0
+            fi
+            echo "::warning::supabase start attempt $attempt failed"
+            supabase stop --no-backup || true
+          done
+          exit 1
+
+      - name: Reset database and wait for health
+        id: reset
+        if: steps.stack.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 8
+        shell: bash
+        run: |
+          supabase db reset --local
+          psql --version
+          for i in $(seq 1 30); do
+            if psql "$DB_URL" -X -At -c 'SELECT count(*) FROM auth.users' >/dev/null 2>&1; then
+              echo "database healthy after $i probe(s)"
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::database did not become healthy after reset"
+          exit 1
+
+      # Permanent measurement, not a test: what the migrations grant
+      # service_role on a fresh reset, and who granted it. INFRA-782's REVOKE
+      # migration is scoped to verbs this dump shows; keep it for the next one.
+      - name: Grant dump (service_role, public schema)
+        if: steps.reset.outcome == 'success'
+        continue-on-error: true
+        shell: bash
+        run: |
+          psql "$DB_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
+          \echo '== pg_class ACLs: service_role on public tables (aclexplode, unfiltered) =='
+          SELECT c.relname AS table_name, a.privilege_type, g.rolname AS grantor
+            FROM pg_class c
+            JOIN pg_namespace n ON n.oid = c.relnamespace
+            CROSS JOIN LATERAL aclexplode(c.relacl) a
+            JOIN pg_roles r ON r.oid = a.grantee
+            JOIN pg_roles g ON g.oid = a.grantor
+           WHERE n.nspname = 'public' AND c.relkind IN ('r', 'p') AND r.rolname = 'service_role'
+           ORDER BY 1, 2;
+          \echo '== information_schema.role_table_grants: service_role on public =='
+          SELECT table_name, privilege_type, grantor
+            FROM information_schema.role_table_grants
+           WHERE grantee = 'service_role' AND table_schema = 'public'
+           ORDER BY 1, 2;
+          \echo '== pg_default_acl =='
+          SELECT pg_get_userbyid(d.defaclrole) AS owner, n.nspname AS schema,
+                 d.defaclobjtype AS objtype, d.defaclacl AS acl
+            FROM pg_default_acl d
+            LEFT JOIN pg_namespace n ON n.oid = d.defaclnamespace
+           ORDER BY 1, 2, 3;
+          \echo '== cron.job =='
+          SELECT jobname, username, schedule FROM cron.job ORDER BY jobname;
+          SQL
+
+      # Runs EVERY suite and collects failures rather than stopping at the
+      # first, in C-locale order so the sequence is the same on every runner.
+      # A SKIP line is a failure: a suite that skips proved nothing.
+      # vault.secrets must be empty before the first suite and after the last —
+      # no real secret belongs in this database, and no suite may plant one.
+      - name: Run SQL suites
+        if: steps.reset.outcome == 'success'
+        continue-on-error: true
+        timeout-minutes: 10
+        shell: bash
+        run: |
+          set -uo pipefail
+          vault_count() {
+            psql "$DB_URL" -X -At -v ON_ERROR_STOP=1 -c 'SELECT count(*) FROM vault.secrets'
+          }
+          before=$(vault_count) || { echo "::error::could not read vault.secrets"; exit 1; }
+          if [ "$before" != "0" ]; then
+            echo "::error::vault.secrets holds $before row(s) before the first suite"
+            exit 1
+          fi
+
+          mapfile -t suites < <(printf '%s\n' supabase/tests/*.sql | LC_ALL=C sort)
+          total=${#suites[@]}
+          if [ "$total" -eq 0 ] || [ ! -f "${suites[0]}" ]; then
+            echo "::error::no suites matched supabase/tests/*.sql"
+            exit 1
+          fi
+
+          passed=0; failed=(); skipped=()
+          for f in "${suites[@]}"; do
+            log="$RUNNER_TEMP/$(basename "$f").log"
+            echo "::group::$f"
+            if psql "$DB_URL" -v ON_ERROR_STOP=1 -X -f "$f" >"$log" 2>&1; then rc=0; else rc=$?; fi
+            cat "$log"
+            echo "::endgroup::"
+            if grep -qE '\bSKIP\b' "$log"; then
+              skipped+=("$f")
+              echo "::error file=$f::suite printed a SKIP line"
+            elif [ "$rc" -ne 0 ]; then
+              failed+=("$f")
+              echo "::error file=$f::suite exited $rc"
+            else
+              passed=$((passed + 1))
+            fi
+          done
+
+          after=$(vault_count) || { echo "::error::could not read vault.secrets"; exit 1; }
+          if [ "$after" != "0" ]; then
+            echo "::error::vault.secrets holds $after row(s) after the last suite"
+            exit 1
+          fi
+
+          for f in "${failed[@]}"; do echo "FAILED: $f"; done
+          for f in "${skipped[@]}"; do echo "SKIPPED: $f"; done
+          echo "${passed}/${total} suites passed, ${#skipped[@]} SKIP"
+          [ "$passed" -eq "$total" ]
+
   # Aggregate gate. Required jobs must pass; perf and lint can be
   # advisory if needed. Keeps PR review surface tight.
   ci-pass:
@@ -939,6 +1105,7 @@ jobs:
       - performance
       - edge-functions
       - safety-privacy
+      - supabase-sql
 
     steps:
       # INFRA-362. This MUST run before "Aggregate gate status", which exits 1.
@@ -981,6 +1148,7 @@ jobs:
           add "Performance regression"        "${{ needs.performance.result }}"
           add "Edge Functions (Deno)"         "${{ needs.edge-functions.result }}"
           add "Safety + privacy gates"        "${{ needs.safety-privacy.result }}"
+          add "Supabase SQL suites"           "${{ needs.supabase-sql.result }}"
           echo "failed=$FAILED"       >> "$GITHUB_OUTPUT"
           echo "cancelled=$CANCELLED" >> "$GITHUB_OUTPUT"
           echo "Failing gates:   ${FAILED:-none}"
@@ -998,9 +1166,14 @@ jobs:
           echo "accessibility:    ${{ needs.accessibility.result }}"
           echo "edge-functions:   ${{ needs.edge-functions.result }}"
           echo "safety-privacy:   ${{ needs.safety-privacy.result }}"
-          # All 10 jobs are strict gates: T17 (TEST-10) added the Edge Functions
-          # Deno suite, INFRA-368 added Safety + privacy gates.
-          # Advisory list: (empty)
+          echo "supabase-sql:     ${{ needs.supabase-sql.result }}"
+          # 10 of the 11 jobs are strict gates: T17 (TEST-10) added the Edge
+          # Functions Deno suite, INFRA-368 added Safety + privacy gates.
+          # Advisory list: supabase-sql (INFRA-782). It is wired into all four
+          # lists, but its steps are continue-on-error until INFRA-829, so its
+          # result is `success` even on a red suite — only a cancel or a job
+          # timeout reaches this condition. Its verdict is the job log's
+          # `N/N suites passed, 0 SKIP` line.
           #
           # Real gates that must pass:
           #   typecheck, lint (baseline ratchet), crisis-validation,
@@ -1021,7 +1194,8 @@ jobs:
              || "${{ needs.performance.result }}" != "success" \
              || "${{ needs.accessibility.result }}" != "success" \
              || "${{ needs.edge-functions.result }}" != "success" \
-             || "${{ needs.safety-privacy.result }}" != "success" ]]; then
+             || "${{ needs.safety-privacy.result }}" != "success" \
+             || "${{ needs.supabase-sql.result }}" != "success" ]]; then
             echo "❌ One or more required gates failed"
             exit 1
           fi

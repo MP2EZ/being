@@ -302,19 +302,25 @@ export function sanitizeFeedbackMessage(message: string): string {
  * Global Sentry event processor for FEAT-284 feedback events.
  *
  * - Non-feedback events pass through untouched (beforeSend still owns them).
- * - Feedback events: keep the useful debugging context (screenshot attachment,
- *   already-sanitized breadcrumbs, device, release) but apply light hygiene —
- *   reduce `user` to the anonymous uid ONLY (never email/ip/username), never
- *   cross-link via `associated_event_id`, and pattern-scrub the typed message.
+ * - Feedback events: keep the useful debugging context (already-sanitized
+ *   breadcrumbs, device, release) but apply light hygiene — delete `user` and the
+ *   vendor-derived `device_app_hash`, never cross-link via `associated_event_id`,
+ *   and pattern-scrub the typed message.
  * - Fail-safe: any throw → return null (drop), never fail-open.
+ *
+ * DEBUG-797: with *Crash Reports* on, the consented client's DeviceContext copies
+ * the native scope into the report — `user.id` is the Sentry installation UUID
+ * (RNSentry fills a nil native user with it) and `contexts.app.device_app_hash` a
+ * device identifier that survives reinstall. Either joins a bug report to that
+ * install's crash events, the linkage the `associated_event_id` removal exists to
+ * prevent. Crash and session events keep them (disclosed in privacy-policy §5.1).
  */
 export function scrubFeedbackEvent(event: any): any | null {
   if (!event || event.type !== 'feedback') return event;
   try {
-    // Identity hygiene: keep ONLY the anonymous Supabase uid; never email/ip.
-    if (event.user) {
-      event.user = event.user.id ? { id: event.user.id } : undefined;
-    }
+    delete event.user;
+    if (event.contexts?.app) delete event.contexts.app.device_app_hash;
+    if (event.tags) delete event.tags['app.device'];
 
     const fb = event.contexts?.feedback;
     if (fb) {

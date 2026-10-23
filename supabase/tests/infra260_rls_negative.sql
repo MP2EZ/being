@@ -11,7 +11,9 @@
 -- at runtime) + role=authenticated — NOT the old SET LOCAL app.device_id that the
 -- stale supabase-rls-verification.md used. Each assertion RAISEs on failure.
 --
--- Last validated: 2026-06-07 on the local stack — 6/6 PASS.
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
+-- Previously: 2026-06-07 on the local stack — 6/6 PASS.
 -- Tests 6-7 (backups_delete own-row / cross-user) added by DEBUG-764; not yet run.
 
 \set ON_ERROR_STOP on

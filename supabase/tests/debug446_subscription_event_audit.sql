@@ -5,11 +5,10 @@
 -- supabase/functions/_tests/subscription-audit-error-handling.test.ts pins the SOURCE SHAPE —
 -- that no caller discards the RPC result. It cannot pin BEHAVIOUR: the `Edge Functions (Deno)`
 -- CI job runs `--cached-only` with no network egress (INFRA-354), so nothing there can reach a
--- real Postgres and observe a real CHECK constraint. This file is the behavioural half, and it
--- is run by hand — no CI workflow references supabase/tests/.
---
--- That split is deliberate and worth stating plainly rather than papering over: the assertion
--- that a successful verification produces an audit row is verified on demand, not on every PR.
+-- real Postgres and observe a real CHECK constraint. This file is the behavioural half. Since
+-- INFRA-782 it runs on every PR in ci.yml's `Supabase SQL suites` job against a freshly reset
+-- local stack (non-strict until INFRA-829 promotes it; read the job log's
+-- `N/N suites passed, 0 SKIP` line, not the check colour).
 --
 -- HOW TO RUN (local stack):
 --   supabase start && supabase db reset
@@ -20,7 +19,9 @@
 -- Nothing persists. Running it in the Supabase SQL editor after a migration push is the
 -- intended use.
 --
--- Last validated: 2026-08-16 against the shared prod project.
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
+-- Previously: 2026-08-16 against the shared prod project.
 
 \set ON_ERROR_STOP on
 
@@ -59,22 +60,24 @@ BEGIN
 END $$;
 
 -- ============ Test 2: a success event actually lands, and an unknown type is REFUSED
--- Rolled back. The row is constructed against a real user so the FK holds; if the table is
--- empty the test skips rather than inventing a user.
+-- Rolled back. The test seeds its own principal so the FK holds on any database, a freshly
+-- reset one included: a fixed-UUID auth.users row, whose insert trigger creates the matching
+-- public.users row. Both are inside this block, so the sentinel below rolls them back too.
 DO $$
 DECLARE
-  v_user     uuid;
+  v_user     uuid := '44644644-6446-4446-8446-446446446446';
   v_event_id uuid;
   v_landed   integer;
   v_refused  boolean := false;
 BEGIN
-  SELECT id INTO v_user FROM public.users LIMIT 1;
+  INSERT INTO auth.users (id, instance_id, aud, role, is_anonymous, created_at, updated_at)
+  VALUES (v_user, '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenticated',
+          true, now(), now());
 
-  IF v_user IS NULL THEN
-    RAISE NOTICE
-      'DEBUG-446 Test 2 SKIP: public.users is empty, so no FK-valid row can be constructed. '
-      'Re-run against a database with at least one user. Test 1 still covers the constraint.';
-    RETURN;
+  IF NOT EXISTS (SELECT 1 FROM public.users WHERE id = v_user) THEN
+    RAISE EXCEPTION
+      'DEBUG-446 Test 2 FAIL: seeding auth.users did not create public.users %; the '
+      'provisioning trigger is missing, so no FK-valid audit row can be constructed', v_user;
   END IF;
 
   -- (a) the success path writes a row. This is the assertion the ticket is about: before the

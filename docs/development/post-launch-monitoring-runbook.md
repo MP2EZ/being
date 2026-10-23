@@ -131,6 +131,10 @@ in the dashboard, then verify with the MCP.
 > remote counter (`appVersionSource: remote`), so check the release's build number against EAS.
 > Every alert or saved search reading real traffic must filter on `environment:production`; the
 > retag changes nothing unless the filter is there.
+>
+> From MAINT-780 the gate build seeds Crash Reports off, so a gate launch never starts Sentry and
+> sends no events or sessions. Zero `environment:simulator` traffic from a gate built on a branch
+> carrying MAINT-780 is expected, not a pipeline outage.
 
 > [!IMPORTANT]
 > **PostHog is NOT an alternative crash source — don't reach for it.** Verified 2026-06-18: the

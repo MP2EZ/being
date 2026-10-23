@@ -100,14 +100,14 @@ const MANIFEST: Record<string, Record<string, Row>> = {
   'src/core/services/supabase/SupabaseService.ts': {
     'SupabaseService.flushCrisisAnalytics.flight › supabase.insert': [1, CRISIS_TELEMETRY],
     'SupabaseService.persistCrisisQueue.run › AsyncStorage.setItem': [1, CRISIS_TELEMETRY],
-    'SupabaseService.deleteAccount › functions.invoke': [1, ERASURE],
+    'SupabaseService.runDeletionAttempt › functions.invoke': [1, ERASURE],
     'SupabaseService.flushAnalytics › supabase.insert': [
       1,
       `${NOT_WELLNESS} — cloud-sync operational telemetry`,
       'backup completed/failed/restored counts; gated on cloud_sync consent',
     ],
-    'SupabaseService.attemptBackupUpload › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — last-sync timestamp`],
-    'SupabaseService.attemptBackupUpload › supabase.upsert': [
+    'SupabaseService.runBackupUpload › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — last-sync timestamp`],
+    'SupabaseService.runBackupUpload › supabase.upsert': [
       1,
       `${NOT_WELLNESS} — CloudBackupService payload, uploads only {autoSaveEnabled}`,
       'encrypted; the allowlist is pinned by the spec below',
@@ -117,7 +117,7 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       `${NOT_WELLNESS} — encrypted config-backup retry`,
       'unverified: a pre-MAINT-117 queue on an old install could still hold a full-state blob; the key is swept at erasure (DEBUG-698: SWEPT_EXACT_KEYS + in-memory reset)',
     ],
-    'SupabaseService.processOfflineQueue › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — encrypted config-backup retry`],
+    'SupabaseService.runOfflineQueuePass › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — encrypted config-backup retry`],
     'SupabaseService.cleanup › AsyncStorage.setItem': [1, DORMANT],
     'SupabaseService.requestBackupDeletion › AsyncStorage.setItem': [
       2,
@@ -185,9 +185,6 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       'relocates ciphertext already stored (INFRA-144); blocking it would lose data',
     ],
     'SecureStorageService.markMigrated › AsyncStorage.setItem': [1, STORAGE_LAYER, 'migration flag'],
-    'SecureStorageService.logStorageAccess › AsyncStorage.setItem': [1, STORAGE_LAYER, 'failed-op metadata, no payload'],
-    'SecureStorageService.verifyStorageCapabilities › AsyncStorage.setItem': [1, STORAGE_LAYER, 'probe write'],
-    'SecureStorageService.verifyStorageCapabilities › setItemAsync': [1, STORAGE_LAYER, 'probe write'],
   },
   'src/core/services/security/EncryptionService.ts': {
     'EncryptionService.initializeMasterKey › setItemAsync': [1, `${NOT_WELLNESS} — key material`],
@@ -209,7 +206,6 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     'useSettingsStore.updatePrivacySettings › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — app settings`],
   },
   'src/core/stores/subscriptionStore.ts': {
-    'useSubscriptionStore.createTrial › setItemAsync': [1, `${NOT_WELLNESS} — entitlement`],
     'useSubscriptionStore.enterGracePeriod › setItemAsync': [1, `${NOT_WELLNESS} — entitlement`],
     'useSubscriptionStore.exitGracePeriod › setItemAsync': [1, `${NOT_WELLNESS} — entitlement`],
     'useSubscriptionStore.processVerifiedPurchase › setItemAsync': [1, `${NOT_WELLNESS} — entitlement`],

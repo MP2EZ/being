@@ -293,6 +293,17 @@ const PERSIST_DEBOUNCE_MS = 500;
 let pendingPersistTimeout: ReturnType<typeof setTimeout> | null = null;
 let pendingPersistPromise: Promise<void> | null = null;
 
+/**
+ * Erasure epoch (DEBUG-789). Bumped synchronously at the START of the registered
+ * erasure reset. The registry stops waiting for that reset at a deadline, so its tail
+ * can run AFTER the deletion finished and a post-erasure debounce is armed: anything
+ * that outlives the reset compares against the epoch rather than trusting that it
+ * is still inside the erasure.
+ */
+let erasureEpoch = 0;
+/** The epoch `pendingPersistTimeout` was armed in. */
+let pendingPersistArmedEpoch = 0;
+
 // ──────────────────────────────────────────────────────────────────────────────
 // ART. 9 WRITE GATE (FEAT-667, FEAT-318 slice C)
 //
@@ -352,6 +363,7 @@ function schedulePersist(delayMs: number = PERSIST_DEBOUNCE_MS): void {
   if (pendingPersistTimeout) {
     clearTimeout(pendingPersistTimeout);
   }
+  pendingPersistArmedEpoch = erasureEpoch;
   pendingPersistTimeout = setTimeout(() => {
     pendingPersistTimeout = null;
     pendingPersistPromise = runPersist().finally(() => {
@@ -366,10 +378,12 @@ function schedulePersist(delayMs: number = PERSIST_DEBOUNCE_MS): void {
  * (FEAT-667). Never rejects: the AppState flush awaits this on a 988 handoff.
  */
 async function runPersist(): Promise<void> {
+  const epoch = erasureEpoch;
   try {
     const outcome = await persistToSecureStore(useStoicPracticeStore.getState());
     // A mutation since the snapshot has already re-armed the timer; it will retry.
-    if (outcome === 'deferred' && !pendingPersistTimeout) {
+    // An erasure since the snapshot means this retry belongs to erased state.
+    if (outcome === 'deferred' && !pendingPersistTimeout && epoch === erasureEpoch) {
       schedulePersist(LOADING_RETRY_MS);
     }
   } catch (err) {
@@ -803,12 +817,15 @@ export const useStoicPracticeStore = create<StoicPracticeState>((set, get) => ({
  * (DEBUG-671). Memory only: the disk is the wipe's job, and this runs just before it.
  *
  * Cancels the pending debounce, then awaits a persist already in flight so that
- * write lands BEFORE the wipe rather than after it. A deferred persist can re-arm
- * the timer while awaited, so it is cancelled again. One merging `setState`, never
+ * write lands BEFORE the wipe rather than after it (the registry bounds that await,
+ * DEBUG-789). A deferred persist started before the erasure no longer re-arms the
+ * timer (epoch guard in runPersist), and the tail below only cancels a timer armed
+ * before this erasure, never a post-erasure debounce. One merging `setState`, never
  * `replace`: `getInitialState` carries no actions, and the root navigator
  * destructures them.
  */
 export async function resetStoicPracticeStoreForErasure(): Promise<void> {
+  const epoch = (erasureEpoch += 1);
   if (pendingPersistTimeout) {
     clearTimeout(pendingPersistTimeout);
     pendingPersistTimeout = null;
@@ -817,7 +834,10 @@ export async function resetStoicPracticeStoreForErasure(): Promise<void> {
   if (pendingPersistPromise) {
     await pendingPersistPromise;
   }
-  if (pendingPersistTimeout) {
+  // Only a timer armed BEFORE this erasure is ours to cancel. The registry bounds the
+  // await above (DEBUG-789), so this tail can run late, after a legitimate
+  // post-erasure debounce was armed; that one belongs to the new account.
+  if (pendingPersistTimeout && pendingPersistArmedEpoch < epoch) {
     clearTimeout(pendingPersistTimeout);
     pendingPersistTimeout = null;
   }

@@ -47,6 +47,7 @@ import {
   Pressable,
   ActivityIndicator,
   Platform,
+  Keyboard,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -84,6 +85,17 @@ const SUBSCRIPTION_NOTICE = {
     'If you pay for Being through Google Play, deleting your account does not cancel ' +
     'billing. To cancel, open Play Store, then Payments & subscriptions, then Subscriptions.',
 } as const;
+
+/**
+ * DEBUG-707 (compliance ruling): every unconfirmed outcome, the deadline included. Since
+ * DEBUG-704 an unconfirmed attempt may already have erased the server account, so the old
+ * "Account deletion failed. Your data is intact." was false on a data-subject-rights
+ * surface. Scoped to on-device wellness data, which a late confirmation never touches.
+ */
+const UNCONFIRMED_MESSAGE =
+  "We couldn't confirm that your account was deleted. Your wellness data on this device has " +
+  "not been deleted, and we can't tell yet whether your account on our servers was erased. " +
+  "It's safe to try again, or contact privacy@being.fyi.";
 
 // DEBUG-762: erasure now deletes the consent, legal-acceptance and age records, so this
 // names what is actually kept and gives a truthful category for the rest (DEBUG-763
@@ -139,6 +151,10 @@ const DeleteAccountScreen: React.FC = () => {
 
   const handleDelete = useCallback(async () => {
     if (confirmText !== CONFIRM_WORD || status !== 'idle') return;
+    // DEBUG-707 (crisis ruling): with the keyboard up it covers the root FAB and its crisis
+    // accessory is the only 988 path, and iOS does not reliably keep that accessory once the
+    // field turns editable=false. Down, the FAB is the one known affordance for the wait.
+    Keyboard.dismiss();
     setStatus('deleting');
     setErrorMessage(null);
     try {
@@ -158,13 +174,11 @@ const DeleteAccountScreen: React.FC = () => {
         rootNavigation.reset({ index: 0, routes: [{ name: POST_ERASURE_ROUTE }] });
         return;
       }
-      // Server erasure failed — local data is intact; allow retry. Never announced
-      // over a focused crisis screen (DEBUG-703); the text waits for the user's return.
+      // Server erasure unconfirmed (DEBUG-704), or the deadline elapsed (DEBUG-707): local
+      // data untouched; allow retry. Never announced over a focused crisis screen
+      // (DEBUG-703); the text waits for the user's return.
       setAnnounceError(!isCrisisDestinationFocused());
-      setErrorMessage(
-        'Account deletion failed. Your data is intact. Please check your connection ' +
-          'and try again, or contact privacy@being.fyi.',
-      );
+      setErrorMessage(UNCONFIRMED_MESSAGE);
     } catch {
       setAnnounceError(!isCrisisDestinationFocused());
       setErrorMessage(

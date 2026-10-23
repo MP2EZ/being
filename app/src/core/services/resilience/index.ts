@@ -1,28 +1,24 @@
 /**
  * SYSTEM RESILIENCE SERVICES
  *
- * FAULT TOLERANCE AND SYSTEM RESILIENCE:
- * - Circuit breaker patterns for external service protection
- * - Graceful degradation during service outages
- * - Crisis intervention protection (highest priority)
- * - Intelligent fallback strategies
- * - Automatic recovery and health monitoring
+ * Circuit breakers for external services, plus a health-reporting orchestrator.
  *
- * SAFETY-CRITICAL GUARANTEES:
- * - Crisis detection never fails (threshold=1, recovery=5s)
- * - Mental health features remain functional during outages
- * - Authentication graceful degradation with offline mode
- * - Sync operations intelligent queueing for retry
- * - Analytics fail silently without user impact
+ * What this module does NOT do (MAINT-794): it does not protect crisis
+ * detection. detectCrisis() is a pure, synchronous score function over PHQ-9 /
+ * GAD-7 integers and is not routed through any circuit breaker here. The crisis
+ * button, the 988 dial and crisis telemetry do not depend on this module either
+ * (SupabaseService keeps its own breaker state).
+ *
+ * Live surface: resilienceOrchestrator.initialize() and getResilienceStatus(),
+ * read by CrisisMonitoringService for infrastructure-health metrics and alerts.
  *
  * USAGE:
- * import { circuitBreakerService, protectedCrisisDetection } from '@/core/services/resilience';
+ * import { circuitBreakerService, resilienceOrchestrator } from '@/core/services/resilience';
  */
 
 // Import for internal use
 import { circuitBreakerService, CircuitBreakerState, ProtectedService } from './CircuitBreakerService';
 import { logSecurity, logError, logPerformance, LogCategory } from '../logging';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Core Circuit Breaker Service
 export {
@@ -35,7 +31,6 @@ export {
 // Protected Operation Helpers
 export {
   executeProtected,
-  protectedCrisisDetection,
   protectedAuthentication,
   protectedSyncOperation,
   protectedAnalytics,
@@ -187,149 +182,9 @@ export class ResilienceOrchestrator {
       criticalServicesStatus
     };
   }
-
-  /**
-   * Emergency actions for system resilience
-   */
-  async triggerEmergencyProtocol(): Promise<void> {
-    try {
-      logSecurity('Emergency resilience protocol triggered', 'critical', {
-        component: 'resilience_orchestrator',
-        action: 'emergency_protocol'
-      });
-
-      // Force close critical service circuits to attempt recovery
-      const criticalServices = [
-        ProtectedService.CRISIS_DETECTION,
-        ProtectedService.AUTHENTICATION,
-        ProtectedService.ASSESSMENT_STORE
-      ];
-
-      for (const service of criticalServices) {
-        try {
-          circuitBreakerService.forceCircuitState(service, CircuitBreakerState.CLOSED);
-        } catch (error) {
-          logError(LogCategory.SECURITY, `Failed to force close circuit for ${service}`, error instanceof Error ? error : undefined);
-        }
-      }
-
-      // Clear any queued operations that might be causing issues
-      await this.clearOperationQueues();
-
-      logSecurity('Emergency resilience protocol completed', 'critical', {
-        component: 'resilience_orchestrator',
-        action: 'emergency_protocol',
-        result: 'success' as any
-      });
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, 'Emergency resilience protocol failed', error instanceof Error ? error : undefined);
-      throw error;
-    }
-  }
-
-  /**
-   * Clear operation queues
-   */
-  private async clearOperationQueues(): Promise<void> {
-    try {
-      // Clear circuit breaker queues
-      const queueKeys = Object.values(ProtectedService).map(service =>
-        `circuit_breaker_queue_${service}`
-      );
-
-      for (const key of queueKeys) {
-        try {
-          await AsyncStorage.removeItem(key);
-        } catch (error) {
-          // Continue with other queues
-        }
-      }
-
-      logSecurity('Operation queues cleared', 'low', {
-        component: 'resilience_orchestrator',
-        clearedQueues: queueKeys.length
-      });
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, 'Failed to clear operation queues', error instanceof Error ? error : undefined);
-    }
-  }
-
-  /**
-   * Emergency shutdown
-   */
-  async emergencyShutdown(): Promise<void> {
-    try {
-      if (this.healthCheckInterval) {
-        clearInterval(this.healthCheckInterval);
-        this.healthCheckInterval = null;
-      }
-
-      await circuitBreakerService.emergencyShutdown();
-
-      this.isInitialized = false;
-
-      logSecurity('Resilience orchestrator emergency shutdown', 'critical', {
-        component: 'resilience_orchestrator',
-        reason: 'emergency_shutdown'
-      });
-
-    } catch (error) {
-      logError(LogCategory.SECURITY, 'Resilience orchestrator shutdown failed', error instanceof Error ? error : undefined);
-    }
-  }
 }
 
 // Export singleton instance
 export const resilienceOrchestrator = ResilienceOrchestrator.getInstance();
-
-/**
- * CONVENIENCE FUNCTIONS
- */
-
-/**
- * Check if system is healthy for critical operations
- */
-export function isCriticalSystemHealthy(): boolean {
-  const status = resilienceOrchestrator.getResilienceStatus();
-  return status.criticalServicesStatus === 'all_healthy';
-}
-
-/**
- * Check if specific service is available
- */
-export function isServiceAvailable(service: ProtectedService): boolean {
-  const statuses = circuitBreakerService.getCircuitBreakerStatuses();
-  const serviceStatus = statuses[service];
-
-  return !!(serviceStatus && serviceStatus.state !== CircuitBreakerState.OPEN);
-}
-
-/**
- * Get system resilience health check
- */
-export function getSystemResilienceHealth(): 'healthy' | 'degraded' | 'critical' {
-  const systemHealth = circuitBreakerService.getSystemHealth();
-  return systemHealth.overall;
-}
-
-/**
- * Initialize resilience for a service
- */
-export async function initializeServiceResilience(serviceName: string): Promise<void> {
-  try {
-    await resilienceOrchestrator.initialize();
-
-    logSecurity(`Service resilience initialized for ${serviceName}`, 'low', {
-      component: serviceName,
-      action: 'resilience_init'
-    });
-
-  } catch (error) {
-    logError(LogCategory.SECURITY, `Failed to initialize resilience for ${serviceName}`, error instanceof Error ? error : undefined);
-    throw error;
-  }
-}
 
 export default resilienceOrchestrator;

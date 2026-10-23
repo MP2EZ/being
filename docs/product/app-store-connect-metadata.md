@@ -238,7 +238,7 @@ This is the hardest section. Apple requires you to declare every data type the a
 
 ### 5.1 Authoritative source
 
-The nutrition-label answers are already encoded in `app/ios/Being/PrivacyInfo.xcprivacy` and documented in `docs/security/ios-privacy-manifest.md`. The values below transcribe that source — they are not new decisions.
+The collected-data declarations are encoded in `app/app.json` → `expo.ios.privacyManifests.NSPrivacyCollectedDataTypes`, which `expo prebuild` writes into `app/ios/Being/PrivacyInfo.xcprivacy`. That file is generated (iOS is CNG, INFRA-280) and gitignored, so never edit or cite it as a source. The reasoning is in `docs/security/ios-privacy-manifest.md`, and the values are pinned by `app/__tests__/privacy/privacyManifestCollectedDataTypes.config.test.ts`. The App Store Connect label is entered by hand and must match the manifest (DEBUG-793).
 
 ### 5.2 Data declarations for App Store Connect
 
@@ -248,7 +248,7 @@ The nutrition-label answers are already encoded in `app/ios/Being/PrivacyInfo.xc
 |---|---|
 | Collected | **Yes** |
 | Data types | PHQ-9 responses, GAD-7 responses, daily mood check-in data, practice completion status |
-| Linked to user identity | **No** — local-only by default; optional cloud sync is end-to-end encrypted with user-controlled keys |
+| Linked to user identity | **Pending a compliance ruling (DEBUG-821) — do not submit "No".** Screening responses, mood values and practice data stay on the device (optional cloud backup is end-to-end encrypted with user-controlled keys), but a Crisis Detection Event (`crisis_detected`) is sent to Being's server keyed to the anonymous account identifier (`auth.uid()`), so the earlier "local-only" answer was false (DEBUG-793). The manifest declares no Health type yet, and it must match whatever is ruled here (`docs/security/ios-privacy-manifest.md`) |
 | Used for tracking | **No** |
 | Purpose | App Functionality |
 
@@ -256,23 +256,55 @@ The nutrition-label answers are already encoded in `app/ios/Being/PrivacyInfo.xc
 
 | Field | Value |
 |---|---|
-| Collected | **Yes** (when `SENTRY_DSN` env var is configured in the build) |
+| Collected | **Yes**, only while *Crash Reports* is on (off by default) and *Honor Universal Opt-Out* is off (privacy policy §5.1) |
 | Source | `@sentry/react-native` 7.7.0, abstracted via `ExternalErrorReporter.ts` |
-| Linked to user identity | **No** — multi-layer PHI scrubbing + allowlist sanitization strips all wellness/PHI fields before transmission |
+| Linked to user identity | **Yes** — payloads are scrubbed of wellness data, but crash and session records carry a per-installation identifier and a device identifier, plus approximate location (privacy policy v1.21, §5.1) |
 | Used for tracking | **No** |
 | Purpose | App Functionality |
 
+**Identifiers → Device ID**
+
+| Field | Value |
+|---|---|
+| Collected | **Yes** |
+| Source | PostHog's install-persistent `distinct_id` (only with *Usage Analytics* on); Sentry's installation and device identifiers (only with *Crash Reports* on) |
+| Linked to user identity | **Yes** — conservative: an install-persistent identifier is a device-level link (`docs/security/ios-privacy-manifest.md`) |
+| Used for tracking | **No** |
+| Purpose | Analytics, App Functionality |
+
+**Usage Data → Product Interaction**
+
+| Field | Value |
+|---|---|
+| Collected | **Yes**, only with *Usage Analytics* on |
+| Source | PostHog product events (screen views, completed actions, opening support resources, tapping a crisis line) |
+| Linked to user identity | **Yes** — keyed to the Device ID above |
+| Used for tracking | **No** |
+| Purpose | Analytics |
+
+**Location → Coarse Location**
+
+| Field | Value |
+|---|---|
+| Collected | **Yes** |
+| Source | City-level GeoIP derived by PostHog (with *Usage Analytics* on) and by Sentry (with *Crash Reports* on, and on any bug report you send); IP addresses are not stored |
+| Linked to user identity | **Yes** — stored with the Device ID above |
+| Used for tracking | **No** |
+| Purpose | Analytics, App Functionality |
+
 **Data Used to Track You:** None.
+
+**Open (not ruled in DEBUG-793):** the app sends the store transaction identifier to Being's server, which stores it with the plan, status and dates against the anonymous account identifier (privacy policy §4.1 *Purchases*). Whether that requires a **Purchases → Purchase History** declaration needs a compliance ruling before submission.
 
 ### 5.3 What's NOT collected (per code inspection + privacy policy)
 
-- No location / GPS
+- No precise location / GPS (coarse, city-level location is declared above)
 - No contacts / address book
 - No camera / microphone (unless explicitly enabled for a future feature)
 - No third-party advertising identifiers (IDFA, etc.)
-- No analytics SDKs (no Firebase, Mixpanel, Amplitude, PostHog)
+- No analytics SDKs other than PostHog (no Firebase, Mixpanel, Amplitude); PostHog is declared above
 - No account/auth in v1.0 (see §6.1)
-- No subscription receipt server-side validation (StoreKit device-only)
+- Subscription receipts ARE validated server-side (`verify-apple-receipt`), see the open Purchases item above
 - No iCloud or CloudKit backup
 
 ### 5.4 If a cloud-sync account flow ships later

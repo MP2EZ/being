@@ -45,7 +45,7 @@ import {
 } from '@/core/theme';
 import type { AssessmentSession, AssessmentType } from '@/features/assessment/types';
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
-import { useFeatureFlag } from '@/core/analytics';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 import {
   getTrendPoints,
   compareWindows,
@@ -550,9 +550,9 @@ const WellnessScreeningTrends: React.FC<WellnessScreeningTrendsProps> = ({
   // Default to the full history; narrowing is opt-in via the selector.
   const [range, setRange] = useState<TrendTimeRange>('all');
 
-  // FEAT-195 — "Your note" annotations (runtime flag, ships dark; UI visibility
+  // FEAT-195 — "Your note" annotations (build-time flag, ships dark; UI visibility
   // only — the note's encryption/consent/delete paths are independent).
-  const notesEnabled = useFeatureFlag('wellness_trend_notes');
+  const notesEnabled = isFeatureEnabled('wellness_trend_notes');
   const setSessionNote = useAssessmentStore((s) => s.setSessionNote);
   const clearSessionNote = useAssessmentStore((s) => s.clearSessionNote);
   const [editing, setEditing] = useState<{ session: AssessmentSession; subtitle: string } | null>(

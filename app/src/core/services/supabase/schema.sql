@@ -555,8 +555,8 @@ CREATE TABLE IF NOT EXISTS subscription_events (
   -- Event metadata (JSONB for flexibility)
   metadata JSONB DEFAULT '{}',
 
-  -- Timestamp
-  created_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Timestamp. NOT NULL since DEBUG-840: the 3-year prune cannot reach an undatable row.
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
   -- Constraints
   CONSTRAINT metadata_size CHECK (pg_column_size(metadata) <= 2048) -- 2KB limit
@@ -588,8 +588,8 @@ CREATE POLICY subscriptions_update ON subscriptions
 
 CREATE POLICY subscription_events_select ON subscription_events
   FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY subscription_events_insert ON subscription_events
-  FOR INSERT WITH CHECK (user_id = auth.uid());
+-- subscription_events_insert was dropped by DEBUG-841 (20261022000300): clients are
+-- SELECT-only; every writer is a SECURITY DEFINER function.
 
 -- =====================================================
 -- 14. SUBSCRIPTION FUNCTIONS
@@ -823,8 +823,10 @@ ORDER BY event_date DESC, event_count DESC;
 -- =====================================================
 
 -- Grant necessary permissions to authenticated role
-GRANT SELECT, INSERT, UPDATE ON subscriptions TO authenticated;
-GRANT SELECT, INSERT ON subscription_events TO authenticated;
+-- SELECT only: DEBUG-751 (20261008000000) revoked INSERT/UPDATE on subscriptions, DEBUG-841
+-- (20261022000300) revoked INSERT on subscription_events. Server writers are SECURITY DEFINER.
+GRANT SELECT ON subscriptions TO authenticated;
+GRANT SELECT ON subscription_events TO authenticated;
 
 -- Grant usage on sequences
 GRANT USAGE ON ALL SEQUENCES IN SCHEMA public TO authenticated;

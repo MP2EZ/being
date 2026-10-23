@@ -182,7 +182,8 @@ Wraps the app and provides PostHog context. Key behaviors:
   Those three are load-bearing, not belt-and-braces: the SDK's init sequence gates on
   `disabled`, never on `optedOut`, so at their defaults the constructor fires `/flags`
   requests carrying the anonymous device id before consent. With them set, no SDK path
-  reaches the network while opted out. An anonymous `distinct_id` is minted to on-device
+  reaches the network at construction while opted out; the account-deletion `reset()`,
+  which reloads flags in every opt state, is silenced separately (DEBUG-812). The app evaluates no PostHog feature flags (runtime tier retired by MAINT-811; flags are build-time only); see [feature-flags.md](./feature-flags.md) section 4. An anonymous `distinct_id` is minted to on-device
   storage at launch and is never transmitted.
 - **EU data residency**: Configured for Frankfurt (GDPR compliance)
 - **Privacy settings**: No autocapture, no session replay
@@ -241,10 +242,20 @@ DEBUG-536 restored six of those twelve *with* emitters, which is the only way ba
 
 **The feature-usage set is ACCESS, never CONTENT.** Each says which affordance was
 reached and how long it took. None carries a score, an instrument identity, a severity,
-a practice id, or free text. That is the FEAT-457 boundary, and it is why these coexist
-with the published "we never collect any mental health data" promise — the same boundary
-under which `crisis_resources_viewed` / `crisis_hotline_tapped`, bare access signals for
-a strictly more sensitive affordance, already ship. Access is not the finding.
+a practice id, or free text. That is the FEAT-457 boundary, and it still holds: CONTENT
+never leaves the device.
+
+**Corrected (DEBUG-793, 2026-10-19): access IS a finding.** This paragraph used to conclude
+"access is not the finding", reasoning that bare access signals coexist with the published
+"we never collect any mental health data" promise. That rested on the signals being
+unlinkable, and they are not. Every event carries the install-persistent `distinct_id` and
+city-level `$geoip_city_name` (DPIA v2.42), so `crisis_resources_viewed`,
+`crisis_hotline_tapped` and the `assessment_*` pair can show that an identifiable install
+sought mental-health support. Under WA MHMDA, Nevada SB 370 and Connecticut's
+consumer-health-data provisions that is consumer health data (`docs/legal/regulatory-applicability.md`
+§2a). Privacy policy §5.2 now lists what is never collected and discloses these access
+events, rather than promising "any mental health data". Whether to build MHMDA compliance or to
+drop or de-link these events is a founder decision (DEBUG-821).
 
 Two specific extensions are closed by deliberate ruling, not oversight: no instrument
 identity on the assessment pair (neutral tokens like `wellness_9` were rejected as
@@ -284,7 +295,8 @@ returning, not new grants, so no `WIDENED` entry applies.
 Domain-specific guidance is summoned for a named hardship (`conflict`, `career`,
 `grief`, `pain`). That domain is a self-disclosed wellness inference — "this user
 opened grief" — and shipping it would contradict the **What We NEVER Collect**
-commitment below ("Any mental health data"), which is a published promise and so an
+commitment below (what you selected, answered or wrote is never collected; only that an
+affordance was opened is disclosed), which is a published promise and so an
 FTC Act §5 exposure rather than a disclosure gap that could be closed by editing
 this document. It would also trip the DPIA's material-change trigger for a new
 category of sensitive wellness data, and require new App Store mental-health privacy
@@ -538,10 +550,13 @@ Required disclosure for privacy policy:
 > - Device type and OS version
 >
 > **What We NEVER Collect:**
-> - Assessment scores (PHQ-9, GAD-7)
+> - Your answers to a wellness screening (PHQ-9, GAD-7), your scores, or their severity
+> - Which screening you took
 > - Mood check-in values or notes
-> - Journal entries
-> - Any mental health data
+> - Journal entries, or anything else you write or speak in the app
+> - Which practice you did
+>
+> **What these events can show:** with Usage Analytics on, analytics records when you open a wellness screening or support resources, and when you tap to call or text a crisis line, tied to the installation identifier and approximate location, so these events can show that someone using this installation looked for mental-health support (privacy policy v1.24, DEBUG-793).
 >
 > **Your Control:**
 > - Analytics is OFF by default

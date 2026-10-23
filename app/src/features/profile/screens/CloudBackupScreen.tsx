@@ -4,9 +4,11 @@
  * Wraps the comprehensive CloudBackupSettings controls as a profile sub-screen,
  * reached from the "Manage Cloud Backup" row in PrivacyDataScreen. Ships dark:
  * the entry row and this screen are both gated by the `cloud_sync` feature
- * flag, so users see nothing until the feature is enabled. As of INFRA-199 the
- * flag resolves through the runtime `useFeatureFlag` tier (PostHog promotes,
- * build-time default is the floor) — this gates UI visibility only; actual
+ * flag, so users see nothing until the feature is enabled. The flag resolves at
+ * BUILD TIME only (`isFeatureEnabled`, MAINT-809), the same resolver the onboarding
+ * and re-consent Cloud Backup consent cards use, so this screen and the card that
+ * authorizes it always appear or disappear together. Flags are build-time only; there
+ * is no runtime tier (MAINT-811). This gates UI visibility only; actual
  * backup egress stays gated independently by the cloud_sync consent in
  * CloudBackupService.
  */
@@ -14,7 +16,7 @@ import React from 'react';
 import { ScrollView, StyleSheet } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import CloudBackupSettings from '@/core/components/settings/CloudBackupSettings';
-import { useFeatureFlag } from '@/core/analytics';
+import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { colorSystem, spacing } from '@/core/theme';
 
 // FEAT-212: rendered as a route (Privacy → CloudBackup) on ProfileStackNavigator;
@@ -22,7 +24,7 @@ import { colorSystem, spacing } from '@/core/theme';
 const CloudBackupScreen: React.FC = () => {
   // Belt-and-suspenders: never render when the feature flag is off, even if
   // reached by some path other than the (already flag-gated) entry row.
-  const cloudSyncAvailable = useFeatureFlag('cloud_sync');
+  const cloudSyncAvailable = isFeatureEnabled('cloud_sync');
   if (!cloudSyncAvailable) {
     return null;
   }

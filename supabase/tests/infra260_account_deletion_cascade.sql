@@ -4,7 +4,9 @@
 --
 -- Run: docker exec -i supabase_db_$(basename "$PWD") psql -U postgres -d postgres \
 --        -v ON_ERROR_STOP=1 < supabase/tests/infra260_account_deletion_cascade.sql
--- Last validated: 2026-06-08 on the local stack.
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
+-- Previously: 2026-06-08 on the local stack.
 
 \set ON_ERROR_STOP on
 \set U '33333333-3333-3333-3333-333333333333'
@@ -21,8 +23,8 @@ INSERT INTO encrypted_backups (user_id, encrypted_data, checksum, size_bytes)
 VALUES (:'U', 'cipher', repeat('a',64), 10);
 INSERT INTO analytics_events (user_id, event_type, properties, session_id)
 VALUES (:'U', 'crisis_detected', '{"trigger_type":"x","severity_bucket":"high","assessment_type":"phq9","intervention_surfaced":true}', 'session_2026-06-08_abc');
-INSERT INTO subscriptions (user_id, platform, original_transaction_id, status, tier, interval, crisis_access_enabled)
-VALUES (:'U', 'apple', 'TXN-DEL', 'active', 'standard', 'monthly', true);
+INSERT INTO subscriptions (user_id, platform, original_transaction_id, status, tier, interval, crisis_access_enabled, environment)
+VALUES (:'U', 'apple', 'TXN-DEL', 'active', 'standard', 'monthly', true, 'Sandbox');
 INSERT INTO subscription_events (user_id, event_type, metadata)
 VALUES (:'U', 'subscription_started', '{}');
 

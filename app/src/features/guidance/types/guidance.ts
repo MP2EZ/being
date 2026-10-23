@@ -43,8 +43,16 @@ export type GuidanceDomain = 'conflict' | 'career' | 'grief' | 'pain';
  */
 export type GuidanceTierId = 'tier0' | 'tier1' | 'tier2' | 'tier3';
 
-/** How much of the ladder a reader may be shown right now. */
-export type GuidanceAccessLevel = 'full' | 'gentle' | 'suppressed';
+/**
+ * How much of the ladder a reader may be shown right now.
+ *
+ * `gentle_withheld` (FEAT-673; named by the philosopher ruling): Tier 0/1 exactly as
+ * `gentle`, and premeditatio is withheld. It is the answer when the app holds no admissible
+ * evidence of state — the reader's Art. 9 write-block began after every reading it has —
+ * which is not evidence of readiness. It names the effect, never the cause: no consent or
+ * withdrawal vocabulary, and no consumer may branch on a prefix of it.
+ */
+export type GuidanceAccessLevel = 'full' | 'gentle' | 'gentle_withheld' | 'suppressed';
 
 /**
  * Where a suppressed reader is sent instead.
@@ -69,7 +77,7 @@ export interface GuidanceAccessDecision {
   readonly level: GuidanceAccessLevel;
   /** Present if and only if `level` is `'suppressed'`. */
   readonly crisisRoute?: GuidanceCrisisRoute;
-  /** Tier 2 and Tier 3 may render. False for `gentle` and `suppressed`. */
+  /** Tier 2 and Tier 3 may render. False for `gentle`, `gentle_withheld` and `suppressed`. */
   readonly allowTier2Plus: boolean;
   /**
    * Premeditatio malorum (negative visualization) may be offered.

@@ -61,7 +61,7 @@
 
 import { Alert } from 'react-native';
 import { File, Paths } from 'expo-file-system';
-import type { PostHogPersistedProperty } from 'posthog-react-native';
+import { PostHogPersistedProperty } from 'posthog-react-native';
 import { logSecurity } from '@/core/services/logging';
 import { purgeAnalyticsQueues } from './analyticsQueuePurge';
 
@@ -78,8 +78,34 @@ export type DeletionRequestType = 'gdpr' | 'ccpa' | 'user_request';
  * and so tests can pass a fake without constructing a real client.
  */
 export interface AnalyticsIdentityResetTarget {
-  reset: () => void;
+  reset: (propertiesToKeep?: PostHogPersistedProperty[]) => void;
   setPersistedProperty: (key: PostHogPersistedProperty, value: unknown | null) => void;
+  /** Present on the real client; overwritten before `reset()` (DEBUG-812). */
+  reloadFeatureFlags?: (...args: unknown[]) => unknown;
+}
+
+/**
+ * DEBUG-812: what `reset()` may keep. The RN default also keeps `DeviceId`, which the RN
+ * constructor seeds from the anonymous id, so the pre-erasure identifier would survive
+ * erasure on disk and ride the next `/flags` body. Install metadata only. Read at call time,
+ * not module scope, like `purgeAnalyticsQueues`: suites that mock the SDK without the enum
+ * would otherwise fail to import every consumer of this module.
+ */
+function resetKeepList(): PostHogPersistedProperty[] {
+  return [PostHogPersistedProperty.InstalledAppBuild, PostHogPersistedProperty.InstalledAppVersion];
+}
+
+/**
+ * DEBUG-812: the SDK's `reset()` ends in `reloadFeatureFlags()`, which gates only on
+ * `disabled` (never `optedOut`), so it POSTs `/flags` in every opt state. Shadow it on the
+ * instance before the reset and leave it shadowed for the rest of the process: `reset()` runs
+ * inside the SDK's `wrap()`, which DEFERS it until init completes, so restoring in a
+ * `finally` would reopen the request on the deferred path. Nothing in app code reads or
+ * reloads flags: the runtime tier was retired (MAINT-811; docs/architecture/feature-flags.md
+ * section 4). Any future PostHog flag read, identify or group must revisit this.
+ */
+function suppressFlagReload(client: AnalyticsIdentityResetTarget): void {
+  client.reloadFeatureFlags = () => undefined;
 }
 
 /**
@@ -142,7 +168,9 @@ export function resetAnalyticsIdentity({
       // reset() clears DistinctId/AnonymousId/SessionId and mints a FRESH
       // anonymous id, so the file is neither empty nor absent afterwards. Assert
       // "the old id is gone and the queues are empty", never "the file is gone".
-      client.reset();
+      // DEBUG-812: no flag reload (it transmits), and DeviceId is not kept.
+      suppressFlagReload(client);
+      client.reset(resetKeepList());
       // reset() explicitly PRESERVES both queues — it prepends them to its
       // keep-list — so they must be nulled separately, and AFTER the reset so
       // anything re-enqueued in the same tick goes too. Nulling routes through

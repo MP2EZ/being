@@ -89,7 +89,8 @@ CREATE POLICY subscriptions_select ON subscriptions FOR SELECT USING (user_id = 
 CREATE POLICY subscriptions_insert ON subscriptions FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY subscriptions_update ON subscriptions FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE POLICY subscription_events_select ON subscription_events FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY subscription_events_insert ON subscription_events FOR INSERT WITH CHECK (user_id = auth.uid());
+-- subscription_events_insert: DROPPED (DEBUG-841). Clients are SELECT-only; with RLS on and no
+--   INSERT policy, a stray future GRANT of INSERT is still denied.
 ```
 
 **`auth.uid()` is NULL for the bare `anon` (unauthenticated) role** → every policy
@@ -152,8 +153,8 @@ Measured against `yliycxslzdsgjtpxggtf` on 2026-08-16 via
 | `users` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT, UPDATE |
 | `encrypted_backups` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT, UPDATE, DELETE |
 | `analytics_events` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT |
-| `subscription_events` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT |
-| `subscriptions` | SELECT, INSERT, UPDATE *(INFRA-379)* — no DELETE | SELECT, INSERT, UPDATE |
+| `subscription_events` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT *(DEBUG-841: INSERT revoked, insert policy dropped)* |
+| `subscriptions` | SELECT, INSERT, UPDATE *(INFRA-379)* — no DELETE | SELECT *(DEBUG-751: INSERT, UPDATE revoked)* |
 | `webhook_replay_cache` | SELECT, INSERT *(DEBUG-795)* — no UPDATE, no DELETE | **nothing** |
 | `grace_period_automation_runs` | SELECT, INSERT *(INFRA-266)* — no UPDATE, no DELETE | **nothing** |
 
@@ -242,10 +243,21 @@ discriminating and let the negative assertions pass vacuously. Test 7 (DEBUG-795
 server-internal rows: `service_role` SELECT + INSERT present, UPDATE/DELETE absent, and no
 privilege of any kind for `anon` or `authenticated`.
 
-**It pins by assertion, not by gate.** There is no CI Postgres in this repo, so nothing
-runs it automatically — same standing as `maint347_retention_heartbeat.sql` and
-`infra260_account_deletion_cascade.sql`. It is read-only and safe to run against the
-shared project.
+**It runs in CI, but not yet as a gate.** Since INFRA-782, ci.yml's `Supabase SQL suites`
+job runs it, and every other `supabase/tests/*.sql` suite, on each PR against a freshly
+reset local stack. The step is `continue-on-error` until INFRA-829 promotes it, so read the
+job log's `N/N suites passed, 0 SKIP` line, not the check colour. It is read-only and still
+safe to run against the shared project.
+
+**A fresh reset is not the shared project.** The local image's `pg_default_acl` grants
+`anon`, `authenticated` and `service_role` `arwdDxtm` on every new public relation; the
+shared project's grants `service_role` only `Dxtm`. Every no-grant decision in this section
+used to hold on the shared project by absence alone. INFRA-782 encodes them:
+`20261022000100_service_role_dml_revoke.sql` (the matrix above) and
+`20261022000200_operator_views_client_revoke.sql`, which takes client roles off the eight
+operator-only views. Those views run with owner privileges, so RLS does not cover a client
+reading them. A new table or view needs its grants written explicitly; the default ACL
+differs by environment.
 
 ---
 
@@ -319,6 +331,7 @@ durable queue (INFRA-214) holds an event until a session exists, then it lands.
 | Compliance Review | Claude (Compliance Agent) | 2026-06-08 | ✅ APPROVED (runtime) |
 | Compliance Review | Claude (Compliance Agent) | 2026-08-16 | ✅ APPROVED — role grants (MAINT-441): no `service_role` grant on `users` / `encrypted_backups` |
 | Compliance Review | Claude (Compliance Agent) | 2026-10-14 | ✅ APPROVED — DEBUG-795: `service_role` SELECT, INSERT on `webhook_replay_cache`; REVOKE ALL from client roles |
+| Compliance Review | Claude (Compliance Agent) | 2026-10-22 | ✅ APPROVED — INFRA-782: REVOKE `service_role` DML on `users` / `encrypted_backups`, DELETE on `subscriptions`, UPDATE/DELETE on `webhook_replay_cache` / `grace_period_automation_runs` (grantor `postgres`, measured); REFERENCES/TRIGGER/TRUNCATE/MAINTAIN kept; no ALTER DEFAULT PRIVILEGES |
 
 ---
 

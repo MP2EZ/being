@@ -40,6 +40,12 @@ const mockServer = {
   logoutHangs: false,
   /** DEBUG-715: when set, every /signup response waits on it (the request is counted first). */
   signupGate: null as Promise<void> | null,
+  /**
+   * DEBUG-707: each delete-account request takes the next gate (if any) and waits on it
+   * after it is counted and before the server acts. The wait ignores the request's
+   * `signal`, so a `{ timeout }` or abort-based bound cannot end it.
+   */
+  functionsGates: [] as Array<Promise<void>>,
   calls: [] as Array<{ url: string; method: string; body: any; bearer: string | null }>,
 };
 
@@ -110,6 +116,8 @@ jest.mock('@/core/services/security/pinned-fetch', () => ({
     const sub = mockSubOf(bearer);
 
     if (url.includes('/functions/v1/delete-account')) {
+      const gate = mockServer.functionsGates.shift();
+      if (gate) await gate;
       if (mockServer.functionsMode === 'down') throw new TypeError('Network request failed');
       if (mockServer.functionsMode === 'error500-keep-user') {
         return mockJson(500, { success: false, error: 'Internal server error' });
@@ -181,20 +189,28 @@ jest.mock('@/core/services/security/SecureStorageService', () => ({
   default: { clearAllWellnessData: jest.fn() },
 }));
 jest.mock('@/core/analytics/analyticsIdentityReset', () => ({ resetAnalyticsIdentity: jest.fn() }));
+jest.mock('@/core/stores/consentStore', () => {
+  const recordAccountDeletionAttestation = jest.fn(async () => undefined);
+  return { useConsentStore: { getState: () => ({ recordAccountDeletionAttestation }) } };
+});
 jest.mock('@/core/services/privacy/exportArtifactSweeper', () => ({
   sweepExportArtifacts: jest.fn(() => 0),
 }));
 jest.mock('@/core/services/privacy/erasureResetRegistry', () => ({
-  resetInMemoryStateForErasure: jest.fn(async () => []),
+  resetInMemoryStateForErasure: jest.fn(async () => ({ failed: [], timedOut: [] })),
   registerErasureReset: jest.fn(),
 }));
 
 import * as SecureStore from 'expo-secure-store';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import supabaseService from '@/core/services/supabase/SupabaseService';
+import supabaseService, { ACCOUNT_DELETION_DEADLINE_MS } from '@/core/services/supabase/SupabaseService';
 import { createSecureStoreSessionAdapter } from '@/core/services/supabase/secureStoreSessionAdapter';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import { deleteAccountAndWipe } from '@/core/services/privacy/AccountDeletionService';
+import { resetAnalyticsIdentity } from '@/core/analytics/analyticsIdentityReset';
+import { sweepExportArtifacts } from '@/core/services/privacy/exportArtifactSweeper';
+import { resetInMemoryStateForErasure } from '@/core/services/privacy/erasureResetRegistry';
+import { useConsentStore } from '@/core/stores/consentStore';
 
 const actualSupabase = jest.requireActual('@supabase/supabase-js') as any;
 
@@ -250,6 +266,7 @@ beforeEach(() => {
   mockServer.apiVersion2024 = true;
   mockServer.logoutHangs = false;
   mockServer.signupGate = null;
+  mockServer.functionsGates = [];
   mockServer.calls = [];
   // mockReset, not just clearAllMocks: a mockImplementationOnce a test queued but never
   // consumed (the old fast path built no client) must not leak into the next test.
@@ -857,5 +874,265 @@ describe('DEBUG-715 (H3) — an erasure that lands while a mint awaits never res
 
     expect(service.userId).not.toBe(VICTIM);
     expect(result.ok ? result.userId : null).not.toBe(VICTIM);
+  });
+});
+
+
+// ── DEBUG-707: the deadline ─────────────────────────────────────────────────
+describe('DEBUG-707 — deleteAccount() answers within ACCOUNT_DELETION_DEADLINE_MS', () => {
+  const D = ACCOUNT_DELETION_DEADLINE_MS;
+  const never = () => new Promise<never>(() => {});
+  const deferred = () => {
+    let release: () => void = () => undefined;
+    const promise = new Promise<void>((resolve) => (release = resolve));
+    return { promise, release };
+  };
+  /** Observe a promise without awaiting it, so the clock can be driven past it. */
+  function observe<T>(p: Promise<T>) {
+    const state = { done: false, value: undefined as T | undefined };
+    void p.then((v) => {
+      state.done = true;
+      state.value = v;
+    });
+    return state;
+  }
+  const advance = (ms: number) => jest.advanceTimersByTimeAsync(ms);
+  /** Drain microtasks and zero-delay timers without moving the clock. */
+  const drain = async () => {
+    for (let i = 0; i < 30; i++) await jest.advanceTimersByTimeAsync(0);
+  };
+  const crisisEvent = (session_id: string) => ({
+    event_type: 'crisis_detected',
+    properties: payload,
+    session_id,
+    enqueued_at: Date.now(),
+  });
+  const lastPersistedCrisisQueue = (): Array<{ session_id: string }> | null => {
+    const writes = (AsyncStorage.setItem as jest.Mock).mock.calls.filter(
+      ([k]) => k === '@being/supabase/crisis_analytics_queue',
+    );
+    return writes.length ? JSON.parse(writes[writes.length - 1]![1] as string) : null;
+  };
+
+  beforeEach(() => {
+    jest.useFakeTimers();
+  });
+  afterEach(() => {
+    jest.useRealTimers();
+  });
+
+  it('is an app-owned constant inside the crisis-ruled 15–30s band', () => {
+    expect(D).toBeGreaterThanOrEqual(15_000);
+    expect(D).toBeLessThanOrEqual(30_000);
+  });
+
+  it('invoke never settles and ignores its signal: pending at D−1, unconfirmed at D, session kept', async () => {
+    await seedPersistedSession();
+    mockServer.functionsGates = [never()];
+    const service = freshService();
+
+    const result = observe(service.deleteAccount());
+    await advance(D - 1);
+    expect(result.done).toBe(false);
+    expect(callsTo('/functions/v1/delete-account')).toHaveLength(1);
+
+    await advance(1);
+    expect(result).toEqual({ done: true, value: false });
+    expect(authKeys().length).toBeGreaterThan(0);
+    expect(service.userId).toBe(VICTIM);
+    expect(mockServer.users.has(VICTIM)).toBe(true);
+  });
+
+  it('getSession never settles (a refresh or the auth lock hangs): unconfirmed at D, nothing sent', async () => {
+    await seedPersistedSession();
+    mockCreateClient.mockImplementationOnce((...args: any[]) => {
+      const c = actualSupabase.createClient(...args);
+      c.auth.getSession = jest.fn(never);
+      return c;
+    });
+    const service = freshService();
+
+    const result = observe(service.deleteAccount());
+    await advance(D - 1);
+    expect(result.done).toBe(false);
+    await advance(1);
+
+    expect(result).toEqual({ done: true, value: false });
+    expect(callsTo('/functions/v1/delete-account')).toHaveLength(0);
+  });
+
+  it('the Keychain probe never settles: unconfirmed at D', async () => {
+    await seedPersistedSession();
+    (SecureStore.getItemAsync as jest.Mock).mockImplementation(never);
+    const service = freshService();
+
+    const result = observe(service.deleteAccount());
+    await advance(D);
+
+    expect(result).toEqual({ done: true, value: false });
+  });
+
+  it('a session mint already in flight that never settles: unconfirmed at D', async () => {
+    const service = freshService();
+    service.sessionMintInFlight = never();
+
+    const result = observe(service.deleteAccount());
+    await advance(D);
+
+    expect(result).toEqual({ done: true, value: false });
+  });
+
+  it('a reply just inside the deadline is honoured: erased', async () => {
+    await seedPersistedSession();
+    mockServer.functionsGates = [new Promise<void>((resolve) => setTimeout(resolve, D - 10))];
+    const service = freshService();
+
+    const result = observe(service.deleteAccount());
+    await advance(D - 1);
+
+    expect(result).toEqual({ done: true, value: true });
+    expect(authKeys()).toEqual([]);
+  });
+
+  it('clears its timer when the attempt answers first', async () => {
+    await seedPersistedSession();
+    const set = jest.spyOn(global, 'setTimeout');
+    const clear = jest.spyOn(global, 'clearTimeout');
+    const service = freshService();
+
+    const result = observe(service.deleteAccount());
+    await drain();
+
+    expect(result).toEqual({ done: true, value: true });
+    const deadlineTimer = set.mock.results[set.mock.calls.findIndex(([, ms]) => ms === D)];
+    expect(deadlineTimer).toBeDefined();
+    expect(clear).toHaveBeenCalledWith(deadlineTimer!.value);
+  });
+
+  it('a late erasure after D tears down the session only; the retry confirms with no second request', async () => {
+    await seedPersistedSession();
+    const reply = deferred();
+    mockServer.functionsGates = [reply.promise];
+    const service = freshService();
+
+    const first = observe(service.deleteAccount());
+    await advance(D);
+    expect(first).toEqual({ done: true, value: false });
+
+    reply.release();
+    await drain();
+    expect(mockServer.users.has(VICTIM)).toBe(false);
+    expect(authKeys()).toEqual([]);
+    expect(service.userId).toBeNull();
+
+    const retry = observe(service.deleteAccount());
+    await drain();
+    expect(retry).toEqual({ done: true, value: true });
+    expect(callsTo('/functions/v1/delete-account')).toHaveLength(1);
+  });
+
+  it('crisis events queued after D survive a late teardown; earlier ones are dropped, on disk too', async () => {
+    await seedPersistedSession();
+    const reply = deferred();
+    mockServer.functionsGates = [reply.promise];
+    const service = freshService();
+    service.crisisAnalyticsQueue = [crisisEvent('s-before')];
+
+    observe(service.deleteAccount());
+    await advance(D);
+    service.crisisAnalyticsQueue.push(crisisEvent('s-after'));
+
+    reply.release();
+    await drain();
+
+    expect(service.userId).toBeNull();
+    expect(service.crisisAnalyticsQueue.map((e: any) => e.session_id)).toEqual(['s-after']);
+    expect(lastPersistedCrisisQueue()?.map((e) => e.session_id)).toEqual(['s-after']);
+  });
+
+  it('a second call inside D joins the attempt: one request, the same answer', async () => {
+    await seedPersistedSession();
+    const reply = deferred();
+    mockServer.functionsGates = [reply.promise];
+    const service = freshService();
+
+    const a = observe(service.deleteAccount());
+    await advance(5_000);
+    const b = observe(service.deleteAccount());
+    reply.release();
+    await drain();
+
+    expect(a).toEqual({ done: true, value: true });
+    expect(b).toEqual({ done: true, value: true });
+    expect(callsTo('/functions/v1/delete-account')).toHaveLength(1);
+  });
+
+  it('a retry after D starts afresh; the superseded attempt, answering late, neither restarts the refresher nor tears down', async () => {
+    await seedPersistedSession();
+    const staleReply = deferred();
+    mockServer.functionsGates = [staleReply.promise]; // the retry's request answers at once
+    const service = freshService();
+    const teardown = jest.spyOn(service, 'teardownErasedSession');
+
+    const first = observe(service.deleteAccount());
+    await advance(D);
+    expect(first).toEqual({ done: true, value: false });
+    const startAutoRefresh = jest.spyOn(service.client.auth, 'startAutoRefresh');
+
+    const retry = observe(service.deleteAccount());
+    await drain();
+    expect(retry).toEqual({ done: true, value: true });
+    expect(callsTo('/functions/v1/delete-account')).toHaveLength(2);
+    expect(teardown).toHaveBeenCalledTimes(1);
+
+    // A detection after the confirmed erasure belongs to the next identity.
+    service.crisisAnalyticsQueue.push(crisisEvent('s-next-identity'));
+    staleReply.release(); // the old request now finds no user: 500, then user_not_found
+    await drain();
+
+    expect(teardown).toHaveBeenCalledTimes(1);
+    expect(startAutoRefresh).not.toHaveBeenCalled();
+    expect(service.crisisAnalyticsQueue.map((e: any) => e.session_id)).toEqual(['s-next-identity']);
+  });
+
+  it('a superseded attempt that ends unconfirmed does not restart the refresher under the newer one', async () => {
+    await seedPersistedSession();
+    const staleReply = deferred();
+    const retryReply = deferred();
+    mockServer.functionsGates = [staleReply.promise, retryReply.promise];
+    const service = freshService();
+
+    observe(service.deleteAccount());
+    await advance(D);
+    const startAutoRefresh = jest.spyOn(service.client.auth, 'startAutoRefresh');
+    observe(service.deleteAccount()); // the newer attempt, still waiting on its reply
+
+    mockServer.functionsMode = 'error500-keep-user';
+    mockServer.userMode = 'offline';
+    staleReply.release(); // the old attempt now ends unconfirmed
+    await drain();
+
+    expect(startAutoRefresh).not.toHaveBeenCalled();
+    retryReply.release();
+    await drain();
+  });
+
+  it('through AccountDeletionService: an erasure answering after D never reaches steps 2–7', async () => {
+    await seedPersistedSession();
+    const reply = deferred();
+    mockServer.functionsGates = [reply.promise];
+
+    const result = observe(deleteAccountAndWipe({ posthog: null }));
+    await advance(D);
+    expect(result).toEqual({ done: true, value: { ok: false, retryable: true } });
+
+    reply.release();
+    await drain();
+    expect(mockServer.users.has(VICTIM)).toBe(false);
+    expect(useConsentStore.getState().recordAccountDeletionAttestation).not.toHaveBeenCalled();
+    expect(resetAnalyticsIdentity).not.toHaveBeenCalled();
+    expect(sweepExportArtifacts).not.toHaveBeenCalled();
+    expect(resetInMemoryStateForErasure).not.toHaveBeenCalled();
+    expect(SecureStorageService.clearAllWellnessData).not.toHaveBeenCalled();
   });
 });

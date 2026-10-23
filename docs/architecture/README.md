@@ -42,6 +42,9 @@ Being's core data philosophy: local-first wellness data, with what leaves the de
 - Evaluating analytics or third-party integrations
 - Understanding why HIPAA does not apply (Being is not a covered entity)
 
+### [Feature Flags](./feature-flags.md)
+Inventory of every feature flag: tier, per-source values, per-build resolution, runtime-tier status, and how to flip one.
+
 ---
 
 ## Architecture Principles

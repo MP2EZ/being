@@ -191,35 +191,9 @@ describe('EncryptionService — round-trip integrity (audit TEST-02)', () => {
     expect(recovered).toEqual(crisisData);
   });
 
-  it('assessment-data encryption uses assessment key namespace and round-trips', async () => {
-    const service = EncryptionService.getInstance();
-    await service.initialize();
-
-    const responses = { type: 'gad7', answers: [1, 2, 3, 1, 0, 2, 1], totalScore: 10 };
-    const pkg = await service.encryptAssessmentData(responses, 'assessment-456');
-
-    expect(pkg.metadata.sensitivityLevel).toBe('level_2_assessment_data');
-    const recovered = await service.decryptData(pkg, `assessment_key_assessment-456`);
-    expect(recovered).toEqual(responses);
-  });
-
-  // MAINT-712: encryptAssessmentData no longer re-derives a crisis band from
-  // the score. A Q9>0 / max-total package stays level_2, so no crisis-band
-  // indicator reaches the plaintext metadata.
-  it.each([
-    ['PHQ-9 Q9>0 at total 27', { type: 'PHQ-9', responses: [3, 3, 3, 3, 3, 3, 3, 3, 3], totalScore: 27, timestamp: 1716000000000, userId: 'u' }],
-    ['GAD-7 at total 21', { type: 'GAD-7', responses: [3, 3, 3, 3, 3, 3, 3], totalScore: 21, timestamp: 1716000000000, userId: 'u' }],
-  ])('labels %s level_2_assessment_data and round-trips (MAINT-712)', async (_label, data) => {
-    const service = EncryptionService.getInstance();
-    await service.initialize();
-
-    const pkg = await service.encryptAssessmentData(data, 'assessment-crisis-band');
-
-    expect(pkg.metadata.sensitivityLevel).toBe('level_2_assessment_data');
-    const recovered = await service.decryptData(pkg, 'assessment_key_assessment-crisis-band');
-    expect(recovered).toEqual(data);
-  });
-
+  // MAINT-790 deleted `encryptAssessmentData` (no caller; its MAINT-712 level_2
+  // cases went with it). The surviving property is that `encryptData` still
+  // round-trips a package labelled level_1 under an arbitrary key id.
   it('still decrypts an assessment package hand-labelled level_1_crisis_responses (MAINT-712)', async () => {
     const service = EncryptionService.getInstance();
     await service.initialize();

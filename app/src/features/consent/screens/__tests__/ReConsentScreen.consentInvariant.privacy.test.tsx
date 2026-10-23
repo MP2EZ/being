@@ -52,6 +52,7 @@ jest.mock('@/core/services/featureFlags', () => ({
 import React from 'react';
 import { render, fireEvent } from '@testing-library/react-native';
 import ReConsentScreen from '../ReConsentScreen';
+import { CONSENT_DETAILS } from '../../constants/consentDetails';
 import type { ConsentDelta, ConsentPreferences } from '@/core/stores/consentStore';
 
 const DELTA: ConsentDelta = {
@@ -320,9 +321,9 @@ describe('FEAT-376 · the current-preferences notice', () => {
     });
 
     const notice = screen.getByTestId('reconsent-current-preferences-notice');
-    expect(notice.props.children).toContain('Analytics');
-    expect(notice.props.children).toContain('Cloud Backup');
-    expect(notice.props.children).not.toContain('Crash Reports');
+    expect(notice.props.children).toContain(CONSENT_DETAILS.analytics.title);
+    expect(notice.props.children).toContain(CONSENT_DETAILS.cloudSync.title);
+    expect(notice.props.children).not.toContain(CONSENT_DETAILS.crashReports.title);
   });
 
   it('states this form\'s effect on an unticked box', () => {

@@ -10,15 +10,14 @@
  * network dependency — which matters in an app with crisis/safety surfaces
  * where feature availability must never hinge on a network round-trip.
  *
- * This sync API remains the source of truth for safety/structural flags. For
- * runtime control (kill-switch, %-rollout, A/B) of *product* flags, use the
- * PostHog-backed `useFeatureFlag` hook in `@/core/analytics` (INFRA-199): it
- * layers on top of this build-time default (which stays the fail-safe floor)
- * and only resolves remotely for the explicit `PRODUCT_FLAGS` allow-list, under
- * granted analytics consent.
+ * This is the only flag tier. The PostHog-backed runtime tier (`useFeatureFlag` /
+ * `PRODUCT_FLAGS`, INFRA-199) was retired by MAINT-811 (founder decision 2026-10-19):
+ * it never fetched flags in practice, and EAS build-time values are the real source.
+ * Remote evaluation (kill-switch, %-rollout, A/B) would be new processing: a new
+ * item, with crisis + compliance review and a DPIA entry.
  *
  * Blob format: comma-separated `key:value` pairs, e.g.
- *   "cloud_sync:false,cross_device_sync:true". Only the literal string "true"
+ *   "cloud_sync:false,bug_reporting:true". Only the literal string "true"
  * enables a flag; any other value (or an unknown key) resolves to false.
  */
 
@@ -27,16 +26,16 @@ import { env } from '@/core/config/env';
 /**
  * Known build-time flags (the keys present in EXPO_PUBLIC_FEATURE_FLAGS).
  *
- * Scope: only flags that some code path actually reads. Today that is the sync
- * family — `cloud_sync` flows through `isFeatureEnabled` via the runtime
- * `useFeatureFlag` hook (it is in `PRODUCT_FLAGS`), and `emergency_sync` /
- * `cross_device_sync` are reserved allow-list placeholders for upcoming sync
- * features — plus `wellness_trend_notes` (FEAT-195), read via the runtime
- * `useFeatureFlag` hook to gate the Wellness Trends "Your note" surface
- * (in `PRODUCT_FLAGS`; ships dark, build-time floor false). MAINT-213 removed
+ * Scope: only flags that some code path actually reads. `cloud_sync` is
+ * build-time only: all four of its readers (the two Profile screens and the
+ * onboarding and re-consent consent cards) call `isFeatureEnabled` (MAINT-809).
+ * `wellness_trend_notes` (FEAT-195) gates the Wellness Trends "Your note" surface,
+ * read in WellnessScreeningTrends; it ships dark (build-time default false). MAINT-213 removed
  * eight keys that lived here but were never read as flags (`production_mode`,
  * `performance_monitoring`, `crisis_detection`, `clinical_accuracy`,
  * `data_encryption`, `biometric_auth`, `offline_mode`, `widget_support`).
+ * MAINT-808 removed `emergency_sync` and `cross_device_sync`, "reserved
+ * placeholders" for sync features that no code ever read.
  *
  * NOTE — name collisions: several of those removed names still appear as string
  * literals elsewhere (`crisis_detection` in CircuitBreakerService,
@@ -49,8 +48,6 @@ import { env } from '@/core/config/env';
  */
 export type FeatureFlag =
   | 'cloud_sync'
-  | 'emergency_sync'
-  | 'cross_device_sync'
   | 'wellness_trend_notes'
   // FEAT-284: gates the internal-only "Report a bug / Send feedback" surface
   // (shake-to-report + Sentry feedback widget with screenshot). Build-time (not
