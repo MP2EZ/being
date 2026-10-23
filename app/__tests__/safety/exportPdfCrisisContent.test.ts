@@ -19,7 +19,8 @@
  * - FEAT-806 (crisis + compliance ruling 2026-10-22): the PDF covers the last 90 days.
  *   The window is disclosed by two fixed strings, present in every export and never
  *   conditional on flagged or older rows, with no count. Free text is never truncated
- *   and screenings inside the window are never capped.
+ *   and screenings inside the window are never capped; only check-ins and practice
+ *   engagements are, at a fixed most-recent limit stated in every export.
  *
  * Every assertion reads PRESENT output, so none can pass on an empty string.
  */
@@ -28,6 +29,8 @@ import {
   buildExportHtml,
   EXPORT_SUPPORT_LINE,
   PDF_COMPLETE_COPY_NOTE,
+  PDF_ROW_CAP,
+  PDF_ROW_CAP_NOTE,
   PDF_WINDOW_OMISSION,
   Q9_RECORDED_STATEMENT,
   SUPPORT_OFFERED_STATEMENT,
@@ -228,6 +231,35 @@ describe('90-day window disclosure (FEAT-806)', () => {
       expect(s).not.toContain(Q9_RECORDED_STATEMENT);
       expect(s).not.toContain(SUPPORT_OFFERED_STATEMENT);
     }
+  });
+
+  it('never caps screenings or reflections, even past the check-in cap', () => {
+    const many = PDF_ROW_CAP + 20;
+    const html = buildExportHtml({
+      ...full,
+      assessments: Array.from({ length: many }, (_, i) =>
+        screening(i, i % 9 === 0 ? { isCrisis: true, suicidalIdeation: true } : {}),
+      ),
+      reflections: Array.from({ length: many }, (_, i) => ({
+        weekStartIso: '2026-03-09',
+        text: `Reflection ${i}.`,
+        savedAt: T0 + i * DAY,
+      })),
+    });
+    expect(html.match(/data-row="assessment"/g)).toHaveLength(many);
+    expect(html.match(/data-row="reflection"/g)).toHaveLength(many);
+    expect(indicesOf(html, esc(Q9_RECORDED_STATEMENT))).toHaveLength(Math.ceil(many / 9));
+  });
+
+  it('states the cap identically whether or not any row is flagged, with no count of dropped rows', () => {
+    const unflagged = buildExportHtml({
+      ...full,
+      assessments: full.assessments!.map((a) => ({ ...a, isCrisis: false, suicidalIdeation: false })),
+    });
+    const flagged = buildExportHtml(full);
+    expect(indicesOf(flagged, esc(PDF_ROW_CAP_NOTE))).toHaveLength(2);
+    expect(indicesOf(unflagged, esc(PDF_ROW_CAP_NOTE))).toHaveLength(2);
+    expect(PDF_ROW_CAP_NOTE.replace(String(PDF_ROW_CAP), '')).not.toMatch(/\d/);
   });
 
   it('renders every in-window screening, untruncated notes included', () => {
