@@ -263,10 +263,13 @@ const PRESENTER_ALLOWLIST = {
     'withdrawn from JS), AppState lagging native state, a swipe-back still in progress, ' +
     'and overlays that do not move navigation focus. A SEPARATE WINDOW, NOT THE SHEET: on ' +
     'iOS expo-print draws the PDF on the main thread (ExpoPrintModule.swift ' +
-    '`.runOnQueue(.main)`), so for the length of the draw the crisis button is visible but ' +
-    'cannot take a tap. That is not an occlusion this guard can see, and crisisTapTrace, ' +
-    'which starts in JS onPress, cannot see it either; its bound is FEAT-806 AC9(e), ' +
-    'measured finger-down to pixels on device. ' +
+    '`.runOnQueue(.main)`), so for the length of the draw the crisis button is visible but the app ' +
+    'cannot paint the crisis screen (the tap is not lost). That is not an occlusion this ' +
+    'guard can see, and crisisTapTrace, which starts in JS onPress, cannot see it either. ' +
+    'FEAT-806 AC9(e) measured it on the simulator (SE 3rd gen, iOS 18.6): render 1.3 s ' +
+    'empty, 1.9-2.6 s for the worst case after the 90-day window and 50-row cap; crisis ' +
+    'screen ~1.7 s after finger-down in a 90-day render. FOUNDER-ACCEPTED RESIDUAL ' +
+    '(2026-10-23), overriding the crisis 1 s condition; expo-print cannot go below ~1.3 s. ' +
     'WHEN THAT CALL IS REMOVED, ' +
     'DELETE this entry in the same commit.',
 

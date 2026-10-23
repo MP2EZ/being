@@ -74,9 +74,15 @@
  * state; a swipe-back still in progress (reads focused, presents over ExportData,
  * the route the user chose); and overlays that do not move navigation focus.
  * Separately, on iOS expo-print draws the PDF on the MAIN thread
- * (ExpoPrintModule.swift `.runOnQueue(.main)`), so for the length of the draw the
- * crisis button is on screen but cannot take a tap. `crisisTapTrace` starts in JS
- * `onPress` and cannot see that delay; it is a device measurement (FEAT-806 AC9e).
+ * (ExpoPrintModule.swift `.runOnQueue(.main)`), so for the length of the draw a
+ * crisis tap is not lost but the crisis screen cannot paint. `crisisTapTrace` starts
+ * in JS `onPress` and cannot see that delay. FOUNDER-ACCEPTED RESIDUAL (2026-10-23),
+ * overriding the crisis ruling's 1 s condition: measured on the simulator (SE 3rd gen,
+ * iOS 18.6, loaded host) the render is 1.3 s for an empty export and 1.9-2.6 s for the
+ * retention-bounded worst case after the 90-day window and the 50-row cap, and a
+ * crisis tap early in a 90-day render painted ~1.7 s after finger-down. An iPhone may
+ * be slower. Not reducible below ~1.3 s with expo-print; a non-blocking renderer is
+ * the only way to close it.
  */
 
 import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react';
