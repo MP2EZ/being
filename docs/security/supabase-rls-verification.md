@@ -242,10 +242,21 @@ discriminating and let the negative assertions pass vacuously. Test 7 (DEBUG-795
 server-internal rows: `service_role` SELECT + INSERT present, UPDATE/DELETE absent, and no
 privilege of any kind for `anon` or `authenticated`.
 
-**It pins by assertion, not by gate.** There is no CI Postgres in this repo, so nothing
-runs it automatically — same standing as `maint347_retention_heartbeat.sql` and
-`infra260_account_deletion_cascade.sql`. It is read-only and safe to run against the
-shared project.
+**It runs in CI, but not yet as a gate.** Since INFRA-782, ci.yml's `Supabase SQL suites`
+job runs it, and every other `supabase/tests/*.sql` suite, on each PR against a freshly
+reset local stack. The step is `continue-on-error` until INFRA-829 promotes it, so read the
+job log's `N/N suites passed, 0 SKIP` line, not the check colour. It is read-only and still
+safe to run against the shared project.
+
+**A fresh reset is not the shared project.** The local image's `pg_default_acl` grants
+`anon`, `authenticated` and `service_role` `arwdDxtm` on every new public relation; the
+shared project's grants `service_role` only `Dxtm`. Every no-grant decision in this section
+used to hold on the shared project by absence alone. INFRA-782 encodes them:
+`20261022000100_service_role_dml_revoke.sql` (the matrix above) and
+`20261022000200_operator_views_client_revoke.sql`, which takes client roles off the eight
+operator-only views. Those views run with owner privileges, so RLS does not cover a client
+reading them. A new table or view needs its grants written explicitly; the default ACL
+differs by environment.
 
 ---
 
@@ -319,6 +330,7 @@ durable queue (INFRA-214) holds an event until a session exists, then it lands.
 | Compliance Review | Claude (Compliance Agent) | 2026-06-08 | ✅ APPROVED (runtime) |
 | Compliance Review | Claude (Compliance Agent) | 2026-08-16 | ✅ APPROVED — role grants (MAINT-441): no `service_role` grant on `users` / `encrypted_backups` |
 | Compliance Review | Claude (Compliance Agent) | 2026-10-14 | ✅ APPROVED — DEBUG-795: `service_role` SELECT, INSERT on `webhook_replay_cache`; REVOKE ALL from client roles |
+| Compliance Review | Claude (Compliance Agent) | 2026-10-22 | ✅ APPROVED — INFRA-782: REVOKE `service_role` DML on `users` / `encrypted_backups`, DELETE on `subscriptions`, UPDATE/DELETE on `webhook_replay_cache` / `grace_period_automation_runs` (grantor `postgres`, measured); REFERENCES/TRIGGER/TRUNCATE/MAINTAIN kept; no ALTER DEFAULT PRIVILEGES |
 
 ---
 

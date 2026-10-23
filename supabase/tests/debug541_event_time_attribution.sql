@@ -18,7 +18,9 @@
 -- covered: the alerter's own arithmetic over these columns, which is unit-tested in deno at
 -- supabase/functions/_tests/crisis-alert-logic.test.ts.
 --
--- Last validated: 2026-10-02 (INFRA-613), on LIVE rather than a local stack, by a
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
+-- Previously: 2026-10-02 (INFRA-613), on LIVE rather than a local stack, by a
 -- founder-approved forced-rollback rehearsal: the migration and this suite ran verbatim inside
 -- one DO block ending in RAISE 'REHEARSAL_OK', so nothing persisted. Control (suite with no
 -- migration): `FAIL: public.crisis_event_day does not exist`. Rehearsal:

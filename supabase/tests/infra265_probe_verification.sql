@@ -13,7 +13,9 @@
 -- Do NOT run this against the shared prod project — it inserts/rolls back test rows.
 -- It is self-cleaning + re-runnable.
 --
--- Last validated: 2026-06-13 on the local stack — 7/7 PASS.
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
+-- Previously: 2026-06-13 on the local stack — 7/7 PASS.
 
 \set ON_ERROR_STOP on
 

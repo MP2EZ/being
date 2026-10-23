@@ -6,7 +6,8 @@
 -- supabase/functions/_tests/helpers/fakeSupabase.ts mirrors the uuid parameter (22P02) and the
 -- receipt-handler tests assert the row-uuid-or-null contract at every verifier call site. That
 -- pins the CALLERS against a fake; this file pins the FUNCTION, so the fake cannot drift from
--- the database unnoticed. It is run by hand — no CI workflow references supabase/tests/.
+-- the database unnoticed. ci.yml's `Supabase SQL suites` job runs it on every PR against a
+-- freshly reset local stack (INFRA-782; non-strict until INFRA-829).
 --
 -- HOW TO RUN (local stack):
 --   supabase start && supabase db reset
@@ -16,7 +17,8 @@
 -- SAFE AGAINST SHARED PROD: every write happens inside one DO block that is ROLLED BACK by a
 -- sentinel exception. Nothing persists, including the two probe principals.
 --
--- Last validated: not yet run (written 2026-10-22; no local Docker in the authoring session).
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
 
 \set ON_ERROR_STOP on
 

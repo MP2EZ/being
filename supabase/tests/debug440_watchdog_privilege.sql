@@ -29,7 +29,9 @@
 -- happens: the watchdog is normally in its healthy early-return, so a successful call proves
 -- nothing about the send path, and forcing the escalation branch pages the founder.
 --
--- Last validated: 2026-08-15 against the shared prod project.
+-- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
+--   run 39889958826 (15/15 suites passed, 0 SKIP).
+-- Previously: 2026-08-15 against the shared prod project.
 
 \set ON_ERROR_STOP on
 
