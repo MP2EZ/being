@@ -109,6 +109,9 @@ interface VerificationResult {
   productId?: string;
   expiresDate?: string;
   autoRenewEnabled?: boolean;
+  /** paymentState === 2 (DEBUG-824). Set on invalid results too, as Apple's is. v1 omits
+   *  paymentState once cancelled, so a re-verified cancelled trial reads false (INFRA-830). */
+  isTrialPeriod: boolean;
   error?: string;
 }
 
@@ -184,6 +187,7 @@ export function parseGoogleReceipt(
     productId: subscriptionId,
     expiresDate: new Date(expiresMs).toISOString(),
     autoRenewEnabled: response.autoRenewing,
+    isTrialPeriod: response.paymentState === 2,
   };
 }
 
@@ -199,8 +203,7 @@ async function updateSubscription(
 ): Promise<void> {
   const now = new Date(deps.now()).toISOString();
 
-  // Determine subscription status
-  const status = 'active'; // Google subscriptions are always 'active' (no trial flag)
+  const status = verification.isTrialPeriod ? 'trial' : 'active';
 
   // Parse product ID to determine interval
   const interval = verification.productId?.includes('yearly') ? 'yearly' : 'monthly';
@@ -375,6 +378,7 @@ export async function handle(req: Request, deps: GoogleReceiptDeps): Promise<Res
         productId: subscriptionId,
         expiresDate,
         autoRenewEnabled: true,
+        isTrialPeriod: false,
       };
 
       console.log('[Google Receipt Verification] Mock verification successful');

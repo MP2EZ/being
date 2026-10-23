@@ -322,6 +322,7 @@ for (
       productId: subscriptionId,
       expiresDate: iso(NOW + days * DAY),
       autoRenewEnabled: true,
+      isTrialPeriod: false,
     });
     assertNoGoogleCalls(h);
     assertEquals(h.db.rpcCalls.length, 0, 'a mock token wrote an audit row');
@@ -545,6 +546,7 @@ Deno.test('parseGoogleReceipt: the result shape (orderId, productId from the REQ
     productId: SUB_YEARLY,
     expiresDate: iso(EXPIRY),
     autoRenewEnabled: false,
+    isTrialPeriod: false,
   });
 });
 
@@ -592,6 +594,71 @@ t('DEBUG-758: a cancelled-but-paid purchase verifies 200, written active until i
   assertEquals(h.db.upserts[0].row.subscription_end_date, iso(EXPIRY));
 });
 
+// ---------------------------------------------------------------------------
+// DEBUG-824: the trial flag is paymentState === 2, strictly, on valid and invalid results alike
+// ---------------------------------------------------------------------------
+
+Deno.test('DEBUG-824: parseGoogleReceipt sets isTrialPeriod to paymentState === 2 (strict), never undefined', () => {
+  const rows: Array<[string, Partial<GoogleSubscriptionPurchase>, boolean]> = [
+    ['free trial', { paymentState: 2 }, true],
+    ['received', { paymentState: 1 }, false],
+    ['pending', { paymentState: 0, acknowledgementState: 0 }, false],
+    ['pending deferred', { paymentState: 3 }, false],
+    ['absent', { paymentState: undefined }, false],
+    ['a non-number 2 is not a trial', { paymentState: '2' as unknown as number }, false],
+    ['an expired trial still reads as a trial', { paymentState: 2, expiryTimeMillis: String(NOW - 1) }, true],
+  ];
+  for (const [label, over, trial] of rows) {
+    assertEquals(parseGoogleReceipt(purchase(over), SUB_MONTHLY, NOW).isTrialPeriod, trial, label);
+  }
+});
+
+for (
+  const [label, over, trial, status] of [
+    ['(a) a valid free trial (paymentState 2)', { paymentState: 2 }, true, 'trial'],
+    ['(b) a paid purchase (paymentState 1)', { paymentState: 1 }, false, 'active'],
+    ['(f) a grace-period renewal (paymentState 0, acknowledged)', { paymentState: 0, acknowledgementState: 1 }, false, 'active'],
+  ] as const
+) {
+  t(`DEBUG-824 ${label}: 200 carries isTrialPeriod ${trial}, written '${status}'`, async () => {
+    const h = harness({ purchase: purchase(over) });
+    const { res, json } = await call(h, req());
+    assertEquals(res.status, 200);
+    assertEquals(json.valid, true);
+    assertEquals(json.isTrialPeriod, trial);
+    assertEquals(h.db.upserts.length, 1);
+    assertEquals(h.db.upserts[0].row.status, status);
+  });
+}
+
+t("DEBUG-824 (c) KNOWN LIMITATION, v1 - flipped by INFRA-830's v2 migration: a re-verified cancelled trial reads as paid, written 'active'", async () => {
+  // v1 purchases.subscriptions.get omits paymentState once a subscription is cancelled, so a
+  // cancelled trial is indistinguishable from a cancelled paid one. v2's
+  // lineItems[].offerPhase.freeTrial tells them apart; INFRA-830 flips this pin.
+  const h = harness({ purchase: purchase({ cancelReason: 0, paymentState: undefined, autoRenewing: false }) });
+  const { res, json } = await call(h, req());
+  assertEquals(res.status, 200);
+  assertEquals(json.isTrialPeriod, false);
+  assertEquals(h.db.upserts[0].row.status, 'active');
+});
+
+t('DEBUG-824 (d) an expired trial: 400 carries isTrialPeriod true, audited receipt_expired, nothing written', async () => {
+  const h = harness({ purchase: purchase({ paymentState: 2, expiryTimeMillis: String(NOW - 1) }) });
+  const { res, json } = await call(h, req());
+  assertEquals(res.status, 400);
+  assertEquals(json.valid, false);
+  assertEquals(json.isTrialPeriod, true);
+  assertEquals(auditRows(h.db), reasonAudit('receipt_expired'));
+  assertNoWrites(h);
+});
+
+t('DEBUG-824 (e) a mock token reports isTrialPeriod false', async () => {
+  const h = harness();
+  const { res, json } = await call(h, req(body({ purchaseToken: 'mock_token_abc123' })));
+  assertEquals(res.status, 200);
+  assertEquals(json.isTrialPeriod, false);
+}, { ALLOW_MOCK_RECEIPTS: 'true' });
+
 t('a lookup result with no expiryTimeMillis is a RangeError: 500 "Internal server error", no audit, no row (pinned)', async () => {
   // The REAL lookup rejects this shape before it gets here (googlePlayDeveloperApi: the
   // expiryTimeMillis must be a digit string), so this is reachable only through an injected
@@ -619,6 +686,7 @@ t('200: the exact subscriptions upsert and the receipt_verification_succeeded au
     productId: SUB_YEARLY,
     expiresDate: iso(EXPIRY),
     autoRenewEnabled: true,
+    isTrialPeriod: false,
   });
 
   // The Google calls: the parsed credential in, then the identifiers and the minted token,
