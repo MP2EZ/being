@@ -49,7 +49,8 @@ Deno.test('FEAT-833: the RPC outcome set is exactly these seven', () => {
   ]);
 });
 
-const MIGRATION = new URL('../../migrations/20261021000000_subscription_transfer.sql', import.meta.url);
+// The live definition: DEBUG-842 replaced the FEAT-833 function whole.
+const MIGRATION = new URL('../../migrations/20261022000600_debug842_transfer_drops_old_uid_history.sql', import.meta.url);
 
 /** The `SET col = NULL` assignments of the tombstone UPDATE, comments stripped. */
 async function migrationTombstoneNulls(): Promise<string[]> {
