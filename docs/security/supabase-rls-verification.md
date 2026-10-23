@@ -89,7 +89,8 @@ CREATE POLICY subscriptions_select ON subscriptions FOR SELECT USING (user_id = 
 CREATE POLICY subscriptions_insert ON subscriptions FOR INSERT WITH CHECK (user_id = auth.uid());
 CREATE POLICY subscriptions_update ON subscriptions FOR UPDATE USING (user_id = auth.uid()) WITH CHECK (user_id = auth.uid());
 CREATE POLICY subscription_events_select ON subscription_events FOR SELECT USING (user_id = auth.uid());
-CREATE POLICY subscription_events_insert ON subscription_events FOR INSERT WITH CHECK (user_id = auth.uid());
+-- subscription_events_insert: DROPPED (DEBUG-841). Clients are SELECT-only; with RLS on and no
+--   INSERT policy, a stray future GRANT of INSERT is still denied.
 ```
 
 **`auth.uid()` is NULL for the bare `anon` (unauthenticated) role** → every policy
@@ -152,8 +153,8 @@ Measured against `yliycxslzdsgjtpxggtf` on 2026-08-16 via
 | `users` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT, UPDATE |
 | `encrypted_backups` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT, UPDATE, DELETE |
 | `analytics_events` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT |
-| `subscription_events` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT, INSERT |
-| `subscriptions` | SELECT, INSERT, UPDATE *(INFRA-379)* — no DELETE | SELECT, INSERT, UPDATE |
+| `subscription_events` | REFERENCES, TRIGGER, TRUNCATE — **no DML** | SELECT *(DEBUG-841: INSERT revoked, insert policy dropped)* |
+| `subscriptions` | SELECT, INSERT, UPDATE *(INFRA-379)* — no DELETE | SELECT *(DEBUG-751: INSERT, UPDATE revoked)* |
 | `webhook_replay_cache` | SELECT, INSERT *(DEBUG-795)* — no UPDATE, no DELETE | **nothing** |
 | `grace_period_automation_runs` | SELECT, INSERT *(INFRA-266)* — no UPDATE, no DELETE | **nothing** |
 
