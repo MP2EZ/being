@@ -82,7 +82,8 @@ trailing 7 days (10 jobs, 0 failures):
 | `crisis-liveness-probe-prune` | `45 3 * * *` | ops telemetry |
 | `grace-period-automation-runs-prune` | `50 3 * * *` | ops telemetry |
 | `retention-prune-runs-prune` | `55 3 * * *` | the pruner's own heartbeat (MAINT-347) |
-| `subscription-transfer-prune` | `5 * * * *` | transfer ledger 31 days, failed-proof rows 1 hour (FEAT-833; heartbeat in `retention_prune_runs`). Not yet pushed: lands with the FEAT-833 db push |
+| `subscription-transfer-prune` | `5 * * * *` | transfer ledger 31 days, failed-proof rows 1 hour (FEAT-833; heartbeat in `retention_prune_runs`) |
+| `subscription-events-retention-prune` | `40 3 * * *` | `subscription_events` 3 years, privacy-policy §7.3's audit-log ceiling (DEBUG-840; heartbeat in `retention_prune_runs`). Not yet pushed: lands with the DEBUG-840 db push |
 
 Verify:
 
@@ -95,6 +96,20 @@ LEFT JOIN cron.job_run_details d
   ON d.jobid = j.jobid AND d.start_time > now() - interval '7 days'
 GROUP BY j.jobname ORDER BY j.jobname;
 ```
+
+The 7-day count above predates `subscription-transfer-prune` and
+`subscription-events-retention-prune`; the verify query lists every job, those included.
+
+`retention_prune_health` is a view you read, **not a watchdog**: nothing pages when a prune
+stops. Check each job's `last_ok_at`, never `latest_status` alone (a job that stopped running
+keeps its last `ok`):
+
+```sql
+SELECT job_name, last_ok_at, since_last_ok, latest_status, error_runs
+FROM public.retention_prune_health ORDER BY job_name;
+```
+
+A nightly job whose `since_last_ok` is over 26 hours has missed a run.
 
 Note `cleanup_orphaned_backups()` is **deliberately deleted, not scheduled** (MAINT-347) —
 privacy-policy §7.3 retains settings backup "until you disable backup", so a sweeper would
