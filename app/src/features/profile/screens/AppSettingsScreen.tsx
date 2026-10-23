@@ -59,6 +59,11 @@ const HAPTIC_CUES_DESCRIPTION =
   'Vibration marks phase changes during breathing, body scan, and timed practices';
 const NO_ACTUATOR_NOTE = 'This device has no vibration motor, so these cues are silent here.';
 
+// MAINT-845: one string for the visible description and the accessibilityHint, as above.
+// Names the four cardinal virtues: values are deprecated, so "your values" had no referent.
+const VIRTUE_REFLECTION_DESCRIPTION =
+  'Periodic invitations to reflect on how you practiced wisdom, courage, justice, and temperance';
+
 // FEAT-212: rendered as a route on ProfileStackNavigator; the native stack header
 // supplies the back chevron (SubMenuHeader's ✕ removed).
 const AppSettingsScreen: React.FC = () => {
@@ -239,10 +244,8 @@ const AppSettingsScreen: React.FC = () => {
           <View style={styles.settingCard}>
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
-                <Text style={styles.settingLabel}>Values Reflection Prompts</Text>
-                <Text style={styles.settingDescription}>
-                  Periodic invitations to reflect on your therapeutic values
-                </Text>
+                <Text style={styles.settingLabel}>Virtue Reflection Prompts</Text>
+                <Text style={styles.settingDescription}>{VIRTUE_REFLECTION_DESCRIPTION}</Text>
               </View>
               <Switch
                 value={settings.notifications.valuesReflectionPrompts}
@@ -252,8 +255,8 @@ const AppSettingsScreen: React.FC = () => {
                 disabled={isSaving}
                 accessible={true}
                 accessibilityRole="switch"
-                accessibilityLabel="Values reflection prompts"
-                accessibilityHint="Periodic invitations to reflect on your therapeutic values"
+                accessibilityLabel="Virtue reflection prompts"
+                accessibilityHint={VIRTUE_REFLECTION_DESCRIPTION}
                 accessibilityState={{ checked: settings.notifications.valuesReflectionPrompts, disabled: isSaving }}
                 testID="values-reflection-toggle"
               />
