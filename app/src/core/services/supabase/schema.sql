@@ -555,8 +555,8 @@ CREATE TABLE IF NOT EXISTS subscription_events (
   -- Event metadata (JSONB for flexibility)
   metadata JSONB DEFAULT '{}',
 
-  -- Timestamp
-  created_at TIMESTAMPTZ DEFAULT NOW(),
+  -- Timestamp. NOT NULL since DEBUG-840: the 3-year prune cannot reach an undatable row.
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
 
   -- Constraints
   CONSTRAINT metadata_size CHECK (pg_column_size(metadata) <= 2048) -- 2KB limit

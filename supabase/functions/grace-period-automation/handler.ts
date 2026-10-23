@@ -258,7 +258,7 @@ async function expireGracePeriods(supabase: any): Promise<number> {
 }
 
 /**
- * Check for expiring trials and notify users
+ * Count expiring trials (no notification is sent; see the note in the body)
  */
 async function notifyExpiringTrials(supabase: any): Promise<number> {
   console.log('[Automation] Checking for expiring trials...');
@@ -282,28 +282,14 @@ async function notifyExpiringTrials(supabase: any): Promise<number> {
 
   console.log(`[Automation] Found ${expiringTrials.length} expiring trials`);
 
-  // Log events for expiring trials
-  for (const trial of expiringTrials) {
-    await logSubscriptionEvent(supabase, {
-      userId: trial.user_id,
-      subscriptionId: null,
-      eventType: 'trial_ending_soon',
-      metadata: {
-        trial_end_date: trial.trial_end_date,
-        days_remaining: trial.days_remaining,
-        timestamp: new Date().toISOString(),
-      },
-    });
-
-    // TODO: Send push notification to user
-    // TODO: Send email notification (if email available)
-  }
-
+  // Counted for the heartbeat only. DEBUG-839 retired the `trial_ending_soon` audit row: its
+  // store date (and its created_at against the 02:00 run) joined an old uid to a new one after
+  // a transfer. A future notifier needs a compliance ruling and must not persist store dates.
   return expiringTrials.length;
 }
 
 /**
- * Check for expiring grace periods and notify users
+ * Count expiring grace periods (no notification is sent)
  */
 async function notifyExpiringGracePeriods(supabase: any): Promise<number> {
   console.log('[Automation] Checking for expiring grace periods...');
@@ -327,23 +313,8 @@ async function notifyExpiringGracePeriods(supabase: any): Promise<number> {
 
   console.log(`[Automation] Found ${expiringGrace.length} expiring grace periods`);
 
-  // Log events for expiring grace periods
-  for (const grace of expiringGrace) {
-    await logSubscriptionEvent(supabase, {
-      userId: grace.user_id,
-      subscriptionId: null,
-      eventType: 'grace_period_ending',
-      metadata: {
-        grace_period_end: grace.grace_period_end,
-        days_remaining: grace.days_remaining,
-        timestamp: new Date().toISOString(),
-      },
-    });
-
-    // TODO: Send push notification to user
-    // TODO: Send email notification (if email available)
-  }
-
+  // Counted for the heartbeat only; DEBUG-839 retired the `grace_period_ending` audit row for
+  // the same reason as the trial notice above.
   return expiringGrace.length;
 }
 
