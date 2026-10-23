@@ -10,13 +10,10 @@
  *
  * WHAT IT PINS, and why each is load-bearing rather than boilerplate:
  *
- *   1. The full declared a11y contract on the new Switch. The four pre-existing
- *      preference toggles on this screen carry NO accessibilityRole, label, hint or
- *      state — VoiceOver announces role and value only, and the visible description
- *      beside them is an unassociated node a form-controls-rotor user never reaches.
- *      Those four are a known defect, not the house pattern; the pattern is
- *      AppSettingsScreen.tsx:197-209. This suite stops the new control from being
- *      "made consistent" with the defective siblings.
+ *   1. The full declared a11y contract on the new Switch. When FEAT-470 landed, the
+ *      four preference toggles on this screen carried NO accessibilityRole, label,
+ *      hint or state; DEBUG-818 gave them role, label and state (pinned in its own
+ *      describe below). The pattern is AppSettingsScreen.tsx:197-209.
  *
  *   2. 🔴 INDEPENDENCE FROM `universalOptOut`. The other four are swept by the
  *      GPC-equivalent signal (`value={x && !universalOptOut}`,
@@ -49,20 +46,42 @@ jest.mock('@react-navigation/native', () => ({
   useFocusEffect: jest.fn(),
 }));
 
-const mockUpdateConsent = jest.fn().mockResolvedValue(undefined);
+const mockUpdateConsent = jest.fn();
 const mockSetUniversalOptOut = jest.fn().mockResolvedValue(undefined);
 const mockLoadConsent = jest.fn().mockResolvedValue(undefined);
 
 /** Mutable so each case can pose a different stored consent state. */
 let mockConsent: Record<string, unknown> = {};
 
-jest.mock('@/core/stores/consentStore', () => ({
-  useConsentStore: () => ({
+/**
+ * A successful write commits to the stored record, as the real store does. DEBUG-816: the
+ * screen confirms a write through getState() after the await, because the real
+ * updateConsent swallows its own failures, so a mock that resolves without committing is
+ * the swallowed-failure case.
+ */
+const commitUpdate = async (updates: Record<string, unknown>) => {
+  mockConsent = {
+    ...mockConsent,
+    preferences: { ...(mockConsent.preferences as Record<string, unknown>), ...updates },
+  };
+};
+
+jest.mock('@/core/stores/consentStore', () => {
+  const useConsentStore = () => ({
     loadConsent: mockLoadConsent,
     currentConsent: mockConsent,
     updateConsent: mockUpdateConsent,
     setUniversalOptOut: mockSetUniversalOptOut,
-  }),
+  });
+  useConsentStore.getState = () => ({ currentConsent: mockConsent });
+  return { useConsentStore };
+});
+
+// Pinned rather than left to env.mock.js, so the cloud_sync cases below are deterministic.
+// Default dark, matching what every earlier case in this file has always rendered.
+let mockCloudSync = false;
+jest.mock('@/core/services/featureFlags', () => ({
+  isFeatureEnabled: (name: string) => name === 'cloud_sync' && mockCloudSync,
 }));
 
 jest.mock('@/core/analytics', () => ({
@@ -71,7 +90,6 @@ jest.mock('@/core/analytics', () => ({
     trackSettingsOpened: jest.fn(),
     trackConsentChanged: jest.fn(),
   }),
-  useFeatureFlag: () => false,
 }));
 
 /**
@@ -81,7 +99,7 @@ jest.mock('@/core/analytics', () => ({
  * and silently never receive the screen's calls. `jest.config.js` sets no
  * `clearMocks`, so the beforeEach below is what stops it bleeding across cases.
  */
-import { AccessibilityInfo } from 'react-native';
+import { AccessibilityInfo, Alert } from 'react-native';
 
 import PrivacyDataScreen from '../PrivacyDataScreen';
 
@@ -111,7 +129,8 @@ const renderScreen = async () => {
 
 beforeEach(() => {
   jest.clearAllMocks();
-  mockUpdateConsent.mockResolvedValue(undefined);
+  mockUpdateConsent.mockImplementation(commitUpdate);
+  mockCloudSync = false;
   mockLoadConsent.mockResolvedValue(undefined);
   mockConsent = consentWith();
 });
@@ -240,6 +259,22 @@ describe('FEAT-470 — withdrawal is announced, but only once it has actually pe
     expect(mockAnnounce).not.toHaveBeenCalled();
   });
 
+  // DEBUG-816: the real updateConsent never rejects. It catches its own write failure and
+  // resolves with the record unchanged, so the case above could not happen in production
+  // and a failed withdrawal was announced as honoured.
+  it('does NOT announce, and shows Save Failed, when the write resolves without committing', async () => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockUpdateConsent.mockImplementationOnce(async () => undefined);
+    const { getByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(TOGGLE), 'valueChange', false);
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Save Failed', expect.any(String), expect.any(Array)));
+    expect(mockAnnounce).not.toHaveBeenCalled();
+    expect(getByTestId(TOGGLE).props.value).toBe(true);
+    alertSpy.mockRestore();
+  });
+
   it('withdraws via updateConsent and never through revokeConsent', async () => {
     // revokeConsent flips the WHOLE record to the fail-closed `revoked` status,
     // killing analytics/crash/cloud/research consent too, and strands onboarded
@@ -255,6 +290,150 @@ describe('FEAT-470 — withdrawal is announced, but only once it has actually pe
     expect(Object.keys(mockUpdateConsent.mock.calls[0][0])).toEqual([
       'mentalHealthProcessingConsent',
     ]);
+  });
+});
+
+describe('DEBUG-816 — Settings Backup withdrawal is announced, and only once it has committed', () => {
+  const BACKUP = 'privacy-settings-backup-toggle';
+  const DARK_HOLDER_WITHDRAWN =
+    "Settings Backup disabled. This option is no longer shown because it isn't available in this version of Being.";
+
+  const holder = () => consentWith({ preferences: { cloudSyncEnabled: true } });
+
+  it("flag dark: a holder's withdrawal announces that the option is gone, once, and the card goes", async () => {
+    mockConsent = holder();
+    const { getByTestId, queryByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(BACKUP), 'valueChange', false);
+
+    await waitFor(() => expect(mockAnnounce).toHaveBeenCalledWith(DARK_HOLDER_WITHDRAWN));
+    expect(mockAnnounce).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(queryByTestId(BACKUP)).toBeNull());
+  });
+
+  it('flag on: withdrawal announces the plain state and the card stays', async () => {
+    mockCloudSync = true;
+    mockConsent = holder();
+    const { getByTestId, queryByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(BACKUP), 'valueChange', false);
+
+    await waitFor(() => expect(mockAnnounce).toHaveBeenCalledWith('Settings Backup disabled'));
+    expect(queryByTestId(BACKUP)).not.toBeNull();
+  });
+
+  it('flag on: granting announces "Settings Backup enabled"', async () => {
+    mockCloudSync = true;
+    const { getByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(BACKUP), 'valueChange', true);
+
+    await waitFor(() => expect(mockAnnounce).toHaveBeenCalledWith('Settings Backup enabled'));
+  });
+
+  it.each([
+    ['resolves without committing (the real store swallows the error)', () => mockUpdateConsent.mockImplementationOnce(async () => undefined)],
+    ['rejects', () => mockUpdateConsent.mockRejectedValueOnce(new Error('secure store unavailable'))],
+  ])('a write that %s: no announcement, Save Failed, and the switch stays on', async (_name, failWrite) => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockConsent = holder();
+    failWrite();
+    const { getByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(BACKUP), 'valueChange', false);
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Save Failed', expect.any(String), expect.any(Array)));
+    expect(mockAnnounce).not.toHaveBeenCalled();
+    expect(getByTestId(BACKUP).props.value).toBe(true);
+    alertSpy.mockRestore();
+  });
+});
+
+describe('DEBUG-818 — the four consent rows: switch contract, Learn more, announcements', () => {
+  const ROWS = [
+    { label: 'Usage Analytics', key: 'analyticsEnabled', testID: 'privacy-analytics-toggle' },
+    { label: 'Crash Reports', key: 'crashReportsEnabled', testID: 'privacy-crash-reports-toggle' },
+    { label: 'Research Participation', key: 'researchEnabled', testID: 'privacy-research-toggle' },
+  ];
+
+  /** Host testIDs in render-tree (and so screen-reader) order. */
+  const testIDOrder = (node: unknown, out: string[] = []): string[] => {
+    if (Array.isArray(node)) node.forEach((n) => testIDOrder(n, out));
+    else if (node && typeof node === 'object') {
+      const n = node as { props?: { testID?: string }; children?: unknown };
+      if (n.props?.testID) out.push(n.props.testID);
+      testIDOrder(n.children, out);
+    }
+    return out;
+  };
+
+  it.each(ROWS)('$label: the Switch declares role, label and state', async (r) => {
+    const { getByTestId } = await renderScreen();
+    const sw = getByTestId(r.testID);
+    expect(sw.props.accessibilityRole).toBe('switch');
+    expect(sw.props.accessibilityLabel).toBe(r.label);
+    expect(sw.props.accessibilityState).toEqual(expect.objectContaining({ checked: false, disabled: false }));
+  });
+
+  it.each(ROWS)('$label: Learn more is a button reachable BEFORE the switch, and expands', async (r) => {
+    const api = await renderScreen();
+    const toggleID = `${r.testID}-details-toggle`;
+    const learnMore = api.getByTestId(toggleID);
+
+    expect(learnMore.props.accessibilityRole).toBe('button');
+    // WCAG 2.5.3: the accessible name contains the visible words.
+    expect(learnMore.props.accessibilityLabel).toMatch(/^Learn more/);
+    expect(learnMore.props.accessibilityLabel).toContain(r.label);
+    expect(learnMore.props.accessibilityState).toEqual(expect.objectContaining({ expanded: false }));
+
+    // In Settings the switch saves immediately, so the disclosure must come first.
+    const order = testIDOrder(api.toJSON());
+    expect(order.indexOf(toggleID)).toBeGreaterThan(-1);
+    expect(order.indexOf(toggleID)).toBeLessThan(order.indexOf(r.testID));
+
+    fireEvent.press(learnMore);
+    const expanded = api.getByTestId(toggleID);
+    expect(expanded.props.accessibilityState).toEqual(expect.objectContaining({ expanded: true }));
+    expect(expanded.props.accessibilityLabel).toMatch(/^Hide details/);
+  });
+
+  it('Learn more stays operable under Universal Opt-Out, so a holder can read what the grant covers', async () => {
+    mockConsent = consentWith({ universalOptOut: true });
+    const { getByTestId } = await renderScreen();
+    const learnMore = getByTestId('privacy-analytics-toggle-details-toggle');
+    expect(learnMore.props.accessibilityState).toEqual(expect.objectContaining({ disabled: false }));
+    expect(getByTestId('privacy-analytics-toggle').props.disabled).toBe(true);
+  });
+
+  it.each(ROWS)('$label: announces "<label> enabled" only after the write resolves', async (r) => {
+    let release!: () => void;
+    mockUpdateConsent.mockImplementationOnce(async (updates: Record<string, unknown>) => {
+      await new Promise<void>((resolve) => {
+        release = resolve;
+      });
+      await commitUpdate(updates);
+    });
+    const { getByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(r.testID), 'valueChange', true);
+    await waitFor(() => expect(mockUpdateConsent).toHaveBeenCalledWith({ [r.key]: true }));
+    expect(mockAnnounce).not.toHaveBeenCalled();
+
+    release();
+    await waitFor(() => expect(mockAnnounce).toHaveBeenCalledWith(`${r.label} enabled`));
+  });
+
+  it.each(ROWS)('$label: a write that does not commit announces nothing and shows Save Failed', async (r) => {
+    const alertSpy = jest.spyOn(Alert, 'alert').mockImplementation(() => undefined);
+    mockUpdateConsent.mockImplementationOnce(async () => undefined);
+    const { getByTestId } = await renderScreen();
+
+    fireEvent(getByTestId(r.testID), 'valueChange', true);
+
+    await waitFor(() => expect(alertSpy).toHaveBeenCalledWith('Save Failed', expect.any(String), expect.any(Array)));
+    expect(mockAnnounce).not.toHaveBeenCalled();
+    expect(getByTestId(r.testID).props.value).toBe(false);
+    alertSpy.mockRestore();
   });
 });
 

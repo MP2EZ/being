@@ -46,7 +46,9 @@ import { fakeDb, type FakeDb } from './helpers/fakeSupabase.ts';
 import {
   ANON_KEY_TOKEN,
   ANON_SESSION_TOKEN,
+  assertAuditIdsRowOrNull,
   assertCors,
+  assertNoStoreIdInMetadata,
   auditRows,
   bodyJson,
   DAY,
@@ -649,12 +651,17 @@ t('200: the exact subscriptions upsert and the receipt_verification_succeeded au
   assert(!ciphertext.includes(TOKEN));
   assertEquals(await decryptReceipt(ciphertext, ENC_KEY_B64), TOKEN);
 
+  // DEBUG-836: the audit row carries the upserted subscriptions row's uuid, never the orderId
+  // (log_subscription_event's p_subscription_id is uuid-typed and owner-checked).
+  assertEquals(h.db.tables.subscriptions.length, 1);
   assertEquals(auditRows(h.db), [{
     p_user_id: JWT_SUB,
-    p_subscription_id: ORDER_ID,
+    p_subscription_id: h.db.tables.subscriptions[0].id,
     p_event_type: 'receipt_verification_succeeded',
     p_metadata: { platform: 'google', verified_at: iso(NOW) },
   }]);
+  assertAuditIdsRowOrNull(h.db);
+  assertNoStoreIdInMetadata(h.db, [ORDER_ID, TOKEN]);
 });
 
 t('a monthly product is written with interval "monthly"', async () => {
@@ -688,13 +695,21 @@ t('REPLAY: a purchase token already bound to another user is a 409, audited, and
 });
 
 t('REPLAY: the same user re-verifying (restore purchases) is an idempotent 200', async () => {
-  const mine = { user_id: JWT_SUB, platform: 'google', original_transaction_id: TOKEN, status: 'active' };
+  const mine = { id: MY_ROW_ID, user_id: JWT_SUB, platform: 'google', original_transaction_id: TOKEN, status: 'active' };
   const h = harness({ seed: { subscriptions: [mine] } });
   assertEquals((await call(h, req())).res.status, 200);
   assertEquals(h.db.upserts.length, 1);
   assertEquals(h.db.tables.subscriptions.length, 1);
-  assertEquals(auditRows(h.db).map((a) => a.p_event_type), ['receipt_verification_succeeded']);
+  // DEBUG-836: the upsert keeps the row's id, and the audit carries that preserved id.
+  assertEquals(h.db.tables.subscriptions[0].id, MY_ROW_ID);
+  assertEquals(
+    auditRows(h.db).map((a) => [a.p_event_type, a.p_subscription_id]),
+    [['receipt_verification_succeeded', MY_ROW_ID]],
+  );
+  assertAuditIdsRowOrNull(h.db);
 });
+
+const MY_ROW_ID = 'dddddddd-dddd-4ddd-8ddd-dddddddddddd';
 
 t('REPLAY: the binding is per platform - an apple row with the same id does not block google', async () => {
   const apple = { user_id: OTHER_USER, platform: 'apple', original_transaction_id: TOKEN };
@@ -786,8 +801,9 @@ function assertNothingForbidden(where: string, text: string, forbidden: readonly
 
 /**
  * MAINT-765: identifiers a LOG LINE must never carry. Audit rows are exempt by design - the
- * success row's p_user_id is the user and its p_subscription_id is the Google orderId - so
- * these are checked against the captured console only, on top of FORBIDDEN.
+ * success row's p_user_id is the user - so these are checked against the captured console
+ * only, on top of FORBIDDEN. Since DEBUG-836 an audit row's p_subscription_id is the
+ * subscriptions row uuid or null, never the orderId, and no metadata value carries it.
  */
 const MOCK_TOKEN = 'mock_token_abc123';
 const LOG_ONLY_FORBIDDEN = [
@@ -908,10 +924,19 @@ for (const c of LEAK_CASES) {
       const h = c.setup();
       await handle(c.request ? c.request() : req(), h.deps);
       assertNothingForbidden('an audit row', JSON.stringify(h.db.rpcCalls));
+      // DEBUG-836: every audit row's id is a row the user owns, or null - so it lands.
+      assertAuditIdsRowOrNull(h.db);
+      assertNoStoreIdInMetadata(h.db, [ORDER_ID, TOKEN]);
     }, lines);
     // Non-vacuity: every one of these paths logs, so an empty capture cannot pass as clean.
     assert(lines.length > 0, 'nothing was captured');
     for (const line of lines) assertNothingForbidden('a log line', line, [...FORBIDDEN, ...LOG_ONLY_FORBIDDEN]);
+    if (!c.name.startsWith('audit RPC failure')) {
+      assert(
+        !lines.some((l) => l.includes('log_subscription_event FAILED')),
+        'an audit row the handler issued was rejected (the fake mirrors the uuid parameter)',
+      );
+    }
   });
 }
 

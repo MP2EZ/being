@@ -1,32 +1,33 @@
 # Feature flags
 
-Last verified: 2026-10-19 (MAINT-808; first written by MAINT-804, 2026-10-18)
+Last verified: 2026-10-19 (MAINT-811; first written by MAINT-804, 2026-10-18)
 
 Inventory of every feature flag in the app: what each gates, which tier resolves it, the value each source holds, how a build picks its value, and the operations still owed. Flags are a comma-separated `key:value` blob in `EXPO_PUBLIC_FEATURE_FLAGS`, parsed once at module load (`app/src/core/services/featureFlags.ts`). Only the literal `true` enables a flag; an absent key resolves to `false`. Re-verify this file on any flag change, any posthog SDK bump, and before v1.0.0.
 
-Terms: **build-time** = `isFeatureEnabled()`, value baked into the JS bundle. **Runtime tier** = `useFeatureFlag()`, which may let PostHog override the build-time value for flags in `PRODUCT_FLAGS`.
+Terms: **build-time** = `isFeatureEnabled()`, value baked into the JS bundle. It is the only tier. The PostHog **runtime tier** (`useFeatureFlag()` / `PRODUCT_FLAGS`, INFRA-199) was retired by MAINT-811 under the founder decision of 2026-10-19.
 
 ## 1. Inventory
 
-Source of truth for members: `FeatureFlag` union, `featureFlags.ts:50-129` (7 members). Runtime-overridable set: `PRODUCT_FLAGS`, `app/src/core/analytics/useFeatureFlag.ts:59-64` (1 member). "Introduced by" is the first commit adding the string to `featureFlags.ts` (`git log -S`).
+Source of truth for members: `FeatureFlag` union in `featureFlags.ts` (7 members). "Introduced by" is the first commit adding the string to `featureFlags.ts` (`git log -S`).
 
-Adding any key to `PRODUCT_FLAGS` is an explicit change that requires compliance review.
+Reintroducing any PostHog flag evaluation is a new processing decision: crisis + compliance review and a DPIA entry. It must never flip `preloadFeatureFlags` / `disableRemoteConfig`, and it must revisit the DEBUG-812 reset no-op (section 4).
 
 | Flag | Introduced by | What it gates | Tier | Why that tier | Consumers |
 |---|---|---|---|---|---|
-| `cloud_sync` | MAINT-173 | Cloud Backup entry row + screen (UI visibility; egress is gated separately by cloud_sync consent in `CloudBackupService`); Cloud Backup consent card in onboarding and re-consent | Build-time only; must never enter `PRODUCT_FLAGS` (MAINT-809) | The flag gates both a consent surface and the capability it authorizes, so every reader uses one tier. A runtime read let PostHog split them: `true` showed Cloud Backup (restore included) without the consent card, `false` hid restore and status from a user whose backups continue. Consent cards read build-time because a consent surface must not depend on analytics consent or a network round-trip (DEBUG-625 AC3, `OnboardingScreen.tsx:1102-1111`). Pinned by `__tests__/privacy/cloudSyncSingleTier.contract.test.ts` | `CloudBackupScreen.tsx:28`, `PrivacyDataScreen.tsx:171` (Protected Path), `OnboardingScreen.tsx:1113` (Protected Path), `ReConsentScreen.tsx:221`, `:527` (Protected Path) |
-| `wellness_trend_notes` | FEAT-195 | "Your note" annotation surface on Wellness Trends. UI visibility only; note encryption, consent and delete paths are independent and always on | PRODUCT_FLAGS (runtime-overridable) | Listed in `PRODUCT_FLAGS` with "ships dark (build-time default false)" (`useFeatureFlag.ts:60-63`); no further rationale recorded | `WellnessScreeningTrends.tsx:555` (Protected Path) |
+| `cloud_sync` | MAINT-173 | Cloud Backup entry row + screen (UI visibility; egress is gated separately by cloud_sync consent in `CloudBackupService`); Cloud Backup consent card in onboarding and re-consent | Build-time only; must stay build-time if a runtime tier is ever reintroduced (MAINT-809) | The flag gates both a consent surface and the capability it authorizes, so every reader uses one tier. A runtime read let PostHog split them: `true` showed Cloud Backup (restore included) without the consent card, `false` hid restore and status from a user whose backups continue. Consent cards read build-time because a consent surface must not depend on analytics consent or a network round-trip (DEBUG-625 AC3, `OnboardingScreen.tsx:1102-1111`). Pinned by `__tests__/privacy/cloudSyncSingleTier.contract.test.ts` | `CloudBackupScreen.tsx:28`, `PrivacyDataScreen.tsx:171` (Protected Path), `OnboardingScreen.tsx:1113` (Protected Path), `ReConsentScreen.tsx:221`, `:527` (Protected Path) |
+| `wellness_trend_notes` | FEAT-195 | "Your note" annotation surface on Wellness Trends. UI visibility only; note encryption, consent and delete paths are independent and always on | Build-time only (was `PRODUCT_FLAGS` until MAINT-811) | Ships dark (build-time default false). Moved to build-time when the runtime tier was retired; it never resolved remotely in practice (section 4) | `WellnessScreeningTrends.tsx:555` (Protected Path) |
 | `bug_reporting` | FEAT-284 | Internal "Report a bug / Send feedback" surface (shake-to-report + Sentry feedback widget) | Build-time only | Availability must be deterministic, offline, and not coupled to analytics consent (INFRA-199 safety carve-out), `featureFlags.ts:53-61` | `useBugReportShake.ts:110` (Protected Path), `ExternalErrorReporter.ts:749` (Protected Path), `ProfileScreen.tsx:447` (Protected Path); comment reference only: `bugReportStore.ts:34` (Protected Path) |
 | `practice_haptics` | FEAT-285 | Haptic phase cues during timed practices, plus the opt-in prompt and settings row | Build-time only | Non-visual guidance channel for low-vision and eyes-closed practitioners; a user who declined analytics must not lose it (INFRA-199 carve-out), `featureFlags.ts:62-75` | `AppSettingsScreen.tsx:366`, `useHapticsOptIn.ts:90` (Protected Path), `usePracticeHaptics.ts:110` (Protected Path) |
 | `voice_journal` | FEAT-283 | Voice journal / spoken reflection surface (capture, on-device transcription, encrypted store, crisis scan) | Build-time only | Gates a whole screen + entry point, not a per-user rollout; a zero-egress feature must not have network-dependent availability; INFRA-199 forbids coupling to analytics consent, `featureFlags.ts:86-95` | `ProfileScreen.tsx:469`, `:492` (Protected Path) |
-| `data_export` | FEAT-270 | UI visibility of the "See what's included" scoping/count-preview section on `ExportDataScreen` **only**. Never a consent gate for any data operation; the always-on JSON export stays reachable when this is `false` | Build-time only; must never enter `PRODUCT_FLAGS` | A runtime flag resolves only under granted analytics consent, so a PostHog gate would hide a data-subject-rights surface from exactly the users who declined analytics (`featureFlags.ts:96-112`) | `ExportDataScreen.tsx:165` (Protected Path) |
+| `data_export` | FEAT-270 | UI visibility of the "See what's included" scoping/count-preview section on `ExportDataScreen` **only**. Never a consent gate for any data operation; the always-on JSON export stays reachable when this is `false` | Build-time only; must stay build-time if a runtime tier is ever reintroduced | A runtime flag resolves only under granted analytics consent, so a PostHog gate would hide a data-subject-rights surface from exactly the users who declined analytics (`featureFlags.ts:96-112`) | `ExportDataScreen.tsx:165` (Protected Path) |
 | `domain_guidance` | FEAT-457 | Home entry point into domain-specific guidance (`RightNowAffordance`) | Build-time only | The surface routes a suppressed reader to CrisisResources, so availability must never depend on analytics consent or a network round-trip (INFRA-199 carve-out). Buys no incident response: a flip needs a new build, `featureFlags.ts:113-129` | `CleanHomeScreen.tsx:316` (Protected Path) |
 
 Findings:
 
+- **Runtime tier retired (MAINT-811).** `useFeatureFlag.ts` and `PRODUCT_FLAGS` are deleted; `wellness_trend_notes`, the last member, reads `isFeatureEnabled`. No app code reads a PostHog flag, pinned by `__tests__/privacy/runtimeFlagTierRetired.contract.test.ts`.
 - **Split-tier read (`cloud_sync`), resolved by MAINT-809.** The Profile screens read the runtime hook while the consent cards read build-time, so a PostHog boolean could show Cloud Backup without its consent card (or hide restore from a consenter). It was inactive (section 4) but latent. All four readers are now build-time, and `cloud_sync` left `PRODUCT_FLAGS`.
 - **Dead members (removed from code).** `emergency_sync` and `cross_device_sync` had zero consumers. MAINT-808 removed them from the union, `PRODUCT_FLAGS` and the committed `e2e-sim` string; the `.config` and EAS strings still carry them until the section 7 pending op runs (harmless: an unknown key resolves `false`).
-- **Stale model wording (corrected by MAINT-809).** "PostHog promotes; build-time is the floor" was wrong: for a `PRODUCT_FLAGS` member a clean PostHog boolean wins in both directions (section 3). Corrected at its source (`useFeatureFlag.ts` header) and in `featureFlags.ts`, `CloudBackupScreen.tsx`, `PrivacyDataScreen.tsx`. Two DEBUG-406 rationale comments still quote the old phrase (`RootCrisisButton.tsx`, `SessionNoteComposer.tsx`); their conclusion, that a PostHog toggle can open the surface with no build, holds under the corrected model, so they were left.
+- **Stale model wording (corrected by MAINT-809).** "PostHog promotes; build-time is the floor" was wrong: for a `PRODUCT_FLAGS` member a clean PostHog boolean wins in both directions (section 3). Corrected at its source (the `useFeatureFlag.ts` header, deleted by MAINT-811) and in `featureFlags.ts`, `CloudBackupScreen.tsx`, `PrivacyDataScreen.tsx`. Two DEBUG-406 rationale comments still quote the old phrase (`RootCrisisButton.tsx`, `SessionNoteComposer.tsx`). Since MAINT-811 they describe a removed mechanism: no PostHog toggle can open a surface now. Their conversions still stand, because a build-time flip also opens the surface for every user, and editing `features/crisis/` for a comment would widen the gate, so they were left.
 
 ## 2. Value matrix
 
@@ -57,50 +58,41 @@ EAS preview and development each hold this stale pre-MAINT-213 string: `producti
 | `e2e-sim` has `practice_haptics` false vs production true | Intended | Gate build stays dark: no current safety flow enters the practice timer screens; pinned by `__tests__/unit/practices/haptics/hapticTraceFlag.test.ts` ("keeps the Maestro gate build dark") and noted at `featureFlags.ts:72-74` |
 | `e2e-sim` `bug_reporting` true | Intended today, open decision at launch | Matches production pre-launch; keeping it true after production flips off needs a stated reason (section 6) |
 | EAS preview and development strings stale, missing 6 flags, carry 8 removed keys | Drift | Never resynced after MAINT-213 and the later flags. A preview or development-profile build reading them would ship `bug_reporting`, `practice_haptics` etc. dark, unlike production |
-| PostHog `cloud_sync` active at 0% | Drift (orphan) | Not in `PRODUCT_FLAGS` since MAINT-809, so no build consults it; must never become the gate for `cloud_sync` |
-| PostHog `wellness_trend_notes` inactive | Consistent, inert | Matches the build-time `false` value |
-| PostHog `data_export` inactive definition | Drift (orphan) | Not in `PRODUCT_FLAGS`, no code reads it via PostHog; its description refers to a PDF export the code does not gate |
+| PostHog `cloud_sync` active at 0% | Drift (orphan) | No build consults PostHog since MAINT-811 (and not for `cloud_sync` since MAINT-809); must never become the gate for `cloud_sync` |
+| PostHog `wellness_trend_notes` inactive | Drift (orphan) | No build consults PostHog since MAINT-811; matches the build-time `false` value |
+| PostHog `data_export` inactive definition | Drift (orphan) | No code reads it via PostHog; its description refers to a PDF export the code does not gate |
 | `.config/.env.production` vs EAS production | Agree | Identical strings on 2026-10-18 |
 
 ## 3. Resolution per build
 
 | Build | JS env source | Which source wins | Runtime tier reachable? |
 |---|---|---|---|
-| Expo Go / dev client | Metro loads `app/.env.development`, a symlink to `.config/.env.development` | `.env.development` | Only by the consent condition below, and see section 4 |
-| `npm run e2e:safety:build` | `eas.json` `e2e-sim` env | `e2e-sim` string wins over `.env.production`; see `app/scripts/e2e-sim-build.sh:542-557` (parity assert) | Same as above |
-| `npm run e2e:safety:build:eas` (`eas build --local --profile e2e-sim`, `scripts/e2e-sim-build-eas.sh:132`) | Unverified. No profile sets `environment`; internal distribution may default to `preview`, which holds the stale string | Unverified: confirm from an EAS build log before relying on it | Unverified |
-| EAS TestFlight and App Store | One binary from `eas build --profile production`. `.env.production` is gitignored, so the EAS `production` environment is the only source | EAS `production` environment | Same as above |
+| Expo Go / dev client | Metro loads `app/.env.development`, a symlink to `.config/.env.development` | `.env.development` | No (retired, MAINT-811) |
+| `npm run e2e:safety:build` | `eas.json` `e2e-sim` env | `e2e-sim` string wins over `.env.production`; see `app/scripts/e2e-sim-build.sh:542-557` (parity assert) | No (retired) |
+| `npm run e2e:safety:build:eas` (`eas build --local --profile e2e-sim`, `scripts/e2e-sim-build-eas.sh:132`) | Unverified. No profile sets `environment`; internal distribution may default to `preview`, which holds the stale string | Unverified: confirm from an EAS build log before relying on it | No (retired) |
+| EAS TestFlight and App Store | One binary from `eas build --profile production`. `.env.production` is gitignored, so the EAS `production` environment is the only source | EAS `production` environment | No (retired) |
 
 For TestFlight and App Store, a local-only edit of `.config/.env.production` changes nothing in a shipped build.
 
-### Consent condition for the runtime tier
+### Consent condition for the runtime tier (history)
 
-As coded in `useFeatureFlag.ts`, PostHog is consulted only when all four hold (`:104-105`):
+Until MAINT-811, `useFeatureFlag` consulted PostHog only for a `PRODUCT_FLAGS` member under analytics consent, no universal opt-out and a live client; otherwise it returned the build-time value, and for a consenting user a clean PostHog boolean won in both directions. The tier is retired, so no build consults PostHog.
 
-1. the flag is in `PRODUCT_FLAGS`, and
-2. `analyticsEnabled === true` (`:90-92`), and
-3. `universalOptOut === false` (GPC / state universal opt-out, `:93-95`), and
-4. a PostHog client exists.
+## 4. PostHog `/flags` status
 
-Client presence is not a consent signal since the provider became unconditional (DEBUG-559, `:85-86`, `:101-103`). Every other branch returns the build-time value (fail-safe): non-product flag, no consent, opt-out, no client, unresolved or non-boolean value, network failure (`:134-135`). For a consenting user a clean PostHog boolean wins in both directions (`:136`): PostHog `false` overrides build-time `true`, and PostHog `true` overrides build-time `false`.
-
-Consequence: a PostHog kill-switch or rollout reaches consenting users only. Reaching everyone requires a new build with the env default changed.
-
-## 4. Runtime-tier status
-
-In current builds the runtime tier never fetches flags. `useFeatureFlag` therefore always returns the build-time value, and the PostHog flag definitions are inert.
+No app code reads a PostHog flag: the runtime tier was retired by MAINT-811, pinned by `runtimeFlagTierRetired.contract.test.ts`. The suppression below still governs SDK construction and `reset()`, and the PostHog flag definitions are inert.
 
 | Evidence | Where |
 |---|---|
-| `disableRemoteConfig: true`, `preloadFeatureFlags: false`, `disableSurveys: true` | `PostHogProvider.tsx:81-83`. Load-bearing pre-consent network suppression from the DEBUG-559 ruling (`:40-62`) |
+| `disableRemoteConfig: true`, `preloadFeatureFlags: false`, `disableSurveys: true` | `PostHogProvider.tsx:84-86`. Load-bearing pre-consent network suppression from the DEBUG-559 ruling (`:40-62`) |
 | `optIn()` / `optOut()` only mutate a persisted opt-out flag | `PostHogProvider.tsx:116-117`, `:136` |
-| No app code calls `reloadFeatureFlags`, `identify` or `group` | Searched `app/src` and `app/App.tsx` on 2026-10-18; only hits are comments in `PostHogProvider.tsx` |
-| No path loads flags. The SDK's `reset()` calls `reloadFeatureFlags()` (`@posthog/core` `dist/posthog-core.js:100`), whose `flagsAsync()` gates only on `disabled`, never `optedOut`, so before DEBUG-812 the account-deletion reset POSTed `/flags` in every opt state, carrying the pre-erasure id as `$device_id` (RN `reset()` keeps `DeviceId` by default). The erasure reset now shadows the instance's `reloadFeatureFlags` for the rest of the process and resets with a keep-list that drops `DeviceId` | `analyticsIdentityReset.ts:171-172`. Pinned against the real SDK and the real `POSTHOG_OPTIONS` in `analyticsIdentityReset.networkSilence.privacy.test.ts` (zero requests in three opt states; a raw-`reset()` control that records the `/flags` POST). A runtime-tier enablement (section 7) must revisit the shadowing |
-| Observed: on app 1.4.0, every `$feature_flag_called` event for `cloud_sync` and `wellness_trend_notes` carried `$used_bootstrap_value=true` | Planning panel reading, 2026-10-18 (PostHog read-only); not re-run here |
+| No app code calls `getFeatureFlag`, `onFeatureFlags`, `reloadFeatureFlags`, `identify` or `group` | Searched `app/src` and `app/App.tsx`; pinned since MAINT-811 by `runtimeFlagTierRetired.contract.test.ts` (comment-stripped, with matcher fixtures) |
+| No path loads flags. The SDK's `reset()` calls `reloadFeatureFlags()` (`@posthog/core` `dist/posthog-core.js:100`), whose `flagsAsync()` gates only on `disabled`, never `optedOut`, so before DEBUG-812 the account-deletion reset POSTed `/flags` in every opt state, carrying the pre-erasure id as `$device_id` (RN `reset()` keeps `DeviceId` by default). The erasure reset now shadows the instance's `reloadFeatureFlags` for the rest of the process and resets with a keep-list that drops `DeviceId` | `analyticsIdentityReset.ts:108`. Pinned against the real SDK and the real `POSTHOG_OPTIONS` in `analyticsIdentityReset.networkSilence.privacy.test.ts` (zero requests in three opt states; a raw-`reset()` control that records the `/flags` POST). The shadowing stays after MAINT-811: it guards the SDK `reset()` path, not the retired hook. Any future PostHog flag read must revisit it |
+| Historical: on app 1.4.0, every `$feature_flag_called` event for `cloud_sync` and `wellness_trend_notes` carried `$used_bootstrap_value=true`. Builds containing MAINT-811 send no `$feature_flag_called` | Planning panel reading, 2026-10-18 (PostHog read-only); not re-run here |
 
 Caveat: a device that ran a pre-DEBUG-559 build may hold a persisted flag cache.
 
-Do not flip `preloadFeatureFlags` or `disableRemoteConfig` to make the tier live; they are the pre-consent network suppression keys. Making the tier live is a follow-up decision (section 7).
+Do not flip `preloadFeatureFlags` or `disableRemoteConfig`; they are the pre-consent network suppression keys. The tier was retired, not deferred: reintroducing remote flags is a new item (section 1).
 
 Pinned SDK versions (`app/package-lock.json`): `posthog-react-native` 4.45.14, `@posthog/core` 1.29.9. Re-verify this section on any SDK bump.
 
@@ -111,6 +103,7 @@ Pinned SDK versions (`app/package-lock.json`): `posthog-react-native` 4.45.14, `
 | `emergency_sync`, `cross_device_sync` | Removed from the union, `PRODUCT_FLAGS` and the `e2e-sim` string by MAINT-808; still in `.config/.env.*` and EAS | Pending op (remove from env strings), section 7 |
 | PostHog `data_export` definition | Inactive; orphan; must never become the gate for `data_export` | Pending op (archive) |
 | PostHog `cloud_sync` definition | Active at 0%; orphan since MAINT-809; must never become the gate for `cloud_sync` | Pending op (archive) |
+| PostHog `wellness_trend_notes` definition | Inactive; orphan since MAINT-811 | Pending op (archive) |
 | EAS preview and development strings | Stale, see section 2 | Pending op (resync or delete) |
 | `daily_loop` | Not a flag any more. Appears only in a comment at `featureFlags.ts:89` and as retired-flag history at `CleanHomeScreen.tsx:5`, `:264`. (`stoic_session_daily_loop` is a storage key, not a flag) | None; reword the comment when touching `featureFlags.ts` |
 | `app/__tests__/setup/env.mock.js` | Set `EXPO_PUBLIC_FEATURE_FLAGS: 'production_mode:true,crisis_detection:true'`, both keys removed by MAINT-213 | Done (MAINT-810): now `'cloud_sync:false'`, so every flag resolves false under jest |
@@ -134,7 +127,6 @@ Every place that must change together:
 - [ ] EAS `production` environment. Founder runs `eas env:set` (never `eas env:update`: its `--name` flag renames the variable), then verifies with `eas env:list --environment production`
 - [ ] EAS `preview` and `development` environments (or delete them)
 - [ ] `app/eas.json` `e2e-sim` string, plus what pins it: `__tests__/unit/practices/haptics/hapticTraceFlag.test.ts` (reads the real `eas.json`) and the `scripts/e2e-sim-build.sh` parity assert (`:542-557`). `__tests__/privacy/feedbackScrub.contract.test.ts` and `__tests__/scripts/e2e-sim-build.test.js` use their own fixture strings
-- [ ] PostHog definition, only for `PRODUCT_FLAGS` members and only once the runtime tier is live
 - [ ] Value claims in `featureFlags.ts` comments (for example "ships dark", the `practice_haptics` prod-sources sentence)
 - [ ] This doc's matrix, with a new verified-on date
 - [ ] A new build. A build-time flag is not an incident lever
@@ -151,6 +143,7 @@ PostHog targeting rule: release conditions may use only the anonymous device id 
 | EAS development `EXPO_PUBLIC_FEATURE_FLAGS` | Same | Founder | `eas env:list --environment development` | Open |
 | PostHog `data_export` definition (project 111221) | Archive. Compliance point: `data_export` must never become PostHog-gated | Founder | PostHog flag list shows it archived | Open |
 | PostHog `cloud_sync` definition (project 111221) | Archive (MAINT-809). Compliance point: `cloud_sync` must never become PostHog-gated | Founder | PostHog flag list shows it archived | Open |
+| PostHog `wellness_trend_notes` definition (project 111221) | Archive (MAINT-811: no build reads PostHog flags) | Founder | PostHog flag list shows it archived | Open |
 | `bug_reporting` launch gate | Set `bug_reporting:false` in `.config/.env.production` and the EAS production environment | Founder | `grep EXPO_PUBLIC_FEATURE_FLAGS` on the `.config` file; `eas env:list --environment production` | Open |
 | `emergency_sync`, `cross_device_sync` in `.config/.env.production`, `.config/.env.development` and EAS production | Remove both `:false` pairs (MAINT-808 removed them from code). EAS: `eas env:set`, never `eas env:update`. Preview and development are covered by the resync rows above | Founder | `grep EXPO_PUBLIC_FEATURE_FLAGS` on each `.config` file; `eas env:list --environment production` | Open |
 
@@ -161,5 +154,5 @@ PostHog targeting rule: release conditions may use only the anonymous device id 
 | Remove `emergency_sync` and `cross_device_sync` from `FeatureFlag` and `PRODUCT_FLAGS` | MAINT-808 (done) |
 | Resolve `cloud_sync` split-tier reads (Protected Paths: `PrivacyDataScreen.tsx`, `OnboardingScreen.tsx`, `ReConsentScreen.tsx`) and the stale "PostHog promotes" wording at `CloudBackupScreen.tsx:8-9` | MAINT-809 (done) |
 | Clean stale keys from `app/__tests__/setup/env.mock.js` | MAINT-810 (done) |
-| Decide keep, fix or retire the PostHog runtime tier. A fix would be a post-consent `reloadFeatureFlags` under the same four conditions as `useFeatureFlag.ts:104-105`, in `PostHogProvider` (a crisis + compliance Protected Path), plus a privacy-policy section 5.2 check | MAINT-811 |
+| Decide keep, fix or retire the PostHog runtime tier | MAINT-811 (done: retired, founder decision 2026-10-19) |
 | Investigate whether `client.reset()` on account deletion triggers a `/flags` request while the user is opted out (compliance) | DEBUG-812 (done: it did, in every opt state; fixed, see section 4) |

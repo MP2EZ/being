@@ -101,7 +101,7 @@ As of 2025, 20 US states have comprehensive consumer privacy laws. The following
 4. The PostHog processor contract is unconfirmed.
 5. The Supabase Crisis Detection Event (`crisis_detected`) carries `user_id` = `auth.uid()`, a persistent identifier. It is collected without consent under vital interests, which MHMDA does not recognise outside "necessary to provide the requested service". `privacy-policy.md` §3 also says it contains "nothing that identifies you", which conflicts with §7.4. This is recorded open, not assessed and cleared.
 
-**Remedy: a founder decision, tracked in DEBUG-821.** (A) build MHMDA compliance (CHD policy page, MHMDA-specific consent copy with a CONSENT_VERSION bump, erasure propagated to PostHog, processor contract), or (B) minimise (drop or de-link these events from PostHog, or disable GeoIP). See `dpia-sensitive-wellness-data.md` §9 v2.51.
+**Remedy: a founder decision, tracked in DEBUG-821.** (A) build MHMDA compliance (CHD policy page, MHMDA-specific consent copy with a CONSENT_VERSION bump, erasure propagated to PostHog, processor contract), or (B) minimise (drop or de-link these events from PostHog, or disable GeoIP). See `dpia-sensitive-wellness-data.md` §9 v2.52.
 
 ### 3. International Privacy Laws
 
@@ -259,7 +259,7 @@ We implement strong security because it's the right thing to do for users entrus
 | Version | Date | Changes |
 |---------|------|---------|
 | 1.0 | 2025-12-26 | Initial document creation |
-| 1.2 | 2026-10-19 | DEBUG-793: new §2a. WA MHMDA, Nevada SB 370 and Connecticut consumer-health-data provisions APPLY to the PostHog crisis-access and assessment events (persistent identifier plus city GeoIP). Five open gaps are listed, and the remedy is a founder decision (DEBUG-821). The analytics-architecture.md "access is not the finding" ruling is reversed. See `dpia-sensitive-wellness-data.md` §9 v2.51. |
+| 1.2 | 2026-10-19 | DEBUG-793: new §2a. WA MHMDA, Nevada SB 370 and Connecticut consumer-health-data provisions APPLY to the PostHog crisis-access and assessment events (persistent identifier plus city GeoIP). Five open gaps are listed, and the remedy is a founder decision (DEBUG-821). The analytics-architecture.md "access is not the finding" ruling is reversed. See `dpia-sensitive-wellness-data.md` §9 v2.52. |
 | 1.1 | 2026-09-13 | DEBUG-608: "What Being IS" no longer lists emergency contact access, and the sensitive-data assessment summary no longer lists crisis safety plans. Being never collected either: the safety-plan screen and store were deleted before the first external distribution. Crisis access is to 988, the Crisis Text Line and 911. See `dpia-sensitive-wellness-data.md` §9 v2.14. |
 
 ---

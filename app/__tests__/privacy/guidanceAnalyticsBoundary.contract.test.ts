@@ -5,7 +5,7 @@
  * THE PROMISE THIS ENFORCES IS A PUBLISHED ONE.
  *
  * Privacy policy §5.2 (mirrored in `docs/architecture/analytics-architecture.md`,
- * v1.23, DEBUG-793) promises that what you select, answer or write is never collected;
+ * v1.24, DEBUG-793) promises that what you select, answer or write is never collected;
  * only that an affordance was opened is disclosed. A self-selected hardship domain —
  * "this user opened grief" — is exactly that content, and arguably more revealing
  * than a screen-view bucket.

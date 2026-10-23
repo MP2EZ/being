@@ -9,7 +9,7 @@
  * gives FEAT-457's `guidance_opened` domain tokens, and it exists because the review
  * that permitted these two events rested on exactly this boundary holding. Compliance's
  * ruling: they are ACCESS signals, like `crisis_resources_viewed` /
- * `crisis_hotline_tapped`. Privacy policy §5.2 (v1.23, DEBUG-793) discloses them and
+ * `crisis_hotline_tapped`. Privacy policy §5.2 (v1.24, DEBUG-793) discloses them and
  * promises the content (which screening, score, severity) is never collected. Access is
  * disclosed, not unlinkable: it is consumer health data under WA MHMDA
  * (regulatory-applicability.md §2a). This boundary is what keeps the content half true.

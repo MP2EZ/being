@@ -26,9 +26,9 @@
  *
  * The two store paths below are the ones `PostHogProvider` reads to drive
  * `optIn()`/`optOut()`, so a call site using this hook cannot disagree with the
- * client's own opt state. `useFeatureFlag.ts` already gated on exactly these two
- * conjuncts independently, which is why it was the one consumer the always-mount
- * change did not silently break.
+ * client's own opt state. The retired `useFeatureFlag.ts` (MAINT-811) gated on exactly
+ * these two conjuncts independently, which is why it was the one consumer the
+ * always-mount change did not silently break.
  */
 
 import { useConsentStore } from '@/core/stores/consentStore';

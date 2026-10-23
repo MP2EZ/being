@@ -11,21 +11,16 @@
  * here treats "flag on" as "consent given".
  *
  * MAINT-809: the flag resolves at build time (`isFeatureEnabled`), the same tier as
- * the consent cards, never through the PostHog-backed runtime hook.
+ * the consent cards. MAINT-811 retired the runtime tier, so there is no other.
  */
 
 import React from 'react';
 import { render } from '@testing-library/react-native';
 import CloudBackupScreen from '../CloudBackupScreen';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
-import { useFeatureFlag } from '@/core/analytics';
 
 jest.mock('@/core/services/featureFlags', () => ({
   isFeatureEnabled: jest.fn(),
-}));
-// Present only so a regression back to the runtime hook is observable: it would say "on".
-jest.mock('@/core/analytics', () => ({
-  useFeatureFlag: jest.fn(() => true),
 }));
 jest.mock('@/core/components/settings/CloudBackupSettings', () => {
   const { Text: MockText } = jest.requireActual('react-native');
@@ -37,11 +32,9 @@ jest.mock('@/core/components/settings/CloudBackupSettings', () => {
 });
 
 const mockIsFeatureEnabled = isFeatureEnabled as jest.Mock;
-const mockUseFeatureFlag = useFeatureFlag as jest.Mock;
 
 beforeEach(() => {
   mockIsFeatureEnabled.mockReset();
-  mockUseFeatureFlag.mockClear();
 });
 
 describe('CloudBackupScreen', () => {
@@ -65,13 +58,5 @@ describe('CloudBackupScreen', () => {
     render(<CloudBackupScreen />);
 
     expect(mockIsFeatureEnabled).toHaveBeenCalledWith('cloud_sync');
-  });
-
-  it('MAINT-809: a runtime (PostHog) "on" cannot show the screen while the build-time flag is off', () => {
-    mockIsFeatureEnabled.mockReturnValue(false);
-    const { toJSON } = render(<CloudBackupScreen />);
-
-    expect(toJSON()).toBeNull();
-    expect(mockUseFeatureFlag).not.toHaveBeenCalled();
   });
 });

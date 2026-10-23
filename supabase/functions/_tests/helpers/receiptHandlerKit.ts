@@ -12,9 +12,9 @@
  * `.get(` form on `Deno.env` as an unreconcilable read.
  */
 
-import { assertStrictEquals } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
+import { assert, assertStrictEquals } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
 import { captureConsole } from './consoleCapture.ts';
-import type { FakeDb } from './fakeSupabase.ts';
+import { type FakeDb, UUID_RE } from './fakeSupabase.ts';
 
 export const JWT_SUB = '0b7f3c52-9d1e-4a6b-8f20-5c1d7e9a4b13';
 export const OTHER_USER = '5e2a91c4-77d0-4f3b-9a18-2c6b0d8e1f47';
@@ -142,4 +142,31 @@ export interface AuditArgs {
 /** Every audit RPC the handler issued, as the exact arguments the writer sent. */
 export function auditRows(db: FakeDb): AuditArgs[] {
   return db.rpcCalls.filter((c) => c.name === AUDIT_RPC).map((c) => c.args as unknown as AuditArgs);
+}
+
+/**
+ * DEBUG-836: every audit row's p_subscription_id is null or the id of a subscriptions row the
+ * same user holds - the contract log_subscription_event enforces (uuid-typed parameter, and
+ * an ownership check against p_user_id). A store transaction id or orderId fails here.
+ */
+export function assertAuditIdsRowOrNull(db: FakeDb): void {
+  for (const a of auditRows(db)) {
+    if (a.p_subscription_id === null) continue;
+    const owned = (db.tables.subscriptions ?? []).some((r) =>
+      r.id === a.p_subscription_id && r.user_id === a.p_user_id
+    );
+    assert(
+      typeof a.p_subscription_id === 'string' && UUID_RE.test(a.p_subscription_id) && owned,
+      `${String(a.p_event_type)} carries p_subscription_id ${JSON.stringify(a.p_subscription_id)}, ` +
+        'which is not null and not a subscriptions row id owned by p_user_id',
+    );
+  }
+}
+
+/** DEBUG-836 (compliance): no audit metadata value is a store identifier from the request. */
+export function assertNoStoreIdInMetadata(db: FakeDb, storeIds: string[]): void {
+  for (const a of auditRows(db)) {
+    const text = JSON.stringify(a.p_metadata ?? {});
+    for (const id of storeIds) assert(!text.includes(id), `audit metadata carries a store identifier: ${text}`);
+  }
 }

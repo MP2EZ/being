@@ -183,7 +183,7 @@ Wraps the app and provides PostHog context. Key behaviors:
   `disabled`, never on `optedOut`, so at their defaults the constructor fires `/flags`
   requests carrying the anonymous device id before consent. With them set, no SDK path
   reaches the network at construction while opted out; the account-deletion `reset()`,
-  which reloads flags in every opt state, is silenced separately (DEBUG-812). The same suppression means the PostHog runtime feature-flag tier never fetches flags in current builds; see [feature-flags.md](./feature-flags.md) section 4. An anonymous `distinct_id` is minted to on-device
+  which reloads flags in every opt state, is silenced separately (DEBUG-812). The app evaluates no PostHog feature flags (runtime tier retired by MAINT-811; flags are build-time only); see [feature-flags.md](./feature-flags.md) section 4. An anonymous `distinct_id` is minted to on-device
   storage at launch and is never transmitted.
 - **EU data residency**: Configured for Frankfurt (GDPR compliance)
 - **Privacy settings**: No autocapture, no session replay
@@ -556,7 +556,7 @@ Required disclosure for privacy policy:
 > - Journal entries, or anything else you write or speak in the app
 > - Which practice you did
 >
-> **What these events can show:** with Usage Analytics on, analytics records when you open a wellness screening or support resources, and when you tap to call or text a crisis line, tied to the installation identifier and approximate location, so these events can show that someone using this installation looked for mental-health support (privacy policy v1.23, DEBUG-793).
+> **What these events can show:** with Usage Analytics on, analytics records when you open a wellness screening or support resources, and when you tap to call or text a crisis line, tied to the installation identifier and approximate location, so these events can show that someone using this installation looked for mental-health support (privacy policy v1.24, DEBUG-793).
 >
 > **Your Control:**
 > - Analytics is OFF by default

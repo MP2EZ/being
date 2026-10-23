@@ -36,7 +36,7 @@ export type SubscriptionPlatform = 'apple' | 'google' | 'none';
  * Lifecycle states for subscription management
  */
 export type SubscriptionStatus =
-  | 'trial'           // Free trial period (21-28 days)
+  | 'trial'           // Store intro-offer free trial (App Store / Google Play)
   | 'active'          // Paid subscription active
   | 'grace'           // Payment failed, grace period (7 days)
   | 'expired'         // Subscription lapsed, non-crisis features locked
@@ -52,6 +52,15 @@ export type SubscriptionTier = 'standard';
  * Subscription Interval
  */
 export type SubscriptionInterval = 'monthly' | 'yearly';
+
+/**
+ * App Store Connect subscription group ID (FEAT-822). Ships unset (null) until FEAT-39
+ * records the real group: unset reads as an "unknown" trial offer, never as eligible.
+ * StoreKit reports any group the account has no history in as eligible, so a WRONG id fails
+ * open — an ineligible user would be shown a trial and charged at once. Monthly and yearly
+ * must be in this ONE group.
+ */
+export const APPLE_SUBSCRIPTION_GROUP_ID: string | null = null;
 
 /**
  * Subscription Product IDs (Apple/Google)
@@ -214,7 +223,6 @@ export interface SubscriptionStore {
 
   // Core Actions
   loadSubscription: () => Promise<void>;
-  createTrial: () => Promise<void>;
   updateSubscriptionStatus: (status: SubscriptionStatus) => Promise<void>;
 
   // Purchase Actions
@@ -260,10 +268,6 @@ export interface SubscriptionServiceConfig {
   // Product IDs
   products: SubscriptionProductIds;
 
-  // Trial Configuration
-  trialDurationDays: number;           // Default: 28 days
-  trialReminderDays: number;           // Default: 3 days before end
-
   // Grace Period Configuration
   gracePeriodDays: number;             // Default: 7 days
   graceReminderDays: number;           // Default: 2 days before end
@@ -296,8 +300,6 @@ export const DEFAULT_SUBSCRIPTION_CONFIG: SubscriptionServiceConfig = {
       yearly: 'subscription_yearly'
     }
   },
-  trialDurationDays: 28,
-  trialReminderDays: 3,
   gracePeriodDays: 7,
   graceReminderDays: 2,
   receiptVerificationIntervalMs: 24 * 60 * 60 * 1000, // 24 hours

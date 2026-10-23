@@ -5,7 +5,6 @@
  * FEATURES:
  * - Monthly and yearly subscription options
  * - Pricing display from App Store/Play Store
- * - Trial information
  * - Terms and privacy links
  * - Restore purchases option
  * - Loading and error states
@@ -116,36 +115,6 @@ export default function PurchaseOptionsScreen({
     }
   };
 
-  // Handle free trial (no purchase required)
-  const handleFreeTrial = async () => {
-    try {
-      console.log('[PurchaseOptions] Starting free trial');
-
-      await subscriptionStore.createTrial();
-
-      Alert.alert(
-        'Free Trial Started',
-        'Welcome to your 28-day free trial! Enjoy full access to all features.',
-        [
-          {
-            text: 'Start Exploring',
-            onPress: () => {
-              if (onPurchaseComplete) onPurchaseComplete();
-            },
-          },
-        ]
-      );
-    } catch (error) {
-      console.error('[PurchaseOptions] Free trial failed:', error);
-
-      Alert.alert(
-        'Error',
-        'Failed to start free trial. Please try again.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
-
   // Handle restore purchases
   const handleRestorePurchases = async () => {
     if (!isReady || isRestoring) return;
@@ -248,7 +217,7 @@ export default function PurchaseOptionsScreen({
         <View style={styles.header}>
         <Text style={styles.title}>Choose Your Plan</Text>
         <Text style={styles.subtitle}>
-          Start with a free trial, then continue your journey
+          Choose the plan that fits your practice.
         </Text>
       </View>
 
@@ -298,38 +267,6 @@ export default function PurchaseOptionsScreen({
             Billed monthly • Cancel anytime
           </Text>
         </TouchableOpacity>
-      </View>
-
-      {/* Trial Information */}
-      <View style={styles.trialInfo}>
-        <Text style={styles.trialText}>
-          🎉 Start with a <Text style={styles.trialBold}>28-day free trial</Text>
-        </Text>
-        <Text style={styles.trialDetails}>
-          No payment required to start your trial. Full access to all features for 28 days.
-        </Text>
-      </View>
-
-      {/* Free Trial Button (No Purchase) */}
-      <TouchableOpacity
-        style={styles.freeTrialButton}
-        onPress={handleFreeTrial}
-        disabled={subscriptionStore.isLoading}
-        accessibilityLabel="Start 28-day free trial without payment"
-        accessibilityRole="button"
-      >
-        {subscriptionStore.isLoading ? (
-          <ActivityIndicator color="#FFFFFF" />
-        ) : (
-          <Text style={styles.freeTrialButtonText}>Start Free Trial (No Payment)</Text>
-        )}
-      </TouchableOpacity>
-
-      {/* Or Divider */}
-      <View style={styles.orDivider}>
-        <View style={styles.dividerLine} />
-        <Text style={styles.dividerText}>OR</Text>
-        <View style={styles.dividerLine} />
       </View>
 
       {/* Purchase Button (Paid Subscription) */}
@@ -478,56 +415,6 @@ const styles = StyleSheet.create({
   optionDescription: {
     fontSize: typography.bodySmall.size,
     color: '#666666',
-  },
-  trialInfo: {
-    backgroundColor: '#FFF8E1',
-    borderRadius: borderRadius.medium,
-    padding: spacing[16],
-    marginBottom: spacing[24],
-  },
-  trialText: {
-    fontSize: typography.bodyRegular.size,
-    color: '#333333',
-    marginBottom: spacing[8],
-    textAlign: 'center',
-  },
-  trialBold: {
-    fontWeight: typography.fontWeight.bold,
-    color: '#F5A623',
-  },
-  trialDetails: {
-    fontSize: typography.micro.size,
-    color: '#666666',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-  freeTrialButton: {
-    backgroundColor: '#7ED321',
-    borderRadius: borderRadius.medium,
-    padding: spacing[16],
-    alignItems: 'center',
-    marginBottom: spacing[16],
-  },
-  freeTrialButtonText: {
-    color: '#FFFFFF',
-    fontSize: typography.bodyLarge.size,
-    fontWeight: typography.fontWeight.bold,
-  },
-  orDivider: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginVertical: spacing[16],
-  },
-  dividerLine: {
-    flex: 1,
-    height: 1,
-    backgroundColor: '#E0E0E0',
-  },
-  dividerText: {
-    marginHorizontal: spacing[12],
-    fontSize: typography.bodySmall.size,
-    fontWeight: typography.fontWeight.semibold,
-    color: '#999999',
   },
   purchaseButton: {
     backgroundColor: '#4A90E2',

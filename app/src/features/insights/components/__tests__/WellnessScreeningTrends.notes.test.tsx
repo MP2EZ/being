@@ -28,10 +28,12 @@ jest.mock('react-native-svg', () => {
   };
 });
 
-// Flag control — toggle per test.
+// Flag control — toggle per test. wellness_trend_notes is build-time (MAINT-811);
+// every other flag keeps its real resolution.
 let mockFlag = false;
-jest.mock('@/core/analytics', () => ({
-  useFeatureFlag: () => mockFlag,
+jest.mock('@/core/services/featureFlags', () => ({
+  ...jest.requireActual('@/core/services/featureFlags'),
+  isFeatureEnabled: (name: string) => (name === 'wellness_trend_notes' ? mockFlag : false),
 }));
 
 // Passthrough encrypted-storage mock so the real store action runs without crypto.

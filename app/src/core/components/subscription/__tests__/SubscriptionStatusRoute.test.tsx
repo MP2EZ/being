@@ -2,10 +2,10 @@
  * SubscriptionStatus route — every button the card shows does something (DEBUG-760)
  *
  * The navigator used to register SubscriptionStatusCard directly, so it mounted with no
- * `onUpgrade` and Start Free Trial / Upgrade Now / Renew / Subscribe had `onPress={undefined}`.
- * SubscriptionStatusRoute is the registered component now: it wires every upgrade button to
- * the 'Subscription' paywall route and leaves Manage / Update Payment on the card's own
- * store-URL fallback.
+ * `onUpgrade` and its upgrade buttons had `onPress={undefined}`. SubscriptionStatusRoute is
+ * the registered component now: it wires See plans / Renew / Subscribe to the 'Subscription'
+ * paywall route and leaves Manage Subscription (trial and active) and Update Payment on the
+ * card's own store-URL path. Since DEBUG-709 no button offers a trial.
  *
  * Two halves, because either alone can pass on a broken route:
  *   - behaviour: the wrapper, rendered with NO props as the navigator mounts it;
@@ -96,8 +96,7 @@ afterEach(() => {
 
 describe('SubscriptionStatusRoute — mounted with no props, as the navigator mounts it', () => {
   test.each([
-    ['none (no subscription)', null, 'Start Free Trial'],
-    ['trial', 'trial', 'Upgrade Now'],
+    ['none (no subscription)', null, 'See plans'],
     ['expired', 'expired', 'Renew Subscription'],
     ['crisis_only', 'crisis_only', 'Subscribe'],
   ] as const)('%s: its upgrade button opens the Subscription paywall', (_label, status, button) => {
@@ -112,6 +111,7 @@ describe('SubscriptionStatusRoute — mounted with no props, as the navigator mo
   });
 
   test.each([
+    ['trial', 'Manage Subscription'],
     ['active', 'Manage Subscription'],
     ['grace', 'Update Payment'],
   ] as const)('%s: "%s" keeps the store-URL behaviour and does not navigate', async (status, button) => {

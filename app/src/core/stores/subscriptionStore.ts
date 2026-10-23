@@ -68,7 +68,7 @@ function generateId(): string {
  * accidental substitution that would silently alter persisted subscription identity.
  *
  * Known pre-existing wart, preserved rather than fixed: the value is recomputed per call,
- * so `createTrial` and a later `purchase` mint different ids. Inert today — its only
+ * so two writes mint different ids. Inert today — its only
  * reader is a `// TODO: Send to analytics service` sink — and out of scope here.
  */
 function getCurrentUserId(): string {
@@ -84,38 +84,6 @@ function daysRemaining(endTimestamp: number | null): number | null {
   const diff = endTimestamp - now;
   if (diff <= 0) return 0;
   return Math.ceil(diff / (24 * 60 * 60 * 1000));
-}
-
-/**
- * Create default subscription metadata (trial state)
- */
-function createTrialSubscription(userId: string): SubscriptionMetadata {
-  const now = Date.now();
-  const trialDurationMs = DEFAULT_SUBSCRIPTION_CONFIG.trialDurationDays * 24 * 60 * 60 * 1000;
-
-  return {
-    id: generateId(),
-    userId,
-    platform: 'none',
-    platformSubscriptionId: '',
-    status: 'trial',
-    tier: 'standard',
-    interval: 'monthly',
-    priceUsd: 0,
-    currency: 'USD',
-    trialStartDate: now,
-    trialEndDate: now + trialDurationMs,
-    subscriptionStartDate: null,
-    subscriptionEndDate: null,
-    gracePeriodEnd: null,
-    lastReceiptVerified: null,
-    receiptData: null,
-    lastPaymentDate: null,
-    paymentFailureCount: 0,
-    crisisAccessEnabled: true, // ALWAYS true
-    createdAt: now,
-    updatedAt: now
-  };
 }
 
 /**
@@ -229,40 +197,6 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
     } catch (error) {
       logger.error('Failed to load subscription', { error });
       set({ error: 'Failed to load subscription', isLoading: false });
-    }
-  },
-
-  /**
-   * Create trial subscription
-   */
-  createTrial: async () => {
-    const generation = erasureGeneration;
-    set({ isLoading: true, error: null });
-
-    try {
-      // Get current user ID from auth service
-      const userId = getCurrentUserId();
-
-      const subscription = createTrialSubscription(userId);
-      const featureAccess = calculateFeatureAccess(subscription.status);
-
-      // Save to secure storage
-      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(subscription)));
-      if (generation !== erasureGeneration) return;
-
-      set({
-        subscription,
-        featureAccess,
-        isLoading: false
-      });
-
-      // Track event
-      await get().trackSubscriptionEvent('trial_started');
-
-      logger.info('Trial subscription created', { subscriptionId: subscription.id });
-    } catch (error) {
-      logger.error('Failed to create trial', { error });
-      set({ error: 'Failed to create trial', isLoading: false });
     }
   },
 

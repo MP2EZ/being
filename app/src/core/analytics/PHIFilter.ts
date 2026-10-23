@@ -52,7 +52,7 @@ export const AnalyticsEvents = {
   //
   // 🔴 ACCESS, NEVER CONTENT. These say which affordance was reached and how long
   // it took. They must never say what was found, scored, said or selected there.
-  // That is the FEAT-457 boundary. Privacy policy §5.2 (v1.23, DEBUG-793) discloses
+  // That is the FEAT-457 boundary. Privacy policy §5.2 (v1.24, DEBUG-793) discloses
   // these ACCESS events, alongside crisis_resources_viewed / crisis_hotline_tapped,
   // and promises the CONTENT is never collected. Access is disclosed, not unlinkable:
   // with the persistent distinct_id it is consumer health data under WA MHMDA

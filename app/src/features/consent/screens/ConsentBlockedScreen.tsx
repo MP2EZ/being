@@ -125,7 +125,7 @@ const COPY: Record<ConsentBlockedVariant, VariantCopy> = {
     title: 'You withdrew your consent',
     paragraphs: [
       'You asked us to stop using your information, and we have.',
-      'Optional features such as cloud backup are off, as you asked.',
+      'Optional features such as settings backup are off, as you asked.',
     ],
     dismissLabel: 'Close',
   },
