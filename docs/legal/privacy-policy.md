@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.25
+**Version:** 1.26
 **Effective Date:** December 12, 2025
 **Last Updated:** October 23, 2026
 
@@ -161,7 +161,7 @@ Being uses PostHog (EU data residency, Frankfurt) for product analytics. We use 
 
 What we collect (when opted in):
 
-- Screen views and navigation patterns, including when you open a check-in, a wellness screening or support resources (never your answers, scores or what you write)
+- Screen views and navigation patterns, including when you open a check-in (never your answers or what you write)
 - Feature usage counts (e.g., "check-in completed")
 - App performance metrics
 - Session duration
@@ -173,12 +173,13 @@ What we collect (when opted in):
 What we **NEVER** collect in-app:
 
 - Your answers to a wellness screening (PHQ-9, GAD-7), your scores, or their severity
-- Which screening you took
+- Which screening you took, or that you opened one
+- That you opened support resources, hardship guidance or your screening history, or tapped to call or text a crisis line
 - Mood check-in values or notes
 - Journal entries, or anything else you write or speak in the app
 - Which practice you did
 
-**What these events can show.** If you turn on Usage Analytics, analytics records when you open a wellness screening or support resources, and when you tap to call or text a crisis line. These events are tied to the installation identifier and approximate location described above, so they can show that someone using this installation looked for mental-health support. They never include what you answered, scored, wrote or said.
+**What these events can show.** If you turn on Usage Analytics, the events above are tied to the installation identifier and approximate location described above, so they can show how someone using this installation uses Being: for example, that a check-in or a practice was finished. Analytics does not record when you open a wellness screening, your screening history, support resources or hardship guidance, or when you tap to call or text a crisis line, so these events do not show that someone took a screening or looked for crisis support. They never include what you answered, scored, wrote or said. Copies of the app installed before this change still send those events until they are updated.
 
 Your control:
 
@@ -279,6 +280,8 @@ This extended retention supports safety-monitoring continuity and protects both 
 
 You can delete your data at any time in Settings, including crisis-related data. Deletion removes your data both on your device and on our servers: it erases your anonymous account identifier (§4.1), which automatically and permanently deletes every record tied to it (any settings backup, subscription records, crisis-detection events, and the connection records described in §4.1). We will honor deletion requests within 30 days, though we may retain anonymized records for legal compliance.
 
+Deletion in the app does not delete analytics events already sent to PostHog (§5.2): they are not stored against your anonymous account identifier, so erasing it does not reach them.
+
 Deletion also resets the analytics identity on your device and discards anything queued but not yet sent, so nothing captured before the deletion is transmitted afterward. Your consent, age-check and legal-acceptance records are deleted too. What stays on your device afterward is: the account-deletion record described in §7.3; a marker that records only that the app has been opened on this device before; and some app settings caches that hold no information about you. None of these identifies you. Anyone who uses Being on this device afterward is asked for their own age and consent, starts with an empty consent history, and sees nothing from your account in their data export.
 
 ---
@@ -303,6 +306,7 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
+- **v1.26 (October 23, 2026):** Usage Analytics no longer records when you open a wellness screening, your screening history, support resources or hardship guidance, or when you tap to call or text a crisis line, and those screens are no longer recorded as screen views. §5.2 lists them among what is never collected and restates what the remaining events can show. Copies of the app installed before this version still send those events until they are updated. §7.4 now states that deleting your data in the app does not delete analytics events already sent to PostHog. This narrows what is collected and adds no new kind of data, so it is published with the next app release.
 - **v1.25 (October 23, 2026) — material change.** §4.1 said the anonymous account identifier contains no personal information, and §3, §5.2 and §7.2 described the crisis-detection event as aggregate, free of personal information and free of anything that identifies you. Our database provider (Supabase) stores, against that identifier, the IP address of the device's most recent connection, device and app details and when the app last connected, and the crisis-detection event is stored with the identifier, so neither description was accurate. §4.1, a new *Connection Records* entry in §2.2 and the Supabase entry in §5.1 now say what is stored, how long it is kept, and what happens to an identifier left behind by a reinstall; §5.1 also states that request logs are kept for 1 day on our current plan. §3, §5.2 and §7.2 now describe the event as linked to the identifier, and §3 no longer implies the stored record has no time of day. §7.3 and §7.4 name the connection records. Nothing about what is collected has changed; this corrects how it was described. Because it withdraws broader promises, it is treated as a material change. It does not change the retention described in §7.2.
 - **v1.24 (October 22, 2026) — material change.** §5.2 said we never collect "any mental health data". That was broader than what happens. With Usage Analytics on, analytics records when you open a wellness screening or support resources and when you tap to call or text a crisis line, tied to an installation identifier and approximate location, so these events can show that someone looked for mental-health support. §5.2 now lists exactly what is never collected (screening answers, scores and severity, which screening you took, mood values, anything you write or speak, which practice you did) and states what these events can show. §2.3 now says we do not collect *precise* location, since §5 already describes approximate, city-level location. Nothing about what is collected has changed; this corrects how it was described. Because it withdraws a broader promise, it is treated as a material change. It does not change the retention described in §7.2.
 - **v1.23 (October 22, 2026):** §2.2 now calls the in-app analytics setting *Usage Analytics*, the name it carries in the app and in §5.2. Every backup screen in the app now uses the *Settings Backup* name that §4.2 and §7.3 already use. These are names only: nothing about what is collected changes, so it is published with the next app release.
