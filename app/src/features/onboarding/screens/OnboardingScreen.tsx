@@ -89,8 +89,6 @@ const ACCESSIBILITY = {
 // NOTE: PHQ9_QUESTIONS and GAD7_QUESTIONS now imported from shared assessment types
 // This eliminates duplication and ensures clinical accuracy across the app
 
-// Therapeutic Values (15 evidence-based values) with Privacy compliance
-
 // TypeScript strict mode interfaces and types
 type Screen = 'welcome' | 'stoicIntro' | 'notifications' | 'privacy' | 'celebration';
 
@@ -257,7 +255,6 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onRetur
         'back-button': 'Back button focused',
         'question': 'Assessment question focused',
         'option': 'Response option focused',
-        'value-card': 'Therapeutic value focused',
       };
 
       const label = elementLabels[elementId] || 'Element focused';
