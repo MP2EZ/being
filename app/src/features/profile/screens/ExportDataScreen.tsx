@@ -88,6 +88,7 @@ import {
   Pressable,
   ActivityIndicator,
   AppState,
+  AccessibilityInfo,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
@@ -106,7 +107,7 @@ import { exportFileName } from '@/core/services/privacy/exportArtifactSweeper';
 import { logError, LogCategory } from '@/core/services/logging';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { buildExportPayload } from '@/features/data-export/services/exportService';
-import { buildExportHtml } from '@/features/data-export/services/exportPdfDocument';
+import { buildExportHtml, PDF_RANGE_PRESET } from '@/features/data-export/services/exportPdfDocument';
 import type {
   ExportDataCategory,
   ExportRangePreset,
@@ -158,11 +159,25 @@ const SHARE_TYPES: Record<ExportFormat, { mimeType: string; UTI: string }> = {
  */
 const PRE_PRESENT_INPUT_YIELD_MS = 100;
 
-/** The PDF summarises the FULL copy: every category, all time — never the preview's selection. */
+/**
+ * Every category over the last 90 days — never the preview's selection. Bounded because
+ * expo-print draws on the iOS main thread: an all-time worst case held the crisis screen
+ * off for seconds (FEAT-806 AC9(e)). JSON stays the all-time copy.
+ */
 const PDF_SCOPE = {
   categories: SELECTABLE_CATEGORIES.map((c) => c.key),
-  range: { preset: 'all' as const },
+  range: { preset: PDF_RANGE_PRESET },
 };
+
+/** Shown and announced before the render. Promises nothing about the crisis button. */
+export const PDF_PREPARING_COPY = 'Preparing your PDF. This can take a few seconds.';
+
+/**
+ * Two frames, so the preparing copy is committed and mounted before expo-print takes
+ * the main queue — otherwise the copy would only appear once the draw is over.
+ */
+const nextFrame = (): Promise<void> =>
+  new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(() => resolve())));
 
 const formatDay = (ms: number): string =>
   new Date(ms).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
@@ -285,6 +300,9 @@ const ExportDataScreen: React.FC = () => {
     try {
       if (format === 'pdf') {
         const Print = await import('expo-print');
+        // accessibilityLiveRegion is Android-only; iOS needs the explicit announcement.
+        AccessibilityInfo.announceForAccessibility(PDF_PREPARING_COPY);
+        await nextFrame();
         const html = buildExportHtml(buildExportPayload(PDF_SCOPE));
         const { uri } = await Print.printToFileAsync({ html });
         rendered = new File(uri);
@@ -391,7 +409,7 @@ const ExportDataScreen: React.FC = () => {
 
         <Text style={styles.formatCaption}>
           JSON is the complete copy of your wellness data on this device, readable by other
-          apps. PDF is a readable summary that leaves some data out.
+          apps. PDF is a readable summary of the last 90 days that leaves some data out.
         </Text>
 
         <Pressable
@@ -419,7 +437,7 @@ const ExportDataScreen: React.FC = () => {
           disabled={pdfDisabled}
           accessibilityRole="button"
           accessibilityLabel="Export as PDF, readable summary"
-          accessibilityHint="Prepares a readable PDF summary of your on-device data and opens the share sheet"
+          accessibilityHint="Prepares a readable PDF summary of the last 90 days of your on-device data and opens the share sheet"
           accessibilityState={{ disabled: pdfDisabled, busy: inFlight === 'pdf' }}
           testID="export-pdf-button"
         >
@@ -429,6 +447,12 @@ const ExportDataScreen: React.FC = () => {
             <Text style={styles.exportButtonText}>Export as PDF</Text>
           )}
         </Pressable>
+
+        {inFlight === 'pdf' && (
+          <Text style={styles.busyText} accessibilityLiveRegion="polite" testID="export-pdf-busy">
+            {PDF_PREPARING_COPY}
+          </Text>
+        )}
 
         {previewEnabled && (
           <View style={styles.previewSection} testID="export-preview-section">
@@ -638,6 +662,13 @@ const styles = StyleSheet.create({
     fontWeight: typography.fontWeight.regular,
     color: semantic.text.secondary,
     lineHeight: 20,
+  },
+  busyText: {
+    fontSize: typography.bodySmall.size,
+    fontWeight: typography.fontWeight.regular,
+    color: semantic.text.secondary,
+    lineHeight: 20,
+    marginTop: spacing[8],
   },
   formatCaption: {
     fontSize: typography.bodySmall.size,

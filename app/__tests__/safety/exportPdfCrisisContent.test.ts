@@ -16,6 +16,10 @@
  * - Flags render as fixed plain-language statements; no field names, raw Q9
  *   value, alarm vocabulary, counts, grouping or distinct styling.
  * - User free text is verbatim and HTML-escaped; the document loads nothing.
+ * - FEAT-806 (crisis + compliance ruling 2026-10-22): the PDF covers the last 90 days.
+ *   The window is disclosed by two fixed strings, present in every export and never
+ *   conditional on flagged or older rows, with no count. Free text is never truncated
+ *   and screenings inside the window are never capped.
  *
  * Every assertion reads PRESENT output, so none can pass on an empty string.
  */
@@ -23,6 +27,8 @@
 import {
   buildExportHtml,
   EXPORT_SUPPORT_LINE,
+  PDF_COMPLETE_COPY_NOTE,
+  PDF_WINDOW_OMISSION,
   Q9_RECORDED_STATEMENT,
   SUPPORT_OFFERED_STATEMENT,
 } from '@/features/data-export/services/exportPdfDocument';
@@ -189,6 +195,49 @@ describe('support line — placement and count', () => {
       const after = html.slice(html.indexOf(row) + row.length, html.indexOf(row) + row.length + 200);
       expect(after).not.toContain(SUPPORT);
     }
+  });
+});
+
+describe('90-day window disclosure (FEAT-806)', () => {
+  const WINDOW = esc(PDF_WINDOW_OMISSION);
+  const NOTE = esc(PDF_COMPLETE_COPY_NOTE);
+
+  it.each([
+    ['full', full],
+    ['check-ins-only', checkInsOnly],
+    ['empty', empty],
+  ])('%s: both fixed strings appear exactly once', (_n, payload) => {
+    const html = buildExportHtml(payload);
+    expect(indicesOf(html, WINDOW)).toHaveLength(1);
+    expect(indicesOf(html, NOTE)).toHaveLength(1);
+  });
+
+  it('is identical whether or not any row is flagged', () => {
+    const unflagged: ExportPayload = {
+      ...full,
+      assessments: full.assessments!.map((a) => ({ ...a, isCrisis: false, suicidalIdeation: false })),
+    };
+    const block = (html: string): string => html.slice(html.indexOf('<section class="summary">'), html.indexOf('</section>', html.indexOf('<section class="summary">')));
+    expect(block(buildExportHtml(full))).toContain(WINDOW);
+    expect(block(buildExportHtml(full))).toBe(block(buildExportHtml(unflagged)));
+  });
+
+  it('carries no count and none of the flag statements', () => {
+    for (const s of [PDF_WINDOW_OMISSION, PDF_COMPLETE_COPY_NOTE]) {
+      expect(s.replace('90', '')).not.toMatch(/\d/);
+      expect(s).not.toContain(Q9_RECORDED_STATEMENT);
+      expect(s).not.toContain(SUPPORT_OFFERED_STATEMENT);
+    }
+  });
+
+  it('renders every in-window screening, untruncated notes included', () => {
+    const LONG_NOTE = `${'word '.repeat(1200)}last sentence kept.`;
+    const html = buildExportHtml({
+      ...full,
+      assessments: [...full.assessments!, screening(45, { note: LONG_NOTE })],
+    });
+    expect(html.match(/data-row="assessment"/g)).toHaveLength(full.assessments!.length + 1);
+    expect(html).toContain(esc(LONG_NOTE));
   });
 });
 

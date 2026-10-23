@@ -7,7 +7,14 @@
  * `__tests__/safety/exportPdfCrisisContent.test.ts`.
  */
 
-import { buildExportHtml, escapeHtml, SUMMARY_NOT_COMPLETE_HEADING } from '../exportPdfDocument';
+import {
+  buildExportHtml,
+  escapeHtml,
+  PDF_COMPLETE_COPY_NOTE,
+  PDF_RANGE_PRESET,
+  PDF_WINDOW_OMISSION,
+  SUMMARY_NOT_COMPLETE_HEADING,
+} from '../exportPdfDocument';
 import {
   EXPORT_DISCLAIMER,
   EXPORT_OMISSIONS,
@@ -85,7 +92,7 @@ describe('completeness disclosure', () => {
     expect(html).toContain('Export as JSON');
   });
 
-  it.each(['Voice journal entries', 'Consent records', 'Subscription state', 'Individual screening answers', 'Practice streaks and totals'])(
+  it.each(['Voice journal entries', 'Consent records', 'Subscription state', 'Individual screening answers', 'Practice streaks and totals', 'more than 90 days before'])(
     'lists what the summary leaves out: %s',
     (item) => {
       expect(html).toContain(item);
@@ -94,6 +101,41 @@ describe('completeness disclosure', () => {
 
   it('renders every meta omission verbatim', () => {
     for (const omission of EXPORT_OMISSIONS) expect(html).toContain(escapeHtml(omission));
+  });
+});
+
+describe('the 90-day window (FEAT-806)', () => {
+  const html = buildExportHtml(basePayload());
+
+  it('is the last90 preset, and the fixed omission line names the same 90 days', () => {
+    expect(PDF_RANGE_PRESET).toBe('last90');
+    expect(PDF_WINDOW_OMISSION).toBe(
+      'Anything recorded more than 90 days before this PDF was prepared, including earlier ' +
+        'wellness screenings and weekly reflections',
+    );
+  });
+
+  it('lists the window among what the summary leaves out', () => {
+    const list = html.slice(html.indexOf('It leaves out:'), html.indexOf('</ul>', html.indexOf('It leaves out:')));
+    expect(list).toContain(`<li>${escapeHtml(PDF_WINDOW_OMISSION)}</li>`);
+  });
+
+  it('says an absent screening or reflection may be in the complete copy, before the JSON pointer', () => {
+    expect(PDF_COMPLETE_COPY_NOTE).toBe('A screening or reflection not shown here may still be in your complete copy.');
+    const note = html.indexOf(escapeHtml(PDF_COMPLETE_COPY_NOTE));
+    expect(note).toBeGreaterThan(-1);
+    expect(note).toBeLessThan(html.indexOf('For your complete copy, use Export as JSON'));
+  });
+
+  it('states the requested window from meta.requestedRange, not only the records found', () => {
+    const from = T0 + 10 * DAY;
+    const to = T0 + 100 * DAY;
+    const windowed = buildExportHtml(basePayload({ meta: { ...basePayload().meta, requestedRange: { from, to } } }));
+    const ymd = (ms: number): string => {
+      const d = new Date(ms);
+      return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    };
+    expect(windowed).toContain(`Covers ${ymd(from)} to ${ymd(to)}`);
   });
 });
 

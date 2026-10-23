@@ -11,7 +11,7 @@
  * raise an OS sheet, which hides the 988 affordance, over wherever they went.
  *
  * Pinned here, against a STATEFUL file mock so existence is observed:
- *   A. render → move → share, with the PDF mime type and the full-copy scope;
+ *   A. render → move → share, with the PDF mime type;
  *   B. the PDF is gone once the share settles (completed or cancelled), and is
  *      on disk while the sheet is up, so the check is not vacuous;
  *   C. the sharing-unavailable return, a render failure and a move failure each
@@ -19,7 +19,9 @@
  *   D. the presenting guard: unfocused or backgrounded → no sheet, file deleted,
  *      inline error — on the PDF path and on the JSON path;
  *   E. hydration and in-flight gating of both buttons;
- *   F. logging carries the Error only, never the document.
+ *   F. logging carries the Error only, never the document;
+ *   G. the document covers the last 90 days only, and says so;
+ *   H. the preparing copy is on screen and announced before the main-thread render.
  */
 import React from 'react';
 import { AppState } from 'react-native';
@@ -95,7 +97,8 @@ jest.mock('@/core/services/logging', () => ({
 
 import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
-import ExportDataScreen from '../ExportDataScreen';
+import ExportDataScreen, { PDF_PREPARING_COPY } from '../ExportDataScreen';
+import { escapeHtml, PDF_WINDOW_OMISSION } from '@/features/data-export/services/exportPdfDocument';
 
 const SECRET_REFLECTION = 'ZZPDFREFLECTIONZZ-only-in-the-document';
 const DAY = 24 * 60 * 60 * 1000;
@@ -153,14 +156,14 @@ beforeEach(() => {
 });
 
 describe('FEAT-806 A: render, move, share', () => {
-  it('renders the full-copy document and shares it as a PDF through the one share call', async () => {
+  it('renders the document and shares it as a PDF through the one share call', async () => {
     const api = render(<ExportDataScreen />);
     pressPdf(api);
     await waitFor(() => expect(mockShareAsync).toHaveBeenCalledTimes(1));
 
     expect(mockPrintToFile).toHaveBeenCalledTimes(1);
     const { html } = mockPrintToFile.mock.calls[0][0] as { html: string };
-    // Preset `all`: a reflection from two days ago is in the document, verbatim.
+    // A reflection from two days ago is inside the 90-day window, so it is in the document verbatim.
     expect(html).toContain(SECRET_REFLECTION);
     expect(html).toContain('988');
 
@@ -389,5 +392,71 @@ describe('FEAT-806 F: logging', () => {
       expect(JSON.stringify(call)).not.toContain(SECRET_REFLECTION);
       expect(String(call[2].message)).not.toContain(SECRET_REFLECTION);
     }
+  });
+});
+
+describe('FEAT-806 G: the PDF is bounded to the last 90 days', () => {
+  it('leaves out a reflection older than the window and says so in the document', async () => {
+    const OLD_REFLECTION = 'ZZOLDREFLECTIONZZ-outside-the-window';
+    useStoicPracticeStore.setState({
+      weeklyReflections: [
+        ...useStoicPracticeStore.getState().weeklyReflections,
+        {
+          id: 'r-old',
+          weekStartIso: ymd(Date.now() - 120 * DAY),
+          text: OLD_REFLECTION,
+          savedAt: new Date(Date.now() - 120 * DAY).toISOString(),
+        },
+      ],
+    });
+    const api = render(<ExportDataScreen />);
+    pressPdf(api);
+    await waitFor(() => expect(mockShareAsync).toHaveBeenCalledTimes(1));
+
+    const { html } = mockPrintToFile.mock.calls[0][0] as { html: string };
+    expect(html).toContain(SECRET_REFLECTION);
+    expect(html).not.toContain(OLD_REFLECTION);
+    expect(html).toContain(escapeHtml(PDF_WINDOW_OMISSION));
+  });
+});
+
+describe('FEAT-806 H: busy copy before the main-thread render', () => {
+  it('shows and announces the preparing copy before printToFileAsync is called', async () => {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { AccessibilityInfo } = require('react-native');
+    const announce = jest.spyOn(AccessibilityInfo, 'announceForAccessibility');
+    let busyAtRender: string | null = null;
+    let announcedAtRender = false;
+    let api!: ReturnType<typeof render>;
+    mockPrintToFile.mockImplementation(async () => {
+      busyAtRender = api.queryByTestId('export-pdf-busy')?.props.children ?? null;
+      announcedAtRender = announce.mock.calls.some((c) => c[0] === PDF_PREPARING_COPY);
+      mockDisk.set(PRINT_OUTPUT, true);
+      return { uri: `file://${PRINT_OUTPUT}`, numberOfPages: 1 };
+    });
+    api = render(<ExportDataScreen />);
+    pressPdf(api);
+    await waitFor(() => expect(mockShareAsync).toHaveBeenCalledTimes(1));
+
+    expect(PDF_PREPARING_COPY).toBe('Preparing your PDF. This can take a few seconds.');
+    expect(busyAtRender).toBe(PDF_PREPARING_COPY);
+    expect(announcedAtRender).toBe(true);
+  });
+
+  it('removes the copy once the export settles, and never shows it for JSON', async () => {
+    const api = render(<ExportDataScreen />);
+    pressPdf(api);
+    await waitFor(() => expect(mockShareAsync).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(api.queryByTestId('export-pdf-busy')).toBeNull());
+
+    const sheet = deferred();
+    mockShareAsync.mockReturnValue(sheet.promise);
+    fireEvent.press(api.getByTestId('export-data-button'));
+    await waitFor(() => expect(mockShareAsync).toHaveBeenCalledTimes(2));
+    expect(api.queryByTestId('export-pdf-busy')).toBeNull();
+    await act(async () => {
+      sheet.resolve();
+      await sheet.promise;
+    });
   });
 });

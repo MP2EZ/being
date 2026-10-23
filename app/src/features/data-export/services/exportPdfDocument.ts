@@ -26,6 +26,13 @@
  * - No textual crisis scan runs over notes. Its recall is unmeasured, and a null
  *   scan would imply a check that does not exist.
  *
+ * FEAT-806 bounds the PDF to the last 90 days (`PDF_RANGE_PRESET`), because expo-print
+ * draws on the iOS main thread and an all-time worst case held the crisis screen off
+ * for seconds (crisis + compliance ruling 2026-10-22). The bound is the window alone:
+ * free text is never truncated and screenings inside it are never capped. Two fixed
+ * strings disclose it in every export, never conditional on flagged or older rows,
+ * with no count; the JSON export stays the complete, all-time copy.
+ *
  * Imports nothing from `features/crisis/` (INFRA-531's import detector would
  * otherwise need an exemption entry for this file).
  */
@@ -34,6 +41,7 @@ import { semantic, spacing, typography } from '@/core/theme';
 import { EXPORT_DISCLAIMER } from '../types';
 import type {
   ExportDataCategory,
+  ExportRangePreset,
   ExportedAssessment,
   ExportedCheckIn,
   ExportedPrincipleEngagement,
@@ -60,7 +68,18 @@ export const SUPPORT_OFFERED_STATEMENT = 'Being offered support resources after 
 
 export const SUMMARY_NOT_COMPLETE_HEADING = 'This PDF is a readable summary, not your complete copy';
 
+/** The window the PDF covers. `PDF_WINDOW_OMISSION` names the same 90 days. */
+export const PDF_RANGE_PRESET: ExportRangePreset = 'last90';
+
+export const PDF_WINDOW_OMISSION =
+  'Anything recorded more than 90 days before this PDF was prepared, including earlier ' +
+  'wellness screenings and weekly reflections';
+
+export const PDF_COMPLETE_COPY_NOTE =
+  'A screening or reflection not shown here may still be in your complete copy.';
+
 const SUMMARY_LEAVES_OUT: readonly string[] = [
+  PDF_WINDOW_OMISSION,
   'Voice journal entries',
   'Consent records',
   'Subscription state',
@@ -215,6 +234,7 @@ function reflectionsSection(rows: readonly ExportedReflection[]): string {
 
 function aboutBlock(payload: ExportPayload): string {
   const { meta } = payload;
+  const requested = `${formatDate(meta.requestedRange.from)} to ${formatDate(meta.requestedRange.to)}`;
   const included = meta.categories.map((c) => escapeHtml(CATEGORY_LABEL[c])).join(', ');
   const covered =
     meta.dataRangeStart !== null && meta.dataRangeEnd !== null
@@ -223,7 +243,8 @@ function aboutBlock(payload: ExportPayload): string {
   const omissions = meta.omissions.map((o) => `<li>${escapeHtml(o)}</li>`).join('');
   return (
     '<section class="about">' +
-    `<p class="meta">Prepared ${formatDate(meta.exportedAt)} · Records from ${covered} · ` +
+    `<p class="meta">Prepared ${formatDate(meta.exportedAt)} · Covers ${requested} · ` +
+    `Records from ${covered} · ` +
     `Included: ${included || 'none'}</p>` +
     (omissions ? `<p class="meta">Not recorded by Being:</p><ul class="meta">${omissions}</ul>` : '') +
     '</section>'
@@ -236,6 +257,7 @@ function summaryNotice(): string {
     '<section class="summary">' +
     `<h2>${escapeHtml(SUMMARY_NOT_COMPLETE_HEADING)}</h2>` +
     `<p>It leaves out:</p><ul>${items}</ul>` +
+    `<p>${escapeHtml(PDF_COMPLETE_COPY_NOTE)}</p>` +
     '<p>For your complete copy, use Export as JSON in the Being app.</p>' +
     '</section>'
   );
@@ -243,7 +265,8 @@ function summaryNotice(): string {
 
 /**
  * Render the payload as a complete HTML document. Every record in the payload is
- * rendered; nothing is capped or summarised.
+ * rendered; nothing is capped or summarised. The window is the caller's: the screen
+ * builds the payload with `PDF_RANGE_PRESET`.
  */
 export function buildExportHtml(payload: ExportPayload): string {
   const requested = new Set(payload.meta.categories);
