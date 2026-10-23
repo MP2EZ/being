@@ -172,6 +172,12 @@ const ALLOWLIST = {
  * a PERSISTENT FLOATING button, whose harm is DEBUG-547-style overlap with the
  * crisis FAB's `zIndex: 9999` — a wrong-destination tap, a crisis FALSE POSITIVE
  * — rather than full occlusion. Both belong here; the rulings should say which.
+ *
+ * FEAT-806 added expo-print's two presenters as BARE names, so any member form
+ * (`Print.printAsync(`, a module handle from `await import('expo-print')`)
+ * matches. `printAsync` presents the OS print dialog and `selectPrinterAsync`
+ * the printer picker (iOS). Neither has an allowlist entry: the PDF export
+ * renders with `printToFileAsync`, which presents nothing and must not match.
  */
 const THIRD_PARTY_PRESENTERS = [
   'showFeedbackWidget',
@@ -179,6 +185,8 @@ const THIRD_PARTY_PRESENTERS = [
   'showScreenshotButton',
   'Sharing.shareAsync',
   'RNIap.requestPurchase',
+  'printAsync',
+  'selectPrinterAsync',
 ];
 
 /**
@@ -231,6 +239,37 @@ const PRESENTER_ALLOWLIST = {
     'those facts alone. (INFRA-571 argued it by comparison to the Sentry widget, bounded ' +
     'by `bug_reporting` being dark; FEAT-570 has since removed that widget, so the ' +
     'comparison is history and the reachability claim no longer rests on it.) ' +
+    'FEAT-806 WIDENED THE PAYLOAD, NOT THE CALL: the same single call now also shares ' +
+    'the readable PDF summary (`application/pdf`, UTI `com.adobe.pdf`). For a PDF the ' +
+    'iOS sheet adds in-sheet actions — Print, which presents UIPrintInteractionController, ' +
+    'and Markup, a full-screen editor — and each extends the window from INSIDE the sheet. ' +
+    'Both are reached only by a further user tap and dismissed by the user, so the ' +
+    'ruling’s ground (user-initiated, self-terminating, on a route the user chose) ' +
+    'carries over; the DEBUG-577 measurement does not, because it was of the JSON sheet, so ' +
+    'the PDF sheet was MEASURED ON SIMULATOR by FEAT-806 AC9(d) ' +
+    '(`.maestro/export-pdf-share-sheet-occlusion.yaml`): 2026-10-22, Release gate binary ' +
+    'dcad6065 built from a clean tree, iPhone SE 3rd gen / iOS 18.6, 375x667. The positive ' +
+    'control at 98%,82% reached `CrisisResources` with the sheet down; with the PDF sheet up ' +
+    '(file preview header, then Copy, Markup and Print rows) the same point did NOT reach it, ' +
+    'and the app was alive after dismissal. That point lands on the right edge of the PDF ' +
+    'sheet’s Copy row, and it fired no action: the screenshots before and after the probe are ' +
+    'byte-identical and the pasteboard was empty. Same limits as DEBUG-577: one point, one ' +
+    'device, one viewport, iOS only. ' +
+    'The call is gated by a presenting guard (navigation focus AND AppState active, read ' +
+    'after an input yield with no await before the call). It stops a render that settles ' +
+    'after the user left from raising the sheet over another screen ONLY once the leaving ' +
+    'navigation has been processed in JS before the read. NOT closed: a press still held ' +
+    'when the guard passes (the sheet cancels that touch, and a presented sheet cannot be ' +
+    'withdrawn from JS), AppState lagging native state, a swipe-back still in progress, ' +
+    'and overlays that do not move navigation focus. A SEPARATE WINDOW, NOT THE SHEET: on ' +
+    'iOS expo-print draws the PDF on the main thread (ExpoPrintModule.swift ' +
+    '`.runOnQueue(.main)`), so for the length of the draw the crisis button is visible but the app ' +
+    'cannot paint the crisis screen (the tap is not lost). That is not an occlusion this ' +
+    'guard can see, and crisisTapTrace, which starts in JS onPress, cannot see it either. ' +
+    'FEAT-806 AC9(e) measured it on the simulator (SE 3rd gen, iOS 18.6): render 1.3 s ' +
+    'empty, 1.9-2.6 s for the worst case after the 90-day window and 50-row cap; crisis ' +
+    'screen ~1.7 s after finger-down in a 90-day render. FOUNDER-ACCEPTED RESIDUAL ' +
+    '(2026-10-23), overriding the crisis 1 s condition; expo-print cannot go below ~1.3 s. ' +
     'WHEN THAT CALL IS REMOVED, ' +
     'DELETE this entry in the same commit.',
 

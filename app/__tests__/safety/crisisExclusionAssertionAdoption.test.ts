@@ -41,7 +41,7 @@ const HOSTS: Record<string, number> = {
   // DEBUG-653
   'features/profile/screens/ProfileScreen.tsx': 1,
   'features/profile/screens/PrivacyDataScreen.tsx': 1,
-  'features/profile/screens/ExportDataScreen.tsx': 1,
+  'features/profile/screens/ExportDataScreen.tsx': 2,
   'features/profile/screens/DeleteAccountScreen.tsx': 2,
 };
 
