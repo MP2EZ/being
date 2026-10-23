@@ -85,6 +85,7 @@ trailing 7 days (10 jobs, 0 failures):
 | `subscription-transfer-prune` | `5 * * * *` | transfer ledger 31 days, failed-proof rows 1 hour (FEAT-833; heartbeat in `retention_prune_runs`) |
 | `subscription-events-retention-prune` | `40 3 * * *` | `subscription_events` 3 years, privacy-policy §7.3's audit-log ceiling (DEBUG-840; heartbeat in `retention_prune_runs`). Not yet pushed: lands with the DEBUG-840 db push |
 | `webhook-replay-cache-prune` | `35 3 * * *` | `webhook_replay_cache` 14 days, twice Pub/Sub's 7-day default retention (INFRA-846; heartbeat in `retention_prune_runs`). Assumes the Google subscription keeps that default: if its retention is raised, the window becomes retention + 7 days. Not yet pushed: lands with the INFRA-846 db push |
+| `orphaned-identity-prune` | `35 4 * * *` | **Census only, deletes nothing** (INFRA-848). Counts anonymous identities a subscription transfer left behind, tombstone and auth activity both older than 30 days, no backup. Heartbeat `orphaned-identity-census` in `retention_prune_runs`, `detail` holds counts and never a uid. Mode lives in `orphaned_identity_prune_config`; enabling delete is INFRA-852's migration, never a hand edit. Not yet pushed: lands with the INFRA-848 db push |
 
 Verify:
 
@@ -99,8 +100,8 @@ GROUP BY j.jobname ORDER BY j.jobname;
 ```
 
 The 7-day count above predates `subscription-transfer-prune`,
-`subscription-events-retention-prune` and `webhook-replay-cache-prune`; the verify query lists
-every job, those included.
+`subscription-events-retention-prune`, `webhook-replay-cache-prune` and `orphaned-identity-prune`;
+the verify query lists every job, those included.
 
 `retention_prune_health` is a view you read, **not a watchdog**: nothing pages when a prune
 stops. Check each job's `last_ok_at`, never `latest_status` alone (a job that stopped running
