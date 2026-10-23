@@ -7,9 +7,9 @@
  *
  * MAINT-809: the row resolves the flag at BUILD TIME (`isFeatureEnabled`), the
  * same tier as the consent cards that authorize Cloud Backup, so the control
- * point here is the mocked build-time resolver. INFRA-199 had moved it to the
- * runtime `useFeatureFlag` hook, which let a PostHog value split the row from its
- * consent card; that hook is mocked to "on" below so a regression back to it shows.
+ * point here is the mocked build-time resolver. INFRA-199 had moved it to a
+ * runtime PostHog hook, which let a PostHog value split the row from its consent
+ * card; MAINT-811 retired that tier, pinned by runtimeFlagTierRetired.contract.test.ts.
  *
  * FEAT-212: Cloud Backup is now a pushed route on ProfileStackNavigator rather
  * than an in-component sub-screen, so pressing the row calls
@@ -38,7 +38,6 @@ const mockIsFeatureEnabled = jest.fn<boolean, [string]>();
 jest.mock('@/core/services/featureFlags', () => ({
   isFeatureEnabled: (name: string) => mockIsFeatureEnabled(name),
 }));
-const mockUseFeatureFlag = jest.fn<boolean, [string]>(() => true);
 
 type MockConsent = {
   preferences: Record<string, boolean>;
@@ -72,7 +71,6 @@ jest.mock('@/core/analytics', () => ({
     trackSettingsOpened: jest.fn(),
     trackConsentChanged: jest.fn(),
   }),
-  useFeatureFlag: (name: string) => mockUseFeatureFlag(name),
 }));
 
 import PrivacyDataScreen from '@/features/profile/screens/PrivacyDataScreen';
@@ -106,13 +104,11 @@ describe('PrivacyDataScreen — Manage Settings Backup row (MAINT-173)', () => {
     mockConsent = consentWith(false);
   });
 
-  it('hides the row when cloud_sync is OFF (dark ship), even if the runtime tier would say on', async () => {
+  it('hides the row when cloud_sync is OFF (dark ship)', async () => {
     mockIsFeatureEnabled.mockReturnValue(false);
-    mockUseFeatureFlag.mockReturnValue(true);
     const { queryByText } = await renderScreen();
 
     expect(queryByText('Manage Settings Backup')).toBeNull();
-    expect(mockUseFeatureFlag).not.toHaveBeenCalledWith('cloud_sync');
   });
 
   it('shows the row, with a11y role/label, and pushes the CloudBackup route when cloud_sync is ON', async () => {
