@@ -48,12 +48,13 @@ BEGIN
   RETURN v_row;
 END $$;
 
--- The verified fields FEAT-714's handler would pass for B.
+-- The verified fields FEAT-714's handler would pass for B. No start dates: since DEBUG-842 the
+-- RPC sets them and refuses them in p_fields.
 CREATE FUNCTION pg_temp.f833_fields() RETURNS jsonb LANGUAGE sql AS $$
   SELECT jsonb_build_object(
     'status', 'active', 'interval', 'monthly', 'environment', 'Sandbox',
     'platform_subscription_id', 'F833-TXN', 'receipt_hash', 'hash-b', 'receipt_data_encrypted', 'enc-b',
-    'subscription_start_date', '2026-10-01T00:00:00Z', 'subscription_end_date', '2026-11-01T00:00:00Z',
+    'subscription_end_date', '2026-11-01T00:00:00Z',
     'last_receipt_verified', '2026-10-21T12:00:00Z', 'last_store_event_at', '2026-10-21T11:59:30Z'
   )
 $$;
