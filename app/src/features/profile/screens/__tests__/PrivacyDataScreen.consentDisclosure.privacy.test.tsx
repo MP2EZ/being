@@ -144,10 +144,18 @@ describe('DEBUG-818 AC5 — a flag-dark holder sees a withdrawable permission, n
 describe('DEBUG-818 — the infoBox no longer contradicts the disclosures', () => {
   // Compliance: once the expanders disclose an installation identifier and approximate
   // location, an always-visible "app usage and device details only" contradicts them.
-  it('drops the "only" sentence and keeps the rest of the box', async () => {
-    const { queryByText } = await renderScreen();
+  // MAINT-845 (compliance ruling): "NEVER shared" overstated the policy, which permits
+  // user-initiated export and bug-report text to Sentry. The box now states the policy's
+  // real promise: never sold, never used for advertising.
+  it('states the never-sold promise, not an absolute "never shared"', async () => {
+    const { queryByText, getByText } = await renderScreen();
     expect(queryByText(/device details only/i)).toBeNull();
-    expect(queryByText(/NEVER shared/)).not.toBeNull();
+    expect(queryByText(/NEVER shared/)).toBeNull();
+    expect(
+      getByText(
+        'Your wellness data is stored on this device. Being never sells it or uses it for advertising.',
+      ),
+    ).toBeTruthy();
   });
 });
 

@@ -670,7 +670,7 @@ const PrivacyDataScreen: React.FC = () => {
               approximate location, which "only" contradicted. */}
           <View style={styles.infoBox}>
             <Text style={styles.infoText}>
-              Your check-in responses, therapeutic values, and health data are NEVER shared.
+              Your wellness data is stored on this device. Being never sells it or uses it for advertising.
             </Text>
           </View>
 
