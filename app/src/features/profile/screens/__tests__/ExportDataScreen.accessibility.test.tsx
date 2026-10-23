@@ -24,6 +24,7 @@ import {
 } from '../../../../../__tests__/helpers/crisisFabClearance';
 import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 import { TOUCH_TARGETS } from '@/core/theme';
+import { intersectsCrisisButtonExclusion } from '@/features/crisis/constants/crisisButtonGeometry';
 
 const mockGather = jest.fn();
 const mockSerialize = jest.fn();
@@ -498,6 +499,21 @@ describe('ExportDataScreen', () => {
     it('(c) never intersects the exclusion rect at any y, on any supported viewport', () => {
       const { pad, style } = renderHost();
       expectSweepClear(pad, style, [52, 200]);
+    });
+
+    it('(d) the model reproduces the measured device frame, clear of the FAB; (e) at inset 0 it goes red', () => {
+      // Measured POST-fix (no pre-fix build of this button ever existed): iPhone SE (3rd
+      // generation), 375x667, iOS 18.6, Release gate binary dcad6065 (clean), 2026-10-22, max
+      // scroll, data_export dark — [96,529][279,581]; crisis-button-root [331,523][375,567].
+      const MEASURED = { x: 96, y: 529, width: 183, height: 52 };
+      const { pad, style } = renderHost();
+      const m = { left: style.marginLeft as number, right: style.marginRight as number };
+      expect(pad.left + m.left).toBe(MEASURED.x);
+      expect(375 - pad.left - pad.right - m.left - m.right).toBe(MEASURED.width);
+      expect(intersectsCrisisButtonExclusion(MEASURED, { width: 375, height: 667 })).toBe(false);
+      // The same frame with the insets removed — derived from the measurement, not measured.
+      const bare = { x: pad.left, y: MEASURED.y, width: 375 - pad.left - pad.right, height: MEASURED.height };
+      expectLiveness(HOST, 'pdfExportButton', bare, pad);
     });
 
     it('DEBUG-643: the __DEV__ crisis-exclusion check is wired to the PDF button', async () => {

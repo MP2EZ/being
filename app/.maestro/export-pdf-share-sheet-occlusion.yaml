@@ -136,6 +136,8 @@ name: "FEAT-806: the PDF share sheet occludes the 988 affordance (DEBT PIN)"
     timeout: 90000
 - takeScreenshot: /tmp/feat806-pdf-01-sheet-up
 
+# On the PDF sheet this point sits on the right edge of the Copy row (measured 2026-10-22,
+# it fired nothing). If (a) below ever goes green for the wrong reason, check the sheet first.
 # ── THE PROBE ──────────────────────────────────────────────────────────────────
 - tapOn:
     point: "98%,82%"

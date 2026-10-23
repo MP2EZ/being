@@ -245,9 +245,16 @@ const PRESENTER_ALLOWLIST = {
     'and Markup, a full-screen editor — and each extends the window from INSIDE the sheet. ' +
     'Both are reached only by a further user tap and dismissed by the user, so the ' +
     'ruling’s ground (user-initiated, self-terminating, on a route the user chose) ' +
-    'carries over; what it does NOT carry over is the DEBUG-577 measurement, which was of ' +
-    'the JSON sheet. The PDF sheet’s own re-measure is FEAT-806 AC9(d), ' +
-    '`.maestro/export-pdf-share-sheet-occlusion.yaml`; its provenance belongs here. ' +
+    'carries over; the DEBUG-577 measurement does not, because it was of the JSON sheet, so ' +
+    'the PDF sheet was MEASURED ON SIMULATOR by FEAT-806 AC9(d) ' +
+    '(`.maestro/export-pdf-share-sheet-occlusion.yaml`): 2026-10-22, Release gate binary ' +
+    'dcad6065 built from a clean tree, iPhone SE 3rd gen / iOS 18.6, 375x667. The positive ' +
+    'control at 98%,82% reached `CrisisResources` with the sheet down; with the PDF sheet up ' +
+    '(file preview header, then Copy, Markup and Print rows) the same point did NOT reach it, ' +
+    'and the app was alive after dismissal. That point lands on the right edge of the PDF ' +
+    'sheet’s Copy row, and it fired no action: the screenshots before and after the probe are ' +
+    'byte-identical and the pasteboard was empty. Same limits as DEBUG-577: one point, one ' +
+    'device, one viewport, iOS only. ' +
     'The call is gated by a presenting guard (navigation focus AND AppState active, read ' +
     'after an input yield with no await before the call). It stops a render that settles ' +
     'after the user left from raising the sheet over another screen ONLY once the leaving ' +
