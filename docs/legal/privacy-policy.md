@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.25
+**Version:** 1.26
 **Effective Date:** December 12, 2025
 **Last Updated:** October 23, 2026
 
@@ -231,7 +231,7 @@ You have the following rights regarding your personal information:
 - **Access:** Request a copy of your data at any time
 - **Correction:** Update or correct your information
 - **Deletion:** Delete all of your in-app and backed-up data
-- **Export:** Download your data in portable JSON format
+- **Export:** Download your data in portable JSON format, or as a readable PDF summary that leaves some of it out
 - **Opt-Out:** Disable settings backup, analytics, or crash reporting
 - **Withdraw Wellness-Processing Consent:** Decline, or later withdraw, your explicit consent for Being to process your wellness data (mood check-ins, anxiety and depression self-screenings, journal entries). This consent is optional — declining it does not prevent you from using the app — and it can be changed at any time from *Settings → Privacy & Data*. Withdrawing does not by itself delete wellness data already stored on your device; use **Deletion** or **Export** above for that.
 
@@ -303,6 +303,7 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
+- **v1.26 (October 23, 2026):** §6 adds a second export format: a readable PDF summary of the last 90 days of data on your device. It is made on your device and handed to you through your device's share sheet, like the JSON export. Neither file is encrypted or password-protected, so keep it somewhere private. The PDF covers only the last 90 days, shows at most the 50 most recent check-ins and practice engagements in that period, and leaves out voice journal entries, consent records, subscription state, individual screening answers and practice streaks and totals, and says so; the JSON export remains the complete copy of the wellness data on your device. Nothing about what Being collects or shares has changed.
 - **v1.25 (October 23, 2026) — material change.** §4.1 said the anonymous account identifier contains no personal information, and §3, §5.2 and §7.2 described the crisis-detection event as aggregate, free of personal information and free of anything that identifies you. Our database provider (Supabase) stores, against that identifier, the IP address of the device's most recent connection, device and app details and when the app last connected, and the crisis-detection event is stored with the identifier, so neither description was accurate. §4.1, a new *Connection Records* entry in §2.2 and the Supabase entry in §5.1 now say what is stored, how long it is kept, and what happens to an identifier left behind by a reinstall; §5.1 also states that request logs are kept for 1 day on our current plan. §3, §5.2 and §7.2 now describe the event as linked to the identifier, and §3 no longer implies the stored record has no time of day. §7.3 and §7.4 name the connection records. Nothing about what is collected has changed; this corrects how it was described. Because it withdraws broader promises, it is treated as a material change. It does not change the retention described in §7.2.
 - **v1.24 (October 22, 2026) — material change.** §5.2 said we never collect "any mental health data". That was broader than what happens. With Usage Analytics on, analytics records when you open a wellness screening or support resources and when you tap to call or text a crisis line, tied to an installation identifier and approximate location, so these events can show that someone looked for mental-health support. §5.2 now lists exactly what is never collected (screening answers, scores and severity, which screening you took, mood values, anything you write or speak, which practice you did) and states what these events can show. §2.3 now says we do not collect *precise* location, since §5 already describes approximate, city-level location. Nothing about what is collected has changed; this corrects how it was described. Because it withdraws a broader promise, it is treated as a material change. It does not change the retention described in §7.2.
 - **v1.23 (October 22, 2026):** §2.2 now calls the in-app analytics setting *Usage Analytics*, the name it carries in the app and in §5.2. Every backup screen in the app now uses the *Settings Backup* name that §4.2 and §7.3 already use. These are names only: nothing about what is collected changes, so it is published with the next app release.
