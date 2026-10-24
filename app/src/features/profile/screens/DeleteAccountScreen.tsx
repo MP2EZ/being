@@ -71,8 +71,9 @@ const ERASED_ITEMS = [
   'Your check-ins, reflections, and practice history',
   'Your PHQ-9 and GAD-7 wellness screening results',
   // FEAT-710 ruling (c): "details" read as if the subscription itself ended. Matches
-  // privacy policy §7.4's "subscription records".
-  'Your anonymous account and subscription records on our servers',
+  // privacy policy §7.4's "subscription records". DEBUG-853: "random account ID", not
+  // "anonymous" — a persistent identifier is not anonymous.
+  'Your random account ID and subscription records on our servers',
 ];
 
 // FEAT-710 ruling (b). Plain text, steps in words not glyphs (VoiceOver reads "→" badly),

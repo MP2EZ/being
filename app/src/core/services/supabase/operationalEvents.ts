@@ -42,7 +42,7 @@ export const BACKUP_OPERATIONAL_EVENTS = Object.values(BACKUP_EVENT);
  * The consent card must disclose this as ONE CATEGORY, not a list of event names — a list of
  * internal identifiers is worse disclosure, not better. The requirement the compliance
  * ruling set is: category + sink + the fact that rows are timestamped and bound to the
- * anonymous account identifier.
+ * random account ID.
  */
 export const CLOUD_SYNC_OPERATIONAL_EVENTS = [...BACKUP_OPERATIONAL_EVENTS] as const;
 
@@ -55,4 +55,15 @@ export type CloudSyncOperationalEvent = (typeof CLOUD_SYNC_OPERATIONAL_EVENTS)[n
  * and this constant cannot drift apart silently.
  */
 export const OPERATIONAL_TELEMETRY_DISCLOSURE =
-  "Records of when a backup or restore ran, whether it succeeded, how long it took and how large it was — stored on Being's servers with your anonymous account identifier";
+  "Records of when a backup or restore ran, whether it succeeded, how long it took and how large it was — stored on Being's servers with your random account ID (no name or email)";
+
+/**
+ * DEBUG-853: what Supabase keeps against the random account ID once backup has created it.
+ *
+ * Worded with the exact phrases of privacy policy §4.1, and pinned to them by
+ * `cloudBackupConsentCopy.privacy.test.ts`. Conditional on purpose: a crisis-detection event
+ * or a purchase also creates the ID, so the card must not imply that leaving backup off
+ * prevents these records. No retention figure: INFRA-851 changes it.
+ */
+export const CONNECTION_RECORDS_DISCLOSURE =
+  "If backup creates your random account ID, our database provider (Supabase) also keeps against it the IP address of your device's most recent connection, device and app details from that connection (the app's build number and your device's operating system version), and when the app last connected";

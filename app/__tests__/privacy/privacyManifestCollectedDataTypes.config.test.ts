@@ -12,6 +12,10 @@
  * install-persistent identifier is a device-level link (docs/security/ios-privacy-manifest.md
  * records the reasoning). None is used for tracking.
  *
+ * DEBUG-853 adds User ID: the random account ID (Supabase `auth.uid()`) is an app-assigned
+ * account identifier, created on first crisis-detection event, settings backup or purchase,
+ * and used only for app functionality.
+ *
  * The App Store Connect nutrition label must match this manifest; that half is manual
  * console work and cannot be pinned here.
  */
@@ -32,6 +36,7 @@ const EXPECTED: Record<string, string[]> = {
   NSPrivacyCollectedDataTypeDeviceID: [ANALYTICS, APP_FUNCTIONALITY],
   NSPrivacyCollectedDataTypeProductInteraction: [ANALYTICS],
   NSPrivacyCollectedDataTypeCoarseLocation: [ANALYTICS, APP_FUNCTIONALITY],
+  NSPrivacyCollectedDataTypeUserID: [APP_FUNCTIONALITY],
 };
 
 describe('iOS privacy manifest — NSPrivacyCollectedDataTypes (DEBUG-793)', () => {

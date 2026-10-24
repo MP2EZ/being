@@ -80,7 +80,7 @@ describe('Supabase session disclosure (DEBUG-850)', () => {
     it('slices are live', () => {
       for (const s of [s22, s3, s41, s52, s7, supabase]) expect(s.length).toBeGreaterThan(40);
       expect(s3).toMatch(/Safety Features/);
-      expect(s41).toMatch(/anonymous account identifier/);
+      expect(s41).toMatch(/random account ID/);
     });
 
     it('makes no non-identifiability claim about the identifier or the safety event', () => {
@@ -112,8 +112,8 @@ describe('Supabase session disclosure (DEBUG-850)', () => {
       expect(supabase).toMatch(/request logs[^.]*for 1 day/i);
     });
 
-    it('§3 says the safety event is linked to the account identifier', () => {
-      expect(s3).toMatch(/account identifier/);
+    it('§3 says the safety event is linked to the random account ID (DEBUG-853 rename)', () => {
+      expect(s3).toMatch(/random account ID/);
     });
 
     it('§7.2 keeps the true statement that tapping through to a crisis line is not recorded', () => {
