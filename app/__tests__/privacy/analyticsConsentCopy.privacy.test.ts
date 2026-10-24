@@ -72,6 +72,18 @@ const PRE_FIX = {
   policyUsage: '- **Usage Data:** App usage patterns, feature engagement (anonymized)',
 };
 
+// DEBUG-820: the retention text that replaced it. PostHog keeps events for its plan's period
+// (1 year on Free) and offers no shorter period, no by-age delete and no per-person delete
+// for personless events, so "90 days" and "honored within 30 days" were both unbacked.
+const PRE_FIX_RETENTION = {
+  policyControl:
+    '- Analytics events on our servers are automatically deleted after 90 days (see §7.2). To request deletion sooner, email privacy@being.fyi — requests are honored within 30 days (see §7.3)',
+  policyGeneral: '- **Server-Side Product Analytics:** If you opt in to analytics, the usage events sent to our servers (see §2)',
+  californiaUsage: '| Usage analytics (opt-in only) | 90 days on our servers |',
+};
+const NINETY_DAYS = /\b90 days\b/;
+const POSTHOG_ON_OUR_SERVERS = /on our servers/i;
+
 describe('Analytics and Research consent copy (DEBUG-788)', () => {
   it('(integrity) every matcher fires on the pre-fix text', () => {
     expect(PRE_FIX.analyticsPrivacyNote).toMatch(ANONYMITY);
@@ -194,6 +206,47 @@ describe('Analytics and Research consent copy (DEBUG-788)', () => {
 
     it('§3 no longer says usage patterns are anonymized', () => {
       expect(section('## 3. How We Use Your Information', '## 4.')).not.toMatch(/anonymized usage/i);
+    });
+
+    it('the retention matchers fire on the text DEBUG-820 replaced', () => {
+      expect(PRE_FIX_RETENTION.policyControl).toMatch(NINETY_DAYS);
+      expect(PRE_FIX_RETENTION.policyControl).toMatch(POSTHOG_ON_OUR_SERVERS);
+      expect(PRE_FIX_RETENTION.policyControl).toMatch(/honored within 30 days/);
+      expect(PRE_FIX_RETENTION.policyGeneral).toMatch(/Product Analytics/);
+      expect(PRE_FIX_RETENTION.californiaUsage).toMatch(NINETY_DAYS);
+    });
+
+    it('§5.2 states PostHog\'s real retention, not 90 days or a 30-day deletion (DEBUG-820)', () => {
+      const s52 = section('### 5.2 Analytics', '### 5.3');
+      expect(s52).toMatch(/Mobile app/); // liveness
+      expect(s52).not.toMatch(NINETY_DAYS);
+      expect(s52).not.toMatch(/honored within 30 days/);
+      expect(s52).not.toMatch(POSTHOG_ON_OUR_SERVERS);
+      expect(s52).toMatch(/PostHog keeps product-analytics events for 1 year/);
+      expect(s52).toMatch(/does not let us set a shorter period/);
+    });
+
+    it('§7.1 no longer lists product analytics under 90-day data (DEBUG-820)', () => {
+      const s71 = section('### 7.1', '### 7.2');
+      expect(s71).toMatch(/Daily Check-Ins/); // liveness
+      expect(s71).not.toMatch(/Product Analytics/);
+    });
+
+    it('§7 names both mechanisms: the Supabase prune and PostHog\'s 1 year (DEBUG-820)', () => {
+      const s7 = section('## 7. Data Retention', '### 7.4');
+      expect(s7).toMatch(/analytics-retention-prune/);
+      expect(s7).toMatch(/PostHog[^.]*1 year/);
+      expect(s7).toMatch(/not whether you tapped through to 988/);
+      // PostHog's sentence is not under the 3-year heading.
+      expect(section('### 7.2', '### 7.3')).not.toMatch(/PostHog/);
+    });
+
+    it('the California notice does not promise 90 days for usage analytics (DEBUG-820)', () => {
+      const ca = read('docs/legal/california-privacy.md');
+      const row = ca.split('\n').find((l) => /^\| Usage analytics/.test(l));
+      expect(row).toBeDefined();
+      expect(row).not.toMatch(NINETY_DAYS);
+      expect(row).toMatch(/1 year/);
     });
 
     it('§5.2 discloses the identifier, approximate location and the renamed control', () => {

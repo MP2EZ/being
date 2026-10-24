@@ -429,7 +429,7 @@ EXPO_PUBLIC_POSTHOG_HOST=https://eu.i.posthog.com  # EU data residency
 - **Data residency**: EU (Frankfurt)
 - **Autocapture**: Disabled (controlled via PHIFilter)
 - **Session replay**: Disabled (privacy)
-- **Data retention**: 24 months (configurable)
+- **Data retention**: 1 year (PostHog Free plan; paid plans up to 7 years). PostHog does not offer a shorter period, a by-age delete or a per-person delete for personless events, so this is not configurable downward (DEBUG-820). Corrected from "24 months (configurable)", which was never true.
 
 ---
 
@@ -570,12 +570,14 @@ Required disclosure for privacy policy:
 > - Journal entries, or anything else you write or speak in the app
 > - Which practice you did
 >
-> **What these events can show:** with Usage Analytics on, analytics records when you open a wellness screening or support resources, and when you tap to call or text a crisis line, tied to the installation identifier and approximate location, so these events can show that someone using this installation looked for mental-health support (privacy policy v1.24, DEBUG-793).
+> **What these events can show:** the remaining events are tied to the installation identifier and approximate location, so they can show how an installation uses Being, but analytics does not record opening a wellness screening, screening history, support resources or hardship guidance, or tapping to call or text a crisis line (privacy policy v1.27, DEBUG-821).
 >
 > **Your Control:**
 > - Analytics is OFF by default
 > - Opt-in via **Privacy & Data > Usage Analytics**; turning it off stops collection immediately
-> - Analytics events on our servers are automatically deleted after 90 days. To request deletion sooner, email privacy@being.fyi
+> - How long PostHog keeps these events is described under *Retention*
+>
+> **Retention (app and website):** PostHog keeps product-analytics events for 1 year on our current plan and then deletes them; PostHog does not let us set a shorter period (privacy policy v1.28, DEBUG-820).
 >
 > **Data Residency:** EU (Frankfurt, Germany)
 >

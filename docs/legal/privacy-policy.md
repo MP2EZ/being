@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.28
+**Version:** 1.29
 **Effective Date:** December 12, 2025
 **Last Updated:** October 23, 2026
 
@@ -185,7 +185,7 @@ Your control:
 
 - Analytics is **OFF by default**
 - Opt-in via **Privacy & Data > Usage Analytics**; turning it off stops collection immediately
-- Analytics events on our servers are automatically deleted after 90 days (see §7.2). To request deletion sooner, email privacy@being.fyi — requests are honored within 30 days (see §7.3)
+- How long PostHog keeps these events is described under *Retention* below
 
 **Note on crisis-safety recording:** The analytics opt-in above controls what is sent to PostHog. It does **not** control the separate crisis-detection event described in §3 (Safety Features), which is recorded to Being's own first-party storage under a vital-interests basis and is not suppressible by analytics opt-out or universal opt-out. That event contains no raw scores and no answers — only the category labels listed in §3 — but it is stored with your random account ID (§4.1), so it is linked to you.
 
@@ -206,6 +206,8 @@ What we **NEVER** do on the website:
 **Global Privacy Control (GPC) hard kill:** if your browser sends `Sec-GPC: 1` (Brave, DuckDuckGo, Firefox with an extension, etc.), PostHog does not load, no analytics cookie is set, and no event is transmitted. This is structurally enforced server-side and is independent of any in-app preference.
 
 The website's reduced collection scope and GPC honoring is what allows opt-out-default on the web surface while preserving opt-in-only for the app. Both surfaces share the same data residency (EU, Frankfurt) and the same vendor.
+
+**Retention (app and website):** PostHog keeps product-analytics events for 1 year on our current plan and then deletes them; PostHog does not let us set a shorter period. This covers both the app and being.fyi, which send to the same PostHog project. On a paid PostHog plan this period can be up to 7 years; we will update this policy before any change to it takes effect. These events are not linked to an account, so PostHog gives us no way to find and delete one person's events on request; turning off Usage Analytics stops new events from being sent.
 
 **Data Residency:** EU (Frankfurt, Germany)
 
@@ -249,7 +251,6 @@ We retain your information as follows:
 - **Daily Check-Ins:** Mood logs, mindfulness completions
 - **Principle Engagements:** Stoic practice progress tracking
 - **Non-Crisis Assessments:** PHQ-9 and GAD-7 results below crisis thresholds
-- **Server-Side Product Analytics:** If you opt in to analytics, the usage events sent to our servers (see §2)
 
 This data is automatically deleted after 90 days to minimize data collection while still enabling meaningful progress tracking.
 
@@ -263,12 +264,13 @@ For your safety and our liability protection, we retain crisis-related data for 
 
 This extended retention supports safety-monitoring continuity and protects both you and us in case of legal proceedings.
 
-**Where this data lives, and what enforces the limit:** High-Severity Assessments and Suicidal Ideation Responses never leave your device — an automated on-device cleanup removes them 3 years after they are recorded. Crisis Detection Events are the only crisis-related records held on our servers; an automated daily job deletes them 3 years after they are recorded. All other analytics events on our servers are deleted after 90 days by the same job.
+**Where this data lives, and what enforces the limit:** High-Severity Assessments and Suicidal Ideation Responses never leave your device — an automated on-device cleanup removes them 3 years after they are recorded. Crisis Detection Events are the only crisis-related records held on our servers; an automated daily job (`analytics-retention-prune`) deletes them 3 years after they are recorded. The same job deletes every other event in that table after 90 days.
 
 ### 7.3 Other Data
 
 - **Unfinished Check-Ins:** If you leave a PHQ-9 or GAD-7 check-in before finishing it, or the app closes partway through, the answers you gave are not kept. They are deleted on your device no later than the next time you open Being, whatever they were, including any answer to PHQ-9 question 9. If one of those answers led Being to show you crisis support resources, the Crisis Detection Event described in §7.2 is still recorded and kept for 3 years; it does not contain your answers.
 - **Local Data:** Stored on your device until you delete the app or clear data
+- **Product Analytics:** If you turn on Usage Analytics, the events described in §5.2 are kept by PostHog, not on our own servers. PostHog keeps them for 1 year on our current plan and then deletes them (see §5.2, *Retention*).
 - **Settings Backup:** Retained until you disable backup or request deletion via in-app *Privacy & Data* settings
 - **Connection Records:** The IP address, device and app details and last-connection time Supabase keeps against your random account ID (§4.1) are kept until the identifier is deleted. For an identifier left behind by deleting or reinstalling the app without first deleting your account, nothing deletes them automatically today (see §4.1).
 - **Data Deletion Requests:** Honored within 30 days of request
@@ -306,6 +308,7 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
+- **v1.29 (October 23, 2026) — material change.** §5.2, §7.1 and §7.2 said analytics events are deleted after 90 days, and §5.2 said a request to delete them sooner is honored within 30 days. PostHog, which stores the app's and being.fyi's analytics events, keeps them for 1 year on our current plan and does not offer a shorter period, and it gives us no way to delete one person's events because they are not linked to an account. §5.2 now states PostHog's retention for both the app and the website, that a paid plan can keep events up to 7 years, and that we will update this policy before any change; the request-to-delete sentence is removed. §7.1 no longer lists product analytics, and §7.3 lists it with PostHog's retention. §7.2 now names the job that deletes events in our own analytics table after 90 days. Because it states a longer retention than before, it is treated as a material change.
 - **v1.28 (October 23, 2026):** The identifier described in §4.1 is now called your *random account ID* throughout this policy and in the app, where it was called an "anonymous account identifier". It is a persistent identifier, not anonymous, which §4.1 already said; the old name suggested otherwise. Nothing about what is collected, kept or shared has changed, so it is published with the next app release.
 - **v1.27 (October 23, 2026):** Usage Analytics no longer records when you open a wellness screening, your screening history, support resources or hardship guidance, or when you tap to call or text a crisis line, and those screens are no longer recorded as screen views. §5.2 lists them among what is never collected and restates what the remaining events can show. Copies of the app installed before this version still send those events until they are updated. §7.4 now states that deleting your data in the app does not delete analytics events already sent to PostHog. This narrows what is collected and adds no new kind of data, so it is published with the next app release.
 - **v1.26 (October 23, 2026):** §6 adds a second export format: a readable PDF summary of the last 90 days of data on your device. It is made on your device and handed to you through your device's share sheet, like the JSON export. Neither file is encrypted or password-protected, so keep it somewhere private. The PDF covers only the last 90 days, shows at most the 50 most recent check-ins and practice engagements in that period, and leaves out voice journal entries, consent records, subscription state, individual screening answers and practice streaks and totals, and says so; the JSON export remains the complete copy of the wellness data on your device. Nothing about what Being collects or shares has changed.
