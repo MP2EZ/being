@@ -7,7 +7,7 @@
 -- receipt-handler tests assert the row-uuid-or-null contract at every verifier call site. That
 -- pins the CALLERS against a fake; this file pins the FUNCTION, so the fake cannot drift from
 -- the database unnoticed. ci.yml's `Supabase SQL suites` job runs it on every PR against a
--- freshly reset local stack (INFRA-782; non-strict until INFRA-829).
+-- freshly reset local stack (INFRA-782; a strict gate since INFRA-829).
 --
 -- HOW TO RUN (local stack):
 --   supabase start && supabase db reset

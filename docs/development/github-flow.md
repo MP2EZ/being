@@ -66,7 +66,7 @@ For solo workflow speed, use `gh pr merge --merge --admin` to bypass the "branch
 2. Commits any pending changes
 3. **Pushes feature branch** to origin
 4. **Opens PR** targeting `development` with body derived from work item
-5. **Waits for CI** (9 strict gates)
+5. **Waits for CI** (11 strict gates)
 6. **Merges via `gh pr merge --merge --admin`** — uses merge commit (NOT squash) to preserve feature branch history visible in dev
 7. **Syncs bare-repo + development worktree**: `git update-ref refs/heads/development <merge-sha>` + `git pull --rebase` in development worktree
 8. Updates Notion status → Done

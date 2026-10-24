@@ -577,21 +577,21 @@ not `0.11.4`) rather than taken independently.
 
 ## 9. AC7 — Re-validation cost per bucket
 
-Which Validation Matrix rows each bucket re-triggers. Being's CI has **10 strict gates** wired
+Which Validation Matrix rows each bucket re-triggers. Being's CI has **11 strict gates** wired
 into `ci-pass`'s `needs` **and** its exit condition: `typecheck`, `lint`, `crisis-validation`,
 `clinical-validation`, `test`, `security`, `accessibility`, `performance`, `edge-functions`,
-`safety-privacy`.
+`safety-privacy`, `supabase-sql` (strict since INFRA-829).
 
 | Bucket | Automated gates re-triggered | Manual / uncovered cost |
 |---|---|---|
-| **A — SDK 57** | all 10 | 8 Maestro safety flows (local-only); on-device 60fps; widget entitlement; Android native reconcile; **new**: launch observation per §1.7 |
+| **A — SDK 57** | all 11 | 8 Maestro safety flows (local-only); on-device 60fps; widget entitlement; Android native reconcile; **new**: launch observation per §1.7 |
 | **B — Sentry 7→8** | `security`, `safety-privacy`, `test` | `compliance` specialist on `containsCrisisContent` scrubbing; **TestFlight-only** (dev env no-ops Sentry) |
 | **B — iap 15→16** | `test` | sandbox purchase flow (manual); pod install + prebuild |
 | **B — jest/RNTL** | `test`, `clinical-validation`, `crisis-validation`, `accessibility` | override rework; INFRA-180 triage discipline |
 | **B — eslint set** | `lint` | reviewed `.eslint-baseline.json` regeneration |
 | **B — TS 7** | `typecheck`, `lint` | `baseUrl`/`paths`/`types` re-validation |
 | **C — housekeeping** | `test`, `typecheck` | none |
-| **INFRA-414 (core bump)** | all 10 | jsi patch regeneration; **launch observation**; `npx patch-package` verification |
+| **INFRA-414 (core bump)** | all 11 | jsi patch regeneration; **launch observation**; `npx patch-package` verification |
 
 ### 9.1 What the gates do *not* cover — read before sizing anything above
 

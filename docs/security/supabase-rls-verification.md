@@ -253,11 +253,10 @@ so a permissive policy added while the grant stays revoked fails CI instead of w
 next GRANT. It then checks behaviour against a seeded row: `anon` (no claims) and
 `authenticated` (with a `sub`) read no row, and INSERT, UPDATE and DELETE raise 42501.
 
-**It runs in CI, but not yet as a gate.** Since INFRA-782, ci.yml's `Supabase SQL suites`
-job runs it, and every other `supabase/tests/*.sql` suite, on each PR against a freshly
-reset local stack. The step is `continue-on-error` until INFRA-829 promotes it, so read the
-job log's `N/N suites passed, 0 SKIP` line, not the check colour. It is read-only and still
-safe to run against the shared project.
+**It is a CI gate.** Since INFRA-782, ci.yml's `Supabase SQL suites` job runs it, and every
+other `supabase/tests/*.sql` suite, on each PR against a freshly reset local stack. The job
+was non-strict (`continue-on-error`) until INFRA-829 promoted it; a red suite now fails
+`CI pass`. It is read-only and still safe to run against the shared project.
 
 **A fresh reset is not the shared project.** The local image's `pg_default_acl` grants
 `anon`, `authenticated` and `service_role` `arwdDxtm` on every new public relation; the
