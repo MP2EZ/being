@@ -1059,7 +1059,7 @@ const OnboardingScreen: React.FC<OnboardingScreenProps> = ({ onComplete, onRetur
 
         <View style={styles.section}>
           <Text style={styles.bodyText}>
-            Your data stays on your device by default. These optional features enhance your experience but are not required.
+            Your wellness data is stored encrypted on this device. These optional features enhance your experience but are not required.
           </Text>
         </View>
 

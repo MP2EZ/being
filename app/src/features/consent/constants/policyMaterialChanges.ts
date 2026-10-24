@@ -20,4 +20,6 @@ export const POLICY_MATERIAL_CHANGE_SUMMARIES: Readonly<Record<string, string>> 
     'The policy now says your random account ID is not anonymous: it is stored with your IP address and device details, and with crisis-detection events, which are therefore linked to you.',
   '1.29':
     'The policy now says Usage Analytics events are kept for 1 year, not 90 days, and that we cannot delete your events on request, even if you delete your data in the app.',
+  '1.32':
+    "The policy now says an encrypted backup of your iPhone can include some of Being's data and the key that protects it, so it no longer describes your wellness data as kept on your device alone.",
 };
