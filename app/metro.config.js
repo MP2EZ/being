@@ -4,7 +4,14 @@
  * Security & Performance Optimizations:
  * - Hermes bytecode compilation provides primary obfuscation (configured in app.json)
  * - Production builds use Terser minification with console.log removal
- * - Source maps excluded from production bundles (see eas.json)
+ * - Source maps are never shipped inside the app. Release builds generate them and,
+ *   on EAS production builds only, upload them to Sentry for symbolication (INFRA-800;
+ *   SENTRY_DISABLE_AUTO_UPLOAD in eas.json turns the upload off everywhere else)
+ *
+ * `getSentryExpoConfig` wraps Expo's default config to inject a Sentry debug ID into
+ * every bundle. Keep it option-free: `annotateReactComponents` and
+ * `includeWebReplay: false` swap the transformer/resolver for every module on the 988
+ * path and need their own crisis review (INFRA-800).
  *
  * Legal documents: the canonical `.md` sources at `docs/legal/*.md` (worktree
  * root) are mirrored into `app/src/features/profile/content/legalContent.generated.ts`
@@ -15,10 +22,10 @@
  * @see https://docs.expo.dev/guides/using-hermes/
  */
 
-const { getDefaultConfig } = require('expo/metro-config');
+const { getSentryExpoConfig } = require('@sentry/react-native/metro');
 
 // Initialize default configuration with minimal customization
-const config = getDefaultConfig(__dirname);
+const config = getSentryExpoConfig(__dirname);
 
 // No `config.resolver.alias` block here, deliberately (MAINT-623).
 //
