@@ -261,6 +261,15 @@ const NARROWED: ReadonlyArray<Narrowing> = [
   { eventType: 'error_occurred', workItem: 'INFRA-552', rationale: 'No production emitter. Error reporting goes to Sentry, not to PostHog product analytics.' },
   { eventType: 'session_started', workItem: 'INFRA-552', rationale: 'Catalog fiction: no tracker function ever existed, so the contract test could not see it. No session-lifecycle concept exists in app/src.' },
   { eventType: 'session_ended', workItem: 'INFRA-552', rationale: 'Catalog fiction: no tracker function ever existed, so the contract test could not see it. No session-lifecycle concept exists in app/src.' },
+  // DEBUG-821 (ruling B "minimise", founder decision 2026-10-23): "no longer wanted",
+  // not "no emitter" — each had a live call site. Tied to the persistent distinct_id,
+  // each is consumer health data under WA MHMDA. The trackers stay as no-ops; the names
+  // are pinned in `RETIRED_ANALYTICS_EVENTS`. Re-adding one needs a new compliance ruling.
+  { eventType: 'crisis_resources_viewed', workItem: 'DEBUG-821', rationale: 'Opening crisis resources, keyed to a persistent ID, is consumer health data. Retired, not re-homed.' },
+  { eventType: 'crisis_hotline_tapped', workItem: 'DEBUG-821', rationale: 'Tapping a crisis line, keyed to a persistent ID, is consumer health data. Accepted loss: the FEAT-543 988 split.' },
+  { eventType: 'assessment_started', workItem: 'DEBUG-821', rationale: 'Starting a wellness screening reveals that one was taken; consumer health data under WA MHMDA.' },
+  { eventType: 'assessment_completed', workItem: 'DEBUG-821', rationale: 'Finishing a wellness screening reveals that one was taken; consumer health data under WA MHMDA.' },
+  { eventType: 'guidance_opened', workItem: 'DEBUG-821', rationale: 'Opening hardship guidance is support-seeking in distress, as strong a signal as opening crisis resources.' },
 ];
 
 describe('PHIFilter differential vs frozen d14d6178 baseline (INFRA-535)', () => {

@@ -223,22 +223,35 @@ Pinned against the real SDK by `PostHogProvider.consentWithdrawalPurge.privacy.t
 
 Whitelist-based validation ensuring only safe events are transmitted.
 
-**Whitelisted Events (19 total).** Every one has a production emitter — that is now
+**Whitelisted Events (14 total).** Every one has a production emitter — that is now
 the entry condition, not an aspiration. INFRA-552 deleted the twelve that had none;
 DEBUG-536 restored six of those twelve *with* emitters, which is the only way back in.
+DEBUG-821 then retired five that did have emitters (see **Retired health events** below).
 
 - App lifecycle: `app_opened` (`is_cold_start`, `since_last_active` — a coarse bucket,
   never a raw elapsed value), `app_backgrounded` (`duration_seconds` — FOREGROUND DWELL
   only, never time away)
-- Navigation: `screen_viewed`
-- Crisis: `crisis_resources_viewed` (no properties), `crisis_hotline_tapped` — `{primary_988: boolean}` only (FEAT-543)
+- Navigation: `screen_viewed` — never for a sensitive or screening-history screen, and
+  never with the generic `App` bucket (DEBUG-821)
 - Settings: `settings_opened`, `consent_changed`
 - Onboarding: `onboarding_started/completed/step_completed`
 - Learn: `learn_content_viewed`, `learn_module_started`
 - Feature usage (DEBUG-536): `check_in_started`, `check_in_completed`,
-  `assessment_started`, `assessment_completed`, `practice_started`,
-  `practice_completed` — **`duration_ms` only**, on the `_completed` half
-- Guidance: `guidance_opened` (FEAT-457) — **no properties, ever**
+  `practice_started`, `practice_completed` — **`duration_ms` only**, on the `_completed` half
+
+Every capture also carries `$geoip_disable: true`, added after validation (DEBUG-821).
+
+**Retired health events (DEBUG-821, ruling B "minimise", 2026-10-23).**
+`crisis_resources_viewed`, `crisis_hotline_tapped`, `assessment_started`,
+`assessment_completed` and `guidance_opened` are off the whitelist, and their trackers are
+no-ops that return before `trackEvent`, so the crisis and assessment call sites compile
+unchanged and send nothing. `trackScreenView` drops sensitive screens and
+`InsightsScreen` / `WellnessTrendsDetailScreen` rather than coarsening them: the `App`
+bucket only the crisis screen filled was a 1:1 proxy for it. Do not re-wire them or
+re-home these signals to any sink keyed to an identifier; either needs a new compliance
+ruling. Pinned by `app/__tests__/privacy/retiredHealthEvents.contract.test.ts`; recorded
+in the `NARROWED` ledger. The rulings below on those events are kept as history: they
+govern any reintroduction.
 
 **The feature-usage set is ACCESS, never CONTENT.** Each says which affordance was
 reached and how long it took. None carries a score, an instrument identity, a severity,
@@ -255,7 +268,8 @@ sought mental-health support. Under WA MHMDA, Nevada SB 370 and Connecticut's
 consumer-health-data provisions that is consumer health data (`docs/legal/regulatory-applicability.md`
 §2a). Privacy policy §5.2 now lists what is never collected and discloses these access
 events, rather than promising "any mental health data". Whether to build MHMDA compliance or to
-drop or de-link these events is a founder decision (DEBUG-821).
+drop or de-link these events is a founder decision (DEBUG-821). **Decided:** dropped —
+see **Retired health events** above.
 
 Two specific extensions are closed by deliberate ruling, not oversight: no instrument
 identity on the assessment pair (neutral tokens like `wellness_9` were rejected as

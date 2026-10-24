@@ -17,6 +17,7 @@ import { logSecurity } from '@/core/services/logging';
 // eagerly and is not acceptable lazily (same rule as the MaterialDesignIcons
 // eager-import requirement).
 import { containsPHI } from './phiDetection';
+import { GENERIC_SCREEN_BUCKET } from '@/core/utils/sensitiveScreens';
 
 /**
  * Result of PHI validation
@@ -46,27 +47,19 @@ export const AnalyticsEvents = {
   // Navigation
   SCREEN_VIEWED: 'screen_viewed',
 
-  // Feature usage (DEBUG-536 restored these six; INFRA-552 had removed them for
-  // having zero call sites, which was true then and is not now — every one below
-  // is wired to a real emitter in the same PR that restored it.)
+  // Feature usage (DEBUG-536).
   //
   // 🔴 ACCESS, NEVER CONTENT. These say which affordance was reached and how long
   // it took. They must never say what was found, scored, said or selected there.
-  // That is the FEAT-457 boundary. Privacy policy §5.2 (v1.24, DEBUG-793) discloses
-  // these ACCESS events, alongside crisis_resources_viewed / crisis_hotline_tapped,
-  // and promises the CONTENT is never collected. Access is disclosed, not unlinkable:
-  // with the persistent distinct_id it is consumer health data under WA MHMDA
-  // (regulatory-applicability.md §2a), so never widen these past access.
+  // That is the FEAT-457 boundary. Access is disclosed, not unlinkable: with the
+  // persistent distinct_id, access to a wellness surface can be consumer health
+  // data under WA MHMDA (regulatory-applicability.md §2a), so never widen these
+  // past access, and never add a screening, crisis or support-seeking event here
+  // (see RETIRED_ANALYTICS_EVENTS below).
   CHECK_IN_STARTED: 'check_in_started',
   CHECK_IN_COMPLETED: 'check_in_completed',
-  ASSESSMENT_STARTED: 'assessment_started',
-  ASSESSMENT_COMPLETED: 'assessment_completed',
   PRACTICE_STARTED: 'practice_started',
   PRACTICE_COMPLETED: 'practice_completed',
-
-  // Crisis
-  CRISIS_RESOURCES_VIEWED: 'crisis_resources_viewed',
-  CRISIS_HOTLINE_TAPPED: 'crisis_hotline_tapped',
 
   // Settings
   SETTINGS_OPENED: 'settings_opened',
@@ -80,12 +73,34 @@ export const AnalyticsEvents = {
   // Learn
   LEARN_CONTENT_VIEWED: 'learn_content_viewed',
   LEARN_MODULE_STARTED: 'learn_module_started',
-
-  // Domain guidance (FEAT-457) — no properties, ever.
-  GUIDANCE_OPENED: 'guidance_opened',
 } as const;
 
 export type AnalyticsEventType = (typeof AnalyticsEvents)[keyof typeof AnalyticsEvents];
+
+/**
+ * Events Being no longer sends to PostHog (DEBUG-821, ruling B "minimise",
+ * founder decision 2026-10-23).
+ *
+ * Each says that this person opened a wellness screening, a crisis resource, a
+ * crisis line or hardship guidance. Tied to the persistent distinct_id that is
+ * consumer health data under WA MHMDA, so they were dropped rather than built
+ * MHMDA compliance around. De-linking them was rejected too: a PostHog event
+ * still carries $session_id, device properties and a timestamp seconds away from
+ * the same install's linked events.
+ *
+ * Absent from `AnalyticsEvents`, so the derived whitelist rejects them even
+ * through a raw `trackEvent`. Their trackers in `useAnalytics` are no-ops that
+ * return before `trackEvent`, so a crisis tap never reaches this filter.
+ * `retiredHealthEvents.contract.test.ts` pins both. Re-adding one, or moving it
+ * to another sink keyed to an identifier, needs a new compliance ruling.
+ */
+export const RETIRED_ANALYTICS_EVENTS = [
+  'assessment_started',
+  'assessment_completed',
+  'crisis_resources_viewed',
+  'crisis_hotline_tapped',
+  'guidance_opened',
+] as const;
 
 /**
  * PHI Filter - Whitelist-based analytics event validation
@@ -158,10 +173,9 @@ export class PHIFilter {
 
     // Guidance hardship domains (FEAT-457).
     //
-    // DEFENCE-IN-DEPTH, AND INERT AGAINST THE EVENT WE ACTUALLY SHIP.
-    // `guidance_opened` carries no properties, so none of these tokens can appear
-    // in its payload — these exist solely to make a FUTURE reintroduction of a
-    // `domain` property fail closed instead of shipping.
+    // DEFENCE-IN-DEPTH. `guidance_opened` was retired (DEBUG-821) and never
+    // carried properties, so these exist solely to make any FUTURE event with a
+    // hardship `domain` property fail closed instead of shipping.
     //
     // The gap they close is real and was measured: before this addition, the
     // values 'conflict' / 'career' / 'grief' / 'pain' matched NOTHING in this
@@ -361,10 +375,9 @@ export class PHIFilter {
     eventData: Record<string, unknown>
   ): PHIValidationResult {
     // 1. WHITELIST CHECK: Event type must be explicitly allowed.
-    //    The event NAME is never keyword-scanned — `crisis_hotline_tapped`
-    //    contains the keyword `hotline_number`'s first segment, and scanning the
-    //    name (or shortening that keyword to `hotline`) would silently and
-    //    permanently self-block the app's 988-reach signal.
+    //    The event NAME is never keyword-scanned: the whitelist already decides
+    //    names, and scanning them would make the keyword list a second, silent
+    //    name filter.
     if (!this.SAFE_EVENT_TYPES.has(eventType)) {
       logSecurity(
         `PHI Filter: Blocked non-whitelisted event type: ${eventType}`,
@@ -374,6 +387,17 @@ export class PHIFilter {
         valid: false,
         reason: `Event type "${eventType}" not in whitelist`,
       };
+    }
+
+    // 1b. The generic screen bucket is never sent (DEBUG-821). Only one sensitive
+    //     screen ever filled it, so `screen_viewed{App}` meant "opened crisis
+    //     resources". trackScreenView drops sensitive screens before this; this is
+    //     the backstop if a name slips past that check and is coarsened instead.
+    if (
+      eventType === AnalyticsEvents.SCREEN_VIEWED &&
+      eventData['screen_name'] === GENERIC_SCREEN_BUCKET
+    ) {
+      return { valid: false, reason: 'Generic screen bucket is not sent' };
     }
 
     // 2. PAYLOAD SCAN: keys, values, numerics, nested objects and arrays.

@@ -62,12 +62,13 @@ describe('PHIFilter scan surface (INFRA-535)', () => {
       expect(PHIFilter.validate('app_opened', { notation: 'x' }).valid).toBe(true);
     });
 
-    it('CRISIS PIN: screen_name is allowlisted, so screen_viewed still emits', () => {
+    it('screen_name is allowlisted, so screen_viewed still emits', () => {
       // `screen_name` segments to ['screen','name'] and `name` is an exact
       // PHI_KEYWORDS hit. Without the allowlist this degrades to a whole-event
-      // reject — and screen_viewed fires in the SAME useFocusEffect as
-      // trackCrisisResourcesViewed, so crisis-screen reach becomes unmeasurable.
-      expect(PHIFilter.validate('screen_viewed', { screen_name: 'App' }).valid).toBe(true);
+      // reject and every screen view goes dark. (This was a CRISIS PIN while the
+      // crisis screen reported as `App`; DEBUG-821 stopped that, and the `App`
+      // bucket is now rejected by value — `retiredHealthEvents.contract.test.ts`.)
+      expect(PHIFilter.validate('screen_viewed', { screen_name: 'HomeScreen' }).valid).toBe(true);
       expect(PHIFilter.validate('screen_viewed', { screen_name: 'Home' }).valid).toBe(true);
     });
 
@@ -84,7 +85,7 @@ describe('PHIFilter scan surface (INFRA-535)', () => {
       // reason — rejected at the whitelist check, never reaching the key scan this
       // block exists to exercise. Every entry below must be a LIVE whitelisted event.
       const real: Array<[string, Record<string, unknown>]> = [
-        ['screen_viewed', { screen_name: 'App' }],
+        ['screen_viewed', { screen_name: 'HomeScreen' }],
         ['app_opened', { is_cold_start: true, since_last_active: 'lt_5m' }],
         ['app_backgrounded', { duration_seconds: 42 }],
         ['learn_content_viewed', { module_id: 'm1' }],
@@ -98,45 +99,31 @@ describe('PHIFilter scan surface (INFRA-535)', () => {
     });
   });
 
-  describe('the EVENT NAME is never key-scanned', () => {
-    it('CRISIS PIN: crisis_hotline_tapped validates despite containing "hotline"', () => {
-      // `hotline_number` is a PHI keyword. If the scan were ever applied to the
-      // event name, or if `hotline_number` were shortened to `hotline`, this event
-      // would self-block forever and the app would lose its 988-reach signal.
-      expect(PHIFilter.validate('crisis_hotline_tapped', {})).toEqual({ valid: true });
-    });
+  describe('the crisis events are retired, not self-blocked (DEBUG-821)', () => {
+    // These were CRISIS PINs: `crisis_hotline_tapped` contains the keyword stem
+    // `hotline`, so a scan of the event name (or `hotline_number` shortened to
+    // `hotline`) would have silently zeroed the 988-reach signal. DEBUG-821 retired
+    // both crisis events on purpose, so the pins invert: they are rejected because
+    // they are off the whitelist, with any payload, and the reason says so — not
+    // because a keyword matched.
+    it.each(['crisis_hotline_tapped', 'crisis_resources_viewed'])(
+      '%s is rejected as non-whitelisted, with or without a payload',
+      (event) => {
+        for (const payload of [{}, { primary_988: true }, { primary_988: false }]) {
+          const result = PHIFilter.validate(event, payload);
+          expect(result.valid).toBe(false);
+          expect(result.reason).toMatch(/whitelist/i);
+        }
+      }
+    );
 
-    it('CRISIS PIN: crisis_hotline_tapped carries primary_988 without self-blocking', () => {
-      // FEAT-543. `primary_988` segments to ['primary','988']; nothing in
-      // PHI_KEYWORDS equals or prefixes either, and booleans fall through
-      // scanValue untouched. This pin is what stops a future keyword addition
-      // -- or shortening `hotline_number` to `hotline` -- from silently zeroing
-      // the app's only signal for whether the primary 988 affordance is used.
-      // A whole-event drop here is invisible in PostHog: it reads as "nobody
-      // tapped 988", not as a filter fault.
-      expect(PHIFilter.validate('crisis_hotline_tapped', { primary_988: true })).toEqual({
-        valid: true,
-      });
-      expect(PHIFilter.validate('crisis_hotline_tapped', { primary_988: false })).toEqual({
-        valid: true,
-      });
-    });
-
-    it('CRISIS PIN: a resource identifier on that event is still rejected', () => {
-      // The boolean is a ruling, not a convenience. Proves the filter still
-      // catches the shape FEAT-543 forbids, so the pin above cannot be read as
-      // "any property is fine on this event".
-      expect(
-        PHIFilter.validate('crisis_hotline_tapped', { resource_name: 'Trevor Project' })
-      ).toEqual(expect.objectContaining({ valid: false }));
-    });
-
-    it('CRISIS PIN: crisis_resources_viewed validates', () => {
-      expect(PHIFilter.validate('crisis_resources_viewed', {})).toEqual({ valid: true });
+    it('a live event still validates, so the rejection above is about the name', () => {
+      expect(PHIFilter.validate('settings_opened', {})).toEqual({ valid: true });
     });
 
     it('the keyword list still contains the un-shortened hotline_number', () => {
-      // Guards the shortening directly, not just its symptom.
+      // Kept after the retirement: `hotline` alone would block any value that
+      // merely mentions a hotline, on every live event.
       const src = require('fs').readFileSync(
         require('path').resolve(__dirname, '../../src/core/analytics/PHIFilter.ts'),
         'utf8'
@@ -205,7 +192,7 @@ describe('PHIFilter scan surface (INFRA-535)', () => {
     });
 
     it('emits no call for a clean payload', () => {
-      PHIFilter.validate('screen_viewed', { screen_name: 'App' });
+      PHIFilter.validate('screen_viewed', { screen_name: 'HomeScreen' });
       expect(mockLogSecurity).not.toHaveBeenCalled();
     });
 

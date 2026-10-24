@@ -26,6 +26,11 @@
  * The six are hand-listed rather than derived from the hook. Deriving would silently
  * follow the hook if a tracker were renamed or dropped; the point here is to pin
  * exactly the six this item restored.
+ *
+ * DEBUG-821 retired the assessment pair: starting or finishing a wellness screening,
+ * keyed to a persistent ID, is consumer health data. Four stay live; the pair is
+ * pinned below as sending nothing EVEN WITH consent granted, which is the half the
+ * consent gate cannot provide.
  */
 
 import { renderHook } from '@testing-library/react-native';
@@ -55,15 +60,19 @@ jest.mock('posthog-react-native', () => ({
 const RESTORED: ReadonlyArray<readonly [string, readonly unknown[]]> = [
   ['trackCheckInStarted', []],
   ['trackCheckInCompleted', [420000]],
-  ['trackAssessmentStarted', []],
-  ['trackAssessmentCompleted', [180000]],
   ['trackPracticeStarted', []],
   ['trackPracticeCompleted', [300000]],
 ];
 
-const invokeAll = (): void => {
+/** Retired by DEBUG-821, with the arguments their call sites still pass. */
+const RETIRED: ReadonlyArray<readonly [string, readonly unknown[]]> = [
+  ['trackAssessmentStarted', []],
+  ['trackAssessmentCompleted', [180000]],
+];
+
+const invokeAll = (trackers = RESTORED): void => {
   const { result } = renderHook(() => useAnalytics());
-  for (const [name, args] of RESTORED) {
+  for (const [name, args] of trackers) {
     const fn = (result.current as Record<string, (...a: unknown[]) => void>)[name];
     expect(typeof fn).toBe('function');
     fn(...(args as unknown[]));
@@ -75,10 +84,11 @@ describe('DEBUG-536 feature-usage trackers respect the analytics consent gate', 
     mockCapture.mockClear();
   });
 
-  it('pins exactly the six trackers this item restored', () => {
+  it('pins the four still-live trackers and the two DEBUG-821 retired', () => {
     // Anti-vacuity: an empty or truncated list makes both halves below pass over
     // nothing, in exactly the same way.
-    expect(RESTORED).toHaveLength(6);
+    expect(RESTORED).toHaveLength(4);
+    expect(RETIRED).toHaveLength(2);
   });
 
   describe('consent WITHHELD — declined in the consent store', () => {
@@ -87,7 +97,7 @@ describe('DEBUG-536 feature-usage trackers respect the analytics consent gate', 
       setAnalyticsConsent(false);
     });
 
-    it('none of the six reaches PostHog', () => {
+    it('none of the four reaches PostHog', () => {
       invokeAll();
       expect(mockCapture).toHaveBeenCalledTimes(0);
     });
@@ -99,9 +109,15 @@ describe('DEBUG-536 feature-usage trackers respect the analytics consent gate', 
       setAnalyticsConsent(true);
     });
 
-    it('all six reach PostHog, which is what makes the suppression above meaningful', () => {
+    it('all four reach PostHog, which is what makes the suppression above meaningful', () => {
       invokeAll();
-      expect(mockCapture).toHaveBeenCalledTimes(6);
+      expect(mockCapture).toHaveBeenCalledTimes(4);
+    });
+
+    it('the retired assessment pair sends nothing, even with consent granted (DEBUG-821)', () => {
+      // Meaningful only beside the test above: same harness, same client, same consent.
+      invokeAll(RETIRED);
+      expect(mockCapture).toHaveBeenCalledTimes(0);
     });
 
     it('each captured event carries its restored name and nothing self-disclosing', () => {
@@ -110,16 +126,14 @@ describe('DEBUG-536 feature-usage trackers respect the analytics consent gate', 
       expect(captured).toEqual([
         'check_in_started',
         'check_in_completed',
-        'assessment_started',
-        'assessment_completed',
         'practice_started',
         'practice_completed',
       ]);
 
-      // ACCESS, never CONTENT. The only properties any of the six may carry are a
+      // ACCESS, never CONTENT. The only properties any of the four may carry are a
       // duration — no score, no instrument, no severity, no practice identity, no
-      // free text.
-      const allowed = new Set(['duration_ms']);
+      // free text — plus the GeoIP opt-out every capture carries (DEBUG-821).
+      const allowed = new Set(['duration_ms', '$geoip_disable']);
       for (const [, props] of mockCapture.mock.calls) {
         for (const key of Object.keys((props ?? {}) as Record<string, unknown>)) {
           expect(allowed.has(key)).toBe(true);

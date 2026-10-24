@@ -12,8 +12,17 @@ import { usePostHog } from 'posthog-react-native';
 import { useAnalyticsConsent } from './useAnalyticsConsent';
 import { PHIFilter, AnalyticsEvents } from './PHIFilter';
 import { logAnalytics } from '@/core/services/logging';
-import { coarsenScreenNameForAnalytics } from '@/core/utils/sensitiveScreens';
+import { coarsenScreenNameForAnalytics, isSensitiveRoute } from '@/core/utils/sensitiveScreens';
 import type { SinceLastActiveBucket } from './appLifecycleTelemetry';
+
+/**
+ * Screens that show a person's PHQ-9/GAD-7 history but match no sensitive-route
+ * keyword. Their screen views are not sent (DEBUG-821).
+ */
+const SCREENING_HISTORY_SCREENS: ReadonlySet<string> = new Set([
+  'InsightsScreen',
+  'WellnessTrendsDetailScreen',
+]);
 
 /**
  * Hook for safe analytics tracking
@@ -59,7 +68,13 @@ export function useAnalytics() {
       const validation = PHIFilter.validate(eventName, eventData);
 
       if (validation.valid) {
-        posthog.capture(eventName, eventData);
+        // `$geoip_disable` is added AFTER validation, so the filter never scans it.
+        // It is the per-event opt-out from PostHog's GeoIP enrichment (DEBUG-821).
+        // @posthog/core defaults `disableGeoip` to false, so without this every
+        // event carried $geoip_city_name. The project's GeoIP transformation is
+        // disabled too (founder console step); this half covers that setting
+        // being re-enabled, and is the half a test can pin.
+        posthog.capture(eventName, { ...eventData, $geoip_disable: true });
         logAnalytics(`Event tracked: ${eventName}`, { category: 'tracking' });
       } else {
         // PHIFilter already logs the block reason
@@ -76,12 +91,18 @@ export function useAnalytics() {
    */
   const trackScreenView = useCallback(
     (screenName: string) => {
-      // Coarsen sensitive screen names (e.g. CrisisResourcesScreen,
-      // AssessmentScreen) to a generic bucket BEFORE the event reaches
-      // PHIFilter/PostHog, so a screen-view cannot disclose a wellness-
-      // sensitive context. Non-sensitive names pass through unchanged so
-      // per-screen funnels survive (DEBUG-239). Mirrors the Sentry path,
-      // which uses the same shared sensitive-route list.
+      // A sensitive screen sends NOTHING (DEBUG-821). DEBUG-239 coarsened these
+      // names to the bucket `App`, but CrisisResourcesScreen was the only
+      // sensitive screen calling this, so `App` meant "opened crisis resources":
+      // 2,288 screen_viewed{App} against 2,288 crisis_resources_viewed over 30
+      // days. A bucket only one screen fills is not coarsening. The PHQ-9/GAD-7
+      // history screens match no sensitive keyword, so they are named here.
+      if (isSensitiveRoute(screenName) || SCREENING_HISTORY_SCREENS.has(screenName)) {
+        return;
+      }
+      // Still coarsened: if a sensitive name ever slips past the check above it
+      // becomes the bucket, which PHIFilter then rejects. Non-sensitive names pass
+      // through unchanged.
       trackEvent(AnalyticsEvents.SCREEN_VIEWED, {
         screen_name: coarsenScreenNameForAnalytics(screenName),
       });
@@ -116,69 +137,28 @@ export function useAnalytics() {
     [trackEvent]
   );
 
-  const trackCrisisResourcesViewed = useCallback(() => {
-    trackEvent(AnalyticsEvents.CRISIS_RESOURCES_VIEWED);
-  }, [trackEvent]);
-
   /**
-   * A crisis hotline was dialled (FEAT-137), and WHICH affordance carried it
-   * (FEAT-543).
+   * RETIRED — these five send nothing (DEBUG-821, ruling B "minimise").
    *
-   * `primary988` is `true` only for the pinned footer 988 button -- this
-   * screen's single 988 affordance -- and `false` for a phone tap on any other
-   * listed resource. It exists to validate the "988 in under three taps"
-   * safety commitment from behaviour instead of assuming it from layout.
+   * Opening a crisis resource, tapping a crisis line, starting or finishing a
+   * wellness screening and opening hardship guidance were each sent to PostHog
+   * under the persistent distinct_id, which made them consumer health data under
+   * WA MHMDA. See `RETIRED_ANALYTICS_EVENTS` in PHIFilter.ts.
    *
-   * NOT AN ENGAGEMENT METRIC. A rising count of crisis-hotline taps is not a
-   * success signal and must never be presented as one; more people reaching
-   * crisis resources is not a product win. The only supported reading is the
-   * primary/secondary SPLIT -- whether the affordance the safety design relies
-   * on is the one people actually use.
+   * They stay as no-ops with their signatures so the crisis and assessment call
+   * sites keep compiling untouched, and they return BEFORE `trackEvent`, so a
+   * crisis tap never reaches PHIFilter's synchronous `logSecurity` block log.
+   * Accepted loss: FEAT-543's primary/secondary 988 split, the only behavioural
+   * read on "988 in under three taps". Maestro still pins reachability.
    *
-   * BOOLEAN, DELIBERATELY. Do not widen this to a resource identifier: a
-   * `trevor_project` or `veterans_crisis_line` value is a special-category
-   * inference about the user (LGBTQ+ youth, veteran status) and would falsify
-   * the published "What We NEVER Collect" commitment, exactly as a `domain`
-   * property would for `trackGuidanceOpened` below. Do not make it a numeric
-   * rank either -- it proxies the identifier once section order is known, and
-   * PHIFilter rejects any numeric key absent from SAFE_NUMERIC_KEYS, which
-   * would silently discard the whole event.
-   *
-   * The parameter is REQUIRED, not optional: an omitted argument would ship
-   * `primary_988: undefined`, which PHIFilter passes, producing a silently
-   * untagged crisis tap.
-   *
-   * SCOPE: counts PHONE taps only. The Crisis Text Line SMS path injects no
-   * onTap and has emitted nothing since FEAT-137, so `false` means "a phone tap
-   * on a non-988 resource", NOT "every non-988 crisis contact".
+   * Do not re-wire them, and do not re-home these signals to any other sink keyed
+   * to an identifier: either needs a new compliance ruling.
    */
-  const trackCrisisHotlineTapped = useCallback(
-    (primary988: boolean) => {
-      trackEvent(AnalyticsEvents.CRISIS_HOTLINE_TAPPED, { primary_988: primary988 });
-    },
-    [trackEvent]
-  );
-
-  /**
-   * Domain guidance opened from its Home entry point (FEAT-457).
-   *
-   * 🔴 TAKES NO ARGUMENTS, DELIBERATELY. Do not add a `domain` parameter.
-   *
-   * The hardship domain ("this user opened grief") IS the wellness inference, and
-   * privacy policy §5.2 (mirrored in `docs/architecture/analytics-architecture.md`)
-   * publishes that what you select, answer or write is never collected; only that an
-   * affordance was opened is disclosed (v1.24, DEBUG-793). Shipping it would make that published
-   * promise false — an FTC Act §5 exposure, not a disclosure gap you can close by
-   * editing the policy — and would trip the DPIA's own material-change trigger
-   * plus new App Store mental-health labels.
-   *
-   * The house pattern this follows: track ACCESS, never CONTENT.
-   * `assessment_started` carries no score; `crisis_resources_viewed` carries no
-   * contact details; this carries no domain.
-   */
-  const trackGuidanceOpened = useCallback(() => {
-    trackEvent(AnalyticsEvents.GUIDANCE_OPENED);
-  }, [trackEvent]);
+  const trackCrisisResourcesViewed = useCallback(() => {}, []);
+  const trackCrisisHotlineTapped = useCallback((_primary988: boolean) => {}, []);
+  const trackGuidanceOpened = useCallback(() => {}, []);
+  const trackAssessmentStarted = useCallback(() => {}, []);
+  const trackAssessmentCompleted = useCallback((_durationMs?: number) => {}, []);
 
   const trackSettingsOpened = useCallback(() => {
     trackEvent(AnalyticsEvents.SETTINGS_OPENED);
@@ -214,21 +194,11 @@ export function useAnalytics() {
    * Track onboarding flow
    */
   /**
-   * Feature-usage lifecycle (DEBUG-536).
+   * Feature-usage lifecycle (DEBUG-536). The assessment pair was retired by
+   * DEBUG-821; see the no-ops above.
    *
-   * 🔴 DO NOT ADD AN INSTRUMENT PARAMETER TO THE ASSESSMENT TRACKERS.
-   * `assessment_started`/`assessment_completed` deliberately take no instrument
-   * argument. Neutral tokens (`wellness_9`/`wellness_7`) were REJECTED on review as
-   * laundering rather than sanitization: they defeat the keyword filter while
-   * preserving the inference. `sensitiveScreens.ts` (DEBUG-239) already coarsens
-   * `assessment`/`phq`/`gad` screen names to the bucket `App` so telemetry cannot
-   * disclose which instrument was taken, and FEAT-457 made the identical ruling for
-   * `guidance_opened`'s domain. Completion RATE is computable from the started/
-   * completed pair without any instrument property.
-   *
-   * Note the FILTER IS NOT THE CONTROL here. `phq`/`gad` are PHI_KEYWORDS so those
-   * values block, but a key like `instrument: 'depression'` would pass validation
-   * untouched. This comment is the control.
+   * Note the FILTER IS NOT THE CONTROL for property meaning: a key like
+   * `instrument: 'depression'` would pass validation untouched. These comments are.
    *
    * 🔴 DO NOT ADD `practice_id` TO THE PRACTICE TRACKERS. An exhaustive
    * practice→token map is required first: `gratitude-reflection` and
@@ -247,19 +217,6 @@ export function useAnalytics() {
   const trackCheckInCompleted = useCallback(
     (durationMs?: number) => {
       trackEvent(AnalyticsEvents.CHECK_IN_COMPLETED, {
-        ...(durationMs !== undefined && { duration_ms: durationMs }),
-      });
-    },
-    [trackEvent]
-  );
-
-  const trackAssessmentStarted = useCallback(() => {
-    trackEvent(AnalyticsEvents.ASSESSMENT_STARTED);
-  }, [trackEvent]);
-
-  const trackAssessmentCompleted = useCallback(
-    (durationMs?: number) => {
-      trackEvent(AnalyticsEvents.ASSESSMENT_COMPLETED, {
         ...(durationMs !== undefined && { duration_ms: durationMs }),
       });
     },
