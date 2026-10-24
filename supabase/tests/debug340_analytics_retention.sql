@@ -91,8 +91,10 @@ ON CONFLICT (id) DO NOTHING;
 INSERT INTO public.analytics_events (user_id, event_type, properties, session_id, created_at)
 VALUES
   -- 100 days old, crisis: MUST survive (retained 3 years).
+  -- INFRA-861: the trigger nulls user_id/session_id on crisis rows, so they are found by
+  -- their detected_on marker instead.
   (:'U'::uuid, 'crisis_detected',
-   '{"trigger_type":"phq9_total","severity_bucket":"severe"}'::jsonb,
+   '{"trigger_type":"manual_override","severity_bucket":"high","detected_on":"1999-03-40"}'::jsonb,
    'session_2026-04-28_debug340a', NOW() - INTERVAL '100 days'),
   -- 100 days old, non-crisis: MUST be deleted (90-day tier).
   (:'U'::uuid, 'screen_view', '{}'::jsonb,
@@ -104,7 +106,7 @@ VALUES
   -- branch is a real bound and not an unconditional exemption — the failure mode that
   -- would quietly restore indefinite retention.
   (:'U'::uuid, 'crisis_detected',
-   '{"trigger_type":"phq9_item9","severity_bucket":"severe"}'::jsonb,
+   '{"trigger_type":"combined_high_risk","severity_bucket":"high","detected_on":"1999-03-41"}'::jsonb,
    'session_2022-08-06_debug340d', NOW() - INTERVAL '4 years');
 
 SELECT public.cleanup_old_analytics();
@@ -117,13 +119,13 @@ DECLARE
   crisis_4y   INTEGER;
 BEGIN
   SELECT count(*) INTO crisis_100d FROM public.analytics_events
-   WHERE session_id = 'session_2026-04-28_debug340a';
+   WHERE event_type = 'crisis_detected' AND properties->>'detected_on' = '1999-03-40';
   SELECT count(*) INTO plain_100d FROM public.analytics_events
    WHERE session_id = 'session_2026-04-28_debug340b';
   SELECT count(*) INTO plain_10d FROM public.analytics_events
    WHERE session_id = 'session_2026-07-27_debug340c';
   SELECT count(*) INTO crisis_4y FROM public.analytics_events
-   WHERE session_id = 'session_2022-08-06_debug340d';
+   WHERE event_type = 'crisis_detected' AND properties->>'detected_on' = '1999-03-41';
 
   IF crisis_100d <> 1 THEN
     RAISE EXCEPTION

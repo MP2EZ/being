@@ -22,7 +22,10 @@ VALUES (:'U', '00000000-0000-0000-0000-000000000000', 'authenticated', 'authenti
 INSERT INTO encrypted_backups (user_id, encrypted_data, checksum, size_bytes)
 VALUES (:'U', 'cipher', repeat('a',64), 10);
 INSERT INTO analytics_events (user_id, event_type, properties, session_id)
-VALUES (:'U', 'crisis_detected', '{"trigger_type":"x","severity_bucket":"high","assessment_type":"phq9","intervention_surfaced":true}', 'session_2026-06-08_abc');
+VALUES (:'U', 'backup_completed', '{}', 'session_2026-06-08_abc');
+-- INFRA-861: a crisis row carries no user_id, so erasure cannot and must not reach it.
+INSERT INTO analytics_events (event_type, properties)
+VALUES ('crisis_detected', '{"trigger_type":"manual_override","detected_on":"1999-08-08"}');
 INSERT INTO subscriptions (user_id, platform, original_transaction_id, status, tier, interval, crisis_access_enabled, environment)
 VALUES (:'U', 'apple', 'TXN-DEL', 'active', 'standard', 'monthly', true, 'Sandbox');
 INSERT INTO subscription_events (user_id, event_type, metadata)
@@ -52,5 +55,14 @@ DO $$ BEGIN
   END IF;
   RAISE NOTICE 'PASS: deleting auth.users cascaded to ALL uid-keyed rows (users + 4 children)';
 END $$;
+
+DO $$ BEGIN
+  IF (SELECT count(*) FROM analytics_events
+       WHERE event_type = 'crisis_detected' AND properties->>'detected_on' = '1999-08-08') <> 1 THEN
+    RAISE EXCEPTION 'FAIL: erasure removed a de-linked crisis row (INFRA-861: it has no owner to cascade from)';
+  END IF;
+  RAISE NOTICE 'PASS: the de-linked crisis row survives erasure';
+END $$;
+DELETE FROM analytics_events WHERE event_type = 'crisis_detected' AND properties->>'detected_on' = '1999-08-08';
 
 SELECT 'ACCOUNT DELETION CASCADE TEST PASSED' AS result;

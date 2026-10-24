@@ -107,9 +107,10 @@ ROLLBACK;
 -- ============ Test 5: analytics_events client DELETE is withheld ================
 BEGIN;
   SELECT _be_act_as(:'A');
+  -- A non-crisis row: since INFRA-861 a crisis row carries no user_id, cannot be inserted by
+  -- authenticated, and is covered by infra861_crisis_delink.sql instead.
   INSERT INTO analytics_events (user_id, event_type, properties, session_id)
-  VALUES (:'A', 'crisis_detected', '{"trigger_type":"x","severity_bucket":"high","assessment_type":"phq9","intervention_surfaced":true}',
-          'session_2026-06-07_abc');
+  VALUES (:'A', 'backup_completed', '{}', 'session_2026-06-07_abc');
   DO $$
   DECLARE deleted int;
   BEGIN
@@ -122,6 +123,19 @@ BEGIN;
       RAISE NOTICE 'PASS: client DELETE on analytics_events affected 0 rows (no DELETE policy)';
     EXCEPTION WHEN insufficient_privilege THEN
       RAISE NOTICE 'PASS: client DELETE on analytics_events denied outright';
+    END;
+  END $$;
+ROLLBACK;
+
+-- Anon (INFRA-861 gave it a column-scoped crisis INSERT) still cannot delete anything.
+BEGIN;
+  SET LOCAL role anon;
+  DO $$ BEGIN
+    BEGIN
+      DELETE FROM analytics_events;
+      RAISE EXCEPTION 'FAIL: anon could DELETE analytics_events';
+    EXCEPTION WHEN insufficient_privilege THEN
+      RAISE NOTICE 'PASS: anon DELETE on analytics_events denied outright';
     END;
   END $$;
 ROLLBACK;
