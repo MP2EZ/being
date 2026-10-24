@@ -247,6 +247,12 @@ discriminating and let the negative assertions pass vacuously. Test 7 (DEBUG-795
 server-internal rows: `service_role` SELECT + INSERT present, UPDATE/DELETE absent, and no
 privilege of any kind for `anon` or `authenticated`.
 
+`supabase/tests/infra828_service_table_rls.sql` (INFRA-828) pins the other lock on those two
+tables. It checks the catalog for RLS enabled and zero policies, which no other suite asserts,
+so a permissive policy added while the grant stays revoked fails CI instead of waiting for the
+next GRANT. It then checks behaviour against a seeded row: `anon` (no claims) and
+`authenticated` (with a `sub`) read no row, and INSERT, UPDATE and DELETE raise 42501.
+
 **It runs in CI, but not yet as a gate.** Since INFRA-782, ci.yml's `Supabase SQL suites`
 job runs it, and every other `supabase/tests/*.sql` suite, on each PR against a freshly
 reset local stack. The step is `continue-on-error` until INFRA-829 promotes it, so read the
@@ -351,6 +357,7 @@ or creates, a session.
 - Migrations: `supabase/migrations/20260607120000_auth_uid_rls.sql`, `…130000_iap_receipt_binding.sql`
 - Runtime tests: `supabase/tests/infra260_{rls_negative,iap_replay,account_deletion_cascade}.sql`
 - Role-grant assertion: `supabase/tests/maint441_service_role_grants.sql`
+- Service-table RLS behaviour: `supabase/tests/infra828_service_table_rls.sql`
 - Grant migrations: `supabase/migrations/20260523000000_base_schema.sql` §9 (`users`,
   `encrypted_backups` → `authenticated`), `…20260814000000_service_role_subscriptions_grant.sql`
   (§16 is the *subscriptions* block — a commonly mis-cited reference),
