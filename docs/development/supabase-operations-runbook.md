@@ -86,7 +86,7 @@ trailing 7 days (10 jobs, 0 failures):
 | `subscription-events-retention-prune` | `40 3 * * *` | `subscription_events` 3 years, privacy-policy §7.3's audit-log ceiling (DEBUG-840; heartbeat in `retention_prune_runs`). Live: on prod at 20261022000600 (verified 2026-10-23) |
 | `webhook-replay-cache-prune` | `35 3 * * *` | `webhook_replay_cache` 14 days, twice Pub/Sub's 7-day default retention (INFRA-846; heartbeat in `retention_prune_runs`). Assumes the Google subscription keeps that default: if its retention is raised, the window becomes retention + 7 days. Live: on prod at 20261023000000 (verified 2026-10-23) |
 | `orphaned-identity-prune` | `35 4 * * *` | **Census only, deletes nothing** (INFRA-848). Counts anonymous identities a subscription transfer left behind, tombstone and auth activity both older than 30 days, no backup. Heartbeat `orphaned-identity-census` in `retention_prune_runs`, `detail` holds counts and never a uid. Mode lives in `orphaned_identity_prune_config`; enabling delete is INFRA-852's migration, never a hand edit. Live: on prod at 20261023000100 (verified 2026-10-23) |
-| `auth-session-ip-scrub` | `25 * * * *` | **Nulls, deletes nothing** (INFRA-851). Sets `auth.sessions.ip` and `user_agent` to NULL on every row, never its timestamps (INFRA-848's census reads them). GoTrue rewrites both on every refresh, so a row carries them for up to an hour. Heartbeat in `retention_prune_runs`: `rows_deleted` is rows scrubbed, `detail` is `remaining=N`. Not yet on prod: founder push pending |
+| `auth-session-ip-scrub` | `25 * * * *` | **Nulls, deletes nothing** (INFRA-851). Sets `auth.sessions.ip` and `user_agent` to NULL on every row, never its timestamps (INFRA-848's census reads them). GoTrue rewrites both on every refresh, so a row carries them for up to an hour. Heartbeat in `retention_prune_runs`: `rows_deleted` is rows scrubbed, `detail` is `remaining=N`. Live on prod since 2026-10-24 (backfill and probe verified, INFRA-851) |
 
 Verify:
 
@@ -123,6 +123,13 @@ release confirm the job still exists and that GoTrue's audit log stays off. Pass
 `active` true, `since_last_ok` under 70 minutes, `latest_status` ok, `audit_rows` 0. Zero rows
 means the job is gone. `audit_rows` above 0 means GoTrue started writing
 `audit_log_entries.ip_address` (DPIA residual 9): extend the scrub to it.
+
+**Disclosure coupling (MAINT-865, DEBUG-340).** Privacy-policy §2.2, §3, §4.1, §5.1 and §7.3 and the
+California notice's connection-records row promise the IP address and user agent are deleted within a
+day of each connection, and this job is what makes that true. Before unscheduling, retiring or
+rolling back `auth-session-ip-scrub` (including the migration's manual ROLLBACK), revert those
+disclosures first. Nothing alerts if the job stops (INFRA-870), so treat a failed probe as a
+promise already broken.
 
 ```sql
 SELECT j.jobname, j.schedule, j.active, h.last_ok_at, h.since_last_ok, h.latest_status,
