@@ -855,6 +855,19 @@ describe('FEAT-287 journal re-read screens — no self-made zero-988 window', ()
     expect(source).not.toMatch(/openCrisisUrl/);
   });
 
+  test('JournalEntryDetailScreen.tsx renders no text input of any kind (FEAT-858)', () => {
+    // Search lives on the history list only. A field on the detail screen would be
+    // a keyboard surface over a single entry's full text that no ruling covers.
+    const source = read('JournalEntryDetailScreen.tsx');
+    expect(source.length).toBeGreaterThan(200);
+    expect(source).not.toMatch(/<CrisisTextInput[\s/>]/);
+    expect(source).not.toMatch(/<TextInput[\s/>]/);
+    // Both matchers fire, and the history screen is the live positive case.
+    expect('<CrisisTextInput testID="x" />').toMatch(/<CrisisTextInput[\s/>]/);
+    expect('<TextInput value={q} />').toMatch(/<TextInput[\s/>]/);
+    expect(read('JournalHistoryScreen.tsx')).toMatch(/<CrisisTextInput[\s/>]/);
+  });
+
   test('the Modal matchers still fire against known-bad source', () => {
     const bad = "import { View, Modal } from 'react-native';\nconst x = <Modal visible />;";
     expect(bad).toMatch(/^\s*import\s+\{[^}]*\bModal\b[^}]*\}\s+from\s+'react-native'/m);
