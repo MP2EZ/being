@@ -63,22 +63,23 @@ describe('SupabaseService.trackCrisisDetection — durable vital-interest landin
     expect(() => service.trackCrisisDetection(payload)).not.toThrow();
   });
 
-  it('reconciles user_id and lands the event in analytics_events once provisioned', async () => {
-    // Enqueue while offline/unprovisioned (internal flush no-ops), then reconcile.
+  it('lands the event in analytics_events with no identifier, and needs no provisioning', async () => {
+    // INFRA-861: there is no user_id to reconcile any more. The crisis lane needs no
+    // session, so nothing waits on one being provisioned.
+    const insertMock = jest.fn(() => Promise.resolve({ data: [{}], error: null }));
+    service.crisisClient = { from: jest.fn(() => ({ insert: insertMock })) };
+
     service.trackCrisisDetection(payload);
     expect(service.crisisAnalyticsQueue).toHaveLength(1);
-
-    const insertMock = jest.fn(() => Promise.resolve({ data: [{}], error: null }));
-    service.client = { from: jest.fn(() => ({ insert: insertMock })) };
-    service.userId = 'user_t6';
-
     await service.flushCrisisAnalytics();
 
     expect(insertMock).toHaveBeenCalledWith(
-      expect.arrayContaining([
-        expect.objectContaining({ event_type: 'crisis_detected', user_id: 'user_t6' }),
-      ])
+      expect.arrayContaining([expect.objectContaining({ event_type: 'crisis_detected' })])
     );
+    for (const row of (insertMock.mock.calls[0] as any)[0]) {
+      expect(row).not.toHaveProperty('user_id');
+      expect(row).not.toHaveProperty('session_id');
+    }
     expect(service.crisisAnalyticsQueue).toHaveLength(0);
   });
 
@@ -86,12 +87,11 @@ describe('SupabaseService.trackCrisisDetection — durable vital-interest landin
     jest.spyOn(service, 'sleep').mockResolvedValue(undefined);
     service.trackCrisisDetection(payload);
 
-    service.client = {
+    service.crisisClient = {
       from: jest.fn(() => ({
         insert: jest.fn(() => Promise.resolve({ data: null, error: { message: 'net' } })),
       })),
     };
-    service.userId = 'user_t6';
 
     await service.flushCrisisAnalytics();
 

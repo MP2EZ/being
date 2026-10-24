@@ -21,6 +21,11 @@
  * anonymous-session handshake and the real PostgREST insert path all execute. The
  * fetch stub is the network boundary and nothing above it is faked.
  *
+ * INFRA-861: the crisis lane now has its own session-free client (`crisisClient`, built with
+ * `accessToken: async () => null`), so `service.client` is never provisioned by a detection and
+ * no GoTrue call is made. The GoTrue stub below stays so a regression that mints a session is
+ * observable as an /auth/v1 call rather than a network error.
+ *
  * WHAT THIS CANNOT PROVE: that a row actually lands in the live project. No jest
  * test can — CI is 100% ubuntu-latest and the Maestro gate wipes state on every
  * launch. That measurement is INFRA-412, attended.
@@ -110,13 +115,15 @@ describe('DEBUG-409 — crisis telemetry on the default boot path (no consent, n
   });
 
   it('AC5 — trackCrisisDetection provisions a client with NO consent and NO Cloud Backup visit', async () => {
-    expect(service.client).toBeNull();
+    expect(service.crisisClient).toBeNull();
 
     service.trackCrisisDetection(payload);
     await settle();
 
-    // Nothing in this test assigned service.client. The production path did.
-    expect(service.client).not.toBeNull();
+    // Nothing in this test assigned a client. The production path did — the crisis one only.
+    expect(service.crisisClient).toBeTruthy();
+    expect(service.client).toBeNull();
+    expect(fetchCalls.filter((c) => c.url.includes('/auth/v1/'))).toHaveLength(0);
   });
 
   it('AC1 (unit-level) — the crisis event is actually POSTed to analytics_events', async () => {
@@ -128,7 +135,6 @@ describe('DEBUG-409 — crisis telemetry on the default boot path (no consent, n
     expect(insert!.body).toEqual([
       expect.objectContaining({
         event_type: 'crisis_detected',
-        user_id: 'anon-user-uuid',
         properties: expect.objectContaining({
           trigger_type: 'phq9_suicidal_ideation',
           severity_bucket: 'critical',
@@ -137,6 +143,7 @@ describe('DEBUG-409 — crisis telemetry on the default boot path (no consent, n
         }),
       }),
     ]);
+    expect(Object.keys(insert!.body[0]).sort()).toEqual(['event_type', 'properties']);
   });
 
   it('AC2 — provisioning does NOT flip isInitialized, so backups/sync/trackEvent stay consent-gated', async () => {
@@ -158,6 +165,7 @@ describe('DEBUG-409 — crisis telemetry on the default boot path (no consent, n
     await settle();
 
     expect(service.client).toBeNull();
+    expect(service.crisisClient).toBeNull();
     expect(fetchCalls).toHaveLength(0);
   });
 
@@ -190,7 +198,10 @@ describe('DEBUG-409 — crisis telemetry on the default boot path (no consent, n
 
     const insert = fetchCalls.find((c) => c.url.includes('/rest/v1/analytics_events'));
     expect(insert).toBeDefined();
-    expect(insert!.body[0]).toMatchObject({ session_id: 'session_2026-07-25_oldsession' });
+    expect(insert!.body[0].properties.detected_on).toBe(
+      new Date(PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS + 1).toISOString().slice(0, 10)
+    );
+    expect(insert!.body[0]).not.toHaveProperty('session_id');
   });
 
   it('AC4 — trackCrisisDetection stays synchronous and returns undefined (never awaitable)', () => {
@@ -202,13 +213,14 @@ describe('DEBUG-409 — crisis telemetry on the default boot path (no consent, n
     expect(returned).toBeUndefined();
     // No client was constructed inside the synchronous frame.
     expect(service.client).toBeNull();
+    expect(service.crisisClient).toBeNull();
   });
 
   it('re-entrancy — overlapping flushes insert each event once and drop nothing', async () => {
     service.client = null;
     service.crisisAnalyticsQueue = [
-      { event_type: 'crisis_detected', properties: payload, session_id: 's1', enqueued_at: 1 },
-      { event_type: 'crisis_detected', properties: payload, session_id: 's2', enqueued_at: 2 },
+      { event_type: 'crisis_detected', properties: { ...payload, trigger_type: 'phq9_severe_score' }, session_id: 's1', enqueued_at: 1 },
+      { event_type: 'crisis_detected', properties: { ...payload, trigger_type: 'gad7_severe_score' }, session_id: 's2', enqueued_at: 2 },
     ];
 
     // Three concurrent flushes is the real shape after this fix: initialize()'s,
@@ -223,8 +235,9 @@ describe('DEBUG-409 — crisis telemetry on the default boot path (no consent, n
     await settle();
 
     const inserts = fetchCalls.filter((c) => c.url.includes('/rest/v1/analytics_events'));
-    const sent = inserts.flatMap((c) => c.body.map((r: any) => r.session_id)).sort();
-    expect(sent).toEqual(['s1', 's2']);
+    // INFRA-861: session_id stays on the device, so rows are told apart by trigger_type.
+    const sent = inserts.flatMap((c) => c.body.map((r: any) => r.properties.trigger_type)).sort();
+    expect(sent).toEqual(['gad7_severe_score', 'phq9_severe_score']);
     expect(service.crisisAnalyticsQueue).toHaveLength(0);
   });
 });

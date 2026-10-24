@@ -119,6 +119,8 @@ async function seedQueue(payloads: string[], { online = true } = {}): Promise<Qu
   if (online) {
     internals.client = fakeClient;
     internals.userId = 'user-d766';
+    // INFRA-861: the crisis flush writes through its own session-free client.
+    internals.crisisClient = fakeClient;
   }
   setItem.mockClear();
   upsert.mockClear();
@@ -277,11 +279,11 @@ describe('the crisis analytics flush in the same AppState handler is untouched (
   function expectCrisisInsertedOnce() {
     expect(fakeClient.from).toHaveBeenCalledWith('analytics_events');
     expect(insert).toHaveBeenCalledTimes(1);
-    const rows = insert.mock.calls[0][0] as Array<{ event_type: string; user_id: string }>;
+    const rows = insert.mock.calls[0][0] as Array<Record<string, unknown>>;
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toEqual(
-      expect.objectContaining({ event_type: 'crisis_detected', user_id: 'user-d766' }),
-    );
+    expect(rows[0]).toEqual(expect.objectContaining({ event_type: 'crisis_detected' }));
+    // INFRA-861: no identifier on the wire.
+    expect(rows[0]).not.toHaveProperty('user_id');
   }
 
   it('6 failing queued backups (the breaker opens mid-pass) do not stand between the foreground and the crisis insert', async () => {

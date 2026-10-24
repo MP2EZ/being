@@ -159,6 +159,10 @@ describe('crisis telemetry durability across an app kill (DEBUG-335)', () => {
 
   it('recovers a FAILED persist so the event survives a later kill (loss path 1)', async () => {
     storage.__failNextWrite();
+    // Delivery is not under test: with no crisis client the flush leaves the queue alone,
+    // so only its DEBUG-335 persist retry runs. (INFRA-861: the module mock's `{}` client
+    // would otherwise be built and fail through the real retry back-off, ~6 s.)
+    service.getCrisisClient = () => null;
 
     // Caller does NOT await — mirrors assessmentStore.ts:811 exactly.
     service.trackCrisisDetection(payload);
@@ -209,7 +213,8 @@ describe('crisis telemetry durability across an app kill (DEBUG-335)', () => {
     // over-count beats under-count. What must never happen is an event that is dropped
     // from the queue without ever having been inserted.
     const inserted: string[] = [];
-    service.client = {
+    // INFRA-861: the crisis flush writes through its own session-free client.
+    service.crisisClient = {
       from: jest.fn(() => ({
         insert: jest.fn((rows: any[]) => {
           rows.forEach((r) => inserted.push(r.properties.trigger_type));
@@ -217,7 +222,6 @@ describe('crisis telemetry durability across an app kill (DEBUG-335)', () => {
         }),
       })),
     };
-    service.userId = 'user_debug335';
 
     service.trackCrisisDetection(payload); // event A
     await storage.__settleWrites();

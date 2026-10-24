@@ -157,6 +157,8 @@ const T0 = 1_000_000;
 function goOnline(uid = 'user-d791', m = main) {
   internals.client = m.client;
   internals.userId = uid;
+  // INFRA-861: the crisis flush writes through its own session-free client.
+  internals.crisisClient = m.client;
 }
 
 /**
