@@ -2,7 +2,7 @@
   "expo": {
     "name": "Being",
     "slug": "being",
-    "version": "1.4.0",
+    "version": "1.5.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "userInterfaceStyle": "automatic",
@@ -15,7 +15,7 @@
     "ios": {
       "supportsTablet": true,
       "bundleIdentifier": "fyi.being.app",
-      "buildNumber": "7",
+      "buildNumber": "8",
       "icon": "./assets/icon.png",
       "deploymentTarget": "16.4",
       "config": {
@@ -99,7 +99,7 @@
     "android": {
       "package": "fyi.being.app",
       "allowBackup": false,
-      "versionCode": 7,
+      "versionCode": 8,
       "icon": "./assets/icon.png",
       "intentFilters": [
         {
