@@ -15,6 +15,23 @@ jest.mock('@react-navigation/native', () => ({
   useNavigation: () => ({ navigate: jest.fn() }),
 }));
 
+// FEAT-858: the screen now renders a CrisisTextInput search field. Crisis mocks
+// are CrisisTextInput.test.tsx's; slice A's index is mocked whole because no
+// test here searches.
+jest.mock('@/features/crisis/services/crisisTapTrace', () => ({ beginCrisisTap: jest.fn() }));
+jest.mock('@/features/crisis/utils/navigateToCrisisResources', () => ({
+  navigateToCrisisResources: jest.fn(),
+}));
+jest.mock('@/core/hooks/useKeyboardOccludesCrisisButton', () => ({
+  useKeyboardOccludesCrisisButton: jest.fn(() => true),
+}));
+jest.mock('../../services/journalSearchIndex', () => ({
+  buildSearchIndex: jest.fn(),
+  ensureSearchIndex: jest.fn(),
+  getSearchIndexCompleteness: jest.fn(),
+  querySearchIndex: jest.fn(),
+}));
+
 jest.mock('../../services/journalEntryStore', () => ({
   listEntryMetadata: jest.fn(),
   getEntry: jest.fn(),

@@ -35,6 +35,10 @@
  * from an unbilled one (reinstall loses it). Text-only by ruling: a link or StoreKit
  * sheet would background the app (DEBUG-577) and add a pressable in the FAB band, so
  * one needs a new crisis presenter-class ruling first.
+ *
+ * FEAT-807: when an export was prepared before, the date shows before the confirm field so
+ * the user can tell whether they have a copy. Text only, read while idle — a read starts the
+ * encryption service, which must not run against a wiped install (DEBUG-703 window).
  */
 
 import React, { useState, useCallback } from 'react';
@@ -64,6 +68,8 @@ import { navigationRef } from '@/core/navigation/navigationRef';
 import { CrisisTextInput } from '@/features/crisis/components/CrisisTextInput';
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
+import { useLastExportRecord } from '@/features/data-export/hooks/useLastExportRecord';
+import { lastExportPreparedCopy } from '@/features/data-export/services/lastExportRecord';
 
 const CONFIRM_WORD = 'DELETE';
 
@@ -130,6 +136,7 @@ const DeleteAccountScreen: React.FC = () => {
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   // DEBUG-703: false when the failure resolved under a focused crisis destination.
   const [announceError, setAnnounceError] = useState(true);
+  const [lastExport] = useLastExportRecord(status === 'idle');
 
   const isDeleting = status === 'deleting';
   const canDelete = confirmText === CONFIRM_WORD && status === 'idle';
@@ -231,6 +238,12 @@ const DeleteAccountScreen: React.FC = () => {
         <View style={styles.infoBox}>
           <Text style={styles.infoText}>{PRESERVED_NOTE}</Text>
         </View>
+
+        {lastExport && status !== 'deleted' && (
+          <View style={styles.infoBox} testID="delete-last-export">
+            <Text style={styles.infoText}>{lastExportPreparedCopy(lastExport.preparedAt)}</Text>
+          </View>
+        )}
 
         {/* FEAT-710: non-interactive, unconditional, read just before the confirm field. */}
         <View style={styles.infoBox} testID="delete-subscription-notice">
