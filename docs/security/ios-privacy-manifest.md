@@ -11,10 +11,13 @@ Pinned by `app/__tests__/privacy/privacyManifestCollectedDataTypes.config.test.t
 | Type | Linked | Tracking | Purposes | What it covers |
 |---|---|---|---|---|
 | `NSPrivacyCollectedDataTypeDeviceID` | `true` | `false` | Analytics, AppFunctionality | PostHog's install-persistent `distinct_id`, sent only with *Usage Analytics* on. Sentry's installation and device identifiers, sent only with *Crash Reports* on (privacy policy v1.21, §5.1) |
-| `NSPrivacyCollectedDataTypeProductInteraction` | `true` | `false` | Analytics | PostHog product events, only with *Usage Analytics* on. These include opening wellness screenings or support resources and tapping a crisis line, but never answers, scores, or anything the user writes (privacy policy §5.2) |
-| `NSPrivacyCollectedDataTypeCoarseLocation` | `true` | `false` | Analytics, AppFunctionality | City-level GeoIP derived by PostHog (with *Usage Analytics* on) and by Sentry (with *Crash Reports* on, and on any bug report sent). IP addresses are not stored |
+| `NSPrivacyCollectedDataTypeProductInteraction` | `true` | `false` | Analytics | PostHog product events, only with *Usage Analytics* on. Since DEBUG-821 they exclude opening a wellness screening, screening history, support resources or guidance, and tapping a crisis line; never answers, scores, or anything the user writes (privacy policy §5.2) |
+| `NSPrivacyCollectedDataTypeCoarseLocation` | `true` | `false` | Analytics, AppFunctionality | City-level GeoIP derived by PostHog (with *Usage Analytics* on) and by Sentry (with *Crash Reports* on, and on any bug report sent). PostHog and Sentry do not store the IP address. Supabase does keep the IP address of the device's most recent connection against the random account ID (privacy policy §4.1), and Being does not derive a location from it |
+| `NSPrivacyCollectedDataTypeUserID` | `true` | `false` | AppFunctionality | The random account ID (Supabase `auth.uid()`), created the first time a crisis-detection event is recorded, the settings backup is used, or a purchase is made or restored. Supabase keeps the latest connection's IP address, user agent and last-connection time against it (privacy policy §2.2, §4.1). Added by DEBUG-853 |
 
-**Why Linked = true.** Being has no account, but Apple counts data tied to a device identifier as linked to the user, and every one of these is stored against an install-persistent identifier. Declaring them "not linked" would rest on the absence of an account, which Apple's definition does not accept. This is the conservative reading (DEBUG-793 compliance lens). Revisit only with a written ruling.
+**Why Linked = true.** Being has no sign-in, but Apple counts data tied to a device or account identifier as linked to the user, and every one of these is stored against an install-persistent identifier or the random account ID. Declaring them "not linked" would rest on the absence of an account, which Apple's definition does not accept. This is the conservative reading (DEBUG-793 compliance lens). Revisit only with a written ruling.
+
+**No Other Diagnostic Data (DEBUG-853 compliance ruling).** The user agent Supabase keeps with each connection (the app's build number and the device's OS version) is connection metadata for the User ID row, not diagnostic data collected for analysis, so no separate type is declared.
 
 **Why Tracking = false.** No data is combined with third-party data for advertising or shared with a data broker. There is no IDFA and no ATT prompt.
 
@@ -22,8 +25,8 @@ Sentry's pod ships its own manifest (crash, performance and other diagnostic dat
 
 ### Open, not ruled
 
-- **Health.** Screening answers, scores, mood values and journal content never leave the device. A Crisis Detection Event (`crisis_detected`) is sent to Being's server keyed to the anonymous account identifier, so whether `NSPrivacyCollectedDataTypeHealth` must be declared (Linked) needs a compliance ruling. Tracked with the MHMDA gaps in DEBUG-821.
-- **Purchase History.** Store transaction identifiers and subscription status are stored server-side against the anonymous account identifier (privacy policy §4.1). A compliance ruling is needed before App Store submission.
+- **Health.** Screening answers, scores, mood values and journal content never leave the device. A Crisis Detection Event (`crisis_detected`) is sent to Being's server keyed to the random account ID, so whether `NSPrivacyCollectedDataTypeHealth` must be declared (Linked) needs a compliance ruling. Tracked with the MHMDA gaps in DEBUG-821.
+- **Purchase History.** Store transaction identifiers and subscription status are stored server-side against the random account ID (privacy policy §4.1). A compliance ruling is needed before App Store submission.
 
 ## NSPrivacyAccessedAPITypes
 

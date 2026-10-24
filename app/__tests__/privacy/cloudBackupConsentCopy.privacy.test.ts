@@ -64,6 +64,7 @@ import { useAssessmentStore } from '@/features/assessment/stores/assessmentStore
 import { CONSENT_DETAILS } from '@/features/consent/constants/consentDetails';
 import {
   CLOUD_SYNC_OPERATIONAL_EVENTS,
+  CONNECTION_RECORDS_DISCLOSURE,
   OPERATIONAL_TELEMETRY_DISCLOSURE,
 } from '@/core/services/supabase/operationalEvents';
 
@@ -96,6 +97,13 @@ const PAYLOAD_DISCLOSURE: Record<string, string | typeof ENVELOPE> = {
 const OPS_EVENT_DISCLOSURE: Record<string, string> = Object.fromEntries(
   CLOUD_SYNC_OPERATIONAL_EVENTS.map((e) => [e, OPERATIONAL_TELEMETRY_DISCLOSURE])
 );
+
+/**
+ * DEBUG-853: the THIRD disclosed source. Turning on backup can create the random account
+ * ID, and from then on Supabase keeps connection records against it (privacy policy §2.2,
+ * §4.1). Not folded into the ops bullet: it is a different record with a different trigger.
+ */
+const CONNECTION_RECORDS_LABELS: ReadonlyArray<string> = [CONNECTION_RECORDS_DISCLOSURE];
 
 /** Wellness data that must be named as NOT backed up. */
 const MUST_DISCLOSE_AS_LOCAL: ReadonlyArray<[string, RegExp]> = [
@@ -176,13 +184,13 @@ describe('DEBUG-614 (a): the uploaded payload is exactly the disclosed field set
   });
 });
 
-describe('DEBUG-614 (b) + DEBUG-625: whatWeCollect is exactly the UNION of both sources', () => {
-  it('matches the payload labels AND the ops-telemetry label, no more and no fewer', () => {
+describe('DEBUG-614 (b) + DEBUG-625 + DEBUG-853: whatWeCollect is exactly the UNION of the three sources', () => {
+  it('matches the payload, ops-telemetry and connection-records labels, no more and no fewer', () => {
     const payloadLabels = Object.values(PAYLOAD_DISCLOSURE).filter(
       (v): v is string => typeof v === 'string'
     );
     const opsLabels = Object.values(OPS_EVENT_DISCLOSURE);
-    const expected = new Set([...payloadLabels, ...opsLabels]);
+    const expected = new Set([...payloadLabels, ...opsLabels, ...CONNECTION_RECORDS_LABELS]);
 
     expect(new Set(card.details.whatWeCollect)).toEqual(expected);
     expect(card.details.whatWeCollect).toHaveLength(expected.size);
@@ -213,7 +221,41 @@ describe('DEBUG-614 (b) + DEBUG-625: whatWeCollect is exactly the UNION of both 
    */
   it('the ops bullet names the server-side destination and the identifier binding', () => {
     expect(OPERATIONAL_TELEMETRY_DISCLOSURE).toMatch(/server/i);
-    expect(OPERATIONAL_TELEMETRY_DISCLOSURE).toMatch(/anonymous account identifier/i);
+    expect(OPERATIONAL_TELEMETRY_DISCLOSURE).toMatch(/random account ID/);
+  });
+});
+
+describe('DEBUG-853: the connection-records bullet', () => {
+  const policy = fs.readFileSync(path.join(REPO_ROOT, 'docs/legal/privacy-policy.md'), 'utf8');
+  const s41 = policy.slice(policy.indexOf('### 4.1'), policy.indexOf('### 4.2'));
+
+  // The same words as policy §4.1, so the card and the policy cannot describe two things.
+  const SHARED_PHRASES = [
+    "the IP address of your device's most recent connection",
+    'device and app details from that connection',
+    "the app's build number and your device's operating system version",
+    'when the app last connected',
+  ];
+
+  it.each(SHARED_PHRASES)('names "%s" in the words policy §4.1 uses', (phrase) => {
+    expect(CONNECTION_RECORDS_DISCLOSURE).toContain(phrase);
+    expect(s41).toContain(phrase);
+  });
+
+  it('is conditional on backup creating the ID, so declining backup does not read as stopping it', () => {
+    // A crisis-detection event or a purchase also creates the ID (§4.1); the card must
+    // not imply that leaving backup off prevents connection records.
+    expect(CONNECTION_RECORDS_DISCLOSURE).toMatch(/^If backup creates your random account ID\b/);
+  });
+
+  it('states no retention period and does not mention crisis detection', () => {
+    // INFRA-851 changes how long these are kept; the card must not carry a figure.
+    expect(CONNECTION_RECORDS_DISCLOSURE).not.toMatch(/\b(?:days?|hours?|until|kept for|deleted)\b/i);
+    expect(CONNECTION_RECORDS_DISCLOSURE).not.toMatch(/crisis/i);
+  });
+
+  it('names Supabase as the provider', () => {
+    expect(CONNECTION_RECORDS_DISCLOSURE).toMatch(/our database provider \(Supabase\)/);
   });
 });
 

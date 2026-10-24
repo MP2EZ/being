@@ -18,7 +18,10 @@ import {
   CONSENT_DETAILS,
   CLOUD_BACKUP_UNAVAILABLE_HOLDER_DESCRIPTION,
 } from '@/features/consent/constants/consentDetails';
-import { OPERATIONAL_TELEMETRY_DISCLOSURE } from '@/core/services/supabase/operationalEvents';
+import {
+  CONNECTION_RECORDS_DISCLOSURE,
+  OPERATIONAL_TELEMETRY_DISCLOSURE,
+} from '@/core/services/supabase/operationalEvents';
 
 jest.mock('@react-navigation/native', () => ({
   useFocusEffect: jest.fn(),
@@ -111,6 +114,7 @@ describe('DEBUG-818 — each consent row discloses its category at onboarding pa
     const { getByTestId, queryAllByText } = await renderScreen();
     fireEvent.press(getByTestId('privacy-settings-backup-toggle-details-toggle'));
     expect(queryAllByText(OPERATIONAL_TELEMETRY_DISCLOSURE, { exact: false }).length).toBeGreaterThan(0);
+    expect(queryAllByText(CONNECTION_RECORDS_DISCLOSURE, { exact: false }).length).toBeGreaterThan(0);
   });
 });
 
@@ -131,6 +135,7 @@ describe('DEBUG-818 AC5 — a flag-dark holder sees a withdrawable permission, n
       expect(queryAllByText(s, { exact: false }).length).toBeGreaterThan(0);
     }
     expect(queryAllByText(OPERATIONAL_TELEMETRY_DISCLOSURE, { exact: false }).length).toBeGreaterThan(0);
+    expect(queryAllByText(CONNECTION_RECORDS_DISCLOSURE, { exact: false }).length).toBeGreaterThan(0);
   });
 
   it('with the flag on, the offer description is used and the holder description is not', async () => {
