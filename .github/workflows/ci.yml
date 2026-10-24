@@ -913,13 +913,11 @@ jobs:
   # stack. Before this job nothing ran them — each header said "run by hand",
   # and three would have failed or SKIPped on a fresh reset unnoticed.
   #
-  # NON-STRICT until INFRA-829. Every step that can fail carries a step-level
-  # continue-on-error, so the job check stays SUCCESS on a red suite. Job-level
-  # continue-on-error would not do: the job would still report FAILURE, and
-  # b-close-verdict.sh reads any FAILURE row as RED, blocking every PR's close.
-  # The verdict therefore lives in the log, not the colour — the suite step's
-  # last line is `N/N suites passed, 0 SKIP` only on a full pass. INFRA-829
-  # promotes the job by deleting those flags.
+  # STRICT since INFRA-829: a red suite, a SKIP line, or a failed setup step
+  # fails the job and therefore `CI pass`. It shipped non-strict (step-level
+  # continue-on-error on all five steps) until development's push run
+  # 40085496464 logged `27/27 suites passed, 0 SKIP`. Never re-add the flag,
+  # at step or job level — the pin below fails on either.
   #
   # Local-only by construction, and pinned by
   # app/__tests__/scripts/supabase-sql-ci-job.test.js: no secrets, no project
@@ -943,7 +941,6 @@ jobs:
 
       - uses: supabase/setup-cli@v1
         id: cli
-        continue-on-error: true
         with:
           version: 2.119.0
 
@@ -952,7 +949,6 @@ jobs:
       - name: Start local stack
         id: stack
         if: steps.cli.outcome == 'success'
-        continue-on-error: true
         timeout-minutes: 10
         shell: bash
         run: |
@@ -969,7 +965,6 @@ jobs:
       - name: Reset database and wait for health
         id: reset
         if: steps.stack.outcome == 'success'
-        continue-on-error: true
         timeout-minutes: 8
         shell: bash
         run: |
@@ -990,7 +985,6 @@ jobs:
       # migration is scoped to verbs this dump shows; keep it for the next one.
       - name: Grant dump (service_role, public schema)
         if: steps.reset.outcome == 'success'
-        continue-on-error: true
         shell: bash
         run: |
           psql "$DB_URL" -X -v ON_ERROR_STOP=1 <<'SQL'
@@ -1025,7 +1019,6 @@ jobs:
       # no real secret belongs in this database, and no suite may plant one.
       - name: Run SQL suites
         if: steps.reset.outcome == 'success'
-        continue-on-error: true
         timeout-minutes: 10
         shell: bash
         run: |
@@ -1167,18 +1160,14 @@ jobs:
           echo "edge-functions:   ${{ needs.edge-functions.result }}"
           echo "safety-privacy:   ${{ needs.safety-privacy.result }}"
           echo "supabase-sql:     ${{ needs.supabase-sql.result }}"
-          # 10 of the 11 jobs are strict gates: T17 (TEST-10) added the Edge
-          # Functions Deno suite, INFRA-368 added Safety + privacy gates.
-          # Advisory list: supabase-sql (INFRA-782). It is wired into all four
-          # lists, but its steps are continue-on-error until INFRA-829, so its
-          # result is `success` even on a red suite — only a cancel or a job
-          # timeout reaches this condition. Its verdict is the job log's
-          # `N/N suites passed, 0 SKIP` line.
+          # All 11 jobs are strict gates: T17 (TEST-10) added the Edge
+          # Functions Deno suite, INFRA-368 added Safety + privacy gates, and
+          # INFRA-829 promoted Supabase SQL suites (INFRA-782) from advisory.
           #
           # Real gates that must pass:
           #   typecheck, lint (baseline ratchet), crisis-validation,
           #   clinical-validation, security, test, performance, accessibility,
-          #   edge-functions, safety-privacy
+          #   edge-functions, safety-privacy, supabase-sql
           #
           # ⚠️ A gate is tracked in FOUR places in this job — the `needs:` list,
           # the `add` line above, the `echo` line above, and this condition.
@@ -1199,7 +1188,7 @@ jobs:
             echo "❌ One or more required gates failed"
             exit 1
           fi
-          echo "✅ All required gates passed (advisory jobs may show non-success — see logs)"
+          echo "✅ All required gates passed"
 
       # ---------------------------------------------------------------------
       # INFRA-362 — route SCHEDULED failures to a human.

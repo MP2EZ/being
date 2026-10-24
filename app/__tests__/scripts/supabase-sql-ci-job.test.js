@@ -8,10 +8,12 @@
  *   1. REACH. The job must only ever touch the local stack it starts. One added
  *      `supabase link`, `--project-ref` or `secrets.` turns a throwaway fixture
  *      database into the shared prod project (one project serves every env).
- *   2. VERDICT. The job is non-strict until INFRA-829: step-level
- *      continue-on-error keeps the check green, so the only verdict is the
- *      `N/N suites passed, 0 SKIP` log line. Losing the SKIP check, a vault
- *      check or the glob makes that line claim more than was run.
+ *   2. VERDICT. The job is strict (INFRA-829): no step and not the job carries
+ *      continue-on-error, so a red suite fails `CI pass`. It shipped non-strict
+ *      until development's push run 40085496464 logged `27/27 suites passed,
+ *      0 SKIP`. Losing the SKIP check, a vault check or the glob makes the
+ *      `N/N suites passed, 0 SKIP` line — and the green check — claim more
+ *      than was run.
  *
  * Per DEBUG-390, comments are stripped before matching (the job's prose names
  * what it forbids) and every matcher is paired with a control proving it can
@@ -88,7 +90,8 @@ function vaultChecksBracketLoop(suites) {
 }
 
 const FULL_GLOB = "printf '%s\\n' supabase/tests/*.sql | LC_ALL=C sort";
-const STEP_FLAG = /\n {8}continue-on-error: true\n/;
+/** Any continue-on-error key, at step or job level, whatever its value. */
+const ANY_FLAG = /\bcontinue-on-error\s*:/;
 
 const invokedScripts = (code) => [...code.matchAll(/[\w./-]+\.(?:sh|js|mjs|cjs|py|ts)\b/g)].map((m) => m[0]);
 
@@ -162,15 +165,20 @@ describe('INFRA-782 — Supabase SQL suites job', () => {
   describe('verdict: what the log line claims', () => {
     const suites = stripComments(step(job, 'Run SQL suites'));
 
-    it('the suite step is non-strict at STEP level, and the job is not', () => {
-      expect(suites).toMatch(STEP_FLAG);
-      expect(code).not.toMatch(/\n {4}continue-on-error:/);
+    it('is strict: no continue-on-error on any step or on the job', () => {
+      expect(code).not.toMatch(ANY_FLAG);
     });
 
-    it('CONTROL: dropping the step flag is caught', () => {
-      const strict = suites.replace(STEP_FLAG, '\n');
-      expect(strict).not.toBe(suites);
-      expect(strict).not.toMatch(STEP_FLAG);
+    it('CONTROL: a step-level flag re-added to the suite step is caught', () => {
+      const lax = code.replace('- name: Run SQL suites\n', '- name: Run SQL suites\n        continue-on-error: true\n');
+      expect(lax).not.toBe(code);
+      expect(lax).toMatch(ANY_FLAG);
+    });
+
+    it('CONTROL: a job-level flag is caught', () => {
+      const lax = code.replace('    timeout-minutes: 25\n', '    timeout-minutes: 25\n    continue-on-error: true\n');
+      expect(lax).not.toBe(code);
+      expect(lax).toMatch(ANY_FLAG);
     });
 
     it('runs every supabase/tests/*.sql suite in C-locale order', () => {

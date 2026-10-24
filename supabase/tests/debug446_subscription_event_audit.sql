@@ -7,8 +7,7 @@
 -- CI job runs `--cached-only` with no network egress (INFRA-354), so nothing there can reach a
 -- real Postgres and observe a real CHECK constraint. This file is the behavioural half. Since
 -- INFRA-782 it runs on every PR in ci.yml's `Supabase SQL suites` job against a freshly reset
--- local stack (non-strict until INFRA-829 promotes it; read the job log's
--- `N/N suites passed, 0 SKIP` line, not the check colour).
+-- local stack (non-strict until INFRA-829 promoted it to a gate).
 --
 -- HOW TO RUN (local stack):
 --   supabase start && supabase db reset
