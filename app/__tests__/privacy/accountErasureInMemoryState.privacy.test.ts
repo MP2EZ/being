@@ -431,6 +431,42 @@ describe('subscriptionStore (DEBUG-697)', () => {
     expect(mockFinishTransaction).not.toHaveBeenCalled();
   });
 
+  // DEBUG-827: concurrent calls for one transaction coalesce, and the erasure
+  // generation is part of the key. A post-erasure call for the transaction a
+  // pre-erasure call still holds must therefore verify and persist on its own,
+  // never receive the pre-erasure result.
+  it('a post-erasure call for a transaction still held pre-erasure verifies afresh; the held call writes nothing', async () => {
+    await seedPreErasureState();
+    mockFinishTransaction.mockClear();
+    const monthly = DEFAULT_SUBSCRIPTION_CONFIG.products.apple.monthly;
+    const transaction = { transactionId: '2000000827009999', transactionReceipt: 'receipt_827', orderId: 'order_827' };
+    let resolveVerify: ((v: unknown) => void) | null = null;
+    mockVerifyReceipt.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          resolveVerify = resolve;
+        }),
+    );
+    const before = sub().processVerifiedPurchase({ ...transaction }, 'monthly');
+    await settle();
+    expect(resolveVerify).not.toBeNull(); // verification really is pending
+
+    await expect(deleteAccountAndWipe({ posthog: null })).resolves.toEqual({ ok: true });
+    mockVerifyReceipt.mockResolvedValueOnce({ valid: true, subscriptionId: 'sub_post_erasure', productId: monthly, isTrialPeriod: false });
+    await expect(sub().processVerifiedPurchase({ ...transaction }, 'monthly')).resolves.toBe(true);
+
+    expect(mockVerifyReceipt).toHaveBeenCalledTimes(2);
+    const fresh = JSON.parse(mockSecure.get(SUBSCRIPTION_KEY) as string);
+    expect(fresh.platformSubscriptionId).toBe('sub_post_erasure');
+    expect(fresh.id).not.toBe(PRIOR_SUBSCRIPTION.id);
+
+    resolveVerify!({ valid: true, subscriptionId: 'sub_pre_erasure', productId: monthly, isTrialPeriod: false });
+    await expect(before).resolves.toBe(false);
+    expect(JSON.parse(mockSecure.get(SUBSCRIPTION_KEY) as string)).toEqual(fresh);
+    expect(sub().subscription?.platformSubscriptionId).toBe('sub_post_erasure');
+    expect(mockFinishTransaction).toHaveBeenCalledTimes(1);
+  });
+
   // DEBUG-720: restore builds its record through processVerifiedPurchase, so the
   // DEBUG-697 guard covers it. A verification held open across a deletion must
   // write nothing and acknowledge nothing; one that starts after it builds a

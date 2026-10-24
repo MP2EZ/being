@@ -80,6 +80,7 @@
   "src/core/services/speech/__tests__/audioArtifactSweeper.unit.test.ts": 1,
   "src/core/services/speech/__tests__/onDeviceSpeechGuard.unit.test.ts": 1,
   "src/core/services/subscription/__tests__/IAPService.test.ts": 1,
+  "src/core/services/subscription/__tests__/purchaseCoalesceKey.unit.test.ts": 1,
   "src/core/services/subscription/__tests__/subscription.integration.test.ts": 1,
   "src/core/services/subscription/__tests__/subscriptionProductInterval.unit.test.ts": 1,
   "src/core/services/subscription/__tests__/trialOffer.unit.test.ts": 1,

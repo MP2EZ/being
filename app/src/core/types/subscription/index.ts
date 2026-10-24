@@ -233,8 +233,9 @@ export interface SubscriptionStore {
    * the direct purchase flow (mock mode) or the async IAP listener
    * (real-mode deferred purchases, family approval, restore). Verifies the
    * receipt server-side, persists subscription metadata, and acknowledges
-   * the platform transaction. Idempotent: safe to call repeatedly with the
-   * same purchase (verifyReceipt server side will dedupe on orderId).
+   * the platform transaction. Concurrent calls for one transaction coalesce
+   * (DEBUG-827): they share one run, whose first caller's context picks the event.
+   * A call after that run settles runs again — nothing server-side dedupes it.
    */
   /** True once the purchase is persisted and acknowledged; false if an erasure abandoned it. */
   processVerifiedPurchase: (

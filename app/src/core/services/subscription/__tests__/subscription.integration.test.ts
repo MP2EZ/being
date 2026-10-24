@@ -742,3 +742,106 @@ describe('Subscription Integration - Google identifiers at the caller boundary (
     expect(invokeCall('verify-google-receipt')).toBeUndefined();
   });
 });
+
+/**
+ * DEBUG-827: the listener and restore copies of ONE transaction must produce the same
+ * coalescing key. Both go through augmentPurchase; on iOS the JWS purchaseToken may
+ * differ between them while the transactionId does not. A shape mismatch here would
+ * silently stop the keys from matching, which the store-level tests cannot see.
+ */
+describe('Subscription Integration - listener and restore coalesce one transaction (DEBUG-827)', () => {
+  const RN = require('react-native');
+
+  async function settle(predicate: () => boolean): Promise<void> {
+    for (let i = 0; i < 50 && !predicate(); i++) {
+      await new Promise(resolve => setImmediate(resolve));
+    }
+  }
+
+  /** The first verify call is held until released, so the listener and restore overlap. */
+  function holdFirstInvoke(data: Record<string, unknown>): () => void {
+    let release!: () => void;
+    mockInvoke.mockImplementationOnce(
+      () => new Promise(resolve => {
+        release = () => resolve({ data, error: null });
+      })
+    );
+    mockInvoke.mockResolvedValue({ data, error: null });
+    return () => release();
+  }
+
+  beforeEach(async () => {
+    useSubscriptionStore.setState({ subscription: null, featureAccess: null, isLoading: false, error: null });
+    jest.clearAllMocks();
+    await IAPService.disconnect();
+    mockRNIap.initConnection.mockResolvedValue(true);
+    mockRNIap.endConnection.mockResolvedValue(true);
+    mockRNIap.fetchProducts.mockResolvedValue([]);
+    mockRNIap.getReceiptIOS.mockResolvedValue('mock-ios-receipt-blob');
+    mockRNIap.finishTransaction.mockResolvedValue(true as never);
+    mockSecureStore.setItemAsync.mockResolvedValue(undefined);
+    mockSecureStore.getItemAsync.mockResolvedValue(null);
+    mockInvoke.mockReset();
+  });
+
+  afterEach(() => {
+    RN.Platform.OS = 'ios';
+  });
+
+  it.each([
+    [
+      'iOS (same transactionId, differing JWS purchaseToken)',
+      'ios',
+      'verify-apple-receipt',
+      {
+        id: '2000000827061713',
+        transactionId: '2000000827061713',
+        environmentIOS: 'Sandbox',
+        productId: 'com.being.subscription.monthly',
+        platform: 'ios',
+        transactionDate: 1759600000000,
+        purchaseToken: 'eyJ.jws-from-listener',
+      },
+      { purchaseToken: 'eyJ.jws-from-getAvailablePurchases' },
+    ],
+    [
+      'Android (same purchaseToken)',
+      'android',
+      'verify-google-receipt',
+      {
+        id: 'GPA.3312-4512-9934-21827',
+        productId: 'subscription_monthly',
+        purchaseToken: 'opaque-play-token-827',
+        platform: 'android',
+        transactionDate: 1759600000000,
+        purchaseState: 'purchased',
+        isAutoRenewing: true,
+      },
+      {},
+    ],
+  ])('%s: verify, persist and finish run once, and restore counts it', async (_label, os, fnName, listenerPurchase, restoreOverrides) => {
+    RN.Platform.OS = os;
+    await IAPService.initialize();
+    const release = holdFirstInvoke({
+      valid: true,
+      subscriptionId: listenerPurchase.id,
+      expiresDate: '2026-11-04T00:00:00Z',
+      productId: listenerPurchase.productId,
+      isTrialPeriod: false,
+    });
+    mockRNIap.getAvailablePurchases.mockResolvedValue([{ ...listenerPurchase, ...restoreOverrides }] as never);
+    const onPurchase = mockRNIap.purchaseUpdatedListener.mock.calls[0][0] as (p: unknown) => void;
+
+    onPurchase(listenerPurchase);
+    await settle(() => mockInvoke.mock.calls.length > 0);
+    const restore = useSubscriptionStore.getState().restorePurchases();
+    for (let i = 0; i < 20; i++) await new Promise(resolve => setImmediate(resolve));
+    release();
+
+    await expect(restore).resolves.toEqual({ found: 1, restored: 1 });
+    await settle(() => mockRNIap.finishTransaction.mock.calls.length > 0);
+    expect(mockInvoke.mock.calls.filter(([name]) => name === fnName)).toHaveLength(1);
+    expect(mockSecureStore.setItemAsync.mock.calls.filter(([key]) => key === 'subscription_secure_v1')).toHaveLength(1);
+    expect(mockRNIap.finishTransaction).toHaveBeenCalledTimes(1);
+  });
+});

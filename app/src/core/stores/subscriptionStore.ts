@@ -99,6 +99,7 @@ import { appleTransactionIdentityFrom } from '@/core/services/subscription/apple
 import { intervalFromProductId } from '@/core/services/subscription/subscriptionProductInterval';
 import { ReceiptVerificationUnavailableError } from '@/core/services/subscription/receiptVerificationUnavailable';
 import { buildVerifiedSubscriptionRecord } from '@/core/services/subscription/verifiedSubscriptionRecord';
+import { purchaseCoalesceKey } from '@/core/services/subscription/purchaseCoalesceKey';
 const logger = {
   info: (message: string, meta?: Record<string, unknown>) => {
     logSystem(`[Subscription] ${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`);
@@ -140,9 +141,35 @@ const CRISIS_FEATURE_SET = new Set<string>(CRISIS_FEATURES);
  * single HandlerThread), so a set dispatched before the wipe lands before the
  * wipe's delete. A write still held past the deadline has its trailing set() and
  * success path dropped by the generation guard.
+ *
+ * DEBUG-827: processVerifiedPurchase coalesces concurrent calls for one transaction,
+ * and the generation is a term of that key. A call made after an erasure therefore
+ * never joins a pre-erasure call: it verifies and persists afresh, while the
+ * pre-erasure call still drops its write on the guard above. The in-flight map needs
+ * no reset of its own for the same reason.
  */
 let erasureGeneration = 0;
 const inFlightWrites = new Set<Promise<void>>();
+const inFlightPurchases = new Map<string, Promise<boolean>>();
+
+/**
+ * DEBUG-827: one in-flight run per key. No key runs alone; a key already in flight
+ * returns that run's promise, rejection included. The entry is removed on settle, so a
+ * later call runs again. Callers must not await between computing the key and calling
+ * this, or two calls can both miss the map.
+ */
+function coalescePurchase(key: string | undefined, run: () => Promise<boolean>): Promise<boolean> {
+  if (key === undefined) return run();
+  const existing = inFlightPurchases.get(key);
+  if (existing) return existing;
+  const pending = run();
+  inFlightPurchases.set(key, pending);
+  const settled = () => {
+    if (inFlightPurchases.get(key) === pending) inFlightPurchases.delete(key);
+  };
+  pending.then(settled, settled);
+  return pending;
+}
 
 function trackWrite(write: Promise<void>): Promise<void> {
   inFlightWrites.add(write);
@@ -296,106 +323,112 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
   ) => {
     const generation = erasureGeneration;
     const { source } = context;
-    set({ isVerifyingReceipt: true });
+    const { IAPService } = await import('@/core/services/subscription/IAPService');
+    const platform = IAPService.getPlatform();
 
-    try {
-      const { IAPService } = await import('@/core/services/subscription/IAPService');
+    // DEBUG-827: a Restore overlapping the listener for the same transaction joins
+    // the run already in flight. The first caller's `source` decides the event. The
+    // body stays an inline anonymous arrow: wellnessWriteSites names the write by
+    // its enclosing named function, this one.
+    return coalescePurchase(purchaseCoalesceKey(generation, platform, purchase), async () => {
+      set({ isVerifyingReceipt: true });
 
-      const platform = IAPService.getPlatform();
-      if (platform === 'none') {
-        throw new Error('IAP not available on this platform');
-      }
-
-      // The purchase shape is platform-dependent — narrow defensively.
-      const p = purchase as {
-        transactionReceipt?: string;
-        purchaseToken?: string;
-        orderId?: string;
-        productId?: string;
-      };
-      const receiptData = p.transactionReceipt || '';
-      const purchaseToken = p.purchaseToken;
-
-      logger.info('Verifying receipt', { platform, hasReceipt: !!receiptData });
-
-      // productId rides in its own argument, never in receiptData: on Android
-      // receiptData is '' (DEBUG-713). It is no longer persisted (DEBUG-708).
-      const verification = await IAPService.verifyReceipt(
-        receiptData,
-        platform,
-        purchaseToken,
-        appleTransactionIdentityFrom(purchase),
-        p.productId
-      );
-
-      if (!verification.valid) {
-        // DEBUG-715: no session or no client means the receipt was never judged.
-        // Thrown as its own type so logs tell it from an invalid receipt; either
-        // way the transaction stays unfinished and the platform offers it again.
-        if (verification.reason) {
-          throw new ReceiptVerificationUnavailableError(verification.reason);
+      try {
+        if (platform === 'none') {
+          throw new Error('IAP not available on this platform');
         }
-        throw new Error(verification.error || 'Receipt verification failed');
+
+        // The purchase shape is platform-dependent — narrow defensively.
+        const p = purchase as {
+          transactionReceipt?: string;
+          purchaseToken?: string;
+          orderId?: string;
+          productId?: string;
+        };
+        const receiptData = p.transactionReceipt || '';
+        const purchaseToken = p.purchaseToken;
+
+        logger.info('Verifying receipt', { platform, hasReceipt: !!receiptData });
+
+        // productId rides in its own argument, never in receiptData: on Android
+        // receiptData is '' (DEBUG-713). It is no longer persisted (DEBUG-708).
+        const verification = await IAPService.verifyReceipt(
+          receiptData,
+          platform,
+          purchaseToken,
+          appleTransactionIdentityFrom(purchase),
+          p.productId
+        );
+
+        if (!verification.valid) {
+          // DEBUG-715: no session or no client means the receipt was never judged.
+          // Thrown as its own type so logs tell it from an invalid receipt; either
+          // way the transaction stays unfinished and the platform offers it again.
+          if (verification.reason) {
+            throw new ReceiptVerificationUnavailableError(verification.reason);
+          }
+          throw new Error(verification.error || 'Receipt verification failed');
+        }
+
+        // The account was erased while the receipt was being verified. Abandon the
+        // write AND the acknowledgement (DEBUG-697, founder ruling): an unfinished
+        // transaction is re-emitted by the platform at next launch, so a paying user
+        // gets a fresh post-erasure record instead of one built from erased memory.
+        if (generation !== erasureGeneration) {
+          logger.info('Purchase abandoned: account erased during verification');
+          return false;
+        }
+
+        // The plan is the one the server verified. A product it cannot place is never
+        // recorded: nothing is persisted or finished, so the platform re-emits it.
+        const verifiedInterval = verification.productId ? intervalFromProductId(verification.productId) : null;
+        if (!verifiedInterval) {
+          throw new Error('Receipt verified a product this app does not sell');
+        }
+        if (verifiedInterval !== interval) {
+          logger.info('Verified plan differs from the requested one', { requested: interval, verified: verifiedInterval });
+        }
+
+        const updatedSubscription = buildVerifiedSubscriptionRecord({
+          existing: get().subscription,
+          newId: generateId,
+          newUserId: getCurrentUserId,
+          platform,
+          platformSubscriptionId: verification.subscriptionId || p.orderId || '',
+          interval: verifiedInterval,
+          isTrialPeriod: verification.isTrialPeriod === true,
+          expiresDate: verification.expiresDate,
+          now: Date.now(),
+        });
+
+        const featureAccess = calculateFeatureAccess(updatedSubscription.status);
+
+        await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
+        if (generation !== erasureGeneration) {
+          logger.info('Purchase abandoned: account erased during verification');
+          return false;
+        }
+
+        set({
+          subscription: updatedSubscription,
+          featureAccess,
+        });
+
+        // Acknowledge with the platform so it stops re-emitting.
+        await IAPService.finishTransaction(purchase as Parameters<typeof IAPService.finishTransaction>[0]);
+
+        await get().trackSubscriptionEvent(source === 'restore' ? 'subscription_restored' : 'subscription_started', {
+          interval: verifiedInterval,
+          platform,
+          subscriptionId: verification.subscriptionId,
+        });
+
+        logger.info('Purchase completed successfully', { subscriptionId: verification.subscriptionId });
+        return true;
+      } finally {
+        set({ isVerifyingReceipt: false });
       }
-
-      // The account was erased while the receipt was being verified. Abandon the
-      // write AND the acknowledgement (DEBUG-697, founder ruling): an unfinished
-      // transaction is re-emitted by the platform at next launch, so a paying user
-      // gets a fresh post-erasure record instead of one built from erased memory.
-      if (generation !== erasureGeneration) {
-        logger.info('Purchase abandoned: account erased during verification');
-        return false;
-      }
-
-      // The plan is the one the server verified. A product it cannot place is never
-      // recorded: nothing is persisted or finished, so the platform re-emits it.
-      const verifiedInterval = verification.productId ? intervalFromProductId(verification.productId) : null;
-      if (!verifiedInterval) {
-        throw new Error('Receipt verified a product this app does not sell');
-      }
-      if (verifiedInterval !== interval) {
-        logger.info('Verified plan differs from the requested one', { requested: interval, verified: verifiedInterval });
-      }
-
-      const updatedSubscription = buildVerifiedSubscriptionRecord({
-        existing: get().subscription,
-        newId: generateId,
-        newUserId: getCurrentUserId,
-        platform,
-        platformSubscriptionId: verification.subscriptionId || p.orderId || '',
-        interval: verifiedInterval,
-        isTrialPeriod: verification.isTrialPeriod === true,
-        expiresDate: verification.expiresDate,
-        now: Date.now(),
-      });
-
-      const featureAccess = calculateFeatureAccess(updatedSubscription.status);
-
-      await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
-      if (generation !== erasureGeneration) {
-        logger.info('Purchase abandoned: account erased during verification');
-        return false;
-      }
-
-      set({
-        subscription: updatedSubscription,
-        featureAccess,
-      });
-
-      // Acknowledge with the platform so it stops re-emitting.
-      await IAPService.finishTransaction(purchase as Parameters<typeof IAPService.finishTransaction>[0]);
-
-      await get().trackSubscriptionEvent(source === 'restore' ? 'subscription_restored' : 'subscription_started', {
-        interval: verifiedInterval,
-        platform,
-        subscriptionId: verification.subscriptionId,
-      });
-
-      logger.info('Purchase completed successfully', { subscriptionId: verification.subscriptionId });
-      return true;
-    } finally {
-      set({ isVerifyingReceipt: false });
-    }
+    });
   },
 
   /**
