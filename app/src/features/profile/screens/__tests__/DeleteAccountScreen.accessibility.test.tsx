@@ -16,6 +16,17 @@ import {
 import { expectExclusionCheckWired } from '../../../../../__tests__/helpers/crisisExclusionLayoutEvent';
 
 const mockReset = jest.fn();
+// FEAT-807: the last-export read uses useFocusEffect, which needs a navigator this suite
+// mocks away. Its behaviour is pinned in ExportDataScreen.lastExport.privacy.test.tsx.
+// Configurable here so the FEAT-807 block can supply a record and read the `enabled` arg.
+const mockLastExport: { record: unknown; enabledArgs: boolean[] } = { record: null, enabledArgs: [] };
+jest.mock('@/features/data-export/hooks/useLastExportRecord', () => ({
+  useLastExportRecord: (enabled = true) => {
+    mockLastExport.enabledArgs.push(enabled);
+    return [mockLastExport.record, jest.fn()];
+  },
+}));
+
 jest.mock('@react-navigation/native', () => ({
   ...jest.requireActual('@react-navigation/native'),
   useNavigation: () => ({ reset: mockReset, navigate: jest.fn(), goBack: jest.fn() }),
@@ -27,6 +38,22 @@ jest.mock('@/core/services/privacy/AccountDeletionService', () => ({
 }));
 
 import DeleteAccountScreen from '../DeleteAccountScreen';
+import { lastExportPreparedCopy } from '@/features/data-export/services/lastExportRecord';
+
+/** Depth-first order of testIDs and text strings in the rendered tree. */
+function readingOrder(tree: unknown): string[] {
+  const out: string[] = [];
+  const walk = (n: unknown) => {
+    if (n == null) return;
+    if (typeof n === 'string') { out.push(n); return; }
+    if (Array.isArray(n)) { n.forEach(walk); return; }
+    const el = n as { props?: { testID?: string }; children?: unknown[] };
+    if (el.props?.testID) out.push(`#${el.props.testID}`);
+    (el.children || []).forEach(walk);
+  };
+  walk(tree);
+  return out;
+}
 
 describe('DeleteAccountScreen', () => {
   beforeEach(() => jest.clearAllMocks());
@@ -242,21 +269,6 @@ describe('FEAT-710: the store-billing notice', () => {
       .join('');
   }
 
-  /** Depth-first order of testIDs and text strings in the rendered tree. */
-  function readingOrder(tree: unknown): string[] {
-    const out: string[] = [];
-    const walk = (n: unknown) => {
-      if (n == null) return;
-      if (typeof n === 'string') { out.push(n); return; }
-      if (Array.isArray(n)) { n.forEach(walk); return; }
-      const el = n as { props?: { testID?: string }; children?: unknown[] };
-      if (el.props?.testID) out.push(`#${el.props.testID}`);
-      (el.children || []).forEach(walk);
-    };
-    walk(tree);
-    return out;
-  }
-
   it('shows the approved copy for the device platform only', () => {
     expect(noticeText('ios')).toBe(IOS);
     expect(noticeText('android')).toBe(ANDROID);
@@ -348,5 +360,78 @@ describe('FEAT-710: the store-billing notice', () => {
     expect(code).toMatch(/testID="delete-subscription-notice"/);
     expect(code).not.toMatch(/\bLinking\b/);
     expect(code).not.toMatch(/openURL|showManageSubscriptions|manageSubscriptions/);
+  });
+});
+
+describe('FEAT-807: the last-export date', () => {
+  const RECORD = {
+    preparedAt: new Date(2026, 9, 20, 12).getTime(),
+    format: 'json',
+    scope: { preset: 'all', categories: ['assessments', 'checkIns', 'practices', 'reflections'] },
+  };
+  const COPY =
+    "Last export prepared: Oct 20, 2026. Being keeps only this date, the format and the range " +
+    "it covered — not the file, and not on Being's servers.";
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    mockLastExport.record = RECORD;
+    mockLastExport.enabledArgs = [];
+  });
+  afterAll(() => {
+    mockLastExport.record = null;
+  });
+
+  it('renders the approved copy verbatim', () => {
+    expect(lastExportPreparedCopy(RECORD.preparedAt)).toBe(COPY);
+    const { getByText } = render(<DeleteAccountScreen />);
+    expect(getByText(COPY)).toBeTruthy();
+  });
+
+  it('renders nothing when no export was ever prepared', () => {
+    mockLastExport.record = null;
+    const { queryByTestId, toJSON } = render(<DeleteAccountScreen />);
+    expect(queryByTestId('delete-last-export')).toBeNull();
+    expect(readingOrder(toJSON()).some((s) => s.startsWith('Last export prepared'))).toBe(false);
+  });
+
+  it('is read after the preserved-record note and before the billing notice and the confirm field', () => {
+    const order = readingOrder(render(<DeleteAccountScreen />).toJSON());
+    const at = (pred: (s: string) => boolean) => order.findIndex(pred);
+    const preserved = at((s) => s.startsWith('Kept on this device:'));
+    const lastExport = at((s) => s === '#delete-last-export');
+    const notice = at((s) => s === '#delete-subscription-notice');
+    const confirm = at((s) => s === '#delete-confirm-input');
+    expect([preserved, lastExport, notice, confirm].every((i) => i >= 0)).toBe(true);
+    expect(preserved).toBeLessThan(lastExport);
+    expect(lastExport).toBeLessThan(notice);
+    expect(notice).toBeLessThan(confirm);
+  });
+
+  it('is inert and adds no pressable', () => {
+    const { getByTestId, getAllByRole } = render(<DeleteAccountScreen />);
+    const box = getByTestId('delete-last-export');
+    expect(box.props.accessibilityRole).toBeUndefined();
+    expect(box.props.accessibilityLiveRegion).toBeUndefined();
+    expect(box.props.onPress).toBeUndefined();
+    expect(box.props.onStartShouldSetResponder).toBeUndefined();
+    expect(getAllByRole('button').map((b) => b.props.testID)).toEqual(['delete-account-button']);
+  });
+
+  it('stops reading once an erasure starts, and is gone after a successful one', async () => {
+    mockDeleteAccountAndWipe.mockResolvedValue({ ok: true });
+    const { getByTestId, queryByTestId } = render(<DeleteAccountScreen />);
+    expect(mockLastExport.enabledArgs).toEqual([true]);
+
+    fireEvent.changeText(getByTestId('delete-confirm-input'), 'DELETE');
+    fireEvent.press(getByTestId('delete-account-button'));
+
+    await waitFor(() => expect(mockReset).toHaveBeenCalled());
+    expect(queryByTestId('delete-last-export')).toBeNull();
+    // Every render after the press asked the hook not to read: true while idle (typing
+    // re-renders), then false from 'deleting' on.
+    const firstOff = mockLastExport.enabledArgs.indexOf(false);
+    expect(firstOff).toBeGreaterThan(0);
+    expect(mockLastExport.enabledArgs.slice(firstOff).every((e) => e === false)).toBe(true);
   });
 });

@@ -152,7 +152,7 @@ describe('INFRA-861 — crisis-detection event stored without the random account
     const crisis73 = lineStarting(s73, '- **Crisis Detection Events:**');
     const s74 = between(policy, '### 7.4 Your Right to Delete', '## 8.');
     const crisis74 = lineStarting(s74, 'Deletion does not reach crisis-detection events');
-    const v131 = lineStarting(policy, '- **v1.31 ');
+    const v132 = lineStarting(policy, '- **v1.32 ');
 
     it('slices are live', () => {
       expect(s22).toMatch(/Connection Records/);
@@ -162,11 +162,11 @@ describe('INFRA-861 — crisis-detection event stored without the random account
       expect(s72).toMatch(/High-Severity Assessments/);
       expect(crisis73).toMatch(/Crisis Detection Events/);
       expect(crisis74).toMatch(/crisis-detection events/);
-      expect(v131).toMatch(/v1\.31/);
+      expect(v132).toMatch(/v1\.32/);
     });
 
-    it('is at version 1.31 or later', () => {
-      expect(atLeast(version(policy, /\*\*Version:\*\* (\d+)\.(\d+)/), [1, 31])).toBe(true);
+    it('is at version 1.32 or later', () => {
+      expect(atLeast(version(policy, /\*\*Version:\*\* (\d+)\.(\d+)/), [1, 32])).toBe(true);
     });
 
     it('no longer ties the event to the random account ID or to account deletion', () => {
@@ -201,15 +201,15 @@ describe('INFRA-861 — crisis-detection event stored without the random account
 
     it('§7.4 says the event cannot be deleted on request and that pre-change events were deleted', () => {
       expect(crisis74).toMatch(/cannot delete them on request/);
-      expect(crisis74).toMatch(/before version 1\.31[^.]*were stored with the random account ID; we deleted all of them/);
+      expect(crisis74).toMatch(/before version 1\.32[^.]*were stored with the random account ID; we deleted all of them/);
     });
 
     it('no crisis-event sentence carries a banned label', () => {
-      for (const s of [safety, analyticsNote, crisis73, crisis74, v131]) expect(s).not.toMatch(BANNED_LABEL);
+      for (const s of [safety, analyticsNote, crisis73, crisis74, v132]) expect(s).not.toMatch(BANNED_LABEL);
     });
 
-    it('§10 marks v1.31 as a material change', () => {
-      expect(v131).toMatch(/— material change\./);
+    it('§10 marks v1.32 as a material change', () => {
+      expect(v132).toMatch(/— material change\./);
     });
   });
 
@@ -248,8 +248,8 @@ describe('INFRA-861 — crisis-detection event stored without the random account
       expect(POLICY_MATERIAL_CHANGE_SUMMARIES['1.25']).not.toMatch(LINKED);
     });
 
-    it('1.31 states the change without a banned label', () => {
-      const line = POLICY_MATERIAL_CHANGE_SUMMARIES['1.31'];
+    it('1.32 states the change without a banned label', () => {
+      const line = POLICY_MATERIAL_CHANGE_SUMMARIES['1.32'];
       expect(line).toMatch(/without your random account ID/);
       expect(line).not.toMatch(BANNED_LABEL);
     });
@@ -270,9 +270,9 @@ describe('INFRA-861 — crisis-detection event stored without the random account
       expect(lia).toMatch(/Open for counsel, not closed here/);
     });
 
-    it('the DPIA is at 2.65 or later with an INFRA-861 change-log row and control 24', () => {
-      expect(atLeast(version(dpia, /\| Version \| (\d+)\.(\d+) \|/), [2, 65])).toBe(true);
-      expect(dpia).toMatch(/^\| 2\.65 \| [^|]+ \| [^|]+ \| INFRA-861/m);
+    it('the DPIA is at 2.66 or later with an INFRA-861 change-log row and control 24', () => {
+      expect(atLeast(version(dpia, /\| Version \| (\d+)\.(\d+) \|/), [2, 66])).toBe(true);
+      expect(dpia).toMatch(/^\| 2\.66 \| [^|]+ \| [^|]+ \| INFRA-861/m);
       expect(dpia).toMatch(/^\| 24 \| \*\*Crisis rows carry no account or session identifier/m);
     });
 
