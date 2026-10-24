@@ -17,6 +17,9 @@
  * time is NOT narrowed: the scrub leaves the session timestamps alone, so it is still kept until
  * the random account ID is deleted. Pinned here: the old all-fields "kept until … deleted" wording
  * is gone, the new bound is present on every surface, and the last-connection time keeps its own.
+ *
+ * INFRA-861: the crisis-detection event no longer carries the random account ID. The §3 "linked"
+ * assertion is inverted on purpose; its own claims are pinned in crisisDelinkClaims.privacy.test.ts.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -170,11 +173,17 @@ describe('Supabase session disclosure (DEBUG-850)', () => {
       expect(supabase).toMatch(/request logs[^.]*for 1 day/i);
     });
 
-    it('§3 says the safety event is linked to the random account ID (DEBUG-853 rename)', () => {
-      expect(s3).toMatch(/random account ID/);
+    // INFRA-861 inverts this deliberately: the event is now stored WITHOUT the random account ID.
+    // The NON_IDENTIFYING / AGGREGATE_RECORD bans above stay: request logs still hold the sending
+    // IP address for a day, so "nothing that identifies you" would still be untrue.
+    it('§3 says the safety event is stored without the random account ID (INFRA-861)', () => {
+      const safety = lineStarting(s3, '- **Safety Features:**');
+      expect(safety).toMatch(/Safety Features/); // liveness
+      expect(safety).toMatch(/stored \*\*without\*\* your random account ID/);
+      expect(safety).not.toMatch(/stored with your random account ID|linked to you/);
     });
 
-    it('§7.2 keeps the true statement that tapping through to a crisis line is not recorded', () => {
+    it('§7 keeps the true statement that tapping through to a crisis line is not recorded', () => {
       expect(s7).toMatch(/not whether you tapped through to 988/);
     });
   });

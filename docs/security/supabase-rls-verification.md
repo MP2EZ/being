@@ -50,7 +50,7 @@ runtime). See **Runtime Verification** below for the verbatim result.
 |-------|-----|-----------|------------------|
 | `users` | ENABLED | `id = auth.uid()` | Low (anonymous; id == auth principal) |
 | `encrypted_backups` | ENABLED | `user_id = auth.uid()` | HIGH (encrypted wellness data) |
-| `analytics_events` | ENABLED | `user_id = auth.uid()` | Low (bucketed metrics; no raw scores) |
+| `analytics_events` | ENABLED | `user_id = auth.uid()`; crisis rows: anon INSERT only, `user_id`/`session_id` NULL (INFRA-861) | Low (bucketed metrics; no raw scores) |
 | `subscriptions` | ENABLED | `user_id = auth.uid()` | MEDIUM (subscription transaction history) |
 | `subscription_events` | ENABLED | `user_id = auth.uid()` | MEDIUM (subscription transaction history) |
 
@@ -83,6 +83,10 @@ CREATE POLICY backups_delete ON encrypted_backups FOR DELETE USING (user_id = au
 -- analytics_events (SELECT + INSERT only; client DELETE withheld — crisis-audit integrity)
 CREATE POLICY analytics_select ON analytics_events FOR SELECT USING (user_id = auth.uid());
 CREATE POLICY analytics_insert ON analytics_events FOR INSERT WITH CHECK (user_id = auth.uid());
+-- Superseded by INFRA-861 (20261024000000_infra861_crisis_delink.sql):
+--   analytics_insert           TO authenticated WITH CHECK (user_id = auth.uid() AND event_type <> 'crisis_detected')
+--   analytics_insert_crisis_anon TO anon        WITH CHECK (event_type = 'crisis_detected' AND user_id IS NULL AND session_id IS NULL)
+--   GRANT INSERT (event_type, properties) ON analytics_events TO anon;  -- no SELECT
 
 -- subscriptions / subscription_events (own rows only)
 CREATE POLICY subscriptions_select ON subscriptions FOR SELECT USING (user_id = auth.uid());
@@ -293,10 +297,16 @@ Evidence captured:
 - The erasure cascade (`supabase/tests/infra260_account_deletion_cascade.sql`) and the
   IAP replay backstop (`supabase/tests/infra260_iap_replay.sql`) pass alongside it.
 
-**Crisis-telemetry note:** `crisis_detected` events are a direct *client* insert into
-`analytics_events` under the user session, so they pass `analytics_insert`
-(`user_id = auth.uid()`). They are NOT written by the service role. The never-drop
-durable queue (INFRA-214) holds an event until a session exists, then it lands.
+**Crisis-telemetry note — superseded by INFRA-861.** `crisis_detected` events were a direct *client*
+insert under the user session, passing `analytics_insert` (`user_id = auth.uid()`). Since
+`supabase/migrations/20261024000000_infra861_crisis_delink.sql`
+they are inserted by the **anon** role, with no user token, under `analytics_insert_crisis_anon`;
+`analytics_insert` now refuses them for `authenticated`. A BEFORE INSERT trigger and CHECK constraints
+force `user_id` and `session_id` to NULL and `created_at` to the UTC day for every role, service_role
+included. No client role can read crisis rows: anon has no SELECT and `analytics_select` never matches a
+NULL `user_id` (never widen it to `user_id IS NULL OR …`). They are still NOT written by the service role.
+The never-drop durable queue (INFRA-214) holds an event until delivery succeeds; it no longer waits for,
+or creates, a session.
 
 ---
 

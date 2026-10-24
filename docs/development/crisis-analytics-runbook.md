@@ -25,29 +25,31 @@ analytics consent, so routing crisis signal there would be both a false all-clea
 privacy-policy breach. See `docs/architecture/analytics-architecture.md`,
 `docs/legal/lia-crisis-telemetry.md`, and `docs/legal/dpia-sensitive-wellness-data.md`.
 
-The `crisis_detected` payload is bucketed and PII-free:
+The `crisis_detected` payload is bucketed, and since INFRA-861 the row carries no account or session identifier. The server rebuilds it from these five keys (`supabase/migrations/20261024000000_infra861_crisis_delink.sql`); an out-of-domain value is stored as `'unknown'`:
 
 | Property | Values |
 |---|---|
-| `trigger_type` | `phq9_suicidal_ideation`, `phq9_severe_score`, `phq9_moderate_severe_score`, `gad7_severe_score` |
+| `trigger_type` | `phq9_suicidal_ideation`, `phq9_severe_score`, `phq9_moderate_severe_score`, `gad7_severe_score`, `journal_text_match`, `combined_high_risk`, `manual_override` (else `unknown`) |
 | `severity_bucket` | bucketed severity (e.g. `moderate` / `high` / `critical` / `emergency`) |
-| `intervention_surfaced` | boolean — currently always `true` |
-| `assessment_type` | `phq9` / `gad7` |
+| `intervention_surfaced` | boolean — currently always `true` (null if a client sends a non-boolean) |
+| `assessment_type` | `phq9` / `gad7` / `voice_journal` (else `unknown`) |
 | `detected_on` | UTC calendar day of detection, `YYYY-MM-DD` (DEBUG-541) — absent on clients predating it |
 
 No raw scores, no Q9 value, no time of day, no device id. `detected_on` is a **date**, never
 a clock time: a sub-day value on a pseudonymous row would disclose clock skew, time-of-day of
-a crisis, and offline periods, and was rejected on that basis (`lia-crisis-telemetry.md` §2). `session_id` is a bounded-lifetime anonymous
-token — it rotates at the UTC day boundary and after 30 minutes idle (INFRA-568). It is
-**not** an anonymity control on its own: every row also carries the persistent `user_id`
-(the INFRA-260 `auth.uid()` principal). See `docs/legal/lia-crisis-telemetry.md` §2/§4.
+a crisis, and offline periods, and was rejected on that basis (`lia-crisis-telemetry.md` §2). **Since INFRA-861** every crisis row has
+`user_id` and `session_id` NULL and `created_at` truncated to the UTC day, enforced by a trigger and
+CHECK constraints for every role, service_role included. Rows arrive through the anon role (INSERT on
+`event_type`, `properties` only; no SELECT); authenticated crisis inserts are refused, and a statement
+may carry at most 50 crisis rows. This is not anonymity: Supabase request logs keep the sending IP for a
+day. See `docs/legal/lia-crisis-telemetry.md` §2/§4.
 
 ### Views (defined in `app/src/core/services/supabase/schema.sql` §6b + migration `20260605000000_crisis_analytics_views.sql`)
 
 | View | Use |
 |---|---|
 | `crisis_detection_daily` | detection mix — per **detection** day × `assessment_type` × `trigger_type` × `severity_bucket`, with `detection_count`, `intervention_surfaced_count`, and the `event_time_rows` / `ingest_time_rows` provenance split |
-| `crisis_detection_volume_daily` | per-**detection**-day total volume (`detection_count`, `distinct_sessions`) for spike/drift watching, plus `event_time_rows` / `ingest_time_rows` / `clock_skew_count` / `implausible_past_count` |
+| `crisis_detection_volume_daily` | per-**detection**-day total volume (`detection_count`; `distinct_sessions` is always NULL since INFRA-861) for spike/drift watching, plus `event_time_rows` / `ingest_time_rows` / `clock_skew_count` / `implausible_past_count` |
 | `crisis_detection_liveness` | `total_detections_retained`, `last_detection_at`, `first_detection_retained_at` — for the pipeline-liveness check. **Still keyed on ingest time, deliberately** |
 
 All three are **operator-only** (service-role) and emit counts only.
@@ -167,11 +169,8 @@ SELECT * FROM crisis_detection_volume_daily LIMIT 14;
 
 Compare `detection_count` against the trailing baseline. A sudden spike or a drop to zero
 across days where you'd expect activity both warrant investigation. `detection_count`
-(`COUNT(*)`) is the **authoritative** number; `distinct_sessions` is a secondary
-**episode** proxy — never treat it as the floor, nor as a device count. INFRA-568 reversed
-its bias: it used to under-count (one id per device per day collapsed repeat same-day
-detections); with idle rotation one device can produce several ids in a day, so it now
-over-counts devices while counting episodes more honestly.
+(`COUNT(*)`) is the **authoritative** number, and since INFRA-861 the only one: crisis rows carry
+no `session_id`, so `distinct_sessions` is always NULL (NULL, not 0, so it never reads as "zero sessions").
 
 ---
 
@@ -230,13 +229,14 @@ never include `session_id` or `user_id` in any exported artifact.
 ### Honest privacy posture (use this wording; do **not** claim k-anonymity)
 
 > Re-identification is managed by five controls: (1) **severity-bucketing** — no raw
-> PHQ-9/GAD-7 scores or Q9 values are stored or queried; (2) **absence of
-> quasi-identifiers** — no device id, name, IP, or geolocation is associated with any
-> crisis event; (3) **bounded-lifetime session token** — the anonymous `session_id` rotates
-> at the UTC day boundary and after 30 minutes idle, so it links only events within one
-> engagement; it is **not** an anonymity control at the table level, since each row also
-> carries the persistent `user_id`, and the identity protection is (4) plus RLS isolation
-> and the non-enumerability of `auth.uid()`; (4) **operator-only
+> PHQ-9/GAD-7 scores or Q9 values are stored or queried; (2) **no account or session
+> identifier** (INFRA-861) — crisis rows carry no `user_id` and no `session_id`, `created_at` is a
+> UTC day, and a trigger plus CHECK constraints hold this for every role; the app sends them with
+> no user token and never creates the random account ID for them. This is not anonymity: Supabase
+> request logs keep the sending IP address and a timestamp for a day, and at pre-launch volume a
+> day-level row can be attributed by inference. Never query the request logs for these inserts;
+> (3) **no re-identification** — Being has publicly committed (privacy policy §3) not to try to work
+> out whose a crisis event is or link it to other data; (4) **operator-only
 > views** — aggregate data is reachable only via service-role credentials, never the
 > `authenticated` role or a client-facing path; (5) **synthetic-probe isolation** (INFRA-265)
 > — the liveness probe writes only to the dedicated `crisis_liveness_probe` table, never to
@@ -248,7 +248,7 @@ never include `session_id` or `user_id` in any exported artifact.
 
 Residual limitation to document honestly: at very low volume, a row with `detection_count =
 1` for a rare bucket on a specific day reveals that exactly one session hit that threshold
-that day. This is **not** re-identification (no identity link exists) — it is the practical
+that day. This is **not** re-identification by itself (the row carries no account or session identifier), though at pre-launch volume it can support attribution by inference — it is the practical
 boundary of the bucketing control, and is the accepted trade-off for not hiding a real
 crisis.
 
