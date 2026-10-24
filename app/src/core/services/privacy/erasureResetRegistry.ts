@@ -13,11 +13,13 @@
  *
  * Owners registered today: stoicPracticeStore, assessmentStore, educationStore,
  * subscriptionStore (DEBUG-697), supabaseService (DEBUG-698 — its backup retry
- * queue; the key's sweep entry is inert without this reset), and consentStore and
- * settingsStore (DEBUG-755 — memory only; their disk records are the wipe's job).
- * Audited and NOT registered: the journal (no in-memory cache — every read goes to
- * storage) and SessionStorageService (stateless; its blobs are in
- * WELLNESS_SECURE_STORE_KEYS).
+ * queue; the key's sweep entry is inert without this reset), consentStore and
+ * settingsStore (DEBUG-755 — memory only; their disk records are the wipe's job),
+ * and journalSearchIndex (FEAT-530 — its shard cache and a queue of pending shard
+ * writes; the reset bumps an epoch so a write already in flight is deleted again
+ * when it lands). Audited and NOT registered: the journal ENTRY store (no
+ * in-memory cache — every read goes to storage) and SessionStorageService
+ * (stateless; its blobs are in WELLNESS_SECURE_STORE_KEYS).
  *
  * Bounded (DEBUG-789): a reset that never settles (a hung SecureStore write) must
  * not hang the deletion screen or the launch resume path, so the whole run races

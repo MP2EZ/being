@@ -92,6 +92,7 @@ const SUMMARY_LEAVES_OUT: readonly string[] = [
   PDF_WINDOW_OMISSION,
   PDF_ROW_CAP_OMISSION,
   'Voice journal entries',
+  'Voice journal search index',
   'Consent records',
   'Subscription state',
   'Individual screening answers',

@@ -645,16 +645,20 @@ describe('what erasure must not reset', () => {
     expect(useConsentStore.getState().consentStatus).toBe('missing');
   });
 
-  // The in-memory STORE owners only. This suite mocks SupabaseService, so its
+  // The in-memory owners only. This suite mocks SupabaseService, so its
   // registration ('supabaseService', DEBUG-698) never runs here; that owner is
   // pinned against the real module in offlineQueueErasure.privacy.test.ts.
   // consentStore and settingsStore joined in DEBUG-755.
-  it('registers exactly the six in-memory store owners', () => {
+  // FEAT-530 added the seventh: the voice journal search index's shard cache and
+  // erasure epoch, which register from journalSearchIndex.ts at module scope.
+  it('registers exactly the seven in-memory owners', () => {
     require('@/core/stores/settingsStore');
+    require('@/features/journal/services/journalSearchIndex');
     expect(registeredErasureResetOwners().sort()).toEqual([
       'assessmentStore',
       'consentStore',
       'educationStore',
+      'journalSearchIndex',
       'settingsStore',
       'stoicPracticeStore',
       'subscriptionStore',

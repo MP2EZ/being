@@ -16,6 +16,7 @@
 
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import { gatherJournalEntriesForExport } from '@/features/journal/services/journalEntryStore';
+import { gatherSearchIndexForExport } from '@/features/journal/services/journalSearchIndex';
 import * as SecureStore from 'expo-secure-store';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { logError, LogCategory } from '@/core/services/logging';
@@ -41,6 +42,13 @@ export interface ExportEnvelope {
      * and portability vocabulary stays "journal entries".
      */
     journalEntries: unknown | null;
+    /**
+     * FEAT-530: the voice journal search index — rows of `{ entryId, terms }`,
+     * the words derived from each entry. Its own section because it is its own
+     * stored artifact: `null` when search was never built, `[]` when it was built
+     * over an empty journal.
+     */
+    journalSearchIndex: unknown | null;
   };
   consent: {
     currentConsent: unknown | null;
@@ -104,6 +112,16 @@ export async function gatherExportData(): Promise<ExportEnvelope> {
     );
   }
 
+  // FEAT-530: the search index, independently null-safe like journalEntries. A
+  // failure logs a category only — the Error is never forwarded, because storage
+  // errors carry payload sizes and shard key names reveal the shard count.
+  let journalSearchIndex: unknown | null = null;
+  try {
+    journalSearchIndex = await gatherSearchIndexForExport();
+  } catch {
+    logError(LogCategory.SYSTEM, '[DataExport] failed to read search index (omitting from export)');
+  }
+
   const practices = await readPlainJson(PRACTICE_STATE_KEY);
   const subscription = await readPlainJson(SUBSCRIPTION_KEY);
   const consent = await useConsentStore.getState().exportConsentRecords();
@@ -119,7 +137,7 @@ export async function gatherExportData(): Promise<ExportEnvelope> {
     regulatoryBasis:
       'Exported pursuant to your data-portability and right-to-know rights under CCPA, ' +
       'TDPSA, VCDPA, CPA, CTDPA, and GDPR Art. 20.',
-    wellness: { assessments: assessments ?? null, practices, subscription, journalEntries },
+    wellness: { assessments: assessments ?? null, practices, subscription, journalEntries, journalSearchIndex },
     consent,
   };
 }

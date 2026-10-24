@@ -75,8 +75,15 @@ import SecureStorageService from '@/core/services/security/SecureStorageService'
 import {
   deleteAllEntries,
   gatherJournalEntriesForExport,
+  journalIndexSource,
   saveEntry,
 } from '../journalEntryStore';
+import {
+  buildSearchIndex,
+  gatherSearchIndexForExport,
+  querySearchIndex,
+  resetSearchIndexForErasure,
+} from '../journalSearchIndex';
 
 const SECRET_A = 'I went back over the whole day and hid nothing from myself';
 const SECRET_B = 'the meeting went badly and I was short with him';
@@ -96,6 +103,8 @@ const SWEPT_PREFIXES = jest.requireActual<{
 beforeEach(() => {
   mockMemoryStore.clear();
   jest.clearAllMocks();
+  // The search index keeps a module-level cache (FEAT-530); a prior test's must not leak in.
+  resetSearchIndexForErasure();
 
   // Pass-through "encryption" — see header. Keeps plaintext visible so a
   // survivor cannot hide behind ciphertext.
@@ -306,5 +315,75 @@ describe('deleteAllEntries removes journal data on its own', () => {
     const after = await AsyncStorage.getAllKeys();
     expect(after.filter((k) => k.includes('voice_journal'))).toEqual([]);
     expect(JSON.stringify([...mockMemoryStore.entries()])).not.toContain(SECRET_A);
+  });
+});
+
+describe('the voice journal search index falls under the erasure sweep (FEAT-530, AC #5)', () => {
+  const SHARD_PREFIX = 'voice_journal_search_';
+  const shardKeys = () => [...mockMemoryStore.keys()].filter((k) => k.includes(SHARD_PREFIX));
+
+  async function seedBuiltIndex() {
+    await saveEntry({ text: SECRET_A });
+    await saveEntry({ text: SECRET_B });
+    await buildSearchIndex(journalIndexSource);
+    // Positive control: shards exist, and (pass-through cipher) their words are readable
+    // in the dump, so a survivor could not hide.
+    expect(shardKeys().length).toBeGreaterThan(0);
+    expect(JSON.stringify([...mockMemoryStore.entries()])).toContain('hid');
+  }
+
+  it('writes every shard key under a swept prefix', async () => {
+    await seedBuiltIndex();
+    for (const key of shardKeys()) {
+      expect(SWEPT_PREFIXES.some((p) => key.startsWith(p))).toBe(true);
+    }
+  });
+
+  it('leaves no voice_journal_search_ key and none of the words after clearAllWellnessData', async () => {
+    await seedBuiltIndex();
+
+    await SecureStorageService.clearAllWellnessData();
+
+    expect(shardKeys()).toEqual([]);
+    const dump = JSON.stringify([...mockMemoryStore.entries()]);
+    expect(dump).not.toContain('hid');
+    expect(dump).not.toContain('meeting');
+  });
+
+  it('leaves no voice_journal_search_ key after deleteAllEntries, including a stale high-numbered shard', async () => {
+    await seedBuiltIndex();
+    mockMemoryStore.set(
+      `wellness_async_${SHARD_PREFIX}9`,
+      JSON.stringify({ __passthrough: true, data: { rows: [{ entryId: 'old', terms: ['stalewords'] }] } })
+    );
+
+    await deleteAllEntries();
+
+    expect(shardKeys()).toEqual([]);
+    expect(JSON.stringify([...mockMemoryStore.entries()])).not.toContain('stalewords');
+  });
+
+  it('after erasure the module answers from the (empty) disk, not from memory', async () => {
+    await seedBuiltIndex();
+    const live = await journalIndexSource.listIds();
+    expect((await querySearchIndex('meeting', live)).status).toBe('ok');
+
+    // The ordering AccountDeletionService uses: reset in-memory state, THEN wipe disk.
+    resetSearchIndexForErasure();
+    await SecureStorageService.clearAllWellnessData();
+
+    expect(await gatherSearchIndexForExport()).toBeNull();
+    expect(await querySearchIndex('meeting', [])).toEqual({ status: 'needs-build' });
+  });
+
+  it('proves the check can fail — a shard planted outside the sweep IS detected', async () => {
+    await seedBuiltIndex();
+    mockMemoryStore.set(`unswept_${SHARD_PREFIX}0`, 'x');
+
+    await SecureStorageService.clearAllWellnessData();
+
+    expect([...mockMemoryStore.keys()].filter((k) => k.includes(SHARD_PREFIX))).toEqual([
+      `unswept_${SHARD_PREFIX}0`,
+    ]);
   });
 });
