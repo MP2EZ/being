@@ -16,6 +16,12 @@
  * account identifier, created on first crisis-detection event, settings backup or purchase,
  * and used only for app functionality.
  *
+ * INFRA-861 adds Health, NOT linked: the Crisis Detection Event (`crisis_detected`) leaves the
+ * device with no account or session identifier, and the server stores none (the migration's
+ * CHECK constraint). It is the only Health data collected; screening answers, scores, mood and
+ * journal content stay on the device. Purposes are both App Functionality (verifying the crisis
+ * path fires) and Analytics (aggregate failure detection across installs, LIA §1(b)).
+ *
  * The App Store Connect nutrition label must match this manifest; that half is manual
  * console work and cannot be pinned here.
  */
@@ -32,11 +38,12 @@ type CollectedDataType = {
 const ANALYTICS = 'NSPrivacyCollectedDataTypePurposeAnalytics';
 const APP_FUNCTIONALITY = 'NSPrivacyCollectedDataTypePurposeAppFunctionality';
 
-const EXPECTED: Record<string, string[]> = {
-  NSPrivacyCollectedDataTypeDeviceID: [ANALYTICS, APP_FUNCTIONALITY],
-  NSPrivacyCollectedDataTypeProductInteraction: [ANALYTICS],
-  NSPrivacyCollectedDataTypeCoarseLocation: [ANALYTICS, APP_FUNCTIONALITY],
-  NSPrivacyCollectedDataTypeUserID: [APP_FUNCTIONALITY],
+const EXPECTED: Record<string, { linked: boolean; purposes: string[] }> = {
+  NSPrivacyCollectedDataTypeDeviceID: { linked: true, purposes: [ANALYTICS, APP_FUNCTIONALITY] },
+  NSPrivacyCollectedDataTypeProductInteraction: { linked: true, purposes: [ANALYTICS] },
+  NSPrivacyCollectedDataTypeCoarseLocation: { linked: true, purposes: [ANALYTICS, APP_FUNCTIONALITY] },
+  NSPrivacyCollectedDataTypeUserID: { linked: true, purposes: [APP_FUNCTIONALITY] },
+  NSPrivacyCollectedDataTypeHealth: { linked: false, purposes: [ANALYTICS, APP_FUNCTIONALITY] },
 };
 
 describe('iOS privacy manifest — NSPrivacyCollectedDataTypes (DEBUG-793)', () => {
@@ -51,10 +58,10 @@ describe('iOS privacy manifest — NSPrivacyCollectedDataTypes (DEBUG-793)', () 
     expect(types).toEqual(Object.keys(EXPECTED).sort());
   });
 
-  it.each(Object.entries(EXPECTED))('%s is linked, not tracking, with the expected purposes', (type, purposes) => {
+  it.each(Object.entries(EXPECTED))('%s has the expected linkage, is not tracking, with the expected purposes', (type, { linked, purposes }) => {
     const entry = (declared as CollectedDataType[]).find((d) => d.NSPrivacyCollectedDataType === type);
     expect(entry).toBeDefined();
-    expect(entry!.NSPrivacyCollectedDataTypeLinked).toBe(true);
+    expect(entry!.NSPrivacyCollectedDataTypeLinked).toBe(linked);
     expect(entry!.NSPrivacyCollectedDataTypeTracking).toBe(false);
     expect([...entry!.NSPrivacyCollectedDataTypePurposes].sort()).toEqual([...purposes].sort());
   });

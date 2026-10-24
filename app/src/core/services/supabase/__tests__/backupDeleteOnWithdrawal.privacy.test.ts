@@ -636,8 +636,9 @@ describe('crisis pin: the backup delete can never gate crisis delivery', () => {
     await settle();
 
     expect(insert).toHaveBeenCalledTimes(1);
-    const rows = insert.mock.calls[0]![0] as Array<{ user_id: string }>;
-    expect(rows.every((r) => r.user_id === UID)).toBe(true);
+    // INFRA-861: crisis rows leave the device with no identifier.
+    const rows = insert.mock.calls[0]![0] as Array<Record<string, unknown>>;
+    expect(rows.every((r) => !('user_id' in r) && !('session_id' in r))).toBe(true);
     expect(internals.userId).toBe(UID);
     expect(eqDelete).toHaveBeenCalled();
     expect(flushSpy.mock.invocationCallOrder[0]!).toBeLessThan(eqDelete.mock.invocationCallOrder[0]!);
