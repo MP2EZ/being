@@ -666,6 +666,177 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
   // ──────────────────────────────────────────────────────────────────
   // NOT-YET-IMPLEMENTED STUBS — pin the CURRENT contract explicitly.
   // ──────────────────────────────────────────────────────────────────
+  describe('concurrent calls for one transaction coalesce (DEBUG-827)', () => {
+    const { apple, google } = DEFAULT_SUBSCRIPTION_CONFIG.products;
+    // The listener's and restore's copies of one StoreKit transaction: the JWS
+    // purchaseToken may differ, the transactionId does not.
+    const listenerCopy = (transactionId = '2000000827000001') => ({
+      productId: apple.monthly,
+      transactionReceipt: 'receipt-827',
+      orderId: 'order-827',
+      transactionId,
+      purchaseToken: 'eyJ.jws-from-listener',
+    });
+    const restoreCopy = (transactionId = '2000000827000001') => ({
+      ...listenerCopy(transactionId),
+      purchaseToken: 'eyJ.jws-from-getAvailablePurchases',
+    });
+    const verified = {
+      valid: true,
+      subscriptionId: 'verified-827',
+      expiresDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
+      productId: apple.monthly,
+      isTrialPeriod: false,
+      httpStatus: 200,
+    };
+
+    /** A verifyReceipt the test releases by hand, so two calls overlap. */
+    const holdVerification = () => {
+      let release!: (value: unknown) => void;
+      let fail!: (error: unknown) => void;
+      mockIAP.verifyReceipt.mockImplementationOnce(
+        () =>
+          new Promise((resolve, reject) => {
+            release = resolve;
+            fail = reject;
+          })
+      );
+      return { release: (v: unknown = verified) => release(v), fail: (e: unknown) => fail(e) };
+    };
+    const verifyStarted = async (n = 1) => {
+      for (let i = 0; i < 50 && mockIAP.verifyReceipt.mock.calls.length < n; i++) {
+        await new Promise(resolve => setImmediate(resolve));
+      }
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledTimes(n);
+    };
+    const tracked = () => {
+      const track = jest.fn(async () => {});
+      useSubscriptionStore.setState({ trackSubscriptionEvent: track });
+      return track;
+    };
+    let originalTrack: ReturnType<typeof useSubscriptionStore.getState>['trackSubscriptionEvent'];
+    beforeEach(() => {
+      originalTrack = useSubscriptionStore.getState().trackSubscriptionEvent;
+    });
+    afterEach(() => {
+      useSubscriptionStore.setState({ trackSubscriptionEvent: originalTrack });
+    });
+
+    it('a restore overlapping the listener for the same transaction does everything once', async () => {
+      const track = tracked();
+      const held = holdVerification();
+      mockIAP.restorePurchases.mockResolvedValue([restoreCopy()]);
+
+      const listener = useSubscriptionStore.getState().processVerifiedPurchase(listenerCopy(), 'monthly');
+      await verifyStarted();
+      const restore = useSubscriptionStore.getState().restorePurchases();
+      for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve));
+      held.release();
+
+      await expect(listener).resolves.toBe(true);
+      await expect(restore).resolves.toEqual({ found: 1, restored: 1 });
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledTimes(1);
+      expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(1);
+      expect(mockIAP.finishTransaction).toHaveBeenCalledTimes(1);
+      expect(track).toHaveBeenCalledTimes(1);
+    });
+
+    it('distinct transactions are not coalesced', async () => {
+      tracked();
+      const first = holdVerification();
+      const second = holdVerification();
+
+      const a = useSubscriptionStore.getState().processVerifiedPurchase(listenerCopy('2000000827000001'), 'monthly');
+      const b = useSubscriptionStore.getState().processVerifiedPurchase(listenerCopy('2000000827000002'), 'monthly');
+      await verifyStarted(2);
+      first.release();
+      second.release();
+
+      await expect(Promise.all([a, b])).resolves.toEqual([true, true]);
+      expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(2);
+      expect(mockIAP.finishTransaction).toHaveBeenCalledTimes(2);
+    });
+
+    it('Google: the same purchaseToken coalesces', async () => {
+      mockIAP.getPlatform.mockReturnValue('google');
+      const track = tracked();
+      const held = holdVerification();
+      const play = { productId: google.monthly, transactionReceipt: '', orderId: 'GPA.827', purchaseToken: 'opaque-827' };
+
+      const a = useSubscriptionStore.getState().processVerifiedPurchase(play, 'monthly');
+      await verifyStarted();
+      const b = useSubscriptionStore.getState().processVerifiedPurchase({ ...play }, 'monthly', { source: 'restore' });
+      held.release({ ...verified, productId: google.monthly });
+
+      await expect(Promise.all([a, b])).resolves.toEqual([true, true]);
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledTimes(1);
+      expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(1);
+      expect(mockIAP.finishTransaction).toHaveBeenCalledTimes(1);
+      expect(track).toHaveBeenCalledTimes(1);
+    });
+
+    it('a rejected first call rejects the joiner too, and restore counts nothing', async () => {
+      tracked();
+      const held = holdVerification();
+      mockIAP.restorePurchases.mockResolvedValue([restoreCopy()]);
+
+      const listener = useSubscriptionStore.getState().processVerifiedPurchase(listenerCopy(), 'monthly');
+      await verifyStarted();
+      const restore = useSubscriptionStore.getState().restorePurchases();
+      for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve));
+      held.fail(new Error('network down'));
+
+      await expect(listener).rejects.toThrow('network down');
+      await expect(restore).resolves.toEqual({ found: 1, restored: 0 });
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledTimes(1);
+      expect(mockSecureStore.setItemAsync).not.toHaveBeenCalled();
+      expect(mockIAP.finishTransaction).not.toHaveBeenCalled();
+    });
+
+    it('coalescing is in-flight only: a call after the first settles runs again', async () => {
+      tracked();
+      mockIAP.verifyReceipt.mockResolvedValue(verified);
+
+      await expect(useSubscriptionStore.getState().processVerifiedPurchase(listenerCopy(), 'monthly')).resolves.toBe(true);
+      await expect(useSubscriptionStore.getState().processVerifiedPurchase(restoreCopy(), 'monthly')).resolves.toBe(true);
+
+      expect(mockIAP.verifyReceipt).toHaveBeenCalledTimes(2);
+      expect(mockSecureStore.setItemAsync).toHaveBeenCalledTimes(2);
+    });
+
+    it('the joining call leaves isVerifyingReceipt to the call that owns it', async () => {
+      tracked();
+      const held = holdVerification();
+
+      const a = useSubscriptionStore.getState().processVerifiedPurchase(listenerCopy(), 'monthly');
+      await verifyStarted();
+      expect(useSubscriptionStore.getState().isVerifyingReceipt).toBe(true);
+      const b = useSubscriptionStore.getState().processVerifiedPurchase(restoreCopy(), 'monthly', { source: 'restore' });
+      for (let i = 0; i < 10; i++) await new Promise(resolve => setImmediate(resolve));
+      expect(useSubscriptionStore.getState().isVerifyingReceipt).toBe(true);
+      held.release();
+
+      await Promise.all([a, b]);
+      expect(useSubscriptionStore.getState().isVerifyingReceipt).toBe(false);
+    });
+
+    it.each([
+      ['listener first', undefined, { source: 'restore' as const }, 'subscription_started'],
+      ['restore first', { source: 'restore' as const }, undefined, 'subscription_restored'],
+    ])('the first in-flight caller decides the event (%s)', async (_label, firstContext, secondContext, event) => {
+      const track = tracked();
+      const held = holdVerification();
+
+      const a = useSubscriptionStore.getState().processVerifiedPurchase(listenerCopy(), 'monthly', firstContext);
+      await verifyStarted();
+      const b = useSubscriptionStore.getState().processVerifiedPurchase(restoreCopy(), 'monthly', secondContext);
+      held.release();
+
+      await Promise.all([a, b]);
+      expect(track.mock.calls.map(c => c[0])).toEqual([event]);
+    });
+  });
+
   describe('not-yet-implemented stubs (current contract)', () => {
     // TODO(MAINT-242 follow-up): implement cancelSubscription. Currently
     // throws 'Cancellation not yet implemented' internally → state.error.
