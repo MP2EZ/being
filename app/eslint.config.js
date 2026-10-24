@@ -243,6 +243,7 @@ const CORE_FEATURE_IMPORT_EXCEPTIONS = [
   'src/core/services/supabase/CloudBackupService.ts', // reads assessmentStore
   'src/core/services/privacy/DataExportService.ts', // reads journalEntryStore
   'src/core/config/e2eSeed.ts', // seeds stoicPracticeStore; Protected Path
+  'src/core/stores/consentStore.ts', // FEAT-860: recordLegalGateConsents writes the privacy-policy acknowledgement (features/consent/services/policyAck); Protected Path
   'src/core/components/subscription/PurchaseOptionsScreen.tsx', // profile's SubMenuHeader
 ];
 

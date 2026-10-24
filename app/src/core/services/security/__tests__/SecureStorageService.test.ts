@@ -533,11 +533,12 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
     'consent_record_v1',
     'legal_gate_consents_v1',
     'age_verification_v1',
+    'privacy_policy_ack_v1', // FEAT-860
     'auth_device_id',
     '@being/device_id',
   ];
 
-  it('ACCOUNT_ERASURE_SECURE_STORE_KEYS is exactly the five account-scoped keys', () => {
+  it('ACCOUNT_ERASURE_SECURE_STORE_KEYS is exactly the six account-scoped keys', () => {
     expect([...ACCOUNT_ERASURE_SECURE_STORE_KEYS]).toEqual(ACCOUNT_ERASURE_KEYS);
   });
 
@@ -550,7 +551,7 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
     }
   });
 
-  it('clearAllWellnessData({deleteMasterKey:true}) deletes the five account keys; the attestation and history fallback survive', async () => {
+  it('clearAllWellnessData({deleteMasterKey:true}) deletes the six account keys; the attestation and history fallback survive', async () => {
     for (const key of ACCOUNT_ERASURE_KEYS) mockSecureStoreMap.set(key, 'x');
     mockSecureStoreMap.set('consent_history_v1', 'history');
     mockSecureStoreMap.set('account_deletion_attestation_v1', 'attestation');

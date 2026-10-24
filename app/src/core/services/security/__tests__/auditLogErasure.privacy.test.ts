@@ -348,7 +348,7 @@ describe('the erasure exclusions are unaffected', () => {
     // Positive control for the survivor assertion below: it only means something if the
     // keys it does NOT list really are gone. The consent record, legal-gate acceptances,
     // age check and device anchors belong to the account and go with it.
-    expect([...ACCOUNT_ERASURE_SECURE_STORE_KEYS].length).toBe(5);
+    expect([...ACCOUNT_ERASURE_SECURE_STORE_KEYS].length).toBe(6); // FEAT-860 added privacy_policy_ack_v1
     for (const key of ACCOUNT_ERASURE_SECURE_STORE_KEYS as readonly string[]) {
       mockSecureStoreMap.set(key, JSON.stringify({ planted: true }));
     }

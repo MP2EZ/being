@@ -37,6 +37,7 @@ import { awaitErasureInFlight } from '@/core/services/privacy/erasureResumeGate'
 // back-import would be a cycle. `env` is a leaf config module with no dependency
 // on the store, so this direction is cycle-free.
 import { env } from '@/core/config/env';
+import { PRIVACY_POLICY_ACK_KEY, writePolicyAck } from '@/features/consent/services/policyAck';
 
 // Storage keys
 const CONSENT_SECURE_KEY = 'consent_record_v1';
@@ -141,6 +142,19 @@ export const recordLegalGateConsents = async (
   // Only after the write resolves: a failed write must never widen permission.
   setLegalGateMirror(record);
   legalGateMirrorWrittenThrough = true;
+  // FEAT-860: ticking the privacy-policy box means the user was shown the bundled text, so
+  // record that at its header version. ACKNOWLEDGEMENT, not consent, and strictly after the
+  // gate record and the mirror: a fault here must neither fail nor undo the gate pass.
+  try {
+    await writePolicyAck('legal_gate');
+  } catch {
+    logSecurity('privacy policy acknowledgement could not be written', 'low', {
+      component: 'consentStore',
+      action: 'recordLegalGateConsents',
+      result: 'failure',
+      reason: 'write_failed',
+    });
+  }
 };
 
 /**
@@ -1197,6 +1211,10 @@ export async function retireErasedRecords(): Promise<void> {
     await attempt(() =>
       deleteIf(AGE_VERIFICATION_KEY, (record) => predatesErasure(record['verifiedAt'], attestedAt))
     );
+    // FEAT-860: the privacy-policy acknowledgement is the deleted account's, like the gate record.
+    await attempt(() =>
+      deleteIf(PRIVACY_POLICY_ACK_KEY, (record) => predatesErasure(record['acknowledgedAt'], attestedAt))
+    );
     await attempt(async () => {
       if ((await SecureStore.getItemAsync(AUTH_DEVICE_ID_KEY)) === null) return false;
       await SecureStore.deleteItemAsync(AUTH_DEVICE_ID_KEY);
@@ -2215,6 +2233,7 @@ export const useConsentStore = create<ConsentStore>((set, get) => ({
       await SecureStore.deleteItemAsync(CONSENT_SECURE_KEY);
       await SecureStore.deleteItemAsync(AGE_VERIFICATION_KEY);
       await SecureStore.deleteItemAsync(LEGAL_GATE_CONSENTS_KEY);
+      await SecureStore.deleteItemAsync(PRIVACY_POLICY_ACK_KEY);
       await AsyncStorage.removeItem(CONSENT_CACHE_KEY);
       // Hybrid storage cleanup (INFRA-144): remove encrypted history blob and
       // its legacy SecureStore copy + migration flag.

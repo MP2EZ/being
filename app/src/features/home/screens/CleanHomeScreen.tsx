@@ -16,9 +16,13 @@ import { colorSystem, semantic, getTheme, spacing, borderRadius, typography } fr
 import { CRISIS_BUTTON_EXCLUSION_RECT } from '@/features/crisis/constants/crisisButtonGeometry';
 import { useCrisisExclusionAssertion } from '@/core/hooks/useCrisisExclusionAssertion';
 import type { RootStackParamList } from '@/core/navigation/CleanRootNavigator';
+import type { ProfileStackParamList } from '@/features/profile/ProfileStackNavigator';
 import { useStoicPracticeStore } from '@/features/practices/stores/stoicPracticeStore';
 import { useSettingsStore, useAccessibilitySettings } from '@/core/stores/settingsStore';
 import AssessmentStatusBadge from '@/features/assessment/components/AssessmentStatusBadge';
+// FEAT-860 — direct path, never the consent barrel (FEAT-376): a barrel re-export would put
+// the notice in every importer's eager graph, safety paths included. This is its ONLY importer.
+import PolicyChangeNotice from '@/features/consent/components/PolicyChangeNotice';
 // FEAT-457 — direct path, never a features/guidance barrel (FEAT-376). This
 // component reaches only DOMAIN_BINDINGS (constants over types), so it adds no
 // edge from Home to guidanceGate or the content loader.
@@ -34,6 +38,13 @@ import type { PracticeIdentity } from '@/core/types/practice-identity';
 const INTRO_THRESHOLD_MS = 30 * 60 * 1000;
 
 type CleanHomeScreenNavigationProp = StackNavigationProp<RootStackParamList>;
+/** The Profile tab is a sibling of Home, so it is not in `RootStackParamList`. */
+type ProfileTabNavigate = {
+  navigate: (
+    name: 'Profile',
+    params: { screen: 'LegalDocument'; params: ProfileStackParamList['LegalDocument'] },
+  ) => void;
+};
 // FEAT-298 slice 1: this local 4-member union is now the canonical `PracticeIdentity`.
 // The three legacy members remain reachable via deep link until slice 6 retires the flows.
 type FlowType = PracticeIdentity;
@@ -216,6 +227,14 @@ const CleanHomeScreen: React.FC = () => {
     }
   }, [navigation]);
 
+  // FEAT-860: opens the bundled privacy policy text for the policy-change notice.
+  const handleReadPolicy = useCallback(() => {
+    (navigation as unknown as ProfileTabNavigate).navigate('Profile', {
+      screen: 'LegalDocument',
+      params: { documentType: 'privacy-policy' },
+    });
+  }, [navigation]);
+
   // MAINT-456: `edges={['top']}`, not the implicit all-four. Home is tab-hosted and
   // React Navigation already reserves the tab bar's height at the bottom, so a bottom
   // inset here is a dead band rather than protection — measured at ~34pt on iPhone
@@ -254,6 +273,11 @@ const CleanHomeScreen: React.FC = () => {
             Take a moment for mindful awareness
           </Text>
         </View>
+
+        {/* FEAT-860: inline notice of material privacy-policy changes. INSIDE the ScrollView
+            (DEBUG-465: a control pinned outside would share coordinates with clipped
+            content), never a Modal, and null unless something is pending. */}
+        <PolicyChangeNotice onReadPolicy={handleReadPolicy} />
 
         {/* Assessment Status Badge */}
         <AssessmentStatusBadge />
