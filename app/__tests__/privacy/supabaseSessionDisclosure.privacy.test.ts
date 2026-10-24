@@ -10,6 +10,13 @@
  * notice say what is stored, and the DPIA / LIA no longer rest on the absent quasi-identifiers.
  * Each matcher is proven against the text it replaced (DEBUG-390), so a pass means the claim is
  * absent, not that the matcher never fires.
+ *
+ * MAINT-865: INFRA-851's hourly job now clears `auth.sessions.ip` / `user_agent` (verified on the
+ * hosted project 2026-10-24), so the policy, the California notice, the DPIA and the LIA bound the
+ * IP address and user agent to "deleted within a day of each connection". The last-connection
+ * time is NOT narrowed: the scrub leaves the session timestamps alone, so it is still kept until
+ * the random account ID is deleted. Pinned here: the old all-fields "kept until … deleted" wording
+ * is gone, the new bound is present on every surface, and the last-connection time keeps its own.
  */
 import * as fs from 'fs';
 import * as path from 'path';
@@ -41,6 +48,18 @@ const SENTRY_STYLE_NOT_STORED = /IP address itself is not stored/;
 const QUASI_ID_RELIANCE = /managed by[^.]*the absence of quasi-identifiers/;
 const NOT_ACHIEVABLE = /re-identification remains not realistically achievable/;
 const CA_IDENTIFIERS_NO = /^\| \*\*Identifiers\*\* \|[^|]*\| No\b/m;
+// MAINT-865: the IP address (or a "They" standing for all connection records) kept until the
+// identifier is deleted. Scoped to one sentence and to that subject, so the last-connection
+// sentence, which keeps the "until … deleted" bound, does not trip it.
+// `(?:[^.]|\.\d)` stays inside one sentence but crosses a section number such as "§4.1".
+const IP_KEPT_UNTIL_DELETED =
+  /\b(They|IP address)\b(?:[^.]|\.\d)*\bkept until\b(?:[^.]|\.\d)*\b(identifier|account)\b(?:[^.]|\.\d)*\bdeleted\b/;
+const CA_IP_UNTIL_DELETED = /IP address[^|]*\|\s*Until the identifier is deleted/;
+const ORPHAN_KEEPS_RECORDS = /stays on our servers with its connection records/;
+const IP_WITHIN_A_DAY =
+  /IP address and (the )?(device and app details|user agent)(?:[^.]|\.\d)*deleted within a day of each connection/i;
+const LAST_CONNECTION_KEPT =
+  /(last-connection time|time the app last connected)(?:[^.]|\.\d)*kept until the (random account ID|identifier) is deleted/i;
 
 // The text this item replaced, kept so every matcher above is proven to fire.
 const PRE_FIX = {
@@ -54,6 +73,17 @@ const PRE_FIX = {
   quasi:
     'Re-identification is therefore managed by severity-bucketing, the absence of quasi-identifiers, first-party RLS isolation, and the fact that `auth.uid()` is non-enumerable.',
   achievable: 'On that corrected basis re-identification remains not realistically achievable.',
+  // MAINT-865: the retention wording INFRA-851's scrub made untrue.
+  s41Kept:
+    'They are kept until the identifier is deleted, and the identifier and its connection records are removed when you delete your account or data in the app (§7.4).',
+  s41Orphan:
+    'If you delete or reinstall the app without first deleting your account, the old identifier stays on our servers with its connection records, and nothing deletes it automatically today.',
+  s73:
+    '- **Connection Records:** The IP address, device and app details and last-connection time Supabase keeps against your random account ID (§4.1) are kept until the identifier is deleted.',
+  caRow:
+    '| Connection records (IP address, device and app details and last-connection time kept against your random account ID; see Privacy Policy §4.1) | Until the identifier is deleted; request logs that include the IP address are kept for 1 day on our current plan |',
+  // What MAINT-865 keeps: the last-connection sentence must NOT trip the IP matcher.
+  lastConnection: 'The time the app last connected is kept until the identifier is deleted.',
 };
 
 describe('Supabase session disclosure (DEBUG-850)', () => {
@@ -67,6 +97,12 @@ describe('Supabase session disclosure (DEBUG-850)', () => {
     expect(PRE_FIX.caIdentifiers).toMatch(CA_IDENTIFIERS_NO);
     expect(PRE_FIX.quasi).toMatch(QUASI_ID_RELIANCE);
     expect(PRE_FIX.achievable).toMatch(NOT_ACHIEVABLE);
+    expect(PRE_FIX.s41Kept).toMatch(IP_KEPT_UNTIL_DELETED);
+    expect(PRE_FIX.s73).toMatch(IP_KEPT_UNTIL_DELETED);
+    expect(PRE_FIX.s41Orphan).toMatch(ORPHAN_KEEPS_RECORDS);
+    expect(PRE_FIX.caRow).toMatch(CA_IP_UNTIL_DELETED);
+    expect(PRE_FIX.lastConnection).not.toMatch(IP_KEPT_UNTIL_DELETED);
+    expect(PRE_FIX.lastConnection).toMatch(LAST_CONNECTION_KEPT);
   });
 
   describe('privacy policy', () => {
@@ -92,10 +128,32 @@ describe('Supabase session disclosure (DEBUG-850)', () => {
     it('§4.1 says what Supabase records against the identifier and for how long', () => {
       expect(s41).toMatch(/IP address/);
       expect(s41).toMatch(/user agent/i);
-      expect(s41).toMatch(/until[^.]*(identifier|account)[^.]*deleted/i);
+      // MAINT-865: the IP address and user agent are bounded; the last-connection time is not.
+      expect(s41).toMatch(IP_WITHIN_A_DAY);
+      expect(s41).not.toMatch(IP_KEPT_UNTIL_DELETED);
+      expect(s41).toMatch(LAST_CONNECTION_KEPT);
       // An identifier left behind by a reinstall: say nothing deletes it today, promise no bound.
       expect(s41).toMatch(/reinstall/i);
       expect(s41).toMatch(/nothing deletes/i);
+      expect(s41).not.toMatch(ORPHAN_KEEPS_RECORDS);
+    });
+
+    it('§2.2, §5.1 and §7.3 bound the IP address and user agent, and §7.3 keeps the last-connection time', () => {
+      const connection22 = lineStarting(s22, '- **Connection Records:**');
+      const connection73 = lineStarting(s7, '- **Connection Records:**');
+      for (const line of [connection22, connection73]) expect(line).toMatch(/Connection Records/); // liveness
+      for (const line of [connection22, supabase, connection73]) {
+        expect(line).toMatch(IP_WITHIN_A_DAY);
+        expect(line).not.toMatch(IP_KEPT_UNTIL_DELETED);
+      }
+      expect(connection73).toMatch(LAST_CONNECTION_KEPT);
+      expect(connection73).toMatch(/nothing deletes/i);
+    });
+
+    it('§3 does not describe the identifier\'s IP address as unbounded', () => {
+      const safety = lineStarting(s3, '- **Safety Features:**');
+      expect(safety).toMatch(/Safety Features/); // liveness
+      expect(safety).toMatch(/IP address(?:[^.]|\.\d)*within a day/);
     });
 
     it('§2.2 lists the connection records in their own bullet, outside the Crash Reports gate', () => {
@@ -129,6 +187,15 @@ describe('Supabase session disclosure (DEBUG-850)', () => {
       expect(row).toMatch(/IP address/);
       expect(california).not.toMatch(NON_IDENTIFYING);
     });
+
+    it('splits the connection-records retention: IP address within a day, last-connection time until deletion', () => {
+      const row = lineStarting(california, '| Connection records');
+      expect(row).toMatch(/Connection records/); // liveness
+      expect(row).not.toMatch(CA_IP_UNTIL_DELETED);
+      expect(row).toMatch(IP_WITHIN_A_DAY);
+      expect(row).toMatch(LAST_CONNECTION_KEPT);
+      expect(row).toMatch(/request logs[^|]*1 day/i);
+    });
   });
 
   describe('DPIA and LIA', () => {
@@ -154,6 +221,28 @@ describe('Supabase session disclosure (DEBUG-850)', () => {
       expect(lia).not.toMatch(QUASI_ID_RELIANCE);
       expect(lia).not.toMatch(/The payload carries no information usable to identify/);
       expect(lia).toMatch(/auth\.sessions/);
+    });
+
+    it('MAINT-865: the DPIA records the scrub as a control, says nothing alerts on it, and updates the residuals', () => {
+      const control = lineStarting(dpia, '| 23 |');
+      expect(control).toMatch(/auth-session-ip-scrub/);
+      expect(control).toMatch(/INFRA-870/);
+      expect(control).toMatch(/no alert|nothing pages/i);
+      const status = lineStarting(dpia, '10. **Status.**');
+      expect(status).toMatch(/Status/); // liveness
+      expect(status).not.toMatch(/INFRA-851 and INFRA-848 should land/);
+      expect(status).toMatch(/INFRA-851/);
+      expect(lineStarting(dpia, '9. **Tripwires.**')).toMatch(/scrub/i);
+    });
+
+    it('MAINT-865: the LIA is re-versioned and records the INFRA-851 review without discharging INFRA-848', () => {
+      const version = lia.match(/\*\*Version:\*\* (\d+)\.(\d+)/);
+      expect(version).not.toBeNull();
+      const [major, minor] = [Number(version![1]), Number(version![2])];
+      expect(major > 1 || minor >= 5).toBe(true);
+      const review = lineStarting(lia, '**Review performed — session IP minimisation (INFRA-851');
+      expect(review).toMatch(/reaffirmed/);
+      expect(review).toMatch(/INFRA-848/);
     });
   });
 });
