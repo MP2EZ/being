@@ -74,6 +74,48 @@ describe('journal source files are actually being scanned', () => {
     expect(JOURNAL_SOURCES.some((f) => f.endsWith('journalCrisisScan.ts'))).toBe(true);
     expect(JOURNAL_SOURCES.some((f) => f.endsWith('journalEntryStore.ts'))).toBe(true);
   });
+
+  it('scans the FEAT-530 search index modules, which derive data from entry text', () => {
+    // Every directory-walk spec below covers whatever is in this set, so being in
+    // it IS the boundary for the index: no PostHog, no Supabase telemetry, no
+    // network egress, no Sentry. A move out of features/journal/services/ would
+    // drop them from the walk silently, hence the explicit membership pin.
+    for (const name of ['journalSearchIndex.ts', 'journalSearchTerms.ts']) {
+      const hit = JOURNAL_SOURCES.find((f) => f.endsWith(`/services/${name}`));
+      expect(hit).toBeDefined();
+    }
+  });
+});
+
+describe('the search index logs a category and a fixed string, nothing derived (FEAT-530 AC #7)', () => {
+  const INDEX_SOURCES = JOURNAL_SOURCES.filter((f) => /\/journalSearch(?:Index|Terms)\.ts$/.test(f));
+
+  it('finds both modules', () => {
+    expect(INDEX_SOURCES).toHaveLength(2);
+  });
+
+  it.each([['journalSearchIndex.ts'], ['journalSearchTerms.ts']])(
+    '%s: no log call interpolates, takes a second argument, or forwards an Error',
+    (name) => {
+      const file = INDEX_SOURCES.find((f) => f.endsWith(name))!;
+      const stripped = stripComments(readFileSync(file, 'utf8'));
+      const calls = [...stripped.matchAll(/\b(?:logError|logFailure|logSystem|logSecurity|logPerformance)\s*\(([^)]*)\)/g)];
+      for (const [, args] of calls) {
+        expect(args).not.toContain('${');
+        expect(args).not.toMatch(/\berror\b|\berr\b|\be\b\s*\)/);
+        // logError(category, 'fixed string') is the only shape: one comma at most.
+        expect((args.match(/,/g) ?? []).length).toBeLessThanOrEqual(1);
+      }
+      // And nothing console-shaped slips past the logger.
+      expect(stripped).not.toMatch(/\bconsole\.(?:log|warn|error|info|debug)\s*\(/);
+    }
+  );
+
+  it('the call matcher fires on a leaking call', () => {
+    const bad = "logError(LogCategory.SYSTEM, `write failed for ${shardKey(n)}`, error);";
+    const [, args] = /\blogError\s*\(([^)]*)\)/.exec(bad)!;
+    expect(args).toContain('${');
+  });
 });
 
 describe('no journal source calls a product-analytics sink', () => {

@@ -74,6 +74,22 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       'index row after saveEntry; also reached from deleteEntry, which is erasure',
     ],
   },
+  // FEAT-530: the voice journal search index. Two writers on purpose, one function each, so a
+  // consent gate wraps the add path and never the removal path. FEAT-666 had NOT landed when this
+  // slice did: whichever lands second gates `writeShardForAdd` (a save the gate blocks must not
+  // index that entry); `writeShardForRemoval` stays ungated either way.
+  'src/features/journal/services/journalSearchIndex.ts': {
+    'writeShardForAdd › storeWellnessBlob': [
+      1,
+      'pending: B',
+      'FEAT-530: word index rows derived from entry text — the save-time add, the build/ensure backfill and shard-0 creation all land here. FEAT-666 gates this function only.',
+    ],
+    'writeShardForRemoval › storeWellnessBlob': [
+      1,
+      ERASURE,
+      'FEAT-530: rewrites a shard minus a deleted entry (deleteEntry) or minus ids no longer live (ensure prune). Withholding consent must never keep a deleted entry\'s words on disk — never gate this.',
+    ],
+  },
   'src/features/practices/stores/stoicPracticeStore.ts': {
     'persistToSecureStore › setItemAsync': [
       1,

@@ -95,7 +95,7 @@ describe('completeness disclosure', () => {
     expect(html).toContain('Export as JSON');
   });
 
-  it.each(['Voice journal entries', 'Consent records', 'Subscription state', 'Individual screening answers', 'Practice streaks and totals', 'more than 90 days before'])(
+  it.each(['Voice journal entries', 'Voice journal search index', 'Consent records', 'Subscription state', 'Individual screening answers', 'Practice streaks and totals', 'more than 90 days before'])(
     'lists what the summary leaves out: %s',
     (item) => {
       expect(html).toContain(item);

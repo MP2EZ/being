@@ -281,6 +281,17 @@ const UNRESOLVED_SITES: Record<string, readonly [number, Classification]> = {
     1,
     [{ store: 'async', prefix: `${WELLNESS_PREFIX}voice_journal_entry_` }],
   ],
+  // FEAT-530: the voice journal search index. Two shapes, both one prefix: `shardKey(n)`
+  // (the writers, the loader and the shard-0 probe) and `key` (the delete helpers, whose
+  // argument is a key `listWellnessBlobKeys` returned for that same prefix or `shardKey(n)`).
+  'src/features/journal/services/journalSearchIndex.ts :: shardKey(n)': [
+    3,
+    [{ store: 'async', prefix: `${WELLNESS_PREFIX}voice_journal_search_` }],
+  ],
+  'src/features/journal/services/journalSearchIndex.ts :: key': [
+    2,
+    [{ store: 'async', prefix: `${WELLNESS_PREFIX}voice_journal_search_` }],
+  ],
 };
 
 /**

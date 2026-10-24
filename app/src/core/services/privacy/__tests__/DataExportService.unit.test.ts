@@ -12,10 +12,17 @@ import { gatherExportData, serializeExport } from '../DataExportService';
 import SecureStorageService from '@/core/services/security/SecureStorageService';
 import * as SecureStore from 'expo-secure-store';
 import { useConsentStore } from '@/core/stores/consentStore';
+import { logError } from '@/core/services/logging';
+import { resetSearchIndexForErasure } from '@/features/journal/services/journalSearchIndex';
 
 jest.mock('@/core/services/security/SecureStorageService', () => ({
   __esModule: true,
-  default: { retrieveWellnessBlob: jest.fn() },
+  default: { retrieveWellnessBlob: jest.fn(), listWellnessBlobKeys: jest.fn() },
+}));
+
+jest.mock('@/core/services/logging', () => ({
+  ...jest.requireActual('@/core/services/logging'),
+  logError: jest.fn(),
 }));
 
 jest.mock('expo-secure-store', () => ({
@@ -27,12 +34,15 @@ jest.mock('@/core/stores/consentStore', () => ({
 }));
 
 const mockRetrieveBlob = SecureStorageService.retrieveWellnessBlob as jest.Mock;
+const mockListKeys = SecureStorageService.listWellnessBlobKeys as jest.Mock;
 const mockGetItem = SecureStore.getItemAsync as jest.Mock;
 const mockExportConsent = jest.fn();
 
 describe('DataExportService — gatherExportData', () => {
   beforeEach(() => {
     jest.clearAllMocks();
+    resetSearchIndexForErasure(); // the index keeps a module-level cache (FEAT-530)
+    mockListKeys.mockResolvedValue([]); // no search index shard on disk unless a test says so
     (useConsentStore.getState as jest.Mock).mockReturnValue({
       exportConsentRecords: mockExportConsent,
     });
@@ -114,6 +124,96 @@ describe('DataExportService — gatherExportData', () => {
 
     expect(json).not.toMatch(/auth_device_id/);
     expect(json).not.toMatch(/master[_-]?key/i);
+  });
+});
+
+describe('DataExportService — wellness.journalSearchIndex (FEAT-530)', () => {
+  const rowsBlob = (rows: unknown) => ({ rows });
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    resetSearchIndexForErasure();
+    (useConsentStore.getState as jest.Mock).mockReturnValue({
+      exportConsentRecords: mockExportConsent,
+    });
+    mockExportConsent.mockResolvedValue({ currentConsent: null, history: [], exportedAt: 0 });
+    mockGetItem.mockResolvedValue(null);
+    mockListKeys.mockResolvedValue([]);
+    mockRetrieveBlob.mockResolvedValue(null);
+  });
+
+  it('is null when search was never built', async () => {
+    const envelope = await gatherExportData();
+    expect(envelope.wellness.journalSearchIndex).toBeNull();
+    expect('journalSearchIndex' in envelope.wellness).toBe(true); // present, as null
+  });
+
+  it('is [] when built over an empty journal', async () => {
+    mockListKeys.mockResolvedValue(['voice_journal_search_0']);
+    mockRetrieveBlob.mockImplementation(async (key: string) =>
+      key === 'voice_journal_search_0' ? rowsBlob([]) : null
+    );
+
+    const envelope = await gatherExportData();
+
+    expect(envelope.wellness.journalSearchIndex).toEqual([]);
+  });
+
+  it('carries one { entryId, terms } row per entry when built', async () => {
+    mockListKeys.mockResolvedValue(['voice_journal_search_0']);
+    mockRetrieveBlob.mockImplementation(async (key: string) =>
+      key === 'voice_journal_search_0'
+        ? rowsBlob([
+            { entryId: 'a', terms: ['alpha', 'beta'] },
+            { entryId: 'b', terms: ['gamma'] },
+          ])
+        : null
+    );
+
+    const envelope = await gatherExportData();
+
+    expect(envelope.wellness.journalSearchIndex).toEqual([
+      { entryId: 'a', terms: ['alpha', 'beta'] },
+      { entryId: 'b', terms: ['gamma'] },
+    ]);
+    const exported = JSON.parse(serializeExport(envelope)).wellness.journalSearchIndex;
+    for (const row of exported) expect(Object.keys(row)).toEqual(['entryId', 'terms']);
+  });
+
+  it('is independently null-safe: an unreadable index omits that section only', async () => {
+    mockRetrieveBlob.mockImplementation(async (key: string) => {
+      if (key === 'voice_journal_search_0') throw new Error('shard-0 payload 262145 > 262144');
+      return null;
+    });
+    mockListKeys.mockResolvedValue(['voice_journal_search_0']);
+    mockGetItem.mockImplementation(async (key: string) =>
+      key === 'stoic_practice_state' ? JSON.stringify({ currentStreak: 7 }) : null
+    );
+
+    const envelope = await gatherExportData();
+
+    expect(envelope.wellness.journalSearchIndex).toBeNull();
+    expect(envelope.wellness.practices).toEqual({ currentStreak: 7 });
+    expect(envelope.wellness.journalEntries).toEqual([]);
+  });
+
+  it('logs a category and a fixed string, never the underlying Error', async () => {
+    mockListKeys.mockResolvedValue(['voice_journal_search_0']);
+    mockRetrieveBlob.mockImplementation(async (key: string) => {
+      if (key === 'voice_journal_search_0') throw new Error('shard-0 payload 262145 > 262144');
+      return null;
+    });
+
+    await gatherExportData();
+
+    const searchCalls = (logError as jest.Mock).mock.calls.filter(([, message]) =>
+      /search index/i.test(String(message))
+    );
+    expect(searchCalls.length).toBeGreaterThan(0);
+    for (const call of searchCalls) {
+      expect(call).toHaveLength(2); // category + message: no Error argument
+      expect(JSON.stringify(call)).not.toMatch(/262145|payload/);
+    }
   });
 });
 

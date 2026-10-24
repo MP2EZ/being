@@ -13,6 +13,7 @@ jest.mock('@/core/services/security/SecureStorageService', () => ({
     storeWellnessBlob: jest.fn(),
     retrieveWellnessBlob: jest.fn(),
     deleteWellnessBlob: jest.fn(),
+    listWellnessBlobKeys: jest.fn(),
   },
 }));
 
@@ -31,6 +32,7 @@ const mockStore = SecureStorageService as unknown as {
   storeWellnessBlob: jest.Mock;
   retrieveWellnessBlob: jest.Mock;
   deleteWellnessBlob: jest.Mock;
+  listWellnessBlobKeys: jest.Mock;
 };
 
 beforeEach(() => {
@@ -38,6 +40,8 @@ beforeEach(() => {
   mockStore.storeWellnessBlob.mockResolvedValue({ success: true });
   mockStore.retrieveWellnessBlob.mockResolvedValue(null);
   mockStore.deleteWellnessBlob.mockResolvedValue(undefined);
+  // FEAT-530: the search index enumerates its shard keys (none exist here).
+  mockStore.listWellnessBlobKeys.mockResolvedValue([]);
 });
 
 describe('saveEntry — encryption path', () => {
