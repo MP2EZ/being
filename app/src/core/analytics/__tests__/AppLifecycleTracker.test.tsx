@@ -34,6 +34,7 @@ import { useConsentStore } from '@/core/stores/consentStore';
 /** DEBUG-559: the mount emit now reads consent, not client presence. */
 function setAnalyticsConsent(analyticsEnabled: boolean, universalOptOut = false): void {
   useConsentStore.setState({
+    consentStatus: 'valid', // DEBUG-690: the hook emits only on a valid status
     currentConsent: { preferences: { analyticsEnabled }, universalOptOut },
   } as unknown as Parameters<typeof useConsentStore.setState>[0]);
 }

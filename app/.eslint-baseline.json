@@ -10,6 +10,7 @@
   "src/core/analytics/__tests__/analyticsIdentityReset.privacy.test.ts": 1,
   "src/core/analytics/__tests__/appLifecycleTelemetry.test.ts": 1,
   "src/core/analytics/__tests__/useAnalytics.consentGate.privacy.test.tsx": 1,
+  "src/core/analytics/__tests__/useAnalyticsConsent.consentStatus.privacy.test.tsx": 1,
   "src/core/components/CelebrationToast.tsx": 2,
   "src/core/components/ErrorBoundary.tsx": 1,
   "src/core/components/NotificationTimePicker.tsx": 1,

@@ -46,6 +46,7 @@ import { useConsentStore } from '@/core/stores/consentStore';
 
 function setConsent(analyticsEnabled: boolean, universalOptOut = false): void {
   useConsentStore.setState({
+    consentStatus: 'valid', // DEBUG-690: the hook emits only on a valid status
     currentConsent: { preferences: { analyticsEnabled }, universalOptOut },
   } as unknown as Parameters<typeof useConsentStore.setState>[0]);
 }

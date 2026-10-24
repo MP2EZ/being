@@ -24,31 +24,38 @@
  * posture a property of a third-party library's internals rather than of our own
  * code, and it is silent when it changes.
  *
- * The two store paths below are the ones `PostHogProvider` reads to drive
- * `optIn()`/`optOut()`, so a call site using this hook cannot disagree with the
- * client's own opt state. The retired `useFeatureFlag.ts` (MAINT-811) gated on exactly
- * these two conjuncts independently, which is why it was the one consumer the
- * always-mount change did not silently break.
+ * `PostHogProvider`'s `ConsentSync` drives `optIn()`/`optOut()` from this hook, so a
+ * call site using it cannot disagree with the client's own opt state.
+ *
+ * DEBUG-690: it emits exactly when `analyticsConsentOutcome` says `emit`. Reading
+ * only the analytics preference kept PostHog opted in after consent lapsed: the
+ * `expired` and `under_age` load branches, and `revokeConsent`, keep `currentConsent`
+ * in memory with its preference intact. `hold` (loading) and `purge` are both false;
+ * this hook never purges (consentWithdrawalPurge does).
+ *
+ * It renders above `RootCrisisBoundary`, and the outcome's `default` arm throws on an
+ * unknown status, so the selector catches and returns false: a throw here would blank
+ * every 988 affordance (DEBUG-559). One selector, one boolean primitive.
  */
 
 import { useConsentStore } from '@/core/stores/consentStore';
+import { analyticsConsentOutcome } from './analyticsConsentOutcome';
 
 /**
- * True when the user has granted analytics consent and has not asserted a
- * universal opt-out (INFRA-151: GPC-equivalent, overrides granular consent).
+ * True when consent is `valid`, analytics is granted, and no universal opt-out is
+ * asserted (INFRA-151: GPC-equivalent, overrides granular consent).
  *
  * This governs ANALYTICS EMISSION ONLY. It is not, and must never be used as, a
  * data-operation gate — that is `useConsentStore.canPerformOperation(...)`.
  */
 export function useAnalyticsConsent(): boolean {
-  const analyticsEnabled = useConsentStore(
-    (state) => state.currentConsent?.preferences?.analyticsEnabled ?? false
-  );
-  const universalOptOut = useConsentStore(
-    (state) => state.currentConsent?.universalOptOut ?? false
-  );
-
-  return analyticsEnabled && !universalOptOut;
+  return useConsentStore((state) => {
+    try {
+      return analyticsConsentOutcome(state) === 'emit';
+    } catch {
+      return false;
+    }
+  });
 }
 
 export default useAnalyticsConsent;

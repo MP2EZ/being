@@ -85,7 +85,10 @@ import { useConsentStore } from '@/core/stores/consentStore';
 
 type SetState = Parameters<typeof useConsentStore.setState>[0];
 
-function setConsent(analyticsEnabled: boolean, consentStatus: 'valid' | 'loading' = 'valid'): void {
+function setConsent(
+  analyticsEnabled: boolean,
+  consentStatus: 'valid' | 'loading' | 'expired' | 'under_age' = 'valid',
+): void {
   useConsentStore.setState({
     consentStatus,
     currentConsent: { preferences: { analyticsEnabled }, universalOptOut: false },
@@ -171,6 +174,24 @@ describe('DEBUG-686 — ConsentSync wires the withdrawal purge', () => {
     act(() => setConsent(false));
     expect(queueNullCalls(first)).toBe(0);
     expect(queueNullCalls(mockClients.current)).toBeGreaterThan(0);
+  });
+
+  // DEBUG-690 (AC4): expiry and under-age keep the record — analytics still on — in
+  // memory. They are withdrawals all the same: the queue is purged, and the client is
+  // opted out and never opted back in.
+  it.each(['expired', 'under_age'] as const)('%s with the record retained purges and stays opted out', (status) => {
+    setConsent(true);
+    renderProvider();
+    const client = mockClients.current;
+    expect(queueNullCalls(client)).toBe(0);
+    client.optIn.mockClear();
+
+    act(() => setConsent(true, status));
+
+    expect(queueNullCalls(client)).toBeGreaterThan(0);
+    expect(client.setPersistedProperty).toHaveBeenCalledWith('logs_queue', null);
+    expect(client.optOut).toHaveBeenCalled();
+    expect(client.optIn).not.toHaveBeenCalled();
   });
 
   it('holds while the store is loading — nothing is purged before consent is known', () => {

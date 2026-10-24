@@ -40,6 +40,7 @@ import { useConsentStore } from '@/core/stores/consentStore';
 /** DEBUG-559: trackEvent reads the consent store, not the client's presence. */
 const setAnalyticsConsent = (analyticsEnabled: boolean): void => {
   useConsentStore.setState({
+    consentStatus: 'valid', // DEBUG-690: the hook emits only on a valid status
     currentConsent: { preferences: { analyticsEnabled }, universalOptOut: false },
   } as unknown as Parameters<typeof useConsentStore.setState>[0]);
 };
