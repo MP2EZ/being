@@ -274,7 +274,7 @@ const DeleteAccountScreen: React.FC = () => {
           disabled={!canDelete}
           accessibilityRole="button"
           accessibilityLabel="Delete my account"
-          accessibilityHint="Permanently erases your account and wellness data. This cannot be undone."
+          accessibilityHint="Permanently erases your account and on-device wellness data. This cannot be undone."
           accessibilityState={{ disabled: !canDelete, busy: isDeleting }}
           testID="delete-account-button"
         >

@@ -1,6 +1,6 @@
 # California Privacy Rights
 
-**Version:** 1.5
+**Version:** 1.6
 **Effective Date:** December 12, 2025
 **Last Updated:** October 24, 2026
 
@@ -65,6 +65,8 @@ You have the right to request that we disclose:
 ### Right to Delete
 
 You have the right to request deletion of personal information we collected from you, subject to certain exceptions.
+
+The crisis-detection event (Privacy Policy §3) is stored without your random account ID or any session identifier. We keep it in that form and will not attempt to re-identify it or link it to other data we hold. Because we cannot tell which events are yours, we cannot delete them on request; each is deleted automatically 90 days after it reaches our servers (Privacy Policy §7.3 and §7.4).
 
 ### Right to Correct
 
@@ -137,9 +139,9 @@ Being collects **sensitive personal information** as defined under CPRA, specifi
 - NOT for profiling, advertising, or secondary purposes
 
 **Your control:**
-- PHQ-9 / GAD-7 responses, mood check-ins and journal entries are stored locally on your device only — Being does not transmit them to any server. The one exception is the crisis-detection event (Privacy Policy §3), which records that a screening threshold was met, without your answers or scores, and is linked to your random account ID
+- PHQ-9 / GAD-7 responses, mood check-ins and journal entries are stored locally on your device only — Being does not transmit them to any server. The one exception is the crisis-detection event (Privacy Policy §3), which records that a screening threshold was met, without your answers or scores, and without your random account ID or any session identifier
 - The optional settings backup (see Privacy Policy §4.2) is scoped to non-sensitive app preferences only and does not include any sensitive personal information
-- You can delete this data at any time via in-app *Settings → Privacy & Data*
+- You can delete this data at any time via in-app *Settings → Privacy & Data*, except the crisis-detection event: it carries no account or session identifier, so we cannot tell which events are yours or delete them on request, and it is deleted 90 days after it reaches our servers (Privacy Policy §7.4)
 
 ---
 
@@ -153,7 +155,7 @@ We retain your personal information only as long as necessary for the purposes d
 | Settings backup (cloud, optional) | Until you disable backup or request deletion via in-app *Privacy & Data* settings |
 | Usage analytics (opt-in only; app and being.fyi, stored by PostHog) | 1 year at PostHog on our current plan; PostHog offers no shorter period (see Privacy Policy §5.2) |
 | Settings-backup operational records (only if you turn on backup; see Privacy Policy §4.2) | 90 days on our servers |
-| Crisis detection events (linked to your random account ID; not opt-in; see Privacy Policy §7.2) | 3 years on our servers |
+| Crisis detection events (stored without your random account ID or any session identifier; not opt-in; see Privacy Policy §3 and §7.3) | 90 days on our servers, from when each event arrives |
 | Connection records (IP address, device and app details and last-connection time kept against your random account ID; see Privacy Policy §4.1) | IP address and device and app details: deleted within a day of each connection. Last-connection time: kept until the random account ID is deleted. Request logs that include the IP address are kept for 1 day on our current plan |
 
 ---

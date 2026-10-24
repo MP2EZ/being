@@ -44,6 +44,10 @@ INFRA-260.
   access control.)
 - Crisis telemetry (`crisis_detected`, INFRA-214 vital-interest path) inserts
   are not currently forgery/flood-bounded at the identity layer.
+  **Update (INFRA-861):** by design they now carry no identity at all: the anon role inserts them
+  with no user token, and the table forces `user_id` / `session_id` to NULL. They are bounded
+  without an identifier instead: at most 50 crisis rows per statement, values coerced to fixed
+  domains, and a daily ceiling with an operator page.
 - IAP entitlements are not bound to a verified principal.
 
 ## Mitigation / fix (INFRA-260)
