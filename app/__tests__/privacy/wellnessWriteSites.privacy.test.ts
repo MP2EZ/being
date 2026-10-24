@@ -151,6 +151,13 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     'DataRetentionServiceImpl.runRetentionCleanup › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — retention audit metadata`],
     'DataRetentionServiceImpl.saveAuditEntry › AsyncStorage.setItem': [1, `${NOT_WELLNESS} — retention audit metadata`],
   },
+  'src/features/consent/services/policyAck.ts': {
+    'writePolicyAck › setItemAsync': [
+      1,
+      NOT_WELLNESS,
+      'FEAT-860: privacy-policy acknowledgement {version, acknowledgedAt, source}; acknowledgement, not consent, no wellness data',
+    ],
+  },
   'src/core/stores/consentStore.ts': {
     'persistConsentHistory › storeWellnessBlob': [
       1,

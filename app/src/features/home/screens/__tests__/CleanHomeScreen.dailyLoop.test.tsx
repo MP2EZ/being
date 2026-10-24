@@ -42,6 +42,14 @@ jest.mock('@/features/assessment/components/AssessmentStatusBadge', () => ({
   default: () => null,
 }));
 
+// FEAT-860: the policy-change notice has its own suites (PolicyChangeNotice.accessibility,
+// __tests__/safety/policyNoticeCrisisReachability). Stubbed here so this suite keeps the
+// module graph and Home layout it was written against.
+jest.mock('@/features/consent/components/PolicyChangeNotice', () => ({
+  __esModule: true,
+  default: () => null,
+}));
+
 jest.mock('../../components/IntroOverlay', () => ({
   __esModule: true,
   IntroOverlay: () => null,

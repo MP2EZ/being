@@ -275,6 +275,9 @@ export const ERASURE_EXCLUDED_SECURE_STORE_KEYS = [
  *    deleted account's consent, legal acceptances and age check. Until DEBUG-762
  *    these survived (DEBUG-755 only retired them), so the next person on the device
  *    inherited a stale record and the privacy policy said "retained indefinitely".
+ *  - `privacy_policy_ack_v1` (FEAT-860) — the record that this person saw the policy at some
+ *    version. Acknowledgement, not consent; account-scoped, so the next person must see the
+ *    material changes themselves.
  *  - `auth_device_id` — the pre-INFRA-260 device-identity anchor. Nothing reads it
  *    since the anonymous Supabase session replaced it; deleting it cannot
  *    de-authenticate anyone.
@@ -289,6 +292,7 @@ export const ACCOUNT_ERASURE_SECURE_STORE_KEYS = [
   'consent_record_v1',
   'legal_gate_consents_v1',
   'age_verification_v1',
+  'privacy_policy_ack_v1',
   'auth_device_id',
   '@being/device_id',
 ] as const;

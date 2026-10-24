@@ -51,6 +51,7 @@ import {
   type AgeVerification,
 } from '../stores/consentStore';
 import { logSystem, logError, LogCategory } from '../services/logging';
+import { writePolicyAck } from '@/features/consent/services/policyAck';
 import {
   useStoicPracticeStore,
   type CheckInType,
@@ -367,6 +368,11 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
         },
       });
 
+      // FEAT-860: this branch skips `recordLegalGateConsents`, which is what writes the
+      // privacy-policy acknowledgement for the other Main-reaching branch. Without it Home
+      // would show the policy-change notice and shift the layout every flow starts from.
+      await writePolicyAck('legal_gate');
+
       logSystem('[E2ESeed] Stale consent seeded; navigator will present ReConsent over Main');
       return;
     }
@@ -410,6 +416,10 @@ export async function maybeSeedE2EOnboardedState(): Promise<void> {
           isEligible: true,
         },
       });
+
+      // FEAT-860: as the stale-consent branch above — this one also skips
+      // `recordLegalGateConsents`, so it writes the acknowledgement itself.
+      await writePolicyAck('legal_gate');
 
       logSystem('[E2ESeed] Ineligible cohort seeded; navigator will present the no-exit screen');
       return;
