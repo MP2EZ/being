@@ -676,3 +676,32 @@ describe('SecureStorageService — INFRA-144 hybrid storage', () => {
     expect(back).toEqual({ a: 1 });
   });
 });
+
+describe('SecureStorageService — listWellnessBlobKeys (FEAT-530)', () => {
+  it('returns logical keys (wellness prefix removed) under the given logical prefix', async () => {
+    plantWellness('voice_journal_search_0', { rows: [] });
+    plantWellness('voice_journal_search_12', { rows: [] });
+    plantWellness('voice_journal_index', []);
+    mockAsyncStorageMap.set('assessment_async_voice_journal_search_9', 'x');
+    mockAsyncStorageMap.set('voice_journal_search_7', 'bare key, no wellness prefix');
+
+    const keys: string[] = await service.listWellnessBlobKeys('voice_journal_search_');
+
+    expect([...keys].sort()).toEqual(['voice_journal_search_0', 'voice_journal_search_12']);
+  });
+
+  it('does no cryptography and reads no value', async () => {
+    plantWellness('voice_journal_search_0', { rows: [] });
+    const { default: enc } = require('../EncryptionService');
+
+    await service.listWellnessBlobKeys('voice_journal_search_');
+
+    expect(enc.decryptData).not.toHaveBeenCalled();
+    expect(enc.encryptData).not.toHaveBeenCalled();
+    expect(require('@react-native-async-storage/async-storage').getItem).not.toHaveBeenCalled();
+  });
+
+  it('returns [] when nothing matches', async () => {
+    await expect(service.listWellnessBlobKeys('voice_journal_search_')).resolves.toEqual([]);
+  });
+});

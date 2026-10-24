@@ -684,6 +684,23 @@ export class SecureStorageService {
   }
 
   /**
+   * Logical names of the wellness blobs whose name starts with `logicalPrefix`
+   * (FEAT-530). The prefix and the returned names are the same logical form
+   * `storeWellnessBlob` takes, so `wellness_async_` never reaches a caller.
+   *
+   * Key enumeration only: no value is read and nothing is decrypted, so it costs
+   * no key derivation. It exists so a feature that shards one logical record
+   * across numbered keys can erase every shard without trusting a stored count.
+   */
+  public async listWellnessBlobKeys(logicalPrefix: string): Promise<string[]> {
+    const full = `${SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX}${logicalPrefix}`;
+    const keys = await AsyncStorage.getAllKeys();
+    return keys
+      .filter((k) => k.startsWith(full))
+      .map((k) => k.slice(SECURE_STORAGE_CONFIG.WELLNESS_ASYNC_PREFIX.length));
+  }
+
+  /**
    * Hybrid-storage read helper: AsyncStorage first, falling back to a legacy
    * SecureStore key for unmigrated existing users. On legacy hit, we
    * decrypt-verify (proving the data is recoverable under the current master

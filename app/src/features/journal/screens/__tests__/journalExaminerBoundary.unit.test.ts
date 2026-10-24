@@ -27,10 +27,26 @@ import { join } from 'path';
 
 const FEATURE = join(__dirname, '../..');
 
-const GUARDED = [
-  ['screens/JournalHistoryScreen.tsx', join(FEATURE, 'screens/JournalHistoryScreen.tsx')],
-  ['services/journalDateRange.ts', join(FEATURE, 'services/journalDateRange.ts')],
-] as const;
+/** The one matcher a file may be excused from, by name — see the FEAT-530 ruling below. */
+const SORT_MATCHER = 're-sorting the inherited order';
+
+/**
+ * `[label, path, matchers this file is excused from]`.
+ *
+ * FEAT-530 (founder ruling 2026-10-23): the search index is guarded in two files.
+ * `journalSearchIndex.ts` (the query and its results) carries the FULL set, so
+ * nothing there may sort. `journalSearchTerms.ts` builds a row, and a row's terms
+ * are stored sorted for deterministic shard bytes, so that ONE file is excused
+ * from the `.sort` matcher and only that matcher. The exemption is pinned from the
+ * other side below: exactly one `.sort(`, applied to a term list, and the results
+ * module never uses the builder.
+ */
+const GUARDED: ReadonlyArray<readonly [string, string, readonly string[]]> = [
+  ['screens/JournalHistoryScreen.tsx', join(FEATURE, 'screens/JournalHistoryScreen.tsx'), []],
+  ['services/journalDateRange.ts', join(FEATURE, 'services/journalDateRange.ts'), []],
+  ['services/journalSearchIndex.ts', join(FEATURE, 'services/journalSearchIndex.ts'), []],
+  ['services/journalSearchTerms.ts', join(FEATURE, 'services/journalSearchTerms.ts'), [SORT_MATCHER]],
+];
 
 /** Block and line comments removed. Rail 1. */
 function strip(source: string): string {
@@ -50,12 +66,14 @@ const FORBIDDEN: ReadonlyArray<readonly [string, RegExp]> = [
   ['tf-idf / term scoring', /\b(tfidf|termFrequency|termScore)\s*[(<[.=:]/i],
   ['relevance ranking', /\b(relevanceScore|rankBy|scoreEntry|rankEntries)\s*[(<[.=:]/i],
   ['sentiment / mood inference', /\b(sentiment|moodScore|inferMood|detectTheme)\s*[(<[.=:]/i],
-  ['re-sorting the inherited order', /\.sort\s*\(/],
+  [SORT_MATCHER, /\.sort\s*\(/],
+  // The workaround the ruling bans: `.toSorted(` is a sort under another name.
+  ['re-sorting the inherited order (toSorted)', /\.toSorted\s*\(/],
 ];
 
 describe('the re-read path does not become the examiner', () => {
-  describe.each(GUARDED)('%s', (_label, path) => {
-    it.each(FORBIDDEN)('contains no %s', (_name, pattern) => {
+  describe.each(GUARDED)('%s', (_label, path, excused) => {
+    it.each(FORBIDDEN.filter(([name]) => !excused.includes(name)))('contains no %s', (_name, pattern) => {
       expect(read(path)).not.toMatch(pattern);
     });
 
@@ -76,6 +94,7 @@ describe('the re-read path does not become the examiner', () => {
         'const r = rankBy(entries, score);',
         'const m = sentiment(entry.text);',
         'const ordered = metas.sort((a, b) => b.createdAt - a.createdAt);',
+        'const ordered = metas.toSorted((a, b) => b.createdAt - a.createdAt);',
       ].join('\n');
       expect(bad).toMatch(pattern);
     });
@@ -99,5 +118,48 @@ describe('the re-read path does not become the examiner', () => {
       expect(prose).toMatch(/relevance|similarity|a year ago today/i);
       expect(GUARDED.map(([, p]) => read(p)).join('\n')).not.toMatch(/a year ago today/i);
     });
+  });
+});
+
+describe('the search index sorts nothing but a term list (FEAT-530, founder ruling 2026-10-23)', () => {
+  const INDEX = join(FEATURE, 'services/journalSearchIndex.ts');
+  const TERMS = join(FEATURE, 'services/journalSearchTerms.ts');
+
+  it('the builder file has exactly ONE .sort(, and it sorts a terms array', () => {
+    const source = read(TERMS);
+    expect(source.match(/\.sort\s*\(/g)).toHaveLength(1);
+    // `terms: [...unique].sort()` — a list of normalised words, nothing else.
+    expect(source).toMatch(/terms:\s*\[\.\.\.\w+\]\.sort\(\)/);
+    expect(source).not.toMatch(/\.sort\s*\([^)]/); // no comparator: order is the code-unit order of the words
+    expect(source).not.toMatch(/\.toSorted\s*\(/);
+  });
+
+  it('the exemption is one matcher in one file: the results module is fully guarded', () => {
+    const excused = GUARDED.filter(([, , e]) => e.length > 0).map(([label]) => label);
+    expect(excused).toEqual(['services/journalSearchTerms.ts']);
+    expect(read(INDEX)).not.toMatch(/\.sort\s*\(/);
+    expect(read(INDEX)).not.toMatch(/\.toSorted\s*\(/);
+  });
+
+  it('the query and result path never use the builder', () => {
+    const source = read(INDEX);
+    // The builder is called by the two ADD paths and nowhere else.
+    const callers = [...source.matchAll(/\bbuildTermRow\s*\(/g)].map((m) => m.index ?? -1);
+    expect(callers).toHaveLength(2);
+    const inside = (name: string, at: number): boolean => {
+      const start = source.search(new RegExp(`(?:async )?function ${name}\\(`));
+      const rest = source.slice(start + 1);
+      const end = rest.search(/\n(?:export\s+)?(?:async\s+)?function\s/);
+      return start >= 0 && at > start && at < start + 1 + (end === -1 ? rest.length : end);
+    };
+    expect(inside('runAdd', callers[0])).toBe(true);
+    expect(inside('indexOne', callers[1])).toBe(true);
+    // And what it imports from the builder is only the row builder and the query splitter.
+    const imported = source.match(/import\s*\{([^}]*)\}\s*from\s*'\.\/journalSearchTerms'/);
+    expect(imported?.[1].replace(/type\s+/g, '').split(',').map((x) => x.trim()).filter(Boolean)).toEqual([
+      'buildTermRow',
+      'queryPrefixes',
+      'TermRow',
+    ]);
   });
 });

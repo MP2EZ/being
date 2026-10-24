@@ -20,12 +20,25 @@
  * blob would hit that 256KB ceiling after only a handful of long entries, and
  * every save would rewrite every entry ever written.
  *
- * A separate index holds metadata only — id and timestamps, never text. A list
- * view can therefore render without decrypting bodies it is not showing.
+ * The METADATA index holds id and timestamps only, never text. A list view can
+ * therefore render without decrypting bodies it is not showing.
+ *
+ * SEARCH INDEX (FEAT-530)
+ *
+ * A second, separate artifact: `journalSearchIndex.ts` keeps an encrypted,
+ * sharded list of the distinct words of each entry (`voice_journal_search_<n>`)
+ * so a search does not decrypt every entry. It is derived from entry text, so it
+ * is a second place the words of a deleted entry could survive, and the three
+ * write paths here keep it honest: `saveEntry` queues an add AFTER the entry and
+ * the metadata row are durable (never awaited, never able to change the
+ * `SaveResult`); `deleteEntry` awaits removal of the entry's words;
+ * `deleteAllEntries` deletes every shard by key prefix. Nothing exists until a
+ * build creates the first shard, so until then the save hook writes nothing.
  *
  * ERASURE
  *
- * Nothing here registers itself for deletion, and that is deliberate.
+ * Nothing here registers itself for deletion, and that is deliberate for the
+ * entry records and the metadata index.
  * `storeWellnessBlob` prepends `WELLNESS_ASYNC_PREFIX` to every key it writes,
  * and `clearAllWellnessData` sweeps that prefix, so both the entry records and
  * the index are erased automatically. This is why every write goes through
@@ -34,9 +47,23 @@
  * `crisis_intervention_*` exhibited before DEBUG-305 removed it.
  * `journalErasure.privacy.test.ts` proves absence by enumeration rather than
  * trusting this comment.
+ *
+ * The search index is the exception to "nothing registers": it holds an
+ * in-memory shard cache and a queue of pending writes, and a write already in
+ * flight would otherwise land on a disk the sweep has just emptied. It therefore
+ * registers with the erasure registry (`journalSearchIndex`), which drops the
+ * cache and invalidates every queued or in-flight write; its shard keys are
+ * still swept by the prefix like everything else.
  */
 
 import SecureStorageService from '@/core/services/security/SecureStorageService';
+
+import {
+  deleteSearchIndex,
+  indexEntryAfterSave,
+  removeEntryFromSearchIndex,
+  type JournalIndexSource,
+} from './journalSearchIndex';
 
 /** Logical blob names. `storeWellnessBlob` adds the `wellness_async_` prefix. */
 const INDEX_KEY = 'voice_journal_index';
@@ -158,6 +185,12 @@ export async function saveEntry(input: {
     return { saved: false, reason: 'storage_failed' };
   }
 
+  // Search index (FEAT-530): after the entry is durable, never awaited, and it
+  // cannot change the result. A failed or skipped index write is not lost data —
+  // the index is derived, and its completeness check makes the next search ask
+  // for a rebuild instead of answering from a partial index.
+  void indexEntryAfterSave(journalIndexSource, { id, text }, { replacing: index.some((m) => m.id === id) });
+
   return { saved: true, entry };
 }
 
@@ -174,6 +207,15 @@ export async function listEntryMetadata(): Promise<JournalEntryMeta[]> {
   const index = await readIndex();
   return [...index].sort((a, b) => b.createdAt - a.createdAt);
 }
+
+/**
+ * Entry access for the search index, which must not import this module (the
+ * index would then be two-way coupled to the store that calls it).
+ */
+export const journalIndexSource: JournalIndexSource = {
+  listIds: async () => (await listEntryMetadata()).map((m) => m.id),
+  readText: async (id) => (await getEntry(id))?.text ?? null,
+};
 
 /**
  * Every entry, decrypted, for the data-portability export (AC #7).
@@ -207,6 +249,9 @@ export async function deleteEntry(id: string): Promise<void> {
   await SecureStorageService.deleteWellnessBlob(entryKey(id));
   const index = await readIndex();
   await writeIndex(index.filter((m) => m.id !== id));
+  // The entry and its metadata row are gone; now strip the words derived from it.
+  // Awaited, because "deleted" has to mean the words are gone too. Never throws.
+  await removeEntryFromSearchIndex(id);
 }
 
 /**
@@ -232,4 +277,7 @@ export async function deleteAllEntries(): Promise<void> {
   } catch {
     // Erasure sweep remains the backstop.
   }
+
+  // The search index: bump its epoch and delete every shard by prefix. Never throws.
+  await deleteSearchIndex();
 }
