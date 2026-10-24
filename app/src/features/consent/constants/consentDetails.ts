@@ -21,7 +21,10 @@
  */
 
 import type { ConsentToggleCardProps } from '../components/ConsentToggleCard';
-import { OPERATIONAL_TELEMETRY_DISCLOSURE } from '@/core/services/supabase/operationalEvents';
+import {
+  CONNECTION_RECORDS_DISCLOSURE,
+  OPERATIONAL_TELEMETRY_DISCLOSURE,
+} from '@/core/services/supabase/operationalEvents';
 
 /** The shape `ConsentToggleCard` consumes, minus the per-render state. */
 type ConsentCategoryCopy = Pick<ConsentToggleCardProps, 'title' | 'description' | 'details'>;
@@ -88,18 +91,20 @@ export const CONSENT_DETAILS = {
     title: 'Settings Backup',
     description: 'Back up a few app settings to encrypted cloud storage',
     details: {
-      // TWO disjoint sources, both pinned by cloudBackupConsentCopy.privacy.test.ts:
-      //   1. the backup PAYLOAD (DEBUG-614), and
-      //   2. the operational TELEMETRY sent under this same consent (DEBUG-625).
+      // THREE disjoint sources, all pinned by cloudBackupConsentCopy.privacy.test.ts:
+      //   1. the backup PAYLOAD (DEBUG-614),
+      //   2. the operational TELEMETRY sent under this same consent (DEBUG-625), and
+      //   3. the CONNECTION RECORDS Supabase keeps once backup creates the ID (DEBUG-853).
       // DEBUG-614 pinned only the payload, so the card ended up describing strictly
       // less than the consent covered — six server-side event types, each stamped with
-      // the anonymous account identifier, appeared nowhere. The `whatWeCollect` heading
+      // the account identifier, appeared nowhere. The `whatWeCollect` heading
       // reads as exhaustive, which made that an FTC §5 omission independent of the
       // legal-basis question.
       // 'A last-sync timestamp' was REMOVED with the field itself (DEBUG-625 AC1).
       whatWeCollect: [
         'Your autosave setting',
         OPERATIONAL_TELEMETRY_DISCLOSURE,
+        CONNECTION_RECORDS_DISCLOSURE,
       ],
       whatWeDontCollect: [
         'Journal entries',

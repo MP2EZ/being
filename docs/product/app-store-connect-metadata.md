@@ -248,7 +248,7 @@ The collected-data declarations are encoded in `app/app.json` → `expo.ios.priv
 |---|---|
 | Collected | **Yes** |
 | Data types | PHQ-9 responses, GAD-7 responses, daily mood check-in data, practice completion status |
-| Linked to user identity | **Pending a compliance ruling (DEBUG-821) — do not submit "No".** Screening responses, mood values and practice data stay on the device (optional cloud backup is end-to-end encrypted with user-controlled keys), but a Crisis Detection Event (`crisis_detected`) is sent to Being's server keyed to the anonymous account identifier (`auth.uid()`), so the earlier "local-only" answer was false (DEBUG-793). The manifest declares no Health type yet, and it must match whatever is ruled here (`docs/security/ios-privacy-manifest.md`) |
+| Linked to user identity | **Pending a compliance ruling (DEBUG-821) — do not submit "No".** Screening responses, mood values and practice data stay on the device (optional cloud backup is end-to-end encrypted with user-controlled keys), but a Crisis Detection Event (`crisis_detected`) is sent to Being's server keyed to the random account ID (`auth.uid()`), so the earlier "local-only" answer was false (DEBUG-793). The manifest declares no Health type yet, and it must match whatever is ruled here (`docs/security/ios-privacy-manifest.md`) |
 | Used for tracking | **No** |
 | Purpose | App Functionality |
 
@@ -272,12 +272,22 @@ The collected-data declarations are encoded in `app/app.json` → `expo.ios.priv
 | Used for tracking | **No** |
 | Purpose | Analytics, App Functionality |
 
+**Identifiers → User ID**
+
+| Field | Value |
+|---|---|
+| Collected | **Yes** |
+| Source | The random account ID (Supabase `auth.uid()`), created the first time a crisis-detection event is recorded, the settings backup is used, or a purchase is made or restored. Supabase keeps the latest connection's IP address, user agent and last-connection time against it (privacy policy §2.2, §4.1) |
+| Linked to user identity | **Yes** |
+| Used for tracking | **No** |
+| Purpose | App Functionality |
+
 **Usage Data → Product Interaction**
 
 | Field | Value |
 |---|---|
 | Collected | **Yes**, only with *Usage Analytics* on |
-| Source | PostHog product events (screen views, completed actions, opening support resources, tapping a crisis line) |
+| Source | PostHog product events (screen views and completed actions; since DEBUG-821 never opening a screening, screening history, support resources or guidance, or tapping a crisis line) |
 | Linked to user identity | **Yes** — keyed to the Device ID above |
 | Used for tracking | **No** |
 | Purpose | Analytics |
@@ -287,14 +297,14 @@ The collected-data declarations are encoded in `app/app.json` → `expo.ios.priv
 | Field | Value |
 |---|---|
 | Collected | **Yes** |
-| Source | City-level GeoIP derived by PostHog (with *Usage Analytics* on) and by Sentry (with *Crash Reports* on, and on any bug report you send); IP addresses are not stored |
+| Source | City-level GeoIP derived by PostHog (with *Usage Analytics* on) and by Sentry (with *Crash Reports* on, and on any bug report you send). PostHog and Sentry do not store the IP address. Supabase does keep the IP address of the device's most recent connection against the random account ID (privacy policy §4.1), and Being does not derive a location from it |
 | Linked to user identity | **Yes** — stored with the Device ID above |
 | Used for tracking | **No** |
 | Purpose | Analytics, App Functionality |
 
 **Data Used to Track You:** None.
 
-**Open (not ruled in DEBUG-793):** the app sends the store transaction identifier to Being's server, which stores it with the plan, status and dates against the anonymous account identifier (privacy policy §4.1 *Purchases*). Whether that requires a **Purchases → Purchase History** declaration needs a compliance ruling before submission.
+**Open (not ruled in DEBUG-793):** the app sends the store transaction identifier to Being's server, which stores it with the plan, status and dates against the random account ID (privacy policy §4.1 *Purchases*). Whether that requires a **Purchases → Purchase History** declaration needs a compliance ruling before submission.
 
 ### 5.3 What's NOT collected (per code inspection + privacy policy)
 
@@ -303,7 +313,7 @@ The collected-data declarations are encoded in `app/app.json` → `expo.ios.priv
 - No camera / microphone (unless explicitly enabled for a future feature)
 - No third-party advertising identifiers (IDFA, etc.)
 - No analytics SDKs other than PostHog (no Firebase, Mixpanel, Amplitude); PostHog is declared above
-- No account/auth in v1.0 (see §6.1)
+- No sign-in: no email, username or password (see §6.1). The random account ID is declared above as User ID
 - Subscription receipts ARE validated server-side (`verify-apple-receipt`), see the open Purchases item above
 - No iCloud or CloudKit backup
 
@@ -312,7 +322,6 @@ The collected-data declarations are encoded in `app/app.json` → `expo.ios.priv
 The privacy policy anticipates an optional account flow ("Email, username (optional for cloud backup)"). When that ships, add these declarations:
 
 - **Contact Info → Email Address:** Yes, Linked, Not Tracking, App Functionality
-- **Identifiers → User ID:** Yes, Linked, Not Tracking, App Functionality
 - The Health declaration would change `Linked = Yes` *only if* the cloud sync stores data tied to the user ID server-side without E2E encryption. Per privacy policy §4.2, cloud backups are E2E encrypted, so Health stays Linked = No.
 
 ---

@@ -336,7 +336,8 @@ describe('FEAT-710: the store-billing notice', () => {
 
   it('rewords the erased-items bullet per ruling (c)', () => {
     const { getByText, queryByText } = render(<DeleteAccountScreen />);
-    expect(getByText('Your anonymous account and subscription records on our servers')).toBeTruthy();
+    // DEBUG-853: the identifier is a random account ID, not "anonymous".
+    expect(getByText('Your random account ID and subscription records on our servers')).toBeTruthy();
     expect(queryByText(/subscription details/)).toBeNull();
   });
 
