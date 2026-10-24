@@ -296,12 +296,13 @@ export default function CloudBackupSettings({
           <Text style={styles.privacyBold}>What is backed up: </Text>
           App settings and preferences only.
         </Text>
+        {/* Scoped to Settings Backup, never "this device only": the policy discloses other flows (MAINT-867) */}
         <Text style={styles.privacyNoticeText}>
-          <Text style={styles.privacyBold}>What stays on your device: </Text>
-          Your wellness check-in responses, self-screening results, and crisis data are never backed up to the cloud.
+          <Text style={styles.privacyBold}>What is not backed up: </Text>
+          Your wellness check-in responses, self-screening results, and crisis data are never included in Settings Backup.
         </Text>
         <Text style={styles.privacyNoticeNote}>
-          Your wellness data stays on this device only, protected by device-level encryption. If you uninstall the app or lose your device, that history cannot be recovered.
+          Settings Backup does not save your wellness data. It is stored on this device, so if you uninstall the app or lose your device, Settings Backup cannot restore it. To keep a copy, use Export my data in Privacy &amp; Data.
         </Text>
       </View>
 
