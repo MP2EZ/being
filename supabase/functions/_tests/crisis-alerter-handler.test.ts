@@ -17,6 +17,7 @@
 
 import { assert, assertEquals } from 'https://deno.land/std@0.177.0/testing/asserts.ts';
 import { runAlerter, type AlerterEnv } from '../crisis-detection-alerting/runAlerter.ts';
+import { LIVENESS_ONLY_SUBJECT } from '../crisis-detection-alerting/alertLogic.ts';
 import { fakeFetch, fakeSupabase, type Scripted } from './crisisFakeSupabase.ts';
 
 const SECRET = 'crisis-cron-secret-value';
@@ -193,6 +194,7 @@ Deno.test('alerter: touches only the operator views and its own tables — never
     'crisis_detection_daily',
     'crisis_detection_liveness',
     'crisis_detection_volume_daily',
+    'crisis_ingest_config',
     'crisis_liveness_probe',
   ]);
   assertEquals(r.fake.rpcCalls.length, 0);
@@ -439,4 +441,69 @@ Deno.test('alerter (DEBUG-700 AC2): an invalid watermark key cannot stop a VOLUM
   assertEquals(JSON.parse(String(r.resendCalls[0].init?.body)).subject, '[Being] Crisis-detection VOLUME SPIKE');
   assertEquals(r.heartbeats[0].row.backfill_status, 'cold_start');
   assertEquals(r.pingCalls.length, 1);
+});
+
+// ---------------------------------------------------------------------------
+// INFRA-861 — sticky stale and the ingest ceiling, through the handler
+// ---------------------------------------------------------------------------
+
+const EMPTY_LIVENESS: Scripted = { data: { total_detections_retained: 0, last_detection_at: null } };
+
+Deno.test('alerter: an emptied table after a fresh clean run pages LIVENESS and records stale', async () => {
+  const r = await run({
+    reads: {
+      ...cleanReads(),
+      crisis_detection_liveness: EMPTY_LIVENESS,
+      crisis_alert_runs: { data: { evaluated_counts: {}, spike_status: 'normal', status: 'ok', liveness_status: 'fresh' } },
+    },
+  });
+  assertEquals(r.body.status, 'alerted');
+  assertEquals(r.resendCalls.length, 1);
+  assertEquals(JSON.parse(String(r.resendCalls[0].init?.body)).subject, LIVENESS_ONLY_SUBJECT);
+  assertEquals(r.heartbeats[0].row.liveness_status, 'stale');
+  const runsQuery = r.fake.queries.find((q) => q.table === 'crisis_alert_runs' && q.calls.some((c) => c.method === 'select'));
+  assert(String(runsQuery?.calls.find((c) => c.method === 'select')?.args[0]).includes('liveness_status'));
+});
+
+Deno.test('alerter: an empty table with no prior clean run stays unproven and quiet', async () => {
+  const r = await run({ reads: { ...cleanReads(), crisis_detection_liveness: EMPTY_LIVENESS } });
+  assertEquals(r.body.status, 'ok');
+  assertEquals(r.resendCalls.length, 0);
+  assertEquals(r.heartbeats[0].row.liveness_status, 'unproven');
+});
+
+Deno.test('alerter: before the ceiling migration (table missing) the run is clean, ceiling unconfigured', async () => {
+  const r = await run({
+    reads: {
+      ...cleanReads(),
+      crisis_ingest_config: { error: { code: 'PGRST205', message: "Could not find the table 'public.crisis_ingest_config'" } },
+    },
+  });
+  assertEquals(r.body.status, 'ok');
+  assertEquals(r.body.evaluated.ceiling, 'unconfigured');
+  assertEquals(r.pingCalls.length, 1);
+});
+
+Deno.test('alerter: any other ceiling read failure is an error run — no email, no ping', async () => {
+  const r = await run({
+    reads: { ...cleanReads(), crisis_ingest_config: { error: { code: '42501', message: 'permission denied' } } },
+  });
+  assertEquals(r.body.status, 'error');
+  assertEquals(r.heartbeats[0].row.status, 'error');
+  assertEquals(r.resendCalls.length, 0);
+  assertEquals(r.pingCalls.length, 0);
+});
+
+Deno.test('alerter: arrivals near the ceiling page INGEST CEILING NEAR from committed counts', async () => {
+  const r = await run({
+    reads: {
+      ...cleanReads(),
+      crisis_ingest_config: { data: { daily_ceiling: 500 } },
+      crisis_detection_arrival_daily: { data: [{ arrival_date: '2026-06-07', arrival_count: 450 }] },
+    },
+  });
+  assertEquals(r.body.status, 'alerted');
+  const email = JSON.parse(String(r.resendCalls[0].init?.body));
+  assert(String(email.subject).includes('INGEST CEILING NEAR'));
+  assertEquals(r.heartbeats[0].row.reason, 'ceiling');
 });

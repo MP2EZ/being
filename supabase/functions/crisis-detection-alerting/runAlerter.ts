@@ -22,6 +22,7 @@ import {
   evaluateProbeLiveness,
   evaluateSpike,
   evaluateBackfill,
+  evaluateCeiling,
   buildAlertPayload,
   buildCountWindow,
   composeReason,
@@ -34,6 +35,7 @@ import {
   selectTodayBuckets,
   type BucketRow,
   type DayCounts,
+  type LivenessStatus,
 } from './alertLogic.ts';
 
 export interface AlerterEnv {
@@ -80,6 +82,12 @@ function errMsg(e: unknown): string {
     return String(o.message ?? o.error_description ?? o.error ?? JSON.stringify(e));
   }
   return String(e);
+}
+
+/** PostgREST's "table not in the schema cache" (PGRST205), or Postgres's undefined_table. */
+function isMissingTable(e: unknown): boolean {
+  const code = e && typeof e === 'object' ? (e as Record<string, unknown>).code : undefined;
+  return code === 'PGRST205' || code === '42P01';
 }
 
 function dayString(ms: number): string {
@@ -227,12 +235,15 @@ export async function runAlerter(req: Request, deps: AlerterDeps): Promise<Respo
   // distinction is what stops the first run after deploy paging the whole series.
   // DEBUG-684: the same row's spike verdict says whether that run already paged the partial
   // day. Read, never recomputed (see evaluateBackfill).
+  // INFRA-861: the same row's liveness_status makes an emptied table read `stale` once
+  // liveness has been proven (sticky stale, see evaluateLiveness).
   let watermark: DayCounts | null = null;
   let priorPaged = false;
+  let priorLivenessStatus: LivenessStatus | null = null;
   try {
     const { data, error } = await supabase
       .from('crisis_alert_runs')
-      .select('evaluated_counts, spike_status, status')
+      .select('evaluated_counts, spike_status, status, liveness_status')
       .in('status', ['ok', 'alerted'])
       .not('evaluated_counts', 'is', null)
       .order('ran_at', { ascending: false })
@@ -242,8 +253,24 @@ export async function runAlerter(req: Request, deps: AlerterDeps): Promise<Respo
     const raw = data?.evaluated_counts ?? null;
     watermark = raw && typeof raw === 'object' && !Array.isArray(raw) ? (raw as DayCounts) : null;
     priorPaged = priorRunPagedSpike(data ?? null);
+    priorLivenessStatus = (data?.liveness_status as LivenessStatus | undefined) ?? null;
   } catch (e) {
     errors.push(`backfill watermark read failed: ${errMsg(e)}`);
+  }
+
+  // INFRA-861: the operator's daily ingest ceiling. This function is deployed before the
+  // migration that creates the table, so a missing table reads as "no ceiling", not as an
+  // error run; any other failure is an error like every other read.
+  let dailyCeiling: number | null = null;
+  try {
+    const { data, error } = await supabase
+      .from('crisis_ingest_config')
+      .select('daily_ceiling')
+      .maybeSingle();
+    if (error && !isMissingTable(error)) throw error;
+    dailyCeiling = typeof data?.daily_ceiling === 'number' ? data.daily_ceiling : null;
+  } catch (e) {
+    errors.push(`ceiling config read failed: ${errMsg(e)}`);
   }
 
   // DEBUG-541: the gap-filled window this run evaluated; currentCounts is persisted as the
@@ -272,6 +299,7 @@ export async function runAlerter(req: Request, deps: AlerterDeps): Promise<Respo
     totalDetectionsRetained,
     nowMs: startedMs,
     stalenessThresholdHours,
+    priorLivenessStatus,
   });
   const spike = evaluateSpike({
     todayCount,
@@ -302,7 +330,10 @@ export async function runAlerter(req: Request, deps: AlerterDeps): Promise<Respo
 
   // STRICTLY ADDITIVE (crisis specialist C3/C4): the probe, backfill and partial-day axes can
   // RAISE a page but NEVER suppress a real verdict — five independent axes OR'd together.
-  const axes = alertAxes({ liveness, spike, probe, backfill });
+  // INFRA-861 ceiling axis, from committed arrivals (a rejected statement leaves no row).
+  const ceiling = evaluateCeiling({ arrivalToday, dailyCeiling });
+
+  const axes = alertAxes({ liveness, spike, probe, backfill, ceiling });
   const shouldAlert = anyAxisTripped(axes);
   const reason = composeReason(
     axes.liveness,
@@ -311,6 +342,7 @@ export async function runAlerter(req: Request, deps: AlerterDeps): Promise<Respo
     axes.backfill,
     axes.partialDay,
     axes.gapDay,
+    axes.ceiling,
   );
 
   // DEBUG-700: gap days are recorded even when nothing pages (no email then). Dates and day
@@ -333,6 +365,7 @@ export async function runAlerter(req: Request, deps: AlerterDeps): Promise<Respo
     spike,
     probe,
     backfill,
+    ceiling,
     todayVolume: todayCount,
     arrivalToday,
     provenance,
@@ -405,6 +438,7 @@ export async function runAlerter(req: Request, deps: AlerterDeps): Promise<Respo
       spike: spike.status,
       probe: probe.status,
       backfill: backfill.status,
+      ceiling: ceiling.status,
       // Day-level date and counts only — never the prior run's timestamp.
       partialDay: backfill.partialDay,
       // DEBUG-700: day-level gap readings and the out-of-window range (dates and day counts).
@@ -494,6 +528,10 @@ async function sendResendAlert(
       : []),
     `Probe (INFRA-265, ingest/cron/edge leg only — NOT the on-device emit leg): ${payload.probe.status}` +
       (payload.probe.ageHours != null ? ` (last probe ~${payload.probe.ageHours}h ago)` : ' (no probe recorded)'),
+    `Ingest ceiling (INFRA-861): ${payload.ceiling.status}` +
+      (payload.ceiling.dailyCeiling != null
+        ? ` (${payload.arrivalToday} arrivals today; ceiling ${payload.ceiling.dailyCeiling}, pages at ${payload.ceiling.pageAt})`
+        : ''),
     '',
     // TODAY only: on a FULL-DAY SPIKE email the reader would otherwise attribute it to the
     // completed day.
@@ -506,6 +544,14 @@ async function sendResendAlert(
     lines.push(
       `  - (${payload.suppressedBucketCount} rare bucket row(s) below the floor of ${payload.bucketFloor}, ` +
         `${payload.suppressedDetectionTotal} detection(s) total, withheld at row granularity)`,
+    );
+  }
+  if (payload.ceiling.alert) {
+    lines.push(
+      '',
+      'NOTE: today\'s arrivals are near the daily ingest ceiling. Inserts past it are rejected ' +
+        '(BE862) and held on devices, so detections may be waiting. Check for forged traffic ' +
+        'before raising crisis_ingest_config.daily_ceiling (runbook: ingest ceiling).',
     );
   }
   if (payload.probe.alert) {

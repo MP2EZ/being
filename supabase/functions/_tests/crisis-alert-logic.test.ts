@@ -28,6 +28,7 @@ import {
   evaluateProbeLiveness,
   evaluateSpike,
   evaluateBackfill,
+  evaluateCeiling,
   buildAlertPayload,
   composeReason,
   shouldPingHealthcheck,
@@ -686,7 +687,7 @@ const NO_AXIS = { alert: false };
 
 Deno.test('send decision: a FULL-DAY SPIKE alone sends, under its own reason token', () => {
   const a = alertAxes({ liveness: NO_AXIS, spike: NO_AXIS, probe: NO_AXIS, backfill: partial({ [D]: 4 }, { [D]: 6 }) });
-  assertEquals(a, { liveness: false, spike: false, probe: false, backfill: false, partialDay: true, gapDay: false });
+  assertEquals(a, { liveness: false, spike: false, probe: false, backfill: false, partialDay: true, gapDay: false, ceiling: false });
   assert(anyAxisTripped(a));
   assertEquals(composeReason(a.liveness, a.spike, a.probe, a.backfill, a.partialDay), 'partial_day');
 });
@@ -734,7 +735,7 @@ Deno.test('subject: every one of the 63 paging combinations names exactly its ax
 });
 
 Deno.test('subject (R4): probe-only and probe + liveness name the dead ingest leg first', () => {
-  const none: AxisAlerts = { liveness: false, spike: false, probe: false, backfill: false, partialDay: false, gapDay: false };
+  const none: AxisAlerts = { liveness: false, spike: false, probe: false, backfill: false, partialDay: false, gapDay: false, ceiling: false };
   assertEquals(composeSubject({ ...none, probe: true }), '[Being] Crisis-detection PROBE DEAD (ingest leg)');
   assertEquals(
     composeSubject({ ...none, probe: true, liveness: true }),
@@ -1158,4 +1159,93 @@ Deno.test('composeReason (AC4): gap_day is appended last and displaces nothing',
   assertEquals(composeReason(false, false, false, false, false, true), 'gap_day');
   assertEquals(composeReason(true, true, true, true, true, true), 'liveness+spike+probe+backfill+partial_day+gap_day');
   assertEquals(composeReason(true, false, false, true, false, true), 'liveness+backfill+gap_day');
+});
+
+// ---------------------------------------------------------------------------
+// INFRA-861 — sticky stale, and the ingest-ceiling axis
+// ---------------------------------------------------------------------------
+
+const EMPTY = { lastDetectionAt: null, totalDetectionsRetained: 0, nowMs: Date.parse('2026-10-24T12:00:00Z'), stalenessThresholdHours: 48 };
+
+for (const prior of ['fresh', 'stale', 'future_skew'] as const) {
+  Deno.test(`INFRA-861: an emptied table after a ${prior} run is STALE and pages`, () => {
+    const v = evaluateLiveness({ ...EMPTY, priorLivenessStatus: prior });
+    assertEquals(v.status, 'stale');
+    assertEquals(v.alert, true);
+    assertEquals(v.ageHours, null);
+  });
+}
+
+for (const prior of [null, undefined, 'unproven'] as const) {
+  Deno.test(`INFRA-861: an empty table with no proven prior run (${prior}) stays unproven`, () => {
+    const v = evaluateLiveness({ ...EMPTY, priorLivenessStatus: prior });
+    assertEquals(v.status, 'unproven');
+    assertFalse(v.alert);
+  });
+}
+
+Deno.test('INFRA-861: sticky stale never overrides a retained detection', () => {
+  const v = evaluateLiveness({
+    ...EMPTY,
+    lastDetectionAt: '2026-10-24T00:00:00Z',
+    totalDetectionsRetained: 1,
+    priorLivenessStatus: 'stale',
+  });
+  assertEquals(v.status, 'fresh');
+  assertFalse(v.alert);
+});
+
+Deno.test('INFRA-861: ceiling unconfigured (no row, or table not migrated) never pages', () => {
+  const v = evaluateCeiling({ arrivalToday: 10_000, dailyCeiling: null });
+  assertEquals(v.status, 'unconfigured');
+  assertFalse(v.alert);
+});
+
+Deno.test('INFRA-861: ceiling pages at ceiling - 50 arrivals, not one below', () => {
+  assertEquals(evaluateCeiling({ arrivalToday: 449, dailyCeiling: 500 }).alert, false);
+  const at = evaluateCeiling({ arrivalToday: 450, dailyCeiling: 500 });
+  assertEquals(at.status, 'near');
+  assertEquals(at.alert, true);
+  assertEquals(at.pageAt, 450);
+});
+
+Deno.test('INFRA-861: a small ceiling pages at 80% rather than on every run', () => {
+  const v = evaluateCeiling({ arrivalToday: 0, dailyCeiling: 20 });
+  assertEquals(v.pageAt, 16);
+  assertFalse(v.alert);
+});
+
+Deno.test('INFRA-861: the ceiling axis is OR-ed in, named in the reason, and leads after the probe', () => {
+  const backfill = evaluateBackfill({
+    currentCounts: {}, watermark: null, today: '2026-10-24', minGrowthToReport: 5,
+    spikeMultiplier: 3, minAbsoluteForSpike: 5, priorPaged: false,
+  });
+  const axes = alertAxes({
+    liveness: { alert: true }, spike: { alert: false }, probe: { alert: true }, backfill,
+    ceiling: { alert: true },
+  });
+  assert(anyAxisTripped({ ...axes, liveness: false, probe: false }));
+  assertEquals(composeReason(false, false, false, false, false, false, true), 'ceiling');
+  assertEquals(composeSubject(axes), '[Being] Crisis-detection PROBE DEAD (ingest leg) + INGEST CEILING NEAR + LIVENESS');
+});
+
+Deno.test('INFRA-861: the payload carries the ceiling as counts only', () => {
+  const p = buildAlertPayload({
+    reason: 'ceiling',
+    liveness: evaluateLiveness(EMPTY),
+    spike: evaluateSpike({ todayCount: 0, baselineCounts: [], spikeMultiplier: 3, minAbsoluteForSpike: 5 }),
+    probe: evaluateProbeLiveness({ lastProbeAt: null, nowMs: EMPTY.nowMs, stalenessThresholdHours: 12 }),
+    backfill: evaluateBackfill({
+      currentCounts: {}, watermark: null, today: '2026-10-24', minGrowthToReport: 5,
+      spikeMultiplier: 3, minAbsoluteForSpike: 5, priorPaged: false,
+    }),
+    ceiling: evaluateCeiling({ arrivalToday: 460, dailyCeiling: 500 }),
+    todayVolume: 0,
+    arrivalToday: 460,
+    provenance: { eventTimeRows: 0, ingestTimeRows: 0, clockSkewCount: 0, implausiblePastCount: 0 },
+    buckets: [],
+    bucketFloor: 3,
+    lastDetectionDate: null,
+  });
+  assertEquals(p.ceiling, { status: 'near', alert: true, dailyCeiling: 500, pageAt: 450 });
 });

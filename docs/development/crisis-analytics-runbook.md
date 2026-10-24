@@ -280,19 +280,28 @@ same aggregate views and never sits in a detection / 988 / intervention path.
 | `crisis-alert-runs-prune` | daily 03:30 UTC | prunes `crisis_alert_runs` older than 90 days. |
 | `crisis-liveness-probe` (INFRA-265) | every 6h | `net.http_post` → the `crisis-liveness-probe` edge function, which writes a tagged **synthetic** marker to `crisis_liveness_probe` (drives the real cron→edge→PostgREST write leg). The daily alerter reads `MAX(probed_at)` as the authoritative ingest-leg liveness signal. |
 | `crisis-liveness-probe-prune` (INFRA-265) | daily 03:45 UTC | prunes `crisis_liveness_probe` older than 90 days. |
-| `analytics-retention-prune` (DEBUG-340) | daily 04:20 UTC | `cleanup_old_analytics()` — enforces the **two-tier** retention published in privacy-policy §7.1/§7.2: deletes non-`crisis_detected` rows from `analytics_events` at **90 days**, and `crisis_detected` rows at **3 years**. 04:20 deliberately clears the 03:30/03:45/03:50 prunes. |
+| `analytics-retention-prune` (DEBUG-340) | daily 04:20 UTC | `cleanup_old_analytics()` — deletes every `analytics_events` row at **90 days**, `crisis_detected` included (privacy-policy §7.1, §7.3; one rule since INFRA-861, two tiers before). A crisis row's `created_at` is its arrival day, so it goes up to a day before 90 days from arrival. 04:20 deliberately clears the 03:30/03:45/03:50 prunes. |
 
 > **Retention and these views (DEBUG-340).** `crisis_detection_daily`, `crisis_detection_volume_daily` and `crisis_detection_liveness` apply no time-window filter, so the retention job is what bounds them — and until DEBUG-340 that was *nothing*: `cleanup_old_analytics()` existed from the base schema but was never `cron.schedule`d, so server-side retention was **indefinite** while privacy-policy §7.2 promised 3 years. Two consequences worth holding in mind when reading these views now:
 >
-> 1. **They are bounded at 3 years, not 90 days.** An older comment in the migration said the "90-day analytics retention already bounds the rows". That was wrong twice over — nothing was scheduled, and `crisis_detected` is now deliberately exempt from the 90-day tier so the operator aggregates and the alerter's dead-vs-quiet baseline keep more than a quarter of history.
-> 2. **Never make this job blanket again.** Scheduling a 90-day sweep over `crisis_detected` would silently reset `crisis_detection_liveness`'s baseline — which the alerter reads to distinguish "the pipeline is dead" from "it has genuinely been quiet" — *and* breach a published retention promise. If you are tempted to simplify the two-branch `DELETE`, read `supabase/tests/debug340_analytics_retention.sql` first; test 3 exists precisely to fail on that change.
+> 1. **They are bounded at 90 days (INFRA-861).** Until INFRA-861 `crisis_detected` was exempt from the 90-day tier and kept 3 years. Rows that carry no identity cannot serve the 3-year tier's "evidence in proceedings" purpose, and nothing operational reads back further than 90 days (the views floor detection days at 90; the spike baseline is 7 days).
+> 2. **An empty table is not "never proven".** The 90-day sweep empties `crisis_detection_liveness` after 90 quiet days, and the INFRA-861 migration deleted every earlier crisis row. The alerter therefore reads the last clean run's `liveness_status`: once any run has recorded `fresh`, `stale` or `future_skew`, an empty table is `stale` and pages ("sticky stale"), and only a project that never proved liveness reads `unproven`. Deploy the alerter before any migration that shortens retention. The boundary is pinned by behaviour in `supabase/tests/debug340_analytics_retention.sql` test 3 (88 days kept, 92 deleted).
+
+### Ingest ceiling (INFRA-861)
+
+Crisis rows are written without authentication, so one UTC day can hold at most `public.crisis_ingest_config.daily_ceiling` of them (seeded 500, minimum 15). A statement that would pass it is rejected whole with SQLSTATE `BE862`; the client keeps the events and retries after min(15 min, the next UTC day). The ceiling keys on the event type and the day only, never on IP, headers or any identifier.
+
+- **Page:** the alerter pages `INGEST CEILING NEAR` once today's arrivals reach `daily_ceiling − 50` (never below 80% of it). A rejected statement leaves no row, so committed arrivals are the only record that the ceiling is holding.
+- **On a page:** look at today's mix in the alert. Uniform or implausible traffic is forged; leave the ceiling where it is (held events are not lost) and decide on purging by day. A real surge: raise the ceiling as service_role, `UPDATE public.crisis_ingest_config SET daily_ceiling = <n>, updated_at = now() WHERE id;`, and devices deliver on their next flush.
+- No client role can read or change the config table.
 
 ### Alert conditions (operator-tunable via edge-function env)
 
 | Condition | Rule | Default env |
 |---|---|---|
 | Volume spike | `todayCount ≥ multiplier × trailing-baseline-mean` AND `todayCount ≥ absolute floor` (cold-start safe; no div-by-zero) | `CRISIS_ALERT_SPIKE_MULTIPLIER=3`, `CRISIS_ALERT_SPIKE_MIN=5`, `CRISIS_ALERT_BASELINE_DAYS=7` |
-| Liveness staleness | `age(last_detection_at) ≥ threshold` (decided by AGE, never by volume==0; NULL → `unproven`, advisory not a page) | `CRISIS_ALERT_STALENESS_HOURS=48` |
+| Liveness staleness | `age(last_detection_at) ≥ threshold` (decided by AGE, never by volume==0). No rows retained → `unproven` (advisory) only if no clean run ever proved liveness; otherwise `stale`, a page (INFRA-861) | `CRISIS_ALERT_STALENESS_HOURS=48` |
+| Ingest ceiling near | today's arrivals ≥ `daily_ceiling − 50` (never below 80% of it); the ceiling lives in `crisis_ingest_config`, not env (INFRA-861) | — |
 | Bucket reporting floor | per-bucket rows below the floor are withheld from the external breakdown but counted in aggregate | `CRISIS_ALERT_BUCKET_FLOOR=3` |
 
 ### Alert payload (PII-free by construction)
