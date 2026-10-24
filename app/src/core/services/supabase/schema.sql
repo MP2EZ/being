@@ -75,7 +75,8 @@ CREATE INDEX IF NOT EXISTS idx_encrypted_backups_size ON encrypted_backups(size_
 
 CREATE TABLE IF NOT EXISTS analytics_events (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  -- NULL on every crisis_detected row, NOT NULL otherwise (INFRA-861; both held by CHECK).
+  user_id UUID REFERENCES users(id) ON DELETE CASCADE,
 
   -- Event information
   event_type TEXT NOT NULL,
@@ -84,15 +85,27 @@ CREATE TABLE IF NOT EXISTS analytics_events (
   -- Privacy-preserving session tracking
   -- Rotates at the UTC day boundary AND after 30 min idle (INFRA-568). Before
   -- that it was minted once per process, so the date could disagree with created_at.
-  session_id TEXT NOT NULL, -- Bounded-lifetime session token
+  session_id TEXT, -- Bounded-lifetime session token; NULL on crisis_detected rows (INFRA-861)
 
-  -- Timestamp (rounded to hour for privacy)
+  -- Ingest time. crisis_detected rows are truncated to the UTC day by trigger + CHECK
+  -- (INFRA-861); other rows are full precision.
   created_at TIMESTAMPTZ DEFAULT NOW(),
 
   -- Constraints
   CONSTRAINT event_type_length CHECK (length(event_type) <= 50),
   CONSTRAINT session_id_format CHECK (session_id ~ '^session_[0-9]{4}-[0-9]{2}-[0-9]{2}_[a-z0-9]+$'),
-  CONSTRAINT properties_size CHECK (pg_column_size(properties) <= 1024) -- 1KB limit
+  CONSTRAINT properties_size CHECK (pg_column_size(properties) <= 1024), -- 1KB limit
+  -- INFRA-861 (20261024000000): crisis rows carry no identifier and a UTC day-start; the
+  -- BEFORE INSERT trigger analytics_events_crisis_delink rebuilds them, these CHECKs hold it.
+  CONSTRAINT analytics_events_crisis_delinked CHECK (
+    event_type <> 'crisis_detected'
+    OR (user_id IS NULL AND session_id IS NULL AND created_at IS NOT NULL
+        AND created_at = (date_trunc('day', created_at AT TIME ZONE 'UTC') AT TIME ZONE 'UTC')
+        AND jsonb_typeof(properties) = 'object'
+        AND (properties - ARRAY['trigger_type', 'severity_bucket', 'assessment_type',
+                                'intervention_surfaced', 'detected_on']) = '{}'::jsonb)),
+  CONSTRAINT analytics_events_noncrisis_identified CHECK (
+    event_type = 'crisis_detected' OR (user_id IS NOT NULL AND session_id IS NOT NULL))
 );
 
 -- Indexes for analytics queries
@@ -139,8 +152,14 @@ CREATE POLICY backups_delete ON encrypted_backups
 -- crisis-audit integrity (INFRA-214); retention cleanup runs as the service role.
 CREATE POLICY analytics_select ON analytics_events
   FOR SELECT USING (user_id = auth.uid());
+-- INFRA-861: authenticated never writes a crisis row; anon writes only crisis rows, through
+-- a column-scoped GRANT INSERT (event_type, properties).
 CREATE POLICY analytics_insert ON analytics_events
-  FOR INSERT WITH CHECK (user_id = auth.uid());
+  FOR INSERT TO authenticated
+  WITH CHECK (user_id = auth.uid() AND event_type <> 'crisis_detected');
+CREATE POLICY analytics_insert_crisis_anon ON analytics_events
+  FOR INSERT TO anon
+  WITH CHECK (event_type = 'crisis_detected' AND user_id IS NULL AND session_id IS NULL);
 
 -- =====================================================
 -- 5. FUNCTIONS FOR COMMON OPERATIONS
@@ -227,14 +246,13 @@ ORDER BY event_date DESC, event_count DESC;
 -- (routed to analytics_events by INFRA-214, GDPR Art. 6(1)(d)/9(2)(c) basis) for
 -- release-health safety monitoring — "did the crisis safety net survive this release?"
 --
--- PRIVACY (PII-free by construction; reviewed by crisis + compliance, FEAT-129):
+-- PRIVACY (reviewed by crisis + compliance, FEAT-129; identifiers removed by INFRA-861):
 --   Re-identification is managed by (1) severity-bucketing — no raw PHQ-9/GAD-7 scores
 --   or Q9 values; (2) absence of quasi-identifiers — no device id, name, IP, geo;
---   (3) bounded-lifetime session token — session_id rotates at the UTC day
---       boundary and after 30 minutes idle (INFRA-568), so it links only events within
---       one engagement. It is NOT an anonymity control at the table level: each row also
---       carries the persistent user_id. Identity protection is (4) below plus RLS
---       isolation and the non-enumerability of auth.uid(); and
+--   (3) no account or session identifier — since INFRA-861 a crisis row carries neither
+--       user_id nor session_id and its created_at is a UTC day-start, enforced by trigger
+--       + CHECK for every role. Not "anonymous": Supabase request logs keep the sender's
+--       IP for a day, and heap order is sub-day (DPIA §8 residuals); and
 --   (4) operator-only access — these views are NOT granted to `authenticated`/`anon`
 --   (service-role only, via the Supabase SQL editor / MCP), matching analytics_summary
 --   and subscription_metrics. k-anonymity / differential privacy are NOT claimed; at
@@ -243,17 +261,12 @@ ORDER BY event_date DESC, event_count DESC;
 --
 -- SAFETY INVARIANTS (do not "optimize" these away):
 --   * NO `HAVING COUNT(*) >= N` / k-anon suppression — it would hide a single/rare crisis.
---   * `COUNT(*)` is the AUTHORITATIVE crisis count. `COUNT(DISTINCT session_id)` is a
---     secondary EPISODE proxy — never treat it as the floor OR as a device count.
---     INFRA-568 reversed its bias: it used to UNDER-count (one id per device per day
---     collapsed repeat same-day detections); with idle rotation one device can now
---     produce several ids in a day, so it OVER-counts devices while counting episodes
---     more honestly. That is the intended trade.
---   * Rows whose severity_bucket / assessment_type are the literal text 'undefined' are
---     NOT filtered. The inline PHQ-9 Q9 (suicidal-ideation) path currently emits
---     String(undefined) for those fields; dropping them would launder away the
---     highest-acuity detections. The breakdown groups by the raw value so the mis-tag is
---     VISIBLE. (Emit-path fix tracked as a follow-up; see crisis-analytics-runbook.md.)
+--   * `COUNT(*)` is the AUTHORITATIVE crisis count. distinct_sessions is NULL since
+--     INFRA-861 (no session_id on crisis rows); never read it as a count.
+--   * Out-of-domain severity_bucket / assessment_type / trigger_type values (including the
+--     legacy literal 'undefined') are COERCED to 'unknown' by the INFRA-861 trigger, never
+--     rejected or filtered: dropping them would launder away the highest-acuity
+--     detections, and rejecting one would stall the client's whole batch.
 --   * Monitoring-only. These views MUST NOT be referenced by any detection / 988 /
 --     intervention code path, and are NOT the safety mechanism — the on-device crisis
 --     audit log remains the accountability record.
@@ -312,7 +325,7 @@ SELECT
   DATE_TRUNC('day', crisis_event_day(properties, created_at)::timestamptz)
                                  AS event_date,
   COUNT(*)                       AS detection_count,
-  COUNT(DISTINCT session_id)     AS distinct_sessions,
+  NULL::bigint                   AS distinct_sessions, -- INFRA-861: no session_id on crisis rows
   COUNT(*) FILTER (WHERE crisis_event_day_source(properties, created_at) = 'event')
                                  AS event_time_rows,
   COUNT(*) FILTER (WHERE crisis_event_day_source(properties, created_at) <> 'event')
@@ -363,7 +376,7 @@ WHERE event_type = 'crisis_detected';
 COMMENT ON VIEW crisis_detection_daily IS
   'FEAT-129 operator-only aggregate: crisis_detected counts per day x assessment_type x trigger_type x severity_bucket. PII-free (bucketed counts; no user_id/session_id). No k-anon suppression — safety monitor must not hide the first crisis. severity_bucket=''undefined'' rows are surfaced, not filtered (inline-Q9 emit bug).';
 COMMENT ON VIEW crisis_detection_volume_daily IS
-  'FEAT-129 operator-only aggregate: per-day crisis_detected volume. COUNT(*) is authoritative; distinct_sessions counts EPISODES and over-counts daily-rotated session_id).';
+  'FEAT-129 operator-only aggregate: per-day crisis_detected volume. COUNT(*) is authoritative; distinct_sessions is always NULL since INFRA-861 (crisis rows carry no session_id).';
 COMMENT ON VIEW crisis_detection_liveness IS
   'FEAT-129 operator-only: total retained crisis_detected + last_detection_at, for the post-release safety-pipeline liveness check (distinguish zero-crises from pipeline-dead).';
 
