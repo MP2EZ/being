@@ -18,6 +18,9 @@
  * the random account ID is deleted. Pinned here: the old all-fields "kept until … deleted" wording
  * is gone, the new bound is present on every surface, and the last-connection time keeps its own.
  *
+ * INFRA-870: the scrub now has an alert, so control 23 and the LIA name the watchdog and no longer
+ * say nothing pages.
+ *
  * INFRA-861: the crisis-detection event no longer carries the random account ID. The §3 "linked"
  * assertion is inverted on purpose; its own claims are pinned in crisisDelinkClaims.privacy.test.ts.
  */
@@ -61,6 +64,8 @@ const CA_IP_UNTIL_DELETED = /IP address[^|]*\|\s*Until the identifier is deleted
 const ORPHAN_KEEPS_RECORDS = /stays on our servers with its connection records/;
 const IP_WITHIN_A_DAY =
   /IP address and (the )?(device and app details|user agent)(?:[^.]|\.\d)*deleted within a day of each connection/i;
+// INFRA-870: the "nothing alerts on the scrub" wording the watchdog made untrue.
+const NO_SCRUB_ALERT = /no alert exists|nothing pages|nothing alerts/i;
 const LAST_CONNECTION_KEPT =
   /(last-connection time|time the app last connected)(?:[^.]|\.\d)*kept until the (random account ID|identifier) is deleted/i;
 
@@ -87,6 +92,9 @@ const PRE_FIX = {
     '| Connection records (IP address, device and app details and last-connection time kept against your random account ID; see Privacy Policy §4.1) | Until the identifier is deleted; request logs that include the IP address are kept for 1 day on our current plan |',
   // What MAINT-865 keeps: the last-connection sentence must NOT trip the IP matcher.
   lastConnection: 'The time the app last connected is kept until the identifier is deleted.',
+  // INFRA-870: control 23 and the LIA before the watchdog.
+  control23: '**Monitoring is manual only: no alert exists and nothing pages when the job stops** (INFRA-870 tracks one).',
+  liaReview: 'No alert exists if the job stops (INFRA-870).',
 };
 
 describe('Supabase session disclosure (DEBUG-850)', () => {
@@ -106,6 +114,8 @@ describe('Supabase session disclosure (DEBUG-850)', () => {
     expect(PRE_FIX.caRow).toMatch(CA_IP_UNTIL_DELETED);
     expect(PRE_FIX.lastConnection).not.toMatch(IP_KEPT_UNTIL_DELETED);
     expect(PRE_FIX.lastConnection).toMatch(LAST_CONNECTION_KEPT);
+    expect(PRE_FIX.control23).toMatch(NO_SCRUB_ALERT);
+    expect(PRE_FIX.liaReview).toMatch(NO_SCRUB_ALERT);
   });
 
   describe('privacy policy', () => {
@@ -232,11 +242,12 @@ describe('Supabase session disclosure (DEBUG-850)', () => {
       expect(lia).toMatch(/auth\.sessions/);
     });
 
-    it('MAINT-865: the DPIA records the scrub as a control, says nothing alerts on it, and updates the residuals', () => {
+    it('MAINT-865 + INFRA-870: the DPIA records the scrub as a control, names its watchdog, and updates the residuals', () => {
       const control = lineStarting(dpia, '| 23 |');
       expect(control).toMatch(/auth-session-ip-scrub/);
       expect(control).toMatch(/INFRA-870/);
-      expect(control).toMatch(/no alert|nothing pages/i);
+      expect(control).toMatch(/auth-session-ip-scrub-watchdog/);
+      expect(control).not.toMatch(NO_SCRUB_ALERT);
       const status = lineStarting(dpia, '10. **Status.**');
       expect(status).toMatch(/Status/); // liveness
       expect(status).not.toMatch(/INFRA-851 and INFRA-848 should land/);
@@ -252,6 +263,8 @@ describe('Supabase session disclosure (DEBUG-850)', () => {
       const review = lineStarting(lia, '**Review performed — session IP minimisation (INFRA-851');
       expect(review).toMatch(/reaffirmed/);
       expect(review).toMatch(/INFRA-848/);
+      expect(review).toMatch(/auth-session-ip-scrub-watchdog/);
+      expect(review).not.toMatch(NO_SCRUB_ALERT);
     });
   });
 });
