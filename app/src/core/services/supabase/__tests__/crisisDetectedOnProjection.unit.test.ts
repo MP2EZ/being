@@ -99,8 +99,7 @@ describe('DEBUG-541 · the flush projects detected_on into the inserted row', ()
     service = new (supabaseService as any).constructor();
     insert = jest.fn(async () => ({ error: null }));
     from = jest.fn(() => ({ insert }));
-    service.client = { from };
-    service.userId = 'user-uuid-under-test';
+    service.crisisClient = { from }; // INFRA-861: the crisis lane's own client
   });
 
   const rowsFromFlush = () => (insert.mock.calls[0][0] as any[]);

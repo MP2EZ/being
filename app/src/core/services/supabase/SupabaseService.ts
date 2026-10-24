@@ -153,6 +153,32 @@ const STORAGE_KEYS = {
   PENDING_BACKUP_DELETE: PENDING_BACKUP_DELETE_KEY,
 } as const;
 
+/**
+ * INFRA-861 — crisis rows per insert statement. The server rejects a statement carrying
+ * more than 50 (SQLSTATE BE861, migration 20261024000000); the client stays strictly
+ * below that so a long offline backlog never trips it.
+ */
+const CRISIS_INSERT_CHUNK = 25;
+/**
+ * INFRA-861 — the server's daily, identifier-free ceiling on crisis rows. A rejection
+ * with this SQLSTATE delays delivery; it never drops an event.
+ */
+const CRISIS_CEILING_SQLSTATE = 'BE862';
+const CRISIS_CEILING_BACKOFF_MS = 15 * 60 * 1000;
+/** INFRA-861 — neither SQLSTATE can succeed on retry, so retrying only adds calls. */
+const CRISIS_NON_RETRYABLE_SQLSTATES = new Set(['BE861', CRISIS_CEILING_SQLSTATE]);
+
+/**
+ * INFRA-861 — when a crisis flush may next try after a ceiling rejection: the back-off,
+ * or the next UTC day boundary if sooner (the ceiling is per UTC day, so a new day
+ * reopens it).
+ */
+export function crisisCeilingNotBefore(nowMs: number): number {
+  const d = new Date(nowMs);
+  const nextUtcDay = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + 1);
+  return Math.min(nowMs + CRISIS_CEILING_BACKOFF_MS, nextUtcDay);
+}
+
 /** DEBUG-764: a withdrawal's server-backup delete not yet confirmed. `uid: null` = resolve at execution. */
 interface PendingBackupDelete {
   uid: string | null;
@@ -180,6 +206,12 @@ interface EncryptedBackup {
   checksum: string;
   version: number;
   created_at: string;
+}
+
+/** INFRA-861 — the only shape a crisis row leaves the device in. */
+interface CrisisDetectedRow {
+  event_type: string;
+  properties: Record<string, any>;
 }
 
 // Analytics event interface (no PHI)
@@ -333,6 +365,13 @@ function parsePendingBackupDelete(raw: string | null): PendingBackupDelete | nul
 
 class SupabaseService {
   private client: SupabaseClient | null = null;
+  /**
+   * INFRA-861 — the crisis lane's own client: no auth client, no session, no storage.
+   * Built lazily by getCrisisClient(). Never route a crisis write through `client`.
+   */
+  private crisisClient: SupabaseClient | null = null;
+  /** INFRA-861 — epoch ms before which the crisis flush skips the network (ceiling back-off). */
+  private crisisFlushNotBefore = 0;
   // INFRA-260: the Supabase anonymous session user id (== auth.uid() server-side).
   private userId: string | null = null;
   private circuitBreaker: CircuitBreakerState;
@@ -408,12 +447,14 @@ class SupabaseService {
    */
   private crisisFlushInFlight: Promise<void> | null = null;
   /**
-   * DEBUG-715: single-flight for every anonymous-session mint made AFTER construction —
-   * the crisis flush's `!userId` fallback and getAuthenticatedClient(). `null` means idle.
+   * DEBUG-715: single-flight for every anonymous-session mint made AFTER construction.
+   * `null` means idle.
    *
    * auth-js `signInAnonymously` takes no lock, so two lanes that each find no session
-   * both reach /signup: two accounts, `userId` set to whichever answers last, the crisis
-   * rows and a purchase bound to different identities. Every such mint joins this one.
+   * both reach /signup: two accounts, `userId` set to whichever answers last. INFRA-861
+   * removed the crisis flush's `!userId` fallback, leaving getAuthenticatedClient() as the
+   * only caller; the single-flight still collapses its concurrent calls, and joins a
+   * construction that is itself minting.
    */
   private sessionMintInFlight: Promise<void> | null = null;
   /**
@@ -513,8 +554,9 @@ class SupabaseService {
    * anonymously. Only `deleteAccount()` passes it: the deletion path must never create
    * the account it is asked to erase. It applies to the construction this call starts; a
    * caller that joins a construction already in flight gets that one's choice, which is
-   * why the crisis flush keeps its own `!userId` mint fallback and why `deleteAccount()`
-   * checks the restored uid against the persisted one rather than trusting `userId`.
+   * why getAuthenticatedClient() mints through mintSessionOnce() after it and why
+   * `deleteAccount()` checks the restored uid against the persisted one rather than
+   * trusting `userId`. The crisis lane never calls this (INFRA-861: getCrisisClient()).
    */
   private async ensureClient({ mint = true }: { mint?: boolean } = {}): Promise<void> {
     if (this.client) return;
@@ -572,10 +614,39 @@ class SupabaseService {
     try {
       await this.clientInitPromise;
     } finally {
-      // Cleared so a failed construction can be retried on a later flush; the
-      // durable queue means nothing is lost in the meantime.
+      // Cleared so a failed construction can be retried on a later call.
       this.clientInitPromise = null;
     }
+  }
+
+  /**
+   * INFRA-861 — the crisis lane's client: anon key only, never a session.
+   *
+   * `accessToken: async () => null` makes supabase-js skip building a GoTrue client
+   * altogether (`.auth` throws on access), so this client cannot mint, restore or refresh
+   * a session and cannot attach a user JWT: every request carries the publishable key as
+   * both `apikey` and Bearer, which PostgREST serves as the `anon` role. The shared
+   * client attaches the persisted session token to every request, which is why a crisis
+   * write never goes through `this.client`.
+   *
+   * DEBUG-409 rejected "a separate crisis-only client" because two clients sharing the
+   * secure-store session adapter revoke each other's refresh-token chain. This client has
+   * no auth client and no storage, so that hazard cannot arise.
+   *
+   * Synchronous and called only from inside the flush flight, after its yield — never in
+   * the trackCrisisDetection frame.
+   */
+  private getCrisisClient(): SupabaseClient | null {
+    if (this.crisisClient) return this.crisisClient;
+    if (!SUPABASE_URL || !SUPABASE_KEY) {
+      logSecurity('[SupabaseService] crisis client unavailable: Supabase config missing', 'high');
+      return null;
+    }
+    this.crisisClient = createClient(SUPABASE_URL, SUPABASE_KEY, {
+      accessToken: async () => null,
+      global: { fetch: createSupabasePinnedFetch('METADATA') },
+    });
+    return this.crisisClient;
   }
 
   /**
@@ -600,7 +671,8 @@ class SupabaseService {
     try {
       await this.loadCrisisAnalyticsQueue();
       if (this.crisisAnalyticsQueue.length === 0) return;
-      await this.ensureClient();
+      // INFRA-861: no ensureClient() — the crisis lane needs no session, and building the
+      // shared client here would restore (or mint) the identity this event must not carry.
       void this.flushCrisisAnalytics();
     } catch (error) {
       logSecurity('[SupabaseService] crisis telemetry bootstrap failed', 'medium', { error });
@@ -614,9 +686,9 @@ class SupabaseService {
     if (this.isInitialized) return;
 
     try {
-      // DEBUG-409: client construction + anonymous session now live in ensureClient(),
-      // so there is still exactly ONE createClient site and the cloud-sync path here is
-      // behaviourally identical — but the crisis flush can reach it too.
+      // DEBUG-409: client construction + anonymous session live in ensureClient(), the one
+      // createClient site for session-carrying clients. (INFRA-861: the crisis lane's
+      // session-free client is built separately in getCrisisClient().)
       await this.ensureClient();
 
       // Setup analytics flushing
@@ -867,7 +939,10 @@ class SupabaseService {
     // crisis flush, so an unrelated run of cloud-backup failures cannot open the breaker
     // and silence the crisis audit sink. Bypassing means neither consulting the breaker
     // nor recording into it, so crisis failures also stay out of the backup budget.
-    opts?: { bypassCircuitBreaker?: boolean }
+    //
+    // INFRA-861: `isFinal` marks an error retrying cannot fix (the crisis per-statement
+    // cap and daily ceiling). It ends the loop after that attempt.
+    opts?: { bypassCircuitBreaker?: boolean; isFinal?: (error: unknown) => boolean }
   ): Promise<{ success: boolean; data?: T; error?: Error }> {
     const useBreaker = !opts?.bypassCircuitBreaker;
 
@@ -890,6 +965,7 @@ class SupabaseService {
         lastError = error as Error;
         logSecurity(`[SupabaseService] ${operationName} attempt ${attempt} failed:`, 'medium', { error });
 
+        if (opts?.isFinal?.(error)) break;
         if (attempt < this.config.retryAttempts) {
           await this.sleep(this.config.retryDelayMs * attempt);
         }
@@ -1407,87 +1483,101 @@ class SupabaseService {
     }
 
     const flight = (async () => {
-      // DEBUG-409: provision the client if this is the first crisis on this install.
-      // Reads no consent state; see ensureClient(). Placed AFTER the empty-queue return
-      // above, so an install that never records a crisis never opens a backend session.
-      await this.ensureClient();
+      // A hard yield, not style: nothing below may run inside the synchronous
+      // trackCrisisDetection frame, which the strict <200ms Performance regression gate
+      // times. ensureClient() used to provide this await; the crisis lane no longer calls it.
+      await Promise.resolve();
 
-      if (!this.client) return; // reconcile on a later flush
+      // INFRA-861: the server's daily ceiling answered recently. Skip the network until
+      // the back-off lapses; the next natural trigger (detection, AppState-active, boot)
+      // retries. No timer loop, and the queue is untouched.
+      if (Date.now() < this.crisisFlushNotBefore) return;
 
-      // INFRA-260: crisis telemetry inserts into analytics_events under auth.uid()
-      // RLS (WITH CHECK user_id = auth.uid()). If the session wasn't established at
-      // boot (offline first run), try once more now — this runs off the crisis path
-      // (fire-and-forget), never blocking detection. Still no session → retain &
-      // retry later (AppState-active / next flush); the durable queue means the
-      // event is never dropped.
-      //
-      // DEBUG-715: through the shared mint single-flight, so a concurrent purchase
-      // verification cannot mint a second identity beside this one.
-      if (!this.userId) {
-        await this.mintSessionOnce();
-        if (!this.userId) return;
-      }
+      // INFRA-861: the crisis lane's own client, carrying no session. Reads no consent
+      // state (vital-interest basis) and creates no identity: the first crisis on an
+      // install used to be what minted it, so auth.users.created_at dated the crisis.
+      const client = this.getCrisisClient();
+      if (!client) return; // config missing; retained for a later flush
 
       const pending = [...this.crisisAnalyticsQueue];
       const epoch = this.crisisQueueEpoch;
-      const rows: AnalyticsEvent[] = pending.map((e) => {
-        // DEBUG-541: project the detection day HERE, at flush, never at enqueue.
-        //
-        // Three reasons it has to be this seam. (1) The on-disk queue format stays put, so
-        // the DEBUG-335 composite dedup identity (`session_id|enqueued_at|event_type|
-        // properties`) is byte-stable — projecting at enqueue would make an in-memory copy
-        // stop matching its own disk copy, and the merge would insert the crisis row TWICE.
-        // (2) Events ALREADY queued on existing installs gain `detected_on` retroactively,
-        // which is most of the point. (3) Two live suites pin the exact four-key set on the
-        // emitter's arguments (journalCrisisScan, crisisTelemetryFields.regression) and stay
-        // green by construction — an enqueue-time projection would red them, and "fix the
-        // test" would be the wrong move.
-        const detectedOn = crisisDetectedOn(e.enqueued_at);
-        return {
-          user_id: this.userId!,
-          event_type: e.event_type,
-          // A NEW object when the day is usable. Never mutate `e.properties` — that object
-          // IS the persisted queue entry, and mutating it would change the dedup identity
-          // of an event still sitting on disk.
-          properties: detectedOn ? { ...e.properties, detected_on: detectedOn } : e.properties,
-          session_id: e.session_id,
-        };
-      });
 
-      const result = await this.executeWithResilience(
-        async () => {
-          const resp: any = await this.client!.from('analytics_events').insert(rows);
-          // executeWithResilience keys success off throwing, so surface a Supabase
-          // error response as a retryable failure rather than a false success.
-          if (resp?.error) throw resp.error;
-          return resp;
-        },
-        'flushCrisisAnalytics',
-        // DEBUG-409: the crisis sink does NOT share the cloud-backup failure budget.
-        // One circuitBreaker instance serves saveBackup/getBackup/flushAnalytics too,
-        // and 5 failures in 5 minutes opens it — so without this, a run of backup
-        // failures would silence the vital-interest audit trail for repeated 60s
-        // windows. Retries still apply; only the shared breaker is bypassed.
-        { bypassCircuitBreaker: true }
-      );
+      for (let start = 0; start < pending.length; start += CRISIS_INSERT_CHUNK) {
+        const chunk = pending.slice(start, start + CRISIS_INSERT_CHUNK);
+        const rows: CrisisDetectedRow[] = chunk.map((e) => {
+          // DEBUG-541: project the detection day HERE, at flush, never at enqueue.
+          //
+          // Three reasons it has to be this seam. (1) The on-disk queue format stays put,
+          // so the DEBUG-335 composite dedup identity (`session_id|enqueued_at|event_type|
+          // properties`) is byte-stable — projecting at enqueue would make an in-memory
+          // copy stop matching its own disk copy, and the merge would insert the crisis row
+          // TWICE. (2) Events ALREADY queued on existing installs gain `detected_on`
+          // retroactively, which is most of the point. (3) Two live suites pin the exact
+          // four-key set on the emitter's arguments (journalCrisisScan,
+          // crisisTelemetryFields.regression) and stay green by construction — an
+          // enqueue-time projection would red them, and "fix the test" would be the wrong move.
+          //
+          // INFRA-861: exactly two keys leave the device. session_id stays in the local
+          // queue as the dedup key only — it is the token identified operational rows also
+          // carry, so sending it would re-link the row. The server rebuilds properties from
+          // an allowlist anyway; this keeps the request itself free of identifiers.
+          const detectedOn = crisisDetectedOn(e.enqueued_at);
+          return {
+            event_type: e.event_type,
+            // A NEW object when the day is usable. Never mutate `e.properties` — that
+            // object IS the persisted queue entry, and mutating it would change the dedup
+            // identity of an event still sitting on disk.
+            properties: detectedOn ? { ...e.properties, detected_on: detectedOn } : e.properties,
+          };
+        });
 
-      if (result.success) {
-        // Drop the flushed prefix; keep anything enqueued during the flight. If an
-        // erasure dropped the queue mid-flight, the prefix is already gone and what
-        // remains belongs to the fresh identity — keep all of it (DEBUG-704).
-        if (epoch === this.crisisQueueEpoch) {
-          this.crisisAnalyticsQueue = this.crisisAnalyticsQueue.slice(pending.length);
+        const result = await this.executeWithResilience(
+          async () => {
+            // anon has INSERT on (event_type, properties) only and no SELECT, so the
+            // insert must stay return=minimal — never chain .select() here.
+            const resp: any = await client.from('analytics_events').insert(rows);
+            // executeWithResilience keys success off throwing, so surface a Supabase
+            // error response as a retryable failure rather than a false success.
+            if (resp?.error) throw resp.error;
+            return resp;
+          },
+          'flushCrisisAnalytics',
+          // DEBUG-409: the crisis sink does NOT share the cloud-backup failure budget.
+          // One circuitBreaker instance serves saveBackup/getBackup/flushAnalytics too,
+          // and 5 failures in 5 minutes opens it — so without this, a run of backup
+          // failures would silence the vital-interest audit trail for repeated 60s
+          // windows. Retries still apply; only the shared breaker is bypassed.
+          {
+            bypassCircuitBreaker: true,
+            isFinal: (error) => CRISIS_NON_RETRYABLE_SQLSTATES.has((error as any)?.code),
+          }
+        );
+
+        if (!result.success) {
+          if ((result.error as any)?.code === CRISIS_CEILING_SQLSTATE) {
+            this.crisisFlushNotBefore = crisisCeilingNotBefore(Date.now());
+          }
+          // Retained for retry, from this chunk on. Escalate to the local audit/security
+          // log so the gap is visible.
+          logSecurity(
+            '[SupabaseService] crisis telemetry flush failed — retained for retry',
+            'medium',
+            { pending: this.crisisAnalyticsQueue.length }
+          );
+          return;
         }
+
+        // An erasure dropped the queue mid-flight (DEBUG-704): the prefix is already gone
+        // and what remains was enqueued after it — keep all of it, and stop.
+        if (epoch !== this.crisisQueueEpoch) {
+          await this.persistCrisisQueue();
+          return;
+        }
+        // Drop exactly this chunk off the front; keep anything enqueued during the flight.
+        this.crisisAnalyticsQueue = this.crisisAnalyticsQueue.slice(chunk.length);
         // DEBUG-335: through the same chain as the enqueue write. A raw setItem here
         // races an in-flight enqueue write and can resurrect an already-flushed event.
         await this.persistCrisisQueue();
-      } else {
-        // Retained for retry. Escalate to the local audit/security log so the gap is visible.
-        logSecurity(
-          '[SupabaseService] crisis telemetry flush failed — retained for retry',
-          'medium',
-          { pending: pending.length }
-        );
       }
     })();
 
@@ -1975,9 +2065,9 @@ class SupabaseService {
    * the user (receipt verification), without bringing up anything else.
    *
    * Why it exists: `getClient()` returns null unless something else already built the
-   * client, and that happens only on a crisis flush or a Cloud Backup visit — so receipt
-   * verification failed for every other user (the old guard read `getStatus().userId`,
-   * set by the same two paths).
+   * client, and that happened only on a crisis flush (before INFRA-861) or a Cloud Backup
+   * visit — so receipt verification failed for every other user (the old guard read
+   * `getStatus().userId`, set by the same two paths).
    *
    * What it does: ensureClient({ mint }) — the one createClient site, single-flight
    * (DEBUG-409) — then, if no session was restored and `mint` is true, mints one through
@@ -2259,7 +2349,8 @@ class SupabaseService {
    *    attempts fail the server erasure still stands, so this still returns normally.
    *  - `signOut({ scope: 'local' })` runs fire-and-forget to clear auth-js's own state,
    *    after the removal, so it has no token to send. Never awaited.
-   * The client object is kept: the next crisis flush finds no session and mints a new one.
+   * The client object is kept with no session; nothing re-mints until getAuthenticatedClient
+   * or initialize() asks. The crisis lane never needed one (INFRA-861).
    *
    * DEBUG-707: `queuedByDeadline` is set when the confirmation arrived after the caller's
    * deadline. The user was told "unconfirmed" then and kept using the app, so only the

@@ -1,8 +1,8 @@
 /**
  * DEBUG-413 — the pre-fix crisis backlog is SUPPRESSED at load, not flushed — UNIT
  *
- * THE DEFECT. `flushCrisisAnalytics` projects each queued row as
- * `{user_id, event_type, properties, session_id}`. `enqueued_at` IS captured at enqueue
+ * THE DEFECT. `flushCrisisAnalytics` projected each queued row as
+ * `{user_id, event_type, properties, session_id}` (INFRA-861: now `{event_type, properties}`). `enqueued_at` IS captured at enqueue
  * time and IS dropped at flush time, and `analytics_events.created_at` defaults to
  * `NOW()`. Separately, DEBUG-409 gave shipped devices a working Supabase client, and
  * `loadCrisisAnalyticsQueue()` adopts the persisted queue unconditionally — so months of
@@ -227,10 +227,12 @@ describe('DEBUG-413 — pre-fix crisis backlog suppression', () => {
         .replace(/\/\*[\s\S]*?\*\//g, '')
         .replace(/^\s*\/\/.*$/gm, '');
 
-      expect(mapper).toMatch(/user_id/);
+      // INFRA-861: exactly event_type and properties leave the device. No user_id, and no
+      // session_id — the token identified operational rows also carry.
+      expect(mapper).not.toMatch(/user_id/);
       expect(mapper).toMatch(/event_type/);
-      expect(mapper).toMatch(/session_id/);
-      // DEBUG-541: the fifth field is expected now — and it must be DERIVED at flush from
+      expect(mapper).not.toMatch(/session_id\s*:/);
+      // DEBUG-541: the fifth property is expected now — and it must be DERIVED at flush from
       // the same `enqueued_at` the cutoff filter reads, never a second clock read.
       expect(mapper).toMatch(/detected_on/);
       expect(mapper).toMatch(/crisisDetectedOn\(\s*e\.enqueued_at\s*\)/);
@@ -238,15 +240,6 @@ describe('DEBUG-413 — pre-fix crisis backlog suppression', () => {
       // `event_time` spelling that was rejected in favour of a day-precision field.
       expect(mapper).not.toMatch(/event_time/);
       expect(mapper).not.toMatch(/enqueued_at\s*:/);
-      // INFRA-568 — the flush must project the PERSISTED session_id, never re-stamp
-      // from the live field. The `toMatch(/session_id/)` above is satisfied by BOTH
-      // spellings, so it does not cover this. Re-stamping breaks the durable queue's
-      // composite identity (`${session_id}|${enqueued_at}|${event_type}|…`): the
-      // in-memory copy stops matching its own disk copy, the DEBUG-335 merge classifies
-      // one event as two, and the crisis row is inserted TWICE. It would also relabel an
-      // offline backlog with the drain-day's session.
-      expect(mapper).not.toMatch(/session_id:\s*this\.sessionId/);
-      expect(mapper).toMatch(/session_id:\s*e\.session_id/);
       // Matcher liveness, asserted against the REAL slice. The previous version checked
       // only that known-bad literals matched their patterns, which stayed true even when
       // the slice held no code — so it could not detect the starvation described above.
@@ -256,7 +249,8 @@ describe('DEBUG-413 — pre-fix crisis backlog suppression', () => {
       // prose mentioning this item, and none of it may survive into the matched text.
       expect(mapper).not.toMatch(/DEBUG-541/);
       expect('event_time: x').toMatch(/event_time/);
-      expect('session_id: this.sessionId,').toMatch(/session_id:\s*this\.sessionId/);
+      expect('session_id: e.session_id,').toMatch(/session_id\s*:/);
+      expect('user_id: this.userId!,').toMatch(/user_id/);
     });
   });
 });

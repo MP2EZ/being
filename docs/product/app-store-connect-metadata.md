@@ -247,10 +247,10 @@ The collected-data declarations are encoded in `app/app.json` → `expo.ios.priv
 | Field | Value |
 |---|---|
 | Collected | **Yes** |
-| Data types | PHQ-9 responses, GAD-7 responses, daily mood check-in data, practice completion status |
-| Linked to user identity | **Pending a compliance ruling (DEBUG-821) — do not submit "No".** Screening responses, mood values and practice data stay on the device (optional cloud backup is end-to-end encrypted with user-controlled keys), but a Crisis Detection Event (`crisis_detected`) is sent to Being's server keyed to the random account ID (`auth.uid()`), so the earlier "local-only" answer was false (DEBUG-793). The manifest declares no Health type yet, and it must match whatever is ruled here (`docs/security/ios-privacy-manifest.md`) |
+| Data types | The Crisis Detection Event (`crisis_detected`): threshold category, severity band, screening type, whether support resources were shown, detection day. Screening responses, scores, mood values, journal content and practice data stay on the device (optional cloud backup is end-to-end encrypted with user-controlled keys) |
+| Linked to user identity | **No** (INFRA-861) — the event is sent and stored with no account or session identifier, and with the day only. True only for builds carrying the INFRA-861 client: never submit "No" for a build that predates it. Matches the manifest (`docs/security/ios-privacy-manifest.md`) |
 | Used for tracking | **No** |
-| Purpose | App Functionality |
+| Purpose | Analytics, App Functionality |
 
 **Diagnostics → Crash Data, Performance Data**
 
