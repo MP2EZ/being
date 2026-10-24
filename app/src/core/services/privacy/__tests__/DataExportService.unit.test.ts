@@ -14,6 +14,7 @@ import * as SecureStore from 'expo-secure-store';
 import { useConsentStore } from '@/core/stores/consentStore';
 import { logError } from '@/core/services/logging';
 import { resetSearchIndexForErasure } from '@/features/journal/services/journalSearchIndex';
+import { buildVerifiedSubscriptionRecord } from '@/core/services/subscription/verifiedSubscriptionRecord';
 
 jest.mock('@/core/services/security/SecureStorageService', () => ({
   __esModule: true,
@@ -94,6 +95,35 @@ describe('DataExportService — gatherExportData', () => {
       'assessment_store_encrypted',
       expect.objectContaining({ legacyFormat: 'plaintext_json' }),
     );
+  });
+
+  // DEBUG-708 (compliance R3): the export is a raw passthrough, so the record the store
+  // writes is what the user receives. Built through the real builder, it states no payment
+  // fact the server did not verify: each such field is present and null, never invented.
+  it.each([false, true])('a verified-purchase record exports no unverified payment fact (trial: %s)', async (isTrialPeriod) => {
+    const record = buildVerifiedSubscriptionRecord({
+      existing: null,
+      newId: () => 'sub-export',
+      newUserId: () => 'anonymous_export',
+      platform: 'apple',
+      platformSubscriptionId: 'verified-export',
+      interval: 'yearly',
+      isTrialPeriod,
+      expiresDate: 1_800_000_000_000,
+      now: 1_790_000_000_000,
+    });
+    mockRetrieveBlob.mockResolvedValue(null);
+    mockGetItem.mockImplementation(async (key: string) =>
+      key === 'subscription_secure_v1' ? JSON.stringify(record) : null,
+    );
+
+    const exported = (await gatherExportData()).wellness.subscription;
+
+    for (const field of ['priceUsd', 'currency', 'subscriptionStartDate', 'lastPaymentDate', 'trialStartDate', 'receiptData']) {
+      expect(exported).toHaveProperty(field, null);
+    }
+    expect(exported).toHaveProperty('subscriptionEndDate', 1_800_000_000_000);
+    expect(exported).toHaveProperty('status', isTrialPeriod ? 'trial' : 'active');
   });
 
   it('is null-safe: a missing/empty store yields a null section and never throws', async () => {

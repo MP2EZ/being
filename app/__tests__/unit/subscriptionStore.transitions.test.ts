@@ -193,6 +193,8 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       const state = useSubscriptionStore.getState();
       expect(state.subscription?.status).toBe('active');
       expect(state.subscription?.gracePeriodEnd).toBeNull();
+      // DEBUG-708: no verified payment, so no payment date is invented.
+      expect(state.subscription?.lastPaymentDate).toBeNull();
       expect(state.subscription?.paymentFailureCount).toBe(0);
       expect(state.featureAccess).toEqual(calculateFeatureAccess('active'));
     });
@@ -216,6 +218,9 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
         valid: true,
         subscriptionId: 'verified-sub-1',
         expiresDate: Date.now() + 30 * 24 * 60 * 60 * 1000,
+        // DEBUG-708: the plan comes from the verified product.
+        productId: DEFAULT_SUBSCRIPTION_CONFIG.products.apple.yearly,
+        isTrialPeriod: false,
       });
 
       await useSubscriptionStore.getState().purchaseSubscription('yearly');
@@ -232,7 +237,8 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       expect(mockIAP.finishTransaction).toHaveBeenCalledTimes(1);
       expect(state.subscription?.status).toBe('active');
       expect(state.subscription?.interval).toBe('yearly');
-      expect(state.subscription?.priceUsd).toBe(79.99);
+      // DEBUG-708: the server verifies no price, so none is recorded.
+      expect(state.subscription?.priceUsd).toBeNull();
       expect(state.featureAccess).toEqual(calculateFeatureAccess('active'));
       expect(state.isLoading).toBe(false);
       expect(state.isVerifyingReceipt).toBe(false);
@@ -389,10 +395,13 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       transactionReceipt: `receipt-restore-${n}`,
       orderId: `order-restore-${n}`,
     });
-    const validVerification = () => ({
+    // DEBUG-708: a valid verification carries the verified product; the plan comes from it.
+    const validVerification = (productId: string = apple.yearly) => ({
       valid: true,
       subscriptionId: 'verified-restore-1',
       expiresDate: Date.now() + 365 * 24 * 60 * 60 * 1000,
+      productId,
+      isTrialPeriod: false,
     });
 
     it('from subscription: null, a valid restore persists and holds an active subscription', async () => {
@@ -416,7 +425,7 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
 
     it('acknowledges the purchase only after the record is persisted', async () => {
       mockIAP.restorePurchases.mockResolvedValue([restored(apple.monthly)]);
-      mockIAP.verifyReceipt.mockResolvedValue(validVerification());
+      mockIAP.verifyReceipt.mockResolvedValue(validVerification(apple.monthly));
 
       await useSubscriptionStore.getState().restorePurchases();
 
@@ -431,7 +440,7 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       mockIAP.restorePurchases.mockResolvedValue([
         { ...restored(DEFAULT_SUBSCRIPTION_CONFIG.products.google.yearly), purchaseToken: 'token-1' },
       ]);
-      mockIAP.verifyReceipt.mockResolvedValue(validVerification());
+      mockIAP.verifyReceipt.mockResolvedValue(validVerification(DEFAULT_SUBSCRIPTION_CONFIG.products.google.yearly));
 
       await useSubscriptionStore.getState().restorePurchases();
 
@@ -526,6 +535,131 @@ describe('SubscriptionStore — transitions & feature access (MAINT-242)', () =>
       await expect(
         useSubscriptionStore.getState().processVerifiedPurchase(restored(apple.yearly), 'yearly')
       ).resolves.toBe(true);
+    });
+  });
+
+
+  // ──────────────────────────────────────────────────────────────────
+  // DEBUG-708 — purchase and restore persist only server-verified facts.
+  // ──────────────────────────────────────────────────────────────────
+  describe('verified facts only (DEBUG-708)', () => {
+    const { apple, google } = DEFAULT_SUBSCRIPTION_CONFIG.products;
+    const EXPIRES = Date.now() + 14 * 24 * 60 * 60 * 1000;
+    const purchase = (productId: string = apple.yearly) => ({
+      productId,
+      transactionReceipt: 'receipt-708',
+      orderId: 'order-708',
+      transactionId: '2000000708000001',
+    });
+    const verified = (overrides: Record<string, unknown> = {}) => ({
+      valid: true,
+      subscriptionId: 'verified-708',
+      expiresDate: EXPIRES,
+      productId: apple.yearly,
+      isTrialPeriod: false,
+      httpStatus: 200,
+      ...overrides,
+    });
+    const persisted = () => {
+      const calls = (mockSecureStore.setItemAsync as jest.Mock).mock.calls;
+      return JSON.parse(calls[calls.length - 1][1]) as Record<string, unknown>;
+    };
+    /** The persisted JSON, read back through the store's own load path. */
+    const reloaded = async () => {
+      const json = (mockSecureStore.setItemAsync as jest.Mock).mock.calls.at(-1)![1];
+      resetStore();
+      (mockSecureStore.getItemAsync as jest.Mock).mockResolvedValueOnce(json);
+      await useSubscriptionStore.getState().loadSubscription();
+      return useSubscriptionStore.getState().subscription;
+    };
+    const withTrackedEvents = async (run: () => Promise<unknown>) => {
+      const original = useSubscriptionStore.getState().trackSubscriptionEvent;
+      const track = jest.fn(async () => {});
+      useSubscriptionStore.setState({ trackSubscriptionEvent: track });
+      try {
+        await run();
+      } finally {
+        useSubscriptionStore.setState({ trackSubscriptionEvent: original });
+      }
+      return track.mock.calls.map(c => c[0]);
+    };
+
+    it('a verified trial persists status trial, trial access, and the trial ending at the verified expiry', async () => {
+      mockIAP.verifyReceipt.mockResolvedValue(verified({ isTrialPeriod: true }));
+
+      await expect(useSubscriptionStore.getState().processVerifiedPurchase(purchase(), 'yearly')).resolves.toBe(true);
+
+      const state = useSubscriptionStore.getState();
+      expect(state.subscription?.status).toBe('trial');
+      expect(state.featureAccess).toEqual(calculateFeatureAccess('trial'));
+      expect(persisted()).toMatchObject({ status: 'trial', trialEndDate: EXPIRES, trialStartDate: null, subscriptionEndDate: EXPIRES });
+      const back = await reloaded();
+      expect(back?.status).toBe('trial');
+      expect(useSubscriptionStore.getState().featureAccess).toEqual(calculateFeatureAccess('trial'));
+    });
+
+    it('the plan is the verified product\'s, not the client\'s', async () => {
+      mockIAP.verifyReceipt.mockResolvedValue(verified({ productId: apple.yearly }));
+
+      await useSubscriptionStore.getState().processVerifiedPurchase(purchase(apple.monthly), 'monthly');
+
+      expect(useSubscriptionStore.getState().subscription?.interval).toBe('yearly');
+    });
+
+    it.each([
+      ['absent', undefined],
+      ['unknown', 'com.example.not-ours'],
+    ])('a %s verified product persists nothing, acknowledges nothing, and throws', async (_label, productId) => {
+      mockIAP.verifyReceipt.mockResolvedValue(verified({ productId }));
+
+      await expect(useSubscriptionStore.getState().processVerifiedPurchase(purchase(), 'yearly')).rejects.toThrow(
+        'Receipt verified a product this app does not sell'
+      );
+      expect(mockSecureStore.setItemAsync).not.toHaveBeenCalled();
+      expect(mockIAP.finishTransaction).not.toHaveBeenCalled();
+      expect(useSubscriptionStore.getState().subscription).toBeNull();
+      expect(useSubscriptionStore.getState().isVerifyingReceipt).toBe(false);
+    });
+
+    it.each(['apple', 'google'] as const)('the persisted record asserts no unverified payment fact (%s purchase)', async (platform) => {
+      mockIAP.getPlatform.mockReturnValue(platform);
+      const productId = platform === 'apple' ? apple.monthly : google.monthly;
+      mockIAP.verifyReceipt.mockResolvedValue(verified({ productId }));
+
+      await useSubscriptionStore.getState().processVerifiedPurchase({ ...purchase(productId), purchaseToken: 'token-708' }, 'monthly');
+
+      const record = persisted();
+      for (const field of ['priceUsd', 'currency', 'subscriptionStartDate', 'lastPaymentDate', 'trialStartDate', 'trialEndDate', 'receiptData']) {
+        expect(record).toHaveProperty(field, null);
+      }
+      expect(record).toMatchObject({ status: 'active', interval: 'monthly', subscriptionEndDate: EXPIRES, platform });
+      expect(await reloaded()).toStrictEqual(record);
+    });
+
+    it('only id, userId and createdAt survive from an existing record', async () => {
+      const existing = seedSubscription({ status: 'grace', gracePeriodEnd: Date.now() + 1000, paymentFailureCount: 2, platformCustomerId: 'cust-1' });
+      useSubscriptionStore.setState({ subscription: existing });
+      mockIAP.verifyReceipt.mockResolvedValue(verified());
+
+      await useSubscriptionStore.getState().processVerifiedPurchase(purchase(), 'yearly');
+
+      const record = persisted();
+      expect(record).toMatchObject({ id: existing.id, userId: existing.userId, createdAt: existing.createdAt });
+      expect(record).toMatchObject({ priceUsd: null, receiptData: null, lastPaymentDate: null, gracePeriodEnd: null, paymentFailureCount: 0, status: 'active' });
+      expect(record).not.toHaveProperty('platformCustomerId');
+    });
+
+    it('a purchase records subscription_started; a restore records subscription_restored', async () => {
+      mockIAP.verifyReceipt.mockResolvedValue(verified());
+      const onPurchase = await withTrackedEvents(() =>
+        useSubscriptionStore.getState().processVerifiedPurchase(purchase(), 'yearly')
+      );
+      expect(onPurchase).toEqual(['subscription_started']);
+
+      resetStore();
+      mockIAP.restorePurchases.mockResolvedValue([purchase()]);
+      const onRestore = await withTrackedEvents(() => useSubscriptionStore.getState().restorePurchases());
+      expect(onRestore).toEqual(['subscription_restored']);
     });
   });
 

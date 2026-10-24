@@ -98,6 +98,7 @@ import { logSystem, logPerformance, logError, LogCategory } from '@/core/service
 import { appleTransactionIdentityFrom } from '@/core/services/subscription/appleTransactionIdentity';
 import { intervalFromProductId } from '@/core/services/subscription/subscriptionProductInterval';
 import { ReceiptVerificationUnavailableError } from '@/core/services/subscription/receiptVerificationUnavailable';
+import { buildVerifiedSubscriptionRecord } from '@/core/services/subscription/verifiedSubscriptionRecord';
 const logger = {
   info: (message: string, meta?: Record<string, unknown>) => {
     logSystem(`[Subscription] ${message}${meta ? ` ${JSON.stringify(meta)}` : ''}`);
@@ -282,9 +283,19 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
    * Resolves true only once the record is persisted, in memory and
    * acknowledged; false when an erasure abandoned it (DEBUG-720 — restore
    * counts only what was actually applied).
+   *
+   * DEBUG-708: the record holds only what the server verified. The plan comes from
+   * the VERIFIED productId (`interval` is the caller's request, kept for the log), the
+   * status from the verified trial flag, and no price, start or payment date is
+   * invented. `context.source` picks the event; it is read once, at entry.
    */
-  processVerifiedPurchase: async (purchase: unknown, interval: SubscriptionInterval) => {
+  processVerifiedPurchase: async (
+    purchase: unknown,
+    interval: SubscriptionInterval,
+    context: { source: 'purchase' | 'restore' } = { source: 'purchase' }
+  ) => {
     const generation = erasureGeneration;
+    const { source } = context;
     set({ isVerifyingReceipt: true });
 
     try {
@@ -308,7 +319,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       logger.info('Verifying receipt', { platform, hasReceipt: !!receiptData });
 
       // productId rides in its own argument, never in receiptData: on Android
-      // receiptData is '' and is persisted below as the record's receipt (DEBUG-713).
+      // receiptData is '' (DEBUG-713). It is no longer persisted (DEBUG-708).
       const verification = await IAPService.verifyReceipt(
         receiptData,
         platform,
@@ -336,36 +347,29 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
         return false;
       }
 
-      const { subscription } = get();
-      const now = Date.now();
+      // The plan is the one the server verified. A product it cannot place is never
+      // recorded: nothing is persisted or finished, so the platform re-emits it.
+      const verifiedInterval = verification.productId ? intervalFromProductId(verification.productId) : null;
+      if (!verifiedInterval) {
+        throw new Error('Receipt verified a product this app does not sell');
+      }
+      if (verifiedInterval !== interval) {
+        logger.info('Verified plan differs from the requested one', { requested: interval, verified: verifiedInterval });
+      }
 
-      const updatedSubscription: SubscriptionMetadata = {
-        ...(subscription || {
-          id: generateId(),
-          userId: getCurrentUserId(),
-          crisisAccessEnabled: true,
-          createdAt: now,
-        }),
+      const updatedSubscription = buildVerifiedSubscriptionRecord({
+        existing: get().subscription,
+        newId: generateId,
+        newUserId: getCurrentUserId,
         platform,
-        platformSubscriptionId: verification.subscriptionId || p.orderId,
-        status: 'active',
-        tier: 'standard',
-        interval,
-        priceUsd: interval === 'yearly' ? 79.99 : 7.99,
-        currency: 'USD',
-        trialStartDate: null,
-        trialEndDate: null,
-        subscriptionStartDate: now,
-        subscriptionEndDate: verification.expiresDate || null,
-        gracePeriodEnd: null,
-        lastReceiptVerified: now,
-        receiptData,
-        lastPaymentDate: now,
-        paymentFailureCount: 0,
-        updatedAt: now,
-      } as SubscriptionMetadata;
+        platformSubscriptionId: verification.subscriptionId || p.orderId || '',
+        interval: verifiedInterval,
+        isTrialPeriod: verification.isTrialPeriod === true,
+        expiresDate: verification.expiresDate,
+        now: Date.now(),
+      });
 
-      const featureAccess = calculateFeatureAccess('active');
+      const featureAccess = calculateFeatureAccess(updatedSubscription.status);
 
       await trackWrite(SecureStore.setItemAsync(SECURE_STORAGE_KEY, JSON.stringify(updatedSubscription)));
       if (generation !== erasureGeneration) {
@@ -381,8 +385,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
       // Acknowledge with the platform so it stops re-emitting.
       await IAPService.finishTransaction(purchase as Parameters<typeof IAPService.finishTransaction>[0]);
 
-      await get().trackSubscriptionEvent('subscription_started', {
-        interval,
+      await get().trackSubscriptionEvent(source === 'restore' ? 'subscription_restored' : 'subscription_started', {
+        interval: verifiedInterval,
         platform,
         subscriptionId: verification.subscriptionId,
       });
@@ -432,7 +436,7 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
         }
 
         try {
-          if (await get().processVerifiedPurchase(purchase, interval)) restored++;
+          if (await get().processVerifiedPurchase(purchase, interval, { source: 'restore' })) restored++;
         } catch (error) {
           // One unverifiable entitlement must not stop the rest. It stays
           // unacknowledged, so the platform offers it again next time.
@@ -556,7 +560,8 @@ export const useSubscriptionStore = create<SubscriptionStore>((set, get) => ({
         status: 'active',
         gracePeriodEnd: null,
         paymentFailureCount: 0,
-        lastPaymentDate: Date.now(),
+        // No payment was verified here (DEBUG-708).
+        lastPaymentDate: null,
         updatedAt: Date.now()
       };
 

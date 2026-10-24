@@ -383,7 +383,7 @@ describe('subscriptionStore (DEBUG-697)', () => {
   // registry's bound, leaves nothing of the prior subscription on disk.
   it('a purchase parked at its write and released within the bound leaves no prior record on disk', async () => {
     await seedPreErasureState();
-    mockVerifyReceipt.mockResolvedValueOnce({ valid: true, subscriptionId: 'sub_parked', expiresDate: null });
+    mockVerifyReceipt.mockResolvedValueOnce({ valid: true, subscriptionId: 'sub_parked', productId: DEFAULT_SUBSCRIPTION_CONFIG.products.apple.monthly, isTrialPeriod: false });
     mockHold.key = SUBSCRIPTION_KEY;
     const purchasing = sub().processVerifiedPurchase(
       { transactionReceipt: 'receipt_parked', orderId: 'order_parked' },
@@ -422,7 +422,7 @@ describe('subscriptionStore (DEBUG-697)', () => {
     expect(resolveVerify).not.toBeNull(); // verification really is pending
 
     await expect(deleteAccountAndWipe({ posthog: null })).resolves.toEqual({ ok: true });
-    resolveVerify!({ valid: true, subscriptionId: 'sub_inflight', expiresDate: null });
+    resolveVerify!({ valid: true, subscriptionId: 'sub_inflight', productId: DEFAULT_SUBSCRIPTION_CONFIG.products.apple.monthly, isTrialPeriod: false });
     await purchasing;
 
     expect(mockSecure.has(SUBSCRIPTION_KEY)).toBe(false);
@@ -457,7 +457,7 @@ describe('subscriptionStore (DEBUG-697)', () => {
     expect(resolveVerify).not.toBeNull(); // verification really is pending
 
     await expect(deleteAccountAndWipe({ posthog: null })).resolves.toEqual({ ok: true });
-    resolveVerify!({ valid: true, subscriptionId: 'sub_restore_inflight', expiresDate: null });
+    resolveVerify!({ valid: true, subscriptionId: 'sub_restore_inflight', productId: DEFAULT_SUBSCRIPTION_CONFIG.products.apple.yearly, isTrialPeriod: false });
 
     await expect(restoring).resolves.toEqual({ found: 1, restored: 0 });
     expect(mockSecure.has(SUBSCRIPTION_KEY)).toBe(false);
@@ -475,7 +475,7 @@ describe('subscriptionStore (DEBUG-697)', () => {
         orderId: 'order_restore_after',
       },
     ]);
-    mockVerifyReceipt.mockResolvedValueOnce({ valid: true, subscriptionId: 'sub_restore_after', expiresDate: null });
+    mockVerifyReceipt.mockResolvedValueOnce({ valid: true, subscriptionId: 'sub_restore_after', productId: DEFAULT_SUBSCRIPTION_CONFIG.products.apple.monthly, isTrialPeriod: false });
 
     await expect(sub().restorePurchases()).resolves.toEqual({ found: 1, restored: 1 });
 
@@ -483,6 +483,50 @@ describe('subscriptionStore (DEBUG-697)', () => {
     expect(onDisk.id).not.toBe('sub_prior');
     expect(onDisk.platformSubscriptionId).toBe('sub_restore_after');
     expect(onDisk.status).toBe('active');
+  });
+
+  // DEBUG-708 (compliance R1): a restore after erasure writes exactly what a fresh install's
+  // restore writes, apart from the record's own id, userId and createdAt. Nothing from the
+  // erased record survives, and nothing marks that an erasure came first.
+  it('a post-erasure restore record equals a fresh-install restore record except its identity', async () => {
+    const FROZEN = 1_790_000_000_000;
+    const clock = jest.spyOn(Date, 'now').mockReturnValue(FROZEN);
+    const restoredPurchase = {
+      productId: DEFAULT_SUBSCRIPTION_CONFIG.products.apple.monthly,
+      transactionReceipt: 'receipt_r1',
+      orderId: 'order_r1',
+    };
+    const verification = { valid: true, subscriptionId: 'sub_r1', productId: DEFAULT_SUBSCRIPTION_CONFIG.products.apple.monthly, isTrialPeriod: false, expiresDate: FROZEN + 1000 };
+    const identity = ['id', 'userId', 'createdAt'];
+    const withoutIdentity = (r: Record<string, unknown>) =>
+      Object.fromEntries(Object.entries(r).filter(([k]) => !identity.includes(k)));
+    try {
+      // Fresh install: nothing seeded.
+      mockRestorePurchases.mockResolvedValueOnce([restoredPurchase]);
+      mockVerifyReceipt.mockResolvedValueOnce(verification);
+      await expect(sub().restorePurchases()).resolves.toEqual({ found: 1, restored: 1 });
+      const fresh = JSON.parse(mockSecure.get(SUBSCRIPTION_KEY)!) as Record<string, unknown>;
+
+      // Same restore, after a seeded state was erased.
+      mockSecure.clear();
+      useSubscriptionStore.setState({ subscription: null, featureAccess: null });
+      await seedPreErasureState();
+      expect(mockSecure.get(SUBSCRIPTION_KEY)).toContain('receipt_prior'); // positive control
+      await expect(deleteAccountAndWipe({ posthog: null })).resolves.toEqual({ ok: true });
+      mockRestorePurchases.mockResolvedValueOnce([restoredPurchase]);
+      mockVerifyReceipt.mockResolvedValueOnce(verification);
+      await expect(sub().restorePurchases()).resolves.toEqual({ found: 1, restored: 1 });
+      const afterErasure = JSON.parse(mockSecure.get(SUBSCRIPTION_KEY)!) as Record<string, unknown>;
+
+      expect(Object.keys(afterErasure).sort()).toEqual(Object.keys(fresh).sort());
+      expect(withoutIdentity(afterErasure)).toStrictEqual(withoutIdentity(fresh));
+      expect(afterErasure['id']).not.toBe(PRIOR_SUBSCRIPTION.id);
+      expect(afterErasure['userId']).not.toBe(PRIOR_SUBSCRIPTION.userId);
+      expect(JSON.stringify(afterErasure)).not.toMatch(/sub_prior|anonymous_prior|orig_tx_prior|receipt_prior|7\.99/);
+      expect(Object.keys(afterErasure).some((k) => /eras|restor/i.test(k))).toBe(false);
+    } finally {
+      clock.mockRestore();
+    }
   });
 });
 
@@ -522,7 +566,7 @@ describe('DEBUG-789 — a never-settling write is bounded (fake timers)', () => 
 
   it('subscription: a held purchase write delays the deletion to the deadline, then the late release changes nothing', async () => {
     await seedPreErasureState();
-    mockVerifyReceipt.mockResolvedValueOnce({ valid: true, subscriptionId: 'sub_held', expiresDate: null });
+    mockVerifyReceipt.mockResolvedValueOnce({ valid: true, subscriptionId: 'sub_held', productId: DEFAULT_SUBSCRIPTION_CONFIG.products.apple.monthly, isTrialPeriod: false });
     mockHold.key = SUBSCRIPTION_KEY;
     const purchasing = observe(
       sub().processVerifiedPurchase({ transactionReceipt: 'receipt_held', orderId: 'order_held' }, 'monthly'),

@@ -96,9 +96,10 @@ export interface SubscriptionMetadata {
   tier: SubscriptionTier;              // Subscription tier
   interval: SubscriptionInterval;      // monthly | yearly
 
-  // Pricing (for display only, NOT authoritative)
-  priceUsd: number;                    // e.g., 10.00 (monthly), 79.99 (yearly)
-  currency: string;                    // e.g., 'USD'
+  // Pricing. Null on every record a verified purchase or restore writes: the server
+  // verifies no price (DEBUG-708).
+  priceUsd: number | null;
+  currency: string | null;
 
   // Timing
   trialStartDate: number | null;       // Timestamp of trial start
@@ -109,7 +110,7 @@ export interface SubscriptionMetadata {
 
   // Receipt Verification (last known)
   lastReceiptVerified: number | null;  // Timestamp of last successful receipt verification
-  receiptData: string | null;          // Encrypted receipt data (for re-verification)
+  receiptData: string | null;          // Always null since DEBUG-708: unread since INFRA-467 slice 4, so not kept
 
   // Payment History (minimal, for reference only)
   lastPaymentDate: number | null;      // Timestamp of last successful payment
@@ -236,7 +237,12 @@ export interface SubscriptionStore {
    * same purchase (verifyReceipt server side will dedupe on orderId).
    */
   /** True once the purchase is persisted and acknowledged; false if an erasure abandoned it. */
-  processVerifiedPurchase: (purchase: unknown, interval: SubscriptionInterval) => Promise<boolean>;
+  processVerifiedPurchase: (
+    purchase: unknown,
+    interval: SubscriptionInterval,
+    /** DEBUG-708: which event the applied purchase records. Defaults to a purchase. */
+    context?: { source: 'purchase' | 'restore' }
+  ) => Promise<boolean>;
   /** `restored` counts only purchases actually applied (DEBUG-720). */
   restorePurchases: () => Promise<{ found: number; restored: number }>;
   cancelSubscription: () => Promise<void>;

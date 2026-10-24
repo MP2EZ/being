@@ -189,6 +189,8 @@ describe('Subscription Integration - Full Lifecycle', () => {
       data: {
         valid: true,
         subscriptionId: 'test-sub-id-integration',
+        productId: 'com.being.subscription.yearly',
+        isTrialPeriod: false,
         expiresDate: new Date(Date.now() + 365 * 24 * 60 * 60 * 1000).toISOString(),
       },
       error: null,
@@ -428,6 +430,8 @@ describe('Subscription Integration - Full Lifecycle', () => {
       data: {
         valid: true,
         subscriptionId: 'restored-sub-id',
+        productId: 'com.being.subscription.yearly',
+        isTrialPeriod: false,
         expiresDate: new Date(Date.now() + 335 * 24 * 60 * 60 * 1000).toISOString(),
       },
       error: null,
@@ -537,6 +541,8 @@ describe('Subscription Integration - Platform Specifics', () => {
       data: {
         valid: true,
         subscriptionId: 'apple-sub-id',
+        productId: 'com.being.subscription.monthly',
+        isTrialPeriod: false,
         expiresDate: '2025-11-01T00:00:00Z',
       },
       error: null,
@@ -568,6 +574,8 @@ describe('Subscription Integration - Platform Specifics', () => {
       data: {
         valid: true,
         subscriptionId: 'google-order-id',
+        productId: 'subscription_monthly',
+        isTrialPeriod: false,
         expiresDate: '2025-11-01T00:00:00Z',
       },
       error: null,
@@ -670,7 +678,8 @@ describe('Subscription Integration - Google identifiers at the caller boundary (
 
     mockInvoke.mockReset();
     mockInvoke.mockResolvedValue({
-      data: { valid: true, subscriptionId: 'GPA.3312-4512-9934-21117', expiresDate: '2026-11-04T00:00:00Z' },
+      // The Google handler echoes the requested product id (handler.ts:187).
+      data: { valid: true, subscriptionId: 'GPA.3312-4512-9934-21117', expiresDate: '2026-11-04T00:00:00Z', productId: androidPurchase.productId, isTrialPeriod: false },
       error: null,
     });
   });
