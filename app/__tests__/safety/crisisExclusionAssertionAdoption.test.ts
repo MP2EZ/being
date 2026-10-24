@@ -38,6 +38,9 @@ const HOSTS: Record<string, number> = {
   'features/practices/screens/PracticeLibraryScreen.tsx': 3,
   'features/home/screens/CleanHomeScreen.tsx': 1,
   'features/guidance/components/RightNowAffordance.tsx': 1,
+  // FEAT-860: the policy-change notice's two buttons. The hooks live in the component, not
+  // in CleanHomeScreen (which only mounts it), so Home's own count is unchanged.
+  'features/consent/components/PolicyChangeNotice.tsx': 2,
   // DEBUG-653
   'features/profile/screens/ProfileScreen.tsx': 1,
   'features/profile/screens/PrivacyDataScreen.tsx': 1,
