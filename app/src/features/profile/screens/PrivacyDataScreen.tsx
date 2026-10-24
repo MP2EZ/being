@@ -48,9 +48,13 @@ import type { ProfileStackParamList } from '../ProfileStackNavigator';
  * Displays a data type with its storage location indicator
  *
  * Storage locations:
- * - 'device': SecureStore (iOS Keychain / Android Keystore) - tied to device, survives reinstall
- * - 'app': AsyncStorage - inside app only, lost if app deleted
- * - 'cloud': Supabase - Being's cloud, accessible from any device
+ * - 'device': SecureStore (iOS Keychain / Android Keystore). On iOS the keychain can be in an
+ *   encrypted iPhone backup (MAINT-869); on Android backup and device transfer are off (MAINT-868)
+ * - 'app': AsyncStorage, deleted with the app and excluded from OS backup on both platforms
+ * - 'cloud': Supabase, Settings Backup only, encrypted with a key held on the device
+ *
+ * MAINT-868: no "only", "never leaves" or "stays on" absolute — those stay false on iOS until
+ * MAINT-869. Pinned by app/__tests__/privacy/onDeviceAbsoluteClaims.privacy.test.ts.
  */
 type StorageLocation = 'device' | 'app' | 'cloud';
 
@@ -69,22 +73,22 @@ const getStorageDisplay = (location: StorageLocation): { icon: IoniconName; text
     case 'device':
       return {
         icon: 'phone-portrait-outline',
-        text: isIOS ? 'iPhone / iCloud' : 'This device',
+        text: 'This device',
         accessibilityText: isIOS
-          ? 'Stored on your iPhone. May sync to iCloud if you have iCloud Keychain enabled.'
-          : 'Stored on this device only. Will not sync to other devices.',
+          ? 'Stored encrypted on this device. An encrypted backup of your iPhone may include it.'
+          : 'Stored encrypted on this device. Not included in Android backup or device transfer.',
       };
     case 'app':
       return {
         icon: 'cube-outline',
         text: 'App',
-        accessibilityText: 'Stored in this app only. Lost if you delete the app.',
+        accessibilityText: 'Stored in the app on this device. Deleted if you delete the app.',
       };
     case 'cloud':
       return {
         icon: 'cloud-outline',
         text: 'Being Cloud',
-        accessibilityText: 'Synced to Being Cloud. Accessible from any device you sign into.',
+        accessibilityText: "Backed up to Being Cloud, encrypted with a key kept on this device.",
       };
   }
 };
@@ -709,7 +713,7 @@ const PrivacyDataScreen: React.FC = () => {
           </View>
 
           <Text style={styles.storageInfoText}>
-            Device data survives reinstall. App data is lost if you delete the app.
+            Deleting the app deletes app data. To delete everything Being stores, use Delete account below.
           </Text>
         </View>
 

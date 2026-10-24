@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.31
+**Version:** 1.32
 **Effective Date:** December 12, 2025
 **Last Updated:** October 24, 2026
 
@@ -35,7 +35,7 @@ Being ("we," "us," or "our") is committed to protecting your privacy. This Priva
 
 **Our Privacy Philosophy:**
 
-- **Local-First:** Your mental health data stays on your device by default
+- **Local-First:** Your mental health data is stored encrypted on your device, and Being does not send your answers, scores, mood check-ins or journal entries to us or to anyone else (Section 4.1)
 - **Never Sold:** We will never sell your personal information to third parties
 - **Strong Security:** We use AES-256 encryption to protect your data
 - **You're in Control:** Export or delete your data at any time
@@ -86,7 +86,7 @@ We use your information solely to provide and improve the Being app:
 
 ### 4.1 Local-First Architecture
 
-All your mental health data is stored locally on your device by default. We use AES-256 encryption to protect your data at rest.
+Your mental health data is stored on your device, encrypted with AES-256. Being does not send it to us or to third parties. The one record about it that reaches our servers is the crisis-detection event described in Section 3, which records that a screening threshold was met, without your answers or scores. Your device's own backup works separately from Being: on Android, Being's data is excluded from backup and from transfer to a new device; on iPhone, an encrypted backup of your device (to iCloud or to a computer) may include some of Being's data kept in the iPhone's keychain, including the key that protects your encrypted wellness data.
 
 To keep any data that does reach our servers isolated to you and to you alone, the app creates an **random account ID** with our database provider (Supabase). It is not created at startup: it is created the first time one is needed — when a crisis-detection event (§3) is recorded, when you use the optional settings backup (§4.2), or when you make or restore a purchase. This ID is a randomly generated value. It is not tied to your name, email address or phone number, and you are never asked to sign in, but it is not anonymous: it is a persistent identifier, and privacy laws treat it as personal information. Each time the app connects to our servers with it — when it is created, and each time the app refreshes that connection, about hourly while the app keeps it open — Supabase records against it the IP address of your device's most recent connection, device and app details from that connection (its user agent: the app's build number and your device's operating system version), and when the app last connected; each refresh replaces the previous values. We do not use these connection records to locate or identify you: the identifier exists so that one device's data cannot be read by another, and the connection records are part of how that connection works. The IP address and the device and app details are deleted within a day of each connection. The time the app last connected is kept until the identifier is deleted, and the identifier and its last-connection time are removed when you delete your account or data in the app (§7.4). If you delete or reinstall the app without first deleting your account, the old identifier stays on our servers with the time it last connected, and nothing deletes it automatically today. Its IP address and device and app details are still deleted within a day of its last connection. To avoid that, delete your account in *Settings → Privacy & Data* before you uninstall.
 
@@ -94,7 +94,7 @@ To keep any data that does reach our servers isolated to you and to you alone, t
 
 ### 4.2 Optional Settings Backup
 
-You may optionally enable an encrypted settings backup. This is a narrow, opt-in feature that backs up a single non-wellness app preference (your autosave setting) to encrypted cloud storage. It does **not** back up your mental-health data — PHQ-9 / GAD-7 responses, mood check-ins, journal entries, and crisis records always stay on your device. Settings backups are:
+You may optionally enable an encrypted settings backup. This is a narrow, opt-in feature that backs up a single non-wellness app preference (your autosave setting) to encrypted cloud storage. It does **not** back up your mental-health data — PHQ-9 / GAD-7 responses, mood check-ins, journal entries and crisis records are not part of Settings Backup. Crisis Detection Events are sent to our servers separately, as described in Section 3 and Section 7.2. Settings backups are:
 
 - Encrypted in transit (TLS 1.2+) and at rest (AES-256) on Supabase infrastructure (SOC 2 Type II certified)
 - Scoped to a strict allowlist of non-sensitive preference fields
@@ -264,7 +264,7 @@ For your safety and our liability protection, we retain crisis-related data for 
 
 This extended retention supports safety-monitoring continuity and protects both you and us in case of legal proceedings.
 
-**Where this data lives, and what enforces the limit:** High-Severity Assessments and Suicidal Ideation Responses never leave your device — an automated on-device cleanup removes them 3 years after they are recorded. Crisis Detection Events are the only crisis-related records held on our servers; an automated daily job (`analytics-retention-prune`) deletes them 3 years after they are recorded. The same job deletes every other event in that table after 90 days.
+**Where this data lives, and what enforces the limit:** High-Severity Assessments and Suicidal Ideation Responses are kept on your device and Being does not send them to our servers — an automated on-device cleanup removes them 3 years after they are recorded. Crisis Detection Events are the only crisis-related records held on our servers; an automated daily job (`analytics-retention-prune`) deletes them 3 years after they are recorded. The same job deletes every other event in that table after 90 days.
 
 ### 7.3 Other Data
 
@@ -276,7 +276,7 @@ This extended retention supports safety-monitoring continuity and protects both 
 - **Data Deletion Requests:** Honored within 30 days of request
 - **Audit Logs:** 3 years (for security and compliance)
 - **Consent Records:** Kept for as long as your account exists, as proof of lawful data processing. When you delete your account they are deleted with it, along with your age check and legal acceptances; only the account-deletion record below is kept.
-- **Account-Deletion Record:** 3 years, on your device only. When you delete your account we keep a small confirmation that the deletion happened — the date, the privacy choices that were in effect at that moment, and a count of the consent changes recorded before it. It contains **no identifier of any kind**: nothing that names you, your device, or your account, and nothing that could be used to re-link you to anything you did before. We keep it because we have to be able to show that a deletion request was honored, and it survives the wipe for that reason alone.
+- **Account-Deletion Record:** 3 years, on your device; it is not sent to our servers. When you delete your account we keep a small confirmation that the deletion happened — the date, the privacy choices that were in effect at that moment, and a count of the consent changes recorded before it. It contains **no identifier of any kind**: nothing that names you, your device, or your account, and nothing that could be used to re-link you to anything you did before. We keep it because we have to be able to show that a deletion request was honored, and it survives the wipe for that reason alone.
 
 ### 7.4 Your Right to Delete
 
@@ -308,6 +308,7 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
+- **v1.32 (October 24, 2026) — material change.** The Summary, §4.1, §4.2, §7.2 and §7.3 described your mental-health data and some records as kept on your device alone. That was broader than what happens on an iPhone: an encrypted backup of the device, to iCloud or to a computer, can include some of Being's data kept in the iPhone's keychain, including the key that protects your encrypted wellness data. §4.1 now says so, and these sections now say what Being does and does not send to our servers instead. On Android, Being's data is now excluded from backup and from transfer to a new device. §4.2 now also says that Crisis Detection Events are sent to our servers separately from Settings Backup, as §3 and §7.2 describe. Nothing Being collects or sends has changed. Because it withdraws a broader promise, it is treated as a material change.
 - **v1.31 (October 24, 2026):** §6 now says that the app keeps the date, the format and the range covered by your most recent export on your device, so the export and account-deletion screens can show when you last exported. Only the most recent export is kept, it is encrypted like your other wellness data, it is never sent to our servers, and it is deleted when you delete your account. This adds no data about you beyond what is already on your device, so it is published with the next app release.
 - **v1.30 (October 24, 2026):** §2.2, §4.1, §5.1 and §7.3 said the IP address and device and app details our database provider (Supabase) keeps against your random account ID were kept until the identifier is deleted. A job on our servers now deletes them within a day of each connection. It runs every hour, and the values recorded before it started were deleted on October 24, 2026. §3 says the same. The time the app last connected is still kept until the identifier is deleted, including for an identifier left behind by a reinstall, and request logs are still kept for 1 day. This narrows how long data is kept and adds no new kind of data. It applies to every copy of the app.
 - **v1.29 (October 23, 2026) — material change.** §5.2, §7.1 and §7.2 said analytics events are deleted after 90 days, and §5.2 said a request to delete them sooner is honored within 30 days. PostHog, which stores the app's and being.fyi's analytics events, keeps them for 1 year on our current plan and does not offer a shorter period, and it gives us no way to delete one person's events because they are not linked to an account. §5.2 now states PostHog's retention for both the app and the website, that a paid plan can keep events up to 7 years, and that we will update this policy before any change; the request-to-delete sentence is removed. §7.1 no longer lists product analytics, and §7.3 lists it with PostHog's retention. §7.2 now names the job that deletes events in our own analytics table after 90 days. Because it states a longer retention than before, it is treated as a material change.

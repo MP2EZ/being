@@ -1,6 +1,6 @@
 # California Privacy Rights
 
-**Version:** 1.5
+**Version:** 1.6
 **Effective Date:** December 12, 2025
 **Last Updated:** October 24, 2026
 
@@ -17,7 +17,7 @@ This page supplements our [Privacy Policy](/privacy) and provides additional inf
 | Category | Examples | Collected |
 |----------|----------|-----------|
 | **Identifiers** | IP address, a random account ID, random identifiers generated per app installation, device and app details | Yes (no email address, username or sign-in; see Privacy Policy §2.2 and §4.1) |
-| **Sensitive Personal Information** | Mental health information (PHQ-9, GAD-7 scores, mood data) | Yes (stored locally on your device by default) |
+| **Sensitive Personal Information** | Mental health information (PHQ-9, GAD-7 scores, mood data) | Yes (stored encrypted on your device; see Privacy Policy §4.1) |
 | **Internet Activity** | App usage patterns, feature engagement | Yes (opt-in only; tied to a random installation identifier and approximate location — see Privacy Policy §5.2) |
 | **Geolocation** | Location data | Approximate only (city and country), estimated from your internet connection by our analytics and crash-reporting providers (see Privacy Policy §5); never precise or GPS location |
 | **Professional/Employment** | Job title, employer | No |
@@ -137,7 +137,7 @@ Being collects **sensitive personal information** as defined under CPRA, specifi
 - NOT for profiling, advertising, or secondary purposes
 
 **Your control:**
-- PHQ-9 / GAD-7 responses, mood check-ins and journal entries are stored locally on your device only — Being does not transmit them to any server. The one exception is the crisis-detection event (Privacy Policy §3), which records that a screening threshold was met, without your answers or scores, and is linked to your random account ID
+- PHQ-9 / GAD-7 responses, mood check-ins and journal entries are stored encrypted on your device, and Being does not transmit them to any server. The one exception is the crisis-detection event (Privacy Policy §3), which records that a screening threshold was met, without your answers or scores, and is linked to your random account ID
 - The optional settings backup (see Privacy Policy §4.2) is scoped to non-sensitive app preferences only and does not include any sensitive personal information
 - You can delete this data at any time via in-app *Settings → Privacy & Data*
 

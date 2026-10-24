@@ -111,7 +111,7 @@ export const CONSENT_DETAILS = {
         'Mood check-ins',
         'PHQ-9/GAD-7 responses and scores',
       ],
-      whyItHelps: 'Lets these settings be restored on this device. Your wellness history stays on your device and is not part of the backup.',
+      whyItHelps: 'Lets these settings be restored on this device. Your wellness history is not part of this backup.',
       privacyNote: 'Encrypted on your device before upload. We cannot read it.',
     },
   },

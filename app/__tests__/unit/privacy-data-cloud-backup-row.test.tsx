@@ -157,7 +157,7 @@ describe('PrivacyDataScreen — Settings Backup switch visibility (DEBUG-816)', 
     expect(queryByText('Manage Settings Backup') !== null).toBe(flag);
     // AC7: 'cloud' only when something can actually be backed up.
     expect(preferencesLocation(getByLabelText)).toMatch(
-      flag && grant && !uoo ? /Synced to Being Cloud\./ : /Stored in this app only\./,
+      flag && grant && !uoo ? /Backed up to Being Cloud,/ : /Stored in the app on this device\./,
     );
   });
 
@@ -189,7 +189,7 @@ describe('PrivacyDataScreen — Settings Backup switch visibility (DEBUG-816)', 
     const { queryByTestId, getByLabelText } = await renderScreen();
 
     expect(queryByTestId(TOGGLE)).toBeNull();
-    expect(preferencesLocation(getByLabelText)).toMatch(/Stored in this app only\./);
+    expect(preferencesLocation(getByLabelText)).toMatch(/Stored in the app on this device\./);
   });
 
   // The server-copy delete this withdrawal triggers is DEBUG-764's and is pinned by
