@@ -502,7 +502,7 @@ const ProfileScreen: React.FC = () => {
             >
               <Text style={styles.cardTitle}>Reflections</Text>
               <Text style={styles.cardDescription}>
-                Speak your reflection instead of typing it. Transcribed and saved on this device — nothing you say leaves your phone.
+                Speak your reflection instead of typing it. Transcribed and saved on this device. Being does not send what you say anywhere.
               </Text>
               <Text style={styles.cardAction} importantForAccessibility="no">Speak →</Text>
             </Pressable>
@@ -525,7 +525,7 @@ const ProfileScreen: React.FC = () => {
             >
               <Text style={styles.cardTitle}>Past reflections</Text>
               <Text style={styles.cardDescription}>
-                Look back over reflections you have saved. They are decrypted on this device to be read, and stay on it.
+                Look back over reflections you have saved. They are decrypted on this device to be read. Being does not send them anywhere.
               </Text>
               <Text style={styles.cardAction} importantForAccessibility="no">Read →</Text>
             </Pressable>

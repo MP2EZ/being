@@ -1,7 +1,7 @@
 # Support & Contact
 
-**Version:** 1.0
-**Last Updated:** December 12, 2025
+**Version:** 1.1
+**Last Updated:** October 24, 2026
 
 ---
 
@@ -59,7 +59,7 @@ Go to **Privacy & Data > Delete account** in the app. Your local data will be re
 
 **Where is my data stored?**
 
-By default, all your wellness data is stored locally on your device. If you enable cloud backup, encrypted data is also stored on our secure servers (Supabase, SOC 2 Type II certified).
+Your wellness data is stored encrypted on your device. If you turn on Settings Backup, one app preference (your autosave setting) is also stored, encrypted, on our servers (Supabase, SOC 2 Type II certified). It contains no wellness data. See the Privacy Policy, Section 4.
 
 **How do I export my data?**
 
