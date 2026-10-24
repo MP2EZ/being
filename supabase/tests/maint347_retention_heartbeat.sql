@@ -208,9 +208,9 @@ VALUES (:'U'::uuid, '00000000-0000-0000-0000-000000000000', 'authenticated', 'au
         'maint347-heartbeat@test.invalid', NOW(), NOW())
 ON CONFLICT (id) DO NOTHING;
 
--- 400 days old and non-crisis, so the 90-day tier deletes it. Deliberately NOT
--- crisis_detected: that tier is retained 3 years and would survive, making rows_deleted 0
--- and the assertion below vacuous.
+-- 400 days old, so the 90-day rule deletes it. Non-crisis because a crisis row needs no
+-- user (INFRA-861) and this fixture is keyed on one; until INFRA-861 a crisis row would also
+-- have survived the old 3-year tier, making rows_deleted 0 and the assertion vacuous.
 INSERT INTO public.analytics_events (user_id, event_type, properties, session_id, created_at)
 VALUES (:'U'::uuid, 'maint347_probe', '{}'::jsonb,
         'session_2025-07-05_maint347a', NOW() - INTERVAL '400 days');

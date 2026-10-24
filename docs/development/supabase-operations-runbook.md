@@ -77,7 +77,7 @@ trailing 7 days (10 jobs, 0 failures):
 
 | Job | Schedule | What it enforces |
 |---|---|---|
-| `analytics-retention-prune` | `20 4 * * *` | 90 days general, **3 years for crisis-flagged rows** (DEBUG-340, matching privacy-policy §7.2) |
+| `analytics-retention-prune` | `20 4 * * *` | 90 days for every event type, `crisis_detected` included (DEBUG-340; one rule since INFRA-861, matching privacy-policy §7.1 and §7.3) |
 | `crisis-alert-runs-prune` | `30 3 * * *` | ops telemetry |
 | `crisis-liveness-probe-prune` | `45 3 * * *` | ops telemetry |
 | `grace-period-automation-runs-prune` | `50 3 * * *` | ops telemetry |
@@ -161,13 +161,13 @@ contradict the published policy. Do not reintroduce it.
 ### User-initiated deletion is consistent with the erasure flow
 
 `delete-account` hard-deletes the caller's `auth.users` row; `ON DELETE CASCADE` on
-`public.users.id` removes `encrypted_backups`, `analytics_events`, `subscriptions` and
-`subscription_events`. That matches privacy-policy §7.4's promise that deletion removes data
+`public.users.id` removes `encrypted_backups`, the caller's `analytics_events`, `subscriptions`
+and `subscription_events`. That matches privacy-policy §7.4's promise that deletion removes data
 "both on your device and on our servers".
 
-The retention carve-out and this cascade are not in conflict: 3 years is a **ceiling** on how
-long crisis rows may be kept, while a deletion request is a user right that overrides it. A
-retention maximum never obliges us to retain.
+The one exception is `crisis_detected`: since INFRA-861 those rows carry no `user_id`, so the
+cascade cannot reach them and nothing can tie them to the caller. Privacy-policy §7.4 says so,
+and they are deleted at 90 days from arrival (§7.3).
 
 Device-side erasure has a separate known gap — the consent-history blob is orphaned by
 `clearAllWellnessData` — tracked outside this item.

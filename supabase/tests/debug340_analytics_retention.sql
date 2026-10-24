@@ -1,5 +1,5 @@
--- DEBUG-340 analytics-retention verification suite — proves the two-tier retention
--- carve-out and the schedule that enforces it.
+-- DEBUG-340 analytics-retention verification suite — proves the retention rule and the
+-- schedule that enforces it. (Two tiers until INFRA-861; one 90-day rule since.)
 --
 -- WHAT THIS EXISTS TO CATCH. Before DEBUG-340, cleanup_old_analytics() deleted ALL of
 -- analytics_events at 90 days with no event_type carve-out, contradicting the 3-year
@@ -53,33 +53,16 @@ BEGIN
   RAISE NOTICE 'PASS(1): function exists, SECURITY DEFINER, search_path pinned';
 END $$;
 
--- ============ Test 2: the body is category-aware, not a blanket delete ============
-DO $$
-DECLARE
-  body TEXT;
-BEGIN
-  SELECT prosrc INTO body FROM pg_proc
-   WHERE proname = 'cleanup_old_analytics' AND pronamespace = 'public'::regnamespace;
+-- ============ Test 2: (retired) ============
+-- Asserted the body's strings ('crisis_detected', '3 years', '90 days'). INFRA-861 made
+-- retention a single 90-day rule, and the crisis ruling pins the boundary by behaviour
+-- (test 3), never by matching the function body.
 
-  IF body NOT LIKE '%crisis_detected%' THEN
-    RAISE EXCEPTION
-      'FAIL(2): cleanup_old_analytics does not mention crisis_detected — the carve-out is gone, '
-      'so crisis rows are being pruned on the general tier again (the original DEBUG-340 defect)';
-  END IF;
-  IF body NOT LIKE '%3 years%' THEN
-    RAISE EXCEPTION 'FAIL(2): cleanup_old_analytics has no 3-year branch (privacy-policy §7.2)';
-  END IF;
-  IF body NOT LIKE '%90 days%' THEN
-    RAISE EXCEPTION 'FAIL(2): cleanup_old_analytics has no 90-day branch (privacy-policy §7.1)';
-  END IF;
-
-  RAISE NOTICE 'PASS(2): body carries both retention tiers';
-END $$;
-
--- ============ Test 3: BEHAVIOUR — a 100-day-old crisis row SURVIVES ============
--- The load-bearing test. A blanket 90-day delete passes tests 1, 2 and 4 by accident if
--- someone reintroduces it with the right strings in a comment; only executing it proves
--- the carve-out works.
+-- ============ Test 3: BEHAVIOUR — one 90-day boundary for every event type ============
+-- INFRA-861: crisis rows carry no identity, so the 3-year tier's justification no longer
+-- applies (privacy-policy §7.3: 90 days from receipt). 88 days kept, 92 days deleted, for
+-- crisis and non-crisis rows alike. A crisis row's created_at is cut to its UTC day, so its
+-- age here is 88–89 or 92–93 days: still on the same side of the boundary.
 BEGIN;
 
 INSERT INTO auth.users (id, instance_id, aud, role, email, created_at, updated_at)
@@ -90,61 +73,47 @@ ON CONFLICT (id) DO NOTHING;
 
 INSERT INTO public.analytics_events (user_id, event_type, properties, session_id, created_at)
 VALUES
-  -- 100 days old, crisis: MUST survive (retained 3 years).
-  -- INFRA-861: the trigger nulls user_id/session_id on crisis rows, so they are found by
-  -- their detected_on marker instead.
-  (:'U'::uuid, 'crisis_detected',
+  -- The trigger nulls user_id/session_id on crisis rows, so they are found by their
+  -- detected_on marker instead.
+  (NULL, 'crisis_detected',
    '{"trigger_type":"manual_override","severity_bucket":"high","detected_on":"1999-03-40"}'::jsonb,
-   'session_2026-04-28_debug340a', NOW() - INTERVAL '100 days'),
-  -- 100 days old, non-crisis: MUST be deleted (90-day tier).
-  (:'U'::uuid, 'screen_view', '{}'::jsonb,
-   'session_2026-04-28_debug340b', NOW() - INTERVAL '100 days'),
-  -- 10 days old, non-crisis: MUST survive (inside the 90-day window).
-  (:'U'::uuid, 'screen_view', '{}'::jsonb,
-   'session_2026-07-27_debug340c', NOW() - INTERVAL '10 days'),
-  -- 4 years old, crisis: MUST be deleted (past the 3-year tier). Proves the crisis
-  -- branch is a real bound and not an unconditional exemption — the failure mode that
-  -- would quietly restore indefinite retention.
-  (:'U'::uuid, 'crisis_detected',
+   NULL, NOW() - INTERVAL '88 days'),
+  (NULL, 'crisis_detected',
    '{"trigger_type":"combined_high_risk","severity_bucket":"high","detected_on":"1999-03-41"}'::jsonb,
-   'session_2022-08-06_debug340d', NOW() - INTERVAL '4 years');
+   NULL, NOW() - INTERVAL '92 days'),
+  (:'U'::uuid, 'screen_view', '{}'::jsonb, 'session_2026-01-01_debug340e', NOW() - INTERVAL '88 days'),
+  (:'U'::uuid, 'screen_view', '{}'::jsonb, 'session_2026-01-01_debug340f', NOW() - INTERVAL '92 days');
 
 SELECT public.cleanup_old_analytics();
 
 DO $$
 DECLARE
-  crisis_100d INTEGER;
-  plain_100d  INTEGER;
-  plain_10d   INTEGER;
-  crisis_4y   INTEGER;
+  crisis_88d INTEGER;
+  crisis_92d INTEGER;
+  plain_88d  INTEGER;
+  plain_92d  INTEGER;
 BEGIN
-  SELECT count(*) INTO crisis_100d FROM public.analytics_events
+  SELECT count(*) INTO crisis_88d FROM public.analytics_events
    WHERE event_type = 'crisis_detected' AND properties->>'detected_on' = '1999-03-40';
-  SELECT count(*) INTO plain_100d FROM public.analytics_events
-   WHERE session_id = 'session_2026-04-28_debug340b';
-  SELECT count(*) INTO plain_10d FROM public.analytics_events
-   WHERE session_id = 'session_2026-07-27_debug340c';
-  SELECT count(*) INTO crisis_4y FROM public.analytics_events
+  SELECT count(*) INTO crisis_92d FROM public.analytics_events
    WHERE event_type = 'crisis_detected' AND properties->>'detected_on' = '1999-03-41';
+  SELECT count(*) INTO plain_88d FROM public.analytics_events WHERE session_id = 'session_2026-01-01_debug340e';
+  SELECT count(*) INTO plain_92d FROM public.analytics_events WHERE session_id = 'session_2026-01-01_debug340f';
 
-  IF crisis_100d <> 1 THEN
+  IF crisis_88d <> 1 OR plain_88d <> 1 THEN
+    RAISE EXCEPTION 'FAIL(3): an 88-day-old row was deleted (crisis %, other %) — the prune is too aggressive',
+      crisis_88d, plain_88d;
+  END IF;
+  IF crisis_92d <> 0 THEN
     RAISE EXCEPTION
-      'FAIL(3): a 100-day-old crisis_detected row was DELETED. privacy-policy §7.2 promises '
-      '3 years; the carve-out is broken.';
+      'FAIL(3): a 92-day-old crisis_detected row survived. privacy-policy §7.3 publishes 90 days '
+      'from receipt; a crisis carve-out is back.';
   END IF;
-  IF plain_100d <> 0 THEN
-    RAISE EXCEPTION 'FAIL(3): a 100-day-old non-crisis row survived the 90-day tier (§7.1)';
-  END IF;
-  IF plain_10d <> 1 THEN
-    RAISE EXCEPTION 'FAIL(3): a 10-day-old non-crisis row was deleted — the prune is too aggressive';
-  END IF;
-  IF crisis_4y <> 0 THEN
-    RAISE EXCEPTION
-      'FAIL(3): a 4-year-old crisis_detected row survived. The crisis branch must be a BOUND, '
-      'not an exemption — otherwise server retention is indefinite again.';
+  IF plain_92d <> 0 THEN
+    RAISE EXCEPTION 'FAIL(3): a 92-day-old non-crisis row survived the 90-day rule (§7.1)';
   END IF;
 
-  RAISE NOTICE 'PASS(3): 100d crisis kept, 100d non-crisis pruned, 10d kept, 4y crisis pruned';
+  RAISE NOTICE 'PASS(3): 88d kept and 92d pruned, crisis and non-crisis alike';
 END $$;
 
 ROLLBACK;
@@ -166,7 +135,8 @@ BEGIN
 END $$;
 
 -- ============ Test 5: the supporting index exists ============
--- Without it the daily prune full-scans a table designed to hold 3 years of history.
+-- Without it the daily prune full-scans the table, and the INFRA-861 daily ceiling's count
+-- (event_type, created_at = today) has no index to use.
 DO $$
 BEGIN
   IF NOT EXISTS (

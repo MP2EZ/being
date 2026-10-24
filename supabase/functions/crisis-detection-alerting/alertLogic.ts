@@ -11,6 +11,7 @@
  *                             authoritative dead-vs-quiet discriminator for the ingest leg.
  *   - evaluateSpike         : is today's volume an anomalous spike vs the trailing baseline?
  *   - evaluateBackfill      : did a CLOSED day grow since we last evaluated it? (DEBUG-541)
+ *   - evaluateCeiling       : are today's arrivals near the ingest ceiling? (INFRA-861)
  *   - buildAlertPayload     : assemble a PII-free, counts-only alert body with the ≥N
  *                             minimum-count floor applied before anything leaves Supabase.
  *
@@ -50,6 +51,11 @@ export interface LivenessInput {
   nowMs: number;
   /** Alert when age >= this many hours. Operator-tunable (env-sourced in index.ts). */
   stalenessThresholdHours: number;
+  /**
+   * INFRA-861: liveness_status of the last clean run, or null when there is none. Lets an
+   * emptied table read `stale` rather than `unproven` once liveness has been proven.
+   */
+  priorLivenessStatus?: LivenessStatus | null;
 }
 
 export type LivenessStatus = 'fresh' | 'stale' | 'unproven' | 'future_skew';
@@ -68,6 +74,10 @@ export interface LivenessVerdict {
  * - No detection ever retained (null / total 0) → `unproven`: advisory, NOT a
  *   dead-pipeline page (at pre-launch zero-volume this is the legitimate state), but
  *   surfaced as unproven so it is never silently read as healthy.
+ * - No detection retained, but the last clean run had proven liveness (`fresh`, `stale` or
+ *   `future_skew`) → `stale` ALERT. INFRA-861 "sticky stale": crisis rows age out at 90 days
+ *   and the de-link deleted the old ones, so an empty table no longer means "never
+ *   proven". Each such run records `stale`, which keeps the next one stale too.
  * - last_detection_at in the future (clock skew) → `future_skew`: treated as fresh,
  *   flagged as an anomaly, never inverted into a spurious huge staleness.
  * - age >= threshold → `stale` ALERT (alert-on-equal; bias toward alerting).
@@ -75,8 +85,20 @@ export interface LivenessVerdict {
  */
 export function evaluateLiveness(input: LivenessInput): LivenessVerdict {
   const { lastDetectionAt, totalDetectionsRetained, nowMs, stalenessThresholdHours } = input;
+  const prior = input.priorLivenessStatus ?? null;
 
   if (lastDetectionAt === null || totalDetectionsRetained <= 0) {
+    if (prior === 'fresh' || prior === 'stale' || prior === 'future_skew') {
+      return {
+        alert: true,
+        status: 'stale',
+        ageHours: null,
+        detail:
+          `No crisis_detected rows retained, but an earlier run proved liveness (last clean ` +
+          `run: ${prior}). Rows aged out or were deleted and none has arrived since — ` +
+          'possible dead pipeline.',
+      };
+    }
     return {
       alert: false,
       status: 'unproven',
@@ -775,6 +797,64 @@ export function evaluateBackfill(input: BackfillInput): BackfillVerdict {
 // ---------------------------------------------------------------------------
 
 /** A per-day x bucket row from crisis_detection_daily (counts + category labels only). */
+// ---------------------------------------------------------------------------
+// Ingest ceiling (INFRA-861)
+// ---------------------------------------------------------------------------
+
+export type CeilingStatus = 'ok' | 'near' | 'unconfigured';
+
+export interface CeilingVerdict {
+  alert: boolean;
+  status: CeilingStatus;
+  /** crisis_ingest_config.daily_ceiling, or null when not configured or not yet migrated. */
+  dailyCeiling: number | null;
+  /** Arrivals at or above this page. Null when unconfigured. */
+  pageAt: number | null;
+  detail: string;
+}
+
+/**
+ * Page when today's committed ARRIVALS near the daily ingest ceiling. A statement over the
+ * ceiling is rolled back (BE862), so it can never be logged; committed arrivals are the only
+ * record that the ceiling is holding, and a held ceiling is how a forger would blind the
+ * monitor. Strictly additive, like the probe and backfill axes.
+ *
+ * Pages at ceiling − 50 (crisis ruling), but never below 80% of the ceiling, so a small
+ * operator-set ceiling does not page on every run.
+ */
+export function evaluateCeiling(input: { arrivalToday: number; dailyCeiling: number | null }): CeilingVerdict {
+  const { arrivalToday, dailyCeiling } = input;
+  if (dailyCeiling === null || !Number.isFinite(dailyCeiling) || dailyCeiling <= 0) {
+    return {
+      alert: false,
+      status: 'unconfigured',
+      dailyCeiling: null,
+      pageAt: null,
+      detail: 'No crisis ingest ceiling configured — nothing to approach.',
+    };
+  }
+  const pageAt = Math.max(dailyCeiling - 50, Math.ceil(dailyCeiling * 0.8));
+  if (arrivalToday >= pageAt) {
+    return {
+      alert: true,
+      status: 'near',
+      dailyCeiling,
+      pageAt,
+      detail:
+        `${arrivalToday} crisis rows arrived today; the daily ceiling is ${dailyCeiling} ` +
+        `(pages at ${pageAt}). Inserts past it are rejected and held on devices — check for ` +
+        'forged traffic before raising crisis_ingest_config.daily_ceiling.',
+    };
+  }
+  return {
+    alert: false,
+    status: 'ok',
+    dailyCeiling,
+    pageAt,
+    detail: `${arrivalToday} arrivals today, below ${pageAt} (ceiling ${dailyCeiling}).`,
+  };
+}
+
 export interface BucketRow {
   assessment_type: string;
   trigger_type: string;
@@ -806,6 +886,7 @@ export function composeReason(
   backfillAlert: boolean,
   partialDayAlert = false,
   gapDayAlert = false,
+  ceilingAlert = false,
 ): AlertReason {
   const axes: string[] = [];
   if (livenessAlert) axes.push('liveness');
@@ -814,6 +895,7 @@ export function composeReason(
   if (backfillAlert) axes.push('backfill');
   if (partialDayAlert) axes.push('partial_day');
   if (gapDayAlert) axes.push('gap_day');
+  if (ceilingAlert) axes.push('ceiling');
   return axes.join('+');
 }
 
@@ -828,6 +910,8 @@ export interface AxisAlerts {
   partialDay: boolean;
   /** A gap day's full count cleared the spike test (GAP-DAY SPIKE, DEBUG-700). */
   gapDay: boolean;
+  /** Today's arrivals neared the ingest ceiling (INFRA-861). */
+  ceiling: boolean;
 }
 
 export function alertAxes(input: {
@@ -835,6 +919,7 @@ export function alertAxes(input: {
   spike: { alert: boolean };
   probe: { alert: boolean };
   backfill: BackfillVerdict;
+  ceiling?: { alert: boolean };
 }): AxisAlerts {
   return {
     liveness: input.liveness.alert,
@@ -843,12 +928,13 @@ export function alertAxes(input: {
     backfill: input.backfill.alert,
     partialDay: input.backfill.partialDay?.alert ?? false,
     gapDay: input.backfill.gapDays.some((g) => g.alert),
+    ceiling: input.ceiling?.alert ?? false,
   };
 }
 
 /** The send decision. Every axis is OR'd — no axis can suppress another. */
 export function anyAxisTripped(a: AxisAlerts): boolean {
-  return a.liveness || a.spike || a.probe || a.backfill || a.partialDay || a.gapDay;
+  return a.liveness || a.spike || a.probe || a.backfill || a.partialDay || a.gapDay || a.ceiling;
 }
 
 export const LIVENESS_ONLY_SUBJECT =
@@ -857,10 +943,12 @@ export const LIVENESS_ONLY_SUBJECT =
 /**
  * Lead order (crisis AC0 rulings R3/R4): a dead probe makes every other number suspect, so it
  * leads; LIVENESS is habituated (it has paged daily since 2026-09-28), so it goes last. The
- * founder triages from a possibly truncated inbox subject.
+ * founder triages from a possibly truncated inbox subject. A held ceiling (INFRA-861) means
+ * real detections may be waiting on devices, so it follows the probe.
  */
 const SUBJECT_ORDER: Array<[keyof AxisAlerts, string]> = [
   ['probe', 'PROBE DEAD (ingest leg)'],
+  ['ceiling', 'INGEST CEILING NEAR'],
   ['spike', 'VOLUME SPIKE'],
   ['partialDay', 'FULL-DAY SPIKE'],
   ['gapDay', 'GAP-DAY SPIKE'],
@@ -922,6 +1010,8 @@ export interface AlertPayloadInput {
   probe: ProbeLivenessVerdict;
   /** DEBUG-541 backfill verdict (did a closed day grow since we last looked?). */
   backfill: BackfillVerdict;
+  /** INFRA-861 ingest-ceiling verdict. Optional so pre-INFRA-861 callers type-check. */
+  ceiling?: CeilingVerdict;
   /** Today's OCCURRENCE count — right-truncated by construction (see evaluateBackfill). */
   todayVolume: number;
   /** Today's ARRIVAL count (ingest-keyed, never truncated). Pairs with todayVolume. */
@@ -947,6 +1037,8 @@ export interface AlertPayload {
   spike: { status: SpikeStatus; alert: boolean; baselineMean: number | null };
   /** Probe leg (INFRA-265): proves cron/edge/ingest only, NOT the on-device emit path. */
   probe: { status: ProbeStatus; alert: boolean; ageHours: number | null };
+  /** Ingest ceiling (INFRA-861): counts only. */
+  ceiling: { status: CeilingStatus; alert: boolean; dailyCeiling: number | null; pageAt: number | null };
   /** Backfill axis (DEBUG-541). `cold_start` is stated explicitly, never rendered as
    *  "no backfill" — an absent watermark is not evidence that nothing grew. */
   backfill: {
@@ -991,6 +1083,7 @@ export function buildAlertPayload(input: AlertPayloadInput): AlertPayload {
     bucketFloor,
     lastDetectionDate,
   } = input;
+  const ceiling = input.ceiling ?? evaluateCeiling({ arrivalToday, dailyCeiling: null });
 
   const attributedRows = provenance.eventTimeRows + provenance.ingestTimeRows;
   const fallbackShare =
@@ -1021,6 +1114,12 @@ export function buildAlertPayload(input: AlertPayloadInput): AlertPayload {
     liveness: { status: liveness.status, alert: liveness.alert, ageHours: liveness.ageHours },
     spike: { status: spike.status, alert: spike.alert, baselineMean: spike.baselineMean },
     probe: { status: probe.status, alert: probe.alert, ageHours: probe.ageHours },
+    ceiling: {
+      status: ceiling.status,
+      alert: ceiling.alert,
+      dailyCeiling: ceiling.dailyCeiling,
+      pageAt: ceiling.pageAt,
+    },
     backfill: {
       status: backfill.status,
       alert: backfill.alert,

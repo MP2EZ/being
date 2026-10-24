@@ -13,9 +13,9 @@
  *   the caller's own uid (read from the verified `sub`), never a body-supplied id.
  * - Service-role client (admin API) — required to delete an auth user.
  *
- * NOTE: erasure also removes this user's crisis_detected telemetry rows. That is
- * correct for a right-to-erasure request; the operator-only aggregate views are
- * already de-identified (bucketed, session-rotated) and had counted the event.
+ * NOTE: erasure does NOT reach crisis_detected rows. Since INFRA-861 they carry no
+ * user_id or session_id, so there is nothing to tie them to this uid; they are deleted at
+ * 90 days from arrival (privacy-policy §7.3, §7.4).
  *
  * The client pairs a 200 here with a local wipe
  * (SecureStorageService.clearAllWellnessData({ deleteMasterKey: true })) and a
