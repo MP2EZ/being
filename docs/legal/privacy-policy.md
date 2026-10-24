@@ -1,6 +1,6 @@
 # Privacy Policy
 
-**Version:** 1.30
+**Version:** 1.31
 **Effective Date:** December 12, 2025
 **Last Updated:** October 24, 2026
 
@@ -234,7 +234,7 @@ You have the following rights regarding your personal information:
 - **Access:** Request a copy of your data at any time
 - **Correction:** Update or correct your information
 - **Deletion:** Delete all of your in-app and backed-up data
-- **Export:** Download your data in portable JSON format, or as a readable PDF summary that leaves some of it out
+- **Export:** Download your data in portable JSON format, or as a readable PDF summary that leaves some of it out. The app keeps the date, the format and the range covered by your most recent export on your device so it can show when you last exported, and deletes them when you delete your account. It does not keep the file, and nothing about the export is sent to our servers
 - **Opt-Out:** Disable settings backup, analytics, or crash reporting
 - **Withdraw Wellness-Processing Consent:** Decline, or later withdraw, your explicit consent for Being to process your wellness data (mood check-ins, anxiety and depression self-screenings, journal entries). This consent is optional — declining it does not prevent you from using the app — and it can be changed at any time from *Settings → Privacy & Data*. Withdrawing does not by itself delete wellness data already stored on your device; use **Deletion** or **Export** above for that.
 
@@ -308,6 +308,7 @@ We may update this Privacy Policy from time to time. We will notify you of mater
 
 **Recent revisions**
 
+- **v1.31 (October 24, 2026):** §6 now says that the app keeps the date, the format and the range covered by your most recent export on your device, so the export and account-deletion screens can show when you last exported. Only the most recent export is kept, it is encrypted like your other wellness data, it is never sent to our servers, and it is deleted when you delete your account. This adds no data about you beyond what is already on your device, so it is published with the next app release.
 - **v1.30 (October 24, 2026):** §2.2, §4.1, §5.1 and §7.3 said the IP address and device and app details our database provider (Supabase) keeps against your random account ID were kept until the identifier is deleted. A job on our servers now deletes them within a day of each connection. It runs every hour, and the values recorded before it started were deleted on October 24, 2026. §3 says the same. The time the app last connected is still kept until the identifier is deleted, including for an identifier left behind by a reinstall, and request logs are still kept for 1 day. This narrows how long data is kept and adds no new kind of data. It applies to every copy of the app.
 - **v1.29 (October 23, 2026) — material change.** §5.2, §7.1 and §7.2 said analytics events are deleted after 90 days, and §5.2 said a request to delete them sooner is honored within 30 days. PostHog, which stores the app's and being.fyi's analytics events, keeps them for 1 year on our current plan and does not offer a shorter period, and it gives us no way to delete one person's events because they are not linked to an account. §5.2 now states PostHog's retention for both the app and the website, that a paid plan can keep events up to 7 years, and that we will update this policy before any change; the request-to-delete sentence is removed. §7.1 no longer lists product analytics, and §7.3 lists it with PostHog's retention. §7.2 now names the job that deletes events in our own analytics table after 90 days. Because it states a longer retention than before, it is treated as a material change.
 - **v1.28 (October 23, 2026):** The identifier described in §4.1 is now called your *random account ID* throughout this policy and in the app, where it was called an "anonymous account identifier". It is a persistent identifier, not anonymous, which §4.1 already said; the old name suggested otherwise. Nothing about what is collected, kept or shared has changed, so it is published with the next app release.
