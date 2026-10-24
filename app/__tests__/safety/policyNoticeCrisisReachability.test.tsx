@@ -374,8 +374,11 @@ describe('the two controls', () => {
 
   it('Got it records the acknowledgement, removes the card and leaves 988 in place', async () => {
     const { findByTestId, queryByTestId } = render(<Harness />);
-    fireEvent.press(await findByTestId(POLICY_NOTICE_TEST_IDS.dismiss));
-    await waitFor(() => expect(queryByTestId(POLICY_NOTICE_TEST_IDS.card)).toBeNull());
+    const dismiss = await findByTestId(POLICY_NOTICE_TEST_IDS.dismiss);
+    await act(async () => {
+      fireEvent.press(dismiss);
+    });
+    expect(queryByTestId(POLICY_NOTICE_TEST_IDS.card)).toBeNull();
     expect(JSON.parse(mockSecure.get(PRIVACY_POLICY_ACK_KEY) as string)).toMatchObject({
       source: 'notice',
       version: getPolicyRevisions().headerVersion,
@@ -385,8 +388,11 @@ describe('the two controls', () => {
 
   it('does not show again once acknowledged', async () => {
     const first = render(<Harness />);
-    fireEvent.press(await first.findByTestId(POLICY_NOTICE_TEST_IDS.dismiss));
-    await waitFor(() => expect(first.queryByTestId(POLICY_NOTICE_TEST_IDS.card)).toBeNull());
+    const dismiss = await first.findByTestId(POLICY_NOTICE_TEST_IDS.dismiss);
+    await act(async () => {
+      fireEvent.press(dismiss);
+    });
+    expect(first.queryByTestId(POLICY_NOTICE_TEST_IDS.card)).toBeNull();
     first.unmount();
 
     const second = render(<Harness />);
@@ -475,8 +481,10 @@ describe('storage failure never takes Home or 988 down', () => {
     );
     const dismiss = await findByTestId(POLICY_NOTICE_TEST_IDS.dismiss);
     mockStorageRejects = true;
-    fireEvent.press(dismiss);
-    await waitFor(() => expect(queryByTestId(POLICY_NOTICE_TEST_IDS.card)).toBeNull());
+    await act(async () => {
+      fireEvent.press(dismiss);
+    });
+    expect(queryByTestId(POLICY_NOTICE_TEST_IDS.card)).toBeNull();
     expect(queryByTestId('boundary-fired')).toBeNull();
     expect(queryByTestId(ROOT_CRISIS_BUTTON_TEST_ID)).not.toBeNull();
   });
