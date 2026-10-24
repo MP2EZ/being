@@ -366,7 +366,7 @@ supabase secrets set GRACE_PERIOD_CRON_SECRET=a_different_random_secret
 ### Dependency resolution is vendored (INFRA-354)
 
 `supabase/functions/vendor/` and `deno.lock` are **committed on purpose**. The
-`Edge Functions (Deno)` CI job is one of the 9 strict gates, so when it resolved
+`Edge Functions (Deno)` CI job is one of the 11 strict gates, so when it resolved
 `https://esm.sh/jose@5.9.6` and the `deno.land/std` imports over the network at test
 time, an esm.sh outage failed `CI pass` and blocked the merge of *any* PR in the repo —
 it fired twice in ~20 minutes on 2026-08-06 against PRs touching zero edge functions.

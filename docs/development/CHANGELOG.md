@@ -4,6 +4,11 @@ All notable infrastructure and tooling changes that affect contributors. App-sto
 
 ## [Unreleased]
 
+### Changed (INFRA-829 — `Supabase SQL suites` is a strict gate)
+
+- ci.yml's `Supabase SQL suites` job (INFRA-782) loses its five step-level `continue-on-error` flags: a red suite, a SKIP line or a failed stack setup now fails `CI pass`. `CI pass` gates on all 11 jobs.
+- Strict on `development` from this merge; on `main` only after the next `/b-release` carries it (INFRA-459). Promoted on development push run 40085496464 (`27/27 suites passed, 0 SKIP`).
+
 ### Changed (INFRA-158 — Expo SDK 54 → 56)
 
 - **Expo SDK** 54 → 56 (carries **React Native** 0.81.4 → 0.85.3, **React** 19.1.0 → 19.2.3)

@@ -55,11 +55,10 @@
 -- This suite is READ-ONLY — it queries catalogs only, inserts nothing, and is safe to run
 -- against the shared project as well as a local stack.
 --
--- ⚠️  NOT YET A MERGE GATE. Since INFRA-782, ci.yml's `Supabase SQL suites` job runs every
--- file in this directory on each PR against a freshly reset local stack, but the step is
--- continue-on-error until INFRA-829 promotes it: a red suite leaves the check green. Read the
--- job log's `N/N suites passed, 0 SKIP` line, never the check colour. A fresh reset is not
--- the shared project either, so a prod-only grant drift still needs a run against it.
+-- A MERGE GATE since INFRA-829. Since INFRA-782, ci.yml's `Supabase SQL suites` job runs every
+-- file in this directory on each PR against a freshly reset local stack; it was
+-- continue-on-error until INFRA-829 promoted it, and a red suite now fails `CI pass`. A fresh
+-- reset is not the shared project, so a prod-only grant drift still needs a run against it.
 --
 -- Last validated: 2026-10-22 in CI — INFRA-782 `Supabase SQL suites` job, fresh local reset,
 --   run 39889958826 (15/15 suites passed, 0 SKIP).
