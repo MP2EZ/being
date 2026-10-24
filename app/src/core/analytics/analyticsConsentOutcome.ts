@@ -13,9 +13,9 @@
  * consentStore module, and a value import here would hand them this module's
  * dependency on a mocked-away store.
  *
- * Scope: today only `consentWithdrawalPurge` consumes this. DEBUG-690 moves
- * `useAnalyticsConsent` onto it; until then that hook reads only the two
- * preference paths and ignores `consentStatus`.
+ * Scope: two consumers. `consentWithdrawalPurge` acts on `purge`, and
+ * `useAnalyticsConsent` (DEBUG-690) emits exactly on `emit`, so the client's opt
+ * state and the queue purge read one table.
  */
 
 import type { ConsentStatus } from '@/core/stores/consentStore';

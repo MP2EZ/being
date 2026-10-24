@@ -33,12 +33,11 @@
  * --------------------------------------------------------
  * The table pins the PURGE outcome per `ConsentStatus` against a queue persisted
  * by a previously-consented session: "the persisted queue is not delivered at
- * cold launch". It does NOT claim "nothing transmits" for `expired` and
- * `under_age`: `useAnalyticsConsent` reads only `analyticsEnabled` and
- * `universalOptOut`, not `consentStatus`, so for those two statuses ConsentSync's
- * effect can still `optIn()` the client after the purge (known gap, fixed by
- * DEBUG-690). ConsentSync is deliberately NOT mounted here; this file pins the
- * purge, the wiring file pins that ConsentSync installs it.
+ * cold launch". That ConsentSync then keeps the client opted out for `expired`
+ * and `under_age` (statuses that retain the record, analytics still on) is
+ * DEBUG-690's, pinned in useAnalyticsConsent.consentStatus.privacy.test.tsx.
+ * ConsentSync is deliberately NOT mounted here; this file pins the purge, the
+ * wiring file pins that ConsentSync installs it.
  *
  * Accepted residual (compliance ruling 8(a)): a `/batch/` request already IN
  * FLIGHT when the user withdraws is not recalled. Nothing here asserts otherwise.

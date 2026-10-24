@@ -192,15 +192,18 @@ function resetCounters(): void {
 }
 
 /**
- * The provider's consent predicate reads exactly two paths off the store:
+ * The provider's consent predicate (useAnalyticsConsent → analyticsConsentOutcome)
+ * reads three paths off the store:
+ *   consentStatus (DEBUG-690: only 'valid' can emit)
  *   currentConsent?.preferences?.analyticsEnabled
  *   currentConsent?.universalOptOut
- * Both are optional-chained, so a literal carrying just those is a faithful
- * stand-in and keeps this pin decoupled from unrelated ConsentRecord schema
+ * The consent paths are optional-chained, so a literal carrying just those is a
+ * faithful stand-in and keeps this pin decoupled from unrelated ConsentRecord schema
  * churn. The selector control below asserts these are the paths production reads.
  */
 function setConsent(analyticsEnabled: boolean, universalOptOut = false): void {
   useConsentStore.setState({
+    consentStatus: 'valid', // DEBUG-690: the hook emits only on a valid status
     currentConsent: {
       preferences: { analyticsEnabled },
       universalOptOut,
@@ -288,6 +291,32 @@ describe('DEBUG-559 — consent flips must not reconcile the crisis subtree away
       expect(getByTestId(PROBE_TEST_ID).props.children).toBe('dirty');
       expect(getByTestId(ROOT_CRISIS_BUTTON_TEST_ID)).toBeTruthy();
     });
+
+    // DEBUG-690: a status that stops emission while currentConsent stays in memory
+    // (loadConsent's expired branch, revokeConsent) reaches the client through
+    // ConsentSync alone. It must opt out without reconciling the subtree away.
+    it.each(['expired', 'revoked'] as const)(
+      'preserves the subtree when a valid grant goes %s with the record retained',
+      (status) => {
+        setConsent(true);
+        const { getByTestId } = renderSubtree();
+        act(() => setProbeValue?.('dirty'));
+        mockPostHogClient.optOut.mockClear();
+
+        act(() =>
+          useConsentStore.setState({ consentStatus: status } as unknown as Parameters<
+            typeof useConsentStore.setState
+          >[0]),
+        );
+
+        expect(useConsentStore.getState().currentConsent?.preferences?.analyticsEnabled).toBe(true);
+        expect(mockPostHogClient.optOut).toHaveBeenCalled();
+        expect(mounts).toBe(1);
+        expect(unmounts).toBe(0);
+        expect(getByTestId(PROBE_TEST_ID).props.children).toBe('dirty');
+        expect(getByTestId(ROOT_CRISIS_BUTTON_TEST_ID)).toBeTruthy();
+      },
+    );
 
     it('preserves the subtree when consent is REVOKED (the same swap, in reverse)', () => {
       setConsent(true);
