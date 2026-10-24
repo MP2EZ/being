@@ -1,6 +1,6 @@
 # California Privacy Rights
 
-**Version:** 1.2
+**Version:** 1.3
 **Effective Date:** December 12, 2025
 **Last Updated:** October 23, 2026
 
@@ -151,7 +151,8 @@ We retain your personal information only as long as necessary for the purposes d
 |-----------|-----------|
 | Wellness data (local, on your device) | Until you delete it via in-app settings, or uninstall the app |
 | Settings backup (cloud, optional) | Until you disable backup or request deletion via in-app *Privacy & Data* settings |
-| Usage analytics (opt-in only) | 90 days on our servers |
+| Usage analytics (opt-in only; app and being.fyi, stored by PostHog) | 1 year at PostHog on our current plan; PostHog offers no shorter period (see Privacy Policy §5.2) |
+| Settings-backup operational records (only if you turn on backup; see Privacy Policy §4.2) | 90 days on our servers |
 | Crisis detection events (linked to your anonymous account identifier; not opt-in; see Privacy Policy §7.2) | 3 years on our servers |
 | Connection records (IP address, device and app details and last-connection time kept against your anonymous account identifier; see Privacy Policy §4.1) | Until the identifier is deleted; request logs that include the IP address are kept for 1 day on our current plan |
 
