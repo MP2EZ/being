@@ -110,12 +110,25 @@ describe('PurchaseOptionsScreen — Restore Purchases (DEBUG-720)', () => {
 
   it('with nothing loaded, a valid restore shows success and leaves an active subscription', async () => {
     mockService.restorePurchases.mockResolvedValue([restored(apple.yearly)]);
-    mockService.verifyReceipt.mockResolvedValue({ valid: true, subscriptionId: 'sub-r', expiresDate: null });
+    mockService.verifyReceipt.mockResolvedValue({ valid: true, subscriptionId: 'sub-r', productId: apple.yearly, isTrialPeriod: false });
 
     await tapRestore();
 
     expect(alertTitles()).toEqual(['Purchases Restored']);
     expect(useSubscriptionStore.getState().subscription?.status).toBe('active');
+    expect(mockService.finishTransaction).toHaveBeenCalledTimes(1);
+  });
+
+  it('a restore the server verifies as a trial shows success and leaves a trial (DEBUG-708)', async () => {
+    mockService.restorePurchases.mockResolvedValue([restored(apple.yearly)]);
+    mockService.verifyReceipt.mockResolvedValue({
+      valid: true, subscriptionId: 'sub-r', productId: apple.yearly, isTrialPeriod: true, expiresDate: Date.now() + 86_400_000,
+    });
+
+    await tapRestore();
+
+    expect(alertTitles()).toEqual(['Purchases Restored']);
+    expect(useSubscriptionStore.getState().subscription?.status).toBe('trial');
     expect(mockService.finishTransaction).toHaveBeenCalledTimes(1);
   });
 
@@ -136,7 +149,7 @@ describe('PurchaseOptionsScreen — Restore Purchases (DEBUG-720)', () => {
     // here even though this restore applied nothing.
     useSubscriptionStore.setState({ subscription: activeSubscription() });
     mockService.restorePurchases.mockResolvedValue([restored(apple.yearly)]);
-    mockService.verifyReceipt.mockResolvedValue({ valid: true, subscriptionId: 'sub-r', expiresDate: null });
+    mockService.verifyReceipt.mockResolvedValue({ valid: true, subscriptionId: 'sub-r', productId: apple.yearly, isTrialPeriod: false });
     mockSetItem.mockRejectedValueOnce(new Error('keychain locked'));
 
     await tapRestore();

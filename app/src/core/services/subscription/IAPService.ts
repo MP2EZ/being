@@ -25,10 +25,10 @@
  *   a persisted session or, for a real transaction only, creates one (founder
  *   ruling 2026-10-04). Nothing else here — init, product listing, the paywall,
  *   a restore that finds no purchases — acquires or creates a session.
- * - Persisted subscription metadata (incl. receipt strings) goes to
- *   expo-secure-store with AES-256 backing. Only fields with a verification
- *   need are propagated to the store — see `augmentPurchase` for the
- *   explicit allow-list.
+ * - Persisted subscription metadata goes to expo-secure-store. It holds only
+ *   what the server verified and no receipt string (DEBUG-708). Only fields
+ *   with a verification need are propagated to the store — see
+ *   `augmentPurchase` for the explicit allow-list.
  *
  * PERFORMANCE:
  * - Purchase flow: <60s (target from acceptance criteria)
@@ -53,7 +53,12 @@ import { Platform } from 'react-native';
 import { supabaseService } from '../supabase/SupabaseService';
 import { logSystem, logPerformance } from '@/core/services/logging';
 import type { AppleTransactionIdentity } from './appleTransactionIdentity';
-import type { ReceiptVerificationUnavailableReason } from './receiptVerificationUnavailable';
+import {
+  classifyInvokeError,
+  resultFromResponse,
+  type ReceiptVerificationResult,
+  type VerifyReceiptResponse,
+} from './receiptVerificationResult';
 import { intervalFromProductId } from './subscriptionProductInterval';
 import {
   androidRecurringPrice,
@@ -536,16 +541,12 @@ class IAPServiceClass {
    * `productId` is the Play product id, required on the Google path: the server
    * looks the purchase up as purchases/subscriptions/{productId}/tokens/{token}.
    * It is a separate argument, not `receiptData`, because receiptData is '' on
-   * Android and is persisted as the record's receipt (DEBUG-713).
+   * Android (DEBUG-713).
+   *
+   * DEBUG-708: the result reports what the server said and nothing it did not
+   * (see receiptVerificationResult.ts). Never throws.
    */
-  async verifyReceipt(receiptData: string, platform: 'apple' | 'google', purchaseToken?: string, appleTransaction?: AppleTransactionIdentity, productId?: string): Promise<{
-    valid: boolean;
-    subscriptionId?: string | undefined;
-    expiresDate?: number | undefined;
-    error?: string | undefined;
-    /** DEBUG-715: set only when the receipt could not be judged at all (no session / no client). */
-    reason?: ReceiptVerificationUnavailableReason | undefined;
-  }> {
+  async verifyReceipt(receiptData: string, platform: 'apple' | 'google', purchaseToken?: string, appleTransaction?: AppleTransactionIdentity, productId?: string): Promise<ReceiptVerificationResult> {
     try {
       logSystem(`[IAP] Verifying receipt: platform=${platform} mockMode=${this.mockMode}`);
 
@@ -558,7 +559,7 @@ class IAPServiceClass {
 
         // Extract interval from mock receipt (format: mock_receipt_{interval}_{timestamp})
         const parts = receiptData.split('_');
-        const interval = parts[2] || 'monthly';
+        const interval: SubscriptionInterval = parts[2] === 'yearly' ? 'yearly' : 'monthly';
 
         // Generate expiry date (1 year or 1 month from now)
         const now = Date.now();
@@ -568,10 +569,14 @@ class IAPServiceClass {
 
         logSystem('[IAP] Mock receipt verified successfully');
 
+        // The product the server would have verified: the one purchased, as the store
+        // derives the plan from it (DEBUG-708). Never a trial: mocks model a paid purchase.
         return {
           valid: true,
           subscriptionId: `mock_sub_${Date.now()}`,
           expiresDate,
+          productId: productId ?? getProductId(interval),
+          isTrialPeriod: false,
         };
       }
 
@@ -592,21 +597,15 @@ class IAPServiceClass {
         return {
           valid: false,
           reason: session.reason,
+          failure: 'unavailable',
           error: `Purchase not verified yet (${session.reason})`,
         };
       }
       const { client } = session;
 
-      const startTime = performance.now();
+      let fnName: 'verify-apple-receipt' | 'verify-google-receipt';
+      let body: Record<string, unknown>;
 
-      type VerifyReceiptResponse = {
-        valid: boolean;
-        subscriptionId?: string;
-        expiresDate?: string;
-        error?: string;
-      };
-
-      // Call appropriate Edge Function based on platform
       if (platform === 'apple') {
         // `receiptData` is NOT sent (INFRA-467 slice 4). The server verifies against the
         // App Store Server API, which is keyed on a transactionId, and stopped reading
@@ -618,7 +617,8 @@ class IAPServiceClass {
         // An explicitly-undefined key is indistinguishable from an absent one under
         // toEqual, which is what made the old body assertions in IAPService.test.ts
         // pass exactly when this feature did nothing. Absent must mean absent.
-        const body = {
+        fnName = 'verify-apple-receipt';
+        body = {
           ...(appleTransaction
             ? {
                 transactionId: appleTransaction.transactionId,
@@ -628,70 +628,43 @@ class IAPServiceClass {
               }
             : {}),
         };
-
-        const { data, error } = await client.functions.invoke<VerifyReceiptResponse>(
-          'verify-apple-receipt',
-          { body }
-        );
-
-        if (error) {
-          throw new Error(`Receipt verification failed: ${error.message}`);
-        }
-        if (!data) {
-          throw new Error('Receipt verification returned no data');
-        }
-
-        const verifyTime = performance.now() - startTime;
-        logPerformance('iap_receipt_verified', verifyTime);
-
-        return {
-          valid: data.valid,
-          subscriptionId: data.subscriptionId,
-          expiresDate: data.expiresDate ? new Date(data.expiresDate).getTime() : undefined,
-          error: data.error,
-        };
       } else if (platform === 'google') {
         if (!purchaseToken) {
-          throw new Error('Purchase token required for Google verification');
+          return { valid: false, failure: 'client', error: 'Purchase token required for Google verification' };
         }
         if (!productId) {
-          throw new Error('Product id required for Google verification');
+          return { valid: false, failure: 'client', error: 'Product id required for Google verification' };
         }
-
-        const { data, error } = await client.functions.invoke<VerifyReceiptResponse>(
-          'verify-google-receipt',
-          {
-            body: {
-              packageName: ANDROID_PACKAGE_NAME,
-              subscriptionId: productId,
-              purchaseToken,
-            },
-          }
-        );
-
-        if (error) {
-          throw new Error(`Receipt verification failed: ${error.message}`);
-        }
-        if (!data) {
-          throw new Error('Receipt verification returned no data');
-        }
-
-        const verifyTime = performance.now() - startTime;
-        logPerformance('iap_receipt_verified', verifyTime);
-
-        return {
-          valid: data.valid,
-          subscriptionId: data.subscriptionId,
-          expiresDate: data.expiresDate ? new Date(data.expiresDate).getTime() : undefined,
-          error: data.error,
+        fnName = 'verify-google-receipt';
+        body = {
+          packageName: ANDROID_PACKAGE_NAME,
+          subscriptionId: productId,
+          purchaseToken,
         };
       } else {
-        throw new Error('Unsupported platform');
+        return { valid: false, failure: 'client', error: 'Unsupported platform' };
       }
+
+      const startTime = performance.now();
+      const { data, error } = await client.functions.invoke<VerifyReceiptResponse>(fnName, { body });
+
+      if (error) {
+        const failed = await classifyInvokeError(error);
+        console.error('[IAP] Receipt verification failed:', { failure: failed.failure, httpStatus: failed.httpStatus });
+        return failed;
+      }
+      if (!data) {
+        return { valid: false, failure: 'http', error: 'Receipt verification returned no data' };
+      }
+
+      logPerformance('iap_receipt_verified', performance.now() - startTime);
+      return resultFromResponse(data);
     } catch (error) {
+      // Only the app's own code can throw here: invoke returns its errors.
       console.error('[IAP] Receipt verification failed:', error);
       return {
         valid: false,
+        failure: 'client',
         error: error instanceof Error ? error.message : 'Unknown error'
       };
     }

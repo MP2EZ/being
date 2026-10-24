@@ -142,11 +142,14 @@ export default function PurchaseOptionsScreen({
 
       // Read after the await, never the render-time snapshot. `restored` is the
       // load-bearing half: an already-active record would otherwise turn a
-      // restore that applied nothing into a success.
-      const restoredActive =
-        restored > 0 && useSubscriptionStore.getState().subscription?.status === 'active';
+      // restore that applied nothing into a success. A verified trial is an
+      // entitlement too (DEBUG-708), and grace keeps access.
+      const restoredStatus = useSubscriptionStore.getState().subscription?.status;
+      const restoredEntitled =
+        restored > 0 &&
+        (restoredStatus === 'trial' || restoredStatus === 'active' || restoredStatus === 'grace');
 
-      if (restoredActive) {
+      if (restoredEntitled) {
         Alert.alert(
           'Purchases Restored',
           'Your subscription has been restored successfully!',

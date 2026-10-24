@@ -973,3 +973,130 @@ describe('IAPService - FEAT-822 store trial offer', () => {
     });
   });
 });
+
+// ---------------------------------------------------------------------------
+// DEBUG-708 — verifyReceipt reports what the server said, and nothing it did not.
+//
+// The edge functions already return productId and isTrialPeriod on success; the client
+// used to drop both. A failure now carries the HTTP status (FunctionsHttpError's
+// context.status, with the JSON body's error) or a failure kind, and never a product,
+// trial flag or date from a rejected body. toStrictEqual, so an undefined key is a failure:
+// absent must mean absent.
+// ---------------------------------------------------------------------------
+describe('IAPService - DEBUG-708 verifyReceipt outcome table', () => {
+  // The supabase-js error shapes, by name: the classifier dispatches on err.name, never
+  // instanceof, because the class identity differs across bundles.
+  const httpError = (status: number, body: unknown) =>
+    Object.assign(new Error('Edge Function returned a non-2xx status code'), {
+      name: 'FunctionsHttpError',
+      context: { status, json: async () => body },
+    });
+  const fetchError = () =>
+    Object.assign(new Error('Failed to send a request to the Edge Function'), {
+      name: 'FunctionsFetchError',
+      context: new TypeError('Network request failed'),
+    });
+  const relayError = () =>
+    Object.assign(new Error('Relay Error invoking the Edge Function'), {
+      name: 'FunctionsRelayError',
+      context: { status: 502 },
+    });
+
+  const { products } = jest.requireActual('@/core/types/subscription').DEFAULT_SUBSCRIPTION_CONFIG as {
+    products: { apple: { monthly: string; yearly: string }; google: { monthly: string; yearly: string } };
+  };
+  const EXPIRES_ISO = '2026-11-01T00:00:00Z';
+  const EXPIRES_MS = new Date(EXPIRES_ISO).getTime();
+
+  const call = (platform: 'apple' | 'google') =>
+    platform === 'apple'
+      ? IAPService.verifyReceipt('base64-receipt', 'apple', undefined, { transactionId: '2000000847061713' })
+      : IAPService.verifyReceipt('', 'google', 'purchase-token-123', undefined, products.google.monthly);
+
+  beforeEach(() => {
+    jest.clearAllMocks();
+    jest.spyOn(console, 'error').mockImplementation(() => {});
+  });
+  afterEach(() => {
+    (console.error as jest.Mock).mockRestore?.();
+  });
+
+  type Row = [string, 'apple' | 'google', { data: unknown; error: unknown }, Record<string, unknown>];
+  const rows = (platform: 'apple' | 'google'): Row[] => {
+    const productId = products[platform].yearly;
+    return [
+      ['200 valid', platform,
+        { data: { valid: true, subscriptionId: 'sub-1', expiresDate: EXPIRES_ISO, productId, isTrialPeriod: false }, error: null },
+        { valid: true, subscriptionId: 'sub-1', expiresDate: EXPIRES_MS, productId, isTrialPeriod: false, httpStatus: 200 }],
+      ['200 trial', platform,
+        { data: { valid: true, subscriptionId: 'sub-1', expiresDate: EXPIRES_ISO, productId, isTrialPeriod: true }, error: null },
+        { valid: true, subscriptionId: 'sub-1', expiresDate: EXPIRES_MS, productId, isTrialPeriod: true, httpStatus: 200 }],
+      // A rejected body can carry the verification (400 spreads it); none of it surfaces.
+      ['400 expired', platform,
+        { data: null, error: httpError(400, { valid: false, productId, isTrialPeriod: true, expiresDate: EXPIRES_ISO, error: 'Subscription is expired or revoked' }) },
+        { valid: false, failure: 'http', httpStatus: 400, error: 'Subscription is expired or revoked' }],
+      ['409 bound elsewhere', platform,
+        { data: null, error: httpError(409, { valid: false, error: 'Receipt already bound to another account' }) },
+        { valid: false, failure: 'http', httpStatus: 409, error: 'Receipt already bound to another account' }],
+      ['401 unauthorized', platform,
+        { data: null, error: httpError(401, { error: 'Unauthorized' }) },
+        { valid: false, failure: 'http', httpStatus: 401, error: 'Unauthorized' }],
+      ['503 unavailable', platform,
+        { data: null, error: httpError(503, { valid: false, error: 'Receipt verification is temporarily unavailable' }) },
+        { valid: false, failure: 'http', httpStatus: 503, error: 'Receipt verification is temporarily unavailable' }],
+      ['500 unparseable body', platform,
+        { data: null, error: Object.assign(httpError(500, null), { context: { status: 500, json: async () => { throw new SyntaxError('bad json'); } } }) },
+        { valid: false, failure: 'http', httpStatus: 500, error: 'Edge Function returned a non-2xx status code' }],
+      ['network (fetch)', platform,
+        { data: null, error: fetchError() },
+        { valid: false, failure: 'network', error: 'Failed to send a request to the Edge Function' }],
+      ['network (relay)', platform,
+        { data: null, error: relayError() },
+        { valid: false, failure: 'network', error: 'Relay Error invoking the Edge Function' }],
+    ];
+  };
+
+  it.each([...rows('apple'), ...rows('google')])('%s (%s)', async (_label, platform, invokeResult, expected) => {
+    mockInvoke.mockResolvedValueOnce(invokeResult);
+    await expect(call(platform)).resolves.toStrictEqual(expected);
+  });
+
+  it.each([
+    ['no purchase token', () => IAPService.verifyReceipt('', 'google', undefined, undefined, 'subscription_monthly'),
+      'Purchase token required for Google verification'],
+    ['no product id', () => IAPService.verifyReceipt('', 'google', 'purchase-token-123', undefined, undefined),
+      'Product id required for Google verification'],
+  ] as const)('client precondition: %s → failure client, no invoke', async (_label, run, message) => {
+    await expect(run()).resolves.toStrictEqual({ valid: false, failure: 'client', error: message });
+    expect(mockInvoke).not.toHaveBeenCalled();
+  });
+
+  it.each(['no_session', 'client_unavailable'] as const)('no session (%s) keeps its reason and adds failure unavailable', async (reason) => {
+    const { supabaseService } = jest.requireMock('../../supabase/SupabaseService') as {
+      supabaseService: Record<string, jest.Mock>;
+    };
+    supabaseService['getAuthenticatedClient']!.mockResolvedValueOnce({ ok: false, reason });
+    await expect(call('apple')).resolves.toStrictEqual({
+      valid: false,
+      reason,
+      failure: 'unavailable',
+      error: `Purchase not verified yet (${reason})`,
+    });
+  });
+
+  it('a 200 judged invalid surfaces only its status and error', async () => {
+    mockInvoke.mockResolvedValueOnce({ data: { valid: false, error: 'INVALID_RECEIPT', productId: products.apple.monthly }, error: null });
+    await expect(call('apple')).resolves.toStrictEqual({ valid: false, httpStatus: 200, error: 'INVALID_RECEIPT' });
+  });
+
+  it('the mock receipt branch reports the product and no trial', async () => {
+    const result = await IAPService.verifyReceipt('mock_receipt_yearly_1', 'apple', undefined, undefined, products.apple.yearly);
+    expect(result).toStrictEqual({
+      valid: true,
+      subscriptionId: expect.stringMatching(/^mock_sub_/),
+      expiresDate: expect.any(Number),
+      productId: products.apple.yearly,
+      isTrialPeriod: false,
+    });
+  });
+});

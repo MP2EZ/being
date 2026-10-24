@@ -243,7 +243,7 @@ const MANIFEST: Record<string, Record<string, Row>> = {
     'useSubscriptionStore.updateSubscriptionStatus › setItemAsync': [1, `${NOT_WELLNESS} — entitlement`],
   },
   'src/core/services/subscription/IAPService.ts': {
-    'IAPServiceClass.verifyReceipt › functions.invoke': [2, `${NOT_WELLNESS} — purchase receipt`],
+    'IAPServiceClass.verifyReceipt › functions.invoke': [1, `${NOT_WELLNESS} — purchase receipt`],
   },
   'src/core/services/supabase/secureStoreSessionAdapter.ts': {
     'createSecureStoreSessionAdapter.setItem › setItemAsync': [2, `${NOT_WELLNESS} — Supabase auth session`],
