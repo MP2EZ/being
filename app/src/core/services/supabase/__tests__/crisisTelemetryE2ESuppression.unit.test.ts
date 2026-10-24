@@ -49,13 +49,12 @@ describe('INFRA-411 — crisis telemetry egress is suppressed in e2e-sim builds'
 
     service = new (supabaseService as any).constructor();
 
-    // Put the service in the one state where a flush would actually egress:
-    // a queued event, a live client, and a provisioned auth.uid(). This suite is
+    // Put the service in the one state where a flush would actually egress: a queued
+    // event and a live crisis client (INFRA-861: no session needed). This suite is
     // about the guard, not about boot wiring -- DEBUG-409 owns that.
     insert = jest.fn(async () => ({ error: null }));
     from = jest.fn(() => ({ insert }));
-    service.client = { from };
-    service.userId = 'user-uuid-under-test';
+    service.crisisClient = { from };
     service.crisisAnalyticsQueue = [{ ...payload }];
   });
 
@@ -82,11 +81,9 @@ describe('INFRA-411 — crisis telemetry egress is suppressed in e2e-sim builds'
 
     const rows = insert.mock.calls[0][0] as any[];
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({
-      user_id: 'user-uuid-under-test',
-      event_type: 'crisis_detected',
-      session_id: payload.session_id,
-    });
+    expect(rows[0]).toMatchObject({ event_type: 'crisis_detected' });
+    expect(rows[0]).not.toHaveProperty('user_id');
+    expect(rows[0]).not.toHaveProperty('session_id');
   });
 
   it('only the literal string "true" suppresses — a truthy-but-wrong value still egresses', async () => {

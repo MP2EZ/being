@@ -46,6 +46,9 @@ const preErasureRow = {
   session_id: 'session_pre_erasure',
   enqueued_at: PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS + 1,
 };
+// INFRA-861: session_id no longer leaves the device, so the pre-erasure row is told apart
+// by its detection day (its enqueued_at is the DEBUG-413 cutoff day).
+const PRE_ERASURE_DAY = new Date(PRE_FIX_CRISIS_BACKLOG_CUTOFF_MS + 1).toISOString().slice(0, 10);
 const disk = new Map<string, string>();
 const inserts = () => fetchCalls.filter((c) => c.url.includes('/rest/v1/analytics_events'));
 const settle = async () => {
@@ -70,7 +73,7 @@ describe('DEBUG-763 — crisis queue fence at boot', () => {
   it('control: with no marker the persisted backlog is recovered and flushed (unchanged)', async () => {
     await service.initializeCrisisTelemetry();
     await settle();
-    expect(inserts()[0]!.body[0]).toMatchObject({ session_id: 'session_pre_erasure' });
+    expect(inserts()[0]!.body[0].properties.detected_on).toBe(PRE_ERASURE_DAY);
   });
 
   it('with the marker present the pre-erasure rows are never inserted, and no session is opened for them', async () => {
@@ -89,14 +92,15 @@ describe('DEBUG-763 — crisis queue fence at boot', () => {
     await settle();
     const rows = inserts().flatMap((c) => c.body);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ event_type: 'crisis_detected', user_id: 'fresh-anon-uuid' });
-    expect(rows[0].session_id).not.toBe('session_pre_erasure');
+    expect(rows[0]).toMatchObject({ event_type: 'crisis_detected' });
+    expect(rows[0]).not.toHaveProperty('user_id'); // INFRA-861: no fresh identity is minted either
+    expect(rows[0].properties.detected_on).not.toBe(PRE_ERASURE_DAY);
   });
 
   it('a corrupt marker is not a marker: the backlog is recovered', async () => {
     disk.set('@being/erasure_pending', 'not-a-time');
     await service.initializeCrisisTelemetry();
     await settle();
-    expect(inserts()[0]!.body[0]).toMatchObject({ session_id: 'session_pre_erasure' });
+    expect(inserts()[0]!.body[0].properties.detected_on).toBe(PRE_ERASURE_DAY);
   });
 });

@@ -542,7 +542,8 @@ describe('DEBUG-704 — teardown never waits on signOut', () => {
 });
 
 describe('DEBUG-704 — the deleted identity never comes back', () => {
-  it('the next crisis flush mints a FRESH uid and inserts under it, never the deleted one', async () => {
+  it('the next crisis flush inserts with NO identity: no mint, no uid, never the deleted one', async () => {
+    // INFRA-861 inverted this: the flush used to mint a fresh uid and bind rows to it.
     await seedPersistedSession();
     const service = freshService();
     expect(await service.deleteAccount()).toBe(true);
@@ -551,11 +552,14 @@ describe('DEBUG-704 — the deleted identity never comes back', () => {
     service.trackCrisisDetection(payload);
     await settle();
 
-    expect(callsTo('/auth/v1/signup')).toHaveLength(1);
-    expect(service.userId).toBe('minted-1');
-    const inserted = callsTo('/rest/v1/analytics_events').flatMap((c) => c.body);
-    expect(inserted.length).toBeGreaterThan(0);
-    expect(inserted.every((r: any) => r.user_id === 'minted-1')).toBe(true);
+    expect(callsTo('/auth/v1/signup')).toHaveLength(0);
+    expect(service.userId).toBeNull();
+    const rows = crisisRows();
+    expect(rows.length).toBeGreaterThan(0);
+    for (const { row, sub } of rows) {
+      expect(row).not.toHaveProperty('user_id');
+      expect(sub).toBeNull();
+    }
   });
 
   it('crisis events queued before confirmation are dropped; the queue is not re-dirtied', async () => {
@@ -708,11 +712,13 @@ describe('DEBUG-715 — getAuthenticatedClient on a fresh, never-initialised ins
   });
 });
 
-describe('DEBUG-715 (H1) — the crisis flush fallback and getAuthenticatedClient share ONE mint', () => {
-  it('client built, no session: both lanes concurrently → one /signup, one uid, rows bound to it', async () => {
+// INFRA-861 retired the crisis flush's mint fallback, so H1's shared-mint race has one lane
+// left. What remains to pin: the crisis lane neither mints nor joins a mint, and its rows never
+// carry the uid getAuthenticatedClient mints alongside it.
+describe('DEBUG-715 (H1) — the crisis flush takes no part in minting', () => {
+  it('client built, no session: both lanes concurrently → one /signup, crisis rows unbound', async () => {
     const service = freshService();
     await service.ensureClient({ mint: false });
-    expect(service.client).not.toBeNull();
     expect(service.userId).toBeNull();
 
     const gate = deferred();
@@ -726,57 +732,23 @@ describe('DEBUG-715 (H1) — the crisis flush fallback and getAuthenticatedClien
 
     expect(mockServer.minted).toBe(1);
     expect(result.ok && result.userId).toBe('minted-1');
-    expect(service.userId).toBe('minted-1');
     const rows = crisisRows();
     expect(rows.length).toBeGreaterThan(0);
     for (const { row, sub } of rows) {
-      expect(row.user_id).toBe('minted-1');
-      expect(sub).toBe(row.user_id);
+      expect(row).not.toHaveProperty('user_id');
+      expect(sub).toBeNull();
     }
   });
 
-  it('fresh instance, both lanes in the same tick → one construction, one /signup', async () => {
+  it('a crisis detection alone on a fresh instance: zero /signup and no shared client', async () => {
     const service = freshService();
-    const gate = deferred();
-    mockServer.signupGate = gate.promise;
 
     service.trackCrisisDetection(payload);
-    const acquiring = service.getAuthenticatedClient({ mint: true });
-    await settle();
-    gate.release();
-    const result = await acquiring;
     await settle();
 
-    expect(mockCreateClient).toHaveBeenCalledTimes(1);
-    expect(mockServer.minted).toBe(1);
-    expect(result.ok && result.userId).toBe(service.userId);
-    for (const { row, sub } of crisisRows()) {
-      expect(row.user_id).toBe(service.userId);
-      expect(sub).toBe(row.user_id);
-    }
-  });
-
-  it('a flush that arrives while a construction is still minting joins it instead of minting again', async () => {
-    const service = freshService();
-    const gate = deferred();
-    mockServer.signupGate = gate.promise;
-
-    const acquiring = service.getAuthenticatedClient({ mint: true });
-    // The construction has assigned the client and is waiting on /signup.
-    await settleUntil(() => service.client !== null && mockServer.minted === 1);
-    service.trackCrisisDetection(payload);
-    await settle();
-    gate.release();
-    const result = await acquiring;
-    await settle();
-
-    expect(mockServer.minted).toBe(1);
-    expect(result.ok && result.userId).toBe('minted-1');
-    expect(service.userId).toBe('minted-1');
-    for (const { row, sub } of crisisRows()) {
-      expect(row.user_id).toBe('minted-1');
-      expect(sub).toBe('minted-1');
-    }
+    expect(mockServer.minted).toBe(0);
+    expect(service.client).toBeNull();
+    expect(crisisRows().length).toBeGreaterThan(0);
   });
 });
 
@@ -843,22 +815,23 @@ describe('DEBUG-715 (H3) — an erasure that lands while a mint awaits never res
     return { service, gate, reads: () => reads };
   }
 
-  it('via the crisis flush fallback', async () => {
+  it('the crisis flush never reads the shared session, so it has no restore to resurrect', async () => {
+    // INFRA-861: this was "via the crisis flush fallback". The flush now uses its own
+    // session-free client, so the held restore is never entered.
     const { service, gate, reads } = await erasableServiceWithHeldRestore();
     service.crisisAnalyticsQueue = [
       { event_type: 'crisis_detected', properties: payload, session_id: 's-old', enqueued_at: Date.now() },
     ];
 
-    const flushing = service.flushCrisisAnalytics();
-    await settleUntil(() => reads() === 1);
-    await service.teardownErasedSession(service.client);
-    gate.release();
-    await flushing;
+    await service.flushCrisisAnalytics();
     await settle();
+    gate.release();
 
-    expect(service.userId).not.toBe(VICTIM);
+    expect(reads()).toBe(0);
+    expect(service.userId).toBeNull();
+    expect(crisisRows().length).toBeGreaterThan(0);
     for (const { row, sub } of crisisRows()) {
-      expect(row.user_id).not.toBe(VICTIM);
+      expect(row).not.toHaveProperty('user_id');
       expect(sub).not.toBe(VICTIM);
     }
   });

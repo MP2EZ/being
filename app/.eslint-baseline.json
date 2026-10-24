@@ -95,6 +95,7 @@
   "src/core/services/supabase/__tests__/crisisBacklogSuppression.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisDetectedOnProjection.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryBoot.unit.test.ts": 1,
+  "src/core/services/supabase/__tests__/crisisTelemetryDelink.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryDurable.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryE2ESuppression.unit.test.ts": 1,
   "src/core/services/supabase/__tests__/crisisTelemetryErasureFence.unit.test.ts": 1,
