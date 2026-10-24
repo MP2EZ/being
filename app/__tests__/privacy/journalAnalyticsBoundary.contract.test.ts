@@ -85,6 +85,13 @@ describe('journal source files are actually being scanned', () => {
       expect(hit).toBeDefined();
     }
   });
+
+  it('scans the FEAT-858 search screen alongside the index it queries', () => {
+    // The screen holds the submitted query and the matched-id Set, so it is as
+    // much a part of the boundary as the index module.
+    expect(JOURNAL_SOURCES.some((f) => f.endsWith('/screens/JournalHistoryScreen.tsx'))).toBe(true);
+    expect(JOURNAL_SOURCES.some((f) => f.endsWith('/services/journalSearchIndex.ts'))).toBe(true);
+  });
 });
 
 describe('the search index logs a category and a fixed string, nothing derived (FEAT-530 AC #7)', () => {
@@ -455,7 +462,10 @@ describe('crisis telemetry payload stays categorical', () => {
  * network egress (pinned above), so `body` cannot be a request body.
  */
 const PLAINTEXT_IDENTIFIERS =
-  'transcript|body|entryText|entry\\.text|plaintext|decrypted|preview';
+  'transcript|body|entryText|entry\\.text|plaintext|decrypted|preview' +
+  // FEAT-858: a search query is typed entry-adjacent text, and its term forms and
+  // the matched-id Set are derived from what the reader wrote.
+  '|query|searchTerm|terms?|tokens?|matchedIds';
 
 const LOGS_PLAINTEXT = new RegExp(
   `(?:log\\w*|console\\.(?:log|warn|error|info|debug))\\([^)]*\\b(?:${PLAINTEXT_IDENTIFIERS})\\b`
@@ -486,6 +496,14 @@ describe('no journal source writes entry content to a log', () => {
       'logDebug({ plaintext });',
       'console.log(decrypted);',
       'logInfo("row", { preview });',
+      // FEAT-858
+      'logInfo("search", { query });',
+      'console.log(searchTerm);',
+      'logDebug("index", term);',
+      'logDebug("index", terms);',
+      'logError(LogCategory.SYSTEM, token);',
+      'console.warn(tokens);',
+      'logInfo("hits", matchedIds);',
     ];
 
     for (const bad of cases) {
@@ -496,5 +514,118 @@ describe('no journal source writes entry content to a log', () => {
   it('does not fire on prose that merely names the anti-pattern', () => {
     const source = stripComments('// never log(transcript) from this feature\nconst x = 1;');
     expect(source).not.toMatch(LOGS_PLAINTEXT);
+  });
+});
+
+/**
+ * The search path never reaches a crisis scanner (FEAT-858 AC8).
+ *
+ * The query is typed text about the reader's own entries. Scanning it would make
+ * the search box a second detection surface with no ruling behind it, and the
+ * index holds words, never a verdict. So the import closure from the screen,
+ * within `features/journal/`, must contain no file importing `journalCrisisScan`
+ * or `textCrisisDetection`.
+ *
+ * The walk stops at the feature boundary deliberately: `CrisisTextInput` lives in
+ * `features/crisis/` and is the field's keyboard-up crisis affordance, not a scan.
+ * It resolves relative and `@/features/journal/*` specifiers, and every import
+ * shape that loads a module: `import … from`, side-effect `import '…'`,
+ * `export … from`, `require('…')` and `import('…')`.
+ */
+describe('the search screen import closure reaches no crisis scanner', () => {
+  const SRC_ROOT = join(__dirname, '../../src');
+  const START = join(JOURNAL_FEATURE_DIR, 'screens/JournalHistoryScreen.tsx');
+  const SCANNER = /(?:^|\/)(?:journalCrisisScan|textCrisisDetection)$/;
+
+  const SPECIFIER_PATTERNS = [
+    /\bfrom\s*['"]([^'"]+)['"]/g,
+    /\bimport\s*['"]([^'"]+)['"]/g,
+    /\brequire\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+    /\bimport\s*\(\s*['"]([^'"]+)['"]\s*\)/g,
+  ];
+
+  function specifiers(source: string): string[] {
+    const stripped = stripComments(source);
+    return SPECIFIER_PATTERNS.flatMap((re) => [...stripped.matchAll(re)].map((m) => m[1]));
+  }
+
+  function resolveWithin(fromFile: string, spec: string): string | null {
+    let base: string;
+    if (spec.startsWith('.')) base = join(fromFile, '..', spec);
+    else if (spec.startsWith('@/features/journal/')) base = join(SRC_ROOT, spec.slice(2));
+    else return null;
+    if (!base.startsWith(JOURNAL_FEATURE_DIR)) return null;
+    for (const candidate of [base, `${base}.ts`, `${base}.tsx`, join(base, 'index.ts'), join(base, 'index.tsx')]) {
+      try {
+        if (statSync(candidate).isFile()) return candidate;
+      } catch {
+        // not this candidate
+      }
+    }
+    return null;
+  }
+
+  function walk(start: string): { visited: Set<string>; offenders: string[] } {
+    const visited = new Set<string>();
+    const offenders: string[] = [];
+    const queue = [start];
+    while (queue.length > 0) {
+      const file = queue.shift()!;
+      if (visited.has(file)) continue;
+      visited.add(file);
+      for (const spec of specifiers(readFileSync(file, 'utf8'))) {
+        if (SCANNER.test(spec)) offenders.push(`${file.split('/features/').pop()} -> ${spec}`);
+        const next = resolveWithin(file, spec);
+        if (next) queue.push(next);
+      }
+    }
+    return { visited, offenders };
+  }
+
+  const { visited, offenders } = walk(START);
+
+  it('walks a real closure that reaches the search index', () => {
+    const names = [...visited].map((f) => f.split('/journal/').pop());
+    expect(names).toEqual(
+      expect.arrayContaining([
+        'screens/JournalHistoryScreen.tsx',
+        'services/journalSearchIndex.ts',
+        'services/journalSearchTerms.ts',
+        'services/journalEntryStore.ts',
+      ])
+    );
+  });
+
+  it('no visited file imports journalCrisisScan or textCrisisDetection', () => {
+    expect(offenders).toEqual([]);
+  });
+
+  it('the specifier extractor and scanner matcher fire on every import shape', () => {
+    const knownBad = [
+      "import { scanJournalText } from '../services/journalCrisisScan';",
+      "export { detectCrisisInText } from '@/features/crisis/services/textCrisisDetection';",
+      "const scan = require('./journalCrisisScan');",
+      "const lazy = await import('@/features/journal/services/journalCrisisScan');",
+      "import '../services/journalCrisisScan';",
+    ];
+    for (const bad of knownBad) {
+      const found = specifiers(bad);
+      expect([bad, found.some((s) => SCANNER.test(s))]).toEqual([bad, true]);
+    }
+    // Prose naming the scanner does not count as an import (DEBUG-390).
+    expect(specifiers("// import { x } from './journalCrisisScan';\nconst y = 1;")).toEqual([]);
+    // Both specifier forms resolve inside the feature, and nothing outside it does.
+    expect(resolveWithin(START, '../services/journalSearchIndex')).toMatch(/journalSearchIndex\.ts$/);
+    expect(resolveWithin(START, '@/features/journal/services/journalSearchIndex')).toMatch(
+      /journalSearchIndex\.ts$/
+    );
+    expect(resolveWithin(START, '@/features/crisis/components/CrisisTextInput')).toBeNull();
+  });
+
+  it('a closure that does reach the scanner is caught', () => {
+    // journalCrisisScan.ts itself imports textCrisisDetection, so a walk started
+    // there must report it: proof the offender check is not vacuous on real files.
+    const scan = walk(join(JOURNAL_FEATURE_DIR, 'services/journalCrisisScan.ts'));
+    expect(scan.offenders.length).toBeGreaterThan(0);
   });
 });
