@@ -120,3 +120,34 @@ it('with consent: mounting initializes the cloud services', async () => {
   expect(mockBackup.getBackupStatus).toHaveBeenCalled();
   screen.unmount();
 });
+
+/**
+ * Privacy notice copy (MAINT-867, compliance ruling 2026-10-23). The notice used to say wellness
+ * data "stays on this device only", which the policy's own disclosed flows (export, bug reports,
+ * crisis_detected, usage analytics) contradict. Every claim is now scoped to Settings Backup,
+ * which collectStoreData limits to autoSaveEnabled.
+ */
+describe('privacy notice copy (MAINT-867)', () => {
+  const NOTE =
+    'Settings Backup does not save your wellness data. It is stored on this device, so if you ' +
+    'uninstall the app or lose your device, Settings Backup cannot restore it. To keep a copy, ' +
+    'use Export my data in Privacy & Data.';
+  const NOT_BACKED_UP =
+    'What is not backed up: Your wellness check-in responses, self-screening results, and ' +
+    'crisis data are never included in Settings Backup.';
+
+  it('states only what Settings Backup does, with no absolute device-only claim', async () => {
+    mockCanPerform.mockReturnValue(false);
+
+    const screen = await mountAndPollOnce();
+
+    expect(screen.getByText(NOTE)).toBeTruthy();
+    // The label is a nested Text, so the outer Text's content is the concatenation.
+    expect(screen.getByText(NOT_BACKED_UP)).toBeTruthy();
+    expect(screen.queryByText(/stays on this device only/)).toBeNull();
+    expect(screen.queryByText(/What stays on your device/)).toBeNull();
+    expect(screen.queryByText(/device-level encryption/)).toBeNull();
+    expect(screen.queryByText(/never backed up to the cloud/)).toBeNull();
+    screen.unmount();
+  });
+});
