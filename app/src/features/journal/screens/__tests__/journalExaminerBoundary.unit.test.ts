@@ -121,6 +121,53 @@ describe('the re-read path does not become the examiner', () => {
   });
 });
 
+/**
+ * FEAT-858: the search UI states no count. "N reflections match" is a fact about
+ * the reader's practice, so the screen's copy and announcements are fixed strings.
+ * Scoped to the screen: the index module legitimately compares `.size` values
+ * internally and renders nothing. Each matcher shape is a way a count reaches the
+ * reader — spoken, interpolated into copy, or rendered as a JSX child.
+ */
+const COUNT_FORBIDDEN: ReadonlyArray<readonly [string, RegExp]> = [
+  ['an announced count', /announceForAccessibility\s*\([^)]*\.(length|size)/],
+  ['a count interpolated into copy', /\$\{[^}]*\.(length|size)\}/],
+  ['a count rendered as a JSX child', /\{\s*[\w.]+\.(length|size)\s*\}/],
+];
+
+describe('the search screen states no count (FEAT-858)', () => {
+  const SCREEN = join(FEATURE, 'screens/JournalHistoryScreen.tsx');
+
+  it.each(COUNT_FORBIDDEN)('JournalHistoryScreen.tsx contains no %s', (_name, pattern) => {
+    expect(read(SCREEN)).not.toMatch(pattern);
+  });
+
+  it.each(COUNT_FORBIDDEN)('%s: the matcher fires on known-bad source', (_name, pattern) => {
+    const bad = [
+      'AccessibilityInfo.announceForAccessibility(`${visible.length} reflections`);',
+      'AccessibilityInfo.announceForAccessibility(String(matchedIds.size));',
+      '<Text>{`Showing ${visible.length} reflections`}</Text>',
+      '<Text>{matchedIds.size}</Text>',
+    ].join('\n');
+    expect(bad).toMatch(pattern);
+  });
+
+  it.each(COUNT_FORBIDDEN)('%s: the matcher stays off the legitimate empty check', (_name, pattern) => {
+    // The screen branches on emptiness; a matcher that fired here would push the
+    // next author to reword correct code (DEBUG-390).
+    for (const good of [
+      '{visible.length === 0 ? (',
+      'const status = statusText(search, preset, visible.length === 0);',
+      '(matchedIds !== null && visible.length === 0);',
+    ]) {
+      expect(good).not.toMatch(pattern);
+    }
+  });
+
+  it('the screen does branch on emptiness, so the negative twin is live', () => {
+    expect(read(SCREEN)).toMatch(/visible\.length === 0/);
+  });
+});
+
 describe('the search index sorts nothing but a term list (FEAT-530, founder ruling 2026-10-23)', () => {
   const INDEX = join(FEATURE, 'services/journalSearchIndex.ts');
   const TERMS = join(FEATURE, 'services/journalSearchTerms.ts');

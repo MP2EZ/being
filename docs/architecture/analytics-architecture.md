@@ -20,7 +20,7 @@ there is **no dual-write**. (Verdict from the crisis + compliance + architect pl
 | Sink | Carries | Legal basis / gate | Sanitizer | Identity |
 |---|---|---|---|---|
 | **PostHog (EU)** | Consent-gated **product** analytics only (screen views, feature counts, lifecycle, errors). **Never** crisis or wellness-derived signal. | User opt-in (`analyticsEnabled` && !universalOptOut), read from the consent store at every emit via `useAnalyticsConsent()`. The SDK **is** initialized before consent (DEBUG-559) but is constructed opted-out and network-suppressed — see PostHogProvider below. | `PHIFilter` — whitelist **reject-gate** (drops anything score-shaped or PHI-keyworded). | device-persistent `distinct_id`; deletable on request. |
-| **Supabase `analytics_events`** | **Vital-interest** safety telemetry (the crisis-detection event) **+ operational** telemetry (backup/sync ops). | Crisis: GDPR Art. 6(1)(d) vital interests — fires regardless of analytics consent **and** universal opt-out. Ops: recorded basis is legitimate interest, but the OPERATIVE control is a consent signal — `trackEvent` returns early unless `canPerformOperation('cloud_sync')` (T4/T5). DEBUG-625 records the consequence: where a consent toggle is what actually permits the processing, it must be informed and specific for it, so the six ops events are disclosed on the cloudSync consent card (`operationalEvents.ts` is the shared list the card is tested against). | `sanitizeAnalyticsProperties` — **bucket-transform** (accepts severity, down-converts; never raw scores). | persistent anonymous `user_id` (`auth.uid()`) + a bounded-lifetime `session_id` rotating at the UTC day boundary and after 30 min idle (INFRA-568). |
+| **Supabase `analytics_events`** | **Vital-interest** safety telemetry (the crisis-detection event) **+ operational** telemetry (backup/sync ops). | Crisis: GDPR Art. 6(1)(d) vital interests — fires regardless of analytics consent **and** universal opt-out. Ops: recorded basis is legitimate interest, but the OPERATIVE control is a consent signal — `trackEvent` returns early unless `canPerformOperation('cloud_sync')` (T4/T5). DEBUG-625 records the consequence: where a consent toggle is what actually permits the processing, it must be informed and specific for it, so the six ops events are disclosed on the cloudSync consent card (`operationalEvents.ts` is the shared list the card is tested against). | `sanitizeAnalyticsProperties` — **bucket-transform** (accepts severity, down-converts; never raw scores). | Ops: persistent `user_id` (`auth.uid()`) + a bounded-lifetime `session_id` rotating at the UTC day boundary and after 30 min idle (INFRA-568). Crisis (since INFRA-861): **no account or session identifier** — sent by the anon role with no user token; the table forces `user_id`/`session_id` NULL and `created_at` to the UTC day. Not deletable on request; kept 90 days from receipt. |
 | **Custom REST API (`api.being.fyi`)** | **REMOVED** (INFRA-214 T2). Was never deployed. | — | — | — |
 
 **Shared invariant (both sinks):** no raw PHQ-9/GAD-7 integer ever leaves the device — PostHog
@@ -84,9 +84,10 @@ future forward stays a no-migration add; that forward requires its own DPIA befo
 - **PostHog path:** PHIFilter allow-list (`SAFE_EVENT_TYPES`) + numeric-key block
   (`SAFE_NUMERIC_KEYS`); consent-gated; EU residency (Frankfurt). Never receives crisis/wellness signal.
 - **Supabase crisis path:** severity-bucketing (`sanitizeAnalyticsProperties` — raw PHQ-9/GAD-7
-  scores never transmitted; only `low`/`medium`/`high`/`critical`); a bounded-lifetime anonymous `session_id`
-  rotating at the UTC day boundary and after 30 min idle (INFRA-568) — note each row also
-  carries the persistent `user_id`, so the token is not an anonymity control on its own; PII-free JSONB (`CHECK` constraints). Vital-interests basis (GDPR Art.
+  scores never transmitted; only `low`/`medium`/`high`/`critical`); since INFRA-861 no `user_id` and no
+  `session_id` on the row and a day-only `created_at`, enforced by a trigger and CHECK constraints for every
+  role, with `properties` rebuilt server-side from five allowlisted keys. Not anonymity: request logs keep the
+  sending IP for a day (`docs/legal/lia-crisis-telemetry.md` §2). Vital-interests basis (GDPR Art.
   6(1)(d) / 9(2)(c)) — fires without analytics consent.
 - **Crisis event must be durably enqueued at fire-time** (survives restart, independent of
   network / `userId` provisioning) — otherwise a first-run/offline crisis silently drops,

@@ -17,7 +17,11 @@ export const POLICY_MATERIAL_CHANGE_SUMMARIES: Readonly<Record<string, string>> 
   '1.24':
     'The policy no longer says analytics collects no mental health information: with Usage Analytics on, older versions recorded opening a screening or support resources and tapping to call or text a crisis line.',
   '1.25':
-    'The policy now says your random account ID is not anonymous: it is stored with your IP address and device details, and with crisis-detection events, which are therefore linked to you.',
+    'The policy now says your random account ID is not anonymous: our database provider keeps your IP address and device details with it for up to a day after each connection, and versions before 1.33 also stored crisis-detection events with it.',
   '1.29':
     'The policy now says Usage Analytics events are kept for 1 year, not 90 days, and that we cannot delete your events on request, even if you delete your data in the app.',
+  '1.32':
+    "The policy now says an encrypted backup of your iPhone can include some of Being's data and the key that protects it, so it no longer describes your wellness data as kept on your device alone.",
+  '1.33':
+    'Crisis-detection events are now stored without your random account ID or any session identifier, so deleting your data in the app no longer deletes them and we cannot delete them on request; they are deleted 90 days after they reach our servers.',
 };

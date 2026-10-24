@@ -277,7 +277,7 @@ The collected-data declarations are encoded in `app/app.json` → `expo.ios.priv
 | Field | Value |
 |---|---|
 | Collected | **Yes** |
-| Source | The random account ID (Supabase `auth.uid()`), created the first time a crisis-detection event is recorded, the settings backup is used, or a purchase is made or restored. Supabase keeps the latest connection's IP address, user agent and last-connection time against it (privacy policy §2.2, §4.1) |
+| Source | The random account ID (Supabase `auth.uid()`), created the first time the settings backup is used or a purchase is made or restored. A crisis-detection event never creates it and is not stored with it (INFRA-861). Supabase keeps the latest connection's IP address, user agent and last-connection time against it (privacy policy §2.2, §4.1) |
 | Linked to user identity | **Yes** |
 | Used for tracking | **No** |
 | Purpose | App Functionality |

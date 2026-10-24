@@ -268,7 +268,7 @@ export default function CloudBackupSettings({
             Backup Found
           </Text>
           <Text style={styles.restorePromptText}>
-            We found a backup of your settings on this device. Would you like to restore it?
+            We found a backup of your settings for this device on Being's servers. Would you like to restore it?
           </Text>
           <TouchableOpacity
             onPress={handleRestore}
