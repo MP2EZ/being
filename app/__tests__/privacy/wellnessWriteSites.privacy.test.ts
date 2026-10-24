@@ -114,6 +114,13 @@ const MANIFEST: Record<string, Record<string, Row>> = {
       'FEAT-806: the JSON file, plus the PDF path\'s render handle and its export-name destination',
     ],
   },
+  'src/features/data-export/services/lastExportRecord.ts': {
+    'writeLastExportRecord › storeWellnessBlob': [
+      1,
+      'exempt: DSR export — a data-subject right, must never be gated',
+      'FEAT-807: the last export\'s day, format and scope; overwritten, erased with the account',
+    ],
+  },
   'src/core/services/supabase/SupabaseService.ts': {
     'SupabaseService.flushCrisisAnalytics.flight › supabase.insert': [1, CRISIS_TELEMETRY],
     'SupabaseService.persistCrisisQueue.run › AsyncStorage.setItem': [1, CRISIS_TELEMETRY],
