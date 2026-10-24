@@ -87,6 +87,7 @@ trailing 7 days (10 jobs, 0 failures):
 | `webhook-replay-cache-prune` | `35 3 * * *` | `webhook_replay_cache` 14 days, twice Pub/Sub's 7-day default retention (INFRA-846; heartbeat in `retention_prune_runs`). Assumes the Google subscription keeps that default: if its retention is raised, the window becomes retention + 7 days. Live: on prod at 20261023000000 (verified 2026-10-23) |
 | `orphaned-identity-prune` | `35 4 * * *` | **Census only, deletes nothing** (INFRA-848). Counts anonymous identities a subscription transfer left behind, tombstone and auth activity both older than 30 days, no backup. Heartbeat `orphaned-identity-census` in `retention_prune_runs`, `detail` holds counts and never a uid. Mode lives in `orphaned_identity_prune_config`; enabling delete is INFRA-852's migration, never a hand edit. Live: on prod at 20261023000100 (verified 2026-10-23) |
 | `auth-session-ip-scrub` | `25 * * * *` | **Nulls, deletes nothing** (INFRA-851). Sets `auth.sessions.ip` and `user_agent` to NULL on every row, never its timestamps (INFRA-848's census reads them). GoTrue rewrites both on every refresh, so a row carries them for up to an hour. Heartbeat in `retention_prune_runs`: `rows_deleted` is rows scrubbed, `detail` is `remaining=N`. Live on prod since 2026-10-24 (backfill and probe verified, INFRA-851) |
+| `auth-session-ip-scrub-watchdog` | `10 */3 * * *` | **Alert, deletes nothing** (INFRA-870). Emails the founder when `auth-session-ip-scrub` is missing or inactive, has no `ok` heartbeat in 3 hours, or a session still carries an IP address or user agent 3 hours past its last activity. Read-only; writes no heartbeat. Shipped, not yet deployed: live once the founder's `db push` is verified (below) |
 
 Verify:
 
@@ -101,12 +102,12 @@ GROUP BY j.jobname ORDER BY j.jobname;
 ```
 
 The 7-day count above predates `subscription-transfer-prune`,
-`subscription-events-retention-prune`, `webhook-replay-cache-prune`, `orphaned-identity-prune` and
-`auth-session-ip-scrub`;
+`subscription-events-retention-prune`, `webhook-replay-cache-prune`, `orphaned-identity-prune`,
+`auth-session-ip-scrub` and `auth-session-ip-scrub-watchdog`;
 the verify query lists every job, those included.
 
 `retention_prune_health` is a view you read, **not a watchdog**: nothing pages when a prune
-stops. Check each job's `last_ok_at`, never `latest_status` alone (a job that stopped running
+stops. The one exception is `auth-session-ip-scrub`, which has its own alert (INFRA-870, below). Check each job's `last_ok_at`, never `latest_status` alone (a job that stopped running
 keeps its last `ok`):
 
 ```sql
@@ -128,8 +129,8 @@ means the job is gone. `audit_rows` above 0 means GoTrue started writing
 California notice's connection-records row promise the IP address and user agent are deleted within a
 day of each connection, and this job is what makes that true. Before unscheduling, retiring or
 rolling back `auth-session-ip-scrub` (including the migration's manual ROLLBACK), revert those
-disclosures first. Nothing alerts if the job stops (INFRA-870), so treat a failed probe as a
-promise already broken.
+disclosures first. `auth-session-ip-scrub-watchdog` pages if the job stops (INFRA-870, below), but
+treat a failed probe as a promise already broken.
 
 ```sql
 SELECT j.jobname, j.schedule, j.active, h.last_ok_at, h.since_last_ok, h.latest_status,
@@ -153,6 +154,46 @@ FROM auth.sessions;
 After a GoTrue upgrade, re-read the hosted version (`/auth/v1/health`) and confirm at that tag
 that GoTrue still only assigns `sessions.ip` and `user_agent` and never reads them
 (v2.197.0: `internal/tokens/service.go:615-626`, `internal/models/sessions.go:175`).
+
+**`auth-session-ip-scrub-watchdog` (INFRA-870).** Every 3 hours at :10,
+`public.auth_session_ip_scrub_health()` checks three things, and any one pages: the scrub's
+`cron.job` row is missing or inactive; there is no `ok` heartbeat for `auth-session-ip-scrub` in
+`retention_prune_runs` within 3 hours (never-ran counts); or `auth.sessions` holds a row with an IP
+address or user agent whose latest activity is more than 3 hours old. It reads the heartbeat, never
+`cron.job_run_details`, because the scrub records its own errors as an `error` heartbeat and cron
+then reports the run as succeeded. A single error row does not page. The email goes through the
+ops-domain Vault secrets (`subscription_alert_resend_key`, `_from`, `_to`, shared with INFRA-282),
+subject `[Being] WATCHDOG — auth-session IP scrub stalled (privacy retention)`, and carries only
+the reasons, hours since the last `ok` run, the latest status and a count. It re-sends on every
+unhealthy run. With those secrets missing it logs a `WARNING` and sends nothing.
+
+It lives inside the project it watches: a project-wide pg_cron stall or a paused project silences
+it together with the scrub. There is no external dead-man switch for this job, an accepted
+residual (DPIA control 23).
+
+**When it pages:**
+
+1. Restore the job. If the `cron.job` row is gone or inactive, re-apply
+   `20261023000200_infra851_auth_session_ip_scrub.sql` (`supabase db push` re-runs nothing that
+   has already applied, so reschedule by hand from that file's `cron.schedule` call).
+2. Clear what is waiting: `SELECT public.run_auth_session_ip_scrub();`, then re-run the probe
+   above. Do this before the oldest value reaches a day after its connection.
+3. If a value was held for more than a day, the "deleted within a day" disclosure was untrue for
+   that window. Record it in the DPIA §9 log and correct the disclosures if the job cannot be
+   restored. A retention overrun in our own database is not a 16 CFR Part 318 breach: nothing
+   was disclosed or accessed without authorisation.
+
+**Verify after the founder's push** (the founder runs it; CI cannot reach prod):
+
+| Check | Query | Pass |
+|---|---|---|
+| Scheduled and active | `SELECT jobname, schedule, active FROM cron.job WHERE jobname = 'auth-session-ip-scrub-watchdog';` | one row, `10 */3 * * *`, `active` true |
+| Healthy now | `SELECT public.auth_session_ip_scrub_health();` | `"breach": false`, `"reasons": []` |
+| Send path works | after the first unhealthy run, or an email received: `SELECT id, status_code FROM net._http_response ORDER BY id DESC LIMIT 5;` | a `200` from Resend, or the email in the founder inbox |
+
+The send path shares INFRA-282's secrets and Resend account, so a working
+`subscription-verification-watchdog` email is evidence the secrets exist, not that this job
+sends. Until one of the last row's two signals is seen, record the send path as unverified.
 
 Note `cleanup_orphaned_backups()` is **deliberately deleted, not scheduled** (MAINT-347) —
 privacy-policy §7.3 retains settings backup "until you disable backup", so a sweeper would
