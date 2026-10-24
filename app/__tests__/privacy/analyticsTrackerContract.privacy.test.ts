@@ -34,7 +34,7 @@ jest.mock('posthog-react-native', () => ({
 
 import { renderHook } from '@testing-library/react-native';
 import { useAnalytics } from '@/core/analytics/useAnalytics';
-import { PHIFilter, AnalyticsEvents } from '@/core/analytics/PHIFilter';
+import { PHIFilter, AnalyticsEvents, RETIRED_ANALYTICS_EVENTS } from '@/core/analytics/PHIFilter';
 import { useConsentStore } from '@/core/stores/consentStore';
 
 /**
@@ -68,12 +68,6 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
   // properties. A bucketed string, never a raw elapsed number.
   trackAppOpened: [true, 'cold_start'],
   trackAppBackgrounded: [42],
-  trackCrisisResourcesViewed: [],
-  // FEAT-543 -- REQUIRED boolean. Leaving this `[]` would ship
-  // `{primary_988: undefined}`, which PHIFilter passes, greening this
-  // contract against a payload no call site actually sends.
-  trackCrisisHotlineTapped: [true],
-  trackGuidanceOpened: [],
   trackSettingsOpened: [],
   trackConsentChanged: [],
   trackLearnContentViewed: ['module-1'],
@@ -94,10 +88,22 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
   // SAFE_NUMERIC_KEYS and a fabricated one would transmit unchallenged.
   trackCheckInStarted: [],
   trackCheckInCompleted: [420000],
-  trackAssessmentStarted: [],
-  trackAssessmentCompleted: [180000],
   trackPracticeStarted: [],
   trackPracticeCompleted: [300000],
+};
+
+/**
+ * RETIRED trackers (DEBUG-821): still on the hook so call sites compile, and
+ * required to send NOTHING. Fixtures are the arguments the real call sites pass
+ * (CrisisResourcesScreen, EnhancedAssessmentFlow, RightNowAffordance), so a
+ * retired tracker cannot pass here by being called wrongly.
+ */
+const RETIRED_FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
+  trackCrisisResourcesViewed: [],
+  trackCrisisHotlineTapped: [true],
+  trackGuidanceOpened: [],
+  trackAssessmentStarted: [],
+  trackAssessmentCompleted: [180000],
 };
 
 /**
@@ -108,8 +114,12 @@ const FIXTURES: Readonly<Record<string, readonly unknown[]>> = {
  */
 const EXCLUDED = new Set(['trackEvent']);
 
-/** Pinned floor: 19 named trackers today (DEBUG-536 restored 6). Growth fine, shrinkage red. */
+/**
+ * Pinned floor: 19 named trackers on the hook (DEBUG-536 restored 6), of which
+ * 5 are retired no-ops (DEBUG-821). Growth fine, shrinkage red.
+ */
 const MIN_TRACKERS = 19;
+const MIN_LIVE_TRACKERS = 14;
 
 describe('every useAnalytics tracker transmits (INFRA-535)', () => {
   grantAnalyticsConsent();
@@ -124,15 +134,22 @@ describe('every useAnalytics tracker transmits (INFRA-535)', () => {
       expect(trackerKeys.length).toBeGreaterThanOrEqual(MIN_TRACKERS);
     });
 
-    it('every derived tracker has a hand-authored fixture', () => {
+    it('every derived tracker has a hand-authored fixture, live or retired', () => {
       // A key without a fixture FAILS. It must not be silently skipped: that is
       // exactly how a new tracker would ship uncovered.
-      const missing = trackerKeys.filter((k) => !(k in FIXTURES));
+      const missing = trackerKeys.filter((k) => !(k in FIXTURES) && !(k in RETIRED_FIXTURES));
       expect(missing).toEqual([]);
+      expect(Object.keys(FIXTURES).length).toBeGreaterThanOrEqual(MIN_LIVE_TRACKERS);
+    });
+
+    it('no tracker is both live and retired', () => {
+      expect(Object.keys(FIXTURES).filter((k) => k in RETIRED_FIXTURES)).toEqual([]);
     });
 
     it('every fixture corresponds to a real tracker (no dead fixtures)', () => {
-      const orphaned = Object.keys(FIXTURES).filter((k) => !trackerKeys.includes(k));
+      const orphaned = [...Object.keys(FIXTURES), ...Object.keys(RETIRED_FIXTURES)].filter(
+        (k) => !trackerKeys.includes(k)
+      );
       expect(orphaned).toEqual([]);
     });
 
@@ -155,46 +172,45 @@ describe('every useAnalytics tracker transmits (INFRA-535)', () => {
       expect(mockCapture).toHaveBeenCalledTimes(1);
 
       // Re-assert directly, for a failure message that names the reason rather
-      // than just "expected 1 call, got 0".
+      // than just "expected 1 call, got 0". `$geoip_disable` is added after
+      // validation (DEBUG-821), so validate what the tracker itself built.
       const [eventName, payload] = mockCapture.mock.calls[0] as [
         string,
         Record<string, unknown>,
       ];
-      expect(PHIFilter.validate(eventName, payload)).toEqual({ valid: true });
+      const { $geoip_disable: geoipDisable, ...built } = payload;
+      expect(geoipDisable).toBe(true);
+      expect(PHIFilter.validate(eventName, built)).toEqual({ valid: true });
     });
   });
 
-  describe('crisis_hotline_tapped carries a real boolean primary_988 (FEAT-543)', () => {
-    // The generic contract above asserts only that the emitted payload
-    // VALIDATES. `{primary_988: undefined}` validates too, so an omitted
-    // argument would green that assertion against a payload no call site
-    // sends. These pin the SHAPE, which is what the fixture change relies on.
-    const track = (primary988: boolean): Record<string, unknown> => {
+  describe('retired trackers send nothing (DEBUG-821)', () => {
+    it.each(Object.keys(RETIRED_FIXTURES).map((k) => [k] as const))('%s', (name) => {
       mockCapture.mockClear();
-      (
-        result.current as unknown as {
-          trackCrisisHotlineTapped: (p: boolean) => void;
-        }
-      ).trackCrisisHotlineTapped(primary988);
-      expect(mockCapture).toHaveBeenCalledTimes(1);
-      const [eventName, payload] = mockCapture.mock.calls[0] as [
-        string,
-        Record<string, unknown>,
-      ];
-      expect(eventName).toBe(AnalyticsEvents.CRISIS_HOTLINE_TAPPED);
-      return payload;
-    };
-
-    it.each([[true], [false]])('primary988=%s reaches the sink as a boolean', (primary988) => {
-      const payload = track(primary988);
-      expect(payload).toEqual({ primary_988: primary988 });
-      expect(typeof payload.primary_988).toBe('boolean');
+      const fn = (result.current as Record<string, (...a: unknown[]) => void>)[name];
+      expect(typeof fn).toBe('function');
+      fn(...(RETIRED_FIXTURES[name] as unknown[]));
+      expect(mockCapture).not.toHaveBeenCalled();
     });
 
-    it('emits that key and nothing else -- no resource name, number or URL', () => {
-      // AC3. A resource identifier would be a special-category inference; this
-      // asserts the payload cannot grow one without failing here first.
-      expect(Object.keys(track(false))).toEqual(['primary_988']);
+    it('a crisis tap sends nothing for either affordance (FEAT-543 split retired)', () => {
+      mockCapture.mockClear();
+      const hook = result.current as unknown as { trackCrisisHotlineTapped: (p: boolean) => void };
+      hook.trackCrisisHotlineTapped(true);
+      hook.trackCrisisHotlineTapped(false);
+      expect(mockCapture).not.toHaveBeenCalled();
+    });
+
+    it('is not vacuous: a live tracker on the same hook still captures', () => {
+      mockCapture.mockClear();
+      (result.current as unknown as { trackSettingsOpened: () => void }).trackSettingsOpened();
+      expect(mockCapture).toHaveBeenCalledTimes(1);
+    });
+
+    it('no retired event name is whitelisted', () => {
+      for (const name of RETIRED_ANALYTICS_EVENTS) {
+        expect(PHIFilter.isWhitelisted(name)).toBe(false);
+      }
     });
   });
 

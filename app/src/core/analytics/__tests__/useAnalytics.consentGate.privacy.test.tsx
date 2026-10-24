@@ -54,7 +54,7 @@ function setConsent(analyticsEnabled: boolean, universalOptOut = false): void {
 function Emitter(): null {
   const { trackEvent } = useAnalytics();
   React.useEffect(() => {
-    trackEvent(AnalyticsEvents.CRISIS_RESOURCES_VIEWED);
+    trackEvent(AnalyticsEvents.SETTINGS_OPENED);
   }, [trackEvent]);
   return null;
 }
@@ -72,7 +72,7 @@ describe('DEBUG-559 — trackEvent gates on consent, independently of the client
     // mock, a non-whitelisted event name, or a PHIFilter rejection.
     setConsent(true);
     render(<Emitter />);
-    expect(mockCapture).toHaveBeenCalledWith(AnalyticsEvents.CRISIS_RESOURCES_VIEWED, {});
+    expect(mockCapture).toHaveBeenCalledWith(AnalyticsEvents.SETTINGS_OPENED, { $geoip_disable: true });
   });
 
   it('does not capture when consent has never been recorded', () => {

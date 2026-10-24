@@ -1,9 +1,11 @@
 /**
- * useAnalytics.trackScreenView COARSENING — INTEGRATION TEST (DEBUG-239)
+ * useAnalytics.trackScreenView — INTEGRATION TEST (DEBUG-239, then DEBUG-821)
  *
- * Pins the real contract: a sensitive screen name is coarsened to the generic
- * bucket BEFORE it reaches PHIFilter/PostHog; a non-sensitive name passes
- * through unchanged so per-screen funnels survive.
+ * Pins the real contract: a sensitive screen, or a screen showing a person's
+ * PHQ-9/GAD-7 history, sends NOTHING (DEBUG-821 — coarsening to `App` was a 1:1
+ * proxy for the crisis screen, since it was the only sensitive screen that called
+ * this). A non-sensitive name passes through unchanged so per-screen funnels
+ * survive, and every capture opts out of GeoIP enrichment.
  */
 
 import { renderHook } from '@testing-library/react-native';
@@ -20,7 +22,7 @@ jest.mock('posthog-react-native', () => ({
  * directly now — `!posthog` stood in for consent only while PostHogProvider
  * withheld the client, and that withholding was remounting every 988 affordance
  * in the app. Without this the mocked client is present, consent is absent, and
- * both cases below emit nothing.
+ * every case below emits nothing.
  */
 beforeEach(() => {
   useConsentStore.setState({
@@ -28,18 +30,27 @@ beforeEach(() => {
   } as unknown as Parameters<typeof useConsentStore.setState>[0]);
 });
 
-describe('useAnalytics.trackScreenView coarsening (DEBUG-239)', () => {
+describe('useAnalytics.trackScreenView (DEBUG-239, DEBUG-821)', () => {
   beforeEach(() => mockCapture.mockClear());
 
-  it('coarsens a sensitive screen name to the bucket before PostHog capture', () => {
+  it.each([
+    'CrisisResourcesScreen',
+    'DomainGuidanceScreen',
+    'InsightsScreen',
+    'WellnessTrendsDetailScreen',
+  ])('sends nothing for %s', (screen) => {
     const { result } = renderHook(() => useAnalytics());
-    result.current.trackScreenView('CrisisResourcesScreen');
-    expect(mockCapture).toHaveBeenCalledWith('screen_viewed', { screen_name: 'App' });
+    result.current.trackScreenView(screen);
+    expect(mockCapture).not.toHaveBeenCalled();
   });
 
-  it('passes a non-sensitive screen name through unchanged', () => {
+  it('passes a non-sensitive screen name through unchanged, with GeoIP off', () => {
+    // Also the control for the cases above: the harness can emit.
     const { result } = renderHook(() => useAnalytics());
     result.current.trackScreenView('HomeScreen');
-    expect(mockCapture).toHaveBeenCalledWith('screen_viewed', { screen_name: 'HomeScreen' });
+    expect(mockCapture).toHaveBeenCalledWith('screen_viewed', {
+      screen_name: 'HomeScreen',
+      $geoip_disable: true,
+    });
   });
 });
