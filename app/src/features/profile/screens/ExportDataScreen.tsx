@@ -114,6 +114,12 @@ import { logError, LogCategory } from '@/core/services/logging';
 import { isFeatureEnabled } from '@/core/services/featureFlags';
 import { buildExportPayload } from '@/features/data-export/services/exportService';
 import { buildExportHtml, PDF_RANGE_PRESET } from '@/features/data-export/services/exportPdfDocument';
+import {
+  writeLastExportRecord,
+  lastExportPreparedCopy,
+  type LastExportScope,
+} from '@/features/data-export/services/lastExportRecord';
+import { useLastExportRecord } from '@/features/data-export/hooks/useLastExportRecord';
 import type {
   ExportDataCategory,
   ExportRangePreset,
@@ -173,6 +179,16 @@ const PRE_PRESENT_INPUT_YIELD_MS = 100;
 const PDF_SCOPE = {
   categories: SELECTABLE_CATEGORIES.map((c) => c.key),
   range: { preset: PDF_RANGE_PRESET },
+};
+
+/**
+ * FEAT-807: the scope each format actually exports, for the last-export record. Never the
+ * preview selection — that shapes the count preview only, and recording it would describe
+ * a file the user never got.
+ */
+const SCOPE_BY_FORMAT: Record<ExportFormat, LastExportScope> = {
+  json: { preset: 'all', categories: SELECTABLE_CATEGORIES.map((c) => c.key) },
+  pdf: { preset: PDF_SCOPE.range.preset, categories: PDF_SCOPE.categories },
 };
 
 /** Shown and announced before the render. Promises nothing about the crisis button. */
@@ -236,6 +252,7 @@ const ExportDataScreen: React.FC = () => {
   // enter handleExport and race two share sheets. The ref latches synchronously.
   const exportLatch = useRef(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastExport, setLastExport] = useLastExportRecord();
 
   // Build-time flag, read once per render. Deliberately NOT the PostHog-backed
   // `useFeatureFlag` hook — see the `data_export` comment in featureFlags.ts.
@@ -338,6 +355,11 @@ const ExportDataScreen: React.FC = () => {
         ...SHARE_TYPES[format],
         dialogTitle: 'Export your Being data',
       });
+      // FEAT-807: "prepared", not "delivered" — shareAsync also resolves on cancel. Not
+      // awaited: the record must never delay `finally`'s plaintext cleanup (DEBUG-645).
+      void writeLastExportRecord(format, SCOPE_BY_FORMAT[format]).then((record) => {
+        if (record) setLastExport(record);
+      });
     } catch (error) {
       logError(
         LogCategory.SYSTEM,
@@ -370,7 +392,7 @@ const ExportDataScreen: React.FC = () => {
       setInFlight(null);
       exportLatch.current = false;
     }
-  }, [navigation]);
+  }, [navigation, setLastExport]);
 
   const handleJsonExport = useCallback(() => handleExport('json'), [handleExport]);
   const handlePdfExport = useCallback(() => handleExport('pdf'), [handleExport]);
@@ -406,6 +428,12 @@ const ExportDataScreen: React.FC = () => {
             encrypted or password-protected; keep it somewhere private.
           </Text>
         </View>
+
+        {lastExport && (
+          <Text style={styles.formatCaption} testID="export-last-prepared">
+            {lastExportPreparedCopy(lastExport.preparedAt)}
+          </Text>
+        )}
 
         {errorMessage && (
           <Text style={styles.errorText} accessibilityLiveRegion="assertive" testID="export-error">

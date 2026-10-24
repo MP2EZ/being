@@ -29,6 +29,12 @@ import { render, fireEvent, waitFor, act } from '@testing-library/react-native';
 
 const mockGather = jest.fn();
 const mockSerialize = jest.fn();
+// FEAT-807: the last-export read uses useFocusEffect, which needs a navigator this suite
+// mocks away. Its behaviour is pinned in ExportDataScreen.lastExport.privacy.test.tsx.
+jest.mock('@/features/data-export/hooks/useLastExportRecord', () => ({
+  useLastExportRecord: () => [null, jest.fn()],
+}));
+
 jest.mock('@/core/services/privacy/DataExportService', () => ({
   gatherExportData: (...a: unknown[]) => mockGather(...a),
   serializeExport: (...a: unknown[]) => mockSerialize(...a),

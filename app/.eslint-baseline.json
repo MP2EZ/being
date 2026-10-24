@@ -212,6 +212,7 @@
   "src/features/crisis/utils/__tests__/openCrisisUrl.test.ts": 1,
   "src/features/data-export/services/__tests__/exportPdfDocument.test.ts": 1,
   "src/features/data-export/services/__tests__/exportService.test.ts": 1,
+  "src/features/data-export/services/__tests__/lastExportRecord.privacy.test.ts": 1,
   "src/features/guidance/components/__tests__/GuidanceSuppressionNotice.accessibility.test.tsx": 1,
   "src/features/guidance/components/__tests__/RightNowAffordance.accessibility.test.tsx": 1,
   "src/features/guidance/components/__tests__/guidanceTiers.accessibility.test.tsx": 1,
@@ -317,6 +318,7 @@
   "src/features/profile/screens/__tests__/ExportDataScreen.pdfExport.privacy.test.tsx": 1,
   "src/features/profile/screens/__tests__/ExportDataScreen.presentingGuard.privacy.test.tsx": 1,
   "src/features/profile/screens/__tests__/ExportDataScreen.privacy.test.tsx": 1,
+  "src/features/profile/screens/__tests__/ExportDataScreen.lastExport.privacy.test.tsx": 1,
   "src/features/profile/screens/__tests__/PrivacyDataScreen.accessibility.test.tsx": 1,
   "src/features/profile/screens/__tests__/PrivacyDataScreen.consentDisclosure.privacy.test.tsx": 1,
   "src/features/profile/screens/__tests__/ProfileScreen.accessibility.test.tsx": 1
